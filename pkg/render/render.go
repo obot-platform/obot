@@ -142,7 +142,7 @@ func Agent(ctx context.Context, db kclient.Client, gptClient *gptscript.GPTScrip
 			allowedTools = allowedToolsPerMCP[mcpServer.Name]
 			if mcpServer.Spec.ToolReferenceName != "" {
 				// This is a "fake" MCP server really referencing our tools.
-				if len(allowedTools) == 0 || slices.Contains(allowedTools, "*") {
+				if allowedTools == nil || slices.Contains(allowedTools, "*") {
 					allowedTools = []string{mcpServer.Spec.ToolReferenceName}
 				}
 

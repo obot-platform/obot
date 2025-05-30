@@ -223,7 +223,7 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 	}
 
 	thread, err = projects.GetFirst(req.Context(), req.Storage, thread, func(project *v1.Thread) (bool, error) {
-		return len(project.Spec.Manifest.AllowedMCPTools[server.Name]) > 0, nil
+		return project.Spec.Manifest.AllowedMCPTools[server.Name] != nil, nil
 	})
 	if err != nil {
 		return fmt.Errorf("failed to get project: %w", err)
@@ -283,26 +283,22 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 		return fmt.Errorf("failed to render tools: %w", err)
 	}
 
-	if len(tools) == 0 {
-		delete(thread.Spec.Manifest.AllowedMCPTools, mcpServer.Name)
+	if thread.Spec.Manifest.AllowedMCPTools == nil {
+		thread.Spec.Manifest.AllowedMCPTools = make(map[string][]string)
+	}
+
+	if slices.Contains(tools, "*") {
+		thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name] = []string{"*"}
 	} else {
-		if thread.Spec.Manifest.AllowedMCPTools == nil {
-			thread.Spec.Manifest.AllowedMCPTools = make(map[string][]string)
-		}
-
-		if slices.Contains(tools, "*") {
-			thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name] = []string{"*"}
-		} else {
-			for _, t := range tools {
-				if !slices.ContainsFunc(mcpTools, func(tool types.MCPServerTool) bool {
-					return tool.ID == t
-				}) {
-					return types.NewErrBadRequest("tool %q is not a recognized tool for MCP server %q", t, mcpServer.Name)
-				}
+		for _, t := range tools {
+			if !slices.ContainsFunc(mcpTools, func(tool types.MCPServerTool) bool {
+				return tool.ID == t
+			}) {
+				return types.NewErrBadRequest("tool %q is not a recognized tool for MCP server %q", t, mcpServer.Name)
 			}
-
-			thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name] = tools
 		}
+
+		thread.Spec.Manifest.AllowedMCPTools[mcpServer.Name] = tools
 	}
 
 	if err = req.Update(thread); err != nil {
@@ -834,7 +830,7 @@ func (m *MCPHandler) RevealSharedServer(req api.Context) error {
 }
 
 func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, server v1.MCPServer, serverConfig mcp.ServerConfig, allowedTools []string) ([]types.MCPServerTool, error) {
-	allTools := slices.Contains(allowedTools, "*")
+	allTools := allowedTools == nil || slices.Contains(allowedTools, "*")
 	if server.Spec.ToolReferenceName != "" {
 		var toolReferences v1.ToolReferenceList
 		if err := client.List(ctx, &toolReferences, kclient.MatchingFields{
@@ -853,7 +849,7 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 					Metadata:    ref.Status.Tool.Metadata,
 					Params:      ref.Status.Tool.Params,
 					Credentials: ref.Status.Tool.Credentials,
-					Enabled:     allTools || len(allowedTools) == 0 || slices.Contains(allowedTools, ref.Name),
+					Enabled:     allTools || slices.Contains(allowedTools, ref.Name),
 				})
 			}
 		}
@@ -891,7 +887,7 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 			Name:        t.Name,
 			Description: t.Description,
 			Metadata:    t.MetaData,
-			Enabled:     allTools || (len(allowedTools) == 0 && !slices.Contains(server.Spec.UnsupportedTools, t.Name)) || slices.Contains(allowedTools, t.Name),
+			Enabled:     allTools && !slices.Contains(server.Spec.UnsupportedTools, t.Name) || slices.Contains(allowedTools, t.Name),
 			Unsupported: slices.Contains(server.Spec.UnsupportedTools, t.Name),
 		}
 

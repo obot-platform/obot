@@ -22,7 +22,7 @@ require (
 	github.com/gptscript-ai/cmd v0.0.0-20250324222528-f16f18548238
 	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250520154649-f1616a06f1b0
-	github.com/gptscript-ai/gptscript v0.9.6-0.20250528125227-ce6afe2a2323
+	github.com/gptscript-ai/gptscript v0.9.6-0.20250530145244-c810be4bf185
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mark3labs/mcp-go v0.30.0
 	github.com/mhale/smtpd v0.8.3
