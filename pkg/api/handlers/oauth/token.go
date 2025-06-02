@@ -192,13 +192,6 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 	refreshToken = strings.ToLower(rand.Text() + rand.Text())
 
-	accessToken, err = h.newAccessToken(oauthToken.Spec.ProviderAccessToken)
-	if err != nil {
-		return err
-	}
-
-	refreshToken = strings.ToLower(rand.Text() + rand.Text())
-
 	oauthToken = v1.OAuthToken{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: oauthClient.Namespace,

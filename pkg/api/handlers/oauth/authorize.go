@@ -97,7 +97,6 @@ func (h *handler) authorize(req api.Context) error {
 				})
 			}
 		}
-
 	}
 
 	if err := req.ParseForm(); err != nil {

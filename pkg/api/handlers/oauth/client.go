@@ -139,7 +139,7 @@ func ensureTokenAndSecret(oauthClient *v1.OAuthClient) (string, string, error) {
 		clientSecret, registrationToken string
 		err                             error
 	)
-	if oauthClient.Spec.ClientSecretIssuedAt.IsZero() || oauthClient.Spec.ClientSecretExpiresAt.Sub(oauthClient.Spec.ClientSecretIssuedAt.Time)/2 > oauthClient.Spec.ClientSecretExpiresAt.Sub(time.Now()) {
+	if oauthClient.Spec.ClientSecretIssuedAt.IsZero() || oauthClient.Spec.ClientSecretExpiresAt.Sub(oauthClient.Spec.ClientSecretIssuedAt.Time)/2 > time.Until(oauthClient.Spec.ClientSecretExpiresAt.Time) {
 		// If the client secret is half-way through its lifetime, then update it.
 		clientSecret = rand.Text() + rand.Text()
 		oauthClient.Spec.ClientSecretHash, err = bcrypt.GenerateFromPassword([]byte(clientSecret), bcrypt.DefaultCost)
@@ -149,9 +149,8 @@ func ensureTokenAndSecret(oauthClient *v1.OAuthClient) (string, string, error) {
 
 		oauthClient.Spec.ClientSecretIssuedAt = metav1.NewTime(time.Now())
 		oauthClient.Spec.ClientSecretExpiresAt = metav1.NewTime(time.Now().Add(time.Hour + 15*time.Minute))
-
 	}
-	if oauthClient.Spec.RegistrationTokenExpiresAt.IsZero() || oauthClient.Spec.RegistrationTokenExpiresAt.Sub(oauthClient.Spec.RegistrationTokenIssuedAt.Time)/2 > oauthClient.Spec.RegistrationTokenExpiresAt.Sub(time.Now()) {
+	if oauthClient.Spec.RegistrationTokenExpiresAt.IsZero() || oauthClient.Spec.RegistrationTokenExpiresAt.Sub(oauthClient.Spec.RegistrationTokenIssuedAt.Time)/2 > time.Until(oauthClient.Spec.RegistrationTokenExpiresAt.Time) {
 		// If the registration token is half-way through its lifetime, then update it.
 		registrationToken = rand.Text() + rand.Text()
 		oauthClient.Spec.RegistrationTokenHash, err = bcrypt.GenerateFromPassword([]byte(registrationToken), bcrypt.DefaultCost)
@@ -232,11 +231,11 @@ func convertClient(oauthClient v1.OAuthClient, baseURL, clientSecret, registrati
 		OAuthClientManifest:        oauthClient.Spec.Manifest,
 		RegistrationAccessToken:    registrationToken,
 		RegistrationClientURI:      fmt.Sprintf("%s/oauth/register/%s", baseURL, oauthClient.Name),
-		RegistrationTokenIssuedAt:  oauthClient.Spec.RegistrationTokenIssuedAt.Time.Unix(),
-		RegistrationTokenExpiresAt: oauthClient.Spec.RegistrationTokenExpiresAt.Time.Unix(),
+		RegistrationTokenIssuedAt:  oauthClient.Spec.RegistrationTokenIssuedAt.Unix(),
+		RegistrationTokenExpiresAt: oauthClient.Spec.RegistrationTokenExpiresAt.Unix(),
 		ClientID:                   oauthClient.Name,
 		ClientSecret:               clientSecret,
-		ClientSecretIssuedAt:       oauthClient.Spec.ClientSecretIssuedAt.Time.Unix(),
-		ClientSecretExpiresAt:      oauthClient.Spec.ClientSecretExpiresAt.Time.Unix(),
+		ClientSecretIssuedAt:       oauthClient.Spec.ClientSecretIssuedAt.Unix(),
+		ClientSecretExpiresAt:      oauthClient.Spec.ClientSecretExpiresAt.Unix(),
 	}
 }

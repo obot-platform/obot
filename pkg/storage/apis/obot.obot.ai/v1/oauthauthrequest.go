@@ -38,9 +38,9 @@ func (in *OAuthAuthRequest) FieldNames() []string {
 	return []string{"hashedAuthCode"}
 }
 
-func (o *OAuthAuthRequest) DeleteRefs() []Ref {
+func (in *OAuthAuthRequest) DeleteRefs() []Ref {
 	return []Ref{
-		{ObjType: new(OAuthClient), Name: o.Spec.ClientID},
+		{ObjType: new(OAuthClient), Name: in.Spec.ClientID},
 	}
 }
 
