@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,16 +14,9 @@ import (
 	"github.com/google/uuid"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	kcontext "github.com/obot-platform/obot/pkg/gateway/context"
-	ktime "github.com/obot-platform/obot/pkg/gateway/time"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-)
-
-const (
-	randomTokenLength = 32
-	tokenIDLength     = 8
 )
 
 type tokenRequestRequest struct {
@@ -64,52 +56,6 @@ func (s *Server) deleteToken(apiContext api.Context) error {
 	}
 
 	return apiContext.Write(map[string]any{"deleted": true})
-}
-
-type createTokenRequest struct {
-	ExpiresIn string `json:"expiresIn"`
-}
-
-func (s *Server) newToken(apiContext api.Context) error {
-	namespace, name := apiContext.AuthProviderNameAndNamespace()
-	userID := apiContext.UserID()
-	if namespace == "" || name == "" || userID <= 0 {
-		return types2.NewErrHTTP(http.StatusForbidden, "forbidden")
-	}
-
-	var customExpiration time.Duration
-	if apiContext.ContentLength != 0 {
-		request := new(createTokenRequest)
-		err := apiContext.Read(request)
-		if err != nil {
-			return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid create create token request body: %v", err))
-		}
-
-		if request.ExpiresIn != "" {
-			customExpiration, err = ktime.ParseDuration(request.ExpiresIn)
-			if err != nil {
-				return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid expiresIn duration: %v", err))
-			}
-		}
-	}
-
-	randBytes := make([]byte, randomTokenLength+tokenIDLength)
-	if _, err := rand.Read(randBytes); err != nil {
-		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("error refreshing token: %v", err))
-	}
-
-	id := randBytes[:tokenIDLength]
-	token := randBytes[tokenIDLength:]
-
-	// Make sure the auth provider exists.
-	if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
-		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
-	}
-
-	return apiContext.Write(refreshTokenResponse{
-		Token:     publicToken(id, token),
-		ExpiresAt: time.Now().Add(customExpiration),
-	})
 }
 
 func (s *Server) tokenRequest(apiContext api.Context) error {
@@ -216,19 +162,6 @@ func (s *Server) verifyState(ctx context.Context, state string) (*types.TokenReq
 
 		return tx.Model(tr).Clauses(clause.Returning{}).Updates(map[string]any{"state": "", "error": tr.Error}).Error
 	})
-}
-
-func (s *Server) errorToken(ctx context.Context, tr *types.TokenRequest, code int, err error) error {
-	if tr != nil {
-		tr.Error = err.Error()
-		if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			return tx.Updates(tr).Error
-		}); err != nil {
-			kcontext.GetLogger(ctx).ErrorContext(ctx, "failed to update token", "id", tr.ID, "error", err)
-		}
-	}
-
-	return types2.NewErrHTTP(code, err.Error())
 }
 
 // autoCleanupTokens will delete token requests that have been retrieved and are older than the cleanupTick.

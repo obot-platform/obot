@@ -36,6 +36,7 @@ const (
 	MCPServerPrefix           = "ms1"
 	CatalogPrefix             = "mcat1"
 	OAuthClientPrefix         = "oc1"
+	OAuthAuthRequestPrefix    = "oar1"
 )
 
 func IsThreadID(id string) bool {

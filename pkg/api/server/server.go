@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -144,6 +145,10 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				http.Error(rw, "unauthorized", http.StatusUnauthorized)
 			} else {
 				http.Error(rw, "forbidden", http.StatusForbidden)
+			}
+
+			if strings.HasPrefix(req.URL.Path, "/mcp-connect/") {
+				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource"`, s.baseURL))
 			}
 			return
 		}

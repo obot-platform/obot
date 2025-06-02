@@ -1,9 +1,6 @@
 package router
 
 import (
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"fmt"
 	"net/http"
 
@@ -520,18 +517,13 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Auth Provider tools
 	mux.HandleFunc("/oauth2/", services.ProxyManager.HandlerFunc)
 
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate key: %w", err)
-	}
-
 	// Well-known
-	if err = wellknown.SetupHandlers(services.ServerURL, key, mux); err != nil {
+	if err := wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, mux); err != nil {
 		return nil, fmt.Errorf("failed to setup well-known handlers: %w", err)
 	}
 
-	// OAuth
-	oauth.SetupHandlers(services.ServerURL, key, mux)
+	// Obot OAuth
+	oauth.SetupHandlers(services.GPTClient, services.GatewayClient, services.OAuthServerConfig, services.ServerURL, mux)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

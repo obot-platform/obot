@@ -1,21 +1,18 @@
 package server
 
 import (
-	"crypto/rand"
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
-	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	kcontext "github.com/obot-platform/obot/pkg/gateway/context"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/hash"
 	"gorm.io/gorm"
 )
-
-const expirationDur = 7 * 24 * time.Hour
 
 // oauth handles the initial oauth request, redirecting based on the "service" path parameter.
 func (s *Server) oauth(apiContext api.Context) error {
@@ -78,33 +75,7 @@ func (s *Server) redirect(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid state: %v", err))
 	}
 
-	randBytes := make([]byte, tokenIDLength+randomTokenLength)
-	if _, err := rand.Read(randBytes); err != nil {
-		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("could not generate token id: %v", err))
-	}
-
-	id := randBytes[:tokenIDLength]
-	token := randBytes[tokenIDLength:]
-	tr.Token = publicToken(id, token[:])
-	tr.ExpiresAt = time.Now().Add(expirationDur) // TODO: make this configurable?
-
-	tkn := &types.AuthToken{
-		ID: fmt.Sprintf("%x", id),
-		// Hash the token again for long-term storage
-		HashedToken:           hash.String(fmt.Sprintf("%x", token)),
-		ExpiresAt:             tr.ExpiresAt,
-		AuthProviderNamespace: namespace,
-		AuthProviderName:      name,
-	}
-	if err = s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Updates(tr).Error; err != nil {
-			return err
-		}
-
-		tkn.UserID = apiContext.UserID()
-
-		return tx.Create(tkn).Error
-	}); err != nil {
+	if _, err = s.client.NewAuthToken(apiContext.Context(), namespace, name, apiContext.UserID(), tr); err != nil {
 		return s.errorToken(apiContext.Context(), tr, http.StatusInternalServerError, err)
 	}
 
@@ -116,6 +87,15 @@ func (s *Server) redirect(apiContext api.Context) error {
 	return nil
 }
 
-func publicToken(id, token []byte) string {
-	return fmt.Sprintf("%x:%x", id, token)
+func (s *Server) errorToken(ctx context.Context, tr *types.TokenRequest, code int, err error) error {
+	if tr != nil {
+		tr.Error = err.Error()
+		if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			return tx.Updates(tr).Error
+		}); err != nil {
+			kcontext.GetLogger(ctx).ErrorContext(ctx, "failed to update token", "id", tr.ID, "error", err)
+		}
+	}
+
+	return types2.NewErrHTTP(code, err.Error())
 }

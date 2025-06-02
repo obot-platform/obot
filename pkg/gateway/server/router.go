@@ -49,7 +49,6 @@ func (s *Server) AddRoutes(mux *server.Server) {
 
 	mux.HandleFunc("GET /api/tokens", wrap(s.getTokens))
 	mux.HandleFunc("DELETE /api/tokens/{id}", wrap(s.deleteToken))
-	mux.HandleFunc("POST /api/tokens", wrap(s.newToken))
 
 	mux.HandleFunc("GET /api/oauth/start/{id}/{namespace}/{name}", wrap(s.oauth))
 	mux.HandleFunc("/api/oauth/redirect/{namespace}/{name}", wrap(s.redirect))

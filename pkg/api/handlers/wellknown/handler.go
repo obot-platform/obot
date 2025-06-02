@@ -1,50 +1,23 @@
 package wellknown
 
 import (
-	"crypto/ecdsa"
-
-	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/obot-platform/obot/pkg/api/server"
+	"github.com/obot-platform/obot/pkg/services"
 )
 
 type handler struct {
 	baseURL string
-	keySet  jwk.Set
+	config  services.OAuthAuthorizationServerConfig
 }
 
-func SetupHandlers(baseURL string, key *ecdsa.PrivateKey, mux *server.Server) error {
-	// Create a new empty JWKS
-	jwks := jwk.NewSet()
-
-	// Convert the ECDSA key to a JWK
-	jwkKey, err := jwk.Import(key.PublicKey)
-	if err != nil {
-		return err
-	}
-
-	// Set the key ID and other properties
-	if err = jwkKey.Set(jwk.KeyIDKey, "obot-key"); err != nil {
-		return err
-	}
-	if err = jwkKey.Set(jwk.AlgorithmKey, "ES256"); err != nil {
-		return err
-	}
-	if err = jwkKey.Set(jwk.KeyUsageKey, "sig"); err != nil {
-		return err
-	}
-
-	// Add the key to the JWKS
-	if err = jwks.AddKey(jwkKey); err != nil {
-		return err
-	}
-
+func SetupHandlers(baseURL string, config services.OAuthAuthorizationServerConfig, mux *server.Server) error {
 	h := &handler{
 		baseURL: baseURL,
-		keySet:  jwks,
+		config:  config,
 	}
 
+	mux.HandleFunc("GET /.well-known/oauth-protected-resource", h.oauthProtectedResource)
 	mux.HandleFunc("GET /.well-known/oauth-authorization-server", h.oauthAuthorization)
-	mux.HandleFunc("GET /.well-known/jwks.json", h.jwks)
 
 	return nil
 }

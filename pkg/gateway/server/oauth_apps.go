@@ -768,8 +768,8 @@ func convertOAuthAppRegistrationToOAuthApp(app v1.OAuthApp, baseURL string) type
 	if refreshURL := app.RefreshURL(baseURL); refreshURL != "" {
 		links = append(links, "refreshURL", refreshURL)
 	}
-	appManifest.Metadata = handlers.MetadataFrom(&app, links...)
 	return types2.OAuthApp{
+		Metadata:         handlers.MetadataFrom(&app, links...),
 		OAuthAppManifest: appManifest,
 	}
 }

@@ -147,6 +147,9 @@ type Services struct {
 	// Used for loading and running MCP servers with GPTScript.
 	MCPRunner engine.MCPRunner
 	MCPLoader *mcp.SessionManager
+
+	// OAuth configuration
+	OAuthServerConfig OAuthAuthorizationServerConfig
 }
 
 const (
@@ -540,6 +543,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AllowedMCPDockerImageRepos: config.AllowedMCPDockerImageRepos,
 		MCPLoader:                  mcpLoader,
 		MCPRunner:                  mcpRunner,
+		OAuthServerConfig: OAuthAuthorizationServerConfig{
+			Issuer:                            strings.TrimPrefix(strings.TrimPrefix(config.Hostname, "https://"), "http://"),
+			AuthorizationEndpoint:             fmt.Sprintf("%s/oauth/authorize", config.Hostname),
+			TokenEndpoint:                     fmt.Sprintf("%s/oauth/token", config.Hostname),
+			RegistrationEndpoint:              fmt.Sprintf("%s/oauth/register", config.Hostname),
+			ResponseTypesSupported:            []string{"code"},
+			GrantTypesSupported:               []string{"authorization_code", "refresh_token"},
+			CodeChallengeMethodsSupported:     []string{"S256", "plain"},
+			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "none"},
+		},
 	}, nil
 }
 
