@@ -2,6 +2,9 @@ package services
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -98,6 +101,9 @@ type Config struct {
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
 
+	// OAuth configuration
+	OAuthSigningKeyFile string `usage:"The file containing the OAuth signing key"`
+
 	GeminiConfig
 	GatewayConfig
 	EncryptionConfig
@@ -147,6 +153,9 @@ type Services struct {
 	// Used for loading and running MCP servers with GPTScript.
 	MCPRunner engine.MCPRunner
 	MCPLoader *mcp.SessionManager
+
+	// OAuth configuration
+	OAuthSigningKey *ecdsa.PrivateKey
 }
 
 const (
@@ -495,6 +504,33 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	retentionPolicy := time.Duration(config.RetentionPolicyHours) * time.Hour
 
+	// Read the signing key file and create an ECDSA private key from the contents
+	keyBytes, err := os.ReadFile(config.OAuthSigningKeyFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read signing key: %w", err)
+	}
+	block, _ := pem.Decode(keyBytes)
+	if block == nil || (block.Type != "EC PRIVATE KEY" && block.Type != "PRIVATE KEY") {
+		return nil, fmt.Errorf("failed to decode PEM block containing private key")
+	}
+	var oauthSigningKey *ecdsa.PrivateKey
+	if block.Type == "EC PRIVATE KEY" {
+		oauthSigningKey, err = x509.ParseECPrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse EC private key: %w", err)
+		}
+	} else {
+		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse PKCS8 private key: %w", err)
+		}
+		var ok bool
+		oauthSigningKey, ok = key.(*ecdsa.PrivateKey)
+		if !ok {
+			return nil, fmt.Errorf("not an ECDSA private key")
+		}
+	}
+
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		WorkspaceProviderType: config.WorkspaceProviderType,
@@ -540,6 +576,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AllowedMCPDockerImageRepos: config.AllowedMCPDockerImageRepos,
 		MCPLoader:                  mcpLoader,
 		MCPRunner:                  mcpRunner,
+		OAuthSigningKey:            oauthSigningKey,
 	}, nil
 }
 

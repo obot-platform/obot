@@ -19,3 +19,17 @@ func OAuthClients(req router.Request, resp router.Response) error {
 	}
 	return nil
 }
+
+func OAuthAuthRequests(req router.Request, resp router.Response) error {
+	o := req.Object.(*v1.OAuthAuthRequest)
+
+	since := time.Since(o.CreationTimestamp.Time)
+	if since > time.Hour {
+		// Expired. Delete it.
+		return req.Delete(o)
+	}
+
+	resp.RetryAfter(time.Hour - since)
+
+	return nil
+}

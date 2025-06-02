@@ -49,7 +49,12 @@ func (h *handler) register(req api.Context) error {
 
 func (h *handler) readClient(req api.Context) error {
 	var oauthClient v1.OAuthClient
-	if err := req.Get(&oauthClient, req.PathValue("name")); err != nil {
+	namespace, name, ok := strings.Cut(req.PathValue("client"), ":")
+	if !ok {
+		return types.NewErrBadRequest("invalid client name: %s", name)
+	}
+
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: namespace, Name: name}, &oauthClient); err != nil {
 		return err
 	}
 
@@ -67,8 +72,13 @@ func (h *handler) updateClient(req api.Context) error {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
 
+	namespace, name, ok := strings.Cut(req.PathValue("client"), ":")
+	if !ok {
+		return types.NewErrBadRequest("invalid client name: %s", name)
+	}
+
 	var oauthClient v1.OAuthClient
-	if err := req.Get(&oauthClient, req.PathValue("name")); err != nil {
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: namespace, Name: name}, &oauthClient); err != nil {
 		return err
 	}
 
@@ -86,10 +96,15 @@ func (h *handler) updateClient(req api.Context) error {
 }
 
 func (h *handler) deleteClient(req api.Context) error {
+	namespace, name, ok := strings.Cut(req.PathValue("client"), ":")
+	if !ok {
+		return types.NewErrBadRequest("invalid client name: %s", name)
+	}
+
 	return req.Delete(&v1.OAuthClient{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.PathValue("name"),
-			Namespace: system.DefaultNamespace,
+			Name:      name,
+			Namespace: namespace,
 		},
 	})
 }
@@ -138,14 +153,17 @@ func updateClientIfNecessary(ctx context.Context, c kclient.Client, oauthClient 
 }
 
 func convertClient(oauthClient v1.OAuthClient, baseURL, clientSecret, registrationToken string) types.OAuthClient {
+	oauthClient.Name = fmt.Sprintf("%s:%s", oauthClient.Namespace, oauthClient.Name)
 	return types.OAuthClient{
-		Metadata:                handlers.MetadataFrom(&oauthClient),
-		OAuthClientManifest:     oauthClient.Spec.Manifest,
-		RegistrationAccessToken: registrationToken,
-		RegistrationClientURI:   fmt.Sprintf("%s/oauth/register/%s/%s", baseURL, oauthClient.Namespace, oauthClient.Name),
-		ClientID:                oauthClient.Name,
-		ClientSecret:            clientSecret,
-		ClientSecretIssuedAt:    types.NewTime(oauthClient.Spec.ClientSecretIssuedAt.Time),
-		ClientSecretExpiresAt:   types.NewTime(oauthClient.Spec.ClientSecretExpiresAt.Time),
+		Metadata:                   handlers.MetadataFrom(&oauthClient),
+		OAuthClientManifest:        oauthClient.Spec.Manifest,
+		RegistrationAccessToken:    registrationToken,
+		RegistrationClientURI:      fmt.Sprintf("%s/oauth/register/%s", baseURL, oauthClient.Name),
+		RegistrationTokenIssuedAt:  oauthClient.Spec.RegistrationTokenIssuedAt.Time.Unix(),
+		RegistrationTokenExpiresAt: oauthClient.Spec.RegistrationTokenExpiresAt.Time.Unix(),
+		ClientID:                   oauthClient.Name,
+		ClientSecret:               clientSecret,
+		ClientSecretIssuedAt:       oauthClient.Spec.ClientSecretIssuedAt.Time.Unix(),
+		ClientSecretExpiresAt:      oauthClient.Spec.ClientSecretExpiresAt.Time.Unix(),
 	}
 }
