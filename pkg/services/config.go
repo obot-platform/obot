@@ -155,7 +155,8 @@ type Services struct {
 	MCPLoader *mcp.SessionManager
 
 	// OAuth configuration
-	OAuthSigningKey *ecdsa.PrivateKey
+	OAuthSigningKey   *ecdsa.PrivateKey
+	OAuthServerConfig OAuthAuthorizationServerConfig
 }
 
 const (
@@ -577,6 +578,17 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPLoader:                  mcpLoader,
 		MCPRunner:                  mcpRunner,
 		OAuthSigningKey:            oauthSigningKey,
+		OAuthServerConfig: OAuthAuthorizationServerConfig{
+			Issuer:                            strings.TrimPrefix(strings.TrimPrefix(config.Hostname, "https://"), "http://"),
+			AuthorizationEndpoint:             fmt.Sprintf("%s/oauth/authorize", config.Hostname),
+			TokenEndpoint:                     fmt.Sprintf("%s/oauth/token", config.Hostname),
+			RegistrationEndpoint:              fmt.Sprintf("%s/oauth/register", config.Hostname),
+			JWKSURI:                           fmt.Sprintf("%s/.well-known/jwks.json", config.Hostname),
+			ResponseTypesSupported:            []string{"code"},
+			GrantTypesSupported:               []string{"authorization_code", "refresh_token"},
+			CodeChallengeMethodsSupported:     []string{"S256", "plain"},
+			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "none"},
+		},
 	}, nil
 }
 

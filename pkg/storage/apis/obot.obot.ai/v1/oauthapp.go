@@ -101,6 +101,8 @@ type OAuthAppSpec struct {
 	ThreadName string `json:"threadName,omitempty"`
 	// The Slack receiver that created and owns this OAuth app
 	SlackReceiverName string `json:"slackReceiverName,omitempty"`
+	// TODO: there is currently no way to set this. I haven't added this because I don't know if we are going to do it this way.
+	Default bool `json:"default,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

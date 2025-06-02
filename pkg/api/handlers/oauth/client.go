@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -35,7 +36,11 @@ func (h *handler) register(req api.Context) error {
 		},
 	}
 
-	clientSecret, registrationToken, err := updateClientIfNecessary(req.Context(), req.Storage, &oauthClient, false)
+	if err := h.validateClientConfig(&oauthClient); err != nil {
+		return err
+	}
+
+	clientSecret, registrationToken, err := ensureTokenAndSecret(&oauthClient)
 	if err != nil {
 		return fmt.Errorf("failed to update client secret: %w", err)
 	}
@@ -58,7 +63,7 @@ func (h *handler) readClient(req api.Context) error {
 		return err
 	}
 
-	clientSecret, registrationToken, err := updateClientIfNecessary(req.Context(), req.Storage, &oauthClient, true)
+	clientSecret, registrationToken, err := updateClientIfNecessary(req.Context(), req.Storage, &oauthClient)
 	if err != nil {
 		return fmt.Errorf("failed to update client secret: %w", err)
 	}
@@ -83,7 +88,12 @@ func (h *handler) updateClient(req api.Context) error {
 	}
 
 	oauthClient.Spec.Manifest = oauthClientManifest
-	clientSecret, registrationToken, err := updateClientIfNecessary(req.Context(), req.Storage, &oauthClient, true)
+
+	if err := h.validateClientConfig(&oauthClient); err != nil {
+		return err
+	}
+
+	clientSecret, registrationToken, err := updateClientIfNecessary(req.Context(), req.Storage, &oauthClient)
 	if err != nil {
 		return fmt.Errorf("failed to update client secret: %w", err)
 	}
@@ -109,13 +119,26 @@ func (h *handler) deleteClient(req api.Context) error {
 	})
 }
 
-func updateClientIfNecessary(ctx context.Context, c kclient.Client, oauthClient *v1.OAuthClient, persistent bool) (string, string, error) {
+func updateClientIfNecessary(ctx context.Context, c kclient.Client, oauthClient *v1.OAuthClient) (string, string, error) {
+	clientSecret, registrationToken, err := ensureTokenAndSecret(oauthClient)
+	if err != nil {
+		return "", "", err
+	}
+
+	if clientSecret != "" || registrationToken != "" {
+		if err = c.Update(ctx, oauthClient); err != nil {
+			return "", "", err
+		}
+	}
+
+	return clientSecret, registrationToken, nil
+}
+
+func ensureTokenAndSecret(oauthClient *v1.OAuthClient) (string, string, error) {
 	var (
 		clientSecret, registrationToken string
-		update                          bool
 		err                             error
 	)
-
 	if oauthClient.Spec.ClientSecretIssuedAt.IsZero() || oauthClient.Spec.ClientSecretExpiresAt.Sub(oauthClient.Spec.ClientSecretIssuedAt.Time)/2 > oauthClient.Spec.ClientSecretExpiresAt.Sub(time.Now()) {
 		// If the client secret is half-way through its lifetime, then update it.
 		clientSecret = rand.Text() + rand.Text()
@@ -127,7 +150,6 @@ func updateClientIfNecessary(ctx context.Context, c kclient.Client, oauthClient 
 		oauthClient.Spec.ClientSecretIssuedAt = metav1.NewTime(time.Now())
 		oauthClient.Spec.ClientSecretExpiresAt = metav1.NewTime(time.Now().Add(time.Hour + 15*time.Minute))
 
-		update = true
 	}
 	if oauthClient.Spec.RegistrationTokenExpiresAt.IsZero() || oauthClient.Spec.RegistrationTokenExpiresAt.Sub(oauthClient.Spec.RegistrationTokenIssuedAt.Time)/2 > oauthClient.Spec.RegistrationTokenExpiresAt.Sub(time.Now()) {
 		// If the registration token is half-way through its lifetime, then update it.
@@ -139,17 +161,68 @@ func updateClientIfNecessary(ctx context.Context, c kclient.Client, oauthClient 
 
 		oauthClient.Spec.RegistrationTokenIssuedAt = metav1.NewTime(time.Now())
 		oauthClient.Spec.RegistrationTokenExpiresAt = metav1.NewTime(time.Now().Add(7 * 24 * time.Hour))
-
-		update = true
-	}
-
-	if update && persistent {
-		if err := c.Update(ctx, oauthClient); err != nil {
-			return "", "", err
-		}
 	}
 
 	return clientSecret, registrationToken, nil
+}
+
+func (h *handler) validateClientConfig(oauthClient *v1.OAuthClient) error {
+	if oauthClient.Spec.Manifest.RedirectURI != "" {
+		oauthClient.Spec.Manifest.RedirectURIs = append(oauthClient.Spec.Manifest.RedirectURIs, oauthClient.Spec.Manifest.RedirectURI)
+	}
+	if len(oauthClient.Spec.Manifest.RedirectURIs) == 0 {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "redirect_uris is required",
+		})
+	}
+	if oauthClient.Spec.Manifest.TokenEndpointAuthMethod != "" && !slices.Contains(h.oauthConfig.TokenEndpointAuthMethodsSupported, oauthClient.Spec.Manifest.TokenEndpointAuthMethod) {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: fmt.Sprintf("token_endpoint_auth_method must be %s, not %s", strings.Join(h.oauthConfig.TokenEndpointAuthMethodsSupported, ", "), oauthClient.Spec.Manifest.TokenEndpointAuthMethod),
+		})
+	}
+
+	var unsupported []string
+	for _, grantType := range oauthClient.Spec.Manifest.GrantTypes {
+		if !slices.Contains(h.oauthConfig.GrantTypesSupported, grantType) {
+			unsupported = append(unsupported, grantType)
+		}
+	}
+	if len(unsupported) > 0 {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "unsupported grant types: " + strings.Join(unsupported, ", "),
+		})
+	}
+
+	for _, responseType := range oauthClient.Spec.Manifest.ResponseTypes {
+		if !slices.Contains(h.oauthConfig.ResponseTypesSupported, responseType) {
+			unsupported = append(unsupported, responseType)
+		}
+	}
+	if len(unsupported) > 0 {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "unsupported response types: " + strings.Join(unsupported, ", "),
+		})
+	}
+
+	if len(oauthClient.Spec.Manifest.Scope) != 0 {
+		for _, scope := range strings.Split(oauthClient.Spec.Manifest.Scope, " ") {
+			if !slices.Contains(h.oauthConfig.ScopesSupported, scope) {
+				unsupported = append(unsupported, scope)
+			}
+		}
+		if len(unsupported) > 0 {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "unsupported scopes: " + strings.Join(unsupported, ", "),
+			})
+		}
+	}
+
+	return nil
 }
 
 func convertClient(oauthClient v1.OAuthClient, baseURL, clientSecret, registrationToken string) types.OAuthClient {

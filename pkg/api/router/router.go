@@ -518,12 +518,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("/oauth2/", services.ProxyManager.HandlerFunc)
 
 	// Well-known
-	if err := wellknown.SetupHandlers(services.ServerURL, services.OAuthSigningKey, mux); err != nil {
+	if err := wellknown.SetupHandlers(services.OAuthServerConfig, services.OAuthSigningKey, mux); err != nil {
 		return nil, fmt.Errorf("failed to setup well-known handlers: %w", err)
 	}
 
 	// OAuth
-	oauth.SetupHandlers(services.ServerURL, services.OAuthSigningKey, mux)
+	oauth.SetupHandlers(services.GPTClient, services.OAuthServerConfig, services.ServerURL, services.OAuthSigningKey, mux)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

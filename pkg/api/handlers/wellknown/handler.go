@@ -5,14 +5,15 @@ import (
 
 	"github.com/lestrrat-go/jwx/v3/jwk"
 	"github.com/obot-platform/obot/pkg/api/server"
+	"github.com/obot-platform/obot/pkg/services"
 )
 
 type handler struct {
-	baseURL string
-	keySet  jwk.Set
+	config services.OAuthAuthorizationServerConfig
+	keySet jwk.Set
 }
 
-func SetupHandlers(baseURL string, key *ecdsa.PrivateKey, mux *server.Server) error {
+func SetupHandlers(config services.OAuthAuthorizationServerConfig, key *ecdsa.PrivateKey, mux *server.Server) error {
 	// Create a new empty JWKS
 	jwks := jwk.NewSet()
 
@@ -39,11 +40,12 @@ func SetupHandlers(baseURL string, key *ecdsa.PrivateKey, mux *server.Server) er
 	}
 
 	h := &handler{
-		baseURL: baseURL,
-		keySet:  jwks,
+		config: config,
+		keySet: jwks,
 	}
 
 	mux.HandleFunc("GET /.well-known/oauth-authorization-server", h.oauthAuthorization)
+	mux.HandleFunc("GET /.well-known/oauth-authorization-server/{oauth_id}", h.oauthAuthorization)
 	mux.HandleFunc("GET /.well-known/jwks.json", h.jwks)
 
 	return nil

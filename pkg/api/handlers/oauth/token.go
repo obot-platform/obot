@@ -15,8 +15,10 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"golang.org/x/crypto/bcrypt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -53,7 +55,7 @@ func (h *handler) token(req api.Context) error {
 	}
 
 	grantType := req.FormValue("grant_type")
-	if grantType != "authorization_code" && grantType != "refresh_token" {
+	if !slices.Contains(h.oauthConfig.GrantTypesSupported, grantType) {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
 			Description: "grant_type must be authorization_code",
@@ -82,10 +84,22 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		})
 	}
 
-	var oauthAuthRequest v1.OAuthAuthRequest
-	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: oauthClient.Namespace, Name: fmt.Sprintf("%x", sha256.Sum256([]byte(code)))}, &oauthAuthRequest); err != nil {
+	var oauthAuthRequestList v1.OAuthAuthRequestList
+	if err := req.Storage.List(req.Context(), &oauthAuthRequestList, &kclient.ListOptions{
+		FieldSelector: fields.SelectorFromSet(selectors.RemoveEmpty(map[string]string{
+			"hashedAuthCode": fmt.Sprintf("%x", sha256.Sum256([]byte(code))),
+		})),
+	}); err != nil {
 		return err
 	}
+	if len(oauthAuthRequestList.Items) != 1 {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "code is invalid",
+		})
+	}
+
+	oauthAuthRequest := oauthAuthRequestList.Items[0]
 
 	// Authorization codes are one-time use
 	if err := req.Storage.Delete(req.Context(), &oauthAuthRequest); err != nil {
@@ -118,7 +132,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		}
 	}
 
-	accessToken, err := h.newAccessToken(oauthAuthRequest.Spec.ProviderAccessToken)
+	accessToken, err := h.newAccessToken(oauthAuthRequest.Status.ProviderAccessToken)
 	if err != nil {
 		return err
 	}
@@ -133,9 +147,9 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		Spec: v1.OAuthTokenSpec{
 			ClientID:             oauthClient.Name,
 			Scope:                oauthAuthRequest.Spec.Scope,
-			ProviderRefreshToken: oauthAuthRequest.Spec.ProviderRefreshToken,
-			ProviderAccessToken:  oauthAuthRequest.Spec.ProviderAccessToken,
-			ExpiresAt:            oauthAuthRequest.Spec.ExpiresAt,
+			ProviderRefreshToken: oauthAuthRequest.Status.ProviderRefreshToken,
+			ProviderAccessToken:  oauthAuthRequest.Status.ProviderAccessToken,
+			ExpiresAt:            oauthAuthRequest.Status.ExpiresAt,
 		},
 	}
 
@@ -217,7 +231,7 @@ func (h *handler) newAccessToken(providerAccessToken string) (string, error) {
 	claims := tokenClaims{
 		ProviderAccessToken: providerAccessToken,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    h.issuer,
+			Issuer:    h.oauthConfig.Issuer,
 			Subject:   "",
 			Audience:  jwt.ClaimStrings{"mcp"},
 			ExpiresAt: jwt.NewNumericDate(now.Add(time.Hour)),

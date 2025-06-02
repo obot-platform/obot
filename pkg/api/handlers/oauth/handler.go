@@ -2,21 +2,25 @@ package oauth
 
 import (
 	"crypto/ecdsa"
-	"strings"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/pkg/api/server"
+	"github.com/obot-platform/obot/pkg/services"
 )
 
 type handler struct {
-	baseURL, issuer string
-	key             *ecdsa.PrivateKey
+	gptClient   *gptscript.GPTScript
+	baseURL     string
+	oauthConfig services.OAuthAuthorizationServerConfig
+	key         *ecdsa.PrivateKey
 }
 
-func SetupHandlers(baseURL string, key *ecdsa.PrivateKey, mux *server.Server) {
+func SetupHandlers(gptClient *gptscript.GPTScript, oauthConfig services.OAuthAuthorizationServerConfig, baseURL string, key *ecdsa.PrivateKey, mux *server.Server) {
 	h := &handler{
-		baseURL: baseURL,
-		issuer:  strings.TrimPrefix(strings.TrimPrefix(baseURL, "https://"), "http://"),
-		key:     key,
+		gptClient:   gptClient,
+		baseURL:     baseURL,
+		oauthConfig: oauthConfig,
+		key:         key,
 	}
 
 	mux.HandleFunc("POST /oauth/register", h.register)
@@ -24,5 +28,7 @@ func SetupHandlers(baseURL string, key *ecdsa.PrivateKey, mux *server.Server) {
 	mux.HandleFunc("PUT /oauth/register/{client}", h.updateClient)
 	mux.HandleFunc("DELETE /oauth/register/{client}", h.deleteClient)
 	mux.HandleFunc("GET /oauth/authorize", h.authorize)
+	mux.HandleFunc("GET /oauth/authorize/{oauth_id}", h.authorize)
+	mux.HandleFunc("GET /oauth/callback", h.callback)
 	mux.HandleFunc("POST /oauth/token", h.token)
 }
