@@ -25,6 +25,8 @@ type OAuthTokenSpec struct {
 	ExpiresAt            metav1.Time `json:"expiresAt"`
 	ProviderRefreshToken string      `json:"providerRefreshToken"`
 	ProviderAccessToken  string      `json:"providerAccessToken"`
+	OAuthAppNamespace    string      `json:"oauthAppNamespace"`
+	OAuthAppName         string      `json:"oauthAppName"`
 }
 
 type OAuthTokenStatus struct{}

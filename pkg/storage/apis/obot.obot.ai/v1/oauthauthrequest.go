@@ -60,6 +60,8 @@ type OAuthAuthRequestStatus struct {
 	ProviderTokenCreatedAt metav1.Time       `json:"providerTokenCreatedAt"`
 	ProviderAccessToken    string            `json:"providerAccessToken"`
 	ProviderRefreshToken   string            `json:"providerRefreshToken"`
+	OAuthAppNamespace      string            `json:"oauthAppNamespace"`
+	OAuthAppName           string            `json:"oauthAppName"`
 	ExpiresAt              metav1.Time       `json:"expiresAt"`
 	Ok                     bool              `json:"ok"`
 	Error                  string            `json:"error"`

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -67,7 +68,7 @@ func (e Error) toQuery() url.Values {
 func (h *handler) authorize(req api.Context) error {
 	var oauthApp v1.OAuthApp
 	if oauthAppID := req.PathValue("oauth_id"); oauthAppID != "" {
-		if err := req.Get(&oauthApp, oauthAppID); err != nil {
+		if err := alias.Get(req.Context(), req.Storage, &oauthApp, req.Namespace(), oauthAppID); err != nil {
 			return err
 		}
 	} else {
@@ -498,7 +499,8 @@ func (h *handler) callback(req api.Context) error {
 	code = strings.ToLower(rand.Text() + rand.Text())
 
 	status.HashedAuthCode = fmt.Sprintf("%x", sha256.Sum256([]byte(code)))
-
+	status.OAuthAppNamespace = app.Namespace
+	status.OAuthAppName = app.Name
 	oauthAuthRequest.Status = status
 
 	if err = req.Storage.Status().Update(req.Context(), &oauthAuthRequest); err != nil {

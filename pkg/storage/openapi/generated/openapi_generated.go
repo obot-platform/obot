@@ -10429,6 +10429,20 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestStatus(ref common.Referen
 							Format:  "",
 						},
 					},
+					"oauthAppNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"oauthAppName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"expiresAt": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
@@ -10471,7 +10485,7 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestStatus(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"hashedAuthCode", "providerTokenType", "providerTokenCreatedAt", "providerAccessToken", "providerRefreshToken", "expiresAt", "ok", "error", "scope", "data"},
+				Required: []string{"hashedAuthCode", "providerTokenType", "providerTokenCreatedAt", "providerAccessToken", "providerRefreshToken", "oauthAppNamespace", "oauthAppName", "expiresAt", "ok", "error", "scope", "data"},
 			},
 		},
 		Dependencies: []string{
@@ -10770,8 +10784,22 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref common.ReferenceCallba
 							Format:  "",
 						},
 					},
+					"oauthAppNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"oauthAppName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"clientID", "scope", "expiresAt", "providerRefreshToken", "providerAccessToken"},
+				Required: []string{"clientID", "scope", "expiresAt", "providerRefreshToken", "providerAccessToken", "oauthAppNamespace", "oauthAppName"},
 			},
 		},
 		Dependencies: []string{
