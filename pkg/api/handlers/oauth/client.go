@@ -49,7 +49,7 @@ func (h *handler) register(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertClient(oauthClient, h.baseURL, clientSecret, registrationToken))
+	return req.WriteCreated(convertClient(oauthClient, h.baseURL, clientSecret, registrationToken))
 }
 
 func (h *handler) readClient(req api.Context) error {
@@ -171,13 +171,13 @@ func (h *handler) validateClientConfig(oauthClient *v1.OAuthClient) error {
 	}
 	if len(oauthClient.Spec.Manifest.RedirectURIs) == 0 {
 		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
+			Code:        ErrInvalidClientMetadata,
 			Description: "redirect_uris is required",
 		})
 	}
 	if oauthClient.Spec.Manifest.TokenEndpointAuthMethod != "" && !slices.Contains(h.oauthConfig.TokenEndpointAuthMethodsSupported, oauthClient.Spec.Manifest.TokenEndpointAuthMethod) {
 		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
+			Code:        ErrInvalidClientMetadata,
 			Description: fmt.Sprintf("token_endpoint_auth_method must be %s, not %s", strings.Join(h.oauthConfig.TokenEndpointAuthMethodsSupported, ", "), oauthClient.Spec.Manifest.TokenEndpointAuthMethod),
 		})
 	}
@@ -190,7 +190,7 @@ func (h *handler) validateClientConfig(oauthClient *v1.OAuthClient) error {
 	}
 	if len(unsupported) > 0 {
 		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
+			Code:        ErrInvalidClientMetadata,
 			Description: "unsupported grant types: " + strings.Join(unsupported, ", "),
 		})
 	}
@@ -202,23 +202,9 @@ func (h *handler) validateClientConfig(oauthClient *v1.OAuthClient) error {
 	}
 	if len(unsupported) > 0 {
 		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
+			Code:        ErrInvalidClientMetadata,
 			Description: "unsupported response types: " + strings.Join(unsupported, ", "),
 		})
-	}
-
-	if len(oauthClient.Spec.Manifest.Scope) != 0 {
-		for _, scope := range strings.Split(oauthClient.Spec.Manifest.Scope, " ") {
-			if !slices.Contains(h.oauthConfig.ScopesSupported, scope) {
-				unsupported = append(unsupported, scope)
-			}
-		}
-		if len(unsupported) > 0 {
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "unsupported scopes: " + strings.Join(unsupported, ", "),
-			})
-		}
 	}
 
 	return nil

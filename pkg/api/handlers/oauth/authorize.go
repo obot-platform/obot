@@ -34,6 +34,7 @@ const (
 	ErrInvalidScope            ErrorCode = "invalid_scope"
 	ErrServerError             ErrorCode = "server_error"
 	ErrTemporarilyUnavailable  ErrorCode = "temporarily_unavailable"
+	ErrInvalidClientMetadata   ErrorCode = "invalid_client_metadata"
 )
 
 // Error represents an OAuth 2.0 error response.
@@ -180,13 +181,29 @@ func (h *handler) authorize(req api.Context) error {
 		return nil
 	}
 
-	if scope != "" && !slices.Contains(strings.Split(oauthClient.Spec.Manifest.Scope, " "), scope) {
-		redirectWithAuthorizeError(req, redirectURI, Error{
-			Code:        ErrInvalidScope,
-			Description: "scope is not allowed for this client",
-			State:       state,
-		})
-		return nil
+	if scope != "" {
+		var (
+			unsupported []string
+			scopes      = make(map[string]struct{})
+		)
+		for _, s := range strings.Split(scope, " ") {
+			scopes[s] = struct{}{}
+		}
+
+		for _, s := range strings.Split(oauthClient.Spec.Manifest.Scope, " ") {
+			if _, ok := scopes[s]; !ok {
+				unsupported = append(unsupported, s)
+			}
+		}
+
+		if len(unsupported) > 0 {
+			redirectWithAuthorizeError(req, redirectURI, Error{
+				Code:        ErrInvalidScope,
+				Description: fmt.Sprintf("scopes %s are not allowed for this client", strings.Join(unsupported, ", ")),
+				State:       state,
+			})
+			return nil
+		}
 	}
 
 	oauthAppAuthRequest := v1.OAuthAuthRequest{

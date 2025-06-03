@@ -235,7 +235,7 @@ func (h *handler) newAccessToken(providerAccessToken string) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
 	token.Header["kid"] = "obot-key"
-	token.Header["jku"] = fmt.Sprintf("https://%s/.well-known/jwks.json", h.baseURL)
+	token.Header["jku"] = fmt.Sprintf("%s/.well-known/jwks.json", h.baseURL)
 
 	return token.SignedString(h.key)
 }
