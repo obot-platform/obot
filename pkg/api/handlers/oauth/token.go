@@ -193,135 +193,141 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		return err
 	}
 
-	var clientSecret string
-	// Reveal the credential to get the client secret.
-	cred, err := h.gptClient.RevealCredential(req.Context(), []string{oauthApp.Name}, oauthApp.Spec.Manifest.Alias)
-	if err != nil {
-		return fmt.Errorf("failed to reveal credential: %w", err)
-	}
-
-	clientSecret = cred.Env["CLIENT_SECRET"]
-
-	data := url.Values{}
-	data.Set("client_id", oauthApp.Spec.Manifest.ClientID)
-	data.Set("client_secret", clientSecret)
-	if oauthApp.Spec.Manifest.Type != types.OAuthAppTypeSalesforce && oauthApp.Spec.Manifest.Type != types.OAuthAppTypeSmartThings {
-		data.Set("scope", scope)
-	}
-	if oauthApp.Spec.Manifest.Type != types.OAuthAppTypeSmartThings {
-		data.Set("redirect_uri", fmt.Sprintf("%s/oauth/callback", h.baseURL))
-	}
-	data.Set("refresh_token", oauthToken.Spec.ProviderRefreshToken)
-	data.Set("grant_type", "refresh_token")
-
-	r, err := http.NewRequest("POST", oauthApp.Spec.Manifest.TokenURL, bytes.NewBufferString(data.Encode()))
-	if err != nil {
-		return fmt.Errorf("failed to make token request: %w", err)
-	}
-	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if oauthApp.Spec.Manifest.Type == types.OAuthAppTypeSmartThings {
-		encodedAuth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", oauthApp.Spec.Manifest.ClientID, clientSecret)))
-		r.Header.Set("Authorization", fmt.Sprintf("Basic %s", encodedAuth))
-	}
-	resp, err := http.DefaultClient.Do(r)
-	if err != nil {
-		return fmt.Errorf("failed to make token request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBuf := new(bytes.Buffer)
-		_, _ = bodyBuf.ReadFrom(resp.Body)
-		return fmt.Errorf("failed to get tokens: %d %s", resp.StatusCode, bodyBuf.String())
-	}
-
 	var status v1.OAuthAuthRequestStatus
-	switch oauthApp.Spec.Manifest.Type {
-	case types.OAuthAppTypeSalesforce:
-		salesforceTokenResp := new(salesforceOAuthTokenResponse)
-		if err = json.NewDecoder(resp.Body).Decode(salesforceTokenResp); err != nil {
-			return fmt.Errorf("failed to parse token response: %w", err)
-		}
-		issuedAt, err := strconv.ParseInt(salesforceTokenResp.IssuedAt, 10, 64)
+	if oauthToken.Spec.ProviderRefreshToken != "" {
+		var clientSecret string
+		// Reveal the credential to get the client secret.
+		cred, err := h.gptClient.RevealCredential(req.Context(), []string{oauthApp.Name}, oauthApp.Spec.Manifest.Alias)
 		if err != nil {
-			return fmt.Errorf("failed to parse token response: %w", err)
-		}
-		createdAt := time.Unix(issuedAt/1000, (issuedAt%1000)*1000000)
-
-		status = v1.OAuthAuthRequestStatus{
-			ProviderAccessToken:    salesforceTokenResp.AccessToken,
-			ExpiresAt:              metav1.NewTime(createdAt.Add(time.Second * 7200)), // Relies on Salesforce admin not overriding the default 2 hours
-			Ok:                     true,                                              // Assuming true if no error is present
-			ProviderTokenCreatedAt: metav1.NewTime(createdAt),
-			ProviderRefreshToken:   salesforceTokenResp.RefreshToken,
-			Data: map[string]string{
-				"salesforce_instance_url": salesforceTokenResp.InstanceURL,
-			},
-			Scope: salesforceTokenResp.Scope,
-		}
-	case types.OAuthAppTypeGoogle:
-		var tokenResp tokenResponse
-		if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-			return fmt.Errorf("failed to parse token response: %w", err)
+			return fmt.Errorf("failed to reveal credential: %w", err)
 		}
 
-		status = v1.OAuthAuthRequestStatus{
-			ProviderAccessToken:    tokenResp.AccessToken,
-			ExpiresAt:              metav1.NewTime(time.Unix(tokenResp.ExpiresIn, 0)),
-			Ok:                     true, // Assuming true if no error is present
-			ProviderTokenCreatedAt: metav1.NewTime(tokenResp.CreatedAt),
-			ProviderRefreshToken:   tokenResp.RefreshToken,
-			Scope:                  tokenResp.Scope,
+		clientSecret = cred.Env["CLIENT_SECRET"]
+
+		data := url.Values{}
+		data.Set("client_id", oauthApp.Spec.Manifest.ClientID)
+		data.Set("client_secret", clientSecret)
+		if oauthApp.Spec.Manifest.Type != types.OAuthAppTypeSalesforce && oauthApp.Spec.Manifest.Type != types.OAuthAppTypeSmartThings {
+			data.Set("scope", scope)
 		}
-	case types.OAuthAppTypeGitLab:
-		var tokenResp tokenResponse
-		// For GitLab, decode the standard token response and then add the base URL to extras
-		if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-			return fmt.Errorf("failed to parse token response: %w", err)
+		if oauthApp.Spec.Manifest.Type != types.OAuthAppTypeSmartThings {
+			data.Set("redirect_uri", fmt.Sprintf("%s/oauth/callback", h.baseURL))
+		}
+		data.Set("refresh_token", oauthToken.Spec.ProviderRefreshToken)
+		data.Set("grant_type", "refresh_token")
+
+		r, err := http.NewRequest("POST", oauthApp.Spec.Manifest.TokenURL, bytes.NewBufferString(data.Encode()))
+		if err != nil {
+			return fmt.Errorf("failed to make token request: %w", err)
+		}
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if oauthApp.Spec.Manifest.Type == types.OAuthAppTypeSmartThings {
+			encodedAuth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", oauthApp.Spec.Manifest.ClientID, clientSecret)))
+			r.Header.Set("Authorization", fmt.Sprintf("Basic %s", encodedAuth))
+		}
+		resp, err := http.DefaultClient.Do(r)
+		if err != nil {
+			return fmt.Errorf("failed to make token request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			bodyBuf := new(bytes.Buffer)
+			_, _ = bodyBuf.ReadFrom(resp.Body)
+			return fmt.Errorf("failed to get tokens: %d %s", resp.StatusCode, bodyBuf.String())
 		}
 
-		status = v1.OAuthAuthRequestStatus{
-			ProviderAccessToken:    tokenResp.AccessToken,
-			ExpiresAt:              metav1.NewTime(time.Unix(tokenResp.ExpiresIn, 0)),
-			Ok:                     true, // Assuming true if no error is present
-			ProviderTokenCreatedAt: metav1.NewTime(tokenResp.CreatedAt),
-			ProviderRefreshToken:   tokenResp.RefreshToken,
-			Scope:                  tokenResp.Scope,
-		}
-
-		// Add GitLab base URL to extras if it's a custom instance
-		if oauthApp.Spec.Manifest.GitLabBaseURL != "" {
-			if status.Data == nil {
-				status.Data = make(map[string]string, 1)
+		switch oauthApp.Spec.Manifest.Type {
+		case types.OAuthAppTypeSalesforce:
+			salesforceTokenResp := new(salesforceOAuthTokenResponse)
+			if err = json.NewDecoder(resp.Body).Decode(salesforceTokenResp); err != nil {
+				return fmt.Errorf("failed to parse token response: %w", err)
 			}
-			status.Data["gitlab_base_url"] = oauthApp.Spec.Manifest.GitLabBaseURL
-		}
-	default:
-		var tokenResp tokenResponse
-		if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-			return fmt.Errorf("failed to parse token response: %w", err)
+			issuedAt, err := strconv.ParseInt(salesforceTokenResp.IssuedAt, 10, 64)
+			if err != nil {
+				return fmt.Errorf("failed to parse token response: %w", err)
+			}
+			createdAt := time.Unix(issuedAt/1000, (issuedAt%1000)*1000000)
+
+			status = v1.OAuthAuthRequestStatus{
+				ProviderAccessToken:    salesforceTokenResp.AccessToken,
+				ExpiresAt:              metav1.NewTime(createdAt.Add(time.Second * 7200)), // Relies on Salesforce admin not overriding the default 2 hours
+				Ok:                     true,                                              // Assuming true if no error is present
+				ProviderTokenCreatedAt: metav1.NewTime(createdAt),
+				ProviderRefreshToken:   salesforceTokenResp.RefreshToken,
+				Data: map[string]string{
+					"salesforce_instance_url": salesforceTokenResp.InstanceURL,
+				},
+				Scope: salesforceTokenResp.Scope,
+			}
+		case types.OAuthAppTypeGoogle:
+			var tokenResp tokenResponse
+			if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+				return fmt.Errorf("failed to parse token response: %w", err)
+			}
+
+			status = v1.OAuthAuthRequestStatus{
+				ProviderAccessToken:    tokenResp.AccessToken,
+				ExpiresAt:              metav1.NewTime(time.Unix(tokenResp.ExpiresIn, 0)),
+				Ok:                     true, // Assuming true if no error is present
+				ProviderTokenCreatedAt: metav1.NewTime(tokenResp.CreatedAt),
+				ProviderRefreshToken:   tokenResp.RefreshToken,
+				Scope:                  tokenResp.Scope,
+			}
+		case types.OAuthAppTypeGitLab:
+			var tokenResp tokenResponse
+			// For GitLab, decode the standard token response and then add the base URL to extras
+			if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+				return fmt.Errorf("failed to parse token response: %w", err)
+			}
+
+			status = v1.OAuthAuthRequestStatus{
+				ProviderAccessToken:    tokenResp.AccessToken,
+				ExpiresAt:              metav1.NewTime(time.Unix(tokenResp.ExpiresIn, 0)),
+				Ok:                     true, // Assuming true if no error is present
+				ProviderTokenCreatedAt: metav1.NewTime(tokenResp.CreatedAt),
+				ProviderRefreshToken:   tokenResp.RefreshToken,
+				Scope:                  tokenResp.Scope,
+			}
+
+			// Add GitLab base URL to extras if it's a custom instance
+			if oauthApp.Spec.Manifest.GitLabBaseURL != "" {
+				if status.Data == nil {
+					status.Data = make(map[string]string, 1)
+				}
+				status.Data["gitlab_base_url"] = oauthApp.Spec.Manifest.GitLabBaseURL
+			}
+		default:
+			var tokenResp tokenResponse
+			if err = json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+				return fmt.Errorf("failed to parse token response: %w", err)
+			}
+
+			status = v1.OAuthAuthRequestStatus{
+				ProviderAccessToken:    tokenResp.AccessToken,
+				ProviderRefreshToken:   tokenResp.RefreshToken,
+				ExpiresAt:              metav1.NewTime(time.Unix(tokenResp.ExpiresIn, 0)),
+				Ok:                     true, // Assuming true if no error is present
+				ProviderTokenCreatedAt: metav1.NewTime(tokenResp.CreatedAt),
+				Scope:                  tokenResp.Scope,
+			}
 		}
 
-		status = v1.OAuthAuthRequestStatus{
-			ProviderAccessToken:    tokenResp.AccessToken,
-			ProviderRefreshToken:   tokenResp.RefreshToken,
-			ExpiresAt:              metav1.NewTime(time.Unix(tokenResp.ExpiresIn, 0)),
-			Ok:                     true, // Assuming true if no error is present
-			ProviderTokenCreatedAt: metav1.NewTime(tokenResp.CreatedAt),
-			Scope:                  tokenResp.Scope,
+		if status.ProviderRefreshToken == "" {
+			status.ProviderRefreshToken = oauthToken.Spec.ProviderRefreshToken
 		}
 	}
 
-	if status.ProviderRefreshToken == "" {
-		status.ProviderRefreshToken = oauthToken.Spec.ProviderRefreshToken
+	expiresAt := status.ExpiresAt.Time
+	if expiresAt.IsZero() {
+		expiresAt = oauthToken.Spec.ExpiresAt.Time
 	}
-
-	accessToken, err := h.newAccessToken(oauthToken.Spec.ProviderAccessToken, oauthToken.Spec.ExpiresAt.Time)
+	accessToken, err := h.newAccessToken(oauthToken.Spec.ProviderAccessToken, expiresAt)
 	if err != nil {
 		return err
 	}
 
-	if err = req.Storage.Delete(req.Context(), &oauthToken); err != nil {
+	if err = req.Delete(&oauthToken); err != nil {
 		return fmt.Errorf("failed to refresh oauth token: %w", err)
 	}
 
@@ -337,7 +343,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 			Scope:                oauthToken.Spec.Scope,
 			ProviderRefreshToken: oauthToken.Spec.ProviderRefreshToken,
 			ProviderAccessToken:  oauthToken.Spec.ProviderAccessToken,
-			ExpiresAt:            oauthToken.Spec.ExpiresAt,
+			ExpiresAt:            metav1.NewTime(expiresAt),
 			OAuthAppNamespace:    oauthApp.Namespace,
 			OAuthAppName:         oauthApp.Name,
 		},

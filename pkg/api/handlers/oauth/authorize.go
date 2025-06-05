@@ -105,7 +105,6 @@ func (h *handler) authorize(req api.Context) error {
 		return err
 	}
 
-	scope := req.FormValue("scope")
 	state := req.FormValue("state")
 	codeChallenge := req.FormValue("code_challenge")
 	codeChallengeMethod := req.FormValue("code_challenge_method")
@@ -182,7 +181,10 @@ func (h *handler) authorize(req api.Context) error {
 		return nil
 	}
 
-	if scope != "" {
+	scope := req.FormValue("scope")
+	if scope == "" {
+		scope = oauthClient.Spec.Manifest.Scope
+	} else {
 		var (
 			unsupported []string
 			scopes      = make(map[string]struct{})
