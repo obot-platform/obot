@@ -20,6 +20,8 @@ func (in *OAuthToken) DeleteRefs() []Ref {
 }
 
 type OAuthTokenSpec struct {
+	Resource             string      `json:"resource"`
+	ProviderName         string      `json:"providerName"`
 	ClientID             string      `json:"clientID"`
 	Scope                string      `json:"scope"`
 	ExpiresAt            metav1.Time `json:"expiresAt"`

@@ -45,6 +45,7 @@ func (in *OAuthAuthRequest) DeleteRefs() []Ref {
 }
 
 type OAuthAuthRequestSpec struct {
+	Resource            string `json:"resource"`
 	RedirectURI         string `json:"redirectURI"`
 	State               string `json:"state"`
 	ClientID            string `json:"clientID"`
@@ -52,6 +53,7 @@ type OAuthAuthRequestSpec struct {
 	CodeChallengeMethod string `json:"codeChallengeMethod"`
 	GrantType           string `json:"grantType"`
 	Scope               string `json:"scope"`
+	ProviderName        string `json:"providerName"`
 }
 
 type OAuthAuthRequestStatus struct {

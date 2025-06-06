@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -66,43 +65,36 @@ func (e Error) toQuery() url.Values {
 }
 
 func (h *handler) authorize(req api.Context) error {
-	var oauthApp v1.OAuthApp
-	if oauthAppID := req.PathValue("oauth_id"); oauthAppID != "" {
-		if err := alias.Get(req.Context(), req.Storage, &oauthApp, req.Namespace(), oauthAppID); err != nil {
-			return err
-		}
-	} else {
-		var apps v1.OAuthAppList
-		if err := req.List(&apps); err != nil {
-			return err
-		}
-
-		if len(apps.Items) == 0 {
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "no oauth apps found",
-			})
-		}
-		if len(apps.Items) == 1 {
-			oauthApp = apps.Items[0]
-		} else {
-			for _, app := range apps.Items {
-				if app.Spec.Default {
-					oauthApp = app
-					break
-				}
-			}
-			if oauthApp.Name == "" {
-				return types.NewErrBadRequest("%v", Error{
-					Code:        ErrInvalidRequest,
-					Description: "no default oauth app found",
-				})
-			}
-		}
+	var apps v1.OAuthAppList
+	if err := req.List(&apps); err != nil {
+		return err
 	}
+
+	if len(apps.Items) == 0 {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "no oauth apps found",
+		})
+	}
+	if len(apps.Items) != 1 {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "not able to determine oauth app",
+		})
+	}
+
+	oauthApp := apps.Items[0]
 
 	if err := req.ParseForm(); err != nil {
 		return err
+	}
+
+	resource := strings.TrimPrefix(req.FormValue("resource"), "http://")
+	if resource == "" {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "resource is required",
+		})
 	}
 
 	state := req.FormValue("state")
@@ -209,12 +201,18 @@ func (h *handler) authorize(req api.Context) error {
 		}
 	}
 
+	if scope == "" {
+		scope = oauthApp.Spec.Manifest.DefaultScope
+	}
+
 	oauthAppAuthRequest := v1.OAuthAuthRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.OAuthAppPrefix,
 			Namespace:    oauthClient.Namespace,
 		},
 		Spec: v1.OAuthAuthRequestSpec{
+			ProviderName:        oauthApp.Spec.Manifest.Alias,
+			Resource:            resource,
 			ClientID:            oauthClient.Name,
 			RedirectURI:         redirectURI,
 			CodeChallenge:       codeChallenge,
@@ -260,10 +258,6 @@ func (h *handler) authorize(req api.Context) error {
 	}
 
 	q := u.Query()
-
-	if scope == "" {
-		scope = oauthApp.Spec.Manifest.DefaultScope
-	}
 
 	q.Set("response_type", "code")
 	q.Set("client_id", oauthApp.Spec.Manifest.ClientID)
@@ -447,7 +441,7 @@ func (h *handler) callback(req api.Context) error {
 			ProviderTokenType:      googleTokenResp.TokenType,
 			Scope:                  googleTokenResp.Scope,
 			ProviderAccessToken:    googleTokenResp.AccessToken,
-			ExpiresAt:              metav1.NewTime(time.Now().Add(time.Second * time.Duration(googleTokenResp.ExpiresIn))),
+			ExpiresAt:              metav1.Time{Time: time.Now().Add(time.Second * time.Duration(googleTokenResp.ExpiresIn))},
 			Ok:                     true, // Assuming true if no error is present
 			ProviderTokenCreatedAt: metav1.Now(),
 			ProviderRefreshToken:   googleTokenResp.RefreshToken,
@@ -467,8 +461,8 @@ func (h *handler) callback(req api.Context) error {
 			ProviderTokenType:      salesforceTokenResp.TokenType,
 			Scope:                  salesforceTokenResp.Scope,
 			ProviderAccessToken:    salesforceTokenResp.AccessToken,
-			ExpiresAt:              metav1.NewTime(time.Now().Add(7200 * time.Second)), // Relies on Salesforce admin not overriding the default 2 hours
-			Ok:                     true,                                               // Assuming true if no error is present
+			ExpiresAt:              metav1.Time{Time: time.Now().Add(7200 * time.Second)}, // Relies on Salesforce admin not overriding the default 2 hours
+			Ok:                     true,                                                  // Assuming true if no error is present
 			ProviderTokenCreatedAt: metav1.NewTime(createdAt),
 			ProviderRefreshToken:   salesforceTokenResp.RefreshToken,
 			Data: map[string]string{

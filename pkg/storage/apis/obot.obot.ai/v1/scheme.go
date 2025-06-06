@@ -95,6 +95,10 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&OAuthTokenList{},
 		&OAuthAppAuth{},
 		&OAuthAppAuthList{},
+		&MCPServerConfig{},
+		&MCPServerConfigList{},
+		&MCPPointerToken{},
+		&MCPPointerTokenList{},
 	); err != nil {
 		return err
 	}
