@@ -7,6 +7,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/controller/data"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/services"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,9 +17,10 @@ import (
 )
 
 type Controller struct {
-	router         *router.Router
-	services       *services.Services
-	toolRefHandler *toolreference.Handler
+	router            *router.Router
+	services          *services.Services
+	toolRefHandler    *toolreference.Handler
+	mcpCatalogHandler *mcpcatalog.Handler
 }
 
 func New(services *services.Services) (*Controller, error) {
@@ -45,7 +47,7 @@ func (c *Controller) PreStart(ctx context.Context) error {
 }
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
-	go c.toolRefHandler.PollRegistriesAndCatalogs(ctx, client)
+	go c.toolRefHandler.PollRegistries(ctx, client)
 	var err error
 	for range 3 {
 		err = c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client)
@@ -56,6 +58,10 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	}
 	if err != nil {
 		panic(fmt.Errorf("failed to ensure openai env credential and defaults: %w", err))
+	}
+
+	if err := c.mcpCatalogHandler.SetUpDefaultMCPCatalog(ctx, client); err != nil {
+		panic(fmt.Errorf("failed to set up default mcp catalog: %w", err))
 	}
 }
 

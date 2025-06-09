@@ -44,7 +44,7 @@ COPY --chmod=0755 /tools/package-chrome.sh /
 COPY --chmod=0444 catalog /catalog
 
 RUN /package-chrome.sh && rm /package-chrome.sh
-ENV OBOT_SERVER_MCPCATALOGS=/catalog
+ENV OBOT_SERVER_DEFAULT_MCPCATALOG_PATH=/catalog
 
 COPY aws-encryption.yaml /
 COPY azure-encryption.yaml /
