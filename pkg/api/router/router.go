@@ -5,6 +5,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/handlers/sendgrid"
+	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/ui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -46,6 +47,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	slackHandler := handlers.NewSlackHandler(services.GPTClient)
 	mcp := handlers.NewMCPHandler(services.GPTClient, services.MCPLoader)
 	projectInvitations := handlers.NewProjectInvitationHandler()
+
+	// This is a controller handler, but we will use it here when we need to check for new catalogs.
+	toolRefHandler := toolreference.New(services.GPTClient, services.ProviderDispatcher, services.ToolRegistryURLs, services.SupportDocker, services.MCPCatalog, services.AllowedMCPDockerImageRepos)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -389,6 +393,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	// MCP Catalog
 	mux.HandleFunc("GET /api/mcp/catalog", mcp.ListCatalog)
 	mux.HandleFunc("GET /api/mcp/catalog/{mcp_server_id}", mcp.GetCatalogEntry)
+
+	// MCP Remote Catalogs
+	mux.HandleFunc("POST /api/mcp/remote-catalogs/force-refresh", toolRefHandler.ForceRefreshMCPCatalogs)
 
 	// MCP Servers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)

@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/controller/creds"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -70,6 +71,7 @@ type Handler struct {
 	lastChecksLock          *sync.RWMutex
 	lastChecks              map[string]time.Time
 	allowedDockerImageRepos []string
+	catalogLock             *sync.Mutex
 }
 
 func New(gptClient *gptscript.GPTScript,
@@ -88,6 +90,7 @@ func New(gptClient *gptscript.GPTScript,
 		supportDockerTools:      supportDocker,
 		lastChecks:              make(map[string]time.Time),
 		lastChecksLock:          new(sync.RWMutex),
+		catalogLock:             new(sync.Mutex),
 	}
 }
 
@@ -329,7 +332,7 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 						continue
 					}
 				default:
-					log.Debugf("Ignoring MCP catalog entry %s: unsupported command %s", entry.DisplayName, c.Command)
+					log.Infof("Ignoring MCP catalog entry %s: unsupported command %s", entry.DisplayName, c.Command)
 					continue
 				}
 
@@ -443,11 +446,16 @@ func (h *Handler) readMCPCatalogDirectory(catalog string) ([]catalogEntryInfo, e
 	return entries, nil
 }
 
-func (h *Handler) readFromMCPCatalogs(ctx context.Context, c client.Client) error {
+func (h *Handler) readFromMCPCatalogs(ctx context.Context, c client.Client, catalogs []v1.Catalog) error {
 	var (
 		toAdd []client.Object
 		errs  []error
 	)
+
+	h.catalogLock.Lock()
+	defer h.catalogLock.Unlock()
+
+	// Read from catalogs configured by the environment variable.
 	for _, catalog := range h.mcpCatalogs {
 		entries, err := h.readMCPCatalog(catalog)
 		if err != nil {
@@ -456,6 +464,27 @@ func (h *Handler) readFromMCPCatalogs(ctx context.Context, c client.Client) erro
 		}
 
 		toAdd = append(toAdd, entries...)
+	}
+
+	// Read from catalogs configured by the admin and stored in the database.
+	for _, catalog := range catalogs {
+		if slices.Contains(h.mcpCatalogs, catalog.Spec.URL) {
+			// Avoid duplicates.
+			continue
+		}
+
+		entries, err := h.readMCPCatalog(catalog.Spec.URL)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to read MCP catalog %s: %w", catalog.Spec.URL, err))
+			continue
+		}
+
+		toAdd = append(toAdd, entries...)
+
+		catalog.Status.LastSyncTime = metav1.Now()
+		if err := c.Status().Update(ctx, &catalog); err != nil {
+			errs = append(errs, fmt.Errorf("failed to update catalog %s: %w", catalog.Name, err))
+		}
 	}
 
 	if len(errs) > 0 {
@@ -516,7 +545,12 @@ type mcpServerConfig struct {
 }
 
 func (h *Handler) PollRegistriesAndCatalogs(ctx context.Context, c client.Client) {
-	if len(h.registryURLs) == 0 && len(h.mcpCatalogs) == 0 {
+	var catalogList v1.CatalogList
+	if err := c.List(ctx, &catalogList); err != nil {
+		log.Errorf("Failed to list catalogs: %v", err)
+	}
+
+	if len(h.registryURLs) == 0 && len(h.mcpCatalogs) == 0 && len(catalogList.Items) == 0 {
 		return
 	}
 
@@ -526,7 +560,7 @@ func (h *Handler) PollRegistriesAndCatalogs(ctx context.Context, c client.Client
 		if err := h.readFromRegistry(ctx, c); err != nil {
 			log.Errorf("Failed to read from registries: %v", err)
 		}
-		if err := h.readFromMCPCatalogs(ctx, c); err != nil {
+		if err := h.readFromMCPCatalogs(ctx, c, catalogList.Items); err != nil {
 			log.Errorf("Failed to read from MCP catalogs: %v", err)
 		}
 
@@ -918,4 +952,19 @@ func (h *Handler) CleanupModelProvider(req router.Request, _ router.Response) er
 
 func modelName(modelProviderName, modelName string) string {
 	return name.SafeConcatName(system.ModelPrefix, modelProviderName, fmt.Sprintf("%x", sha256.Sum256([]byte(modelName))))
+}
+
+func (h *Handler) ForceRefreshMCPCatalogs(ctx api.Context) error {
+	var catalogList v1.CatalogList
+	if err := ctx.Storage.List(ctx.Context(), &catalogList); err != nil {
+		return fmt.Errorf("failed to list catalogs: %w", err)
+	}
+
+	go func() {
+		if err := h.readFromMCPCatalogs(context.Background(), ctx.Storage, catalogList.Items); err != nil {
+			log.Errorf("Failed to read MCP catalogs: %v", err)
+		}
+	}()
+
+	return nil
 }

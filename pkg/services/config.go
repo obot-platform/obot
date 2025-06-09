@@ -76,7 +76,7 @@ type Config struct {
 	DevUIPort                  int      `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
 	UserUIPort                 int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
 	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
-	ToolRegistries             []string `usage:"The remote tool references to the set of tool registries to use" default:"github.com/obot-platform/tools" split:"true"`
+	ToolRegistries             []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools" split:"true"`
 	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
 	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4.1-mini"`
 	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
