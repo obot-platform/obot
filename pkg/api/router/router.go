@@ -15,6 +15,9 @@ import (
 func Router(services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
 
+	// This is a controller handler, but we need to pass it to the catalog handler.
+	toolRefHandler := toolreference.New(services.GPTClient, services.ProviderDispatcher, services.ToolRegistryURLs, services.SupportDocker, services.MCPCatalog, services.AllowedMCPDockerImageRepos)
+
 	agents := handlers.NewAgentHandler(services.ProviderDispatcher, services.GPTClient, services.Invoker, services.ServerURL)
 	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.Invoker, services.Events, services.GPTClient, services.Router.Backend())
 	tools := handlers.NewToolHandler(services.GPTClient, services.Invoker)
@@ -26,6 +29,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
+	catalogs := handlers.NewCatalogHandler(toolRefHandler)
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
 	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher, services.PostgresDSN)
@@ -47,9 +51,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	slackHandler := handlers.NewSlackHandler(services.GPTClient)
 	mcp := handlers.NewMCPHandler(services.GPTClient, services.MCPLoader)
 	projectInvitations := handlers.NewProjectInvitationHandler()
-
-	// This is a controller handler, but we will use it here when we need to check for new catalogs.
-	toolRefHandler := toolreference.New(services.GPTClient, services.ProviderDispatcher, services.ToolRegistryURLs, services.SupportDocker, services.MCPCatalog, services.AllowedMCPDockerImageRepos)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -395,7 +396,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/mcp/catalog/{mcp_server_id}", mcp.GetCatalogEntry)
 
 	// MCP Remote Catalogs
-	mux.HandleFunc("POST /api/mcp/remote-catalogs/force-refresh", toolRefHandler.ForceRefreshMCPCatalogs)
+	mux.HandleFunc("GET /api/catalogs", catalogs.List)
+	mux.HandleFunc("GET /api/catalogs/{catalog_id}", catalogs.Get)
+	mux.HandleFunc("POST /api/catalogs", catalogs.Create)
+	mux.HandleFunc("DELETE /api/catalogs/{catalog_id}", catalogs.Delete)
+	// mux.HandleFunc("POST /api/mcp/remote-catalogs/force-refresh", toolRefHandler.ForceRefreshMCPCatalogs)
 
 	// MCP Servers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)

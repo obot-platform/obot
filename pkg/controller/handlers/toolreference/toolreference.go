@@ -26,7 +26,6 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
-	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/controller/creds"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -954,14 +953,14 @@ func modelName(modelProviderName, modelName string) string {
 	return name.SafeConcatName(system.ModelPrefix, modelProviderName, fmt.Sprintf("%x", sha256.Sum256([]byte(modelName))))
 }
 
-func (h *Handler) ForceRefreshMCPCatalogs(ctx api.Context) error {
+func (h *Handler) ForceRefreshMCPCatalogs(ctx context.Context, c client.Client) error {
 	var catalogList v1.CatalogList
-	if err := ctx.Storage.List(ctx.Context(), &catalogList); err != nil {
+	if err := c.List(ctx, &catalogList); err != nil {
 		return fmt.Errorf("failed to list catalogs: %w", err)
 	}
 
 	go func() {
-		if err := h.readFromMCPCatalogs(context.Background(), ctx.Storage, catalogList.Items); err != nil {
+		if err := h.readFromMCPCatalogs(context.Background(), c, catalogList.Items); err != nil {
 			log.Errorf("Failed to read MCP catalogs: %v", err)
 		}
 	}()

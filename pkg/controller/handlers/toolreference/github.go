@@ -52,8 +52,10 @@ func readGitHubCatalog(catalogURL string) ([]catalogEntryInfo, error) {
 	rawBaseURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s", org, repo, branch)
 	catalogPatterns := []string{"*.json"} // Default to all JSON files
 
+	var usingObotCatalogsFile bool
 	resp, err := http.Get(rawBaseURL + "/.obotcatalogs")
 	if err == nil && resp.StatusCode == http.StatusOK {
+		usingObotCatalogsFile = true
 		defer resp.Body.Close()
 		content, err := io.ReadAll(resp.Body)
 		if err == nil {
@@ -131,7 +133,11 @@ func readGitHubCatalog(catalogURL string) ([]catalogEntryInfo, error) {
 			// If that fails, try single object
 			var entry catalogEntryInfo
 			if err := json.Unmarshal(content, &entry); err != nil {
-				log.Warnf("Failed to parse %s as catalog entry: %v", item.Path, err)
+				if usingObotCatalogsFile {
+					log.Warnf("Failed to parse %s as catalog entry: %v", item.Path, err)
+				} else {
+					log.Debugf("Failed to parse %s as catalog entry: %v", item.Path, err)
+				}
 				continue
 			}
 			fileEntries = []catalogEntryInfo{entry}
