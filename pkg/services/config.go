@@ -76,7 +76,7 @@ type Config struct {
 	DevUIPort                  int      `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
 	UserUIPort                 int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
 	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
-	ToolRegistries             []string `usage:"The remote tool references to the set of tool registries to use" default:"github.com/obot-platform/tools" split:"true"`
+	ToolRegistries             []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools" split:"true"`
 	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
 	HelperModel                string   `usage:"The model used to generate names and descriptions" default:"gpt-4.1-mini"`
 	EmailServerName            string   `usage:"The name of the email server to display for email receivers"`
@@ -93,7 +93,7 @@ type Config struct {
 	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
 	StaticDir                  string   `usage:"The directory to serve static files from"`
 	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
-	MCPCatalogs                []string `usage:"Load MCP catalogs, these can be files, directories, or URLs" split:"true"`
+	DefaultMCPCatalogPath      string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
 	// Sendgrid webhook
 	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -131,6 +131,7 @@ type Services struct {
 	KnowledgeSetIngestionLimit int
 	SupportDocker              bool
 	AuthEnabled                bool
+	DefaultMCPCatalogPath      string
 	AgentsDir                  string
 	GeminiClient               *gemini.Client
 	Otel                       *Otel
@@ -141,7 +142,6 @@ type Services struct {
 	SendgridWebhookUsername string
 	SendgridWebhookPassword string
 
-	MCPCatalog                 []string
 	AllowedMCPDockerImageRepos []string
 
 	// Used for loading and running MCP servers with GPTScript.
@@ -376,6 +376,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
+	apply.AddValidOwnerChange("mcpcatalogentries", "catalog-default")
 
 	var postgresDSN string
 	if strings.HasPrefix(config.DSN, "postgres://") {
@@ -540,7 +541,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AuditLogger:                auditLogger,
 		PostgresDSN:                postgresDSN,
 		RetentionPolicy:            retentionPolicy,
-		MCPCatalog:                 config.MCPCatalogs,
+		DefaultMCPCatalogPath:      config.DefaultMCPCatalogPath,
 		AllowedMCPDockerImageRepos: config.AllowedMCPDockerImageRepos,
 		MCPLoader:                  mcpLoader,
 		MCPRunner:                  mcpRunner,

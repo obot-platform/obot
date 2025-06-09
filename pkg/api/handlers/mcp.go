@@ -15,6 +15,7 @@ import (
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/controller/handlers/usercatalogauthorization"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	"github.com/obot-platform/obot/pkg/render"
@@ -49,21 +50,57 @@ func (m *MCPHandler) GetCatalogEntry(req api.Context) error {
 		return err
 	}
 
+	// Authorization check.
+	if !req.UserIsAdmin() {
+		userCatalogAuthorizations, err := usercatalogauthorization.GetUserAuthorizationsForCatalog(req.Context(), req.Storage, req.User.GetUID(), entry.Spec.MCPCatalogName)
+		if err != nil {
+			return err
+		}
+
+		if len(userCatalogAuthorizations) == 0 {
+			return types.NewErrForbidden("user is not authorized to access this catalog entry")
+		}
+	}
+
 	return req.Write(convertMCPServerCatalogEntry(entry))
 }
 
-func (m *MCPHandler) ListCatalog(req api.Context) error {
+func (m *MCPHandler) ListEntriesForAllCatalogs(req api.Context) error {
 	var list v1.MCPServerCatalogEntryList
 	if err := req.List(&list); err != nil {
 		return err
 	}
 
-	items := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
-	for _, entry := range list.Items {
-		items = append(items, convertMCPServerCatalogEntry(entry))
+	if req.UserIsAdmin() {
+		items := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
+		for _, entry := range list.Items {
+			items = append(items, convertMCPServerCatalogEntry(entry))
+		}
+
+		return req.Write(types.MCPServerCatalogEntryList{Items: items})
 	}
 
-	return req.Write(types.MCPServerCatalogEntryList{Items: items})
+	userCatalogAuthorizations, err := usercatalogauthorization.GetAuthorizationsForUser(req.Context(), req.Storage, req.User.GetUID())
+	if err != nil {
+		return err
+	}
+
+	// TODO: would it be better to do a separate list for each catalog that the user is authorized for,
+	// rather than filtering out entries from the full list here?
+	authorizedCatalogs := map[string]struct{}{}
+	for _, authorization := range userCatalogAuthorizations {
+		authorizedCatalogs[authorization.Spec.MCPCatalogName] = struct{}{}
+	}
+
+	var entries []types.MCPServerCatalogEntry
+	for _, entry := range list.Items {
+		if _, ok := authorizedCatalogs[entry.Spec.MCPCatalogName]; ok || entry.Spec.MCPCatalogName == "" {
+			// (Entries without a catalog likely come from legacy gptscript tool bundles.)
+			entries = append(entries, convertMCPServerCatalogEntry(entry))
+		}
+	}
+
+	return req.Write(types.MCPServerCatalogEntryList{Items: entries})
 }
 
 func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
@@ -75,6 +112,7 @@ func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServe
 		CommandManifest:   entry.Spec.CommandManifest,
 		URLManifest:       entry.Spec.URLManifest,
 		ToolReferenceName: entry.Spec.ToolReferenceName,
+		Editable:          entry.Spec.Editable,
 	}
 }
 
@@ -483,7 +521,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		},
 		Spec: v1.MCPServerSpec{
 			Manifest:                  input.MCPServerManifest,
-			MCPServerCatalogEntryName: input.CatalogID,
+			MCPServerCatalogEntryName: input.CatalogEntryID,
 			ThreadName:                t.Name,
 			UserID:                    req.User.GetUID(),
 		},
@@ -492,9 +530,9 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
-	if input.CatalogID != "" {
+	if input.CatalogEntryID != "" {
 		var catalogEntry v1.MCPServerCatalogEntry
-		if err := req.Get(&catalogEntry, input.CatalogID); err != nil {
+		if err := req.Get(&catalogEntry, input.CatalogEntryID); err != nil {
 			return err
 		}
 
@@ -1094,6 +1132,6 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 		MissingRequiredHeaders: missingHeaders,
 		Configured:             len(missingEnvVars) == 0 && len(missingHeaders) == 0,
 		MCPServerManifest:      server.Spec.Manifest,
-		CatalogID:              server.Spec.MCPServerCatalogEntryName,
+		CatalogEntryID:         server.Spec.MCPServerCatalogEntryName,
 	}
 }

@@ -5,6 +5,7 @@ type MCPServerCatalogEntry struct {
 	CommandManifest   MCPServerCatalogEntryManifest `json:"commandManifest,omitzero"`
 	URLManifest       MCPServerCatalogEntryManifest `json:"urlManifest,omitzero"`
 	ToolReferenceName string                        `json:"toolReferenceName,omitzero"`
+	Editable          bool                          `json:"editable,omitempty"`
 }
 
 type MCPServerCatalogEntryManifest struct {
@@ -48,7 +49,7 @@ type MCPServer struct {
 	Configured             bool     `json:"configured"`
 	MissingRequiredEnvVars []string `json:"missingRequiredEnvVars,omitempty"`
 	MissingRequiredHeaders []string `json:"missingRequiredHeader,omitempty"`
-	CatalogID              string   `json:"catalogID"`
+	CatalogEntryID         string   `json:"catalogID"`
 }
 
 type MCPServerList List[MCPServer]

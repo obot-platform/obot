@@ -23,6 +23,7 @@ const (
 	AgentSyncAnnotation               = "obot.ai/agent-sync"
 	AuthProviderSyncAnnotation        = "obot.ai/auth-provider-sync"
 	FileScannerProviderSyncAnnotation = "obot.ai/file-scanner-provider-sync"
+	MCPCatalogSyncAnnotation          = "obot.ai/mcp-catalog-sync"
 )
 
 var (

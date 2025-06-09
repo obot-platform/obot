@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgeset"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesummary"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projectinvitation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
@@ -41,8 +42,6 @@ func (c *Controller) setupRoutes() error {
 		c.services.ProviderDispatcher,
 		c.services.ToolRegistryURLs,
 		c.services.SupportDocker,
-		c.services.MCPCatalog,
-		c.services.AllowedMCPDockerImageRepos,
 	)
 	workspace := workspace.New(c.services.GPTClient, c.services.WorkspaceProviderType)
 	knowledgeset := knowledgeset.New(c.services.Invoker)
@@ -61,6 +60,7 @@ func (c *Controller) setupRoutes() error {
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient)
 	discord := workflow.NewDiscordController(c.services.GPTClient)
 	taskHandler := task.NewHandler()
+	mcpCatalog := mcpcatalog.New(c.services.AllowedMCPDockerImageRepos, c.services.DefaultMCPCatalogPath, c.services.GatewayClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -210,12 +210,20 @@ func (c *Controller) setupRoutes() error {
 	// User Cleanup
 	root.Type(&v1.UserDelete{}).HandlerFunc(userCleanup.Cleanup)
 
+	// MCPCatalog
+	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.Sync)
+	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServers)
+	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.SetUpUserCatalogAuthorizations)
+
+	// MCPServerCatalogEntry
+	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
+
 	// MCPServer
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
 
-	// MCPServerCatalogEntry
-	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
+	// UserCatalogAuthorization
+	root.Type(&v1.UserCatalogAuthorization{}).HandlerFunc(cleanup.Cleanup)
 
 	// ProjectInvitations
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.SetRespondedTime)
@@ -224,5 +232,6 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(cleanup.Cleanup)
 
 	c.toolRefHandler = toolRef
+	c.mcpCatalogHandler = mcpCatalog
 	return nil
 }
