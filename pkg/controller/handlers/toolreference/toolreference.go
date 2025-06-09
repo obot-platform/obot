@@ -239,23 +239,32 @@ func (h *Handler) readMCPCatalog(catalog string) ([]client.Object, error) {
 	var entries []catalogEntryInfo
 
 	if strings.HasPrefix(catalog, "http://") || strings.HasPrefix(catalog, "https://") {
-		resp, err := http.Get(catalog)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
-		}
-		defer resp.Body.Close()
+		if isGitHubURL(catalog) {
+			var err error
+			entries, err = readGitHubCatalog(catalog)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read GitHub catalog %s: %w", catalog, err)
+			}
+		} else {
+			// If it wasn't a GitHub repo, treat it as a raw file.
+			resp, err := http.Get(catalog)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
+			}
+			defer resp.Body.Close()
 
-		contents, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
-		}
+			contents, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read catalog %s: %w", catalog, err)
+			}
 
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("unexpected status when reading catalog %s: %s", catalog, string(contents))
-		}
+			if resp.StatusCode != http.StatusOK {
+				return nil, fmt.Errorf("unexpected status when reading catalog %s: %s", catalog, string(contents))
+			}
 
-		if err = json.Unmarshal(contents, &entries); err != nil {
-			return nil, fmt.Errorf("failed to decode catalog %s: %w", catalog, err)
+			if err = json.Unmarshal(contents, &entries); err != nil {
+				return nil, fmt.Errorf("failed to decode catalog %s: %w", catalog, err)
+			}
 		}
 	} else {
 		fileInfo, err := os.Stat(catalog)
