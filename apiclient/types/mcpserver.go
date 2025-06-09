@@ -45,6 +45,7 @@ type MCPEnv struct {
 type MCPServer struct {
 	Metadata
 	MCPServerManifest
+	Local                  bool     `json:"local,omitempty"`
 	Configured             bool     `json:"configured"`
 	MissingRequiredEnvVars []string `json:"missingRequiredEnvVars,omitempty"`
 	MissingRequiredHeaders []string `json:"missingRequiredHeader,omitempty"`
