@@ -315,7 +315,7 @@ export interface ProjectMCPList {
 
 export interface ProjectMCP extends MCPServer {
 	id: string;
-	catalogID?: string;
+	catalogEntryID?: string;
 	configured?: boolean;
 	deleted?: boolean;
 }

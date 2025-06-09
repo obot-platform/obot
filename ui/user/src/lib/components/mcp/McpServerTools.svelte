@@ -246,7 +246,7 @@
 										class="button-link font-semibold text-blue-500 hover:text-blue-600"
 										onclick={() => {
 											const isLegacyBundleServer =
-												mcpServer.catalogID && toolBundleMap.get(mcpServer.catalogID);
+												mcpServer.catalogEntryID && toolBundleMap.get(mcpServer.catalogEntryID);
 											if (!isLegacyBundleServer) {
 												openEditProjectMcp(layout, mcpServer);
 											}

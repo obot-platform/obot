@@ -1000,12 +1000,12 @@ export async function updateMemory(
 }
 
 export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCP[]> {
-	const response = (await doGet('/mcp/catalog', opts)) as MCPList;
+	const response = (await doGet('/all-mcp-catalogs/entries', opts)) as MCPList;
 	return response.items;
 }
 
 export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MCP> {
-	return (await doGet(`/mcp/catalog/${id}`, opts)) as MCP;
+	return (await doGet(`/all-mcp-catalogs/entries/${id}`, opts)) as MCP;
 }
 
 export async function listProjectMCPs(
@@ -1024,12 +1024,12 @@ export async function createProjectMCP(
 	assistantID: string,
 	projectID: string,
 	mcpServerManifest?: MCPServer,
-	catalogID?: string,
+	catalogEntryID?: string,
 	opts?: { fetch?: Fetcher }
 ): Promise<ProjectMCP> {
 	return (await doPost(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers`,
-		catalogID ? { catalogID, ...(mcpServerManifest || {}) } : mcpServerManifest || {},
+		catalogEntryID ? { catalogEntryID, ...(mcpServerManifest || {}) } : mcpServerManifest || {},
 		opts
 	)) as ProjectMCP;
 }

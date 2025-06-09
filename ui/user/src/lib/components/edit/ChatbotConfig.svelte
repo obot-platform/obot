@@ -58,7 +58,7 @@
 	const letUserConfigure = 'Let the user configure';
 
 	const getBundleId = (server: ProjectMCP) =>
-		server.catalogID && toolBundleMap.get(server.catalogID) ? server.catalogID : null;
+		server.catalogEntryID && toolBundleMap.get(server.catalogEntryID) ? server.catalogEntryID : null;
 
 	const setShared = (serverId: string) => {
 		sharedConfigs = { ...sharedConfigs, [serverId]: true };
@@ -92,7 +92,7 @@
 
 			await Promise.all(
 				mcpServers.map(async (server) => {
-					if (server.catalogID) await checkToolCredentials(server);
+					if (server.catalogEntryID) await checkToolCredentials(server);
 					await checkSharedConfig(server.id);
 				})
 			);
@@ -119,7 +119,7 @@
 		try {
 			const credentials = await ChatService.listProjectCredentials(project.assistantID, project.id);
 			const toolCredential = credentials.items.find(
-				(cred) => cred.toolID === server.catalogID && cred.exists
+				(cred) => cred.toolID === server.catalogEntryID && cred.exists
 			);
 			if (toolCredential) setShared(server.id);
 		} catch (error) {
@@ -144,7 +144,7 @@
 		if (
 			option === letUserConfigure &&
 			(sharedConfigs[serverId] ||
-				(server.catalogID && selectedMcpConfig[serverId] === configureForEveryone))
+				(server.catalogEntryID && selectedMcpConfig[serverId] === configureForEveryone))
 		) {
 			serverToDeconfigure = serverId;
 			showDeconfigureConfirm = true;
@@ -163,11 +163,11 @@
 			const bundleId = getBundleId(server);
 			const isAuthTool = bundleId && isAuthRequiredBundle(bundleId);
 
-			if (isAuthTool && server.catalogID) {
+			if (isAuthTool && server.catalogEntryID) {
 				await ChatService.deleteProjectCredential(
 					project.assistantID,
 					project.id,
-					server.catalogID
+					server.catalogEntryID
 				);
 			} else {
 				await deconfigureSharedProjectMCP(project.assistantID, project.id, server.id);
@@ -335,7 +335,7 @@
 									</div>
 
 									<div class="relative flex items-center gap-2">
-										{#if (sharedConfigs[server.id] || server.catalogID) && selectedMcpConfig[server.id] === configureForEveryone}
+										{#if (sharedConfigs[server.id] || server.catalogEntryID) && selectedMcpConfig[server.id] === configureForEveryone}
 											<button
 												class="icon-button text-blue-500 hover:text-blue-700"
 												onclick={() => openConfigDialog(server)}

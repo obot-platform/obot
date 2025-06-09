@@ -59,8 +59,6 @@ var staticRules = map[string][]string{
 		"GET /api/shares",
 		"GET /api/templates",
 		"GET /api/tool-references",
-		"GET /api/mcp/catalog",
-		"GET /api/mcp/catalog/{id}",
 	},
 
 	AuthenticatedGroup: {
@@ -82,6 +80,10 @@ var staticRules = map[string][]string{
 		"GET /api/projectinvitations/{code}",
 		"POST /api/projectinvitations/{code}",
 		"DELETE /api/projectinvitations/{code}",
+
+		// Allow authenticated users to read entries from MCP catalogs
+		"GET /api/all-mcp-catalogs/entries",
+		"GET /api/all-mcp-catalogs/entries/{entry_id}",
 	},
 
 	MetricsGroup: {

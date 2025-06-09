@@ -31,6 +31,10 @@ func (in *MCPServer) Get(field string) (value string) {
 	switch field {
 	case "spec.threadName":
 		return in.Spec.ThreadName
+	case "spec.userID":
+		return in.Spec.UserID
+	case "spec.mcpServerCatalogEntryName":
+		return in.Spec.MCPServerCatalogEntryName
 	}
 	return ""
 }
@@ -38,6 +42,8 @@ func (in *MCPServer) Get(field string) (value string) {
 func (in *MCPServer) FieldNames() []string {
 	return []string{
 		"spec.threadName",
+		"spec.userID",
+		"spec.mcpServerCatalogEntryName",
 	}
 }
 
@@ -45,6 +51,7 @@ func (in *MCPServer) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: &Thread{}, Name: in.Spec.ThreadName},
 		{ObjType: &ToolReference{}, Name: in.Spec.ToolReferenceName},
+		{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName},
 	}
 }
 

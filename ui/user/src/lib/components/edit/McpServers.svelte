@@ -65,12 +65,12 @@
 	}
 
 	let legacyBundleId = $derived(
-		mcpToShow?.catalogID && toolBundleMap.get(mcpToShow.catalogID) ? mcpToShow.catalogID : undefined
+		mcpToShow?.catalogEntryID && toolBundleMap.get(mcpToShow.catalogEntryID) ? mcpToShow.catalogEntryID : undefined
 	);
 
 	const selectedMcpIds = $derived(
 		projectMCPs.items.reduce<string[]>((acc, mcp) => {
-			if (mcp.catalogID !== undefined) acc.push(mcp.catalogID);
+			if (mcp.catalogEntryID !== undefined) acc.push(mcp.catalogEntryID);
 			return acc;
 		}, [])
 	);
@@ -98,8 +98,8 @@
 
 	async function hasLocalConfig(mcp: ProjectMCP): Promise<boolean> {
 		// Handle legacy tool bundles
-		if (mcp.catalogID && toolBundleMap.get(mcp.catalogID)) {
-			return localCredentials.some((cred) => cred.toolID === mcp.catalogID && cred.exists === true);
+		if (mcp.catalogEntryID && toolBundleMap.get(mcp.catalogEntryID)) {
+			return localCredentials.some((cred) => cred.toolID === mcp.catalogEntryID && cred.exists === true);
 		}
 
 		// Real MCP server, reveal any configured env headers
@@ -122,11 +122,11 @@
 	}
 
 	function shouldShowWarning(mcp: ProjectMCP) {
-		if (!mcp.catalogID || !toolBundleMap.get(mcp.catalogID)) {
+		if (!mcp.catalogEntryID || !toolBundleMap.get(mcp.catalogEntryID)) {
 			return mcp.configured !== true;
 		}
 
-		const localCredential = localCredentials.find((cred) => cred.toolID === mcp.catalogID);
+		const localCredential = localCredentials.find((cred) => cred.toolID === mcp.catalogEntryID);
 
 		if (localCredential === undefined) {
 			// When there's no entry in this list, it means the tool does not require credentials.
@@ -139,7 +139,7 @@
 		}
 
 		const hasInheritedCredential = inheritedCredentials.some(
-			(cred) => cred.toolID === mcp.catalogID && cred.exists === true
+			(cred) => cred.toolID === mcp.catalogEntryID && cred.exists === true
 		);
 
 		return !(hasLocalCredential || hasInheritedCredential);
@@ -149,11 +149,11 @@
 		if (!project?.assistantID || !project.id || !toDelete) return;
 
 		if (chatbot) {
-			if (toDelete.catalogID && toolBundleMap.get(toDelete.catalogID)) {
+			if (toDelete.catalogEntryID && toolBundleMap.get(toDelete.catalogEntryID)) {
 				await ChatService.deleteProjectLocalCredential(
 					project.assistantID,
 					project.id,
-					toDelete.catalogID
+					toDelete.catalogEntryID
 				);
 			} else if (toDelete.configured) {
 				await ChatService.deconfigureProjectMCP(project.assistantID, project.id, toDelete.id);
@@ -184,7 +184,7 @@
 						<button
 							class="flex grow items-center gap-1 py-2 pl-1.5"
 							onclick={() => {
-								const isLegacyBundleServer = mcp.catalogID && toolBundleMap.get(mcp.catalogID);
+								const isLegacyBundleServer = mcp.catalogEntryID && toolBundleMap.get(mcp.catalogEntryID);
 								if (isLegacyBundleServer) {
 									mcpToShow = mcp;
 									mcpConfigDialog?.open();

@@ -193,7 +193,7 @@
 		</div>
 	</div>
 
-	{#if !projectMcp?.catalogID && !chatbot}
+	{#if !projectMcp?.catalogEntryID && !chatbot}
 		<div
 			class="dark:bg-gray-980 mt-4 flex w-full flex-col gap-2 bg-gray-50 px-4 pt-4 pb-2 shadow-inner md:px-8"
 		>
@@ -226,7 +226,7 @@
 
 	<div
 		class="dark:bg-gray-980 relative flex flex-col gap-4 bg-gray-50 px-4 pb-4 md:px-8"
-		class:pt-4={projectMcp?.catalogID}
+		class:pt-4={projectMcp?.catalogEntryID}
 	>
 		<div
 			class="dark:bg-surface2 dark:border-surface3 flex w-full flex-col gap-4 self-center rounded-lg bg-white px-4 py-8 shadow-sm md:max-w-[900px] md:px-8 dark:border"

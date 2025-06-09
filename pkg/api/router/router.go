@@ -25,6 +25,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
+	mcpCatalogs := handlers.NewMCPCatalogHandler(services.AllowedMCPDockerImageRepos)
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
 	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher, services.PostgresDSN)
@@ -377,9 +378,21 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Slack event receiver
 	mux.HandleFunc("POST /api/slack/events", slackEventHandler.HandleEvent)
 
-	// MCP Catalog
-	mux.HandleFunc("GET /api/mcp/catalog", mcp.ListCatalog)
-	mux.HandleFunc("GET /api/mcp/catalog/{mcp_server_id}", mcp.GetCatalogEntry)
+	// MCP Catalog Entries
+	mux.HandleFunc("GET /api/all-mcp-catalogs/entries", mcp.ListEntriesForAllCatalogs)
+	mux.HandleFunc("GET /api/all-mcp-catalogs/entries/{entry_id}", mcp.GetCatalogEntry)
+
+	// MCP Catalogs (admin only)
+	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}", mcpCatalogs.Get)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/refresh", mcpCatalogs.Refresh)
+	mux.HandleFunc("POST /api/mcp-catalogs", mcpCatalogs.Create)
+	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}", mcpCatalogs.Update)
+	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}", mcpCatalogs.Delete)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries", mcpCatalogs.ListEntriesForCatalog)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries", mcpCatalogs.CreateEntry)
+	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.UpdateEntry)
+	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.DeleteEntry)
 
 	// MCP Servers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)

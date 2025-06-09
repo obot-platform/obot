@@ -47,8 +47,8 @@
 
 	const toolBundleMap = getToolBundleMap();
 	let legacyBundleId = $derived(
-		projectMcp?.catalogID && toolBundleMap.get(projectMcp.catalogID)
-			? projectMcp.catalogID
+		projectMcp?.catalogEntryID && toolBundleMap.get(projectMcp.catalogEntryID)
+			? projectMcp.catalogEntryID
 			: undefined
 	);
 
