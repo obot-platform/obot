@@ -7327,7 +7327,7 @@ func schema_storage_apis_obotobotai_v1_CatalogStatus(ref common.ReferenceCallbac
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"lastSynced": {
+					"lastSyncTime": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
