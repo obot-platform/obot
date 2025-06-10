@@ -400,7 +400,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/catalogs/{catalog_id}", catalogs.Get)
 	mux.HandleFunc("POST /api/catalogs", catalogs.Create)
 	mux.HandleFunc("DELETE /api/catalogs/{catalog_id}", catalogs.Delete)
-	// mux.HandleFunc("POST /api/mcp/remote-catalogs/force-refresh", toolRefHandler.ForceRefreshMCPCatalogs)
 
 	// MCP Servers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)
