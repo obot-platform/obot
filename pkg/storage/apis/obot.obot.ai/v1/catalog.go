@@ -32,7 +32,7 @@ func (in *Catalog) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
 		{"URL", "Spec.URL"},
-		{"Last Synced", "{{ago .Status.LastSynced}}"},
+		{"Last Synced", "{{ago .Status.LastSyncTime}}"},
 	}
 }
 
