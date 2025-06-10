@@ -557,6 +557,9 @@
 							variant="popover"
 							filterText={value}
 							onSelect={handleMcpPromptSelect}
+							onClickOutside={() => {
+								input?.clear();
+							}}
 						/>
 					{/snippet}
 				</Input>

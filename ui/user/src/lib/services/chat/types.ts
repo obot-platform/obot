@@ -321,6 +321,19 @@ export interface McpServerGeneratedPrompt {
 	}[];
 }
 
+export interface McpServerResource {
+	uri: string;
+	name: string;
+	mimeType: string;
+}
+
+export interface McpServerResourceContent {
+	uri: string;
+	mimeType: string;
+	text?: string;
+	blob?: string;
+}
+
 export interface MCPInfo {
 	server: MCPServer;
 	githubStars: number;

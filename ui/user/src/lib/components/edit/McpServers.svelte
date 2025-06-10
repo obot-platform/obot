@@ -4,10 +4,24 @@
 		ChatService,
 		type Project,
 		type ProjectMCP,
-		type ProjectCredential
+		type ProjectCredential,
+		type McpServerResource,
+		type McpServerResourceContent
 	} from '$lib/services';
 	import { type MCPServerInfo } from '$lib/services/chat/mcp';
-	import { PencilLine, Plus, Server, Trash2, Wrench, TriangleAlert } from 'lucide-svelte/icons';
+	import {
+		PencilLine,
+		Plus,
+		Server,
+		Trash2,
+		Wrench,
+		TriangleAlert,
+		HardDrive,
+		LoaderCircle,
+		ChevronsRight,
+		ChevronRight,
+		X
+	} from 'lucide-svelte/icons';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -19,7 +33,8 @@
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
-	import { errors } from '$lib/stores';
+	import { errors, responsive } from '$lib/stores';
+	import ProjectMcpResources from '../mcp/ProjectMcpResources.svelte';
 
 	interface Props {
 		project: Project;
@@ -35,10 +50,14 @@
 
 	let mcpConfigDialog = $state<ReturnType<typeof McpInfoConfig>>();
 	let mcpSetupWizard = $state<ReturnType<typeof McpSetupWizard>>();
+	let resourcesDialog = $state<ReturnType<typeof ProjectMcpResources>>();
 
 	const projectMCPs = getProjectMCPs();
 	const toolBundleMap = getToolBundleMap();
 	const layout = getLayout();
+
+	let resources = $state<Record<string, McpServerResource[]>>({});
+	let mcpResourceToShow = $state<ProjectMCP>();
 
 	// Refresh MCP list whenever sidebar config changes (and we're not currently editing an MCP)
 	$effect(() => {
@@ -165,6 +184,21 @@
 		await refreshMcpList();
 		toDelete = undefined;
 	}
+
+	async function loadResources(mcp: ProjectMCP) {
+		if (!project?.assistantID || !project.id) return;
+
+		try {
+			const res = await ChatService.listProjectMcpServerResources(
+				project.assistantID,
+				project.id,
+				mcp.id
+			);
+			resources[mcp.id] = res;
+		} catch (error) {
+			resources[mcp.id] = [];
+		}
+	}
 </script>
 
 <CollapsePane
@@ -219,11 +253,29 @@
 						{#if !chatbot}
 							<DotDotDot
 								class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+								onClick={() => loadResources(mcp)}
 							>
 								<div class="default-dialog flex min-w-max flex-col p-2">
 									<button class="menu-button" onclick={() => openMCPServerTools(layout, mcp)}>
 										<Wrench class="size-4" /> Manage Tools
 									</button>
+									{#if resources[mcp.id]}
+										{#if resources[mcp.id].length > 0}
+											<button
+												class="menu-button"
+												onclick={() => {
+													mcpResourceToShow = mcp;
+													resourcesDialog?.open();
+												}}
+											>
+												<HardDrive class="size-4" /> View Resources
+											</button>
+										{/if}
+									{:else}
+										<button disabled class="menu-button opacity-50 hover:bg-transparent">
+											<LoaderCircle class="size-4 animate-spin" /> View Resources
+										</button>
+									{/if}
 									<button class="menu-button" onclick={() => (toDelete = mcp)}>
 										<Trash2 class="size-4" /> Delete
 									</button>
@@ -303,4 +355,11 @@
 	show={!!toDelete}
 	onsuccess={handleRemoveMcp}
 	oncancel={() => (toDelete = undefined)}
+/>
+
+<ProjectMcpResources
+	bind:this={resourcesDialog}
+	{project}
+	mcp={mcpResourceToShow}
+	resources={mcpResourceToShow ? (resources[mcpResourceToShow?.id] ?? []) : []}
 />

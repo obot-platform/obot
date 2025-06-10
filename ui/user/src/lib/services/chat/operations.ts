@@ -15,6 +15,8 @@ import {
 	type MCPServer,
 	type McpServerGeneratedPrompt,
 	type MCPServerPrompt,
+	type McpServerResource,
+	type McpServerResourceContent,
 	type MCPServerTool,
 	type Memory,
 	type MemoryList,
@@ -1232,11 +1234,26 @@ export async function listProjectMcpServerResources(
 	projectID: string,
 	projectMcpServerId: string
 ) {
-	const response = await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/resources`
-	);
-	console.log('listProjectMcpServerResources', response);
+	const response = (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/resources`,
+		{
+			dontLogErrors: true
+		}
+	)) as McpServerResource[];
 	return response;
+}
+
+export async function readProjectMcpServerResource(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string,
+	resourceUri: string
+) {
+	const encodedResourceUri = encodeURIComponent(resourceUri);
+	const response = (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/resources/${encodedResourceUri}`
+	)) as McpServerResourceContent[];
+	return response[0];
 }
 
 export async function listProjectMembers(

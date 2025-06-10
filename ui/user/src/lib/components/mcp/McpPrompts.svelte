@@ -7,11 +7,13 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { onMount } from 'svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
 	interface Props {
 		project: Project;
 		variant: 'button' | 'popover' | 'messages';
 		filterText?: string;
 		onSelect?: (prompt: MCPServerPrompt, mcp: ProjectMCP, params?: Record<string, string>) => void;
+		onClickOutside?: () => void;
 	}
 
 	type PromptSet = {
@@ -19,7 +21,7 @@
 		prompts: MCPServerPrompt[];
 	};
 
-	let { project, variant, filterText, onSelect }: Props = $props();
+	let { project, variant, filterText, onSelect, onClickOutside }: Props = $props();
 	let menu = $state<ReturnType<typeof Menu>>();
 	let ref = $state<HTMLDivElement>();
 	let loading = $state(false);
@@ -33,12 +35,19 @@
 
 	$effect(() => {
 		if (filterText && filterText.startsWith('/')) {
+			console.log('checkA');
 			ref?.classList.remove('hidden');
 			fetchPrompts();
 		} else {
 			ref?.classList.add('hidden');
 		}
 	});
+
+	function handleClickOutside() {
+		if (ref?.classList.contains('hidden')) return; // already hidden
+		ref?.classList.add('hidden');
+		onClickOutside?.();
+	}
 
 	function fetchPrompts() {
 		loading = true;
@@ -71,8 +80,16 @@
 		}
 	}
 
+	function handleCloseArgsDialog() {
+		selectedPrompt = undefined;
+		params = {};
+		argsDialog?.close();
+	}
+
 	onMount(() => {
-		fetchPrompts();
+		if (variant === 'messages') {
+			fetchPrompts();
+		}
 	});
 </script>
 
@@ -84,48 +101,66 @@
 		</div>
 	{:else}
 		{#each setsToUse as mcpPromptSet (mcpPromptSet.mcp.id)}
-			{#each mcpPromptSet.prompts as prompt (prompt.name)}
+			<div
+				class={twMerge(
+					'w-full text-xs font-semibold',
+					variant === 'messages' && 'flex items-center gap-2 pt-8 pb-4 first:pt-0',
+					variant !== 'messages' && 'border-0 px-2 py-2 first:pt-0'
+				)}
+			>
 				{#if variant === 'messages'}
-					<button
-						class="border-surface3 hover:bg-surface2 w-fit max-w-96 rounded-2xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300"
-						onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
-					>
-						<p class="mb-1 flex items-center gap-2">
+					<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-4 rounded-sm" />
+				{/if}
+				{mcpPromptSet.mcp.name}
+			</div>
+
+			{#if variant === 'messages'}
+				<div class="flex flex-wrap gap-4 px-5">
+					{#each mcpPromptSet.prompts as prompt (prompt.name)}
+						<button
+							class="border-surface3 hover:bg-surface2 w-fit max-w-full rounded-xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300 md:max-w-72"
+							onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
+						>
+							<p class="mb-1 flex items-center gap-1.5 text-xs">
+								{prompt.name}
+							</p>
+							<span class="line-clamp-3 text-xs font-light text-gray-400 dark:text-gray-600">
+								{prompt.description}
+							</span>
+						</button>
+					{/each}
+				</div>
+			{:else}
+				<div class="dark:border-surface3 flex flex-col border-0 bg-gray-50 p-2 dark:bg-gray-950">
+					{#each mcpPromptSet.prompts as prompt (prompt.name)}
+						<button
+							class="menu-button flex h-full w-full items-center gap-2 border-0 text-left"
+							onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
+						>
 							<img
 								src={mcpPromptSet.mcp.icon}
 								alt={mcpPromptSet.mcp.name}
-								class="size-4 rounded-sm"
+								class="size-6 rounded-sm"
 							/>
-							{prompt.name}
-						</p>
-						<span class="line-clamp-3 text-xs text-gray-500">{prompt.description}</span>
-					</button>
-				{:else}
-					<button
-						class="menu-button flex h-full w-full items-center gap-2 text-left"
-						onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
-					>
-						<img
-							src={mcpPromptSet.mcp.icon}
-							alt={mcpPromptSet.mcp.name}
-							class="size-6 rounded-sm"
-						/>
-						<div class="flex flex-col">
-							<p class="text-xs font-semibold">
-								{prompt.name}
-								{#if variant === 'popover' && prompt.arguments}
-									{#each prompt.arguments as argument}
-										<span class="text-xs text-gray-500">
-											[{argument.name}]
-										</span>
-									{/each}
-								{/if}
-							</p>
-							<p class="text-xs text-gray-500">{prompt.description}</p>
-						</div>
-					</button>
-				{/if}
-			{/each}
+							<div class="flex flex-col">
+								<p class="text-xs font-light">
+									{prompt.name}
+									{#if variant === 'popover' && prompt.arguments}
+										{#each prompt.arguments as argument}
+											<span class="text-xs text-gray-500">
+												[{argument.name}]
+											</span>
+										{/each}
+									{/if}
+								</p>
+								<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+									{prompt.description}
+								</p>
+							</div>
+						</button>
+					{/each}
+				</div>
+			{/if}
 		{/each}
 	{/if}
 {/snippet}
@@ -138,8 +173,8 @@
 			classes={{
 				button: 'button-icon-primary',
 				dialog: responsive.isMobile
-					? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full p-2'
-					: 'p-2'
+					? 'rounded-none max-h-[calc(100vh-64px)] left-0 bottom-0 w-full py-2 px-0'
+					: 'py-2 px-0'
 			}}
 			onLoad={fetchPrompts}
 			slide={responsive.isMobile ? 'up' : undefined}
@@ -169,12 +204,13 @@
 		: mcpPromptSets}
 	<div
 		bind:this={ref}
-		class="default-dialog absolute top-0 left-0 hidden w-full -translate-y-full p-2"
+		class="default-dialog absolute top-0 left-0 w-full -translate-y-full py-2"
+		use:clickOutside={handleClickOutside}
 	>
 		{@render content(filteredByNameDescription)}
 	</div>
 {:else if variant === 'messages'}
-	<div class="flex flex-wrap justify-center gap-4 px-4">
+	<div>
 		{@render content()}
 	</div>
 {/if}
@@ -182,12 +218,13 @@
 <dialog
 	bind:this={argsDialog}
 	class={twMerge('p-4 md:w-md', responsive.isMobile && 'mobile-screen-dialog')}
+	use:clickOutside={handleCloseArgsDialog}
 >
 	<h3 class="default-dialog-title" class:default-dialog-mobile-title={responsive.isMobile}>
 		Prompt Arguments
 		<button
 			class:mobile-header-button={responsive.isMobile}
-			onclick={() => argsDialog?.close()}
+			onclick={handleCloseArgsDialog}
 			class="icon-button"
 		>
 			{#if responsive.isMobile}
