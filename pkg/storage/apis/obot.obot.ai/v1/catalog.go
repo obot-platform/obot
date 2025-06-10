@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"slices"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,6 +26,30 @@ type CatalogStatus struct {
 
 func (in *Catalog) NamespaceScoped() bool {
 	return false
+}
+
+func (in *Catalog) GetColumns() [][]string {
+	return [][]string{
+		{"Name", "Name"},
+		{"URL", "Spec.URL"},
+		{"Last Synced", "{{ago .Status.LastSynced}}"},
+	}
+}
+
+func (in *Catalog) Get(field string) string {
+	switch field {
+	case "spec.url":
+		return in.Spec.URL
+	}
+	return ""
+}
+
+func (in *Catalog) FieldNames() []string {
+	return []string{"spec.url"}
+}
+
+func (in *Catalog) Has(field string) bool {
+	return slices.Contains(in.FieldNames(), field)
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

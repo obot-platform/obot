@@ -6,11 +6,13 @@ import (
 	"io"
 	"net/url"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type CatalogHandler struct {
@@ -30,7 +32,19 @@ func (h *CatalogHandler) List(req api.Context) error {
 	if err := req.List(&list); err != nil {
 		return fmt.Errorf("failed to list catalogs: %w", err)
 	}
-	return req.Write(list)
+
+	catalogs := make([]types.Catalog, len(list.Items))
+	for i, item := range list.Items {
+		catalogs[i] = types.Catalog{
+			ID:           item.Name,
+			URL:          item.Spec.URL,
+			LastSyncTime: item.Status.LastSyncTime.Time,
+		}
+	}
+
+	return req.Write(types.CatalogList{
+		Items: catalogs,
+	})
 }
 
 // Get returns a specific catalog by ID.
@@ -39,7 +53,11 @@ func (h *CatalogHandler) Get(req api.Context) error {
 	if err := req.Get(&catalog, req.PathValue("catalog_id")); err != nil {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
-	return req.Write(catalog)
+	return req.Write(types.Catalog{
+		ID:           catalog.Name,
+		URL:          catalog.Spec.URL,
+		LastSyncTime: catalog.Status.LastSyncTime.Time,
+	})
 }
 
 // Create creates a new catalog.
@@ -57,6 +75,17 @@ func (h *CatalogHandler) Create(req api.Context) error {
 
 	if u.Scheme != "https" {
 		return fmt.Errorf("only HTTPS URLs are supported")
+	}
+
+	// Make sure another catalog with the same URL doesn't exist.
+	var existing v1.CatalogList
+	if err := req.List(&existing, kclient.MatchingFields{
+		"spec.url": u.String(),
+	}); err != nil {
+		return fmt.Errorf("failed to list catalogs: %w", err)
+	}
+	if len(existing.Items) > 0 {
+		return fmt.Errorf("a catalog with the same URL already exists")
 	}
 
 	catalog := &v1.Catalog{
@@ -78,7 +107,10 @@ func (h *CatalogHandler) Create(req api.Context) error {
 		}
 	}()
 
-	return req.Write(catalog)
+	return req.Write(types.Catalog{
+		ID:  catalog.Name,
+		URL: catalog.Spec.URL,
+	})
 }
 
 // Delete deletes a catalog.
