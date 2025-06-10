@@ -21,7 +21,7 @@ type CatalogSpec struct {
 }
 
 type CatalogStatus struct {
-	LastSyncTime metav1.Time `json:"lastSynced,omitempty"`
+	LastSyncTime metav1.Time `json:"lastSyncTime,omitempty"`
 }
 
 func (in *Catalog) NamespaceScoped() bool {
