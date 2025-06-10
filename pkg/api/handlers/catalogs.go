@@ -27,7 +27,7 @@ func NewCatalogHandler(toolRefHandler *toolreference.Handler) *CatalogHandler {
 }
 
 // List returns all catalogs.
-func (h *CatalogHandler) List(req api.Context) error {
+func (*CatalogHandler) List(req api.Context) error {
 	var list v1.CatalogList
 	if err := req.List(&list); err != nil {
 		return fmt.Errorf("failed to list catalogs: %w", err)
@@ -47,7 +47,7 @@ func (h *CatalogHandler) List(req api.Context) error {
 }
 
 // Get returns a specific catalog by ID.
-func (h *CatalogHandler) Get(req api.Context) error {
+func (*CatalogHandler) Get(req api.Context) error {
 	var catalog v1.Catalog
 	if err := req.Get(&catalog, req.PathValue("catalog_id")); err != nil {
 		return fmt.Errorf("failed to get catalog: %w", err)
