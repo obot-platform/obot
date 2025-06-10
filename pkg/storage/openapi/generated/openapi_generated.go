@@ -1159,12 +1159,6 @@ func schema_obot_platform_obot_apiclient_types_Catalog(ref common.ReferenceCallb
 							Format:  "",
 						},
 					},
-					"lastSyncTime": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "date-time",
-						},
-					},
 				},
 				Required: []string{"id", "url"},
 			},

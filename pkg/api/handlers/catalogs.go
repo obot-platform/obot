@@ -36,9 +36,8 @@ func (h *CatalogHandler) List(req api.Context) error {
 	catalogs := make([]types.Catalog, len(list.Items))
 	for i, item := range list.Items {
 		catalogs[i] = types.Catalog{
-			ID:           item.Name,
-			URL:          item.Spec.URL,
-			LastSyncTime: item.Status.LastSyncTime.Time,
+			ID:  item.Name,
+			URL: item.Spec.URL,
 		}
 	}
 
@@ -54,9 +53,8 @@ func (h *CatalogHandler) Get(req api.Context) error {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
 	return req.Write(types.Catalog{
-		ID:           catalog.Name,
-		URL:          catalog.Spec.URL,
-		LastSyncTime: catalog.Status.LastSyncTime.Time,
+		ID:  catalog.Name,
+		URL: catalog.Spec.URL,
 	})
 }
 
