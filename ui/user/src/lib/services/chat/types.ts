@@ -310,6 +310,17 @@ export interface MCPServerPrompt {
 	}[];
 }
 
+export interface McpServerGeneratedPrompt {
+	description: string;
+	messages: {
+		content: {
+			text: string;
+			type: string;
+		};
+		role: string;
+	}[];
+}
+
 export interface MCPInfo {
 	server: MCPServer;
 	githubStars: number;

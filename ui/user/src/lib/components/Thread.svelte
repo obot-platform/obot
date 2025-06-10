@@ -19,7 +19,7 @@
 	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import { twMerge } from 'tailwind-merge';
 	import { getProjectDefaultModel, getThread } from '$lib/services/chat/operations';
-	import type { Thread as ThreadType } from '$lib/services/chat/types';
+	import type { MCPServerPrompt, ProjectMCP, Thread as ThreadType } from '$lib/services/chat/types';
 	import ThreadModelSelector from '$lib/components/edit/ThreadModelSelector.svelte';
 	import McpPrompts from './mcp/McpPrompts.svelte';
 
@@ -41,7 +41,8 @@
 	let fadeBarWidth = $state<number>(0);
 	let loadingOlderMessages = $state(false);
 	let showLoadOlderButton = $state(false);
-	let showPromptOptions = $state(false);
+	let input = $state<ReturnType<typeof Input>>();
+	let promptPending = $state(false);
 
 	// Model selector state
 	let threadDetails = $state<ThreadType | null>(null);
@@ -327,10 +328,22 @@
 		}
 	}
 
-	function handleSlashCommand(value: string) {
-		if (value.startsWith('/')) {
-			showPromptOptions = true;
-		}
+	async function handleMcpPromptSelect(
+		prompt: MCPServerPrompt,
+		mcp: ProjectMCP,
+		params?: Record<string, string>
+	) {
+		promptPending = true;
+		const result = await ChatService.generateProjectMcpServerPrompt(
+			project.assistantID,
+			project.id,
+			mcp.id,
+			prompt.name,
+			params
+		);
+
+		input?.setValue(result.messages[0].content.text);
+		promptPending = false;
 	}
 </script>
 
@@ -457,6 +470,7 @@
 					{/each}
 				</div>
 			{/if}
+			<McpPrompts {project} variant="messages" onSelect={handleMcpPromptSelect} />
 
 			{#if showLoadOlderButton}
 				<div class="mb-4 flex justify-center">
@@ -498,8 +512,9 @@
 			<div class="w-full max-w-[1000px]">
 				<Input
 					id="thread-input"
+					bind:this={input}
 					readonly={messages.inProgress}
-					pending={thread?.pending}
+					pending={thread?.pending || promptPending}
 					onAbort={async () => {
 						await thread?.abort();
 					}}
@@ -509,12 +524,11 @@
 						scrollControls?.stickToBottom();
 						await thread?.invoke(i);
 					}}
-					onChange={handleSlashCommand}
 					bind:items={layout.items}
 				>
 					<div class="flex w-full items-center justify-between">
 						<div class="flex items-center">
-							<McpPrompts {project} variant="button" />
+							<McpPrompts {project} variant="button" onSelect={handleMcpPromptSelect} />
 							<Files
 								thread
 								{project}
@@ -538,7 +552,12 @@
 						{/if}
 					</div>
 					{#snippet inputPopover(value: string)}
-						<McpPrompts {project} variant="popover" filterText={value} />
+						<McpPrompts
+							{project}
+							variant="popover"
+							filterText={value}
+							onSelect={handleMcpPromptSelect}
+						/>
 					{/snippet}
 				</Input>
 				<div

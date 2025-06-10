@@ -13,6 +13,7 @@ import {
 	type MCP,
 	type MCPList,
 	type MCPServer,
+	type McpServerGeneratedPrompt,
 	type MCPServerPrompt,
 	type MCPServerTool,
 	type Memory,
@@ -1217,13 +1218,12 @@ export async function generateProjectMcpServerPrompt(
 	projectID: string,
 	projectMcpServerId: string,
 	promptName: string,
-	promptParams: Record<string, string>
+	promptParams?: Record<string, string>
 ) {
-	const response = await doPost(
+	const response = (await doPost(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/prompts/${promptName}`,
-		promptParams
-	);
-	console.log('generated prompt', response);
+		promptParams || {}
+	)) as McpServerGeneratedPrompt;
 	return response;
 }
 

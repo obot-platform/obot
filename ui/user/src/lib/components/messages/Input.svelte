@@ -91,6 +91,14 @@
 		await submit();
 	}
 
+	export function clear() {
+		value = '';
+	}
+
+	export function setValue(newValue: string) {
+		value = newValue;
+	}
+
 	onMount(() => {
 		focus();
 	});
