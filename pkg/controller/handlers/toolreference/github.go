@@ -48,11 +48,13 @@ func readGitHubCatalog(catalogURL string) ([]catalogEntryInfo, error) {
 		branch = parts[2]
 	}
 
-	// First try to get .obotcatalogs file
-	rawBaseURL := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s", org, repo, branch)
-	catalogPatterns := []string{"*.json"} // Default to all JSON files
+	var (
+		rawBaseURL            = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s", org, repo, branch)
+		catalogPatterns       = []string{"*.json"} // Default to all JSON files
+		usingObotCatalogsFile bool
+	)
 
-	var usingObotCatalogsFile bool
+	// First try to get .obotcatalogs file
 	resp, err := http.Get(rawBaseURL + "/.obotcatalogs")
 	if err == nil && resp.StatusCode == http.StatusOK {
 		usingObotCatalogsFile = true
