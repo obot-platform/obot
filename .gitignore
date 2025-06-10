@@ -52,3 +52,5 @@ http/
 
 # Ignore the catalog.json file downloaded from the MCP registry
 catalog.json
+
+privatekey.pem
