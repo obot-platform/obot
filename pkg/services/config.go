@@ -144,6 +144,8 @@ type Services struct {
 	MCPCatalog                 []string
 	AllowedMCPDockerImageRepos []string
 
+	MCPCatalogRefreshKick chan struct{}
+
 	// Used for loading and running MCP servers with GPTScript.
 	MCPRunner engine.MCPRunner
 	MCPLoader *mcp.SessionManager
@@ -542,6 +544,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		RetentionPolicy:            retentionPolicy,
 		MCPCatalog:                 config.MCPCatalogs,
 		AllowedMCPDockerImageRepos: config.AllowedMCPDockerImageRepos,
+		MCPCatalogRefreshKick:      make(chan struct{}),
 		MCPLoader:                  mcpLoader,
 		MCPRunner:                  mcpRunner,
 	}, nil

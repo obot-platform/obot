@@ -5,7 +5,6 @@ import (
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/handlers/sendgrid"
-	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/ui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -14,9 +13,6 @@ import (
 
 func Router(services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
-
-	// This is a controller handler, but we need to pass it to the catalog handler.
-	toolRefHandler := toolreference.New(services.GPTClient, services.ProviderDispatcher, services.ToolRegistryURLs, services.SupportDocker, services.MCPCatalog, services.AllowedMCPDockerImageRepos)
 
 	agents := handlers.NewAgentHandler(services.ProviderDispatcher, services.GPTClient, services.Invoker, services.ServerURL)
 	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.Invoker, services.Events, services.GPTClient, services.Router.Backend())
@@ -29,7 +25,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
-	catalogs := handlers.NewCatalogHandler(toolRefHandler)
+	catalogs := handlers.NewCatalogHandler(services.MCPCatalogRefreshKick)
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
 	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher, services.PostgresDSN)
@@ -396,10 +392,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/mcp/catalog/{mcp_server_id}", mcp.GetCatalogEntry)
 
 	// MCP Remote Catalogs
-	mux.HandleFunc("GET /api/catalogs", catalogs.List)
-	mux.HandleFunc("GET /api/catalogs/{catalog_id}", catalogs.Get)
-	mux.HandleFunc("POST /api/catalogs", catalogs.Create)
-	mux.HandleFunc("DELETE /api/catalogs/{catalog_id}", catalogs.Delete)
+	mux.HandleFunc("GET /api/mcp-catalogs", catalogs.List)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}", catalogs.Get)
+	mux.HandleFunc("POST /api/mcp-catalogs", catalogs.Create)
+	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}", catalogs.Delete)
 
 	// MCP Servers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)

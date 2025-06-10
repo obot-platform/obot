@@ -1,14 +1,12 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net/url"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,13 +14,12 @@ import (
 )
 
 type CatalogHandler struct {
-	// toolRefHandler is used to force refresh the catalogs.
-	toolRefHandler *toolreference.Handler
+	catalogRefreshKick chan struct{}
 }
 
-func NewCatalogHandler(toolRefHandler *toolreference.Handler) *CatalogHandler {
+func NewCatalogHandler(catalogRefreshKick chan struct{}) *CatalogHandler {
 	return &CatalogHandler{
-		toolRefHandler: toolRefHandler,
+		catalogRefreshKick: catalogRefreshKick,
 	}
 }
 
@@ -99,11 +96,11 @@ func (h *CatalogHandler) Create(req api.Context) error {
 		return fmt.Errorf("failed to create catalog: %w", err)
 	}
 
-	go func() {
-		if err := h.toolRefHandler.ForceRefreshMCPCatalogs(context.Background(), req.Storage); err != nil {
-			log.Errorf("Failed to force refresh MCP catalogs: %v", err)
-		}
-	}()
+	// Kick off a catalog refresh.
+	select {
+	case h.catalogRefreshKick <- struct{}{}:
+	default:
+	}
 
 	return req.Write(types.Catalog{
 		ID:  catalog.Name,
@@ -122,11 +119,11 @@ func (h *CatalogHandler) Delete(req api.Context) error {
 		return fmt.Errorf("failed to delete catalog: %w", err)
 	}
 
-	go func() {
-		if err := h.toolRefHandler.ForceRefreshMCPCatalogs(context.Background(), req.Storage); err != nil {
-			log.Errorf("Failed to force refresh MCP catalogs: %v", err)
-		}
-	}()
+	// Kick off a catalog refresh.
+	select {
+	case h.catalogRefreshKick <- struct{}{}:
+	default:
+	}
 
 	return nil
 }

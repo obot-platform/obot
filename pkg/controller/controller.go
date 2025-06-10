@@ -32,7 +32,7 @@ func New(services *services.Services) (*Controller, error) {
 		return nil, err
 	}
 
-	services.Router.PosStart(c.PostStart)
+	services.Router.PosStart(c.PostStart(services.MCPCatalogRefreshKick))
 
 	return c, nil
 }
@@ -44,18 +44,20 @@ func (c *Controller) PreStart(ctx context.Context) error {
 	return nil
 }
 
-func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
-	go c.toolRefHandler.PollRegistriesAndCatalogs(ctx, client)
-	var err error
-	for range 3 {
-		err = c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client)
-		if err == nil {
-			break
+func (c *Controller) PostStart(kick chan struct{}) func(ctx context.Context, client kclient.Client) {
+	return func(ctx context.Context, client kclient.Client) {
+		go c.toolRefHandler.PollRegistriesAndCatalogs(ctx, client, kick)
+		var err error
+		for range 3 {
+			err = c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client)
+			if err == nil {
+				break
+			}
+			time.Sleep(500 * time.Millisecond) // wait a bit before retrying
 		}
-		time.Sleep(500 * time.Millisecond) // wait a bit before retrying
-	}
-	if err != nil {
-		panic(fmt.Errorf("failed to ensure openai env credential and defaults: %w", err))
+		if err != nil {
+			panic(fmt.Errorf("failed to ensure openai env credential and defaults: %w", err))
+		}
 	}
 }
 

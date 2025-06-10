@@ -6,9 +6,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 )
+
+var githubToken = os.Getenv("GITHUB_API_TOKEN")
 
 func isGitHubURL(catalogURL string) bool {
 	u, err := url.Parse(catalogURL)
@@ -16,14 +19,14 @@ func isGitHubURL(catalogURL string) bool {
 }
 
 func readGitHubCatalog(catalogURL string) ([]catalogEntryInfo, error) {
-	// Normalize the URL to ensure HTTPS
-	if !strings.HasPrefix(catalogURL, "http://") && !strings.HasPrefix(catalogURL, "https://") {
-		catalogURL = "https://" + catalogURL
-	}
-
-	// Validate protocol is HTTPS
+	// Make sure we don't use plain HTTP
 	if strings.HasPrefix(catalogURL, "http://") {
 		return nil, fmt.Errorf("only HTTPS is supported for GitHub catalogs")
+	}
+
+	// Normalize the URL to ensure HTTPS
+	if !strings.HasPrefix(catalogURL, "https://") {
+		catalogURL = "https://" + catalogURL
 	}
 
 	// Parse URL to ensure it's valid
@@ -55,7 +58,15 @@ func readGitHubCatalog(catalogURL string) ([]catalogEntryInfo, error) {
 	)
 
 	// First try to get .obotcatalogs file
-	resp, err := http.Get(rawBaseURL + "/.obotcatalogs")
+	req, err := http.NewRequest(http.MethodGet, rawBaseURL+"/.obotcatalogs", nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	if githubToken != "" {
+		req.Header.Set("Authorization", "Bearer "+githubToken)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err == nil && resp.StatusCode == http.StatusOK {
 		usingObotCatalogsFile = true
 		defer resp.Body.Close()
@@ -63,7 +74,7 @@ func readGitHubCatalog(catalogURL string) ([]catalogEntryInfo, error) {
 		if err == nil {
 			// Split content by newlines and filter empty lines
 			var patterns []string
-			for _, line := range strings.Split(string(content), "\n") {
+			for line := range strings.SplitSeq(string(content), "\n") {
 				line = strings.TrimSpace(line)
 				if line != "" && !strings.HasPrefix(line, "#") {
 					patterns = append(patterns, line)
@@ -77,7 +88,15 @@ func readGitHubCatalog(catalogURL string) ([]catalogEntryInfo, error) {
 
 	// Get repository file listing using GitHub API
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s/git/trees/%s?recursive=1", org, repo, branch)
-	resp, err = http.Get(apiURL)
+	req, err = http.NewRequest(http.MethodGet, apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	if githubToken != "" {
+		req.Header.Set("Authorization", "Bearer "+githubToken)
+	}
+
+	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list repository contents: %w", err)
 	}
@@ -116,12 +135,20 @@ func readGitHubCatalog(catalogURL string) ([]catalogEntryInfo, error) {
 		}
 
 		// Get file contents
-		resp, err := http.Get(rawBaseURL + "/" + item.Path)
+		req, err := http.NewRequest(http.MethodGet, rawBaseURL+"/"+item.Path, nil)
 		if err != nil {
 			log.Warnf("Failed to get contents of %s: %v", item.Path, err)
 			continue
 		}
+		if githubToken != "" {
+			req.Header.Set("Authorization", "Bearer "+githubToken)
+		}
 
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			log.Warnf("Failed to get contents of %s: %v", item.Path, err)
+			continue
+		}
 		content, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
