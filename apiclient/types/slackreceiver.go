@@ -6,6 +6,7 @@ type SlackReceiver struct {
 
 	ClientSecret  string `json:"clientSecret,omitempty"`
 	SigningSecret string `json:"signingSecret,omitempty"`
+	AppToken      string `json:"appToken,omitempty"`
 }
 
 // SlackReceiverManifest defines the configuration for a Slack receiver
