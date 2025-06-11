@@ -409,7 +409,7 @@
 				users.
 			</p>
 
-			<div class="max-h-[60vh] overflow-y-auto">
+			<div class="max-h-[60vh] overflow-y-auto px-1">
 				{#if mcpConfig}
 					<div class="flex flex-col gap-4">
 						{#if mcpConfig.env && mcpConfig.env.length > 0}
