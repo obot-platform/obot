@@ -4694,6 +4694,12 @@ func schema_obot_platform_obot_apiclient_types_SlackReceiver(ref common.Referenc
 							Format: "",
 						},
 					},
+					"appToken": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "SlackReceiverManifest"},
 			},

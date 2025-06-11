@@ -61,7 +61,7 @@ func (c *Controller) setupRoutes() error {
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient)
 	discord := workflow.NewDiscordController(c.services.GPTClient)
 	taskHandler := task.NewHandler()
-
+	slackReceiverHandler := slackreceiver.NewHandler(c.services.GPTClient, c.services.StorageClient)
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
 	root.Type(&v1.Run{}).HandlerFunc(runs.DeleteFinished)
@@ -203,6 +203,8 @@ func (c *Controller) setupRoutes() error {
 	// SlackReceiver
 	root.Type(&v1.SlackReceiver{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.SlackReceiver{}).HandlerFunc(slackreceiver.CreateOAuthApp)
+	root.Type(&v1.SlackReceiver{}).HandlerFunc(slackReceiverHandler.SubscribeToSlackEvents)
+	root.Type(&v1.SlackReceiver{}).FinalizeFunc(v1.SlackReceiverFinalizer, slackReceiverHandler.UnsubscribeFromSlackEvents)
 
 	// SlackTrigger
 	root.Type(&v1.SlackTrigger{}).HandlerFunc(cleanup.Cleanup)

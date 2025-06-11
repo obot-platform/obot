@@ -37,6 +37,7 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sethvargo/go-limiter v1.0.0
+	github.com/slack-go/slack v0.17.1
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/gjson v1.18.0

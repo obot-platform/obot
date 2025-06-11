@@ -52,14 +52,14 @@ func (s *SlackHandler) Create(req api.Context) error {
 		return err
 	}
 
-	if err := req.GPTClient.CreateCredential(req.Context(), newSlackCred(thread.Name, input.ClientSecret, input.SigningSecret)); err != nil {
+	if err := req.GPTClient.CreateCredential(req.Context(), newSlackCred(thread.Name, input.ClientSecret, input.SigningSecret, input.AppToken)); err != nil {
 		return err
 	}
 
 	return req.WriteCreated(convertSlackReceiver(slackReceiver))
 }
 
-func newSlackCred(threadName, clientSecret, signingSecret string) gptscript.Credential {
+func newSlackCred(threadName, clientSecret, signingSecret, appToken string) gptscript.Credential {
 	return gptscript.Credential{
 		Context:  system.OAuthAppPrefix + threadName,
 		ToolName: string(types.OAuthAppTypeSlack),
@@ -67,6 +67,7 @@ func newSlackCred(threadName, clientSecret, signingSecret string) gptscript.Cred
 		Env: map[string]string{
 			"CLIENT_SECRET":  clientSecret,
 			"SIGNING_SECRET": signingSecret,
+			"APP_TOKEN":      appToken,
 		},
 	}
 }
@@ -105,7 +106,7 @@ func (s *SlackHandler) Update(req api.Context) error {
 	}
 
 	if input.ClientSecret != "" || input.SigningSecret != "" {
-		if err := req.GPTClient.CreateCredential(req.Context(), newSlackCred(slackReceiver.Spec.ThreadName, input.ClientSecret, input.SigningSecret)); err != nil {
+		if err := req.GPTClient.CreateCredential(req.Context(), newSlackCred(slackReceiver.Spec.ThreadName, input.ClientSecret, input.SigningSecret, input.AppToken)); err != nil {
 			return err
 		}
 	}
