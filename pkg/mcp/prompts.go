@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/nanobot-ai/nanobot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -19,7 +19,7 @@ func (sm *SessionManager) ListPrompts(ctx context.Context, mcpServer v1.MCPServe
 		return nil, fmt.Errorf("failed to create MCP client: %w", err)
 	}
 
-	resp, err := client.ListPrompts(ctx, mcp.ListPromptsRequest{})
+	resp, err := client.ListPrompts(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list MCP prompts: %w", err)
 	}
@@ -38,12 +38,7 @@ func (sm *SessionManager) GetPrompt(ctx context.Context, mcpServer v1.MCPServer,
 		return nil, "", fmt.Errorf("failed to create MCP client: %w", err)
 	}
 
-	resp, err := client.GetPrompt(ctx, mcp.GetPromptRequest{
-		Params: struct {
-			Name      string            `json:"name"`
-			Arguments map[string]string `json:"arguments,omitempty"`
-		}{Name: name, Arguments: args},
-	})
+	resp, err := client.GetPrompt(ctx, name, args)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get MCP prompt: %w", err)
 	}

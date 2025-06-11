@@ -153,7 +153,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 		if err != nil {
 			return nil, err
 		}
-		return sm.local.LoadTools(ctx, config, tool.Name)
+		return sm.local.LoadTools(ctx, config, key, tool.Name)
 	}
 
 	return nil, fmt.Errorf("no MCP server configuration found in tool instructions: %s", configData)

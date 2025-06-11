@@ -12,7 +12,7 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	gtypes "github.com/gptscript-ai/gptscript/pkg/types"
-	gmcp "github.com/mark3labs/mcp-go/mcp"
+	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -388,7 +388,7 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 	})
 }
 
-func (m *MCPHandler) serverForAction(req api.Context) (v1.MCPServer, mcp.ServerConfig, gmcp.ServerCapabilities, error) {
+func (m *MCPHandler) serverForAction(req api.Context) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
 	var (
 		server v1.MCPServer
 		id     = req.PathValue("mcp_server_id")
@@ -396,19 +396,17 @@ func (m *MCPHandler) serverForAction(req api.Context) (v1.MCPServer, mcp.ServerC
 
 	project, err := getProjectThread(req)
 	if err != nil {
-		return server, mcp.ServerConfig{}, gmcp.ServerCapabilities{}, err
+		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, err
 	}
 
 	if err = req.Get(&server, id); err != nil {
-		return server, mcp.ServerConfig{}, gmcp.ServerCapabilities{}, err
+		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, err
 	}
 
 	if server.Spec.ToolReferenceName != "" && server.Spec.Manifest.Command == "" && server.Spec.Manifest.URL == "" {
 		// Legacy tool bundles support tools.
-		return server, mcp.ServerConfig{}, gmcp.ServerCapabilities{
-			Tools: &struct {
-				ListChanged bool `json:"listChanged,omitempty"`
-			}{},
+		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{
+			Tools: &nmcp.ToolsServerCapability{},
 		}, nil
 	}
 
@@ -425,13 +423,13 @@ func (m *MCPHandler) serverForAction(req api.Context) (v1.MCPServer, mcp.ServerC
 
 	cred, err := m.gptscript.RevealCredential(req.Context(), credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return server, mcp.ServerConfig{}, gmcp.ServerCapabilities{}, fmt.Errorf("failed to find credential: %w", err)
+		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, fmt.Errorf("failed to find credential: %w", err)
 	}
 
 	serverConfig, missingConfig := mcp.ToServerConfig(server, project.Name, cred.Env)
 
 	if len(missingConfig) > 0 {
-		return server, mcp.ServerConfig{}, gmcp.ServerCapabilities{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
+		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
 	}
 
 	caps, err := m.mcpSessionManager.ServerCapabilities(req.Context(), server, serverConfig)
