@@ -5,8 +5,7 @@
 		type Project,
 		type ProjectMCP,
 		type ProjectCredential,
-		type McpServerResource,
-		type McpServerResourceContent
+		type McpServerResource
 	} from '$lib/services';
 	import { type MCPServerInfo } from '$lib/services/chat/mcp';
 	import {
@@ -17,10 +16,7 @@
 		Wrench,
 		TriangleAlert,
 		HardDrive,
-		LoaderCircle,
-		ChevronsRight,
-		ChevronRight,
-		X
+		LoaderCircle
 	} from 'lucide-svelte/icons';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
@@ -33,7 +29,7 @@
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
-	import { errors, responsive } from '$lib/stores';
+	import { errors } from '$lib/stores';
 	import ProjectMcpResources from '../mcp/ProjectMcpResources.svelte';
 
 	interface Props {
@@ -196,6 +192,12 @@
 			);
 			resources[mcp.id] = res;
 		} catch (error) {
+			// 424 means resources not supported
+			if (error instanceof Error && !error.message.includes('424')) {
+				console.error('Failed to load resources for MCP server:', mcp.id, error);
+				errors.append(error);
+			}
+
 			resources[mcp.id] = [];
 		}
 	}

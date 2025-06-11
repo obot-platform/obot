@@ -97,6 +97,7 @@
 				resource.uri
 			);
 		} catch (err) {
+			console.error('Failed to read resource from MCP server:', err);
 			errors.append('Failed to read resource from MCP server.');
 			return;
 		}

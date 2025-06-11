@@ -2,7 +2,7 @@
 	import { ChatService, type MCPServerPrompt, type Project, type ProjectMCP } from '$lib/services';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { ChevronRight, Plus, X } from 'lucide-svelte';
+	import { ChevronRight, LoaderCircle, Plus, X } from 'lucide-svelte';
 	import { responsive } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -95,7 +95,11 @@
 
 {#snippet content(filteredByNameDescription?: PromptSet[])}
 	{@const setsToUse = filteredByNameDescription ?? mcpPromptSets}
-	{#if setsToUse.length === 0 && variant !== 'messages'}
+	{#if loading}
+		<div class="flex h-full flex-col items-center justify-center">
+			<LoaderCircle class="size-4 animate-spin" />
+		</div>
+	{:else if setsToUse.length === 0 && variant !== 'messages'}
 		<div class="flex h-full flex-col items-center justify-center">
 			<p class="text-sm text-gray-500">No prompts found</p>
 		</div>
@@ -131,7 +135,9 @@
 					{/each}
 				</div>
 			{:else}
-				<div class="dark:border-surface3 flex flex-col border-0 bg-gray-50 p-2 dark:bg-gray-950">
+				<div
+					class="dark:border-surface3 flex flex-col border-0 bg-gray-50 p-2 shadow-inner dark:bg-gray-950"
+				>
 					{#each mcpPromptSet.prompts as prompt (prompt.name)}
 						<button
 							class="menu-button flex h-full w-full items-center gap-2 border-0 text-left"
