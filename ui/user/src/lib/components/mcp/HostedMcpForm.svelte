@@ -3,6 +3,7 @@
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
 	import { fade, slide } from 'svelte/transition';
 
 	interface Props {
@@ -137,12 +138,25 @@
 		<div class="flex w-full items-center gap-2">
 			<div class="flex grow flex-col gap-1">
 				{#if env.custom}
-					<input
-						class="ghost-input w-full py-0"
-						bind:value={env.key}
-						placeholder="Key (ex. API_KEY)"
-						use:focusOnAdd={i === envsToShow.length - 1}
-					/>
+					<div class="flex items-center gap-2">
+						<input
+							class="ghost-input w-full py-0"
+							bind:value={env.key}
+							placeholder="Key (ex. API_KEY)"
+							use:focusOnAdd={i === envsToShow.length - 1}
+						/>
+						{#if custom}
+							<Toggle
+								label="Required"
+								labelInline
+								checked={env.required}
+								onChange={(checked) => (env.required = checked)}
+								classes={{
+									label: 'text-xs font-light text-gray-600 dark:text-gray-400 whitespace-nowrap'
+								}}
+							/>
+						{/if}
+					</div>
 				{:else}
 					<label for={env.key} class="flex items-center gap-1 text-sm font-light">
 						{env.required ? `${env.name || env.key}*` : `${env.name || env.key} (optional)`}
