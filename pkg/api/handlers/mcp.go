@@ -96,44 +96,14 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		return nil
 	}
 
-	project, err := getProjectThread(req)
-	if err != nil {
-		return err
-	}
-
-	credCtxs := make([]string, 0, len(servers.Items))
-	for _, server := range servers.Items {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", project.Name, server.Name))
-		if project.IsSharedProject() {
-			// Add default credentials shared by the agent for this MCP server if available.
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
-		}
-	}
-
-	creds, err := m.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: credCtxs,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to list credentials: %w", err)
-	}
-
-	credMap := make(map[string]map[string]string, len(creds))
-	for _, cred := range creds {
-		if _, ok := credMap[cred.ToolName]; !ok {
-			c, err := m.gptscript.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
-			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-				return fmt.Errorf("failed to find credential: %w", err)
-			}
-			credMap[cred.ToolName] = c.Env
-		}
-	}
-
 	items := make([]types.MCPServer, 0, len(servers.Items))
 	for _, server := range servers.Items {
-		// Add extracted env vars to the server definition
-		addExtractedEnvVars(&server)
+		mcpServer, err := m.getServer(req, server)
+		if err != nil {
+			return err
+		}
 
-		items = append(items, convertMCPServer(server, credMap[server.Name]))
+		items = append(items, *mcpServer)
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -149,14 +119,76 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 		return err
 	}
 
+	mcpServer, err := m.getServer(req, server)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(mcpServer)
+}
+
+func (m *MCPHandler) getServer(req api.Context, server v1.MCPServer) (*types.MCPServer, error) {
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
 	project, err := getProjectThread(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	if toolName := server.Spec.ToolReferenceName; toolName != "" {
+		// This is an MCP server backed by a legacy GPTScript tool bundle
+		var toolRef v1.ToolReference
+		if err := req.Get(&toolRef, toolName); err != nil {
+			return nil, err
+		}
+
+		var (
+			configured = true
+			local      = false
+		)
+		if toolRef.Status.Tool != nil {
+			credCtxs := []string{
+				project.Name + "-local",
+			}
+
+			if project.IsSharedProject() {
+				// Add any default credentials shared by the Agent for for chatbots
+				credCtxs = append(credCtxs, server.Spec.ThreadName)
+			}
+
+			// Always add the Agent's credentials if present
+			if agentName := project.Spec.AgentName; agentName != "" {
+				// Note: This is a sanity check. The Agent name should always be non-empty for projects.
+				credCtxs = append(credCtxs, agentName)
+			}
+
+			for _, credName := range toolRef.Status.Tool.CredentialNames {
+				cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, credName)
+				if err != nil {
+					if !errors.As(err, &gptscript.ErrNotFound{}) {
+						return nil, fmt.Errorf("failed to find credential: %w", err)
+					}
+					configured = false
+					continue
+				}
+
+				if strings.HasSuffix(cred.Context, "-local") {
+					local = true
+				}
+			}
+		}
+
+		return &types.MCPServer{
+			Metadata:          MetadataFrom(&server),
+			Configured:        configured,
+			Local:             local,
+			MCPServerManifest: server.Spec.Manifest,
+			CatalogID:         server.Spec.MCPServerCatalogEntryName,
+		}, nil
+	}
+
+	// This is a "real" MCP server
 	credCtxs := []string{
 		fmt.Sprintf("%s-%s", project.Name, server.Name),
 	}
@@ -167,10 +199,11 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 
 	cred, err := m.gptscript.RevealCredential(req.Context(), credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return fmt.Errorf("failed to find credential: %w", err)
+		return nil, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(server, cred.Env))
+	mcpServer := convertMCPServer(server, cred)
+	return &mcpServer, nil
 }
 
 func (m *MCPHandler) DeleteServer(req api.Context) error {
@@ -204,7 +237,7 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(server, nil))
+	return req.Write(convertMCPServer(server, gptscript.Credential{}))
 }
 
 func (m *MCPHandler) GetTools(req api.Context) error {
@@ -520,7 +553,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	return req.WriteCreated(convertMCPServer(server, cred.Env))
+	return req.WriteCreated(convertMCPServer(server, cred))
 }
 
 func (m *MCPHandler) UpdateServer(req api.Context) error {
@@ -605,7 +638,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(existing, cred.Env))
+	return req.Write(convertMCPServer(existing, cred))
 }
 
 func (m *MCPHandler) ConfigureServer(req api.Context) error {
@@ -639,16 +672,17 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		}
 	}
 
-	if err = m.gptscript.CreateCredential(req.Context(), gptscript.Credential{
+	cred := gptscript.Credential{
 		Context:  credCtx,
 		ToolName: mcpServer.Name,
 		Type:     gptscript.CredentialTypeTool,
 		Env:      envVars,
-	}); err != nil {
+	}
+	if err = m.gptscript.CreateCredential(req.Context(), cred); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, envVars))
+	return req.Write(convertMCPServer(mcpServer, cred))
 }
 
 func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
@@ -709,16 +743,17 @@ func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
 		}
 	}
 
-	if err = m.gptscript.CreateCredential(req.Context(), gptscript.Credential{
+	cred = gptscript.Credential{
 		Context:  credCtx,
 		ToolName: mcpServer.Name,
 		Type:     gptscript.CredentialTypeTool,
 		Env:      envVars,
-	}); err != nil {
+	}
+	if err = m.gptscript.CreateCredential(req.Context(), cred); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, envVars))
+	return req.Write(convertMCPServer(mcpServer, cred))
 }
 
 func (m *MCPHandler) DeconfigureServer(req api.Context) error {
@@ -739,7 +774,7 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil))
+	return req.Write(convertMCPServer(mcpServer, gptscript.Credential{}))
 }
 
 func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
@@ -789,7 +824,7 @@ func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil))
+	return req.Write(convertMCPServer(mcpServer, gptscript.Credential{}))
 }
 
 func (m *MCPHandler) Reveal(req api.Context) error {
@@ -1065,7 +1100,7 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 }
 
-func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPServer {
+func convertMCPServer(server v1.MCPServer, cred gptscript.Credential) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
 
 	// Check for missing required env vars
@@ -1074,7 +1109,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 			continue
 		}
 
-		if _, ok := credEnv[env.Key]; !ok {
+		if _, ok := cred.Env[env.Key]; !ok {
 			missingEnvVars = append(missingEnvVars, env.Key)
 		}
 	}
@@ -1085,7 +1120,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 			continue
 		}
 
-		if _, ok := credEnv[header.Key]; !ok {
+		if _, ok := cred.Env[header.Key]; !ok {
 			missingHeaders = append(missingHeaders, header.Key)
 		}
 	}
@@ -1094,6 +1129,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 		Metadata:               MetadataFrom(&server),
 		MissingRequiredEnvVars: missingEnvVars,
 		MissingRequiredHeaders: missingHeaders,
+		Local:                  !strings.HasSuffix(cred.Context, "-shared"),
 		Configured:             len(missingEnvVars) == 0 && len(missingHeaders) == 0,
 		MCPServerManifest:      server.Spec.Manifest,
 		CatalogID:              server.Spec.MCPServerCatalogEntryName,

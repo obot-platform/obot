@@ -2427,6 +2427,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerManifest"),
 						},
 					},
+					"local": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"configured": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,

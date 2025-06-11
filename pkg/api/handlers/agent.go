@@ -929,12 +929,12 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 				return nil, err
 			}
 
-			credentails, _, err := creds.DetermineCredsAndCredNames(prg, prg.ToolSet[prg.EntryToolID], tool)
+			toolCredentials, _, err := creds.DetermineCredsAndCredNames(prg, prg.ToolSet[prg.EntryToolID], tool)
 			if err != nil {
 				return nil, err
 			}
 
-			credentials = append(credentials, credentails...)
+			credentials = append(credentials, toolCredentials...)
 		} else if err := c.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: tool}, &toolRef); err == nil {
 			if toolRef.Status.Tool == nil {
 				return nil, types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("tool %q is not ready", tool))
