@@ -14,12 +14,12 @@ import (
 )
 
 type CatalogHandler struct {
-	catalogRefreshKick chan struct{}
+	catalogRefresh func()
 }
 
-func NewCatalogHandler(catalogRefreshKick chan struct{}) *CatalogHandler {
+func NewCatalogHandler(catalogRefresh func()) *CatalogHandler {
 	return &CatalogHandler{
-		catalogRefreshKick: catalogRefreshKick,
+		catalogRefresh: catalogRefresh,
 	}
 }
 
@@ -96,11 +96,7 @@ func (h *CatalogHandler) Create(req api.Context) error {
 		return fmt.Errorf("failed to create catalog: %w", err)
 	}
 
-	// Kick off a catalog refresh.
-	select {
-	case h.catalogRefreshKick <- struct{}{}:
-	default:
-	}
+	h.catalogRefresh()
 
 	return req.Write(types.Catalog{
 		ID:  catalog.Name,
@@ -119,11 +115,7 @@ func (h *CatalogHandler) Delete(req api.Context) error {
 		return fmt.Errorf("failed to delete catalog: %w", err)
 	}
 
-	// Kick off a catalog refresh.
-	select {
-	case h.catalogRefreshKick <- struct{}{}:
-	default:
-	}
+	h.catalogRefresh()
 
 	return nil
 }

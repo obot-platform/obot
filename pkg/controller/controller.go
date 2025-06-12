@@ -16,15 +16,17 @@ import (
 )
 
 type Controller struct {
-	router         *router.Router
-	services       *services.Services
-	toolRefHandler *toolreference.Handler
+	router             *router.Router
+	services           *services.Services
+	toolRefHandler     *toolreference.Handler
+	catalogRefreshChan chan struct{}
 }
 
 func New(services *services.Services) (*Controller, error) {
 	c := &Controller{
-		router:   services.Router,
-		services: services,
+		router:             services.Router,
+		services:           services,
+		catalogRefreshChan: services.MCPCatalogRefreshChan,
 	}
 
 	err := c.setupRoutes()
@@ -32,7 +34,7 @@ func New(services *services.Services) (*Controller, error) {
 		return nil, err
 	}
 
-	services.Router.PosStart(c.PostStart(services.MCPCatalogRefreshKick))
+	services.Router.PosStart(c.PostStart)
 
 	return c, nil
 }
@@ -44,20 +46,18 @@ func (c *Controller) PreStart(ctx context.Context) error {
 	return nil
 }
 
-func (c *Controller) PostStart(kick chan struct{}) func(ctx context.Context, client kclient.Client) {
-	return func(ctx context.Context, client kclient.Client) {
-		go c.toolRefHandler.PollRegistriesAndCatalogs(ctx, client, kick)
-		var err error
-		for range 3 {
-			err = c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client)
-			if err == nil {
-				break
-			}
-			time.Sleep(500 * time.Millisecond) // wait a bit before retrying
+func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
+	go c.toolRefHandler.PollRegistriesAndCatalogs(ctx, client, c.catalogRefreshChan)
+	var err error
+	for range 3 {
+		err = c.toolRefHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client)
+		if err == nil {
+			break
 		}
-		if err != nil {
-			panic(fmt.Errorf("failed to ensure openai env credential and defaults: %w", err))
-		}
+		time.Sleep(500 * time.Millisecond) // wait a bit before retrying
+	}
+	if err != nil {
+		panic(fmt.Errorf("failed to ensure openai env credential and defaults: %w", err))
 	}
 }
 

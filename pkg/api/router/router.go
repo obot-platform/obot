@@ -25,7 +25,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
-	catalogs := handlers.NewCatalogHandler(services.MCPCatalogRefreshKick)
+	catalogs := handlers.NewCatalogHandler(services.MCPCatalogRefresh)
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
 	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher, services.PostgresDSN)

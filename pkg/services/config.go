@@ -144,7 +144,8 @@ type Services struct {
 	MCPCatalog                 []string
 	AllowedMCPDockerImageRepos []string
 
-	MCPCatalogRefreshKick chan struct{}
+	MCPCatalogRefreshChan chan struct{}
+	MCPCatalogRefresh     func()
 
 	// Used for loading and running MCP servers with GPTScript.
 	MCPRunner engine.MCPRunner
@@ -501,6 +502,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	retentionPolicy := time.Duration(config.RetentionPolicyHours) * time.Hour
 
+	refreshChan := make(chan struct{})
+	refresh := func() {
+		select {
+		case refreshChan <- struct{}{}:
+		default:
+		}
+	}
+
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		WorkspaceProviderType: config.WorkspaceProviderType,
@@ -544,7 +553,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		RetentionPolicy:            retentionPolicy,
 		MCPCatalog:                 config.MCPCatalogs,
 		AllowedMCPDockerImageRepos: config.AllowedMCPDockerImageRepos,
-		MCPCatalogRefreshKick:      make(chan struct{}),
+		MCPCatalogRefreshChan:      refreshChan,
+		MCPCatalogRefresh:          refresh,
 		MCPLoader:                  mcpLoader,
 		MCPRunner:                  mcpRunner,
 	}, nil
