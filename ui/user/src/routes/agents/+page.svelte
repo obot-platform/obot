@@ -276,7 +276,7 @@
 	oncancel={() => (toDelete = undefined)}
 />
 
-<AgentCatalog bind:this={agentCatalog} templates={data.templates} />
+<AgentCatalog bind:this={agentCatalog} />
 
 <McpSetupWizard
 	bind:this={mcpSetupWizard}

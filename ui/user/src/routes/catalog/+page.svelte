@@ -3,7 +3,6 @@
 	import type { PageProps } from './$types';
 	import { q, qIsSet } from '$lib/url';
 	import { ChevronLeft } from 'lucide-svelte';
-	import { sortByCreatedDate, sortTemplatesByFeaturedNameOrder } from '$lib/sort';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import AgentCatalog from '$lib/components/agents/AgentCatalog.svelte';
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
@@ -12,9 +11,6 @@
 	let { data }: PageProps = $props();
 
 	initToolReferences(data.tools);
-	const templates = $derived(
-		data.templates?.sort(sortByCreatedDate).sort(sortTemplatesByFeaturedNameOrder)
-	);
 
 	const type = q('type');
 	const preselected = q('id');
@@ -25,7 +21,7 @@
 	{#if type === 'agents'}
 		<main class="colors-background relative flex w-full flex-col items-center justify-center py-12">
 			<div class="flex w-full max-w-(--breakpoint-2xl) flex-col items-center justify-center">
-				<AgentCatalog inline {templates} {preselected} />
+				<AgentCatalog inline {preselected} />
 			</div>
 		</main>
 	{:else}

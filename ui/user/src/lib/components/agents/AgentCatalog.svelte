@@ -11,15 +11,16 @@
 	import { onMount } from 'svelte';
 
 	interface Props {
-		templates: ProjectTemplate[];
 		preselected?: string;
 		inline?: boolean;
 	}
 
-	let { templates, preselected, inline }: Props = $props();
+	let { preselected, inline }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 	let agentCopy: ReturnType<typeof AgentCopy> | undefined = $state();
 
+	let templates = $state<ProjectTemplate[]>([]);
+	let loadingTemplates = $state(true);
 	let mcps = $state<MCP[]>([]);
 	let loadingMcps = $state(true);
 
@@ -32,9 +33,9 @@
 
 	// Precompute sorted lists for each category
 	const categories = ['All', 'Featured', 'Community'];
-	const allTemplates = templates.sort(sortTemplatesByFeaturedNameOrder);
-	const featuredTemplates = allTemplates.filter((t) => t.featured === true);
-	const communityTemplates = allTemplates.filter((t) => !t.featured);
+	const allTemplates = $derived([...templates].sort(sortTemplatesByFeaturedNameOrder));
+	const featuredTemplates = $derived(allTemplates.filter((t) => t.featured === true));
+	const communityTemplates = $derived(allTemplates.filter((t) => !t.featured));
 
 	// Get the appropriate list based on selected category
 	const categoryTemplates = $derived(
@@ -61,14 +62,36 @@
 
 	let browseAllTitleElement: HTMLDivElement | undefined = $state<HTMLDivElement>();
 
+	async function loadTemplates() {
+		loadingTemplates = true;
+		try {
+			const result = await ChatService.listTemplates();
+			templates = result.items || [];
+		} catch (error) {
+			console.error('Failed to load templates:', error);
+		} finally {
+			loadingTemplates = false;
+		}
+	}
+
+	async function loadMCPs() {
+		loadingMcps = true;
+		try {
+			const results = await ChatService.listMCPs();
+			mcps = results;
+		} catch (error) {
+			console.error('Failed to load MCPs:', error);
+		} finally {
+			loadingMcps = false;
+		}
+	}
+
 	export function open() {
 		dialog?.showModal();
 
-		loadingMcps = true;
-		ChatService.listMCPs().then((results) => {
-			mcps = results;
-			loadingMcps = false;
-		});
+		// Refresh both templates and MCPs when opening
+		loadTemplates();
+		loadMCPs();
 	}
 
 	function nextPage() {
@@ -84,6 +107,11 @@
 	}
 
 	onMount(() => {
+		// Load data when component mounts
+		loadTemplates();
+		loadMCPs();
+
+		// Handle preselected template
 		const preselectedTemplate = preselected && templates.find((t) => t.id === preselected);
 		if (preselectedTemplate) {
 			const templateMcps =
@@ -175,7 +203,7 @@
 					{search ? 'Search Results' : `Browse ${selectedCategory}`}
 				</h4>
 			</div>
-			{#if loadingMcps}
+			{#if loadingTemplates || loadingMcps}
 				<div class="flex items-center justify-center px-4 pt-2">
 					<LoaderCircle class="size-6 animate-spin" />
 				</div>
