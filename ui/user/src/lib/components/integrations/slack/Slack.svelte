@@ -47,7 +47,8 @@
 		appId: '',
 		clientId: '',
 		clientSecret: '',
-		signingSecret: ''
+		signingSecret: '',
+		appToken: ''
 	});
 	let slackEnabled = $derived(project.capabilities?.onSlackMessage);
 	let taskDialog: HTMLDialogElement | undefined = $state();
@@ -111,6 +112,7 @@
 		config.clientId = '';
 		config.clientSecret = '';
 		config.signingSecret = '';
+		config.appToken = '';
 	}
 
 	async function configureSlackTool() {
@@ -427,28 +429,45 @@
 		</div>
 
 		<div>
-			<h4 class="font-medium">Step 3: Enable Events</h4>
-			<ul class="my-2 list-disc space-y-3 pl-4 text-sm font-light text-gray-500">
-				<li>
-					From the left navigation of your Slack App, navigate to the "Event Subscriptions" section.
-				</li>
-				<li class="text-sm text-gray-600">
-					Enable events and add the Request URL below:
-					<div class="copy-link">
-						<CopyButton text={eventUrl} />
-						{eventUrl}
-					</div>
-				</li>
+			<h4 class="font-medium">Step 4: Enable Events</h4>
+			<p class="text-sm text-gray-500">
+				You can subscribe to Slack events using one of two approaches:
+				<strong> Slack Events API</strong> or <strong>Socket Mode</strong>. Use the Events API if
+				you can expose a public endpoint to receive webhook events. If you're running in a secure or
+				internal environment where public URLs are not an option, Socket Mode is recommended.
+			</p>
 
-				<li class="mt-2 text-sm text-gray-600">
-					Next, expand the "Subscribe to bot events" section, click the "Add Bot User Event" button
-					and add the following event:
-					<div class="copy-pill">
-						<CopyButton text={'app_mention'} />
-						app_mention
-					</div>
+			<h5 class="mt-4 font-medium">Using Socket Mode</h5>
+			<ol class="my-2 list-decimal space-y-3 pl-4 text-sm font-light text-gray-500">
+				<li>
+					Go to your Slack App's settings page. Under the "Settings" section, select <strong
+						>Socket Mode</strong
+					>.
 				</li>
-			</ul>
+				<li>Click "Enable Socket Mode".</li>
+				<li>Create an App-Level Token and paste it below.</li>
+				{@render appTokenForm()}
+			</ol>
+
+			<h5 class="mt-4 font-medium">Using Events API</h5>
+			<li class="font-light text-gray-500">
+				From the left navigation, go to the "Event Subscriptions" section.
+			</li>
+			<li class="font-light text-gray-500">
+				Enable events and enter the following Request URL:
+				<div class="copy-link">
+					<CopyButton text={eventUrl} />
+					{eventUrl}
+				</div>
+			</li>
+			<li class="font-light text-gray-500">
+				Expand the "Subscribe to bot events" section and click "Add Bot User Event". Add the
+				following event:
+				<div class="copy-pill">
+					<CopyButton text="app_mention" />
+					app_mention
+				</div>
+			</li>
 		</div>
 	</div>
 {/snippet}
@@ -505,6 +524,21 @@
 			/>
 		</form>
 	</div>
+{/snippet}
+
+{#snippet appTokenForm()}
+	<form>
+		<label for="appTokenLabel" class="text-sm font-medium">App Token</label>
+		<input
+			type="password"
+			id="appToken"
+			class="text-input-filled mt-1 text-sm"
+			placeholder={slackEnabled ? '***********' : 'Enter App Token'}
+			autocomplete="off"
+			bind:value={config.appToken}
+			oninput={(e) => (config.appToken = e.currentTarget.value)}
+		/>
+	</form>
 {/snippet}
 
 <style lang="postcss">

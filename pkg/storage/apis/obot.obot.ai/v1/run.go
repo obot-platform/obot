@@ -17,6 +17,7 @@ const (
 	AgentFinalizer           = "obot.obot.ai/agent"
 	WorkflowFinalizer        = "obot.obot.ai/workflow"
 	MCPServerFinalizer       = "obot.obot.ai/mcp-server"
+	SlackReceiverFinalizer   = "obot.obot.ai/slack-receiver"
 
 	ModelProviderSyncAnnotation       = "obot.ai/model-provider-sync"
 	WorkflowSyncAnnotation            = "obot.ai/workflow-sync"
