@@ -47,7 +47,7 @@ func (h *ProjectShareHandler) CreateShare(req api.Context) error {
 
 	threadShare := v1.ThreadShare{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      h.getProjectShareName(thread.Spec.UserID, projectID),
+			Name:      system.GetProjectShareName(thread.Spec.UserID, projectID),
 			Namespace: req.Namespace(),
 		},
 		Spec: v1.ThreadShareSpec{
@@ -64,11 +64,6 @@ func (h *ProjectShareHandler) CreateShare(req api.Context) error {
 	return req.WriteCreated(convertProjectShare(threadShare))
 }
 
-func (h *ProjectShareHandler) getProjectShareName(userID string, projectID string) string {
-	return name.SafeHashConcatName(system.ThreadSharePrefix, userID,
-		strings.Replace(projectID, system.ThreadPrefix, system.ProjectPrefix, 1))
-}
-
 func (h *ProjectShareHandler) GetShare(req api.Context) error {
 	var (
 		threadShare v1.ThreadShare
@@ -80,7 +75,7 @@ func (h *ProjectShareHandler) GetShare(req api.Context) error {
 		return err
 	}
 
-	projectShareName := h.getProjectShareName(thread.Spec.UserID, projectID)
+	projectShareName := system.GetProjectShareName(thread.Spec.UserID, projectID)
 	if err := req.Get(&threadShare, projectShareName); apierrors.IsNotFound(err) {
 		return req.Write(convertProjectShare(v1.ThreadShare{
 			Spec: v1.ThreadShareSpec{
@@ -130,7 +125,7 @@ func (h *ProjectShareHandler) SetFeatured(req api.Context) error {
 		return err
 	}
 
-	if err := req.Get(&threadShare, h.getProjectShareName(thread.Spec.UserID, projectID)); err != nil {
+	if err := req.Get(&threadShare, system.GetProjectShareName(thread.Spec.UserID, projectID)); err != nil {
 		return err
 	}
 
@@ -162,7 +157,7 @@ func (h *ProjectShareHandler) UpdateShare(req api.Context) error {
 		return err
 	}
 
-	if err := req.Get(&threadShare, h.getProjectShareName(thread.Spec.UserID, projectID)); err != nil {
+	if err := req.Get(&threadShare, system.GetProjectShareName(thread.Spec.UserID, projectID)); err != nil {
 		return err
 	}
 
@@ -190,7 +185,7 @@ func (h *ProjectShareHandler) DeleteShare(req api.Context) error {
 
 	return req.Delete(&v1.ThreadShare{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      h.getProjectShareName(thread.Spec.UserID, projectID),
+			Name:      system.GetProjectShareName(thread.Spec.UserID, projectID),
 			Namespace: req.Namespace(),
 		},
 	})
