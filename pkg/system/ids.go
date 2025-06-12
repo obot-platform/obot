@@ -1,6 +1,10 @@
 package system
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/obot-platform/nah/pkg/name"
+)
 
 const (
 	ThreadPrefix              = "t1"
@@ -66,4 +70,10 @@ func IsEmailReceiverID(id string) bool {
 
 func IsChatRunID(id string) bool {
 	return strings.HasPrefix(id, ChatRunPrefix)
+}
+
+// GetProjectShareName returns the project share name for a given user ID and project ID.
+func GetProjectShareName(userID string, projectID string) string {
+	return name.SafeHashConcatName(ThreadSharePrefix, userID,
+		strings.Replace(projectID, ThreadPrefix, ProjectPrefix, 1))
 }
