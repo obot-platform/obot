@@ -83,6 +83,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CleanupEphemeralThreads)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.GenerateName)
 	root.Type(&v1.Thread{}).HandlerFunc(projects.CopyProjectInfo)
+	root.Type(&v1.Thread{}).HandlerFunc(projects.CleanupChatbots)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyTasksFromSource)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyToolsFromSource)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
