@@ -1,4 +1,4 @@
-import { baseURL } from './http';
+import { baseURL } from '../http';
 import { buildMessagesFromProgress } from './messages';
 import * as Operations from './operations';
 import * as MessageSource from './thread.svelte';

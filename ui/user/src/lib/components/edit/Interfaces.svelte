@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { ChevronRight, Smartphone, Webhook, Mail, Construction, Server } from 'lucide-svelte';
-	import { getLayout, openSidebarConfig, type Layout } from '$lib/context/layout.svelte';
+	import { getLayout, openSidebarConfig, type Layout } from '$lib/context/chatLayout.svelte';
 	import type { SvelteComponent } from 'svelte';
 	import type { IconProps } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';

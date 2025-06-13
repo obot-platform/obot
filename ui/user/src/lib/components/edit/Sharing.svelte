@@ -12,7 +12,7 @@
 		openSidebarConfig,
 		closeSidebarConfig,
 		getLayout
-	} from '$lib/context/layout.svelte';
+	} from '$lib/context/chatLayout.svelte';
 	import {
 		listProjectTemplates,
 		createProjectTemplate,

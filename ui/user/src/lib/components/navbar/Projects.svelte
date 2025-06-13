@@ -168,7 +168,7 @@
 			if (toDelete.id === project.id && projects.length > 0) {
 				await goto(`/o/${projects[0].id}`);
 			} else if (projects.length === 0) {
-				await goto('/agents');
+				await goto('/home');
 			}
 			toDelete = undefined;
 		}

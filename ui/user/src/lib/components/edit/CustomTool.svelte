@@ -54,7 +54,7 @@ printf "The current temperature in %s is %.2f°F.\\n" "$CITY" "$RANDOM_TEMPERATU
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
+	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 
 	interface Props {
 		tool: AssistantTool;

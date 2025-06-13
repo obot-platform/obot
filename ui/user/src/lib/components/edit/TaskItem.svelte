@@ -6,7 +6,7 @@
 		isSomethingSelected,
 		openTask,
 		openTaskRun
-	} from '$lib/context/layout.svelte';
+	} from '$lib/context/chatLayout.svelte';
 	import { formatTime } from '$lib/time.js';
 	import { type Task, type Thread, type Project } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';

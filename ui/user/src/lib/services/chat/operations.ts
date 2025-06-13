@@ -1,4 +1,4 @@
-import { baseURL, doDelete, doGet, doPost, doPut } from './http';
+import { baseURL, doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
 import {
 	type Assistant,
 	type Assistants,
@@ -42,8 +42,6 @@ import {
 	type ToolReferenceList,
 	type Version
 } from './types';
-
-export type Fetcher = typeof fetch;
 
 export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	const obj = (await doGet('/me', opts)) as Profile;
@@ -1398,4 +1396,20 @@ export async function getDefaultModelForThread(
 	} catch {
 		return { model: '', modelProvider: '' };
 	}
+}
+
+export async function getBootstrapStatus(): Promise<{ enabled: boolean }> {
+	return (await doGet('/bootstrap')) as { enabled: boolean };
+}
+
+export async function bootstrapLogin(token: string) {
+	return doPost('/bootstrap/login', {
+		headers: {
+			Authorization: `Bearer ${token}}`
+		}
+	});
+}
+
+export async function bootstrapLogout() {
+	return doPost('/bootstrap/logout', {});
 }

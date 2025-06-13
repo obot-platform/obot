@@ -27,12 +27,11 @@
 		type MCPServerInfo,
 		isAuthRequiredBundle
 	} from '$lib/services/chat/mcp';
-	import HostedMcpForm from '$lib/components/mcp/HostedMcpForm.svelte';
 	import type { Snippet } from 'svelte';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
-	import RemoteMcpForm from './RemoteMcpForm.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
+	import McpCredentials from './McpCredentials.svelte';
 
 	interface Props {
 		manifest?: MCPServer | ProjectMCP;
@@ -47,7 +46,6 @@
 		legacyBundleId?: string;
 		project?: Project;
 		legacyAuthText?: string;
-		manifestType?: 'command' | 'url';
 		info?: {
 			githubStars?: number;
 			githubUrl?: string;
@@ -66,7 +64,6 @@
 		legacyBundleId,
 		legacyAuthText,
 		project = $bindable(),
-		manifestType,
 		info
 	}: Props = $props();
 	let configDialog = $state<HTMLDialogElement>();
@@ -76,6 +73,7 @@
 	let showSubmitError = $state(false);
 	let showAdvancedOptions = $state(false);
 	let loadingCredential = $state<Promise<ProjectCredential | undefined>>();
+
 	export function open() {
 		reset();
 		configDialog?.showModal();
@@ -136,6 +134,7 @@
 		}
 		close();
 	}
+	console.log(config);
 </script>
 
 <dialog
@@ -164,11 +163,7 @@
 				{/if}
 			{:else}
 				<div class="flex w-full flex-col gap-4">
-					{#if manifestType === 'url'}
-						<RemoteMcpForm bind:config {showSubmitError} />
-					{:else}
-						<HostedMcpForm bind:config {showSubmitError} bind:showAdvancedOptions />
-					{/if}
+					<McpCredentials bind:config />
 				</div>
 			{/if}
 		</div>

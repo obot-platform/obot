@@ -1,10 +1,9 @@
 <script lang="ts">
 	import type { Project } from '$lib/services';
 	import { ChatService } from '$lib/services';
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { getLayout, openTask } from '$lib/context/chatLayout.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import type { Task } from '$lib/services';
-	import { openTask } from '$lib/context/layout.svelte';
 
 	interface Props {
 		project: Project;

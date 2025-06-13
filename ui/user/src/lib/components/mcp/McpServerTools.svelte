@@ -16,7 +16,7 @@
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { responsive } from '$lib/stores';
 	import { parseErrorContent } from '$lib/errors';
-	import { getLayout, openEditProjectMcp } from '$lib/context/layout.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 
 	interface Props {
@@ -245,11 +245,11 @@
 									<button
 										class="button-link font-semibold text-blue-500 hover:text-blue-600"
 										onclick={() => {
-											const isLegacyBundleServer =
-												mcpServer.catalogID && toolBundleMap.get(mcpServer.catalogID);
-											if (!isLegacyBundleServer) {
-												openEditProjectMcp(layout, mcpServer);
-											}
+											// const isLegacyBundleServer =
+											// 	mcpServer.catalogID && toolBundleMap.get(mcpServer.catalogID);
+											// if (!isLegacyBundleServer) {
+											// 	openEditProjectMcp(layout, mcpServer);
+											// }
 										}}
 									>
 										Click Here

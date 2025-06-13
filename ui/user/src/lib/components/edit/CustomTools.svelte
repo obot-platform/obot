@@ -4,7 +4,7 @@
 	import { ChatService, type AssistantToolType, type Project } from '$lib/services';
 	import { responsive } from '$lib/stores';
 	import { Plus, SquarePen } from 'lucide-svelte';
-	import { getLayout, openCustomTool } from '$lib/context/layout.svelte';
+	import { getLayout, openCustomTool } from '$lib/context/chatLayout.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
