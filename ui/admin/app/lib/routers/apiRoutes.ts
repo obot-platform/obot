@@ -10,8 +10,6 @@ import {
 import { ToolReferenceType } from "~/lib/model/toolReferences";
 import { ApiUrl } from "~/lib/routers/baseRouter";
 
-import { TableNamespace } from "~/components/model/tables";
-
 const prodBaseUrl = () => new URL(ApiUrl()).pathname;
 
 const buildUrl = (path: string, params?: object) => {
@@ -226,15 +224,7 @@ export const ApiRoutes = {
 		deleteUser: (userId: string) => buildUrl(`/users/${userId}`),
 		getOne: (userId: string) => buildUrl(`/users/${userId}`),
 	},
-	workspace: {
-		getTables: (namespace: TableNamespace, entityId: string) =>
-			buildUrl(`/${namespace}/${entityId}/tables`),
-		getTableRows: (
-			namespace: TableNamespace,
-			entityId: string,
-			tableName: string
-		) => buildUrl(`/${namespace}/${entityId}/tables/${tableName}/rows`),
-	},
+
 	me: () => buildUrl("/me"),
 	invoke: (
 		id: string,

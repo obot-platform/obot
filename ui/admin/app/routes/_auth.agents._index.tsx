@@ -87,9 +87,12 @@ export default function Agents() {
 									AgentService.createAgent({
 										agent: {
 											name: generateRandomName(),
+											description: "",
+											alias: "",
+											prompt: "",
 											tools: CapabilityTools,
-											availableThreadTools: [CapabilityTool.Database],
-										} as Agent,
+											icons: null,
+										},
 									}).then((agent) => {
 										AgentService.getAgents.revalidate();
 										navigate.internal(agent);
