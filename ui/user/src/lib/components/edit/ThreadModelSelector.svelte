@@ -195,7 +195,7 @@
 		try {
 			listModelProviders(project.assistantID, project.id).then((res) => {
 				untrack(() => {
-					for (const provider of res.items) {
+					for (const provider of res.items ?? []) {
 						modelProvidersMap.set(provider.id, provider);
 					}
 				});

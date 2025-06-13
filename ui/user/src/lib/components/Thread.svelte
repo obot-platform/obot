@@ -19,8 +19,9 @@
 	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import { twMerge } from 'tailwind-merge';
 	import { getProjectDefaultModel, getThread } from '$lib/services/chat/operations';
-	import type { Thread as ThreadType } from '$lib/services/chat/types';
+	import type { MCPServerPrompt, ProjectMCP, Thread as ThreadType } from '$lib/services/chat/types';
 	import ThreadModelSelector from '$lib/components/edit/ThreadModelSelector.svelte';
+	import McpPrompts from './mcp/McpPrompts.svelte';
 
 	interface Props {
 		id?: string;
@@ -40,6 +41,8 @@
 	let fadeBarWidth = $state<number>(0);
 	let loadingOlderMessages = $state(false);
 	let showLoadOlderButton = $state(false);
+	let input = $state<ReturnType<typeof Input>>();
+	let promptPending = $state(false);
 
 	// Model selector state
 	let threadDetails = $state<ThreadType | null>(null);
@@ -324,6 +327,24 @@
 			e.focus();
 		}
 	}
+
+	async function handleMcpPromptSelect(
+		prompt: MCPServerPrompt,
+		mcp: ProjectMCP,
+		params?: Record<string, string>
+	) {
+		promptPending = true;
+		const result = await ChatService.generateProjectMcpServerPrompt(
+			project.assistantID,
+			project.id,
+			mcp.id,
+			prompt.name,
+			params
+		);
+
+		input?.setValue(result.messages[0].content.text);
+		promptPending = false;
+	}
 </script>
 
 {#snippet editBasicSection()}
@@ -449,6 +470,7 @@
 					{/each}
 				</div>
 			{/if}
+			<McpPrompts {project} variant="messages" onSelect={handleMcpPromptSelect} />
 
 			{#if showLoadOlderButton}
 				<div class="mb-4 flex justify-center">
@@ -490,8 +512,9 @@
 			<div class="w-full max-w-[1000px]">
 				<Input
 					id="thread-input"
+					bind:this={input}
 					readonly={messages.inProgress}
-					pending={thread?.pending}
+					pending={thread?.pending || promptPending}
 					onAbort={async () => {
 						await thread?.abort();
 					}}
@@ -505,6 +528,7 @@
 				>
 					<div class="flex w-full items-center justify-between">
 						<div class="flex items-center">
+							<McpPrompts {project} variant="button" onSelect={handleMcpPromptSelect} />
 							<Files
 								thread
 								{project}
@@ -527,6 +551,17 @@
 							/>
 						{/if}
 					</div>
+					{#snippet inputPopover(value: string)}
+						<McpPrompts
+							{project}
+							variant="popover"
+							filterText={value}
+							onSelect={handleMcpPromptSelect}
+							onClickOutside={() => {
+								input?.clear();
+							}}
+						/>
+					{/snippet}
 				</Input>
 				<div
 					class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"

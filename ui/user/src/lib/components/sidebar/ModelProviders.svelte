@@ -41,7 +41,7 @@
 		try {
 			listModelProviders(project.assistantID, project.id).then((res) => {
 				untrack(() => {
-					for (const provider of res.items) {
+					for (const provider of res.items ?? []) {
 						providersWithMoreData.set(provider.id, provider);
 					}
 				});

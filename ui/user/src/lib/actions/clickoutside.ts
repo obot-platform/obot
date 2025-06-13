@@ -1,20 +1,24 @@
 export function clickOutside(element: HTMLElement, onClickOutside: () => void) {
 	function checkClickOutside(event: Event) {
-		if (!(event.target as HTMLElement)?.contains(element)) return;
+		if (element.contains(event.target as Node)) return;
+		onClickOutside();
+	}
 
+	function checkDialogClickOutside(event: Event) {
+		if (!(element as HTMLDialogElement).open) return;
+		if (!(event.target as HTMLElement)?.contains(element)) return;
 		onClickOutside();
 	}
 
 	// <dialog> called with showModal()
 	const isModalDialog =
 		element.tagName.toLowerCase() === 'dialog' &&
-		(element as HTMLDialogElement).open &&
 		(element as HTMLDialogElement).showModal !== undefined;
 
 	if (!isModalDialog) {
 		document.addEventListener('click', checkClickOutside);
 	} else {
-		element.addEventListener('click', checkClickOutside);
+		element.addEventListener('click', checkDialogClickOutside);
 	}
 
 	return {
@@ -22,7 +26,7 @@ export function clickOutside(element: HTMLElement, onClickOutside: () => void) {
 			if (!isModalDialog) {
 				document.removeEventListener('click', checkClickOutside);
 			} else {
-				element.removeEventListener('click', checkClickOutside);
+				element.removeEventListener('click', checkDialogClickOutside);
 			}
 		}
 	};

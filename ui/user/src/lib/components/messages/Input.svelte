@@ -11,11 +11,13 @@
 		onFocus?: () => void;
 		onSubmit?: (input: InvokeInput) => void | Promise<void>;
 		onAbort?: () => Promise<void>;
+		onChange?: (value: string) => void;
 		children?: Snippet;
 		placeholder?: string;
 		readonly?: boolean;
 		pending?: boolean;
 		items?: EditorItem[];
+		inputPopover?: Snippet<[string]>;
 	}
 
 	let {
@@ -23,11 +25,13 @@
 		onFocus,
 		onSubmit,
 		onAbort,
+		onChange,
 		children,
 		readonly,
 		pending,
 		placeholder = 'Your message...',
-		items = $bindable([])
+		items = $bindable([]),
+		inputPopover
 	}: Props = $props();
 
 	let value = $state('');
@@ -76,13 +80,23 @@
 
 	async function onKey(e: KeyboardEvent) {
 		if (e.key !== 'Enter' || e.shiftKey) {
+			onChange?.(value);
 			return;
 		}
+
 		e.preventDefault();
 		if (readonly || pending) {
 			return;
 		}
 		await submit();
+	}
+
+	export function clear() {
+		value = '';
+	}
+
+	export function setValue(newValue: string) {
+		value = newValue;
 	}
 
 	onMount(() => {
@@ -112,7 +126,10 @@
 	<div
 		class="bg-surface1 focus-within:ring-blue relative flex flex-col items-center rounded-2xl focus-within:shadow-md focus-within:ring-1"
 	>
-		<div class="flex h-fit w-full items-center gap-4 p-2">
+		<div class="relative flex h-fit w-full items-center gap-4 p-2">
+			{#if inputPopover}
+				{@render inputPopover(value)}
+			{/if}
 			<textarea
 				use:autoHeight
 				id="chat"

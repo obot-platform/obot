@@ -13,6 +13,10 @@ import {
 	type MCP,
 	type MCPList,
 	type MCPServer,
+	type McpServerGeneratedPrompt,
+	type MCPServerPrompt,
+	type McpServerResource,
+	type McpServerResourceContent,
 	type MCPServerTool,
 	type Memory,
 	type MemoryList,
@@ -1194,6 +1198,62 @@ export async function configureProjectThreadMcpServerTools(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools/${threadID}`,
 		toolIds ? toolIds : ['*']
 	);
+}
+
+export async function listProjectMcpServerPrompts(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string
+): Promise<MCPServerPrompt[]> {
+	const response = (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/prompts`,
+		{
+			dontLogErrors: true
+		}
+	)) as MCPServerPrompt[];
+	console.log('listProjectMcpServerPrompts', response);
+	return response;
+}
+
+export async function generateProjectMcpServerPrompt(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string,
+	promptName: string,
+	promptParams?: Record<string, string>
+) {
+	const response = (await doPost(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/prompts/${promptName}`,
+		promptParams || {}
+	)) as McpServerGeneratedPrompt;
+	return response;
+}
+
+export async function listProjectMcpServerResources(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string
+) {
+	const response = (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/resources`,
+		{
+			dontLogErrors: true
+		}
+	)) as McpServerResource[];
+	return response;
+}
+
+export async function readProjectMcpServerResource(
+	assistantID: string,
+	projectID: string,
+	projectMcpServerId: string,
+	resourceUri: string
+) {
+	const encodedResourceUri = encodeURIComponent(resourceUri);
+	const response = (await doGet(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/resources/${encodedResourceUri}`
+	)) as McpServerResourceContent[];
+	return response[0];
 }
 
 export async function listProjectMembers(
