@@ -115,8 +115,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest":                        schema_obot_platform_obot_apiclient_types_SlackReceiverManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.Step":                                         schema_obot_platform_obot_apiclient_types_Step(ref),
 		"github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke":                           schema_obot_platform_obot_apiclient_types_StepTemplateInvoke(ref),
-		"github.com/obot-platform/obot/apiclient/types.Table":                                        schema_obot_platform_obot_apiclient_types_Table(ref),
-		"github.com/obot-platform/obot/apiclient/types.TableList":                                    schema_obot_platform_obot_apiclient_types_TableList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Task":                                         schema_obot_platform_obot_apiclient_types_Task(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskEmail":                                    schema_obot_platform_obot_apiclient_types_TaskEmail(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskList":                                     schema_obot_platform_obot_apiclient_types_TaskList(ref),
@@ -4839,54 +4837,6 @@ func schema_obot_platform_obot_apiclient_types_StepTemplateInvoke(ref common.Ref
 				},
 			},
 		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_Table(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-				},
-				Required: []string{"name"},
-			},
-		},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_TableList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Table"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Table"},
 	}
 }
 

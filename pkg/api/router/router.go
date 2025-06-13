@@ -33,7 +33,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	emailReceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	version := handlers.NewVersionHandler(services.EmailServerName, services.PostgresDSN, services.SupportDocker, services.AuthEnabled)
-	tables := handlers.NewTableHandler(services.GPTClient)
 	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker, services.GPTClient, services.GatewayClient)
 	projectShare := handlers.NewProjectShareHandler()
 	templates := handlers.NewTemplateHandler()
@@ -215,10 +214,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/projectinvitations/{code}", projectInvitations.AcceptInvitation)
 	mux.HandleFunc("DELETE /api/projectinvitations/{code}", projectInvitations.RejectInvitation)
 
-	// Project Tables
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tables", tables.ListTables)
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tables/{table_name}/rows", tables.GetRows)
-
 	// Project Memories
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/memories", memories.CreateMemory)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/memories/{memory_id}", memories.UpdateMemory)
@@ -320,10 +315,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/threads/{id}/knowledge-files/{file...}", threads.GetKnowledgeFile)
 	mux.HandleFunc("DELETE /api/threads/{id}/knowledge-files/{file...}", threads.DeleteKnowledge)
 	mux.HandleFunc("POST /api/threads/{id}/knowledge-files/{file}", threads.UploadKnowledge)
-
-	// Thread tables
-	mux.HandleFunc("GET /api/threads/{id}/tables", threads.Tables)
-	mux.HandleFunc("GET /api/threads/{id}/tables/{table}/rows", threads.TableRows)
 
 	// ToolRefs
 	mux.HandleFunc("POST /api/tool-references", toolRefs.Create)
