@@ -15,6 +15,7 @@ type SlackReceiver struct {
 }
 
 type SlackReceiverStatus struct {
+	SocketConnectError string `json:"socketConnectError,omitempty"`
 }
 
 func (r *SlackReceiver) Has(field string) bool {

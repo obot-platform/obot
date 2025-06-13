@@ -105,7 +105,7 @@ func (s *SlackHandler) Update(req api.Context) error {
 		return err
 	}
 
-	if input.ClientSecret != "" || input.SigningSecret != "" {
+	if input.ClientSecret != "" || input.SigningSecret != "" || input.AppToken != "" {
 		if err := req.GPTClient.CreateCredential(req.Context(), newSlackCred(slackReceiver.Spec.ThreadName, input.ClientSecret, input.SigningSecret, input.AppToken)); err != nil {
 			return err
 		}

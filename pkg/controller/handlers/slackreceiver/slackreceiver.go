@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
@@ -34,7 +34,7 @@ type Handler struct {
 }
 
 func NewHandler(gptScript *gptscript.GPTScript, storage storage.Client) *Handler {
-	return &Handler{gptScript: gptScript, subscribed: make(map[string]context.CancelFunc), storage: storage, lock: sync.RWMutex{}}
+	return &Handler{gptScript: gptScript, subscribed: make(map[string]context.CancelFunc), storage: storage}
 }
 
 func CreateOAuthApp(req router.Request, _ router.Response) error {
@@ -119,13 +119,26 @@ func (s *Handler) SubscribeToSlackEvents(req router.Request, resp router.Respons
 	s.lock.Unlock()
 
 	go func() {
-		if err := socketmodeHandler.RunEventLoopContext(ctx); err != nil {
+		if slackReceiver.Status.SocketConnectError != "" {
+			slackReceiver.Status.SocketConnectError = ""
+			if err := req.Client.Status().Update(req.Ctx, slackReceiver); err != nil {
+				log.Errorf("failed to update slack receiver status: %v", err)
+			}
+		}
+		err := socketmodeHandler.RunEventLoopContext(ctx)
+		if err != nil {
 			log.Errorf("error running event loop: %v", err)
 		}
 		s.lock.Lock()
 		delete(s.subscribed, slackReceiver.Name)
 		s.lock.Unlock()
-		resp.RetryAfter(time.Second * 10)
+		if err != nil {
+			err = fmt.Errorf("failed to run event loop: %w", err)
+			slackReceiver.Status.SocketConnectError = err.Error()
+			if err := req.Client.Status().Update(req.Ctx, slackReceiver); err != nil {
+				log.Errorf("failed to update slack receiver status: %v", err)
+			}
+		}
 	}()
 
 	return nil
@@ -134,9 +147,10 @@ func (s *Handler) SubscribeToSlackEvents(req router.Request, resp router.Respons
 func (s *Handler) UnsubscribeFromSlackEvents(req router.Request, _ router.Response) error {
 	slackReceiver := req.Object.(*v1.SlackReceiver)
 	s.lock.Lock()
-	s.subscribed[slackReceiver.Name]()
-
-	delete(s.subscribed, slackReceiver.Name)
+	if cancel, ok := s.subscribed[slackReceiver.Name]; ok {
+		cancel()
+		delete(s.subscribed, slackReceiver.Name)
+	}
 	s.lock.Unlock()
 	return nil
 }
