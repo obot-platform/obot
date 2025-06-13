@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
+	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 	import type { Assistant, Project } from '$lib/services';
 	import { fade } from 'svelte/transition';
 	import Slack from '$lib/components/integrations/slack/Slack.svelte';
@@ -9,12 +9,12 @@
 	import { updateProjectMcp, getKeyValuePairs } from '$lib/services/chat/mcp';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
-	import ModelProviders from './ModelProviders.svelte';
+	import ModelProviders from '../ModelProviders.svelte';
 	import ChatbotConfig from '$lib/components/edit/ChatbotConfig.svelte';
 	import { X } from 'lucide-svelte';
-	import Discord from './integrations/discord/Discord.svelte';
-	import Webhook from './integrations/webhook/Webhook.svelte';
-	import Email from './integrations/email/Email.svelte';
+	import Discord from '../integrations/discord/Discord.svelte';
+	import Webhook from '../integrations/webhook/Webhook.svelte';
+	import Email from '../integrations/email/Email.svelte';
 	import { ChatService } from '$lib/services';
 
 	interface Props {
@@ -34,52 +34,6 @@
 		<Slack {project} />
 	{:else if layout.sidebarConfig === 'invitations'}
 		<ProjectInvitations {project} />
-	{:else if layout.sidebarConfig === 'custom-mcp'}
-		{#key layout.editProjectMcp?.id}
-			<ProjectMcpConfig
-				{project}
-				projectMcp={layout.editProjectMcp}
-				chatbot={layout.chatbotMcpEdit}
-				onCreate={async (newProjectMcp) => {
-					projectMCPs.items.push(newProjectMcp);
-					closeSidebarConfig(layout);
-				}}
-				onUpdate={async (customMcpConfig) => {
-					if (!layout.editProjectMcp) return;
-
-					if (layout.chatbotMcpEdit) {
-						const keyValuePairs = getKeyValuePairs(customMcpConfig);
-
-						await ChatService.configureProjectMCPEnvHeaders(
-							project.assistantID,
-							project.id,
-							layout.editProjectMcp.id,
-							keyValuePairs
-						);
-
-						projectMCPs.items = projectMCPs.items.map((mcp) => {
-							if (mcp.id !== layout.editProjectMcp!.id) return mcp;
-							return {
-								...mcp,
-								env: customMcpConfig.env,
-								headers: customMcpConfig.headers
-							};
-						});
-					} else {
-						const updatedProjectMcp = await updateProjectMcp(
-							customMcpConfig,
-							layout.editProjectMcp.id,
-							project
-						);
-						projectMCPs.items = projectMCPs.items.map((mcp) =>
-							mcp.id === layout.editProjectMcp!.id ? updatedProjectMcp : mcp
-						);
-					}
-
-					closeSidebarConfig(layout);
-				}}
-			/>
-		{/key}
 	{:else if layout.sidebarConfig === 'mcp-server-tools' && layout.mcpServer}
 		{#key layout.mcpServer.id}
 			<div class="flex w-full justify-center px-4 py-4 md:px-8">

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { type Project } from '$lib/services';
 	import { X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';

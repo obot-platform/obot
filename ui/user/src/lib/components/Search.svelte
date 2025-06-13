@@ -7,6 +7,7 @@
 		class?: string;
 		placeholder?: string;
 		onMouseDown?: (e: MouseEvent) => void;
+		onMouseUp?: (e: MouseEvent) => void;
 		compact?: boolean;
 	}
 
@@ -15,6 +16,7 @@
 		class: klass,
 		placeholder = 'Search Agents...',
 		onMouseDown,
+		onMouseUp,
 		compact
 	}: Props = $props();
 	let searchTimeout: ReturnType<typeof setTimeout>;
@@ -52,6 +54,7 @@
 		)}
 		oninput={search}
 		onmousedown={onMouseDown}
+		onmouseup={onMouseUp}
 	/>
 	<button
 		class={twMerge(

@@ -18,8 +18,7 @@
 		getProjectTemplate
 	} from '$lib/services';
 	import { XIcon, FileText, Image, Download, Loader2, Pencil, Star, Globe } from 'lucide-svelte';
-	import { closeSidebarConfig } from '$lib/context/layout.svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { IGNORED_BUILTIN_TOOLS } from '$lib/constants';
 	import { sortShownToolsPriority } from '$lib/sort';

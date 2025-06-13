@@ -4,21 +4,26 @@
 	import type { Snippet } from 'svelte';
 	import { darkMode } from '$lib/stores';
 	import { Home } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		leftContent?: Snippet;
 		centerContent?: Snippet;
+		class?: string;
 	}
 
-	let { leftContent, centerContent }: Props = $props();
+	let { leftContent, centerContent, class: klass }: Props = $props();
 </script>
 
-<nav class="flex h-16 w-full items-center bg-white px-3 dark:bg-black" in:fade|global>
+<nav
+	class={twMerge('flex h-16 w-full items-center bg-white px-3 dark:bg-black', klass)}
+	in:fade|global
+>
 	<div class="flex w-full items-center justify-between">
 		{#if leftContent}
 			{@render leftContent()}
 		{:else}
-			<a href="/agents" class="relative flex items-end">
+			<a href="/home" class="relative flex items-end">
 				{#if darkMode.isDark}
 					<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
 				{:else}
@@ -39,7 +44,7 @@
 			{/if}
 		</div>
 		<div class="flex items-center gap-4">
-			<a class="nav-link" href="/agents" id="navbar-home-link">
+			<a class="nav-link" href="/home" id="navbar-home-link">
 				<Home class="size-6" />
 			</a>
 			<Profile />

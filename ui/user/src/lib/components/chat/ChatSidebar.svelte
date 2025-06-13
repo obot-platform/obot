@@ -2,7 +2,7 @@
 	import { ChatService, type Project } from '$lib/services';
 	import { MessageCirclePlus, SidebarClose } from 'lucide-svelte';
 	import { hasTool } from '$lib/tools';
-	import { closeAll, getLayout } from '$lib/context/layout.svelte';
+	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import Tasks from '$lib/components/edit/Tasks.svelte';
 	import General from '$lib/components/edit/General.svelte';
 	import McpServers from '$lib/components/edit/McpServers.svelte';
@@ -13,9 +13,9 @@
 
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
-	import Threads from '$lib/components/sidebar/Threads.svelte';
+	import Threads from '$lib/components/chat/sidebar/Threads.svelte';
 
-	import ModelProviders from '$lib/components/sidebar/ModelProviders.svelte';
+	import ModelProviders from '$lib/components/chat/sidebar/ModelProviders.svelte';
 	import SystemPrompt from '$lib/components/edit/SystemPrompt.svelte';
 	import Introduction from '$lib/components/edit/Introduction.svelte';
 	import { responsive } from '$lib/stores';

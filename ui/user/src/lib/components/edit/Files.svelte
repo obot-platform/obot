@@ -6,7 +6,7 @@
 	import FileEditors from '$lib/components/editor/FileEditors.svelte';
 	import Error from '$lib/components/Error.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { isImage } from '$lib/image';
 	import { newFileMonitor } from '$lib/save.js';

@@ -4,7 +4,7 @@
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { browser } from '$app/environment';
 	import { X, ChevronDown, Server, Pencil } from 'lucide-svelte';
-	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
+	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 	import {
 		listProjectMCPs,
 		deconfigureSharedProjectMCP,

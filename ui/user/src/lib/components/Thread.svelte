@@ -7,7 +7,7 @@
 	import { fade } from 'svelte/transition';
 	import { onDestroy, onMount } from 'svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
-	import { closeAll, getLayout } from '$lib/context/layout.svelte';
+	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import Files from '$lib/components/edit/Files.svelte';
 	import Tools from '$lib/components/navbar/Tools.svelte';
 	import type { UIEventHandler } from 'svelte/elements';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import { listModelProviders, type ModelProvider, type Project } from '$lib/services';

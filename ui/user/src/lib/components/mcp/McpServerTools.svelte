@@ -16,7 +16,7 @@
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { responsive } from '$lib/stores';
 	import { parseErrorContent } from '$lib/errors';
-	import { getLayout, openEditProjectMcp } from '$lib/context/layout.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 
 	interface Props {

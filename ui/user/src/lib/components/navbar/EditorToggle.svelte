@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Pencil, X } from 'lucide-svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	const layout = getLayout();
