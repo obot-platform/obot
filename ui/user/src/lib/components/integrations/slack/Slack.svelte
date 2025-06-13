@@ -8,12 +8,11 @@
 	} from '$lib/services/chat/operations';
 	import { ChatService, type AssistantTool } from '$lib/services';
 	import { X } from 'lucide-svelte';
-	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
+	import { closeSidebarConfig, getLayout, openTask } from '$lib/context/chatLayout.svelte';
 	import { responsive } from '$lib/stores';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { openTask } from '$lib/context/layout.svelte';
 	import type { Task } from '$lib/services';
 	import type { ProjectCredential } from '$lib/services/chat/types';
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';

@@ -1,39 +1,48 @@
-<script lang="ts">
+<script lang="ts" generics="T extends { id: string | number }">
 	import { responsive } from '$lib/stores';
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import Search from './Search.svelte';
+	import { twMerge } from 'tailwind-merge';
+	import { clickOutside } from '$lib/actions/clickoutside';
 
-	interface BaseSearchItem {
-		id: string;
-		name: string;
-		iconURL?: string;
-		description?: string;
-	}
-
-	interface Props<T extends BaseSearchItem> {
-		onSearch: (val: T) => void;
+	interface Props<T> {
+		onSelect: (val: T) => void;
 		placeholder?: string;
 		items: T[];
-		selected?: string[];
+		selected?: (string | number)[];
 		compact?: boolean;
+		renderItem: Snippet<[T]>;
+		properties?: (keyof T)[];
+		class?: string;
 	}
 
 	let {
-		onSearch,
+		onSelect,
 		placeholder = 'Search...',
 		items,
 		selected,
-		compact
-	}: Props<BaseSearchItem> = $props();
+		compact,
+		renderItem,
+		properties,
+		class: klass
+	}: Props<T> = $props();
 
 	let searchContainer = $state<HTMLDivElement | null>(null);
 	let search = $state('');
+	let focused = $state(false);
 	let searchPopover = $state<HTMLDialogElement | null>(null);
 	let filteredItems = $derived(
-		items.filter(
-			(item) =>
-				!selected?.includes(item.id) && item.name?.toLowerCase().includes(search.toLowerCase())
-		)
+		search.length > 0
+			? items.filter(
+					(item) =>
+						!selected?.includes(item.id) &&
+						properties?.some(
+							(property) =>
+								item[property] &&
+								item[property]?.toString().toLowerCase().includes(search.toLowerCase())
+						)
+				)
+			: items
 	);
 
 	onMount(() => {
@@ -54,11 +63,15 @@
 <div class="flex grow" bind:this={searchContainer}>
 	<div class="relative w-full">
 		<Search
-			class="dark:border-surface3 border border-transparent bg-white shadow-sm dark:bg-black"
+			class={twMerge(
+				'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+				klass
+			)}
 			onChange={(val) => {
 				search = val;
 			}}
 			onMouseDown={() => {
+				focused = true;
 				if (!responsive.isMobile) {
 					searchPopover?.show();
 				}
@@ -75,7 +88,10 @@
 	<dialog
 		bind:this={searchPopover}
 		class="default-scrollbar-thin absolute top-12 left-0 z-10 w-full rounded-sm md:max-h-[50vh] md:overflow-y-auto"
-		class:hidden={!responsive.isMobile && !search}
+		class:hidden={!responsive.isMobile && !focused}
+		use:clickOutside={() => {
+			focused = false;
+		}}
 	>
 		<div class="flex h-full flex-col">
 			<div class="default-scrollbar-thin flex min-h-0 grow flex-col overflow-y-auto">
@@ -90,31 +106,15 @@
 	</dialog>
 {/snippet}
 
-{#snippet searchResult(item: BaseSearchItem)}
+{#snippet searchResult(item: T)}
 	<button
 		class="hover:bg-surface2 dark:hover:bg-surface3 flex w-full items-center px-4 py-2"
 		onclick={(e) => {
 			e.stopPropagation();
-			onSearch(item);
+			onSelect(item);
 			searchPopover?.close();
 		}}
 	>
-		{#if item.iconURL}
-			<img
-				class="size-8 flex-shrink-0 rounded-full bg-white p-1 dark:bg-gray-600"
-				src={item.iconURL}
-				alt={item.name ?? 'search result'}
-			/>
-		{/if}
-		<span class="flex grow flex-col px-2 text-left">
-			<p>
-				{item.name}
-			</p>
-			{#if item.description}
-				<span class="text-gray text-xs font-normal dark:text-gray-300">
-					{item.description}
-				</span>
-			{/if}
-		</span>
+		{@render renderItem(item)}
 	</button>
 {/snippet}

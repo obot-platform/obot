@@ -3,7 +3,7 @@
 	import { ChatService, type Project, type Thread } from '$lib/services';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { CircleX } from 'lucide-svelte/icons';
-	import { closeAll, getLayout, isSomethingSelected } from '$lib/context/layout.svelte.js';
+	import { closeAll, getLayout, isSomethingSelected } from '$lib/context/chatLayout.svelte.js';
 	import { fade } from 'svelte/transition';
 	import { overflowToolTip } from '$lib/actions/overflow.js';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';

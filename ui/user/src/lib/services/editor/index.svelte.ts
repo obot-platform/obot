@@ -1,6 +1,6 @@
 import type { Fetcher, Project, ProjectTemplate } from '$lib/services';
 import ChatService from '../chat';
-import { doPost } from '../chat/http';
+import { doPost } from '../http';
 
 export interface EditorItem {
 	id: string;

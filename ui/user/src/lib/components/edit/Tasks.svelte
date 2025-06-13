@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { getLayout, openTask, openTaskRun } from '$lib/context/layout.svelte';
+	import { getLayout, openTask, openTaskRun } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project, type Task } from '$lib/services';
 	import { ChevronRight, Play, Plus, Trash2, X } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';

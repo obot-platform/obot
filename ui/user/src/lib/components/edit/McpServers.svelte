@@ -25,7 +25,7 @@
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import { getLayout, openEditProjectMcp, openMCPServerTools } from '$lib/context/layout.svelte';
+	import { getLayout, openMCPServerTools } from '$lib/context/chatLayout.svelte';
 	import McpSetupWizard from '$lib/components/mcp/McpSetupWizard.svelte';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
@@ -57,11 +57,7 @@
 
 	// Refresh MCP list whenever sidebar config changes (and we're not currently editing an MCP)
 	$effect(() => {
-		const currentConfig = layout.sidebarConfig;
-
-		if (currentConfig !== 'custom-mcp') {
-			setTimeout(() => refreshMcpList(), 100);
-		}
+		setTimeout(() => refreshMcpList(), 100);
 	});
 
 	onMount(() => {
@@ -229,8 +225,6 @@
 								if (isLegacyBundleServer) {
 									mcpToShow = mcp;
 									mcpConfigDialog?.open();
-								} else {
-									openEditProjectMcp(layout, mcp, chatbot);
 								}
 							}}
 						>
@@ -312,9 +306,6 @@
 					<div class="default-dialog flex min-w-max flex-col p-2">
 						<button class="menu-button" onclick={() => mcpSetupWizard?.open()}>
 							<Server class="size-4" /> Browse Catalog
-						</button>
-						<button class="menu-button" onclick={() => openEditProjectMcp(layout)}>
-							<PencilLine class="size-4" /> Create Config
 						</button>
 					</div>
 				</DotDotDot>

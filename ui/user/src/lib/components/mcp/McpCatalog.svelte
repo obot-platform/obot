@@ -23,6 +23,7 @@
 		onSetupMcp?: (mcp: TransformedMcp, serverInfo: MCPServerInfo) => void;
 		submitText?: string;
 		subtitle?: string;
+		title?: string;
 		project?: Project;
 		preselectedMcp?: string;
 		selectedMcpIds?: string[];
@@ -48,6 +49,7 @@
 		selectedMcpIds,
 		submitText,
 		subtitle,
+		title,
 		project = $bindable(),
 		preselectedMcp
 	}: Props = $props();
@@ -301,11 +303,12 @@
 				<X class="size-7" />
 			</button>
 			<div class="mt-4 flex w-full flex-col items-center justify-center gap-2 px-4 py-4">
-				<h2 class="text-3xl font-semibold md:text-4xl">MCP Servers</h2>
-				<p class="mb-8 max-w-full text-center text-base font-light md:max-w-md">
-					{subtitle ||
-						'Browse over evergrowing catalog of MCP servers and find the perfect one to set up your agent with.'}
-				</p>
+				<h2 class="text-3xl font-semibold md:text-4xl">{title || 'MCP Servers'}</h2>
+				{#if subtitle}
+					<p class="mb-8 max-w-full text-center text-base font-light md:max-w-md">
+						{subtitle}
+					</p>
+				{/if}
 			</div>
 			<div class="pr-12 pb-4">
 				{@render body()}
@@ -431,9 +434,6 @@
 	bind:this={configDialog}
 	bind:project
 	manifest={selectedMcpManifest}
-	manifestType={!selectedMcpManifest?.command || selectedMcpManifest?.command === ''
-		? 'url'
-		: 'command'}
 	{legacyBundleId}
 	onUpdate={(mcpServerInfo) => {
 		if (selectedMcp) {

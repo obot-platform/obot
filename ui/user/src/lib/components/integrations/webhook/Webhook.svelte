@@ -2,11 +2,10 @@
 	import type { Project } from '$lib/services';
 	import { ChatService } from '$lib/services';
 	import { X } from 'lucide-svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { getLayout, openTask } from '$lib/context/chatLayout.svelte';
 	import { responsive } from '$lib/stores';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { openTask } from '$lib/context/layout.svelte';
 	import type { Task } from '$lib/services';
 
 	interface Props {

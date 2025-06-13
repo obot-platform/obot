@@ -1,13 +1,13 @@
 <script lang="ts">
 	import Editor from '$lib/components/Editors.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import Sidebar from '$lib/components/Sidebar.svelte';
+	import Sidebar from '$lib/components/chat/ChatSidebar.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import Thread from '$lib/components/Thread.svelte';
 	import { ChatService, EditorService, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { errors, responsive } from '$lib/stores';
-	import { closeAll, getLayout } from '$lib/context/layout.svelte';
+	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import { GripVertical, MessageCirclePlus, Plus, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -20,7 +20,7 @@
 	import type { Assistant, ProjectCredential } from '$lib/services';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { goto } from '$app/navigation';
-	import SidebarConfig from './SidebarConfig.svelte';
+	import SidebarConfig from './chat/ChatSidebarConfig.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import Banner from './Banner.svelte';
@@ -133,7 +133,7 @@
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
-				<Sidebar bind:project bind:currentThreadID {shared} />
+				<Sidebar bind:project bind:currentThreadID />
 			</div>
 			{#if !responsive.isMobile}
 				<div

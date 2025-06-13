@@ -39,10 +39,7 @@
 			}
 
 			if (browser) {
-				const lastVisitedObot = localStorage.getItem('lastVisitedObot');
-				const matchingProject = editorProjects.find((p) => p.id === lastVisitedObot);
-				const url = lastVisitedObot && matchingProject ? `/o/${matchingProject.id}` : '/agents';
-				goto(url);
+				goto('/home');
 			}
 		}
 	});

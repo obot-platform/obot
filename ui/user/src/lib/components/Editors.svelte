@@ -2,7 +2,7 @@
 	import { overflowToolTip } from '$lib/actions/overflow';
 	import Controls from '$lib/components/editor/Controls.svelte';
 	import FileEditors from '$lib/components/editor/FileEditors.svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, EditorService, type InvokeInput, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { Download } from 'lucide-svelte';

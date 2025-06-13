@@ -6,7 +6,7 @@
 	import CredentialAuth from '$lib/components/edit/CredentialAuth.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import type { AssistantTool } from '$lib/services';
-	import { closeSidebarConfig, getLayout, openTask } from '$lib/context/layout.svelte';
+	import { closeSidebarConfig, getLayout, openTask } from '$lib/context/chatLayout.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type { Task } from '$lib/services';
 
