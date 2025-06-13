@@ -116,7 +116,7 @@ export function isAuthRequiredBundle(bundleId?: string): boolean {
 		'memory',
 		'obot-search-bundle',
 		'time',
-		'database',
+
 		'die-roller',
 		'proxycurl-bundle'
 	];

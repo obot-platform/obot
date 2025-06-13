@@ -9,7 +9,7 @@ export const IGNORED_BUILTIN_TOOLS = new Set([
 	'workspace-files',
 	'tasks',
 	'knowledge',
-	'database',
+
 	'time',
 	'threads',
 	'github-com-obot-platform-tools-search-tavily-websiteknowl-d2d96'

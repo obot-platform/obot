@@ -62,7 +62,7 @@
 </script>
 
 <div class="relative flex h-full w-full flex-col">
-	{#if layout.items.length > 1 || (!layout.items[0]?.table && !layout.items[0]?.generic)}
+	{#if layout.items.length > 1 || !layout.items[0]?.generic}
 		<div class="file-tabs relative flex items-center pt-1">
 			{#if currentThreadID}
 				<div class="pb-1 pl-1">
@@ -113,7 +113,7 @@
 	{/if}
 
 	<div class="default-scrollbar-thin relative flex grow flex-col overflow-y-auto">
-		<FileEditors {project} {currentThreadID} {onFileChanged} {onInvoke} bind:items={layout.items} />
+		<FileEditors {onFileChanged} {onInvoke} bind:items={layout.items} />
 
 		{#if downloadable}
 			<button

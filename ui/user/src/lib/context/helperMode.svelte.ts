@@ -5,8 +5,7 @@ export const HELPER_TEXTS = {
 	threads: 'These are current or prior conversations that have been made with the agent.',
 	tasks:
 		'Automated or one-off workflows that an agent can perform for the user. Incorporate variables to make them dynamic or make them simple enough to meet your needs.',
-	tables:
-		'Stored information in a table-like format that have been created by and utilized by the agent.',
+
 	general: 'Modify basic displayable information of the agent such as name, description, and icon.',
 	prompt:
 		'Describe how your agent should behave, what it should aim to do, and any special instructions it should follow.',
@@ -28,7 +27,7 @@ export const HELPER_TEXTS = {
 	modelProviders:
 		'Configure popular model providers (OpenAI, Anthropic, etc.) and set a default model for the agent.',
 	builtInCapabilities:
-		'Obot provided capabilities such as storing information into tables (Database), using provided documents to expand information it has access to (Knowledge), or to remember things a user has requested in conversation (Memory).'
+		'Obot provided capabilities such as using provided documents to expand information it has access to (Knowledge), or to remember things a user has requested in conversation (Memory).'
 };
 
 const HELPER_MODE_CONTEXT_NAME = 'helper-mode';

@@ -14,9 +14,7 @@ export interface EditorItem {
 		taskID?: string;
 		runID?: string;
 	};
-	table?: {
-		name: string;
-	};
+
 	selected?: boolean;
 	generic?: boolean;
 }
@@ -54,25 +52,9 @@ async function load(
 		select(items, fileID);
 	} else if (id.startsWith('tl1')) {
 		await genericLoad(items, id);
-	} else if (id.startsWith('table://')) {
-		await loadTable(items, id);
 	} else {
 		await loadFile(items, project, id, opts);
 	}
-}
-
-async function loadTable(items: EditorItem[], id: string) {
-	const tableName = id.split('table://')[1];
-	const targetFile: EditorItem = {
-		id: id,
-		name: tableName,
-		selected: true,
-		table: {
-			name: tableName
-		}
-	};
-	items.push(targetFile);
-	select(items, id);
 }
 
 async function genericLoad(items: EditorItem[], id: string) {

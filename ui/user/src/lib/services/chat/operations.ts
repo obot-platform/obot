@@ -32,10 +32,8 @@ import {
 	type ProjectTemplate,
 	type ProjectTemplateList,
 	type ProjectTemplateManifest,
-	type Rows,
 	type SlackConfig,
 	type SlackReceiver,
-	type TableList,
 	type Task,
 	type TaskList,
 	type TaskRun,
@@ -839,16 +837,6 @@ export async function deleteTaskRun(
 	runID: string
 ) {
 	return doDelete(`/assistants/${assistantID}/projects/${projectID}/tasks/${id}/runs/${runID}`);
-}
-
-export async function listTables(assistantID: string, projectID: string): Promise<TableList> {
-	return (await doGet(`/assistants/${assistantID}/projects/${projectID}/tables`)) as TableList;
-}
-
-export async function getRows(assistantID: string, projectID: string, table: string) {
-	return (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/tables/${table}/rows`
-	)) as Rows;
 }
 
 export async function sendCredentials(id: string, credentials: Record<string, string>) {

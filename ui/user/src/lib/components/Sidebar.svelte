@@ -14,7 +14,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import Threads from '$lib/components/sidebar/Threads.svelte';
-	import Tables from '$lib/components/sidebar/Tables.svelte';
+
 	import ModelProviders from '$lib/components/sidebar/ModelProviders.svelte';
 	import SystemPrompt from '$lib/components/edit/SystemPrompt.svelte';
 	import Introduction from '$lib/components/edit/Introduction.svelte';
@@ -76,9 +76,6 @@
 				<Memories {project} />
 			{/if}
 
-			{#if hasTool(projectTools.tools, 'database')}
-				<Tables {project} editor />
-			{/if}
 			<div class="mt-auto flex flex-col">
 				<CollapsePane
 					classes={{

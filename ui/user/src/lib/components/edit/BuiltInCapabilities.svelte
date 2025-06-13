@@ -15,7 +15,7 @@
 	const toolReferences = getToolReferenceMap();
 	let projectToolsMap = $derived(new Map(projectTools.tools.map((x) => [x.id, x])));
 
-	const toolsToInclude = ['database', 'memory', 'knowledge', 'time'];
+	const toolsToInclude = ['memory', 'knowledge', 'time'];
 	const builtInTools = $derived([
 		...toolsToInclude.map((tool) => ({
 			id: tool,
