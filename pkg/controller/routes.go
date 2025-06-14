@@ -24,7 +24,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/threadshare"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolinfo"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
-	"github.com/obot-platform/obot/pkg/controller/handlers/usercatalogauthorization"
 	"github.com/obot-platform/obot/pkg/controller/handlers/webhook"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflow"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflowexecution"
@@ -61,8 +60,7 @@ func (c *Controller) setupRoutes() error {
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient)
 	discord := workflow.NewDiscordController(c.services.GPTClient)
 	taskHandler := task.NewHandler()
-	mcpCatalog := mcpcatalog.New(c.services.AllowedMCPDockerImageRepos, c.services.DefaultMCPCatalogPath)
-	userCatalogAuthorization := usercatalogauthorization.New(c.services.GatewayClient)
+	mcpCatalog := mcpcatalog.New(c.services.AllowedMCPDockerImageRepos, c.services.DefaultMCPCatalogPath, c.services.GatewayClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -214,6 +212,7 @@ func (c *Controller) setupRoutes() error {
 
 	// MCPCatalog
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.Sync)
+	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServers)
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.SetUpUserCatalogAuthorizations)
 
 	// MCPServerCatalogEntry
@@ -225,7 +224,6 @@ func (c *Controller) setupRoutes() error {
 
 	// UserCatalogAuthorization
 	root.Type(&v1.UserCatalogAuthorization{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.UserCatalogAuthorization{}).FinalizeFunc(v1.UserCatalogAuthorizationFinalizer, userCatalogAuthorization.DeleteServers)
 
 	// ProjectInvitations
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.SetRespondedTime)

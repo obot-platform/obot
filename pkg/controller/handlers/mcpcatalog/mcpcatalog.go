@@ -22,6 +22,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/controller/handlers/usercatalogauthorization"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,12 +33,14 @@ import (
 type Handler struct {
 	allowedDockerImageRepos []string
 	defaultCatalogPath      string
+	gatewayClient           *gclient.Client
 }
 
-func New(allowedDockerImageRepos []string, defaultCatalogPath string) *Handler {
+func New(allowedDockerImageRepos []string, defaultCatalogPath string, gatewayClient *gclient.Client) *Handler {
 	return &Handler{
 		allowedDockerImageRepos: allowedDockerImageRepos,
 		defaultCatalogPath:      defaultCatalogPath,
+		gatewayClient:           gatewayClient,
 	}
 }
 
@@ -317,6 +320,56 @@ func isCommandPreferred(existing, newer string) bool {
 
 	// This would mean that existing is docker and newer is either npx or uvx.
 	return true
+}
+
+// DeleteUnauthorizedMCPServers deletes all MCP servers that are no longer authorized to run.
+// This can happen when a user has launched an MCP server that they used to have permission for,
+// but their access to the catalog that the server came from has been revoked.
+func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Response) error {
+	catalog := req.Object.(*v1.MCPCatalog)
+
+	allowedUserIDs := map[string]struct{}{}
+	for _, userID := range catalog.Spec.AllowedUserIDs {
+		allowedUserIDs[userID] = struct{}{}
+	}
+
+	if _, ok := allowedUserIDs["*"]; ok {
+		// Everyone is allowed, so there are no unauthorized servers to delete.
+		return nil
+	}
+
+	var entries v1.MCPServerCatalogEntryList
+	if err := req.Client.List(req.Ctx, &entries, client.InNamespace(req.Namespace), client.MatchingFields{
+		"spec.mcpCatalogName": catalog.Name,
+	}); err != nil {
+		return fmt.Errorf("failed to list entries: %w", err)
+	}
+
+	// TODO: if this is too inefficient, we can do it in a handler for individual MCPServerCatalogEntry objects instead.
+	// Then we would only need to loop over servers, and not over entries also.
+	for _, entry := range entries.Items {
+		var servers v1.MCPServerList
+		if err := req.Client.List(req.Ctx, &servers, client.InNamespace(req.Namespace), client.MatchingFields{
+			"spec.mcpServerCatalogEntryName": entry.Name,
+		}); err != nil {
+			return fmt.Errorf("failed to list servers: %w", err)
+		}
+
+		for _, server := range servers.Items {
+			// Admin users can run whatever they want, so don't shut down any of their servers.
+			if user, err := h.gatewayClient.UserByID(req.Ctx, server.Spec.UserID); err == nil && user.Role == types.RoleAdmin {
+				continue
+			}
+
+			if _, ok := allowedUserIDs[server.Spec.UserID]; !ok {
+				if err := req.Client.Delete(req.Ctx, &server); err != nil {
+					return fmt.Errorf("failed to delete server %s: %w", server.Name, err)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) error {

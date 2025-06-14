@@ -7,17 +7,16 @@ import (
 )
 
 const (
-	RunFinalizer                      = "obot.obot.ai/run"
-	ThreadFinalizer                   = "obot.obot.ai/thread"
-	KnowledgeFileFinalizer            = "obot.obot.ai/knowledge-file"
-	WorkspaceFinalizer                = "obot.obot.ai/workspace"
-	KnowledgeSetFinalizer             = "obot.obot.ai/knowledge-set"
-	KnowledgeSourceFinalizer          = "obot.obot.ai/knowledge-source"
-	ToolReferenceFinalizer            = "obot.obot.ai/tool-reference"
-	AgentFinalizer                    = "obot.obot.ai/agent"
-	WorkflowFinalizer                 = "obot.obot.ai/workflow"
-	MCPServerFinalizer                = "obot.obot.ai/mcp-server"
-	UserCatalogAuthorizationFinalizer = "obot.obot.ai/user-catalog-authorization"
+	RunFinalizer             = "obot.obot.ai/run"
+	ThreadFinalizer          = "obot.obot.ai/thread"
+	KnowledgeFileFinalizer   = "obot.obot.ai/knowledge-file"
+	WorkspaceFinalizer       = "obot.obot.ai/workspace"
+	KnowledgeSetFinalizer    = "obot.obot.ai/knowledge-set"
+	KnowledgeSourceFinalizer = "obot.obot.ai/knowledge-source"
+	ToolReferenceFinalizer   = "obot.obot.ai/tool-reference"
+	AgentFinalizer           = "obot.obot.ai/agent"
+	WorkflowFinalizer        = "obot.obot.ai/workflow"
+	MCPServerFinalizer       = "obot.obot.ai/mcp-server"
 
 	ModelProviderSyncAnnotation       = "obot.ai/model-provider-sync"
 	WorkflowSyncAnnotation            = "obot.ai/workflow-sync"

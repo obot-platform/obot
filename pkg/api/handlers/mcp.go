@@ -52,15 +52,12 @@ func (m *MCPHandler) GetCatalogEntry(req api.Context) error {
 
 	// Authorization check.
 	if !req.UserIsAdmin() {
-		var userCatalogAuthorizations v1.UserCatalogAuthorizationList
-		if err := req.List(&userCatalogAuthorizations, kclient.MatchingFields{
-			"spec.userID":         req.User.GetUID(),
-			"spec.mcpCatalogName": entry.Spec.MCPCatalogName,
-		}); err != nil {
+		userCatalogAuthorizations, err := usercatalogauthorization.GetUserAuthorizationsForCatalog(req.Context(), req.Storage, req.User.GetUID(), entry.Spec.MCPCatalogName)
+		if err != nil {
 			return err
 		}
 
-		if len(userCatalogAuthorizations.Items) == 0 {
+		if len(userCatalogAuthorizations) == 0 {
 			return types.NewErrForbidden("user is not authorized to access this catalog entry")
 		}
 	}
@@ -88,7 +85,8 @@ func (m *MCPHandler) ListEntriesForAllCatalogs(req api.Context) error {
 		return err
 	}
 
-	// TODO: would it be better to do a separate list for each catalog that the user is authorized for?
+	// TODO: would it be better to do a separate list for each catalog that the user is authorized for,
+	// rather than filtering out entries from the full list here?
 	authorizedCatalogs := map[string]struct{}{}
 	for _, authorization := range userCatalogAuthorizations {
 		authorizedCatalogs[authorization.Spec.MCPCatalogName] = struct{}{}
@@ -96,7 +94,8 @@ func (m *MCPHandler) ListEntriesForAllCatalogs(req api.Context) error {
 
 	var entries []types.MCPServerCatalogEntry
 	for _, entry := range list.Items {
-		if _, ok := authorizedCatalogs[entry.Spec.MCPCatalogName]; ok {
+		if _, ok := authorizedCatalogs[entry.Spec.MCPCatalogName]; ok || entry.Spec.MCPCatalogName == "" {
+			// (Entries without a catalog likely come from legacy gptscript tool bundles.)
 			entries = append(entries, convertMCPServerCatalogEntry(entry))
 		}
 	}
