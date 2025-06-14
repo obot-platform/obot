@@ -25,6 +25,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
+	catalogs := handlers.NewCatalogHandler(services.AllowedMCPDockerImageRepos)
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
 	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher, services.PostgresDSN)
@@ -386,9 +387,21 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Slack event receiver
 	mux.HandleFunc("POST /api/slack/events", slackEventHandler.HandleEvent)
 
-	// MCP Catalog
-	mux.HandleFunc("GET /api/mcp/catalog", mcp.ListCatalog)
+	// MCP Catalog Entries
+	mux.HandleFunc("GET /api/mcp/catalog", mcp.ListEntriesForAllCatalogs)
 	mux.HandleFunc("GET /api/mcp/catalog/{mcp_server_id}", mcp.GetCatalogEntry)
+
+	// MCP Catalogs (admin only)
+	mux.HandleFunc("GET /api/mcp-catalogs", catalogs.List)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}", catalogs.Get)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/refresh", catalogs.Refresh)
+	mux.HandleFunc("POST /api/mcp-catalogs", catalogs.Create)
+	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}", catalogs.Update)
+	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}", catalogs.Delete)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries", catalogs.ListEntriesForCatalog)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries", catalogs.CreateEntry)
+	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", catalogs.UpdateEntry)
+	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", catalogs.DeleteEntry)
 
 	// MCP Servers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)
