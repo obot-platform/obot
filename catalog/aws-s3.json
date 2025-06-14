@@ -42,8 +42,8 @@
           "required": true,
           "sensitive": true,
           "description": "AWS access key"
-        }
-    {
+        },
+        {
           "key": "AWS_SECRET_ACCESS_KEY",
           "name": "AWS Secret Access Key",
           "value": "<aws_secret_access_key>",
