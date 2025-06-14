@@ -376,6 +376,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
+	apply.AddValidOwnerChange("mcpcatalogentries", "default")
 
 	var postgresDSN string
 	if strings.HasPrefix(config.DSN, "postgres://") {
