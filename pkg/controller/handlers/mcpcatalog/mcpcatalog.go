@@ -60,7 +60,31 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}
 
 	// We want to refresh this every hour.
+	// TODO: make this configurable.
 	resp.RetryAfter(time.Hour)
+
+	if len(toAdd) == 0 {
+		// If there's nothing to add, then that means that there are no entries from the source URLs.
+		// Now we will delete all non-editable entries, since those came from a remote source in the past,
+		// and thus no longer exist. The apply function will not remove them if toAdd is empty, so we need todo it manually.
+
+		var entries v1.MCPServerCatalogEntryList
+		if err := req.Client.List(req.Ctx, &entries, client.InNamespace(system.DefaultNamespace), client.MatchingFields{
+			"spec.mcpCatalogName": mcpCatalog.Name,
+		}); err != nil {
+			return fmt.Errorf("failed to list entries: %w", err)
+		}
+
+		for _, entry := range entries.Items {
+			if !entry.Spec.Editable {
+				if err := req.Client.Delete(req.Ctx, &entry); err != nil {
+					return fmt.Errorf("failed to delete entry %s: %w", entry.Name, err)
+				}
+			}
+		}
+
+		return nil
+	}
 
 	// I know we don't want to do apply anymore. But we were doing it before in a different place.
 	// Now we're doing it here. It's not important enough to change right now.

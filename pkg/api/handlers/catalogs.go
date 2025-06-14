@@ -326,15 +326,6 @@ func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
 	entryName := req.PathValue("entry_id")
 
-	var catalog v1.MCPCatalog
-	if err := req.Get(&catalog, catalogName); err != nil {
-		return fmt.Errorf("failed to get catalog: %w", err)
-	}
-
-	if catalog.Spec.IsReadOnly {
-		return fmt.Errorf("cannot delete an entry for a read-only catalog")
-	}
-
 	var entry v1.MCPServerCatalogEntry
 	if err := req.Get(&entry, entryName); err != nil {
 		return fmt.Errorf("failed to get entry: %w", err)
@@ -342,6 +333,10 @@ func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 
 	if entry.Spec.MCPCatalogName != catalogName {
 		return fmt.Errorf("entry does not belong to catalog")
+	}
+
+	if !entry.Spec.Editable {
+		return fmt.Errorf("entry is not editable and cannot be manually deleted")
 	}
 
 	if err := req.Delete(&entry); err != nil {

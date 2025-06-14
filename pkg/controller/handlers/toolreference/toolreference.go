@@ -128,6 +128,9 @@ func (h *Handler) mcpServers(ctx context.Context, registryURL string, entries ma
 					Name:      strings.TrimSuffix(filename, ".yaml"),
 					Namespace: system.DefaultNamespace,
 				},
+				Spec: v1.MCPServerCatalogEntrySpec{
+					MCPCatalogName: "default",
+				},
 			}
 
 			if manifest.Command != "" {
@@ -393,6 +396,12 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 			shouldUpdate = true
 		}
 
+		// Migration: check to see if the default catalog is set.
+		if mcpCatalogEntry.Spec.MCPCatalogName == "" {
+			mcpCatalogEntry.Spec.MCPCatalogName = "default"
+			shouldUpdate = true
+		}
+
 		if shouldUpdate {
 			mcpCatalogEntry.Spec.CommandManifest.Server = serverManifest
 			mcpCatalogEntry.Spec.ToolReferenceName = toolRef.Name
@@ -412,6 +421,7 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 				Metadata: maps.Clone(toolRef.Spec.ToolMetadata),
 			},
 			ToolReferenceName: toolRef.Name,
+			MCPCatalogName:    "default",
 			Editable:          false, // entries from toolreferences are not editable
 		},
 	})
