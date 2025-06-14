@@ -25,7 +25,7 @@ func New(gatewayClient *gclient.Client) *Handler {
 	}
 }
 
-func (h *Handler) DeleteServers(req router.Request, resp router.Response) error {
+func (h *Handler) DeleteServers(req router.Request, _ router.Response) error {
 	usercatalogauthorization := req.Object.(*v1.UserCatalogAuthorization)
 
 	if usercatalogauthorization.Spec.UserID == "*" {

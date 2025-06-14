@@ -337,7 +337,7 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 	return nil
 }
 
-func (h *Handler) SetUpUserCatalogAuthorizations(req router.Request, resp router.Response) error {
+func (h *Handler) SetUpUserCatalogAuthorizations(req router.Request, _ router.Response) error {
 	mcpCatalog := req.Object.(*v1.MCPCatalog)
 
 	authorizationNames := map[string]struct{}{}
@@ -352,7 +352,7 @@ func (h *Handler) SetUpUserCatalogAuthorizations(req router.Request, resp router
 		// See if this authorization already exists.
 		var existingAuthorization v1.UserCatalogAuthorization
 		if err := req.Client.Get(req.Ctx, router.Key(system.DefaultNamespace, authorizationName), &existingAuthorization); apierrors.IsNotFound(err) {
-			req.Client.Create(req.Ctx, &v1.UserCatalogAuthorization{
+			if err := req.Client.Create(req.Ctx, &v1.UserCatalogAuthorization{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      authorizationName,
 					Namespace: system.DefaultNamespace,
@@ -361,7 +361,9 @@ func (h *Handler) SetUpUserCatalogAuthorizations(req router.Request, resp router
 					UserID:         userID,
 					MCPCatalogName: mcpCatalog.Name,
 				},
-			})
+			}); err != nil {
+				return fmt.Errorf("failed to create user catalog authorization %s: %w", authorizationName, err)
+			}
 		}
 	}
 

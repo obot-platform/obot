@@ -59,7 +59,6 @@ type Handler struct {
 	dispatcher         *dispatcher.Dispatcher
 	supportDockerTools bool
 	registryURLs       []string
-	mcpCatalogs        []string
 	lastChecksLock     *sync.RWMutex
 	lastChecks         map[string]time.Time
 }
