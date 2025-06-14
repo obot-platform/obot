@@ -68,11 +68,5 @@ func AreAllUsersAuthorizedForCatalog(ctx context.Context, c storage.Client, cata
 		return false, err
 	}
 
-	for _, auth := range authorizations.Items {
-		if auth.DeletionTimestamp.IsZero() {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	return len(authorizations.Items) > 0, nil
 }
