@@ -74,5 +74,3 @@ spec:
     - memory
     - time
     - knowledge
-    availableThreadTools:
-    - database
