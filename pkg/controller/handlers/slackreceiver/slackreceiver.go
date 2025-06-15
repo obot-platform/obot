@@ -75,7 +75,7 @@ func CreateOAuthApp(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func (s *Handler) SubscribeToSlackEvents(req router.Request, resp router.Response) error {
+func (s *Handler) SubscribeToSlackEvents(req router.Request, _ router.Response) error {
 	slackReceiver := req.Object.(*v1.SlackReceiver)
 
 	s.lock.RLock()
@@ -126,11 +126,11 @@ func (s *Handler) SubscribeToSlackEvents(req router.Request, resp router.Respons
 			}
 		}
 		err := socketmodeHandler.RunEventLoopContext(ctx)
-		if err != nil {
-			log.Errorf("error running event loop: %v", err)
-		}
 		s.lock.Lock()
-		delete(s.subscribed, slackReceiver.Name)
+		if cancel, ok := s.subscribed[slackReceiver.Name]; ok {
+			cancel()
+			delete(s.subscribed, slackReceiver.Name)
+		}
 		s.lock.Unlock()
 		if err != nil {
 			err = fmt.Errorf("failed to run event loop: %w", err)
