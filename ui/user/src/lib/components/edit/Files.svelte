@@ -296,7 +296,7 @@
 			{/if}
 		{/each}
 		<div class="h-full overflow-y-auto">
-			<FileEditors {project} onFileChanged={fileMonitor.onFileChange} bind:items />
+			<FileEditors onFileChanged={fileMonitor.onFileChange} bind:items />
 		</div>
 	</div>
 </dialog>

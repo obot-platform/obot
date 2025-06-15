@@ -8,10 +8,8 @@ import { AgentService } from "~/lib/service/api/agentService";
 import { CredentialApiService } from "~/lib/service/api/credentialApiService";
 import { KnowledgeFileService } from "~/lib/service/api/knowledgeFileApiService";
 import { ThreadsService } from "~/lib/service/api/threadsService";
-import { WorkspaceTableApiService } from "~/lib/service/api/workspaceTableApiService";
 import { PaginationParams } from "~/lib/service/queryService";
 
-import { TableNamespace } from "~/components/model/tables";
 import { useAsync } from "~/hooks/useAsync";
 
 function useThread(id?: Nullish<string>) {
@@ -109,32 +107,6 @@ export function useThreadCredentials(threadId: Nullish<string>) {
 	});
 
 	return { getCredentials, deleteCredential };
-}
-
-export function useThreadTableRows({
-	threadId,
-	tableName,
-	pagination,
-	search,
-	disabled,
-}: {
-	threadId?: Nullish<string>;
-	tableName?: Nullish<string>;
-	pagination?: PaginationParams;
-	search?: string;
-	disabled?: boolean;
-}) {
-	const [key, fetcher] = [
-		...WorkspaceTableApiService.getTableRows.swr({
-			namespace: TableNamespace.Threads,
-			entityId: threadId,
-			tableName,
-			filters: { search },
-			query: { pagination },
-		}),
-	];
-
-	return useSWR(disabled ? null : key, fetcher);
 }
 
 export const useThreadTasks = (agentThreadId?: string) => {

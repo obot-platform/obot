@@ -382,19 +382,6 @@ export interface TaskRunList {
 	items: TaskRun[];
 }
 
-export interface TableList {
-	tables?: Table[];
-}
-
-export interface Table {
-	name: string;
-}
-
-export interface Rows {
-	columns: string[];
-	rows: Record<string, unknown>[];
-}
-
 export interface Thread {
 	id: string;
 	created: string;

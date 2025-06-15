@@ -1,7 +1,6 @@
 import { HttpResponse, http } from "test";
 import {
 	mockedBrowserToolBundle,
-	mockedDatabaseToolReference,
 	mockedImageToolBundle,
 	mockedKnowledgeToolReference,
 	mockedTasksToolReference,
@@ -15,7 +14,6 @@ import { ToolReference } from "~/lib/model/toolReferences";
 import { ApiRoutes } from "~/lib/routers/apiRoutes";
 
 const toolReferences = {
-	database: mockedDatabaseToolReference,
 	knowledge: mockedKnowledgeToolReference,
 	tasks: mockedTasksToolReference,
 	"workspace-files": mockedWorkspaceFilesToolReference,

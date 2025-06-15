@@ -1,24 +1,5 @@
 import { ToolReference } from "~/lib/model/toolReferences";
 
-export const mockedDatabaseToolReference: ToolReference = {
-	id: "database",
-	created: "2025-01-29T11:10:12-05:00",
-	revision: "1",
-	metadata: {
-		category: "Capability",
-		icon: "https//www.mockimagelocation.com/database.svg",
-	},
-	type: "toolreference",
-	name: "Database",
-	toolType: "tool",
-	reference: "github.com/obot-platform/tools/database",
-	active: true,
-	resolved: true,
-	builtin: true,
-	description: "Tools for interacting with a database",
-	bundle: false,
-};
-
 export const mockedKnowledgeToolReference: ToolReference = {
 	id: "knowledge",
 	created: "2025-01-29T11:10:12-05:00",
@@ -228,7 +209,6 @@ export const mockedBundleWithOauthReference: ToolReference[] = [
 ];
 
 export const mockedToolReferences: ToolReference[] = [
-	mockedDatabaseToolReference,
 	mockedKnowledgeToolReference,
 	mockedTasksToolReference,
 	mockedWorkspaceFilesToolReference,

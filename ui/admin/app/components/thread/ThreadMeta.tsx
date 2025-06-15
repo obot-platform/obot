@@ -9,7 +9,6 @@ import {
 	PuzzleIcon,
 	RotateCwIcon,
 	SearchIcon,
-	TableIcon,
 	TrashIcon,
 } from "lucide-react";
 import { $path } from "safe-routes";
@@ -21,7 +20,6 @@ import { Task } from "~/lib/model/tasks";
 import { Thread } from "~/lib/model/threads";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
-import { WorkspaceTableApiService } from "~/lib/service/api/workspaceTableApiService";
 import { PaginationInfo } from "~/lib/service/queryService";
 import { cn, noop } from "~/lib/utils";
 
@@ -34,8 +32,6 @@ import {
 import { ConfirmationDialog } from "~/components/composed/ConfirmationDialog";
 import { PaginationActions } from "~/components/composed/PaginationActions";
 import { Truncate } from "~/components/composed/typography";
-import { TableNamespace } from "~/components/model/tables";
-import { ThreadTableDialog } from "~/components/thread/ThreadTableDialog";
 import {
 	Accordion,
 	AccordionContent,
@@ -111,19 +107,6 @@ export function ThreadMeta({
 	);
 
 	const { dialogProps, interceptAsync } = useConfirmationDialog();
-
-	const tableStore = usePagination({ pageSize });
-	const getTables = useSWR(
-		...WorkspaceTableApiService.getTables.swr({
-			namespace: TableNamespace.Threads,
-			entityId: thread.id,
-			filters: { search: tableStore.search },
-			query: { pagination: tableStore.params.pagination },
-		})
-	);
-	const { items: tables } = getTables.data ?? {};
-
-	if (getTables.data) tableStore.updateTotal(getTables.data.total);
 
 	return (
 		<Card className={cn("bg-0 h-full overflow-hidden", className)}>
@@ -284,37 +267,6 @@ export function ThreadMeta({
 								>
 									<TrashIcon />
 								</Button>
-							</li>
-						)}
-					/>
-
-					<ThreadMetaAccordionItem
-						value="tables"
-						icon={TableIcon}
-						title="Tables"
-						isLoading={getTables.isValidating}
-						onRefresh={() => getTables.mutate()}
-						items={tables ?? []}
-						pagination={tableStore}
-						setPage={tableStore.setPage}
-						renderItem={(table) => (
-							<li
-								key={table.name}
-								className="flex items-center justify-between"
-							>
-								<p>{table.name}</p>
-
-								<ThreadTableDialog
-									threadId={thread.id}
-									tableName={table.name}
-								/>
-							</li>
-						)}
-						renderSkeleton={(index) => (
-							<li key={index} className="flex items-center">
-								<Skeleton className="rounded-full">
-									<p className="text-transparent">.</p>
-								</Skeleton>
 							</li>
 						)}
 					/>

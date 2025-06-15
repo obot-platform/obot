@@ -49,7 +49,6 @@ export type ToolMap = Record<string, ToolReference>;
 export const CapabilityTool = {
 	Knowledge: "knowledge",
 	WorkspaceFiles: "workspace-files",
-	Database: "database",
 	Tasks: "tasks",
 	Projects: "projects",
 	Threads: "threads",

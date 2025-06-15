@@ -17,7 +17,7 @@ export const mockedAgent: Agent = {
 	knowledgeDescription: "",
 	agents: null,
 	workflows: null,
-	tools: ["knowledge", "workspace-files", "database", "tasks"],
+	tools: ["knowledge", "workspace-files", "tasks"],
 	availableThreadTools: null,
 	defaultThreadTools: null,
 	oauthApps: null,
@@ -28,9 +28,6 @@ export const mockedAgent: Agent = {
 	env: null,
 	aliasAssigned: false,
 	toolInfo: {
-		database: {
-			authorized: true,
-		},
 		knowledge: {
 			authorized: true,
 		},

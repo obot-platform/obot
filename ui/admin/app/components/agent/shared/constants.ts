@@ -4,11 +4,10 @@ import { CapabilityTool } from "~/lib/model/toolReferences";
 const CapabilityToolOrder = {
 	[CapabilityTool.Knowledge]: 0,
 	[CapabilityTool.WorkspaceFiles]: 1,
-	[CapabilityTool.Database]: 2,
-	[CapabilityTool.Tasks]: 3,
-	[CapabilityTool.Projects]: 4,
-	[CapabilityTool.Threads]: 5,
-	[CapabilityTool.Memory]: 6,
+	[CapabilityTool.Tasks]: 2,
+	[CapabilityTool.Projects]: 3,
+	[CapabilityTool.Threads]: 4,
+	[CapabilityTool.Memory]: 5,
 } satisfies Record<CapabilityTool, number>;
 
 export const getCapabilityToolOrder = (tool: string) => {
