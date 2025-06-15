@@ -130,7 +130,10 @@ func (s *Handler) SubscribeToSlackEvents(req router.Request, resp router.Respons
 			log.Errorf("error running event loop: %v", err)
 		}
 		s.lock.Lock()
-		delete(s.subscribed, slackReceiver.Name)
+		if cancel, ok := s.subscribed[slackReceiver.Name]; ok {
+			cancel()
+			delete(s.subscribed, slackReceiver.Name)
+		}
 		s.lock.Unlock()
 		if err != nil {
 			err = fmt.Errorf("failed to run event loop: %w", err)
