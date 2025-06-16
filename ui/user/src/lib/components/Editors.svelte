@@ -9,7 +9,6 @@
 	import { X } from 'lucide-svelte/icons';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import Files from '$lib/components/edit/Files.svelte';
 
 	interface Props {
 		project: Project;
@@ -64,11 +63,6 @@
 <div class="relative flex h-full w-full flex-col">
 	{#if layout.items.length > 1 || !layout.items[0]?.generic}
 		<div class="file-tabs relative flex items-center pt-1">
-			{#if currentThreadID}
-				<div class="pb-1 pl-1">
-					<Files {project} thread {currentThreadID} primary={false} helperText={'Browse Files'} />
-				</div>
-			{/if}
 			<ul
 				class="default-scrollbar-thin relative mt-auto flex grow items-center gap-1 overflow-x-auto pl-1 text-center text-sm"
 			>

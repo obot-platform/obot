@@ -23,8 +23,6 @@
 	import { Download, Image, Plus } from 'lucide-svelte';
 	import { FileText, Trash2, Upload, X } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
-	import CollapsePane from './CollapsePane.svelte';
-	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	interface Props {
 		project: Project;
@@ -68,7 +66,8 @@
 	let fileList = $state<FileList>();
 	let items = $state<EditorItem[]>([]);
 	let editorDialog = $state<HTMLDialogElement>();
-	let apiOpts = $derived(thread ? { threadID: currentThreadID } : {});
+	// Always use project scope for file operations, never thread scope
+	let apiOpts = $derived({});
 	let uploadInProgress = $state<Promise<Files>>();
 	let menu = $state<ReturnType<typeof Menu>>();
 
@@ -96,10 +95,12 @@
 		}
 
 		const file = fileList[0];
+		// Always save files at project scope
 		uploadInProgress = ChatService.saveFile(project.assistantID, project.id, file, apiOpts);
 		uploadInProgress
 			.then(() => {
 				if (isKnowledgeFile(file.name) && thread && currentThreadID) {
+					// Even knowledge files should be uploaded at project scope
 					return ChatService.uploadKnowledge(project.assistantID, project.id, file, apiOpts);
 				}
 			})
@@ -129,6 +130,7 @@
 	}
 
 	async function loadFiles() {
+		// Always load files from project scope
 		files = (await ChatService.listFiles(project.assistantID, project.id, apiOpts)).items;
 	}
 
@@ -147,9 +149,11 @@
 		if (!fileToDelete) {
 			return;
 		}
+		// Always delete files from project scope
 		await ChatService.deleteFile(project.assistantID, project.id, fileToDelete, apiOpts);
 		await loadFiles();
 		if (isKnowledgeFile(fileToDelete) && thread && currentThreadID) {
+			// Even knowledge files should be deleted from project scope
 			await ChatService.deleteKnowledgeFile(project.assistantID, project.id, fileToDelete, apiOpts);
 		}
 		EditorService.remove(items, fileToDelete);
@@ -239,31 +243,6 @@
 				<FileText class="h-5 w-5" />
 			{/snippet}
 		</Menu>
-	{:else}
-		<CollapsePane
-			classes={{ header: 'pl-3 py-2', content: 'p-2' }}
-			iconSize={5}
-			header="Starter Files"
-			helpText={HELPER_TEXTS.starterFiles}
-		>
-			<div class="flex flex-col gap-4">
-				{@render content()}
-				<div class="flex justify-end">
-					<label class="button flex cursor-pointer items-center justify-end gap-1 text-xs">
-						{#await uploadInProgress}
-							<Loading class="size-4" />
-						{:catch error}
-							<Error {error} />
-						{/await}
-						{#if !uploadInProgress}
-							<Plus class="size-4" />
-						{/if}
-						Add File
-						<input bind:files={fileList} type="file" class="hidden" {accept} />
-					</label>
-				</div>
-			</div>
-		</CollapsePane>
 	{/if}
 {/snippet}
 

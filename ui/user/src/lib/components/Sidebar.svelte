@@ -7,7 +7,6 @@
 	import General from '$lib/components/edit/General.svelte';
 	import McpServers from '$lib/components/edit/McpServers.svelte';
 	import Knowledge from '$lib/components/edit/Knowledge.svelte';
-	import Files from '$lib/components/edit/Files.svelte';
 	import Sharing from '$lib/components/edit/Sharing.svelte';
 	import Interfaces from '$lib/components/edit/Interfaces.svelte';
 	import CustomTools from '$lib/components/edit/CustomTools.svelte';
@@ -92,7 +91,6 @@
 					<BuiltInCapabilities bind:project />
 					<Introduction bind:project />
 					<Knowledge {project} />
-					<Files {project} classes={{ list: 'text-sm flex flex-col gap-2' }} />
 					<ModelProviders {project} />
 					{#if version.current.dockerSupported}
 						<CustomTools {project} />
