@@ -130,10 +130,6 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		return fmt.Errorf("display name is required")
 	}
 
-	if len(manifest.SourceURLs) == 0 {
-		return fmt.Errorf("at least one source URL is required")
-	}
-
 	for _, urlStr := range manifest.SourceURLs {
 		u, err := url.Parse(urlStr)
 		if err != nil {
@@ -224,7 +220,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		Spec: v1.MCPServerCatalogEntrySpec{
 			MCPCatalogName: catalogName,
 			Editable:       true,
-			// TODO: add support for unsupportedTools field?
+			// TODO(g-linville): add support for unsupportedTools field?
 		},
 	}
 
@@ -247,6 +243,15 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
 	entryName := req.PathValue("entry_id")
+
+	var catalog v1.MCPCatalog
+	if err := req.Get(&catalog, catalogName); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	if catalog.Spec.IsReadOnly {
+		return fmt.Errorf("cannot update an entry for a read-only catalog")
+	}
 
 	var entry v1.MCPServerCatalogEntry
 	if err := req.Get(&entry, entryName); err != nil {
@@ -292,6 +297,15 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
 	entryName := req.PathValue("entry_id")
+
+	var catalog v1.MCPCatalog
+	if err := req.Get(&catalog, catalogName); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	if catalog.Spec.IsReadOnly {
+		return fmt.Errorf("cannot delete an entry for a read-only catalog")
+	}
 
 	var entry v1.MCPServerCatalogEntry
 	if err := req.Get(&entry, entryName); err != nil {

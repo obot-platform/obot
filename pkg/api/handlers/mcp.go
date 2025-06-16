@@ -85,7 +85,7 @@ func (m *MCPHandler) ListEntriesForAllCatalogs(req api.Context) error {
 		return err
 	}
 
-	// TODO: would it be better to do a separate list for each catalog that the user is authorized for,
+	// TODO(g-linville): would it be better to do a separate list for each catalog that the user is authorized for,
 	// rather than filtering out entries from the full list here?
 	authorizedCatalogs := map[string]struct{}{}
 	for _, authorization := range userCatalogAuthorizations {

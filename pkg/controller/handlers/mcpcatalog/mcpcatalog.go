@@ -63,13 +63,13 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}
 
 	// We want to refresh this every hour.
-	// TODO: make this configurable.
+	// TODO(g-linville): make this configurable.
 	resp.RetryAfter(time.Hour)
 
 	if len(toAdd) == 0 {
 		// If there's nothing to add, then that means that there are no entries from the source URLs.
 		// Now we will delete all non-editable entries, since those came from a remote source in the past,
-		// and thus no longer exist. The apply function will not remove them if toAdd is empty, so we need todo it manually.
+		// and thus no longer exist. The apply function will not remove them if toAdd is empty, so we need to do it manually.
 
 		var entries v1.MCPServerCatalogEntryList
 		if err := req.Client.List(req.Ctx, &entries, client.InNamespace(system.DefaultNamespace), client.MatchingFields{
@@ -345,7 +345,7 @@ func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Resp
 		return fmt.Errorf("failed to list entries: %w", err)
 	}
 
-	// TODO: if this is too inefficient, we can do it in a handler for individual MCPServerCatalogEntry objects instead.
+	// TODO(g-linville): if this is too inefficient, we can do it in a handler for individual MCPServerCatalogEntry objects instead.
 	// Then we would only need to loop over servers, and not over entries also.
 	for _, entry := range entries.Items {
 		var servers v1.MCPServerList
