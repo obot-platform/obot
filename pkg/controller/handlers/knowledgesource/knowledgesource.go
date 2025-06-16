@@ -119,7 +119,7 @@ func reconcileFiles(ctx context.Context, c kclient.Client, existingFiles, newFil
 }
 
 func (k *Handler) saveProgress(ctx context.Context, c kclient.Client, source *v1.KnowledgeSource, thread *v1.Thread, complete bool) error {
-	files, syncMetadata, err := k.getMetadata(ctx, source, thread)
+	files, syncMetadata, err := k.getMetadata(ctx, source, thread, c)
 	if err != nil || syncMetadata == nil {
 		return err
 	}
@@ -198,10 +198,13 @@ func getThread(ctx context.Context, c kclient.WithWatch, source *v1.KnowledgeSou
 	// Set the thread name when its workspace ID is set and unset the thread name if it is not.
 	// This will be triggered when the thread's status changes.
 	// This also allows the knowledge files to not trigger on the thread.
-	if source.Status.ThreadName == "" && thread.Status.WorkspaceID != "" {
-		source.Status.ThreadName = thread.Name
-		update = true
-	} else if source.Status.ThreadName != "" && thread.Status.WorkspaceID == "" {
+	if source.Status.ThreadName == "" && thread.Status.SharedWorkspaceName != "" {
+		var workspace v1.Workspace
+		if err := c.Get(ctx, router.Key(thread.Namespace, thread.Status.SharedWorkspaceName), &workspace); err == nil && workspace.Status.WorkspaceID != "" {
+			source.Status.ThreadName = thread.Name
+			update = true
+		}
+	} else if source.Status.ThreadName != "" && thread.Status.SharedWorkspaceName == "" {
 		source.Status.ThreadName = ""
 		update = true
 	}
@@ -225,7 +228,17 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 	source := req.Object.(*v1.KnowledgeSource)
 
 	thread, err := getThread(req.Ctx, req.Client, source)
-	if err != nil || thread.Status.WorkspaceID == "" {
+	if err != nil {
+		return err
+	}
+
+	// Check if shared workspace is available
+	if thread.Status.SharedWorkspaceName == "" {
+		return nil
+	}
+
+	var workspace v1.Workspace
+	if err := req.Get(&workspace, thread.Namespace, thread.Status.SharedWorkspaceName); err != nil || workspace.Status.WorkspaceID == "" {
 		return err
 	}
 

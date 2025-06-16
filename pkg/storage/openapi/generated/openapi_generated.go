@@ -11019,12 +11019,6 @@ func schema_storage_apis_obotobotai_v1_ThreadStatus(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
-					"workspaceID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"workspaceName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

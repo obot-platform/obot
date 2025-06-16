@@ -72,6 +72,17 @@ func getThread(ctx context.Context, c kclient.Client, ks *v1.KnowledgeSet, sourc
 	return &thread, c.Get(ctx, router.Key(ks.Namespace, threadName), untriggered.Get(&thread))
 }
 
+func getSharedWorkspaceID(ctx context.Context, c kclient.Client, thread *v1.Thread) string {
+	if thread.Status.SharedWorkspaceName != "" {
+		var workspace v1.Workspace
+		if err := c.Get(ctx, router.Key(thread.Namespace, thread.Status.SharedWorkspaceName), &workspace); err == nil {
+			return workspace.Status.WorkspaceID
+		}
+	}
+	// Project-scoped workspaces only - no fallback to thread workspace
+	return ""
+}
+
 func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 	file := req.Object.(*v1.KnowledgeFile)
 
@@ -95,7 +106,12 @@ func (h *Handler) IngestFile(req router.Request, _ router.Response) error {
 	}
 
 	thread, err := getThread(req.Ctx, req.Client, &ks, &source)
-	if err != nil || thread.Status.WorkspaceID == "" {
+	if err != nil {
+		return kclient.IgnoreNotFound(err)
+	}
+
+	workspaceID := getSharedWorkspaceID(req.Ctx, req.Client, thread)
+	if workspaceID == "" {
 		return kclient.IgnoreNotFound(err)
 	}
 
@@ -261,7 +277,7 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 		"dataset": ks.Namespace + "/" + ks.Name,
 		"metadata_json": map[string]string{
 			"url":               file.Spec.URL,
-			"workspaceID":       thread.Status.WorkspaceID,
+			"workspaceID":       getSharedWorkspaceID(ctx, client, thread),
 			"workspaceFileName": OutputFile(file.Spec.FileName),
 		},
 	}, invoke.SystemTaskOptions{
@@ -325,7 +341,12 @@ func (h *Handler) Unapproved(req router.Request, _ router.Response) error {
 	}
 
 	thread, err := getThread(req.Ctx, req.Client, &ks, source)
-	if err != nil || thread.Status.WorkspaceID == "" {
+	if err != nil {
+		return kclient.IgnoreNotFound(err)
+	}
+
+	workspaceID := getSharedWorkspaceID(req.Ctx, req.Client, thread)
+	if workspaceID == "" {
 		return kclient.IgnoreNotFound(err)
 	}
 

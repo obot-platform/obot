@@ -182,10 +182,7 @@ func (t *Handler) CreateWorkspaces(req router.Request, _ router.Response) error 
 	}
 
 	var update bool
-	if thread.Status.WorkspaceID != ws.Status.WorkspaceID {
-		update = true
-		thread.Status.WorkspaceID = ws.Status.WorkspaceID
-	}
+	// Only update workspace name, not thread-scoped workspace ID
 	if thread.Status.WorkspaceName != ws.Name {
 		update = true
 		thread.Status.WorkspaceName = ws.Name
@@ -279,10 +276,6 @@ func (t *Handler) CreateKnowledgeSet(req router.Request, _ router.Response) erro
 func (t *Handler) SetCreated(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 	if thread.Status.Created {
-		return nil
-	}
-
-	if thread.Status.WorkspaceID == "" {
 		return nil
 	}
 

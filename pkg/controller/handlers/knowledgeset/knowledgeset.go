@@ -136,13 +136,14 @@ func (h *Handler) createThread(ctx context.Context, c kclient.Client, ks *v1.Kno
 
 	// Set the thread name when its workspace ID is set and unset the thread name if it is not.
 	// This will be triggered when the thread's status changes.
-	// This also allows the knowledge files to not trigger on the thread.
-	if ks.Status.ThreadName == "" && thread.Status.WorkspaceID != "" {
-		ks.Status.ThreadName = thread.Name
-		return c.Status().Update(ctx, ks)
-	} else if ks.Status.ThreadName != "" && thread.Status.WorkspaceID == "" {
+	// This also allows the knowledge file to not trigger on the thread.
+	if ks.Status.ThreadName == "" && thread.Status.SharedWorkspaceName != "" {
+		var workspace v1.Workspace
+		if err := c.Get(ctx, router.Key(thread.Namespace, thread.Status.SharedWorkspaceName), &workspace); err == nil && workspace.Status.WorkspaceID != "" {
+			ks.Status.ThreadName = thread.Name
+		}
+	} else if ks.Status.ThreadName != "" && thread.Status.SharedWorkspaceName == "" {
 		ks.Status.ThreadName = ""
-		return c.Status().Update(ctx, ks)
 	}
 	return nil
 }

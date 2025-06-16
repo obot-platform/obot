@@ -678,7 +678,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 			DefaultModelProvider: modelProvider,
 		},
 		Input:              input,
-		Workspace:          thread.Status.WorkspaceID,
+		Workspace:          getWorkspaceID(ctx, c, thread),
 		CredentialContexts: run.Spec.CredentialContextIDs,
 		ChatState:          chatState,
 		IncludeEvents:      true,
@@ -1146,4 +1146,16 @@ func timeoutAfter(ctx context.Context, cancel func(err error), d time.Duration) 
 	case <-time.After(d):
 		cancel(fmt.Errorf("run exceeded maximum time of %v", d))
 	}
+}
+
+func getWorkspaceID(ctx context.Context, c kclient.Client, thread *v1.Thread) string {
+	// Use shared workspace for project-based threads
+	if thread.Status.SharedWorkspaceName != "" {
+		var workspace v1.Workspace
+		if err := c.Get(ctx, router.Key(thread.Namespace, thread.Status.SharedWorkspaceName), &workspace); err == nil {
+			return workspace.Status.WorkspaceID
+		}
+	}
+	// Project-scoped workspaces only - no fallback to thread workspace
+	return ""
 }

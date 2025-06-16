@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type fileDetails struct {
@@ -26,9 +28,24 @@ type syncMetadata struct {
 	State  map[string]any         `json:"state,omitempty"`
 }
 
-func (k *Handler) getMetadata(ctx context.Context, source *v1.KnowledgeSource, thread *v1.Thread) (result []v1.KnowledgeFile, _ *syncMetadata, _ error) {
+func getSharedWorkspaceID(ctx context.Context, c kclient.Client, thread *v1.Thread) string {
+	if thread.Status.SharedWorkspaceName != "" {
+		var workspace v1.Workspace
+		if err := c.Get(ctx, router.Key(thread.Namespace, thread.Status.SharedWorkspaceName), &workspace); err == nil {
+			return workspace.Status.WorkspaceID
+		}
+	}
+	return ""
+}
+
+func (k *Handler) getMetadata(ctx context.Context, source *v1.KnowledgeSource, thread *v1.Thread, c kclient.Client) (result []v1.KnowledgeFile, _ *syncMetadata, _ error) {
+	workspaceID := getSharedWorkspaceID(ctx, c, thread)
+	if workspaceID == "" {
+		return nil, nil, nil
+	}
+
 	data, err := k.gptClient.ReadFileInWorkspace(ctx, ".metadata.json", gptscript.ReadFileInWorkspaceOptions{
-		WorkspaceID: thread.Status.WorkspaceID,
+		WorkspaceID: workspaceID,
 	})
 	if errNotFound := new(gptscript.NotFoundInWorkspaceError); errors.As(err, &errNotFound) {
 		return nil, nil, nil
@@ -45,7 +62,7 @@ func (k *Handler) getMetadata(ctx context.Context, source *v1.KnowledgeSource, t
 	for _, file := range output.Files {
 		result = append(result, v1.KnowledgeFile{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:       v1.ObjectNameFromAbsolutePath(filepath.Join(thread.Status.WorkspaceID, file.FilePath)),
+				Name:       v1.ObjectNameFromAbsolutePath(filepath.Join(workspaceID, file.FilePath)),
 				Namespace:  source.Namespace,
 				Finalizers: []string{v1.KnowledgeFileFinalizer},
 			},

@@ -181,8 +181,14 @@ func (h *Handler) getDataStepResult(ctx context.Context, client kclient.Client, 
 		return "", nil, false, err
 	}
 
+	// Use shared workspace instead of thread workspace
+	var workspace v1.Workspace
+	if err := client.Get(ctx, router.Key(thread.Namespace, thread.Status.SharedWorkspaceName), &workspace); err != nil {
+		return "", nil, false, err
+	}
+
 	content, err := h.gptscriptClient.ReadFileInWorkspace(ctx, fileName, gptscript.ReadFileInWorkspaceOptions{
-		WorkspaceID: thread.Status.WorkspaceID,
+		WorkspaceID: workspace.Status.WorkspaceID,
 	})
 	if err != nil {
 		return "", nil, false, err
@@ -191,7 +197,7 @@ func (h *Handler) getDataStepResult(ctx context.Context, client kclient.Client, 
 	if isDatasetID(content) {
 		// We use the dataset package rather than making SDK calls because it is more direct and more performant.
 		// All that the SDK calls do is call out to a daemon tool that runs the same library code that we are referencing here.
-		datasetManager, err := dataset.NewManager(thread.Status.WorkspaceID)
+		datasetManager, err := dataset.NewManager(workspace.Status.WorkspaceID)
 		if err != nil {
 			return "", nil, false, err
 		}
@@ -210,7 +216,7 @@ func (h *Handler) getDataStepResult(ctx context.Context, client kclient.Client, 
 		}
 	}
 
-	return thread.Status.WorkspaceID, data, false, nil
+	return workspace.Status.WorkspaceID, data, false, nil
 }
 
 func isDatasetID(output []byte) bool {
