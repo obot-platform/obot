@@ -1,0 +1,32 @@
+{
+  "id": 122,
+  "path": "README.md",
+  "displayName": "HubSpot",
+  "fullName": "hubspot/mcp-server",
+  "url": "https://www.npmjs.com/package/@hubspot/mcp-server",
+  "description": "Interact with the HubSpot API",
+  "stars": 0,
+  "metadata": {
+    "categories": "SaaS & API Integrations, Verified"
+  },
+  "icon": "https://avatars.githubusercontent.com/u/202564951?v=4",
+  "manifest": [
+    {
+      "env": [
+        {
+          "key": "PRIVATE_APP_ACCESS_TOKEN",
+          "name": "HubSpot Private App Access Token",
+          "required": true,
+          "sensitive": true,
+          "description": "The access token for your HubSpot Private App"
+        }
+      ],
+      "args": [
+        "-y",
+        "@hubspot/mcp-server"
+      ],
+      "command": "npx",
+      "preferred": true
+    }
+  ]
+}
