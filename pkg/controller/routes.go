@@ -248,9 +248,6 @@ func (c *Controller) setupRoutes() error {
 	// OAuthAppAuth
 	root.Type(&v1.OAuthAppAuth{}).HandlerFunc(cleanup.OAuthAuth)
 
-	// MCPPointerToken
-	root.Type(&v1.MCPPointerToken{}).HandlerFunc(cleanup.Cleanup)
-
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog
 	return nil

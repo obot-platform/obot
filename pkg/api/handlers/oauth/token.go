@@ -2,7 +2,6 @@ package oauth
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -15,16 +14,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"golang.org/x/crypto/bcrypt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -75,17 +73,11 @@ func (h *handler) token(req api.Context) error {
 		})
 	}
 
-	switch grantType {
-	case "authorization_code":
+	if grantType == "authorization_code" {
 		return h.doAuthorizationCode(req, client, req.FormValue("code"), req.FormValue("code_verifier"))
-	case "refresh_token":
-		return h.doRefreshToken(req, client, req.FormValue("refresh_token"), req.FormValue("scope"))
-	default:
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "grant_type is invalid",
-		})
 	}
+
+	return h.doRefreshToken(req, client, req.FormValue("refresh_token"), req.FormValue("scope"))
 }
 
 func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClient, code, codeVerifier string) error {
@@ -144,7 +136,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		}
 	}
 
-	accessToken, err := h.newAccessToken(req.Context(), req.Storage, oauthAuthRequest.Namespace, oauthAuthRequest.Status.ProviderAccessToken, oauthAuthRequest.Status.ProviderRefreshToken, oauthAuthRequest.Spec.Resource, oauthAuthRequest.Spec.ProviderName, oauthAuthRequest.Status.ExpiresAt)
+	accessToken, err := h.newAccessToken(oauthAuthRequest.Status.ProviderAccessToken, oauthAuthRequest.Status.ExpiresAt.Time)
 	if err != nil {
 		return err
 	}
@@ -157,8 +149,6 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 			Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))),
 		},
 		Spec: v1.OAuthTokenSpec{
-			Resource:             oauthAuthRequest.Spec.Resource,
-			ProviderName:         oauthAuthRequest.Spec.ProviderName,
 			ClientID:             oauthClient.Name,
 			Scope:                oauthAuthRequest.Spec.Scope,
 			ProviderRefreshToken: oauthAuthRequest.Status.ProviderRefreshToken,
@@ -261,8 +251,8 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 			status = v1.OAuthAuthRequestStatus{
 				ProviderAccessToken:    salesforceTokenResp.AccessToken,
-				ExpiresAt:              metav1.Time{Time: createdAt.Add(time.Second * 7200)}, // Relies on Salesforce admin not overriding the default 2 hours
-				Ok:                     true,                                                 // Assuming true if no error is present
+				ExpiresAt:              metav1.NewTime(createdAt.Add(time.Second * 7200)), // Relies on Salesforce admin not overriding the default 2 hours
+				Ok:                     true,                                              // Assuming true if no error is present
 				ProviderTokenCreatedAt: metav1.NewTime(createdAt),
 				ProviderRefreshToken:   salesforceTokenResp.RefreshToken,
 				Data: map[string]string{
@@ -278,7 +268,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 			status = v1.OAuthAuthRequestStatus{
 				ProviderAccessToken:    tokenResp.AccessToken,
-				ExpiresAt:              metav1.Time{Time: time.Unix(tokenResp.ExpiresIn, 0)},
+				ExpiresAt:              metav1.NewTime(time.Unix(tokenResp.ExpiresIn, 0)),
 				Ok:                     true, // Assuming true if no error is present
 				ProviderTokenCreatedAt: metav1.NewTime(tokenResp.CreatedAt),
 				ProviderRefreshToken:   tokenResp.RefreshToken,
@@ -293,7 +283,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 			status = v1.OAuthAuthRequestStatus{
 				ProviderAccessToken:    tokenResp.AccessToken,
-				ExpiresAt:              metav1.Time{Time: time.Unix(tokenResp.ExpiresIn, 0)},
+				ExpiresAt:              metav1.NewTime(time.Unix(tokenResp.ExpiresIn, 0)),
 				Ok:                     true, // Assuming true if no error is present
 				ProviderTokenCreatedAt: metav1.NewTime(tokenResp.CreatedAt),
 				ProviderRefreshToken:   tokenResp.RefreshToken,
@@ -316,7 +306,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 			status = v1.OAuthAuthRequestStatus{
 				ProviderAccessToken:    tokenResp.AccessToken,
 				ProviderRefreshToken:   tokenResp.RefreshToken,
-				ExpiresAt:              metav1.Time{Time: time.Unix(tokenResp.ExpiresIn, 0)},
+				ExpiresAt:              metav1.NewTime(time.Unix(tokenResp.ExpiresIn, 0)),
 				Ok:                     true, // Assuming true if no error is present
 				ProviderTokenCreatedAt: metav1.NewTime(tokenResp.CreatedAt),
 				Scope:                  tokenResp.Scope,
@@ -328,11 +318,11 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		}
 	}
 
-	expiresAt := status.ExpiresAt
+	expiresAt := status.ExpiresAt.Time
 	if expiresAt.IsZero() {
-		expiresAt = oauthToken.Spec.ExpiresAt
+		expiresAt = oauthToken.Spec.ExpiresAt.Time
 	}
-	accessToken, err := h.newAccessToken(req.Context(), req.Storage, oauthApp.Namespace, status.ProviderAccessToken, status.ProviderRefreshToken, oauthToken.Spec.Resource, oauthToken.Spec.ProviderName, expiresAt)
+	accessToken, err := h.newAccessToken(oauthToken.Spec.ProviderAccessToken, expiresAt)
 	if err != nil {
 		return err
 	}
@@ -349,12 +339,11 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 			Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))),
 		},
 		Spec: v1.OAuthTokenSpec{
-			Resource:             oauthToken.Spec.Resource,
 			ClientID:             oauthClient.Name,
 			Scope:                oauthToken.Spec.Scope,
 			ProviderRefreshToken: oauthToken.Spec.ProviderRefreshToken,
 			ProviderAccessToken:  oauthToken.Spec.ProviderAccessToken,
-			ExpiresAt:            expiresAt,
+			ExpiresAt:            metav1.NewTime(expiresAt),
 			OAuthAppNamespace:    oauthApp.Namespace,
 			OAuthAppName:         oauthApp.Name,
 		},
@@ -373,64 +362,31 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 	})
 }
 
-func (h *handler) newAccessToken(ctx context.Context, client kclient.Client, namespace, providerAccessToken, providerRefreshToken, resource, providerName string, expiresAt metav1.Time) (string, error) {
-	var serverConfig v1.MCPServerConfig
-	if err := client.Get(ctx, kclient.ObjectKey{Name: resource, Namespace: namespace}, &serverConfig); err != nil && !apierrors.IsNotFound(err) {
-		return "", fmt.Errorf("failed to get server config: %w", err)
+func (h *handler) newAccessToken(providerAccessToken string, expiresAt time.Time) (string, error) {
+	now := time.Now()
+	claims := tokenClaims{
+		ProviderAccessToken: providerAccessToken,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    h.oauthConfig.Issuer,
+			Subject:   "",
+			Audience:  jwt.ClaimStrings{"mcp"},
+			NotBefore: jwt.NewNumericDate(now),
+			IssuedAt:  jwt.NewNumericDate(now),
+		},
 	}
 
-	if err := retry.OnError(retry.DefaultBackoff, func(err error) bool {
-		return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
-	}, func() error {
-		var create bool
-		if err := client.Get(ctx, kclient.ObjectKey{Name: resource, Namespace: namespace}, &serverConfig); apierrors.IsNotFound(err) {
-			create = true
-			serverConfig = v1.MCPServerConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      resource,
-					Namespace: namespace,
-				},
-			}
-		} else if err != nil {
-			return err
-		}
-
-		accessToken := v1.AccessToken{
-			AccessToken:  providerAccessToken,
-			RefreshToken: providerRefreshToken,
-		}
-
-		if !expiresAt.IsZero() {
-			accessToken.ExpiresAt = expiresAt
-		}
-
-		if serverConfig.Spec.AccessTokens == nil {
-			serverConfig.Spec.AccessTokens = make(map[string]v1.AccessToken, 1)
-		}
-		serverConfig.Spec.AccessTokens[providerName] = accessToken
-
-		if create {
-			if err := client.Create(ctx, &serverConfig); err != nil {
-				return fmt.Errorf("failed to create server config: %w", err)
-			}
-		} else {
-			if err := client.Update(ctx, &serverConfig); err != nil {
-				return fmt.Errorf("failed to update server config: %w", err)
-			}
-		}
-		return nil
-	}); err != nil {
-		return "", fmt.Errorf("failed to get server config: %w", err)
+	if !expiresAt.IsZero() {
+		claims.ExpiresAt = jwt.NewNumericDate(expiresAt)
 	}
 
-	pointerToken := strings.ToLower(rand.Text() + rand.Text())
-	return pointerToken, client.Create(ctx, &v1.MCPPointerToken{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(pointerToken))),
-			Namespace: namespace,
-		},
-		Spec: v1.MCPPointerTokenSpec{
-			Resource: resource,
-		},
-	})
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	token.Header["kid"] = "obot-key"
+	token.Header["jku"] = fmt.Sprintf("%s/.well-known/jwks.json", h.baseURL)
+
+	return token.SignedString(h.key)
+}
+
+type tokenClaims struct {
+	ProviderAccessToken string `json:"provider_access_token"`
+	jwt.RegisteredClaims
 }

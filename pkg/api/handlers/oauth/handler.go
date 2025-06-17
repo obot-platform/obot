@@ -28,8 +28,7 @@ func SetupHandlers(gptClient *gptscript.GPTScript, oauthConfig services.OAuthAut
 	mux.HandleFunc("PUT /oauth/register/{client}", h.updateClient)
 	mux.HandleFunc("DELETE /oauth/register/{client}", h.deleteClient)
 	mux.HandleFunc("GET /oauth/authorize", h.authorize)
+	mux.HandleFunc("GET /oauth/authorize/{oauth_id}", h.authorize)
 	mux.HandleFunc("GET /oauth/callback", h.callback)
 	mux.HandleFunc("POST /oauth/token", h.token)
-	mux.HandleFunc("POST /oauth/mcp-token", h.mcpToken)
-	mux.HandleFunc("POST /oauth/mcp-config", h.mcpConfig)
 }
