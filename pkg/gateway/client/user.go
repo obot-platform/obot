@@ -411,7 +411,11 @@ func (c *Client) decryptUser(ctx context.Context, user *types.User) error {
 	decoded = make([]byte, base64.StdEncoding.DecodedLen(len(user.DisplayName)))
 	n, err = base64.StdEncoding.Decode(decoded, []byte(user.DisplayName))
 	if err == nil {
-		user.DisplayName = string(decoded[:n])
+		if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			user.DisplayName = string(out)
+		}
 	} else {
 		errs = append(errs, err)
 	}
