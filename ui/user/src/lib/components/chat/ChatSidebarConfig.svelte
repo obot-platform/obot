@@ -5,9 +5,6 @@
 	import Slack from '$lib/components/integrations/slack/Slack.svelte';
 	import ProjectInvitations from '$lib/components/edit/ProjectInvitations.svelte';
 	import TemplateConfig from '$lib/components/templates/TemplateConfig.svelte';
-	import ProjectMcpConfig from '$lib/components/mcp/ProjectMcpConfig.svelte';
-	import { updateProjectMcp, getKeyValuePairs } from '$lib/services/chat/mcp';
-	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
 	import ModelProviders from '../ModelProviders.svelte';
 	import ChatbotConfig from '$lib/components/edit/ChatbotConfig.svelte';
@@ -15,7 +12,6 @@
 	import Discord from '../integrations/discord/Discord.svelte';
 	import Webhook from '../integrations/webhook/Webhook.svelte';
 	import Email from '../integrations/email/Email.svelte';
-	import { ChatService } from '$lib/services';
 
 	interface Props {
 		project: Project;
@@ -25,8 +21,6 @@
 
 	let { project = $bindable(), currentThreadID = $bindable() }: Props = $props();
 	const layout = getLayout();
-
-	const projectMCPs = getProjectMCPs();
 </script>
 
 <div class="default-scrollbar-thin relative flex w-full justify-center overflow-y-auto" in:fade>

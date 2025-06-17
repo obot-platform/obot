@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { ChevronDown } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Option {
 		id: string | number;
@@ -9,11 +10,12 @@
 
 	interface Props {
 		options: Option[];
-		selected?: string;
+		selected?: string | number;
 		onSelect: (option: Option) => void;
+		class?: string;
 	}
 
-	const { options, onSelect, selected }: Props = $props();
+	const { options, onSelect, selected, class: klass }: Props = $props();
 
 	let search = $state('');
 	let availableOptions = $derived(
@@ -31,10 +33,19 @@
 
 <div class="relative">
 	<button
-		class="dark:bg-surface1 text-md flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg bg-white px-4 py-2 shadow-sm"
+		class={twMerge(
+			'dark:bg-surface1 text-md flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg bg-white px-4 py-2 shadow-sm',
+			klass
+		)}
 		placeholder="Enter a task"
 		oninput={onInput}
-		onmousedown={() => popover?.show()}
+		onmousedown={() => {
+			if (popover?.open) {
+				popover?.close();
+			} else {
+				popover?.show();
+			}
+		}}
 	>
 		<span class="text-md">{selectedOption?.label ?? ''}</span>
 		<ChevronDown class="size-5" />

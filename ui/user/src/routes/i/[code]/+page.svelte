@@ -12,8 +12,8 @@
 		invitation: ProjectInvitation;
 	}
 
-	let props = $props<{ data: PageData }>();
-	const invitation: ProjectInvitation = props.data.invitation;
+	let { data }: { data: PageData } = $props();
+	const invitation: ProjectInvitation = data.invitation;
 
 	let isProcessing = $state(false);
 	let responseMessage = $state('');

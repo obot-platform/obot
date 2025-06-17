@@ -10,6 +10,7 @@ import {
 	type KnowledgeFile,
 	type KnowledgeFiles,
 	type MCP,
+	type MCPCatalogServer,
 	type MCPList,
 	type MCPServer,
 	type McpServerGeneratedPrompt,
@@ -905,6 +906,15 @@ export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCP[]> {
 
 export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MCP> {
 	return (await doGet(`/all-mcp-catalogs/entries/${id}`, opts)) as MCP;
+}
+
+export async function listMCPCatalogServers(opts?: {
+	fetch?: Fetcher;
+}): Promise<MCPCatalogServer[]> {
+	const response = (await doGet('/all-mcp-catalogs/servers', opts)) as {
+		items: MCPCatalogServer[];
+	};
+	return response.items;
 }
 
 export async function listProjectMCPs(

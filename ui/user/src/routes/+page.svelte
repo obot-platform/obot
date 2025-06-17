@@ -19,7 +19,7 @@
 	import { q } from '$lib/url';
 
 	let { data }: PageProps = $props();
-	let { authProviders, templates, loggedIn, editorProjects } = data;
+	let { authProviders, templates, loggedIn } = data;
 	let loginDialog = $state<HTMLDialogElement>();
 	let overrideRedirect = $state<string | null>(null);
 	let signUp = $state(true);

@@ -17,7 +17,6 @@
 	import { responsive } from '$lib/stores';
 	import { parseErrorContent } from '$lib/errors';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
-	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 
 	interface Props {
 		mcpServer: ProjectMCP;
@@ -57,7 +56,6 @@
 	let allParamsEnabled = $state(false);
 	let error = $state('');
 	let requiresConfiguration = $state(false);
-	const toolBundleMap = getToolBundleMap();
 	const layout = !isNew ? getLayout() : null;
 
 	$effect(() => {
@@ -245,11 +243,11 @@
 									<button
 										class="button-link font-semibold text-blue-500 hover:text-blue-600"
 										onclick={() => {
-											const isLegacyBundleServer =
-												mcpServer.catalogEntryID && toolBundleMap.get(mcpServer.catalogEntryID);
-											if (!isLegacyBundleServer) {
-												openEditProjectMcp(layout, mcpServer);
-											}
+											// const isLegacyBundleServer =
+											// 	mcpServer.catalogEntryID && toolBundleMap.get(mcpServer.catalogEntryID);
+											// if (!isLegacyBundleServer) {
+											// 	openEditProjectMcp(layout, mcpServer);
+											// }
 										}}
 									>
 										Click Here

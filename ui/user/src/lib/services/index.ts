@@ -3,6 +3,7 @@ export * from './chat/types';
 export { default as AdminService } from './admin';
 export { default as ChatService } from './chat';
 export { default as EditorService } from './editor/index.svelte';
+export type { Fetcher } from './http';
 
 export async function updateMemory(
 	assistantId: string,
