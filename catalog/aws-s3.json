@@ -50,7 +50,15 @@
           "required": true,
           "sensitive": true,
           "description": "AWS secret key"
-        }
+        },
+	{
+	  "key": "AWS_SESSION_TOKEN",
+	  "name": "AWS Session Token",
+	  "value": "<aws_session_token>",
+	  "required": false,
+	  "sensitive": true,
+	  "description": "AWS session token"
+	}
       ],
       "args": [
         "-y",
