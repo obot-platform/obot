@@ -213,7 +213,7 @@ func (c *Client) UpdateUserInternalStatus(ctx context.Context, userID string, in
 	return c.db.WithContext(ctx).Model(new(types.User)).Where("id = ?", userID).Update("internal", internal).Error
 }
 
-func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User, authProviderName, authProviderNamespace, authProviderURL string) error {
+func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, authProviderName, authProviderNamespace, authProviderURL string) error {
 	if authProviderName == "" || authProviderNamespace == "" || authProviderURL == "" {
 		return nil
 	}
@@ -235,18 +235,35 @@ func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User
 		return fmt.Errorf("failed to decrypt identity: %w", err)
 	}
 
-	if user.IconURL == identity.IconURL && time.Until(identity.IconLastChecked) > -7*24*time.Hour {
-		// Icon was checked less than 7 days ago, and the user is still using the same auth provider.
+	if user.IconURL == identity.IconURL && time.Until(identity.IconLastChecked) > -7*24*time.Hour && user.DisplayName != "" {
+		// Icon was checked less than 7 days ago, and the user is still using the same auth provider and DisplayName is already set
 		return nil
 	}
 
-	profileIconURL, err := c.fetchProfileIconURL(ctx, authProviderURL, accessToken)
+	profile, err := c.fetchUserProfile(ctx, authProviderURL, accessToken)
 	if err != nil {
 		return err
 	}
 
-	user.IconURL = profileIconURL
-	identity.IconURL = profileIconURL
+	switch authProviderName {
+	case "github-auth-provider":
+		if iconURL, ok := profile["avatar_url"].(string); ok {
+			user.IconURL = iconURL
+			identity.IconURL = iconURL
+		}
+		if displayName, ok := profile["name"].(string); ok {
+			user.DisplayName = displayName
+		}
+	case "google-auth-provider":
+		if iconURL, ok := profile["picture"].(string); ok {
+			user.IconURL = iconURL
+			identity.IconURL = iconURL
+		}
+		if displayName, ok := profile["name"].(string); ok {
+			user.DisplayName = displayName
+		}
+	}
+
 	identity.IconLastChecked = time.Now()
 
 	if err = c.encryptIdentity(ctx, &identity); err != nil {
@@ -267,32 +284,30 @@ func (c *Client) UpdateProfileIconIfNeeded(ctx context.Context, user *types.User
 	})
 }
 
-func (c *Client) fetchProfileIconURL(ctx context.Context, authProviderURL, accessToken string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, authProviderURL+"/obot-get-icon-url", nil)
+func (c *Client) fetchUserProfile(ctx context.Context, authProviderURL, accessToken string) (map[string]interface{}, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, authProviderURL+"/obot-get-user-info", nil)
 	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch profile icon URL: %w", err)
+		return nil, fmt.Errorf("failed to fetch profile icon URL: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to fetch profile icon URL: %s", resp.Status)
+		return nil, fmt.Errorf("failed to fetch profile icon URL: %s", resp.Status)
 	}
 
-	var body struct {
-		IconURL string `json:"iconURL"`
-	}
+	var body map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	return body.IconURL, nil
+	return body, nil
 }
 
 func (c *Client) encryptUser(ctx context.Context, user *types.User) error {
@@ -326,6 +341,11 @@ func (c *Client) encryptUser(ctx context.Context, user *types.User) error {
 		errs = append(errs, err)
 	} else {
 		user.IconURL = base64.StdEncoding.EncodeToString(b)
+	}
+	if b, err = transformer.TransformToStorage(ctx, []byte(user.DisplayName), dataCtx); err != nil {
+		errs = append(errs, err)
+	} else {
+		user.DisplayName = base64.StdEncoding.EncodeToString(b)
 	}
 
 	user.Encrypted = true
@@ -384,6 +404,14 @@ func (c *Client) decryptUser(ctx context.Context, user *types.User) error {
 		} else {
 			user.IconURL = string(out)
 		}
+	} else {
+		errs = append(errs, err)
+	}
+
+	decoded = make([]byte, base64.StdEncoding.DecodedLen(len(user.DisplayName)))
+	n, err = base64.StdEncoding.Decode(decoded, []byte(user.DisplayName))
+	if err == nil {
+		user.DisplayName = string(decoded[:n])
 	} else {
 		errs = append(errs, err)
 	}

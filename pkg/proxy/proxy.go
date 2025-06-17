@@ -340,17 +340,7 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		return nil, false, err
 	}
 
-	// Important: do not change the order of these checks.
-	// We rely on the preferred username from GitHub being the user ID in the sessions table.
-	// See pkg/gateway/server/logout_all.go for more details, as well as the GitHub auth provider code.
-	userName := ss.PreferredUsername
-	if userName == "" {
-		userName = ss.User
-		if userName == "" {
-			userName = ss.Email
-		}
-	}
-
+	userName := getUsername(p.name, ss)
 	u := &user.DefaultInfo{
 		UID:  ss.User,
 		Name: userName,
@@ -374,4 +364,20 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 	return &authenticator.Response{
 		User: u,
 	}, true, nil
+}
+
+// Important: do not change the order of these checks.
+// We rely on the preferred username from GitHub being the user ID in the sessions table.
+// See pkg/gateway/server/logout_all.go for more details, as well as the GitHub auth provider code.
+func getUsername(providerName string, ss SerializableState) string {
+	if providerName == "github-auth-provider" {
+		return ss.PreferredUsername
+	}
+
+	userName := ss.User
+	if userName == "" {
+		userName = ss.Email
+	}
+
+	return userName
 }

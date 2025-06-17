@@ -705,6 +705,7 @@ func (e *Emitter) printCall(run v1.Run, prg *gptscript.Program, call *gptscript.
 			Content:                  "\n",
 			Input:                    run.Spec.Input,
 			InputIsStepTemplateInput: len(call.Tool.InputFilters) > 0,
+			Username:                 run.Spec.Username,
 		}
 		printed.InputPrinted = true
 	}

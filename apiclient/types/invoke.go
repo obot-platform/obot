@@ -67,6 +67,8 @@ type Progress struct {
 	RunComplete bool `json:"runComplete,omitempty"`
 	// ReplayComplete indicates that all existing events have been sent and future events will be new events
 	ReplayComplete bool `json:"replayComplete,omitempty"`
+	// Username is the username of the user who triggered the run
+	Username string `json:"username,omitempty"`
 }
 
 type StepTemplateInvoke struct {

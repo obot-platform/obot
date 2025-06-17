@@ -90,6 +90,7 @@ type RunSpec struct {
 	CredentialContextIDs  []string                `json:"credentialContextIDs,omitempty"`
 	Timeout               metav1.Duration         `json:"timeout,omitempty"`
 	ExternalCallResults   []ExternalCallResult    `json:"externalCallResults,omitempty"`
+	Username              string                  `json:"username,omitempty"`
 }
 
 type ExternalCallResult struct {

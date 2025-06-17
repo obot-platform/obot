@@ -14,6 +14,7 @@ import (
 type User struct {
 	ID             uint        `json:"id" gorm:"primaryKey"`
 	CreatedAt      time.Time   `json:"createdAt"`
+	DisplayName    string      `json:"displayName"`
 	Username       string      `json:"username"`
 	HashedUsername string      `json:"-" gorm:"unique"`
 	Email          string      `json:"email"`

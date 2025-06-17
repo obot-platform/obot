@@ -6,6 +6,7 @@ export interface Progress {
 	contentID?: string;
 	input?: string;
 	inputIsStepTemplateInput?: boolean;
+	username?: string;
 	stepTemplateInvoke?: StepTemplateInvoke;
 	step?: Step;
 	prompt?: Prompt;
@@ -85,6 +86,7 @@ export interface Message {
 	icon?: string;
 	tool?: boolean;
 	toolCall?: ToolCall;
+	username?: string;
 	toolInput?: boolean;
 	sourceName: string;
 	sourceDescription?: string;

@@ -3658,6 +3658,13 @@ func schema_obot_platform_obot_apiclient_types_Progress(ref common.ReferenceCall
 							Format:      "",
 						},
 					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Username is the username of the user who triggered the run",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"content"},
 			},
@@ -9866,6 +9873,12 @@ func schema_storage_apis_obotobotai_v1_RunSpec(ref common.ReferenceCallback) com
 									},
 								},
 							},
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},

@@ -298,9 +298,15 @@
 	let memoriesDialog = $state<ReturnType<typeof MemoriesDialog>>();
 </script>
 
-{#snippet time()}
+{#snippet timeAndUsername()}
 	{#if msg.time}
-		<span class="text-gray mt-2 self-end text-sm">{formatTime(msg.time)}</span>
+		<div
+			class="mt-1 flex items-center justify-end gap-2 self-end text-xs whitespace-nowrap text-gray-500"
+		>
+			<span>{formatTime(msg.time)}</span>
+			<span class="text-gray-400">•</span>
+			<span class="max-w-[100px] truncate font-medium">by {msg.username?.split(' ')[0]}</span>
+		</div>
 	{/if}
 {/snippet}
 
@@ -711,7 +717,7 @@
 				{/if}
 				{@render messageBody()}
 				{#if msg.sent}
-					{@render time()}
+					{@render timeAndUsername()}
 				{/if}
 
 				{#if !msg.sent && msg.done && !msg.toolCall && msg.time && content && !animating && content.length > 0}

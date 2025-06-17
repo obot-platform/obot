@@ -393,6 +393,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		PreviousRunName:       opt.PreviousRunName,
 		ForceNoResume:         opt.ForceNoResume,
 		GenerateName:          opt.GenerateName,
+		UserID:                opt.UserUID,
 	})
 }
 
@@ -418,6 +419,7 @@ type runOptions struct {
 	CredentialContextIDs  []string
 	Timeout               time.Duration
 	Ephemeral             bool
+	UserID                string
 }
 
 func isEphemeral(run *v1.Run) bool {
@@ -469,6 +471,14 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 			CredentialContextIDs:  opts.CredentialContextIDs,
 			Timeout:               metav1.Duration{Duration: opts.Timeout},
 		},
+	}
+
+	if opts.UserID != "" {
+		u, err := i.gatewayClient.UserByID(ctx, opts.UserID)
+		if err != nil {
+			return nil, err
+		}
+		run.Spec.Username = u.DisplayName
 	}
 
 	if opts.Ephemeral {

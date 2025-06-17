@@ -36,7 +36,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		if err != nil {
 			return fmt.Errorf("failmed to get auth provider URL: %v", err)
 		}
-		if err = apiContext.GatewayClient.UpdateProfileIconIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
+		if err = apiContext.GatewayClient.UpdateProfileIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
 			pkgLog.Warnf("failed to update profile icon for user %s: %v", user.Username, err)
 		}
 	}

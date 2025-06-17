@@ -361,7 +361,8 @@ function newInputMessage(progress: Progress, parentRunID?: string): Message {
 		sourceName: 'You',
 		sent: true,
 		message: [toMessageFromInput(progress.input || '')],
-		done: true
+		done: true,
+		username: progress.username
 	};
 }
 
