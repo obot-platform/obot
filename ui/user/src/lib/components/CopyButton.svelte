@@ -12,6 +12,7 @@
 		classes?: {
 			button?: string;
 		};
+		showTextLeft?: boolean;
 	}
 
 	let {
@@ -20,7 +21,8 @@
 		tooltipText = 'Copy',
 		buttonText,
 		disabled,
-		classes
+		classes,
+		showTextLeft
 	}: Props = $props();
 	let message = $state<string>(tooltipText);
 	let buttonTextToShow = $state(buttonText);
@@ -51,7 +53,12 @@
 			classes?.button
 		)}
 	>
-		<Copy class={twMerge('h-4 w-4', clazz)} />
-		{buttonTextToShow}
+		{#if showTextLeft}
+			{buttonTextToShow}
+			<Copy class={twMerge('h-4 w-4', clazz)} />
+		{:else}
+			<Copy class={twMerge('h-4 w-4', clazz)} />
+			{buttonTextToShow}
+		{/if}
 	</button>
 {/if}

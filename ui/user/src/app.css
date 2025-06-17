@@ -639,6 +639,12 @@
 		&:hover {
 			background-color: var(--surface2);
 		}
+
+		&:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
 		.dark &:hover {
 			background-color: var(--surface3);
 		}

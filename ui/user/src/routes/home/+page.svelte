@@ -1,6 +1,22 @@
 <script lang="ts">
 	import { Origami, Scroll } from 'lucide-svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import { ChatService, EditorService } from '$lib/services';
+	import { goto } from '$app/navigation';
+
+	async function handleChat() {
+		const projects = await ChatService.listProjects();
+		const lastVisitedObot = localStorage.getItem('lastVisitedObot');
+		const lastProject =
+			(lastVisitedObot && projects.items.find((p) => p.id === lastVisitedObot)) ??
+			projects.items[projects.items.length - 1];
+		if (lastProject) {
+			goto(`/o/${lastProject.id}`);
+		} else {
+			const newProject = await EditorService.createObot();
+			goto(`/o/${newProject.id}`);
+		}
+	}
 </script>
 
 <Layout>
@@ -13,9 +29,9 @@
 		</p>
 
 		<div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-2">
-			<button onclick={() => {}} class="flex flex-col justify-start gap-2 text-left">
+			<button class="flex flex-col justify-start gap-2 text-left" onclick={handleChat}>
 				<img
-					src="/agent/images/create-from-scratch.webp"
+					src="/agent/images/create-a-chat.webp"
 					alt="Create a template"
 					class="aspect-video rounded-md"
 				/>
@@ -27,9 +43,9 @@
 				</span>
 			</button>
 
-			<button class="flex flex-col justify-start gap-2 text-left" onclick={() => {}}>
+			<a href="/mcp-servers" class="flex flex-col justify-start gap-2 text-left">
 				<img
-					src="/agent/images/create-a-template.webp"
+					src="/agent/images/create-from-mcp.webp"
 					alt="Create a template"
 					class="aspect-video rounded-md"
 				/>
@@ -39,7 +55,7 @@
 				<span class="text-sm text-gray-500">
 					I have an existing client I want to connect one of our MCP servers to.
 				</span>
-			</button>
+			</a>
 		</div>
 	</div>
 </Layout>

@@ -70,8 +70,7 @@
 	let authDialog = $state<HTMLDialogElement>();
 
 	let config = $state<MCPServerInfo>(prefilledConfig ?? initMCPConfig(manifest));
-	let showSubmitError = $state(false);
-	let showAdvancedOptions = $state(false);
+
 	let loadingCredential = $state<Promise<ProjectCredential | undefined>>();
 
 	export function open() {
@@ -80,13 +79,11 @@
 	}
 
 	function reset() {
-		showSubmitError = false;
 		config = prefilledConfig ?? initMCPConfig(manifest);
 	}
 
 	export function close() {
 		configDialog?.close();
-		showAdvancedOptions = false;
 	}
 
 	async function getProjectCredential() {
@@ -123,7 +120,6 @@
 		if (!manifest) return;
 
 		if (!legacyBundleId && !isValidMcpConfig(config)) {
-			showSubmitError = true;
 			return;
 		}
 
@@ -134,7 +130,6 @@
 		}
 		close();
 	}
-	console.log(config);
 </script>
 
 <dialog

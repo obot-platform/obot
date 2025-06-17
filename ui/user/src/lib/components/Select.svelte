@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { ChevronDown } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Option {
 		id: string | number;
@@ -8,12 +9,17 @@
 	}
 
 	interface Props {
+		id?: string;
 		options: Option[];
-		selected?: string;
+		selected?: string | number;
 		onSelect: (option: Option) => void;
+		class?: string;
+		classes?: {
+			root?: string;
+		};
 	}
 
-	const { options, onSelect, selected }: Props = $props();
+	const { id, options, onSelect, selected, class: klass, classes }: Props = $props();
 
 	let search = $state('');
 	let availableOptions = $derived(
@@ -29,20 +35,30 @@
 	}
 </script>
 
-<div class="relative">
+<div class={twMerge('relative', classes?.root)}>
 	<button
-		class="dark:bg-surface1 text-md flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg bg-white px-4 py-2 shadow-sm"
+		{id}
+		class={twMerge(
+			'dark:bg-surface1 text-md flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg bg-white px-4 py-2 text-left shadow-sm',
+			klass
+		)}
 		placeholder="Enter a task"
 		oninput={onInput}
-		onmousedown={() => popover?.show()}
+		onmousedown={() => {
+			if (popover?.open) {
+				popover?.close();
+			} else {
+				popover?.show();
+			}
+		}}
 	>
-		<span class="text-md">{selectedOption?.label ?? ''}</span>
-		<ChevronDown class="size-5" />
+		<span class="text-md grow truncate">{selectedOption?.label ?? ''}</span>
+		<ChevronDown class="size-5 flex-shrink-0" />
 	</button>
 	<dialog
 		use:clickOutside={() => popover?.close()}
 		bind:this={popover}
-		class="absolute top-0 left-0 z-10 w-full translate-y-10 rounded-sm"
+		class="default-scrollbar-thin absolute top-0 left-0 z-10 max-h-[300px] w-full translate-y-10 overflow-y-auto rounded-sm"
 	>
 		{#each availableOptions as option}
 			<button

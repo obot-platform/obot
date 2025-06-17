@@ -1,3 +1,4 @@
+import { browser } from '$app/environment';
 import { handleRouteError } from '$lib/errors';
 import { ChatService } from '$lib/services';
 import type { AssistantTool, ToolReference } from '$lib/services/chat/types';
@@ -39,6 +40,10 @@ export const load: PageLoad = async ({ params, fetch }) => {
 			ChatService.getAssistant(project.assistantID, { fetch }),
 			ChatService.listProjectMCPs(project.assistantID, project.id, { fetch })
 		]);
+
+		if (browser) {
+			localStorage.setItem('lastVisitedObot', params.project);
+		}
 
 		// Enhance tools with capability information
 		const enhancedTools = enhanceToolsWithCapabilities(tools.items, toolReferences.items);

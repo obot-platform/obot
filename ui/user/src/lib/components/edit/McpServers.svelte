@@ -9,7 +9,6 @@
 	} from '$lib/services';
 	import { type MCPServerInfo } from '$lib/services/chat/mcp';
 	import {
-		PencilLine,
 		Plus,
 		Server,
 		Trash2,

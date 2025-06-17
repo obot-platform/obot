@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
-	import Banner from '$lib/components/Banner.svelte';
 	import { columnResize } from '$lib/actions/resize';
 	import { darkMode, profile, responsive } from '$lib/stores';
 	import { initLayout, getLayout } from '$lib/context/layout.svelte';
@@ -8,9 +7,9 @@
 	import { fade, slide } from 'svelte/transition';
 	import {
 		Blocks,
+		Bot,
 		Boxes,
 		Cpu,
-		FileScan,
 		LockKeyhole,
 		MessageCircle,
 		MessagesSquare,
@@ -18,9 +17,12 @@
 		Server,
 		SidebarClose,
 		SidebarOpen,
+		SquareArrowOutUpRight,
 		Users
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { ChatService, EditorService } from '$lib/services';
+	import { PROJECT_MCP_SERVER_NAME } from '$lib/constants';
 
 	interface Props {
 		children: Snippet;
@@ -31,6 +33,21 @@
 
 	initLayout();
 	const layout = getLayout();
+
+	async function handleOpenChat() {
+		const projects = await ChatService.listProjects();
+		const excludeMcpServer = projects.items.filter((p) => p.name !== PROJECT_MCP_SERVER_NAME);
+		const lastVisitedObot = localStorage.getItem('lastVisitedObot');
+		const lastProject =
+			(lastVisitedObot && excludeMcpServer.find((p) => p.id === lastVisitedObot)) ??
+			excludeMcpServer[excludeMcpServer.length - 1];
+		if (lastProject) {
+			window.open(`/o/${lastProject.id}`, '_blank');
+		} else {
+			const newProject = await EditorService.createObot();
+			window.open(`/o/${newProject.id}`, '_blank');
+		}
+	}
 </script>
 
 <div class="flex min-h-dvh flex-col items-center">
@@ -48,46 +65,47 @@
 				<div class="text-md flex grow flex-col gap-8 px-3 pt-8 font-light">
 					{#if profile.current?.isAdmin?.()}
 						<div class="flex flex-col gap-1">
-							<p class="text-xs font-medium">Administrative</p>
-							<a href="/v2admin/mcp-catalogs" class="sidebar-link">
+							<a href="/v2/admin/mcp-catalogs" class="sidebar-link">
 								<Blocks class="size-4" /> MCP Catalogs
 							</a>
-							<a href="/v2admin/users" class="sidebar-link">
-								<Users class="size-4" /> Organization
-							</a>
-							<!-- <a href="/v2admin/model-providers" class="sidebar-link">
+
+							<a href="/v2/admin/model-providers" class="sidebar-link">
 								<Boxes class="size-4" /> Model Providers
 							</a>
-							<a href="/v2admin/auth-providers" class="sidebar-link">
+
+							<a href="/v2/admin/auth-providers" class="sidebar-link">
 								<LockKeyhole class="size-4" /> Auth Providers
 							</a>
-							<a href="/v2admin/file-scanners" class="sidebar-link">
-								<FileScan class="size-4" /> File Scanners
-							</a> -->
-						</div>
 
-						<!-- <div class="flex flex-col gap-1">
-							<p class="text-xs font-medium">Auditing</p>
+							<a href="/v2/admin/projects" class="sidebar-link">
+								<Bot class="size-4" /> Projects
+							</a>
 
-							<a href="/v2admin/tasks" class="sidebar-link">
-								<Puzzle class="size-4" /> Tasks
-							</a>
-							<a href="/v2admin/task-runs" class="sidebar-link">
-								<Cpu class="size-4" /> Task Runs
-							</a>
-							<a href="/v2admin/chat-threads" class="sidebar-link">
+							<a href="/v2/admin/threads" class="sidebar-link">
 								<MessagesSquare class="size-4" /> Chat Threads
 							</a>
-						</div> -->
+
+							<a href="/v2/admin/tasks" class="sidebar-link">
+								<Puzzle class="size-4" /> Tasks
+							</a>
+							<a href="/v2/admin/task-runs" class="sidebar-link">
+								<Cpu class="size-4" /> Task Runs
+							</a>
+							<a href="/v2/admin/users" class="sidebar-link">
+								<Users class="size-4" /> Users
+							</a>
+						</div>
 					{/if}
 					<div class="flex flex-col gap-1">
-						<p class="text-xs font-medium">General</p>
 						<a href="/mcp-servers" class="sidebar-link">
 							<Server class="size-4" /> MCP Servers
 						</a>
-						<!-- <a href="/chat" class="sidebar-link">
-							<MessageCircle class="size-4" /> Chat
-						</a> -->
+						<button onclick={handleOpenChat} class="sidebar-link justify-between">
+							<span class="flex items-center gap-2"><MessageCircle class="size-4" /> Chat </span>
+							<div use:tooltip={'Open New Tab'}>
+								<SquareArrowOutUpRight class="size-3" />
+							</div>
+						</button>
 					</div>
 				</div>
 
@@ -113,7 +131,6 @@
 		<main
 			class="bg-surface1 default-scrollbar-thin relative flex h-svh w-full grow flex-col overflow-y-auto dark:bg-black"
 		>
-			<Banner />
 			<Navbar class="dark:bg-gray-990 sticky top-0 left-0 z-30 w-full">
 				{#snippet leftContent()}
 					{#if !layout.sidebarOpen}

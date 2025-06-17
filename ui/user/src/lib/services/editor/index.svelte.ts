@@ -200,7 +200,7 @@ async function uploadImage(file: File): Promise<ImageResponse> {
 	return (await doPost('/image/upload', formData)) as ImageResponse;
 }
 
-async function createObot(opts?: { fetch?: Fetcher }) {
+async function createObot(opts?: { fetch?: Fetcher; name?: string }) {
 	const assistants = (await ChatService.listAssistants(opts)).items;
 	let defaultAssistant = assistants.find((a) => a.default);
 	if (!defaultAssistant && assistants.length == 1) {

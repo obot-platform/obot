@@ -1,4 +1,7 @@
 <script lang="ts" generics="T extends { id: string | number }">
+	/* eslint-disable no-undef */
+	// need to disable until eslint/typescript supports generics in svelte
+
 	import { responsive } from '$lib/stores';
 	import { onMount, type Snippet } from 'svelte';
 	import Search from './Search.svelte';
@@ -31,19 +34,21 @@
 	let search = $state('');
 	let focused = $state(false);
 	let searchPopover = $state<HTMLDialogElement | null>(null);
-	let filteredItems = $derived(
-		search.length > 0
-			? items.filter(
-					(item) =>
-						!selected?.includes(item.id) &&
-						properties?.some(
-							(property) =>
-								item[property] &&
-								item[property]?.toString().toLowerCase().includes(search.toLowerCase())
-						)
-				)
-			: items
-	);
+
+	let filteredItems = $derived.by(() => {
+		if (search.length > 0) {
+			return items.filter(
+				(item) =>
+					!selected?.includes(item.id) &&
+					properties?.some(
+						(property) =>
+							item[property] &&
+							item[property]?.toString().toLowerCase().includes(search.toLowerCase())
+					)
+			);
+		}
+		return items;
+	});
 
 	onMount(() => {
 		document.addEventListener('click', handleSearchClickOutside);
@@ -55,7 +60,7 @@
 	function handleSearchClickOutside(event: MouseEvent) {
 		if (responsive.isMobile) return;
 		if (searchContainer && !searchContainer.contains(event.target as Node) && searchPopover?.open) {
-			searchPopover.close();
+			searchPopover?.close();
 		}
 	}
 </script>

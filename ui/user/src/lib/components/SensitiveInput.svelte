@@ -15,7 +15,8 @@
 		value = input.value;
 	}
 
-	function toggleVisibility() {
+	function toggleVisibility(e: MouseEvent) {
+		e.preventDefault();
 		showSensitive = !showSensitive;
 	}
 </script>
@@ -29,6 +30,7 @@
 		{value}
 		type={showSensitive ? 'text' : 'password'}
 		oninput={handleInput}
+		autocomplete="new-password"
 	/>
 
 	<button

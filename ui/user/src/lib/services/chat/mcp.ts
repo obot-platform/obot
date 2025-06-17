@@ -7,7 +7,7 @@ import {
 	type ProjectMCP
 } from '..';
 
-export interface MCPServerInfo extends Omit<ProjectMCP, 'id'> {
+export interface MCPServerInfo extends Omit<ProjectMCP, 'id' | 'type'> {
 	id?: string;
 	env?: (MCPSubField & { value: string; custom?: string })[];
 	headers?: (MCPSubField & { value: string; custom?: string })[];
