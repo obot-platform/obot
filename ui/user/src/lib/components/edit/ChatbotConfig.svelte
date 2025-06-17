@@ -56,6 +56,7 @@
 
 	const configureForEveryone = 'Configure it for everyone';
 	const letUserConfigure = 'Let the user configure';
+	const noConfigurationRequired = 'No configuration required';
 
 	const getBundleId = (server: ProjectMCP) =>
 		server.catalogID && toolBundleMap.get(server.catalogID) ? server.catalogID : null;
@@ -128,7 +129,13 @@
 	}
 
 	function toggleDropdown(id: string) {
-		dropdownOpen = { ...dropdownOpen, [id]: !dropdownOpen[id] };
+		const isCurrentlyOpen = dropdownOpen[id];
+		// Close all dropdowns first
+		dropdownOpen = {};
+		// If the clicked dropdown wasn't open, open it
+		if (!isCurrentlyOpen) {
+			dropdownOpen = { [id]: true };
+		}
 	}
 
 	function selectOption(serverId: string, option: string) {
