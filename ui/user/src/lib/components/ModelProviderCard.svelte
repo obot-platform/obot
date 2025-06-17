@@ -25,14 +25,15 @@
 
 <script lang="ts">
 	import type { ModelProvider, Project } from '$lib/services';
-	import { CheckCircleIcon, Loader2, Search } from 'lucide-svelte';
+	import { AlertCircle, CheckCircleIcon, Loader2, Search } from 'lucide-svelte';
 	import { darkMode } from '$lib/stores';
 	import {
 		updateProject,
 		listAvailableModels,
 		configureModelProvider,
 		deconfigureModelProvider,
-		getModelProviderConfig
+		getModelProviderConfig,
+		validateModelProviderConfig
 	} from '$lib/services/chat/operations';
 	import { twMerge } from 'tailwind-merge';
 	import { fade, slide } from 'svelte/transition';
@@ -74,6 +75,7 @@
 	let isSaving = $state(false);
 	let isProviderConfigurationShown = $state(false);
 	let isUnconfigureProviderDialogShown = $state(false);
+	let validationError: string | null = $state(null);
 
 	let modelQuery: string = $state('');
 	let filteredModels: string[] = $state([]);
@@ -183,8 +185,38 @@
 	async function handleConfigureModelProvider(
 		provider: ModelProvider,
 		config: Record<string, string>
-	) {
+	): Promise<boolean> {
 		try {
+			try {
+				await validateModelProviderConfig(project.assistantID, project.id, provider.id, config);
+				validationError = null; // Clear any previous validation errors
+			} catch (err) {
+				console.error(err);
+
+				let message = 'Validation failed. Please check your configuration.';
+
+				if (err instanceof Error) {
+					// Look for a nested JSON error first.
+					const errorMessageMatch = err.message.match(/{"error":\s*"(.*?)"}/);
+					if (errorMessageMatch) {
+						message = JSON.parse(errorMessageMatch[0]).error;
+					} else {
+						// Just use the error message, and try to clean it up if we can.
+						message = err.message;
+
+						// Clean up the error message.
+						const parts = message.split(' logger=')[0].split('ERROR');
+						const lastPart = parts[parts.length - 1].trim();
+						if (lastPart) {
+							message = lastPart;
+						}
+					}
+				}
+
+				validationError = message;
+				return false;
+			}
+
 			await configureModelProvider(project.assistantID, project.id, provider.id, config);
 			const newProject = setProjectModels(project, providerId, []);
 
@@ -195,7 +227,9 @@
 			onError?.((error = `Failed to configure ${provider.name}`));
 
 			console.error(error, err);
+			return false;
 		}
+		return true;
 	}
 
 	// Load available models for a provider
@@ -223,7 +257,10 @@
 
 		try {
 			isModelsLoading = true;
-			await handleConfigureModelProvider(provider, configuration);
+			if (!(await handleConfigureModelProvider(provider, configuration))) {
+				isModelsLoading = false;
+				return;
+			}
 
 			provider.configured = true;
 
@@ -360,6 +397,7 @@
 	function onConfigureProviderClickHandler() {
 		configuringProvider = provider.id;
 		isProviderConfigurationShown = true;
+		validationError = null; // Clear any previous validation errors when opening config
 	}
 </script>
 
@@ -515,7 +553,7 @@
 			>
 				<div class="mb-2 text-lg font-semibold text-gray-400">Provider is not yet configured</div>
 				<p class="text-center text-xs opacity-50">
-					Click on the "Configure" button below to set up this provider. We’ll then validate your
+					Click on the "Configure" button below to set up this provider. We'll then validate your
 					configuration and display available models.
 				</p>
 			</div>
@@ -545,10 +583,28 @@
 								id={param.name}
 								class="w-full rounded-md border p-2 text-sm"
 								bind:value={configuration[param.name]}
+								oninput={() => {
+									// Clear validation error when user starts typing
+									if (validationError) {
+										validationError = null;
+									}
+								}}
 								required
 							/>
 						</div>
 					{/each}
+
+					{#if validationError}
+						<div
+							class="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+							transition:slide={{ duration: 200 }}
+						>
+							<div class="flex items-center gap-2">
+								<AlertCircle class="size-4" />
+								<span>{validationError}</span>
+							</div>
+						</div>
+					{/if}
 				</div>
 			</div>
 		{/if}
@@ -569,6 +625,7 @@
 						class="button hover:bg-surface1 rounded-full px-4 py-2 text-sm transition-colors duration-100"
 						onclick={() => {
 							configuration = $state.snapshot(oldConfiguration);
+							validationError = null;
 						}}
 					>
 						Reset
