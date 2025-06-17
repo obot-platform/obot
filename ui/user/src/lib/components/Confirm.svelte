@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import { CircleAlert, X } from 'lucide-svelte/icons';
+	import { CircleAlert, LoaderCircle, X } from 'lucide-svelte/icons';
 
 	interface Props {
 		show: boolean;
 		msg?: string;
 		onsuccess: () => void;
 		oncancel: () => void;
+		loading?: boolean;
 	}
 
-	let { show = false, msg = 'OK?', onsuccess, oncancel }: Props = $props();
+	let { show = false, msg = 'OK?', onsuccess, oncancel, loading }: Props = $props();
 
 	let dialog: HTMLDialogElement | undefined = $state();
 
@@ -43,9 +44,14 @@
 			<button
 				onclick={onsuccess}
 				type="button"
-				class="inline-flex items-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800"
+				class="inline-flex items-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50"
+				disabled={loading}
 			>
-				Yes, I'm sure
+				{#if loading}
+					<LoaderCircle class="size-4 animate-spin" />
+				{:else}
+					Yes, I'm sure
+				{/if}
 			</button>
 			<button
 				onclick={oncancel}

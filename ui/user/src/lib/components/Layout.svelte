@@ -8,19 +8,21 @@
 	import { fade, slide } from 'svelte/transition';
 	import {
 		Blocks,
+		Bot,
 		Boxes,
 		Cpu,
 		FileScan,
-		LockKeyhole,
 		MessageCircle,
 		MessagesSquare,
 		Puzzle,
 		Server,
 		SidebarClose,
 		SidebarOpen,
+		SquareArrowOutUpRight,
 		Users
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { ChatService, EditorService } from '$lib/services';
 
 	interface Props {
 		children: Snippet;
@@ -31,6 +33,20 @@
 
 	initLayout();
 	const layout = getLayout();
+
+	async function handleOpenChat() {
+		const projects = await ChatService.listProjects();
+		const lastVisitedObot = localStorage.getItem('lastVisitedObot');
+		const lastProject =
+			(lastVisitedObot && projects.items.find((p) => p.id === lastVisitedObot)) ??
+			projects.items[projects.items.length - 1];
+		if (lastProject) {
+			window.open(`/o/${lastProject.id}`, '_blank');
+		} else {
+			const newProject = await EditorService.createObot();
+			window.open(`/o/${newProject.id}`, '_blank');
+		}
+	}
 </script>
 
 <div class="flex min-h-dvh flex-col items-center">
@@ -49,45 +65,53 @@
 					{#if profile.current?.isAdmin?.()}
 						<div class="flex flex-col gap-1">
 							<p class="text-xs font-medium">Administrative</p>
-							<a href="/v2admin/mcp-catalogs" class="sidebar-link">
+							<a href="/admin/v2/mcp-catalogs" class="sidebar-link">
 								<Blocks class="size-4" /> MCP Catalogs
 							</a>
-							<a href="/v2admin/users" class="sidebar-link">
+							<a href="/admin/v2/users" class="sidebar-link">
 								<Users class="size-4" /> Organization
 							</a>
-							<!-- <a href="/v2admin/model-providers" class="sidebar-link">
+							<a href="admin/v2/model-providers" class="sidebar-link">
 								<Boxes class="size-4" /> Model Providers
 							</a>
-							<a href="/v2admin/auth-providers" class="sidebar-link">
-								<LockKeyhole class="size-4" /> Auth Providers
-							</a>
-							<a href="/v2admin/file-scanners" class="sidebar-link">
+							<a href="/admin/v2/file-scanners" class="sidebar-link">
 								<FileScan class="size-4" /> File Scanners
+							</a>
+
+							<!-- <a href="/admin/v2/auth-providers" class="sidebar-link">
+								<LockKeyhole class="size-4" /> Auth Providers
 							</a> -->
 						</div>
 
-						<!-- <div class="flex flex-col gap-1">
+						<div class="flex flex-col gap-1">
 							<p class="text-xs font-medium">Auditing</p>
+							<a href="/admin/v2/projects" class="sidebar-link">
+								<Bot class="size-4" /> Projects
+							</a>
 
-							<a href="/v2admin/tasks" class="sidebar-link">
-								<Puzzle class="size-4" /> Tasks
-							</a>
-							<a href="/v2admin/task-runs" class="sidebar-link">
-								<Cpu class="size-4" /> Task Runs
-							</a>
-							<a href="/v2admin/chat-threads" class="sidebar-link">
+							<a href="/admin/v2/threads" class="sidebar-link">
 								<MessagesSquare class="size-4" /> Chat Threads
 							</a>
-						</div> -->
+
+							<a href="/admin/v2/tasks" class="sidebar-link">
+								<Puzzle class="size-4" /> Tasks
+							</a>
+							<a href="/admin/v2/task-runs" class="sidebar-link">
+								<Cpu class="size-4" /> Task Runs
+							</a>
+						</div>
 					{/if}
 					<div class="flex flex-col gap-1">
 						<p class="text-xs font-medium">General</p>
 						<a href="/mcp-servers" class="sidebar-link">
 							<Server class="size-4" /> MCP Servers
 						</a>
-						<!-- <a href="/chat" class="sidebar-link">
-							<MessageCircle class="size-4" /> Chat
-						</a> -->
+						<button onclick={handleOpenChat} class="sidebar-link justify-between">
+							<span class="flex items-center gap-2"><MessageCircle class="size-4" /> Chat </span>
+							<div use:tooltip={'Open New Tab'}>
+								<SquareArrowOutUpRight class="size-3" />
+							</div>
+						</button>
 					</div>
 				</div>
 

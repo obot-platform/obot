@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import type { MCPCatalogEntryManifest } from '$lib/services/admin/types';
+	import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
 
 	interface Props {
-		config: MCPCatalogEntryManifest;
+		config: MCPCatalogEntryServerManifest;
 		custom?: boolean;
 		readonly?: boolean;
 	}
@@ -53,7 +53,7 @@
 		<div class="flex justify-end">
 			<button
 				class="button flex items-center gap-1 text-xs"
-				onclick={() => config.headers?.push({ key: '', description: '' })}
+				onclick={() => config.headers?.push({ key: '', description: '', name: '' })}
 			>
 				<Plus class="size-4" /> Header
 			</button>
@@ -66,7 +66,7 @@
 		<div class="flex justify-end">
 			<button
 				class="button flex items-center gap-1 text-xs"
-				onclick={() => config.env?.push({ key: '', description: '' })}
+				onclick={() => config.env?.push({ key: '', description: '', name: '' })}
 			>
 				<Plus class="size-4" /> Environment Variable
 			</button>
@@ -76,7 +76,7 @@
 
 {#snippet showConfigEnvVars(envs: { key: string; description: string }[])}
 	{#if envs.length > 0}
-		{#each envs as env, i}
+		{#each envs as _env, i}
 			<div class="flex w-full items-center gap-2">
 				<div class="flex grow flex-col gap-1">
 					<input
@@ -104,7 +104,7 @@
 
 {#snippet showConfigHeaders(headers: { key: string; description: string }[])}
 	{#if headers.length > 0}
-		{#each headers as header, i}
+		{#each headers as _header, i}
 			<div class="flex w-full items-center gap-2">
 				<div class="flex grow flex-col gap-1">
 					<input

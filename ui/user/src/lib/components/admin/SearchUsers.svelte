@@ -3,12 +3,13 @@
 	import { AdminService } from '$lib/services';
 	import { Role, type OrgUser } from '$lib/services/admin/types';
 	import { responsive } from '$lib/stores';
-	import { Check, ChevronRight, LoaderCircle, User, Users, X } from 'lucide-svelte';
+	import { Check, ChevronRight, Icon, LoaderCircle, User, Users, X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Search from '../Search.svelte';
 
 	interface Props {
 		onAdd: (users: OrgUser[]) => void;
+		filterIds?: string[];
 	}
 
 	let addUserGroupDialog = $state<HTMLDialogElement>();
@@ -22,12 +23,48 @@
 		addUserGroupDialog?.showModal();
 	}
 
-	let { onAdd }: Props = $props();
+	function close() {
+		searchUsers = '';
+		selectedUsers = [];
+		addUserGroupDialog?.close();
+	}
+
+	let { onAdd, filterIds }: Props = $props();
+
+	function getFilteredUsers(users?: OrgUser[]) {
+		if (!users) {
+			return [];
+		}
+
+		const withEveryone = [
+			{
+				id: '*',
+				username: 'everyone',
+				email: 'Everyone',
+				role: 10,
+				iconURL: '',
+				created: new Date().toISOString(),
+				explicitAdmin: false
+			} satisfies OrgUser,
+			...users
+		];
+
+		const filterIdSet = new Set(filterIds);
+		const filteredIds = withEveryone.filter((user) => !filterIdSet.has(user.id));
+
+		return searchUsers.length > 0
+			? (filteredIds?.filter(
+					(user) =>
+						user.email.toLowerCase().includes(searchUsers.toLowerCase()) ||
+						user.username.toLowerCase().includes(searchUsers.toLowerCase())
+				) ?? [])
+			: (filteredIds ?? []);
+	}
 </script>
 
 <dialog
 	bind:this={addUserGroupDialog}
-	use:clickOutside={() => addUserGroupDialog?.close()}
+	use:clickOutside={() => close()}
 	class="h-full max-h-screen max-w-full overflow-visible md:h-[500px] md:min-w-md"
 	class:mobile-screen-dialog={responsive.isMobile}
 >
@@ -36,7 +73,7 @@
 			Add User/Group
 			<button
 				class:mobile-header-button={responsive.isMobile}
-				onclick={() => addUserGroupDialog?.close()}
+				onclick={() => close()}
 				class="icon-button"
 			>
 				{#if responsive.isMobile}
@@ -52,14 +89,7 @@
 					<LoaderCircle class="size-6 animate-spin" />
 				</div>
 			{:then users}
-				{@const filteredUsers =
-					searchUsers.length > 0
-						? (users?.filter(
-								(user) =>
-									user.email.toLowerCase().includes(searchUsers.toLowerCase()) ||
-									user.username.toLowerCase().includes(searchUsers.toLowerCase())
-							) ?? [])
-						: (users ?? [])}
+				{@const filteredUsers = getFilteredUsers(users)}
 				<div class="px-4">
 					<Search
 						class="dark:bg-surface1 dark:border-surface3 shadow-inner dark:border"
@@ -86,11 +116,19 @@
 								}
 							}}
 						>
-							<img src={user.iconURL} alt={user.username} class="size-10 rounded-full" />
+							{#if user.iconURL}
+								<img src={user.iconURL} alt={user.username} class="size-10 rounded-full" />
+							{:else}
+								<Users class="size-10 rounded-full p-2" />
+							{/if}
 							<div class="flex grow flex-col">
 								<p>{user.email}</p>
 								<p class="font-light text-gray-400 dark:text-gray-600">
-									{user.role === Role.ADMIN ? 'Admin' : 'User'}
+									{user.username === 'everyone'
+										? 'Group'
+										: user.role === Role.ADMIN
+											? 'Admin'
+											: 'User'}
 								</p>
 							</div>
 							<div class="flex items-center justify-center">
@@ -115,10 +153,16 @@
 				{/if}
 			</div>
 			<div class="flex items-center gap-4">
-				<button class="button w-full md:w-fit" onclick={() => addUserGroupDialog?.close()}>
-					Cancel
+				<button class="button w-full md:w-fit" onclick={() => close()}> Cancel </button>
+				<button
+					class="button-primary w-full md:w-fit"
+					onclick={() => {
+						onAdd(selectedUsers);
+						close();
+					}}
+				>
+					Confirm
 				</button>
-				<button class="button-primary w-full md:w-fit" onclick={() => {}}> Confirm </button>
 			</div>
 		</div>
 	</div>

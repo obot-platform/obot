@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
-	import type { MCPCatalogEntryManifest } from '$lib/services/admin/types';
+	import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
 
 	interface Props {
-		config: MCPCatalogEntryManifest;
+		config: MCPCatalogEntryServerManifest;
 		custom?: boolean;
 		showAdvancedOptions?: boolean;
 		readonly?: boolean;
@@ -24,7 +24,7 @@
 </script>
 
 <div class="flex flex-col gap-1">
-	<h4 class="text-base font-semibold">Configuration</h4>
+	<h4 class="text-base font-semibold">Environment Variables</h4>
 	{@render showConfigEnv(config.env ?? [])}
 	{@render addEnvButton()}
 </div>
@@ -46,6 +46,39 @@
 								class="text-input-filled w-full"
 								bind:value={config.args[i]}
 								disabled={readonly}
+								onpaste={(e) => {
+									if (readonly || !config.args) return;
+									e.preventDefault();
+									const pastedText = e.clipboardData?.getData('text');
+									if (!pastedText) return;
+
+									const lines = pastedText.split(/[\r\n]+/).filter((line) => line.trim());
+									if (lines.length <= 1) {
+										config.args[i] = pastedText;
+										return;
+									}
+
+									// Remove quotes, commas and trim each line
+									const cleanedLines = lines.map((line) => {
+										let trimmed = line.trim();
+										if (trimmed.endsWith(',')) {
+											trimmed = trimmed.slice(0, -1).trim();
+										}
+
+										if (
+											(trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+											(trimmed.startsWith("'") && trimmed.endsWith("'"))
+										) {
+											trimmed = trimmed.slice(1, -1).trim();
+										}
+										return trimmed;
+									});
+
+									config.args[i] = cleanedLines[0];
+									for (let j = 1; j < cleanedLines.length; j++) {
+										config.args.splice(i + j, 0, cleanedLines[j]);
+									}
+								}}
 							/>
 							{#if !readonly}
 								<button class="icon-button" onclick={() => config.args?.splice(i, 1)}>
@@ -87,7 +120,7 @@
 		<div class="flex justify-end">
 			<button
 				class="button flex items-center gap-1 text-xs"
-				onclick={() => config.env?.push({ key: '', description: '' })}
+				onclick={() => config.env?.push({ key: '', description: '', name: '' })}
 			>
 				<Plus class="size-4" /> Environment Variable
 			</button>

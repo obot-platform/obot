@@ -346,6 +346,7 @@ export interface Task {
 	onDiscordMessage?: object;
 	alias?: string;
 	managed?: boolean;
+	projectID?: string;
 }
 
 export interface OnDemand {

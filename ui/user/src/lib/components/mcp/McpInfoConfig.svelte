@@ -134,7 +134,6 @@
 		}
 		close();
 	}
-	console.log(config);
 </script>
 
 <dialog
