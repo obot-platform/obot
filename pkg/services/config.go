@@ -163,8 +163,6 @@ var requiredEnvs = []string{
 	"GPTSCRIPT_ENCRYPTION_CONFIG_FILE",
 	// XDG stuff
 	"XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME",
-	// Don't migrate DB
-	"OBOT_TOOLS_MIGRATE_DB",
 }
 
 func copyKeys(envs []string) []string {
@@ -204,9 +202,6 @@ func newGPTScript(ctx context.Context,
 			DatasetTool:   datasetTool,
 		})
 	}
-
-	// Don't migrate the DB in the cred tools
-	os.Setenv("OBOT_TOOLS_MIGRATE_DB", "false")
 
 	credOverrides := strings.Split(os.Getenv("GPTSCRIPT_CREDENTIAL_OVERRIDE"), ",")
 	if len(credOverrides) == 1 && strings.TrimSpace(credOverrides[0]) == "" {
