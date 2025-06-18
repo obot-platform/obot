@@ -13,8 +13,6 @@ export const HELPER_TEXTS = {
 		'Begin every conversation with an introduction and default options that a user can choose from.',
 	knowledge:
 		'Add a collection of information (from documents to websites) that the agent can use to answer questions or perform tasks.',
-	customTools:
-		'Custom tools are a way to extend the capabilities of the agent. They can be used to perform actions that are not already available in the catalog.',
 	starterFiles: 'Add files that are available to use/view by a user with every conversation.',
 	interfaces: 'Hook up an agent to third party services to automate tasks and workflows.',
 	sharing:
@@ -22,7 +20,7 @@ export const HELPER_TEXTS = {
 	members: 'Modify who has access to collaborate on your agent.',
 	chatbot: 'Share a simplified version of the agent for other users to interact with.',
 	agentTemplate: 'Create a template to allow users to create their own version of the agent.',
-	configuration: 'Make use of advanced features such as knowledge, custom tools, and more.',
+	configuration: 'Make use of advanced features such as knowledge and more.',
 	memories: 'Information stored by the agent to remember things mentioned in conversations.',
 	modelProviders:
 		'Configure popular model providers (OpenAI, Anthropic, etc.) and set a default model for the agent.',

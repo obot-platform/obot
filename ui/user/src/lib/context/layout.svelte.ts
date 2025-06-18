@@ -24,13 +24,12 @@ export interface Layout {
 		| 'webhook'
 		| 'template'
 		| 'knowledge'
-		| 'custom-tool'
 		| 'invitations'
 		| 'custom-mcp'
 		| 'model-providers'
 		| 'mcp-server-tools'
 		| 'mcpserver-interface';
-	customToolId?: string;
+
 	editProjectMcp?: ProjectMCP;
 	template?: ProjectTemplate;
 	mcpServer?: ProjectMCP;
@@ -45,7 +44,6 @@ export function closeAll(layout: Layout) {
 	layout.editTaskID = undefined;
 	layout.displayTaskRun = undefined;
 	layout.sidebarConfig = undefined;
-	layout.customToolId = undefined;
 	layout.editProjectMcp = undefined;
 	layout.template = undefined;
 	layout.mcpServer = undefined;
@@ -84,16 +82,6 @@ export function openMCPServerTools(layout: Layout, mcpServer: ProjectMCP) {
 	layout.mcpServer = mcpServer;
 }
 
-export function openCustomTool(layout: Layout, customToolId: string) {
-	closeAll(layout);
-	layout.fileEditorOpen = false;
-	layout.sidebarConfig = 'custom-tool';
-	layout.customToolId = customToolId;
-	if (responsive.isMobile) {
-		layout.sidebarOpen = false;
-	}
-}
-
 export function openEditProjectMcp(layout: Layout, projectMcp?: ProjectMCP, chatbot?: boolean) {
 	closeAll(layout);
 	layout.fileEditorOpen = false;
@@ -107,7 +95,6 @@ export function openEditProjectMcp(layout: Layout, projectMcp?: ProjectMCP, chat
 
 export function closeSidebarConfig(layout: Layout) {
 	layout.sidebarConfig = undefined;
-	layout.customToolId = undefined;
 	layout.editProjectMcp = undefined;
 	layout.template = undefined;
 	layout.mcpServer = undefined;

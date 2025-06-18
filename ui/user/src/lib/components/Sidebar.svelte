@@ -10,7 +10,7 @@
 	import Files from '$lib/components/edit/Files.svelte';
 	import Sharing from '$lib/components/edit/Sharing.svelte';
 	import Interfaces from '$lib/components/edit/Interfaces.svelte';
-	import CustomTools from '$lib/components/edit/CustomTools.svelte';
+
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import Threads from '$lib/components/sidebar/Threads.svelte';
@@ -18,7 +18,7 @@
 	import ModelProviders from '$lib/components/sidebar/ModelProviders.svelte';
 	import SystemPrompt from '$lib/components/edit/SystemPrompt.svelte';
 	import Introduction from '$lib/components/edit/Introduction.svelte';
-	import { responsive, version } from '$lib/stores';
+	import { responsive } from '$lib/stores';
 	import Logo from '$lib/components/navbar/Logo.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { getHelperMode, HELPER_TEXTS } from '$lib/context/helperMode.svelte';
@@ -94,9 +94,6 @@
 					<Knowledge {project} />
 					<Files {project} classes={{ list: 'text-sm flex flex-col gap-2' }} />
 					<ModelProviders {project} />
-					{#if version.current.dockerSupported}
-						<CustomTools {project} />
-					{/if}
 					<Interfaces />
 					<Sharing {project} />
 				</CollapsePane>
