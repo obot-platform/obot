@@ -2584,7 +2584,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							},
 						},
 					},
-					"catalogID": {
+					"catalogEntryID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -2592,7 +2592,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"Metadata", "MCPServerManifest", "configured", "catalogID"},
+				Required: []string{"Metadata", "MCPServerManifest", "configured", "catalogEntryID"},
 			},
 		},
 		Dependencies: []string{
@@ -2634,6 +2634,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 					"editable": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"catalogName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
 							Format: "",
 						},
 					},
