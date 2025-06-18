@@ -342,7 +342,16 @@
 			params
 		);
 
-		input?.setValue(result.messages[0].content.text);
+		let promptContent = '';
+		for (const message of result.messages) {
+			if (message.content.type === 'text') {
+				promptContent += message.content.text;
+			} else if (message.content.type === 'resource') {
+				promptContent += `\n\n${JSON.stringify(message.content.resource)}`;
+			}
+		}
+
+		input?.setValue(promptContent);
 		promptPending = false;
 	}
 </script>

@@ -316,6 +316,7 @@ export interface McpServerGeneratedPrompt {
 		content: {
 			text: string;
 			type: string;
+			resource?: McpServerResource;
 		};
 		role: string;
 	}[];

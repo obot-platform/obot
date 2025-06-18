@@ -9,7 +9,7 @@
 		type File
 	} from '$lib/services/chat/types';
 	import { errors, responsive } from '$lib/stores';
-	import { ChevronRight, ChevronsRight, LoaderCircle, X } from 'lucide-svelte';
+	import { ChevronRight, ChevronsRight, Download, LoaderCircle, X } from 'lucide-svelte';
 
 	interface Props {
 		project: Project;
@@ -35,7 +35,7 @@
 		}
 	}
 
-	async function getExtensionFromMimeType(mimeType: string): Promise<string> {
+	function getExtensionFromMimeType(mimeType: string): string {
 		const mimeToExt: Record<string, string> = {
 			'text/plain': 'txt',
 			'text/markdown': 'md',
@@ -47,6 +47,32 @@
 		return mimeToExt[mimeType] ?? mimeType.split('/')?.[1] ?? 'txt';
 	}
 
+	function convertResourceContentToFile(
+		mcpName: string,
+		resourceName: string,
+		resourceContent: McpServerResourceContent
+	) {
+		const extension = getExtensionFromMimeType(resourceContent.mimeType);
+		const filename = `obot-${mcpName}-resource-${resourceName}.${extension}`;
+		let content;
+		if (resourceContent.text) {
+			content = resourceContent.text;
+		} else if (resourceContent.blob) {
+			// Convert base64 to binary
+			const binaryContent = atob(resourceContent.blob);
+			// Convert to ArrayBuffer
+			const arrayBuffer = new ArrayBuffer(binaryContent.length);
+			const uint8Array = new Uint8Array(arrayBuffer);
+			for (let i = 0; i < binaryContent.length; i++) {
+				uint8Array[i] = binaryContent.charCodeAt(i);
+			}
+			content = arrayBuffer;
+		} else {
+			throw new Error('Resource has no content (neither text nor blob)');
+		}
+		return new File([content], filename, { type: resourceContent.mimeType });
+	}
+
 	async function saveResourceToWorkspace(
 		resourceName: string,
 		resourceContent: McpServerResourceContent
@@ -54,37 +80,16 @@
 		if (!mcp) return;
 
 		const { name: mcpName } = mcp;
-		const extension = await getExtensionFromMimeType(resourceContent.mimeType);
 		try {
-			const filename = `obot-${mcpName}-resource-${resourceName}.${extension}`;
-			const fileExists = await checkFileExists(filename);
-			if (!fileExists) {
-				let content;
-				if (resourceContent.text) {
-					content = resourceContent.text;
-				} else if (resourceContent.blob) {
-					// Convert base64 to binary
-					const binaryContent = atob(resourceContent.blob);
-					// Convert to ArrayBuffer
-					const arrayBuffer = new ArrayBuffer(binaryContent.length);
-					const uint8Array = new Uint8Array(arrayBuffer);
-					for (let i = 0; i < binaryContent.length; i++) {
-						uint8Array[i] = binaryContent.charCodeAt(i);
-					}
-					content = arrayBuffer;
-				} else {
-					throw new Error('Resource has no content (neither text nor blob)');
-				}
-				const file = new File([content], filename, { type: resourceContent.mimeType });
-				return ChatService.saveFile(project.assistantID, project.id, file);
-			}
+			const file = convertResourceContentToFile(mcpName, resourceName, resourceContent);
+			return ChatService.saveFile(project.assistantID, project.id, file);
 		} catch (err) {
 			console.error('Failed to create or open file:', err);
 			errors.append('An error occurred while saving the resource to the workspace.');
 		}
 	}
 
-	async function handleAddResource(resource: McpServerResource) {
+	async function handleAddResource(resource: McpServerResource, download: boolean = false) {
 		if (!project?.assistantID || !project.id || !mcp) return;
 		addingFileUri = resource.uri;
 
@@ -102,8 +107,22 @@
 			return;
 		}
 
-		await saveResourceToWorkspace(resource.name, response);
-		loadExistingWorkspaceFiles();
+		if (!download) {
+			await saveResourceToWorkspace(resource.name, response);
+			loadExistingWorkspaceFiles();
+		} else {
+			const file = convertResourceContentToFile(mcp.name, resource.name, response);
+			const a = document.createElement('a');
+			const url = URL.createObjectURL(file);
+			a.href = url;
+			a.download = file.name;
+			a.click();
+			a.remove();
+
+			setTimeout(() => {
+				window.URL.revokeObjectURL(url);
+			}, 1000);
+		}
 
 		addingFileUri = '';
 	}
@@ -166,28 +185,33 @@
 			>
 				{#each resources as resource}
 					{@const alreadyAdded = isAlreadyAdded(resource)}
-					<button
-						class="resource"
-						onclick={() => handleAddResource(resource)}
-						disabled={loadingFiles || addingFileUri === resource.uri || alreadyAdded}
-					>
-						<div>
-							<p class="text-sm">{resource.name}</p>
-							<p class="text-xs font-light text-gray-500">{resource.mimeType}</p>
-						</div>
-						<div class="flex grow"></div>
-						{#if alreadyAdded}
-							<span class="p-2 pr-0 text-xs text-gray-500">Added</span>
-						{:else}
-							<div class="button-text flex items-center gap-1 p-2 pr-0 text-xs">
-								{#if loadingFiles || addingFileUri === resource.uri}
-									<LoaderCircle class="size-3 animate-spin" />
-								{:else}
-									Add to Project <ChevronsRight class="size-3" />
-								{/if}
+					<div class="resource flex items-center gap-2">
+						<button class="icon-button" onclick={() => handleAddResource(resource, true)}>
+							<Download class="size-4" />
+						</button>
+						<button
+							class="flex grow gap-4 text-left"
+							onclick={() => handleAddResource(resource)}
+							disabled={loadingFiles || addingFileUri === resource.uri || alreadyAdded}
+						>
+							<div>
+								<p class="text-sm">{resource.name}</p>
+								<p class="text-xs font-light text-gray-500">{resource.mimeType}</p>
 							</div>
-						{/if}
-					</button>
+							<div class="flex grow"></div>
+							{#if alreadyAdded}
+								<span class="p-2 pr-0 text-xs text-gray-500">Added</span>
+							{:else}
+								<div class="button-text flex items-center gap-1 p-2 pr-0 text-xs">
+									{#if loadingFiles || addingFileUri === resource.uri}
+										<LoaderCircle class="size-3 animate-spin" />
+									{:else}
+										Add to Project <ChevronsRight class="size-3" />
+									{/if}
+								</div>
+							{/if}
+						</button>
+					</div>
 				{/each}
 			</div>
 		{/if}
@@ -198,7 +222,6 @@
 	.resource {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
 		background-color: white;
 		padding: 0.5rem;
 		text-align: left;
