@@ -382,41 +382,6 @@ func appendTools(result *types.AssistantToolList, added map[string]bool, toolsBy
 	}
 }
 
-func (a *AssistantHandler) DeleteTool(req api.Context) error {
-	var (
-		toolID = req.PathValue("tool")
-	)
-
-	thread, err := getProjectThread(req)
-	if err != nil {
-		return err
-	}
-
-	var tool v1.Tool
-	if err := req.Get(&tool, toolID); err != nil {
-		return err
-	}
-
-	if tool.Spec.ThreadName != thread.Name {
-		return types.NewErrNotFound("tool %s is not available", toolID)
-	}
-
-	if err := req.Delete(&tool); err != nil {
-		return err
-	}
-
-	if slices.Contains(thread.Spec.Manifest.Tools, toolID) {
-		thread.Spec.Manifest.Tools = slices.DeleteFunc(thread.Spec.Manifest.Tools, func(s string) bool {
-			return s == toolID || s == ""
-		})
-		if err := req.Update(thread); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (a *AssistantHandler) RemoveTool(req api.Context) error {
 	var (
 		tool = req.PathValue("tool")

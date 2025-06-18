@@ -102,14 +102,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Project tools
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/tools", assistants.SetTools)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tools", assistants.Tools)
-	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/tools", tools.Create)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}", tools.Get)
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/env", tools.GetEnv)
-	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/env", tools.SetEnv)
-	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/test", tools.Test)
-	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool}", tools.UpdateTool)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool}", assistants.RemoveTool)
-	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool}/custom", assistants.DeleteTool)
 
 	// Project files
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/file/{file...}", files.GetFile)
