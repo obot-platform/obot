@@ -48,12 +48,9 @@
 	}
 
 	function convertResourceContentToFile(
-		mcpName: string,
-		resourceName: string,
+		filename: string,
 		resourceContent: McpServerResourceContent
 	) {
-		const extension = getExtensionFromMimeType(resourceContent.mimeType);
-		const filename = `obot-${mcpName}-resource-${resourceName}.${extension}`;
 		let content;
 		if (resourceContent.text) {
 			content = resourceContent.text;
@@ -73,16 +70,24 @@
 		return new File([content], filename, { type: resourceContent.mimeType });
 	}
 
+	function getFilename(mcpName: string, resourceName: string, mimeType: string) {
+		const extension = getExtensionFromMimeType(mimeType);
+		const filename = `obot-${mcpName}-resource-${resourceName}.${extension}`;
+		return filename;
+	}
+
 	async function saveResourceToWorkspace(
 		resourceName: string,
 		resourceContent: McpServerResourceContent
 	) {
 		if (!mcp) return;
-
-		const { name: mcpName } = mcp;
 		try {
-			const file = convertResourceContentToFile(mcpName, resourceName, resourceContent);
-			return ChatService.saveFile(project.assistantID, project.id, file);
+			const filename = getFilename(mcp.name, resourceName, resourceContent.mimeType);
+			const fileExists = await checkFileExists(filename);
+			if (!fileExists) {
+				const file = convertResourceContentToFile(filename, resourceContent);
+				return ChatService.saveFile(project.assistantID, project.id, file);
+			}
 		} catch (err) {
 			console.error('Failed to create or open file:', err);
 			errors.append('An error occurred while saving the resource to the workspace.');
@@ -111,7 +116,8 @@
 			await saveResourceToWorkspace(resource.name, response);
 			loadExistingWorkspaceFiles();
 		} else {
-			const file = convertResourceContentToFile(mcp.name, resource.name, response);
+			const filename = getFilename(mcp.name, resource.name, response.mimeType);
+			const file = convertResourceContentToFile(filename, response);
 			const a = document.createElement('a');
 			const url = URL.createObjectURL(file);
 			a.href = url;
