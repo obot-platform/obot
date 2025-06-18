@@ -376,6 +376,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/all-mcp-catalogs/entries", mcp.ListEntriesForAllCatalogs)
 	mux.HandleFunc("GET /api/all-mcp-catalogs/entries/{entry_id}", mcp.GetCatalogEntry)
 
+	// MCP Shared Servers Within Catalogs
+	// mux.HandleFunc("GET /api/all-mcp-catalogs/servers", mcp.ListSharedServers)
+	// mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{server_id}", mcp.GetSharedServer)
+
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}", mcpCatalogs.Get)
@@ -387,6 +391,15 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries", mcpCatalogs.CreateEntry)
 	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.UpdateEntry)
 	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.DeleteEntry)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers", mcp.ListServer)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}", mcp.GetServer)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers", mcp.CreateServer)
+	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}", mcp.UpdateServer)
+	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}", mcp.DeleteServer)
+	// TODO: test these three routes below before moving on
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/configure", mcp.ConfigureServer)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/reveal", mcp.Reveal)
 
 	// MCP Servers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)

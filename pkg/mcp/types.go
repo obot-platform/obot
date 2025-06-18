@@ -42,7 +42,7 @@ func expandEnvVars(text string, credEnv map[string]string) string {
 	})
 }
 
-func ToServerConfig(mcpServer v1.MCPServer, projectThreadName string, credEnv map[string]string, allowedTools ...string) (ServerConfig, []string) {
+func ToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]string, allowedTools ...string) (ServerConfig, []string) {
 	// Expand environment variables in command, args, and URL
 	command := expandEnvVars(mcpServer.Spec.Manifest.Command, credEnv)
 	url := expandEnvVars(mcpServer.Spec.Manifest.URL, credEnv)
@@ -59,7 +59,7 @@ func ToServerConfig(mcpServer v1.MCPServer, projectThreadName string, credEnv ma
 			Env:          make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
 			URL:          url,
 			Headers:      make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
-			Scope:        fmt.Sprintf("%s-%s", mcpServer.Name, projectThreadName),
+			Scope:        fmt.Sprintf("%s-%s", mcpServer.Name, scope),
 			AllowedTools: allowedTools,
 		},
 	}

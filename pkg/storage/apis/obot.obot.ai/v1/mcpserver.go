@@ -35,6 +35,8 @@ func (in *MCPServer) Get(field string) (value string) {
 		return in.Spec.UserID
 	case "spec.mcpServerCatalogEntryName":
 		return in.Spec.MCPServerCatalogEntryName
+	case "spec.sharedWithinMCPCatalogName":
+		return in.Spec.SharedWithinMCPCatalogName
 	}
 	return ""
 }
@@ -44,6 +46,7 @@ func (in *MCPServer) FieldNames() []string {
 		"spec.threadName",
 		"spec.userID",
 		"spec.mcpServerCatalogEntryName",
+		"spec.sharedWithinMCPCatalogName",
 	}
 }
 
@@ -52,6 +55,7 @@ func (in *MCPServer) DeleteRefs() []Ref {
 		{ObjType: &Thread{}, Name: in.Spec.ThreadName},
 		{ObjType: &ToolReference{}, Name: in.Spec.ToolReferenceName},
 		{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName},
+		{ObjType: &MCPCatalog{}, Name: in.Spec.SharedWithinMCPCatalogName},
 	}
 }
 
@@ -59,11 +63,16 @@ type MCPServerSpec struct {
 	Manifest types.MCPServerManifest `json:"manifest,omitempty"`
 	// List of tool names that are known to not work well in Obot.
 	UnsupportedTools []string `json:"unsupportedTools,omitempty"`
-	// The project or thread that owns this server.
-	ThreadName                string `json:"threadName,omitempty"`
-	UserID                    string `json:"userID,omitempty"`
+	// ThreadName is the project or thread that owns this server, if there is one.
+	ThreadName string `json:"threadName,omitempty"`
+	// UserID is the user that created this server.
+	UserID string `json:"userID,omitempty"`
+	// SharedWithinMCPCatalogName contains the name of the MCPCatalog inside of which this server was directly created by the admin, if there is one.
+	SharedWithinMCPCatalogName string `json:"sharedWithinMCPCatalogName,omitempty"`
+	// MCPServerCatalogEntryName contains the name of the MCPServerCatalogEntry from which this MCP server was created, if there is one.
 	MCPServerCatalogEntryName string `json:"mcpServerCatalogEntryName,omitempty"`
-	ToolReferenceName         string `json:"toolReferenceName,omitempty"`
+	// ToolReferenceName contains the name of the legacy gptscript tool reference for this MCP server, if there is one.
+	ToolReferenceName string `json:"toolReferenceName,omitempty"`
 }
 
 type MCPServerStatus struct {

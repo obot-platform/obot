@@ -117,34 +117,51 @@ func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServe
 }
 
 func (m *MCPHandler) ListServer(req api.Context) error {
-	t, err := getThreadForScope(req)
-	if err != nil {
-		return err
-	}
+	catalogID := req.PathValue("catalog_id")
 
-	topMost, err := projects.GetRoot(req.Context(), req.Storage, t)
-	if err != nil {
-		return err
+	var fieldSelector kclient.MatchingFields
+	if catalogID != "" {
+		fieldSelector = kclient.MatchingFields{
+			"spec.sharedWithinMCPCatalogName": catalogID,
+		}
+	} else {
+		t, err := getThreadForScope(req)
+		if err != nil {
+			return err
+		}
+
+		topMost, err := projects.GetRoot(req.Context(), req.Storage, t)
+		if err != nil {
+			return err
+		}
+
+		fieldSelector = kclient.MatchingFields{
+			"spec.threadName": topMost.Name,
+		}
 	}
 
 	var servers v1.MCPServerList
-	if err := req.List(&servers, kclient.MatchingFields{
-		"spec.threadName": topMost.Name,
-	}); err != nil {
+	if err := req.List(&servers, fieldSelector); err != nil {
 		return nil
 	}
 
-	project, err := getProjectThread(req)
-	if err != nil {
-		return err
-	}
-
 	credCtxs := make([]string, 0, len(servers.Items))
-	for _, server := range servers.Items {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", project.Name, server.Name))
-		if project.IsSharedProject() {
-			// Add default credentials shared by the agent for this MCP server if available.
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
+	if catalogID != "" {
+		for _, server := range servers.Items {
+			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", catalogID, server.Name))
+		}
+	} else {
+		project, err := getProjectThread(req)
+		if err != nil {
+			return err
+		}
+
+		for _, server := range servers.Items {
+			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", project.Name, server.Name))
+			if project.IsSharedProject() {
+				// Add default credentials shared by the agent for this MCP server if available.
+				credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
+			}
 		}
 	}
 
@@ -179,28 +196,38 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 
 func (m *MCPHandler) GetServer(req api.Context) error {
 	var (
-		server v1.MCPServer
-		id     = req.PathValue("mcp_server_id")
+		server    v1.MCPServer
+		id        = req.PathValue("mcp_server_id")
+		catalogID = req.PathValue("catalog_id")
 	)
 
 	if err := req.Get(&server, id); err != nil {
 		return err
 	}
 
+	if catalogID != "" && server.Spec.SharedWithinMCPCatalogName != catalogID {
+		return types.NewErrNotFound("MCP server not found")
+	}
+
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
-	project, err := getProjectThread(req)
-	if err != nil {
-		return err
-	}
+	var credCtxs []string
+	if catalogID != "" {
+		credCtxs = []string{fmt.Sprintf("%s-%s", catalogID, server.Name)}
+	} else {
+		project, err := getProjectThread(req)
+		if err != nil {
+			return err
+		}
 
-	credCtxs := []string{
-		fmt.Sprintf("%s-%s", project.Name, server.Name),
-	}
-	if project.IsSharedProject() {
-		// Add default credentials shared by the agent for this MCP server if available.
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
+		credCtxs = []string{
+			fmt.Sprintf("%s-%s", project.Name, server.Name),
+		}
+		if project.IsSharedProject() {
+			// Add default credentials shared by the agent for this MCP server if available.
+			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
+		}
 	}
 
 	cred, err := m.gptscript.RevealCredential(req.Context(), credCtxs, server.Name)
@@ -213,29 +240,36 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 
 func (m *MCPHandler) DeleteServer(req api.Context) error {
 	var (
-		server v1.MCPServer
-		id     = req.PathValue("mcp_server_id")
+		server    v1.MCPServer
+		id        = req.PathValue("mcp_server_id")
+		catalogID = req.PathValue("catalog_id")
 	)
 
-	project, err := getProjectThread(req)
-	if err != nil {
+	if err := req.Get(&server, id); err != nil {
 		return err
 	}
 
-	if err = req.Get(&server, id); err != nil {
-		return err
+	if catalogID != "" && server.Spec.SharedWithinMCPCatalogName != catalogID {
+		return types.NewErrNotFound("MCP server not found")
 	}
 
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
-	// Ensure that the MCP server is in the same project as the request before deleting it.
-	// This prevents chatbot users from deleting MCP servers from the agent.
-	// This is necessary because in order to enable MCP servers to be shared across projects,
-	// the standard authz middleware allows access to all MCP server endpoints from any "child" project
-	// of the one the MCP server belongs to.
-	if project.Name != server.Spec.ThreadName {
-		return types.NewErrForbidden("cannot delete MCP server from this project")
+	if catalogID == "" {
+		project, err := getProjectThread(req)
+		if err != nil {
+			return err
+		}
+
+		// Ensure that the MCP server is in the same project as the request before deleting it.
+		// This prevents chatbot users from deleting MCP servers from the agent.
+		// This is necessary because in order to enable MCP servers to be shared across projects,
+		// the standard authz middleware allows access to all MCP server endpoints from any "child" project
+		// of the one the MCP server belongs to.
+		if project.Name != server.Spec.ThreadName {
+			return types.NewErrForbidden("cannot delete MCP server from this project")
+		}
 	}
 
 	if err := req.Delete(&server); err != nil {
@@ -504,27 +538,54 @@ func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.M
 }
 
 func (m *MCPHandler) CreateServer(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+
 	var input types.MCPServer
 	if err := req.Read(&input); err != nil {
 		return err
 	}
 
-	t, err := getThreadForScope(req)
-	if err != nil {
-		return err
-	}
+	var server v1.MCPServer
 
-	server := v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.MCPServerPrefix,
-			Namespace:    req.Namespace(),
-		},
-		Spec: v1.MCPServerSpec{
-			Manifest:                  input.MCPServerManifest,
-			MCPServerCatalogEntryName: input.CatalogEntryID,
-			ThreadName:                t.Name,
-			UserID:                    req.User.GetUID(),
-		},
+	if catalogID != "" {
+		var catalog v1.MCPCatalog
+		if err := req.Get(&catalog, catalogID); err != nil {
+			return err
+		}
+
+		if catalog.Spec.IsReadOnly {
+			return types.NewErrForbidden("cannot create MCP server in read-only catalog")
+		}
+
+		server = v1.MCPServer{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.MCPServerPrefix,
+				Namespace:    req.Namespace(),
+			},
+			Spec: v1.MCPServerSpec{
+				Manifest:                   input.MCPServerManifest,
+				SharedWithinMCPCatalogName: catalogID,
+				UserID:                     req.User.GetUID(),
+			},
+		}
+	} else {
+		t, err := getThreadForScope(req)
+		if err != nil {
+			return err
+		}
+
+		server = v1.MCPServer{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.MCPServerPrefix,
+				Namespace:    req.Namespace(),
+			},
+			Spec: v1.MCPServerSpec{
+				Manifest:                  input.MCPServerManifest,
+				MCPServerCatalogEntryName: input.CatalogEntryID,
+				ThreadName:                t.Name,
+				UserID:                    req.User.GetUID(),
+			},
+		}
 	}
 
 	// Add extracted env vars to the server definition
@@ -547,11 +608,19 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		server.Spec.Manifest = mergeMCPServerManifests(server.Spec.Manifest, input.MCPServerManifest)
 	}
 
-	if err = req.Create(&server); err != nil {
+	if err := req.Create(&server); err != nil {
 		return err
 	}
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name)}, server.Name)
+	var (
+		cred gptscript.Credential
+		err  error
+	)
+	if catalogID != "" {
+		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, server.Name)}, server.Name)
+	} else {
+		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name)}, server.Name)
+	}
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -561,30 +630,39 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 
 func (m *MCPHandler) UpdateServer(req api.Context) error {
 	var (
-		id       = req.PathValue("mcp_server_id")
-		updated  types.MCPServerManifest
-		existing v1.MCPServer
+		id        = req.PathValue("mcp_server_id")
+		catalogID = req.PathValue("catalog_id")
+		err       error
+		project   *v1.Thread
+		updated   types.MCPServerManifest
+		existing  v1.MCPServer
 	)
 
 	if err := req.Get(&existing, id); err != nil {
 		return err
 	}
 
+	if catalogID != "" && existing.Spec.SharedWithinMCPCatalogName != catalogID {
+		return types.NewErrNotFound("MCP server not found")
+	}
+
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&existing)
 
-	project, err := getProjectThread(req)
-	if err != nil {
-		return err
-	}
+	if catalogID == "" {
+		project, err = getProjectThread(req)
+		if err != nil {
+			return err
+		}
 
-	// Ensure that the MCP server being updated is in the project referenced by the request.
-	// This prevents chatbot users from editing MCP servers in the agent.
-	// This is necessary because in order to enable MCP servers to be shared across projects,
-	// the standard authz middleware allows access to all MCP server endpoints from any "child" project
-	// of the one the MCP server belongs to.
-	if project.Name != existing.Spec.ThreadName {
-		return types.NewErrForbidden("cannot edit MCP server from this project")
+		// Ensure that the MCP server being updated is in the project referenced by the request.
+		// This prevents chatbot users from editing MCP servers in the agent.
+		// This is necessary because in order to enable MCP servers to be shared across projects,
+		// the standard authz middleware allows access to all MCP server endpoints from any "child" project
+		// of the one the MCP server belongs to.
+		if project.Name != existing.Spec.ThreadName {
+			return types.NewErrForbidden("cannot edit MCP server from this project")
+		}
 	}
 
 	if err := req.Read(&updated); err != nil {
@@ -592,46 +670,58 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	}
 
 	// Shutdown any server that is using the default credentials.
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", existing.Spec.ThreadName, existing.Name)}, existing.Name)
+	var cred gptscript.Credential
+	if catalogID != "" {
+		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, existing.Name)}, existing.Name)
+	} else {
+		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", existing.Spec.ThreadName, existing.Name)}, existing.Name)
+	}
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
 	// Shutdown the server, even if there is no credential
-	if err = m.removeMCPServer(req.Context(), existing, project.Name, cred.Env); err != nil {
+	if catalogID != "" {
+		err = m.removeMCPServer(req.Context(), existing, catalogID, cred.Env)
+	} else {
+		err = m.removeMCPServer(req.Context(), existing, project.Name, cred.Env)
+	}
+	if err != nil {
 		return err
 	}
 
 	// Shutdown the MCP server using any shared credentials.
-	sharedCred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s-shared", existing.Spec.ThreadName, existing.Name)}, existing.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return fmt.Errorf("failed to find credential: %w", err)
-	}
-
-	var chatBots v1.ThreadList
-	if err = req.List(&chatBots, &kclient.ListOptions{
-		Namespace: project.Namespace,
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.parentThreadName": project.Name,
-			"spec.project":          "true",
-		}),
-	}); err != nil {
-		return fmt.Errorf("failed to list child projects: %w", err)
-	}
-
-	// Shutdown all chatbot MCP servers.
-	for _, chatBot := range chatBots.Items {
-		childCred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", chatBot.Name, existing.Name)}, existing.Name)
+	if catalogID == "" {
+		sharedCred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s-shared", existing.Spec.ThreadName, existing.Name)}, existing.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
-		} else if err != nil {
-			// Use the shared parent credential if we didn't find the chatbot's credential.
-			childCred = sharedCred
 		}
 
-		// Shutdown the server, even if there is no credential
-		if err = m.removeMCPServer(req.Context(), existing, chatBot.Name, childCred.Env); err != nil {
-			return err
+		var chatBots v1.ThreadList
+		if err = req.List(&chatBots, &kclient.ListOptions{
+			Namespace: project.Namespace,
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.parentThreadName": project.Name,
+				"spec.project":          "true",
+			}),
+		}); err != nil {
+			return fmt.Errorf("failed to list child projects: %w", err)
+		}
+
+		// Shutdown all chatbot MCP servers.
+		for _, chatBot := range chatBots.Items {
+			childCred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", chatBot.Name, existing.Name)}, existing.Name)
+			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+				return fmt.Errorf("failed to find credential: %w", err)
+			} else if err != nil {
+				// Use the shared parent credential if we didn't find the chatbot's credential.
+				childCred = sharedCred
+			}
+
+			// Shutdown the server, even if there is no credential
+			if err = m.removeMCPServer(req.Context(), existing, chatBot.Name, childCred.Env); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -645,27 +735,41 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 }
 
 func (m *MCPHandler) ConfigureServer(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+
 	var mcpServer v1.MCPServer
 	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
 		return err
 	}
 
+	if catalogID != "" && mcpServer.Spec.SharedWithinMCPCatalogName != catalogID {
+		return types.NewErrNotFound("MCP server not found")
+	}
+
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&mcpServer)
-
-	project, err := getProjectThread(req)
-	if err != nil {
-		return err
-	}
 
 	var envVars map[string]string
 	if err := req.Read(&envVars); err != nil {
 		return err
 	}
 
+	var credCtx, scope string
+	if catalogID != "" {
+		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
+		scope = catalogID
+	} else {
+		project, err := getProjectThread(req)
+		if err != nil {
+			return err
+		}
+
+		credCtx = fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)
+		scope = project.Name
+	}
+
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	credCtx := fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)
-	if err = m.removeMCPServerAndCred(req.Context(), mcpServer, project.Name, []string{credCtx}); err != nil {
+	if err := m.removeMCPServerAndCred(req.Context(), mcpServer, scope, []string{credCtx}); err != nil {
 		return err
 	}
 
@@ -675,7 +779,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		}
 	}
 
-	if err = m.gptscript.CreateCredential(req.Context(), gptscript.Credential{
+	if err := m.gptscript.CreateCredential(req.Context(), gptscript.Credential{
 		Context:  credCtx,
 		ToolName: mcpServer.Name,
 		Type:     gptscript.CredentialTypeTool,
@@ -758,20 +862,35 @@ func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
 }
 
 func (m *MCPHandler) DeconfigureServer(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+
 	var mcpServer v1.MCPServer
 	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
 		return err
 	}
 
+	if catalogID != "" && mcpServer.Spec.SharedWithinMCPCatalogName != catalogID {
+		return types.NewErrNotFound("MCP server not found")
+	}
+
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&mcpServer)
 
-	project, err := getProjectThread(req)
-	if err != nil {
-		return err
+	var credCtx, scope string
+	if catalogID != "" {
+		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
+		scope = catalogID
+	} else {
+		project, err := getProjectThread(req)
+		if err != nil {
+			return err
+		}
+
+		credCtx = fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)
+		scope = project.Name
 	}
 
-	if err = m.removeMCPServerAndCred(req.Context(), mcpServer, project.Name, []string{fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)}); err != nil {
+	if err := m.removeMCPServerAndCred(req.Context(), mcpServer, scope, []string{credCtx}); err != nil {
 		return err
 	}
 
@@ -829,17 +948,30 @@ func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
 }
 
 func (m *MCPHandler) Reveal(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+
 	var mcpServer v1.MCPServer
 	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
 		return err
 	}
 
-	project, err := getProjectThread(req)
-	if err != nil {
-		return err
+	if catalogID != "" && mcpServer.Spec.SharedWithinMCPCatalogName != catalogID {
+		return types.NewErrNotFound("MCP server not found")
 	}
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)}, mcpServer.Name)
+	var credCtx string
+	if catalogID != "" {
+		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
+	} else {
+		project, err := getProjectThread(req)
+		if err != nil {
+			return err
+		}
+
+		credCtx = fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)
+	}
+
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{credCtx}, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	} else if err == nil {
@@ -942,8 +1074,8 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 	return tools, nil
 }
 
-func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer, projectName string, credEnv map[string]string) error {
-	serverConfig, _ := mcp.ToServerConfig(mcpServer, projectName, credEnv)
+func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer, scope string, credEnv map[string]string) error {
+	serverConfig, _ := mcp.ToServerConfig(mcpServer, scope, credEnv)
 	if err := m.mcpSessionManager.ShutdownServer(ctx, serverConfig); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
@@ -951,14 +1083,14 @@ func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer
 	return nil
 }
 
-func (m *MCPHandler) removeMCPServerAndCred(ctx context.Context, mcpServer v1.MCPServer, projectName string, credCtx []string) error {
+func (m *MCPHandler) removeMCPServerAndCred(ctx context.Context, mcpServer v1.MCPServer, scope string, credCtx []string) error {
 	cred, err := m.gptscript.RevealCredential(ctx, credCtx, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
 	// Shutdown the server, even if there is no credential
-	if err := m.removeMCPServer(ctx, mcpServer, projectName, cred.Env); err != nil {
+	if err := m.removeMCPServer(ctx, mcpServer, scope, cred.Env); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 
@@ -1127,11 +1259,12 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 	}
 
 	return types.MCPServer{
-		Metadata:               MetadataFrom(&server),
-		MissingRequiredEnvVars: missingEnvVars,
-		MissingRequiredHeaders: missingHeaders,
-		Configured:             len(missingEnvVars) == 0 && len(missingHeaders) == 0,
-		MCPServerManifest:      server.Spec.Manifest,
-		CatalogEntryID:         server.Spec.MCPServerCatalogEntryName,
+		Metadata:                MetadataFrom(&server),
+		MissingRequiredEnvVars:  missingEnvVars,
+		MissingRequiredHeaders:  missingHeaders,
+		Configured:              len(missingEnvVars) == 0 && len(missingHeaders) == 0,
+		MCPServerManifest:       server.Spec.Manifest,
+		CatalogEntryID:          server.Spec.MCPServerCatalogEntryName,
+		SharedWithinCatalogName: server.Spec.SharedWithinMCPCatalogName,
 	}
 }
