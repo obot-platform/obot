@@ -430,15 +430,30 @@
 
 		<div>
 			<h4 class="font-medium">Step 4: Enable Events</h4>
-			<p class="text-sm text-gray-500">
-				You can subscribe to Slack events using one of two approaches:
-				<strong> Slack Events API</strong> or <strong>Socket Mode</strong>. Use the Events API if
-				you can expose a public endpoint to receive webhook events. If you're running in a secure or
-				internal environment where public URLs are not an option, Socket Mode is recommended.
-			</p>
+			<div class="text-sm text-gray-500">
+				<p>
+					You can subscribe to Slack events using one of two approaches:
+					<strong> Slack Events API</strong> or <strong>Socket Mode</strong>. Use the Events API if
+					you can expose a public endpoint to receive webhook events. If you're running in a secure
+					or internal environment where public URLs are not an option, Socket Mode is recommended.
+				</p>
+				<br />
+
+				<li>
+					From the left navigation, go to the "Event Subscriptions" section. Click to enable events.
+				</li>
+				<li>
+					Next, expand the "Subscribe to bot events" section and click "Add Bot User Event". Add the
+					following event:
+					<div class="copy-pill">
+						<CopyButton text="app_mention" />
+						app_mention
+					</div>
+				</li>
+			</div>
 
 			<h5 class="mt-4 font-medium">Using Socket Mode</h5>
-			<ol class="my-2 list-decimal space-y-3 pl-4 text-sm font-light text-gray-500">
+			<div class="my-2 text-sm font-light text-gray-500">
 				<li>
 					Go to your Slack App's settings page. Under the "Settings" section, select <strong
 						>Socket Mode</strong
@@ -447,25 +462,17 @@
 				<li>Click "Enable Socket Mode".</li>
 				<li>Create an App-Level Token and paste it below.</li>
 				{@render appTokenForm()}
-			</ol>
+			</div>
 
 			<h5 class="mt-4 font-medium">Using Events API</h5>
 			<li class="font-light text-gray-500">
 				From the left navigation, go to the "Event Subscriptions" section.
 			</li>
 			<li class="font-light text-gray-500">
-				Enable events and enter the following Request URL:
+				Enter the following Request URL:
 				<div class="copy-link">
 					<CopyButton text={eventUrl} />
 					{eventUrl}
-				</div>
-			</li>
-			<li class="font-light text-gray-500">
-				Expand the "Subscribe to bot events" section and click "Add Bot User Event". Add the
-				following event:
-				<div class="copy-pill">
-					<CopyButton text="app_mention" />
-					app_mention
 				</div>
 			</li>
 		</div>
