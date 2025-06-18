@@ -2591,6 +2591,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:  "",
 						},
 					},
+					"sharedWithinCatalogName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "MCPServerManifest", "configured", "catalogEntryID"},
 			},
@@ -9150,27 +9156,37 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 					},
 					"threadName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The project or thread that owns this server.",
+							Description: "ThreadName is the project or thread that owns this server, if there is one.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "UserID is the user that created this server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"sharedWithinMCPCatalogName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SharedWithinMCPCatalogName contains the name of the MCPCatalog inside of which this server was directly created by the admin, if there is one.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"mcpServerCatalogEntryName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "MCPServerCatalogEntryName contains the name of the MCPServerCatalogEntry from which this MCP server was created, if there is one.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"toolReferenceName": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "ToolReferenceName contains the name of the legacy gptscript tool reference for this MCP server, if there is one.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
