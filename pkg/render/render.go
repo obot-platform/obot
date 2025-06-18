@@ -266,7 +266,7 @@ func Agent(ctx context.Context, db kclient.Client, gptClient *gptscript.GPTScrip
 			if err := db.Get(ctx, router.Key(opts.Thread.Namespace, opts.Thread.Status.SharedWorkspaceName), &workspace); err != nil {
 				return nil, nil, err
 			}
-			extraEnv = append(extraEnv, fmt.Sprintf("DATABASE_WORKSPACE_ID=%s", workspace.Status.WorkspaceID))
+			extraEnv = append(extraEnv, fmt.Sprintf("PROJECT_WORKSPACE_ID=%s", workspace.Status.WorkspaceID))
 		}
 	}
 

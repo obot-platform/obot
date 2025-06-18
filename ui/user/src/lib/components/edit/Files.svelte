@@ -243,8 +243,8 @@
 		<CollapsePane
 			classes={{ header: 'pl-3 py-2', content: 'p-2' }}
 			iconSize={5}
-			header="Starter Files"
-			helpText={HELPER_TEXTS.starterFiles}
+			header="Project Files"
+			helpText={HELPER_TEXTS.projectFiles}
 		>
 			<div class="flex flex-col gap-4">
 				{@render content()}

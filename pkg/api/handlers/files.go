@@ -35,47 +35,48 @@ func NewFilesHandler(dispatcher *dispatcher.Dispatcher, gClient *gptscript.GPTSc
 }
 
 func (f *FilesHandler) Files(req api.Context) error {
-	thread, err := getThreadForScope(req)
-	if apierrors.IsNotFound(err) {
-		return req.Write(types.FileList{Items: []types.File{}})
-	} else if err != nil {
+	workspaceID, err := getWorkspaceIDForScope(req)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return req.Write(types.FileList{Items: []types.File{}})
+		}
 		return err
 	}
 
-	if thread.Status.WorkspaceID == "" {
+	if workspaceID == "" {
 		return req.Write(types.FileList{Items: []types.File{}})
 	}
 
 	return listFileFromWorkspace(req.Context(), req, f.gptScript, gptscript.ListFilesInWorkspaceOptions{
-		WorkspaceID: thread.Status.WorkspaceID,
+		WorkspaceID: workspaceID,
 		Prefix:      "files/",
 	})
 }
 
 func (f *FilesHandler) GetFile(req api.Context) error {
-	thread, err := getThreadForScope(req)
+	workspaceID, err := getWorkspaceIDForScope(req)
 	if err != nil {
 		return err
 	}
 
-	if thread.Status.WorkspaceID == "" {
+	if workspaceID == "" {
 		return types.NewErrNotFound("no workspace found")
 	}
 
-	return getFileInWorkspace(req.Context(), req, f.gptScript, thread.Status.WorkspaceID, "files/")
+	return getFileInWorkspace(req.Context(), req, f.gptScript, workspaceID, "files/")
 }
 
 func (f *FilesHandler) UploadFile(req api.Context) error {
-	thread, err := getThreadForScope(req)
+	workspaceID, err := getWorkspaceIDForScope(req)
 	if err != nil {
 		return err
 	}
 
-	if thread.Status.WorkspaceID == "" {
+	if workspaceID == "" {
 		return types.NewErrNotFound("no workspace found")
 	}
 
-	_, err = uploadFileToWorkspace(req.Context(), req, f.dispatcher, f.gptScript, thread.Status.WorkspaceID, "files/", api.BodyOptions{
+	_, err = uploadFileToWorkspace(req.Context(), req, f.dispatcher, f.gptScript, workspaceID, "files/", api.BodyOptions{
 		// 100MB
 		MaxBytes: 100 * 1024 * 1024,
 	})
@@ -83,16 +84,33 @@ func (f *FilesHandler) UploadFile(req api.Context) error {
 }
 
 func (f *FilesHandler) DeleteFile(req api.Context) error {
-	thread, err := getThreadForScope(req)
+	workspaceID, err := getWorkspaceIDForScope(req)
 	if err != nil {
 		return err
 	}
 
-	if thread.Status.WorkspaceID == "" {
+	if workspaceID == "" {
 		return nil
 	}
 
-	return deleteFileFromWorkspaceID(req.Context(), req, f.gptScript, thread.Status.WorkspaceID, "files/")
+	return deleteFileFromWorkspaceID(req.Context(), req, f.gptScript, workspaceID, "files/")
+}
+
+func getWorkspaceIDForScope(req api.Context) (string, error) {
+	thread, err := getThreadForScope(req)
+	if err != nil {
+		return "", err
+	}
+
+	if thread.Spec.Project && thread.Status.SharedWorkspaceName != "" {
+		var workspace v1.Workspace
+		if err := req.Get(&workspace, thread.Status.SharedWorkspaceName); err != nil {
+			return "", err
+		}
+		return workspace.Status.WorkspaceID, nil
+	}
+
+	return thread.Status.WorkspaceID, nil
 }
 
 func listFiles(ctx context.Context, req api.Context, gClient *gptscript.GPTScript, workspaceName string) error {

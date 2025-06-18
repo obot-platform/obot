@@ -391,7 +391,7 @@
 
 				{#if files && files.length > 0}
 					<div class="p-3">
-						<h4 class="mb-2 text-xs font-medium text-gray-500">Starter Files</h4>
+						<h4 class="mb-2 text-xs font-medium text-gray-500">Project Files</h4>
 						<ul class="flex flex-col gap-1.5">
 							{#each files as file}
 								<li class="group">
