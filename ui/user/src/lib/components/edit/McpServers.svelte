@@ -65,7 +65,9 @@
 	}
 
 	let legacyBundleId = $derived(
-		mcpToShow?.catalogEntryID && toolBundleMap.get(mcpToShow.catalogEntryID) ? mcpToShow.catalogEntryID : undefined
+		mcpToShow?.catalogEntryID && toolBundleMap.get(mcpToShow.catalogEntryID)
+			? mcpToShow.catalogEntryID
+			: undefined
 	);
 
 	const selectedMcpIds = $derived(
@@ -99,7 +101,9 @@
 	async function hasLocalConfig(mcp: ProjectMCP): Promise<boolean> {
 		// Handle legacy tool bundles
 		if (mcp.catalogEntryID && toolBundleMap.get(mcp.catalogEntryID)) {
-			return localCredentials.some((cred) => cred.toolID === mcp.catalogEntryID && cred.exists === true);
+			return localCredentials.some(
+				(cred) => cred.toolID === mcp.catalogEntryID && cred.exists === true
+			);
 		}
 
 		// Real MCP server, reveal any configured env headers
@@ -184,7 +188,8 @@
 						<button
 							class="flex grow items-center gap-1 py-2 pl-1.5"
 							onclick={() => {
-								const isLegacyBundleServer = mcp.catalogEntryID && toolBundleMap.get(mcp.catalogEntryID);
+								const isLegacyBundleServer =
+									mcp.catalogEntryID && toolBundleMap.get(mcp.catalogEntryID);
 								if (isLegacyBundleServer) {
 									mcpToShow = mcp;
 									mcpConfigDialog?.open();

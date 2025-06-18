@@ -58,7 +58,9 @@
 	const letUserConfigure = 'Let the user configure';
 
 	const getBundleId = (server: ProjectMCP) =>
-		server.catalogEntryID && toolBundleMap.get(server.catalogEntryID) ? server.catalogEntryID : null;
+		server.catalogEntryID && toolBundleMap.get(server.catalogEntryID)
+			? server.catalogEntryID
+			: null;
 
 	const setShared = (serverId: string) => {
 		sharedConfigs = { ...sharedConfigs, [serverId]: true };
