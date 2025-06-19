@@ -7,6 +7,7 @@ type MCPServerCatalogEntry struct {
 	ToolReferenceName string                        `json:"toolReferenceName,omitzero"`
 	Editable          bool                          `json:"editable,omitempty"`
 	CatalogName       string                        `json:"catalogName,omitempty"`
+	SourceURL         string                        `json:"sourceURL,omitempty"`
 }
 
 type MCPServerCatalogEntryManifest struct {

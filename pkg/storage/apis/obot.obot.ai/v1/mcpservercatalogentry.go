@@ -60,6 +60,7 @@ type MCPServerCatalogEntrySpec struct {
 	UnsupportedTools  []string                            `json:"unsupportedTools,omitempty"`
 	MCPCatalogName    string                              `json:"mcpCatalogName,omitempty"`
 	Editable          bool                                `json:"editable,omitempty"`
+	SourceURL         string                              `json:"sourceURL,omitempty"`
 }
 
 type MCPServerCatalogEntryStatus struct {

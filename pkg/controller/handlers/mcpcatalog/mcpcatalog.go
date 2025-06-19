@@ -145,6 +145,7 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 			},
 			Spec: v1.MCPServerCatalogEntrySpec{
 				MCPCatalogName: catalogName,
+				SourceURL:      sourceURL,
 				Editable:       false, // entries from source URLs are not editable
 			},
 		}

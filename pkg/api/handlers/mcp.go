@@ -113,6 +113,7 @@ func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServe
 		ToolReferenceName: entry.Spec.ToolReferenceName,
 		Editable:          entry.Spec.Editable,
 		CatalogName:       entry.Spec.MCPCatalogName,
+		SourceURL:         entry.Spec.SourceURL,
 	}
 }
 
