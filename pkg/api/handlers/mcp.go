@@ -289,19 +289,27 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support tools")
 	}
 
-	thread, err := getThreadForScope(req)
-	if err != nil {
-		return err
+	var allowedTools []string
+
+	if server.Spec.SharedWithinMCPCatalogName != "" {
+		allowedTools = []string{"*"}
+	} else {
+		thread, err := getThreadForScope(req)
+		if err != nil {
+			return err
+		}
+
+		thread, err = projects.GetFirst(req.Context(), req.Storage, thread, func(project *v1.Thread) (bool, error) {
+			return project.Spec.Manifest.AllowedMCPTools[server.Name] != nil, nil
+		})
+		if err != nil {
+			return fmt.Errorf("failed to get project: %w", err)
+		}
+
+		allowedTools = thread.Spec.Manifest.AllowedMCPTools[server.Name]
 	}
 
-	thread, err = projects.GetFirst(req.Context(), req.Storage, thread, func(project *v1.Thread) (bool, error) {
-		return project.Spec.Manifest.AllowedMCPTools[server.Name] != nil, nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to get project: %w", err)
-	}
-
-	tools, err := m.toolsForServer(req.Context(), req.Storage, server, serverConfig, thread.Spec.Manifest.AllowedMCPTools[server.Name])
+	tools, err := m.toolsForServer(req.Context(), req.Storage, server, serverConfig, allowedTools)
 	if err != nil {
 		return fmt.Errorf("failed to list resources: %w", err)
 	}
@@ -466,13 +474,29 @@ func (m *MCPHandler) serverForAction(req api.Context) (v1.MCPServer, mcp.ServerC
 		id     = req.PathValue("mcp_server_id")
 	)
 
-	project, err := getProjectThread(req)
-	if err != nil {
+	if err := req.Get(&server, id); err != nil {
 		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, err
 	}
 
-	if err = req.Get(&server, id); err != nil {
-		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, err
+	var (
+		credCtxs []string
+		scope    string
+	)
+	if server.Spec.SharedWithinMCPCatalogName != "" {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name))
+		scope = server.Spec.SharedWithinMCPCatalogName
+	} else {
+		project, err := getProjectThread(req)
+		if err != nil {
+			return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, err
+		}
+
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", project.Name, server.Name))
+		if project.IsSharedProject() {
+			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
+		}
+
+		scope = project.Name
 	}
 
 	if server.Spec.ToolReferenceName != "" && server.Spec.Manifest.Command == "" && server.Spec.Manifest.URL == "" {
@@ -485,20 +509,12 @@ func (m *MCPHandler) serverForAction(req api.Context) (v1.MCPServer, mcp.ServerC
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
-	credCtxs := []string{
-		fmt.Sprintf("%s-%s", project.Name, server.Name),
-	}
-	if project.IsSharedProject() {
-		// Add default credentials shared by the agent for this MCP server if available.
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
-	}
-
 	cred, err := m.gptscript.RevealCredential(req.Context(), credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	serverConfig, missingConfig := mcp.ToServerConfig(server, project.Name, cred.Env)
+	serverConfig, missingConfig := mcp.ToServerConfig(server, scope, cred.Env)
 
 	if len(missingConfig) > 0 {
 		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))

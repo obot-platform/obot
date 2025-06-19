@@ -9,6 +9,11 @@ import (
 )
 
 var apiResources = []string{
+	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/tools",
+	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/resources",
+	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/resources/{resource_uri}",
+	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/prompts",
+	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/prompts/{prompt_name}",
 	"GET    /api/assistants",
 	"GET    /api/assistants/{assistant_id}",
 	"GET    /api/assistants/{assistant_id}/projects",

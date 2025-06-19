@@ -379,8 +379,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	// MCP Shared Servers Within Catalogs
 	mux.HandleFunc("GET /api/all-mcp-catalogs/servers", mcp.ListServersForAllCatalogs)
 	mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{mcp_server_id}", mcp.GetServerFromCatalogs)
-
-	// TODO: implement these next five routes
 	mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{mcp_server_id}/tools", mcp.GetTools)
 	mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{mcp_server_id}/resources", mcp.GetResources)
 	mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{mcp_server_id}/resources/{resource_uri}", mcp.ReadResource)
