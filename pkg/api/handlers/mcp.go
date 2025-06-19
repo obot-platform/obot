@@ -562,7 +562,17 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return err
 	}
 
-	var server v1.MCPServer
+	server := v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.MCPServerPrefix,
+			Namespace:    req.Namespace(),
+		},
+		Spec: v1.MCPServerSpec{
+			Manifest:                  input.MCPServerManifest,
+			MCPServerCatalogEntryName: input.CatalogEntryID,
+			UserID:                    req.User.GetUID(),
+		},
+	}
 
 	if catalogID != "" {
 		var catalog v1.MCPCatalog
@@ -574,35 +584,14 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return types.NewErrForbidden("cannot create MCP server in read-only catalog")
 		}
 
-		server = v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.MCPServerPrefix,
-				Namespace:    req.Namespace(),
-			},
-			Spec: v1.MCPServerSpec{
-				Manifest:                   input.MCPServerManifest,
-				SharedWithinMCPCatalogName: catalogID,
-				UserID:                     req.User.GetUID(),
-			},
-		}
+		server.Spec.SharedWithinMCPCatalogName = catalogID
 	} else {
 		t, err := getThreadForScope(req)
 		if err != nil {
 			return err
 		}
 
-		server = v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.MCPServerPrefix,
-				Namespace:    req.Namespace(),
-			},
-			Spec: v1.MCPServerSpec{
-				Manifest:                  input.MCPServerManifest,
-				MCPServerCatalogEntryName: input.CatalogEntryID,
-				ThreadName:                t.Name,
-				UserID:                    req.User.GetUID(),
-			},
-		}
+		server.Spec.ThreadName = t.Name
 	}
 
 	// Add extracted env vars to the server definition
