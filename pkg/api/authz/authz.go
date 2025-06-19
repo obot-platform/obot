@@ -59,6 +59,8 @@ var staticRules = map[string][]string{
 		"GET /api/shares",
 		"GET /api/templates",
 		"GET /api/tool-references",
+
+		"/api/mcp/{mcp_server_id}",
 	},
 
 	AuthenticatedGroup: {

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
+	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/handlers/sendgrid"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/ui"
@@ -44,8 +45,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GatewayClient, services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler(services.GPTClient)
-	mcp := handlers.NewMCPHandler(services.GPTClient, services.MCPLoader)
+	mcp := handlers.NewMCPHandler(services.GPTClient, services.MCPLoader, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
+	mcpGateway := mcpgateway.NewHandler(services.GPTClient, services.MCPLoader)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -404,6 +406,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/configure", mcp.ConfigureServer)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/reveal", mcp.Reveal)
+
+	// MCP Gateway Endpoints
+	mux.HandleFunc("/api/mcp/{mcp_server_id}", mcpGateway.StreamableHTTP)
 
 	// MCP Servers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)

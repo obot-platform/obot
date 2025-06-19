@@ -88,8 +88,8 @@ func (sm *SessionManager) Close() error {
 	return sm.local.Close()
 }
 
-// ShutdownServer will close the connections to the MCP server and remove the Kubernetes objects.
-func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfig) error {
+// CloseClient will close the client for this MCP server, but leave the server running.
+func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig) error {
 	if sm.client == nil || server.Command == "" {
 		return sm.local.ShutdownServer(server.ServerConfig)
 	}
@@ -110,14 +110,26 @@ func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfi
 	if len(pods.Items) != 0 {
 		// If the pod was removed, then this won't do anything. The session will only get cleaned up when the server restarts.
 		// That's better than the alternative of having unusable sessions that users are still trying to use.
-		err = sm.local.ShutdownServer(gmcp.ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/sse", id, sm.mcpNamespace, sm.mcpClusterDomain), Scope: pods.Items[0].Name})
-		if err != nil {
+		if err = sm.local.ShutdownServer(gmcp.ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/sse", id, sm.mcpNamespace, sm.mcpClusterDomain), Scope: pods.Items[0].Name}); err != nil {
 			return err
 		}
 	}
 
-	if err = apply.New(sm.client).WithNamespace(sm.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil {
-		return fmt.Errorf("failed to delete MCP deployment %s: %w", id, err)
+	return nil
+}
+
+// ShutdownServer will close the connections to the MCP server and remove the Kubernetes objects.
+func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfig) error {
+	if err := sm.CloseClient(ctx, server); err != nil {
+		return err
+	}
+
+	id := sessionID(server)
+
+	if sm.client != nil {
+		if err := apply.New(sm.client).WithNamespace(sm.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil {
+			return fmt.Errorf("failed to delete MCP deployment %s: %w", id, err)
+		}
 	}
 	return nil
 }

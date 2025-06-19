@@ -29,14 +29,16 @@ import (
 type MCPHandler struct {
 	gptscript         *gptscript.GPTScript
 	mcpSessionManager *mcp.SessionManager
+	serverURL         string
 }
 
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
-func NewMCPHandler(gptscript *gptscript.GPTScript, mcpLoader *mcp.SessionManager) *MCPHandler {
+func NewMCPHandler(gptscript *gptscript.GPTScript, mcpLoader *mcp.SessionManager, serverURL string) *MCPHandler {
 	return &MCPHandler{
 		gptscript:         gptscript,
 		mcpSessionManager: mcpLoader,
+		serverURL:         serverURL,
 	}
 }
 
@@ -189,7 +191,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
-		items = append(items, convertMCPServer(server, credMap[server.Name]))
+		items = append(items, convertMCPServer(server, credMap[server.Name], m.serverURL))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -238,7 +240,7 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(server, cred.Env))
+	return req.Write(convertMCPServer(server, cred.Env, m.serverURL))
 }
 
 func (m *MCPHandler) DeleteServer(req api.Context) error {
@@ -281,11 +283,11 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(server, nil))
+	return req.Write(convertMCPServer(server, nil, m.serverURL))
 }
 
 func (m *MCPHandler) GetTools(req api.Context) error {
-	server, serverConfig, caps, err := m.serverForAction(req)
+	server, serverConfig, caps, err := serverForActionWithCapabilities(req, m.gptscript, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -391,7 +393,7 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 }
 
 func (m *MCPHandler) GetResources(req api.Context) error {
-	mcpServer, serverConfig, caps, err := m.serverForAction(req)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.gptscript, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -409,7 +411,7 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 }
 
 func (m *MCPHandler) ReadResource(req api.Context) error {
-	mcpServer, serverConfig, caps, err := m.serverForAction(req)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.gptscript, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -427,7 +429,7 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompts(req api.Context) error {
-	mcpServer, serverConfig, caps, err := m.serverForAction(req)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.gptscript, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -445,7 +447,7 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompt(req api.Context) error {
-	mcpServer, serverConfig, caps, err := m.serverForAction(req)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.gptscript, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -470,14 +472,14 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 	})
 }
 
-func (m *MCPHandler) serverForAction(req api.Context) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
+func ServerForAction(req api.Context, gptClient *gptscript.GPTScript) (v1.MCPServer, mcp.ServerConfig, error) {
 	var (
 		server v1.MCPServer
 		id     = req.PathValue("mcp_server_id")
 	)
 
 	if err := req.Get(&server, id); err != nil {
-		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, err
+		return server, mcp.ServerConfig{}, err
 	}
 
 	var (
@@ -488,41 +490,51 @@ func (m *MCPHandler) serverForAction(req api.Context) (v1.MCPServer, mcp.ServerC
 		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name))
 		scope = server.Spec.SharedWithinMCPCatalogName
 	} else {
-		project, err := getProjectThread(req)
-		if err != nil {
-			return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, err
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name))
+
+		if req.PathValue("project_id") != "" {
+			project, err := getProjectThread(req)
+			if err != nil {
+				return server, mcp.ServerConfig{}, err
+			}
+
+			if project.IsSharedProject() {
+				credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
+			}
 		}
 
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", project.Name, server.Name))
-		if project.IsSharedProject() {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
-		}
-
-		scope = project.Name
+		scope = server.Spec.ThreadName
 	}
 
 	if server.Spec.ToolReferenceName != "" && server.Spec.Manifest.Command == "" && server.Spec.Manifest.URL == "" {
-		// Legacy tool bundles support tools.
-		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{
-			Tools: &nmcp.ToolsServerCapability{},
-		}, nil
+		// Legacy tool bundle. Nothing else to do.
+		return server, mcp.ServerConfig{}, nil
 	}
 
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), credCtxs, server.Name)
+	cred, err := gptClient.RevealCredential(req.Context(), credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, fmt.Errorf("failed to find credential: %w", err)
+		return server, mcp.ServerConfig{}, fmt.Errorf("failed to find credential: %w", err)
 	}
 
 	serverConfig, missingConfig := mcp.ToServerConfig(server, scope, cred.Env)
 
 	if len(missingConfig) > 0 {
-		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
+		return server, mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
 	}
 
-	caps, err := m.mcpSessionManager.ServerCapabilities(req.Context(), server, serverConfig)
+	return server, serverConfig, nil
+}
+
+func serverForActionWithCapabilities(req api.Context, gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
+	server, serverConfig, err := ServerForAction(req, gptClient)
+	if err != nil {
+		return server, serverConfig, nmcp.ServerCapabilities{}, err
+	}
+
+	caps, err := mcpSessionManager.ServerCapabilities(req.Context(), server, serverConfig)
 	return server, serverConfig, caps, err
 }
 
@@ -632,7 +644,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	return req.WriteCreated(convertMCPServer(server, cred.Env))
+	return req.WriteCreated(convertMCPServer(server, cred.Env, m.serverURL))
 }
 
 func (m *MCPHandler) UpdateServer(req api.Context) error {
@@ -740,7 +752,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(existing, cred.Env))
+	return req.Write(convertMCPServer(existing, cred.Env, m.serverURL))
 }
 
 func (m *MCPHandler) ConfigureServer(req api.Context) error {
@@ -799,7 +811,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, envVars))
+	return req.Write(convertMCPServer(mcpServer, envVars, m.serverURL))
 }
 
 func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
@@ -869,7 +881,7 @@ func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, envVars))
+	return req.Write(convertMCPServer(mcpServer, envVars, m.serverURL))
 }
 
 func (m *MCPHandler) DeconfigureServer(req api.Context) error {
@@ -907,7 +919,7 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil))
+	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL))
 }
 
 func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
@@ -957,7 +969,7 @@ func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil))
+	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL))
 }
 
 func (m *MCPHandler) Reveal(req api.Context) error {
@@ -1248,7 +1260,7 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 }
 
-func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPServer {
+func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL string) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
 
 	// Check for missing required env vars
@@ -1281,6 +1293,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 		MCPServerManifest:       server.Spec.Manifest,
 		CatalogEntryID:          server.Spec.MCPServerCatalogEntryName,
 		SharedWithinCatalogName: server.Spec.SharedWithinMCPCatalogName,
+		ConnectURL:              fmt.Sprintf("%s/api/mcp/%s", serverURL, server.Name),
 	}
 }
 
@@ -1354,7 +1367,7 @@ func (m *MCPHandler) ListServersForAllCatalogs(req api.Context) error {
 
 		for _, server := range list.Items {
 			addExtractedEnvVars(&server)
-			mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name]))
+			mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name], m.serverURL))
 		}
 	}
 
@@ -1394,5 +1407,5 @@ func (m *MCPHandler) GetServerFromCatalogs(req api.Context) error {
 
 	addExtractedEnvVars(&server)
 
-	return req.Write(convertMCPServer(server, cred.Env))
+	return req.Write(convertMCPServer(server, cred.Env, m.serverURL))
 }
