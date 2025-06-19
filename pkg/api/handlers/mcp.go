@@ -294,10 +294,7 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 	}
 
 	var allowedTools []string
-
-	if server.Spec.SharedWithinMCPCatalogName != "" {
-		allowedTools = []string{"*"}
-	} else {
+	if server.Spec.SharedWithinMCPCatalogName == "" {
 		thread, err := getThreadForScope(req)
 		if err != nil {
 			return err
@@ -1324,7 +1321,7 @@ func (m *MCPHandler) ListServersForAllCatalogs(req api.Context) error {
 		}
 	}
 
-	var mcpServers []types.MCPServer
+	var credCtxs []string
 	for _, catalog := range catalogs {
 		var list v1.MCPServerList
 		if err := req.List(&list, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{
@@ -1333,27 +1330,36 @@ func (m *MCPHandler) ListServersForAllCatalogs(req api.Context) error {
 			return err
 		}
 
-		credCtxs := make([]string, 0, len(list.Items))
 		for _, server := range list.Items {
 			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", catalog.Name, server.Name))
 		}
+	}
 
-		creds, err := m.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-			CredentialContexts: credCtxs,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to list credentials: %w", err)
-		}
+	creds, err := m.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+		CredentialContexts: credCtxs,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list credentials: %w", err)
+	}
 
-		credMap := make(map[string]map[string]string, len(creds))
-		for _, cred := range creds {
-			if _, ok := credMap[cred.ToolName]; !ok {
-				c, err := m.gptscript.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
-				if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-					return fmt.Errorf("failed to find credential: %w", err)
-				}
-				credMap[cred.ToolName] = c.Env
+	credMap := make(map[string]map[string]string, len(creds))
+	for _, cred := range creds {
+		if _, ok := credMap[cred.ToolName]; !ok {
+			c, err := m.gptscript.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
+			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+				return fmt.Errorf("failed to find credential: %w", err)
 			}
+			credMap[cred.ToolName] = c.Env
+		}
+	}
+
+	var mcpServers []types.MCPServer
+	for _, catalog := range catalogs {
+		var list v1.MCPServerList
+		if err := req.List(&list, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{
+			"spec.sharedWithinMCPCatalogName": catalog.Name,
+		}); err != nil {
+			return err
 		}
 
 		for _, server := range list.Items {
