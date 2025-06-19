@@ -1268,3 +1268,103 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 		SharedWithinCatalogName: server.Spec.SharedWithinMCPCatalogName,
 	}
 }
+
+func (m *MCPHandler) ListServersForAllCatalogs(req api.Context) error {
+	var catalogs []v1.MCPCatalog
+
+	// Get the catalogs that the user has access to.
+	if req.UserIsAdmin() {
+		var list v1.MCPCatalogList
+		if err := req.List(&list); err != nil {
+			return err
+		}
+
+		catalogs = list.Items
+	} else {
+		userAuths, err := usercatalogauthorization.GetAuthorizationsForUser(req.Context(), req.Storage, req.Namespace(), req.User.GetUID())
+		if err != nil {
+			return err
+		}
+
+		for _, auth := range userAuths {
+			var catalog v1.MCPCatalog
+			if err := req.Get(&catalog, auth.Spec.MCPCatalogName); err != nil {
+				return err
+			}
+
+			catalogs = append(catalogs, catalog)
+		}
+	}
+
+	var mcpServers []types.MCPServer
+	for _, catalog := range catalogs {
+		var list v1.MCPServerList
+		if err := req.List(&list, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{
+			"spec.sharedWithinMCPCatalogName": catalog.Name,
+		}); err != nil {
+			return err
+		}
+
+		credCtxs := make([]string, 0, len(list.Items))
+		for _, server := range list.Items {
+			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", catalog.Name, server.Name))
+		}
+
+		creds, err := m.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+			CredentialContexts: credCtxs,
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list credentials: %w", err)
+		}
+
+		credMap := make(map[string]map[string]string, len(creds))
+		for _, cred := range creds {
+			if _, ok := credMap[cred.ToolName]; !ok {
+				c, err := m.gptscript.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
+				if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+					return fmt.Errorf("failed to find credential: %w", err)
+				}
+				credMap[cred.ToolName] = c.Env
+			}
+		}
+
+		for _, server := range list.Items {
+			addExtractedEnvVars(&server)
+			mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name]))
+		}
+	}
+
+	return req.Write(types.MCPServerList{Items: mcpServers})
+}
+
+func (m *MCPHandler) GetServerFromCatalogs(req api.Context) error {
+	var (
+		server v1.MCPServer
+		id     = req.PathValue("mcp_server_id")
+	)
+
+	if err := req.Get(&server, id); err != nil {
+		return err
+	}
+
+	// Authorization check.
+	if !req.UserIsAdmin() {
+		userAuths, err := usercatalogauthorization.GetUserAuthorizationsForCatalog(req.Context(), req.Storage, req.Namespace(), req.User.GetUID(), server.Spec.SharedWithinMCPCatalogName)
+		if err != nil {
+			return err
+		}
+
+		if len(userAuths) == 0 {
+			return types.NewErrForbidden("user is not authorized to access this MCP server")
+		}
+	}
+
+	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name)}, server.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
+	}
+
+	addExtractedEnvVars(&server)
+
+	return req.Write(convertMCPServer(server, cred.Env))
+}

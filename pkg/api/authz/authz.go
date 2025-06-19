@@ -81,9 +81,12 @@ var staticRules = map[string][]string{
 		"POST /api/projectinvitations/{code}",
 		"DELETE /api/projectinvitations/{code}",
 
-		// Allow authenticated users to read entries from MCP catalogs
+		// Allow authenticated users to read servers and entries from MCP catalogs.
+		// The authz logic is handled in the routes themselves, for now.
 		"GET /api/all-mcp-catalogs/entries",
 		"GET /api/all-mcp-catalogs/entries/{entry_id}",
+		"GET /api/all-mcp-catalogs/servers",
+		"GET /api/all-mcp-catalogs/servers/{mcp_server_id}",
 	},
 
 	MetricsGroup: {
