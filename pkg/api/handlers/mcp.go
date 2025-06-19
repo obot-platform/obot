@@ -205,7 +205,9 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 		return err
 	}
 
-	if catalogID != "" && server.Spec.SharedWithinMCPCatalogName != catalogID {
+	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
+	// For servers that are not in catalogs, this checks to make sure that no catalogID was provided. (Both are empty strings.)
+	if server.Spec.SharedWithinMCPCatalogName != catalogID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -249,7 +251,9 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		return err
 	}
 
-	if catalogID != "" && server.Spec.SharedWithinMCPCatalogName != catalogID {
+	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
+	// For servers that are not in catalogs, this checks to make sure that no catalogID was provided. (Both are empty strings.)
+	if server.Spec.SharedWithinMCPCatalogName != catalogID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -658,7 +662,9 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	if catalogID != "" && existing.Spec.SharedWithinMCPCatalogName != catalogID {
+	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
+	// For servers that are not in catalogs, this checks to make sure that no catalogID was provided. (Both are empty strings.)
+	if existing.Spec.SharedWithinMCPCatalogName != catalogID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -758,7 +764,9 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return err
 	}
 
-	if catalogID != "" && mcpServer.Spec.SharedWithinMCPCatalogName != catalogID {
+	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
+	// For servers that are not in catalogs, this checks to make sure that no catalogID was provided. (Both are empty strings.)
+	if mcpServer.Spec.SharedWithinMCPCatalogName != catalogID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -885,7 +893,9 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 		return err
 	}
 
-	if catalogID != "" && mcpServer.Spec.SharedWithinMCPCatalogName != catalogID {
+	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
+	// For servers that are not in catalogs, this checks to make sure that no catalogID was provided. (Both are empty strings.)
+	if mcpServer.Spec.SharedWithinMCPCatalogName != catalogID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -971,7 +981,9 @@ func (m *MCPHandler) Reveal(req api.Context) error {
 		return err
 	}
 
-	if catalogID != "" && mcpServer.Spec.SharedWithinMCPCatalogName != catalogID {
+	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
+	// For servers that are not in catalogs, this checks to make sure that no catalogID was provided. (Both are empty strings.)
+	if mcpServer.Spec.SharedWithinMCPCatalogName != catalogID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -1361,6 +1373,10 @@ func (m *MCPHandler) GetServerFromCatalogs(req api.Context) error {
 
 	if err := req.Get(&server, id); err != nil {
 		return err
+	}
+
+	if server.Spec.SharedWithinMCPCatalogName == "" {
+		return types.NewErrNotFound("MCP server not found")
 	}
 
 	// Authorization check.
