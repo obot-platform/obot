@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChevronLeft, ChevronRight, Construction, Settings } from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -20,7 +20,7 @@
 			icon: '/user/images/assistant/cursor-mark.svg'
 		},
 		claude: {
-			label: 'Cursor',
+			label: 'Claude',
 			icon: '/user/images/assistant/claude-mark.svg'
 		},
 		vscode: {
