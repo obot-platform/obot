@@ -93,6 +93,25 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 	case "ping":
 		result = nmcp.PingResult{}
 	case "initialize":
+		id := msg.Session.ID()
+		context.AfterFunc(ctx, func() {
+			if err := m.handler.mcpSessionManager.CloseClient(context.Background(), m.serverConfig); err != nil {
+				log.Errorf("Failed to shutdown server %s: %v", m.mcpServer.Name, err)
+			}
+			m.handler.sessions.LoadAndDelete(id)
+		})
+
+		if client.Session.InitializeResult != nil {
+			if err = msg.Reply(ctx, client.Session.InitializeResult); err != nil {
+				log.Errorf("Failed to reply to server %s: %v", m.mcpServer.Name, err)
+				msg.SendError(ctx, &nmcp.RPCError{
+					Code:    http.StatusInternalServerError,
+					Message: fmt.Sprintf("failed to reply to server %s: %v", m.mcpServer.Name, err),
+				})
+			}
+			return
+		}
+
 		result = nmcp.InitializeResult{}
 	case "resources/read":
 		result = nmcp.ReadResourceResult{}
@@ -141,16 +160,5 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			Message: fmt.Sprintf("failed to reply to server %s: %v", m.mcpServer.Name, err),
 		})
 		return
-	}
-
-	if msg.Method == "initialize" {
-		// If this is an initialize message, then set up the session to close when the context is canceled.
-		id := msg.Session.ID()
-		context.AfterFunc(ctx, func() {
-			if err := m.handler.mcpSessionManager.CloseClient(context.Background(), m.serverConfig); err != nil {
-				log.Errorf("Failed to shutdown server %s: %v", m.mcpServer.Name, err)
-			}
-			m.handler.sessions.LoadAndDelete(id)
-		})
 	}
 }
