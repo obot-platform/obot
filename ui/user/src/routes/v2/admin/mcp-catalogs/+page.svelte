@@ -40,9 +40,9 @@
 		goto(url, { replaceState: false });
 	}
 
-	async function handleSaveCatalog() {
+	async function navigateToCreated(catalog: MCPCatalog) {
 		showCreateCatalog = false;
-		mcpCatalogs = await AdminService.listMCPCatalogs();
+		goto(`/v2/admin/mcp-catalogs/${catalog.id}`, { replaceState: false });
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -116,7 +116,7 @@
 
 {#snippet createCatalogScreen()}
 	<div in:fly={{ x: 100, delay: duration, duration }} out:fly={{ x: -100, duration }}>
-		<CatalogForm onCreate={handleSaveCatalog}>
+		<CatalogForm onCreate={navigateToCreated}>
 			{#snippet topContent()}
 				<button
 					onclick={() => (showCreateCatalog = false)}

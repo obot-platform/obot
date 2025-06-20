@@ -344,41 +344,6 @@
 							class="text-input-filled mt-0.5"
 						/>
 					</div>
-
-					<div class="flex flex-col gap-2">
-						<label
-							for="catalog-source-url"
-							class="mb-2 flex flex-1 items-center justify-between gap-4 text-sm font-light capitalize"
-						>
-							Source URL(s)
-							<button
-								class="button-primary flex items-center gap-1 text-sm"
-								onclick={() => {
-									mcpCatalog.sourceURLs.push('');
-								}}
-							>
-								<Plus class="size-4" /> Add Source
-							</button>
-						</label>
-						{#each mcpCatalog.sourceURLs as _url, index}
-							<div class="flex items-center justify-between gap-2">
-								<input
-									id="catalog-source-url"
-									bind:value={mcpCatalog.sourceURLs[index]}
-									class="text-input-filled mt-0.5"
-								/>
-
-								<button
-									class="icon-button"
-									onclick={() => {
-										mcpCatalog.sourceURLs.splice(index, 1);
-									}}
-								>
-									<Trash2 class="size-4" />
-								</button>
-							</div>
-						{/each}
-					</div>
 				</div>
 			</div>
 		{/if}
