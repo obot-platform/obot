@@ -328,7 +328,7 @@
 		</div>
 	</div>
 
-	<!-- <HowToConnect {url} /> -->
+	<HowToConnect {url} />
 {/snippet}
 
 <dialog
