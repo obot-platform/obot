@@ -23,6 +23,16 @@ export interface MCPCatalogEntry {
 	type: string;
 }
 
+export interface MCPCatalogEntryServerManifest {
+	args?: string[];
+	env?: MCPCatalogEntryFieldManifest[];
+	command?: string;
+	url?: string;
+	headers?: MCPCatalogEntryFieldManifest[];
+	name?: string;
+	description?: string;
+}
+
 export interface MCPCatalogEntryManifest {
 	server: MCPCatalogEntryServerManifest & { icon?: string };
 	url?: string;
@@ -40,15 +50,6 @@ export interface MCPCatalogEntryFieldManifest {
 	required: boolean;
 	sensitive: boolean;
 	value: string;
-}
-
-export interface MCPCatalogEntryServerManifest {
-	args?: string[];
-	env?: MCPCatalogEntryFieldManifest[];
-	command?: string;
-	url?: string;
-	headers?: MCPCatalogEntryFieldManifest[];
-	name?: string;
 }
 
 export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryManifest, 'metadata'> & {

@@ -46,6 +46,7 @@
 				categories: [''],
 				server: {
 					name: '',
+					description: '',
 					env: [],
 					args: [''],
 					command: '',
@@ -64,6 +65,7 @@
 				server: {
 					icon: server.icon,
 					name: server.name,
+					description: server.description,
 					env: server.env,
 					args: server.args,
 					command: server.command,
@@ -88,6 +90,10 @@
 							value: ''
 						})
 					),
+					description:
+						entry.commandManifest?.server.description ??
+						entry.urlManifest?.server.description ??
+						'',
 					args: entry.commandManifest?.server.args ?? entry.urlManifest?.server.args ?? [],
 					command: entry.commandManifest?.server.command ?? entry.urlManifest?.server.command ?? '',
 					url: entry.commandManifest?.server.url ?? entry.urlManifest?.server.url ?? '',
@@ -199,6 +205,17 @@
 				type="text"
 				id="name"
 				bind:value={formData.displayName}
+				class="text-input-filled dark:bg-black"
+				disabled={readonly}
+			/>
+		</div>
+
+		<div class="flex flex-col gap-1">
+			<label for="name" class="text-sm font-light capitalize">Description</label>
+			<input
+				type="text"
+				id="name"
+				bind:value={formData.server.description}
 				class="text-input-filled dark:bg-black"
 				disabled={readonly}
 			/>
