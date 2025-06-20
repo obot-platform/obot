@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
+	"net/url"
 	"regexp"
 	"slices"
 	"strings"
@@ -538,6 +540,43 @@ func serverForActionWithCapabilities(req api.Context, gptClient *gptscript.GPTSc
 	return server, serverConfig, caps, err
 }
 
+func serverManifestFromCatalogEntryManifest(entry types.MCPServerCatalogEntryManifest, input types.MCPServerManifest) (types.MCPServerManifest, error) {
+	result := types.MCPServerManifest{
+		Name:        entry.Name,
+		Description: entry.Description,
+		Icon:        entry.Icon,
+		Metadata:    maps.Clone(entry.Metadata),
+		Env:         entry.Env,
+		Command:     entry.Command,
+		Args:        entry.Args,
+		Headers:     entry.Headers,
+	}
+
+	// TODO(g-linville): In the future, we probably only want the admin to be able to override anything from the catalog entry.
+	result = mergeMCPServerManifests(result, input)
+
+	if entry.ExactURL != "" {
+		result.URL = entry.ExactURL
+	} else if entry.Hostname != "" {
+		if input.URL == "" {
+			return types.MCPServerManifest{}, types.NewErrBadRequest("the server must use a specific URL that matches the hostname %q", entry.Hostname)
+		}
+
+		u, err := url.Parse(input.URL)
+		if err != nil {
+			return types.MCPServerManifest{}, fmt.Errorf("failed to parse URL %q: %w", input.URL, err)
+		}
+
+		if u.Hostname() != entry.Hostname {
+			return types.MCPServerManifest{}, types.NewErrBadRequest("the server must use a specific URL that matches the hostname %q", entry.Hostname)
+		}
+
+		result.URL = input.URL
+	}
+
+	return result, nil
+}
+
 func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.MCPServerManifest {
 	if override.Name != "" {
 		existing.Name = override.Name
@@ -556,9 +595,6 @@ func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.M
 	}
 	if len(override.Args) > 0 {
 		existing.Args = override.Args
-	}
-	if override.URL != "" {
-		existing.URL = override.URL
 	}
 	if len(override.Headers) > 0 {
 		existing.Headers = override.Headers
@@ -581,7 +617,6 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.MCPServerSpec{
-			Manifest:                  input.MCPServerManifest,
 			MCPServerCatalogEntryName: input.CatalogEntryID,
 			UserID:                    req.User.GetUID(),
 		},
@@ -607,25 +642,26 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		server.Spec.ThreadName = t.Name
 	}
 
-	// Add extracted env vars to the server definition
-	addExtractedEnvVars(&server)
-
 	if input.CatalogEntryID != "" {
 		var catalogEntry v1.MCPServerCatalogEntry
 		if err := req.Get(&catalogEntry, input.CatalogEntryID); err != nil {
 			return err
 		}
 
-		if catalogEntry.Spec.URLManifest.Server.URL != "" {
-			server.Spec.Manifest = catalogEntry.Spec.URLManifest.Server
-		} else {
-			server.Spec.Manifest = catalogEntry.Spec.CommandManifest.Server
+		manifest, err := serverManifestFromCatalogEntryManifest(catalogEntry.Spec.CommandManifest, input.MCPServerManifest)
+		if err != nil {
+			return err
 		}
+
+		server.Spec.Manifest = manifest
 		server.Spec.ToolReferenceName = catalogEntry.Spec.ToolReferenceName
 		server.Spec.UnsupportedTools = catalogEntry.Spec.UnsupportedTools
-		// Override the defaults from the catalog with the values from the request.
-		server.Spec.Manifest = mergeMCPServerManifests(server.Spec.Manifest, input.MCPServerManifest)
+	} else {
+		server.Spec.Manifest = input.MCPServerManifest
 	}
+
+	// Add extracted env vars to the server definition
+	addExtractedEnvVars(&server)
 
 	if err := req.Create(&server); err != nil {
 		return err
@@ -666,9 +702,6 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	if existing.Spec.SharedWithinMCPCatalogName != catalogID {
 		return types.NewErrNotFound("MCP server not found")
 	}
-
-	// Add extracted env vars to the server definition
-	addExtractedEnvVars(&existing)
 
 	if catalogID == "" {
 		project, err = getProjectThread(req)
@@ -747,6 +780,9 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	}
 
 	existing.Spec.Manifest = updated
+
+	// Add extracted env vars to the server definition
+	addExtractedEnvVars(&existing)
 
 	if err = req.Update(&existing); err != nil {
 		return err
@@ -1193,21 +1229,21 @@ func addExtractedEnvVars(server *v1.MCPServer) {
 // addExtractedEnvVarsToCatalogEntry extracts and adds environment variables to both manifests in the catalog entry
 func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	// Extract and add env vars to Command Manifest
-	if entry.Spec.CommandManifest.Server.Command != "" {
+	if entry.Spec.CommandManifest.Command != "" {
 		// Keep track of existing env vars in the command manifest to avoid duplicates
 		existingCmd := make(map[string]struct{})
-		for _, env := range entry.Spec.CommandManifest.Server.Env {
+		for _, env := range entry.Spec.CommandManifest.Env {
 			existingCmd[env.Key] = struct{}{}
 		}
 
 		// Extract variables from command
 		extractedCmd := make(map[string]struct{})
-		for _, v := range extractEnvVars(entry.Spec.CommandManifest.Server.Command) {
+		for _, v := range extractEnvVars(entry.Spec.CommandManifest.Command) {
 			extractedCmd[v] = struct{}{}
 		}
 
 		// Extract variables from args
-		for _, arg := range entry.Spec.CommandManifest.Server.Args {
+		for _, arg := range entry.Spec.CommandManifest.Args {
 			for _, v := range extractEnvVars(arg) {
 				extractedCmd[v] = struct{}{}
 			}
@@ -1216,7 +1252,7 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 		// Add any new vars to the Command Manifest's Env list
 		for v := range extractedCmd {
 			if _, exists := existingCmd[v]; !exists {
-				entry.Spec.CommandManifest.Server.Env = append(entry.Spec.CommandManifest.Server.Env, types.MCPEnv{
+				entry.Spec.CommandManifest.Env = append(entry.Spec.CommandManifest.Env, types.MCPEnv{
 					MCPHeader: types.MCPHeader{
 						Name:        v,
 						Key:         v,
@@ -1230,23 +1266,23 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 
 	// Extract and add env vars to URL Manifest
-	if entry.Spec.URLManifest.Server.URL != "" {
+	if entry.Spec.URLManifest.ExactURL != "" {
 		// Keep track of existing env vars in the URL manifest to avoid duplicates
 		existingURL := make(map[string]struct{})
-		for _, env := range entry.Spec.URLManifest.Server.Env {
+		for _, env := range entry.Spec.URLManifest.Env {
 			existingURL[env.Key] = struct{}{}
 		}
 
 		// Extract variables from URL
 		extractedURL := make(map[string]struct{})
-		for _, v := range extractEnvVars(entry.Spec.URLManifest.Server.URL) {
+		for _, v := range extractEnvVars(entry.Spec.URLManifest.ExactURL) {
 			extractedURL[v] = struct{}{}
 		}
 
 		// Add any new vars to the URL Manifest's Env list
 		for v := range extractedURL {
 			if _, exists := existingURL[v]; !exists {
-				entry.Spec.URLManifest.Server.Env = append(entry.Spec.URLManifest.Server.Env, types.MCPEnv{
+				entry.Spec.URLManifest.Env = append(entry.Spec.URLManifest.Env, types.MCPEnv{
 					MCPHeader: types.MCPHeader{
 						Name:        v,
 						Key:         v,

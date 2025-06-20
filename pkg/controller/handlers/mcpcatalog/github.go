@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/log"
-	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
+	"github.com/obot-platform/obot/apiclient/types"
 )
 
 var githubToken = os.Getenv("GITHUB_API_TOKEN")
@@ -22,7 +22,7 @@ func isGitHubURL(catalogURL string) bool {
 	return err == nil && u.Host == "github.com"
 }
 
-func readGitHubCatalog(catalogURL string) ([]toolreference.CatalogEntryInfo, error) {
+func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest, error) {
 	// Make sure we don't use plain HTTP
 	if strings.HasPrefix(catalogURL, "http://") {
 		return nil, fmt.Errorf("only HTTPS is supported for GitHub catalogs")
@@ -122,7 +122,7 @@ func readGitHubCatalog(catalogURL string) ([]toolreference.CatalogEntryInfo, err
 		return nil, fmt.Errorf("failed to decode repository listing: %w", err)
 	}
 
-	var entries []toolreference.CatalogEntryInfo
+	var entries []types.MCPServerCatalogEntryManifest
 	for _, item := range tree.Tree {
 		if item.Type != "blob" {
 			continue
@@ -166,10 +166,10 @@ func readGitHubCatalog(catalogURL string) ([]toolreference.CatalogEntryInfo, err
 		}
 
 		// Try to unmarshal as array first
-		var fileEntries []toolreference.CatalogEntryInfo
+		var fileEntries []types.MCPServerCatalogEntryManifest
 		if err := json.Unmarshal(content, &fileEntries); err != nil {
 			// If that fails, try single object
-			var entry toolreference.CatalogEntryInfo
+			var entry types.MCPServerCatalogEntryManifest
 			if err := json.Unmarshal(content, &entry); err != nil {
 				if usingObotCatalogsFile {
 					log.Warnf("Failed to parse %s as catalog entry: %v", item.Path, err)
@@ -178,7 +178,7 @@ func readGitHubCatalog(catalogURL string) ([]toolreference.CatalogEntryInfo, err
 				}
 				continue
 			}
-			fileEntries = []toolreference.CatalogEntryInfo{entry}
+			fileEntries = []types.MCPServerCatalogEntryManifest{entry}
 		}
 
 		entries = append(entries, fileEntries...)

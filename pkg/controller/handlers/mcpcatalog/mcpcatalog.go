@@ -1,7 +1,6 @@
 package mcpcatalog
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,14 +12,12 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/log"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/controller/handlers/usercatalogauthorization"
 	"github.com/obot-platform/obot/pkg/create"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
@@ -73,7 +70,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 }
 
 func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object, error) {
-	var entries []toolreference.CatalogEntryInfo
+	var entries []types.MCPServerCatalogEntryManifest
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
 		if isGitHubURL(sourceURL) {
@@ -129,18 +126,20 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 	objs := make([]client.Object, 0, len(entries))
 
 	for _, entry := range entries {
-		entry.FullName = string(slices.DeleteFunc(bytes.ToLower([]byte(entry.FullName)), func(r byte) bool {
-			return r != '/' && !unicode.IsLetter(rune(r)) && !unicode.IsNumber(rune(r))
-		}))
-
 		if entry.Metadata["categories"] == "Official" {
 			delete(entry.Metadata, "categories") // This shouldn't happen, but do this just in case.
 			// We don't want to mark random MCP servers from the catalog as official.
 		}
 
+		cleanName := strings.ToLower(strings.ReplaceAll(entry.Name, " ", "-"))
+
+		// TODO(g-linville): add some logic here to see if a given entry is static or requires/allows for some user configuration,
+		// and create it as a CatalogEntry or as a Server depending on the result.
+		// For now, we will continue to treat everything as a CatalogEntry.
+
 		catalogEntry := v1.MCPServerCatalogEntry{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.SafeHashConcatName(strings.Split(strings.ReplaceAll(entry.FullName, " ", "-"), "/")...),
+				Name:      name.SafeHashConcatName(catalogName, cleanName),
 				Namespace: system.DefaultNamespace,
 			},
 			Spec: v1.MCPServerCatalogEntrySpec{
@@ -155,112 +154,79 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 			catalogEntry.Spec.UnsupportedTools = strings.Split(entry.Metadata["unsupportedTools"], ",")
 		}
 
-		var preferredFound, addEntry bool
-		for _, c := range entry.Manifest {
-			if c.Command != "" {
-				if preferredFound {
+		if entry.Command != "" {
+			switch entry.Command {
+			case "npx", "uvx":
+			case "docker":
+				// Only allow docker commands if the image name starts with one of the allowed repos.
+				if len(entry.Args) == 0 || len(h.allowedDockerImageRepos) > 0 && !slices.ContainsFunc(h.allowedDockerImageRepos, func(s string) bool {
+					return strings.HasPrefix(entry.Args[len(entry.Args)-1], s)
+				}) {
 					continue
 				}
-				switch c.Command {
-				case "npx", "uvx":
-				case "docker":
-					// Only allow docker commands if the image name starts with one of the allowed repos.
-					if len(c.Args) == 0 || len(h.allowedDockerImageRepos) > 0 && !slices.ContainsFunc(h.allowedDockerImageRepos, func(s string) bool {
-						return strings.HasPrefix(c.Args[len(c.Args)-1], s)
-					}) {
-						continue
-					}
-				default:
-					log.Infof("Ignoring MCP catalog entry %s: unsupported command %s", entry.DisplayName, c.Command)
+			default:
+				log.Infof("Ignoring MCP catalog entry %s: unsupported command %s", entry.Name, entry.Command)
+				continue
+			}
+
+			// Sanitize the environment variables
+			for i, env := range entry.Env {
+				if env.Key == "" {
+					env.Key = env.Name
+				}
+
+				if filepath.Ext(env.Key) != "" {
+					env.Key = strings.ReplaceAll(env.Key, ".", "_")
+					env.File = true
+				}
+
+				env.Key = strings.ReplaceAll(strings.ToUpper(env.Key), "-", "_")
+
+				entry.Env[i] = env
+			}
+
+			catalogEntry.Spec.CommandManifest = entry
+		} else if entry.ExactURL != "" || entry.Hostname != "" {
+			// Make sure that only one or the other is set.
+			if entry.ExactURL != "" && entry.Hostname != "" {
+				log.Warnf("Ignoring MCP catalog entry %s: both ExactURL and Hostname are set (only one can be set)", entry.Name)
+				continue
+			}
+
+			if entry.ExactURL != "" {
+				if u, err := url.Parse(entry.ExactURL); err != nil || u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" {
 					continue
-				}
-
-				preferredFound = c.Preferred
-				if !preferredFound && !isCommandPreferred(catalogEntry.Spec.CommandManifest.Server.Command, c.Command) {
-					continue
-				}
-
-				// Sanitize the environment variables
-				for i, env := range c.Env {
-					if env.Key == "" {
-						env.Key = env.Name
-					}
-
-					if filepath.Ext(env.Key) != "" {
-						env.Key = strings.ReplaceAll(env.Key, ".", "_")
-						env.File = true
-					}
-
-					env.Key = strings.ReplaceAll(strings.ToUpper(env.Key), "-", "_")
-
-					c.Env[i] = env
-				}
-
-				addEntry = true
-				catalogEntry.Spec.CommandManifest = types.MCPServerCatalogEntryManifest{
-					URL:         entry.URL,
-					GitHubStars: entry.Stars,
-					Metadata:    entry.Metadata,
-					Server: types.MCPServerManifest{
-						Name:        entry.DisplayName,
-						Description: entry.Description,
-						Icon:        entry.Icon,
-						Env:         c.Env,
-						Command:     c.Command,
-						Args:        c.Args,
-						URL:         c.URL,
-						Headers:     c.HTTPHeaders,
-					},
-				}
-			} else if c.URL != "" || c.Remote {
-				if c.URL != "" {
-					if u, err := url.Parse(c.URL); err != nil || u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" {
-						continue
-					}
-				}
-
-				// Sanitize the headers
-				for i, header := range c.HTTPHeaders {
-					if header.Key == "" {
-						header.Key = header.Name
-					}
-
-					header.Key = strings.ReplaceAll(strings.ToUpper(header.Key), "_", "-")
-
-					c.HTTPHeaders[i] = header
-				}
-
-				addEntry = true
-				catalogEntry.Spec.URLManifest = types.MCPServerCatalogEntryManifest{
-					URL:         entry.URL,
-					GitHubStars: entry.Stars,
-					Metadata:    entry.Metadata,
-					Server: types.MCPServerManifest{
-						Name:        entry.DisplayName,
-						Description: entry.Description,
-						Icon:        entry.Icon,
-						URL:         c.URL,
-						Headers:     c.HTTPHeaders,
-					},
 				}
 			}
+
+			// Sanitize the headers
+			for i, header := range entry.Headers {
+				if header.Key == "" {
+					header.Key = header.Name
+				}
+
+				header.Key = strings.ReplaceAll(strings.ToUpper(header.Key), "_", "-")
+				entry.Headers[i] = header
+			}
+
+			catalogEntry.Spec.URLManifest = entry
+		} else {
+			continue
 		}
 
-		if addEntry {
-			objs = append(objs, &catalogEntry)
-		}
+		objs = append(objs, &catalogEntry)
 	}
 
 	return objs, nil
 }
 
-func (h *Handler) readMCPCatalogDirectory(catalog string) ([]toolreference.CatalogEntryInfo, error) {
+func (h *Handler) readMCPCatalogDirectory(catalog string) ([]types.MCPServerCatalogEntryManifest, error) {
 	files, err := os.ReadDir(catalog)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read catalog directory %s: %w", catalog, err)
 	}
 
-	var entries []toolreference.CatalogEntryInfo
+	var entries []types.MCPServerCatalogEntryManifest
 	for _, file := range files {
 		if file.IsDir() {
 			nestedEntries, err := h.readMCPCatalogDirectory(filepath.Join(catalog, file.Name()))
@@ -274,7 +240,7 @@ func (h *Handler) readMCPCatalogDirectory(catalog string) ([]toolreference.Catal
 				return nil, fmt.Errorf("failed to read catalog file %s: %w", file.Name(), err)
 			}
 
-			var entry toolreference.CatalogEntryInfo
+			var entry types.MCPServerCatalogEntryManifest
 			if err = json.Unmarshal(contents, &entry); err != nil {
 				return nil, fmt.Errorf("failed to decode catalog file %s: %w", file.Name(), err)
 			}
