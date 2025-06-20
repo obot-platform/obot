@@ -20,11 +20,11 @@ const (
 type OAuthAppType string
 
 type OAuthApp struct {
+	Metadata
 	OAuthAppManifest
 }
 
 type OAuthAppManifest struct {
-	Metadata
 	Type         OAuthAppType `json:"type"`
 	Name         string       `json:"name,omitempty"`
 	ClientID     string       `json:"clientID"`
@@ -46,6 +46,7 @@ type OAuthAppManifest struct {
 	InstanceURL string `json:"instanceURL,omitempty"`
 	// This field is used for GitLab enterprise instances
 	GitLabBaseURL string `json:"gitlabBaseURL,omitempty"`
+	DefaultScope  string `json:"defaultScope,omitempty"`
 }
 
 type OAuthAppList List[OAuthApp]

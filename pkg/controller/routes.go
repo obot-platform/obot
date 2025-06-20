@@ -235,6 +235,19 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.Cleanup)
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(cleanup.Cleanup)
 
+	// OAuthClients
+	root.Type(&v1.OAuthClient{}).HandlerFunc(cleanup.OAuthClients)
+
+	// OAuthAuthRequests
+	root.Type(&v1.OAuthAuthRequest{}).HandlerFunc(cleanup.OAuthAuth)
+	root.Type(&v1.OAuthAuthRequest{}).HandlerFunc(cleanup.Cleanup)
+
+	// OAuthTokens
+	root.Type(&v1.OAuthToken{}).HandlerFunc(cleanup.Cleanup)
+
+	// OAuthAppAuth
+	root.Type(&v1.OAuthAppAuth{}).HandlerFunc(cleanup.OAuthAuth)
+
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog
 	return nil

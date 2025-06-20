@@ -87,6 +87,14 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&MCPCatalogList{},
 		&UserCatalogAuthorization{},
 		&UserCatalogAuthorizationList{},
+		&OAuthClient{},
+		&OAuthClientList{},
+		&OAuthAuthRequest{},
+		&OAuthAuthRequestList{},
+		&OAuthToken{},
+		&OAuthTokenList{},
+		&OAuthAppAuth{},
+		&OAuthAppAuthList{},
 	); err != nil {
 		return err
 	}
