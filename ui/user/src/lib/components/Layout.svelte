@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
-	import Banner from '$lib/components/Banner.svelte';
 	import { columnResize } from '$lib/actions/resize';
 	import { darkMode, profile, responsive } from '$lib/stores';
 	import { initLayout, getLayout } from '$lib/context/layout.svelte';
@@ -132,7 +131,6 @@
 		<main
 			class="bg-surface1 default-scrollbar-thin relative flex h-svh w-full grow flex-col overflow-y-auto dark:bg-black"
 		>
-			<Banner />
 			<Navbar class="dark:bg-gray-990 sticky top-0 left-0 z-30 w-full">
 				{#snippet leftContent()}
 					{#if !layout.sidebarOpen}

@@ -23,7 +23,6 @@
 	import SidebarConfig from './chat/ChatSidebarConfig.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import Banner from './Banner.svelte';
 
 	interface Props {
 		assistant?: Assistant;
@@ -43,7 +42,6 @@
 	let configDialog: HTMLDialogElement;
 	let shortcutsDialog: HTMLDialogElement;
 	let nav = $state<HTMLDivElement>();
-	let bannerRef = $state<ReturnType<typeof Banner>>();
 
 	async function createNewThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
@@ -113,11 +111,7 @@
 	});
 </script>
 
-<Banner bind:this={bannerRef} />
-<div
-	class="colors-background relative flex h-full flex-col overflow-hidden"
-	style={`height: calc(100% - ${bannerRef?.height() || 0}px)`}
->
+<div class="colors-background relative flex h-full flex-col overflow-hidden">
 	<div
 		class="border-surface1 relative flex h-full"
 		class:border={layout.sidebarOpen && !layout.fileEditorOpen}
