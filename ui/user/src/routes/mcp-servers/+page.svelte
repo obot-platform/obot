@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import HowToConnect from '$lib/components/admin/HowToConnect.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
@@ -312,20 +313,28 @@
 
 {#snippet connectUrlButton(url: string)}
 	<div class="my-4 flex flex-col gap-1">
-		<label for="connectURL">Connect URL</label>
-		<div class="mock-input-btn flex w-full items-center justify-between gap-2">
+		<label for="connectURL" class="font-light">Connection URL</label>
+		<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
 			<p>
 				{url}
 			</p>
-			<CopyButton text={url} classes={{ button: 'flex-shrink-0 flex items-center gap-1' }} />
+			<CopyButton
+				showTextLeft
+				text={url}
+				classes={{
+					button: 'flex-shrink-0 flex items-center gap-1 text-xs font-light hover:text-blue-500'
+				}}
+			/>
 		</div>
 	</div>
+
+	<!-- <HowToConnect {url} /> -->
 {/snippet}
 
 <dialog
 	bind:this={configDialog}
 	use:clickOutside={() => closeConfigDialog()}
-	class="w-full md:w-lg"
+	class="w-full md:w-2xl"
 	class:p-4={!responsive.isMobile}
 	class:mobile-screen-dialog={responsive.isMobile}
 >
