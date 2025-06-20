@@ -32,6 +32,7 @@ require (
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2
 	github.com/obot-platform/obot/apiclient v0.0.0-00010101000000-000000000000
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
+	github.com/onsi/gomega v1.34.2
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/prometheus/client_golang v1.20.5
 	github.com/pterm/pterm v0.12.80
@@ -68,6 +69,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/yaml v1.4.0
 )
+
+require github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 
 require (
 	atomicgo.dev/cursor v0.2.0 // indirect
@@ -225,7 +228,7 @@ require (
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/olekukonko/tablewriter v0.0.6-0.20230925090304-df64c4bbad77 // indirect
-	github.com/onsi/ginkgo/v2 v2.20.2 // indirect
+	github.com/onsi/ginkgo/v2 v2.20.2
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
