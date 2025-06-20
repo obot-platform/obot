@@ -3,9 +3,9 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import Table from '$lib/components/Table.svelte';
 	import { createProjectMcp, type MCPServerInfo } from '$lib/services/chat/mcp';
 	import {
 		ChatService,
@@ -14,7 +14,15 @@
 		type ProjectMCP
 	} from '$lib/services/index.js';
 	import { responsive } from '$lib/stores';
-	import { ChevronRight, LoaderCircle, Server, Trash2, Unplug, X } from 'lucide-svelte';
+	import {
+		ChevronLeft,
+		ChevronRight,
+		LoaderCircle,
+		Server,
+		Trash2,
+		Unplug,
+		X
+	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
@@ -40,24 +48,27 @@
 
 	let search = $state('');
 	let connectedProjects = $derived(new Map(projectServers?.map((s) => [s.catalogEntryID, s])));
-	let tableData = $derived([
+	let allData = $derived([
 		...(entries.map((e) => ({
 			...e,
 			connectedProject: connectedProjects.get(e.id)
 		})) ?? []),
 		...(servers ?? [])
 	]);
-	let filteredTableData = $derived(
+	let filteredData = $derived(
 		search
-			? tableData.filter((item) => {
+			? allData.filter((item) => {
 					const nameToUse =
 						'name' in item
 							? item.name
 							: (item.commandManifest?.server.name ?? item.urlManifest?.server.name);
 					return nameToUse?.toLowerCase().includes(search.toLowerCase());
 				})
-			: tableData
+			: allData
 	);
+	let page = $state(0);
+	let pageSize = $state(30);
+	let paginatedData = $derived(filteredData.slice(page * pageSize, (page + 1) * pageSize));
 
 	async function reloadProjectServers(assistantID: string, projectID: string) {
 		const response = await ChatService.listProjectMCPs(assistantID, projectID);
@@ -142,10 +153,19 @@
 			connectToEntry.launching = false;
 		}
 	}
+
+	function handleSelectItem(item: (typeof paginatedData)[0]) {
+		if (item.type === 'mcpserver') {
+			handleMcpServer(item as MCPCatalogServer);
+		} else {
+			handleMcpEntry(item as MCP, connectedProjects.get(item.id));
+		}
+		configDialog?.showModal();
+	}
 </script>
 
 <Layout>
-	<div class="flex flex-col gap-8 py-8 pt-4" in:fade>
+	<div class="flex flex-col gap-8 pt-4" in:fade>
 		<h1 class="text-2xl font-semibold">MCP Servers</h1>
 		{#if loading}
 			<div class="my-2 flex items-center justify-center">
@@ -156,52 +176,135 @@
 				class="dark:bg-surface1 dark:border-surface3 bg-white shadow-sm dark:border"
 				onChange={(val) => {
 					search = val;
+					page = 0;
 				}}
 				placeholder="Search by name..."
 			/>
-			<div class="flex flex-col gap-4">
-				<Table data={filteredTableData} fields={['name']} pageSize={50}>
-					{#snippet onRenderColumn(property, d)}
-						{#if property === 'name'}
-							<span class="flex items-center gap-1">
-								{'name' in d
-									? d.name
-									: (d.commandManifest?.server.name ?? d.urlManifest?.server.name)}
-							</span>
-						{/if}
-					{/snippet}
-					{#snippet actions(d)}
-						{#if 'connectedProject' in d && d.connectedProject}
-							<button
-								class="icon-button hover:text-red-500"
-								onclick={async () => {
-									if (!d.connectedProject) return;
-									deletingProjectMcp = d.connectedProject.id;
-									closeConfigDialog();
-								}}
-								use:tooltip={'Delete Server'}
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+				{#each paginatedData as item}
+					{@const icon =
+						'icon' in item
+							? item.icon
+							: (item.commandManifest?.server.icon ?? item.urlManifest?.server.icon)}
+					{@const name =
+						'name' in item
+							? item.name
+							: (item.commandManifest?.server.name ?? item.urlManifest?.server.name)}
+					{@const categories =
+						'metadata' in item
+							? (item.metadata?.categories?.split(',') ?? [])
+							: 'commandManifest' in item
+								? (item.commandManifest?.metadata?.categories?.split(',') ?? [])
+								: 'urlManifest' in item
+									? (item.urlManifest?.metadata.categories?.split(',') ?? [])
+									: []}
+					<div
+						class="dark:bg-surface1 dark:border-surface3 relative flex flex-col rounded-sm border border-transparent bg-white px-2 py-4 shadow-sm"
+					>
+						<div class="flex items-center gap-2 pr-6">
+							<div
+								class="flex size-8 flex-shrink-0 items-center justify-center self-start rounded-md bg-transparent p-0.5 dark:bg-gray-600"
 							>
-								<Trash2 class="size-4" />
-							</button>
-						{/if}
-						<button
-							class="icon-button hover:text-blue-500"
-							use:tooltip={'Connect'}
-							onclick={(e) => {
-								e.stopPropagation();
-								if (d.type === 'mcpserver') {
-									handleMcpServer(d as MCPCatalogServer);
-								} else {
-									handleMcpEntry(d as MCP, connectedProjects.get(d.id));
-								}
-								configDialog?.showModal();
-							}}
+								{#if icon}
+									<img src={icon} alt={name} />
+								{:else}
+									<Server />
+								{/if}
+							</div>
+							<div class="flex flex-col">
+								<p class="text-sm font-semibold">{name}</p>
+								<span
+									class="line-clamp-2 text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600"
+								>
+									{#if 'description' in item}
+										{item.description}
+									{:else}
+										{item.commandManifest?.server.description ??
+											item.urlManifest?.server.description}
+									{/if}
+								</span>
+							</div>
+						</div>
+						<div class="flex w-full flex-wrap gap-1 pt-2">
+							{#each categories as category}
+								<div
+									class="border-surface3 rounded-full border px-1.5 py-0.5 text-[10px] font-light text-gray-400 dark:text-gray-600"
+								>
+									{category}
+								</div>
+							{/each}
+						</div>
+						<div
+							class="absolute -top-2 right-0 flex h-full translate-y-2 flex-col justify-between gap-4 p-2"
 						>
-							<Unplug class="size-4" />
-						</button>
-					{/snippet}
-				</Table>
+							{#if 'connectedProject' in item && item.connectedProject}
+								<DotDotDot
+									class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
+								>
+									<div class="default-dialog flex min-w-max flex-col p-2">
+										<button
+											class="menu-button hover:text-blue-500"
+											onclick={(e) => {
+												e.stopPropagation();
+												handleSelectItem(item);
+											}}
+										>
+											<Unplug class="size-4" /> Connect
+										</button>
+										<button
+											class="menu-button text-red-500"
+											onclick={async (e) => {
+												e.stopPropagation();
+												if (!item.connectedProject) return;
+												deletingProjectMcp = item.connectedProject.id;
+												closeConfigDialog();
+											}}
+										>
+											<Trash2 class="size-4" /> Delete instance
+										</button>
+									</div>
+								</DotDotDot>
+							{:else}
+								<button
+									class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
+									use:tooltip={'Connect to server'}
+									onclick={(e) => {
+										e.stopPropagation();
+										handleSelectItem(item);
+									}}
+								>
+									<Unplug class="size-4" />
+								</button>
+							{/if}
+						</div>
+					</div>
+				{/each}
 			</div>
+			{#if filteredData.length > pageSize}
+				<div
+					class="bg-surface1 sticky bottom-0 left-0 flex w-full items-center justify-center gap-4 p-2 md:w-[calc(100%+4em)] md:-translate-x-8 dark:bg-black"
+				>
+					<button
+						class="button-text flex items-center gap-1 disabled:no-underline disabled:opacity-50"
+						onclick={() => (page = page - 1)}
+						disabled={page === 0}
+					>
+						<ChevronLeft class="size-4" /> Previous
+					</button>
+					<span class="text-sm text-gray-400 dark:text-gray-600">
+						{page + 1} of {Math.ceil(filteredData.length / pageSize)}
+					</span>
+					<button
+						class="button-text flex items-center gap-1 disabled:no-underline disabled:opacity-50"
+						onclick={() => (page = page + 1)}
+						disabled={page === Math.floor(filteredData.length / pageSize)}
+					>
+						Next <ChevronRight class="size-4" />
+					</button>
+				</div>
+			{:else}
+				<div class="min-h-8 w-full"></div>
+			{/if}
 		{/if}
 	</div>
 </Layout>

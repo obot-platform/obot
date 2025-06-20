@@ -15,9 +15,9 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 flex w-full flex-col items-center justify-center gap-4 rounded-lg border border-transparent bg-white p-4 pt-2"
+	class="dark:bg-surface1 dark:border-surface3 flex w-full flex-col items-center justify-center gap-4 rounded-lg border border-transparent bg-white p-4 pt-2 shadow-sm"
 >
-	<div class="flex w-full items-center justify-between">
+	<div class="flex min-h-9 w-full items-center justify-between">
 		<div>
 			{#if recommended}
 				<span class="rounded-md bg-blue-500 px-2 py-1 text-[11px] font-semibold text-white"

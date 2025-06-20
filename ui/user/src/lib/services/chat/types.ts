@@ -693,4 +693,7 @@ export interface MCPCatalogServer extends MCPCatalogEntryServerManifest {
 	createdAt: string;
 	updatedAt: string;
 	type: string;
+	metadata?: {
+		categories?: string;
+	};
 }
