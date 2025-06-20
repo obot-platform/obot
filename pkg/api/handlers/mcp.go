@@ -616,7 +616,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return err
 		}
 
-		if catalogEntry.Spec.CommandManifest.Server.URL != "" {
+		if catalogEntry.Spec.URLManifest.Server.URL != "" {
 			server.Spec.Manifest = catalogEntry.Spec.URLManifest.Server
 		} else {
 			server.Spec.Manifest = catalogEntry.Spec.CommandManifest.Server
