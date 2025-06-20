@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ModelProvider from '$lib/components/admin/ModelProvider.svelte';
+	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION, RecommendedModelProviders } from '$lib/constants';
 	import { fade } from 'svelte/transition';
@@ -22,8 +22,8 @@
 		</div>
 		<div class="grid grid-cols-2 gap-4 py-8 md:grid-cols-3 lg:grid-cols-4">
 			{#each authProviders as authProvider}
-				<ModelProvider
-					modelProvider={authProvider}
+				<ProviderCard
+					provider={authProvider}
 					recommended={RecommendedModelProviders.includes(authProvider.id)}
 					onConfigure={() => {
 						configuringAuthProvider = authProvider;

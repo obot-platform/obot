@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { CircleSlash, CircleCheck, PictureInPicture2 } from 'lucide-svelte';
 	import DotDotDot from '../DotDotDot.svelte';
-	import type { ModelProvider } from '$lib/services';
 	import { darkMode } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
+	import type { BaseProvider } from '$lib/services/admin/types';
 
 	interface Props {
 		recommended?: boolean;
-		modelProvider: ModelProvider;
+		provider: BaseProvider;
 		onConfigure: () => void;
 	}
 
-	const { recommended, modelProvider, onConfigure }: Props = $props();
+	const { recommended, provider, onConfigure }: Props = $props();
 </script>
 
 <div
@@ -27,7 +27,7 @@
 		</div>
 
 		<div class="flex translate-x-2 items-center gap-1">
-			{#if modelProvider.configured}
+			{#if provider.configured}
 				<button class="icon-button">
 					<PictureInPicture2 class="size-5" />
 				</button>
@@ -42,19 +42,19 @@
 		</div>
 	</div>
 	{#if darkMode.isDark}
-		{@const url = modelProvider.iconDark ?? modelProvider.icon}
+		{@const url = provider.iconDark ?? provider.icon}
 		<img
 			src={url}
-			alt={modelProvider.name}
-			class={twMerge('size-16 rounded-md p-1', !modelProvider.iconDark && 'bg-gray-600')}
+			alt={provider.name}
+			class={twMerge('size-16 rounded-md p-1', !provider.iconDark && 'bg-gray-600')}
 		/>
 	{:else}
-		<img src={modelProvider.icon} alt={modelProvider.name} class="size-16 rounded-md p-1" />
+		<img src={provider.icon} alt={provider.name} class="size-16 rounded-md p-1" />
 	{/if}
-	<h4 class="text-center text-lg font-semibold">{modelProvider.name}</h4>
+	<h4 class="text-center text-lg font-semibold">{provider.name}</h4>
 	<div class="border-surface2 rounded-md border px-2 py-1">
 		<span class="flex items-center gap-2 text-xs font-light">
-			{#if modelProvider.configured}
+			{#if provider.configured}
 				<CircleCheck class="size-4 text-green-500" /> Configured
 			{:else}
 				<CircleSlash class="size-4 text-red-500" /> Not Configured
@@ -65,12 +65,9 @@
 	<div class="mt-auto w-full">
 		<button
 			onclick={onConfigure}
-			class={twMerge(
-				'w-full border-0 text-sm',
-				modelProvider.configured ? 'button' : 'button-primary '
-			)}
+			class={twMerge('w-full border-0 text-sm', provider.configured ? 'button' : 'button-primary ')}
 		>
-			{#if modelProvider.configured}
+			{#if provider.configured}
 				Modify
 			{:else}
 				Configure

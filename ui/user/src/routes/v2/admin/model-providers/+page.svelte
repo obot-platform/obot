@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ModelProvider from '$lib/components/admin/ModelProvider.svelte';
+	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
 	import type { ModelProvider as ModelProviderType } from '$lib/services';
 	import Layout from '$lib/components/Layout.svelte';
 	import {
@@ -62,8 +62,8 @@
 		</div>
 		<div class="grid grid-cols-2 gap-4 py-8 md:grid-cols-3 lg:grid-cols-4">
 			{#each sortedModelProviders as modelProvider}
-				<ModelProvider
-					{modelProvider}
+				<ProviderCard
+					provider={modelProvider}
 					recommended={RecommendedModelProviders.includes(modelProvider.id)}
 					onConfigure={() => {
 						configuringModelProvider = modelProvider;
