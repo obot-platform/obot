@@ -4,6 +4,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import { createProjectMcp, type MCPServerInfo } from '$lib/services/chat/mcp';
@@ -377,13 +378,15 @@
 				{#if connectToEntry.envs && connectToEntry.envs.length > 0}
 					{#each connectToEntry.envs as env, i}
 						<div class="flex flex-col gap-1">
-							<label for={env.key}>{env.name}</label>
+							<span class="flex items-center gap-2">
+								<label for={env.key}>{env.name}</label>
+								<InfoTooltip text={env.description} />
+							</span>
 							<input
 								type="text"
 								id={env.key}
 								bind:value={connectToEntry.envs[i].value}
 								class="text-input-filled"
-								placeholder={env.description}
 							/>
 						</div>
 					{/each}
