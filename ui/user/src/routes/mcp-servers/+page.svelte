@@ -284,7 +284,7 @@
 			</div>
 			{#if filteredData.length > pageSize}
 				<div
-					class="bg-surface1 sticky bottom-0 left-0 flex w-full items-center justify-center gap-4 p-2 md:w-[calc(100%+4em)] md:-translate-x-8 dark:bg-black"
+					class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 items-center justify-center gap-4 p-2 md:w-[calc(100%+4em)] md:-translate-x-8 dark:bg-black"
 				>
 					<button
 						class="button-text flex items-center gap-1 disabled:no-underline disabled:opacity-50"
@@ -312,7 +312,7 @@
 </Layout>
 
 {#snippet connectUrlButton(url: string)}
-	<div class="my-4 flex flex-col gap-1">
+	<div class="my-8 flex flex-col gap-1">
 		<label for="connectURL" class="font-light">Connection URL</label>
 		<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
 			<p>
