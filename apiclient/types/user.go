@@ -27,6 +27,7 @@ type User struct {
 	Internal                   bool   `json:"internal,omitempty"`
 	DailyPromptTokensLimit     int    `json:"dailyPromptTokensLimit,omitempty"`
 	DailyCompletionTokensLimit int    `json:"dailyCompletionTokensLimit,omitempty"`
+	DisplayName                string `json:"displayName,omitempty"`
 }
 
 type UserList List[User]

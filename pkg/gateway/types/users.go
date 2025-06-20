@@ -41,6 +41,7 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 			ID:      fmt.Sprint(u.ID),
 			Created: *types2.NewTime(u.CreatedAt),
 		},
+		DisplayName:                u.DisplayName,
 		Username:                   u.Username,
 		Email:                      u.Email,
 		Role:                       u.Role,
