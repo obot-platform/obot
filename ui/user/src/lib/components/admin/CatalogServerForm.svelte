@@ -43,7 +43,6 @@
 		if (!item) {
 			return {
 				displayName: '',
-				icon: '',
 				categories: [''],
 				server: {
 					name: '',
@@ -51,7 +50,8 @@
 					args: [],
 					command: '',
 					url: '',
-					headers: []
+					headers: [],
+					icon: ''
 				}
 			};
 		}
@@ -60,9 +60,9 @@
 			const server = item as MCPCatalogServer;
 			return {
 				displayName: server.name,
-				icon: server.icon,
 				categories: [],
 				server: {
+					icon: server.icon,
 					name: server.name,
 					env: server.env,
 					args: server.args,
@@ -75,13 +75,13 @@
 			const entry = item as MCPCatalogEntry;
 			return {
 				displayName: entry.commandManifest?.server.name ?? entry.urlManifest?.server.name ?? '',
-				icon: entry.commandManifest?.server.icon ?? entry.urlManifest?.server.icon ?? '',
 				categories:
 					entry.commandManifest?.metadata?.categories.split(',') ??
 					entry.urlManifest?.metadata?.categories.split(',') ??
 					[],
 				server: {
 					name: entry.commandManifest?.server.name ?? entry.urlManifest?.server.name ?? '',
+					icon: entry.commandManifest?.server.icon ?? entry.urlManifest?.server.icon ?? '',
 					env: (entry.commandManifest?.server.env ?? entry.urlManifest?.server.env ?? []).map(
 						(env) => ({
 							...env,
@@ -209,7 +209,7 @@
 			<input
 				type="text"
 				id="icon"
-				bind:value={formData.icon}
+				bind:value={formData.server.icon}
 				class="text-input-filled dark:bg-black"
 				disabled={readonly}
 			/>

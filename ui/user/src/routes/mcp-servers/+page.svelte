@@ -13,7 +13,7 @@
 		type ProjectMCP
 	} from '$lib/services/index.js';
 	import { responsive } from '$lib/stores';
-	import { ChevronRight, LoaderCircle, Trash2, Unplug, X } from 'lucide-svelte';
+	import { ChevronRight, LoaderCircle, Server, Trash2, Unplug, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
@@ -221,13 +221,19 @@
 				{@const icon =
 					connectToEntry.entry.commandManifest?.server.icon ??
 					connectToEntry.entry.urlManifest?.server.icon}
-				<img src={icon} alt={name} class="size-6" />{name}
+				{#if icon}
+					<img src={icon} alt={name} class="size-6" />
+				{:else}
+					<Server class="size-6" />
+				{/if}
+				{name}
 			{:else if connectToServer}
-				<img
-					src={connectToServer.icon}
-					alt={connectToServer.name}
-					class="size-6"
-				/>{connectToServer.name}
+				{#if connectToServer.icon}
+					<img src={connectToServer.icon} alt={connectToServer.name} class="size-6" />
+				{:else}
+					<Server class="size-6" />
+				{/if}
+				{connectToServer.name}
 			{/if}
 		</span>
 		<button

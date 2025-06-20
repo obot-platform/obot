@@ -24,14 +24,13 @@ export interface MCPCatalogEntry {
 }
 
 export interface MCPCatalogEntryManifest {
-	server: MCPCatalogEntryServerManifest;
+	server: MCPCatalogEntryServerManifest & { icon?: string };
 	url?: string;
 	githubStars?: number;
 	displayName?: string;
 	metadata?: {
 		categories?: string;
 	};
-	icon?: string;
 }
 
 export interface MCPCatalogEntryFieldManifest {
