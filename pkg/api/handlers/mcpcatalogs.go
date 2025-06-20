@@ -212,9 +212,11 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
+	cleanName := strings.ToLower(strings.ReplaceAll(manifest.Name, " ", "-"))
+
 	entry := v1.MCPServerCatalogEntry{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: name.SafeHashConcatName(catalogName, manifest.Server.Name),
+			GenerateName: name.SafeHashConcatName(catalogName, cleanName),
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.MCPServerCatalogEntrySpec{
@@ -328,36 +330,39 @@ func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 }
 
 func (h *MCPCatalogHandler) validateMCPServerCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) (bool, bool, error) {
-	if manifest.Server.Name == "" {
+	if manifest.Name == "" {
 		return false, false, fmt.Errorf("server name is required")
 	}
 
 	var (
 		hasCommand, hasURL bool
 	)
-	if manifest.Server.Command != "" {
+	if manifest.Command != "" {
 		hasCommand = true
 
-		if len(manifest.Server.Args) == 0 {
+		if len(manifest.Args) == 0 {
 			return false, false, fmt.Errorf("command must be followed by at least one argument")
 		}
 
-		if manifest.Server.Command == "docker" {
+		if manifest.Command == "docker" {
 			if len(h.allowedDockerImageRepos) == 0 {
 				return false, false, fmt.Errorf("docker command is not allowed")
 			}
 
 			if !slices.ContainsFunc(h.allowedDockerImageRepos, func(s string) bool {
-				return strings.HasPrefix(manifest.Server.Args[len(manifest.Server.Args)-1], s)
+				return strings.HasPrefix(manifest.Args[len(manifest.Args)-1], s)
 			}) {
 				return false, false, fmt.Errorf("docker command must be followed by a valid image name from one of the allowed repos (%s)", strings.Join(h.allowedDockerImageRepos, ", "))
 			}
-		} else if manifest.Server.Command != "npx" && manifest.Server.Command != "uvx" {
-			return false, false, fmt.Errorf("unsupported command: %s", manifest.Server.Command)
+		} else if manifest.Command != "npx" && manifest.Command != "uvx" {
+			return false, false, fmt.Errorf("unsupported command: %s", manifest.Command)
 		}
 	}
-	if manifest.Server.URL != "" {
+	if manifest.ExactURL != "" || manifest.Hostname != "" {
 		hasURL = true
+		if manifest.ExactURL != "" && manifest.Hostname != "" {
+			return false, false, fmt.Errorf("only one of exactURL or hostname is allowed")
+		}
 	}
 
 	if hasCommand && hasURL {
@@ -366,10 +371,6 @@ func (h *MCPCatalogHandler) validateMCPServerCatalogEntryManifest(manifest types
 
 	if !hasCommand && !hasURL {
 		return false, false, fmt.Errorf("one of command or url is required")
-	}
-
-	if manifest.GitHubStars < 0 {
-		return false, false, fmt.Errorf("github stars must be non-negative")
 	}
 
 	return hasCommand, hasURL, nil

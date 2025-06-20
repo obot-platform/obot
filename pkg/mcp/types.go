@@ -68,11 +68,7 @@ func ToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]str
 	for _, env := range mcpServer.Spec.Manifest.Env {
 		val, ok := credEnv[env.Key]
 		if !ok && env.Required {
-			name := env.Name
-			if name == "" {
-				name = env.Key
-			}
-			missingRequiredNames = append(missingRequiredNames, name)
+			missingRequiredNames = append(missingRequiredNames, env.Key)
 			continue
 		}
 
@@ -90,11 +86,7 @@ func ToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]str
 	for _, header := range mcpServer.Spec.Manifest.Headers {
 		val, ok := credEnv[header.Key]
 		if !ok && header.Required {
-			name := header.Name
-			if name == "" {
-				name = header.Key
-			}
-			missingRequiredNames = append(missingRequiredNames, name)
+			missingRequiredNames = append(missingRequiredNames, header.Key)
 			continue
 		}
 

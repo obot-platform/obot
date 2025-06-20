@@ -11,33 +11,30 @@ type MCPServerCatalogEntry struct {
 }
 
 type MCPServerCatalogEntryManifest struct {
-	Server      MCPServerManifest `json:"server,omitempty"`
-	URL         string            `json:"url,omitempty"`
-	GitHubStars int               `json:"githubStars,omitempty"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
-}
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Icon        string            `json:"icon"`
 
-type MCPServerCatalogEntryList List[MCPServerCatalogEntry]
-
-type MCPServerManifest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Icon        string `json:"icon"`
-
+	// For single-user servers:
 	Env     []MCPEnv `json:"env,omitempty"`
 	Command string   `json:"command,omitempty"`
 	Args    []string `json:"args,omitempty"`
 
-	URL     string      `json:"url,omitempty"`
-	Headers []MCPHeader `json:"headers,omitempty"`
+	// For remote servers:
+	ExactURL string      `json:"exactURL,omitempty"`
+	Hostname string      `json:"hostname,omitempty"`
+	Headers  []MCPHeader `json:"headers,omitempty"`
 }
 
 type MCPHeader struct {
+	// Information to display to the user about this field:
 	Name        string `json:"name"`
-	Key         string `json:"key"`
 	Description string `json:"description"`
-	Sensitive   bool   `json:"sensitive"`
-	Required    bool   `json:"required"`
+
+	Key       string `json:"key"`
+	Sensitive bool   `json:"sensitive"`
+	Required  bool   `json:"required"`
 }
 
 type MCPEnv struct {
@@ -45,15 +42,33 @@ type MCPEnv struct {
 	File      bool `json:"file"`
 }
 
+type MCPServerCatalogEntryList List[MCPServerCatalogEntry]
+
+type MCPServerManifest struct {
+	Metadata    map[string]string `json:"metadata,omitempty"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Icon        string            `json:"icon"`
+
+	// For local servers:
+	Env     []MCPEnv `json:"env,omitempty"`
+	Command string   `json:"command,omitempty"`
+	Args    []string `json:"args,omitempty"`
+
+	// For remote servers:
+	URL     string      `json:"url,omitempty"`
+	Headers []MCPHeader `json:"headers,omitempty"`
+}
+
 type MCPServer struct {
 	Metadata
-	MCPServerManifest
-	Configured              bool     `json:"configured"`
-	MissingRequiredEnvVars  []string `json:"missingRequiredEnvVars,omitempty"`
-	MissingRequiredHeaders  []string `json:"missingRequiredHeader,omitempty"`
-	CatalogEntryID          string   `json:"catalogEntryID"`
-	SharedWithinCatalogName string   `json:"sharedWithinCatalogName,omitempty"`
-	ConnectURL              string   `json:"connectURL,omitempty"`
+	MCPServerManifest       MCPServerManifest `json:"manifest"`
+	Configured              bool              `json:"configured"`
+	MissingRequiredEnvVars  []string          `json:"missingRequiredEnvVars,omitempty"`
+	MissingRequiredHeaders  []string          `json:"missingRequiredHeader,omitempty"`
+	CatalogEntryID          string            `json:"catalogEntryID"`
+	SharedWithinCatalogName string            `json:"sharedWithinCatalogName,omitempty"`
+	ConnectURL              string            `json:"connectURL,omitempty"`
 }
 
 type MCPServerList List[MCPServer]

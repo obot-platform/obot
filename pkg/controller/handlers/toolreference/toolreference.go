@@ -118,7 +118,7 @@ func (h *Handler) mcpServers(ctx context.Context, registryURL string, entries ma
 				continue
 			}
 
-			var manifest types.MCPServerManifest
+			var manifest types.MCPServerCatalogEntryManifest
 			if err := yaml.Unmarshal([]byte(text), &manifest); err != nil {
 				log.Errorf("Failed to decode manifest for %s: %v", filename, err)
 				continue
@@ -131,9 +131,9 @@ func (h *Handler) mcpServers(ctx context.Context, registryURL string, entries ma
 			}
 
 			if manifest.Command != "" {
-				catalogEntry.Spec.CommandManifest.Server = manifest
-			} else if manifest.URL != "" {
-				catalogEntry.Spec.URLManifest.Server = manifest
+				catalogEntry.Spec.CommandManifest = manifest
+			} else if manifest.ExactURL != "" || manifest.Hostname != "" {
+				catalogEntry.Spec.URLManifest = manifest
 			} else {
 				continue
 			}
@@ -220,34 +220,6 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 	}
 
 	return apply.New(c).WithOwnerSubContext("toolreferences").Apply(ctx, nil, toAdd...)
-}
-
-type CatalogEntryInfo struct {
-	ID              int               `json:"id"`
-	Path            string            `json:"path"`
-	DisplayName     string            `json:"displayName"`
-	FullName        string            `json:"fullName"`
-	URL             string            `json:"url"`
-	Description     string            `json:"description"`
-	Stars           int               `json:"stars"`
-	ReadmeContent   string            `json:"readmeContent"`
-	Language        string            `json:"language"`
-	Metadata        map[string]string `json:"metadata"`
-	License         string            `json:"license"`
-	Icon            string            `json:"icon"`
-	Manifest        []mcpServerConfig `json:"manifest"`
-	ToolDefinitions string            `json:"toolDefinitions"`
-}
-
-type mcpServerConfig struct {
-	Env            []types.MCPEnv    `json:"env"`
-	Command        string            `json:"command,omitempty"`
-	Args           []string          `json:"args,omitempty"`
-	HTTPHeaders    []types.MCPHeader `json:"httpHeaders,omitempty"`
-	URL            string            `json:"url,omitempty"`
-	Remote         bool              `json:"remote,omitempty"`
-	URLDescription string            `json:"urlDescription,omitempty"`
-	Preferred      bool              `json:"preferred,omitempty"`
 }
 
 func (h *Handler) PollRegistries(ctx context.Context, c client.Client) {
@@ -369,35 +341,24 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 		return client.IgnoreNotFound(err)
 	}
 
-	serverManifest := types.MCPServerManifest{
+	manifest := types.MCPServerCatalogEntryManifest{
 		Name:        toolRef.Status.Tool.Name,
 		Description: toolRef.Status.Tool.Description,
 		Icon:        toolRef.Status.Tool.Metadata["icon"],
+		Metadata:    maps.Clone(toolRef.Spec.ToolMetadata),
 	}
 
 	var mcpCatalogEntry v1.MCPServerCatalogEntry
 	if err := req.Client.Get(req.Ctx, router.Key(system.DefaultNamespace, toolRef.Name), &mcpCatalogEntry); client.IgnoreNotFound(err) != nil {
 		return err
 	} else if err == nil {
-		var shouldUpdate bool
-
-		// Check if the metadata has changed.
-		if !maps.Equal(mcpCatalogEntry.Spec.CommandManifest.Metadata, toolRef.Spec.ToolMetadata) {
-			maps.Copy(mcpCatalogEntry.Spec.CommandManifest.Metadata, toolRef.Spec.ToolMetadata)
-			shouldUpdate = true
-		}
-
-		// Check if the server manifest has changed.
-		if !equality.Semantic.DeepEqual(mcpCatalogEntry.Spec.CommandManifest.Server, serverManifest) &&
+		// Check if we need to update the MCP catalog entry.
+		if !equality.Semantic.DeepEqual(mcpCatalogEntry.Spec.CommandManifest, manifest) &&
 			mcpCatalogEntry.Spec.ToolReferenceName == toolRef.Name {
-			shouldUpdate = true
-		}
-
-		if shouldUpdate {
-			mcpCatalogEntry.Spec.CommandManifest.Server = serverManifest
-			mcpCatalogEntry.Spec.ToolReferenceName = toolRef.Name
+			mcpCatalogEntry.Spec.CommandManifest = manifest
 			return req.Client.Update(req.Ctx, &mcpCatalogEntry)
 		}
+
 		return nil
 	}
 
@@ -407,10 +368,7 @@ func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolRef
 			Namespace: system.DefaultNamespace,
 		},
 		Spec: v1.MCPServerCatalogEntrySpec{
-			CommandManifest: types.MCPServerCatalogEntryManifest{
-				Server:   serverManifest,
-				Metadata: maps.Clone(toolRef.Spec.ToolMetadata),
-			},
+			CommandManifest:   manifest,
 			ToolReferenceName: toolRef.Name,
 			Editable:          false, // entries from toolreferences are not editable
 		},
