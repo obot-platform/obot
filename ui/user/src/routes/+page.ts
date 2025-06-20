@@ -1,4 +1,5 @@
 import { ChatService, getProfile, type AuthProvider, type ProjectTemplate } from '$lib/services';
+import { Role } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
@@ -18,6 +19,7 @@ export const load: PageLoad = async ({ fetch }) => {
 
 	return {
 		loggedIn: profile?.loaded ?? false,
+		isAdmin: profile?.role === Role.ADMIN,
 		authProviders,
 		templates
 	};

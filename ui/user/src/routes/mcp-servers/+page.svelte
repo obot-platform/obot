@@ -2,6 +2,7 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/Table.svelte';
@@ -205,6 +206,18 @@
 	</div>
 </Layout>
 
+{#snippet connectUrlButton(url: string)}
+	<div class="my-4 flex flex-col gap-1">
+		<label for="connectURL">Connect URL</label>
+		<div class="mock-input-btn flex w-full items-center justify-between gap-2">
+			<p>
+				{url}
+			</p>
+			<CopyButton text={url} classes={{ button: 'flex-shrink-0 flex items-center gap-1' }} />
+		</div>
+	</div>
+{/snippet}
+
 <dialog
 	bind:this={configDialog}
 	use:clickOutside={() => closeConfigDialog()}
@@ -255,12 +268,7 @@
 				<LoaderCircle class="size-6 animate-spin" />
 			</div>
 		{:else if connectToEntry.connectURL}
-			<div class="my-4 flex flex-col gap-1">
-				<label for="connectURL">Connect URL</label>
-				<div class="mock-input-btn min-h-9">
-					{connectToEntry.connectURL}
-				</div>
-			</div>
+			{@render connectUrlButton(connectToEntry.connectURL)}
 		{:else}
 			<div class="my-4 flex flex-col gap-4">
 				{#if connectToEntry.envs && connectToEntry.envs.length > 0}
@@ -283,12 +291,7 @@
 			</div>
 		{/if}
 	{:else if connectToServer}
-		<div class="my-4 flex flex-col gap-1">
-			<label for="connectURL">Connect URL</label>
-			<div class="mock-input-btn min-h-9">
-				{connectToServer.connectURL}
-			</div>
-		</div>
+		{@render connectUrlButton(connectToServer.connectURL)}
 	{/if}
 </dialog>
 

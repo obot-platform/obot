@@ -161,7 +161,10 @@ export async function revealMcpCatalogServer(
 	const response = (await doPost(
 		`/mcp-catalogs/${catalogID}/servers/${serverID}/reveal`,
 		{},
-		opts
+		{
+			...opts,
+			dontLogErrors: true
+		}
 	)) as Record<string, string>;
 	return response;
 }

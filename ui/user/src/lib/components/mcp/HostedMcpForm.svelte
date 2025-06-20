@@ -31,8 +31,8 @@
 
 	{#if config.args}
 		<div class="flex gap-4">
-			<span class="text-sm font-light">Arguments</span>
-			<div class="flex grow flex-col gap-4">
+			<span class="pt-2.5 text-sm font-light">Arguments</span>
+			<div class="flex min-h-10 grow flex-col gap-4">
 				{#each config.args as _arg, i}
 					<div class="flex items-center gap-2">
 						<input

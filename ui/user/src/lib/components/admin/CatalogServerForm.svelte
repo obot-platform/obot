@@ -47,7 +47,7 @@
 				server: {
 					name: '',
 					env: [],
-					args: [],
+					args: [''],
 					command: '',
 					url: '',
 					headers: [],
