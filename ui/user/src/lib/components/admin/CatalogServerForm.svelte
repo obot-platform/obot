@@ -127,7 +127,7 @@
 		return {
 			...rest,
 			metadata: {
-				categories: categories.join(',')
+				categories: categories.filter((c) => c).join(',')
 			},
 			server: {
 				...rest.server,
@@ -143,7 +143,7 @@
 			...server,
 			name: rest.displayName,
 			metadata: {
-				categories: categories.join(',')
+				categories: categories.filter((c) => c).join(',')
 			}
 		};
 	}
