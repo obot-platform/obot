@@ -408,7 +408,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/reveal", mcp.Reveal)
 
 	// MCP Gateway Endpoints
-	mux.HandleFunc("/api/mcp/{mcp_server_id}", mcpGateway.StreamableHTTP)
+	mux.HandleFunc("/mcp-connect/{mcp_server_id}", mcpGateway.StreamableHTTP)
 
 	// MCP Servers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)
