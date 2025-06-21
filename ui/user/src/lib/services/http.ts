@@ -161,7 +161,21 @@ export async function doPost(
 	opts?: {
 		dontLogErrors?: boolean;
 		fetch?: typeof fetch;
+		headers?: Record<string, string>;
 	}
 ): Promise<unknown> {
 	return await doWithBody('POST', path, input, opts);
 }
+
+export async function doPatch(
+	path: string,
+	input?: string | object | Blob,
+	opts?: {
+		dontLogErrors?: boolean;
+		fetch?: typeof fetch;
+	}
+): Promise<unknown> {
+	return await doWithBody('PATCH', path, input, opts);
+}
+
+export type Fetcher = typeof fetch;

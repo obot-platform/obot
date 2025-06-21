@@ -4,7 +4,7 @@
 	import { Download, RotateCw } from 'lucide-svelte';
 	import { onDestroy } from 'svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { getLayout } from '$lib/context/layout.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {

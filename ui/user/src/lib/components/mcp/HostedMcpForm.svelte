@@ -1,202 +1,243 @@
 <script lang="ts">
-	import type { MCPServerInfo } from '$lib/services/chat/mcp';
 	import { Plus, Trash2 } from 'lucide-svelte';
-	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
-	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
-	import { fade, slide } from 'svelte/transition';
+	import type {
+		MCPCatalogEntryFormData,
+		MCPCatalogEntryServerManifest
+	} from '$lib/services/admin/types';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Toggle from '../Toggle.svelte';
 
 	interface Props {
-		config: MCPServerInfo;
-		showSubmitError: boolean;
-		custom?: boolean;
-		showAdvancedOptions?: boolean;
-		chatbot?: boolean;
+		config: MCPCatalogEntryFormData['server'];
+		type: 'single' | 'multi';
+		readonly?: boolean;
 	}
-	let {
-		config = $bindable(),
-		showSubmitError,
-		custom,
-		chatbot = false,
-		showAdvancedOptions = $bindable(false)
-	}: Props = $props();
-
-	function focusOnAdd(node: HTMLInputElement, shouldFocus: boolean) {
-		if (shouldFocus) {
-			node.focus();
-		}
-	}
+	let { config = $bindable(), readonly, type = 'single' }: Props = $props();
 </script>
 
-{#if custom || chatbot}
-	<div class="flex flex-col gap-1">
-		<h4 class="text-base font-semibold">Configuration</h4>
-		{@render showConfigEnv('all')}
+<div
+	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+>
+	<h4 class="text-sm font-semibold">Launch Command</h4>
+	<div class="flex items-center gap-4">
+		<label for="command" class="text-sm font-light">Command</label>
+		<input
+			id="command"
+			class="text-input-filled w-full dark:bg-black"
+			bind:value={config.command}
+			disabled={readonly}
+		/>
+	</div>
+
+	{#if config.args}
+		<div class="flex gap-4">
+			<span class="pt-2.5 text-sm font-light">Arguments</span>
+			<div class="flex min-h-10 grow flex-col gap-4">
+				{#each config.args as _arg, i}
+					<div class="flex items-center gap-2">
+						<input
+							class="text-input-filled w-full dark:bg-black"
+							bind:value={config.args[i]}
+							disabled={readonly}
+							onpaste={(e) => {
+								if (readonly || !config.args) return;
+								e.preventDefault();
+								const pastedText = e.clipboardData?.getData('text');
+								if (!pastedText) return;
+
+								const lines = pastedText.split(/[\r\n]+/).filter((line) => line.trim());
+								if (lines.length <= 1) {
+									config.args[i] = pastedText;
+									return;
+								}
+
+								// Remove quotes, commas and trim each line
+								const cleanedLines = lines.map((line) => {
+									let trimmed = line.trim();
+									if (trimmed.endsWith(',')) {
+										trimmed = trimmed.slice(0, -1).trim();
+									}
+
+									if (
+										(trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+										(trimmed.startsWith("'") && trimmed.endsWith("'"))
+									) {
+										trimmed = trimmed.slice(1, -1).trim();
+									}
+									return trimmed;
+								});
+
+								config.args[i] = cleanedLines[0];
+								for (let j = 1; j < cleanedLines.length; j++) {
+									config.args.splice(i + j, 0, cleanedLines[j]);
+								}
+							}}
+						/>
+						{#if !readonly}
+							<button class="icon-button" onclick={() => config.args?.splice(i, 1)}>
+								<Trash2 class="size-4" />
+							</button>
+						{/if}
+					</div>
+				{/each}
+
+				{#if !readonly}
+					<div class="flex justify-end">
+						<button
+							class="button flex items-center gap-1 text-xs"
+							onclick={() => config.args?.push('')}
+						>
+							<Plus class="size-4" /> Argument
+						</button>
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
+</div>
+
+{#if !readonly || (readonly && config.env && config.env.length > 0)}
+	<div
+		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+	>
+		<h4 class="text-sm font-semibold">
+			{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
+		</h4>
+		<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+			{type === 'single' ? 'User supplied config' : 'Config'} values will be available as environment
+			variables in the MCP server and can be referenced in the arguments section using the syntax $KEY_NAME.
+		</p>
+		{@render showConfigEnv(config.env ?? [])}
 		{@render addEnvButton()}
 	</div>
 {/if}
 
-{#if !custom && (config.env ?? []).length > 0}
-	<div class="flex flex-col gap-1">
-		<h4 class="text-base font-semibold">Configuration</h4>
-		{@render showConfigEnv('default')}
-	</div>
-{/if}
-
-{#if showAdvancedOptions || custom || chatbot}
-	<div class="flex flex-col gap-4" in:fade out:slide={{ axis: 'y' }}>
-		{#if !custom && !chatbot}
-			<div class="flex flex-col gap-1">
-				<h4 class="text-base font-semibold">Custom Configurations</h4>
-				{@render showConfigEnv('custom')}
-				{@render addEnvButton()}
-			</div>
-		{/if}
-
-		<div class="flex items-center gap-4">
-			<h4 class="text-base font-semibold">Command</h4>
-			<input class="text-input-filled w-full" bind:value={config.command} disabled={chatbot} />
-		</div>
-
-		{#if config.args}
-			<div class="flex gap-4">
-				<h4 class="mt-1.5 text-base font-semibold">Arguments</h4>
-				<div class="flex grow flex-col gap-4">
-					{#each config.args as _arg, i}
-						<div class="flex items-center gap-2">
-							<input
-								class="text-input-filled w-full"
-								bind:value={config.args[i]}
-								disabled={chatbot}
-							/>
-							{#if !chatbot}
-								<button class="icon-button" onclick={() => config.args?.splice(i, 1)}>
-									<Trash2 class="size-4" />
-								</button>
-							{/if}
-						</div>
-					{/each}
-
-					{#if !chatbot}
-						<div class="flex justify-end">
-							<button
-								class="button flex items-center gap-1 text-xs"
-								onclick={() => config.args?.push('')}
-							>
-								<Plus class="size-4" /> Argument
-							</button>
-						</div>
-					{/if}
-				</div>
-			</div>
-		{/if}
-	</div>
-{/if}
-
-{#if !custom}
-	<div class="flex grow justify-start">
-		<button
-			class="mt-auto text-xs font-light text-gray-500 transition-colors hover:text-black dark:hover:text-white"
-			onclick={() => (showAdvancedOptions = !showAdvancedOptions)}
-		>
-			{showAdvancedOptions ? 'Hide Advanced Options...' : 'Show Advanced Options...'}
-		</button>
-	</div>
-{/if}
-
 {#snippet addEnvButton()}
-	{#if !chatbot}
+	{#if !readonly}
 		<div class="flex justify-end">
 			<button
 				class="button flex items-center gap-1 text-xs"
 				onclick={() =>
 					config.env?.push({
-						name: '',
 						key: '',
 						description: '',
-						sensitive: false,
-						required: false,
-						file: false,
+						name: '',
 						value: '',
-						custom: crypto.randomUUID()
+						required: false,
+						sensitive: false
 					})}
 			>
-				<Plus class="size-4" /> Environment Variable
+				<Plus class="size-4" /> User Configuration
 			</button>
 		</div>
 	{/if}
 {/snippet}
 
-{#snippet showConfigEnv(type: 'all' | 'default' | 'custom')}
-	{@const envsToShow =
-		type === 'all'
-			? (config.env ?? [])
-			: type === 'default'
-				? (config.env?.filter((env) => !env.custom) ?? [])
-				: (config.env?.filter((env) => env.custom) ?? [])}
-	{#each envsToShow as env, i}
-		<div class="flex w-full items-center gap-2">
-			<div class="flex grow flex-col gap-1">
-				{#if env.custom}
-					<div class="flex items-center gap-2">
-						<input
-							class="ghost-input w-full py-0"
-							bind:value={env.key}
-							placeholder="Key (ex. API_KEY)"
-							use:focusOnAdd={i === envsToShow.length - 1}
-						/>
-						{#if custom}
+{#snippet showConfigEnv(envs: MCPCatalogEntryServerManifest['env'])}
+	{#if envs}
+		{#each envs as env, i}
+			<div
+				class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
+			>
+				{#if type === 'single'}
+					<div class="flex w-full flex-col gap-4">
+						<div class="flex w-full flex-col gap-1">
+							<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
+							<input
+								id={`env-name-${i}`}
+								class="text-input-filled w-full"
+								bind:value={envs[i].name}
+								disabled={readonly}
+							/>
+						</div>
+						<div class="flex w-full flex-col gap-1">
+							<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
+							<input
+								id={`env-description-${i}`}
+								class="text-input-filled w-full"
+								bind:value={envs[i].description}
+								disabled={readonly}
+							/>
+						</div>
+						<div class="flex w-full flex-col gap-1">
+							<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
+							<input
+								id={`env-key-${i}`}
+								class="text-input-filled w-full"
+								bind:value={envs[i].key}
+								placeholder="(eg. CUSTOM_API_KEY)"
+								disabled={readonly}
+							/>
+						</div>
+						<div class="flex gap-8">
 							<Toggle
-								label="Required"
+								classes={{ label: 'text-sm text-inherit' }}
+								label="Sensitive"
 								labelInline
-								checked={env.required}
-								onChange={(checked) => (env.required = checked)}
-								classes={{
-									label: 'text-xs font-light text-gray-600 dark:text-gray-400 whitespace-nowrap'
+								checked={!!env.sensitive}
+								onChange={(checked) => {
+									envs[i].sensitive = checked;
 								}}
 							/>
-						{/if}
+							<Toggle
+								classes={{ label: 'text-sm text-inherit' }}
+								label="Required"
+								labelInline
+								checked={!!env.required}
+								onChange={(checked) => {
+									envs[i].required = checked;
+								}}
+							/>
+						</div>
 					</div>
 				{:else}
-					<label for={env.key} class="flex items-center gap-1 text-sm font-light">
-						{env.required ? `${env.name || env.key}*` : `${env.name || env.key} (optional)`}
-						<InfoTooltip text={env.description} />
-					</label>
-				{/if}
-				{#if env.sensitive}
-					<SensitiveInput name={env.name} bind:value={env.value} />
-				{:else}
-					<input
-						data-1p-ignore
-						id={env.key}
-						name={env.key}
-						class="text-input-filled w-full"
-						class:error={showSubmitError && !env.value && env.required}
-						bind:value={env.value}
-						type="text"
-					/>
+					<div class="flex w-full flex-col gap-4">
+						<div class="flex w-full flex-col gap-1">
+							<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
+							<input
+								id={`env-key-${i}`}
+								class="text-input-filled w-full"
+								bind:value={envs[i].key}
+								placeholder="(eg. CUSTOM_API_KEY)"
+								disabled={readonly}
+							/>
+						</div>
+						<div class="flex w-full flex-col gap-1">
+							<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
+							<input
+								id={`env-value-${i}`}
+								class="text-input-filled w-full"
+								bind:value={envs[i].value}
+								placeholder="(eg. 123abcdef456)"
+								disabled={readonly}
+							/>
+						</div>
+						<div>
+							<Toggle
+								classes={{ label: 'text-sm text-inherit w-fit' }}
+								label="Sensitive"
+								labelInline
+								checked={!!env.sensitive}
+								onChange={(checked) => {
+									envs[i].sensitive = checked;
+								}}
+							/>
+						</div>
+					</div>
 				{/if}
 
-				<div class="min-h-4 text-xs text-red-500">
-					{#if showSubmitError && !env.value && env.required}
-						This field is required.
-					{/if}
-				</div>
+				{#if !readonly}
+					<button
+						class="icon-button"
+						onclick={() => {
+							envs.splice(i, 1);
+						}}
+						use:tooltip={'Delete Configuration'}
+					>
+						<Trash2 class="size-4" />
+					</button>
+				{/if}
 			</div>
-			{#if (custom || env.custom) && !chatbot}
-				<button
-					class="icon-button"
-					onclick={() => {
-						const matchingIndex = config.env?.findIndex((e) =>
-							e.key ? e.key === env.key : e.custom === env.custom
-						);
-						if (typeof matchingIndex !== 'number') return;
-						config.env?.splice(matchingIndex, 1);
-					}}
-				>
-					<Trash2 class="size-4" />
-				</button>
-			{/if}
-		</div>
-	{/each}
+		{/each}
+	{/if}
 {/snippet}

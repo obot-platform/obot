@@ -1,4 +1,4 @@
-import { baseURL, doDelete, doGet, doPost, doPut } from './http';
+import { baseURL, doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
 import {
 	type Assistant,
 	type Assistants,
@@ -10,6 +10,7 @@ import {
 	type KnowledgeFile,
 	type KnowledgeFiles,
 	type MCP,
+	type MCPCatalogServer,
 	type MCPList,
 	type MCPServer,
 	type McpServerGeneratedPrompt,
@@ -45,8 +46,6 @@ import {
 	type ToolReferenceList,
 	type Version
 } from './types';
-
-export type Fetcher = typeof fetch;
 
 export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	const obj = (await doGet('/me', opts)) as Profile;
@@ -909,6 +908,15 @@ export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MC
 	return (await doGet(`/all-mcp-catalogs/entries/${id}`, opts)) as MCP;
 }
 
+export async function listMCPCatalogServers(opts?: {
+	fetch?: Fetcher;
+}): Promise<MCPCatalogServer[]> {
+	const response = (await doGet('/all-mcp-catalogs/servers', opts)) as {
+		items: MCPCatalogServer[];
+	};
+	return response.items;
+}
+
 export async function listProjectMCPs(
 	assistantID: string,
 	projectID: string,
@@ -1355,4 +1363,20 @@ export async function getDefaultModelForThread(
 	} catch {
 		return { model: '', modelProvider: '' };
 	}
+}
+
+export async function getBootstrapStatus(): Promise<{ enabled: boolean }> {
+	return (await doGet('/bootstrap')) as { enabled: boolean };
+}
+
+export async function bootstrapLogin(token: string) {
+	return doPost('/bootstrap/login', {
+		headers: {
+			Authorization: `Bearer ${token}}`
+		}
+	});
+}
+
+export async function bootstrapLogout() {
+	return doPost('/bootstrap/logout', {});
 }

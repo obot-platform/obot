@@ -1,13 +1,13 @@
 <script lang="ts">
 	import Editor from '$lib/components/Editors.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import Sidebar from '$lib/components/Sidebar.svelte';
+	import Sidebar from '$lib/components/chat/ChatSidebar.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import Thread from '$lib/components/Thread.svelte';
 	import { ChatService, EditorService, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { errors, responsive } from '$lib/stores';
-	import { closeAll, getLayout } from '$lib/context/layout.svelte';
+	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import { GripVertical, MessageCirclePlus, Plus, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -20,10 +20,9 @@
 	import type { Assistant, ProjectCredential } from '$lib/services';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { goto } from '$app/navigation';
-	import SidebarConfig from './SidebarConfig.svelte';
+	import SidebarConfig from './chat/ChatSidebarConfig.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import Banner from './Banner.svelte';
 
 	interface Props {
 		assistant?: Assistant;
@@ -43,7 +42,6 @@
 	let configDialog: HTMLDialogElement;
 	let shortcutsDialog: HTMLDialogElement;
 	let nav = $state<HTMLDivElement>();
-	let bannerRef = $state<ReturnType<typeof Banner>>();
 
 	async function createNewThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
@@ -113,27 +111,18 @@
 	});
 </script>
 
-<Banner bind:this={bannerRef} />
-<div
-	class="colors-background relative flex h-full flex-col overflow-hidden"
-	style={`height: calc(100% - ${bannerRef?.height() || 0}px)`}
->
+<div class="colors-background relative flex h-full flex-col overflow-hidden">
 	<div
 		class="border-surface1 relative flex h-full"
 		class:border={layout.sidebarOpen && !layout.fileEditorOpen}
 	>
 		{#if layout.sidebarOpen && !layout.fileEditorOpen}
 			<div
-				class={twMerge(
-					'bg-surface1 w-screen min-w-screen flex-shrink-0 ',
-					shared
-						? 'md:w-1/6 md:min-w-[250px]'
-						: 'md:w-1/3 md:max-w-1/2 md:min-w-[320px] lg:max-w-7/12'
-				)}
+				class="bg-surface1 w-screen min-w-screen flex-shrink-0 md:w-1/6 md:min-w-[250px]"
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
-				<Sidebar bind:project bind:currentThreadID {shared} />
+				<Sidebar bind:project bind:currentThreadID />
 			</div>
 			{#if !responsive.isMobile}
 				<div

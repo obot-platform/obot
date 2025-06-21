@@ -31,7 +31,7 @@
 		<div class="bg-surface1 dark:bg-surface2 w-full max-w-xl p-6 md:rounded-xl">
 			<AgentCopy
 				inline={true}
-				onBack={() => goto('/agents')}
+				onBack={() => goto('/home')}
 				template={data.template}
 				mcps={data.mcps}
 			/>

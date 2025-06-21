@@ -19,7 +19,7 @@
 	import { q } from '$lib/url';
 
 	let { data }: PageProps = $props();
-	let { authProviders, templates, loggedIn, editorProjects } = data;
+	let { authProviders, templates, loggedIn, isAdmin } = data;
 	let loginDialog = $state<HTMLDialogElement>();
 	let overrideRedirect = $state<string | null>(null);
 	let signUp = $state(true);
@@ -39,10 +39,7 @@
 			}
 
 			if (browser) {
-				const lastVisitedObot = localStorage.getItem('lastVisitedObot');
-				const matchingProject = editorProjects.find((p) => p.id === lastVisitedObot);
-				const url = lastVisitedObot && matchingProject ? `/o/${matchingProject.id}` : '/agents';
-				goto(url);
+				goto(isAdmin ? '/v2/admin/mcp-catalogs' : '/home');
 			}
 		}
 	});

@@ -12,8 +12,8 @@
 		invitation: ProjectInvitation;
 	}
 
-	let props = $props<{ data: PageData }>();
-	const invitation: ProjectInvitation = props.data.invitation;
+	let { data }: { data: PageData } = $props();
+	const invitation: ProjectInvitation = data.invitation;
 
 	let isProcessing = $state(false);
 	let responseMessage = $state('');
@@ -167,7 +167,7 @@
 						</a>
 					</div>
 					<div class="flex w-full justify-center">
-						<a href="/agents" class="button w-full rounded-full p-2 px-6 text-center"> Go Home </a>
+						<a href="/home" class="button w-full rounded-full p-2 px-6 text-center"> Go Home </a>
 					</div>
 				</div>
 			</div>

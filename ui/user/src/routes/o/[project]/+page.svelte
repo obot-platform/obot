@@ -2,7 +2,7 @@
 	import { replaceState } from '$app/navigation';
 	import { navigating } from '$app/state';
 	import EditMode from '$lib/components/EditMode.svelte';
-	import { initLayout } from '$lib/context/layout.svelte';
+	import { initLayout } from '$lib/context/chatLayout.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
 	import { browser } from '$app/environment';
 	import { profile, responsive } from '$lib/stores';

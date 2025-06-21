@@ -6,7 +6,7 @@
 	import { onMount } from 'svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
-	import { initLayout } from '$lib/context/layout.svelte';
+	import { initLayout } from '$lib/context/chatLayout.svelte';
 	import Obot from '$lib/components/Obot.svelte';
 	import { browser } from '$app/environment';
 	import { initProjectTools, getProjectTools } from '$lib/context/projectTools.svelte';
@@ -43,7 +43,6 @@
 	async function loadProject() {
 		if (!project) return;
 		assistant = await ChatService.getAssistant(project.assistantID);
-		localStorage.setItem('lastVisitedObot', project.id);
 		const tools = await ChatService.listTools(project.assistantID, project.id);
 
 		projectTools.tools = tools.items;
@@ -110,7 +109,7 @@
 				</div>
 
 				<button class="button-primary mt-2 w-full" onclick={createProject}>I Understand</button>
-				<button class="button w-full" onclick={() => goto('/agents')}>Go Back</button>
+				<button class="button w-full" onclick={() => goto('/home')}>Go Back</button>
 			</div>
 		</div>
 	{:else if project}

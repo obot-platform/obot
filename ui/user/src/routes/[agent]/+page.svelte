@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { profile } from '$lib/stores';
 	import { type PageProps } from './$types';
-	import { initLayout } from '$lib/context/layout.svelte';
+	import { initLayout } from '$lib/context/chatLayout.svelte';
 	import { goto } from '$app/navigation';
 
 	let { data }: PageProps = $props();
