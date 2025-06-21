@@ -93,6 +93,7 @@ var apiResources = []string{
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/abort",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/events",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/events",
+	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/file/{file...}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/file/{file...}",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/file/{file...}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/files",
