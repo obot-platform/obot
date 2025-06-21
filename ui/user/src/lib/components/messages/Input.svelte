@@ -52,7 +52,7 @@
 				if (!input.changedFiles) {
 					input.changedFiles = {};
 				}
-				input.changedFiles[file.name] = file.file.buffer;
+				input.changedFiles[scopedFilename(file)] = file.file.buffer;
 			}
 		}
 
@@ -65,8 +65,9 @@
 
 		if (input.changedFiles) {
 			for (const file of items) {
-				if (input.changedFiles[file.name] && file.file) {
-					file.file.contents = input.changedFiles[file.name];
+				const name = scopedFilename(file);
+				if (input.changedFiles[name] && file.file) {
+					file.file.contents = input.changedFiles[name];
 					file.file.modified = false;
 					file.file.buffer = '';
 				}
@@ -97,6 +98,10 @@
 
 	export function setValue(newValue: string) {
 		value = newValue;
+	}
+
+	export function scopedFilename(file: EditorItem) {
+		return file.file?.projectScoped ? `project://${file.name}` : file.name;
 	}
 
 	onMount(() => {

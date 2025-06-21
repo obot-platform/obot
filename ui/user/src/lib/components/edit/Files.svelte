@@ -64,11 +64,10 @@
 	const layout = getLayout();
 	const fileMonitor = newFileMonitor(project);
 	let files = $state<File[]>([]);
-	let fileToDelete = $state<string | undefined>();
+	let fileToDelete = $state<File | undefined>();
 	let fileList = $state<FileList>();
 	let items = $state<EditorItem[]>([]);
 	let editorDialog = $state<HTMLDialogElement>();
-	let apiOpts = $derived(thread ? { threadID: currentThreadID } : {});
 	let uploadInProgress = $state<Promise<Files>>();
 	let menu = $state<ReturnType<typeof Menu>>();
 
@@ -96,11 +95,12 @@
 		}
 
 		const file = fileList[0];
-		uploadInProgress = ChatService.saveFile(project.assistantID, project.id, file, apiOpts);
+		const opts = thread ? { threadID: currentThreadID } : {};
+		uploadInProgress = ChatService.saveFile(project.assistantID, project.id, file, opts);
 		uploadInProgress
 			.then(() => {
 				if (isKnowledgeFile(file.name) && thread && currentThreadID) {
-					return ChatService.uploadKnowledge(project.assistantID, project.id, file, apiOpts);
+					return ChatService.uploadKnowledge(project.assistantID, project.id, file, opts);
 				}
 			})
 			.finally(() => {
@@ -129,16 +129,30 @@
 	}
 
 	async function loadFiles() {
-		files = (await ChatService.listFiles(project.assistantID, project.id, apiOpts)).items;
+		// Get project scoped files
+		files = (await ChatService.listFiles(project.assistantID, project.id)).items;
+		if (thread) {
+			// Append thread scoped files
+			files = [
+				...files,
+				...(
+					await ChatService.listFiles(project.assistantID, project.id, {
+						threadID: currentThreadID
+					})
+				).items
+			];
+		}
 	}
 
 	async function editFile(file: File) {
 		if (thread) {
-			await EditorService.load(layout.items, project, file.name, apiOpts);
+			const opts = file.projectScoped ? {} : { threadID: currentThreadID };
+			await EditorService.load(layout.items, project, file.name, opts);
 			layout.fileEditorOpen = true;
 			menu?.toggle(false);
+			return;
 		} else {
-			await EditorService.load(items, project, file.name, apiOpts);
+			await EditorService.load(items, project, file.name);
 			editorDialog?.showModal();
 		}
 	}
@@ -147,81 +161,87 @@
 		if (!fileToDelete) {
 			return;
 		}
-		await ChatService.deleteFile(project.assistantID, project.id, fileToDelete, apiOpts);
+
+		const opts = fileToDelete.projectScoped ? {} : { threadID: currentThreadID };
+		await ChatService.deleteFile(project.assistantID, project.id, fileToDelete.name, opts);
 		await loadFiles();
-		if (isKnowledgeFile(fileToDelete) && thread && currentThreadID) {
-			await ChatService.deleteKnowledgeFile(project.assistantID, project.id, fileToDelete, apiOpts);
+
+		if (
+			isKnowledgeFile(fileToDelete.name) &&
+			thread &&
+			currentThreadID &&
+			!fileToDelete.projectScoped
+		) {
+			// Only delete thread-scoped knowledge files
+			await ChatService.deleteKnowledgeFile(
+				project.assistantID,
+				project.id,
+				fileToDelete.name,
+				opts
+			);
 		}
-		EditorService.remove(items, fileToDelete);
+
+		const id = EditorService.itemId(fileToDelete.name, project, opts);
+		EditorService.remove(items, id);
 		fileToDelete = undefined;
 	}
 </script>
 
-{#snippet content()}
-	{#if files && files.length > 0}
-		<ul class={classes?.list}>
-			{#each files as file}
-				<li class="group">
-					<div class="flex">
-						<button
-							class="flex w-4/5 flex-1 items-center gap-1 truncate text-start"
-							onclick={() => editFile(file)}
-						>
-							{#if isImage(file.name)}
-								<Image class="size-4 min-w-fit" />
-							{:else}
-								<FileText class="size-4 min-w-fit" />
-							{/if}
-							<span use:overflowToolTip>{file.name}</span>
-						</button>
+{#snippet fileSection(sectionFiles: File[])}
+	{#if sectionFiles.length > 0}
+		<div class="mb-4">
+			<ul class={classes?.list}>
+				{#each sectionFiles as file}
+					<li class="group">
+						<div class="flex">
+							<button
+								class="flex w-4/5 flex-1 items-center gap-1 truncate text-start"
+								onclick={() => editFile(file)}
+							>
+								{#if isImage(file.name)}
+									<Image class="size-4 min-w-fit" />
+								{:else}
+									<FileText class="size-4 min-w-fit" />
+								{/if}
+								<span use:overflowToolTip>{file.name}</span>
+							</button>
 
-						<button
-							class="icon-button-small ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
-							onclick={() => {
-								EditorService.download([], project, file.name, apiOpts);
-							}}
-						>
-							<Download class="text-gray size-4" />
-						</button>
+							<button
+								class="icon-button-small ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
+								onclick={() => {
+									const opts = file.projectScoped ? {} : { threadID: currentThreadID };
+									EditorService.download([], project, file.name, opts);
+								}}
+							>
+								<Download class="text-gray size-4" />
+							</button>
 
-						<button
-							class="icon-button-small ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
-							onclick={() => {
-								fileToDelete = file.name;
-								menu?.toggle(false);
-							}}
-						>
-							<Trash2 class="text-gray size-4" />
-						</button>
-					</div>
-				</li>
-			{/each}
-		</ul>
-	{/if}
-	{#if thread}
-		<div class="flex justify-end">
-			<label class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm">
-				{#await uploadInProgress}
-					<Loading class="size-4" />
-				{:catch error}
-					<Error {error} />
-				{/await}
-				{#if !uploadInProgress}
-					<Upload class="size-4" />
-				{/if}
-				Upload
-				<input bind:files={fileList} type="file" class="hidden" {accept} />
-			</label>
+							<button
+								class="icon-button-small ms-2 opacity-0 transition-all duration-200 group-hover:opacity-100"
+								onclick={() => {
+									fileToDelete = { name: file.name, projectScoped: file.projectScoped };
+									menu?.toggle(false);
+								}}
+							>
+								<Trash2 class="text-gray size-4" />
+							</button>
+						</div>
+					</li>
+				{/each}
+			</ul>
 		</div>
 	{/if}
 {/snippet}
 
 {#snippet menuBody()}
 	{#if thread}
+		{@const threadFiles = files
+			?.filter((file) => !file.projectScoped)
+			.sort((a, b) => a.name.localeCompare(b.name))}
 		<Menu
 			bind:this={menu}
 			title="Files"
-			description="Content available to AI."
+			description={HELPER_TEXTS.threadFiles}
 			onLoad={loadFiles}
 			classes={{
 				button: primary ? 'button-icon-primary' : '',
@@ -233,13 +253,31 @@
 			fixed={responsive.isMobile}
 		>
 			{#snippet body()}
-				{@render content()}
+				{@render fileSection(threadFiles)}
+
+				<div class="flex justify-end">
+					<label class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm">
+						{#await uploadInProgress}
+							<Loading class="size-4" />
+						{:catch error}
+							<Error {error} />
+						{/await}
+						{#if !uploadInProgress}
+							<Upload class="size-4" />
+						{/if}
+						Upload
+						<input bind:files={fileList} type="file" class="hidden" {accept} />
+					</label>
+				</div>
 			{/snippet}
 			{#snippet icon()}
 				<FileText class="h-5 w-5" />
 			{/snippet}
 		</Menu>
 	{:else}
+		{@const projectFiles = files
+			?.filter((file) => file.projectScoped)
+			.sort((a, b) => a.name.localeCompare(b.name))}
 		<CollapsePane
 			classes={{ header: 'pl-3 py-2', content: 'p-2' }}
 			iconSize={5}
@@ -247,7 +285,8 @@
 			helpText={HELPER_TEXTS.projectFiles}
 		>
 			<div class="flex flex-col gap-4">
-				{@render content()}
+				{@render fileSection(projectFiles)}
+
 				<div class="flex justify-end">
 					<label class="button flex cursor-pointer items-center justify-end gap-1 text-xs">
 						{#await uploadInProgress}
@@ -303,7 +342,7 @@
 
 <Confirm
 	show={fileToDelete !== undefined}
-	msg={`Are you sure you want to delete ${fileToDelete}?`}
+	msg={`Are you sure you want to delete ${fileToDelete?.name}?`}
 	onsuccess={deleteFile}
 	oncancel={() => (fileToDelete = undefined)}
 />

@@ -6,9 +6,11 @@ export interface EditorItem {
 	id: string;
 	name: string;
 	file?: {
+		projectScoped: boolean;
 		contents: string;
 		modified?: boolean;
 		buffer: string;
+		projectID?: string;
 		threadID?: string;
 		blob?: Blob;
 		taskID?: string;
@@ -32,28 +34,41 @@ function hasItem(items: EditorItem[], id: string): boolean {
 	return item !== undefined;
 }
 
+function itemId(
+	name: string,
+	project: Project | ProjectTemplate,
+	opts?: {
+		taskID?: string;
+		threadID?: string;
+		runID?: string;
+	}
+): string {
+	if (opts?.taskID && opts?.runID) {
+		return `${opts.taskID}/${opts.runID}/${name}`;
+	} else if (opts?.threadID) {
+		return `${opts.threadID}/${name}`;
+	}
+
+	return `${project.id}/${name}`;
+}
+
 async function load(
 	items: EditorItem[],
 	project: Project,
-	id: string,
+	name: string,
 	opts?: {
 		taskID?: string;
 		threadID?: string;
 		runID?: string;
 	}
 ) {
-	let fileID = id;
-	if (opts?.taskID && opts?.runID) {
-		fileID = `${opts.taskID}/${opts.runID}/${id}`;
-	} else if (opts?.threadID) {
-		fileID = `${opts.threadID}/${id}`;
-	}
-	if (hasItem(items, fileID)) {
-		select(items, fileID);
+	const id = itemId(name, project, opts);
+	if (hasItem(items, id)) {
+		select(items, id);
 	} else if (id.startsWith('tl1')) {
 		await genericLoad(items, id);
 	} else {
-		await loadFile(items, project, id, opts);
+		await loadFile(items, project, name, opts);
 	}
 }
 
@@ -99,7 +114,8 @@ async function download(
 		runID?: string;
 	}
 ) {
-	const item = items.find((item) => item.name === name);
+	const id = itemId(name, project, opts);
+	const item = items.find((item) => item.id === id);
 	if (item?.file && item.file.modified && item.file.buffer) {
 		await save(item, project, opts);
 	}
@@ -109,7 +125,7 @@ async function download(
 async function loadFile(
 	items: EditorItem[],
 	project: Project,
-	file: string,
+	name: string,
 	opts?: {
 		taskID?: string;
 		threadID?: string;
@@ -117,17 +133,15 @@ async function loadFile(
 	}
 ) {
 	try {
-		const blob = await ChatService.getFile(project.assistantID, project.id, file, opts);
+		const blob = await ChatService.getFile(project.assistantID, project.id, name, opts);
 		const contents = await blob.text();
-		let fileID = file;
-		if (opts?.taskID && opts?.runID) {
-			fileID = `${opts.taskID}/${opts.runID}/${file}`;
-		} else if (opts?.threadID) {
-			fileID = `${opts.threadID}/${file}`;
-		}
+		const id = itemId(name, project, opts);
+
 		const targetFile: EditorItem = {
-			id: fileID,
+			id: id,
 			file: {
+				projectScoped: id.startsWith(project.id),
+				projectID: project.id,
 				threadID: opts?.threadID,
 				buffer: '',
 				modified: false,
@@ -136,9 +150,10 @@ async function loadFile(
 				contents,
 				blob
 			},
-			name: file,
+			name: name,
 			selected: true
 		};
+
 		for (let i = 0; i < items.length; i++) {
 			if (items[i].id === targetFile.id) {
 				items[i] = targetFile;
@@ -146,6 +161,7 @@ async function loadFile(
 				return;
 			}
 		}
+
 		items.push(targetFile);
 		select(items, targetFile.id);
 	} catch {
@@ -214,6 +230,7 @@ async function createObot(opts?: { fetch?: Fetcher }) {
 }
 
 export default {
+	itemId,
 	remove,
 	load,
 	download,

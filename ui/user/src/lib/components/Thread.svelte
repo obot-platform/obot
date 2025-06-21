@@ -111,10 +111,9 @@
 	});
 
 	const layout = getLayout();
-	function onLoadFile(filename: string) {
-		EditorService.load(layout.items, project, filename, {
-			threadID: id
-		});
+	function onLoadFile(filename: string, projectScoped?: boolean) {
+		let opts = projectScoped === true ? {} : { threadID: id };
+		EditorService.load(layout.items, project, filename, opts);
 		layout.fileEditorOpen = true;
 	}
 

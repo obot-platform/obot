@@ -61,7 +61,7 @@
 	interface Props {
 		file: EditorItem;
 		onInvoke?: (invoke: InvokeInput) => void | Promise<void>;
-		onFileChanged?: (name: string, contents: string) => void;
+		onFileChanged?: (id: string, contents: string) => void;
 		class?: string;
 		items: EditorItem[];
 	}
@@ -125,7 +125,8 @@
 				onInvoke?.({
 					explain: {
 						filename: file.name,
-						selection: ttState.sliceDoc(selection.from, selection.to).toString()
+						selection: ttState.sliceDoc(selection.from, selection.to).toString(),
+						projectScoped: file?.file?.projectScoped
 					}
 				});
 			}
@@ -144,7 +145,8 @@
 				filename: file.name,
 				selection: ttState
 					.sliceDoc(ttState.selection.ranges[0].from, ttState.selection.ranges[0].to)
-					.toString()
+					.toString(),
+				projectScoped: file?.file?.projectScoped
 			};
 			await onInvoke?.(input);
 		}
@@ -186,7 +188,7 @@
 
 		const updater = EditorView.updateListener.of((update) => {
 			if (update.docChanged && focused) {
-				onFileChanged?.(file.name, update.state.doc.toString());
+				onFileChanged?.(file?.id, update.state.doc.toString());
 			}
 		});
 

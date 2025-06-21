@@ -8,7 +8,7 @@
 	import Codemirror from '$lib/components/editor/Codemirror.svelte';
 
 	interface Props {
-		onFileChanged: (name: string, contents: string) => void;
+		onFileChanged: (id: string, contents: string) => void;
 		onInvoke?: (invoke: InvokeInput) => void;
 		items: EditorItem[];
 	}
