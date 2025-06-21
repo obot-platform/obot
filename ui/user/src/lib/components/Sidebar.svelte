@@ -104,6 +104,7 @@
 			{#if hasTool(projectTools.tools, 'memory')}
 				<Memories {project} />
 			{/if}
+			<Files {project} classes={{ list: 'text-sm flex flex-col gap-2' }} />
 		{/if}
 	</div>
 

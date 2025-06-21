@@ -110,11 +110,13 @@ export interface InvokeInput {
 }
 
 export interface Explain {
+	projectScoped?: boolean;
 	filename: string;
 	selection: string;
 }
 
 export interface MessageFile {
+	projectScoped: boolean;
 	filename: string;
 	content: string;
 }
@@ -164,6 +166,7 @@ export interface Files {
 }
 
 export interface File {
+	projectScoped: boolean;
 	name: string;
 }
 

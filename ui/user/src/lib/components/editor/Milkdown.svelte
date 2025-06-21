@@ -23,7 +23,7 @@
 	interface Props {
 		file: EditorItem;
 		onInvoke?: (invoke: InvokeInput) => void | Promise<void>;
-		onFileChanged?: (name: string, contents: string) => void;
+		onFileChanged?: (id: string, contents: string) => void;
 		items: EditorItem[];
 		class?: string;
 	}
@@ -80,7 +80,8 @@
 	async function onSubmit(input: InvokeInput) {
 		input.improve = {
 			filename: file.name,
-			selection: getSelection()
+			selection: getSelection(),
+			projectScoped: file?.file?.projectScoped
 		};
 		await onInvoke?.(input);
 		hide();
@@ -101,7 +102,8 @@
 		onInvoke?.({
 			explain: {
 				filename: file.name,
-				selection: getSelection()
+				selection: getSelection(),
+				projectScoped: file?.file?.projectScoped
 			}
 		});
 	}
@@ -151,7 +153,7 @@
 					}
 
 					if (onFileChanged) {
-						onFileChanged(file.name, markdown);
+						onFileChanged(file.id, markdown);
 					}
 				});
 

@@ -45,8 +45,8 @@
 		}, 300);
 	};
 
-	function onFileChanged(name: string, contents: string) {
-		const item = layout.items.find((item) => item.name === name);
+	function onFileChanged(id: string, contents: string) {
+		const item = layout.items.find((item) => item.id === id);
 		if (item && item.file) {
 			item.file.buffer = contents;
 			item.file.modified = true;
@@ -90,6 +90,11 @@
 								class="group/file relative flex w-full items-center justify-between gap-1 [&_svg]:size-4 [&_svg]:min-w-fit"
 							>
 								<span use:overflowToolTip class="truncate p-1">{item.name}</span>
+								{#if item.file?.projectScoped === true}
+									<span class="inline-flex items-center rounded-full border px-1 py-0.5 text-[9px]">
+										Project
+									</span>
+								{/if}
 								<button
 									class="hover:bg-surface2 flex h-6 w-0 flex-shrink-0 items-center justify-center overflow-hidden rounded-full text-gray-500 transition-all duration-300 group-hover/file:w-6"
 									class:w-6={item.selected}

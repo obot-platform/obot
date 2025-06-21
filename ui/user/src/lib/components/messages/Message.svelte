@@ -33,7 +33,7 @@
 		msg: Message;
 		project: Project;
 		currentThreadID?: string;
-		onLoadFile?: (filename: string) => void;
+		onLoadFile?: (filename: string, projectScoped?: boolean) => void;
 		onSendCredentials?: (id: string, credentials: Record<string, string>) => void;
 		onSendCredentialsCancel?: (id: string) => void;
 		disableMessageToEditor?: boolean;
@@ -144,7 +144,7 @@
 
 	function fileLoad() {
 		if (msg.file?.filename) {
-			onLoadFile(msg.file?.filename);
+			onLoadFile(msg.file?.filename, msg.file?.projectScoped);
 		}
 	}
 
@@ -251,7 +251,11 @@
 				threadID: currentThreadID
 			});
 
-			const fileExists = files.items.some((file) => file.name === filename);
+			const fileExists = files.items.some(
+				(file) =>
+					file.name === filename &&
+					(file.projectScoped === msg.file?.projectScoped || !msg.file?.projectScoped)
+			);
 			return fileExists;
 		} catch (err) {
 			console.error('Failed to check if file exists:', err);
@@ -288,7 +292,7 @@
 				});
 			}
 
-			onLoadFile(filename);
+			onLoadFile(filename, msg.file?.projectScoped);
 		} catch (err) {
 			console.error('Failed to create or open image file:', err);
 		}
@@ -394,6 +398,11 @@
 				<div class="flex items-center gap-2 truncate">
 					<FileText class="min-w-fit" />
 					<span use:overflowToolTip>{msg.file.filename}</span>
+					{#if msg.file.projectScoped}
+						<span class="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[11px]">
+							Project File
+						</span>
+					{/if}
 				</div>
 				<div>
 					<Pencil />

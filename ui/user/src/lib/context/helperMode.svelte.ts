@@ -13,7 +13,8 @@ export const HELPER_TEXTS = {
 		'Begin every conversation with an introduction and default options that a user can choose from.',
 	knowledge:
 		'Add a collection of information (from documents to websites) that the agent can use to answer questions or perform tasks.',
-	projectFiles: 'Add files that are available to use/view by a user with every conversation.',
+	projectFiles: 'Files that all threads in the project can view and edit.',
+	threadFiles: 'Files that only this thread can view and edit.',
 	interfaces: 'Hook up an agent to third party services to automate tasks and workflows.',
 	sharing:
 		'Collaborate, share a simplified version to interact with, or make a template of the agent.',

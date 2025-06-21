@@ -3,6 +3,7 @@ import type { EditorItem } from '$lib/services/editor/index.svelte';
 import type { CitationSource, Explain, InputMessage, Message, Messages, Progress } from './types';
 
 type AdditionalOptions = {
+	projectID?: string;
 	threadID?: string;
 	taskID?: string;
 	runID?: string;
@@ -27,12 +28,16 @@ function toMessageFromInput(s: string): string {
 
 function setFileContent(
 	items: EditorItem[],
+	projectScoped: boolean,
 	name: string,
 	content: string,
 	full: boolean = false,
 	opts: AdditionalOptions = {}
 ) {
-	const id = opts.runID ? `${opts.taskID}/${opts.runID}/${name}` : `${opts.threadID}/${name}`;
+	let id = opts.runID ? `${opts.taskID}/${opts.runID}/${name}` : `${opts.threadID}/${name}`;
+	if (projectScoped && opts.projectID) {
+		id = `${opts.projectID}/${name}`;
+	}
 
 	const existing = items.find((f) => f.id === id);
 	if (existing && existing.file) {
@@ -48,6 +53,7 @@ function setFileContent(
 			id: id,
 			name: name,
 			file: {
+				projectScoped: projectScoped,
 				contents: content,
 				buffer: ''
 			}
@@ -56,7 +62,7 @@ function setFileContent(
 
 	// select the file
 	items.forEach((f) => {
-		f.selected = f.name === name;
+		f.selected = f.id === id;
 	});
 
 	if (opts.onItemsChanged) {
@@ -120,14 +126,17 @@ function getFilenameAndContent(msg: Message) {
 			// The filename might be incomplete, so remove it
 			obj.filename = '';
 		}
+
 		return {
 			filename: obj.filename,
-			content: obj.content
+			content: obj.content,
+			projectScoped: obj.project_scoped === 'true'
 		};
 	}
 	return {
 		filename: '',
-		content: ''
+		content: '',
+		projectScoped: false
 	};
 }
 
@@ -144,21 +153,25 @@ function reformatWriteMessage(
 		const obj = getFilenameAndContent(msg);
 		if (obj.filename) {
 			msg.file = {
+				projectScoped: obj.projectScoped,
 				filename: obj.filename,
-				content: ''
+				content: obj.content
 			};
-			msg.file.filename = obj.filename;
-			if (obj.content) {
-				msg.file.content = obj.content;
-			}
 		}
 		msg.message = [];
 	} catch {
 		// ignore error
 	}
 
-	if (last && msg.file?.filename && msg.file?.content) {
-		setFileContent(items, msg.file.filename, msg.file.content, msg.toolCall !== undefined, opts);
+	if (last && msg.file && msg.file.filename && msg.file.content) {
+		setFileContent(
+			items,
+			msg.file.projectScoped,
+			msg.file.filename,
+			msg.file.content,
+			msg.toolCall !== undefined,
+			opts
+		);
 	}
 }
 

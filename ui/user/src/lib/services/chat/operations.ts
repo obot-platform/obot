@@ -292,10 +292,13 @@ export async function listFiles(
 		)) as Files;
 	} else {
 		files = (await doGet(`/assistants/${assistantID}/projects/${projectID}/files`)) as Files;
+		files.items = files.items?.map((file) => ({ ...file, projectScoped: true }));
 	}
+
 	if (!files.items) {
 		files.items = [];
 	}
+
 	return files;
 }
 

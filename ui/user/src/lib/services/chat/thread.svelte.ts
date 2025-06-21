@@ -183,6 +183,7 @@ export class Thread {
 			this.onStepMessages(
 				stepID,
 				buildMessagesFromProgress(this.#items, msgs, {
+					projectID: this.#project.id,
 					taskID: this.#task?.id,
 					runID: this.runID,
 					threadID: this.threadID,
@@ -197,6 +198,7 @@ export class Thread {
 		if (this.replayComplete) {
 			this.onMessages(
 				buildMessagesFromProgress(this.#items, this.#progresses, {
+					projectID: this.#project.id,
 					taskID: this.#task?.id,
 					runID: this.runID,
 					threadID: this.threadID,
