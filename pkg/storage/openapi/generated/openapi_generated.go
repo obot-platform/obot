@@ -2742,6 +2742,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Format:  "",
 						},
 					},
+					"repoURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Description: "For single-user servers:",

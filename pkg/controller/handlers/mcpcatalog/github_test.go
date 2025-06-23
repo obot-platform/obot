@@ -53,12 +53,11 @@ func TestReadGitHubCatalog(t *testing.T) {
 			// Verify that each entry has required fields
 			for _, entry := range entries {
 				// "Test 0" is in a file that should not have been included when reading the catalog.
-				assert.NotEqual(t, entry.DisplayName, "Test 0", "should not be the left out entry")
+				assert.NotEqual(t, entry.Name, "Test 0", "should not be the left out entry")
 
-				assert.NotEmpty(t, entry.ID, "ID should not be empty")
-				assert.NotEmpty(t, entry.DisplayName, "DisplayName should not be empty")
+				assert.NotEmpty(t, entry.Name, "Name should not be empty")
 				assert.NotEmpty(t, entry.Description, "Description should not be empty")
-				assert.NotEmpty(t, entry.Manifest, "Manifest should not be empty")
+				assert.NotEmpty(t, entry.Command, "Command should not be empty")
 			}
 		})
 	}
