@@ -133,10 +133,6 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 
 		cleanName := strings.ToLower(strings.ReplaceAll(entry.Name, " ", "-"))
 
-		// TODO(g-linville): add some logic here to see if a given entry is static or requires/allows for some user configuration,
-		// and create it as a CatalogEntry or as a Server depending on the result.
-		// For now, we will continue to treat everything as a CatalogEntry.
-
 		catalogEntry := v1.MCPServerCatalogEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name.SafeHashConcatName(catalogName, cleanName),
