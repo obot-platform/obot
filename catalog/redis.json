@@ -5,6 +5,7 @@
     "categories": "Databases,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
+  "repoURL": "https://github.com/modelcontextprotocol/servers/tree/main/src/redis",
   "env": [
     {
       "key": "REDIS_URL",

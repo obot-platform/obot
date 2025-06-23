@@ -5,6 +5,7 @@
     "categories": "Communication & Messaging,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
+  "repoURL": "https://github.com/modelcontextprotocol/servers/tree/main/src/slack",
   "env": [
     {
       "key": "SLACK_BOT_TOKEN",

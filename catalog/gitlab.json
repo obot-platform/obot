@@ -6,6 +6,7 @@
     "unsupportedTools": "create_or_update_file,push_files"
   },
   "icon": "https://avatars.githubusercontent.com/u/42544600?v=4",
+  "repoURL": "https://github.com/zereight/gitlab-mcp",
   "env": [
     {
       "key": "GITLAB_PERSONAL_ACCESS_TOKEN",

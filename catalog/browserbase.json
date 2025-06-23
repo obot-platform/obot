@@ -5,6 +5,7 @@
     "categories": "Automation & Browsers,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/158221360?v=4",
+  "repoURL": "https://github.com/browserbase/mcp-server-browserbase/tree/main/browserbase",
   "env": [
     {
       "key": "BROWSERBASE_API_KEY",

@@ -5,6 +5,7 @@
     "categories": "Developer Tools,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/32061883?v=4",
+  "repoURL": "https://github.com/sooperset/mcp-atlassian",
   "env": [
     {
       "key": "CONFLUENCE_URL",

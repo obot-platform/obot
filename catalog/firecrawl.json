@@ -5,6 +5,7 @@
     "categories": "Retrieval & Search,Automation & Browsers,Science & Research,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/135057108?v=4",
+  "repoURL": "https://github.com/mendableai/firecrawl-mcp-server",
   "env": [
     {
       "key": "FIRECRAWL_API_KEY",

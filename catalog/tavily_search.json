@@ -5,6 +5,7 @@
     "categories": "Retrieval & Search, SaaS & API Integrations, Developer Tools,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/170207473?v=4",
+  "repoURL": "https://github.com/tavily-ai/tavily-mcp",
   "env": [
     {
       "key": "TAVILY_API_KEY",

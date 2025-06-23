@@ -5,6 +5,7 @@
     "categories": "Databases,Data & Analytics,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/25017723?v=4",
+  "repoURL": "https://github.com/designcomputer/mysql_mcp_server",
   "env": [
     {
       "key": "MYSQL_HOST",

@@ -5,6 +5,7 @@
     "categories": "Retrieval & Search, SaaS & API Integrations, Maps & Location,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/202564951?v=4",
+  "repoURL": "https://github.com/openbnb-org/mcp-server-airbnb",
   "env": [],
   "args": [
     "-y",

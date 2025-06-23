@@ -5,6 +5,7 @@
     "categories": "Data & Analytics,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/19199542?v=4",
+  "repoURL": "https://github.com/antvis/mcp-server-chart",
   "env": [
     {
       "key": "VIS_REQUEST_SERVER",

@@ -5,6 +5,7 @@
     "categories": "Developer Tools,Infrastructure & DevOps,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/84434210?v=4",
+  "repoURL": "https://github.com/akuity/argocd-mcp",
   "env": [
     {
       "key": "ARGOCD_BASE_URL",

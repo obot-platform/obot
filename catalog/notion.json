@@ -5,6 +5,7 @@
     "categories": "SaaS & API Integrations,Databases,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/4792552?v=4",
+  "repoURL": "https://github.com/makenotion/notion-mcp-server",
   "env": [
     {
       "key": "OPENAPI_MCP_HEADERS",

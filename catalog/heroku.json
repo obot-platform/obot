@@ -5,6 +5,7 @@
     "categories": "Infrastructure & DevOps,Developer Tools,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/23211?v=4",
+  "repoURL": "https://github.com/heroku/heroku-mcp-server",
   "env": [
     {
       "key": "HEROKU_API_KEY",

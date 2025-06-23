@@ -5,6 +5,7 @@
     "categories": "SaaS & API Integrations, Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/202564951?v=4",
+  "repoURL": "https://www.npmjs.com/package/@hubspot/mcp-server",
   "env": [
     {
       "key": "PRIVATE_APP_ACCESS_TOKEN",

@@ -5,6 +5,7 @@
     "categories": "Databases,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/183852044?v=4",
+  "repoURL": "https://github.com/neondatabase-labs/mcp-server-neon",
   "env": [
     {
       "key": "NEON_API_KEY",

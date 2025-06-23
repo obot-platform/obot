@@ -6,6 +6,7 @@
     "unsupportedTools": "puppeteer_screenshot"
   },
   "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
+  "repoURL": "https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer",
   "env": [
     {
       "key": "PUPPETEER_LAUNCH_OPTIONS",

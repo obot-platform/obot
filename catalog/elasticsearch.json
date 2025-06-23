@@ -5,6 +5,7 @@
     "categories": "Databases,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/6764390?v=4",
+  "repoURL": "https://github.com/elastic/mcp-server-elasticsearch",
   "env": [
     {
       "key": "ES_URL",

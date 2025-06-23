@@ -6,6 +6,7 @@
     "unsupportedTools": "browser_snapshot,browser_take_screenshot,browser_screen_capture,browser_pdf_save,browser_install"
   },
   "icon": "https://avatars.githubusercontent.com/u/6154722?v=4",
+  "repoURL": "https://github.com/microsoft/playwright-mcp",
   "env": [],
   "args": [
     "@playwright/mcp@latest"

@@ -5,6 +5,7 @@
     "categories": "Retrieval & Search, SaaS & API Integrations,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/9121162?v=4",
+  "repoURL": "https://github.com/nickclyde/duckduckgo-mcp-server",
   "env": [],
   "args": [
     "duckduckgo-mcp-server"

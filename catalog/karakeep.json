@@ -5,6 +5,7 @@
     "categories": "Retrieval & Search,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/202258986?v=4",
+  "repoURL": "https://github.com/karakeep-app/karakeep/tree/main/apps/mcp",
   "env": [
     {
       "key": "KARAKEEP_API_ADDR",

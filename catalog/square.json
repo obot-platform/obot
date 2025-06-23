@@ -5,6 +5,7 @@
     "categories": "E-commerce,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/82592?v=4",
+  "repoURL": "https://github.com/square/square-mcp-server",
   "env": [
     {
       "key": "ACCESS_TOKEN",

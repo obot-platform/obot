@@ -6,6 +6,7 @@
     "unsupportedTools": "create_or_update_file,push_files"
   },
   "icon": "https://avatars.githubusercontent.com/u/9919?v=4",
+  "repoURL": "https://github.com/github/github-mcp-server",
   "env": [
     {
       "key": "GITHUB_PERSONAL_ACCESS_TOKEN",

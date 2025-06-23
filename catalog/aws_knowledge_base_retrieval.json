@@ -5,6 +5,7 @@
     "categories": "Retrieval & Search, SaaS & API Integrations,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
+  "repoURL": "https://github.com/modelcontextprotocol/servers/tree/main/src/aws-kb-retrieval-server",
   "env": [
     {
       "key": "AWS_ACCESS_KEY_ID",

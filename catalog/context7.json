@@ -5,6 +5,7 @@
     "categories": "Developer Tools,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/74989412?v=4",
+  "repoURL": "https://github.com/upstash/context7",
   "env": [
     {
       "key": "DEFAULT_MINIMUM_TOKENS",
