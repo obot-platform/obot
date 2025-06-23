@@ -1,18 +1,10 @@
 {
-  "id": 1,
-  "displayName": "Zapier",
-  "fullName": "Zapier MCP Server",
-  "url": "https://mcp.zapier.com",
+  "name": "Zapier",
   "description": "Connect to Zapier MCP servers. Visit [Zapier's MCP Platform](https://mcp.zapier.com/) to generate your unique MCP server link and paste it below.\n\nWhen creating your MCP server, choose \"Other\" for MCP client and on the Connect page, select the \"Server URL\" option (OAuth is not yet supported).",
   "metadata": {
     "categories": "Automation & Browsers,Verified",
     "allow-multiple": "true"
   },
   "icon": "https://cdn.jsdelivr.net/npm/simple-icons@v13/icons/zapier.svg",
-  "manifest": [
-    {
-      "url": "",
-      "remote": true
-    }
-  ]
+  "hostname": "mcp.zapier.com"
 }

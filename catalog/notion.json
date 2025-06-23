@@ -1,64 +1,22 @@
 {
-  "id": 414,
-  "path": "README.md",
-  "displayName": "Notion",
-  "fullName": "makenotion/notion-mcp-server",
-  "url": "https://github.com/makenotion/notion-mcp-server",
+  "name": "Notion",
   "description": "Create, read, and manage pages and databases in Notion workspaces",
-  "stars": 1772,
   "metadata": {
     "categories": "SaaS & API Integrations,Databases,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/4792552?v=4",
-  "manifest": [
+  "env": [
     {
-      "env": [
-        {
-          "key": "OPENAPI_MCP_HEADERS",
-          "name": "OpenAPI MCP Headers",
-          "required": true,
-          "sensitive": true,
-          "description": "JSON-encoded HTTP headers for MCP requests, e.g., {\"Authorization\": \"Bearer ntn_****\", \"Notion-Version\": \"2022-06-28\"}. The Notion Integration token (ntn_****) is required."
-        }
-      ],
-      "args": [
-        "-y",
-        "@notionhq/notion-mcp-server"
-      ],
-      "command": "npx",
-      "preferred": true
-    },
-    {
-      "env": [
-        {
-          "key": "OPENAPI_MCP_HEADERS",
-          "name": "OpenAPI MCP Headers",
-          "required": true,
-          "sensitive": true,
-          "description": "JSON-encoded HTTP headers for MCP requests, e.g., {\"Authorization\": \"Bearer ntn_****\", \"Notion-Version\": \"2022-06-28\"}. The Notion Integration token (ntn_****) is required."
-        }
-      ],
-      "args": [
-        "run",
-        "--rm",
-        "-i",
-        "-e",
-        "OPENAPI_MCP_HEADERS",
-        "mcp/notion"
-      ],
-      "command": "docker"
-    },
-    {
-      "env": [],
-      "args": [
-        "run",
-        "--rm",
-        "-i",
-        "-e",
-        "OPENAPI_MCP_HEADERS={\"Authorization\": \"Bearer ntn_****\", \"Notion-Version\": \"2022-06-28\"}",
-        "notion-mcp-server"
-      ],
-      "command": "docker"
+      "key": "OPENAPI_MCP_HEADERS",
+      "name": "OpenAPI MCP Headers",
+      "required": true,
+      "sensitive": true,
+      "description": "JSON-encoded HTTP headers for MCP requests, e.g., {\"Authorization\": \"Bearer ntn_****\", \"Notion-Version\": \"2022-06-28\"}. The Notion Integration token (ntn_****) is required."
     }
-  ]
+  ],
+  "args": [
+    "-y",
+    "@notionhq/notion-mcp-server"
+  ],
+  "command": "npx"
 }

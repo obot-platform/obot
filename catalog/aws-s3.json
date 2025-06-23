@@ -1,72 +1,58 @@
 {
-  "id": 122,
-  "path": "README.md",
-  "displayName": "AWS S3",
-  "fullName": "samuraikun/aws-s3-mcp",
-  "url": "https://github.com/samuraikun/aws-s3-mcp",
+  "name": "AWS S3",
   "description": "MCP server to integration AWS S3 and LLM",
   "metadata": {
     "categories": "SaaS & API Integrations, Verified"
   },
-  "manifest": [
+  "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
+  "env": [
     {
-      "env": [
-        {
-          "key": "AWS_REGION",
-          "name": "AWS Region",
-          "value": "<aws_region>",
-          "required": false,
-          "sensitive": false,
-          "description": "AWS Region where your S3 buckets are located. Defaults to us-east-1"
-        },
-        {
-          "key": "S3_BUCKETS",
-          "name": "S3 Buckets",
-          "value": "<s3_buckets>",
-          "required": false,
-          "sensitive": false,
-          "description": "Comma-separated list of allowed S3 bucket names"
-        },
-        {
-          "key": "S3_MAX_BUCKETS",
-          "name": "S3 Max Buckets",
-          "value": "<s3_max_buckets>",
-          "required": false,
-          "sensitive": false,
-          "description": "Maximum number of buckets to return in listing. Defaults to 5"
-        },
-        {
-          "key": "AWS_ACCESS_KEY_ID",
-          "name": "AWS Access Key ID",
-          "value": "<aws_access_key_id>",
-          "required": true,
-          "sensitive": true,
-          "description": "AWS access key"
-        },
-        {
-          "key": "AWS_SECRET_ACCESS_KEY",
-          "name": "AWS Secret Access Key",
-          "value": "<aws_secret_access_key>",
-          "required": true,
-          "sensitive": true,
-          "description": "AWS secret key"
-        },
-        {
-          "key": "AWS_SESSION_TOKEN",
-          "name": "AWS Session Token",
-          "value": "<aws_session_token>",
-          "required": false,
-          "sensitive": true,
-          "description": "AWS session token"
-        }
-      ],
-      "args": [
-        "-y",
-        "aws-s3-mcp",
-        "--stdio"
-      ],
-      "command": "npx",
-      "preferred": true
+      "key": "AWS_REGION",
+      "name": "AWS Region",
+      "required": false,
+      "sensitive": false,
+      "description": "AWS Region where your S3 buckets are located. Defaults to us-east-1"
+    },
+    {
+      "key": "S3_BUCKETS",
+      "name": "S3 Buckets",
+      "required": false,
+      "sensitive": false,
+      "description": "Comma-separated list of allowed S3 bucket names"
+    },
+    {
+      "key": "S3_MAX_BUCKETS",
+      "name": "S3 Max Buckets",
+      "required": false,
+      "sensitive": false,
+      "description": "Maximum number of buckets to return in listing. Defaults to 5"
+    },
+    {
+      "key": "AWS_ACCESS_KEY_ID",
+      "name": "AWS Access Key ID",
+      "required": true,
+      "sensitive": true,
+      "description": "AWS access key"
+    },
+    {
+      "key": "AWS_SECRET_ACCESS_KEY",
+      "name": "AWS Secret Access Key",
+      "required": true,
+      "sensitive": true,
+      "description": "AWS secret key"
+    },
+    {
+      "key": "AWS_SESSION_TOKEN",
+      "name": "AWS Session Token",
+      "required": false,
+      "sensitive": true,
+      "description": "AWS session token"
     }
-  ]
+  ],
+  "args": [
+    "-y",
+    "aws-s3-mcp",
+    "--stdio"
+  ],
+  "command": "npx"
 }

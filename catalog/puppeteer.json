@@ -1,40 +1,30 @@
 {
-  "id": 171,
-  "path": "src/puppeteer/README.md",
-  "displayName": "Puppeteer",
-  "fullName": "modelcontextprotocol/servers/src/puppeteer",
-  "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer",
+  "name": "Puppeteer",
   "description": "Automate browser actions including navigation, screenshots, and web interactions",
-  "stars": 47323,
   "metadata": {
     "categories": "Automation & Browsers,Verified",
     "unsupportedTools": "puppeteer_screenshot"
   },
   "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-  "manifest": [
+  "env": [
     {
-      "env": [
-        {
-          "key": "PUPPETEER_LAUNCH_OPTIONS",
-          "name": "Puppeteer Launch Options",
-          "required": false,
-          "sensitive": false,
-          "description": "JSON-encoded string to customize Puppeteer browser launch parameters, such as headless mode, executable path, and browser args."
-        },
-        {
-          "key": "ALLOW_DANGEROUS",
-          "name": "Allow Dangerous",
-          "required": false,
-          "sensitive": false,
-          "description": "If set to 'true', allows dangerous launch options (e.g., --no-sandbox) that reduce security."
-        }
-      ],
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-puppeteer"
-      ],
-      "command": "npx",
-      "preferred": true
+      "key": "PUPPETEER_LAUNCH_OPTIONS",
+      "name": "Puppeteer Launch Options",
+      "required": false,
+      "sensitive": false,
+      "description": "JSON-encoded string to customize Puppeteer browser launch parameters, such as headless mode, executable path, and browser args."
+    },
+    {
+      "key": "ALLOW_DANGEROUS",
+      "name": "Allow Dangerous",
+      "required": false,
+      "sensitive": false,
+      "description": "If set to 'true', allows dangerous launch options (e.g., --no-sandbox) that reduce security."
     }
-  ]
+  ],
+  "args": [
+    "-y",
+    "@modelcontextprotocol/server-puppeteer"
+  ],
+  "command": "npx"
 }

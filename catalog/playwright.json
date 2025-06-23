@@ -1,24 +1,14 @@
 {
-  "id": 144,
-  "path": "README.md",
-  "displayName": "Playwright",
-  "fullName": "microsoft/playwright-mcp",
-  "url": "https://github.com/microsoft/playwright-mcp",
+  "name": "Playwright",
   "description": "Automate browser interactions and extract web page content using Playwright",
-  "stars": 10068,
   "metadata": {
     "categories": "Automation & Browsers,Verified",
     "unsupportedTools": "browser_snapshot,browser_take_screenshot,browser_screen_capture,browser_pdf_save,browser_install"
   },
   "icon": "https://avatars.githubusercontent.com/u/6154722?v=4",
-  "manifest": [
-    {
-      "env": [],
-      "args": [
-        "@playwright/mcp@latest"
-      ],
-      "command": "npx",
-      "preferred": true
-    }
-  ]
+  "env": [],
+  "args": [
+    "@playwright/mcp@latest"
+  ],
+  "command": "npx"
 }

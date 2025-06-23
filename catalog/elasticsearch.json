@@ -1,53 +1,43 @@
 {
-  "id": 40,
-  "path": "README.md",
-  "displayName": "Elasticsearch",
-  "fullName": "elastic/mcp-server-elasticsearch",
-  "url": "https://github.com/elastic/mcp-server-elasticsearch",
+  "name": "Elasticsearch",
   "description": "Query and manage Elasticsearch data and metadata",
-  "stars": 195,
   "metadata": {
     "categories": "Databases,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/6764390?v=4",
-  "manifest": [
+  "env": [
     {
-      "env": [
-        {
-          "key": "ES_URL",
-          "name": "Elasticsearch URL",
-          "required": true,
-          "sensitive": false,
-          "description": "Your Elasticsearch instance URL"
-        },
-        {
-          "key": "ES_API_KEY",
-          "name": "Elasticsearch API Key",
-          "required": false,
-          "sensitive": true,
-          "description": "Elasticsearch API key for authentication"
-        },
-        {
-          "key": "ES_USERNAME",
-          "name": "Elasticsearch Username",
-          "required": false,
-          "sensitive": true,
-          "description": "Elasticsearch username for basic authentication"
-        },
-        {
-          "key": "ES_PASSWORD",
-          "name": "Elasticsearch Password",
-          "required": false,
-          "sensitive": true,
-          "description": "Elasticsearch password for basic authentication"
-        }
-      ],
-      "args": [
-        "-y",
-        "@elastic/mcp-server-elasticsearch"
-      ],
-      "command": "npx",
-      "preferred": true
+      "key": "ES_URL",
+      "name": "Elasticsearch URL",
+      "required": true,
+      "sensitive": false,
+      "description": "Your Elasticsearch instance URL"
+    },
+    {
+      "key": "ES_API_KEY",
+      "name": "Elasticsearch API Key",
+      "required": false,
+      "sensitive": true,
+      "description": "Elasticsearch API key for authentication"
+    },
+    {
+      "key": "ES_USERNAME",
+      "name": "Elasticsearch Username",
+      "required": false,
+      "sensitive": true,
+      "description": "Elasticsearch username for basic authentication"
+    },
+    {
+      "key": "ES_PASSWORD",
+      "name": "Elasticsearch Password",
+      "required": false,
+      "sensitive": true,
+      "description": "Elasticsearch password for basic authentication"
     }
-  ]
+  ],
+  "args": [
+    "-y",
+    "@elastic/mcp-server-elasticsearch"
+  ],
+  "command": "npx"
 }

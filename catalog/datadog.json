@@ -1,118 +1,55 @@
 {
-  "id": 1140,
-  "path": "README.md",
-  "displayName": "Datadog",
-  "fullName": "GeLi2001/datadog-mcp-server",
-  "url": "https://github.com/GeLi2001/datadog-mcp-server",
+  "name": "Datadog",
   "description": "Monitor metrics, logs, incidents, and more in Datadog",
-  "stars": 34,
   "metadata": {
     "categories": "Developer Tools,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/77590974?v=4",
-  "manifest": [
+  "env": [
     {
-      "env": [
-        {
-          "key": "DD_API_KEY",
-          "name": "Datadog API Key",
-          "required": true,
-          "sensitive": true,
-          "description": "Your Datadog API key, obtainable from Organization Settings > API Keys."
-        },
-        {
-          "key": "DD_APP_KEY",
-          "name": "Datadog Application Key",
-          "required": true,
-          "sensitive": true,
-          "description": "Your Datadog Application key, obtainable from Organization Settings > Application Keys."
-        },
-        {
-          "key": "DD_SITE",
-          "name": "Datadog Site Domain",
-          "required": true,
-          "sensitive": false,
-          "description": "Datadog site domain for API calls (e.g., datadoghq.com, datadoghq.eu)."
-        },
-        {
-          "key": "DD_LOGS_SITE",
-          "name": "Datadog Logs Endpoint",
-          "required": false,
-          "sensitive": false,
-          "description": "Optional. If using different endpoint for logs API; defaults to DD_SITE."
-        },
-        {
-          "key": "DD_METRICS_SITE",
-          "name": "Datadog Metrics Endpoint",
-          "required": false,
-          "sensitive": false,
-          "description": "Optional. If using different endpoint for metrics API; defaults to DD_SITE."
-        }
-      ],
-      "args": [
-        "datadog-mcp-server",
-        "--apiKey",
-        "<YOUR_API_KEY>",
-        "--appKey",
-        "<YOUR_APP_KEY>",
-        "--site",
-        "<YOUR_DD_SITE>"
-      ],
-      "command": "npx",
-      "preferred": true
+      "key": "DD_API_KEY",
+      "name": "Datadog API Key",
+      "required": true,
+      "sensitive": true,
+      "description": "Your Datadog API key, obtainable from Organization Settings > API Keys."
     },
     {
-      "env": [
-        {
-          "key": "DD_API_KEY",
-          "name": "Datadog API Key",
-          "required": true,
-          "sensitive": true,
-          "description": "Your Datadog API key, obtainable from Organization Settings > API Keys."
-        },
-        {
-          "key": "DD_APP_KEY",
-          "name": "Datadog Application Key",
-          "required": true,
-          "sensitive": true,
-          "description": "Your Datadog Application key, obtainable from Organization Settings > Application Keys."
-        },
-        {
-          "key": "DD_SITE",
-          "name": "Datadog Site Domain",
-          "required": true,
-          "sensitive": false,
-          "description": "Datadog site domain for API calls (e.g., datadoghq.com, datadoghq.eu)."
-        },
-        {
-          "key": "DD_LOGS_SITE",
-          "name": "Datadog Logs Endpoint",
-          "required": false,
-          "sensitive": false,
-          "description": "Optional. If using different endpoint for logs API; defaults to DD_SITE."
-        },
-        {
-          "key": "DD_METRICS_SITE",
-          "name": "Datadog Metrics Endpoint",
-          "required": false,
-          "sensitive": false,
-          "description": "Optional. If using different endpoint for metrics API; defaults to DD_SITE."
-        }
-      ],
-      "args": [
-        "datadog-mcp-server",
-        "--apiKey",
-        "<YOUR_API_KEY>",
-        "--appKey",
-        "<YOUR_APP_KEY>",
-        "--site",
-        "<YOUR_DD_SITE>",
-        "--logsSite",
-        "<YOUR_LOGS_SITE>",
-        "--metricsSite",
-        "<YOUR_METRICS_SITE>"
-      ],
-      "command": "npx"
+      "key": "DD_APP_KEY",
+      "name": "Datadog Application Key",
+      "required": true,
+      "sensitive": true,
+      "description": "Your Datadog Application key, obtainable from Organization Settings > Application Keys."
+    },
+    {
+      "key": "DD_SITE",
+      "name": "Datadog Site Domain",
+      "required": true,
+      "sensitive": false,
+      "description": "Datadog site domain for API calls (e.g., datadoghq.com, datadoghq.eu)."
+    },
+    {
+      "key": "DD_LOGS_SITE",
+      "name": "Datadog Logs Endpoint",
+      "required": false,
+      "sensitive": false,
+      "description": "Optional. If using different endpoint for logs API; defaults to DD_SITE."
+    },
+    {
+      "key": "DD_METRICS_SITE",
+      "name": "Datadog Metrics Endpoint",
+      "required": false,
+      "sensitive": false,
+      "description": "Optional. If using different endpoint for metrics API; defaults to DD_SITE."
     }
-  ]
+  ],
+  "args": [
+    "datadog-mcp-server",
+    "--apiKey",
+    "<YOUR_API_KEY>",
+    "--appKey",
+    "<YOUR_APP_KEY>",
+    "--site",
+    "<YOUR_DD_SITE>"
+  ],
+  "command": "npx"
 }

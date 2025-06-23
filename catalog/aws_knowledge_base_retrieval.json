@@ -1,56 +1,42 @@
 {
-  "id": 164,
-  "path": "src/aws-kb-retrieval-server/README.md",
-  "displayName": "AWS Knowledge Base Retrieval",
-  "fullName": "modelcontextprotocol/servers/src/aws-kb-retrieval-server",
-  "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/aws-kb-retrieval-server",
+  "name": "AWS Knowledge Base Retrieval",
   "description": "Search and retrieve information from AWS Knowledge Base using Bedrock Agent Runtime",
-  "stars": 47323,
   "metadata": {
     "categories": "Retrieval & Search, SaaS & API Integrations,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-  "manifest": [
+  "env": [
     {
-      "env": [
-        {
-          "key": "AWS_ACCESS_KEY_ID",
-          "name": "AWS Access Key ID",
-          "value": "<aws_access_key_id>",
-          "required": true,
-          "sensitive": true,
-          "description": "AWS Access Key ID"
-        },
-        {
-          "key": "AWS_SECRET_ACCESS_KEY",
-          "name": "AWS Secret Access Key",
-          "value": "<aws_secret_access_key>",
-          "required": true,
-          "sensitive": true,
-          "description": "AWS Secret Access Key"
-        },
-        {
-          "key": "AWS_SESSION_TOKEN",
-          "name": "AWS Session Token",
-          "value": "<aws_session_token>",
-          "required": false,
-          "sensitive": true,
-          "description": "AWS Session Token"
-        },
-        {
-          "key": "AWS_REGION",
-          "name": "AWS Region",
-          "value": "<aws_region>",
-          "required": true,
-          "sensitive": false,
-          "description": "AWS Region"
-        }
-      ],
-      "args": [
-        "@modelcontextprotocol/server-aws-kb-retrieval"
-      ],
-      "command": "npx",
-      "preferred": true
+      "key": "AWS_ACCESS_KEY_ID",
+      "name": "AWS Access Key ID",
+      "required": true,
+      "sensitive": true,
+      "description": "AWS Access Key ID"
+    },
+    {
+      "key": "AWS_SECRET_ACCESS_KEY",
+      "name": "AWS Secret Access Key",
+      "required": true,
+      "sensitive": true,
+      "description": "AWS Secret Access Key"
+    },
+    {
+      "key": "AWS_SESSION_TOKEN",
+      "name": "AWS Session Token",
+      "required": false,
+      "sensitive": true,
+      "description": "AWS Session Token"
+    },
+    {
+      "key": "AWS_REGION",
+      "name": "AWS Region",
+      "required": true,
+      "sensitive": false,
+      "description": "AWS Region"
     }
-  ]
+  ],
+  "args": [
+    "@modelcontextprotocol/server-aws-kb-retrieval"
+  ],
+  "command": "npx"
 }

@@ -1,67 +1,28 @@
 {
-  "id": 616,
-  "path": "apps/mcp/README.md",
-  "displayName": "Karakeep",
-  "fullName": "karakeep-app/karakeep/apps/mcp",
-  "url": "https://github.com/karakeep-app/karakeep/tree/main/apps/mcp",
+  "name": "Karakeep",
   "description": "Manage bookmarks, lists, and tags in Karakeep",
-  "stars": 16375,
   "metadata": {
     "categories": "Retrieval & Search,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/202258986?v=4",
-  "manifest": [
+  "env": [
     {
-      "env": [
-        {
-          "key": "KARAKEEP_API_ADDR",
-          "name": "Karakeep API Address",
-          "value": "<karakeep_api_addr>",
-          "required": true,
-          "sensitive": false,
-          "description": "The base address of your Karakeep instance (e.g., https://karakeep.example.com)."
-        },
-        {
-          "key": "KARAKEEP_API_KEY",
-          "name": "Karakeep API Key",
-          "value": "<karakeep_api_key>",
-          "required": true,
-          "sensitive": true,
-          "description": "An API key for your Karakeep instance."
-        }
-      ],
-      "args": [
-        "@karakeep/mcp"
-      ],
-      "command": "npx",
-      "preferred": true
+      "key": "KARAKEEP_API_ADDR",
+      "name": "Karakeep API Address",
+      "required": true,
+      "sensitive": false,
+      "description": "The base address of your Karakeep instance (e.g., https://karakeep.example.com)."
     },
     {
-      "env": [
-        {
-          "key": "KARAKEEP_API_ADDR",
-          "name": "Karakeep API Address",
-          "required": true,
-          "sensitive": false,
-          "description": "The URL address for your Karakeep server"
-        },
-        {
-          "key": "KARAKEEP_API_KEY",
-          "name": "Karakeep API Key",
-          "required": true,
-          "sensitive": true,
-          "description": "Your Karakeep API access token"
-        }
-      ],
-      "args": [
-        "run",
-        "-e",
-        "KARAKEEP_API_ADDR=https://<YOUR_SERVER_ADDR>",
-        "-e",
-        "KARAKEEP_API_KEY=<YOUR_TOKEN>",
-        "ghcr.io/karakeep-app/karakeep-mcp:latest"
-      ],
-      "command": "docker"
+      "key": "KARAKEEP_API_KEY",
+      "name": "Karakeep API Key",
+      "required": true,
+      "sensitive": true,
+      "description": "An API key for your Karakeep instance."
     }
-  ]
+  ],
+  "args": [
+    "@karakeep/mcp"
+  ],
+  "command": "npx"
 }

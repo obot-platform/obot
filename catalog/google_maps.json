@@ -1,31 +1,22 @@
 {
-  "id": 147,
-  "path": "src/google-maps/README.md",
-  "displayName": "Google Maps",
-  "fullName": "modelcontextprotocol/servers/src/google-maps",
-  "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/google-maps",
+  "name": "Google Maps",
   "description": "Access Google Maps features including geocoding, places, directions, and search",
-  "stars": 47323,
   "metadata": {
     "categories": "Maps & Location,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-  "manifest": [
+  "env": [
     {
-      "env": [
-        {
-          "key": "GOOGLE_MAPS_API_KEY",
-          "name": "Google Maps API Key",
-          "required": true,
-          "sensitive": true,
-          "description": "Your Google Maps Platform API key. Obtain it from the Google Cloud Console as described in the documentation."
-        }
-      ],
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-google-maps"
-      ],
-      "command": "npx"
+      "key": "GOOGLE_MAPS_API_KEY",
+      "name": "Google Maps API Key",
+      "required": true,
+      "sensitive": true,
+      "description": "Your Google Maps Platform API key. Obtain it from the Google Cloud Console as described in the documentation."
     }
-  ]
+  ],
+  "args": [
+    "-y",
+    "@modelcontextprotocol/server-google-maps"
+  ],
+  "command": "npx"
 }

@@ -1,33 +1,23 @@
 {
-  "id": 169,
-  "path": "src/redis/README.md",
-  "displayName": "Redis",
-  "fullName": "modelcontextprotocol/servers/src/redis",
-  "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/redis",
+  "name": "Redis",
   "description": "Access and manage Redis key-value databases",
-  "stars": 47322,
   "metadata": {
     "categories": "Databases,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-  "manifest": [
+  "env": [
     {
-      "env": [
-        {
-          "key": "REDIS_URL",
-          "name": "Redis URL",
-          "required": true,
-          "sensitive": false,
-          "description": "URL for connecting to the Redis instance (e.g. redis://localhost:6379)."
-        }
-      ],
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-redis",
-        "${REDIS_URL}"
-      ],
-      "command": "npx",
-      "preferred": true
+      "key": "REDIS_URL",
+      "name": "Redis URL",
+      "required": true,
+      "sensitive": false,
+      "description": "URL for connecting to the Redis instance (e.g. redis://localhost:6379)."
     }
-  ]
+  ],
+  "args": [
+    "-y",
+    "@modelcontextprotocol/server-redis",
+    "${REDIS_URL}"
+  ],
+  "command": "npx"
 }

@@ -1,23 +1,13 @@
 {
-  "id": 166,
-  "path": "src/time/README.md",
-  "displayName": "Time",
-  "fullName": "modelcontextprotocol/servers/src/time",
-  "url": "https://github.com/modelcontextprotocol/servers/tree/main/src/time",
+  "name": "Time",
   "description": "Get current time and convert between timezones using IANA timezone names",
-  "stars": 47323,
   "metadata": {
     "categories": "Time & Scheduling,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
-  "manifest": [
-    {
-      "env": [],
-      "args": [
-        "mcp-server-time"
-      ],
-      "command": "uvx",
-      "preferred": true
-    }
-  ]
+  "env": [],
+  "args": [
+    "mcp-server-time"
+  ],
+  "command": "uvx"
 }

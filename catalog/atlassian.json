@@ -1,95 +1,85 @@
 {
-  "id": 128,
-  "path": "README.md",
-  "displayName": "Atlassian",
-  "fullName": "sooperset/mcp-atlassian",
-  "url": "https://github.com/sooperset/mcp-atlassian",
+  "name": "Atlassian",
   "description": "Manage Confluence pages and Jira issues in Atlassian products",
-  "stars": 1534,
   "metadata": {
     "categories": "Developer Tools,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/32061883?v=4",
-  "manifest": [
+  "env": [
     {
-      "env": [
-        {
-          "key": "CONFLUENCE_URL",
-          "name": "Confluence Instance URL",
-          "required": false,
-          "sensitive": false,
-          "description": "Base URL for your Confluence instance (Cloud or Server/DC). Example: https://your-company.atlassian.net/wiki or https://confluence.your-company.com"
-        },
-        {
-          "key": "CONFLUENCE_USERNAME",
-          "name": "Confluence Username (Cloud)",
-          "required": false,
-          "sensitive": false,
-          "description": "Email/username for Confluence Cloud login. Ignored for Server/DC."
-        },
-        {
-          "key": "CONFLUENCE_API_TOKEN",
-          "name": "Confluence API Token (Cloud)",
-          "required": false,
-          "sensitive": true,
-          "description": "API token for Confluence Cloud authentication. Generate at Atlassian security settings."
-        },
-        {
-          "key": "JIRA_URL",
-          "name": "Jira Instance URL",
-          "required": false,
-          "sensitive": false,
-          "description": "Base URL for your Jira instance (Cloud or Server/DC). Example: https://your-company.atlassian.net or https://jira.your-company.com"
-        },
-        {
-          "key": "JIRA_USERNAME",
-          "name": "Jira Username (Cloud)",
-          "required": false,
-          "sensitive": false,
-          "description": "Email/username for Jira Cloud login. Ignored for Server/DC."
-        },
-        {
-          "key": "JIRA_API_TOKEN",
-          "name": "Jira API Token (Cloud)",
-          "required": false,
-          "sensitive": true,
-          "description": "API token for Jira Cloud authentication. Generate at Atlassian security settings."
-        },
-        {
-          "key": "READ_ONLY_MODE",
-          "name": "Read-Only Mode",
-          "required": false,
-          "sensitive": false,
-          "description": "Set to 'true' to disable all write operations."
-        },
-        {
-          "key": "ENABLED_TOOLS",
-          "name": "Enabled Tools",
-          "required": false,
-          "sensitive": false,
-          "description": "Comma-separated list of enabled tool names (e.g., confluence_search,jira_get_issue)."
-        }
-      ],
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-e",
-        "CONFLUENCE_URL",
-        "-e",
-        "CONFLUENCE_USERNAME",
-        "-e",
-        "CONFLUENCE_API_TOKEN",
-        "-e",
-        "JIRA_URL",
-        "-e",
-        "JIRA_USERNAME",
-        "-e",
-        "JIRA_API_TOKEN",
-        "ghcr.io/obot-platform/mcp-images-atlassian:main"
-      ],
-      "command": "docker",
-      "preferred": true
+      "key": "CONFLUENCE_URL",
+      "name": "Confluence Instance URL",
+      "required": false,
+      "sensitive": false,
+      "description": "Base URL for your Confluence instance (Cloud or Server/DC). Example: https://your-company.atlassian.net/wiki or https://confluence.your-company.com"
+    },
+    {
+      "key": "CONFLUENCE_USERNAME",
+      "name": "Confluence Username (Cloud)",
+      "required": false,
+      "sensitive": false,
+      "description": "Email/username for Confluence Cloud login. Ignored for Server/DC."
+    },
+    {
+      "key": "CONFLUENCE_API_TOKEN",
+      "name": "Confluence API Token (Cloud)",
+      "required": false,
+      "sensitive": true,
+      "description": "API token for Confluence Cloud authentication. Generate at Atlassian security settings."
+    },
+    {
+      "key": "JIRA_URL",
+      "name": "Jira Instance URL",
+      "required": false,
+      "sensitive": false,
+      "description": "Base URL for your Jira instance (Cloud or Server/DC). Example: https://your-company.atlassian.net or https://jira.your-company.com"
+    },
+    {
+      "key": "JIRA_USERNAME",
+      "name": "Jira Username (Cloud)",
+      "required": false,
+      "sensitive": false,
+      "description": "Email/username for Jira Cloud login. Ignored for Server/DC."
+    },
+    {
+      "key": "JIRA_API_TOKEN",
+      "name": "Jira API Token (Cloud)",
+      "required": false,
+      "sensitive": true,
+      "description": "API token for Jira Cloud authentication. Generate at Atlassian security settings."
+    },
+    {
+      "key": "READ_ONLY_MODE",
+      "name": "Read-Only Mode",
+      "required": false,
+      "sensitive": false,
+      "description": "Set to 'true' to disable all write operations."
+    },
+    {
+      "key": "ENABLED_TOOLS",
+      "name": "Enabled Tools",
+      "required": false,
+      "sensitive": false,
+      "description": "Comma-separated list of enabled tool names (e.g., confluence_search,jira_get_issue)."
     }
-  ]
+  ],
+  "args": [
+    "run",
+    "-i",
+    "--rm",
+    "-e",
+    "CONFLUENCE_URL",
+    "-e",
+    "CONFLUENCE_USERNAME",
+    "-e",
+    "CONFLUENCE_API_TOKEN",
+    "-e",
+    "JIRA_URL",
+    "-e",
+    "JIRA_USERNAME",
+    "-e",
+    "JIRA_API_TOKEN",
+    "ghcr.io/obot-platform/mcp-images-atlassian:main"
+  ],
+  "command": "docker"
 }

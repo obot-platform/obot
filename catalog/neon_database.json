@@ -1,34 +1,24 @@
 {
-  "id": 1214,
-  "path": "README.md",
-  "displayName": "Neon Database",
-  "fullName": "neondatabase-labs/mcp-server-neon",
-  "url": "https://github.com/neondatabase-labs/mcp-server-neon",
+  "name": "Neon Database",
   "description": "Manage Neon Postgres databases, projects, and run queries",
-  "stars": 230,
   "metadata": {
     "categories": "Databases,Verified"
   },
   "icon": "https://avatars.githubusercontent.com/u/183852044?v=4",
-  "manifest": [
+  "env": [
     {
-      "env": [
-        {
-          "key": "NEON_API_KEY",
-          "name": "Neon API Key",
-          "required": true,
-          "sensitive": true,
-          "description": "The Neon API key"
-        }
-      ],
-      "args": [
-        "-y",
-        "@neondatabase/mcp-server-neon",
-        "start",
-        "${NEON_API_KEY}"
-      ],
-      "command": "npx",
-      "preferred": true
+      "key": "NEON_API_KEY",
+      "name": "Neon API Key",
+      "required": true,
+      "sensitive": true,
+      "description": "The Neon API key"
     }
-  ]
+  ],
+  "args": [
+    "-y",
+    "@neondatabase/mcp-server-neon",
+    "start",
+    "${NEON_API_KEY}"
+  ],
+  "command": "npx"
 }
