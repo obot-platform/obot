@@ -247,22 +247,6 @@ func (h *Handler) readMCPCatalogDirectory(catalog string) ([]types.MCPServerCata
 	return entries, nil
 }
 
-func isCommandPreferred(existing, newer string) bool {
-	if existing == "" {
-		return true
-	}
-	if newer == "" || existing == "npx" {
-		return false
-	}
-
-	if existing == "uvx" {
-		return newer == "npx"
-	}
-
-	// This would mean that existing is docker and newer is either npx or uvx.
-	return true
-}
-
 // DeleteUnauthorizedMCPServers deletes all MCP servers that are no longer authorized to run.
 // This can happen when a user has launched an MCP server that they used to have permission for,
 // but their access to the catalog that the server came from has been revoked.
