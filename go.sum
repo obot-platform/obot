@@ -364,8 +364,8 @@ github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b h1:IXgx6Y+g0
 github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b/go.mod h1:gMAaxAbeIvHtQoj/SKuqvoSGeywqc61/Yw9pusrT/R4=
 github.com/gptscript-ai/go-gptscript v0.9.6-0.20250617131750-9129819aea51 h1:9s53UDNVXF+ujMwhg/7LiZlIMYOpn2Ap8WBc1i4Pi/Y=
 github.com/gptscript-ai/go-gptscript v0.9.6-0.20250617131750-9129819aea51/go.mod h1:LQ4E2g+t+L/it13Le5m9Hfgn4huS8bO4hcTawFlUzSY=
-github.com/gptscript-ai/gptscript v0.9.6-0.20250620140450-ea419a794e0e h1:1rgs8Zwsbs5GrsbF7pdmCmoRviTz06SmkQXEm+vxFBo=
-github.com/gptscript-ai/gptscript v0.9.6-0.20250620140450-ea419a794e0e/go.mod h1:aHwGdJ4PcgL7kveDHyL0Fj4T7GpLlccHwEv6mPxOCXA=
+github.com/gptscript-ai/gptscript v0.9.6-0.20250623175741-7a49337eef7b h1:WzA47jpYA0Bnr6iqTMln4izIQLzgimX11Y847iriwa0=
+github.com/gptscript-ai/gptscript v0.9.6-0.20250623175741-7a49337eef7b/go.mod h1:gliKDlG8ujzJsCn05howgJf5CVy507VDv0ln+BsbqZs=
 github.com/gptscript-ai/huma v0.0.0-20250617131016-b2081da6c65b h1:QReUetqY+ep2sj6g83oqldPHzwH2T2TG1sv0IWE2hL0=
 github.com/gptscript-ai/huma v0.0.0-20250617131016-b2081da6c65b/go.mod h1:y2Eq35Y5Xy6+MZRPgn81/bjNBiEHqEQba+vY+fLigjU=
 github.com/gptscript-ai/tui v0.0.0-20250419050840-5e79e16786c9 h1:wQC8sKyeGA50WnCEG+Jo5FNRIkuX3HX8d3ubyWCCoI8=
@@ -509,8 +509,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f h1:y5//uYreIhSUg3J1GEMiLbxo1LJaP8RfCpH6pymGZus=
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f/go.mod h1:ZdcZmHo+o7JKHSa8/e818NopupXU1YMK5fe1lsApnBw=
-github.com/nanobot-ai/nanobot v0.0.6-0.20250620135741-a1afee774884 h1:sZhePJP/7Kh5WLeujUI/39Cysn6APii09s0aciRS+ig=
-github.com/nanobot-ai/nanobot v0.0.6-0.20250620135741-a1afee774884/go.mod h1:okGlfo6y6kP/mFLN4XpKkRIYzU9EXXjPO2KlcafbwrM=
+github.com/nanobot-ai/nanobot v0.0.6-0.20250623174223-c75713af7a09 h1:nMo9dQvmdetj+INyOvg37igNG1Q3nWzXCOnNRDDNv7M=
+github.com/nanobot-ai/nanobot v0.0.6-0.20250623174223-c75713af7a09/go.mod h1:okGlfo6y6kP/mFLN4XpKkRIYzU9EXXjPO2KlcafbwrM=
 github.com/nightlyone/lockfile v1.0.0 h1:RHep2cFKK4PonZJDdEl4GmkabuhbsRMgk/k3uAmxBiA=
 github.com/nightlyone/lockfile v1.0.0/go.mod h1:rywoIealpdNse2r832aiD9jRk8ErCatROs6LzC841CI=
 github.com/nwaples/rardecode/v2 v2.1.0 h1:JQl9ZoBPDy+nIZGb1mx8+anfHp/LV3NE2MjMiv0ct/U=
