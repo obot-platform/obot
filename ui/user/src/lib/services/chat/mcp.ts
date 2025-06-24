@@ -83,16 +83,6 @@ export function isValidMcpConfig(mcpConfig: MCPServerInfo) {
 }
 
 export function initMCPConfig(manifest?: MCPInfo | ProjectMCP | MCPServer): MCPServerInfo {
-	if (manifest && 'server' in manifest) {
-		return {
-			...manifest.server,
-			env: manifest.server.env?.map((e) => ({ ...e, value: '' })) ?? [],
-			args: manifest.server.args ? [...manifest.server.args] : [],
-			command: manifest.server.command ?? '',
-			headers: manifest.server.headers?.map((e) => ({ ...e, value: '' })) ?? []
-		};
-	}
-
 	return {
 		...manifest,
 		name: manifest?.name ?? '',

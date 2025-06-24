@@ -53,9 +53,7 @@
 		search
 			? allData.filter((item) => {
 					const nameToUse =
-						'name' in item
-							? item.name
-							: (item.commandManifest?.server.name ?? item.urlManifest?.server.name);
+						'name' in item ? item.name : (item.commandManifest?.name ?? item.urlManifest?.name);
 					return nameToUse?.toLowerCase().includes(search.toLowerCase());
 				})
 			: allData
@@ -98,20 +96,30 @@
 		connectToEntry = undefined;
 	}
 
+	function parseCategories(item: MCP | MCPCatalogServer) {
+		if ('metadata' in item && item.metadata?.categories) {
+			return item.metadata?.categories.split(',') ?? [];
+		}
+		if ('commandManifest' in item && item.commandManifest?.metadata?.categories) {
+			return item.commandManifest.metadata.categories.split(',') ?? [];
+		}
+		if ('urlManifest' in item && item.urlManifest?.metadata.categories) {
+			return item.urlManifest.metadata.categories.split(',') ?? [];
+		}
+		return [];
+	}
+
 	async function handleMcpServer(server: MCPCatalogServer) {
 		connectToServer = server;
 	}
 
 	async function handleMcpEntry(entry: MCP, connectedProject?: ProjectMCP) {
 		const envs = (
-			(entry.commandManifest ? entry.commandManifest.server.env : entry.urlManifest?.server.env) ??
-			[]
+			(entry.commandManifest ? entry.commandManifest.env : entry.urlManifest?.env) ?? []
 		).map((env) => ({ ...env, value: '' }));
 
 		const headers = (
-			(entry.commandManifest
-				? entry.commandManifest.server.headers
-				: entry.urlManifest?.server.headers) ?? []
+			(entry.commandManifest ? entry.commandManifest.headers : entry.urlManifest?.headers) ?? []
 		).map((header) => ({ ...header, value: '' }));
 
 		connectToEntry = { entry, matchingProject: connectedProject, envs, headers, launching: false };
@@ -127,7 +135,7 @@
 		if (connectToEntry && project) {
 			connectToEntry.launching = true;
 			const serverManifest =
-				connectToEntry.entry.commandManifest?.server ?? connectToEntry.entry.urlManifest?.server;
+				connectToEntry.entry.commandManifest ?? connectToEntry.entry.urlManifest;
 
 			if (!serverManifest) {
 				console.error('No server manifest found');
@@ -176,21 +184,10 @@
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 				{#each paginatedData as item}
 					{@const icon =
-						'icon' in item
-							? item.icon
-							: (item.commandManifest?.server.icon ?? item.urlManifest?.server.icon)}
+						'icon' in item ? item.icon : (item.commandManifest?.icon ?? item.urlManifest?.icon)}
 					{@const name =
-						'name' in item
-							? item.name
-							: (item.commandManifest?.server.name ?? item.urlManifest?.server.name)}
-					{@const categories =
-						'metadata' in item
-							? (item.metadata?.categories?.split(',') ?? [])
-							: 'commandManifest' in item
-								? (item.commandManifest?.metadata?.categories?.split(',') ?? [])
-								: 'urlManifest' in item
-									? (item.urlManifest?.metadata.categories?.split(',') ?? [])
-									: []}
+						'name' in item ? item.name : (item.commandManifest?.name ?? item.urlManifest?.name)}
+					{@const categories = parseCategories(item)}
 					<div
 						class="dark:bg-surface1 dark:border-surface3 relative flex flex-col rounded-sm border border-transparent bg-white px-2 py-4 shadow-sm"
 					>
@@ -212,8 +209,7 @@
 									{#if 'description' in item}
 										{item.description}
 									{:else}
-										{item.commandManifest?.server.description ??
-											item.urlManifest?.server.description}
+										{item.commandManifest?.description ?? item.urlManifest?.description}
 									{/if}
 								</span>
 							</div>
@@ -325,11 +321,9 @@
 	{#snippet titleContent()}
 		{#if connectToEntry}
 			{@const name =
-				connectToEntry.entry.commandManifest?.server.name ??
-				connectToEntry.entry.urlManifest?.server.name}
+				connectToEntry.entry.commandManifest?.name ?? connectToEntry.entry.urlManifest?.name}
 			{@const icon =
-				connectToEntry.entry.commandManifest?.server.icon ??
-				connectToEntry.entry.urlManifest?.server.icon}
+				connectToEntry.entry.commandManifest?.icon ?? connectToEntry.entry.urlManifest?.icon}
 			{#if icon}
 				<img src={icon} alt={name} class="size-6" />
 			{:else}

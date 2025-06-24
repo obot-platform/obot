@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { twMerge } from 'tailwind-merge';
-	import { CircleCheckBig, Server, Star } from 'lucide-svelte';
-	import { formatNumber } from '$lib/format';
+	import { CircleCheckBig, Server } from 'lucide-svelte';
 	import type { TransformedMcp } from './McpCatalog.svelte';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	interface Props {
@@ -63,14 +62,6 @@
 							{/each}
 						{/if}
 					</div>
-					{#if data.githubStars > 0}
-						<span
-							class="dark:bg-surface2 mt-auto flex h-fit items-center gap-1 rounded-md bg-gray-50 px-1 text-xs text-gray-500"
-						>
-							<Star class="size-3" />
-							{formatNumber(data.githubStars)}
-						</span>
-					{/if}
 				</div>
 			</div>
 		{/if}

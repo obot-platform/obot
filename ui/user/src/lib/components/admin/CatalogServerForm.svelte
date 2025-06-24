@@ -42,70 +42,55 @@
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): MCPCatalogEntryFormData {
 		if (!item) {
 			return {
-				displayName: '',
 				categories: [''],
-				server: {
-					name: '',
-					description: '',
-					env: [],
-					args: [''],
-					command: '',
-					url: '',
-					headers: [],
-					icon: ''
-				}
+				name: '',
+				description: '',
+				env: [],
+				args: [''],
+				command: '',
+				fixedURL: '',
+				headers: [],
+				icon: ''
 			};
 		}
 
 		if (item.type === 'mcpserver') {
 			const server = item as MCPCatalogServer;
 			return {
-				displayName: server.name,
 				categories: [],
-				server: {
-					icon: server.icon,
-					name: server.name,
-					description: server.description,
-					env: server.env,
-					args: server.args,
-					command: server.command,
-					url: server.url,
-					headers: server.headers
-				}
+				icon: server.icon,
+				name: server.name,
+				description: server.description,
+				env: server.env,
+				args: server.args,
+				command: server.command,
+				fixedURL: server.fixedURL,
+				headers: server.headers
 			};
 		} else {
 			const entry = item as MCPCatalogEntry;
 			return {
-				displayName: entry.commandManifest?.server.name ?? entry.urlManifest?.server.name ?? '',
 				categories:
 					entry.commandManifest?.metadata?.categories.split(',') ??
 					entry.urlManifest?.metadata?.categories.split(',') ??
 					[],
-				server: {
-					name: entry.commandManifest?.server.name ?? entry.urlManifest?.server.name ?? '',
-					icon: entry.commandManifest?.server.icon ?? entry.urlManifest?.server.icon ?? '',
-					env: (entry.commandManifest?.server.env ?? entry.urlManifest?.server.env ?? []).map(
-						(env) => ({
-							...env,
-							value: ''
-						})
-					),
-					description:
-						entry.commandManifest?.server.description ??
-						entry.urlManifest?.server.description ??
-						'',
-					args: entry.commandManifest?.server.args ?? entry.urlManifest?.server.args ?? [],
-					command: entry.commandManifest?.server.command ?? entry.urlManifest?.server.command ?? '',
-					url: entry.commandManifest?.server.url ?? entry.urlManifest?.server.url ?? '',
-					headers: (
-						entry.commandManifest?.server.headers ??
-						entry.urlManifest?.server.headers ??
-						[]
-					).map((header) => ({
+				name: entry.commandManifest?.name ?? entry.urlManifest?.name ?? '',
+				icon: entry.commandManifest?.icon ?? entry.urlManifest?.icon ?? '',
+				env: (entry.commandManifest?.env ?? entry.urlManifest?.env ?? []).map((env) => ({
+					...env,
+					value: ''
+				})),
+				description: entry.commandManifest?.description ?? entry.urlManifest?.description ?? '',
+				args: entry.commandManifest?.args ?? entry.urlManifest?.args ?? [],
+				command: entry.commandManifest?.command ?? entry.urlManifest?.command ?? '',
+				fixedURL: entry.commandManifest?.fixedURL ?? entry.urlManifest?.fixedURL ?? '',
+				hostname: entry.commandManifest?.hostname ?? entry.urlManifest?.hostname ?? '',
+				headers: (entry.commandManifest?.headers ?? entry.urlManifest?.headers ?? []).map(
+					(header) => ({
 						...header,
 						value: ''
-					}))
-				}
+					})
+				)
 			};
 		}
 	}
@@ -114,7 +99,7 @@
 	onMount(async () => {
 		if (entry && type === 'multi' && catalogId) {
 			AdminService.revealMcpCatalogServer(catalogId, entry.id).then((response) => {
-				formData.server.env = formData.server.env?.map((env) => ({
+				formData.env = formData.env?.map((env) => ({
 					...env,
 					value: response[env.key] ?? ''
 				}));
@@ -122,29 +107,30 @@
 		}
 	});
 
+	function convertCategoriesToMetadata(categories: string[]) {
+		const validCategories = categories.filter((c) => c);
+		return validCategories
+			? {
+					metadata: {
+						categories: validCategories.join(',')
+					}
+				}
+			: undefined;
+	}
+
 	function convertToEntryManifest(formData: MCPCatalogEntryFormData): MCPCatalogEntryManifest {
 		const { categories, ...rest } = formData;
 		return {
 			...rest,
-			metadata: {
-				categories: categories.filter((c) => c).join(',')
-			},
-			server: {
-				...rest.server,
-				name: rest.displayName
-			}
+			...convertCategoriesToMetadata(categories)
 		};
 	}
 
 	function convertToServerManifest(formData: MCPCatalogEntryFormData): MCPCatalogServerManifest {
-		const { categories, server, ...rest } = formData;
+		const { categories, ...rest } = formData;
 		return {
 			...rest,
-			...server,
-			name: rest.displayName,
-			metadata: {
-				categories: categories.filter((c) => c).join(',')
-			}
+			...convertCategoriesToMetadata(categories)
 		};
 	}
 
@@ -182,15 +168,14 @@
 			multi: handleServerSubmit,
 			remote: handleServerSubmit
 		};
-		const response = await handleFns[type]?.(catalogId);
-		console.log(response);
+		await handleFns[type]?.(catalogId);
 		onSubmit?.();
 	}
 </script>
 
 <h1 class="text-2xl font-semibold capitalize">
 	{#if entry}
-		{formData.displayName}
+		{formData.name}
 	{:else}
 		Create {type} Server
 	{/if}
@@ -204,7 +189,7 @@
 			<input
 				type="text"
 				id="name"
-				bind:value={formData.displayName}
+				bind:value={formData.name}
 				class="text-input-filled dark:bg-black"
 				disabled={readonly}
 			/>
@@ -215,7 +200,7 @@
 			<input
 				type="text"
 				id="name"
-				bind:value={formData.server.description}
+				bind:value={formData.description}
 				class="text-input-filled dark:bg-black"
 				disabled={readonly}
 			/>
@@ -226,7 +211,7 @@
 			<input
 				type="text"
 				id="icon"
-				bind:value={formData.server.icon}
+				bind:value={formData.icon}
 				class="text-input-filled dark:bg-black"
 				disabled={readonly}
 			/>
@@ -267,11 +252,11 @@
 </div>
 
 {#if type === 'single'}
-	<HostedMcpForm bind:config={formData.server} {readonly} type="single" />
+	<HostedMcpForm bind:config={formData} {readonly} type="single" />
 {:else if type === 'multi'}
-	<HostedMcpForm bind:config={formData.server} {readonly} type="multi" />
+	<HostedMcpForm bind:config={formData} {readonly} type="multi" />
 {:else if type === 'remote'}
-	<RemoteMcpForm bind:config={formData.server} {readonly} />
+	<RemoteMcpForm bind:config={formData} {readonly} />
 {/if}
 
 <div

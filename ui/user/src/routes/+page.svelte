@@ -428,12 +428,12 @@
 		}}
 	>
 		<div class="h-fit w-fit flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-			<img src={mcp.server.icon} alt={`${mcp.server.name} logo`} class="size-6" />
+			<img src={mcp.icon} alt={`${mcp.name} logo`} class="size-6" />
 		</div>
 		<div class="flex flex-col text-left">
-			<h4 class="line-clamp-1 text-sm font-semibold">{mcp.server.name}</h4>
+			<h4 class="line-clamp-1 text-sm font-semibold">{mcp.name}</h4>
 			<p class="line-clamp-1 text-xs font-light">
-				{mcp.server.description}
+				{mcp.description}
 			</p>
 		</div>
 	</button>

@@ -46,10 +46,10 @@
 			{#if mcps.length > 0}
 				<div class="absolute bottom-2 flex gap-1">
 					{#each mcps.slice(0, 5) as mcp}
-						{#if mcp.commandManifest?.server?.icon}
+						{#if mcp.commandManifest?.icon}
 							{@render mcpPill(mcp.commandManifest)}
 						{/if}
-						{#if mcp.urlManifest?.server?.icon}
+						{#if mcp.urlManifest?.icon}
 							{@render mcpPill(mcp.urlManifest)}
 						{/if}
 					{/each}
@@ -68,11 +68,6 @@
 
 {#snippet mcpPill(mcp: MCPInfo)}
 	<div class="h-fit w-fit flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-		<img
-			use:tooltip={mcp.server.name}
-			src={mcp.server.icon}
-			alt={`${mcp.server.name} logo`}
-			class="size-6"
-		/>
+		<img use:tooltip={mcp.name} src={mcp.icon} alt={`${mcp.name} logo`} class="size-6" />
 	</div>
 {/snippet}

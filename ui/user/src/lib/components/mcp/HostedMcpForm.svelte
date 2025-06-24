@@ -8,7 +8,7 @@
 	import Toggle from '../Toggle.svelte';
 
 	interface Props {
-		config: MCPCatalogEntryFormData['server'];
+		config: MCPCatalogEntryFormData;
 		type: 'single' | 'multi';
 		readonly?: boolean;
 	}

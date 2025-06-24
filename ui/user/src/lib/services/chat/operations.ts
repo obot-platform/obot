@@ -1104,7 +1104,6 @@ export async function listProjectMcpServerPrompts(
 			dontLogErrors: true
 		}
 	)) as MCPServerPrompt[];
-	console.log('listProjectMcpServerPrompts', response);
 	return response;
 }
 

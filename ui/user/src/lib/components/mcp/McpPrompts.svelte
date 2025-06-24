@@ -35,7 +35,6 @@
 
 	$effect(() => {
 		if (filterText && filterText.startsWith('/')) {
-			console.log('checkA');
 			ref?.classList.remove('hidden');
 			fetchPrompts();
 		} else {

@@ -290,7 +290,8 @@ export interface MCPServer {
 	args?: string[];
 	env?: MCPSubField[];
 	command?: string;
-	url?: string;
+	fixedURL?: string;
+	hostname?: string;
 	headers?: MCPSubField[];
 }
 
@@ -340,11 +341,9 @@ export interface McpServerResourceContent {
 	blob?: string;
 }
 
-export interface MCPInfo {
-	server: MCPServer;
-	githubStars: number;
+export interface MCPInfo extends MCPServer {
 	metadata: Record<string, string>;
-	url?: string;
+	repoURL?: string;
 }
 
 export interface ProjectMCPList {

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
-	import { formatNumber } from '$lib/format';
 	import {
 		ChatService,
 		type ProjectCredential,
@@ -11,16 +10,7 @@
 		type MCPServer
 	} from '$lib/services';
 	import { responsive } from '$lib/stores';
-	import {
-		ChevronRight,
-		ChevronsRight,
-		Info,
-		Link,
-		LoaderCircle,
-		Server,
-		Star,
-		X
-	} from 'lucide-svelte';
+	import { ChevronRight, ChevronsRight, Info, Link, LoaderCircle, Server, X } from 'lucide-svelte';
 	import {
 		initMCPConfig,
 		isValidMcpConfig,
@@ -47,8 +37,7 @@
 		project?: Project;
 		legacyAuthText?: string;
 		info?: {
-			githubStars?: number;
-			githubUrl?: string;
+			repoURL?: string;
 		};
 	}
 	let {
@@ -239,9 +228,9 @@
 				<div class="flex flex-col gap-1">
 					<h3 class="text-lg leading-5.5 font-semibold">
 						{name}
-						{#if info?.githubUrl}
+						{#if info?.repoURL}
 							<a
-								href={info.githubUrl}
+								href={info.repoURL}
 								target="_blank"
 								rel="noopener noreferrer"
 								class="ml-1 inline-block align-middle"
@@ -250,13 +239,6 @@
 							</a>
 						{/if}
 					</h3>
-
-					{#if info?.githubStars}
-						<span class="text-md flex h-fit w-fit items-center gap-1 font-light text-gray-500">
-							<Star class="size-4" />
-							{formatNumber(info.githubStars)}
-						</span>
-					{/if}
 				</div>
 			</div>
 			<div class="markdown-description-content message-content">

@@ -96,12 +96,12 @@
 								<div
 									class="flex w-fit items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-gray-800"
 								>
-									{#if manifest.server.icon}
+									{#if manifest.icon}
 										<div class="flex-shrink-0 rounded-md bg-white p-1 dark:bg-gray-700">
-											<img src={manifest.server.icon} class="size-3.5" alt={manifest.server.name} />
+											<img src={manifest.icon} class="size-3.5" alt={manifest.name} />
 										</div>
 									{/if}
-									<span class="truncate text-xs">{manifest.server.name}</span>
+									<span class="truncate text-xs">{manifest.name}</span>
 								</div>
 							{/if}
 						{/each}

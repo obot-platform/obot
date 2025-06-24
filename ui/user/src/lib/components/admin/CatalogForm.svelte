@@ -94,9 +94,9 @@
 			return {
 				id: entry.id,
 				source: entry.sourceURL || 'manual',
-				name: entry.commandManifest?.server.name ?? entry.urlManifest?.server.name ?? '',
+				name: entry.commandManifest?.name ?? entry.urlManifest?.name ?? '',
 				data: entry,
-				editable: !!entry.sourceURL,
+				editable: !entry.sourceURL,
 				type: 'Single-user',
 				deployments: 0
 			};
@@ -115,7 +115,7 @@
 					id: server.id,
 					name: server.name,
 					source: 'manual',
-					type: server.url ? 'Remote' : 'Multi-user',
+					type: server.fixedURL ? 'Remote' : 'Multi-user',
 					data: server,
 					editable: true,
 					deployments: 0

@@ -35,8 +35,7 @@
 		description?: string;
 		catalogId: string;
 		categories: string[];
-		githubStars: number;
-		githubUrl?: string;
+		repoURL?: string;
 		name: string;
 		commandManifest?: MCPInfo;
 		urlManifest?: MCPInfo;
@@ -73,21 +72,16 @@
 			return trimmed === VERIFIED_CATEGORY ? 'Community' : trimmed;
 		};
 		const { urlManifest, commandManifest } = mcp;
-		const githubStars = Math.max(
-			Number(commandManifest?.githubStars) || 0,
-			Number(urlManifest?.githubStars) || 0
-		);
-		const githubUrl = commandManifest?.url ?? urlManifest?.url;
+		const repoURL = commandManifest?.repoURL ?? urlManifest?.repoURL;
 		const categories = Array.from(
 			new Set([
 				...(commandManifest?.metadata?.categories?.split(',').map(toCategory) || []),
 				...(urlManifest?.metadata?.categories?.split(',').map(toCategory) || [])
 			])
 		);
-		const name = commandManifest?.server?.name ?? urlManifest?.server?.name ?? '';
-		const icon = commandManifest?.server?.icon ?? urlManifest?.server?.icon ?? '';
-		const description =
-			commandManifest?.server?.description ?? urlManifest?.server?.description ?? '';
+		const name = commandManifest?.name ?? urlManifest?.name ?? '';
+		const icon = commandManifest?.icon ?? urlManifest?.icon ?? '';
+		const description = commandManifest?.description ?? urlManifest?.description ?? '';
 		const allowsMultiple =
 			(commandManifest?.metadata && commandManifest.metadata['allow-multiple'] === 'true') ||
 			(urlManifest?.metadata && urlManifest.metadata['allow-multiple'] === 'true');
@@ -98,8 +92,7 @@
 			description,
 			catalogId: mcp.id,
 			categories,
-			githubStars,
-			githubUrl,
+			repoURL,
 			name,
 			commandManifest,
 			urlManifest,
@@ -207,9 +200,9 @@
 		if (preselectedManifest) {
 			selectedMcp = preselectedManifest;
 			if (preselectedManifest.commandManifest && !preselectedManifest.urlManifest) {
-				selectedMcpManifest = preselectedManifest.commandManifest.server;
+				selectedMcpManifest = preselectedManifest.commandManifest;
 			} else if (preselectedManifest.urlManifest && !preselectedManifest.commandManifest) {
-				selectedMcpManifest = preselectedManifest.urlManifest.server;
+				selectedMcpManifest = preselectedManifest.urlManifest;
 			}
 
 			if (selectedMcpManifest) {
@@ -277,9 +270,7 @@
 	function selectManifest(manifestType: 'command' | 'url') {
 		if (!selectedMcp) return;
 		selectedMcpManifest =
-			manifestType === 'command'
-				? selectedMcp?.commandManifest?.server
-				: selectedMcp?.urlManifest?.server;
+			manifestType === 'command' ? selectedMcp?.commandManifest : selectedMcp?.urlManifest;
 		selectManifestDialog?.close();
 		configDialog?.open();
 	}
@@ -421,7 +412,7 @@
 			if (mcp.commandManifest && mcp.urlManifest) {
 				selectManifestDialog?.showModal();
 			} else {
-				selectedMcpManifest = mcp.commandManifest?.server || mcp.urlManifest?.server;
+				selectedMcpManifest = mcp.commandManifest || mcp.urlManifest;
 				configDialog?.open();
 			}
 		}}
@@ -474,13 +465,13 @@
 			<span class="text-xs font-light text-gray-500">Let Obot manage the MCP server for you. </span>
 		</div>
 		{#if selectedMcp?.urlManifest}
-			{@const hostname = selectedMcp.urlManifest.server.url?.split('://')[1].split('/')[0]}
+			{@const hostname = selectedMcp.urlManifest.fixedURL?.split('://')[1].split('/')[0]}
 			<div class="flex flex-col items-center justify-center gap-1">
 				<button class="button w-full" onclick={() => selectManifest('url')}
 					>Connect to External Server</button
 				>
 				<span class="text-xs font-light text-gray-500">
-					{#if selectedMcp.urlManifest.url}
+					{#if selectedMcp.urlManifest.fixedURL}
 						Use the preconfigured external server: <b
 							class="font-semibold text-black dark:text-white">{hostname}</b
 						>

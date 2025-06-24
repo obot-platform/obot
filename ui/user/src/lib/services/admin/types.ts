@@ -27,17 +27,15 @@ export interface MCPCatalogEntryServerManifest {
 	args?: string[];
 	env?: MCPCatalogEntryFieldManifest[];
 	command?: string;
-	url?: string;
+	fixedURL?: string;
+	hostname?: string;
 	headers?: MCPCatalogEntryFieldManifest[];
 	name?: string;
 	description?: string;
 }
 
-export interface MCPCatalogEntryManifest {
-	server: MCPCatalogEntryServerManifest & { icon?: string };
-	url?: string;
-	githubStars?: number;
-	displayName?: string;
+export interface MCPCatalogEntryManifest extends MCPCatalogEntryServerManifest {
+	icon?: string;
 	metadata?: {
 		categories?: string;
 	};
