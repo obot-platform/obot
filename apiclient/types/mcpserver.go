@@ -29,7 +29,6 @@ type MCPServerCatalogEntryManifest struct {
 }
 
 type MCPHeader struct {
-	// Information to display to the user about this field:
 	Name        string `json:"name"`
 	Description string `json:"description"`
 
