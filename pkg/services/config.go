@@ -31,6 +31,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	"github.com/obot-platform/obot/pkg/bootstrap"
+	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/credstores"
 	"github.com/obot-platform/obot/pkg/encryption"
 	"github.com/obot-platform/obot/pkg/events"
@@ -56,6 +57,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/union"
+	gocache "k8s.io/client-go/tools/cache"
 
 	// Setup nah logging
 	_ "github.com/obot-platform/nah/pkg/logrus"
@@ -143,6 +145,9 @@ type Services struct {
 	SendgridWebhookPassword string
 
 	AllowedMCPDockerImageRepos []string
+
+	// Used for indexed lookups of access control rules.
+	AccessControlRuleHelper *accesscontrolrule.Helper
 
 	// Used for loading and running MCP servers with GPTScript.
 	MCPRunner engine.MCPRunner
@@ -373,6 +378,35 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
+	gvk, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
+	if err != nil {
+		return nil, err
+	}
+
+	informer, err := r.Backend().GetInformerForKind(ctx, gvk)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = informer.AddIndexers(map[string]gocache.IndexFunc{
+		"user-ids": func(obj any) ([]string, error) {
+			acr := obj.(*v1.AccessControlRule)
+			return acr.Spec.UserIDs, nil
+		},
+		"catalog-entry-names": func(obj any) ([]string, error) {
+			acr := obj.(*v1.AccessControlRule)
+			return acr.Spec.MCPServerCatalogEntryNames, nil
+		},
+		"server-names": func(obj any) ([]string, error) {
+			acr := obj.(*v1.AccessControlRule)
+			return acr.Spec.MCPServerNames, nil
+		},
+	}); err != nil {
+		return nil, err
+	}
+
+	acrHelper := accesscontrolrule.NewAccessControlRuleHelper(informer)
+
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
 	apply.AddValidOwnerChange("mcpcatalogentries", "catalog-default")
 
@@ -514,7 +548,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			gatewayClient,
 			gptscriptClient,
 			authn.NewAuthenticator(authenticators),
-			authz.NewAuthorizer(r.Backend(), config.DevMode),
+			authz.NewAuthorizer(r.Backend(), config.DevMode, acrHelper),
 			proxyManager,
 			auditLogger,
 			rateLimiter,
@@ -553,6 +587,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			CodeChallengeMethodsSupported:     []string{"S256", "plain"},
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "none"},
 		},
+		AccessControlRuleHelper: acrHelper,
 	}, nil
 }
 

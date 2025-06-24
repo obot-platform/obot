@@ -34,9 +34,11 @@ const (
 	SlackTriggerPrefix        = "st1"
 	UserDeletePrefix          = "ud1"
 	MCPServerPrefix           = "ms1"
+	MCPServerInstancePrefix   = "msi1"
 	CatalogPrefix             = "mcat1"
 	OAuthClientPrefix         = "oc1"
 	OAuthAuthRequestPrefix    = "oar1"
+	AccessControlRulePrefix   = "acr1"
 )
 
 func IsThreadID(id string) bool {

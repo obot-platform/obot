@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesummary"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projectinvitation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
@@ -216,18 +217,18 @@ func (c *Controller) setupRoutes() error {
 
 	// MCPCatalog
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.Sync)
-	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServers)
-	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.SetUpUserCatalogAuthorizations)
 
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
 
 	// MCPServer
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteOrphans)
+	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentialsForProject)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
 
-	// UserCatalogAuthorization
-	root.Type(&v1.UserCatalogAuthorization{}).HandlerFunc(cleanup.Cleanup)
+	// MCPServerInstance
+	root.Type(&v1.MCPServerInstance{}).HandlerFunc(cleanup.Cleanup)
 
 	// ProjectInvitations
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.SetRespondedTime)

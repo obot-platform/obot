@@ -15,10 +15,8 @@ type MCPCatalog struct {
 }
 
 type MCPCatalogSpec struct {
-	DisplayName    string   `json:"displayName,omitempty"`
-	SourceURLs     []string `json:"sourceURLs,omitempty"`
-	AllowedUserIDs []string `json:"allowedUserIDs,omitempty"`
-	IsReadOnly     bool     `json:"isReadOnly,omitempty"`
+	DisplayName string   `json:"displayName,omitempty"`
+	SourceURLs  []string `json:"sourceURLs,omitempty"`
 }
 
 type MCPCatalogStatus struct {

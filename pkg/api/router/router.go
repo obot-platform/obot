@@ -30,6 +30,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
 	mcpCatalogs := handlers.NewMCPCatalogHandler(services.AllowedMCPDockerImageRepos)
+	accessControlRules := handlers.NewAccessControlRuleHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)
 	authProviders := handlers.NewAuthProviderHandler(services.GPTClient, services.ProviderDispatcher, services.PostgresDSN)
@@ -48,9 +49,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GatewayClient, services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler(services.GPTClient)
-	mcp := handlers.NewMCPHandler(services.GPTClient, services.MCPLoader, services.ServerURL)
+	mcp := handlers.NewMCPHandler(services.GPTClient, services.MCPLoader, services.ServerURL, services.AccessControlRuleHelper)
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.GPTClient, services.MCPLoader)
+	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -377,30 +379,53 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Slack event receiver
 	mux.HandleFunc("POST /api/slack/events", slackEventHandler.HandleEvent)
 
-	// MCP Catalog Entries
-	mux.HandleFunc("GET /api/all-mcp-catalogs/entries", mcp.ListEntriesForAllCatalogs)
-	mux.HandleFunc("GET /api/all-mcp-catalogs/entries/{entry_id}", mcp.GetCatalogEntry)
+	// MCP Catalog Entries (user routes to access single-user and remote MCP servers configured by the admin)
+	mux.HandleFunc("GET /api/all-mcp-catalogs/entries", mcp.ListEntriesInDefaultCatalog)
+	mux.HandleFunc("GET /api/all-mcp-catalogs/entries/{entry_id}", mcp.GetCatalogEntryFromDefaultCatalog)
 
-	// MCP Shared Servers Within Catalogs
-	mux.HandleFunc("GET /api/all-mcp-catalogs/servers", mcp.ListServersForAllCatalogs)
-	mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{mcp_server_id}", mcp.GetServerFromCatalogs)
+	// MCP Shared Servers Within Catalogs (user routes to access multi-user MCP servers configured and deployed by the admin)
+	mux.HandleFunc("GET /api/all-mcp-catalogs/servers", mcp.ListServersInDefaultCatalog)
+	mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{mcp_server_id}", mcp.GetServerFromDefaultCatalog)
 	mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{mcp_server_id}/tools", mcp.GetTools)
 	mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{mcp_server_id}/resources", mcp.GetResources)
 	mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{mcp_server_id}/resources/{resource_uri}", mcp.ReadResource)
 	mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{mcp_server_id}/prompts", mcp.GetPrompts)
 	mux.HandleFunc("GET /api/all-mcp-catalogs/servers/{mcp_server_id}/prompts/{prompt_name}", mcp.GetPrompt)
 
+	// User-Deployed MCP Servers (single-user and remote)
+	mux.HandleFunc("GET /api/mcp-servers", mcp.ListServer)
+	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}", mcp.GetServer)
+	mux.HandleFunc("POST /api/mcp-servers", mcp.CreateServer)
+	mux.HandleFunc("PUT /api/mcp-servers/{mcp_server_id}", mcp.UpdateServer)
+	mux.HandleFunc("DELETE /api/mcp-servers/{mcp_server_id}", mcp.DeleteServer)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/configure", mcp.ConfigureServer)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/reveal", mcp.Reveal)
+	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/tools", mcp.GetTools)
+	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/resources", mcp.GetResources)
+	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/resources/{resource_uri}", mcp.ReadResource)
+	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/prompts", mcp.GetPrompts)
+	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/prompts/{prompt_name}", mcp.GetPrompt)
+
+	// MCPServerInstances
+	mux.HandleFunc("GET /api/mcp-server-instances", serverInstances.ListServerInstances)
+	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.GetServerInstance)
+	mux.HandleFunc("POST /api/mcp-server-instances", serverInstances.CreateServerInstance)
+	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.DeleteServerInstance)
+
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}", mcpCatalogs.Get)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/refresh", mcpCatalogs.Refresh)
-	mux.HandleFunc("POST /api/mcp-catalogs", mcpCatalogs.Create)
 	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}", mcpCatalogs.Update)
-	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}", mcpCatalogs.Delete)
+
+	// MCPServerCatalogEntries (admin only, for single-user and remote MCP servers)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries", mcpCatalogs.ListEntriesForCatalog)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries", mcpCatalogs.CreateEntry)
 	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.UpdateEntry)
 	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.DeleteEntry)
+
+	// MCPServers within the catalog (admin only, for multi-user MCP servers)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers", mcp.ListServer)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}", mcp.GetServer)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers", mcp.CreateServer)
@@ -410,10 +435,17 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/reveal", mcp.Reveal)
 
-	// MCP Gateway Endpoints
-	mux.HandleFunc("/mcp-connect/{mcp_server_id}", mcpGateway.StreamableHTTP)
+	// Access Control Rules (admin only)
+	mux.HandleFunc("GET /api/access-control-rules", accessControlRules.List)
+	mux.HandleFunc("GET /api/access-control-rules/{access_control_rule_id}", accessControlRules.Get)
+	mux.HandleFunc("POST /api/access-control-rules", accessControlRules.Create)
+	mux.HandleFunc("PUT /api/access-control-rules/{access_control_rule_id}", accessControlRules.Update)
+	mux.HandleFunc("DELETE /api/access-control-rules/{access_control_rule_id}", accessControlRules.Delete)
 
-	// MCP Servers
+	// MCP Gateway Endpoints
+	mux.HandleFunc("/mcp-connect/{mcp_server_instance_id}", mcpGateway.StreamableHTTP)
+
+	// MCP Servers in projects
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.CreateServer)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}", mcp.UpdateServer)

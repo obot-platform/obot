@@ -34,7 +34,7 @@ func NewHandler(gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionMa
 }
 
 func (h *Handler) StreamableHTTP(req api.Context) error {
-	mcpServer, mcpServerConfig, err := handlers.ServerForAction(req, h.gptscript)
+	mcpServer, mcpServerConfig, err := handlers.ServerFromMCPServerInstance(req, h.gptscript)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the MCP server is not found, remove the session.

@@ -72,102 +72,44 @@ func (h *MCPCatalogHandler) Refresh(req api.Context) error {
 	return req.Update(&catalog)
 }
 
-// Create creates a new catalog.
-func (h *MCPCatalogHandler) Create(req api.Context) error {
-	var manifest types.MCPCatalogManifest
-	if err := req.Read(&manifest); err != nil {
-		return fmt.Errorf("failed to read catalog manifest: %w", err)
-	}
-
-	// Validate the URLs
-	for _, urlStr := range manifest.SourceURLs {
-		u, err := url.Parse(urlStr)
-		if err != nil {
-			return types.NewErrBadRequest("invalid URL: %v", err)
-		}
-
-		if u.Scheme != "https" {
-			return types.NewErrBadRequest("only HTTPS URLs are supported")
-		}
-	}
-
-	catalog := v1.MCPCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.CatalogPrefix,
-			Namespace:    req.Namespace(),
-		},
-		Spec: v1.MCPCatalogSpec{
-			DisplayName:    manifest.DisplayName,
-			SourceURLs:     manifest.SourceURLs,
-			AllowedUserIDs: manifest.AllowedUserIDs,
-		},
-	}
-
-	if err := req.Create(&catalog); err != nil {
-		return fmt.Errorf("failed to create catalog: %w", err)
-	}
-
-	return req.Write(convertMCPCatalog(catalog))
-}
-
-// Update updates a catalog.
+// Update updates a catalog (admin only, default catalog only).
 func (h *MCPCatalogHandler) Update(req api.Context) error {
 	var manifest types.MCPCatalogManifest
 	if err := req.Read(&manifest); err != nil {
 		return fmt.Errorf("failed to read catalog manifest: %w", err)
 	}
 
+	catalogID := req.PathValue("catalog_id")
+	if catalogID != system.DefaultCatalog {
+		return types.NewErrBadRequest("only the default catalog can be updated")
+	}
+
 	var catalog v1.MCPCatalog
-	if err := req.Get(&catalog, req.PathValue("catalog_id")); err != nil {
+	if err := req.Get(&catalog, catalogID); err != nil {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
 
-	if catalog.Spec.IsReadOnly {
-		return types.NewErrBadRequest("cannot update a read-only catalog")
-	}
-
-	if manifest.DisplayName == "" {
-		return types.NewErrBadRequest("display name is required")
-	}
-
+	// The only field that can be updated is the source URLs.
 	for _, urlStr := range manifest.SourceURLs {
-		u, err := url.Parse(urlStr)
-		if err != nil {
-			return types.NewErrBadRequest("invalid URL: %v", err)
-		}
+		if urlStr != "" {
+			u, err := url.Parse(urlStr)
+			if err != nil {
+				return types.NewErrBadRequest("invalid URL: %v", err)
+			}
 
-		if u.Scheme != "https" {
-			return types.NewErrBadRequest("only HTTPS URLs are supported")
+			if u.Scheme != "https" {
+				return types.NewErrBadRequest("only HTTPS URLs are supported")
+			}
 		}
 	}
 
-	catalog.Spec.DisplayName = manifest.DisplayName
 	catalog.Spec.SourceURLs = manifest.SourceURLs
-	catalog.Spec.AllowedUserIDs = manifest.AllowedUserIDs
 
 	if err := req.Update(&catalog); err != nil {
 		return fmt.Errorf("failed to update catalog: %w", err)
 	}
 
 	return req.Write(convertMCPCatalog(catalog))
-}
-
-// Delete deletes a catalog.
-func (h *MCPCatalogHandler) Delete(req api.Context) error {
-	var catalog v1.MCPCatalog
-	if err := req.Get(&catalog, req.PathValue("catalog_id")); err != nil {
-		return fmt.Errorf("failed to get catalog: %w", err)
-	}
-
-	if catalog.Spec.IsReadOnly {
-		return types.NewErrBadRequest("cannot delete a read-only catalog")
-	}
-
-	if err := req.Delete(&catalog); err != nil {
-		return fmt.Errorf("failed to delete catalog: %w", err)
-	}
-
-	return nil
 }
 
 // ListEntriesForCatalog lists all entries for a catalog.
@@ -196,10 +138,6 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	var catalog v1.MCPCatalog
 	if err := req.Get(&catalog, catalogName); err != nil {
 		return fmt.Errorf("failed to get catalog: %w", err)
-	}
-
-	if catalog.Spec.IsReadOnly {
-		return types.NewErrBadRequest("cannot create an entry for a read-only catalog")
 	}
 
 	var manifest types.MCPServerCatalogEntryManifest
@@ -251,10 +189,6 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
 
-	if catalog.Spec.IsReadOnly {
-		return types.NewErrBadRequest("cannot update an entry for a read-only catalog")
-	}
-
 	var entry v1.MCPServerCatalogEntry
 	if err := req.Get(&entry, entryName); err != nil {
 		return fmt.Errorf("failed to get entry: %w", err)
@@ -303,10 +237,6 @@ func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 	var catalog v1.MCPCatalog
 	if err := req.Get(&catalog, catalogName); err != nil {
 		return fmt.Errorf("failed to get catalog: %w", err)
-	}
-
-	if catalog.Spec.IsReadOnly {
-		return types.NewErrBadRequest("cannot delete an entry for a read-only catalog")
 	}
 
 	var entry v1.MCPServerCatalogEntry
@@ -380,11 +310,9 @@ func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {
 	return types.MCPCatalog{
 		Metadata: MetadataFrom(&catalog),
 		MCPCatalogManifest: types.MCPCatalogManifest{
-			DisplayName:    catalog.Spec.DisplayName,
-			SourceURLs:     catalog.Spec.SourceURLs,
-			AllowedUserIDs: catalog.Spec.AllowedUserIDs,
+			DisplayName: catalog.Spec.DisplayName,
+			SourceURLs:  catalog.Spec.SourceURLs,
 		},
-		IsReadOnly: catalog.Spec.IsReadOnly,
 		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
 	}
 }

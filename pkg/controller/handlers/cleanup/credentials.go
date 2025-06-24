@@ -76,8 +76,12 @@ func (c *Credentials) Remove(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response) error {
+func (c *Credentials) RemoveMCPCredentialsForProject(req router.Request, _ router.Response) error {
 	mcpServer := req.Object.(*v1.MCPServer)
+
+	if mcpServer.Spec.ThreadName == "" {
+		return nil
+	}
 
 	var projects v1.ThreadList
 	if err := req.List(&projects, &kclient.ListOptions{
@@ -131,6 +135,56 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 		if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
 			return fmt.Errorf("failed to shutdown server: %w", err)
 		}
+	}
+
+	return nil
+}
+
+func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response) error {
+	mcpServer := req.Object.(*v1.MCPServer)
+
+	if mcpServer.Spec.ThreadName != "" {
+		return nil
+	}
+
+	var credCtx, scope string
+	if mcpServer.Spec.SharedWithinMCPCatalogName != "" {
+		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.SharedWithinMCPCatalogName, mcpServer.Name)
+		scope = mcpServer.Spec.SharedWithinMCPCatalogName
+	} else {
+		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)
+		scope = mcpServer.Spec.UserID
+	}
+
+	creds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{credCtx},
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, cred := range creds {
+		// Have to reveal the credential to get the values
+		cred, err = c.gClient.RevealCredential(req.Ctx, []string{cred.Context}, cred.ToolName)
+		if err != nil {
+			return err
+		}
+
+		// Shutdown the server
+		serverConfig, _ := mcp.ToServerConfig(*mcpServer, scope, cred.Env)
+		if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
+			return fmt.Errorf("failed to shutdown server: %w", err)
+		}
+
+		if err = c.gClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return err
+		}
+	}
+
+	// Shutdown a potential server running without any configuration. We wouldn't detect its existence with a credential.
+	serverConfig, _ := mcp.ToServerConfig(*mcpServer, scope, nil)
+	if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
+		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 
 	return nil

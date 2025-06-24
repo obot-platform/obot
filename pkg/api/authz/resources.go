@@ -14,9 +14,9 @@ var apiResources = []string{
 	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/resources/{resource_uri}",
 	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/prompts",
 	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/prompts/{prompt_name}",
-	"GET    /mcp-connect/{mcpserver_id}",
-	"POST   /mcp-connect/{mcpserver_id}",
-	"DELETE /mcp-connect/{mcpserver_id}",
+	"GET    /mcp-connect/{mcp_server_instance_id}",
+	"POST   /mcp-connect/{mcp_server_instance_id}",
+	"DELETE /mcp-connect/{mcp_server_instance_id}",
 	"GET    /api/assistants",
 	"GET    /api/assistants/{assistant_id}",
 	"GET    /api/assistants/{assistant_id}/projects",
@@ -148,6 +148,23 @@ var apiResources = []string{
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/local-authenticate",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/local-deauthenticate",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/test",
+	"GET    /api/mcp-server-instances",
+	"GET    /api/mcp-server-instances/{mcp_server_instance_id}",
+	"POST   /api/mcp-server-instances",
+	"DELETE /api/mcp-server-instances/{mcp_server_instance_id}",
+	"GET    /api/mcp-servers",
+	"GET    /api/mcp-servers/{mcpserver_id}",
+	"POST   /api/mcp-servers",
+	"PUT    /api/mcp-servers/{mcpserver_id}",
+	"DELETE /api/mcp-servers/{mcpserver_id}",
+	"POST   /api/mcp-servers/{mcpserver_id}/configure",
+	"POST   /api/mcp-servers/{mcpserver_id}/deconfigure",
+	"POST   /api/mcp-servers/{mcpserver_id}/reveal",
+	"GET    /api/mcp-servers/{mcpserver_id}/tools",
+	"GET    /api/mcp-servers/{mcpserver_id}/resources",
+	"GET    /api/mcp-servers/{mcpserver_id}/resources/{resource_uri}",
+	"GET    /api/mcp-servers/{mcpserver_id}/prompts",
+	"GET    /api/mcp-servers/{mcpserver_id}/prompts/{prompt_name}",
 	"GET    /api/projects",
 	"GET    /api/projects/{project_id}",
 	"POST   /api/prompt",
@@ -203,6 +220,7 @@ type Resources struct {
 	TemplateID             string
 	TaskID                 string
 	MCPServerID            string
+	MCPServerInstanceID    string
 	RunID                  string
 	WorkflowID             string
 	PendingAuthorizationID string
@@ -211,15 +229,16 @@ type Resources struct {
 }
 
 type ResourcesAuthorized struct {
-	Assistant   *v1.Agent
-	Project     *v1.Thread
-	Thread      *v1.Thread
-	ThreadShare *v1.ThreadShare
-	Task        *v1.Workflow
-	MCPServer   *v1.MCPServer
-	Run         *v1.WorkflowExecution
-	Workflow    *v1.Workflow
-	Tool        *v1.Tool
+	Assistant         *v1.Agent
+	Project           *v1.Thread
+	Thread            *v1.Thread
+	ThreadShare       *v1.ThreadShare
+	Task              *v1.Workflow
+	MCPServer         *v1.MCPServer
+	MCPServerInstance *v1.MCPServerInstance
+	Run               *v1.WorkflowExecution
+	Workflow          *v1.Workflow
+	Tool              *v1.Tool
 }
 
 func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user.Info) (bool, error) {
@@ -231,6 +250,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		RunID:                  vars("run_id"),
 		WorkflowID:             vars("workflow_id"),
 		MCPServerID:            vars("mcpserver_id"),
+		MCPServerInstanceID:    vars("mcp_server_instance_id"),
 		PendingAuthorizationID: vars("pending_authorization_id"),
 		ThreadShareID:          vars("share_public_id"),
 		ToolID:                 vars("tool_id"),
@@ -265,6 +285,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 	}
 
 	if ok, err := a.checkMCPServer(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkMCPServerInstance(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

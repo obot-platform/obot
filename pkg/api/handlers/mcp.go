@@ -17,7 +17,7 @@ import (
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/controller/handlers/usercatalogauthorization"
+	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	"github.com/obot-platform/obot/pkg/render"
@@ -32,19 +32,21 @@ type MCPHandler struct {
 	gptscript         *gptscript.GPTScript
 	mcpSessionManager *mcp.SessionManager
 	serverURL         string
+	acrHelper         *accesscontrolrule.Helper
 }
 
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
-func NewMCPHandler(gptscript *gptscript.GPTScript, mcpLoader *mcp.SessionManager, serverURL string) *MCPHandler {
+func NewMCPHandler(gptscript *gptscript.GPTScript, mcpLoader *mcp.SessionManager, serverURL string, acrHelper *accesscontrolrule.Helper) *MCPHandler {
 	return &MCPHandler{
 		gptscript:         gptscript,
 		mcpSessionManager: mcpLoader,
 		serverURL:         serverURL,
+		acrHelper:         acrHelper,
 	}
 }
 
-func (m *MCPHandler) GetCatalogEntry(req api.Context) error {
+func (m *MCPHandler) GetCatalogEntryFromDefaultCatalog(req api.Context) error {
 	var (
 		entry v1.MCPServerCatalogEntry
 		id    = req.PathValue("entry_id")
@@ -54,14 +56,17 @@ func (m *MCPHandler) GetCatalogEntry(req api.Context) error {
 		return err
 	}
 
+	if entry.Spec.MCPCatalogName != system.DefaultCatalog {
+		return types.NewErrNotFound("MCP catalog entry not found")
+	}
+
 	// Authorization check.
 	if !req.UserIsAdmin() {
-		userCatalogAuthorizations, err := usercatalogauthorization.GetUserAuthorizationsForCatalog(req.Context(), req.Storage, req.Namespace(), req.User.GetUID(), entry.Spec.MCPCatalogName)
+		hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntry(req.User.GetUID(), entry.Name)
 		if err != nil {
 			return err
 		}
-
-		if len(userCatalogAuthorizations) == 0 {
+		if !hasAccess {
 			return types.NewErrForbidden("user is not authorized to access this catalog entry")
 		}
 	}
@@ -69,7 +74,7 @@ func (m *MCPHandler) GetCatalogEntry(req api.Context) error {
 	return req.Write(convertMCPServerCatalogEntry(entry))
 }
 
-func (m *MCPHandler) ListEntriesForAllCatalogs(req api.Context) error {
+func (m *MCPHandler) ListEntriesInDefaultCatalog(req api.Context) error {
 	var list v1.MCPServerCatalogEntryList
 	if err := req.List(&list); err != nil {
 		return err
@@ -78,28 +83,25 @@ func (m *MCPHandler) ListEntriesForAllCatalogs(req api.Context) error {
 	if req.UserIsAdmin() {
 		items := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
 		for _, entry := range list.Items {
-			items = append(items, convertMCPServerCatalogEntry(entry))
+			if entry.Spec.MCPCatalogName == system.DefaultCatalog {
+				items = append(items, convertMCPServerCatalogEntry(entry))
+			}
 		}
 
 		return req.Write(types.MCPServerCatalogEntryList{Items: items})
 	}
 
-	userCatalogAuthorizations, err := usercatalogauthorization.GetAuthorizationsForUser(req.Context(), req.Storage, req.Namespace(), req.User.GetUID())
-	if err != nil {
-		return err
-	}
-
-	// TODO(g-linville): would it be better to do a separate list for each catalog that the user is authorized for,
-	// rather than filtering out entries from the full list here?
-	authorizedCatalogs := make(map[string]struct{}, len(userCatalogAuthorizations))
-	for _, authorization := range userCatalogAuthorizations {
-		authorizedCatalogs[authorization.Spec.MCPCatalogName] = struct{}{}
-	}
-
 	var entries []types.MCPServerCatalogEntry
 	for _, entry := range list.Items {
-		if _, ok := authorizedCatalogs[entry.Spec.MCPCatalogName]; ok || entry.Spec.ToolReferenceName != "" {
-			entries = append(entries, convertMCPServerCatalogEntry(entry))
+		// For default catalog entries, check AccessControlRule authorization
+		if entry.Spec.MCPCatalogName == system.DefaultCatalog {
+			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntry(req.User.GetUID(), entry.Name)
+			if err != nil {
+				return err
+			}
+			if hasAccess {
+				entries = append(entries, convertMCPServerCatalogEntry(entry))
+			}
 		}
 	}
 
@@ -129,7 +131,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		fieldSelector = kclient.MatchingFields{
 			"spec.sharedWithinMCPCatalogName": catalogID,
 		}
-	} else {
+	} else if req.PathValue("project_id") != "" {
 		t, err := getThreadForScope(req)
 		if err != nil {
 			return err
@@ -143,6 +145,11 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		fieldSelector = kclient.MatchingFields{
 			"spec.threadName": topMost.Name,
 		}
+	} else {
+		// List servers scoped to the user.
+		fieldSelector = kclient.MatchingFields{
+			"spec.userID": req.User.GetUID(),
+		}
 	}
 
 	var servers v1.MCPServerList
@@ -155,7 +162,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		for _, server := range servers.Items {
 			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", catalogID, server.Name))
 		}
-	} else {
+	} else if req.PathValue("project_id") != "" {
 		project, err := getProjectThread(req)
 		if err != nil {
 			return err
@@ -167,6 +174,10 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 				// Add default credentials shared by the agent for this MCP server if available.
 				credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
 			}
+		}
+	} else {
+		for _, server := range servers.Items {
+			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name))
 		}
 	}
 
@@ -222,7 +233,7 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 	var credCtxs []string
 	if catalogID != "" {
 		credCtxs = []string{fmt.Sprintf("%s-%s", catalogID, server.Name)}
-	} else {
+	} else if req.PathValue("project_id") != "" {
 		project, err := getProjectThread(req)
 		if err != nil {
 			return err
@@ -235,6 +246,8 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 			// Add default credentials shared by the agent for this MCP server if available.
 			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
 		}
+	} else {
+		credCtxs = []string{fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name)}
 	}
 
 	cred, err := m.gptscript.RevealCredential(req.Context(), credCtxs, server.Name)
@@ -265,7 +278,7 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
-	if catalogID == "" {
+	if req.PathValue("project_id") != "" {
 		project, err := getProjectThread(req)
 		if err != nil {
 			return err
@@ -299,7 +312,7 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 	}
 
 	var allowedTools []string
-	if server.Spec.SharedWithinMCPCatalogName == "" {
+	if server.Spec.ThreadName != "" {
 		thread, err := getThreadForScope(req)
 		if err != nil {
 			return err
@@ -474,6 +487,41 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 	})
 }
 
+func ServerFromMCPServerInstance(req api.Context, gptClient *gptscript.GPTScript) (v1.MCPServer, mcp.ServerConfig, error) {
+	var (
+		server     v1.MCPServer
+		instance   v1.MCPServerInstance
+		instanceID = req.PathValue("mcp_server_instance_id")
+	)
+
+	if err := req.Get(&instance, instanceID); err != nil {
+		return server, mcp.ServerConfig{}, err
+	}
+
+	if err := req.Get(&server, instance.Spec.MCPServerName); err != nil {
+		return server, mcp.ServerConfig{}, err
+	}
+
+	if server.Spec.ToolReferenceName != "" && server.Spec.Manifest.Command == "" && server.Spec.Manifest.URL == "" {
+		// Legacy tool bundle. Nothing else to do.
+		return server, mcp.ServerConfig{}, nil
+	}
+
+	addExtractedEnvVars(&server)
+
+	cred, err := gptClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", instance.Spec.UserID, server.Name)}, server.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return server, mcp.ServerConfig{}, fmt.Errorf("failed to find credential: %w", err)
+	}
+
+	serverConfig, missingConfig := mcp.ToServerConfig(server, instance.Spec.UserID, cred.Env)
+	if len(missingConfig) > 0 {
+		return server, mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
+	}
+
+	return server, serverConfig, nil
+}
+
 func ServerForAction(req api.Context, gptClient *gptscript.GPTScript) (v1.MCPServer, mcp.ServerConfig, error) {
 	var (
 		server v1.MCPServer
@@ -491,7 +539,7 @@ func ServerForAction(req api.Context, gptClient *gptscript.GPTScript) (v1.MCPSer
 	if server.Spec.SharedWithinMCPCatalogName != "" {
 		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name))
 		scope = server.Spec.SharedWithinMCPCatalogName
-	} else {
+	} else if server.Spec.ThreadName != "" {
 		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name))
 
 		if req.PathValue("project_id") != "" {
@@ -506,6 +554,9 @@ func ServerForAction(req api.Context, gptClient *gptscript.GPTScript) (v1.MCPSer
 		}
 
 		scope = server.Spec.ThreadName
+	} else {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
+		scope = server.Spec.UserID
 	}
 
 	if server.Spec.ToolReferenceName != "" && server.Spec.Manifest.Command == "" && server.Spec.Manifest.URL == "" {
@@ -605,6 +656,7 @@ func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.M
 
 func (m *MCPHandler) CreateServer(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
+	projectID := req.PathValue("project_id")
 
 	var input types.MCPServer
 	if err := req.Read(&input); err != nil {
@@ -628,12 +680,8 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return err
 		}
 
-		if catalog.Spec.IsReadOnly {
-			return types.NewErrForbidden("cannot create MCP server in read-only catalog")
-		}
-
 		server.Spec.SharedWithinMCPCatalogName = catalogID
-	} else {
+	} else if projectID != "" {
 		t, err := getThreadForScope(req)
 		if err != nil {
 			return err
@@ -643,12 +691,31 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	}
 
 	if input.CatalogEntryID != "" {
+		if !req.UserIsAdmin() {
+			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntry(req.User.GetUID(), input.CatalogEntryID)
+			if err != nil {
+				return err
+			}
+
+			if !hasAccess {
+				return types.NewErrForbidden("user does not have access to MCP server catalog entry")
+			}
+		}
+
 		var catalogEntry v1.MCPServerCatalogEntry
 		if err := req.Get(&catalogEntry, input.CatalogEntryID); err != nil {
 			return err
 		}
 
-		manifest, err := serverManifestFromCatalogEntryManifest(catalogEntry.Spec.CommandManifest, input.MCPServerManifest)
+		var (
+			manifest types.MCPServerManifest
+			err      error
+		)
+		if catalogEntry.Spec.CommandManifest.Command != "" {
+			manifest, err = serverManifestFromCatalogEntryManifest(catalogEntry.Spec.CommandManifest, input.MCPServerManifest)
+		} else {
+			manifest, err = serverManifestFromCatalogEntryManifest(catalogEntry.Spec.URLManifest, input.MCPServerManifest)
+		}
 		if err != nil {
 			return err
 		}
@@ -673,8 +740,10 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	)
 	if catalogID != "" {
 		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, server.Name)}, server.Name)
-	} else {
+	} else if projectID != "" {
 		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name)}, server.Name)
+	} else {
+		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name)}, server.Name)
 	}
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
@@ -687,6 +756,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	var (
 		id        = req.PathValue("mcp_server_id")
 		catalogID = req.PathValue("catalog_id")
+		projectID = req.PathValue("project_id")
 		err       error
 		project   *v1.Thread
 		updated   types.MCPServerManifest
@@ -703,7 +773,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
-	if catalogID == "" {
+	if projectID != "" {
 		project, err = getProjectThread(req)
 		if err != nil {
 			return err
@@ -727,8 +797,10 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	var cred gptscript.Credential
 	if catalogID != "" {
 		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, existing.Name)}, existing.Name)
-	} else {
+	} else if projectID != "" {
 		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", existing.Spec.ThreadName, existing.Name)}, existing.Name)
+	} else {
+		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", req.User.GetUID(), existing.Name)}, existing.Name)
 	}
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
@@ -737,15 +809,17 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	// Shutdown the server, even if there is no credential
 	if catalogID != "" {
 		err = m.removeMCPServer(req.Context(), existing, catalogID, cred.Env)
-	} else {
+	} else if projectID != "" {
 		err = m.removeMCPServer(req.Context(), existing, project.Name, cred.Env)
+	} else {
+		err = m.removeMCPServer(req.Context(), existing, req.User.GetUID(), cred.Env)
 	}
 	if err != nil {
 		return err
 	}
 
 	// Shutdown the MCP server using any shared credentials.
-	if catalogID == "" {
+	if projectID != "" {
 		sharedCred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s-shared", existing.Spec.ThreadName, existing.Name)}, existing.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
@@ -793,6 +867,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 
 func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
+	projectID := req.PathValue("project_id")
 
 	var mcpServer v1.MCPServer
 	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
@@ -817,7 +892,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	if catalogID != "" {
 		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
 		scope = catalogID
-	} else {
+	} else if projectID != "" {
 		project, err := getProjectThread(req)
 		if err != nil {
 			return err
@@ -825,6 +900,9 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 
 		credCtx = fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)
 		scope = project.Name
+	} else {
+		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
+		scope = req.User.GetUID()
 	}
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
@@ -922,6 +1000,7 @@ func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
 
 func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
+	projectID := req.PathValue("project_id")
 
 	var mcpServer v1.MCPServer
 	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
@@ -941,7 +1020,7 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 	if catalogID != "" {
 		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
 		scope = catalogID
-	} else {
+	} else if projectID != "" {
 		project, err := getProjectThread(req)
 		if err != nil {
 			return err
@@ -949,6 +1028,9 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 
 		credCtx = fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)
 		scope = project.Name
+	} else {
+		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
+		scope = req.User.GetUID()
 	}
 
 	if err := m.removeMCPServerAndCred(req.Context(), mcpServer, scope, []string{credCtx}); err != nil {
@@ -1010,6 +1092,7 @@ func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
 
 func (m *MCPHandler) Reveal(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
+	projectID := req.PathValue("project_id")
 
 	var mcpServer v1.MCPServer
 	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
@@ -1025,13 +1108,15 @@ func (m *MCPHandler) Reveal(req api.Context) error {
 	var credCtx string
 	if catalogID != "" {
 		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
-	} else {
+	} else if projectID != "" {
 		project, err := getProjectThread(req)
 		if err != nil {
 			return err
 		}
 
 		credCtx = fmt.Sprintf("%s-%s", project.Name, mcpServer.Name)
+	} else {
+		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
 	}
 
 	cred, err := m.gptscript.RevealCredential(req.Context(), []string{credCtx}, mcpServer.Name)
@@ -1333,45 +1418,32 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 	}
 }
 
-func (m *MCPHandler) ListServersForAllCatalogs(req api.Context) error {
-	var catalogs []v1.MCPCatalog
+func (m *MCPHandler) ListServersInDefaultCatalog(req api.Context) error {
+	var list v1.MCPServerList
+	if err := req.List(&list, kclient.InNamespace(system.DefaultNamespace), kclient.MatchingFields{
+		"spec.sharedWithinMCPCatalogName": system.DefaultCatalog,
+	}); err != nil {
+		return err
+	}
 
-	// Get the catalogs that the user has access to.
+	var allowedServers []v1.MCPServer
 	if req.UserIsAdmin() {
-		var list v1.MCPCatalogList
-		if err := req.List(&list); err != nil {
-			return err
-		}
-
-		catalogs = list.Items
+		allowedServers = list.Items
 	} else {
-		userAuths, err := usercatalogauthorization.GetAuthorizationsForUser(req.Context(), req.Storage, req.Namespace(), req.User.GetUID())
-		if err != nil {
-			return err
-		}
-
-		for _, auth := range userAuths {
-			var catalog v1.MCPCatalog
-			if err := req.Get(&catalog, auth.Spec.MCPCatalogName); err != nil {
+		for _, server := range list.Items {
+			hasAccess, err := m.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), server.Name)
+			if err != nil {
 				return err
 			}
-
-			catalogs = append(catalogs, catalog)
+			if hasAccess {
+				allowedServers = append(allowedServers, server)
+			}
 		}
 	}
 
 	var credCtxs []string
-	for _, catalog := range catalogs {
-		var list v1.MCPServerList
-		if err := req.List(&list, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{
-			"spec.sharedWithinMCPCatalogName": catalog.Name,
-		}); err != nil {
-			return err
-		}
-
-		for _, server := range list.Items {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", catalog.Name, server.Name))
-		}
+	for _, server := range allowedServers {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name))
 	}
 
 	creds, err := m.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
@@ -1393,24 +1465,15 @@ func (m *MCPHandler) ListServersForAllCatalogs(req api.Context) error {
 	}
 
 	var mcpServers []types.MCPServer
-	for _, catalog := range catalogs {
-		var list v1.MCPServerList
-		if err := req.List(&list, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{
-			"spec.sharedWithinMCPCatalogName": catalog.Name,
-		}); err != nil {
-			return err
-		}
-
-		for _, server := range list.Items {
-			addExtractedEnvVars(&server)
-			mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name], m.serverURL))
-		}
+	for _, server := range allowedServers {
+		addExtractedEnvVars(&server)
+		mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name], m.serverURL))
 	}
 
 	return req.Write(types.MCPServerList{Items: mcpServers})
 }
 
-func (m *MCPHandler) GetServerFromCatalogs(req api.Context) error {
+func (m *MCPHandler) GetServerFromDefaultCatalog(req api.Context) error {
 	var (
 		server v1.MCPServer
 		id     = req.PathValue("mcp_server_id")
@@ -1420,18 +1483,17 @@ func (m *MCPHandler) GetServerFromCatalogs(req api.Context) error {
 		return err
 	}
 
-	if server.Spec.SharedWithinMCPCatalogName == "" {
+	if server.Spec.SharedWithinMCPCatalogName != system.DefaultCatalog {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
 	// Authorization check.
 	if !req.UserIsAdmin() {
-		userAuths, err := usercatalogauthorization.GetUserAuthorizationsForCatalog(req.Context(), req.Storage, req.Namespace(), req.User.GetUID(), server.Spec.SharedWithinMCPCatalogName)
+		hasAccess, err := m.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), server.Name)
 		if err != nil {
 			return err
 		}
-
-		if len(userAuths) == 0 {
+		if !hasAccess {
 			return types.NewErrForbidden("user is not authorized to access this MCP server")
 		}
 	}

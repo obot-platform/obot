@@ -29,6 +29,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&EmailReceiverList{},
 		&MCPServer{},
 		&MCPServerList{},
+		&MCPServerInstance{},
+		&MCPServerInstanceList{},
 		&MCPServerCatalogEntry{},
 		&MCPServerCatalogEntryList{},
 		&Run{},
@@ -85,14 +87,14 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&UserDeleteList{},
 		&MCPCatalog{},
 		&MCPCatalogList{},
-		&UserCatalogAuthorization{},
-		&UserCatalogAuthorizationList{},
 		&OAuthClient{},
 		&OAuthClientList{},
 		&OAuthAuthRequest{},
 		&OAuthAuthRequestList{},
 		&OAuthToken{},
 		&OAuthTokenList{},
+		&AccessControlRule{},
+		&AccessControlRuleList{},
 	); err != nil {
 		return err
 	}

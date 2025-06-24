@@ -18,8 +18,6 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/controller/handlers/usercatalogauthorization"
-	"github.com/obot-platform/obot/pkg/create"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -248,141 +246,29 @@ func (h *Handler) readMCPCatalogDirectory(catalog string) ([]types.MCPServerCata
 	return entries, nil
 }
 
-// DeleteUnauthorizedMCPServers deletes all MCP servers that are no longer authorized to run.
-// This can happen when a user has launched an MCP server that they used to have permission for,
-// but their access to the catalog that the server came from has been revoked.
-func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Response) error {
-	catalog := req.Object.(*v1.MCPCatalog)
-
-	allowedUserIDs := map[string]struct{}{}
-	for _, userID := range catalog.Spec.AllowedUserIDs {
-		allowedUserIDs[userID] = struct{}{}
-	}
-
-	if _, ok := allowedUserIDs["*"]; ok {
-		// Everyone is allowed, so there are no unauthorized servers to delete.
-		return nil
-	}
-
-	var entries v1.MCPServerCatalogEntryList
-	if err := req.Client.List(req.Ctx, &entries, client.InNamespace(req.Namespace), client.MatchingFields{
-		"spec.mcpCatalogName": catalog.Name,
-	}); err != nil {
-		return fmt.Errorf("failed to list entries: %w", err)
-	}
-
-	// TODO(g-linville): if this is too inefficient, we can do it in a handler for individual MCPServerCatalogEntry objects instead.
-	// Then we would only need to loop over servers, and not over entries also.
-	for _, entry := range entries.Items {
-		var servers v1.MCPServerList
-		if err := req.Client.List(req.Ctx, &servers, client.InNamespace(req.Namespace), client.MatchingFields{
-			"spec.mcpServerCatalogEntryName": entry.Name,
-		}); err != nil {
-			return fmt.Errorf("failed to list servers: %w", err)
-		}
-
-		for _, server := range servers.Items {
-			// Admin users can run whatever they want, so don't shut down any of their servers.
-			if user, err := h.gatewayClient.UserByID(req.Ctx, server.Spec.UserID); err == nil && user.Role == types.RoleAdmin {
-				continue
-			}
-
-			if _, ok := allowedUserIDs[server.Spec.UserID]; !ok {
-				if err := req.Client.Delete(req.Ctx, &server); err != nil {
-					return fmt.Errorf("failed to delete server %s: %w", server.Name, err)
-				}
-			}
-		}
-	}
-
-	return nil
-}
-
 func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) error {
-	if h.defaultCatalogPath == "" {
-		// Delete it if it exists.
-		var catalog v1.MCPCatalog
-		if err := c.Get(ctx, router.Key(system.DefaultNamespace, "default"), &catalog); err == nil {
-			if err := c.Delete(ctx, &catalog); err != nil {
-				return fmt.Errorf("failed to delete default catalog: %w", err)
-			}
-		}
+	var existing v1.MCPCatalog
+	if err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultCatalog), &existing); err == nil {
+		// Default catalog already exists, do nothing.
 		return nil
 	}
 
-	var existing v1.MCPCatalog
-	if err := c.Get(ctx, router.Key(system.DefaultNamespace, "default"), &existing); err == nil {
-		// See if the URL has changed.
-		if len(existing.Spec.SourceURLs) > 0 && existing.Spec.SourceURLs[0] != h.defaultCatalogPath {
-			existing.Spec.SourceURLs = []string{h.defaultCatalogPath}
-			if err := c.Update(ctx, &existing); err != nil {
-				return fmt.Errorf("failed to update default catalog: %w", err)
-			}
-		}
-		return nil
+	sourceURLs := []string{}
+	if h.defaultCatalogPath != "" {
+		sourceURLs = []string{h.defaultCatalogPath}
 	}
 
 	if err := c.Create(ctx, &v1.MCPCatalog{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default",
+			Name:      system.DefaultCatalog,
 			Namespace: system.DefaultNamespace,
 		},
 		Spec: v1.MCPCatalogSpec{
-			DisplayName:    "Default",
-			SourceURLs:     []string{h.defaultCatalogPath},
-			AllowedUserIDs: []string{"*"},
-			IsReadOnly:     true,
+			DisplayName: "Default",
+			SourceURLs:  sourceURLs,
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create default catalog: %w", err)
-	}
-
-	return nil
-}
-
-func (h *Handler) SetUpUserCatalogAuthorizations(req router.Request, _ router.Response) error {
-	mcpCatalog := req.Object.(*v1.MCPCatalog)
-
-	authorizationNames := make(map[string]struct{}, len(mcpCatalog.Spec.AllowedUserIDs))
-	for _, userID := range mcpCatalog.Spec.AllowedUserIDs {
-		authorizationName := name.SafeHashConcatName(mcpCatalog.Name, userID)
-		if userID == "*" {
-			authorizationName = name.SafeHashConcatName(mcpCatalog.Name, "all-users")
-		}
-
-		authorizationNames[authorizationName] = struct{}{}
-
-		if err := create.IfNotExists(req.Ctx, req.Client, &v1.UserCatalogAuthorization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      authorizationName,
-				Namespace: system.DefaultNamespace,
-			},
-			Spec: v1.UserCatalogAuthorizationSpec{
-				UserID:         userID,
-				MCPCatalogName: mcpCatalog.Name,
-			},
-		}); err != nil {
-			return fmt.Errorf("failed to create user catalog authorization %s: %w", authorizationName, err)
-		}
-	}
-
-	// Now delete any authorizations that are no longer needed.
-	existingAuthorizations, err := usercatalogauthorization.GetAuthorizationsForCatalog(req.Ctx, req.Client, req.Namespace, mcpCatalog.Name)
-	if err != nil {
-		return fmt.Errorf("failed to get existing authorizations: %w", err)
-	}
-
-	for _, authorization := range existingAuthorizations {
-		if _, ok := authorizationNames[authorization.Name]; !ok {
-			if err := req.Client.Delete(req.Ctx, &v1.UserCatalogAuthorization{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      authorization.Name,
-					Namespace: system.DefaultNamespace,
-				},
-			}); err != nil {
-				return fmt.Errorf("failed to delete existing authorization %s: %w", authorization.Name, err)
-			}
-		}
 	}
 
 	return nil

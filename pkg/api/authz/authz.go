@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -59,11 +60,6 @@ var staticRules = map[string][]string{
 		"GET /api/shares",
 		"GET /api/templates",
 		"GET /api/tool-references",
-
-		"GET /api/mcp/catalog",
-		"GET /api/mcp/catalog/{id}",
-
-		"/api/mcp/{mcp_server_id}",
 
 		"GET /.well-known/",
 		"POST /oauth/register",
@@ -124,14 +120,16 @@ type Authorizer struct {
 	storage      kclient.Client
 	apiResources *pathMatcher
 	uiResources  *pathMatcher
+	acrHelper    *accesscontrolrule.Helper
 }
 
-func NewAuthorizer(storage kclient.Client, devMode bool) *Authorizer {
+func NewAuthorizer(storage kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper) *Authorizer {
 	return &Authorizer{
 		rules:        defaultRules(devMode),
 		storage:      storage,
 		apiResources: newPathMatcher(apiResources...),
 		uiResources:  newPathMatcher(uiResources...),
+		acrHelper:    acrHelper,
 	}
 }
 
