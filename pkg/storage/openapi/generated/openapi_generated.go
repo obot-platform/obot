@@ -2782,7 +2782,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							},
 						},
 					},
-					"exactURL": {
+					"fixedURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "For remote servers:",
 							Type:        []string{"string"},

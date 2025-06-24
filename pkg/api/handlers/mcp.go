@@ -555,8 +555,8 @@ func serverManifestFromCatalogEntryManifest(entry types.MCPServerCatalogEntryMan
 	// TODO(g-linville): In the future, we probably only want the admin to be able to override anything from the catalog entry.
 	result = mergeMCPServerManifests(result, input)
 
-	if entry.ExactURL != "" {
-		result.URL = entry.ExactURL
+	if entry.FixedURL != "" {
+		result.URL = entry.FixedURL
 	} else if entry.Hostname != "" {
 		if input.URL == "" {
 			return types.MCPServerManifest{}, types.NewErrBadRequest("the server must use a specific URL that matches the hostname %q", entry.Hostname)
@@ -1266,7 +1266,7 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 
 	// Extract and add env vars to URL Manifest
-	if entry.Spec.URLManifest.ExactURL != "" {
+	if entry.Spec.URLManifest.FixedURL != "" {
 		// Keep track of existing env vars in the URL manifest to avoid duplicates
 		existingURL := make(map[string]struct{})
 		for _, env := range entry.Spec.URLManifest.Env {
@@ -1275,7 +1275,7 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 
 		// Extract variables from URL
 		extractedURL := make(map[string]struct{})
-		for _, v := range extractEnvVars(entry.Spec.URLManifest.ExactURL) {
+		for _, v := range extractEnvVars(entry.Spec.URLManifest.FixedURL) {
 			extractedURL[v] = struct{}{}
 		}
 

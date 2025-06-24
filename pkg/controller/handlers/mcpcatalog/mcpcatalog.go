@@ -182,15 +182,16 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 			}
 
 			catalogEntry.Spec.CommandManifest = entry
-		} else if entry.ExactURL != "" || entry.Hostname != "" {
+		} else if entry.FixedURL != "" || entry.Hostname != "" {
 			// Make sure that only one or the other is set.
-			if entry.ExactURL != "" && entry.Hostname != "" {
-				log.Warnf("Ignoring MCP catalog entry %s: both ExactURL and Hostname are set (only one can be set)", entry.Name)
+			if entry.FixedURL != "" && entry.Hostname != "" {
+				log.Warnf("Ignoring MCP catalog entry %s: both FixedURL and Hostname are set (only one can be set)", entry.Name)
 				continue
 			}
 
-			if entry.ExactURL != "" {
-				if u, err := url.Parse(entry.ExactURL); err != nil || u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" {
+			if entry.FixedURL != "" {
+				if u, err := url.Parse(entry.FixedURL); err != nil || u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" {
+					log.Warnf("Ignoring MCP catalog entry %s: fixedURL is invalid (must be a valid, non-localhost URL)", entry.Name)
 					continue
 				}
 			}

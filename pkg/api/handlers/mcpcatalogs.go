@@ -358,10 +358,10 @@ func (h *MCPCatalogHandler) validateMCPServerCatalogEntryManifest(manifest types
 			return false, false, fmt.Errorf("unsupported command: %s", manifest.Command)
 		}
 	}
-	if manifest.ExactURL != "" || manifest.Hostname != "" {
+	if manifest.FixedURL != "" || manifest.Hostname != "" {
 		hasURL = true
-		if manifest.ExactURL != "" && manifest.Hostname != "" {
-			return false, false, fmt.Errorf("only one of exactURL or hostname is allowed")
+		if manifest.FixedURL != "" && manifest.Hostname != "" {
+			return false, false, fmt.Errorf("only one of fixedURL or hostname is allowed")
 		}
 	}
 

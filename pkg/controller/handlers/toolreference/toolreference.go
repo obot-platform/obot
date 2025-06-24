@@ -132,7 +132,7 @@ func (h *Handler) mcpServers(ctx context.Context, registryURL string, entries ma
 
 			if manifest.Command != "" {
 				catalogEntry.Spec.CommandManifest = manifest
-			} else if manifest.ExactURL != "" || manifest.Hostname != "" {
+			} else if manifest.FixedURL != "" || manifest.Hostname != "" {
 				catalogEntry.Spec.URLManifest = manifest
 			} else {
 				continue

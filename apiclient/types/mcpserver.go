@@ -23,7 +23,7 @@ type MCPServerCatalogEntryManifest struct {
 	Args    []string `json:"args,omitempty"`
 
 	// For remote servers:
-	ExactURL string      `json:"exactURL,omitempty"`
+	FixedURL string      `json:"fixedURL,omitempty"`
 	Hostname string      `json:"hostname,omitempty"`
 	Headers  []MCPHeader `json:"headers,omitempty"`
 }
