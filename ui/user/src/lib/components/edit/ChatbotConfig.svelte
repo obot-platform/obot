@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { ChatService, type Project, type ProjectShare, type ProjectMCP } from '$lib/services';
 	import CopyButton from '$lib/components/CopyButton.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
 	import { browser } from '$app/environment';
 	import { X, ChevronDown, Server, Pencil } from 'lucide-svelte';
 	import { closeSidebarConfig, getLayout } from '$lib/context/layout.svelte';
@@ -262,15 +261,6 @@
 			loadMcpServers();
 		}
 	});
-
-	async function handleChange(checked: boolean) {
-		if (checked) {
-			share = await ChatService.createProjectShare(project.assistantID, project.id);
-		} else {
-			await ChatService.deleteProjectShare(project.assistantID, project.id);
-			share = undefined;
-		}
-	}
 </script>
 
 <div class="flex w-full flex-col">
@@ -286,15 +276,10 @@
 	</div>
 	<div class="flex w-full justify-center px-4 py-8 md:px-8">
 		<div class="flex w-full flex-col items-start gap-6 md:max-w-[1200px]">
-			<div class="flex w-full items-center justify-between">
-				<h5 class="text-lg font-semibold">Enable</h5>
-				<Toggle label="Toggle ChatBot" checked={!!share?.publicID} onChange={handleChange} />
-			</div>
-
 			<div class="w-full">
 				<p class="text-sm text-gray-600">
-					Create a simplified chat-only view of this agent to share with others. Users of your
-					chatbot will get see their own threads and files.
+					A simplified chat-only view of this agent to share with others. Users of your chatbot will
+					get their own threads and files.
 				</p>
 			</div>
 

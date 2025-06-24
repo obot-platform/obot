@@ -2,9 +2,12 @@
 	import { fade } from 'svelte/transition';
 	import { Crown, Plus, ChevronRight, ChevronLeft, Globe, Trash2, Star } from 'lucide-svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import CopyButton from '$lib/components/CopyButton.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
+	import { browser } from '$app/environment';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { ChatService, type Project, type ProjectMember } from '$lib/services';
+	import { ChatService, type Project, type ProjectMember, type ProjectShare } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import {
@@ -23,6 +26,12 @@
 	let toDelete = $state('');
 	let ownerID = $state<string>('');
 	let isOwnerOrAdmin = $derived(profile.current.id === ownerID || profile.current.role === 1);
+	let chatbotShare = $state<ProjectShare>();
+	let chatbotUrl = $derived(
+		browser && chatbotShare?.publicID
+			? `${window.location.protocol}//${window.location.host}/s/${chatbotShare.publicID}`
+			: ''
+	);
 	let templateToDelete = $state<ProjectTemplate>();
 	let templates = $state<ProjectTemplate[]>([]);
 
@@ -58,8 +67,32 @@
 			ownerID = project.userID;
 			loadMembers();
 			loadTemplates();
+			loadChatbotShare();
 		}
 	});
+
+	$effect(() => {
+		if (chatbotShare?.publicID) {
+			chatbotUrl = `${window.location.protocol}//${window.location.host}/s/${chatbotShare.publicID}`;
+		}
+	});
+
+	async function loadChatbotShare() {
+		chatbotShare = await ChatService.getProjectShare(project.assistantID, project.id);
+	}
+
+	async function toggleChatbot(checked: boolean) {
+		if (checked) {
+			chatbotShare = await ChatService.createProjectShare(project.assistantID, project.id);
+			openChatbotConfig();
+		} else {
+			await ChatService.deleteProjectShare(project.assistantID, project.id);
+			chatbotShare = undefined;
+			if (layout.sidebarConfig === 'chatbot') {
+				closeSidebarConfig(layout);
+			}
+		}
+	}
 
 	async function loadTemplates() {
 		try {
@@ -206,18 +239,45 @@
 			helpText={HELPER_TEXTS.chatbot}
 		>
 			<div class="flex flex-col gap-3">
-				<p class="text-xs text-gray-500">
-					Configure ChatBot to produce a link that allows anyone to use this agent in a read-only
-					mode.
-				</p>
-				<div class="mt-2 flex justify-end" in:fade>
-					<button
-						class="button flex cursor-pointer items-center justify-end gap-1 text-xs"
-						onclick={openChatbotConfig}
-					>
-						<span>Configure ChatBot</span>
-					</button>
+				<div class="flex w-full items-center justify-between gap-4">
+					<p class="flex grow text-sm">Enable ChatBot</p>
+					<Toggle
+						label="Toggle ChatBot"
+						checked={!!chatbotShare?.publicID}
+						onChange={toggleChatbot}
+					/>
 				</div>
+
+				{#if chatbotShare?.publicID}
+					<div
+						class="dark:bg-surface2 flex w-full flex-col gap-2 rounded-xl bg-white p-3 shadow-sm"
+					>
+						<p class="text-xs text-gray-500">
+							<b>Share this link</b> with anyone to allow them to interact with a read-only copy of this
+							agent.
+						</p>
+						<div class="flex gap-1">
+							<CopyButton text={chatbotUrl} />
+							<a href={chatbotUrl} class="overflow-hidden text-sm text-ellipsis hover:underline"
+								>{chatbotUrl}</a
+							>
+						</div>
+					</div>
+
+					<div class="mt-2 flex justify-end" in:fade>
+						<button
+							class="button flex cursor-pointer items-center justify-end gap-1 text-xs"
+							onclick={openChatbotConfig}
+						>
+							<span>Configure ChatBot</span>
+						</button>
+					</div>
+				{:else}
+					<p class="text-xs text-gray-500">
+						Enable ChatBot mode to produce a link that allows anyone to interact with a read-only
+						copy of this agent.
+					</p>
+				{/if}
 			</div>
 		</CollapsePane>
 
