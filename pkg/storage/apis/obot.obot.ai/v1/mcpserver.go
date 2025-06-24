@@ -29,6 +29,8 @@ func (in *MCPServer) Has(field string) (exists bool) {
 
 func (in *MCPServer) Get(field string) (value string) {
 	switch field {
+	case "spec.manifest.name":
+		return in.Spec.Manifest.Name
 	case "spec.threadName":
 		return in.Spec.ThreadName
 	case "spec.userID":
@@ -43,6 +45,7 @@ func (in *MCPServer) Get(field string) (value string) {
 
 func (in *MCPServer) FieldNames() []string {
 	return []string{
+		"spec.manifest.name",
 		"spec.threadName",
 		"spec.userID",
 		"spec.mcpServerCatalogEntryName",

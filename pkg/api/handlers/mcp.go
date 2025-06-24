@@ -663,6 +663,10 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
+	if err := m.validate(req.Context(), req.Storage, server); err != nil {
+		return err
+	}
+
 	if err := req.Create(&server); err != nil {
 		return err
 	}
@@ -783,6 +787,10 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&existing)
+
+	if err := m.validate(req.Context(), req.Storage, existing); err != nil {
+		return err
+	}
 
 	if err = req.Update(&existing); err != nil {
 		return err
@@ -1444,4 +1452,39 @@ func (m *MCPHandler) GetServerFromCatalogs(req api.Context) error {
 	addExtractedEnvVars(&server)
 
 	return req.Write(convertMCPServer(server, cred.Env, m.serverURL))
+}
+
+func (*MCPHandler) validate(ctx context.Context, c kclient.Client, server v1.MCPServer) error {
+	if server.Spec.Manifest.Name == "" {
+		return types.NewErrBadRequest("MCP server name not specified")
+	}
+
+	if server.Spec.Manifest.URL != "" && server.Spec.Manifest.Command != "" {
+		return types.NewErrBadRequest("MCP server cannot have both URL and Command specified")
+	}
+
+	if server.Spec.Manifest.URL == "" && server.Spec.Manifest.Command == "" {
+		return types.NewErrBadRequest("MCP server must have either URL or Command specified")
+	}
+
+	// Prevent duplicate display names within a thread
+	if server.Spec.ThreadName != "" {
+		var servers v1.MCPServerList
+		if err := c.List(ctx, &servers, kclient.MatchingFields{
+			"spec.threadName":    server.Spec.ThreadName,
+			"spec.manifest.name": server.Spec.Manifest.Name,
+		}); err != nil {
+			return fmt.Errorf("failed to list existing servers: %w", err)
+		}
+
+		for _, s := range servers.Items {
+			// On update, the server we're validating will be returned in the list. Ignore it and continue checking for duplicates.
+			// On create, s.Name should be empty at this point which will (correctly) cause this check to pass and fail validation.
+			if s.Name != server.Name {
+				return types.NewErrBadRequest("MCP server with name %q already exists", server.Spec.Manifest.Name)
+			}
+		}
+	}
+
+	return nil
 }
