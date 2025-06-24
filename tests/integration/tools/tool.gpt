@@ -1,0 +1,5 @@
+name: Tool Index
+description: The upstream Obot tool registry
+
+outputfilter: index.yaml
+#!sys.echo

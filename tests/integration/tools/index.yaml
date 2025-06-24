@@ -1,0 +1,3 @@
+modelProviders:
+  mock-model-provider:
+    reference: ./mock-model-provider

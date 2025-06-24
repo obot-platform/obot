@@ -1,0 +1,10 @@
+Name: MockModelProvider
+Description: Mock Model Provider
+Model Provider: true
+
+#!sys.daemon ${GPTSCRIPT_TOOL_DIR}/bin/gptscript-go-tool
+---
+Name: validate
+Description: Validate the OpenAI API key
+
+#!${GPTSCRIPT_TOOL_DIR}/bin/gptscript-go-tool validate

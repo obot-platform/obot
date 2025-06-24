@@ -1,8 +1,10 @@
 #! /bin/bash
 
-export OBOT_SERVER_TOOL_REGISTRIES="github.com/obot-platform/tools"
+export OBOT_SERVER_TOOL_REGISTRIES="github.com/obot-platform/tools,test-tools"
+export GPTSCRIPT_TOOL_REMAP="test-tools=./tests/integration/tools/"
+export GPTSCRIPT_INTERNAL_OPENAI_STREAMING=false
 echo "Starting obot server..."
-./bin/obot server > ./obot.log 2>&1 &
+./bin/obot server --dev-mode > ./obot.log 2>&1 &
 
 URL="http://localhost:8080/api/healthz"
 TIMEOUT=300

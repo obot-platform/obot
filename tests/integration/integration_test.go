@@ -1,11 +1,11 @@
+// revive:disable:dot-imports
+
 package integration_test
 
 import (
 	"testing"
 
-	//revive:disable
 	. "github.com/onsi/ginkgo/v2"
-	//revive:disable
 	. "github.com/onsi/gomega"
 )
 
