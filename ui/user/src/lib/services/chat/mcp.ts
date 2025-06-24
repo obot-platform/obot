@@ -100,7 +100,7 @@ export function initMCPConfig(manifest?: MCPInfo | ProjectMCP | MCPServer): MCPS
 		icon: manifest?.icon ?? '',
 		env: manifest?.env?.map((e) => ({ ...e, value: '' })) ?? [],
 		args: manifest?.args ? [...manifest.args] : [],
-		command: manifest?.command ?? '',
+		command: manifest?.command,
 		headers: manifest?.headers?.map((e) => ({ ...e, value: '' })) ?? []
 	};
 }

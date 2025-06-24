@@ -74,7 +74,6 @@
 
 	let config = $state<MCPServerInfo>(prefilledConfig ?? initMCPConfig(manifest));
 	let showSubmitError = $state(false);
-	let showAdvancedOptions = $state(false);
 	let loadingCredential = $state<Promise<ProjectCredential | undefined>>();
 	export function open() {
 		reset();
@@ -88,7 +87,6 @@
 
 	export function close() {
 		configDialog?.close();
-		showAdvancedOptions = false;
 	}
 
 	async function getProjectCredential() {
@@ -167,7 +165,7 @@
 					{#if manifestType === 'url'}
 						<RemoteMcpForm bind:config {showSubmitError} />
 					{:else}
-						<HostedMcpForm bind:config {showSubmitError} bind:showAdvancedOptions />
+						<HostedMcpForm bind:config {showSubmitError} />
 					{/if}
 				</div>
 			{/if}

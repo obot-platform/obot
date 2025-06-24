@@ -1,26 +1,21 @@
 <script lang="ts">
+	import type { MCPSubField } from '$lib/services/chat/types';
 	import type { MCPServerInfo } from '$lib/services/chat/mcp';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { fade, slide } from 'svelte/transition';
+	import Toggle from '$lib/components/Toggle.svelte';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 
 	interface Props {
 		config: MCPServerInfo;
 		showSubmitError: boolean;
 		custom?: boolean;
-		showAdvancedOptions?: boolean;
 		chatbot?: boolean;
 	}
-	let {
-		config = $bindable(),
-		showSubmitError,
-		custom,
-		chatbot = false,
-		showAdvancedOptions = $bindable(false)
-	}: Props = $props();
+	let { config = $bindable(), showSubmitError, custom, chatbot = false }: Props = $props();
 
-	let keepEditable = $state(false);
+	let showAdvancedConfig = $state(false);
 
 	function focusOnAdd(node: HTMLInputElement, shouldFocus: boolean) {
 		if (shouldFocus) {
@@ -29,225 +24,191 @@
 	}
 </script>
 
-<div class="flex items-center gap-4">
-	<h4 class="w-24 text-base font-semibold">URL</h4>
-	{#if showAdvancedOptions || custom || !config.url || keepEditable}
-		<input
-			class="text-input-filled flex grow"
-			bind:value={config.url}
-			onkeydown={() => (keepEditable = true)}
-			disabled={chatbot}
-		/>
+<div class="space-y-6" in:fade out:slide={{ axis: 'y' }}>
+	{#if custom || chatbot}
+		{@render urlSection()}
+		{@render envsSection('all')}
+		{@render headersSection('all')}
 	{:else}
-		<p
-			class="line-clamp-1 -translate-x-2 break-all"
-			use:tooltip={{ text: config.url ?? '', disablePortal: true }}
-		>
-			{config.url}
-		</p>
+		{@render envsSection('default')}
+		{@render headersSection('default')}
+		{@render urlSection()}
+		{#if showAdvancedConfig}
+			<div class="mt-2 mb-4">
+				<h4 class="text-base font-semibold text-gray-900 dark:text-gray-100">Advanced</h4>
+			</div>
+			{@render envsSection('custom')}
+			{@render headersSection('custom')}
+		{/if}
+		{@render toggleAdvancedConfigButton()}
 	{/if}
 </div>
 
-{#if custom || chatbot || (config.env ?? []).some((env) => env.required)}
-	<div class="flex flex-col gap-1">
-		<h4 class="text-base font-semibold">Environment Variables</h4>
-		{@render showConfigEnvVars('all')}
-		{#if custom || showAdvancedOptions}
-			{@render addEnvVarButton()}
-		{/if}
-	</div>
-{/if}
-
-{#if custom || chatbot}
-	<div class="flex flex-col gap-1">
-		<h4 class="text-base font-semibold">Headers Configuration</h4>
-		{@render showConfigHeaders('all')}
-		{@render addHeaderButton()}
-	</div>
-{/if}
-
-{#if !custom && (config.headers ?? []).length > 0}
-	<div class="flex flex-col gap-1">
-		<h4 class="text-base font-semibold">Headers Configuration</h4>
-		{@render showConfigHeaders('default')}
-	</div>
-{/if}
-
-{#if showAdvancedOptions}
-	<div class="flex flex-col gap-4" in:fade out:slide={{ axis: 'y' }}>
-		{#if !custom}
-			<div class="flex flex-col gap-1">
-				<h4 class="text-base font-semibold">Custom Headers Configuration</h4>
-				{@render showConfigHeaders('custom')}
-				{@render addHeaderButton()}
-			</div>
-		{/if}
-	</div>
-{/if}
-
-{#if !custom}
-	<div class="flex grow justify-start">
-		<button
-			class="mt-auto text-xs font-light text-gray-500 transition-colors hover:text-black dark:hover:text-white"
-			onclick={() => (showAdvancedOptions = !showAdvancedOptions)}
-		>
-			{showAdvancedOptions ? 'Hide Advanced Options...' : 'Show Advanced Options...'}
-		</button>
-	</div>
-{/if}
-
-{#snippet addHeaderButton()}
-	{#if !chatbot}
-		<div class="flex justify-end">
-			<button
-				class="button flex items-center gap-1 text-xs"
-				onclick={() =>
-					config.headers?.push({
-						name: '',
-						key: '',
-						description: '',
-						sensitive: false,
-						required: false,
-						file: false,
-						value: '',
-						custom: crypto.randomUUID()
-					})}
-			>
-				<Plus class="size-4" /> Header
-			</button>
-		</div>
-	{/if}
+{#snippet toggleAdvancedConfigButton()}
+	<button
+		class="text-xs font-light text-gray-500 transition-colors hover:text-black dark:hover:text-white"
+		onclick={() => (showAdvancedConfig = !showAdvancedConfig)}
+	>
+		{showAdvancedConfig ? 'Hide Advanced Configuration...' : 'Show Advanced Configuration...'}
+	</button>
 {/snippet}
 
-{#snippet addEnvVarButton()}
-	{#if !chatbot}
-		<div class="flex justify-end">
-			<button
-				class="button flex items-center gap-1 text-xs"
-				onclick={() =>
-					config.env?.push({
-						name: '',
-						key: '',
-						description: '',
-						sensitive: false,
-						required: false,
-						file: false,
-						value: '',
-						custom: crypto.randomUUID()
-					})}
-			>
-				<Plus class="size-4" /> Environment Variable
-			</button>
-		</div>
-	{/if}
-{/snippet}
-
-{#snippet showConfigEnvVars(type: 'all' | 'default' | 'custom')}
-	{@const envsToShow =
-		type === 'all'
-			? (config.env ?? [])
-			: type === 'default'
-				? (config.env?.filter((env) => !env.custom && env.required) ?? [])
-				: (config.env?.filter((env) => env.custom || (!custom && showAdvancedOptions)) ?? [])}
-	{#if envsToShow.length > 0}
-		{#each envsToShow as env, i}
-			<div class="flex w-full items-center gap-2">
-				<div class="flex grow flex-col gap-1">
-					<input
-						class="ghost-input w-full py-0 pl-1"
-						bind:value={env.key}
-						placeholder="Key (ex. API_KEY)"
-						use:focusOnAdd={i === envsToShow.length - 1}
-						disabled={chatbot}
-					/>
-					{#if env.sensitive}
-						<SensitiveInput name={env.name} bind:value={env.value} />
-					{:else}
-						<input
-							data-1p-ignore
-							id={env.name}
-							name={env.name}
-							class="text-input-filled w-full"
-							bind:value={env.value}
-							type="text"
-						/>
-					{/if}
-					<div class="min-h-4 text-xs text-red-500">
-						{#if showSubmitError && !env.value && env.required}
-							This field is required.
-						{/if}
-					</div>
-				</div>
-				{#if (!env.required || custom) && !chatbot}
-					<button
-						class="icon-button"
-						onclick={() => {
-							const matchingIndex = config.env?.findIndex((e) =>
-								e.key ? e.key === env.key : e.custom === env.custom
-							);
-							if (typeof matchingIndex !== 'number') return;
-							config.env?.splice(matchingIndex, 1);
-						}}
-					>
-						<Trash2 class="size-4" />
-					</button>
+{#snippet urlSection()}
+	<div class="space-y-2">
+		<div class="flex gap-4">
+			<h4 class="mt-1.5 w-28 text-base font-semibold">URL</h4>
+			<div class="flex-1">
+				<input
+					class="text-input-filled w-full"
+					class:error={showSubmitError && !config.url}
+					bind:value={config.url}
+					disabled={chatbot}
+				/>
+				{#if showSubmitError && !config.url}
+					<div class="mt-1 text-xs text-red-500">This field is required.</div>
 				{/if}
 			</div>
-		{/each}
-	{/if}
+		</div>
+	</div>
 {/snippet}
 
-{#snippet showConfigHeaders(type: 'all' | 'default' | 'custom')}
-	{@const headersToShow =
+{#snippet keyValueSection(
+	type: 'all' | 'default' | 'custom',
+	{
+		items,
+		title,
+		placeholder,
+		buttonText
+	}: {
+		items: (MCPSubField & { value: string; custom?: string })[] | undefined;
+		title: string;
+		placeholder: string;
+		buttonText: string;
+	}
+)}
+	{@const itemsToShow =
 		type === 'all'
-			? (config.headers ?? [])
+			? (items ?? [])
 			: type === 'default'
-				? (config.headers?.filter((header) => !header.custom) ?? [])
-				: (config.headers?.filter((header) => header.custom) ?? [])}
-	{#if headersToShow.length > 0}
-		{#each headersToShow as header, i}
-			<div class="flex w-full items-center gap-2">
-				<div class="flex grow flex-col gap-1">
-					<input
-						class="ghost-input w-full py-0 pl-1"
-						bind:value={header.key}
-						placeholder="Key (ex. API_KEY)"
-						use:focusOnAdd={i === headersToShow.length - 1}
-						disabled={chatbot}
-					/>
-					{#if header.sensitive}
-						<SensitiveInput name={header.name} bind:value={header.value} />
-					{:else}
-						<input
-							data-1p-ignore
-							id={header.name}
-							name={header.name}
-							class="text-input-filled w-full"
-							bind:value={header.value}
-							type="text"
-						/>
-					{/if}
-					<div class="min-h-4 text-xs text-red-500">
-						{#if showSubmitError && !header.value && header.required}
-							This field is required.
+				? (items?.filter((item) => !item.custom) ?? [])
+				: (items?.filter((item) => item.custom) ?? [])}
+
+	<div class="flex gap-4">
+		{#if !chatbot && type !== 'default'}
+			<h4 class="mt-1.5 w-28 text-base font-semibold">{title}</h4>
+		{/if}
+
+		<div class="flex-1 space-y-4">
+			{#each itemsToShow as item, i}
+				<div class="flex gap-2">
+					<div class="flex-1">
+						{#if item.custom}
+							<div class="mb-1 flex gap-2">
+								<input
+									class="ghost-input flex-1 py-0"
+									bind:value={item.key}
+									{placeholder}
+									use:focusOnAdd={i === itemsToShow.length - 1}
+									disabled={chatbot}
+								/>
+								{#if type !== 'default'}
+									<Toggle
+										label="Required"
+										labelInline
+										checked={item.required}
+										onChange={(checked) => (item.required = checked)}
+										classes={{
+											label: 'text-xs font-light text-gray-600 dark:text-gray-400 whitespace-nowrap'
+										}}
+									/>
+								{/if}
+							</div>
+						{:else}
+							<label for={item.key} class="mb-1 flex items-center gap-1 text-sm font-light">
+								{item.required
+									? `${item.name || item.key}*`
+									: `${item.name || item.key} (optional)`}
+								{#if item.description}
+									<InfoTooltip text={item.description} />
+								{/if}
+							</label>
+						{/if}
+
+						{#if item.sensitive}
+							<SensitiveInput name={item.name} bind:value={item.value} />
+						{:else}
+							<input
+								data-1p-ignore
+								id={item.name}
+								name={item.name}
+								class="text-input-filled w-full"
+								bind:value={item.value}
+								type="text"
+								disabled={chatbot}
+							/>
+						{/if}
+
+						{#if showSubmitError && !item.value && item.required}
+							<div class="mt-1 text-xs text-red-500">This field is required.</div>
 						{/if}
 					</div>
+
+					{#if !chatbot && type !== 'default'}
+						<button
+							class="icon-button"
+							onclick={() => {
+								const matchingIndex = items?.findIndex((e) =>
+									e.key ? e.key === item.key : e.custom === item.custom
+								);
+								if (typeof matchingIndex !== 'number') return;
+								items?.splice(matchingIndex, 1);
+							}}
+						>
+							<Trash2 class="size-4" />
+						</button>
+					{/if}
 				</div>
-				{#if (!header.required || custom) && !chatbot}
+			{/each}
+
+			{#if !chatbot && type !== 'default'}
+				<div class="flex justify-end">
 					<button
-						class="icon-button"
-						onclick={() => {
-							const matchingIndex = config.headers?.findIndex((e) =>
-								e.key ? e.key === header.key : e.custom === header.custom
-							);
-							if (typeof matchingIndex !== 'number') return;
-							config.headers?.splice(matchingIndex, 1);
-						}}
+						class="button flex items-center gap-1 text-xs"
+						onclick={() =>
+							items?.push({
+								name: '',
+								key: '',
+								description: '',
+								sensitive: false,
+								required: false,
+								file: false,
+								value: '',
+								custom: crypto.randomUUID()
+							})}
 					>
-						<Trash2 class="size-4" />
+						<Plus class="size-4" />
+						{buttonText}
 					</button>
-				{/if}
-			</div>
-		{/each}
-	{/if}
+				</div>
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
+{#snippet envsSection(type: 'all' | 'default' | 'custom')}
+	{@render keyValueSection(type, {
+		items: config.env,
+		title: 'Environment',
+		placeholder: 'Key (ex. API_KEY)',
+		buttonText: 'Environment Variable'
+	})}
+{/snippet}
+
+{#snippet headersSection(type: 'all' | 'default' | 'custom')}
+	{@render keyValueSection(type, {
+		items: config.headers,
+		title: 'Headers',
+		placeholder: 'Header Name (ex. Authorization)',
+		buttonText: 'Header'
+	})}
 {/snippet}

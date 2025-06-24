@@ -20,6 +20,10 @@
 	import { fade } from 'svelte/transition';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 
+	// Regular expressions for parsing error messages
+	const ERROR_400_REGEX = /400\s+[^:]+:\s*(.+)/;
+	const ERROR_500_REGEX = /500\s+[^:]+:\s*(.+)/;
+
 	interface Props {
 		projectMcp?: ProjectMCP;
 		project?: Project;
@@ -63,7 +67,7 @@
 		: {
 				description: '',
 				icon: '',
-				name: '',
+				name: DEFAULT_CUSTOM_SERVER_NAME,
 				env: [],
 				args: [],
 				command: '',
@@ -74,7 +78,7 @@
 	let config = $state<MCPServerInfo>({ ...initConfig });
 	let showObotHosted = $state(projectMcp ? isObotHosted(projectMcp) : true);
 	let showSubmitError = $state(false);
-	let showMcpError = $state(false);
+	let submitError = $state('');
 	const layout = getLayout();
 	const projectMCPs = getProjectMCPs();
 
@@ -125,7 +129,8 @@
 			onUpdate?.(config);
 		} else {
 			processing = true;
-			showMcpError = false;
+			submitError = '';
+
 			try {
 				const newProjectMcp = savedProjectMcp
 					? await updateProjectMcp(config, savedProjectMcp.id, project)
@@ -134,6 +139,7 @@
 					savedProjectMcp = newProjectMcp;
 					projectMCPs.items.push(newProjectMcp);
 				}
+
 				projectMcpServerTools = await ChatService.listProjectMCPServerTools(
 					project.assistantID,
 					project.id,
@@ -142,9 +148,33 @@
 				processing = false;
 				projectMcpServerToolsDialog?.showModal();
 			} catch (error) {
-				console.error(error);
 				processing = false;
-				showMcpError = true;
+
+				// Extract the error message from the error object
+				if (error instanceof Error) {
+					submitError = error.message;
+				} else if (typeof error === 'string') {
+					submitError = error;
+				} else {
+					submitError = 'An unexpected error occurred while configuring the MCP server.';
+				}
+
+				// Check for the pattern "400 <any uri>:" and extract the message that follows
+				let parsedErr = submitError.match(ERROR_400_REGEX);
+				if (parsedErr) {
+					// Show form errors for user input errors
+					showSubmitError = true;
+					submitError = parsedErr[1];
+					return;
+				}
+
+				parsedErr = submitError.match(ERROR_500_REGEX);
+				if (parsedErr) {
+					submitError = parsedErr[1];
+					return;
+				}
+
+				console.error(error);
 			}
 		}
 	}
@@ -179,9 +209,15 @@
 						{/if}
 					</div>
 				{:else}
-					<h3 class="flex items-center gap-2 text-xl font-semibold">
-						<PencilLine class="size-5" /> Create MCP Config
-					</h3>
+					<div class="flex items-center gap-2">
+						<PencilLine class="size-5 flex-shrink-0" />
+						<input
+							class="focus:bg-surface1 border-none bg-transparent text-xl font-semibold transition-all outline-none focus:rounded-md focus:px-2 focus:py-1"
+							bind:value={config.name}
+							required
+							placeholder="Enter custom MCP server name"
+						/>
+					</div>
 				{/if}
 				<button
 					class="icon-button h-fit w-fit flex-shrink-0 self-start"
@@ -197,30 +233,32 @@
 		<div
 			class="dark:bg-gray-980 mt-4 flex w-full flex-col gap-2 bg-gray-50 px-4 pt-4 pb-2 shadow-inner md:px-8"
 		>
-			<div class="flex w-full self-center md:max-w-[900px]">
-				<div class="flex w-full gap-1">
-					<button
-						class={twMerge(
-							'dark:bg-gray-980 flex-1 bg-gray-50 py-3',
-							showObotHosted &&
-								'dark:bg-surface2 dark:border-surface3 rounded-md bg-white shadow-sm dark:border'
-						)}
-						onclick={() => init()}
-					>
-						Obot Hosted
-					</button>
-					<button
-						class={twMerge(
-							'dark:bg-gray-980 flex-1 bg-gray-50 py-3',
-							!showObotHosted &&
-								'dark:bg-surface2 dark:border-surface3 rounded-md bg-white shadow-sm dark:border'
-						)}
-						onclick={() => init(true)}
-					>
-						Remote
-					</button>
+			{#if !projectMcp?.id}
+				<div class="flex w-full self-center md:max-w-[900px]">
+					<div class="flex w-full gap-1">
+						<button
+							class={twMerge(
+								'dark:bg-gray-980 flex-1 bg-gray-50 py-3',
+								showObotHosted &&
+									'dark:bg-surface2 dark:border-surface3 rounded-md bg-white shadow-sm dark:border'
+							)}
+							onclick={() => init()}
+						>
+							Obot Hosted
+						</button>
+						<button
+							class={twMerge(
+								'dark:bg-gray-980 flex-1 bg-gray-50 py-3',
+								!showObotHosted &&
+									'dark:bg-surface2 dark:border-surface3 rounded-md bg-white shadow-sm dark:border'
+							)}
+							onclick={() => init(true)}
+						>
+							Remote
+						</button>
+					</div>
 				</div>
-			</div>
+			{/if}
 		</div>
 	{/if}
 
@@ -231,9 +269,9 @@
 		<div
 			class="dark:bg-surface2 dark:border-surface3 flex w-full flex-col gap-4 self-center rounded-lg bg-white px-4 py-8 shadow-sm md:max-w-[900px] md:px-8 dark:border"
 		>
-			{#if showMcpError}
+			{#if submitError}
 				<p class="notification-error" in:fade>
-					Failed to get tools, please check your configuration and try again.
+					{submitError}
 				</p>
 			{/if}
 			{#if showObotHosted}
