@@ -9,6 +9,14 @@ import (
 )
 
 func (sm *SessionManager) ServerCapabilities(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig) (nmcp.ServerCapabilities, error) {
+	if mcpServer.Spec.ToolReferenceName != "" {
+		return nmcp.ServerCapabilities{
+			Tools: &nmcp.ToolsServerCapability{
+				ListChanged: false,
+			},
+		}, nil
+	}
+
 	config, err := sm.transformServerConfig(ctx, mcpServer, serverConfig)
 	if err != nil {
 		return nmcp.ServerCapabilities{}, err
