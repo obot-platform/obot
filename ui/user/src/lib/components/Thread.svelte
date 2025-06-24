@@ -22,6 +22,7 @@
 	import type { MCPServerPrompt, ProjectMCP, Thread as ThreadType } from '$lib/services/chat/types';
 	import ThreadModelSelector from '$lib/components/edit/ThreadModelSelector.svelte';
 	import McpPrompts from './mcp/McpPrompts.svelte';
+	import McpResources from './mcp/McpResources.svelte';
 
 	interface Props {
 		id?: string;
@@ -538,6 +539,7 @@
 					<div class="flex w-full items-center justify-between">
 						<div class="flex items-center">
 							<McpPrompts {project} variant="button" onSelect={handleMcpPromptSelect} />
+							<McpResources {project} threadID={id} />
 							<Files
 								thread
 								{project}
