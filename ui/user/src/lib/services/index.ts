@@ -1,5 +1,6 @@
 export * from './chat/operations';
 export * from './chat/types';
+export * from './admin/types';
 export { default as AdminService } from './admin';
 export { default as ChatService } from './chat';
 export { default as EditorService } from './editor/index.svelte';

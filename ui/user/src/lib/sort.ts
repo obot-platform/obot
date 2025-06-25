@@ -1,7 +1,8 @@
 import { FEATURED_AGENT_PREFERRED_ORDER, MCP_LIST_ORDER } from './constants';
-import type { MCP, ProjectShare, ProjectTemplate } from './services';
+import type { ProjectShare, ProjectTemplate } from './services';
+import type { MCPCatalogEntry } from './services/admin/types';
 
-export const sortByPreferredMcpOrder = (a: MCP, b: MCP) => {
+export const sortByPreferredMcpOrder = (a: MCPCatalogEntry, b: MCPCatalogEntry) => {
 	const aId = (a.id?.toLowerCase() ?? '').trim();
 	const bId = (b.id?.toLowerCase() ?? '').trim();
 	const aIndex = MCP_LIST_ORDER.indexOf(aId);

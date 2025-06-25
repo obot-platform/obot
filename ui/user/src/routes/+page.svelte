@@ -17,13 +17,14 @@
 	import { ChatService, type MCP, type MCPInfo, type ProjectTemplate } from '$lib/services';
 	import Logo from '$lib/components/navbar/Logo.svelte';
 	import { q } from '$lib/url';
+	import type { MCPCatalogEntry, MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
 
 	let { data }: PageProps = $props();
 	let { authProviders, templates, loggedIn, isAdmin } = data;
 	let loginDialog = $state<HTMLDialogElement>();
 	let overrideRedirect = $state<string | null>(null);
 	let signUp = $state(true);
-	let fetchingMCPs = $state<Promise<MCP[]>>();
+	let fetchingMCPs = $state<Promise<MCPCatalogEntry[]>>();
 
 	onMount(() => {
 		if (browser && new URL(window.location.href).searchParams.get('rd') && !loggedIn) {
@@ -39,7 +40,7 @@
 			}
 
 			if (browser) {
-				goto(isAdmin ? '/v2/admin/mcp-catalogs' : '/home');
+				goto(isAdmin ? '/v2/admin/mcp-servers' : '/home');
 			}
 		}
 	});
@@ -419,7 +420,7 @@
 	</button>
 {/snippet}
 
-{#snippet featuredMcpCard(id: string, mcp: MCPInfo)}
+{#snippet featuredMcpCard(id: string, mcp: MCPCatalogEntryServerManifest)}
 	<button
 		class="bg-surface2 flex w-full items-center gap-3 rounded-xl p-3"
 		onclick={() => {

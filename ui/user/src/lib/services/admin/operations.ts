@@ -1,7 +1,6 @@
 import type { ModelProvider, Project, Task, MCPCatalogServer } from '../chat/types';
 import { doDelete, doGet, doPatch, doPost, doPut, type Fetcher } from '../http';
 import type {
-	AuthProvider,
 	FileScannerConfig,
 	FileScannerProvider,
 	MCPCatalog,
@@ -13,7 +12,9 @@ import type {
 	ProjectThread,
 	MCPCatalogServerManifest,
 	DefaultModelAlias,
-	ModelAlias
+	ModelAlias,
+	AccessControlRule,
+	AccessControlRuleManifest
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -36,14 +37,6 @@ export async function refreshMCPCatalog(
 	return response;
 }
 
-export async function createMCPCatalog(
-	catalog: MCPCatalogManifest,
-	opts?: { fetch?: Fetcher }
-): Promise<MCPCatalog> {
-	const response = (await doPost(`/mcp-catalogs`, catalog, opts)) as MCPCatalog;
-	return response;
-}
-
 export async function updateMCPCatalog(
 	id: string,
 	catalog: MCPCatalogManifest,
@@ -51,10 +44,6 @@ export async function updateMCPCatalog(
 ): Promise<MCPCatalog> {
 	const response = (await doPut(`/mcp-catalogs/${id}`, catalog, opts)) as MCPCatalog;
 	return response;
-}
-
-export async function deleteMCPCatalog(id: string): Promise<void> {
-	await doDelete(`/mcp-catalogs/${id}`);
 }
 
 export async function listMCPCatalogEntries(
@@ -285,11 +274,6 @@ export async function updateModel(modelID: string, model: Model): Promise<void> 
 	await doPut(`/models/${modelID}`, model);
 }
 
-export async function listAuthProviders(opts?: { fetch?: Fetcher }): Promise<AuthProvider[]> {
-	const response = (await doGet('/auth-providers', opts)) as ItemsResponse<AuthProvider>;
-	return response.items ?? [];
-}
-
 export async function listFileScannerProviders(opts?: {
 	fetch?: Fetcher;
 }): Promise<FileScannerProvider[]> {
@@ -324,4 +308,37 @@ export async function updateDefaultModelAlias(
 	defaultModelAlias: DefaultModelAlias
 ): Promise<void> {
 	await doPut(`/default-model-aliases/${alias}`, defaultModelAlias);
+}
+
+export async function listAccessControlRules(opts?: {
+	fetch?: Fetcher;
+}): Promise<AccessControlRule[]> {
+	const response = (await doGet('/access-control-rules', opts)) as ItemsResponse<AccessControlRule>;
+	return response.items ?? [];
+}
+
+export async function getAccessControlRule(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<AccessControlRule> {
+	const response = (await doGet(`/access-control-rules/${id}`, opts)) as AccessControlRule;
+	return response;
+}
+
+export async function createAccessControlRule(
+	rule: AccessControlRuleManifest
+): Promise<AccessControlRule> {
+	const response = (await doPost('/access-control-rules', rule)) as AccessControlRule;
+	return response;
+}
+
+export async function updateAccessControlRule(
+	id: string,
+	rule: AccessControlRuleManifest
+): Promise<void> {
+	await doPut(`/access-control-rules/${id}`, rule);
+}
+
+export async function deleteAccessControlRule(id: string): Promise<void> {
+	await doDelete(`/access-control-rules/${id}`);
 }

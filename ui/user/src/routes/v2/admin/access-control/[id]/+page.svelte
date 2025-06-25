@@ -16,11 +16,11 @@
 		<CatalogForm {mcpCatalog}>
 			{#snippet topContent()}
 				<a
-					href={`/v2/admin/mcp-catalogs`}
+					href={`/v2/admin/access-control`}
 					class="button-text flex -translate-x-1 items-center gap-2 p-0 text-lg font-light"
 				>
 					<ChevronLeft class="size-6" />
-					Back to MCP Catalogs
+					Back to Access Control
 				</a>
 			{/snippet}
 		</CatalogForm>

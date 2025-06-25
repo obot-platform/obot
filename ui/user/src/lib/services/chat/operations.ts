@@ -1,26 +1,25 @@
+import type { AuthProvider, MCPCatalogEntry } from '../admin/types';
 import { baseURL, doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
 import {
 	type Assistant,
 	type Assistants,
 	type AssistantToolList,
-	type AuthProvider,
-	type AuthProviderList,
+	type ChatModelList,
 	type Files,
 	type InvokeInput,
 	type KnowledgeFile,
 	type KnowledgeFiles,
 	type MCP,
 	type MCPCatalogServer,
-	type MCPList,
 	type MCPServer,
 	type McpServerGeneratedPrompt,
+	type MCPServerInstance,
 	type MCPServerPrompt,
 	type McpServerResource,
 	type McpServerResourceContent,
 	type MCPServerTool,
 	type Memory,
 	type MemoryList,
-	type ModelList,
 	type ModelProviderList,
 	type Profile,
 	type Project,
@@ -46,6 +45,8 @@ import {
 	type ToolReferenceList,
 	type Version
 } from './types';
+
+type ItemsResponse<T> = { items: T[] | null };
 
 export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	const obj = (await doGet('/me', opts)) as Profile;
@@ -744,7 +745,7 @@ export async function sendCredentials(id: string, credentials: Record<string, st
 }
 
 export async function listAuthProviders(opts?: { fetch?: Fetcher }): Promise<AuthProvider[]> {
-	const list = (await doGet('/auth-providers', opts)) as AuthProviderList;
+	const list = (await doGet('/auth-providers', opts)) as ItemsResponse<AuthProvider>;
 	if (!list.items) {
 		list.items = [];
 	}
@@ -899,9 +900,12 @@ export async function updateMemory(
 	}) as Promise<Memory>;
 }
 
-export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCP[]> {
-	const response = (await doGet('/all-mcp-catalogs/entries', opts)) as MCPList;
-	return response.items;
+export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCPCatalogEntry[]> {
+	const response = (await doGet(
+		'/all-mcp-catalogs/entries',
+		opts
+	)) as ItemsResponse<MCPCatalogEntry>;
+	return response.items ?? [];
 }
 
 export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MCP> {
@@ -1298,10 +1302,10 @@ export async function listAvailableModels(
 	assistantID: string,
 	projectID: string,
 	providerId: string
-): Promise<ModelList> {
+): Promise<ChatModelList> {
 	return (await doGet(
 		`/assistants/${assistantID}/projects/${projectID}/model-providers/${providerId}/available-models`
-	)) as ModelList;
+	)) as ChatModelList;
 }
 
 // Model provider operations
@@ -1378,4 +1382,96 @@ export async function bootstrapLogin(token: string) {
 
 export async function bootstrapLogout() {
 	return doPost('/bootstrap/logout', {});
+}
+
+export async function listSingleOrRemoteMcpServers(opts?: {
+	fetch?: Fetcher;
+}): Promise<MCPServer[]> {
+	const response = (await doGet('/mcp-servers', opts)) as ItemsResponse<MCPServer>;
+	return response.items ?? [];
+}
+
+export async function getSingleOrRemoteMcpServer(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServer> {
+	const response = (await doGet(`/mcp-servers/${id}`, opts)) as MCPServer;
+	return response;
+}
+
+export async function createSingleOrRemoteMcpServer(server: MCPServer): Promise<MCPServer> {
+	const response = (await doPost('/mcp-servers', server)) as MCPServer;
+	return response;
+}
+
+export async function updateSingleOrRemoteMcpServer(
+	id: string,
+	server: MCPServer
+): Promise<MCPServer> {
+	const response = (await doPut(`/mcp-servers/${id}`, server)) as MCPServer;
+	return response;
+}
+
+export async function deleteSingleOrRemoteMcpServer(id: string): Promise<void> {
+	await doDelete(`/mcp-servers/${id}`);
+}
+
+export async function configureSingleOrRemoteMcpServer(
+	id: string,
+	envs: Record<string, string>
+): Promise<void> {
+	await doPost(`/mcp-servers/${id}/configure`, envs);
+}
+
+export async function deconfigureSingleOrRemoteMcpServer(id: string): Promise<void> {
+	await doPost(`/mcp-servers/${id}/deconfigure`, {});
+}
+
+export async function revealSingleOrRemoteMcpServer(id: string): Promise<Record<string, string>> {
+	return doPost(`/mcp-servers/${id}/reveal`, {}) as Promise<Record<string, string>>;
+}
+
+export async function listSingleOrRemoteMcpServerTools(id: string): Promise<MCPServerTool[]> {
+	const response = (await doGet(`/mcp-servers/${id}/tools`)) as ItemsResponse<MCPServerTool>;
+	return response.items ?? [];
+}
+
+export async function listSingleOrRemoteMcpServerPrompts(id: string): Promise<MCPServerPrompt[]> {
+	const response = (await doGet(`/mcp-servers/${id}/prompts`)) as ItemsResponse<MCPServerPrompt>;
+	return response.items ?? [];
+}
+
+export async function listSingleOrRemoteMcpServerResources(
+	id: string
+): Promise<McpServerResource[]> {
+	const response = (await doGet(
+		`/mcp-servers/${id}/resources`
+	)) as ItemsResponse<McpServerResource>;
+	return response.items ?? [];
+}
+
+export async function listMcpServerInstances(opts?: {
+	fetch?: Fetcher;
+}): Promise<MCPServerInstance[]> {
+	const response = (await doGet('/mcp-server-instances', opts)) as ItemsResponse<MCPServerInstance>;
+	return response.items ?? [];
+}
+
+export async function getMcpServerInstance(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerInstance> {
+	const response = (await doGet(`/mcp-server-instances/${id}`, opts)) as MCPServerInstance;
+	return response;
+}
+
+export async function createMcpServerInstance(
+	instance: MCPServerInstance
+): Promise<MCPServerInstance> {
+	const response = (await doPost('/mcp-server-instances', instance)) as MCPServerInstance;
+	return response;
+}
+
+export async function deleteMcpServerInstance(id: string): Promise<void> {
+	await doDelete(`/mcp-server-instances/${id}`);
 }

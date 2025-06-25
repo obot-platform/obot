@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	try {
 		mcpCatalog = await AdminService.getMCPCatalog(id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/v2/admin/mcp-catalogs/${id}`, profile.current);
+		handleRouteError(err, `/v2/admin/access-control/${id}`, profile.current);
 	}
 
 	return {

@@ -180,13 +180,11 @@
 	}
 </script>
 
-<h1 class="text-2xl font-semibold capitalize">
-	{#if entry}
-		{formData.name}
-	{:else}
+{#if !entry}
+	<h1 class="text-2xl font-semibold capitalize">
 		Create {type} Server
-	{/if}
-</h1>
+	</h1>
+{/if}
 <div
 	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-8 rounded-lg border border-transparent bg-white p-4 shadow-sm"
 >

@@ -262,7 +262,7 @@ export interface ToolReferenceList {
 
 export interface MCPSubField {
 	description: string;
-	file: boolean;
+	file?: boolean;
 	key: string;
 	name: string;
 	required: boolean;
@@ -277,14 +277,10 @@ export interface MCP {
 	type: string;
 }
 
-export interface MCPList {
-	items: MCP[];
-}
-
 export interface MCPServer {
-	description: string;
-	icon: string;
-	name: string;
+	description?: string;
+	icon?: string;
+	name?: string;
 	args?: string[];
 	env?: MCPSubField[];
 	command?: string;
@@ -545,18 +541,6 @@ export interface ProjectCredentialList {
 	items: ProjectCredential[];
 }
 
-export interface AuthProvider {
-	configured: boolean;
-	icon?: string;
-	name: string;
-	namespace: string;
-	id: string;
-}
-
-export interface AuthProviderList {
-	items: AuthProvider[];
-}
-
 export interface Sites {
 	sites?: Site[];
 	siteTool?: string;
@@ -664,7 +648,7 @@ export interface ModelProviderList {
 	items: ModelProvider[];
 }
 
-export interface Model {
+export interface ChatModel {
 	created: number;
 	id: string;
 	object: string;
@@ -676,8 +660,8 @@ export interface Model {
 	};
 }
 
-export interface ModelList {
-	data: Model[];
+export interface ChatModelList {
+	data: ChatModel[];
 }
 
 export interface MCPCatalogServer {
@@ -692,4 +676,12 @@ export interface MCPCatalogServer {
 	updatedAt: string;
 	type: string;
 	manifest: MCPServer;
+}
+
+export interface MCPServerInstance {
+	id: string;
+	createdAt: string;
+	updatedAt: string;
+	serverID: string;
+	userID: string;
 }

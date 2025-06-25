@@ -188,3 +188,11 @@ export interface DefaultModelAlias {
 	alias: ModelAlias;
 	model: string;
 }
+
+export interface AccessControlRule {
+	id: string;
+}
+
+export interface AccessControlRuleManifest {
+	userIDs: string[];
+}

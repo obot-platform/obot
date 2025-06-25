@@ -5,6 +5,7 @@
 	 * the whole screen on mobile and a customizable max width on desktop. (default is 2xl)
 	 */
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { responsive } from '$lib/stores';
 	import { ChevronRight, X } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
@@ -20,9 +21,19 @@
 		titleContent?: Snippet;
 		title?: string;
 		children: Snippet;
+		animate?: 'slide' | 'fade';
 	}
 
-	let { onClose, onOpen, titleContent, title, children, class: klass, classes }: Props = $props();
+	let {
+		onClose,
+		onOpen,
+		titleContent,
+		title,
+		children,
+		class: klass,
+		classes,
+		animate
+	}: Props = $props();
 	let dialog = $state<HTMLDialogElement>();
 
 	export function open() {
@@ -41,6 +52,7 @@
 	class={twMerge('w-full max-w-2xl font-normal', !responsive.isMobile && 'p-4', klass)}
 	class:mobile-screen-dialog={responsive.isMobile}
 	use:clickOutside={() => close()}
+	use:dialogAnimation={{ type: animate }}
 >
 	<div class="flex h-full w-full flex-col">
 		<div class="mb-4 flex flex-col gap-4">

@@ -42,7 +42,7 @@
 
 	async function navigateToCreated(catalog: MCPCatalog) {
 		showCreateCatalog = false;
-		goto(`/v2/admin/mcp-catalogs/${catalog.id}`, { replaceState: false });
+		goto(`/v2/admin/access-control/${catalog.id}`, { replaceState: false });
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -91,7 +91,7 @@
 						data={mcpCatalogsTableData}
 						fields={['displayName', 'entries']}
 						onSelectRow={(d) => {
-							handleNavigation(`/v2/admin/mcp-catalogs/${d.id}`);
+							handleNavigation(`/v2/admin/access-control/${d.id}`);
 						}}
 						headers={[{ title: 'Name', property: 'displayName' }]}
 					>
@@ -143,5 +143,5 @@
 />
 
 <svelte:head>
-	<title>Obot | MCP Catalogs</title>
+	<title>Obot | Access Control</title>
 </svelte:head>

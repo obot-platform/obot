@@ -9,7 +9,9 @@
 		Blocks,
 		Bot,
 		Boxes,
+		Captions,
 		Cpu,
+		GlobeLock,
 		LockKeyhole,
 		MessageCircle,
 		MessagesSquare,
@@ -65,48 +67,29 @@
 				<div class="text-md flex grow flex-col gap-8 px-3 pt-8 font-light">
 					{#if profile.current?.isAdmin?.()}
 						<div class="flex flex-col gap-1">
-							<a href="/v2/admin/mcp-catalogs" class="sidebar-link">
-								<Blocks class="size-4" /> MCP Catalogs
+							<a href="/v2/admin/mcp-servers" class="sidebar-link">
+								<Server class="size-4" /> MCP Servers
 							</a>
-
-							<a href="/v2/admin/model-providers" class="sidebar-link">
-								<Boxes class="size-4" /> Model Providers
+							<a href="/v2/admin/access-control" class="sidebar-link">
+								<GlobeLock class="size-4" /> Access Control
 							</a>
-
-							<a href="/v2/admin/auth-providers" class="sidebar-link">
-								<LockKeyhole class="size-4" /> Auth Providers
-							</a>
-
-							<a href="/v2/admin/projects" class="sidebar-link">
-								<Bot class="size-4" /> Projects
-							</a>
-
-							<a href="/v2/admin/threads" class="sidebar-link">
-								<MessagesSquare class="size-4" /> Chat Threads
-							</a>
-
-							<a href="/v2/admin/tasks" class="sidebar-link">
-								<Puzzle class="size-4" /> Tasks
-							</a>
-							<a href="/v2/admin/task-runs" class="sidebar-link">
-								<Cpu class="size-4" /> Task Runs
+							<a href="/v2/admin/audit-logs" class="sidebar-link">
+								<Captions class="size-4" /> Audit Logs
 							</a>
 							<a href="/v2/admin/users" class="sidebar-link">
 								<Users class="size-4" /> Users
 							</a>
+							<a href="/v2/admin/auth-providers" class="sidebar-link">
+								<LockKeyhole class="size-4" /> Auth Providers
+							</a>
+						</div>
+					{:else}
+						<div class="flex flex-col gap-1">
+							<a href="/mcp-servers" class="sidebar-link">
+								<Server class="size-4" /> MCP Servers
+							</a>
 						</div>
 					{/if}
-					<div class="flex flex-col gap-1">
-						<a href="/mcp-servers" class="sidebar-link">
-							<Server class="size-4" /> MCP Servers
-						</a>
-						<button onclick={handleOpenChat} class="sidebar-link justify-between">
-							<span class="flex items-center gap-2"><MessageCircle class="size-4" /> Chat </span>
-							<div use:tooltip={'Open New Tab'}>
-								<SquareArrowOutUpRight class="size-3" />
-							</div>
-						</button>
-					</div>
 				</div>
 
 				<div class="flex justify-end px-3 py-2">

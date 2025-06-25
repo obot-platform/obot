@@ -11,7 +11,7 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 	node,
 	params = {}
 ) => {
-	const { type = 'slide' } = params;
+	let { type } = params;
 
 	const slideIn = [
 		{ transform: 'translateX(200%)', opacity: 0 },
@@ -27,11 +27,11 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 
 	const fadeOut = [{ opacity: 1 }, { opacity: 0 }];
 
-	const animationOptions: KeyframeAnimationOptions = {
+	const getAnimationOptions = (animationType: AnimationType): KeyframeAnimationOptions => ({
 		duration: 200,
-		easing: type === 'slide' ? 'ease-out' : 'ease-in-out',
+		easing: animationType === 'slide' ? 'ease-out' : 'ease-in-out',
 		fill: 'forwards' as const
-	};
+	});
 
 	const originalClose = node.close;
 
@@ -40,7 +40,16 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		if (node.hasAttribute('closing')) return;
 		node.setAttribute('closing', '');
 
-		const dialogAnimation = node.animate(type === 'slide' ? slideOut : fadeOut, animationOptions);
+		if (!type) {
+			originalClose.call(node);
+			node.removeAttribute('closing');
+			return;
+		}
+
+		const dialogAnimation = node.animate(
+			type === 'slide' ? slideOut : fadeOut,
+			getAnimationOptions(type)
+		);
 
 		// Wait for animation to complete
 		dialogAnimation.addEventListener(
@@ -57,7 +66,9 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		mutations.forEach((mutation) => {
 			if (mutation.attributeName === 'open') {
 				if (node.hasAttribute('open')) {
-					node.animate(type === 'slide' ? slideIn : fadeIn, animationOptions);
+					if (!type) return;
+
+					node.animate(type === 'slide' ? slideIn : fadeIn, getAnimationOptions(type));
 				}
 			}
 		});
@@ -83,11 +94,11 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 
 	return {
 		update(newParams: DialogAnimationParams) {
-			const { type: newType = 'slide' } = newParams;
-			if (newType !== type) {
-				if (node.hasAttribute('open')) {
-					node.animate(newType === 'slide' ? slideIn : fadeIn, animationOptions);
-				}
+			const { type: newType } = newParams;
+			type = newType;
+
+			if (node.hasAttribute('open') && newType) {
+				node.animate(newType === 'slide' ? slideIn : fadeIn, getAnimationOptions(newType));
 			}
 		},
 		destroy() {
