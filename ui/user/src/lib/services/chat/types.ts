@@ -350,13 +350,14 @@ export interface ProjectMCPList {
 	items: ProjectMCP[];
 }
 
-export interface ProjectMCP extends MCPServer {
+export interface ProjectMCP {
 	id: string;
 	catalogEntryID?: string;
 	configured?: boolean;
 	deleted?: boolean;
 	type: string;
 	connectURL?: string;
+	manifest: MCPServer;
 }
 
 export interface Credential {
@@ -678,11 +679,8 @@ export interface ModelList {
 	data: Model[];
 }
 
-export interface MCPCatalogServer extends MCPCatalogEntryServerManifest {
+export interface MCPCatalogServer {
 	id: string;
-	name: string;
-	description: string;
-	icon: string;
 	configured: boolean;
 	missingRequiredEnvVars: string[];
 	missingRequiredHeaders: string[];
@@ -692,7 +690,5 @@ export interface MCPCatalogServer extends MCPCatalogEntryServerManifest {
 	createdAt: string;
 	updatedAt: string;
 	type: string;
-	metadata?: {
-		categories?: string;
-	};
+	manifest: MCPCatalogEntryServerManifest;
 }

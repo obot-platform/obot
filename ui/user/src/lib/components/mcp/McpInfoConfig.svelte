@@ -215,11 +215,16 @@
 		</button>
 	{/if}
 	{#if manifest}
-		{@const name = manifest.name || DEFAULT_CUSTOM_SERVER_NAME}
+		{@const name =
+			('manifest' in manifest && manifest.manifest.name) ||
+			('name' in manifest && manifest.name) ||
+			DEFAULT_CUSTOM_SERVER_NAME}
 		<div class="flex flex-col gap-4 p-4 md:p-6">
 			<div class="flex max-w-sm items-center gap-2">
 				<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-					{#if manifest.icon}
+					{#if 'manifest' in manifest && manifest.manifest.icon}
+						<img src={manifest.manifest.icon} alt={name} class="size-6" />
+					{:else if 'icon' in manifest && manifest.icon}
 						<img src={manifest.icon} alt={name} class="size-6" />
 					{:else}
 						<Server class="size-6" />
@@ -242,7 +247,11 @@
 				</div>
 			</div>
 			<div class="markdown-description-content message-content">
-				{@html toHTMLFromMarkdownWithNewTabLinks(manifest.description)}
+				{#if 'manifest' in manifest && manifest.manifest.description}
+					{@html toHTMLFromMarkdownWithNewTabLinks(manifest.manifest.description)}
+				{:else if 'description' in manifest && manifest.description}
+					{@html toHTMLFromMarkdownWithNewTabLinks(manifest.description)}
+				{/if}
 			</div>
 			{#if children}
 				{@render children()}

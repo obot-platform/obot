@@ -112,9 +112,13 @@
 				)}
 			>
 				{#if variant === 'messages'}
-					<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-4 rounded-sm" />
+					<img
+						src={mcpPromptSet.mcp.manifest.icon}
+						alt={mcpPromptSet.mcp.manifest.name}
+						class="size-4 rounded-sm"
+					/>
 				{/if}
-				{mcpPromptSet.mcp.name}
+				{mcpPromptSet.mcp.manifest.name}
 			</div>
 
 			{#if variant === 'messages'}
@@ -143,8 +147,8 @@
 							onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
 						>
 							<img
-								src={mcpPromptSet.mcp.icon}
-								alt={mcpPromptSet.mcp.name}
+								src={mcpPromptSet.mcp.manifest.icon}
+								alt={mcpPromptSet.mcp.manifest.name}
 								class="size-6 rounded-sm"
 							/>
 							<div class="flex flex-col">

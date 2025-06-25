@@ -7,7 +7,7 @@ import {
 	type ProjectMCP
 } from '..';
 
-export interface MCPServerInfo extends Omit<ProjectMCP, 'id' | 'type'> {
+export interface MCPServerInfo extends MCPServer {
 	id?: string;
 	env?: (MCPSubField & { value: string; custom?: string })[];
 	headers?: (MCPSubField & { value: string; custom?: string })[];
@@ -83,15 +83,16 @@ export function isValidMcpConfig(mcpConfig: MCPServerInfo) {
 }
 
 export function initMCPConfig(manifest?: MCPInfo | ProjectMCP | MCPServer): MCPServerInfo {
+	const mcpServer = manifest && 'manifest' in manifest ? manifest.manifest : manifest;
 	return {
-		...manifest,
-		name: manifest?.name ?? '',
-		description: manifest?.description ?? '',
-		icon: manifest?.icon ?? '',
-		env: manifest?.env?.map((e) => ({ ...e, value: '' })) ?? [],
-		args: manifest?.args ? [...manifest.args] : [],
-		command: manifest?.command ?? '',
-		headers: manifest?.headers?.map((e) => ({ ...e, value: '' })) ?? []
+		...mcpServer,
+		name: mcpServer?.name ?? '',
+		description: mcpServer?.description ?? '',
+		icon: mcpServer?.icon ?? '',
+		env: mcpServer?.env?.map((e) => ({ ...e, value: '' })) ?? [],
+		args: mcpServer?.args ? [...mcpServer.args] : [],
+		command: mcpServer?.command ?? '',
+		headers: mcpServer?.headers?.map((e) => ({ ...e, value: '' })) ?? []
 	};
 }
 

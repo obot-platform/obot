@@ -113,9 +113,9 @@
 			.map((server) => {
 				return {
 					id: server.id,
-					name: server.name,
+					name: server.manifest.name ?? '',
 					source: 'manual',
-					type: server.fixedURL ? 'Remote' : 'Multi-user',
+					type: server.manifest.fixedURL ? 'Remote' : 'Multi-user',
 					data: server,
 					editable: true,
 					deployments: 0

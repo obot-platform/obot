@@ -211,8 +211,8 @@
 		if (!credential) {
 			credential = {
 				toolID: bundleId,
-				toolName: server.name || bundleId,
-				icon: server.icon,
+				toolName: server.manifest.name || bundleId,
+				icon: server.manifest.icon,
 				exists: false
 			};
 		}
@@ -327,13 +327,14 @@
 								>
 									<div class="flex items-center gap-2">
 										<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-											{#if server.icon}
-												<img src={server.icon} class="size-4" alt={server.name} />
+											{#if server.manifest.icon}
+												<img src={server.manifest.icon} class="size-4" alt={server.manifest.name} />
 											{:else}
 												<Server class="size-4" />
 											{/if}
 										</div>
-										<span class="text-sm">{server.name || DEFAULT_CUSTOM_SERVER_NAME}</span>
+										<span class="text-sm">{server.manifest.name || DEFAULT_CUSTOM_SERVER_NAME}</span
+										>
 									</div>
 
 									<div class="relative flex items-center gap-2">
@@ -391,14 +392,18 @@
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-2">
 					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-						{#if currentMcpServer.icon}
-							<img src={currentMcpServer.icon} alt={currentMcpServer.name} class="size-6" />
+						{#if currentMcpServer.manifest.icon}
+							<img
+								src={currentMcpServer.manifest.icon}
+								alt={currentMcpServer.manifest.name}
+								class="size-6"
+							/>
 						{:else}
 							<Server class="size-6" />
 						{/if}
 					</div>
 					<h3 class="text-lg font-semibold">
-						Configure {currentMcpServer.name || 'MCP Server'}
+						Configure {currentMcpServer.manifest.name || 'MCP Server'}
 					</h3>
 				</div>
 				<button class="icon-button" onclick={resetConfigDialogState}>

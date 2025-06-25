@@ -24,6 +24,7 @@ export interface MCPCatalogEntry {
 }
 
 export interface MCPCatalogEntryServerManifest {
+	icon?: string;
 	args?: string[];
 	env?: MCPCatalogEntryFieldManifest[];
 	command?: string;
@@ -32,10 +33,6 @@ export interface MCPCatalogEntryServerManifest {
 	headers?: MCPCatalogEntryFieldManifest[];
 	name?: string;
 	description?: string;
-}
-
-export interface MCPCatalogEntryManifest extends MCPCatalogEntryServerManifest {
-	icon?: string;
 	metadata?: {
 		categories?: string;
 	};
@@ -50,16 +47,14 @@ export interface MCPCatalogEntryFieldManifest {
 	value: string;
 }
 
-export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryManifest, 'metadata'> & {
+export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryServerManifest, 'metadata'> & {
 	categories: string[];
 };
 
-export interface MCPCatalogServerManifest extends MCPCatalogEntryServerManifest {
-	description?: string;
-	icon?: string;
+export interface MCPCatalogServerManifest {
 	catalogEntryID?: string;
-	metadata?: {
-		categories?: string;
+	manifest: Omit<MCPCatalogEntryServerManifest, 'fixedURL'> & {
+		url?: string;
 	};
 }
 

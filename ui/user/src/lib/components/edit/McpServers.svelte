@@ -228,8 +228,8 @@
 							}}
 						>
 							<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-								{#if mcp.icon}
-									<img src={mcp.icon} class="size-4" alt={mcp.name} />
+								{#if mcp.manifest.icon}
+									<img src={mcp.manifest.icon} class="size-4" alt={mcp.manifest.name} />
 								{:else}
 									<Server class="size-4" />
 								{/if}
@@ -237,7 +237,7 @@
 							<p
 								class="flex w-[calc(100%-24px)] items-center truncate text-left text-xs font-light"
 							>
-								{mcp.name || DEFAULT_CUSTOM_SERVER_NAME}
+								{mcp.manifest.name || DEFAULT_CUSTOM_SERVER_NAME}
 								{#if shouldShowWarning(mcp)}
 									<span class="ml-1" use:tooltip={'Configuration Required'}>
 										<TriangleAlert
@@ -348,7 +348,7 @@
 <Confirm
 	msg={chatbot
 		? `Are you sure you want to delete your MCP server configuration?`
-		: `Are you sure you want to delete MCP server: ${toDelete?.name}?`}
+		: `Are you sure you want to delete MCP server: ${toDelete?.manifest.name}?`}
 	show={!!toDelete}
 	onsuccess={handleRemoveMcp}
 	oncancel={() => (toDelete = undefined)}

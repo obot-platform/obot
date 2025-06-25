@@ -55,13 +55,13 @@
 						}}
 					>
 						<div class="flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-							{#if projectMcp.icon}
-								<img src={projectMcp.icon} alt={projectMcp.name} class="size-4" />
+							{#if projectMcp.manifest.icon}
+								<img src={projectMcp.manifest.icon} alt={projectMcp.manifest.name} class="size-4" />
 							{:else}
 								<Server class="size-4" />
 							{/if}
 						</div>
-						{projectMcp.name || DEFAULT_CUSTOM_SERVER_NAME}
+						{projectMcp.manifest.name || DEFAULT_CUSTOM_SERVER_NAME}
 					</button>
 				{/each}
 			</div>

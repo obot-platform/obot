@@ -6,7 +6,7 @@ import type {
 	FileScannerProvider,
 	MCPCatalog,
 	MCPCatalogEntry,
-	MCPCatalogEntryManifest,
+	MCPCatalogEntryServerManifest,
 	MCPCatalogManifest,
 	OrgUser,
 	Model,
@@ -70,7 +70,7 @@ export async function listMCPCatalogEntries(
 
 export async function createMCPCatalogEntry(
 	catalogID: string,
-	entry: MCPCatalogEntryManifest,
+	entry: MCPCatalogEntryServerManifest,
 	opts?: { fetch?: Fetcher }
 ): Promise<MCPCatalogEntry> {
 	const response = (await doPost(
@@ -84,7 +84,7 @@ export async function createMCPCatalogEntry(
 export async function updateMCPCatalogEntry(
 	catalogID: string,
 	entryID: string,
-	entry: MCPCatalogEntryManifest,
+	entry: MCPCatalogEntryServerManifest,
 	opts?: { fetch?: Fetcher }
 ): Promise<MCPCatalogEntry> {
 	const response = (await doPut(

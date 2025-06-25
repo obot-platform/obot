@@ -159,20 +159,20 @@
 		<div class="mb-4 flex flex-col gap-1">
 			<div class="flex items-center gap-2">
 				<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-					{#if mcpServer.icon}
-						<img src={mcpServer.icon} alt={mcpServer.name} class="size-6" />
+					{#if mcpServer.manifest.icon}
+						<img src={mcpServer.manifest.icon} alt={mcpServer.manifest.name} class="size-6" />
 					{:else}
 						<Server class="size-6" />
 					{/if}
 				</div>
 				<div class="flex flex-col gap-1">
 					<h3 class="text-lg leading-5.5 font-semibold">
-						{mcpServer.name || DEFAULT_CUSTOM_SERVER_NAME}
+						{mcpServer.manifest.name || DEFAULT_CUSTOM_SERVER_NAME}
 					</h3>
 				</div>
 			</div>
 			<p class="text-sm font-light text-gray-500">
-				{mcpServer.description}
+				{mcpServer.manifest.description}
 			</p>
 		</div>
 

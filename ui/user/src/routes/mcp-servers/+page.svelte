@@ -53,7 +53,9 @@
 		search
 			? allData.filter((item) => {
 					const nameToUse =
-						'name' in item ? item.name : (item.commandManifest?.name ?? item.urlManifest?.name);
+						'manifest' in item
+							? item.manifest.name
+							: (item.commandManifest?.name ?? item.urlManifest?.name);
 					return nameToUse?.toLowerCase().includes(search.toLowerCase());
 				})
 			: allData
@@ -97,8 +99,8 @@
 	}
 
 	function parseCategories(item: MCP | MCPCatalogServer) {
-		if ('metadata' in item && item.metadata?.categories) {
-			return item.metadata?.categories.split(',') ?? [];
+		if ('manifest' in item && item.manifest.metadata?.categories) {
+			return item.manifest.metadata.categories.split(',') ?? [];
 		}
 		if ('commandManifest' in item && item.commandManifest?.metadata?.categories) {
 			return item.commandManifest.metadata.categories.split(',') ?? [];
@@ -184,9 +186,13 @@
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 				{#each paginatedData as item}
 					{@const icon =
-						'icon' in item ? item.icon : (item.commandManifest?.icon ?? item.urlManifest?.icon)}
+						'manifest' in item
+							? item.manifest.icon
+							: (item.commandManifest?.icon ?? item.urlManifest?.icon)}
 					{@const name =
-						'name' in item ? item.name : (item.commandManifest?.name ?? item.urlManifest?.name)}
+						'manifest' in item
+							? item.manifest.name
+							: (item.commandManifest?.name ?? item.urlManifest?.name)}
 					{@const categories = parseCategories(item)}
 					<div
 						class="dark:bg-surface1 dark:border-surface3 relative flex flex-col rounded-sm border border-transparent bg-white px-2 py-4 shadow-sm"
@@ -206,8 +212,8 @@
 								<span
 									class="line-clamp-2 text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600"
 								>
-									{#if 'description' in item}
-										{item.description}
+									{#if 'manifest' in item}
+										{item.manifest.description}
 									{:else}
 										{item.commandManifest?.description ?? item.urlManifest?.description}
 									{/if}
@@ -331,12 +337,16 @@
 			{/if}
 			{name}
 		{:else if connectToServer}
-			{#if connectToServer.icon}
-				<img src={connectToServer.icon} alt={connectToServer.name} class="size-6" />
+			{#if connectToServer.manifest.icon}
+				<img
+					src={connectToServer.manifest.icon}
+					alt={connectToServer.manifest.name}
+					class="size-6"
+				/>
 			{:else}
 				<Server class="size-6" />
 			{/if}
-			{connectToServer.name}
+			{connectToServer.manifest.name}
 		{/if}
 	{/snippet}
 
