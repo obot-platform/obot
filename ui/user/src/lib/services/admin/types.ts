@@ -1,5 +1,3 @@
-import type { MCPInfo } from '../chat/types';
-
 export interface MCPCatalogManifest {
 	displayName: string;
 	sourceURLs: string[];
@@ -12,15 +10,6 @@ export interface MCPCatalog extends MCPCatalogManifest {
 
 export interface MCPCatalogSource {
 	id: string;
-}
-
-export interface MCPCatalogEntry {
-	id: string;
-	created: string;
-	commandManifest?: MCPInfo;
-	urlManifest?: MCPInfo;
-	sourceURL?: string;
-	type: string;
 }
 
 export interface MCPCatalogEntryServerManifest {
@@ -38,6 +27,15 @@ export interface MCPCatalogEntryServerManifest {
 	};
 }
 
+export interface MCPCatalogEntry {
+	id: string;
+	created: string;
+	commandManifest?: MCPCatalogEntryServerManifest;
+	urlManifest?: MCPCatalogEntryServerManifest;
+	sourceURL?: string;
+	type: string;
+}
+
 export interface MCPCatalogEntryFieldManifest {
 	key: string;
 	description: string;
@@ -49,6 +47,7 @@ export interface MCPCatalogEntryFieldManifest {
 
 export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryServerManifest, 'metadata'> & {
 	categories: string[];
+	url?: string;
 };
 
 export interface MCPCatalogServerManifest {

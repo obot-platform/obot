@@ -49,13 +49,14 @@
 				args: [''],
 				command: '',
 				fixedURL: '',
+				url: '',
 				headers: [],
 				icon: ''
 			};
 		}
 
 		if (item.type === 'mcpserver') {
-			const server = item as MCPCatalogServer;
+			const server = item as MCPCatalogServerManifest;
 			return {
 				categories: [],
 				icon: server.manifest.icon,
@@ -64,15 +65,15 @@
 				env: server.manifest.env,
 				args: server.manifest.args,
 				command: server.manifest.command,
-				fixedURL: server.manifest.fixedURL,
+				url: server.manifest.url,
 				headers: server.manifest.headers
 			};
 		} else {
 			const entry = item as MCPCatalogEntry;
 			return {
 				categories:
-					entry.commandManifest?.metadata?.categories.split(',') ??
-					entry.urlManifest?.metadata?.categories.split(',') ??
+					entry.commandManifest?.metadata?.categories?.split(',') ??
+					entry.urlManifest?.metadata?.categories?.split(',') ??
 					[],
 				name: entry.commandManifest?.name ?? entry.urlManifest?.name ?? '',
 				icon: entry.commandManifest?.icon ?? entry.urlManifest?.icon ?? '',
@@ -129,12 +130,11 @@
 	}
 
 	function convertToServerManifest(formData: MCPCatalogEntryFormData): MCPCatalogServerManifest {
-		const { categories, fixedURL, ...rest } = formData;
+		const { categories, ...rest } = formData;
 		return {
 			manifest: {
 				...rest,
-				...convertCategoriesToMetadata(categories),
-				url: fixedURL
+				...convertCategoriesToMetadata(categories)
 			}
 		};
 	}

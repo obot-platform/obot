@@ -465,13 +465,13 @@
 			<span class="text-xs font-light text-gray-500">Let Obot manage the MCP server for you. </span>
 		</div>
 		{#if selectedMcp?.urlManifest}
-			{@const hostname = selectedMcp.urlManifest.fixedURL?.split('://')[1].split('/')[0]}
+			{@const hostname = selectedMcp.urlManifest.url?.split('://')[1].split('/')[0]}
 			<div class="flex flex-col items-center justify-center gap-1">
 				<button class="button w-full" onclick={() => selectManifest('url')}
 					>Connect to External Server</button
 				>
 				<span class="text-xs font-light text-gray-500">
-					{#if selectedMcp.urlManifest.fixedURL}
+					{#if selectedMcp.urlManifest.url}
 						Use the preconfigured external server: <b
 							class="font-semibold text-black dark:text-white">{hostname}</b
 						>

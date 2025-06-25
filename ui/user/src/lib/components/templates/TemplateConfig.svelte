@@ -379,9 +379,9 @@
 									class="flex w-fit items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-gray-800"
 								>
 									<div class="flex-shrink-0 rounded-md bg-white p-1 dark:bg-gray-700">
-										<img src={mcp.icon} class="size-3.5" alt={mcp.name} />
+										<img src={mcp.manifest.icon} class="size-3.5" alt={mcp.manifest.name} />
 									</div>
-									<span class="truncate text-xs">{mcp.name}</span>
+									<span class="truncate text-xs">{mcp.manifest.name}</span>
 								</div>
 							{/each}
 						</div>

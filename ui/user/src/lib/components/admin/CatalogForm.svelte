@@ -115,7 +115,7 @@
 					id: server.id,
 					name: server.manifest.name ?? '',
 					source: 'manual',
-					type: server.manifest.fixedURL ? 'Remote' : 'Multi-user',
+					type: server.manifest.url ? 'Remote' : 'Multi-user',
 					data: server,
 					editable: true,
 					deployments: 0

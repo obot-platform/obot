@@ -1,5 +1,3 @@
-import type { MCPCatalogEntryServerManifest } from '../admin/types';
-
 export interface Progress {
 	runID?: string;
 	parentRunID?: string;
@@ -290,9 +288,12 @@ export interface MCPServer {
 	args?: string[];
 	env?: MCPSubField[];
 	command?: string;
-	fixedURL?: string;
+	url?: string;
 	hostname?: string;
 	headers?: MCPSubField[];
+	metadata?: {
+		categories?: string;
+	};
 }
 
 export interface MCPServerTool {
@@ -682,13 +683,13 @@ export interface ModelList {
 export interface MCPCatalogServer {
 	id: string;
 	configured: boolean;
+	catalogEntryID: string;
 	missingRequiredEnvVars: string[];
 	missingRequiredHeaders: string[];
-	catalogEntryID: string;
 	sharedWithinCatalogName: string;
 	connectURL: string;
 	createdAt: string;
 	updatedAt: string;
 	type: string;
-	manifest: MCPCatalogEntryServerManifest;
+	manifest: MCPServer;
 }
