@@ -9,7 +9,6 @@
 	import HostedMcpForm from '../mcp/HostedMcpForm.svelte';
 	import RemoteMcpForm from '../mcp/RemoteMcpForm.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
-	import { onMount } from 'svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -22,8 +21,8 @@
 
 	function getType(entry?: MCPCatalogEntry | MCPCatalogServer) {
 		if (!entry) return undefined;
-		if (entry.type === 'mcpserver' && 'command' in entry) {
-			return entry.command ? 'multi' : 'remote';
+		if ('manifest' in entry) {
+			return entry.manifest.command ? 'multi' : 'remote';
 		} else if ('commandManifest' in entry || 'urlManifest' in entry) {
 			return 'single';
 		}
@@ -37,7 +36,7 @@
 		onCancel,
 		onSubmit
 	}: Props = $props();
-	let type = $state(getType(entry) ?? newType);
+	let type = $derived(getType(entry) ?? newType);
 
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): MCPCatalogEntryFormData {
 		if (!item) {
@@ -59,14 +58,14 @@
 			const server = item as MCPCatalogServerManifest;
 			return {
 				categories: [],
-				icon: server.manifest.icon,
-				name: server.manifest.name,
+				icon: server.manifest.icon ?? '',
+				name: server.manifest.name ?? '',
 				description: server.manifest.description,
-				env: server.manifest.env,
-				args: server.manifest.args,
-				command: server.manifest.command,
-				url: server.manifest.url,
-				headers: server.manifest.headers
+				env: server.manifest.env ?? [],
+				args: server.manifest.args ?? [],
+				command: server.manifest.command ?? '',
+				url: server.manifest.url ?? '',
+				headers: server.manifest.headers ?? []
 			};
 		} else {
 			const entry = item as MCPCatalogEntry;
@@ -77,34 +76,44 @@
 					[],
 				name: entry.commandManifest?.name ?? entry.urlManifest?.name ?? '',
 				icon: entry.commandManifest?.icon ?? entry.urlManifest?.icon ?? '',
-				env: (entry.commandManifest?.env ?? entry.urlManifest?.env ?? []).map((env) => ({
-					...env,
-					value: ''
-				})),
+				env:
+					(entry.commandManifest?.env ?? entry.urlManifest?.env ?? []).map((env) => ({
+						...env,
+						value: ''
+					})) ?? [],
 				description: entry.commandManifest?.description ?? entry.urlManifest?.description ?? '',
 				args: entry.commandManifest?.args ?? entry.urlManifest?.args ?? [],
 				command: entry.commandManifest?.command ?? entry.urlManifest?.command ?? '',
 				fixedURL: entry.commandManifest?.fixedURL ?? entry.urlManifest?.fixedURL ?? '',
 				hostname: entry.commandManifest?.hostname ?? entry.urlManifest?.hostname ?? '',
-				headers: (entry.commandManifest?.headers ?? entry.urlManifest?.headers ?? []).map(
-					(header) => ({
+				headers:
+					(entry.commandManifest?.headers ?? entry.urlManifest?.headers ?? []).map((header) => ({
 						...header,
 						value: ''
-					})
-				)
+					})) ?? []
 			};
 		}
 	}
 	let formData = $state<MCPCatalogEntryFormData>(convertToFormData(entry));
 
-	onMount(async () => {
+	async function revealCatalogServer(catalogId: string, entryId: string) {
+		try {
+			const response = await AdminService.revealMcpCatalogServer(catalogId, entryId);
+			formData.env = formData.env?.map((env) => ({
+				...env,
+				value: response[env.key] ?? ''
+			}));
+		} catch (error) {
+			if (error instanceof Error && error.message.includes('404')) {
+				// ignore, 404 means no credentials were set
+				return;
+			}
+		}
+	}
+
+	$effect(() => {
 		if (entry && type === 'multi' && catalogId) {
-			AdminService.revealMcpCatalogServer(catalogId, entry.id).then((response) => {
-				formData.env = formData.env?.map((env) => ({
-					...env,
-					value: response[env.key] ?? ''
-				}));
-			});
+			revealCatalogServer(catalogId, entry.id);
 		}
 	});
 

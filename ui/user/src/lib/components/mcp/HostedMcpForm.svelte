@@ -127,7 +127,8 @@
 						sensitive: false
 					})}
 			>
-				<Plus class="size-4" /> User Configuration
+				<Plus class="size-4" />
+				{type === 'single' ? 'User Configuration' : 'Configuration'}
 			</button>
 		</div>
 	{/if}
