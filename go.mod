@@ -26,7 +26,7 @@ require (
 	github.com/gptscript-ai/gptscript v0.9.6-0.20250623175741-7a49337eef7b
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
-	github.com/nanobot-ai/nanobot v0.0.6-0.20250623174223-c75713af7a09
+	github.com/nanobot-ai/nanobot v0.0.6-0.20250626143247-ed967dde5d91
 	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
 	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2
