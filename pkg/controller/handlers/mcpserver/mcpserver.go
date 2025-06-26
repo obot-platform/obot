@@ -19,9 +19,8 @@ func DeleteOrphans(req router.Request, resp router.Response) error {
 
 	if server.Spec.ThreadName != "" || server.Spec.SharedWithinMCPCatalogName != "" {
 		return nil
-	} else if time.Since(server.CreationTimestamp.Time) < 2*time.Minute {
-		resp.RetryAfter(2 * time.Minute)
-		log.Infof("Retrying in 2 minutes for MCP server %s/%s", req.Namespace, server.Name)
+	} else if time.Since(server.CreationTimestamp.Time) < time.Hour {
+		resp.RetryAfter(time.Hour)
 		return nil
 	}
 
@@ -32,9 +31,6 @@ func DeleteOrphans(req router.Request, resp router.Response) error {
 	} else if err != nil {
 		return err
 	}
-
-	// TODO: remove this after testing, and change the time from 2 minutes to 1 hour
-	log.Infof("Found MCP server instance for MCP server %s/%s", req.Namespace, server.Name)
 
 	return nil
 }

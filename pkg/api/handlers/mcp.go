@@ -509,12 +509,21 @@ func ServerFromMCPServerInstance(req api.Context, gptClient *gptscript.GPTScript
 
 	addExtractedEnvVars(&server)
 
-	cred, err := gptClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", instance.Spec.UserID, server.Name)}, server.Name)
+	var credCtx, scope string
+	if server.Spec.SharedWithinMCPCatalogName != "" {
+		credCtx = fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name)
+		scope = server.Spec.SharedWithinMCPCatalogName
+	} else {
+		credCtx = fmt.Sprintf("%s-%s", instance.Spec.UserID, server.Name)
+		scope = instance.Spec.UserID
+	}
+
+	cred, err := gptClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return server, mcp.ServerConfig{}, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	serverConfig, missingConfig := mcp.ToServerConfig(server, instance.Spec.UserID, cred.Env)
+	serverConfig, missingConfig := mcp.ToServerConfig(server, scope, cred.Env)
 	if len(missingConfig) > 0 {
 		return server, mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
 	}
