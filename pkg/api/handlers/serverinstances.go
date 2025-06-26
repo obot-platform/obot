@@ -53,14 +53,14 @@ func (h *ServerInstancesHandler) GetServerInstance(req api.Context) error {
 
 func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 	var input struct {
-		MCPServerName string `json:"mcpServerName"`
+		MCPServerID string `json:"mcpServerID"`
 	}
 	if err := req.Read(&input); err != nil {
 		return fmt.Errorf("failed to read server name: %w", err)
 	}
 
 	var server v1.MCPServer
-	if err := req.Get(&server, input.MCPServerName); err != nil {
+	if err := req.Get(&server, input.MCPServerID); err != nil {
 		return fmt.Errorf("failed to get MCP server: %w", err)
 	}
 
@@ -79,12 +79,12 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 
 	instance := v1.MCPServerInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s-%s", system.MCPServerInstancePrefix, req.User.GetUID(), input.MCPServerName),
+			Name:      fmt.Sprintf("%s-%s-%s", system.MCPServerInstancePrefix, req.User.GetUID(), input.MCPServerID),
 			Namespace: req.Namespace(),
 		},
 		Spec: v1.MCPServerInstanceSpec{
 			UserID:         req.User.GetUID(),
-			MCPServerName:  input.MCPServerName,
+			MCPServerName:  input.MCPServerID,
 			MCPCatalogName: server.Spec.SharedWithinMCPCatalogName,
 		},
 	}

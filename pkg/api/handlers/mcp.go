@@ -1414,7 +1414,6 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 		MCPServerManifest:       server.Spec.Manifest,
 		CatalogEntryID:          server.Spec.MCPServerCatalogEntryName,
 		SharedWithinCatalogName: server.Spec.SharedWithinMCPCatalogName,
-		ConnectURL:              fmt.Sprintf("%s/mcp-connect/%s", serverURL, server.Name),
 	}
 }
 
