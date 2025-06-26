@@ -31,17 +31,15 @@ import (
 type MCPHandler struct {
 	gptscript         *gptscript.GPTScript
 	mcpSessionManager *mcp.SessionManager
-	serverURL         string
 	acrHelper         *accesscontrolrule.Helper
 }
 
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
-func NewMCPHandler(gptscript *gptscript.GPTScript, mcpLoader *mcp.SessionManager, serverURL string, acrHelper *accesscontrolrule.Helper) *MCPHandler {
+func NewMCPHandler(gptscript *gptscript.GPTScript, mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper) *MCPHandler {
 	return &MCPHandler{
 		gptscript:         gptscript,
 		mcpSessionManager: mcpLoader,
-		serverURL:         serverURL,
 		acrHelper:         acrHelper,
 	}
 }
@@ -204,7 +202,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
-		items = append(items, convertMCPServer(server, credMap[server.Name], m.serverURL))
+		items = append(items, convertMCPServer(server, credMap[server.Name]))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -255,7 +253,7 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(server, cred.Env, m.serverURL))
+	return req.Write(convertMCPServer(server, cred.Env))
 }
 
 func (m *MCPHandler) DeleteServer(req api.Context) error {
@@ -298,7 +296,7 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(server, nil, m.serverURL))
+	return req.Write(convertMCPServer(server, nil))
 }
 
 func (m *MCPHandler) GetTools(req api.Context) error {
@@ -758,7 +756,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	return req.WriteCreated(convertMCPServer(server, cred.Env, m.serverURL))
+	return req.WriteCreated(convertMCPServer(server, cred.Env))
 }
 
 func (m *MCPHandler) UpdateServer(req api.Context) error {
@@ -871,7 +869,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(existing, cred.Env, m.serverURL))
+	return req.Write(convertMCPServer(existing, cred.Env))
 }
 
 func (m *MCPHandler) ConfigureServer(req api.Context) error {
@@ -934,7 +932,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, envVars, m.serverURL))
+	return req.Write(convertMCPServer(mcpServer, envVars))
 }
 
 func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
@@ -1004,7 +1002,7 @@ func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, envVars, m.serverURL))
+	return req.Write(convertMCPServer(mcpServer, envVars))
 }
 
 func (m *MCPHandler) DeconfigureServer(req api.Context) error {
@@ -1046,7 +1044,7 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL))
+	return req.Write(convertMCPServer(mcpServer, nil))
 }
 
 func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
@@ -1096,7 +1094,7 @@ func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL))
+	return req.Write(convertMCPServer(mcpServer, nil))
 }
 
 func (m *MCPHandler) Reveal(req api.Context) error {
@@ -1390,7 +1388,7 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 }
 
-func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL string) types.MCPServer {
+func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
 
 	// Check for missing required env vars
@@ -1475,7 +1473,7 @@ func (m *MCPHandler) ListServersInDefaultCatalog(req api.Context) error {
 	var mcpServers []types.MCPServer
 	for _, server := range allowedServers {
 		addExtractedEnvVars(&server)
-		mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name], m.serverURL))
+		mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name]))
 	}
 
 	return req.Write(types.MCPServerList{Items: mcpServers})
@@ -1513,5 +1511,5 @@ func (m *MCPHandler) GetServerFromDefaultCatalog(req api.Context) error {
 
 	addExtractedEnvVars(&server)
 
-	return req.Write(convertMCPServer(server, cred.Env, m.serverURL))
+	return req.Write(convertMCPServer(server, cred.Env))
 }
