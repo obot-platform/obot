@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
@@ -105,7 +104,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			if err = msg.Reply(ctx, client.Session.InitializeResult); err != nil {
 				log.Errorf("Failed to reply to server %s: %v", m.mcpServer.Name, err)
 				msg.SendError(ctx, &nmcp.RPCError{
-					Code:    http.StatusInternalServerError,
+					Code:    -32603,
 					Message: fmt.Sprintf("failed to reply to server %s: %v", m.mcpServer.Name, err),
 				})
 			}
@@ -147,7 +146,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		}
 
 		msg.SendError(ctx, &nmcp.RPCError{
-			Code:    http.StatusInternalServerError,
+			Code:    -32603,
 			Message: fmt.Sprintf("failed to send message to server %s: %v", m.mcpServer.Name, err),
 		})
 		return
@@ -156,7 +155,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 	if err = msg.Reply(ctx, result); err != nil {
 		log.Errorf("Failed to reply to server %s: %v", m.mcpServer.Name, err)
 		msg.SendError(ctx, &nmcp.RPCError{
-			Code:    http.StatusInternalServerError,
+			Code:    -32603,
 			Message: fmt.Sprintf("failed to reply to server %s: %v", m.mcpServer.Name, err),
 		})
 		return
