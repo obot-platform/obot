@@ -5,7 +5,13 @@
 	import { ChevronLeft, ChevronRight, LoaderCircle, X } from 'lucide-svelte';
 	import McpCard from '$lib/components/mcp/McpCard.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import { ChatService, type MCP, type MCPInfo, type MCPServer, type Project } from '$lib/services';
+	import {
+		ChatService,
+		type MCPCatalogEntry,
+		type MCPInfo,
+		type MCPServer,
+		type Project
+	} from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import type { MCPServerInfo } from '$lib/services/chat/mcp';
@@ -58,7 +64,7 @@
 	let searchInput = $state<ReturnType<typeof Search>>();
 	let selectManifestDialog = $state<HTMLDialogElement>();
 
-	let mcps = $state<MCP[]>([]);
+	let mcps = $state<MCPCatalogEntry[]>([]);
 	let loadingMcps = $state(true);
 
 	const toolBundleMap = getToolBundleMap();
@@ -66,7 +72,7 @@
 	const ITEMS_PER_PAGE = 36;
 	let currentPage = $state(1);
 
-	function transformMcp(mcp: MCP): TransformedMcp {
+	function transformMcp(mcp: MCPCatalogEntry): TransformedMcp {
 		const toCategory = (cat: string) => {
 			const trimmed = cat.trim();
 			return trimmed === VERIFIED_CATEGORY ? 'Community' : trimmed;
@@ -83,8 +89,8 @@
 		const icon = commandManifest?.icon ?? urlManifest?.icon ?? '';
 		const description = commandManifest?.description ?? urlManifest?.description ?? '';
 		const allowsMultiple =
-			(commandManifest?.metadata && commandManifest.metadata['allow-multiple'] === 'true') ||
-			(urlManifest?.metadata && urlManifest.metadata['allow-multiple'] === 'true');
+			(commandManifest?.metadata && commandManifest.metadata?.['allow-multiple'] === 'true') ||
+			(urlManifest?.metadata && urlManifest.metadata?.['allow-multiple'] === 'true');
 
 		return {
 			id: mcp.id,

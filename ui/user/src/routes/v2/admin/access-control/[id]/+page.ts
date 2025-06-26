@@ -6,14 +6,14 @@ import type { PageLoad } from './$types';
 export const load: PageLoad = async ({ params, fetch }) => {
 	const { id } = params;
 
-	let mcpCatalog;
+	let accessControlRule;
 	try {
-		mcpCatalog = await AdminService.getMCPCatalog(id, { fetch });
+		accessControlRule = await AdminService.getAccessControlRule(id, { fetch });
 	} catch (err) {
 		handleRouteError(err, `/v2/admin/access-control/${id}`, profile.current);
 	}
 
 	return {
-		mcpCatalog
+		accessControlRule
 	};
 };

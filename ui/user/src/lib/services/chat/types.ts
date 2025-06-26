@@ -339,7 +339,10 @@ export interface McpServerResourceContent {
 }
 
 export interface MCPInfo extends MCPServer {
-	metadata: Record<string, string>;
+	metadata?: {
+		'allow-multiple'?: string;
+		categories?: string;
+	};
 	repoURL?: string;
 }
 
@@ -353,7 +356,6 @@ export interface ProjectMCP {
 	configured?: boolean;
 	deleted?: boolean;
 	type: string;
-	connectURL?: string;
 	manifest: MCPServer;
 }
 
@@ -671,17 +673,20 @@ export interface MCPCatalogServer {
 	missingRequiredEnvVars: string[];
 	missingRequiredHeaders: string[];
 	sharedWithinCatalogName: string;
-	connectURL: string;
-	createdAt: string;
-	updatedAt: string;
+	created: string;
+	updated: string;
 	type: string;
 	manifest: MCPServer;
 }
 
 export interface MCPServerInstance {
 	id: string;
-	createdAt: string;
-	updatedAt: string;
-	serverID: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
 	userID: string;
+	mcpServerID?: string;
+	mcpCatalogID?: string;
+	connectURL?: string;
 }

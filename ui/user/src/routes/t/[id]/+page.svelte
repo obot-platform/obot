@@ -29,12 +29,7 @@
 	</div>
 	<div class="flex flex-1 items-center justify-center p-4">
 		<div class="bg-surface1 dark:bg-surface2 w-full max-w-xl p-6 md:rounded-xl">
-			<AgentCopy
-				inline={true}
-				onBack={() => goto('/home')}
-				template={data.template}
-				mcps={data.mcps}
-			/>
+			<AgentCopy inline={true} onBack={() => goto('/')} template={data.template} mcps={data.mcps} />
 		</div>
 	</div>
 </div>

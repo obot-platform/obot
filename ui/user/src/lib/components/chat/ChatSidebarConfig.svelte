@@ -5,7 +5,7 @@
 	import Slack from '$lib/components/integrations/slack/Slack.svelte';
 	import ProjectInvitations from '$lib/components/edit/ProjectInvitations.svelte';
 	import TemplateConfig from '$lib/components/templates/TemplateConfig.svelte';
-	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
+	import ProjectMcpServerTools from '$lib/components/mcp/ProjectMcpServerTools.svelte';
 	import ModelProviders from '../ModelProviders.svelte';
 	import ChatbotConfig from '$lib/components/edit/ChatbotConfig.svelte';
 	import { X } from 'lucide-svelte';
@@ -32,7 +32,7 @@
 		{#key layout.mcpServer.id}
 			<div class="flex w-full justify-center px-4 py-4 md:px-8">
 				<div class="flex w-full flex-col gap-4 md:max-w-[1200px]">
-					<McpServerTools
+					<ProjectMcpServerTools
 						{project}
 						mcpServer={layout.mcpServer}
 						onSubmit={() => closeSidebarConfig(layout)}
@@ -47,7 +47,7 @@
 								</button>
 							</h2>
 						{/snippet}
-					</McpServerTools>
+					</ProjectMcpServerTools>
 				</div>
 			</div>
 		{/key}

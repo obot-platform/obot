@@ -916,9 +916,46 @@ export async function listMCPCatalogServers(opts?: {
 	fetch?: Fetcher;
 }): Promise<MCPCatalogServer[]> {
 	const response = (await doGet('/all-mcp-catalogs/servers', opts)) as {
-		items: MCPCatalogServer[];
+		items: MCPCatalogServer[] | null;
 	};
-	return response.items;
+	return response.items ?? [];
+}
+
+export async function getMcpCatalogServer(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer> {
+	return (await doGet(`/all-mcp-catalogs/servers/${id}`, opts)) as MCPCatalogServer;
+}
+
+export async function listMcpCatalogServerTools(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerTool[]> {
+	return (await doGet(`/all-mcp-catalogs/servers/${id}/tools`, {
+		...opts,
+		dontLogErrors: true
+	})) as MCPServerTool[];
+}
+
+export async function listMcpCatalogServerPrompts(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerPrompt[]> {
+	return (await doGet(`/all-mcp-catalogs/servers/${id}/prompts`, {
+		...opts,
+		dontLogErrors: true
+	})) as MCPServerPrompt[];
+}
+
+export async function listMcpCatalogServerResources(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<McpServerResource[]> {
+	return (await doGet(`/all-mcp-catalogs/servers/${id}/resources`, {
+		...opts,
+		dontLogErrors: true
+	})) as McpServerResource[];
 }
 
 export async function listProjectMCPs(
@@ -1386,29 +1423,34 @@ export async function bootstrapLogout() {
 
 export async function listSingleOrRemoteMcpServers(opts?: {
 	fetch?: Fetcher;
-}): Promise<MCPServer[]> {
-	const response = (await doGet('/mcp-servers', opts)) as ItemsResponse<MCPServer>;
+}): Promise<MCPCatalogServer[]> {
+	const response = (await doGet('/mcp-servers', opts)) as ItemsResponse<MCPCatalogServer>;
 	return response.items ?? [];
 }
 
 export async function getSingleOrRemoteMcpServer(
 	id: string,
 	opts?: { fetch?: Fetcher }
-): Promise<MCPServer> {
-	const response = (await doGet(`/mcp-servers/${id}`, opts)) as MCPServer;
+): Promise<MCPCatalogServer> {
+	const response = (await doGet(`/mcp-servers/${id}`, opts)) as MCPCatalogServer;
 	return response;
 }
 
-export async function createSingleOrRemoteMcpServer(server: MCPServer): Promise<MCPServer> {
-	const response = (await doPost('/mcp-servers', server)) as MCPServer;
+export async function createSingleOrRemoteMcpServer(server: {
+	catalogEntryID?: string;
+	manifest?: {
+		url?: string;
+	};
+}): Promise<MCPCatalogServer> {
+	const response = (await doPost('/mcp-servers', server)) as MCPCatalogServer;
 	return response;
 }
 
 export async function updateSingleOrRemoteMcpServer(
 	id: string,
 	server: MCPServer
-): Promise<MCPServer> {
-	const response = (await doPut(`/mcp-servers/${id}`, server)) as MCPServer;
+): Promise<MCPCatalogServer> {
+	const response = (await doPut(`/mcp-servers/${id}`, server)) as MCPCatalogServer;
 	return response;
 }
 
@@ -1432,21 +1474,25 @@ export async function revealSingleOrRemoteMcpServer(id: string): Promise<Record<
 }
 
 export async function listSingleOrRemoteMcpServerTools(id: string): Promise<MCPServerTool[]> {
-	const response = (await doGet(`/mcp-servers/${id}/tools`)) as ItemsResponse<MCPServerTool>;
+	const response = (await doGet(`/mcp-servers/${id}/tools`, {
+		dontLogErrors: true
+	})) as ItemsResponse<MCPServerTool>;
 	return response.items ?? [];
 }
 
 export async function listSingleOrRemoteMcpServerPrompts(id: string): Promise<MCPServerPrompt[]> {
-	const response = (await doGet(`/mcp-servers/${id}/prompts`)) as ItemsResponse<MCPServerPrompt>;
+	const response = (await doGet(`/mcp-servers/${id}/prompts`, {
+		dontLogErrors: true
+	})) as ItemsResponse<MCPServerPrompt>;
 	return response.items ?? [];
 }
 
 export async function listSingleOrRemoteMcpServerResources(
 	id: string
 ): Promise<McpServerResource[]> {
-	const response = (await doGet(
-		`/mcp-servers/${id}/resources`
-	)) as ItemsResponse<McpServerResource>;
+	const response = (await doGet(`/mcp-servers/${id}/resources`, {
+		dontLogErrors: true
+	})) as ItemsResponse<McpServerResource>;
 	return response.items ?? [];
 }
 
@@ -1465,10 +1511,10 @@ export async function getMcpServerInstance(
 	return response;
 }
 
-export async function createMcpServerInstance(
-	instance: MCPServerInstance
-): Promise<MCPServerInstance> {
-	const response = (await doPost('/mcp-server-instances', instance)) as MCPServerInstance;
+export async function createMcpServerInstance(mcpServerID: string): Promise<MCPServerInstance> {
+	const response = (await doPost('/mcp-server-instances', {
+		mcpServerID
+	})) as MCPServerInstance;
 	return response;
 }
 

@@ -4,7 +4,7 @@
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import { ChatService, type Project, type ProjectMCP, type Thread } from '$lib/services';
 	import { Server, Wrench } from 'lucide-svelte';
-	import McpServerTools from '$lib/components/mcp/McpServerTools.svelte';
+	import ProjectMcpServerTools from '$lib/components/mcp/ProjectMcpServerTools.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { fade } from 'svelte/transition';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
@@ -79,7 +79,7 @@
 >
 	{#if selectedProjectMcp}
 		{#key selectedProjectMcp.id}
-			<McpServerTools
+			<ProjectMcpServerTools
 				{currentThreadID}
 				{project}
 				mcpServer={selectedProjectMcp}

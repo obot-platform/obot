@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type ProjectTemplate, type MCP, ChatService } from '$lib/services';
+	import { type ProjectTemplate, type MCP, ChatService, type MCPCatalogEntry } from '$lib/services';
 	import AgentCard from '$lib/components/agents/AgentCard.svelte';
 	import AgentCopy from '$lib/components/agents/AgentCopy.svelte';
 	import { sortTemplatesByFeaturedNameOrder } from '$lib/sort';
@@ -21,7 +21,7 @@
 
 	let templates = $state<ProjectTemplate[]>([]);
 	let loadingTemplates = $state(true);
-	let mcps = $state<MCP[]>([]);
+	let mcps = $state<MCPCatalogEntry[]>([]);
 	let loadingMcps = $state(true);
 
 	const ITEMS_PER_PAGE = 36;

@@ -1,20 +1,20 @@
 <script lang="ts">
 	import { AdminService } from '$lib/services';
-	import { Role, type OrgUser } from '$lib/services/admin/types';
+	import { Role, type OrgGroup, type OrgUser } from '$lib/services/admin/types';
 	import { Check, LoaderCircle, User, Users } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Search from '../Search.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 
 	interface Props {
-		onAdd: (users: OrgUser[]) => void;
+		onAdd: (users: OrgUser[], groups: string[]) => void;
 		filterIds?: string[];
 	}
 
 	let addUserGroupDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let fetchingUsers = $state<Promise<OrgUser[]>>();
 	let searchUsers = $state('');
-	let selectedUsers = $state<OrgUser[]>([]);
+	let selectedUsers = $state<(OrgUser | OrgGroup)[]>([]);
 	let selectedUsersMap = $derived(new Set(selectedUsers.map((user) => user.id)));
 
 	export function open() {
@@ -32,21 +32,16 @@
 
 	let { onAdd, filterIds }: Props = $props();
 
-	function getFilteredUsers(users?: OrgUser[]) {
+	function getFilteredData(users?: OrgUser[]) {
 		if (!users) {
 			return [];
 		}
 
-		const withEveryone = [
+		const withEveryone: (OrgUser | OrgGroup)[] = [
 			{
 				id: '*',
-				username: 'everyone',
-				email: 'Everyone',
-				role: 10,
-				iconURL: '',
-				created: new Date().toISOString(),
-				explicitAdmin: false
-			} satisfies OrgUser,
+				name: 'Everyone'
+			} satisfies OrgGroup,
 			...users
 		];
 
@@ -54,11 +49,16 @@
 		const filteredIds = withEveryone.filter((user) => !filterIdSet.has(user.id));
 
 		return searchUsers.length > 0
-			? (filteredIds?.filter(
-					(user) =>
-						user.email.toLowerCase().includes(searchUsers.toLowerCase()) ||
-						user.username.toLowerCase().includes(searchUsers.toLowerCase())
-				) ?? [])
+			? (filteredIds?.filter((item) => {
+					if ('email' in item) {
+						return (
+							item.email.toLowerCase().includes(searchUsers.toLowerCase()) ||
+							item.username.toLowerCase().includes(searchUsers.toLowerCase())
+						);
+					}
+
+					return item.name.toLowerCase().includes(searchUsers.toLowerCase());
+				}) ?? [])
 			: (filteredIds ?? []);
 	}
 </script>
@@ -71,13 +71,13 @@
 	class="h-full w-full overflow-visible p-0 md:h-[500px] md:max-w-md"
 	classes={{ header: 'p-4 md:pb-0' }}
 >
-	<div class="default-scrollbar-thin flex grow flex-col gap-4 overflow-y-scroll pt-1">
+	<div class="default-scrollbar-thin flex grow flex-col gap-4 overflow-y-auto pt-1">
 		{#await fetchingUsers}
 			<div class="flex grow items-center justify-center">
 				<LoaderCircle class="size-6 animate-spin" />
 			</div>
 		{:then users}
-			{@const filteredUsers = getFilteredUsers(users)}
+			{@const filteredData = getFilteredData(users)}
 			<div class="px-4">
 				<Search
 					class="dark:bg-surface1 dark:border-surface3 shadow-inner dark:border"
@@ -86,41 +86,46 @@
 				/>
 			</div>
 			<div class="flex flex-col">
-				{#each filteredUsers ?? [] as user (user.id)}
+				{#each filteredData ?? [] as item (item.id)}
 					<button
 						class={twMerge(
 							'dark:hover:bg-surface1 hover:bg-surface2 flex items-center gap-2 px-4 py-2 text-left',
-							selectedUsersMap.has(user.id) && 'dark:bg-gray-920 bg-gray-50'
+							selectedUsersMap.has(item.id) && 'dark:bg-gray-920 bg-gray-50'
 						)}
 						onclick={() => {
-							if (selectedUsersMap.has(user.id)) {
-								const index = selectedUsers.findIndex((u) => u.id === user.id);
+							if (selectedUsersMap.has(item.id)) {
+								const index = selectedUsers.findIndex((u) => u.id === item.id);
 								if (index !== -1) {
 									selectedUsers.splice(index, 1);
 								}
 							} else {
-								selectedUsers.push(user);
-								selectedUsersMap.add(user.id);
+								selectedUsers.push(item);
+								selectedUsersMap.add(item.id);
 							}
 						}}
 					>
-						{#if user.iconURL}
-							<img src={user.iconURL} alt={user.username} class="size-10 rounded-full" />
+						{#if item.iconURL}
+							<img
+								src={item.iconURL}
+								alt={'username' in item ? item.username : item.name}
+								class="size-10 rounded-full"
+							/>
 						{:else}
 							<Users class="size-10 rounded-full p-2" />
 						{/if}
 						<div class="flex grow flex-col">
-							<p>{user.email}</p>
-							<p class="font-light text-gray-400 dark:text-gray-600">
-								{user.username === 'everyone'
-									? 'Group'
-									: user.role === Role.ADMIN
-										? 'Admin'
-										: 'User'}
-							</p>
+							{#if 'email' in item}
+								<p>{item.email}</p>
+								<p class="font-light text-gray-400 dark:text-gray-600">
+									{item.role === Role.ADMIN ? 'Admin' : 'User'}
+								</p>
+							{:else}
+								<p>{item.name}</p>
+								<p class="font-light text-gray-400 dark:text-gray-600">Group</p>
+							{/if}
 						</div>
 						<div class="flex items-center justify-center">
-							{#if selectedUsersMap.has(user.id)}
+							{#if selectedUsersMap.has(item.id)}
 								<Check class="size-6 text-blue-500" />
 							{/if}
 						</div>
@@ -140,14 +145,19 @@
 				{selectedUsers.length} Selected
 			{/if}
 		</div>
-		<div class="flex items-center gap-4">
+		<div class="flex items-center gap-2">
 			<button class="button w-full md:w-fit" onclick={() => addUserGroupDialog?.close()}>
 				Cancel
 			</button>
 			<button
 				class="button-primary w-full md:w-fit"
 				onclick={() => {
-					onAdd(selectedUsers);
+					const users = selectedUsers.filter((user) => 'email' in user) as OrgUser[];
+					const groups = selectedUsers.filter((user) => !('email' in user)) as OrgGroup[];
+					onAdd(
+						users,
+						groups.map((group) => group.id)
+					);
 					addUserGroupDialog?.close();
 				}}
 			>

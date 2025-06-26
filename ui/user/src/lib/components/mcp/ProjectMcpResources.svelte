@@ -82,7 +82,7 @@
 	) {
 		if (!mcp) return;
 		try {
-			const filename = getFilename(mcp.manifest.name, resourceName, resourceContent.mimeType);
+			const filename = getFilename(mcp.manifest.name ?? '', resourceName, resourceContent.mimeType);
 			const fileExists = await checkFileExists(filename);
 			if (!fileExists) {
 				const file = convertResourceContentToFile(filename, resourceContent);
@@ -116,7 +116,7 @@
 			await saveResourceToWorkspace(resource.name, response);
 			loadExistingWorkspaceFiles();
 		} else {
-			const filename = getFilename(mcp.manifest.name, resource.name, response.mimeType);
+			const filename = getFilename(mcp.manifest.name ?? '', resource.name, response.mimeType);
 			const file = convertResourceContentToFile(filename, response);
 			const a = document.createElement('a');
 			const url = URL.createObjectURL(file);

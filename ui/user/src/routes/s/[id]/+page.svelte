@@ -109,7 +109,7 @@
 				</div>
 
 				<button class="button-primary mt-2 w-full" onclick={createProject}>I Understand</button>
-				<button class="button w-full" onclick={() => goto('/home')}>Go Back</button>
+				<button class="button w-full" onclick={() => goto('/')}>Go Back</button>
 			</div>
 		</div>
 	{:else if project}

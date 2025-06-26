@@ -10,7 +10,7 @@
 	import McpCatalog, { type TransformedMcp } from '$lib/components/mcp/McpCatalog.svelte';
 	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import { goto } from '$app/navigation';
-	import McpServerTools from './McpServerTools.svelte';
+	import ProjectMcpServerTools from './ProjectMcpServerTools.svelte';
 	import { responsive } from '$lib/stores';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
@@ -183,7 +183,7 @@
 >
 	{#if projectMcp && project}
 		{#key projectMcp.id}
-			<McpServerTools
+			<ProjectMcpServerTools
 				tools={projectMcpServerTools}
 				mcpServer={projectMcp}
 				{project}

@@ -56,5 +56,5 @@
 		</div>
 	{/if}
 
-	<a href="/home" class="button-primary"> Go Home </a>
+	<a href="/" class="button-primary"> Go Home </a>
 </div>

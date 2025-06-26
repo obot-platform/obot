@@ -14,7 +14,7 @@
 		sortByPreferredMcpOrder,
 		sortTemplatesByFeaturedNameOrder
 	} from '$lib/sort';
-	import { ChatService, type MCP, type MCPInfo, type ProjectTemplate } from '$lib/services';
+	import { ChatService, type ProjectTemplate } from '$lib/services';
 	import Logo from '$lib/components/navbar/Logo.svelte';
 	import { q } from '$lib/url';
 	import type { MCPCatalogEntry, MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
@@ -40,7 +40,7 @@
 			}
 
 			if (browser) {
-				goto(isAdmin ? '/v2/admin/mcp-servers' : '/home');
+				goto(isAdmin ? '/v2/admin/mcp-servers' : '/mcp-servers');
 			}
 		}
 	});

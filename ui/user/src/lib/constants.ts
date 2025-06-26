@@ -61,3 +61,4 @@ export const RecommendedModelProviders = [
 ];
 
 export const PROJECT_MCP_SERVER_NAME = 'MCP Servers';
+export const DEFAULT_MCP_CATALOG_ID = 'default';

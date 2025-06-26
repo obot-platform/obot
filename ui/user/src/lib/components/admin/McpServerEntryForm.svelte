@@ -1,11 +1,14 @@
 <script lang="ts">
-	import type { MCPCatalogServer } from '$lib/services';
-	import type { MCPCatalogEntry } from '$lib/services/admin/types';
+	import { AdminService, type MCPCatalogServer } from '$lib/services';
+	import type { AccessControlRule, MCPCatalogEntry } from '$lib/services/admin/types';
 	import { twMerge } from 'tailwind-merge';
-	import McpServerEntry from '../mcp/McpServerEntry.svelte';
+	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import CatalogServerForm from './CatalogServerForm.svelte';
 	import Table from '../Table.svelte';
-	import { GlobeLock, Router, Users } from 'lucide-svelte';
+	import { Eye, GlobeLock, LoaderCircle, Router, Trash2, Users } from 'lucide-svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { goto } from '$app/navigation';
+	import Confirm from '../Confirm.svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -29,22 +32,44 @@
 			: []
 	);
 
-	let rules = $state([]);
 	let usage = $state([]);
 	let instances = $state([]);
-
+	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
+	let deleteServer = $state(false);
 	let view = $state<string>(entry ? 'overview' : 'configuration');
+
+	$effect(() => {
+		if (view === 'access-control') {
+			listAccessControlRules = AdminService.listAccessControlRules();
+		}
+	});
+
+	function filterRulesByEntry(rules?: AccessControlRule[]) {
+		if (!entry || !rules) return [];
+		return rules.filter((r) => r.resources?.find((resource) => resource.id === entry.id));
+	}
 </script>
 
 <div class="flex h-full w-full flex-col gap-8">
 	{#if entry}
-		<h1 class="text-2xl font-semibold capitalize">
-			{#if 'manifest' in entry}
-				{entry.manifest.name || 'Unknown'}
-			{:else}
-				{entry?.commandManifest?.name || entry?.urlManifest?.name || 'Unknown'}
-			{/if}
-		</h1>
+		<div class="flex items-center justify-between gap-4">
+			<h1 class="text-2xl font-semibold capitalize">
+				{#if 'manifest' in entry}
+					{entry.manifest.name || 'Unknown'}
+				{:else}
+					{entry?.commandManifest?.name || entry?.urlManifest?.name || 'Unknown'}
+				{/if}
+			</h1>
+			<button
+				class="button-destructive flex items-center gap-1 text-xs font-normal"
+				use:tooltip={'Delete Server'}
+				onclick={() => {
+					deleteServer = true;
+				}}
+			>
+				<Trash2 class="size-4" />
+			</button>
+		</div>
 	{/if}
 	<div class="flex flex-col gap-2">
 		{#if tabs.length > 0}
@@ -65,7 +90,7 @@
 		{/if}
 
 		{#if view === 'overview' && entry}
-			<McpServerEntry
+			<McpServerInfo
 				class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-8 rounded-lg border border-transparent bg-white p-4 shadow-sm"
 				{entry}
 			/>
@@ -83,24 +108,52 @@
 
 {#snippet configurationView()}
 	<div class="flex flex-col gap-8">
-		<CatalogServerForm {entry} {type} {readonly} {catalogId} {onCancel} {onSubmit} />
+		<CatalogServerForm
+			{entry}
+			{type}
+			{readonly}
+			{catalogId}
+			{onCancel}
+			{onSubmit}
+			hideTitle={Boolean(entry)}
+		/>
 	</div>
 {/snippet}
 
 {#snippet accessControlView()}
-	{#if rules.length === 0}
-		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<GlobeLock class="size-24 text-gray-200 dark:text-gray-900" />
-			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-				No access control rules
-			</h4>
-			<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-				This server is not tied to any access control rules.
-			</p>
+	{#await listAccessControlRules}
+		<div class="flex w-full justify-center">
+			<LoaderCircle class="size-6 animate-spin" />
 		</div>
-	{:else}
-		<Table data={[]} fields={['name']} />
-	{/if}
+	{:then rules}
+		{@const serverRules = entry ? filterRulesByEntry(rules) : []}
+		{#if serverRules && serverRules.length > 0}
+			<Table
+				data={serverRules}
+				fields={['displayName']}
+				headers={[{ title: 'Name', property: 'displayName' }]}
+				onSelectRow={(d) => {
+					goto(`/v2/admin/access-control/${d.id}`);
+				}}
+			>
+				{#snippet actions()}
+					<button class="icon-button" use:tooltip={'View Rule'}>
+						<Eye class="size-4" />
+					</button>
+				{/snippet}
+			</Table>
+		{:else}
+			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+				<GlobeLock class="size-24 text-gray-200 dark:text-gray-900" />
+				<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
+					No access control rules
+				</h4>
+				<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+					This server is not tied to any access control rules.
+				</p>
+			</div>
+		{/if}
+	{/await}
 {/snippet}
 
 {#snippet usageView()}
@@ -130,3 +183,18 @@
 		<Table data={[]} fields={['name']} />
 	{/if}
 {/snippet}
+
+<Confirm
+	msg="Are you sure you want to delete this server?"
+	show={deleteServer}
+	onsuccess={async () => {
+		if (!catalogId || !entry) return;
+		if (type === 'single' || type === 'remote') {
+			await AdminService.deleteMCPCatalogEntry(catalogId, entry.id);
+		} else {
+			await AdminService.deleteMCPCatalogServer(catalogId, entry.id);
+		}
+		goto('/v2/admin/mcp-servers');
+	}}
+	oncancel={() => (deleteServer = false)}
+/>

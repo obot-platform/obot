@@ -1,14 +1,19 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import CatalogServerForm from '$lib/components/admin/CatalogServerForm.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Table from '$lib/components/Table.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { ChatService, type MCPCatalogServer } from '$lib/services';
+	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import {
+		fetchMcpServerAndEntries,
+		getAdminMcpServerAndEntries,
+		initMcpServerAndEntries
+	} from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
 	import {
 		ChevronLeft,
@@ -25,14 +30,13 @@
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 
-	let loading = $state(true);
-	let entries = $state<MCPCatalogEntry[]>([]);
-	let servers = $state<MCPCatalogServer[]>([]);
+	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
+
+	initMcpServerAndEntries();
+	const mcpServerAndEntries = getAdminMcpServerAndEntries();
 
 	onMount(async () => {
-		entries = await ChatService.listMCPs();
-		servers = await ChatService.listMCPCatalogServers();
-		loading = false;
+		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
 	});
 
 	function convertEntriesToTableData(entries: MCPCatalogEntry[] | undefined) {
@@ -48,7 +52,7 @@
 				data: entry,
 				users: '-',
 				editable: !entry.sourceURL,
-				type: 'single'
+				type: entry.commandManifest ? 'single' : 'remote'
 			};
 		});
 	}
@@ -65,7 +69,7 @@
 					id: server.id,
 					name: server.manifest.name ?? '',
 					source: 'manual',
-					type: server.manifest.url ? 'remote' : 'multi',
+					type: 'multi',
 					data: server,
 					users: '-',
 					editable: true
@@ -82,9 +86,12 @@
 		return [...entriesTableData, ...serversTableData];
 	}
 
-	let totalCount = $derived(entries.length + servers.length);
-	let tableData = $derived(convertEntriesAndServersToTableData(entries, servers));
-	let serverToDelete = $state<(typeof tableData)[0]>();
+	let totalCount = $derived(
+		mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length
+	);
+	let tableData = $derived(
+		convertEntriesAndServersToTableData(mcpServerAndEntries.entries, mcpServerAndEntries.servers)
+	);
 
 	let editingSource = $state<{ index: number; value: string }>();
 	let sourceDialog = $state<HTMLDialogElement>();
@@ -95,6 +102,7 @@
 	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
+	let saving = $state(false);
 
 	function selectServerType(type: 'single' | 'multi' | 'remote') {
 		selectedServerType = type;
@@ -106,24 +114,6 @@
 		editingSource = undefined;
 		sourceDialog?.close();
 	}
-	/*
-			<button
-						class="button-small flex items-center gap-1 text-xs font-normal"
-						onclick={async () => {
-							refreshing = true;
-							await AdminService.refreshMCPCatalog(config.id);
-							loadingEntries = AdminService.listMCPCatalogEntries(config.id);
-							refreshing = false;
-						}}
-					>
-						{#if refreshing}
-							<LoaderCircle class="size-4 animate-spin" /> Refreshing...
-						{:else}
-							<RefreshCcw class="size-4" />
-							Refresh Catalog
-						{/if}
-					</button>
-	*/
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
@@ -146,38 +136,10 @@
 		<div class="flex items-center justify-between">
 			<h1 class="text-2xl font-semibold">MCP Servers</h1>
 			{#if totalCount > 0}
-				<DotDotDot class="button-primary text-sm">
-					{#snippet icon()}
-						<span class="flex items-center gap-1">
-							<Plus class="size-4" /> Add MCP Server
-						</span>
-					{/snippet}
-					<div class="default-dialog flex min-w-max flex-col p-2">
-						<button
-							class="menu-button"
-							onclick={() => {
-								selectServerTypeDialog?.open();
-							}}
-						>
-							Add server
-						</button>
-						<button
-							class="menu-button"
-							onclick={() => {
-								editingSource = {
-									index: -1,
-									value: ''
-								};
-								sourceDialog?.showModal();
-							}}
-						>
-							Add server(s) from Git
-						</button>
-					</div>
-				</DotDotDot>
+				{@render addServerButton()}
 			{/if}
 		</div>
-		{#if loading}
+		{#if mcpServerAndEntries.loading}
 			<div class="my-2 flex items-center justify-center">
 				<LoaderCircle class="size-6 animate-spin" />
 			</div>
@@ -192,9 +154,7 @@
 					Click the button below to get started.
 				</p>
 
-				<button class="button-primary w-fit text-sm" onclick={() => (showServerForm = true)}
-					>Add New Server</button
-				>
+				{@render addServerButton()}
 			</div>
 		{:else}
 			<Table
@@ -264,19 +224,51 @@
 			{entry}
 			type={selectedServerType}
 			readonly={entry && 'sourceURL' in entry && !!entry.sourceURL}
-			catalogId="default"
+			catalogId={defaultCatalogId}
 			onCancel={() => {
 				selectedEntryServer = undefined;
 				showServerForm = false;
 			}}
 			onSubmit={async () => {
-				entries = await ChatService.listMCPs();
-				servers = await ChatService.listMCPCatalogServers();
+				mcpServerAndEntries.entries = await AdminService.listMCPCatalogEntries(defaultCatalogId);
+				mcpServerAndEntries.servers = await AdminService.listMCPCatalogServers(defaultCatalogId);
 				selectedEntryServer = undefined;
 				showServerForm = false;
 			}}
 		/>
 	</div>
+{/snippet}
+
+{#snippet addServerButton()}
+	<DotDotDot class="button-primary text-sm" placement="bottom">
+		{#snippet icon()}
+			<span class="flex items-center gap-1">
+				<Plus class="size-4" /> Add MCP Server
+			</span>
+		{/snippet}
+		<div class="default-dialog flex min-w-max flex-col p-2">
+			<button
+				class="menu-button"
+				onclick={() => {
+					selectServerTypeDialog?.open();
+				}}
+			>
+				Add server
+			</button>
+			<button
+				class="menu-button"
+				onclick={() => {
+					editingSource = {
+						index: -1,
+						value: ''
+					};
+					sourceDialog?.showModal();
+				}}
+			>
+				Add server(s) from Git
+			</button>
+		</div>
+	</DotDotDot>
 {/snippet}
 
 <dialog
@@ -300,26 +292,32 @@
 		</div>
 
 		<div class="flex w-full justify-end gap-2">
-			<button class="button" onclick={() => closeSourceDialog()}>Cancel</button>
+			<button class="button" disabled={saving} onclick={() => closeSourceDialog()}>Cancel</button>
 			<button
 				class="button-primary"
+				disabled={saving}
 				onclick={async () => {
 					if (!editingSource) {
 						return;
 					}
 
-					// saving = true;
-					// if (editingSource.index === -1) {
-					// 	mcpCatalog.sourceURLs = [...(mcpCatalog.sourceURLs ?? []), editingSource.value];
-					// } else {
-					// 	mcpCatalog.sourceURLs[editingSource.index] = editingSource.value;
-					// }
+					saving = true;
+					const catalog = await AdminService.getMCPCatalog(defaultCatalogId);
+					if (!catalog) {
+						return;
+					}
 
-					// if (mcpCatalog.id) {
-					// 	const response = await AdminService.updateMCPCatalog(mcpCatalog.id, mcpCatalog);
-					// 	mcpCatalog = response;
-					// }
-					// saving = false;
+					if (editingSource.index === -1) {
+						catalog.sourceURLs = [...(catalog.sourceURLs ?? []), editingSource.value];
+					} else {
+						catalog.sourceURLs[editingSource.index] = editingSource.value;
+					}
+
+					if (catalog.id) {
+						await AdminService.updateMCPCatalog(defaultCatalogId, catalog);
+						await AdminService.refreshMCPCatalog(defaultCatalogId);
+					}
+					saving = false;
 					closeSourceDialog();
 				}}
 			>
@@ -329,37 +327,34 @@
 	{/if}
 </dialog>
 
-<!-- <Confirm
-	msg={`Are you sure you want to delete this catalog entry?`}
+<Confirm
+	msg={`Are you sure you want to delete this server?`}
 	show={Boolean(deletingEntry)}
 	onsuccess={async () => {
 		if (!deletingEntry) {
 			return;
 		}
-		saving = true;
-		await AdminService.deleteMCPCatalogEntry(mcpCatalog.id, deletingEntry.id);
-		loadingEntries = AdminService.listMCPCatalogEntries(mcpCatalog.id);
+
+		await AdminService.deleteMCPCatalogEntry(defaultCatalogId, deletingEntry.id);
+		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
 		deletingEntry = undefined;
-		saving = false;
 	}}
 	oncancel={() => (deletingEntry = undefined)}
-/> -->
+/>
 
-<!-- <Confirm
-	msg={`Are you sure you want to delete this catalog server?`}
+<Confirm
+	msg={`Are you sure you want to delete this server?`}
 	show={Boolean(deletingServer)}
 	onsuccess={async () => {
 		if (!deletingServer) {
 			return;
 		}
-		saving = true;
-		await AdminService.deleteMCPCatalogServer(mcpCatalog.id, deletingServer.id);
-		loadingServers = AdminService.listMCPCatalogServers(mcpCatalog.id);
+		await AdminService.deleteMCPCatalogServer(defaultCatalogId, deletingServer.id);
+		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
 		deletingServer = undefined;
-		saving = false;
 	}}
 	oncancel={() => (deletingServer = undefined)}
-/> -->
+/>
 
 <ResponsiveDialog title="Select Server Type" class="md:w-lg" bind:this={selectServerTypeDialog}>
 	<div class="my-4 flex flex-col gap-4">

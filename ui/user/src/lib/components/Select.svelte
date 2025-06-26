@@ -10,6 +10,7 @@
 
 	interface Props {
 		id?: string;
+		disabled?: boolean;
 		options: Option[];
 		selected?: string | number;
 		onSelect: (option: Option) => void;
@@ -19,7 +20,7 @@
 		};
 	}
 
-	const { id, options, onSelect, selected, class: klass, classes }: Props = $props();
+	const { id, disabled, options, onSelect, selected, class: klass, classes }: Props = $props();
 
 	let search = $state('');
 	let availableOptions = $derived(
@@ -38,8 +39,10 @@
 <div class={twMerge('relative', classes?.root)}>
 	<button
 		{id}
+		{disabled}
 		class={twMerge(
 			'dark:bg-surface1 text-md flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg bg-white px-4 py-2 text-left shadow-sm',
+			disabled && 'cursor-not-allowed opacity-50',
 			klass
 		)}
 		placeholder="Enter a task"

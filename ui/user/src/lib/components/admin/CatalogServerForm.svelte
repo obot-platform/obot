@@ -6,7 +6,7 @@
 		type MCPCatalogServerManifest
 	} from '$lib/services/admin/types';
 	import { Plus, Trash2 } from 'lucide-svelte';
-	import HostedMcpForm from '../mcp/HostedMcpForm.svelte';
+	import SingleMultiMcpForm from '../mcp/SingleMultiMcpForm.svelte';
 	import RemoteMcpForm from '../mcp/RemoteMcpForm.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import { onMount } from 'svelte';
@@ -18,14 +18,15 @@
 		readonly?: boolean;
 		onCancel?: () => void;
 		onSubmit?: () => void;
+		hideTitle?: boolean;
 	}
 
 	function getType(entry?: MCPCatalogEntry | MCPCatalogServer) {
 		if (!entry) return undefined;
-		if (entry.type === 'mcpserver' && 'command' in entry) {
-			return entry.command ? 'multi' : 'remote';
+		if ('manifest' in entry) {
+			return 'multi';
 		} else if ('commandManifest' in entry || 'urlManifest' in entry) {
-			return 'single';
+			return entry.commandManifest ? 'single' : 'remote';
 		}
 	}
 
@@ -35,9 +36,10 @@
 		readonly,
 		type: newType = 'single',
 		onCancel,
-		onSubmit
+		onSubmit,
+		hideTitle
 	}: Props = $props();
-	let type = $state(getType(entry) ?? newType);
+	let type = $derived(getType(entry) ?? newType);
 
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): MCPCatalogEntryFormData {
 		if (!item) {
@@ -58,15 +60,23 @@
 		if (item.type === 'mcpserver') {
 			const server = item as MCPCatalogServerManifest;
 			return {
-				categories: [],
-				icon: server.manifest.icon,
-				name: server.manifest.name,
-				description: server.manifest.description,
-				env: server.manifest.env,
-				args: server.manifest.args,
-				command: server.manifest.command,
-				url: server.manifest.url,
-				headers: server.manifest.headers
+				categories: server.manifest.metadata?.categories?.split(',') ?? [],
+				icon: server.manifest.icon ?? '',
+				name: server.manifest.name ?? '',
+				description: server.manifest.description ?? '',
+				env:
+					server.manifest.env?.map((env) => ({
+						...env,
+						value: ''
+					})) ?? [],
+				args: server.manifest.args ?? [],
+				command: server.manifest.command ?? '',
+				url: server.manifest.url ?? '',
+				headers:
+					server.manifest.headers?.map((header) => ({
+						...header,
+						value: ''
+					})) ?? []
 			};
 		} else {
 			const entry = item as MCPCatalogEntry;
@@ -77,34 +87,48 @@
 					[],
 				name: entry.commandManifest?.name ?? entry.urlManifest?.name ?? '',
 				icon: entry.commandManifest?.icon ?? entry.urlManifest?.icon ?? '',
-				env: (entry.commandManifest?.env ?? entry.urlManifest?.env ?? []).map((env) => ({
-					...env,
-					value: ''
-				})),
+				env:
+					(entry.commandManifest?.env ?? entry.urlManifest?.env ?? []).map((env) => ({
+						...env,
+						value: ''
+					})) ?? [],
 				description: entry.commandManifest?.description ?? entry.urlManifest?.description ?? '',
 				args: entry.commandManifest?.args ?? entry.urlManifest?.args ?? [],
 				command: entry.commandManifest?.command ?? entry.urlManifest?.command ?? '',
 				fixedURL: entry.commandManifest?.fixedURL ?? entry.urlManifest?.fixedURL ?? '',
 				hostname: entry.commandManifest?.hostname ?? entry.urlManifest?.hostname ?? '',
-				headers: (entry.commandManifest?.headers ?? entry.urlManifest?.headers ?? []).map(
-					(header) => ({
+				headers:
+					(entry.commandManifest?.headers ?? entry.urlManifest?.headers ?? []).map((header) => ({
 						...header,
 						value: ''
-					})
-				)
+					})) ?? []
 			};
 		}
 	}
 	let formData = $state<MCPCatalogEntryFormData>(convertToFormData(entry));
 
-	onMount(async () => {
-		if (entry && type === 'multi' && catalogId) {
-			AdminService.revealMcpCatalogServer(catalogId, entry.id).then((response) => {
-				formData.env = formData.env?.map((env) => ({
-					...env,
-					value: response[env.key] ?? ''
-				}));
-			});
+	async function revealCatalogServer(catalogId: string, entryId: string) {
+		try {
+			const response = await AdminService.revealMcpCatalogServer(catalogId, entryId);
+			formData.env = formData.env?.map((env) => ({
+				...env,
+				value: response[env.key] ?? ''
+			}));
+			formData.headers = formData.headers?.map((header) => ({
+				...header,
+				value: response[header.key] ?? ''
+			}));
+		} catch (error) {
+			if (error instanceof Error && error.message.includes('404')) {
+				// ignore, 404 means no credentials were set
+				return;
+			}
+		}
+	}
+
+	onMount(() => {
+		if ((type === 'multi' || type === 'remote') && entry && catalogId) {
+			revealCatalogServer(catalogId, entry.id);
 		}
 	});
 
@@ -130,7 +154,7 @@
 	}
 
 	function convertToServerManifest(formData: MCPCatalogEntryFormData): MCPCatalogServerManifest {
-		const { categories, ...rest } = formData;
+		const { categories, url: _url, ...rest } = formData;
 		return {
 			manifest: {
 				...rest,
@@ -141,28 +165,40 @@
 
 	async function handleEntrySubmit(catalogId: string) {
 		const manifest = convertToEntryManifest(formData);
+
+		let response: MCPCatalogEntry;
 		if (entry) {
-			const response = await AdminService.updateMCPCatalogEntry(catalogId, entry.id, manifest);
-			return response;
+			response = await AdminService.updateMCPCatalogEntry(catalogId, entry.id, manifest);
 		} else {
-			const response = await AdminService.createMCPCatalogEntry(catalogId, manifest);
-			return response;
+			response = await AdminService.createMCPCatalogEntry(catalogId, manifest);
 		}
+
+		// TODO: header fixed values
+		return response;
 	}
 
 	async function handleServerSubmit(catalogId: string) {
-		const manifest = convertToServerManifest(formData);
+		const serverManifest = convertToServerManifest(formData);
+
 		let response: MCPCatalogServer;
 		if (entry) {
-			response = await AdminService.updateMCPCatalogServer(catalogId, entry.id, manifest);
+			response = await AdminService.updateMCPCatalogServer(
+				catalogId,
+				entry.id,
+				serverManifest.manifest
+			);
 		} else {
-			response = await AdminService.createMCPCatalogServer(catalogId, manifest);
+			response = await AdminService.createMCPCatalogServer(catalogId, serverManifest);
 		}
 
-		if (manifest.manifest.command && manifest.manifest.env && manifest.manifest.env.length > 0) {
-			const envValues = Object.fromEntries(
-				manifest.manifest.env.map((env) => [env.key, env.value])
+		let envValues: Record<string, string> = {};
+		if (serverManifest.manifest.env) {
+			envValues = Object.fromEntries(
+				serverManifest.manifest.env.map((env) => [env.key, env.value])
 			);
+		}
+
+		if (Object.keys(envValues).length > 0) {
 			await AdminService.configureMCPCatalogServer(catalogId, response.id, envValues);
 		}
 		return response;
@@ -173,18 +209,23 @@
 		const handleFns = {
 			single: handleEntrySubmit,
 			multi: handleServerSubmit,
-			remote: handleServerSubmit
+			remote: handleEntrySubmit
 		};
 		await handleFns[type]?.(catalogId);
 		onSubmit?.();
 	}
 </script>
 
-{#if !entry}
+{#if !hideTitle}
 	<h1 class="text-2xl font-semibold capitalize">
-		Create {type} Server
+		{#if entry}
+			{formData.name}
+		{:else}
+			Create {type} Server
+		{/if}
 	</h1>
 {/if}
+
 <div
 	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-8 rounded-lg border border-transparent bg-white p-4 shadow-sm"
 >
@@ -257,18 +298,20 @@
 </div>
 
 {#if type === 'single'}
-	<HostedMcpForm bind:config={formData} {readonly} type="single" />
+	<SingleMultiMcpForm bind:config={formData} {readonly} type="single" />
 {:else if type === 'multi'}
-	<HostedMcpForm bind:config={formData} {readonly} type="multi" />
+	<SingleMultiMcpForm bind:config={formData} {readonly} type="multi" />
 {:else if type === 'remote'}
 	<RemoteMcpForm bind:config={formData} {readonly} />
 {/if}
 
-<div
-	class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
->
-	<button class="button flex items-center gap-1" onclick={() => onCancel?.()}> Cancel </button>
-	<button class="button-primary flex items-center gap-1" onclick={handleSubmit}>
-		{entry ? 'Update' : 'Create'} Server
-	</button>
-</div>
+{#if !readonly}
+	<div
+		class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
+	>
+		<button class="button flex items-center gap-1" onclick={() => onCancel?.()}> Cancel </button>
+		<button class="button-primary flex items-center gap-1" onclick={handleSubmit}>
+			{entry ? 'Update' : 'Save'}
+		</button>
+	</div>
+{/if}

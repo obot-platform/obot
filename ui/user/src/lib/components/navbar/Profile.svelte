@@ -10,7 +10,8 @@
 		Moon,
 		Sun,
 		BadgeInfo,
-		X
+		X,
+		Server
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
@@ -78,9 +79,12 @@
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
 			{#if profile.current.role === 1}
-				<a href="/admin/" rel="external" role="menuitem" class="link"
-					><LayoutDashboard class="size-4" />Admin Dashboard</a
-				>
+				<a href="/admin/" rel="external" role="menuitem" class="link">
+					<LayoutDashboard class="size-4" />Admin Dashboard
+				</a>
+				<a href="/mcp-servers" rel="external" role="menuitem" class="link">
+					<Server class="size-4" />My MCP Servers
+				</a>
 			{/if}
 			{#if responsive.isMobile}
 				<a href="https://docs.obot.ai" rel="external" target="_blank" class="link"

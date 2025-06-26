@@ -23,7 +23,7 @@
 		{#if leftContent}
 			{@render leftContent()}
 		{:else}
-			<a href="/home" class="relative flex items-end">
+			<a href="/" class="relative flex items-end">
 				{#if darkMode.isDark}
 					<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
 				{:else}
@@ -44,7 +44,7 @@
 			{/if}
 		</div>
 		<div class="flex items-center gap-4">
-			<a class="nav-link" href="/home" id="navbar-home-link">
+			<a class="nav-link" href="/" id="navbar-home-link">
 				<Home class="size-6" />
 			</a>
 			<Profile />

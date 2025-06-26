@@ -63,8 +63,8 @@
 					fields={['email', 'role', 'lastActive']}
 					headers={[{ title: 'Last Active', property: 'lastActive' }]}
 				>
-					{#snippet onRenderColumn(fieldName, d)}
-						{#if fieldName === 'role'}
+					{#snippet onRenderColumn(property, d)}
+						{#if property === 'role'}
 							<div class="flex items-center gap-1">
 								{d.role}
 								{#if d.explicitAdmin}
@@ -76,7 +76,7 @@
 								{/if}
 							</div>
 						{:else}
-							{d[fieldName as keyof typeof d]}
+							{d[property as keyof typeof d]}
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}

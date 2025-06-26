@@ -6,6 +6,7 @@
 	} from '$lib/services/admin/types';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Toggle from '../Toggle.svelte';
+	import SensitiveInput from '../SensitiveInput.svelte';
 
 	interface Props {
 		config: MCPCatalogEntryFormData;
@@ -127,7 +128,8 @@
 						sensitive: false
 					})}
 			>
-				<Plus class="size-4" /> User Configuration
+				<Plus class="size-4" />
+				{type === 'single' ? 'User Configuration' : 'Configuration'}
 			</button>
 		</div>
 	{/if}
@@ -204,13 +206,17 @@
 						</div>
 						<div class="flex w-full flex-col gap-1">
 							<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
-							<input
-								id={`env-value-${i}`}
-								class="text-input-filled w-full"
-								bind:value={envs[i].value}
-								placeholder="(eg. 123abcdef456)"
-								disabled={readonly}
-							/>
+							{#if envs[i].sensitive}
+								<SensitiveInput name={envs[i].key} bind:value={envs[i].value} />
+							{:else}
+								<input
+									id={`env-value-${i}`}
+									class="text-input-filled w-full"
+									bind:value={envs[i].value}
+									placeholder="(eg. 123abcdef456)"
+									disabled={readonly}
+								/>
+							{/if}
 						</div>
 						<div>
 							<Toggle

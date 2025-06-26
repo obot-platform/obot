@@ -104,7 +104,7 @@ export async function createMCPCatalogServer(
 export async function updateMCPCatalogServer(
 	catalogID: string,
 	serverID: string,
-	server: MCPCatalogServerManifest,
+	server: MCPCatalogServerManifest['manifest'],
 	opts?: { fetch?: Fetcher }
 ): Promise<MCPCatalogServer> {
 	const response = (await doPut(
@@ -335,8 +335,8 @@ export async function createAccessControlRule(
 export async function updateAccessControlRule(
 	id: string,
 	rule: AccessControlRuleManifest
-): Promise<void> {
-	await doPut(`/access-control-rules/${id}`, rule);
+): Promise<AccessControlRule> {
+	return (await doPut(`/access-control-rules/${id}`, rule)) as AccessControlRule;
 }
 
 export async function deleteAccessControlRule(id: string): Promise<void> {

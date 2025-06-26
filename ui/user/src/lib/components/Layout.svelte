@@ -6,50 +6,26 @@
 	import type { Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import {
-		Blocks,
-		Bot,
-		Boxes,
 		Captions,
-		Cpu,
 		GlobeLock,
 		LockKeyhole,
-		MessageCircle,
-		MessagesSquare,
-		Puzzle,
 		Server,
 		SidebarClose,
 		SidebarOpen,
-		SquareArrowOutUpRight,
 		Users
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { ChatService, EditorService } from '$lib/services';
-	import { PROJECT_MCP_SERVER_NAME } from '$lib/constants';
 
 	interface Props {
 		children: Snippet;
+		showUserLinks?: boolean;
 	}
 
-	const { children }: Props = $props();
+	const { children, showUserLinks }: Props = $props();
 	let nav = $state<HTMLDivElement>();
 
 	initLayout();
 	const layout = getLayout();
-
-	async function handleOpenChat() {
-		const projects = await ChatService.listProjects();
-		const excludeMcpServer = projects.items.filter((p) => p.name !== PROJECT_MCP_SERVER_NAME);
-		const lastVisitedObot = localStorage.getItem('lastVisitedObot');
-		const lastProject =
-			(lastVisitedObot && excludeMcpServer.find((p) => p.id === lastVisitedObot)) ??
-			excludeMcpServer[excludeMcpServer.length - 1];
-		if (lastProject) {
-			window.open(`/o/${lastProject.id}`, '_blank');
-		} else {
-			const newProject = await EditorService.createObot();
-			window.open(`/o/${newProject.id}`, '_blank');
-		}
-	}
 </script>
 
 <div class="flex min-h-dvh flex-col items-center">
@@ -65,7 +41,7 @@
 				</div>
 
 				<div class="text-md flex grow flex-col gap-8 px-3 pt-8 font-light">
-					{#if profile.current?.isAdmin?.()}
+					{#if profile.current?.isAdmin?.() && !showUserLinks}
 						<div class="flex flex-col gap-1">
 							<a href="/v2/admin/mcp-servers" class="sidebar-link">
 								<Server class="size-4" /> MCP Servers
@@ -142,7 +118,7 @@
 </div>
 
 {#snippet logo()}
-	<a href="/home" class="relative flex items-end">
+	<a href="/" class="relative flex items-end">
 		{#if darkMode.isDark}
 			<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
 		{:else}
