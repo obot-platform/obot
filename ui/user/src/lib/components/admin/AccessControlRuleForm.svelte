@@ -206,6 +206,7 @@
 				<Table
 					data={tableData}
 					fields={['displayName', 'type', 'role']}
+					headers={[{ property: 'displayName', title: 'Name' }]}
 					noDataMessage={'No users or groups added.'}
 				>
 					{#snippet actions(d)}
