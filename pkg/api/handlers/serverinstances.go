@@ -26,10 +26,18 @@ func NewServerInstancesHandler(acrHelper *accesscontrolrule.Helper, serverURL st
 }
 
 func (h *ServerInstancesHandler) ListServerInstances(req api.Context) error {
-	var instances v1.MCPServerInstanceList
-	if err := req.List(&instances, kclient.MatchingFields{
-		"spec.userID": req.User.GetUID(),
-	}); err != nil {
+	var (
+		instances v1.MCPServerInstanceList
+		err       error
+	)
+	if req.UserIsAdmin() && req.URL.Query().Get("all") == "true" {
+		err = req.List(&instances)
+	} else {
+		err = req.List(&instances, kclient.MatchingFields{
+			"spec.userID": req.User.GetUID(),
+		})
+	}
+	if err != nil {
 		return err
 	}
 
