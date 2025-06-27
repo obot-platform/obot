@@ -59,6 +59,12 @@ func (*AccessControlRuleHandler) Create(req api.Context) error {
 		},
 	}
 
+	for _, resource := range manifest.Resources {
+		if err := resource.Validate(); err != nil {
+			return types.NewErrBadRequest("invalid resource: %v", err)
+		}
+	}
+
 	if err := req.Create(&rule); err != nil {
 		return fmt.Errorf("failed to create access control rule: %w", err)
 	}
@@ -79,6 +85,12 @@ func (*AccessControlRuleHandler) Update(req api.Context) error {
 	}
 
 	existing.Spec.Manifest = manifest
+
+	for _, resource := range manifest.Resources {
+		if err := resource.Validate(); err != nil {
+			return types.NewErrBadRequest("invalid resource: %v", err)
+		}
+	}
 
 	if err := req.Update(&existing); err != nil {
 		return fmt.Errorf("failed to update access control rule: %w", err)

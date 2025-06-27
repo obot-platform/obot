@@ -25,6 +25,7 @@ import (
 	"github.com/obot-platform/nah/pkg/leader"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/runtime"
+	apiclienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/server"
@@ -395,11 +396,33 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		},
 		"catalog-entry-names": func(obj any) ([]string, error) {
 			acr := obj.(*v1.AccessControlRule)
-			return acr.Spec.Manifest.MCPServerCatalogEntryIDs, nil
+			var results []string
+			for _, resource := range acr.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMCPServerCatalogEntry {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
 		},
 		"server-names": func(obj any) ([]string, error) {
 			acr := obj.(*v1.AccessControlRule)
-			return acr.Spec.Manifest.MCPServerIDs, nil
+			var results []string
+			for _, resource := range acr.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMCPServer {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		"selectors": func(obj any) ([]string, error) {
+			acr := obj.(*v1.AccessControlRule)
+			var results []string
+			for _, resource := range acr.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeSelector {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
 		},
 	}); err != nil {
 		return nil, err

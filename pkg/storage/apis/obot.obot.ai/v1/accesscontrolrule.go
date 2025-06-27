@@ -23,8 +23,7 @@ func (in *AccessControlRule) GetColumns() [][]string {
 		{"Name", "Name"},
 		{"Display Name", "Spec.Manifest.DisplayName"},
 		{"User Count", "{{len .Spec.Manifest.UserIDs}}"},
-		{"Catalog Entries", "{{len .Spec.Manifest.MCPServerCatalogEntryIDs}}"},
-		{"Servers", "{{len .Spec.Manifest.MCPServerIDs}}"},
+		{"Resources", "{{len .Spec.Manifest.Resources}}"},
 	}
 }
 

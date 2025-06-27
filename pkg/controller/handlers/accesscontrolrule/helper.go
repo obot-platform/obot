@@ -72,8 +72,41 @@ func (h *Helper) GetAccessControlRulesForMCPServerCatalogEntry(namespace, entryN
 	return result, nil
 }
 
+// GetAccessControlRulesForSelector returns all AccessControlRules that contain the specified selector
+func (h *Helper) GetAccessControlRulesForSelector(namespace, selector string) ([]v1.AccessControlRule, error) {
+	acrs, err := h.acrIndexer.ByIndex("selectors", selector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get access control rules for selector: %w", err)
+	}
+
+	result := make([]v1.AccessControlRule, 0, len(acrs))
+	for _, acr := range acrs {
+		res, ok := acr.(*v1.AccessControlRule)
+		if ok && res.Namespace == namespace {
+			result = append(result, *res)
+		}
+	}
+
+	return result, nil
+}
+
 // UserHasAccessToMCPServer checks if a user has access to a specific MCP server through AccessControlRules
 func (h *Helper) UserHasAccessToMCPServer(userID, serverName string) (bool, error) {
+	// See if there is a selector that this user is included on.
+	selectorRules, err := h.GetAccessControlRulesForSelector(system.DefaultNamespace, "*")
+	if err != nil {
+		return false, err
+	}
+
+	for _, rule := range selectorRules {
+		for _, uid := range rule.Spec.Manifest.UserIDs {
+			if uid == userID || uid == "*" {
+				return true, nil
+			}
+		}
+	}
+
+	// Now see if there is a rule that includes this specific server.
 	rules, err := h.GetAccessControlRulesForMCPServer(system.DefaultNamespace, serverName)
 	if err != nil {
 		return false, err
@@ -92,6 +125,21 @@ func (h *Helper) UserHasAccessToMCPServer(userID, serverName string) (bool, erro
 
 // UserHasAccessToMCPServerCatalogEntry checks if a user has access to a specific catalog entry through AccessControlRules
 func (h *Helper) UserHasAccessToMCPServerCatalogEntry(userID, entryName string) (bool, error) {
+	// See if there is a selector that this user is included on.
+	selectorRules, err := h.GetAccessControlRulesForSelector(system.DefaultNamespace, "*")
+	if err != nil {
+		return false, err
+	}
+
+	for _, rule := range selectorRules {
+		for _, uid := range rule.Spec.Manifest.UserIDs {
+			if uid == userID || uid == "*" {
+				return true, nil
+			}
+		}
+	}
+
+	// Now see if there is a rule that includes this specific catalog entry.
 	rules, err := h.GetAccessControlRulesForMCPServerCatalogEntry(system.DefaultNamespace, entryName)
 	if err != nil {
 		return false, err

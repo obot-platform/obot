@@ -118,6 +118,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":               schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsage":                          schema_obot_platform_obot_apiclient_types_RemainingTokenUsage(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsageList":                      schema_obot_platform_obot_apiclient_types_RemainingTokenUsageList(ref),
+		"github.com/obot-platform/obot/apiclient/types.Resource":                                     schema_obot_platform_obot_apiclient_types_Resource(ref),
 		"github.com/obot-platform/obot/apiclient/types.Run":                                          schema_obot_platform_obot_apiclient_types_Run(ref),
 		"github.com/obot-platform/obot/apiclient/types.RunList":                                      schema_obot_platform_obot_apiclient_types_RunList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Schedule":                                     schema_obot_platform_obot_apiclient_types_Schedule(ref),
@@ -519,29 +520,14 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRule(ref common.Refe
 							},
 						},
 					},
-					"mcpServerCatalogEntryIDs": {
+					"resources": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"mcpServerIDs": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Resource"),
 									},
 								},
 							},
@@ -551,7 +537,7 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRule(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -609,29 +595,14 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref com
 							},
 						},
 					},
-					"mcpServerCatalogEntryIDs": {
+					"resources": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"mcpServerIDs": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Resource"),
 									},
 								},
 							},
@@ -640,6 +611,8 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref com
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Resource"},
 	}
 }
 
@@ -5302,6 +5275,33 @@ func schema_obot_platform_obot_apiclient_types_RemainingTokenUsageList(ref commo
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsage"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_Resource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"type", "id"},
+			},
+		},
 	}
 }
 
