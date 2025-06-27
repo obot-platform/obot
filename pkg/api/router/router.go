@@ -29,7 +29,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
-	mcpCatalogs := handlers.NewMCPCatalogHandler(services.AllowedMCPDockerImageRepos)
+	mcpCatalogs := handlers.NewMCPCatalogHandler(services.AllowedMCPDockerImageRepos, services.DefaultMCPCatalogPath)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.GPTClient, services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.GPTClient, services.ProviderDispatcher, services.Invoker)

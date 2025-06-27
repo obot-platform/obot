@@ -17,11 +17,13 @@ import (
 
 type MCPCatalogHandler struct {
 	allowedDockerImageRepos []string
+	defaultCatalogPath      string
 }
 
-func NewMCPCatalogHandler(allowedDockerImageRepos []string) *MCPCatalogHandler {
+func NewMCPCatalogHandler(allowedDockerImageRepos []string, defaultCatalogPath string) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		allowedDockerImageRepos: allowedDockerImageRepos,
+		defaultCatalogPath:      defaultCatalogPath,
 	}
 }
 
@@ -91,7 +93,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 
 	// The only field that can be updated is the source URLs.
 	for _, urlStr := range manifest.SourceURLs {
-		if urlStr != "" {
+		if urlStr != "" && urlStr != h.defaultCatalogPath {
 			u, err := url.Parse(urlStr)
 			if err != nil {
 				return types.NewErrBadRequest("invalid URL: %v", err)

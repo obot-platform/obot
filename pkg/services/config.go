@@ -391,21 +391,21 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err = informer.AddIndexers(map[string]gocache.IndexFunc{
 		"user-ids": func(obj any) ([]string, error) {
 			acr := obj.(*v1.AccessControlRule)
-			return acr.Spec.UserIDs, nil
+			return acr.Spec.Manifest.UserIDs, nil
 		},
 		"catalog-entry-names": func(obj any) ([]string, error) {
 			acr := obj.(*v1.AccessControlRule)
-			return acr.Spec.MCPServerCatalogEntryNames, nil
+			return acr.Spec.Manifest.MCPServerCatalogEntryIDs, nil
 		},
 		"server-names": func(obj any) ([]string, error) {
 			acr := obj.(*v1.AccessControlRule)
-			return acr.Spec.MCPServerNames, nil
+			return acr.Spec.Manifest.MCPServerIDs, nil
 		},
 	}); err != nil {
 		return nil, err
 	}
 
-	acrHelper := accesscontrolrule.NewAccessControlRuleHelper(informer)
+	acrHelper := accesscontrolrule.NewAccessControlRuleHelper(informer.GetIndexer())
 
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
 	apply.AddValidOwnerChange("mcpcatalogentries", "catalog-default")

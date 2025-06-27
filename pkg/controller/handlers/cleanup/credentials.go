@@ -76,12 +76,8 @@ func (c *Credentials) Remove(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func (c *Credentials) RemoveMCPCredentialsForProject(req router.Request, _ router.Response) error {
+func (c *Credentials) removeMCPCredentialsForProject(req router.Request, _ router.Response) error {
 	mcpServer := req.Object.(*v1.MCPServer)
-
-	if mcpServer.Spec.ThreadName == "" {
-		return nil
-	}
 
 	var projects v1.ThreadList
 	if err := req.List(&projects, &kclient.ListOptions{
@@ -140,11 +136,11 @@ func (c *Credentials) RemoveMCPCredentialsForProject(req router.Request, _ route
 	return nil
 }
 
-func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response) error {
+func (c *Credentials) RemoveMCPCredentials(req router.Request, resp router.Response) error {
 	mcpServer := req.Object.(*v1.MCPServer)
 
 	if mcpServer.Spec.ThreadName != "" {
-		return nil
+		return c.removeMCPCredentialsForProject(req, resp)
 	}
 
 	var credCtx, scope string

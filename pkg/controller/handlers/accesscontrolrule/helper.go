@@ -9,26 +9,26 @@ import (
 )
 
 type Helper struct {
-	acrInformer gocache.SharedIndexInformer
+	acrIndexer gocache.Indexer
 }
 
-func NewAccessControlRuleHelper(acrInformer gocache.SharedIndexInformer) *Helper {
+func NewAccessControlRuleHelper(acrIndexer gocache.Indexer) *Helper {
 	return &Helper{
-		acrInformer: acrInformer,
+		acrIndexer: acrIndexer,
 	}
 }
 
 // GetAccessControlRulesForUser returns all AccessControlRules that contain the specified user ID
 func (h *Helper) GetAccessControlRulesForUser(namespace, userID string) ([]v1.AccessControlRule, error) {
-	acrs, err := h.acrInformer.GetIndexer().ByIndex("user-ids", userID)
+	acrs, err := h.acrIndexer.ByIndex("user-ids", userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get access control rules for user: %w", err)
 	}
 
 	result := make([]v1.AccessControlRule, 0, len(acrs))
 	for _, acr := range acrs {
-		res := acr.(*v1.AccessControlRule)
-		if res != nil && res.Namespace == namespace {
+		res, ok := acr.(*v1.AccessControlRule)
+		if ok && res.Namespace == namespace {
 			result = append(result, *res)
 		}
 	}
@@ -38,15 +38,15 @@ func (h *Helper) GetAccessControlRulesForUser(namespace, userID string) ([]v1.Ac
 
 // GetAccessControlRulesForMCPServer returns all AccessControlRules that contain the specified MCP server name
 func (h *Helper) GetAccessControlRulesForMCPServer(namespace, serverName string) ([]v1.AccessControlRule, error) {
-	acrs, err := h.acrInformer.GetIndexer().ByIndex("server-names", serverName)
+	acrs, err := h.acrIndexer.ByIndex("server-names", serverName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get access control rules for MCP server: %w", err)
 	}
 
 	result := make([]v1.AccessControlRule, 0, len(acrs))
 	for _, acr := range acrs {
-		res := acr.(*v1.AccessControlRule)
-		if res != nil && res.Namespace == namespace {
+		res, ok := acr.(*v1.AccessControlRule)
+		if ok && res.Namespace == namespace {
 			result = append(result, *res)
 		}
 	}
@@ -56,15 +56,15 @@ func (h *Helper) GetAccessControlRulesForMCPServer(namespace, serverName string)
 
 // GetAccessControlRulesForMCPServerCatalogEntry returns all AccessControlRules that contain the specified catalog entry name
 func (h *Helper) GetAccessControlRulesForMCPServerCatalogEntry(namespace, entryName string) ([]v1.AccessControlRule, error) {
-	acrs, err := h.acrInformer.GetIndexer().ByIndex("catalog-entry-names", entryName)
+	acrs, err := h.acrIndexer.ByIndex("catalog-entry-names", entryName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get access control rules for MCP server catalog entry: %w", err)
 	}
 
 	result := make([]v1.AccessControlRule, 0, len(acrs))
 	for _, acr := range acrs {
-		res := acr.(*v1.AccessControlRule)
-		if res != nil && res.Namespace == namespace {
+		res, ok := acr.(*v1.AccessControlRule)
+		if ok && res.Namespace == namespace {
 			result = append(result, *res)
 		}
 	}
@@ -80,7 +80,7 @@ func (h *Helper) UserHasAccessToMCPServer(userID, serverName string) (bool, erro
 	}
 
 	for _, rule := range rules {
-		for _, uid := range rule.Spec.UserIDs {
+		for _, uid := range rule.Spec.Manifest.UserIDs {
 			if uid == userID || uid == "*" {
 				return true, nil
 			}
@@ -98,7 +98,7 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntry(userID, entryName string) 
 	}
 
 	for _, rule := range rules {
-		for _, uid := range rule.Spec.UserIDs {
+		for _, uid := range rule.Spec.Manifest.UserIDs {
 			if uid == userID || uid == "*" {
 				return true, nil
 			}

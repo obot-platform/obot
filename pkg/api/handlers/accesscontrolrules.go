@@ -55,10 +55,7 @@ func (*AccessControlRuleHandler) Create(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.AccessControlRuleSpec{
-			DisplayName:                manifest.DisplayName,
-			UserIDs:                    manifest.UserIDs,
-			MCPServerCatalogEntryNames: manifest.MCPServerCatalogEntryIDs,
-			MCPServerNames:             manifest.MCPServerIDs,
+			Manifest: manifest,
 		},
 	}
 
@@ -81,10 +78,7 @@ func (*AccessControlRuleHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get access control rule: %w", err)
 	}
 
-	existing.Spec.DisplayName = manifest.DisplayName
-	existing.Spec.UserIDs = manifest.UserIDs
-	existing.Spec.MCPServerCatalogEntryNames = manifest.MCPServerCatalogEntryIDs
-	existing.Spec.MCPServerNames = manifest.MCPServerIDs
+	existing.Spec.Manifest = manifest
 
 	if err := req.Update(&existing); err != nil {
 		return fmt.Errorf("failed to update access control rule: %w", err)
@@ -95,28 +89,17 @@ func (*AccessControlRuleHandler) Update(req api.Context) error {
 
 // Delete deletes an access control rule (admin only).
 func (*AccessControlRuleHandler) Delete(req api.Context) error {
-	var rule v1.AccessControlRule
-	if err := req.Get(&rule, req.PathValue("access_control_rule_id")); err != nil {
-		return fmt.Errorf("failed to get access control rule: %w", err)
-	}
-
-	if err := req.Delete(&rule); err != nil {
-		return fmt.Errorf("failed to delete access control rule: %w", err)
-	}
-
-	return req.Write(map[string]any{
-		"id": rule.Name,
+	return req.Delete(&v1.AccessControlRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      req.PathValue("access_control_rule_id"),
+			Namespace: req.Namespace(),
+		},
 	})
 }
 
 func convertAccessControlRule(rule v1.AccessControlRule) types.AccessControlRule {
 	return types.AccessControlRule{
-		Metadata: MetadataFrom(&rule),
-		AccessControlRuleManifest: types.AccessControlRuleManifest{
-			DisplayName:              rule.Spec.DisplayName,
-			UserIDs:                  rule.Spec.UserIDs,
-			MCPServerCatalogEntryIDs: rule.Spec.MCPServerCatalogEntryNames,
-			MCPServerIDs:             rule.Spec.MCPServerNames,
-		},
+		Metadata:                  MetadataFrom(&rule),
+		AccessControlRuleManifest: rule.Spec.Manifest,
 	}
 }

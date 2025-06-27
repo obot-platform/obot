@@ -20,7 +20,7 @@ const (
 	TaskInvoke              = "task-invoke"
 
 	DefaultNamespace = "default"
-	DefaultCatalog   = CatalogPrefix + "default"
+	DefaultCatalog   = "default"
 
 	ModelProviderCredential = "sys.model.provider.credential"
 

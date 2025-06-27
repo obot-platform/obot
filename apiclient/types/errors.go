@@ -44,3 +44,7 @@ func IsNotFound(err error) bool {
 	var errHTTP *ErrHTTP
 	return errors.As(err, &errHTTP) && errHTTP.Code == http.StatusNotFound
 }
+
+func NewErrAlreadyExists(message string, args ...any) *ErrHTTP {
+	return NewErrHTTP(http.StatusConflict, fmt.Sprintf(message, args...))
+}

@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -56,12 +57,15 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 		MCPServerID string `json:"mcpServerID"`
 	}
 	if err := req.Read(&input); err != nil {
-		return fmt.Errorf("failed to read server name: %w", err)
+		return types.NewErrBadRequest("failed to read server name: %v", err)
 	}
 
 	var server v1.MCPServer
 	if err := req.Get(&server, input.MCPServerID); err != nil {
-		return fmt.Errorf("failed to get MCP server: %w", err)
+		if errors.IsNotFound(err) {
+			return types.NewErrNotFound("MCP server not found")
+		}
+		return fmt.Errorf("failed to get MCP server: %v", err)
 	}
 
 	// Make sure the user is allowed to access this MCP server.
@@ -90,23 +94,22 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 	}
 
 	if err := req.Create(&instance); err != nil {
-		return fmt.Errorf("failed to create MCP server instance: %w", err)
+		if errors.IsAlreadyExists(err) {
+			return types.NewErrAlreadyExists("MCP server instance already exists")
+		}
+		return fmt.Errorf("failed to create MCP server instance: %v", err)
 	}
 
 	return req.WriteCreated(convertMCPServerInstance(instance, h.serverURL))
 }
 
 func (h *ServerInstancesHandler) DeleteServerInstance(req api.Context) error {
-	var instance v1.MCPServerInstance
-	if err := req.Get(&instance, req.PathValue("mcp_server_instance_id")); err != nil {
-		return fmt.Errorf("failed to get MCP server instance: %w", err)
-	}
-
-	if err := req.Delete(&instance); err != nil {
-		return fmt.Errorf("failed to delete MCP server instance: %w", err)
-	}
-
-	return req.Write(convertMCPServerInstance(instance, h.serverURL))
+	return req.Delete(&v1.MCPServerInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      req.PathValue("mcp_server_instance_id"),
+			Namespace: req.Namespace(),
+		},
+	})
 }
 
 func convertMCPServerInstance(instance v1.MCPServerInstance, serverURL string) types.MCPServerInstance {

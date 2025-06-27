@@ -255,7 +255,7 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 
 	sourceURLs := []string{}
 	if h.defaultCatalogPath != "" {
-		sourceURLs = []string{h.defaultCatalogPath}
+		sourceURLs = append(sourceURLs, h.defaultCatalogPath)
 	}
 
 	if err := c.Create(ctx, &v1.MCPCatalog{

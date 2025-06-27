@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -14,19 +15,16 @@ type AccessControlRule struct {
 }
 
 type AccessControlRuleSpec struct {
-	DisplayName                string   `json:"displayName,omitempty"`
-	UserIDs                    []string `json:"userIDs,omitempty"`
-	MCPServerCatalogEntryNames []string `json:"mcpServerCatalogEntryNames,omitempty"`
-	MCPServerNames             []string `json:"mcpServerNames,omitempty"`
+	Manifest types.AccessControlRuleManifest `json:"manifest"`
 }
 
 func (in *AccessControlRule) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
-		{"Display Name", "Spec.DisplayName"},
-		{"User Count", "{{len .Spec.UserIDs}}"},
-		{"Catalog Entries", "{{len .Spec.MCPServerCatalogEntryNames}}"},
-		{"Servers", "{{len .Spec.MCPServerNames}}"},
+		{"Display Name", "Spec.Manifest.DisplayName"},
+		{"User Count", "{{len .Spec.Manifest.UserIDs}}"},
+		{"Catalog Entries", "{{len .Spec.Manifest.MCPServerCatalogEntryIDs}}"},
+		{"Servers", "{{len .Spec.Manifest.MCPServerIDs}}"},
 	}
 }
 

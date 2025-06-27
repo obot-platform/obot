@@ -19,8 +19,8 @@ func DeleteOrphans(req router.Request, resp router.Response) error {
 
 	if server.Spec.ThreadName != "" || server.Spec.SharedWithinMCPCatalogName != "" {
 		return nil
-	} else if time.Since(server.CreationTimestamp.Time) < time.Hour {
-		resp.RetryAfter(time.Hour)
+	} else if since := time.Since(server.CreationTimestamp.Time); since < time.Hour {
+		resp.RetryAfter(time.Hour - since)
 		return nil
 	}
 
