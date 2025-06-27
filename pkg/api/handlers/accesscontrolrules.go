@@ -46,7 +46,7 @@ func (*AccessControlRuleHandler) Get(req api.Context) error {
 func (*AccessControlRuleHandler) Create(req api.Context) error {
 	var manifest types.AccessControlRuleManifest
 	if err := req.Read(&manifest); err != nil {
-		return fmt.Errorf("failed to read access control rule manifest: %w", err)
+		return types.NewErrBadRequest("failed to read access control rule manifest: %v", err)
 	}
 
 	rule := v1.AccessControlRule{
