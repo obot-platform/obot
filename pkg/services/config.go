@@ -551,7 +551,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			ResponseTypesSupported:            []string{"code"},
 			GrantTypesSupported:               []string{"authorization_code", "refresh_token"},
 			CodeChallengeMethodsSupported:     []string{"S256", "plain"},
-			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "none"},
+			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 		},
 	}, nil
 }

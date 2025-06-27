@@ -183,31 +183,6 @@ func (h *handler) validateClientConfig(oauthClient *v1.OAuthClient) error {
 		})
 	}
 
-	var unsupported []string
-	for _, grantType := range oauthClient.Spec.Manifest.GrantTypes {
-		if !slices.Contains(h.oauthConfig.GrantTypesSupported, grantType) {
-			unsupported = append(unsupported, grantType)
-		}
-	}
-	if len(unsupported) > 0 {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidClientMetadata,
-			Description: "unsupported grant types: " + strings.Join(unsupported, ", "),
-		})
-	}
-
-	for _, responseType := range oauthClient.Spec.Manifest.ResponseTypes {
-		if !slices.Contains(h.oauthConfig.ResponseTypesSupported, responseType) {
-			unsupported = append(unsupported, responseType)
-		}
-	}
-	if len(unsupported) > 0 {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidClientMetadata,
-			Description: "unsupported response types: " + strings.Join(unsupported, ", "),
-		})
-	}
-
 	return nil
 }
 

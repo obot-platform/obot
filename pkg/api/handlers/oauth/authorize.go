@@ -67,7 +67,7 @@ func (h *handler) authorize(req api.Context) error {
 	state := req.FormValue("state")
 	codeChallenge := req.FormValue("code_challenge")
 	codeChallengeMethod := req.FormValue("code_challenge_method")
-	if codeChallenge != "" && (codeChallengeMethod == "" || !slices.Contains([]string{"S256", "plain"}, codeChallengeMethod)) {
+	if codeChallenge != "" && (codeChallengeMethod == "" || !slices.Contains(h.oauthConfig.CodeChallengeMethodsSupported, codeChallengeMethod)) {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
 			Description: "code_challenge_method is invalid",
@@ -140,6 +140,13 @@ func (h *handler) authorize(req api.Context) error {
 		return nil
 	}
 
+	if oauthClient.Spec.Manifest.TokenEndpointAuthMethod == "none" && codeChallenge == "" {
+		redirectWithAuthorizeError(req, redirectURI, Error{
+			Code:        ErrInvalidRequest,
+			Description: "code_challenge is required when using token endpoint auth method none",
+		})
+	}
+
 	if scope := req.FormValue("scope"); scope != "" {
 		var (
 			unsupported []string
@@ -171,6 +178,7 @@ func (h *handler) authorize(req api.Context) error {
 			Namespace:    oauthClient.Namespace,
 		},
 		Spec: v1.OAuthAuthRequestSpec{
+			State:               state,
 			ClientID:            oauthClient.Name,
 			RedirectURI:         redirectURI,
 			CodeChallenge:       codeChallenge,

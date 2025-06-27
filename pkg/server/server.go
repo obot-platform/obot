@@ -50,7 +50,7 @@ func Run(ctx context.Context, c services.Config) error {
 		}
 	}
 
-	if c.DevMode && c.AllowedOrigin == "" {
+	if c.AllowedOrigin == "" {
 		c.AllowedOrigin = "*"
 	}
 
