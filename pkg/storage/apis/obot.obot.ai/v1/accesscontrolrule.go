@@ -22,7 +22,7 @@ func (in *AccessControlRule) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
 		{"Display Name", "Spec.Manifest.DisplayName"},
-		{"User Count", "{{len .Spec.Manifest.UserIDs}}"},
+		{"Subjects", "{{len .Spec.Manifest.Subjects}}"},
 		{"Resources", "{{len .Spec.Manifest.Resources}}"},
 	}
 }

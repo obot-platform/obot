@@ -127,6 +127,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest":                        schema_obot_platform_obot_apiclient_types_SlackReceiverManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.Step":                                         schema_obot_platform_obot_apiclient_types_Step(ref),
 		"github.com/obot-platform/obot/apiclient/types.StepTemplateInvoke":                           schema_obot_platform_obot_apiclient_types_StepTemplateInvoke(ref),
+		"github.com/obot-platform/obot/apiclient/types.Subject":                                      schema_obot_platform_obot_apiclient_types_Subject(ref),
 		"github.com/obot-platform/obot/apiclient/types.Task":                                         schema_obot_platform_obot_apiclient_types_Task(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskEmail":                                    schema_obot_platform_obot_apiclient_types_TaskEmail(ref),
 		"github.com/obot-platform/obot/apiclient/types.TaskList":                                     schema_obot_platform_obot_apiclient_types_TaskList(ref),
@@ -506,15 +507,14 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRule(ref common.Refe
 							Format: "",
 						},
 					},
-					"userIDs": {
+					"subjects": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Subject"),
 									},
 								},
 							},
@@ -537,7 +537,7 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRule(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Subject", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -581,15 +581,14 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref com
 							Format: "",
 						},
 					},
-					"userIDs": {
+					"subjects": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Subject"),
 									},
 								},
 							},
@@ -612,7 +611,7 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref com
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Resource"},
+			"github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Subject"},
 	}
 }
 
@@ -5647,6 +5646,33 @@ func schema_obot_platform_obot_apiclient_types_StepTemplateInvoke(ref common.Ref
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_Subject(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"type", "id"},
 			},
 		},
 	}

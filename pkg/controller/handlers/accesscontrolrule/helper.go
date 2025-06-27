@@ -3,6 +3,7 @@ package accesscontrolrule
 import (
 	"fmt"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	gocache "k8s.io/client-go/tools/cache"
@@ -16,24 +17,6 @@ func NewAccessControlRuleHelper(acrIndexer gocache.Indexer) *Helper {
 	return &Helper{
 		acrIndexer: acrIndexer,
 	}
-}
-
-// GetAccessControlRulesForUser returns all AccessControlRules that contain the specified user ID
-func (h *Helper) GetAccessControlRulesForUser(namespace, userID string) ([]v1.AccessControlRule, error) {
-	acrs, err := h.acrIndexer.ByIndex("user-ids", userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get access control rules for user: %w", err)
-	}
-
-	result := make([]v1.AccessControlRule, 0, len(acrs))
-	for _, acr := range acrs {
-		res, ok := acr.(*v1.AccessControlRule)
-		if ok && res.Namespace == namespace {
-			result = append(result, *res)
-		}
-	}
-
-	return result, nil
 }
 
 // GetAccessControlRulesForMCPServer returns all AccessControlRules that contain the specified MCP server name
@@ -99,8 +82,8 @@ func (h *Helper) UserHasAccessToMCPServer(userID, serverName string) (bool, erro
 	}
 
 	for _, rule := range selectorRules {
-		for _, uid := range rule.Spec.Manifest.UserIDs {
-			if uid == userID || uid == "*" {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			if (subject.Type == types.SubjectTypeUser && subject.ID == userID) || (subject.Type == types.SubjectTypeSelector && subject.ID == "*") {
 				return true, nil
 			}
 		}
@@ -113,8 +96,8 @@ func (h *Helper) UserHasAccessToMCPServer(userID, serverName string) (bool, erro
 	}
 
 	for _, rule := range rules {
-		for _, uid := range rule.Spec.Manifest.UserIDs {
-			if uid == userID || uid == "*" {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			if (subject.Type == types.SubjectTypeUser && subject.ID == userID) || (subject.Type == types.SubjectTypeSelector && subject.ID == "*") {
 				return true, nil
 			}
 		}
@@ -132,8 +115,8 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntry(userID, entryName string) 
 	}
 
 	for _, rule := range selectorRules {
-		for _, uid := range rule.Spec.Manifest.UserIDs {
-			if uid == userID || uid == "*" {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			if (subject.Type == types.SubjectTypeUser && subject.ID == userID) || (subject.Type == types.SubjectTypeSelector && subject.ID == "*") {
 				return true, nil
 			}
 		}
@@ -146,8 +129,8 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntry(userID, entryName string) 
 	}
 
 	for _, rule := range rules {
-		for _, uid := range rule.Spec.Manifest.UserIDs {
-			if uid == userID || uid == "*" {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			if (subject.Type == types.SubjectTypeUser && subject.ID == userID) || (subject.Type == types.SubjectTypeSelector && subject.ID == "*") {
 				return true, nil
 			}
 		}
