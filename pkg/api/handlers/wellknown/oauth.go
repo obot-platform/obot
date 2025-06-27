@@ -16,6 +16,6 @@ func (h *handler) oauthProtectedResource(req api.Context) error {
 	"resource_name": "Obot MCP Gateway",
 	"resource": "%s/mcp-connect",
 	"authorization_servers": ["%[1]s"],
-	"bearer_methods_supported": ["header"],
+	"bearer_methods_supported": ["header"]
 }`, h.baseURL))
 }
