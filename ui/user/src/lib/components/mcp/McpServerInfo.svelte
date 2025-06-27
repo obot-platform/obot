@@ -168,8 +168,6 @@
 				{@render capabiliity('Tool Catalog', tools.length > 0)}
 				{@render capabiliity('Prompts', prompts.length > 0)}
 				{@render capabiliity('Resources', resources.length > 0)}
-				{@render capabiliity('Elicitations', false)}
-				{@render capabiliity('Sampling', false)}
 			</ul>
 		</div>
 	{/if}
