@@ -41,7 +41,7 @@ func (h *ServerInstancesHandler) ListServerInstances(req api.Context) error {
 		return err
 	}
 
-	var convertedInstances []types.MCPServerInstance
+	convertedInstances := make([]types.MCPServerInstance, 0, len(instances.Items))
 	for _, instance := range instances.Items {
 		convertedInstances = append(convertedInstances, convertMCPServerInstance(instance, h.serverURL))
 	}

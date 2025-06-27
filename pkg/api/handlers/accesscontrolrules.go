@@ -23,7 +23,7 @@ func (*AccessControlRuleHandler) List(req api.Context) error {
 		return fmt.Errorf("failed to list access control rules: %w", err)
 	}
 
-	var items []types.AccessControlRule
+	items := make([]types.AccessControlRule, 0, len(list.Items))
 	for _, item := range list.Items {
 		items = append(items, convertAccessControlRule(item))
 	}
