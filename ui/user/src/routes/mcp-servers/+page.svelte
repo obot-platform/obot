@@ -556,15 +556,17 @@
 	onClose={() => (userConfiguredServerToEdit = undefined)}
 >
 	{#snippet titleContent()}
-		{#if userConfiguredServerToEdit?.icon}
-			<img
-				src={userConfiguredServerToEdit.icon}
-				alt={userConfiguredServerToEdit.name}
-				class="size-6"
-			/>
-		{:else}
-			<Server class="size-6" />
-		{/if}
+		<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
+			{#if userConfiguredServerToEdit?.icon}
+				<img
+					src={userConfiguredServerToEdit.icon}
+					alt={userConfiguredServerToEdit.name}
+					class="size-8"
+				/>
+			{:else}
+				<Server class="size-8" />
+			{/if}
+		</div>
 		{userConfiguredServerToEdit?.name}
 	{/snippet}
 	{#if userConfiguredServerToEdit}
@@ -682,22 +684,27 @@
 			connectToEntry.entry.commandManifest?.name ?? connectToEntry.entry.urlManifest?.name}
 		{@const icon =
 			connectToEntry.entry.commandManifest?.icon ?? connectToEntry.entry.urlManifest?.icon}
-		{#if icon}
-			<img src={icon} alt={name} class="size-6" />
-		{:else}
-			<Server class="size-6" />
-		{/if}
+
+		<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
+			{#if icon}
+				<img src={icon} alt={name} class="size-8" />
+			{:else}
+				<Server class="size-8" />
+			{/if}
+		</div>
 		{name}
 	{:else if connectToServer}
-		{#if connectToServer.server.manifest.icon}
-			<img
-				src={connectToServer.server.manifest.icon}
-				alt={connectToServer.server.manifest.name}
-				class="size-6"
-			/>
-		{:else}
-			<Server class="size-6" />
-		{/if}
+		<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
+			{#if connectToServer.server.manifest.icon}
+				<img
+					src={connectToServer.server.manifest.icon}
+					alt={connectToServer.server.manifest.name}
+					class="size-8"
+				/>
+			{:else}
+				<Server class="size-8" />
+			{/if}
+		</div>
 		{connectToServer.server.manifest.name}
 	{/if}
 {/snippet}

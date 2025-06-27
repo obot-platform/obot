@@ -53,13 +53,30 @@
 <div class="flex h-full w-full flex-col gap-8">
 	{#if entry}
 		<div class="flex items-center justify-between gap-4">
-			<h1 class="text-2xl font-semibold capitalize">
+			<div class="flex items-center gap-2">
 				{#if 'manifest' in entry}
-					{entry.manifest.name || 'Unknown'}
+					{#if entry.manifest.icon}
+						<img
+							src={entry.manifest.icon}
+							alt={entry.manifest.name}
+							class="bg-surface1 size-10 rounded-md p-1 dark:bg-gray-600"
+						/>
+					{/if}
+					<h1 class="text-2xl font-semibold capitalize">{entry.manifest.name || 'Unknown'}</h1>
 				{:else}
-					{entry?.commandManifest?.name || entry?.urlManifest?.name || 'Unknown'}
+					{@const icon = entry.commandManifest?.icon || entry.urlManifest?.icon}
+					{#if icon}
+						<img
+							src={icon}
+							alt={entry.commandManifest?.name || entry.urlManifest?.name}
+							class="bg-surface1 size-10 rounded-md p-1 dark:bg-gray-600"
+						/>
+					{/if}
+					<h1 class="text-2xl font-semibold capitalize">
+						{entry?.commandManifest?.name || entry?.urlManifest?.name || 'Unknown'}
+					</h1>
 				{/if}
-			</h1>
+			</div>
 			<button
 				class="button-destructive flex items-center gap-1 text-xs font-normal"
 				use:tooltip={'Delete Server'}

@@ -100,10 +100,12 @@
 										<img
 											src={item.manifest.icon}
 											alt={item.manifest.name}
-											class="size-6 flex-shrink-0"
+											class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
 										/>
 									{:else}
-										<Server class="size-6 flex-shrink-0" />
+										<Server
+											class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
+										/>
 									{/if}
 									<div class="flex min-w-0 grow flex-col">
 										<p class="truncate">{item.manifest.name}</p>
@@ -115,10 +117,12 @@
 										<img
 											src={icon}
 											alt={item.commandManifest?.name || item.urlManifest?.name}
-											class="size-6 flex-shrink-0"
+											class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
 										/>
 									{:else}
-										<Server class="size-6 flex-shrink-0" />
+										<Server
+											class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
+										/>
 									{/if}
 									<div class="flex min-w-0 grow flex-col">
 										<p class="truncate">
