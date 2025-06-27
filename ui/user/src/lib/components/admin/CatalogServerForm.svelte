@@ -154,7 +154,7 @@
 	}
 
 	function convertToServerManifest(formData: MCPCatalogEntryFormData): MCPCatalogServerManifest {
-		const { categories, url: _url, ...rest } = formData;
+		const { categories, ...rest } = formData;
 		return {
 			manifest: {
 				...rest,
