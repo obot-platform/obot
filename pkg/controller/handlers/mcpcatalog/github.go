@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/obot-platform/nah/pkg/log"
 	"github.com/obot-platform/obot/apiclient/types"
 )
 

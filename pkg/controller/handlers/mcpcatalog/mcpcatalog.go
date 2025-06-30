@@ -14,10 +14,11 @@ import (
 	"time"
 
 	"github.com/obot-platform/nah/pkg/apply"
-	"github.com/obot-platform/nah/pkg/log"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -25,17 +26,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var log = logger.Package()
+
 type Handler struct {
 	allowedDockerImageRepos []string
 	defaultCatalogPath      string
 	gatewayClient           *gclient.Client
+	accessControlRuleHelper *accesscontrolrule.Helper
 }
 
-func New(allowedDockerImageRepos []string, defaultCatalogPath string, gatewayClient *gclient.Client) *Handler {
+func New(allowedDockerImageRepos []string, defaultCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
 	return &Handler{
 		allowedDockerImageRepos: allowedDockerImageRepos,
 		defaultCatalogPath:      defaultCatalogPath,
 		gatewayClient:           gatewayClient,
+		accessControlRuleHelper: accessControlRuleHelper,
 	}
 }
 
@@ -269,6 +274,117 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create default catalog: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteUnauthorizedMCPServers is a handler that deletes MCP servers that are no longer authorized to exist.
+// This can happen whenever AccessControlRules change.
+// It does not delete MCPServerInstances, since those have a delete ref to their MCPServer, and will be deleted automatically.
+func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Response) error {
+	// List AccessControlRules so that this handler gets triggered any time one of them changes.
+	if err := req.List(&v1.AccessControlRuleList{}, &client.ListOptions{
+		Namespace: system.DefaultNamespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list access control rules: %w", err)
+	}
+
+	var mcpServers v1.MCPServerList
+	if err := req.List(&mcpServers, &client.ListOptions{
+		Namespace: system.DefaultNamespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list MCP servers: %w", err)
+	}
+
+	// Iterate through each MCPServer and make sure it is still allowed to exist.
+	for _, server := range mcpServers.Items {
+		if server.Spec.ToolReferenceName != "" || server.Spec.ThreadName != "" || server.Spec.SharedWithinMCPCatalogName != "" {
+			// For legacy gptscript tools, project-scoped servers, and multi-user servers created by the admin, we don't need to check them.
+			continue
+		}
+
+		user, err := h.gatewayClient.UserByID(req.Ctx, server.Spec.UserID)
+		if err != nil {
+			return fmt.Errorf("failed to get user %s: %w", server.Spec.UserID, err)
+		}
+
+		if user.Role.HasRole(types.RoleAdmin) {
+			// Don't delete servers created by admins.
+			continue
+		}
+
+		if server.Spec.MCPServerCatalogEntryName == "" {
+			// If the server doesn't have a catalog entry name, that's bad, because it should. Delete it.
+			log.Infof("Deleting MCP server %q because it does not correspond to a catalog entry", server.Name)
+			if err := req.Delete(&server); err != nil {
+				return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
+			}
+			continue
+		}
+
+		hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntry(server.Spec.UserID, server.Spec.MCPServerCatalogEntryName)
+		if err != nil {
+			return fmt.Errorf("failed to check if user %s has access to catalog entry %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, err)
+		}
+
+		if !hasAccess {
+			log.Infof("Deleting MCP server %q because it is no longer authorized to exist", server.Name)
+			if err := req.Delete(&server); err != nil {
+				return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// DeleteUnauthorizedMCPServerInstances is a handler that deletes MCPServerInstances that point to multi-user MCPServers created by the admin,
+// where the user who owns the MCPServerInstance is no longer authorized to use the MCPServer.
+// This can happen whenever AccessControlRules change.
+func (h *Handler) DeleteUnauthorizedMCPServerInstances(req router.Request, _ router.Response) error {
+	// List AccessControlRules so that this handler gets triggered any time one of them changes.
+	if err := req.List(&v1.AccessControlRuleList{}, &client.ListOptions{
+		Namespace: system.DefaultNamespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list access control rules: %w", err)
+	}
+
+	var mcpServerInstances v1.MCPServerInstanceList
+	if err := req.List(&mcpServerInstances, &client.ListOptions{
+		Namespace: system.DefaultNamespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list MCP server instances: %w", err)
+	}
+
+	// Iterate through each MCPServerInstance and make sure it is still allowed to exist.
+	for _, instance := range mcpServerInstances.Items {
+		if instance.Spec.MCPCatalogName == "" {
+			// This instance points to a single-user server, so we don't need to worry about it.
+			continue
+		}
+
+		user, err := h.gatewayClient.UserByID(req.Ctx, instance.Spec.UserID)
+		if err != nil {
+			return fmt.Errorf("failed to get user %s: %w", instance.Spec.UserID, err)
+		}
+
+		if user.Role.HasRole(types.RoleAdmin) {
+			// Don't delete instances created by admins.
+			continue
+		}
+
+		hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServer(instance.Spec.UserID, instance.Spec.MCPServerName)
+		if err != nil {
+			return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
+		}
+
+		if !hasAccess {
+			log.Infof("Deleting MCPServerInstance %q because it is no longer authorized to exist", instance.Name)
+			if err := req.Delete(&instance); err != nil {
+				return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
+			}
+		}
 	}
 
 	return nil
