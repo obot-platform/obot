@@ -1,6 +1,8 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type AccessControlRule struct {
 	Metadata                  `json:",inline"`
@@ -35,15 +37,16 @@ type Subject struct {
 type SubjectType string
 
 const (
+	SubjectTypeGroup    SubjectType = "group"
 	SubjectTypeUser     SubjectType = "user"
 	SubjectTypeSelector SubjectType = "selector"
 )
 
 func (s Subject) Validate() error {
 	switch s.Type {
-	case SubjectTypeUser:
+	case SubjectTypeUser, SubjectTypeGroup:
 		if s.ID == "" {
-			return fmt.Errorf("user ID is required")
+			return fmt.Errorf("ID is required")
 		}
 		return nil
 	case SubjectTypeSelector:
