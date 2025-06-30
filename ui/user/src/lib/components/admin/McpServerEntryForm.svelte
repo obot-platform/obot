@@ -273,7 +273,7 @@
 		if (!deleteResourceFromRule) {
 			return;
 		}
-		const updatedRule = await AdminService.updateAccessControlRule(deleteResourceFromRule.rule.id, {
+		await AdminService.updateAccessControlRule(deleteResourceFromRule.rule.id, {
 			...deleteResourceFromRule.rule,
 			resources: deleteResourceFromRule.rule.resources?.filter(
 				(r) => r.id !== deleteResourceFromRule!.resourceId

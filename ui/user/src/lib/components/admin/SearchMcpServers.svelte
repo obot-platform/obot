@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { Check, LoaderCircle, Server } from 'lucide-svelte';
 	import Search from '../Search.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
