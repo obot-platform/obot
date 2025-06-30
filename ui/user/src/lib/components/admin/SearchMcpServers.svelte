@@ -7,27 +7,54 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		onAdd: (mcpCatalogEntryIds: string[], mcpServerIds: string[]) => void;
+		onAdd: (mcpCatalogEntryIds: string[], mcpServerIds: string[], otherSelectors: string[]) => void;
 	}
+
+	type SearchItem = {
+		icon: string | undefined;
+		name: string;
+		description: string | undefined;
+		id: string;
+		type: 'mcpcatalogentry' | 'mcpserver' | 'all';
+	};
 
 	let { onAdd }: Props = $props();
 	let addMcpServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let search = $state('');
-	let selected = $state<(MCPCatalogEntry | MCPCatalogServer)[]>([]);
+	let selected = $state<SearchItem[]>([]);
 	let selectedMap = $derived(new Set(selected.map((i) => i.id)));
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
 
 	let loading = $state(false);
-	let allData = $derived(
+	let allData: SearchItem[] = $derived([
+		{
+			icon: undefined,
+			name: 'Everything',
+			description: 'All MCP servers and catalog entries',
+			id: '*',
+			type: 'all' as const
+		},
+		...mcpServerAndEntries.entries.map((entry) => ({
+			icon: entry.commandManifest?.icon || entry.urlManifest?.icon,
+			name: entry.commandManifest?.name || entry.urlManifest?.name || '',
+			description: entry.commandManifest?.description || entry.urlManifest?.description,
+			id: entry.id,
+			type: 'mcpcatalogentry' as const
+		})),
+		...mcpServerAndEntries.servers.map((server) => ({
+			icon: server.manifest.icon,
+			name: server.manifest.name || '',
+			description: server.manifest.description,
+			id: server.id,
+			type: 'mcpserver' as const
+		}))
+	]);
+	let filteredData = $derived(
 		search
-			? [...mcpServerAndEntries.entries, ...mcpServerAndEntries.servers].filter((item) => {
-					const name =
-						'manifest' in item
-							? item.manifest?.name
-							: item.commandManifest?.name || item.urlManifest?.name;
-					return name?.toLowerCase().includes(search.toLowerCase());
+			? allData.filter((item) => {
+					return item.name.toLowerCase().includes(search.toLowerCase());
 				})
-			: [...mcpServerAndEntries.entries, ...mcpServerAndEntries.servers]
+			: allData
 	);
 
 	export function open() {
@@ -42,14 +69,17 @@
 	function handleAdd() {
 		const mcpServerIds = [];
 		const mcpCatalogEntryIds = [];
+		const otherSelectors = [];
 		for (const item of selected) {
-			if ('manifest' in item) {
+			if (item.type === 'mcpserver') {
 				mcpServerIds.push(item.id);
-			} else {
+			} else if (item.type === 'mcpcatalogentry') {
 				mcpCatalogEntryIds.push(item.id);
+			} else {
+				otherSelectors.push(item.id);
 			}
 		}
-		onAdd(mcpCatalogEntryIds, mcpServerIds);
+		onAdd(mcpCatalogEntryIds, mcpServerIds, otherSelectors);
 		addMcpServerDialog?.close();
 	}
 </script>
@@ -77,7 +107,7 @@
 				</div>
 
 				<div class="flex flex-col">
-					{#each allData as item}
+					{#each filteredData as item}
 						<button
 							class={twMerge(
 								'dark:hover:bg-surface1 hover:bg-surface2 flex w-full items-center gap-2 px-4 py-2 text-left',
@@ -95,44 +125,21 @@
 							}}
 						>
 							<div class="flex w-full items-center gap-2 overflow-hidden">
-								{#if 'manifest' in item}
-									{#if item.manifest.icon}
-										<img
-											src={item.manifest.icon}
-											alt={item.manifest.name}
-											class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
-										/>
-									{:else}
-										<Server
-											class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
-										/>
-									{/if}
-									<div class="flex min-w-0 grow flex-col">
-										<p class="truncate">{item.manifest.name}</p>
-										<span class="truncate text-xs text-gray-500">{item.manifest.description}</span>
-									</div>
+								{#if item.icon}
+									<img
+										src={item.icon}
+										alt={item.name}
+										class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
+									/>
 								{:else}
-									{@const icon = item.commandManifest?.icon || item.urlManifest?.icon}
-									{#if icon}
-										<img
-											src={icon}
-											alt={item.commandManifest?.name || item.urlManifest?.name}
-											class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
-										/>
-									{:else}
-										<Server
-											class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
-										/>
-									{/if}
-									<div class="flex min-w-0 grow flex-col">
-										<p class="truncate">
-											{item.commandManifest?.name || item.urlManifest?.name}
-										</p>
-										<span class="truncate text-xs font-light text-gray-500">
-											{item.commandManifest?.description || item.urlManifest?.description}
-										</span>
-									</div>
+									<Server
+										class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
+									/>
 								{/if}
+								<div class="flex min-w-0 grow flex-col">
+									<p class="truncate">{item.name}</p>
+									<span class="truncate text-xs text-gray-500">{item.description}</span>
+								</div>
 							</div>
 							<div class="flex size-6 items-center justify-center">
 								{#if selectedMap.has(item.id)}

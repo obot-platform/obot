@@ -475,7 +475,7 @@
 	</div>
 {/snippet}
 
-{#snippet connectUrlButton(url: string)}
+{#snippet connectUrlButton(url: string, name: string)}
 	<div class="mb-8 flex flex-col gap-1">
 		<label for="connectURL" class="font-light">Connection URL</label>
 		<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
@@ -492,7 +492,7 @@
 		</div>
 	</div>
 
-	<HowToConnect {url} />
+	<HowToConnect {url} {name} />
 {/snippet}
 
 <ResponsiveDialog bind:this={serverInfoDialog}>
@@ -672,9 +672,15 @@
 	{/snippet}
 
 	{#if connectToEntry?.connectURL}
-		{@render connectUrlButton(connectToEntry.connectURL)}
+		{@render connectUrlButton(
+			connectToEntry.connectURL,
+			connectToEntry.entry.commandManifest?.name ?? connectToEntry.entry.urlManifest?.name ?? ''
+		)}
 	{:else if connectToServer?.connectURL}
-		{@render connectUrlButton(connectToServer.connectURL)}
+		{@render connectUrlButton(
+			connectToServer.connectURL,
+			connectToServer.server.manifest.name ?? ''
+		)}
 	{/if}
 </ResponsiveDialog>
 

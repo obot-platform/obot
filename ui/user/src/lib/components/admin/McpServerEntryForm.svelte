@@ -36,6 +36,10 @@
 	let instances = $state([]);
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
 	let deleteServer = $state(false);
+	let deleteResourceFromRule = $state<{
+		rule: AccessControlRule;
+		resourceId: string;
+	}>();
 	let view = $state<string>(entry ? 'overview' : 'configuration');
 
 	$effect(() => {
@@ -46,7 +50,9 @@
 
 	function filterRulesByEntry(rules?: AccessControlRule[]) {
 		if (!entry || !rules) return [];
-		return rules.filter((r) => r.resources?.find((resource) => resource.id === entry.id));
+		return rules.filter((r) =>
+			r.resources?.find((resource) => resource.id === entry.id || resource.id === '*')
+		);
 	}
 </script>
 
@@ -133,7 +139,19 @@
 			{onCancel}
 			{onSubmit}
 			hideTitle={Boolean(entry)}
-		/>
+		>
+			{#snippet readonlyMessage()}
+				{#if entry && 'sourceURL' in entry && !!entry.sourceURL}
+					<p>
+						This MCP Server comes from an external Git Source URL <span
+							class="text-xs text-gray-500">({entry.sourceURL.split('/').pop()})</span
+						> and cannot be edited.
+					</p>
+				{:else}
+					<p>This MCP server is non-editable.</p>
+				{/if}
+			{/snippet}
+		</CatalogServerForm>
 	</div>
 {/snippet}
 
@@ -147,15 +165,45 @@
 		{#if serverRules && serverRules.length > 0}
 			<Table
 				data={serverRules}
-				fields={['displayName']}
-				headers={[{ title: 'Name', property: 'displayName' }]}
+				fields={['displayName', 'resources']}
+				headers={[
+					{ title: 'Rule', property: 'displayName' },
+					{ title: 'Reference', property: 'resources' }
+				]}
 				onSelectRow={(d) => {
 					goto(`/v2/admin/access-control/${d.id}`);
 				}}
 			>
-				{#snippet actions()}
+				{#snippet onRenderColumn(property, d)}
+					{#if property === 'resources'}
+						{@const referencedResource = d.resources?.find(
+							(r) => r.id === entry?.id || r.id === '*'
+						)}
+						{referencedResource?.id === '*' ? 'Everything' : 'Self'}
+					{:else}
+						{d[property as keyof typeof d]}
+					{/if}
+				{/snippet}
+				{#snippet actions(d)}
 					<button class="icon-button" use:tooltip={'View Rule'}>
 						<Eye class="size-4" />
+					</button>
+					<button
+						class="icon-button hover:text-red-500"
+						use:tooltip={'Delete'}
+						onclick={(e) => {
+							e.stopPropagation();
+							const referencedResource = d.resources?.find(
+								(r) => r.id === entry?.id || r.id === '*'
+							);
+							if (!referencedResource) return;
+							deleteResourceFromRule = {
+								rule: d,
+								resourceId: referencedResource.id
+							};
+						}}
+					>
+						<Trash2 class="size-4" />
 					</button>
 				{/snippet}
 			</Table>
@@ -214,4 +262,26 @@
 		goto('/v2/admin/mcp-servers');
 	}}
 	oncancel={() => (deleteServer = false)}
+/>
+
+<Confirm
+	msg={deleteResourceFromRule?.resourceId === '*'
+		? 'Are you sure you want to remove Everything from this rule?'
+		: 'Are you sure you want to remove this MCP server from this rule?'}
+	show={Boolean(deleteResourceFromRule)}
+	onsuccess={async () => {
+		if (!deleteResourceFromRule) {
+			return;
+		}
+		const updatedRule = await AdminService.updateAccessControlRule(deleteResourceFromRule.rule.id, {
+			...deleteResourceFromRule.rule,
+			resources: deleteResourceFromRule.rule.resources?.filter(
+				(r) => r.id !== deleteResourceFromRule!.resourceId
+			)
+		});
+
+		listAccessControlRules = AdminService.listAccessControlRules();
+		deleteResourceFromRule = undefined;
+	}}
+	oncancel={() => (deleteResourceFromRule = undefined)}
 />

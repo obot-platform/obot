@@ -5,11 +5,11 @@
 		type MCPCatalogEntryServerManifest,
 		type MCPCatalogServerManifest
 	} from '$lib/services/admin/types';
-	import { Plus, Trash2 } from 'lucide-svelte';
+	import { Info, Plus, Trash2 } from 'lucide-svelte';
 	import SingleMultiMcpForm from '../mcp/SingleMultiMcpForm.svelte';
 	import RemoteMcpForm from '../mcp/RemoteMcpForm.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -19,6 +19,7 @@
 		onCancel?: () => void;
 		onSubmit?: () => void;
 		hideTitle?: boolean;
+		readonlyMessage?: Snippet;
 	}
 
 	function getType(entry?: MCPCatalogEntry | MCPCatalogServer) {
@@ -37,7 +38,8 @@
 		type: newType = 'single',
 		onCancel,
 		onSubmit,
-		hideTitle
+		hideTitle,
+		readonlyMessage
 	}: Props = $props();
 	let type = $derived(getType(entry) ?? newType);
 
@@ -230,6 +232,17 @@
 	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-8 rounded-lg border border-transparent bg-white p-4 shadow-sm"
 >
 	<div class="flex flex-col gap-8">
+		{#if readonly && readonlyMessage}
+			<div class="notification-info p-3 text-sm font-light">
+				<div class="flex items-center gap-3">
+					<Info class="size-6" />
+					<div>
+						{@render readonlyMessage()}
+					</div>
+				</div>
+			</div>
+		{/if}
+
 		<div class="flex flex-col gap-1">
 			<label for="name" class="text-sm font-light capitalize">Name</label>
 			<input

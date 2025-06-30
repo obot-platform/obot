@@ -7,9 +7,10 @@
 
 	interface Props {
 		url: string;
+		name: string;
 	}
 
-	let { url }: Props = $props();
+	let { url, name }: Props = $props();
 	let scrollContainer: HTMLUListElement;
 	let showLeftChevron = $state(false);
 	let showRightChevron = $state(false);
@@ -30,14 +31,6 @@
 		cline: {
 			label: 'Cline',
 			icon: '/user/images/assistant/cline-mark.svg'
-		},
-		highlight: {
-			label: 'Highlight AI',
-			icon: '/user/images/assistant/highlightai-mark.svg'
-		},
-		augment: {
-			label: 'Augment Code',
-			icon: '/user/images/assistant/augmentcode-mark.svg'
 		}
 	};
 
@@ -179,7 +172,7 @@
 						{@render codeSnippet(`
     {
         "mcpServers": {
-            "obot": {
+            "${name}": {
                 "url": "${url}"
             }
         }
@@ -194,7 +187,7 @@
 						{@render codeSnippet(`
     {
         "mcpServers": {
-            "obot": {
+            "${name}": {
                 "command": "npx",
                 "args": [
                     "mcp-remote",
@@ -213,8 +206,7 @@
 						{@render codeSnippet(`
     {
         "servers": {
-            "obot": {
-                "type": "sse",
+            "${name}": {
                 "url": "${url}"
             }
         }
@@ -231,42 +223,12 @@
 						{@render codeSnippet(`
     {
         "mcpServers": {
-            "obot": {
+            "${name}": {
                 "url": "${url}",
                 "disabled": false,
                 "autoApprove": []
             }
         }
-    `)}
-					{:else if option.key === 'highlight'}
-						<p>
-							To add this MCP server to Highlight AI, click the plugins icon in the sidebar (@
-							symbol). Then proceed with the following:
-						</p>
-						<ul class="my-2 list-inside list-disc space-y-2">
-							<li>Click <b>Installed Plugins</b> at the top of the sidebar</li>
-							<li>Select <b>Custom Plugins</b></li>
-							<li>Click <b>Add a plugin using a custom SEE URL</b></li>
-							<li>Enter your plugin name: <span class="snippet">obot</span></li>
-							<li>Enter the URL as SSE URL: <span class="snippet">{url}</span></li>
-						</ul>
-					{:else if option.key === 'augment'}
-						<p>
-							To add this MCP server to Augment Code, go to Settings & MCP Section. Add the
-							following configuration:
-						</p>
-						{@render codeSnippet(`
-    {
-        "mcpServers": {
-            "git-mcp obot": {
-                "command": "npx",
-                "args": [
-                        "mcp-remote",
-                        "${url}"
-                ]
-            }
-        }
-    }
     `)}
 					{/if}
 				</div>

@@ -14,13 +14,14 @@
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
-	import type { MCPCatalogEntry } from '$lib/services/admin/types';
+	import type { MCPCatalog, MCPCatalogEntry } from '$lib/services/admin/types';
 	import {
 		ChevronLeft,
 		Container,
 		Eye,
 		LoaderCircle,
 		Plus,
+		RefreshCcw,
 		Server,
 		Trash2,
 		User,
@@ -28,16 +29,12 @@
 		X
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { fade, fly } from 'svelte/transition';
+	import { fade, fly, slide } from 'svelte/transition';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 
 	initMcpServerAndEntries();
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
-
-	onMount(async () => {
-		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
-	});
 
 	function convertEntriesToTableData(entries: MCPCatalogEntry[] | undefined) {
 		if (!entries) {
@@ -47,8 +44,9 @@
 		return entries.map((entry) => {
 			return {
 				id: entry.id,
-				source: entry.sourceURL || 'manual',
 				name: entry.commandManifest?.name ?? entry.urlManifest?.name ?? '',
+				icon: entry.commandManifest?.icon ?? entry.urlManifest?.icon,
+				source: entry.sourceURL || 'manual',
 				data: entry,
 				users: '-',
 				editable: !entry.sourceURL,
@@ -68,6 +66,7 @@
 				return {
 					id: server.id,
 					name: server.manifest.name ?? '',
+					icon: server.manifest.icon,
 					source: 'manual',
 					type: 'multi',
 					data: server,
@@ -93,6 +92,7 @@
 		convertEntriesAndServersToTableData(mcpServerAndEntries.entries, mcpServerAndEntries.servers)
 	);
 
+	let defaultCatalog = $state<MCPCatalog>();
 	let editingSource = $state<{ index: number; value: string }>();
 	let sourceDialog = $state<HTMLDialogElement>();
 	let selectServerTypeDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -102,7 +102,14 @@
 	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
+	let deletingSource = $state<string>();
 	let saving = $state(false);
+	let refreshing = $state(false);
+
+	onMount(async () => {
+		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
+		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
+	});
 
 	function selectServerType(type: 'single' | 'multi' | 'remote') {
 		selectedServerType = type;
@@ -113,6 +120,13 @@
 	function closeSourceDialog() {
 		editingSource = undefined;
 		sourceDialog?.close();
+	}
+
+	async function refresh() {
+		refreshing = true;
+		await AdminService.refreshMCPCatalog(defaultCatalogId);
+		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
+		refreshing = false;
 	}
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
@@ -134,7 +148,17 @@
 		out:fly={{ x: -100, duration }}
 	>
 		<div class="flex items-center justify-between">
-			<h1 class="text-2xl font-semibold">MCP Servers</h1>
+			<h1 class="flex items-center gap-2 text-2xl font-semibold">
+				MCP Servers
+				<button class="button-small flex items-center gap-1 text-xs font-normal" onclick={refresh}>
+					{#if refreshing}
+						<LoaderCircle class="size-4 animate-spin" /> Refreshing...
+					{:else}
+						<RefreshCcw class="size-4" />
+						Refresh
+					{/if}
+				</button>
+			</h1>
 			{#if totalCount > 0}
 				{@render addServerButton()}
 			{/if}
@@ -168,11 +192,22 @@
 			>
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'name'}
-						<p class="flex items-center gap-1">
-							{d.name}
-							{#if d.source !== 'manual'}
-								<span class="text-xs text-gray-500">({d.source.split('/').pop()})</span>{/if}
-						</p>
+						<div class="flex flex-shrink-0 items-center gap-2">
+							<div
+								class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
+							>
+								{#if d.icon}
+									<img src={d.icon} alt={d.name} class="size-6" />
+								{:else}
+									<Server class="size-6" />
+								{/if}
+							</div>
+							<p class="flex items-center gap-1">
+								{d.name}
+								{#if d.source !== 'manual'}
+									<span class="text-xs text-gray-500">({d.source.split('/').pop()})</span>{/if}
+							</p>
+						</div>
 					{:else if property === 'type'}
 						{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
 					{:else if property === 'source'}
@@ -203,6 +238,29 @@
 					</button>
 				{/snippet}
 			</Table>
+		{/if}
+
+		{#if defaultCatalog?.sourceURLs && defaultCatalog.sourceURLs.length > 0 && defaultCatalog.id}
+			<div class="flex flex-col gap-2" in:slide={{ axis: 'y', duration }}>
+				<h2 class="mb-2 text-lg font-semibold">Git Source URLs</h2>
+
+				<Table
+					data={defaultCatalog?.sourceURLs?.map((url, index) => ({ id: index, url })) ?? []}
+					fields={['url']}
+					noDataMessage={'No Git Source URLs added.'}
+				>
+					{#snippet actions(d)}
+						<button
+							class="icon-button hover:text-red-500"
+							onclick={() => {
+								deletingSource = d.url;
+							}}
+						>
+							<Trash2 class="size-4" />
+						</button>
+					{/snippet}
+				</Table>
+			</div>
 		{/if}
 	</div>
 {/snippet}
@@ -313,10 +371,9 @@
 						catalog.sourceURLs[editingSource.index] = editingSource.value;
 					}
 
-					if (catalog.id) {
-						await AdminService.updateMCPCatalog(defaultCatalogId, catalog);
-						await AdminService.refreshMCPCatalog(defaultCatalogId);
-					}
+					const response = await AdminService.updateMCPCatalog(defaultCatalogId, catalog);
+					defaultCatalog = response;
+					await refresh();
 					saving = false;
 					closeSourceDialog();
 				}}
@@ -354,6 +411,24 @@
 		deletingServer = undefined;
 	}}
 	oncancel={() => (deletingServer = undefined)}
+/>
+
+<Confirm
+	msg={`Are you sure you want to delete this Git Source URL?`}
+	show={Boolean(deletingSource)}
+	onsuccess={async () => {
+		if (!deletingSource || !defaultCatalog) {
+			return;
+		}
+		const response = await AdminService.updateMCPCatalog(defaultCatalogId, {
+			...defaultCatalog,
+			sourceURLs: defaultCatalog.sourceURLs?.filter((url) => url !== deletingSource)
+		});
+		await refresh();
+		defaultCatalog = response;
+		deletingSource = undefined;
+	}}
+	oncancel={() => (deletingSource = undefined)}
 />
 
 <ResponsiveDialog title="Select Server Type" class="md:w-lg" bind:this={selectServerTypeDialog}>

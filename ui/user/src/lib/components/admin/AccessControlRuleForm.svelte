@@ -97,27 +97,31 @@
 	}
 
 	function convertMcpServersToTableData(resources: AccessControlRuleResource[]) {
-		return resources
-			.filter(
-				(resource) => resource.type === 'mcpServerCatalogEntry' || resource.type === 'mcpServer'
-			)
-			.map((resource) => {
-				if (resource.type === 'mcpServerCatalogEntry') {
-					const entry = mcpEntriesMap.get(resource.id);
-					return {
-						id: resource.id,
-						name: entry?.commandManifest?.name || entry?.urlManifest?.name || '-',
-						type: 'mcpentry'
-					};
-				}
+		return resources.map((resource) => {
+			if (resource.type === 'mcpServerCatalogEntry') {
+				const entry = mcpEntriesMap.get(resource.id);
+				return {
+					id: resource.id,
+					name: entry?.commandManifest?.name || entry?.urlManifest?.name || '-',
+					type: 'mcpentry'
+				};
+			}
 
+			if (resource.type === 'mcpServer') {
 				const server = mcpServersMap.get(resource.id);
 				return {
 					id: resource.id,
 					name: server?.manifest.name || '-',
 					type: 'mcpserver'
 				};
-			});
+			}
+
+			return {
+				id: resource.id,
+				name: resource.id === '*' ? 'Everything' : resource.id,
+				type: 'selector'
+			};
+		});
 	}
 
 	function validate(rule: typeof accessControlRule) {
@@ -354,7 +358,7 @@
 
 <SearchMcpServers
 	bind:this={addMcpServerDialog}
-	onAdd={async (mcpCatalogEntryIds, mcpServerIds) => {
+	onAdd={async (mcpCatalogEntryIds, mcpServerIds, otherSelectors) => {
 		const existingResourceIds = new Set(
 			accessControlRule.resources?.map((resource) => resource.id) ?? []
 		);
@@ -364,7 +368,8 @@
 		accessControlRule.resources = [
 			...(accessControlRule.resources ?? []),
 			...newEntryResources.map((id) => ({ type: 'mcpServerCatalogEntry' as const, id })),
-			...newServerResources.map((id) => ({ type: 'mcpServer' as const, id }))
+			...newServerResources.map((id) => ({ type: 'mcpServer' as const, id })),
+			...otherSelectors.map((id) => ({ type: 'selector' as const, id }))
 		];
 	}}
 />
