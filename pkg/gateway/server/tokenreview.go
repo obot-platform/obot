@@ -15,7 +15,7 @@ func (s *Server) AuthenticateRequest(req *http.Request) (*authenticator.Response
 		return nil, false, nil
 	}
 
-	u, namespace, name, err := s.client.UserFromToken(req.Context(), bearer)
+	u, namespace, name, groupIDs, err := s.client.UserFromToken(req.Context(), bearer)
 	if err != nil {
 		return nil, false, err
 	}
@@ -28,6 +28,7 @@ func (s *Server) AuthenticateRequest(req *http.Request) (*authenticator.Response
 				"email":                   {u.Email},
 				"auth_provider_namespace": {namespace},
 				"auth_provider_name":      {name},
+				"auth_provider_groups":    groupIDs,
 			},
 		},
 	}, true, nil

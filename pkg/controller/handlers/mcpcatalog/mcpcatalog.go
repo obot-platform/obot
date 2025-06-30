@@ -20,9 +20,11 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -279,6 +281,46 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 	return nil
 }
 
+// getUserInfoForAccessControl gets user info needed for access control checks
+func (h *Handler) getUserInfoForAccessControl(ctx context.Context, userID string) (user.Info, *gtypes.User, error) {
+	gatewayUser, err := h.gatewayClient.UserByID(ctx, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get user %s: %w", userID, err)
+	}
+
+	// Get identities for this user - there should only be one active identity at a time
+	identities, err := h.gatewayClient.FindIdentitiesForUser(ctx, gatewayUser.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get identities: %w", err)
+	}
+
+	var groupIDs []string
+	var authProviderName, authProviderNamespace string
+
+	for _, identity := range identities {
+		authProviderName = identity.AuthProviderName
+		authProviderNamespace = identity.AuthProviderNamespace
+
+		// Get groups from this identity only
+		for _, group := range identity.AuthProviderGroups {
+			groupIDs = append(groupIDs, group.ID)
+		}
+	}
+
+	userInfo := &user.DefaultInfo{
+		Name:   gatewayUser.Username,
+		UID:    fmt.Sprintf("%d", gatewayUser.ID),
+		Groups: []string{},
+		Extra: map[string][]string{
+			"auth_provider_groups":    groupIDs,
+			"auth_provider_name":      {authProviderName},
+			"auth_provider_namespace": {authProviderNamespace},
+		},
+	}
+
+	return userInfo, gatewayUser, nil
+}
+
 // DeleteUnauthorizedMCPServers is a handler that deletes MCP servers that are no longer authorized to exist.
 // This can happen whenever AccessControlRules change.
 // It does not delete MCPServerInstances, since those have a delete ref to their MCPServer, and will be deleted automatically.
@@ -304,12 +346,12 @@ func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Resp
 			continue
 		}
 
-		user, err := h.gatewayClient.UserByID(req.Ctx, server.Spec.UserID)
+		userInfo, gatewayUser, err := h.getUserInfoForAccessControl(req.Ctx, server.Spec.UserID)
 		if err != nil {
-			return fmt.Errorf("failed to get user %s: %w", server.Spec.UserID, err)
+			return fmt.Errorf("failed to get user info for %s: %w", server.Spec.UserID, err)
 		}
 
-		if user.Role.HasRole(types.RoleAdmin) {
+		if gatewayUser.Role.HasRole(types.RoleAdmin) {
 			// Don't delete servers created by admins.
 			continue
 		}
@@ -323,7 +365,7 @@ func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Resp
 			continue
 		}
 
-		hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntry(server.Spec.UserID, server.Spec.MCPServerCatalogEntryName)
+		hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntry(userInfo, server.Spec.MCPServerCatalogEntryName)
 		if err != nil {
 			return fmt.Errorf("failed to check if user %s has access to catalog entry %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, err)
 		}
@@ -364,17 +406,17 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstances(req router.Request, _ rou
 			continue
 		}
 
-		user, err := h.gatewayClient.UserByID(req.Ctx, instance.Spec.UserID)
+		userInfo, gatewayUser, err := h.getUserInfoForAccessControl(req.Ctx, instance.Spec.UserID)
 		if err != nil {
-			return fmt.Errorf("failed to get user %s: %w", instance.Spec.UserID, err)
+			return fmt.Errorf("failed to get user info for %s: %w", instance.Spec.UserID, err)
 		}
 
-		if user.Role.HasRole(types.RoleAdmin) {
+		if gatewayUser.Role.HasRole(types.RoleAdmin) {
 			// Don't delete instances created by admins.
 			continue
 		}
 
-		hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServer(instance.Spec.UserID, instance.Spec.MCPServerName)
+		hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServer(userInfo, instance.Spec.MCPServerName)
 		if err != nil {
 			return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 		}

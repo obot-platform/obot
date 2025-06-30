@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -297,23 +298,8 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	p.proxy.ServeHTTP(w, r)
 }
 
-type SerializableRequest struct {
-	Method string              `json:"method"`
-	URL    string              `json:"url"`
-	Header map[string][]string `json:"header"`
-}
-
-type SerializableState struct {
-	ExpiresOn         *time.Time `json:"expiresOn"`
-	AccessToken       string     `json:"accessToken"`
-	PreferredUsername string     `json:"preferredUsername"`
-	User              string     `json:"user"`
-	Email             string     `json:"email"`
-	SetCookies        []string   `json:"setCookies"`
-}
-
 func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	sr := SerializableRequest{
+	sr := auth.SerializableRequest{
 		Method: req.Method,
 		URL:    req.URL.String(),
 		Header: req.Header,
@@ -335,7 +321,7 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 	}
 	defer stateResponse.Body.Close()
 
-	var ss SerializableState
+	var ss auth.SerializableState
 	if err = json.NewDecoder(stateResponse.Body).Decode(&ss); err != nil {
 		return nil, false, err
 	}
@@ -348,7 +334,13 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 			"email":                   {ss.Email},
 			"auth_provider_name":      {p.name},
 			"auth_provider_namespace": {p.namespace},
+			"auth_provider_groups":    ss.Groups,
 		},
+	}
+
+	if len(ss.GroupInfos) > 0 {
+		// Put the group infos on the context so that we can save them to the database.
+		*req = *req.WithContext(auth.ContextWithGroupInfos(req.Context(), ss.GroupInfos))
 	}
 
 	if len(ss.SetCookies) != 0 {
@@ -356,8 +348,9 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		u.Extra["set-cookies"] = ss.SetCookies
 	}
 
-	if req.URL.Path == "/api/me" {
-		// Put the access token on the context so that the profile icon can be fetched.
+	switch req.URL.Path {
+	case "/api/me", "/api/groups":
+		// Put the access token on the context so that the profile icon and group info can be fetched.
 		*req = *req.WithContext(accesstoken.ContextWithAccessToken(req.Context(), ss.AccessToken))
 	}
 
@@ -369,7 +362,7 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 // Important: do not change the order of these checks.
 // We rely on the preferred username from GitHub being the user ID in the sessions table.
 // See pkg/gateway/server/logout_all.go for more details, as well as the GitHub auth provider code.
-func getUsername(providerName string, ss SerializableState) string {
+func getUsername(providerName string, ss auth.SerializableState) string {
 	if providerName == "github-auth-provider" {
 		return ss.PreferredUsername
 	}

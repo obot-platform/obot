@@ -7,14 +7,15 @@
 		type AccessControlRuleManifest,
 		type AccessControlRuleResource,
 		type AccessControlRuleSubject,
-		type OrgUser
+		type OrgUser,
+		type OrgGroup
 	} from '$lib/services/admin/types';
 	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { onMount, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '../Table.svelte';
-	import SearchUsers from './SearchUsers.svelte';
+	import SearchUsersAndGroups from './SearchUsersAndGroups.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { goto } from '$app/navigation';
 	import SearchMcpServers from './SearchMcpServers.svelte';
@@ -46,8 +47,8 @@
 
 	let saving = $state<boolean | undefined>();
 	let loadingUsers = $state<Promise<OrgUser[]>>();
-
-	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
+	let loadingGroups = $state<Promise<OrgGroup[]>>();
+	let addUserGroupDialog = $state<ReturnType<typeof SearchUsersAndGroups>>();
 	let addMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
 
 	let deletingRule = $state(false);
@@ -64,10 +65,16 @@
 
 	onMount(async () => {
 		loadingUsers = AdminService.listUsers();
+		loadingGroups = AdminService.listGroups();
 	});
 
-	function convertSubjectsToTableData(subjects: AccessControlRuleSubject[], users: OrgUser[]) {
+	function convertSubjectsToTableData(
+		subjects: AccessControlRuleSubject[],
+		users: OrgUser[],
+		groups: OrgGroup[]
+	) {
 		const userMap = new Map(users?.map((user) => [user.id, user]));
+		const groupMap = new Map(groups?.map((group) => [group.id, group]));
 		return (
 			subjects
 				.map((subject) => {
@@ -85,6 +92,20 @@
 						};
 					}
 
+					if (subject.type === 'group') {
+						const group = groupMap.get(subject.id);
+						if (!group) {
+							return undefined;
+						}
+
+						return {
+							id: subject.id,
+							displayName: group.name,
+							role: 'User',
+							type: 'Group'
+						};
+					}
+
 					return {
 						id: subject.id,
 						displayName: subject.id === '*' ? 'Everyone' : subject.id,
@@ -92,7 +113,7 @@
 						type: 'Group'
 					};
 				})
-				.filter((user) => user !== undefined) ?? []
+				.filter((subject) => subject !== undefined) ?? []
 		);
 	}
 
@@ -182,11 +203,11 @@
 			<div class="mb-2 flex items-center justify-between">
 				<h2 class="text-lg font-semibold">User & Groups</h2>
 				<div class="relative flex items-center gap-4">
-					{#await loadingUsers}
+					{#await Promise.all([loadingUsers, loadingGroups])}
 						<button class="button-primary flex items-center gap-1 text-sm" disabled>
 							<Plus class="size-4" /> Add User/Group
 						</button>
-					{:then _users}
+					{:then _}
 						<button
 							class="button-primary flex items-center gap-1 text-sm"
 							onclick={() => {
@@ -198,14 +219,15 @@
 					{/await}
 				</div>
 			</div>
-			{#await loadingUsers}
+			{#await Promise.all([loadingUsers, loadingGroups])}
 				<div class="my-2 flex items-center justify-center">
 					<LoaderCircle class="size-6 animate-spin" />
 				</div>
-			{:then users}
+			{:then [users, groups]}
 				{@const tableData = convertSubjectsToTableData(
 					accessControlRule.subjects ?? [],
-					users ?? []
+					users ?? [],
+					groups ?? []
 				)}
 				<Table
 					data={tableData}
@@ -331,25 +353,25 @@
 	</div>
 </div>
 
-<SearchUsers
+<SearchUsersAndGroups
 	bind:this={addUserGroupDialog}
 	filterIds={accessControlRule.subjects?.map((subject) => subject.id) ?? []}
-	onAdd={async (users, groups) => {
+	onAdd={async (users: OrgUser[], groups: OrgGroup[]) => {
 		const existingSubjectIds = new Set(
 			accessControlRule.subjects?.map((subject) => subject.id) ?? []
 		);
 		const newSubjects = [
 			...users
-				.filter((user) => !existingSubjectIds.has(user.id))
-				.map((user) => ({
+				.filter((user: OrgUser) => !existingSubjectIds.has(user.id))
+				.map((user: OrgUser) => ({
 					type: 'user' as const,
 					id: user.id
 				})),
 			...groups
-				.filter((group) => !existingSubjectIds.has(group))
-				.map((group) => ({
-					type: 'selector' as const,
-					id: group
+				.filter((group: OrgGroup) => !existingSubjectIds.has(group.id))
+				.map((group: OrgGroup) => ({
+					type: group.id === '*' ? ('selector' as const) : ('group' as const),
+					id: group.id
 				}))
 		];
 		accessControlRule.subjects = [...(accessControlRule.subjects ?? []), ...newSubjects];

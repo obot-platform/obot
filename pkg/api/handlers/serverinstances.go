@@ -78,7 +78,7 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 
 	// Make sure the user is allowed to access this MCP server.
 	if server.Spec.SharedWithinMCPCatalogName == system.DefaultCatalog {
-		hasAccess, err := h.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), server.Name)
+		hasAccess, err := h.acrHelper.UserHasAccessToMCPServer(req.User, server.Name)
 		if err != nil {
 			return err
 		}
