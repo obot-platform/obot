@@ -598,7 +598,7 @@ func serverForActionWithCapabilities(req api.Context, gptClient *gptscript.GPTSc
 	return server, serverConfig, caps, err
 }
 
-func serverManifestFromCatalogEntryManifest(entry types.MCPServerCatalogEntryManifest, input types.MCPServerManifest) (types.MCPServerManifest, error) {
+func serverManifestFromCatalogEntryManifest(isAdmin bool, entry types.MCPServerCatalogEntryManifest, input types.MCPServerManifest) (types.MCPServerManifest, error) {
 	result := types.MCPServerManifest{
 		Name:        entry.Name,
 		Description: entry.Description,
@@ -610,8 +610,10 @@ func serverManifestFromCatalogEntryManifest(entry types.MCPServerCatalogEntryMan
 		Headers:     entry.Headers,
 	}
 
-	// TODO(g-linville): In the future, we probably only want the admin to be able to override anything from the catalog entry.
-	result = mergeMCPServerManifests(result, input)
+	// If the user is an admin, they can override anything from the catalog entry.
+	if isAdmin {
+		result = mergeMCPServerManifests(result, input)
+	}
 
 	if entry.FixedURL != "" {
 		result.URL = entry.FixedURL
@@ -719,9 +721,9 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			err      error
 		)
 		if catalogEntry.Spec.CommandManifest.Command != "" {
-			manifest, err = serverManifestFromCatalogEntryManifest(catalogEntry.Spec.CommandManifest, input.MCPServerManifest)
+			manifest, err = serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.CommandManifest, input.MCPServerManifest)
 		} else {
-			manifest, err = serverManifestFromCatalogEntryManifest(catalogEntry.Spec.URLManifest, input.MCPServerManifest)
+			manifest, err = serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.URLManifest, input.MCPServerManifest)
 		}
 		if err != nil {
 			return err
@@ -730,8 +732,11 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		server.Spec.Manifest = manifest
 		server.Spec.ToolReferenceName = catalogEntry.Spec.ToolReferenceName
 		server.Spec.UnsupportedTools = catalogEntry.Spec.UnsupportedTools
-	} else {
+	} else if req.UserIsAdmin() {
+		// If the user is an admin, they can create a server with a manifest that is not in the catalog.
 		server.Spec.Manifest = input.MCPServerManifest
+	} else {
+		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
 	// Add extracted env vars to the server definition
