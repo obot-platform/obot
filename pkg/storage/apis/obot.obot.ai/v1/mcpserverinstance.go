@@ -31,6 +31,10 @@ func (in *MCPServerInstance) Get(field string) (value string) {
 		return in.Spec.UserID
 	case "spec.mcpServerName":
 		return in.Spec.MCPServerName
+	case "spec.mcpCatalogName":
+		return in.Spec.MCPCatalogName
+	case "spec.mcpServerCatalogEntryName":
+		return in.Spec.MCPServerCatalogEntryName
 	}
 	return ""
 }
@@ -39,6 +43,8 @@ func (in *MCPServerInstance) FieldNames() []string {
 	return []string{
 		"spec.userID",
 		"spec.mcpServerName",
+		"spec.mcpCatalogName",
+		"spec.mcpServerCatalogEntryName",
 	}
 }
 
@@ -54,7 +60,10 @@ type MCPServerInstanceSpec struct {
 	// MCPServerName is the name of the MCP server this instance is associated with.
 	MCPServerName string `json:"mcpServerName,omitempty"`
 	// MCPCatalogName is the name of the MCP catalog that the server that this instance points to is shared within, if there is one.
+	// If there is not one, then this field will be set to the catalog that the Spec.MCPServerCatalogEntryName is in.
 	MCPCatalogName string `json:"mcpCatalogName,omitempty"`
+	// MCPServerCatalogEntryName is the name of the MCP server catalog entry that the server that this instance points to is based on.
+	MCPServerCatalogEntryName string `json:"mcpServerCatalogEntryName,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

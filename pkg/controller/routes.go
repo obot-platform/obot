@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesummary"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projectinvitation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
@@ -230,6 +231,7 @@ func (c *Controller) setupRoutes() error {
 
 	// MCPServerInstance
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.Migrate)
 
 	// ProjectInvitations
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.SetRespondedTime)

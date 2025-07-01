@@ -89,15 +89,25 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
+	catalogName := server.Spec.SharedWithinMCPCatalogName
+	if catalogName == "" && server.Spec.MCPServerCatalogEntryName != "" {
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+			return err
+		}
+		catalogName = entry.Spec.MCPCatalogName
+	}
+
 	instance := v1.MCPServerInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s-%s", system.MCPServerInstancePrefix, req.User.GetUID(), input.MCPServerID),
 			Namespace: req.Namespace(),
 		},
 		Spec: v1.MCPServerInstanceSpec{
-			UserID:         req.User.GetUID(),
-			MCPServerName:  input.MCPServerID,
-			MCPCatalogName: server.Spec.SharedWithinMCPCatalogName,
+			UserID:                    req.User.GetUID(),
+			MCPServerName:             input.MCPServerID,
+			MCPServerCatalogEntryName: server.Spec.MCPServerCatalogEntryName,
+			MCPCatalogName:            catalogName,
 		},
 	}
 
@@ -122,10 +132,49 @@ func (h *ServerInstancesHandler) DeleteServerInstance(req api.Context) error {
 
 func convertMCPServerInstance(instance v1.MCPServerInstance, serverURL string) types.MCPServerInstance {
 	return types.MCPServerInstance{
-		Metadata:     MetadataFrom(&instance),
-		UserID:       instance.Spec.UserID,
-		MCPServerID:  instance.Spec.MCPServerName,
-		MCPCatalogID: instance.Spec.MCPCatalogName,
-		ConnectURL:   fmt.Sprintf("%s/mcp-connect/%s", serverURL, instance.Name),
+		Metadata:                MetadataFrom(&instance),
+		UserID:                  instance.Spec.UserID,
+		MCPServerID:             instance.Spec.MCPServerName,
+		MCPCatalogID:            instance.Spec.MCPCatalogName,
+		MCPServerCatalogEntryID: instance.Spec.MCPServerCatalogEntryName,
+		ConnectURL:              fmt.Sprintf("%s/mcp-connect/%s", serverURL, instance.Name),
 	}
+}
+
+func (h *ServerInstancesHandler) AdminListServerInstancesForEntryInCatalog(req api.Context) error {
+	var instances v1.MCPServerInstanceList
+	if err := req.List(&instances, kclient.MatchingFields{
+		"spec.mcpServerCatalogEntryName": req.PathValue("entry_id"),
+		"spec.mcpCatalogName":            req.PathValue("catalog_id"),
+	}); err != nil {
+		return err
+	}
+
+	convertedInstances := make([]types.MCPServerInstance, 0, len(instances.Items))
+	for _, instance := range instances.Items {
+		convertedInstances = append(convertedInstances, convertMCPServerInstance(instance, h.serverURL))
+	}
+
+	return req.Write(types.MCPServerInstanceList{
+		Items: convertedInstances,
+	})
+}
+
+func (h *ServerInstancesHandler) AdminListServerInstancesForServerInCatalog(req api.Context) error {
+	var instances v1.MCPServerInstanceList
+	if err := req.List(&instances, kclient.MatchingFields{
+		"spec.mcpServerName":  req.PathValue("mcp_server_id"),
+		"spec.mcpCatalogName": req.PathValue("catalog_id"),
+	}); err != nil {
+		return err
+	}
+
+	convertedInstances := make([]types.MCPServerInstance, 0, len(instances.Items))
+	for _, instance := range instances.Items {
+		convertedInstances = append(convertedInstances, convertMCPServerInstance(instance, h.serverURL))
+	}
+
+	return req.Write(types.MCPServerInstanceList{
+		Items: convertedInstances,
+	})
 }

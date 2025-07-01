@@ -9933,7 +9933,14 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref common.Referenc
 					},
 					"mcpCatalogName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MCPCatalogName is the name of the MCP catalog that the server that this instance points to is shared within, if there is one.",
+							Description: "MCPCatalogName is the name of the MCP catalog that the server that this instance points to is shared within, if there is one. If there is not one, then this field will be set to the catalog that the Spec.MCPServerCatalogEntryName is in.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mcpServerCatalogEntryName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerCatalogEntryName is the name of the MCP server catalog entry that the server that this instance points to is based on.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
