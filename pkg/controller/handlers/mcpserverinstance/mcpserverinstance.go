@@ -7,7 +7,7 @@ import (
 )
 
 // Migrate adds the MCPServerCatalogEntryName field to the instance's spec if it needs it.
-func Migrate(req router.Request, resp router.Response) error {
+func Migrate(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.MCPServerInstance)
 
 	var server v1.MCPServer
