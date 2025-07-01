@@ -114,6 +114,7 @@ export async function doWithBody(
 	opts?: {
 		dontLogErrors?: boolean;
 		fetch?: typeof fetch;
+		headers?: Record<string, string>;
 	}
 ): Promise<unknown> {
 	let headers: Record<string, string> | undefined;
@@ -138,7 +139,7 @@ export async function doWithBody(
 		const f = opts?.fetch || fetch;
 		const resp = await f(baseURL + path, {
 			method,
-			headers,
+			headers: { ...headers, ...opts?.headers },
 			body
 		});
 

@@ -14,7 +14,9 @@ import type {
 	DefaultModelAlias,
 	ModelAlias,
 	AccessControlRule,
-	AccessControlRuleManifest
+	AccessControlRuleManifest,
+	AuthProvider,
+	BootstrapStatus
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -341,4 +343,60 @@ export async function updateAccessControlRule(
 
 export async function deleteAccessControlRule(id: string): Promise<void> {
 	await doDelete(`/access-control-rules/${id}`);
+}
+
+export async function listAuthProviders(opts?: { fetch?: Fetcher }): Promise<AuthProvider[]> {
+	const list = (await doGet('/auth-providers', opts)) as ItemsResponse<AuthProvider>;
+	return list.items ?? [];
+}
+
+export async function configureAuthProvider(
+	authProviderID: string,
+	envs: Record<string, string>,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/auth-providers/${authProviderID}/configure`, envs, opts);
+}
+
+export async function revealAuthProvider(
+	authProviderID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<Record<string, string> | undefined> {
+	const response = (await doPost(
+		`/auth-providers/${authProviderID}/reveal`,
+		{},
+		{
+			...opts,
+			dontLogErrors: true
+		}
+	)) as Record<string, string> | undefined;
+	return response;
+}
+
+export async function deconfigureAuthProvider(
+	authProviderID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/auth-providers/${authProviderID}/deconfigure`, {}, opts);
+}
+
+export async function getBootstrapStatus(): Promise<BootstrapStatus> {
+	return (await doGet('/bootstrap')) as BootstrapStatus;
+}
+
+export async function bootstrapLogin(token: string) {
+	const response = (await doPost(
+		'/bootstrap/login',
+		{},
+		{
+			headers: {
+				Authorization: `Bearer ${token}`
+			}
+		}
+	)) as BootstrapStatus;
+	return response;
+}
+
+export async function bootstrapLogout() {
+	return doPost('/bootstrap/logout', {});
 }

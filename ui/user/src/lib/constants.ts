@@ -36,7 +36,12 @@ export const FEATURED_AGENT_PREFERRED_ORDER = [
 	'linkedin research assistant'
 ];
 
-export const UNAUTHORIZED_PATHS = new Set(['/', '/privacy-policy', '/terms-of-service']);
+export const UNAUTHORIZED_PATHS = new Set([
+	'/',
+	'/privacy-policy',
+	'/terms-of-service',
+	'/v2/admin'
+]);
 
 export const PAGE_TRANSITION_DURATION = 200;
 
@@ -62,3 +67,11 @@ export const RecommendedModelProviders = [
 
 export const PROJECT_MCP_SERVER_NAME = 'MCP Servers';
 export const DEFAULT_MCP_CATALOG_ID = 'default';
+export const CommonAuthProviderIds = {
+	GOOGLE: 'google-auth-provider',
+	GITHUB: 'github-auth-provider',
+	OKTA: 'okta-auth-provider',
+	ENTRA: 'entra-auth-provider'
+} as const;
+
+export const BOOTSTRAP_USER_ID = 'bootstrap';

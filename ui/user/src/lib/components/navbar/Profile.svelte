@@ -16,6 +16,8 @@
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { AdminService } from '$lib/services';
+	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 
 	let versionDialog = $state<HTMLDialogElement>();
 
@@ -30,6 +32,15 @@
 		if (!repoMap[key] || !commit) return;
 
 		return `${repoMap[key]}/commit/${commit}`;
+	}
+
+	async function handleBootstrapLogout() {
+		try {
+			await AdminService.bootstrapLogout();
+			window.location.href = '/oauth2/sign_out?rd=/';
+		} catch (err) {
+			console.error(err);
+		}
 	}
 </script>
 
@@ -98,6 +109,11 @@
 				<a href="/oauth2/sign_out?rd=/" rel="external" role="menuitem" class="link"
 					><LogOut class="size-4" /> Log out</a
 				>
+			{/if}
+			{#if profile.current.username === BOOTSTRAP_USER_ID}
+				<button class="link" onclick={handleBootstrapLogout}>
+					<LogOut class="size-4" /> Log out
+				</button>
 			{/if}
 		</div>
 		{#if version.current.obot}

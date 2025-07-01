@@ -141,7 +141,7 @@ func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
 		}
 	}
 
-	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req)
+	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
 }
 
 type rule struct {

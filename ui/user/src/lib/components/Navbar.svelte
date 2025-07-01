@@ -10,9 +10,10 @@
 		leftContent?: Snippet;
 		centerContent?: Snippet;
 		class?: string;
+		unauthorized?: boolean;
 	}
 
-	let { leftContent, centerContent, class: klass }: Props = $props();
+	let { leftContent, centerContent, class: klass, unauthorized }: Props = $props();
 </script>
 
 <nav
@@ -43,11 +44,13 @@
 				{@render centerContent()}
 			{/if}
 		</div>
-		<div class="flex items-center gap-4">
-			<a class="nav-link" href="/" id="navbar-home-link">
-				<Home class="size-6" />
-			</a>
-			<Profile />
-		</div>
+		{#if !unauthorized}
+			<div class="flex items-center gap-4">
+				<a class="nav-link" href="/" id="navbar-home-link">
+					<Home class="size-6" />
+				</a>
+				<Profile />
+			</div>
+		{/if}
 	</div>
 </nav>

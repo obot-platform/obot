@@ -15,6 +15,7 @@
 		Users
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 
 	interface Props {
 		children: Snippet;
@@ -23,6 +24,48 @@
 
 	const { children, showUserLinks }: Props = $props();
 	let nav = $state<HTMLDivElement>();
+
+	let isBootStrapUser = $derived(profile.current.username === BOOTSTRAP_USER_ID);
+	let navLinks = $derived(
+		profile.current.isAdmin?.() && !showUserLinks
+			? [
+					{
+						href: '/v2/admin/mcp-servers',
+						icon: Server,
+						label: 'MCP Servers',
+						disabled: isBootStrapUser
+					},
+					{
+						href: '/v2/admin/access-control',
+						icon: GlobeLock,
+						label: 'Access Control',
+						disabled: isBootStrapUser
+					},
+					{
+						href: '/v2/admin/audit-logs',
+						icon: Captions,
+						label: 'Audit Logs',
+						disabled: isBootStrapUser
+					},
+					{
+						href: '/v2/admin/users',
+						icon: Users,
+						label: 'Users'
+					},
+					{
+						href: '/v2/admin/auth-providers',
+						icon: LockKeyhole,
+						label: 'Auth Providers'
+					}
+				]
+			: [
+					{
+						href: '/v2/admin/mcp-servers',
+						icon: Server,
+						label: 'MCP Servers'
+					}
+				]
+	);
 
 	initLayout();
 	const layout = getLayout();
@@ -41,31 +84,21 @@
 				</div>
 
 				<div class="text-md flex grow flex-col gap-8 px-3 pt-8 font-light">
-					{#if profile.current?.isAdmin?.() && !showUserLinks}
-						<div class="flex flex-col gap-1">
-							<a href="/v2/admin/mcp-servers" class="sidebar-link">
-								<Server class="size-4" /> MCP Servers
-							</a>
-							<a href="/v2/admin/access-control" class="sidebar-link">
-								<GlobeLock class="size-4" /> Access Control
-							</a>
-							<a href="/v2/admin/audit-logs" class="sidebar-link">
-								<Captions class="size-4" /> Audit Logs
-							</a>
-							<a href="/v2/admin/users" class="sidebar-link">
-								<Users class="size-4" /> Users
-							</a>
-							<a href="/v2/admin/auth-providers" class="sidebar-link">
-								<LockKeyhole class="size-4" /> Auth Providers
-							</a>
-						</div>
-					{:else}
-						<div class="flex flex-col gap-1">
-							<a href="/mcp-servers" class="sidebar-link">
-								<Server class="size-4" /> MCP Servers
-							</a>
-						</div>
-					{/if}
+					<div class="flex flex-col gap-1">
+						{#each navLinks as link}
+							{#if link.disabled}
+								<div class="sidebar-link disabled">
+									<link.icon class="size-5" />
+									{link.label}
+								</div>
+							{:else}
+								<a href={link.href} class="sidebar-link">
+									<link.icon class="size-5" />
+									{link.label}
+								</a>
+							{/if}
+						{/each}
+					</div>
 				</div>
 
 				<div class="flex justify-end px-3 py-2">
@@ -145,6 +178,14 @@
 		transition: background-color 200ms;
 		&:hover {
 			background-color: var(--surface3);
+		}
+
+		&.disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+			&:hover {
+				background-color: transparent;
+			}
 		}
 	}
 </style>

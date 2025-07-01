@@ -2,38 +2,28 @@
 	import { responsive } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import { darkMode } from '$lib/stores';
-	import { LoaderCircle, MenuIcon, X } from 'lucide-svelte';
+	import { MenuIcon, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { type PageProps } from './$types';
 	import { browser } from '$app/environment';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import Footer from '$lib/components/Footer.svelte';
-	import {
-		sortByCreatedDate,
-		sortByPreferredMcpOrder,
-		sortTemplatesByFeaturedNameOrder
-	} from '$lib/sort';
-	import { ChatService, type ProjectTemplate } from '$lib/services';
 	import Logo from '$lib/components/navbar/Logo.svelte';
 	import { q } from '$lib/url';
-	import type { MCPCatalogEntry, MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
 
 	let { data }: PageProps = $props();
-	let { authProviders, templates, loggedIn, isAdmin } = data;
+	let { authProviders, loggedIn, isAdmin } = data;
 	let loginDialog = $state<HTMLDialogElement>();
 	let overrideRedirect = $state<string | null>(null);
 	let signUp = $state(true);
-	let fetchingMCPs = $state<Promise<MCPCatalogEntry[]>>();
 
 	onMount(() => {
 		if (browser && new URL(window.location.href).searchParams.get('rd') && !loggedIn) {
 			loginDialog?.showModal();
 		}
 
-		if (!loggedIn) {
-			fetchingMCPs = ChatService.listMCPs();
-		} else {
+		if (loggedIn) {
 			const redirectRoute = q('rd');
 			if (redirectRoute) {
 				goto(redirectRoute);
@@ -45,9 +35,6 @@
 		}
 	});
 
-	const sortedTemplates = $derived(
-		templates?.sort(sortByCreatedDate).sort(sortTemplatesByFeaturedNameOrder)
-	);
 	let rd = $derived.by(() => {
 		if (browser) {
 			const rd = new URL(window.location.href).searchParams.get('rd');
@@ -189,92 +176,6 @@
 					</div>
 				</div>
 			</div>
-			<div
-				class="well mb-12 flex w-full max-w-(--breakpoint-2xl) flex-col items-center overflow-hidden"
-			>
-				<div class="relative flex w-full max-w-(--breakpoint-xl) items-center justify-center">
-					<div
-						class="bg-surface3 absolute top-1/2 left-1/2 h-[1px] w-full -translate-x-1/2 -translate-y-1/2"
-					></div>
-					<h2 class="relative z-10 bg-white px-4 text-xl font-semibold dark:bg-black">
-						Get Started
-					</h2>
-				</div>
-
-				{#if responsive.isMobile}
-					<div class="mt-12 flex w-full flex-col items-center justify-center gap-6">
-						<div class="flex flex-col gap-3">
-							<h3 class="self-center text-lg font-semibold">Agents</h3>
-							{#each sortedTemplates.slice(0, 5) as project}
-								{@render featuredAgentTemplateCard(project)}
-							{/each}
-							{@render browseAllAgents()}
-						</div>
-						<div class="flex flex-col gap-3">
-							<h3 class="self-center text-lg font-semibold">MCP Servers</h3>
-							{#await fetchingMCPs}
-								<LoaderCircle class="size-6 animate-spin" />
-							{:then mcps}
-								{@const sortedMcps = mcps?.sort(sortByPreferredMcpOrder) ?? []}
-								{#each sortedMcps.slice(0, 10) as mcp}
-									{#if mcp.commandManifest}
-										{@render featuredMcpCard(mcp.id, mcp.commandManifest)}
-									{/if}
-									{#if mcp.urlManifest}
-										{@render featuredMcpCard(mcp.id, mcp.urlManifest)}
-									{/if}
-								{/each}
-								{@render browseAllMcpServers()}
-							{/await}
-						</div>
-					</div>
-				{:else}
-					<div class="flex w-full flex-col items-center justify-center">
-						<div class="flex w-full max-w-(--breakpoint-xl) flex-wrap md:flex-nowrap">
-							<div class=" flex flex-1 flex-col items-center gap-4 pt-12 pr-4">
-								<h3 class="text-lg font-semibold">Agents</h3>
-								<div class="border-surface2 flex flex-col items-center gap-3 border-r-2 pr-4">
-									{#each sortedTemplates.slice(0, 5) as project}
-										{@render featuredAgentTemplateCard(project)}
-									{/each}
-								</div>
-								{@render browseAllAgents()}
-							</div>
-							<div class="flex flex-1 flex-col items-center gap-4 pt-12 lg:flex-2">
-								<h3 class="flex w-full justify-center text-lg font-semibold">MCP Servers</h3>
-								<div class="flex w-full gap-3">
-									{#await fetchingMCPs}
-										<LoaderCircle class="size-6 animate-spin" />
-									{:then mcps}
-										{@const sortedMcps = mcps?.sort(sortByPreferredMcpOrder) ?? []}
-										<div class="flex flex-1 flex-col items-center gap-3">
-											{#each sortedMcps.slice(0, 5) as mcp}
-												{#if mcp.commandManifest}
-													{@render featuredMcpCard(mcp.id, mcp.commandManifest)}
-												{/if}
-												{#if mcp.urlManifest}
-													{@render featuredMcpCard(mcp.id, mcp.urlManifest)}
-												{/if}
-											{/each}
-										</div>
-										<div class="hidden flex-1 flex-col items-center gap-3 lg:flex">
-											{#each sortedMcps.slice(5, 10) as mcp}
-												{#if mcp.commandManifest}
-													{@render featuredMcpCard(mcp.id, mcp.commandManifest)}
-												{/if}
-												{#if mcp.urlManifest}
-													{@render featuredMcpCard(mcp.id, mcp.urlManifest)}
-												{/if}
-											{/each}
-										</div>
-									{/await}
-								</div>
-								{@render browseAllMcpServers()}
-							</div>
-						</div>
-					</div>
-				{/if}
-			</div>
 		</main>
 		<Footer />
 
@@ -374,70 +275,6 @@
 			<img src="/user/images/github-mark/github-mark.svg" alt="GitHub" class="h-6" />
 		{/if}
 	</a>
-{/snippet}
-
-{#snippet browseAllAgents()}
-	<button
-		onclick={() => {
-			overrideRedirect = `/catalog?type=agents`;
-			loginDialog?.showModal();
-		}}
-		class="button-text w-full text-center transition-colors duration-300 hover:text-inherit"
-	>
-		Browse All Agents
-	</button>
-{/snippet}
-
-{#snippet browseAllMcpServers()}
-	<button
-		onclick={() => {
-			overrideRedirect = `/catalog?type=mcps`;
-			loginDialog?.showModal();
-		}}
-		class="button-text w-full text-center transition-colors duration-300 hover:text-inherit"
-	>
-		Browse All MCP Servers
-	</button>
-{/snippet}
-
-{#snippet featuredAgentTemplateCard(template: ProjectTemplate)}
-	<button
-		class="bg-surface1 flex w-full items-center gap-3 rounded-xl p-3"
-		onclick={() => {
-			overrideRedirect = `/catalog?type=agents&id=${template.id}`;
-			loginDialog?.showModal();
-		}}
-	>
-		<div class="h-fit w-fit flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-			<img src={template.projectSnapshot.icons?.icon} alt={template.name} class="size-6" />
-		</div>
-		<div class="flex flex-col text-left">
-			<h4 class="line-clamp-1 text-sm font-semibold">{template.name}</h4>
-			<p class="line-clamp-1 text-xs font-light">
-				{template.projectSnapshot.description}
-			</p>
-		</div>
-	</button>
-{/snippet}
-
-{#snippet featuredMcpCard(id: string, mcp: MCPCatalogEntryServerManifest)}
-	<button
-		class="bg-surface2 flex w-full items-center gap-3 rounded-xl p-3"
-		onclick={() => {
-			overrideRedirect = `/catalog?type=mcps&id=${id}`;
-			loginDialog?.showModal();
-		}}
-	>
-		<div class="h-fit w-fit flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-			<img src={mcp.icon} alt={`${mcp.name} logo`} class="size-6" />
-		</div>
-		<div class="flex flex-col text-left">
-			<h4 class="line-clamp-1 text-sm font-semibold">{mcp.name}</h4>
-			<p class="line-clamp-1 text-xs font-light">
-				{mcp.description}
-			</p>
-		</div>
-	</button>
 {/snippet}
 
 <style lang="postcss">

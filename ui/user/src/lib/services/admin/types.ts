@@ -221,3 +221,7 @@ export interface AccessControlRule extends Omit<AccessControlRuleManifest, 'id'>
 	links?: Record<string, string>;
 	metadata?: Record<string, string>;
 }
+
+export interface BootstrapStatus {
+	enabled: boolean;
+}

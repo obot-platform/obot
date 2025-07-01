@@ -19,6 +19,7 @@
 	const { provider, onConfigure, note, values, error, loading }: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let form = $state<Record<string, string>>({});
+	let showRequired = $state(false);
 
 	function onOpen() {
 		if (provider) {
@@ -44,26 +45,49 @@
 	}
 
 	async function configure() {
+		showRequired = false;
+		const requiredFields =
+			provider?.requiredConfigurationParameters?.filter((p) => !p.hidden) ?? [];
+		const requiredFieldsNotFilled = requiredFields.filter((p) => !form[p.name].length);
+		if (requiredFieldsNotFilled.length > 0) {
+			showRequired = true;
+			return;
+		}
 		onConfigure(form);
 	}
 </script>
 
-<ResponsiveDialog bind:this={dialog} {onClose} {onOpen}>
+<ResponsiveDialog
+	bind:this={dialog}
+	{onClose}
+	{onOpen}
+	class="p-0"
+	classes={{ header: 'p-4 pb-0' }}
+>
 	{#snippet titleContent()}
-		{#if darkMode.isDark}
-			{@const url = provider?.iconDark ?? provider?.icon}
-			<img
-				src={url}
-				alt={provider?.name}
-				class={twMerge('size-9 rounded-md p-1', !provider?.iconDark && 'bg-gray-600')}
-			/>
-		{:else}
-			<img src={provider?.icon} alt={provider?.name} class="bg-surface1 size-9 rounded-md p-1" />
-		{/if}
-		Set Up {provider?.name}
+		<div class="flex items-center gap-2 pb-0">
+			{#if darkMode.isDark}
+				{@const url = provider?.iconDark ?? provider?.icon}
+				<img
+					src={url}
+					alt={provider?.name}
+					class={twMerge('size-9 rounded-md p-1', !provider?.iconDark && 'bg-gray-600')}
+				/>
+			{:else}
+				<img src={provider?.icon} alt={provider?.name} class="bg-surface1 size-9 rounded-md p-1" />
+			{/if}
+			Set Up {provider?.name}
+		</div>
 	{/snippet}
 	{#if provider}
-		<form class="flex flex-col gap-4" onsubmit={configure}>
+		{@const requiredConfigurationParameters =
+			provider.requiredConfigurationParameters?.filter((p) => !p.hidden) ?? []}
+		{@const optionalConfigurationParameters =
+			provider.optionalConfigurationParameters?.filter((p) => !p.hidden) ?? []}
+		<form
+			class="default-scrollbar-thin flex max-h-[70vh] flex-col gap-4 overflow-y-auto p-4 pt-0"
+			onsubmit={configure}
+		>
 			<input
 				type="text"
 				autocomplete="email"
@@ -87,21 +111,29 @@
 			{#if note}
 				{@render note()}
 			{/if}
-			{#if provider.requiredConfigurationParameters && provider.requiredConfigurationParameters.length > 0}
+			{#if requiredConfigurationParameters.length > 0}
 				<div class="flex flex-col gap-4">
 					<h4 class="text-lg font-semibold">Required Configuration</h4>
 					<ul class="flex flex-col gap-4">
-						{#each provider.requiredConfigurationParameters as parameter}
+						{#each requiredConfigurationParameters as parameter}
 							{#if parameter.name in form}
+								{@const error = !form[parameter.name].length && showRequired}
 								<li class="flex flex-col gap-1">
-									<label for={parameter.name}>{parameter.friendlyName}</label>
+									<label for={parameter.name} class:text-red-500={error}
+										>{parameter.friendlyName}</label
+									>
 									{#if parameter.sensitive}
-										<SensitiveInput name={parameter.name} bind:value={form[parameter.name]} />
+										<SensitiveInput
+											{error}
+											name={parameter.name}
+											bind:value={form[parameter.name]}
+										/>
 									{:else}
 										<input
 											type="text"
 											id={parameter.name}
 											class="text-input-filled"
+											class:error
 											bind:value={form[parameter.name]}
 										/>
 									{/if}
@@ -111,11 +143,11 @@
 					</ul>
 				</div>
 			{/if}
-			{#if provider.optionalConfigurationParameters && provider.optionalConfigurationParameters.length > 0}
+			{#if optionalConfigurationParameters.length > 0}
 				<div class="flex flex-col gap-2">
 					<h4 class="text-lg font-semibold">Optional Configuration</h4>
 					<ul class="flex flex-col gap-4">
-						{#each provider.optionalConfigurationParameters as parameter}
+						{#each optionalConfigurationParameters as parameter}
 							{#if parameter.name in form}
 								<li class="flex flex-col gap-1">
 									<label for={parameter.name}>{parameter.friendlyName}</label>
@@ -132,7 +164,7 @@
 				</div>
 			{/if}
 		</form>
-		<div class="mt-4 flex justify-end gap-2">
+		<div class="mt-4 flex justify-end gap-2 p-4 pt-0">
 			<button class="button-primary" onclick={() => configure()} disabled={loading}>
 				{#if loading}
 					<LoaderCircle class="size-4 animate-spin" />

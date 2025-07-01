@@ -434,6 +434,7 @@
 	.text-input-filled {
 		width: 100%;
 		border-radius: 0.5rem;
+		border: 1px solid transparent;
 		background-color: var(--surface1);
 		padding: 0.5rem;
 		outline: none;

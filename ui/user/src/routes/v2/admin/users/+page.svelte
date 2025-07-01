@@ -5,11 +5,12 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import Table from '$lib/components/Table.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { BOOTSTRAP_USER_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { Role, type OrgUser } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services/index.js';
+	import { profile } from '$lib/stores/index.js';
 	import { formatTimeAgo } from '$lib/time.js';
-	import { LoaderCircle, ShieldAlert, Trash2, X } from 'lucide-svelte';
+	import { Handshake, LoaderCircle, ShieldAlert, Trash2, X } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 
 	let { data } = $props();
@@ -28,11 +29,22 @@
 	let updateRoleDialog = $state<HTMLDialogElement>();
 	let updatingRole = $state<(typeof tableData)[0]>();
 	let deletingUser = $state<(typeof tableData)[0]>();
+	let confirmHandoffToUser = $state<(typeof tableData)[0]>();
 	let loading = $state(false);
 
 	function closeUpdateRoleDialog() {
 		updateRoleDialog?.close();
 		updatingRole = undefined;
+	}
+
+	async function updateUserRole(userID: string, role: number, refreshUsers = true) {
+		loading = true;
+		await AdminService.updateUserRole(userID, role);
+		if (refreshUsers) {
+			users = await AdminService.listUsers();
+		}
+		loading = false;
+		closeUpdateRoleDialog();
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -157,13 +169,17 @@
 			<button
 				class="button-primary"
 				onclick={async () => {
-					if (updatingRole) {
-						loading = true;
-						await AdminService.updateUserRole(updatingRole.id, updatingRole.roleId);
-						users = await AdminService.listUsers();
-						loading = false;
-						closeUpdateRoleDialog();
+					if (!updatingRole) return;
+					if (
+						profile.current.username === BOOTSTRAP_USER_ID &&
+						updatingRole.roleId === Role.ADMIN
+					) {
+						updateRoleDialog?.close();
+						confirmHandoffToUser = updatingRole;
+						return;
 					}
+
+					updateUserRole(updatingRole.id, updatingRole.roleId);
 				}}
 				disabled={loading}
 			>
@@ -177,6 +193,36 @@
 	{/if}
 </dialog>
 
+<Confirm
+	show={Boolean(confirmHandoffToUser)}
+	{loading}
+	onsuccess={async () => {
+		if (!confirmHandoffToUser) return;
+		await updateUserRole(confirmHandoffToUser.id, Role.ADMIN, false);
+		await AdminService.bootstrapLogout();
+		window.location.href = '/oauth2/sign_out?rd=/v2/admin';
+		confirmHandoffToUser = undefined;
+	}}
+	oncancel={() => (confirmHandoffToUser = undefined)}
+>
+	{#snippet title()}
+		<div class="flex items-center justify-center gap-2">
+			<Handshake class="size-6" />
+			<h3 class="text-xl font-semibold">Confirm Handoff</h3>
+		</div>
+	{/snippet}
+	{#snippet note()}
+		<div class="mt-4 mb-8 flex flex-col gap-4">
+			<p>
+				Once you've established your first admin user, the bootstrap user currently being used will
+				be disabled. Upon completing this action, you'll be logged out and asked to log in using
+				your auth provider.
+			</p>
+			<p>Are you sure you want to continue?</p>
+		</div>
+	{/snippet}
+</Confirm>
+
 <svelte:head>
-	<title>Obot | Organization</title>
+	<title>Obot | Users</title>
 </svelte:head>

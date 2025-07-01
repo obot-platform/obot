@@ -142,8 +142,8 @@ importers:
         specifier: ^11.11.1
         version: 11.11.1
       lucide-svelte:
-        specifier: ^0.453.0
-        version: 0.453.0(svelte@5.28.2)
+        specifier: ^0.525.0
+        version: 0.525.0(svelte@5.28.2)
       micromark:
         specifier: ^4.0.2
         version: 4.0.2
@@ -1848,8 +1848,8 @@ packages:
   longest-streak@3.1.0:
     resolution: {integrity: sha512-9Ri+o0JYgehTaVBBDoMqIl8GXtbWg711O3srftcHhZ0dqnETqLaoIK0x17fUw9rFSlK/0NlsKe0Ahhyl5pXE2g==}
 
-  lucide-svelte@0.453.0:
-    resolution: {integrity: sha512-K+eE2ZeE00ThIEbAmZB3Hq0sVS+1ZLj+7nqtJvN0Xrh/KZnfnEChG+do80sctqXQEE+iG1dA2T+5fVcJS1awfA==}
+  lucide-svelte@0.525.0:
+    resolution: {integrity: sha512-kfuN6JcCqTfCz2B76aXnyGLAzEBRSYw5GaUspM5RNHQZS5aI5yaKu06fbaofOk8cDvUtY0AUm/zAix7aUX6Q3A==}
     peerDependencies:
       svelte: ^3 || ^4 || ^5.0.0-next.42
 
@@ -4427,7 +4427,7 @@ snapshots:
 
   longest-streak@3.1.0: {}
 
-  lucide-svelte@0.453.0(svelte@5.28.2):
+  lucide-svelte@0.525.0(svelte@5.28.2):
     dependencies:
       svelte: 5.28.2
 

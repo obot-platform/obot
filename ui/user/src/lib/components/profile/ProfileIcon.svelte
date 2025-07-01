@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 	import { profile } from '$lib/stores';
+	import { ShieldUser } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -31,6 +33,8 @@
 		alt="profile"
 		referrerpolicy="no-referrer"
 	/>
+{:else if profile.current.username === BOOTSTRAP_USER_ID}
+	<ShieldUser class="size-8 rounded-full text-gray-400 dark:text-gray-600" />
 {:else}
 	<div class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600 text-white">
 		{initials}

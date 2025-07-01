@@ -1405,22 +1405,6 @@ export async function getDefaultModelForThread(
 	}
 }
 
-export async function getBootstrapStatus(): Promise<{ enabled: boolean }> {
-	return (await doGet('/bootstrap')) as { enabled: boolean };
-}
-
-export async function bootstrapLogin(token: string) {
-	return doPost('/bootstrap/login', {
-		headers: {
-			Authorization: `Bearer ${token}}`
-		}
-	});
-}
-
-export async function bootstrapLogout() {
-	return doPost('/bootstrap/logout', {});
-}
-
 export async function listSingleOrRemoteMcpServers(opts?: {
 	fetch?: Fetcher;
 }): Promise<MCPCatalogServer[]> {

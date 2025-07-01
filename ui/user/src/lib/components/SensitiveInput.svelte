@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { Eye, EyeOff } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		name: string;
 		value?: string;
+		error?: boolean;
 	}
 
-	let { name, value = $bindable('') }: Props = $props();
+	let { name, value = $bindable(''), error }: Props = $props();
 	let showSensitive = $state(false);
 
 	function handleInput(event: Event) {
@@ -26,7 +28,8 @@
 		data-1p-ignore
 		id={name}
 		{name}
-		class="text-input-filled w-full pr-10"
+		class={twMerge('text-input-filled w-full pr-10', error && 'border-red-500 bg-red-500/20')}
+		class:text-red-500={error}
 		{value}
 		type={showSensitive ? 'text' : 'password'}
 		oninput={handleInput}
@@ -35,6 +38,7 @@
 
 	<button
 		class="absolute top-1/2 right-4 z-10 -translate-y-1/2 cursor-pointer"
+		class:text-red-500={error}
 		onclick={toggleVisibility}
 		use:tooltip={{ disablePortal: true, text: showSensitive ? 'Hide' : 'Reveal' }}
 	>
