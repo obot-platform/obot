@@ -76,6 +76,8 @@ type MCPServerSpec struct {
 }
 
 type MCPServerStatus struct {
+	// NeedsUpdate indicates whether the configuration in the catalog entry has drifted from the server's configuration.
+	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 }
 
 type MCPServerType string

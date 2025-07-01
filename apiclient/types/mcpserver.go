@@ -82,3 +82,71 @@ type MCPServerTool struct {
 	Enabled     bool              `json:"enabled"`
 	Unsupported bool              `json:"unsupported,omitempty"`
 }
+
+// EqualMCPHeaders compares two slices of MCPHeader regardless of order
+func EqualMCPHeaders(a, b []MCPHeader) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	// Create a map to track which elements in b have been matched
+	matched := make([]bool, len(b))
+
+	// For each element in a, find a matching element in b
+	for _, headerA := range a {
+		found := false
+		for i, headerB := range b {
+			if !matched[i] && equalMCPHeader(headerA, headerB) {
+				matched[i] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
+// EqualMCPEnvs compares two slices of MCPEnv regardless of order
+func EqualMCPEnvs(a, b []MCPEnv) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	// Create a map to track which elements in b have been matched
+	matched := make([]bool, len(b))
+
+	// For each element in a, find a matching element in b
+	for _, envA := range a {
+		found := false
+		for i, envB := range b {
+			if !matched[i] && equalMCPEnv(envA, envB) {
+				matched[i] = true
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
+// equalMCPHeader compares two MCPHeader structs for equality
+func equalMCPHeader(a, b MCPHeader) bool {
+	return a.Name == b.Name &&
+		a.Description == b.Description &&
+		a.Key == b.Key &&
+		a.Sensitive == b.Sensitive &&
+		a.Required == b.Required
+}
+
+// equalMCPEnv compares two MCPEnv structs for equality
+func equalMCPEnv(a, b MCPEnv) bool {
+	return equalMCPHeader(a.MCPHeader, b.MCPHeader) && a.File == b.File
+}

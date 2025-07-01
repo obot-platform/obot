@@ -10121,6 +10121,15 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsUpdate indicates whether the configuration in the catalog entry has drifted from the server's configuration.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}
