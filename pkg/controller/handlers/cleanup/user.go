@@ -41,6 +41,22 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		}
 	}
 
+	var servers v1.MCPServerList
+	if err := req.List(&servers, &kclient.ListOptions{
+		Namespace: req.Namespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.userUID": strconv.FormatUint(uint64(userDelete.Spec.UserID), 10),
+		}),
+	}); err != nil {
+		return err
+	}
+
+	for _, server := range servers.Items {
+		if err := req.Delete(&server); err != nil {
+			return err
+		}
+	}
+
 	identities, err := u.gatewayClient.FindIdentitiesForUser(req.Ctx, userDelete.Spec.UserID)
 	if err != nil {
 		return err
