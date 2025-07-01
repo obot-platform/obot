@@ -6,8 +6,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// Migrate adds the MCPServerCatalogEntryName field to the instance's spec if it needs it.
-func Migrate(req router.Request, _ router.Response) error {
+// PopulateStatus populates the status of the instance.
+func PopulateStatus(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.MCPServerInstance)
 
 	var server v1.MCPServer
@@ -19,20 +19,20 @@ func Migrate(req router.Request, _ router.Response) error {
 	}
 
 	if server.Spec.SharedWithinMCPCatalogName != "" {
-		instance.Spec.MCPCatalogName = server.Spec.SharedWithinMCPCatalogName
+		instance.Status.MCPCatalogName = server.Spec.SharedWithinMCPCatalogName
 	} else {
-		instance.Spec.MCPServerCatalogEntryName = server.Spec.MCPServerCatalogEntryName
+		instance.Status.MCPServerCatalogEntryName = server.Spec.MCPServerCatalogEntryName
 
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Client.Get(req.Ctx, client.ObjectKey{
 			Namespace: instance.Namespace,
-			Name:      instance.Spec.MCPServerCatalogEntryName,
+			Name:      instance.Status.MCPServerCatalogEntryName,
 		}, &entry); err != nil {
 			return err
 		}
 
-		instance.Spec.MCPCatalogName = entry.Spec.MCPCatalogName
+		instance.Status.MCPCatalogName = entry.Spec.MCPCatalogName
 	}
 
-	return req.Client.Update(req.Ctx, instance)
+	return req.Client.Status().Update(req.Ctx, instance)
 }

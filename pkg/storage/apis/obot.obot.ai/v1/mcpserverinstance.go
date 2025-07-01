@@ -18,7 +18,8 @@ type MCPServerInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec MCPServerInstanceSpec `json:"spec,omitempty"`
+	Spec   MCPServerInstanceSpec   `json:"spec,omitempty"`
+	Status MCPServerInstanceStatus `json:"status,omitempty"`
 }
 
 func (in *MCPServerInstance) Has(field string) (exists bool) {
@@ -31,10 +32,10 @@ func (in *MCPServerInstance) Get(field string) (value string) {
 		return in.Spec.UserID
 	case "spec.mcpServerName":
 		return in.Spec.MCPServerName
-	case "spec.mcpCatalogName":
-		return in.Spec.MCPCatalogName
-	case "spec.mcpServerCatalogEntryName":
-		return in.Spec.MCPServerCatalogEntryName
+	case "status.mcpCatalogName":
+		return in.Status.MCPCatalogName
+	case "status.mcpServerCatalogEntryName":
+		return in.Status.MCPServerCatalogEntryName
 	}
 	return ""
 }
@@ -43,8 +44,8 @@ func (in *MCPServerInstance) FieldNames() []string {
 	return []string{
 		"spec.userID",
 		"spec.mcpServerName",
-		"spec.mcpCatalogName",
-		"spec.mcpServerCatalogEntryName",
+		"status.mcpCatalogName",
+		"status.mcpServerCatalogEntryName",
 	}
 }
 
@@ -59,6 +60,9 @@ type MCPServerInstanceSpec struct {
 	UserID string `json:"userID,omitempty"`
 	// MCPServerName is the name of the MCP server this instance is associated with.
 	MCPServerName string `json:"mcpServerName,omitempty"`
+}
+
+type MCPServerInstanceStatus struct {
 	// MCPCatalogName is the name of the MCP catalog that the server that this instance points to is shared within, if there is one.
 	// If there is not one, then this field will be set to the catalog that the Spec.MCPServerCatalogEntryName is in.
 	MCPCatalogName string `json:"mcpCatalogName,omitempty"`
