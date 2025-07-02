@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -181,4 +182,72 @@ func (h *ServerInstancesHandler) AdminListServerInstancesForServerInCatalog(req 
 	return req.Write(types.MCPServerInstanceList{
 		Items: convertedInstances,
 	})
+}
+
+func (h *ServerInstancesHandler) TriggerUpdate(req api.Context) error {
+	var instance v1.MCPServerInstance
+	if err := req.Get(&instance, req.PathValue("mcp_server_instance_id")); err != nil {
+		return err
+	}
+
+	if instance.Spec.MCPServerCatalogEntryName == "" || !instance.Status.NeedsUpdate {
+		return nil
+	}
+
+	var server v1.MCPServer
+	if err := req.Get(&server, instance.Spec.MCPServerName); err != nil {
+		return err
+	}
+
+	if server.Spec.SharedWithinMCPCatalogName != "" {
+		return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server; use the UpdateServer endpoint instead")
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, instance.Spec.MCPServerCatalogEntryName); err != nil {
+		return err
+	}
+
+	if entry.Spec.CommandManifest.Name != "" {
+		server.Spec.Manifest.Metadata = entry.Spec.CommandManifest.Metadata
+		server.Spec.Manifest.Name = entry.Spec.CommandManifest.Name
+		server.Spec.Manifest.Description = entry.Spec.CommandManifest.Description
+		server.Spec.Manifest.Icon = entry.Spec.CommandManifest.Icon
+		server.Spec.Manifest.Env = entry.Spec.CommandManifest.Env
+		server.Spec.Manifest.Command = entry.Spec.CommandManifest.Command
+		server.Spec.Manifest.Args = entry.Spec.CommandManifest.Args
+
+		server.Spec.Manifest.Headers = nil
+		server.Spec.Manifest.URL = ""
+	} else {
+		server.Spec.Manifest.Metadata = entry.Spec.URLManifest.Metadata
+		server.Spec.Manifest.Name = entry.Spec.URLManifest.Name
+		server.Spec.Manifest.Description = entry.Spec.URLManifest.Description
+		server.Spec.Manifest.Icon = entry.Spec.URLManifest.Icon
+		server.Spec.Manifest.Headers = entry.Spec.URLManifest.Headers
+		server.Spec.Manifest.Env = entry.Spec.URLManifest.Env
+
+		server.Spec.Manifest.Command = ""
+		server.Spec.Manifest.Args = nil
+
+		if entry.Spec.URLManifest.FixedURL != "" {
+			server.Spec.Manifest.URL = entry.Spec.URLManifest.FixedURL
+		} else {
+			currentURL, err := url.Parse(server.Spec.Manifest.URL)
+			if err != nil {
+				return err
+			}
+
+			if currentURL.Hostname() != entry.Spec.URLManifest.Hostname {
+				// Set the URL to empty. The user will have to go update it before they can use this server again.
+				server.Spec.Manifest.URL = ""
+			}
+		}
+	}
+
+	if err := req.Update(&server); err != nil {
+		return err
+	}
+
+	return req.Write(convertMCPServerInstance(instance, h.serverURL))
 }

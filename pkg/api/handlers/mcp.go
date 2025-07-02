@@ -526,6 +526,12 @@ func ServerFromMCPServerInstance(req api.Context, gptClient *gptscript.GPTScript
 		return server, mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
 	}
 
+	// We can get into this state when the admin triggers a configuration update for a remote server with a hostname,
+	// and the last URL provided by the user no longer matches the hostname, and they have not yet configured a new one.
+	if server.Spec.Manifest.Command == "" && server.Spec.Manifest.URL == "" {
+		return server, mcp.ServerConfig{}, types.NewErrBadRequest("this server does not have a configured URL")
+	}
+
 	return server, serverConfig, nil
 }
 
@@ -1512,4 +1518,67 @@ func (m *MCPHandler) GetServerFromDefaultCatalog(req api.Context) error {
 	addExtractedEnvVars(&server)
 
 	return req.Write(convertMCPServer(server, cred.Env))
+}
+
+func (m *MCPHandler) UpdateURL(req api.Context) error {
+	var mcpServer v1.MCPServer
+	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
+		return fmt.Errorf("failed to get server: %w", err)
+	}
+
+	if mcpServer.Spec.SharedWithinMCPCatalogName != "" {
+		return types.NewErrBadRequest("cannot update the URL for a multi-user MCP server; use the UpdateServer endpoint instead")
+	}
+
+	if mcpServer.Spec.MCPServerCatalogEntryName == "" {
+		// This should be impossible.
+		return types.NewErrBadRequest("this server does not have a catalog entry")
+	}
+
+	if mcpServer.Spec.Manifest.Command != "" {
+		return types.NewErrBadRequest("cannot update the URL for a non-remote MCP server")
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, mcpServer.Spec.MCPServerCatalogEntryName); err != nil {
+		return fmt.Errorf("failed to get catalog entry: %w", err)
+	}
+
+	if entry.Spec.URLManifest.FixedURL != "" {
+		// This also should be impossible.
+		return types.NewErrBadRequest("this server already has a fixed URL that cannot be updated")
+	}
+
+	if entry.Spec.URLManifest.Hostname == "" {
+		// This also should be impossible.
+		return types.NewErrBadRequest("this server does not have a hostname")
+	}
+
+	var input struct {
+		URL string `json:"url"`
+	}
+	if err := req.Read(&input); err != nil {
+		return fmt.Errorf("failed to read input: %w", err)
+	}
+
+	parsedURL, err := url.Parse(input.URL)
+	if err != nil {
+		return types.NewErrBadRequest("failed to parse input URL: %v", err)
+	}
+
+	if parsedURL.Hostname() != entry.Spec.URLManifest.Hostname {
+		return types.NewErrBadRequest("the hostname in the URL does not match the hostname in the catalog entry")
+	}
+
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return types.NewErrBadRequest("the URL must be HTTP or HTTPS")
+	}
+
+	mcpServer.Spec.Manifest.URL = input.URL
+
+	if err := req.Update(&mcpServer); err != nil {
+		return fmt.Errorf("failed to update server: %w", err)
+	}
+
+	return req.Write(convertMCPServer(mcpServer, nil))
 }
