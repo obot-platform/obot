@@ -3034,6 +3034,20 @@ func schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref common.Refe
 							Format:      "",
 						},
 					},
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsUpdate indicates whether the configuration in the catalog entry has drifted from the server's configuration.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"needsURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsURL indicates whether the server's URL needs to be updated to match the catalog entry.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"Metadata"},
 			},
@@ -9977,6 +9991,12 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceStatus(ref common.Refere
 							Format: "",
 						},
 					},
+					"needsURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},
@@ -10146,15 +10166,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"needsUpdate": {
-						SchemaProps: spec.SchemaProps{
-							Description: "NeedsUpdate indicates whether the configuration in the catalog entry has drifted from the server's configuration.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-				},
 			},
 		},
 	}

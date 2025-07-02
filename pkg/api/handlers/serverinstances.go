@@ -143,6 +143,8 @@ func convertMCPServerInstance(instance v1.MCPServerInstance, serverURL string) t
 		MCPCatalogID:            instance.Spec.MCPCatalogName,
 		MCPServerCatalogEntryID: instance.Spec.MCPServerCatalogEntryName,
 		ConnectURL:              fmt.Sprintf("%s/mcp-connect/%s", serverURL, instance.Name),
+		NeedsUpdate:             instance.Status.NeedsUpdate,
+		NeedsURL:                instance.Status.NeedsURL,
 	}
 }
 
