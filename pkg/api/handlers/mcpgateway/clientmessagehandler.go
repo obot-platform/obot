@@ -7,13 +7,13 @@ import (
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 )
 
-func clientMessageHandlerAsClientOption(session *nmcp.Session, pendingRequests *nmcp.PendingRequests) nmcp.ClientOption {
-	c := &clientMessageHandler{
-		session:         session,
-		pendingRequests: pendingRequests,
-	}
+func (m *messageHandler) clientMessageHandlerAsClientOption(tokenStore nmcp.TokenStorage, session *nmcp.Session) nmcp.ClientOption {
 	return nmcp.ClientOption{
-		OnMessage: c.onMessage,
+		TokenStorage: tokenStore,
+		OnMessage: (&clientMessageHandler{
+			session:         session,
+			pendingRequests: m.handler.pendingRequests,
+		}).onMessage,
 	}
 }
 

@@ -472,8 +472,9 @@ func (t *Handler) CopyToolsFromSource(req router.Request, _ router.Response) err
 	for _, mcp := range mcpList.Items {
 		newMCP := v1.MCPServer{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.SafeHashConcatName(mcp.Name, thread.Name),
-				Namespace: thread.Namespace,
+				Name:       name.SafeHashConcatName(mcp.Name, thread.Name),
+				Namespace:  thread.Namespace,
+				Finalizers: []string{v1.MCPServerFinalizer},
 			},
 			Spec: mcp.Spec,
 		}

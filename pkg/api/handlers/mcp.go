@@ -674,6 +674,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.MCPServerPrefix,
 			Namespace:    req.Namespace(),
+			Finalizers:   []string{v1.MCPServerFinalizer},
 		},
 		Spec: v1.MCPServerSpec{
 			MCPServerCatalogEntryName: input.CatalogEntryID,

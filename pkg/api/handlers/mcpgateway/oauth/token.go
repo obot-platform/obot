@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -28,12 +29,41 @@ func (h *handler) token(req api.Context) error {
 		return err
 	}
 
+	var clientSecret string
 	clientID := req.FormValue("client_id")
 	if clientID == "" {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "client_id is required",
-		})
+		creds := strings.Trim(req.Request.Header.Get("Authorization"), "Basic ")
+		if creds == "" {
+			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
+		}
+
+		c, err := base64.StdEncoding.DecodeString(creds)
+		if err != nil {
+			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
+		}
+
+		idx := strings.LastIndex(string(c), ":")
+		if idx == -1 {
+			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
+		}
+
+		clientID, clientSecret = string(c[:idx]), string(c[idx+1:])
+		if clientID == "" {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "client_id is required",
+			})
+		}
+
+		clientID, err = url.QueryUnescape(clientID)
+		if err != nil {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "client_id is invalid",
+			})
+		}
+	} else {
+		clientSecret = req.FormValue("client_secret")
 	}
 
 	clientNamespace, clientName, ok := strings.Cut(clientID, ":")
@@ -50,29 +80,8 @@ func (h *handler) token(req api.Context) error {
 	}
 
 	switch client.Spec.Manifest.TokenEndpointAuthMethod {
-	case "client_secret_post":
-		if bcrypt.CompareHashAndPassword(client.Spec.ClientSecretHash, []byte(req.FormValue("client_secret"))) != nil {
-			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
-		}
-
-	case "client_secret_basic":
-		creds := strings.Trim(req.Request.Header.Get("Authorization"), "Basic ")
-		if creds == "" {
-			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
-		}
-
-		c, err := base64.StdEncoding.DecodeString(creds)
-		if err != nil {
-			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
-		}
-
-		idx := strings.LastIndex(string(c), ":")
-		if idx == -1 {
-			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
-		}
-
-		basicClientID, clientSecret := string(c[:idx]), string(c[idx+1:])
-		if basicClientID != clientID || bcrypt.CompareHashAndPassword(client.Spec.ClientSecretHash, []byte(clientSecret)) != nil {
+	case "client_secret_basic", "client_secret_post":
+		if bcrypt.CompareHashAndPassword(client.Spec.ClientSecretHash, []byte(clientSecret)) != nil {
 			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
 		}
 	}

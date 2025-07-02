@@ -14,6 +14,8 @@ var apiResources = []string{
 	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/resources/{resource_uri}",
 	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/prompts",
 	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/prompts/{prompt_name}",
+	"GET    /oauth/callback/{oauth_request_id}/{mcp_server_instance_id}",
+	"GET    /oauth/mcp/callback/{oauth_request_id}/{mcp_server_instance_id}",
 	"GET    /mcp-connect/{mcp_server_instance_id}",
 	"POST   /mcp-connect/{mcp_server_instance_id}",
 	"DELETE /mcp-connect/{mcp_server_instance_id}",

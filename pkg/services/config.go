@@ -597,10 +597,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPLoader:                  mcpLoader,
 		MCPRunner:                  mcpRunner,
 		OAuthServerConfig: OAuthAuthorizationServerConfig{
-			Issuer:                            strings.TrimPrefix(config.Hostname, "http://"),
-			AuthorizationEndpoint:             fmt.Sprintf("%s/oauth/authorize", config.Hostname),
-			TokenEndpoint:                     fmt.Sprintf("%s/oauth/token", config.Hostname),
-			RegistrationEndpoint:              fmt.Sprintf("%s/oauth/register", config.Hostname),
 			ResponseTypesSupported:            []string{"code"},
 			GrantTypesSupported:               []string{"authorization_code", "refresh_token"},
 			CodeChallengeMethodsSupported:     []string{"S256", "plain"},

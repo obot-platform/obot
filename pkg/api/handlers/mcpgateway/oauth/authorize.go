@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
@@ -10,8 +11,10 @@ import (
 	"slices"
 	"strings"
 
+	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -198,10 +201,11 @@ func (h *handler) authorize(req api.Context) error {
 	}
 
 	// We need to authenticate the user.
-	http.Redirect(req.ResponseWriter, req.Request, "/?rd=/oauth/callback/"+oauthAppAuthRequest.Name, http.StatusFound)
+	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s/%s", oauthAppAuthRequest.Name, req.PathValue("mcp_server_instance_id")), http.StatusFound)
 	return nil
 }
 
+// callback handles the OAuth callback for the first-level Obot-based OAuth.
 func (h *handler) callback(req api.Context) error {
 	var oauthAppAuthRequest v1.OAuthAuthRequest
 	if err := req.Get(&oauthAppAuthRequest, req.PathValue("oauth_auth_request")); err != nil {
@@ -232,7 +236,102 @@ func (h *handler) callback(req api.Context) error {
 		return nil
 	}
 
+	// Check whether the MCP server needs authentication.
+	mcpServer, mcpServerConfig, err := handlers.ServerFromMCPServerInstance(req, h.gptClient)
+	if err != nil {
+		return err
+	}
+	// Give the server config a scope that makes sense.
+	// Clients used in the proxy will set the scope to the session ID, but we don't have a session ID here.
+	mcpServerConfig.Scope = req.PathValue("mcp_server_instance_id")
+
+	ctx, cancel := context.WithCancel(req.Context())
+	defer cancel()
+
+	oauthHandler := &mcpOAuthHandler{
+		client:                req.Storage,
+		gptscript:             h.gptClient,
+		stateCache:            h.stateCache,
+		urlChan:               make(chan string),
+		mcpServerInstanceName: mcpServerConfig.Scope,
+	}
+	errChan := make(chan error)
+
+	go func() {
+		_, err := h.mcpSessionManager.ClientForServer(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
+			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback/%s/%s", h.baseURL, oauthAppAuthRequest.Name, req.PathValue("mcp_server_instance_id")),
+			CallbackHandler:  oauthHandler,
+			ClientCredLookup: oauthHandler,
+			TokenStorage:     h.tokenStore.ForServerInstance(mcpServerConfig.Scope),
+		})
+		if err != nil {
+			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
+			return
+		}
+		errChan <- nil
+		// We only need this client for checking for OAuth. Close it when we're done.
+		if err = h.mcpSessionManager.ShutdownServer(ctx, mcpServerConfig); err != nil {
+			log.Errorf("failed to shutdown server after authentication %s: %v", mcpServer.Name, err)
+		}
+	}()
+
+	select {
+	case err = <-errChan:
+		if err != nil {
+			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+				Code:        ErrServerError,
+				Description: err.Error(),
+			})
+		}
+	case <-ctx.Done():
+		return fmt.Errorf("failed to check for MCP server OAuth: %w", ctx.Err())
+	case u := <-oauthHandler.urlChan:
+		if u != "" {
+			http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
+			return nil
+		}
+	}
+
 	redirectWithAuthorizeResponse(req, oauthAppAuthRequest, code)
+
+	return nil
+}
+
+// oauthCallback handles the second-level third-party OAuth for MCP servers.
+func (h *handler) oauthCallback(req api.Context) error {
+	if err := h.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description")); err != nil {
+		return types.NewErrHTTP(http.StatusBadRequest, err.Error())
+	}
+
+	var oauthAppAuthRequest v1.OAuthAuthRequest
+	if err := req.Get(&oauthAppAuthRequest, req.PathValue("oauth_auth_request")); err != nil {
+		return err
+	}
+
+	authProviderName, authProviderNamespace := req.AuthProviderNameAndNamespace()
+
+	if !req.UserIsAuthenticated() || req.User.GetName() == "bootstrap" || authProviderName == "bootstrap" || authProviderNamespace == "bootstrap" {
+		// The user is either not authenticated or is authenticated as the bootstrap user.
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrAccessDenied,
+			Description: "user is not authenticated",
+		})
+		return nil
+	}
+
+	// Update the authorization code since we only saved the hash of it the first time.
+	code := strings.ToLower(rand.Text() + rand.Text())
+	oauthAppAuthRequest.Spec.HashedAuthCode = fmt.Sprintf("%x", sha256.Sum256([]byte(code)))
+	if err := req.Update(&oauthAppAuthRequest); err != nil {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrServerError,
+			Description: err.Error(),
+		})
+		return nil
+	}
+
+	redirectWithAuthorizeResponse(req, oauthAppAuthRequest, code)
+
 	return nil
 }
 

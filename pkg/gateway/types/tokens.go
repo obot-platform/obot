@@ -1,6 +1,10 @@
 package types
 
-import "time"
+import (
+	"time"
+
+	"golang.org/x/oauth2"
+)
 
 type AuthToken struct {
 	ID                    string    `json:"id" gorm:"index:idx_id_hashed_token"`
@@ -23,4 +27,25 @@ type TokenRequest struct {
 	CompletionRedirectURL string
 	Error                 string
 	TokenRetrieved        bool
+}
+
+type MCPOAuthToken struct {
+	oauth2.Endpoint
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
+	Scopes       string
+
+	State       string
+	HashedState string `gorm:"unique"`
+	Verifier    string
+
+	MCPServerInstance string `gorm:"primaryKey"`
+	AccessToken       string
+	TokenType         string
+	RefreshToken      string
+	Expiry            time.Time
+	ExpiresIn         int64
+
+	Encrypted bool
 }

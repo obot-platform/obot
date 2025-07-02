@@ -6,7 +6,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
-	"github.com/obot-platform/obot/pkg/api/handlers/oauth"
+	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway/oauth"
 	"github.com/obot-platform/obot/pkg/api/handlers/sendgrid"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
 	"github.com/obot-platform/obot/pkg/services"
@@ -51,8 +51,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	slackHandler := handlers.NewSlackHandler(services.GPTClient)
 	mcp := handlers.NewMCPHandler(services.GPTClient, services.MCPLoader, services.AccessControlRuleHelper)
 	projectInvitations := handlers.NewProjectInvitationHandler()
-	mcpGateway := mcpgateway.NewHandler(services.GPTClient, services.MCPLoader)
-	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
+	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.GPTClient, services.MCPLoader, services.GatewayClient, services.ServerURL)
+	serverInstances := handlers.NewServerInstancesHandler(services.GatewayClient, services.AccessControlRuleHelper, services.ServerURL)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -412,6 +412,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.GetServerInstance)
 	mux.HandleFunc("POST /api/mcp-server-instances", serverInstances.CreateServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.DeleteServerInstance)
+	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}/oauth", serverInstances.ClearOAuthCredentials)
 
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)
@@ -557,7 +558,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	}
 
 	// Obot OAuth
-	oauth.SetupHandlers(services.GPTClient, services.GatewayClient, services.OAuthServerConfig, services.ServerURL, mux)
+	oauth.SetupHandlers(services.GPTClient, services.GatewayClient, services.MCPLoader, services.OAuthServerConfig, services.ServerURL, mux)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

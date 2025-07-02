@@ -62,9 +62,9 @@ var staticRules = map[string][]string{
 		"GET /api/tool-references",
 
 		"GET /.well-known/",
-		"POST /oauth/register",
-		"GET /oauth/authorize",
-		"POST /oauth/token",
+		"POST /oauth/register/{mcp_server_instance_id}",
+		"GET /oauth/authorize/{mcp_server_instance_id}",
+		"POST /oauth/token/{mcp_server_instance_id}",
 	},
 
 	AuthenticatedGroup: {
@@ -93,8 +93,6 @@ var staticRules = map[string][]string{
 		"GET /api/all-mcp-catalogs/entries/{entry_id}",
 		"GET /api/all-mcp-catalogs/servers",
 		"GET /api/all-mcp-catalogs/servers/{mcp_server_id}",
-
-		"GET /oauth/callback/{oauth_auth_request}",
 	},
 
 	MetricsGroup: {

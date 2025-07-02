@@ -317,7 +317,7 @@ func (c *Client) encryptIdentity(ctx context.Context, identity *types.Identity) 
 		return nil
 	}
 
-	transformer := c.encryptionConfig.Transformers[userGroupResource]
+	transformer := c.encryptionConfig.Transformers[identityGroupResource]
 	if transformer == nil {
 		return nil
 	}
@@ -360,7 +360,7 @@ func (c *Client) decryptIdentity(ctx context.Context, identity *types.Identity) 
 		return nil
 	}
 
-	transformer := c.encryptionConfig.Transformers[userGroupResource]
+	transformer := c.encryptionConfig.Transformers[identityGroupResource]
 	if transformer == nil {
 		return nil
 	}

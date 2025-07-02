@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -14,14 +16,16 @@ import (
 )
 
 type ServerInstancesHandler struct {
-	acrHelper *accesscontrolrule.Helper
-	serverURL string
+	gatewayClient *gateway.Client
+	acrHelper     *accesscontrolrule.Helper
+	serverURL     string
 }
 
-func NewServerInstancesHandler(acrHelper *accesscontrolrule.Helper, serverURL string) *ServerInstancesHandler {
+func NewServerInstancesHandler(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper, serverURL string) *ServerInstancesHandler {
 	return &ServerInstancesHandler{
-		acrHelper: acrHelper,
-		serverURL: serverURL,
+		gatewayClient: gatewayClient,
+		acrHelper:     acrHelper,
+		serverURL:     serverURL,
 	}
 }
 
@@ -104,8 +108,9 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 
 	instance := v1.MCPServerInstance{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s-%s", system.MCPServerInstancePrefix, req.User.GetUID(), input.MCPServerID),
-			Namespace: req.Namespace(),
+			Name:       fmt.Sprintf("%s-%s-%s", system.MCPServerInstancePrefix, req.User.GetUID(), input.MCPServerID),
+			Namespace:  req.Namespace(),
+			Finalizers: []string{v1.MCPServerInstanceFinalizer},
 		},
 		Spec: v1.MCPServerInstanceSpec{
 			UserID:                    req.User.GetUID(),
@@ -132,6 +137,20 @@ func (h *ServerInstancesHandler) DeleteServerInstance(req api.Context) error {
 			Namespace: req.Namespace(),
 		},
 	})
+}
+
+func (h *ServerInstancesHandler) ClearOAuthCredentials(req api.Context) error {
+	var mcpServerInstance v1.MCPServerInstance
+	if err := req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+		return err
+	}
+
+	if err := h.gatewayClient.DeleteMCPOAuthToken(req.Context(), mcpServerInstance.Name); err != nil {
+		return fmt.Errorf("failed to delete OAuth credentials: %v", err)
+	}
+
+	req.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 func convertMCPServerInstance(instance v1.MCPServerInstance, serverURL string) types.MCPServerInstance {

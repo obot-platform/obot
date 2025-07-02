@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mcpsession"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projectinvitation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
@@ -56,7 +57,7 @@ func (c *Controller) setupRoutes() error {
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
 	toolInfo := toolinfo.New(c.services.GPTClient)
 	threads := threads.NewHandler(c.services.GPTClient, c.services.Invoker)
-	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient, c.services.MCPLoader)
+	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient, c.services.MCPLoader, c.services.GatewayClient)
 	projects := projects.NewHandler()
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient)
@@ -64,6 +65,8 @@ func (c *Controller) setupRoutes() error {
 	taskHandler := task.NewHandler()
 	slackReceiverHandler := slackreceiver.NewHandler(c.services.GPTClient, c.services.StorageClient)
 	mcpCatalog := mcpcatalog.New(c.services.AllowedMCPDockerImageRepos, c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
+	mcpSession := mcpsession.New(c.services.GPTClient)
+	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -232,6 +235,7 @@ func (c *Controller) setupRoutes() error {
 	// MCPServerInstance
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.Migrate)
+	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, mcpserverinstance.RemoveOAuthToken)
 
 	// ProjectInvitations
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.SetRespondedTime)
@@ -248,6 +252,10 @@ func (c *Controller) setupRoutes() error {
 
 	// OAuthTokens
 	root.Type(&v1.OAuthToken{}).HandlerFunc(cleanup.Cleanup)
+
+	// MCP Sessions
+	root.Type(&v1.MCPSession{}).HandlerFunc(mcpSession.RemoveUnused)
+	root.Type(&v1.MCPSession{}).FinalizeFunc(v1.MCPSessionFinalizer, mcpSession.CleanupCredentials)
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog

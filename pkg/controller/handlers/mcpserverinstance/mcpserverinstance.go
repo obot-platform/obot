@@ -2,12 +2,23 @@ package mcpserverinstance
 
 import (
 	"github.com/obot-platform/nah/pkg/router"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type Handler struct {
+	gatewayClient *gateway.Client
+}
+
+func New(gatewayClient *gateway.Client) *Handler {
+	return &Handler{
+		gatewayClient: gatewayClient,
+	}
+}
+
 // Migrate makes sure that all spec fields are set properly.
-func Migrate(req router.Request, _ router.Response) error {
+func (h *Handler) Migrate(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.MCPServerInstance)
 
 	// Check to see if we need to update.
@@ -41,4 +52,8 @@ func Migrate(req router.Request, _ router.Response) error {
 	}
 
 	return nil
+}
+
+func (h *Handler) RemoveOAuthToken(req router.Request, _ router.Response) error {
+	return h.gatewayClient.DeleteMCPOAuthToken(req.Ctx, req.Object.GetName())
 }

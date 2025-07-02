@@ -65,6 +65,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.RunState{},
 		types.FileScannerConfig{},
 		types.RunTokenActivity{},
+		types.MCPOAuthToken{},
 	)
 }
 
