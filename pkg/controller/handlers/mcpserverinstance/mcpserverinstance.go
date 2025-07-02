@@ -10,6 +10,12 @@ import (
 func Migrate(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.MCPServerInstance)
 
+	// Check to see if we need to update.
+	// Pre-migration, if there is a catalog name, it points to a shared server, and we don't need to add any new information.
+	if instance.Spec.MCPCatalogName != "" {
+		return nil
+	}
+
 	var server v1.MCPServer
 	if err := req.Client.Get(req.Ctx, client.ObjectKey{
 		Namespace: instance.Namespace,
@@ -18,19 +24,7 @@ func Migrate(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	if server.Spec.SharedWithinMCPCatalogName != "" {
-		if instance.Spec.MCPCatalogName != "" {
-			// No updates needed.
-			return nil
-		}
-
-		instance.Spec.MCPCatalogName = server.Spec.SharedWithinMCPCatalogName
-	} else {
-		if instance.Spec.MCPServerCatalogEntryName != "" && instance.Spec.MCPCatalogName != "" {
-			// No updates needed.
-			return nil
-		}
-
+	if server.Spec.MCPServerCatalogEntryName == "" {
 		instance.Spec.MCPServerCatalogEntryName = server.Spec.MCPServerCatalogEntryName
 
 		var entry v1.MCPServerCatalogEntry
@@ -42,7 +36,9 @@ func Migrate(req router.Request, _ router.Response) error {
 		}
 
 		instance.Spec.MCPCatalogName = entry.Spec.MCPCatalogName
+
+		return req.Client.Update(req.Ctx, instance)
 	}
 
-	return req.Client.Update(req.Ctx, instance)
+	return nil
 }
