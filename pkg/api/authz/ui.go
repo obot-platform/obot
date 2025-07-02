@@ -34,13 +34,13 @@ func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
 		return false
 	}
 
-	// Allow all users to access /v2/admin
-	if req.URL.Path == "/v2/admin" {
+	// Allow all users to access /v2/admin and /v2/admin/
+	if req.URL.Path == "/v2/admin" || req.URL.Path == "/v2/admin/" {
 		return true
 	}
 
-	// For /v2/admin/ subroutes, only allow admin users
-	if strings.HasPrefix(req.URL.Path, "/v2/admin/") {
+	// For /v2/admin/ subroutes (but not /v2/admin/ itself), only allow admin users
+	if strings.HasPrefix(req.URL.Path, "/v2/admin/") && req.URL.Path != "/v2/admin/" {
 		return slices.Contains(user.GetGroups(), AdminGroup)
 	}
 
