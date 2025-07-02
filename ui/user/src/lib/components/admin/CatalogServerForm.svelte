@@ -10,6 +10,7 @@
 	import RemoteMcpForm from '../mcp/RemoteMcpForm.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import { onMount, type Snippet } from 'svelte';
+	import MarkdownInput from './MarkdownInput.svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -255,14 +256,12 @@
 		</div>
 
 		<div class="flex flex-col gap-1">
-			<label for="name" class="text-sm font-light capitalize">Description</label>
-			<input
-				type="text"
-				id="name"
-				bind:value={formData.description}
-				class="text-input-filled dark:bg-black"
-				disabled={readonly}
-			/>
+			<label for="name" class="text-sm font-light capitalize"
+				>Description <span class="text-xs text-gray-400 dark:text-gray-600"
+					>(Markdown syntax supported)</span
+				></label
+			>
+			<MarkdownInput bind:value={formData.description} disabled={readonly} />
 		</div>
 
 		<div class="flex flex-col gap-1">
