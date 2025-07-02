@@ -6,8 +6,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// PopulateStatus populates the status of the instance.
-func PopulateStatus(req router.Request, _ router.Response) error {
+// Migrate makes sure that all spec fields are set properly.
+func Migrate(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.MCPServerInstance)
 
 	var server v1.MCPServer
@@ -19,20 +19,20 @@ func PopulateStatus(req router.Request, _ router.Response) error {
 	}
 
 	if server.Spec.SharedWithinMCPCatalogName != "" {
-		instance.Status.MCPCatalogName = server.Spec.SharedWithinMCPCatalogName
+		instance.Spec.MCPCatalogName = server.Spec.SharedWithinMCPCatalogName
 	} else {
-		instance.Status.MCPServerCatalogEntryName = server.Spec.MCPServerCatalogEntryName
+		instance.Spec.MCPServerCatalogEntryName = server.Spec.MCPServerCatalogEntryName
 
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Client.Get(req.Ctx, client.ObjectKey{
 			Namespace: instance.Namespace,
-			Name:      instance.Status.MCPServerCatalogEntryName,
+			Name:      instance.Spec.MCPServerCatalogEntryName,
 		}, &entry); err != nil {
 			return err
 		}
 
-		instance.Status.MCPCatalogName = entry.Spec.MCPCatalogName
+		instance.Spec.MCPCatalogName = entry.Spec.MCPCatalogName
 	}
 
-	return req.Client.Status().Update(req.Ctx, instance)
+	return req.Client.Update(req.Ctx, instance)
 }

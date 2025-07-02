@@ -230,7 +230,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstance":           schema_storage_apis_obotobotai_v1_MCPServerInstance(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceList":       schema_storage_apis_obotobotai_v1_MCPServerInstanceList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceSpec":       schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceStatus":     schema_storage_apis_obotobotai_v1_MCPServerInstanceStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerList":               schema_storage_apis_obotobotai_v1_MCPServerList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerMetadata":           schema_storage_apis_obotobotai_v1_MCPServerMetadata(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerSpec":               schema_storage_apis_obotobotai_v1_MCPServerSpec(ref),
@@ -9863,17 +9862,11 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstance(ref common.ReferenceCal
 							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceSpec"),
 						},
 					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceStatus"),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -9945,18 +9938,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref common.Referenc
 							Format:      "",
 						},
 					},
-				},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_MCPServerInstanceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
 					"mcpCatalogName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MCPCatalogName is the name of the MCP catalog that the server that this instance points to is shared within, if there is one. If there is not one, then this field will be set to the catalog that the Spec.MCPServerCatalogEntryName is in.",
