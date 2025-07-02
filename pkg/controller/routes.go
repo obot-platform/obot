@@ -58,7 +58,7 @@ func (c *Controller) setupRoutes() error {
 	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient, c.services.MCPLoader)
 	projects := projects.NewHandler()
 	runstates := runstates.NewHandler(c.services.GatewayClient)
-	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient)
+	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	discord := workflow.NewDiscordController(c.services.GPTClient)
 	taskHandler := task.NewHandler()
 	slackReceiverHandler := slackreceiver.NewHandler(c.services.GPTClient, c.services.StorageClient)

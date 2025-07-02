@@ -19,6 +19,23 @@ func NewAccessControlRuleHelper(acrIndexer gocache.Indexer) *Helper {
 	}
 }
 
+func (h *Helper) GetAccessControlRulesForUser(namespace, userID string) ([]v1.AccessControlRule, error) {
+	acrs, err := h.acrIndexer.ByIndex("user-ids", userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get access control rules for user: %w", err)
+	}
+
+	result := make([]v1.AccessControlRule, 0, len(acrs))
+	for _, acr := range acrs {
+		res, ok := acr.(*v1.AccessControlRule)
+		if ok && res.Namespace == namespace {
+			result = append(result, *res)
+		}
+	}
+
+	return result, nil
+}
+
 // GetAccessControlRulesForMCPServer returns all AccessControlRules that contain the specified MCP server name
 func (h *Helper) GetAccessControlRulesForMCPServer(namespace, serverName string) ([]v1.AccessControlRule, error) {
 	acrs, err := h.acrIndexer.ByIndex("server-names", serverName)
