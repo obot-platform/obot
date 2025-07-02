@@ -14,6 +14,7 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 		'hidden',
 		'tooltip',
 		'text-left',
+		'break-all',
 		typeof opts === 'object' ? (opts.maxWidthClass ?? 'max-w-64') : 'max-w-64'
 	);
 

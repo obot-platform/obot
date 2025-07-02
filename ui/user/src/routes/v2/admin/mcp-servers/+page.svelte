@@ -16,7 +16,6 @@
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalog, MCPCatalogEntry } from '$lib/services/admin/types';
 	import {
-		ChevronLeft,
 		Container,
 		Eye,
 		LoaderCircle,
@@ -30,11 +29,48 @@
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
+	import { goto } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
+	import BackLink from '$lib/components/admin/BackLink.svelte';
+	import { browser } from '$app/environment';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 
 	initMcpServerAndEntries();
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
+
+	onMount(async () => {
+		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries, (entries, servers) => {
+			const serverId = new URL(window.location.href).searchParams.get('id');
+			if (serverId) {
+				const foundEntry = entries.find((e) => e.id === serverId);
+				const foundServer = servers.find((s) => s.id === serverId);
+				const found = foundEntry || foundServer;
+
+				if (found && selectedEntryServer?.id !== found.id) {
+					selectedEntryServer = found;
+					showServerForm = true;
+				} else if (!found && selectedEntryServer) {
+					selectedEntryServer = undefined;
+					showServerForm = false;
+				}
+			} else {
+				selectedEntryServer = undefined;
+				showServerForm = false;
+			}
+		});
+		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
+	});
+
+	afterNavigate(({ to }) => {
+		if (browser && to?.url) {
+			const serverId = to.url.searchParams.get('id');
+			if (!serverId && (selectedEntryServer || showServerForm)) {
+				selectedEntryServer = undefined;
+				showServerForm = false;
+			}
+		}
+	});
 
 	function convertEntriesToTableData(entries: MCPCatalogEntry[] | undefined) {
 		if (!entries) {
@@ -105,12 +141,6 @@
 	let deletingSource = $state<string>();
 	let saving = $state(false);
 	let refreshing = $state(false);
-
-	onMount(async () => {
-		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
-		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
-	});
-
 	function selectServerType(type: 'single' | 'multi' | 'remote') {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
@@ -185,8 +215,9 @@
 				data={tableData}
 				fields={['name', 'type', 'users', 'source']}
 				onSelectRow={(d) => {
-					selectedEntryServer = d.data;
+					goto(`?id=${d.id}`, { replaceState: true });
 					showServerForm = true;
+					selectedEntryServer = d.data;
 				}}
 				noDataMessage={'No catalog servers added.'}
 			>
@@ -267,16 +298,13 @@
 
 {#snippet configureEntryScreen(entry?: typeof selectedEntryServer)}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
-		<button
-			onclick={() => {
-				selectedEntryServer = undefined;
-				showServerForm = false;
-			}}
-			class="button-text flex -translate-x-1 items-center gap-2 p-0 text-lg font-light"
-		>
-			<ChevronLeft class="size-6" />
-			Back to MCP Servers
-		</button>
+		{#if entry}
+			{@const currentLabel =
+				'manifest' in entry
+					? (entry.manifest.name ?? 'MCP Server')
+					: (entry?.commandManifest?.name ?? entry?.urlManifest?.name ?? 'MCP Server')}
+			<BackLink fromURL={'/mcp-servers'} {currentLabel} />
+		{/if}
 
 		<McpServerEntryForm
 			{entry}
@@ -284,12 +312,14 @@
 			readonly={entry && 'sourceURL' in entry && !!entry.sourceURL}
 			catalogId={defaultCatalogId}
 			onCancel={() => {
+				goto('/v2/admin/mcp-servers', { replaceState: true });
 				selectedEntryServer = undefined;
 				showServerForm = false;
 			}}
 			onSubmit={async () => {
 				mcpServerAndEntries.entries = await AdminService.listMCPCatalogEntries(defaultCatalogId);
 				mcpServerAndEntries.servers = await AdminService.listMCPCatalogServers(defaultCatalogId);
+				goto('/v2/admin/mcp-servers', { replaceState: true });
 				selectedEntryServer = undefined;
 				showServerForm = false;
 			}}

@@ -145,7 +145,7 @@
 					class="button-text flex -translate-x-1 items-center gap-2 p-0 text-lg font-light"
 				>
 					<ChevronLeft class="size-6" />
-					Back to Access Control
+					Access Control
 				</button>
 			{/snippet}
 		</AccessControlRuleForm>

@@ -67,6 +67,12 @@
 				]
 	);
 
+	$effect(() => {
+		if (responsive.isMobile) {
+			layout.sidebarOpen = false;
+		}
+	});
+
 	initLayout();
 	const layout = getLayout();
 </script>

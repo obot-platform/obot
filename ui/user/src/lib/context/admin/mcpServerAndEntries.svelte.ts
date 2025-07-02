@@ -30,7 +30,8 @@ export function initMcpServerAndEntries(mcpServerAndEntries?: AdminMcpServerAndE
 
 export async function fetchMcpServerAndEntries(
 	catalogId: string,
-	mcpServerAndEntries?: AdminMcpServerAndEntriesContext
+	mcpServerAndEntries?: AdminMcpServerAndEntriesContext,
+	onSuccess?: (entries: MCPCatalogEntry[], servers: MCPCatalogServer[]) => void
 ) {
 	const context = mcpServerAndEntries || getAdminMcpServerAndEntries();
 	context.loading = true;
@@ -39,4 +40,8 @@ export async function fetchMcpServerAndEntries(
 	context.entries = entries;
 	context.servers = servers;
 	context.loading = false;
+
+	if (onSuccess) {
+		onSuccess(entries, servers);
+	}
 }

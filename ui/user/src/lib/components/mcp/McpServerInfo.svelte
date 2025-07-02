@@ -12,14 +12,23 @@
 	import McpServerTools from './McpServerTools.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { responsive } from '$lib/stores';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		class?: string;
 		entry: MCPCatalogEntry | MCPCatalogServer;
 	}
 
+	type EntryDetail = {
+		label: string;
+		value: string | string[];
+		link?: string;
+		class?: string;
+		showTooltip?: boolean;
+	};
+
 	function convertEntryDetails(entry: MCPCatalogEntry | MCPCatalogServer) {
-		let items: Record<string, { label: string; value: string | string[] }> = {};
+		let items: Record<string, EntryDetail> = {};
 		if ('manifest' in entry) {
 			items = {
 				requiredConfig: {
@@ -68,7 +77,10 @@
 				},
 				moreInfo: {
 					label: 'More Information',
-					value: manifest?.repoURL ?? ''
+					value: manifest?.repoURL ?? '',
+					link: manifest?.repoURL ?? '',
+					class: 'line-clamp-1',
+					showTooltip: true
 				},
 				monthlyToolCalls: {
 					label: 'Monthly Tool Calls',
@@ -81,7 +93,7 @@
 			};
 		}
 
-		return responsive.isMobile
+		const details = responsive.isMobile
 			? [
 					items.requiredConfig,
 					items.moreInformation,
@@ -98,6 +110,7 @@
 					items.monthlyToolCalls,
 					items.lastUpdated
 				];
+		return details.filter((d) => d);
 	}
 
 	let { entry, class: klass }: Props = $props();
@@ -206,19 +219,33 @@
 					class="dark:bg-surface2 dark:border-surface3 rounded-md border border-transparent bg-white p-4 shadow-sm"
 				>
 					<p class="mb-1 text-sm font-semibold">{detail.label}</p>
-					{#if typeof detail.value === 'string'}
-						<p class="text-xs font-light">{detail.value}</p>
-					{:else if Array.isArray(detail.value)}
-						<ul class="flex flex-col gap-1">
-							{#each detail.value as value}
-								<li class="text-xs font-light">{value}</li>
-							{/each}
-						</ul>
-					{:else}
-						<p class="text-xs font-light">-</p>
+					{#if detail.link}
+						<a href={detail.link} class="text-link" target="_blank" rel="noopener noreferrer">
+							{#if detail.showTooltip && typeof detail.value === 'string'}
+								<span use:tooltip={detail.value}>
+									{@render detailSection(detail)}
+								</span>
+							{:else}
+								{@render detailSection(detail)}
+							{/if}
+						</a>
 					{/if}
 				</div>
 			{/each}
 		</div>
 	</div>
+{/snippet}
+
+{#snippet detailSection(detail: EntryDetail)}
+	{#if typeof detail.value === 'string'}
+		<p class={twMerge('text-xs font-light', detail.class)}>{detail.value}</p>
+	{:else if Array.isArray(detail.value)}
+		<ul class="flex flex-col gap-1">
+			{#each detail.value as value}
+				<li class="text-xs font-light">{value}</li>
+			{/each}
+		</ul>
+	{:else}
+		<p class="text-xs font-light">-</p>
+	{/if}
 {/snippet}

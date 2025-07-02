@@ -117,7 +117,7 @@
 		onclick={() => onSelectRow?.(d)}
 	>
 		{#each fields as fieldName}
-			<td class="text-sm font-light">
+			<td class="overflow-hidden text-sm font-light">
 				<div class="flex h-full w-full px-4 py-2">
 					{#if onRenderColumn}
 						{@render onRenderColumn(fieldName, d)}
