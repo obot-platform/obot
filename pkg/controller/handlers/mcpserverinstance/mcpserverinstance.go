@@ -19,8 +19,18 @@ func Migrate(req router.Request, _ router.Response) error {
 	}
 
 	if server.Spec.SharedWithinMCPCatalogName != "" {
+		if instance.Spec.MCPCatalogName != "" {
+			// No updates needed.
+			return nil
+		}
+
 		instance.Spec.MCPCatalogName = server.Spec.SharedWithinMCPCatalogName
 	} else {
+		if instance.Spec.MCPServerCatalogEntryName != "" && instance.Spec.MCPCatalogName != "" {
+			// No updates needed.
+			return nil
+		}
+
 		instance.Spec.MCPServerCatalogEntryName = server.Spec.MCPServerCatalogEntryName
 
 		var entry v1.MCPServerCatalogEntry
