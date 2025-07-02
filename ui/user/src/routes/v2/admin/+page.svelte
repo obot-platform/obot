@@ -155,3 +155,7 @@
 		</div>
 	</main>
 </div>
+
+<svelte:head>
+	<title>Obot | Admin</title>
+</svelte:head>
