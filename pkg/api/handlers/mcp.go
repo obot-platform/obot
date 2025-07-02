@@ -1551,7 +1551,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 
 	if entry.Spec.URLManifest.Hostname == "" {
 		// This also should be impossible.
-		return types.NewErrBadRequest("this server does not have a hostname")
+		return types.NewErrBadRequest("the catalog entry for this server does not have a hostname")
 	}
 
 	var input struct {
