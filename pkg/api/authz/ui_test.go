@@ -8,8 +8,6 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-
-
 func TestCheckUI_V2AdminAccess(t *testing.T) {
 	tests := []struct {
 		name     string
