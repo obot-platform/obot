@@ -255,9 +255,10 @@ func (h *handler) callback(req api.Context) error {
 		urlChan:               make(chan string),
 		mcpServerInstanceName: mcpServerConfig.Scope,
 	}
-	errChan := make(chan error)
+	errChan := make(chan error, 1)
 
 	go func() {
+		defer close(errChan)
 		_, err := h.mcpSessionManager.ClientForServer(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
 			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback/%s/%s", h.baseURL, oauthAppAuthRequest.Name, req.PathValue("mcp_server_instance_id")),
 			CallbackHandler:  oauthHandler,
