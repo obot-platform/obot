@@ -4,7 +4,7 @@ ARG ENTERPRISE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
 
 FROM cgr.dev/chainguard/wolfi-base AS base
 
-RUN apk add --no-cache go make git nodejs npm pnpm
+RUN apk add --no-cache gcc=14.2.0-r13 go make git nodejs npm pnpm
 
 FROM base AS bin
 WORKDIR /app
