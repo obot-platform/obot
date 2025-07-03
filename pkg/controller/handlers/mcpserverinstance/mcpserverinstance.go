@@ -65,7 +65,15 @@ func UpdateStatus(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	drifted, err := configurationHasDrifted(server.Spec.Manifest, entry.Spec.CommandManifest)
+	var (
+		drifted bool
+		err     error
+	)
+	if entry.Spec.CommandManifest.Name != "" {
+		drifted, err = configurationHasDrifted(server.Spec.Manifest, entry.Spec.CommandManifest)
+	} else {
+		drifted, err = configurationHasDrifted(server.Spec.Manifest, entry.Spec.URLManifest)
+	}
 	if err != nil {
 		return err
 	}
@@ -91,11 +99,11 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 
 	// Now check on the URL.
 
-	if entryManifest.FixedURL != "" {
-		if serverManifest.URL != entryManifest.FixedURL {
-			return true, nil
-		}
-	} else if entryManifest.Hostname != "" {
+	if entryManifest.FixedURL != "" && serverManifest.URL != entryManifest.FixedURL {
+		return true, nil
+	}
+
+	if entryManifest.Hostname != "" {
 		u, err := url.Parse(serverManifest.URL)
 		if err != nil {
 			// Shouldn't ever happen.

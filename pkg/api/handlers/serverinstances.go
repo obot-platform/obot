@@ -247,9 +247,11 @@ func (h *ServerInstancesHandler) TriggerUpdate(req api.Context) error {
 		}
 	}
 
+	// TODO: before updating, shut down the server.
+
 	if err := req.Update(&server); err != nil {
 		return err
 	}
 
-	return req.Write(convertMCPServerInstance(instance, h.serverURL))
+	return req.Write(nil)
 }
