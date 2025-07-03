@@ -13,6 +13,10 @@ type MCPServerInstance struct {
 	ConnectURL string `json:"connectURL,omitempty"`
 	// MCPServerCatalogEntryID is the ID of the MCP server catalog entry that the server that this instance points to is based on.
 	MCPServerCatalogEntryID string `json:"mcpServerCatalogEntryID,omitempty"`
+	// NeedsUpdate indicates whether the configuration in the catalog entry has drifted from the server's configuration.
+	NeedsUpdate bool `json:"needsUpdate,omitempty"`
+	// NeedsURL indicates whether the server's URL needs to be updated to match the catalog entry.
+	NeedsURL bool `json:"needsURL,omitempty"`
 }
 
 type MCPServerInstanceList List[MCPServerInstance]

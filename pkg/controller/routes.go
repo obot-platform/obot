@@ -232,6 +232,7 @@ func (c *Controller) setupRoutes() error {
 	// MCPServerInstance
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.Migrate)
+	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.UpdateStatus)
 
 	// ProjectInvitations
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.SetRespondedTime)

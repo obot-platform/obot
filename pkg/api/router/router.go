@@ -396,8 +396,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/mcp-servers", mcp.ListServer)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}", mcp.GetServer)
 	mux.HandleFunc("POST /api/mcp-servers", mcp.CreateServer)
-	mux.HandleFunc("PUT /api/mcp-servers/{mcp_server_id}", mcp.UpdateServer)
 	mux.HandleFunc("DELETE /api/mcp-servers/{mcp_server_id}", mcp.DeleteServer)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/update-url", mcp.UpdateURL)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/configure", mcp.ConfigureServer)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/reveal", mcp.Reveal)
@@ -412,6 +412,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.GetServerInstance)
 	mux.HandleFunc("POST /api/mcp-server-instances", serverInstances.CreateServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.DeleteServerInstance)
+
+	// Admin-only route to trigger an update on any MCPServerInstance
+	mux.HandleFunc("POST /api/mcp-server-instances/{mcp_server_instance_id}/update", serverInstances.TriggerUpdate)
 
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)

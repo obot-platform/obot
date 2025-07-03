@@ -18,7 +18,8 @@ type MCPServerInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec MCPServerInstanceSpec `json:"spec,omitempty"`
+	Spec   MCPServerInstanceSpec   `json:"spec,omitempty"`
+	Status MCPServerInstanceStatus `json:"status,omitempty"`
 }
 
 func (in *MCPServerInstance) Has(field string) (exists bool) {
@@ -64,6 +65,11 @@ type MCPServerInstanceSpec struct {
 	MCPCatalogName string `json:"mcpCatalogName,omitempty"`
 	// MCPServerCatalogEntryName is the name of the MCP server catalog entry that the server that this instance points to is based on.
 	MCPServerCatalogEntryName string `json:"mcpServerCatalogEntryName,omitempty"`
+}
+
+type MCPServerInstanceStatus struct {
+	NeedsUpdate bool `json:"needsUpdate,omitempty"`
+	NeedsURL    bool `json:"needsURL,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
