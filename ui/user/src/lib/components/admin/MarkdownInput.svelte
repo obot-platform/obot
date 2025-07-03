@@ -31,7 +31,7 @@
 	} from '@codemirror/autocomplete';
 	import { lintKeymap } from '@codemirror/lint';
 	import { markdown } from '@codemirror/lang-markdown';
-	import { EditorState as CMEditorState, type Transaction } from '@codemirror/state';
+	import { EditorState as CMEditorState } from '@codemirror/state';
 	import { EditorView as CMEditorView } from '@codemirror/view';
 	import { githubLight, githubDark } from '@uiw/codemirror-theme-github';
 	import { darkMode } from '$lib/stores';
