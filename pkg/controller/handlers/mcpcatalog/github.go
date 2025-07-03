@@ -14,7 +14,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-var githubToken = os.Getenv("GITHUB_API_TOKEN")
+var githubToken = os.Getenv("GITHUB_AUTH_TOKEN")
 
 func isGitHubURL(catalogURL string) bool {
 	u, err := url.Parse(catalogURL)
