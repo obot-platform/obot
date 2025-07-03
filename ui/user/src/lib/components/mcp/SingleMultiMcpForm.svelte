@@ -180,6 +180,7 @@
 								onChange={(checked) => {
 									envs[i].sensitive = checked;
 								}}
+								disabled={readonly}
 							/>
 							<Toggle
 								classes={{ label: 'text-sm text-inherit' }}
@@ -189,6 +190,7 @@
 								onChange={(checked) => {
 									envs[i].required = checked;
 								}}
+								disabled={readonly}
 							/>
 						</div>
 					</div>
@@ -227,6 +229,7 @@
 								onChange={(checked) => {
 									envs[i].sensitive = checked;
 								}}
+								disabled={readonly}
 							/>
 						</div>
 					</div>

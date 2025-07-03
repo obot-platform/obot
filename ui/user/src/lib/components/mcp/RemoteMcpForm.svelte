@@ -132,6 +132,7 @@
 							<div class="flex gap-8">
 								<Toggle
 									classes={{ label: 'text-sm text-inherit' }}
+									disabled={readonly}
 									label="Sensitive"
 									labelInline
 									checked={!!header.sensitive}
@@ -143,6 +144,7 @@
 								/>
 								<Toggle
 									classes={{ label: 'text-sm text-inherit' }}
+									disabled={readonly}
 									label="Required"
 									labelInline
 									checked={!!header.required}
