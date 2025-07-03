@@ -185,35 +185,16 @@
 				}}
 			>
 				{#snippet onRenderColumn(property, d)}
-					{#if property === 'resources'}
-						{@const referencedResource = d.resources?.find(
-							(r) => r.id === entry?.id || r.id === '*'
-						)}
-						{referencedResource?.id === '*' ? 'Everything' : 'Self'}
-					{:else}
-						{d[property as keyof typeof d]}
-					{/if}
-				{/snippet}
-				{#snippet actions(d)}
-					{@const referencedResource = d.resources?.find((r) => r.id === entry?.id || r.id === '*')}
-					<div class="min-h-9">
-						{#if referencedResource?.id !== '*'}
-							<button
-								class="icon-button hover:text-red-500"
-								use:tooltip={'Delete'}
-								onclick={(e) => {
-									e.stopPropagation();
-									if (!referencedResource) return;
-									deleteResourceFromRule = {
-										rule: d,
-										resourceId: referencedResource.id
-									};
-								}}
-							>
-								<Trash2 class="size-4" />
-							</button>
+					<span class="flex min-h-9 items-center">
+						{#if property === 'resources'}
+							{@const referencedResource = d.resources?.find(
+								(r) => r.id === entry?.id || r.id === '*'
+							)}
+							{referencedResource?.id === '*' ? 'Everything' : 'Self'}
+						{:else}
+							{d[property as keyof typeof d]}
 						{/if}
-					</div>
+					</span>
 				{/snippet}
 			</Table>
 		{:else}
