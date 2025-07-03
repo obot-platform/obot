@@ -6,11 +6,13 @@
 	import CopyButton from '../CopyButton.svelte';
 
 	interface Props {
-		url: string;
-		name: string;
+		servers: {
+			url: string;
+			name: string;
+		}[];
 	}
 
-	let { url, name }: Props = $props();
+	let { servers }: Props = $props();
 	let scrollContainer: HTMLUListElement;
 	let showLeftChevron = $state(false);
 	let showRightChevron = $state(false);
@@ -170,14 +172,19 @@
 							>
 						</p>
 						{@render codeSnippet(`
-    {
-        "mcpServers": {
-            "${name}": {
-                "url": "${url}"
-            }
-        }
-    }        
-    `)}
+	{
+		"mcpServers": {
+${servers
+	.map(
+		(server) => `			"${server.name}": {
+				"url": "${server.url}"
+			}`
+	)
+	.join(',\n')}
+		}
+	}
+
+`)}
 					{:else if option.key === 'claude'}
 						<p>
 							To add this MCP server to Claude Desktop, update your <span class="snippet"
@@ -185,18 +192,23 @@
 							>
 						</p>
 						{@render codeSnippet(`
-    {
-        "mcpServers": {
-            "${name}": {
-                "command": "npx",
-                "args": [
-                    "mcp-remote",
-                    "${url}"
-                ]
-            }
-        }
-    }                    
-    `)}
+	{
+		"mcpServers": {
+${servers
+	.map(
+		(server) => `			"${server.name}": {
+				"command": "npx",
+				"args": [
+					"mcp-remote",
+					"${server.url}"
+				]
+			}`
+	)
+	.join(',\n')}
+		}
+	}
+
+`)}
 					{:else if option.key === 'vscode'}
 						<p>
 							To add this MCP server to VSCode, update your <span class="snippet"
@@ -204,14 +216,19 @@
 							>
 						</p>
 						{@render codeSnippet(`
-    {
-        "servers": {
-            "${name}": {
-                "url": "${url}"
-            }
-        }
-    }
-    `)}
+	{
+		"servers": {
+${servers
+	.map(
+		(server) => `			"${server.name}": {
+				"url": "${server.url}"
+			}`
+	)
+	.join(',\n')}
+		}
+	}
+
+`)}
 					{:else if option.key === 'cline'}
 						<p>
 							To add this MCP server to Cline, update your <span class="snippet"
@@ -219,17 +236,22 @@
 								Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json</span
 							>
 						</p>
-
 						{@render codeSnippet(`
-    {
-        "mcpServers": {
-            "${name}": {
-                "url": "${url}",
-                "disabled": false,
-                "autoApprove": []
-            }
-        }
-    `)}
+	{
+		"servers": {
+${servers
+	.map(
+		(server) => `			"${server.name}": {
+				"url": "${server.url}",
+				"disabled": false,
+				"autoApprove": []
+			}`
+	)
+	.join(',\n')}
+		}
+	}
+
+`)}
 					{/if}
 				</div>
 			{/if}
@@ -243,7 +265,8 @@
 			<CopyButton
 				text={code}
 				showTextLeft
-				classes={{ button: 'flex gap-1 flex-shrink-0 items-center' }}
+				class="text-white"
+				classes={{ button: 'flex gap-1 flex-shrink-0 items-center text-white' }}
 			/>
 		</div>
 		<pre><code>{code}</code></pre>

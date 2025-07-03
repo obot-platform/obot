@@ -54,6 +54,7 @@
 		icon?: string;
 		name?: string;
 	}>();
+	let showAllServersConfigDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	let search = $state('');
 	let serverInstancesMap = $derived(
@@ -276,7 +277,12 @@
 		{:else}
 			{#if connectedServers.length > 0}
 				<div class="flex flex-col gap-4">
-					<h2 class="text-lg font-semibold">Connected MCP Servers</h2>
+					<div class="flex items-center gap-4">
+						<h2 class="text-lg font-semibold">Connected MCP Servers</h2>
+						<button class="button text-xs" onclick={() => showAllServersConfigDialog?.open()}>
+							Generate Configuration
+						</button>
+					</div>
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 						{#each connectedServers as connectedServer}
 							{#if connectedServer.parent}
@@ -495,7 +501,7 @@
 		</div>
 	</div>
 
-	<HowToConnect {url} {name} />
+	<HowToConnect servers={[{ url, name }]} />
 {/snippet}
 
 <ResponsiveDialog bind:this={serverInfoDialog}>
@@ -685,6 +691,24 @@
 			connectToServer.server.manifest.name ?? ''
 		)}
 	{/if}
+</ResponsiveDialog>
+
+<ResponsiveDialog bind:this={showAllServersConfigDialog}>
+	{#snippet titleContent()}
+		Connect to Your Servers
+	{/snippet}
+
+	<p class="text-md mb-8">
+		Select your preferred AI tooling below and copy & paste the configuration to get set up with all
+		your connected servers.
+	</p>
+
+	<HowToConnect
+		servers={connectedServers.map((server) => ({
+			url: server.instance?.connectURL ?? '',
+			name: server.userConfiguredServer?.manifest.name ?? ''
+		}))}
+	/>
 </ResponsiveDialog>
 
 {#snippet title()}
