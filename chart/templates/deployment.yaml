@@ -45,6 +45,7 @@ spec:
                   - runstates.obot.obot.ai
                   - users.obot.obot.ai
                   - identities.obot.obot.ai
+                  - mcpoauthtokens.obot.obot.ai
                 providers:
                   - aesgcm:
                       keys:
