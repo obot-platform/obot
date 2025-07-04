@@ -390,6 +390,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	if err = informer.AddIndexers(map[string]gocache.IndexFunc{
+		"user-ids": func(obj any) ([]string, error) {
+			acr := obj.(*v1.AccessControlRule)
+			var results []string
+			for _, subject := range acr.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeUser {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
 		"catalog-entry-names": func(obj any) ([]string, error) {
 			acr := obj.(*v1.AccessControlRule)
 			var results []string
