@@ -75,6 +75,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@codemirror/lang-markdown": "^6.3.3",
 		"es-toolkit": "^1.37.2"
 	}
 }

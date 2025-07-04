@@ -12,6 +12,7 @@
 	import McpServerTools from './McpServerTools.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { responsive } from '$lib/stores';
+	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
@@ -153,12 +154,12 @@
 <div class={twMerge('flex flex-col gap-4', klass)}>
 	{#if 'manifest' in entry}
 		{#if entry.manifest.description}
-			<p>{entry.manifest.description}</p>
+			<div class="milkdown-description">{@html toHTMLFromMarkdown(entry.manifest.description)}</div>
 		{/if}
 	{:else}
 		{@const manifest = entry.commandManifest || entry.urlManifest}
 		{#if manifest?.description}
-			<p>{manifest.description}</p>
+			<div class="milkdown-description">{@html toHTMLFromMarkdown(manifest.description)}</div>
 		{/if}
 	{/if}
 
@@ -249,3 +250,73 @@
 		<p class="text-xs font-light">-</p>
 	{/if}
 {/snippet}
+
+<style lang="postcss">
+	:global {
+		.milkdown-description {
+			& h1,
+			& h2,
+			& h3,
+			& h4,
+			& p {
+				&:first-child {
+					margin-top: 0;
+				}
+				&:last-child {
+					margin-bottom: 0;
+				}
+			}
+
+			& h1 {
+				margin-top: 1rem;
+				margin-bottom: 1rem; /* my-4 */
+				font-size: 1.5rem; /* text-2xl */
+				font-weight: 700; /* font-bold */
+			}
+
+			& h2 {
+				margin-top: 1rem;
+				margin-bottom: 1rem;
+				font-size: 1.25rem; /* text-xl */
+				font-weight: 700;
+			}
+
+			& h3,
+			& h4 {
+				margin-top: 1rem;
+				margin-bottom: 1rem;
+				font-size: 1rem; /* text-base */
+				font-weight: 700;
+			}
+
+			& p {
+				margin-bottom: 1rem;
+				font-size: var(--text-md);
+			}
+
+			& pre {
+				padding: 0.5rem 1rem;
+			}
+
+			& a {
+				color: var(--color-blue-500);
+				text-decoration: underline;
+				&:hover {
+					color: var(--color-blue-600);
+				}
+			}
+
+			& ol {
+				margin: 1rem 0;
+				list-style-type: decimal;
+				padding-left: 1rem;
+			}
+
+			& ul {
+				margin: 1rem 0;
+				list-style-type: disc;
+				padding-left: 1rem;
+			}
+		}
+	}
+</style>
