@@ -6,7 +6,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	kuser "k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 )
 
@@ -92,32 +91,17 @@ func (h *Helper) GetAccessControlRulesForSelector(namespace, selector string) ([
 }
 
 // UserHasAccessToMCPServer checks if a user has access to a specific MCP server through AccessControlRules
-func (h *Helper) UserHasAccessToMCPServer(user kuser.Info, serverName string) (bool, error) {
+func (h *Helper) UserHasAccessToMCPServer(userID, serverName string) (bool, error) {
 	// See if there is a selector that this user is included on.
 	selectorRules, err := h.GetAccessControlRulesForSelector(system.DefaultNamespace, "*")
 	if err != nil {
 		return false, err
 	}
 
-	var (
-		userID = user.GetUID()
-		groups = authGroupSet(user)
-	)
 	for _, rule := range selectorRules {
 		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
+			if (subject.Type == types.SubjectTypeUser && subject.ID == userID) || (subject.Type == types.SubjectTypeSelector && subject.ID == "*") {
+				return true, nil
 			}
 		}
 	}
@@ -130,19 +114,8 @@ func (h *Helper) UserHasAccessToMCPServer(user kuser.Info, serverName string) (b
 
 	for _, rule := range rules {
 		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
+			if (subject.Type == types.SubjectTypeUser && subject.ID == userID) || (subject.Type == types.SubjectTypeSelector && subject.ID == "*") {
+				return true, nil
 			}
 		}
 	}
@@ -151,32 +124,17 @@ func (h *Helper) UserHasAccessToMCPServer(user kuser.Info, serverName string) (b
 }
 
 // UserHasAccessToMCPServerCatalogEntry checks if a user has access to a specific catalog entry through AccessControlRules
-func (h *Helper) UserHasAccessToMCPServerCatalogEntry(user kuser.Info, entryName string) (bool, error) {
+func (h *Helper) UserHasAccessToMCPServerCatalogEntry(userID, entryName string) (bool, error) {
 	// See if there is a selector that this user is included on.
 	selectorRules, err := h.GetAccessControlRulesForSelector(system.DefaultNamespace, "*")
 	if err != nil {
 		return false, err
 	}
 
-	var (
-		userID = user.GetUID()
-		groups = authGroupSet(user)
-	)
 	for _, rule := range selectorRules {
 		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
+			if (subject.Type == types.SubjectTypeUser && subject.ID == userID) || (subject.Type == types.SubjectTypeSelector && subject.ID == "*") {
+				return true, nil
 			}
 		}
 	}
@@ -189,31 +147,11 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntry(user kuser.Info, entryName
 
 	for _, rule := range rules {
 		for _, subject := range rule.Spec.Manifest.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeUser:
-				if subject.ID == userID {
-					return true, nil
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true, nil
-				}
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true, nil
-				}
+			if (subject.Type == types.SubjectTypeUser && subject.ID == userID) || (subject.Type == types.SubjectTypeSelector && subject.ID == "*") {
+				return true, nil
 			}
 		}
 	}
 
 	return false, nil
-}
-
-func authGroupSet(user kuser.Info) map[string]struct{} {
-	groups := user.GetExtra()["auth_provider_groups"]
-	set := make(map[string]struct{}, len(groups))
-	for _, group := range groups {
-		set[group] = struct{}{}
-	}
-	return set
 }

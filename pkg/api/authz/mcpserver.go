@@ -33,7 +33,7 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 	if mcpServer.Spec.SharedWithinMCPCatalogName != "" {
 		if mcpServer.Spec.SharedWithinMCPCatalogName == system.DefaultCatalog {
 			// Check AccessControlRule authorization for this specific MCP server
-			hasAccess, err := a.acrHelper.UserHasAccessToMCPServer(u, mcpServer.Name)
+			hasAccess, err := a.acrHelper.UserHasAccessToMCPServer(u.GetUID(), mcpServer.Name)
 			if err != nil {
 				return false, err
 			}

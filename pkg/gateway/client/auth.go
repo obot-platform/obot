@@ -7,7 +7,6 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authz"
-	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -33,29 +32,10 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
-	var (
-		authProviderName      = firstValue(resp.User.GetExtra(), "auth_provider_name")
-		authProviderNamespace = firstValue(resp.User.GetExtra(), "auth_provider_namespace")
-		groupInfos            = auth.GroupInfosFromContext(req.Context())
-		authProviderGroups    = make([]types.Group, 0, len(groupInfos))
-	)
-	if authProviderName != "" && authProviderNamespace != "" {
-		for _, groupInfo := range groupInfos {
-			authProviderGroups = append(authProviderGroups, types.Group{
-				ID:                    groupInfo.ID,
-				AuthProviderName:      authProviderName,
-				AuthProviderNamespace: authProviderNamespace,
-				Name:                  groupInfo.Name,
-				IconURL:               groupInfo.IconURL,
-			})
-		}
-	}
-
 	gatewayUser, err := u.client.EnsureIdentity(req.Context(), &types.Identity{
 		Email:                 firstValue(resp.User.GetExtra(), "email"),
 		AuthProviderName:      firstValue(resp.User.GetExtra(), "auth_provider_name"),
 		AuthProviderNamespace: firstValue(resp.User.GetExtra(), "auth_provider_namespace"),
-		AuthProviderGroups:    authProviderGroups,
 		ProviderUsername:      resp.User.GetName(),
 		ProviderUserID:        resp.User.GetUID(),
 	}, req.Header.Get("X-Obot-User-Timezone"))

@@ -203,7 +203,7 @@ export interface AccessControlRuleResource {
 }
 
 export interface AccessControlRuleSubject {
-	type: 'user' | 'group' | 'selector';
+	type: 'user' | 'selector';
 	id: string;
 }
 

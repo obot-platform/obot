@@ -14,6 +14,4 @@ type Identity struct {
 	IconURL               string    `json:"iconURL"`
 	IconLastChecked       time.Time `json:"iconLastChecked"`
 	Encrypted             bool      `json:"encrypted"`
-
-	AuthProviderGroups []Group `json:"groups" gorm:"many2many:group_memberships;joinForeignKey:AuthProviderName,AuthProviderNamespace,HashedProviderUserID;joinReferences:ID,AuthProviderName,AuthProviderNamespace"`
 }
