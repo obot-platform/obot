@@ -4,9 +4,11 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import { toHTMLFromMarkdown } from '$lib/markdown';
 
 	interface Props {
 		onAdd: (mcpCatalogEntryIds: string[], mcpServerIds: string[], otherSelectors: string[]) => void;
+		exclude?: string[];
 	}
 
 	type SearchItem = {
@@ -17,7 +19,7 @@
 		type: 'mcpcatalogentry' | 'mcpserver' | 'all';
 	};
 
-	let { onAdd }: Props = $props();
+	let { onAdd, exclude }: Props = $props();
 	let addMcpServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let search = $state('');
 	let selected = $state<SearchItem[]>([]);
@@ -25,29 +27,31 @@
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
 
 	let loading = $state(false);
-	let allData: SearchItem[] = $derived([
-		{
-			icon: undefined,
-			name: 'Everything',
-			description: 'All MCP servers and catalog entries',
-			id: '*',
-			type: 'all' as const
-		},
-		...mcpServerAndEntries.entries.map((entry) => ({
-			icon: entry.commandManifest?.icon || entry.urlManifest?.icon,
-			name: entry.commandManifest?.name || entry.urlManifest?.name || '',
-			description: entry.commandManifest?.description || entry.urlManifest?.description,
-			id: entry.id,
-			type: 'mcpcatalogentry' as const
-		})),
-		...mcpServerAndEntries.servers.map((server) => ({
-			icon: server.manifest.icon,
-			name: server.manifest.name || '',
-			description: server.manifest.description,
-			id: server.id,
-			type: 'mcpserver' as const
-		}))
-	]);
+	let allData: SearchItem[] = $derived(
+		[
+			{
+				icon: undefined,
+				name: 'Everything',
+				description: 'All MCP servers and catalog entries',
+				id: '*',
+				type: 'all' as const
+			},
+			...mcpServerAndEntries.entries.map((entry) => ({
+				icon: entry.commandManifest?.icon || entry.urlManifest?.icon,
+				name: entry.commandManifest?.name || entry.urlManifest?.name || '',
+				description: entry.commandManifest?.description || entry.urlManifest?.description,
+				id: entry.id,
+				type: 'mcpcatalogentry' as const
+			})),
+			...mcpServerAndEntries.servers.map((server) => ({
+				icon: server.manifest.icon,
+				name: server.manifest.name || '',
+				description: server.manifest.description,
+				id: server.id,
+				type: 'mcpserver' as const
+			}))
+		].filter((item) => !exclude?.includes(item.id))
+	);
 	let filteredData = $derived(
 		search
 			? allData.filter((item) => {
@@ -137,7 +141,9 @@
 								{/if}
 								<div class="flex min-w-0 grow flex-col">
 									<p class="truncate">{item.name}</p>
-									<span class="truncate text-xs text-gray-500">{item.description}</span>
+									<span class="line-clamp-2 text-xs text-gray-500">
+										{@html toHTMLFromMarkdown(item.description ?? '')}
+									</span>
 								</div>
 							</div>
 							<div class="flex size-6 items-center justify-center">

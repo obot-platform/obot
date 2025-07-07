@@ -358,6 +358,7 @@
 
 <SearchMcpServers
 	bind:this={addMcpServerDialog}
+	exclude={accessControlRule.resources?.map((resource) => resource.id) ?? []}
 	onAdd={async (mcpCatalogEntryIds, mcpServerIds, otherSelectors) => {
 		const existingResourceIds = new Set(
 			accessControlRule.resources?.map((resource) => resource.id) ?? []
