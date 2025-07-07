@@ -162,7 +162,7 @@
 </script>
 
 <Layout>
-	<div class="flex flex-col gap-8 py-4" in:fade>
+	<div class="flex flex-col gap-8 pt-4 pb-8" in:fade>
 		{#if showServerForm}
 			{@render configureEntryScreen(selectedEntryServer)}
 		{:else}

@@ -38,7 +38,7 @@
 				},
 				users: {
 					label: 'Users',
-					value: '-'
+					value: ''
 				},
 				published: {
 					label: 'Published',
@@ -50,7 +50,7 @@
 				},
 				monthlyToolCalls: {
 					label: 'Monthly Tool Calls',
-					value: '-'
+					value: ''
 				},
 				lastUpdated: {
 					label: 'Last Updated',
@@ -97,7 +97,7 @@
 		const details = responsive.isMobile
 			? [
 					items.requiredConfig,
-					items.moreInformation,
+					items.moreInfo,
 					items.users,
 					items.monthlyToolCalls,
 					items.published,
