@@ -230,6 +230,12 @@
 								{@render detailSection(detail)}
 							{/if}
 						</a>
+					{:else if detail.showTooltip && typeof detail.value === 'string'}
+						<span use:tooltip={detail.value}>
+							{@render detailSection(detail)}
+						</span>
+					{:else}
+						{@render detailSection(detail)}
 					{/if}
 				</div>
 			{/each}
