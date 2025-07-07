@@ -16,8 +16,8 @@ func SetupHandlers(baseURL string, config services.OAuthAuthorizationServerConfi
 		config:  config,
 	}
 
-	mux.HandleFunc("GET /.well-known/oauth-protected-resource/{mcp_server_instance_id}", h.oauthProtectedResource)
-	mux.HandleFunc("GET /.well-known/oauth-authorization-server/{mcp_server_instance_id}", h.oauthAuthorization)
+	mux.HandleFunc("GET /.well-known/oauth-protected-resource/{mcp_id}", h.oauthProtectedResource)
+	mux.HandleFunc("GET /.well-known/oauth-authorization-server/{mcp_id}", h.oauthAuthorization)
 
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -15,6 +16,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -46,7 +48,20 @@ func NewHandler(storageClient kclient.Client, gptClient *gptscript.GPTScript, mc
 
 func (h *Handler) StreamableHTTP(req api.Context) error {
 	sessionID := req.Request.Header.Get("Mcp-Session-Id")
-	mcpServer, mcpServerConfig, err := handlers.ServerFromMCPServerInstance(req, h.gptscript)
+	mcpID := req.PathValue("mcp_id")
+
+	var (
+		mcpServer       v1.MCPServer
+		mcpServerConfig mcp.ServerConfig
+		err             error
+	)
+
+	if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
+		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, mcpID)
+	} else {
+		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, mcpID)
+	}
+
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the MCP server is not found, remove the session.
@@ -66,12 +81,12 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 	}
 
 	handler := &messageHandler{
-		handler:               h,
-		mcpServerInstanceName: req.PathValue("mcp_server_instance_id"),
-		client:                req.Storage,
-		resp:                  req.ResponseWriter,
-		serverConfig:          mcpServerConfig,
-		mcpServer:             mcpServer,
+		handler:      h,
+		mcpID:        mcpID,
+		client:       req.Storage,
+		resp:         req.ResponseWriter,
+		serverConfig: mcpServerConfig,
+		mcpServer:    mcpServer,
 	}
 	nmcp.NewHTTPServer(nil, handler, nmcp.HTTPServerOptions{SessionStore: h.sessions.NewStore(handler)}).ServeHTTP(req.ResponseWriter, req.Request)
 
@@ -79,12 +94,12 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 }
 
 type messageHandler struct {
-	handler               *Handler
-	mcpServerInstanceName string
-	client                kclient.Client
-	resp                  http.ResponseWriter
-	mcpServer             v1.MCPServer
-	serverConfig          mcp.ServerConfig
+	handler      *Handler
+	mcpID        string
+	client       kclient.Client
+	resp         http.ResponseWriter
+	mcpServer    v1.MCPServer
+	serverConfig mcp.ServerConfig
 }
 
 func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
@@ -105,7 +120,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			if errors.As(err, &oauthErr) {
 				m.resp.Header().Set(
 					"WWW-Authenticate",
-					fmt.Sprintf(`Bearer error="invalid_token", error_description="The access token is invalid or expired. Please re-authenticate and try again.", resource_metadata="%s/.well-known/oauth-protected-resource/%s"`, m.handler.baseURL, m.mcpServerInstanceName),
+					fmt.Sprintf(`Bearer error="invalid_token", error_description="The access token is invalid or expired. Please re-authenticate and try again.", resource_metadata="%s/.well-known/oauth-protected-resource/%s"`, m.handler.baseURL, m.mcpID),
 				)
 				http.Error(m.resp, fmt.Sprintf("Unauthorized: %v", oauthErr), http.StatusUnauthorized)
 				return
@@ -123,7 +138,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		}
 	}()
 
-	client, err = m.handler.mcpSessionManager.ClientForServer(ctx, m.mcpServer, m.serverConfig, m.clientMessageHandlerAsClientOption(m.handler.tokenStore.ForServerInstance(m.mcpServerInstanceName), msg.Session))
+	client, err = m.handler.mcpSessionManager.ClientForServer(ctx, m.mcpServer, m.serverConfig, m.clientMessageHandlerAsClientOption(m.handler.tokenStore.ForMCPID(m.mcpID), msg.Session))
 	if err != nil {
 		log.Errorf("Failed to get client for server %s: %v", m.mcpServer.Name, err)
 		return

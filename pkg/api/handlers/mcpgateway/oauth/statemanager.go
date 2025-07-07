@@ -12,9 +12,9 @@ import (
 )
 
 type stateObj struct {
-	conf                         *oauth2.Config
-	verifier, serverInstanceName string
-	ch                           chan<- nmcp.CallbackPayload
+	conf            *oauth2.Config
+	verifier, mcpID string
+	ch              chan<- nmcp.CallbackPayload
 }
 type stateCache struct {
 	lock          sync.Mutex
@@ -29,17 +29,17 @@ func newStateCache(gatewayClient *client.Client) *stateCache {
 	}
 }
 
-func (sm *stateCache) store(ctx context.Context, serverInstanceName, state, verifier string, conf *oauth2.Config, ch chan<- nmcp.CallbackPayload) error {
-	if err := sm.gatewayClient.ReplaceMCPOAuthToken(ctx, serverInstanceName, state, verifier, conf, &oauth2.Token{}); err != nil {
+func (sm *stateCache) store(ctx context.Context, mcpID, state, verifier string, conf *oauth2.Config, ch chan<- nmcp.CallbackPayload) error {
+	if err := sm.gatewayClient.ReplaceMCPOAuthToken(ctx, mcpID, state, verifier, conf, &oauth2.Token{}); err != nil {
 		return fmt.Errorf("failed to persist state: %w", err)
 	}
 
 	sm.lock.Lock()
 	sm.cache[state] = stateObj{
-		conf:               conf,
-		verifier:           verifier,
-		serverInstanceName: serverInstanceName,
-		ch:                 ch,
+		conf:     conf,
+		verifier: verifier,
+		mcpID:    mcpID,
+		ch:       ch,
 	}
 	sm.lock.Unlock()
 	return nil
@@ -52,13 +52,13 @@ func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, er
 	sm.lock.Unlock()
 
 	var (
-		conf                         *oauth2.Config
-		serverInstanceName, verifier string
+		conf            *oauth2.Config
+		mcpID, verifier string
 	)
 	if ok {
 		defer close(s.ch)
 
-		serverInstanceName = s.serverInstanceName
+		mcpID = s.mcpID
 		verifier = s.verifier
 		conf = s.conf
 	} else {
@@ -81,7 +81,7 @@ func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, er
 			conf.Scopes = strings.Split(token.Scopes, " ")
 		}
 
-		serverInstanceName = token.MCPServerInstance
+		mcpID = token.MCPID
 		verifier = token.Verifier
 	}
 
@@ -94,5 +94,5 @@ func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, er
 		return fmt.Errorf("failed to exchange code: %w", err)
 	}
 
-	return sm.gatewayClient.ReplaceMCPOAuthToken(ctx, serverInstanceName, "", "", conf, token)
+	return sm.gatewayClient.ReplaceMCPOAuthToken(ctx, mcpID, "", "", conf, token)
 }

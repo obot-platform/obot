@@ -49,7 +49,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GatewayClient, services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler(services.GPTClient)
-	mcp := handlers.NewMCPHandler(services.GPTClient, services.MCPLoader, services.AccessControlRuleHelper)
+	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.GPTClient, services.MCPLoader, services.GatewayClient, services.ServerURL)
 	serverInstances := handlers.NewServerInstancesHandler(services.GatewayClient, services.AccessControlRuleHelper, services.ServerURL)
@@ -398,6 +398,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-servers", mcp.CreateServer)
 	mux.HandleFunc("PUT /api/mcp-servers/{mcp_server_id}", mcp.UpdateServer)
 	mux.HandleFunc("DELETE /api/mcp-servers/{mcp_server_id}", mcp.DeleteServer)
+	mux.HandleFunc("DELETE /api/mcp-servers/{mcp_server_id}/oauth", mcp.ClearOAuthCredentials)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/configure", mcp.ConfigureServer)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/reveal", mcp.Reveal)
@@ -426,7 +427,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries", mcpCatalogs.CreateEntry)
 	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.UpdateEntry)
 	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.DeleteEntry)
-	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/instances", serverInstances.AdminListServerInstancesForEntryInCatalog)
 
 	// MCPServers within the catalog (admin only, for multi-user MCP servers)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers", mcp.ListServer)
@@ -447,7 +447,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/access-control-rules/{access_control_rule_id}", accessControlRules.Delete)
 
 	// MCP Gateway Endpoints
-	mux.HandleFunc("/mcp-connect/{mcp_server_instance_id}", mcpGateway.StreamableHTTP)
+	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.StreamableHTTP)
 
 	// MCP Servers in projects
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)

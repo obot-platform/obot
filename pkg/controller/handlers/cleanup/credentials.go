@@ -142,6 +142,10 @@ func (c *Credentials) removeMCPCredentialsForProject(req router.Request, _ route
 func (c *Credentials) RemoveMCPCredentials(req router.Request, resp router.Response) error {
 	mcpServer := req.Object.(*v1.MCPServer)
 
+	if err := c.gatewayClient.DeleteMCPOAuthToken(req.Ctx, req.Object.GetName()); err != nil {
+		return err
+	}
+
 	if mcpServer.Spec.ThreadName != "" {
 		return c.removeMCPCredentialsForProject(req, resp)
 	}

@@ -14,11 +14,11 @@ var apiResources = []string{
 	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/resources/{resource_uri}",
 	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/prompts",
 	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/prompts/{prompt_name}",
-	"GET    /oauth/callback/{oauth_request_id}/{mcp_server_instance_id}",
-	"GET    /oauth/mcp/callback/{oauth_request_id}/{mcp_server_instance_id}",
-	"GET    /mcp-connect/{mcp_server_instance_id}",
-	"POST   /mcp-connect/{mcp_server_instance_id}",
-	"DELETE /mcp-connect/{mcp_server_instance_id}",
+	"GET    /oauth/callback/{oauth_request_id}/{mcp_id}",
+	"GET    /oauth/mcp/callback/{oauth_request_id}/{mcp_id}",
+	"GET    /mcp-connect/{mcp_id}",
+	"POST   /mcp-connect/{mcp_id}",
+	"DELETE /mcp-connect/{mcp_id}",
 	"GET    /api/assistants",
 	"GET    /api/assistants/{assistant_id}",
 	"GET    /api/assistants/{assistant_id}/projects",
@@ -154,11 +154,13 @@ var apiResources = []string{
 	"GET    /api/mcp-server-instances/{mcp_server_instance_id}",
 	"POST   /api/mcp-server-instances",
 	"DELETE /api/mcp-server-instances/{mcp_server_instance_id}",
+	"DELETE /api/mcp-server-instances/{mcp_server_instance_id}/oauth",
 	"GET    /api/mcp-servers",
 	"GET    /api/mcp-servers/{mcpserver_id}",
 	"POST   /api/mcp-servers",
 	"PUT    /api/mcp-servers/{mcpserver_id}",
 	"DELETE /api/mcp-servers/{mcpserver_id}",
+	"DELETE /api/mcp-servers/{mcpserver_id}/oauth",
 	"POST   /api/mcp-servers/{mcpserver_id}/configure",
 	"POST   /api/mcp-servers/{mcpserver_id}/deconfigure",
 	"POST   /api/mcp-servers/{mcpserver_id}/reveal",
@@ -215,14 +217,16 @@ var apiResources = []string{
 }
 
 type Resources struct {
-	AssistantID            string
-	ProjectID              string
-	ThreadID               string
-	ThreadShareID          string
-	TemplateID             string
-	TaskID                 string
-	MCPServerID            string
-	MCPServerInstanceID    string
+	AssistantID         string
+	ProjectID           string
+	ThreadID            string
+	ThreadShareID       string
+	TemplateID          string
+	TaskID              string
+	MCPServerID         string
+	MCPServerInstanceID string
+	// MCPID is the ID of either an MCPServer or an MCPServerInstance. It is used for interaction with the MCP gateway.
+	MCPID                  string
 	RunID                  string
 	WorkflowID             string
 	PendingAuthorizationID string
@@ -253,6 +257,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		WorkflowID:             vars("workflow_id"),
 		MCPServerID:            vars("mcpserver_id"),
 		MCPServerInstanceID:    vars("mcp_server_instance_id"),
+		MCPID:                  vars("mcp_id"), // this will be either a server ID or a server instance ID
 		PendingAuthorizationID: vars("pending_authorization_id"),
 		ThreadShareID:          vars("share_public_id"),
 		ToolID:                 vars("tool_id"),
@@ -291,6 +296,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 	}
 
 	if ok, err := a.checkMCPServerInstance(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkMCPID(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

@@ -81,30 +81,26 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 	}
 
 	if !req.UserIsAdmin() {
-		// If the user is not an admin, make sure they're allowed to access this MCP server.
-		if server.Spec.SharedWithinMCPCatalogName == system.DefaultCatalog {
-			hasAccess, err := h.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), server.Name)
-			if err != nil {
-				return err
-			}
-			if !hasAccess {
-				return types.NewErrNotFound("MCP server not found")
-			}
-		} else if server.Spec.UserID != req.User.GetUID() {
+		// Make sure the non-admin user is allowed to create an instance for this server.
+		if server.Spec.SharedWithinMCPCatalogName != system.DefaultCatalog {
+			return types.NewErrNotFound("MCP server not found")
+		}
+
+		hasAccess, err := h.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), server.Name)
+		if err != nil {
+			return err
+		}
+		if !hasAccess {
 			return types.NewErrNotFound("MCP server not found")
 		}
 	}
 
-	var (
-		catalogName = server.Spec.SharedWithinMCPCatalogName
-		entryName   string
-	)
+	var entryName string
 	if server.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
 			return err
 		}
-		catalogName = entry.Spec.MCPCatalogName
 		entryName = entry.Name
 	}
 
@@ -117,7 +113,7 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 		Spec: v1.MCPServerInstanceSpec{
 			UserID:                    req.User.GetUID(),
 			MCPServerName:             input.MCPServerID,
-			MCPCatalogName:            catalogName,
+			MCPCatalogName:            server.Spec.SharedWithinMCPCatalogName,
 			MCPServerCatalogEntryName: entryName,
 		},
 	}
@@ -164,25 +160,6 @@ func convertMCPServerInstance(instance v1.MCPServerInstance, serverURL string) t
 		MCPServerCatalogEntryID: instance.Spec.MCPServerCatalogEntryName,
 		ConnectURL:              fmt.Sprintf("%s/mcp-connect/%s", serverURL, instance.Name),
 	}
-}
-
-func (h *ServerInstancesHandler) AdminListServerInstancesForEntryInCatalog(req api.Context) error {
-	var instances v1.MCPServerInstanceList
-	if err := req.List(&instances, kclient.MatchingFields{
-		"spec.mcpServerCatalogEntryName": req.PathValue("entry_id"),
-		"spec.mcpCatalogName":            req.PathValue("catalog_id"),
-	}); err != nil {
-		return err
-	}
-
-	convertedInstances := make([]types.MCPServerInstance, 0, len(instances.Items))
-	for _, instance := range instances.Items {
-		convertedInstances = append(convertedInstances, convertMCPServerInstance(instance, h.serverURL))
-	}
-
-	return req.Write(types.MCPServerInstanceList{
-		Items: convertedInstances,
-	})
 }
 
 func (h *ServerInstancesHandler) AdminListServerInstancesForServerInCatalog(req api.Context) error {

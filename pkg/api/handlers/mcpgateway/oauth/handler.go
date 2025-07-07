@@ -30,12 +30,12 @@ func SetupHandlers(gptClient *gptscript.GPTScript, gatewayClient *client.Client,
 		tokenStore:        mcpgateway.NewGlobalTokenStore(gatewayClient),
 	}
 
-	mux.HandleFunc("POST /oauth/register/{mcp_server_instance_id}", h.register)
+	mux.HandleFunc("POST /oauth/register/{mcp_id}", h.register)
 	mux.HandleFunc("GET /oauth/register/{client}", h.readClient)
 	mux.HandleFunc("PUT /oauth/register/{client}", h.updateClient)
 	mux.HandleFunc("DELETE /oauth/register/{client}", h.deleteClient)
-	mux.HandleFunc("GET /oauth/authorize/{mcp_server_instance_id}", h.authorize)
-	mux.HandleFunc("GET /oauth/callback/{oauth_auth_request}/{mcp_server_instance_id}", h.callback)
-	mux.HandleFunc("POST /oauth/token/{mcp_server_instance_id}", h.token)
-	mux.HandleFunc("GET /oauth/mcp/callback/{oauth_auth_request}/{mcp_server_instance_id}", h.oauthCallback)
+	mux.HandleFunc("GET /oauth/authorize/{mcp_id}", h.authorize)
+	mux.HandleFunc("GET /oauth/callback/{oauth_auth_request}/{mcp_id}", h.callback)
+	mux.HandleFunc("POST /oauth/token/{mcp_id}", h.token)
+	mux.HandleFunc("GET /oauth/mcp/callback/{oauth_auth_request}/{mcp_id}", h.oauthCallback)
 }

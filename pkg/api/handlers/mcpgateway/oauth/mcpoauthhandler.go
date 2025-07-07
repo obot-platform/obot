@@ -17,11 +17,11 @@ import (
 )
 
 type mcpOAuthHandler struct {
-	client                kclient.Client
-	gptscript             *gptscript.GPTScript
-	stateCache            *stateCache
-	mcpServerInstanceName string
-	urlChan               chan string
+	client     kclient.Client
+	gptscript  *gptscript.GPTScript
+	stateCache *stateCache
+	mcpID      string
+	urlChan    chan string
 }
 
 func (m *mcpOAuthHandler) HandleAuthURL(ctx context.Context, _ string, authURL string) (bool, error) {
@@ -39,7 +39,7 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, ver
 	state := strings.ToLower(rand.Text())
 
 	ch := make(chan nmcp.CallbackPayload)
-	return state, ch, m.stateCache.store(ctx, m.mcpServerInstanceName, state, verifier, conf, ch)
+	return state, ch, m.stateCache.store(ctx, m.mcpID, state, verifier, conf, ch)
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context, authServerURL string) (string, string, error) {

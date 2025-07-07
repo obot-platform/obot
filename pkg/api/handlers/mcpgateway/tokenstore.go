@@ -12,7 +12,7 @@ import (
 )
 
 type GlobalTokenStore interface {
-	ForServerInstance(serverInstanceName string) nmcp.TokenStorage
+	ForMCPID(mcpID string) nmcp.TokenStorage
 }
 
 func NewGlobalTokenStore(gatewayClient *gateway.Client) GlobalTokenStore {
@@ -25,20 +25,20 @@ type globalTokenStore struct {
 	gatewayClient *gateway.Client
 }
 
-func (g *globalTokenStore) ForServerInstance(serverInstanceName string) nmcp.TokenStorage {
+func (g *globalTokenStore) ForMCPID(mcpID string) nmcp.TokenStorage {
 	return &tokenStore{
-		gatewayClient:         g.gatewayClient,
-		mcpServerInstanceName: serverInstanceName,
+		gatewayClient: g.gatewayClient,
+		mcpID:         mcpID,
 	}
 }
 
 type tokenStore struct {
-	gatewayClient         *gateway.Client
-	mcpServerInstanceName string
+	gatewayClient *gateway.Client
+	mcpID         string
 }
 
 func (t *tokenStore) GetTokenConfig(ctx context.Context, _ string) (*oauth2.Config, *oauth2.Token, error) {
-	mcpToken, err := t.gatewayClient.GetMCPOAuthToken(ctx, t.mcpServerInstanceName)
+	mcpToken, err := t.gatewayClient.GetMCPOAuthToken(ctx, t.mcpID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil, nil
@@ -69,5 +69,5 @@ func (t *tokenStore) GetTokenConfig(ctx context.Context, _ string) (*oauth2.Conf
 }
 
 func (t *tokenStore) SetTokenConfig(ctx context.Context, _ string, config *oauth2.Config, token *oauth2.Token) error {
-	return t.gatewayClient.ReplaceMCPOAuthToken(ctx, t.mcpServerInstanceName, "", "", config, token)
+	return t.gatewayClient.ReplaceMCPOAuthToken(ctx, t.mcpID, "", "", config, token)
 }

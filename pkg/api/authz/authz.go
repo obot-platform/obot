@@ -62,9 +62,9 @@ var staticRules = map[string][]string{
 		"GET /api/tool-references",
 
 		"GET /.well-known/",
-		"POST /oauth/register/{mcp_server_instance_id}",
-		"GET /oauth/authorize/{mcp_server_instance_id}",
-		"POST /oauth/token/{mcp_server_instance_id}",
+		"POST /oauth/register/{mcp_id}",
+		"GET /oauth/authorize/{mcp_id}",
+		"POST /oauth/token/{mcp_id}",
 	},
 
 	AuthenticatedGroup: {

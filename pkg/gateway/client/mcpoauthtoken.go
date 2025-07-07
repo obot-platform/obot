@@ -20,9 +20,9 @@ var mcpOAuthTokenGroupResource = schema.GroupResource{
 	Resource: "mcpoauthtokens",
 }
 
-func (c *Client) GetMCPOAuthToken(ctx context.Context, mcpServerInstanceName string) (*types.MCPOAuthToken, error) {
+func (c *Client) GetMCPOAuthToken(ctx context.Context, mcpID string) (*types.MCPOAuthToken, error) {
 	token := new(types.MCPOAuthToken)
-	err := c.db.WithContext(ctx).Where("mcp_server_instance = ?", mcpServerInstanceName).First(token).Error
+	err := c.db.WithContext(ctx).Where("mcp_id = ?", mcpID).First(token).Error
 	if err != nil {
 		return nil, err
 	}
@@ -48,21 +48,21 @@ func (c *Client) GetMCPOAuthTokenByState(ctx context.Context, state string) (*ty
 	return token, nil
 }
 
-func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, mcpServerInstanceName, state, verifier string, oauthConf *oauth2.Config, token *oauth2.Token) error {
+func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, mcpID, state, verifier string, oauthConf *oauth2.Config, token *oauth2.Token) error {
 	t := &types.MCPOAuthToken{
-		MCPServerInstance: mcpServerInstanceName,
-		State:             state,
-		Verifier:          verifier,
-		AccessToken:       token.AccessToken,
-		TokenType:         token.TokenType,
-		RefreshToken:      token.RefreshToken,
-		Expiry:            token.Expiry,
-		ExpiresIn:         token.ExpiresIn,
-		ClientID:          oauthConf.ClientID,
-		ClientSecret:      oauthConf.ClientSecret,
-		Endpoint:          oauthConf.Endpoint,
-		RedirectURL:       oauthConf.RedirectURL,
-		Scopes:            strings.Join(oauthConf.Scopes, " "),
+		MCPID:        mcpID,
+		State:        state,
+		Verifier:     verifier,
+		AccessToken:  token.AccessToken,
+		TokenType:    token.TokenType,
+		RefreshToken: token.RefreshToken,
+		Expiry:       token.Expiry,
+		ExpiresIn:    token.ExpiresIn,
+		ClientID:     oauthConf.ClientID,
+		ClientSecret: oauthConf.ClientSecret,
+		Endpoint:     oauthConf.Endpoint,
+		RedirectURL:  oauthConf.RedirectURL,
+		Scopes:       strings.Join(oauthConf.Scopes, " "),
 	}
 
 	if state != "" {
@@ -76,8 +76,8 @@ func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, mcpServerInstanceName
 	return c.db.WithContext(ctx).Save(t).Error
 }
 
-func (c *Client) DeleteMCPOAuthToken(ctx context.Context, mcpServerInstanceName string) error {
-	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{MCPServerInstance: mcpServerInstanceName}).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+func (c *Client) DeleteMCPOAuthToken(ctx context.Context, mcpID string) error {
+	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{MCPID: mcpID}).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	return nil
@@ -231,5 +231,5 @@ func (c *Client) decryptMCPOAuthToken(ctx context.Context, token *types.MCPOAuth
 }
 
 func mcpOAuthTokenCtx(token *types.MCPOAuthToken) value.Context {
-	return value.DefaultContext(fmt.Sprintf("%s/%s", mcpOAuthTokenGroupResource.String(), token.MCPServerInstance))
+	return value.DefaultContext(fmt.Sprintf("%s/%s", mcpOAuthTokenGroupResource.String(), token.MCPID))
 }

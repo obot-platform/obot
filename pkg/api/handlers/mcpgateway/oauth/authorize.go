@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -201,7 +202,7 @@ func (h *handler) authorize(req api.Context) error {
 	}
 
 	// We need to authenticate the user.
-	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s/%s", oauthAppAuthRequest.Name, req.PathValue("mcp_server_instance_id")), http.StatusFound)
+	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s/%s", oauthAppAuthRequest.Name, req.PathValue("mcp_id")), http.StatusFound)
 	return nil
 }
 
@@ -237,34 +238,46 @@ func (h *handler) callback(req api.Context) error {
 	}
 
 	// Check whether the MCP server needs authentication.
-	mcpServer, mcpServerConfig, err := handlers.ServerFromMCPServerInstance(req, h.gptClient)
+	var (
+		mcpID           = req.PathValue("mcp_id")
+		mcpServer       v1.MCPServer
+		mcpServerConfig mcp.ServerConfig
+		err             error
+	)
+
+	if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
+		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, mcpID)
+	} else {
+		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, mcpID)
+	}
 	if err != nil {
 		return err
 	}
+
 	// Give the server config a scope that makes sense.
 	// Clients used in the proxy will set the scope to the session ID, but we don't have a session ID here.
-	mcpServerConfig.Scope = req.PathValue("mcp_server_instance_id")
+	mcpServerConfig.Scope = mcpID
 
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
 
 	oauthHandler := &mcpOAuthHandler{
-		client:                req.Storage,
-		gptscript:             h.gptClient,
-		stateCache:            h.stateCache,
-		urlChan:               make(chan string),
-		mcpServerInstanceName: mcpServerConfig.Scope,
+		client:     req.Storage,
+		gptscript:  h.gptClient,
+		stateCache: h.stateCache,
+		urlChan:    make(chan string),
+		mcpID:      mcpServerConfig.Scope,
 	}
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(errChan)
 		_, err := h.mcpSessionManager.ClientForServer(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
-			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback/%s/%s", h.baseURL, oauthAppAuthRequest.Name, req.PathValue("mcp_server_instance_id")),
+			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback/%s/%s", h.baseURL, oauthAppAuthRequest.Name, mcpID),
 			OAuthClientName:  "Obot MCP Gateway",
 			CallbackHandler:  oauthHandler,
 			ClientCredLookup: oauthHandler,
-			TokenStorage:     h.tokenStore.ForServerInstance(mcpServerConfig.Scope),
+			TokenStorage:     h.tokenStore.ForMCPID(mcpServerConfig.Scope),
 		})
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)

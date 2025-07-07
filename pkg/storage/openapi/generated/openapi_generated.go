@@ -2778,6 +2778,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"connectURL": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "manifest", "configured", "catalogEntryID"},
 			},
@@ -3018,7 +3024,14 @@ func schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref common.Refe
 					},
 					"mcpCatalogID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MCPCatalogID is the ID of the MCP catalog that the server that this instance points to is shared within, if there is one. If this doesn't point to a shared server, then this will be the catalog that the catalog entry is in, if there is one.",
+							Description: "MCPCatalogID is the ID of the MCP catalog that the server that this instance points to is shared within.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mcpServerCatalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerCatalogEntryID is the ID of the MCP server catalog entry that the server that this instance points to is based on, if there is one.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3026,13 +3039,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref common.Refe
 					"connectURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ConnectURL is the URL to connect to the MCP server.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"mcpServerCatalogEntryID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MCPServerCatalogEntryID is the ID of the MCP server catalog entry that the server that this instance points to is based on.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -9944,14 +9950,14 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref common.Referenc
 					},
 					"mcpCatalogName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MCPCatalogName is the name of the MCP catalog that the server that this instance points to is shared within, if there is one. If there is not one, then this field will be set to the catalog that the Spec.MCPServerCatalogEntryName is in.",
+							Description: "MCPCatalogName is the name of the MCP catalog that the server that this instance points to is shared within",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"mcpServerCatalogEntryName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MCPServerCatalogEntryName is the name of the MCP server catalog entry that the server that this instance points to is based on.",
+							Description: "MCPServerCatalogEntryName is the name of the MCP server catalog entry that the server that this instance points to is based on, if there is one.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

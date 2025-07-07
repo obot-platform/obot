@@ -52,7 +52,7 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to auto migrate GptscriptCredential: %w", err)
 	}
 
-	return tx.AutoMigrate(
+	if err := tx.AutoMigrate(
 		types.AuthToken{},
 		types.TokenRequest{},
 		types.LLMProxyActivity{},
@@ -66,7 +66,24 @@ func (db *DB) AutoMigrate() (err error) {
 		types.FileScannerConfig{},
 		types.RunTokenActivity{},
 		types.MCPOAuthToken{},
-	)
+	); err != nil {
+		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
+	}
+
+	// MIGRATION: replace mcp_server_instance with mcp_id as the new primary key.
+	// First, check to se if the mcp_server_instance column still exists.
+	if exists := tx.Migrator().HasColumn(&types.MCPOAuthToken{}, "mcp_server_instance"); exists {
+		// If the column exists, we need to drop this table and recreate it.
+		// It will delete all entries in the process, which is what we want.
+		if err := tx.Migrator().DropTable(&types.MCPOAuthToken{}); err != nil {
+			return fmt.Errorf("failed to drop mcp_server_instance table: %w", err)
+		}
+		if err := tx.AutoMigrate(&types.MCPOAuthToken{}); err != nil {
+			return fmt.Errorf("failed to auto migrate mcp_server_instance table: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (db *DB) Check(ctx context.Context) error {

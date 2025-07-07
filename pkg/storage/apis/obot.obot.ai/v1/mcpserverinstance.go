@@ -59,10 +59,9 @@ type MCPServerInstanceSpec struct {
 	UserID string `json:"userID,omitempty"`
 	// MCPServerName is the name of the MCP server this instance is associated with.
 	MCPServerName string `json:"mcpServerName,omitempty"`
-	// MCPCatalogName is the name of the MCP catalog that the server that this instance points to is shared within, if there is one.
-	// If there is not one, then this field will be set to the catalog that the Spec.MCPServerCatalogEntryName is in.
+	// MCPCatalogName is the name of the MCP catalog that the server that this instance points to is shared within
 	MCPCatalogName string `json:"mcpCatalogName,omitempty"`
-	// MCPServerCatalogEntryName is the name of the MCP server catalog entry that the server that this instance points to is based on.
+	// MCPServerCatalogEntryName is the name of the MCP server catalog entry that the server that this instance points to is based on, if there is one.
 	MCPServerCatalogEntryName string `json:"mcpServerCatalogEntryName,omitempty"`
 }
 

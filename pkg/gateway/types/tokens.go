@@ -40,12 +40,12 @@ type MCPOAuthToken struct {
 	HashedState *string `gorm:"unique"`
 	Verifier    string
 
-	MCPServerInstance string `gorm:"primaryKey"`
-	AccessToken       string
-	TokenType         string
-	RefreshToken      string
-	Expiry            time.Time
-	ExpiresIn         int64
+	MCPID        string `gorm:"primaryKey"`
+	AccessToken  string
+	TokenType    string
+	RefreshToken string
+	Expiry       time.Time
+	ExpiresIn    int64
 
 	Encrypted bool
 }

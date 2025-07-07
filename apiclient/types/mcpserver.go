@@ -68,6 +68,7 @@ type MCPServer struct {
 	MissingRequiredHeaders  []string          `json:"missingRequiredHeader,omitempty"`
 	CatalogEntryID          string            `json:"catalogEntryID"`
 	SharedWithinCatalogName string            `json:"sharedWithinCatalogName,omitempty"`
+	ConnectURL              string            `json:"connectURL,omitempty"`
 }
 
 type MCPServerList List[MCPServer]

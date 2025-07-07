@@ -22,7 +22,6 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -358,27 +357,10 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstances(req router.Request, _ rou
 		return fmt.Errorf("failed to list MCP server instances: %w", err)
 	}
 
-	var mcpServer v1.MCPServer
-
 	// Iterate through each MCPServerInstance and make sure it is still allowed to exist.
 	for _, instance := range mcpServerInstances.Items {
 		if !instance.DeletionTimestamp.IsZero() {
-			// This server is already being deleted, so we don't have to delete it again.
 			continue
-		}
-
-		if instance.Spec.MCPServerName != "" {
-			if err := req.Get(&mcpServer, req.Namespace, instance.Spec.MCPServerName); apierrors.IsNotFound(err) {
-				// A cleanup handler will take care of this.
-				continue
-			} else if err != nil {
-				return fmt.Errorf("failed to get MCP server %s: %w", instance.Spec.MCPServerName, err)
-			}
-
-			if mcpServer.Spec.UserID == instance.Spec.UserID {
-				// This is a single-user MCP server that exists for the user. Don't clean it up.
-				continue
-			}
 		}
 
 		user, err := h.gatewayClient.UserByID(req.Ctx, instance.Spec.UserID)

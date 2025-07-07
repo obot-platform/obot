@@ -142,7 +142,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			}
 
 			if strings.HasPrefix(req.URL.Path, "/mcp-connect/") {
-				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource/%s"`, strings.TrimSuffix(s.baseURL, "/api"), req.PathValue("mcp_server_instance_id")))
+				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource/%s"`, strings.TrimSuffix(s.baseURL, "/api"), req.PathValue("mcp_id")))
 			}
 
 			if slices.Contains(user.GetGroups(), authz.UnauthenticatedGroup) {

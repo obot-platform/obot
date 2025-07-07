@@ -29,18 +29,18 @@ import (
 )
 
 type MCPHandler struct {
-	gptscript         *gptscript.GPTScript
 	mcpSessionManager *mcp.SessionManager
 	acrHelper         *accesscontrolrule.Helper
+	serverURL         string
 }
 
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
-func NewMCPHandler(gptscript *gptscript.GPTScript, mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper) *MCPHandler {
+func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, serverURL string) *MCPHandler {
 	return &MCPHandler{
-		gptscript:         gptscript,
 		mcpSessionManager: mcpLoader,
 		acrHelper:         acrHelper,
+		serverURL:         serverURL,
 	}
 }
 
@@ -179,7 +179,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		}
 	}
 
-	creds, err := m.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
 		CredentialContexts: credCtxs,
 	})
 	if err != nil {
@@ -189,7 +189,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	credMap := make(map[string]map[string]string, len(creds))
 	for _, cred := range creds {
 		if _, ok := credMap[cred.ToolName]; !ok {
-			c, err := m.gptscript.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
+			c, err := req.GPTClient.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
 			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to find credential: %w", err)
 			}
@@ -202,7 +202,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
-		items = append(items, convertMCPServer(server, credMap[server.Name]))
+		items = append(items, convertMCPServer(server, credMap[server.Name], m.serverURL))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -248,12 +248,12 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 		credCtxs = []string{fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name)}
 	}
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), credCtxs, server.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(server, cred.Env))
+	return req.Write(convertMCPServer(server, cred.Env, m.serverURL))
 }
 
 func (m *MCPHandler) DeleteServer(req api.Context) error {
@@ -296,11 +296,11 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(server, nil))
+	return req.Write(convertMCPServer(server, nil, m.serverURL))
 }
 
 func (m *MCPHandler) GetTools(req api.Context) error {
-	server, serverConfig, caps, err := serverForActionWithCapabilities(req, m.gptscript, m.mcpSessionManager)
+	server, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -363,7 +363,7 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name))
 	}
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), credCtxs, mcpServer.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -406,7 +406,7 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 }
 
 func (m *MCPHandler) GetResources(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.gptscript, m.mcpSessionManager)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -424,7 +424,7 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 }
 
 func (m *MCPHandler) ReadResource(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.gptscript, m.mcpSessionManager)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -442,7 +442,7 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompts(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.gptscript, m.mcpSessionManager)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -460,7 +460,7 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompt(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.gptscript, m.mcpSessionManager)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -485,13 +485,11 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 	})
 }
 
-func ServerFromMCPServerInstance(req api.Context, gptClient *gptscript.GPTScript) (v1.MCPServer, mcp.ServerConfig, error) {
+func ServerFromMCPServerInstance(req api.Context, instanceID string) (v1.MCPServer, mcp.ServerConfig, error) {
 	var (
-		server     v1.MCPServer
-		instance   v1.MCPServerInstance
-		instanceID = req.PathValue("mcp_server_instance_id")
+		server   v1.MCPServer
+		instance v1.MCPServerInstance
 	)
-
 	if err := req.Get(&instance, instanceID); err != nil {
 		return server, mcp.ServerConfig{}, err
 	}
@@ -516,7 +514,7 @@ func ServerFromMCPServerInstance(req api.Context, gptClient *gptscript.GPTScript
 		scope = instance.Spec.UserID
 	}
 
-	cred, err := gptClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return server, mcp.ServerConfig{}, fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -529,12 +527,8 @@ func ServerFromMCPServerInstance(req api.Context, gptClient *gptscript.GPTScript
 	return server, serverConfig, nil
 }
 
-func ServerForAction(req api.Context, gptClient *gptscript.GPTScript) (v1.MCPServer, mcp.ServerConfig, error) {
-	var (
-		server v1.MCPServer
-		id     = req.PathValue("mcp_server_id")
-	)
-
+func ServerForActionWithID(req api.Context, id string) (v1.MCPServer, mcp.ServerConfig, error) {
+	var server v1.MCPServer
 	if err := req.Get(&server, id); err != nil {
 		return server, mcp.ServerConfig{}, err
 	}
@@ -574,7 +568,7 @@ func ServerForAction(req api.Context, gptClient *gptscript.GPTScript) (v1.MCPSer
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
-	cred, err := gptClient.RevealCredential(req.Context(), credCtxs, server.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return server, mcp.ServerConfig{}, fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -588,8 +582,12 @@ func ServerForAction(req api.Context, gptClient *gptscript.GPTScript) (v1.MCPSer
 	return server, serverConfig, nil
 }
 
-func serverForActionWithCapabilities(req api.Context, gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
-	server, serverConfig, err := ServerForAction(req, gptClient)
+func ServerForAction(req api.Context) (v1.MCPServer, mcp.ServerConfig, error) {
+	return ServerForActionWithID(req, req.PathValue("mcp_server_id"))
+}
+
+func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
+	server, serverConfig, err := ServerForAction(req)
 	if err != nil {
 		return server, serverConfig, nmcp.ServerCapabilities{}, err
 	}
@@ -752,17 +750,17 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		err  error
 	)
 	if catalogID != "" {
-		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, server.Name)}, server.Name)
+		cred, err = req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, server.Name)}, server.Name)
 	} else if projectID != "" {
-		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name)}, server.Name)
+		cred, err = req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.ThreadName, server.Name)}, server.Name)
 	} else {
-		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name)}, server.Name)
+		cred, err = req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name)}, server.Name)
 	}
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	return req.WriteCreated(convertMCPServer(server, cred.Env))
+	return req.WriteCreated(convertMCPServer(server, cred.Env, m.serverURL))
 }
 
 func (m *MCPHandler) UpdateServer(req api.Context) error {
@@ -809,11 +807,11 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	// Shutdown any server that is using the default credentials.
 	var cred gptscript.Credential
 	if catalogID != "" {
-		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, existing.Name)}, existing.Name)
+		cred, err = req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, existing.Name)}, existing.Name)
 	} else if projectID != "" {
-		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", existing.Spec.ThreadName, existing.Name)}, existing.Name)
+		cred, err = req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", existing.Spec.ThreadName, existing.Name)}, existing.Name)
 	} else {
-		cred, err = m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", req.User.GetUID(), existing.Name)}, existing.Name)
+		cred, err = req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", req.User.GetUID(), existing.Name)}, existing.Name)
 	}
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
@@ -833,7 +831,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 
 	// Shutdown the MCP server using any shared credentials.
 	if projectID != "" {
-		sharedCred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s-shared", existing.Spec.ThreadName, existing.Name)}, existing.Name)
+		sharedCred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s-shared", existing.Spec.ThreadName, existing.Name)}, existing.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
@@ -851,7 +849,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 
 		// Shutdown all chatbot MCP servers.
 		for _, chatBot := range chatBots.Items {
-			childCred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", chatBot.Name, existing.Name)}, existing.Name)
+			childCred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", chatBot.Name, existing.Name)}, existing.Name)
 			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to find credential: %w", err)
 			} else if err != nil {
@@ -875,7 +873,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(existing, cred.Env))
+	return req.Write(convertMCPServer(existing, cred.Env, m.serverURL))
 }
 
 func (m *MCPHandler) ConfigureServer(req api.Context) error {
@@ -919,7 +917,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	}
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	if err := m.removeMCPServerAndCred(req.Context(), mcpServer, scope, []string{credCtx}); err != nil {
+	if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, mcpServer, scope, []string{credCtx}); err != nil {
 		return err
 	}
 
@@ -929,7 +927,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		}
 	}
 
-	if err := m.gptscript.CreateCredential(req.Context(), gptscript.Credential{
+	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
 		Context:  credCtx,
 		ToolName: mcpServer.Name,
 		Type:     gptscript.CredentialTypeTool,
@@ -938,7 +936,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, envVars))
+	return req.Write(convertMCPServer(mcpServer, envVars, m.serverURL))
 }
 
 func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
@@ -976,7 +974,7 @@ func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
 	}
 
 	credCtx := fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name)
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{credCtx}, mcpServer.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -989,7 +987,7 @@ func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
 	}
 
 	// Remove the top-level MCP server if it exists and remove the credential.
-	if err = m.removeMCPServerAndCred(req.Context(), mcpServer, project.Name, []string{credCtx}); err != nil {
+	if err = m.removeMCPServerAndCred(req.Context(), req.GPTClient, mcpServer, project.Name, []string{credCtx}); err != nil {
 		return err
 	}
 
@@ -999,7 +997,7 @@ func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
 		}
 	}
 
-	if err = m.gptscript.CreateCredential(req.Context(), gptscript.Credential{
+	if err = req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
 		Context:  credCtx,
 		ToolName: mcpServer.Name,
 		Type:     gptscript.CredentialTypeTool,
@@ -1008,7 +1006,7 @@ func (m *MCPHandler) ConfigureSharedServer(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, envVars))
+	return req.Write(convertMCPServer(mcpServer, envVars, m.serverURL))
 }
 
 func (m *MCPHandler) DeconfigureServer(req api.Context) error {
@@ -1046,11 +1044,11 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 		scope = req.User.GetUID()
 	}
 
-	if err := m.removeMCPServerAndCred(req.Context(), mcpServer, scope, []string{credCtx}); err != nil {
+	if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, mcpServer, scope, []string{credCtx}); err != nil {
 		return err
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil))
+	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL))
 }
 
 func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
@@ -1084,7 +1082,7 @@ func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
 
 	credCtx := []string{fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name)}
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), credCtx, mcpServer.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtx, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -1096,11 +1094,11 @@ func (m *MCPHandler) DeconfigureSharedServer(req api.Context) error {
 	}
 
 	// Remove the top-level MCP server if it exists and remove the credential.
-	if err = m.removeMCPServerAndCred(req.Context(), mcpServer, project.Name, credCtx); err != nil {
+	if err = m.removeMCPServerAndCred(req.Context(), req.GPTClient, mcpServer, project.Name, credCtx); err != nil {
 		return err
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil))
+	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL))
 }
 
 func (m *MCPHandler) Reveal(req api.Context) error {
@@ -1132,7 +1130,7 @@ func (m *MCPHandler) Reveal(req api.Context) error {
 		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
 	}
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{credCtx}, mcpServer.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	} else if err == nil {
@@ -1148,7 +1146,7 @@ func (m *MCPHandler) RevealSharedServer(req api.Context) error {
 		return err
 	}
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name)}, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	} else if err == nil {
@@ -1244,8 +1242,8 @@ func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer
 	return nil
 }
 
-func (m *MCPHandler) removeMCPServerAndCred(ctx context.Context, mcpServer v1.MCPServer, scope string, credCtx []string) error {
-	cred, err := m.gptscript.RevealCredential(ctx, credCtx, mcpServer.Name)
+func (m *MCPHandler) removeMCPServerAndCred(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, scope string, credCtx []string) error {
+	cred, err := gptClient.RevealCredential(ctx, credCtx, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -1257,7 +1255,7 @@ func (m *MCPHandler) removeMCPServerAndCred(ctx context.Context, mcpServer v1.MC
 
 	// If revealing the credential was successful, remove it.
 	if err == nil {
-		if err = m.gptscript.DeleteCredential(ctx, cred.Context, mcpServer.Name); err != nil {
+		if err = gptClient.DeleteCredential(ctx, cred.Context, mcpServer.Name); err != nil {
 			return fmt.Errorf("failed to remove existing credential: %w", err)
 		}
 	}
@@ -1394,7 +1392,7 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 }
 
-func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPServer {
+func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL string) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
 
 	// Check for missing required env vars
@@ -1419,6 +1417,13 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 		}
 	}
 
+	var connectURL string
+	// Only non-shared servers get a connect URL.
+	// Shared servers have connect URLs on the MCPServerInstances instead.
+	if server.Spec.SharedWithinMCPCatalogName == "" {
+		connectURL = fmt.Sprintf("%s/mcp-connect/%s", serverURL, server.Name)
+	}
+
 	return types.MCPServer{
 		Metadata:                MetadataFrom(&server),
 		MissingRequiredEnvVars:  missingEnvVars,
@@ -1427,6 +1432,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string) types.MCPS
 		MCPServerManifest:       server.Spec.Manifest,
 		CatalogEntryID:          server.Spec.MCPServerCatalogEntryName,
 		SharedWithinCatalogName: server.Spec.SharedWithinMCPCatalogName,
+		ConnectURL:              connectURL,
 	}
 }
 
@@ -1458,7 +1464,7 @@ func (m *MCPHandler) ListServersInDefaultCatalog(req api.Context) error {
 		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name))
 	}
 
-	creds, err := m.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
 		CredentialContexts: credCtxs,
 	})
 	if err != nil {
@@ -1468,7 +1474,7 @@ func (m *MCPHandler) ListServersInDefaultCatalog(req api.Context) error {
 	credMap := make(map[string]map[string]string, len(creds))
 	for _, cred := range creds {
 		if _, ok := credMap[cred.ToolName]; !ok {
-			c, err := m.gptscript.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
+			c, err := req.GPTClient.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
 			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to find credential: %w", err)
 			}
@@ -1479,7 +1485,7 @@ func (m *MCPHandler) ListServersInDefaultCatalog(req api.Context) error {
 	var mcpServers []types.MCPServer
 	for _, server := range allowedServers {
 		addExtractedEnvVars(&server)
-		mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name]))
+		mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name], m.serverURL))
 	}
 
 	return req.Write(types.MCPServerList{Items: mcpServers})
@@ -1510,12 +1516,26 @@ func (m *MCPHandler) GetServerFromDefaultCatalog(req api.Context) error {
 		}
 	}
 
-	cred, err := m.gptscript.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name)}, server.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name)}, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
 	addExtractedEnvVars(&server)
 
-	return req.Write(convertMCPServer(server, cred.Env))
+	return req.Write(convertMCPServer(server, cred.Env, m.serverURL))
+}
+
+func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
+	var server v1.MCPServer
+	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
+		return err
+	}
+
+	if err := req.GatewayClient.DeleteMCPOAuthToken(req.Context(), server.Name); err != nil {
+		return fmt.Errorf("failed to delete OAuth credentials: %v", err)
+	}
+
+	req.WriteHeader(http.StatusNoContent)
+	return nil
 }
