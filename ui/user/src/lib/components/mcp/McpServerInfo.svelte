@@ -4,20 +4,25 @@
 		type MCPCatalogServer,
 		type MCPServerPrompt,
 		type McpServerResource,
-		ChatService
+		ChatService,
+		AdminService
 	} from '$lib/services';
-	import type { MCPCatalogEntry } from '$lib/services/admin/types';
-	import { CircleCheckBig, CircleOff, LoaderCircle } from 'lucide-svelte';
+	import type { MCPCatalogEntry, MCPCatalogServerManifest } from '$lib/services/admin/types';
+	import { CircleCheckBig, CircleOff, LoaderCircle, Pencil } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import McpServerTools from './McpServerTools.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { responsive } from '$lib/stores';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import MarkdownTextEditor from '../admin/MarkdownTextEditor.svelte';
 
 	interface Props {
 		class?: string;
 		entry: MCPCatalogEntry | MCPCatalogServer;
+		editable?: boolean;
+		catalogId?: string;
+		onUpdate?: () => void;
 	}
 
 	type EntryDetail = {
@@ -26,6 +31,8 @@
 		link?: string;
 		class?: string;
 		showTooltip?: boolean;
+		editable?: boolean;
+		catalogId?: string;
 	};
 
 	function convertEntryDetails(entry: MCPCatalogEntry | MCPCatalogServer) {
@@ -114,12 +121,19 @@
 		return details.filter((d) => d);
 	}
 
-	let { entry, class: klass }: Props = $props();
+	let { entry, class: klass, editable = false, catalogId, onUpdate }: Props = $props();
 	let tools = $state<MCPServerTool[]>([]);
 	let prompts = $state<MCPServerPrompt[]>([]);
 	let resources = $state<McpServerResource[]>([]);
 	let details = $derived(convertEntryDetails(entry));
 	let loading = $state(false);
+	let editDescription = $state(false);
+	let previousEntryId = $state<string | undefined>(undefined);
+	let description = $derived(
+		('manifest' in entry
+			? entry.manifest.description
+			: entry.commandManifest?.description || entry.urlManifest?.description) ?? ''
+	);
 
 	async function loadServerData() {
 		loading = true;
@@ -144,23 +158,66 @@
 		loading = false;
 	}
 
+	async function handleDescriptionUpdate(markdown: string) {
+		if (!entry?.id || !catalogId) return;
+
+		if ('manifest' in entry) {
+			await AdminService.updateMCPCatalogServer(catalogId, entry.id, {
+				...(entry.manifest as MCPCatalogServerManifest['manifest']),
+				description: markdown
+			});
+		} else {
+			const manifest = entry.commandManifest || entry.urlManifest;
+			await AdminService.updateMCPCatalogEntry(catalogId, entry.id, {
+				...manifest,
+				description: markdown
+			});
+		}
+
+		editDescription = false;
+		onUpdate?.();
+	}
+
 	$effect(() => {
-		if (entry && 'manifest' in entry) {
+		if (entry && 'manifest' in entry && entry.id !== previousEntryId) {
+			previousEntryId = entry.id;
 			loadServerData();
 		}
 	});
 </script>
 
 <div class={twMerge('flex flex-col gap-4', klass)}>
-	{#if 'manifest' in entry}
-		{#if entry.manifest.description}
-			<div class="milkdown-description">{@html toHTMLFromMarkdown(entry.manifest.description)}</div>
+	{#if editable}
+		{#if editDescription}
+			<MarkdownTextEditor
+				bind:value={description}
+				initialFocus
+				onUpdate={handleDescriptionUpdate}
+				onCancel={() => (editDescription = false)}
+			/>
+		{:else}
+			<button
+				class="group relative min-h-8 w-fit pr-6 text-left"
+				onclick={() => (editDescription = true)}
+			>
+				{#if description}
+					<div class="milkdown-content">
+						{@html toHTMLFromMarkdown(description)}
+					</div>
+				{:else}
+					<span class="text-md text-gray-400 dark:text-gray-600">Add description here...</span>
+				{/if}
+				<div
+					class="absolute top-1.5 right-0 z-10 opacity-0 transition-opacity group-hover:opacity-100"
+				>
+					<Pencil class="size-5 text-gray-400 dark:text-gray-600" />
+				</div>
+			</button>
 		{/if}
-	{:else}
-		{@const manifest = entry.commandManifest || entry.urlManifest}
-		{#if manifest?.description}
-			<div class="milkdown-description">{@html toHTMLFromMarkdown(manifest.description)}</div>
-		{/if}
+	{:else if description}
+		<div class="milkdown-content">
+			{@html toHTMLFromMarkdown(description)}
+		</div>
 	{/if}
 
 	{#if loading}
@@ -256,73 +313,3 @@
 		<p class="text-xs font-light">-</p>
 	{/if}
 {/snippet}
-
-<style lang="postcss">
-	:global {
-		.milkdown-description {
-			& h1,
-			& h2,
-			& h3,
-			& h4,
-			& p {
-				&:first-child {
-					margin-top: 0;
-				}
-				&:last-child {
-					margin-bottom: 0;
-				}
-			}
-
-			& h1 {
-				margin-top: 1rem;
-				margin-bottom: 1rem; /* my-4 */
-				font-size: 1.5rem; /* text-2xl */
-				font-weight: 700; /* font-bold */
-			}
-
-			& h2 {
-				margin-top: 1rem;
-				margin-bottom: 1rem;
-				font-size: 1.25rem; /* text-xl */
-				font-weight: 700;
-			}
-
-			& h3,
-			& h4 {
-				margin-top: 1rem;
-				margin-bottom: 1rem;
-				font-size: 1rem; /* text-base */
-				font-weight: 700;
-			}
-
-			& p {
-				margin-bottom: 1rem;
-				font-size: var(--text-md);
-			}
-
-			& pre {
-				padding: 0.5rem 1rem;
-			}
-
-			& a {
-				color: var(--color-blue-500);
-				text-decoration: underline;
-				&:hover {
-					color: var(--color-blue-600);
-				}
-			}
-
-			& ol {
-				margin: 1rem 0;
-				list-style-type: decimal;
-				padding-left: 1rem;
-			}
-
-			& ul {
-				margin: 1rem 0;
-				list-style-type: disc;
-				padding-left: 1rem;
-			}
-		}
-	}
-</style>

@@ -749,6 +749,92 @@
 	}
 }
 
+.milkdown-content {
+	& h1,
+	& h2,
+	& h3,
+	& h4,
+	& p {
+		&:first-child {
+			margin-top: 0;
+		}
+		&:last-child {
+			margin-bottom: 0;
+		}
+	}
+
+	& h1 {
+		margin-top: 1rem;
+		margin-bottom: 1rem; /* my-4 */
+		font-size: 1.5rem; /* text-2xl */
+		font-weight: 700; /* font-bold */
+	}
+
+	& h2 {
+		margin-top: 1rem;
+		margin-bottom: 1rem;
+		font-size: 1.25rem; /* text-xl */
+		font-weight: 700;
+	}
+
+	& h3,
+	& h4 {
+		margin-top: 1rem;
+		margin-bottom: 1rem;
+		font-size: 1rem; /* text-base */
+		font-weight: 700;
+	}
+
+	& p {
+		margin-bottom: 1rem;
+		font-size: var(--text-md);
+	}
+
+	& pre {
+		padding: 0.5rem 1rem;
+	}
+
+	& a {
+		color: var(--color-blue-500);
+		text-decoration: underline;
+		&:hover {
+			color: var(--color-blue-600);
+		}
+	}
+
+	& ol {
+		margin: 1rem 0;
+		list-style-type: decimal;
+		padding-left: 1rem;
+
+		& li {
+			margin-bottom: 0.5rem;
+		}
+
+		& ::marker {
+			color: var(--color-gray-500);
+		}
+	}
+
+	& ul {
+		margin: 1rem 0;
+		list-style-type: disc;
+		padding-left: 1rem;
+
+		& li {
+			margin-bottom: 0.5rem;
+		}
+
+		& ::marker {
+			color: var(--color-gray-500);
+		}
+	}
+
+	& img {
+		justify-self: center;
+	}
+}
+
 .dark {
 	--background: var(--color-black);
 	--on-background: var(--color-gray-50);

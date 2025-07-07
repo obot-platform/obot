@@ -17,9 +17,10 @@
 		readonly?: boolean;
 		onCancel?: () => void;
 		onSubmit?: () => void;
+		onUpdate?: () => void;
 	}
 
-	let { entry, catalogId, type, readonly, onCancel, onSubmit }: Props = $props();
+	let { entry, catalogId, type, readonly, onCancel, onSubmit, onUpdate }: Props = $props();
 	const tabs = $derived(
 		entry
 			? [
@@ -120,7 +121,10 @@
 		{#if view === 'overview' && entry}
 			<McpServerInfo
 				class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-8 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+				editable={!readonly}
+				{catalogId}
 				{entry}
+				{onUpdate}
 			/>
 		{:else if view === 'configuration'}
 			{@render configurationView()}
@@ -243,14 +247,16 @@
 	<div class="mt-12 flex w-lg flex-col items-center gap-4 self-center text-center">
 		<ListFilter class="size-24 text-gray-200 dark:text-gray-900" />
 		<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">Filters</h4>
-		<p class="text-md font-light text-gray-400 dark:text-gray-600">
+		<p class="text-md text-left font-light text-gray-400 dark:text-gray-600">
 			The <b class="font-semibold">Filters</b> feature allows you to intercept and process incoming
 			requests
 			<b class="font-semibold">before they reach the MCP Server</b>. This enables you to perform
 			critical tasks such as
 			<b class="font-semibold"
 				>authorization, request logging, tool access control, or traffic routing</b
-			>. Filters act as customizable middleware components, giving you control over how requests are
+			>. <br /><br />
+
+			Filters act as customizable middleware components, giving you control over how requests are
 			handled and whether they should be modified, allowed, or blocked before reaching the core
 			application logic.
 		</p>

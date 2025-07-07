@@ -72,6 +72,22 @@
 		}
 	});
 
+	$effect(() => {
+		if ((mcpServerAndEntries.entries || mcpServerAndEntries.servers) && selectedEntryServer) {
+			const matchingEntry = mcpServerAndEntries.entries.find(
+				(e) => e.id === selectedEntryServer!.id
+			);
+			const matchingServer = mcpServerAndEntries.servers.find(
+				(s) => s.id === selectedEntryServer!.id
+			);
+			if (matchingEntry) {
+				selectedEntryServer = matchingEntry;
+			} else if (matchingServer) {
+				selectedEntryServer = matchingServer;
+			}
+		}
+	});
+
 	function convertEntriesToTableData(entries: MCPCatalogEntry[] | undefined) {
 		if (!entries) {
 			return [];
@@ -322,6 +338,15 @@
 				goto('/v2/admin/mcp-servers', { replaceState: true });
 				selectedEntryServer = undefined;
 				showServerForm = false;
+			}}
+			onUpdate={async () => {
+				if (!entry) return;
+
+				if ('manifest' in entry) {
+					mcpServerAndEntries.servers = await AdminService.listMCPCatalogServers(defaultCatalogId);
+				} else {
+					mcpServerAndEntries.entries = await AdminService.listMCPCatalogEntries(defaultCatalogId);
+				}
 			}}
 		/>
 	</div>
