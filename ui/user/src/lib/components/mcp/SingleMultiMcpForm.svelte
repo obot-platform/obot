@@ -27,6 +27,7 @@
 			class="text-input-filled w-full dark:bg-black"
 			bind:value={config.command}
 			disabled={readonly}
+			placeholder="e.g. npx, uvx"
 		/>
 	</div>
 
@@ -167,7 +168,7 @@
 								id={`env-key-${i}`}
 								class="text-input-filled w-full"
 								bind:value={envs[i].key}
-								placeholder="(eg. CUSTOM_API_KEY)"
+								placeholder="e.g. CUSTOM_API_KEY"
 								disabled={readonly}
 							/>
 						</div>
@@ -202,7 +203,7 @@
 								id={`env-key-${i}`}
 								class="text-input-filled w-full"
 								bind:value={envs[i].key}
-								placeholder="(eg. CUSTOM_API_KEY)"
+								placeholder="e.g. CUSTOM_API_KEY"
 								disabled={readonly}
 							/>
 						</div>
@@ -215,7 +216,7 @@
 									id={`env-value-${i}`}
 									class="text-input-filled w-full"
 									bind:value={envs[i].value}
-									placeholder="(eg. 123abcdef456)"
+									placeholder="e.g. 123abcdef456"
 									disabled={readonly}
 								/>
 							{/if}

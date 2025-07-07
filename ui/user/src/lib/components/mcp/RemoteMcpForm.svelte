@@ -72,6 +72,7 @@
 						class="text-input-filled flex grow dark:bg-black"
 						bind:value={config.fixedURL}
 						disabled={readonly}
+						placeholder="e.g. https://custom.mcpserver.com/go/to"
 					/>
 				</div>
 			{:else if selectedType === 'hostname' && typeof config.hostname !== 'undefined'}
@@ -81,6 +82,7 @@
 						class="text-input-filled flex grow dark:bg-black"
 						bind:value={config.hostname}
 						disabled={readonly}
+						placeholder="e.g. mycustomdomain"
 					/>
 				</div>
 			{/if}
@@ -125,7 +127,7 @@
 									id={`header-key-${i}`}
 									class="text-input-filled w-full"
 									bind:value={config.headers[i].key}
-									placeholder="(eg. CUSTOM_HEADER_KEY)"
+									placeholder="e.g. CUSTOM_HEADER_KEY"
 									disabled={readonly}
 								/>
 							</div>

@@ -151,6 +151,14 @@
 		.dark &:disabled {
 			color: var(--color-gray-500);
 		}
+
+		&::placeholder {
+			color: var(--color-gray-400);
+		}
+
+		.dark &::placeholder {
+			color: var(--color-gray-600);
+		}
 	}
 
 	blockquote {
