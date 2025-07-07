@@ -12,6 +12,7 @@
 	import { onMount } from 'svelte';
 	import {
 		fetchMcpServerAndEntries,
+		getAdminMcpServerAndEntries,
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService } from '$lib/services/index.js';
@@ -22,6 +23,7 @@
 
 	initMcpServerAndEntries();
 
+	const mcpServersAndEntries = getAdminMcpServerAndEntries();
 	let accessControlRules = $state(initialRules);
 	let showCreateRule = $state(false);
 	let ruleToDelete = $state<AccessControlRule>();
@@ -36,6 +38,9 @@
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
+	const totalServers = $derived(
+		mcpServersAndEntries.entries.length + mcpServersAndEntries.servers.length
+	);
 
 	onMount(async () => {
 		fetchMcpServerAndEntries(defaultCatalogId);
@@ -105,12 +110,14 @@
 						{/snippet}
 						{#snippet onRenderColumn(property, d)}
 							{#if property === 'servers'}
-								{@const count =
-									(d.resources &&
-										d.resources.filter(
-											(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
-										).length) ??
-									0}
+								{@const hasEverything = d.resources?.find((r) => r.id === '*')}
+								{@const count = hasEverything
+									? totalServers
+									: ((d.resources &&
+											d.resources.filter(
+												(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
+											).length) ??
+										0)}
 								{count ? count : '-'}
 							{:else}
 								{d[property as keyof typeof d]}
