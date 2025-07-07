@@ -261,6 +261,7 @@ func (h *handler) callback(req api.Context) error {
 		defer close(errChan)
 		_, err := h.mcpSessionManager.ClientForServer(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
 			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback/%s/%s", h.baseURL, oauthAppAuthRequest.Name, req.PathValue("mcp_server_instance_id")),
+			OAuthClientName:  "Obot MCP Gateway",
 			CallbackHandler:  oauthHandler,
 			ClientCredLookup: oauthHandler,
 			TokenStorage:     h.tokenStore.ForServerInstance(mcpServerConfig.Scope),
