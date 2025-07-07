@@ -261,7 +261,11 @@
 					>(Markdown syntax supported)</span
 				></label
 			>
-			<MarkdownInput bind:value={formData.description} disabled={readonly} />
+			<MarkdownInput
+				bind:value={formData.description}
+				disabled={readonly}
+				placeholder="Provide details about the MCP server."
+			/>
 		</div>
 
 		<div class="flex flex-col gap-1">

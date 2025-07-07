@@ -11,7 +11,8 @@
 		highlightSpecialChars,
 		drawSelection,
 		dropCursor,
-		keymap
+		keymap,
+		placeholder as cmPlaceholder
 	} from '@codemirror/view';
 	import {
 		foldGutter,
@@ -40,9 +41,10 @@
 		value?: string;
 		class?: string;
 		disabled?: boolean;
+		placeholder?: string;
 	}
 
-	let { value = $bindable(''), class: klass, disabled }: Props = $props();
+	let { value = $bindable(''), class: klass, disabled, placeholder }: Props = $props();
 
 	let lastSetValue = '';
 	let focused = $state(false);
@@ -138,7 +140,6 @@
 		});
 
 		reload = () => {
-			console.log('Reloading editor, disabled:', disabled);
 			const newState = CMEditorState.create({
 				doc: state.doc,
 				extensions: [
@@ -146,6 +147,8 @@
 					darkMode.isDark ? githubDark : githubLight,
 					updater,
 					markdown(),
+					// Add placeholder if provided
+					...(placeholder ? [cmPlaceholder(placeholder)] : []),
 					// Make editor read-only when disabled
 					disabled ? CMEditorState.readOnly.of(true) : CMEditorState.readOnly.of(false)
 				]
@@ -182,7 +185,15 @@
 				!showPreview &&
 					'dark:border-surface3 relative z-10 translate-y-[1px] border-r bg-white font-medium text-black dark:bg-black dark:text-white'
 			)}
-			onclick={() => (showPreview = false)}>Write</button
+			onclick={() => {
+				showPreview = false;
+				// Focus the editor after it becomes visible
+				setTimeout(() => {
+					if (cmView && !disabled) {
+						cmView.focus();
+					}
+				}, 0);
+			}}>Write</button
 		>
 		<button
 			class={twMerge(
