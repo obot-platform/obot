@@ -72,7 +72,7 @@
 {/if}
 
 {#snippet unauthorizedContent()}
-	<div class="relative w-full flex-col text-black dark:text-white">
+	<div class="relative flex h-screen w-full flex-col text-black dark:text-white">
 		<!-- Header with logo and navigation -->
 		<div class="colors-background sticky top-0 z-30 flex h-16 w-full items-center">
 			<div class="relative flex items-end p-5">
@@ -177,6 +177,7 @@
 				</div>
 			</div>
 		</main>
+		<div class="flex grow"></div>
 		<Footer />
 
 		<!-- Login Modal -->
