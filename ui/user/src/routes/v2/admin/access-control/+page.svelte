@@ -28,6 +28,14 @@
 	let showCreateRule = $state(false);
 	let ruleToDelete = $state<AccessControlRule>();
 
+	onMount(() => {
+		const url = new URL(window.location.href);
+		const queryParams = new URLSearchParams(url.search);
+		if (queryParams.get('new')) {
+			showCreateRule = true;
+		}
+	});
+
 	function handleNavigation(url: string) {
 		goto(url, { replaceState: false });
 	}

@@ -1,21 +1,26 @@
 import popover from '$lib/actions/popover.svelte';
+import type { Placement } from '@floating-ui/dom';
 
 interface TooltipOptions {
 	text: string;
 	disablePortal?: boolean;
-	maxWidthClass?: string;
+	classes?: string[];
+	placement?: Placement;
 }
 
 export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undefined) {
-	const tt = popover({ placement: 'top', delay: 300 });
+	const tt = popover({
+		placement: typeof opts === 'object' && opts.placement ? opts?.placement : 'top',
+		delay: 300
+	});
 
 	const p = document.createElement('p');
+	const defaultClasses = ['max-w-64', 'break-all'];
 	p.classList.add(
 		'hidden',
 		'tooltip',
 		'text-left',
-		'break-all',
-		typeof opts === 'object' ? (opts.maxWidthClass ?? 'max-w-64') : 'max-w-64'
+		...(typeof opts === 'object' ? (opts.classes ?? defaultClasses) : defaultClasses)
 	);
 
 	const update = (opts: TooltipOptions | string | undefined) => {

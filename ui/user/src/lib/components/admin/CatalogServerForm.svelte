@@ -5,12 +5,13 @@
 		type MCPCatalogEntryServerManifest,
 		type MCPCatalogServerManifest
 	} from '$lib/services/admin/types';
-	import { Info, Plus, Trash2 } from 'lucide-svelte';
+	import { Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import SingleMultiMcpForm from '../mcp/SingleMultiMcpForm.svelte';
 	import RemoteMcpForm from '../mcp/RemoteMcpForm.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import { onMount, type Snippet } from 'svelte';
 	import MarkdownInput from './MarkdownInput.svelte';
+	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -18,7 +19,7 @@
 		type?: 'single' | 'multi' | 'remote';
 		readonly?: boolean;
 		onCancel?: () => void;
-		onSubmit?: () => void;
+		onSubmit?: (id: string, type: 'single' | 'multi' | 'remote') => void;
 		hideTitle?: boolean;
 		readonlyMessage?: Snippet;
 	}
@@ -43,6 +44,10 @@
 		readonlyMessage
 	}: Props = $props();
 	let type = $derived(getType(entry) ?? newType);
+
+	let savedEntry = $state<MCPCatalogEntry | MCPCatalogServer>();
+	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
+	let loading = $state(false);
 
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): MCPCatalogEntryFormData {
 		if (!item) {
@@ -209,13 +214,23 @@
 
 	async function handleSubmit() {
 		if (!catalogId) return;
+
+		loading = true;
 		const handleFns = {
 			single: handleEntrySubmit,
 			multi: handleServerSubmit,
 			remote: handleEntrySubmit
 		};
-		await handleFns[type]?.(catalogId);
-		onSubmit?.();
+		const entryResponse = await handleFns[type]?.(catalogId);
+		savedEntry = entryResponse;
+
+		if (!entry) {
+			await selectRulesDialog?.open();
+			loading = false;
+		} else {
+			loading = false;
+			onSubmit?.(entryResponse.id, type);
+		}
 	}
 </script>
 
@@ -326,8 +341,26 @@
 		class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
 	>
 		<button class="button flex items-center gap-1" onclick={() => onCancel?.()}> Cancel </button>
-		<button class="button-primary flex items-center gap-1" onclick={handleSubmit}>
-			{entry ? 'Update' : 'Save'}
+		<button
+			class="button-primary flex items-center gap-1"
+			disabled={loading}
+			onclick={handleSubmit}
+		>
+			{#if loading}
+				<LoaderCircle class="size-4 animate-spin" />
+			{:else}
+				{entry ? 'Update' : 'Save'}
+			{/if}
 		</button>
 	</div>
 {/if}
+
+<SelectMcpAccessControlRules
+	bind:this={selectRulesDialog}
+	entry={savedEntry}
+	onSubmit={() => {
+		if (savedEntry) {
+			onSubmit?.(savedEntry.id, type);
+		}
+	}}
+/>

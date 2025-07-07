@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { ChevronLeft } from 'lucide-svelte';
 
 	interface Props {
@@ -17,7 +17,7 @@
 		if (type === 'mcp-servers') {
 			return [
 				{ href: '/v2/admin/mcp-servers', label: 'MCP Servers' },
-				...(id ? [{ href: `/v2/admin/mcp-servers?id=${id}`, label: convertToLabel(href) }] : [])
+				...(id ? [convertToMcpLink(id)] : [])
 			];
 		}
 
@@ -29,34 +29,20 @@
 	}
 
 	$effect(() => {
-		if (
-			fromURL &&
-			(mcpServerAndEntries.servers.length > 0 || mcpServerAndEntries.entries.length > 0)
-		) {
+		if (fromURL) {
 			links = [...convertToHistory(fromURL)];
 		}
 	});
 
-	const mcpServerAndEntries = getAdminMcpServerAndEntries();
-
-	function convertToLabel(href: string) {
-		const pathParts = href.split('/').filter(Boolean);
-		const [type, id] = pathParts;
-		let label: string | undefined = undefined;
-		if (type === 'mcp-servers') {
-			const match =
-				mcpServerAndEntries.entries.find((e) => e.id === id) ||
-				mcpServerAndEntries.servers.find((s) => s.id === id);
-			if (match) {
-				if ('manifest' in match) {
-					label = match.manifest.name;
-				} else {
-					label = match.commandManifest?.name || match.urlManifest?.name || 'Unknown';
-				}
-			}
-		}
-
-		return label || 'Unknown';
+	function convertToMcpLink(id: string) {
+		const stringified = sessionStorage.getItem(ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER);
+		const json = JSON.parse(stringified ?? '{}');
+		const label = id === json.id ? json.name : 'Unknown';
+		const href =
+			json.type === 'single' || json.type === 'remote'
+				? `/v2/admin/mcp-servers/c/${id}`
+				: `/v2/admin/mcp-servers/s/${id}`;
+		return { href, label };
 	}
 </script>
 

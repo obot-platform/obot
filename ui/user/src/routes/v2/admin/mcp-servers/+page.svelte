@@ -31,7 +31,6 @@
 	import { fade, fly, slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
-	import BackLink from '$lib/components/admin/BackLink.svelte';
 	import { browser } from '$app/environment';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
@@ -164,7 +163,7 @@
 <Layout>
 	<div class="flex flex-col gap-8 pt-4 pb-8" in:fade>
 		{#if showServerForm}
-			{@render configureEntryScreen(selectedEntryServer)}
+			{@render configureEntryScreen()}
 		{:else}
 			{@render mainContent()}
 		{/if}
@@ -215,9 +214,11 @@
 				data={tableData}
 				fields={['name', 'type', 'users', 'source']}
 				onSelectRow={(d) => {
-					goto(`?id=${d.id}`, { replaceState: true });
-					showServerForm = true;
-					selectedEntryServer = d.data;
+					if (d.type === 'single' || d.type === 'remote') {
+						goto(`/v2/admin/mcp-servers/c/${d.id}`);
+					} else {
+						goto(`/v2/admin/mcp-servers/s/${d.id}`);
+					}
 				}}
 				noDataMessage={'No catalog servers added.'}
 			>
@@ -296,32 +297,21 @@
 	</div>
 {/snippet}
 
-{#snippet configureEntryScreen(entry?: typeof selectedEntryServer)}
+{#snippet configureEntryScreen()}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
-		{#if entry}
-			{@const currentLabel =
-				'manifest' in entry
-					? (entry.manifest.name ?? 'MCP Server')
-					: (entry?.commandManifest?.name ?? entry?.urlManifest?.name ?? 'MCP Server')}
-			<BackLink fromURL={'/mcp-servers'} {currentLabel} />
-		{/if}
-
 		<McpServerEntryForm
-			{entry}
 			type={selectedServerType}
-			readonly={entry && 'sourceURL' in entry && !!entry.sourceURL}
 			catalogId={defaultCatalogId}
 			onCancel={() => {
-				goto('/v2/admin/mcp-servers', { replaceState: true });
 				selectedEntryServer = undefined;
 				showServerForm = false;
 			}}
-			onSubmit={async () => {
-				mcpServerAndEntries.entries = await AdminService.listMCPCatalogEntries(defaultCatalogId);
-				mcpServerAndEntries.servers = await AdminService.listMCPCatalogServers(defaultCatalogId);
-				goto('/v2/admin/mcp-servers', { replaceState: true });
-				selectedEntryServer = undefined;
-				showServerForm = false;
+			onSubmit={async (id, type) => {
+				if (type === 'single' || type === 'remote') {
+					goto(`/v2/admin/mcp-servers/c/${id}`);
+				} else {
+					goto(`/v2/admin/mcp-servers/s/${id}`);
+				}
 			}}
 		/>
 	</div>

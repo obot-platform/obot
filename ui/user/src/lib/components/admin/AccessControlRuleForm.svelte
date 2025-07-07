@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { PAGE_TRANSITION_DURATION, ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { AdminService } from '$lib/services';
 	import {
 		Role,
@@ -45,6 +45,7 @@
 	);
 
 	let saving = $state<boolean | undefined>();
+	let redirect = $state('');
 	let loadingUsers = $state<Promise<OrgUser[]>>();
 
 	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
@@ -64,6 +65,43 @@
 
 	onMount(async () => {
 		loadingUsers = AdminService.listUsers();
+	});
+
+	$effect(() => {
+		const initialAdditionId = sessionStorage.getItem(
+			ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION
+		);
+		if (
+			initialAdditionId &&
+			!adminMcpServerAndEntries.loading &&
+			(mcpServersMap.size > 0 || mcpEntriesMap.size > 0)
+		) {
+			// Check if this resource is already added to prevent duplicates
+			const existingResourceIds = new Set(
+				accessControlRule.resources?.map((resource) => resource.id) ?? []
+			);
+
+			if (!existingResourceIds.has(initialAdditionId)) {
+				const entry = mcpEntriesMap.get(initialAdditionId);
+				if (entry) {
+					accessControlRule.resources = [
+						...(accessControlRule.resources ?? []),
+						{ id: entry.id, type: 'mcpServerCatalogEntry' }
+					];
+					redirect = `/v2/admin/mcp-servers/c/${entry.id}`;
+				} else {
+					const server = mcpServersMap.get(initialAdditionId);
+					if (server) {
+						accessControlRule.resources = [
+							...(accessControlRule.resources ?? []),
+							{ id: server.id, type: 'mcpServer' }
+						];
+						redirect = `/v2/admin/mcp-servers/s/${server.id}`;
+					}
+				}
+			}
+			sessionStorage.removeItem(ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION);
+		}
 	});
 
 	function convertSubjectsToTableData(subjects: AccessControlRuleSubject[], users: OrgUser[]) {
@@ -282,7 +320,11 @@
 						saving = true;
 						const response = await AdminService.createAccessControlRule(accessControlRule);
 						accessControlRule = response;
-						onCreate?.(response);
+						if (redirect) {
+							goto(redirect);
+						} else {
+							onCreate?.(response);
+						}
 						saving = false;
 					}}
 				>

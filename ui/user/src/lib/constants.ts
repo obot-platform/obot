@@ -75,3 +75,8 @@ export const CommonAuthProviderIds = {
 } as const;
 
 export const BOOTSTRAP_USER_ID = 'bootstrap';
+
+export const ADMIN_SESSION_STORAGE = {
+	ACCESS_CONTROL_RULE_CREATION: 'access-control-rule-creation',
+	LAST_VISITED_MCP_SERVER: 'last-visited-mcp-server'
+} as const;
