@@ -37,7 +37,7 @@ type MCPOAuthToken struct {
 	Scopes       string
 
 	State       string
-	HashedState string `gorm:"unique"`
+	HashedState *string `gorm:"unique"`
 	Verifier    string
 
 	MCPServerInstance string `gorm:"primaryKey"`

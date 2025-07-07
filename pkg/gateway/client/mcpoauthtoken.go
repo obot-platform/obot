@@ -66,7 +66,7 @@ func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, mcpServerInstanceName
 	}
 
 	if state != "" {
-		t.HashedState = fmt.Sprintf("%x", sha256.Sum256([]byte(state)))
+		t.HashedState = &[]string{fmt.Sprintf("%x", sha256.Sum256([]byte(state)))}[0]
 	}
 
 	if err := c.encryptMCPOAuthToken(ctx, t); err != nil {
