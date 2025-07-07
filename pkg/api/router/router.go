@@ -52,6 +52,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.GatewayClient, services.ServerURL)
+	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 
 	// Version
@@ -448,6 +449,12 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	// MCP Gateway Endpoints
 	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.StreamableHTTP)
+
+	// MCP Audit Logs
+	mux.HandleFunc("GET /api/mcp-audit-logs", mcpAuditLogs.ListAuditLogs)
+	mux.HandleFunc("GET /api/mcp-audit-logs/{mcp_id}", mcpAuditLogs.ListAuditLogs)
+	mux.HandleFunc("GET /api/mcp-stats", mcpAuditLogs.GetUsageStats)
+	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
 
 	// MCP Servers in projects
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.ListServer)

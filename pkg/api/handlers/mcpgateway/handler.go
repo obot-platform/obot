@@ -2,20 +2,24 @@ package mcpgateway
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/tidwall/gjson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -34,8 +38,7 @@ func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionMana
 	return &Handler{
 		mcpSessionManager: mcpSessionManager,
 		sessions: &sessionStoreFactory{
-			client:       storageClient,
-			sessionCache: sync.Map{},
+			client: storageClient,
 		},
 		pendingRequests: &nmcp.PendingRequests{},
 		tokenStore:      NewGlobalTokenStore(gatewayClient),
@@ -78,12 +81,15 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 	}
 
 	handler := &messageHandler{
-		handler:      h,
-		mcpID:        mcpID,
-		client:       req.Storage,
-		resp:         req.ResponseWriter,
-		serverConfig: mcpServerConfig,
-		mcpServer:    mcpServer,
+		handler:       h,
+		mcpID:         mcpID,
+		client:        req.Storage,
+		gatewayClient: req.GatewayClient,
+		resp:          req.ResponseWriter,
+		serverConfig:  mcpServerConfig,
+		mcpServer:     mcpServer,
+		req:           req.Request,
+		userID:        req.User.GetUID(),
 	}
 	nmcp.NewHTTPServer(nil, handler, nmcp.HTTPServerOptions{SessionStore: h.sessions.NewStore(handler)}).ServeHTTP(req.ResponseWriter, req.Request)
 
@@ -91,40 +97,80 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 }
 
 type messageHandler struct {
-	handler      *Handler
-	mcpID        string
-	client       kclient.Client
-	resp         http.ResponseWriter
-	mcpServer    v1.MCPServer
-	serverConfig mcp.ServerConfig
+	handler       *Handler
+	mcpID         string
+	client        kclient.Client
+	gatewayClient *gateway.Client
+	resp          http.ResponseWriter
+	mcpServer     v1.MCPServer
+	serverConfig  mcp.ServerConfig
+	req           *http.Request
+	userID        string
 }
 
 func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
+	auditLog := &gatewaytypes.MCPAuditLog{
+		UserID:               m.userID,
+		MCPID:                m.mcpID,
+		MCPServerDisplayName: m.mcpServer.Spec.Manifest.Name,
+		ClientInfo:           gatewaytypes.ClientInfo(msg.Session.InitializeRequest.ClientInfo),
+		ClientIP:             m.getClientIP(),
+		CallIdentifier:       m.extractCallIdentifier(msg),
+		SessionID:            msg.Session.ID(),
+		UserAgent:            m.req.UserAgent(),
+		RequestHeaders:       m.captureHeaders(m.req.Header),
+	}
+	auditLog.RequestID, _ = msg.ID.(string)
+
 	if m.handler.pendingRequests.Notify(msg) {
+		// Insert the audit log for this request. The message handler will update it with its fields.
+		m.insertAuditLog(auditLog)
 		// This is a response to a pending request.
 		// We don't forward it to the client, just return.
 		return
+	}
+
+	// Capture audit log information
+	auditLog.CreatedAt = time.Now()
+	auditLog.CallType = msg.Method
+
+	// Capture request body if available
+	if msg.Params != nil {
+		if requestBody, err := json.Marshal(msg.Params); err == nil {
+			auditLog.RequestBody = requestBody
+		}
 	}
 
 	// If an unauthorized error occurs, send the proper status code.
 	var (
 		client *nmcp.Client
 		err    error
+		result any
 	)
 	defer func() {
+		// Complete audit log
+		auditLog.ProcessingTimeMs = time.Since(auditLog.CreatedAt).Milliseconds()
+		auditLog.ResponseHeaders = m.captureHeaders(m.resp.Header())
+
 		if err != nil {
+			auditLog.Error = err.Error()
+			auditLog.ResponseStatus = http.StatusInternalServerError
+
 			var oauthErr nmcp.AuthRequiredErr
 			if errors.As(err, &oauthErr) {
+				auditLog.ResponseStatus = http.StatusUnauthorized
 				m.resp.Header().Set(
 					"WWW-Authenticate",
 					fmt.Sprintf(`Bearer error="invalid_token", error_description="The access token is invalid or expired. Please re-authenticate and try again.", resource_metadata="%s/.well-known/oauth-protected-resource/%s"`, m.handler.baseURL, m.mcpID),
 				)
 				http.Error(m.resp, fmt.Sprintf("Unauthorized: %v", oauthErr), http.StatusUnauthorized)
+				m.insertAuditLog(auditLog)
 				return
 			}
 
 			if rpcError := (*nmcp.RPCError)(nil); errors.As(err, &rpcError) {
 				msg.SendError(ctx, rpcError)
+				m.insertAuditLog(auditLog)
 				return
 			}
 
@@ -132,7 +178,17 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 				Code:    -32603,
 				Message: fmt.Sprintf("failed to send message to server %s: %v", m.mcpServer.Name, err),
 			})
+		} else {
+			auditLog.ResponseStatus = http.StatusOK
+			// Capture response body if available
+			if result != nil {
+				if responseBody, err := json.Marshal(result); err == nil {
+					auditLog.ResponseBody = responseBody
+				}
+			}
 		}
+
+		m.insertAuditLog(auditLog)
 	}()
 
 	client, err = m.handler.mcpSessionManager.ClientForServer(ctx, m.mcpServer, m.serverConfig, m.clientMessageHandlerAsClientOption(m.handler.tokenStore.ForMCPID(m.mcpID), msg.Session))
@@ -141,7 +197,6 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		return
 	}
 
-	var result any
 	switch msg.Method {
 	case "notifications/initialized":
 		// This method is special because it is handled automatically by the client.
@@ -222,4 +277,87 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		})
 		return
 	}
+}
+
+// Helper methods for audit logging
+
+func (m *messageHandler) getClientIP() string {
+	// Check X-Forwarded-For header first
+	if forwarded := m.req.Header.Get("X-Forwarded-For"); forwarded != "" {
+		// Take the first IP in the list
+		if idx := strings.Index(forwarded, ","); idx != -1 {
+			return strings.TrimSpace(forwarded[:idx])
+		}
+		return strings.TrimSpace(forwarded)
+	}
+
+	// Check X-Real-IP header
+	if realIP := m.req.Header.Get("X-Real-IP"); realIP != "" {
+		return strings.TrimSpace(realIP)
+	}
+
+	// Fall back to RemoteAddr
+	if host, _, err := net.SplitHostPort(m.req.RemoteAddr); err == nil {
+		return host
+	}
+
+	return m.req.RemoteAddr
+}
+
+func (m *messageHandler) extractCallIdentifier(msg nmcp.Message) string {
+	switch msg.Method {
+	case "resources/read":
+		return gjson.GetBytes(msg.Params, "uri").String()
+	case "tools/call", "prompts/get":
+		return gjson.GetBytes(msg.Params, "name").String()
+	default:
+		return ""
+	}
+}
+
+func (m *messageHandler) captureHeaders(headers http.Header) json.RawMessage {
+	// Create a filtered version of headers (removing sensitive information)
+	filteredHeaders := make(map[string][]string)
+	for k, v := range headers {
+		// Skip sensitive headers
+		if strings.EqualFold(k, "Authorization") ||
+			strings.EqualFold(k, "Cookie") ||
+			strings.EqualFold(k, "X-Auth-Token") {
+			continue
+		}
+		filteredHeaders[k] = v
+	}
+
+	if data, err := json.Marshal(filteredHeaders); err == nil {
+		return data
+	}
+	return nil
+}
+
+func (m *messageHandler) insertAuditLog(auditLog *gatewaytypes.MCPAuditLog) {
+	// Insert audit log asynchronously to avoid blocking the response
+	go func() {
+		// Use a background context with timeout to avoid blocking
+		auditCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := m.gatewayClient.InsertMCPAuditLog(auditCtx, auditLog); err != nil {
+			// Log the error but don't fail the request
+			log.Errorf("Failed to insert MCP audit log: %v", err)
+		}
+	}()
+}
+
+func (m *messageHandler) updateAuditLog(auditLog *gatewaytypes.MCPAuditLog) {
+	// Insert audit log asynchronously to avoid blocking the response
+	go func() {
+		// Use a background context with timeout to avoid blocking
+		auditCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := m.gatewayClient.UpdateMCPAuditLogByRequestID(auditCtx, auditLog); err != nil {
+			// Log the error but don't fail the request
+			log.Errorf("Failed to insert MCP audit log: %v", err)
+		}
+	}()
 }

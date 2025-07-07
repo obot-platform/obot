@@ -52,7 +52,7 @@ func (a *WorkflowHandler) Update(req api.Context) error {
 func (a *WorkflowHandler) Delete(req api.Context) error {
 	var (
 		id             = req.PathValue("id")
-		deleteTriggers = req.Request.URL.Query().Get("delete-triggers")
+		deleteTriggers = req.URL.Query().Get("delete-triggers")
 	)
 
 	if deleteTriggers == "true" {

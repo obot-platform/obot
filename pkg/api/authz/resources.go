@@ -19,6 +19,8 @@ var apiResources = []string{
 	"GET    /mcp-connect/{mcp_id}",
 	"POST   /mcp-connect/{mcp_id}",
 	"DELETE /mcp-connect/{mcp_id}",
+	"GET    /api/mcp-stats/{mcp_id}",
+	"GET    /api/mcp-audit-logs/{mcp_id}",
 	"GET    /api/assistants",
 	"GET    /api/assistants/{assistant_id}",
 	"GET    /api/assistants/{assistant_id}/projects",

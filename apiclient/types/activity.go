@@ -1,7 +1,7 @@
 package types
 
 type APIActivity struct {
-	UserID string `json:"userId"`
+	UserID string `json:"userID"`
 	Date   Time   `json:"date"`
 }
 

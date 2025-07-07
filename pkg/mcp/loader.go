@@ -212,9 +212,9 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 		"mcp-server-config-name": key,
 		"mcp-server-scope":       server.Scope,
 	}
-	id := sessionID(server)
 
-	var objs []kclient.Object
+	id := sessionID(server)
+	objs := make([]kclient.Object, 0, 4)
 
 	secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+1)
 	secretVolumeStringData := make(map[string]string, len(server.Files))

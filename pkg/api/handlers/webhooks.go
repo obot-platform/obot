@@ -232,7 +232,7 @@ func (a *WebhookHandler) Execute(req api.Context) error {
 	if webhook.Spec.TokenHash != nil {
 		password := req.Request.Header.Get(WebhookTokenHTTPHeader)
 		if password == "" {
-			password = req.Request.URL.Query().Get(WebhookTokenQueryParam)
+			password = req.URL.Query().Get(WebhookTokenQueryParam)
 		}
 
 		if err := bcrypt.CompareHashAndPassword(webhook.Spec.TokenHash, []byte(password)); err != nil {
