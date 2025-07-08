@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -44,6 +45,7 @@ type Options struct {
 
 type SessionManager struct {
 	client                                    kclient.WithWatch
+	clientset                                 kubernetes.Interface
 	local                                     *gmcp.Local
 	baseImage, mcpNamespace, mcpClusterDomain string
 	allowedDockerImageRepos                   []string
@@ -51,7 +53,10 @@ type SessionManager struct {
 }
 
 func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, opts Options) (*SessionManager, error) {
-	var client kclient.WithWatch
+	var (
+		client    kclient.WithWatch
+		clientset kubernetes.Interface
+	)
 	if opts.MCPBaseImage != "" {
 		config, err := buildConfig()
 		if err != nil {
@@ -70,10 +75,16 @@ func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, opts Opti
 		})); err != nil {
 			log.Warnf("failed to create MCP namespace, namespace must exist for MCP deployments to work: %v", err)
 		}
+
+		clientset, err = kubernetes.NewForConfig(config)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &SessionManager{
 		client:                  client,
+		clientset:               clientset,
 		local:                   defaultLoader,
 		baseImage:               opts.MCPBaseImage,
 		mcpClusterDomain:        opts.MCPClusterDomain,
