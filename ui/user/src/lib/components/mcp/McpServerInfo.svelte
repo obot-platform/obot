@@ -40,7 +40,7 @@
 		if ('manifest' in entry) {
 			items = {
 				requiredConfig: {
-					label: 'Required Config',
+					label: 'Required Configuration',
 					value: entry.manifest?.env?.map((e) => e.key).join(', ') ?? []
 				},
 				users: {
@@ -68,7 +68,7 @@
 			const manifest = entry.commandManifest || entry.urlManifest;
 			items = {
 				requiredConfig: {
-					label: 'Required Config',
+					label: 'Required Configuration',
 					value:
 						manifest?.env
 							?.filter((e) => e.required)
@@ -186,49 +186,55 @@
 	});
 </script>
 
-<div class={twMerge('flex flex-col gap-4', klass)}>
-	{#if editable}
-		{#if editDescription}
-			<MarkdownTextEditor
-				bind:value={description}
-				initialFocus
-				onUpdate={handleDescriptionUpdate}
-				onCancel={() => (editDescription = false)}
-			/>
-		{:else}
-			<button
-				class="group relative min-h-8 w-fit pr-6 text-left"
-				onclick={() => (editDescription = true)}
-			>
-				{#if description}
-					<div class="milkdown-content">
-						{@html toHTMLFromMarkdown(description)}
-					</div>
-				{:else}
-					<span class="text-md text-gray-400 dark:text-gray-600">Add description here...</span>
-				{/if}
-				<div
-					class="absolute top-1.5 right-0 z-10 opacity-0 transition-opacity group-hover:opacity-100"
+<div class="flex w-full flex-col gap-4 md:flex-row">
+	<div class={twMerge('flex flex-col gap-4 md:w-3/5 lg:w-3/4', klass)}>
+		{#if editable}
+			{#if editDescription}
+				<MarkdownTextEditor
+					bind:value={description}
+					initialFocus
+					onUpdate={handleDescriptionUpdate}
+					onCancel={() => (editDescription = false)}
+				/>
+			{:else}
+				<button
+					class="group relative min-h-8 w-fit max-w-full pr-8 text-left"
+					onclick={() => (editDescription = true)}
 				>
-					<Pencil class="size-5 text-gray-400 dark:text-gray-600" />
-				</div>
-			</button>
+					{#if description}
+						<div class="milkdown-content">
+							{@html toHTMLFromMarkdown(description)}
+						</div>
+					{:else}
+						<span class="text-md text-gray-400 dark:text-gray-600">Add description here...</span>
+					{/if}
+					<div
+						class="absolute top-1.5 right-0 z-10 opacity-0 transition-opacity group-hover:opacity-100"
+						use:tooltip={'Edit Content'}
+					>
+						<Pencil class="size-5 text-gray-400 dark:text-gray-600" />
+					</div>
+				</button>
+			{/if}
+		{:else if description}
+			<div class="milkdown-content">
+				{@html toHTMLFromMarkdown(description)}
+			</div>
 		{/if}
-	{:else if description}
-		<div class="milkdown-content">
-			{@html toHTMLFromMarkdown(description)}
-		</div>
-	{/if}
-
-	{#if loading}
-		<div class="flex items-center justify-center">
-			<LoaderCircle class="size-6 animate-spin" />
-		</div>
-	{:else}
-		{@render capabilitiesSection()}
-		{@render toolsSection()}
-		{@render detailsSection()}
-	{/if}
+	</div>
+	<div
+		class="dark:bg-surface1 dark:border-surface3 flex h-fit w-full flex-shrink-0 flex-col gap-4 rounded-md border border-transparent bg-white p-4 shadow-sm md:w-2/5 lg:w-1/4"
+	>
+		{#if loading}
+			<div class="flex items-center justify-center">
+				<LoaderCircle class="size-6 animate-spin" />
+			</div>
+		{:else}
+			{@render capabilitiesSection()}
+			{@render toolsSection()}
+			{@render detailsSection()}
+		{/if}
+	</div>
 </div>
 
 {#snippet capabilitiesSection()}
@@ -271,12 +277,12 @@
 {#snippet detailsSection()}
 	<div class="flex flex-col gap-2">
 		<h4 class="text-md font-semibold">Details</h4>
-		<div class="grid grid-cols-3 gap-4">
+		<div class="flex flex-col gap-4">
 			{#each details.filter( (d) => (Array.isArray(d.value) ? d.value.length > 0 : d.value) ) as detail}
 				<div
-					class="dark:bg-surface2 dark:border-surface3 rounded-md border border-transparent bg-white p-4 shadow-sm"
+					class="dark:bg-surface2 dark:border-surface3 rounded-md border border-transparent bg-white p-3 shadow-sm"
 				>
-					<p class="mb-1 text-sm font-semibold">{detail.label}</p>
+					<p class="mb-1 text-xs font-medium">{detail.label}</p>
 					{#if detail.link}
 						<a href={detail.link} class="text-link" target="_blank" rel="noopener noreferrer">
 							{#if detail.showTooltip && typeof detail.value === 'string'}

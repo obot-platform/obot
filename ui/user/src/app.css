@@ -833,6 +833,29 @@
 	& img {
 		justify-self: center;
 	}
+
+	& table {
+		border: 1px solid var(--surface3);
+
+		& th {
+			padding: 0.5rem 1rem;
+			border-bottom: 1px solid var(--surface3);
+			&:not(:last-child) {
+				border-right: 1px solid var(--surface3);
+			}
+		}
+
+		& td {
+			padding: 0.5rem 1rem;
+			&:not(:last-child) {
+				border-right: 1px solid var(--surface3);
+			}
+		}
+
+		& tr:not(:last-child) {
+			border-bottom: 1px solid var(--surface3);
+		}
+	}
 }
 
 .dark {
