@@ -72,7 +72,7 @@
 						class="text-input-filled flex grow dark:bg-black"
 						bind:value={config.fixedURL}
 						disabled={readonly}
-						placeholder="e.g. https://custom.mcpserver.com/go/to"
+						placeholder="e.g. https://custom.mcpserver.example.com/go/to"
 					/>
 				</div>
 			{:else if selectedType === 'hostname' && typeof config.hostname !== 'undefined'}
