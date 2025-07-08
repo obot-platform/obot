@@ -21,6 +21,7 @@
 	import { fade } from 'svelte/transition';
 	import McpServerInfo from '$lib/components/mcp/McpServerInfo.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
+	import { twMerge } from 'tailwind-merge';
 
 	let userServerInstances = $state<MCPServerInstance[]>([]);
 	let userConfiguredServers = $state<MCPCatalogServer[]>([]);
@@ -376,7 +377,10 @@
 				<div class="flex max-w-[calc(100%-2rem)] flex-col">
 					<p class="text-sm font-semibold">{name}</p>
 					<span
-						class="line-clamp-2 text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600"
+						class={twMerge(
+							'text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600',
+							categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
+						)}
 					>
 						{#if 'manifest' in item}
 							{stripMarkdownToText(item.manifest.description ?? '')}
