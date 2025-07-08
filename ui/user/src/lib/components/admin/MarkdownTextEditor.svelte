@@ -259,12 +259,18 @@
 			}
 
 			& ol {
-				margin: 1rem 0;
+				margin: 0;
 				list-style-type: decimal;
-				padding-left: 1rem;
+				padding-left: 0;
+				line-height: initial;
 
 				& li {
-					margin-bottom: 0.5rem;
+					margin-bottom: 0;
+					line-height: initial;
+				}
+
+				& li:last-child {
+					margin-bottom: 1rem;
 				}
 
 				& ::marker {
@@ -273,12 +279,18 @@
 			}
 
 			& ul {
-				margin: 1rem 0;
+				margin: 0;
 				list-style-type: disc;
-				padding-left: 1rem;
+				padding: 0;
+				line-height: initial;
 
 				& li {
-					margin-bottom: 0.5rem;
+					margin-bottom: 0;
+					line-height: initial;
+				}
+
+				& li:last-child {
+					margin-bottom: 1rem;
 				}
 
 				& ::marker {
@@ -310,6 +322,20 @@
 
 				& tr:not(:last-child) {
 					border-bottom: 1px solid var(--surface3);
+				}
+			}
+
+			& code {
+				background-color: var(--surface1);
+				padding: 0.25rem 0.5rem;
+				border-radius: 0.25rem;
+				font-size: 0.875rem;
+				font-weight: 500;
+				color: var(--on-surface1);
+
+				.dark & {
+					background-color: var(--surface2);
+					color: var(--on-surface2);
 				}
 			}
 		}

@@ -860,6 +860,20 @@
 			border-bottom: 1px solid var(--surface3);
 		}
 	}
+
+	& code {
+		background-color: var(--surface1);
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.25rem;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: var(--on-surface1);
+
+		.dark & {
+			background-color: var(--surface2);
+			color: var(--on-surface2);
+		}
+	}
 }
 
 .dark {

@@ -119,13 +119,7 @@
 		{/if}
 
 		{#if view === 'overview' && entry}
-			<McpServerInfo
-				class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-8 rounded-lg border border-transparent bg-white p-4 shadow-sm"
-				editable={!readonly}
-				{catalogId}
-				{entry}
-				{onUpdate}
-			/>
+			<McpServerInfo editable={!readonly} {catalogId} {entry} {onUpdate} />
 		{:else if view === 'configuration'}
 			{@render configurationView()}
 		{:else if view === 'access-control'}

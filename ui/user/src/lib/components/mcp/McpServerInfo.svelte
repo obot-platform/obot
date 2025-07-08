@@ -18,7 +18,6 @@
 	import MarkdownTextEditor from '../admin/MarkdownTextEditor.svelte';
 
 	interface Props {
-		class?: string;
 		entry: MCPCatalogEntry | MCPCatalogServer;
 		editable?: boolean;
 		catalogId?: string;
@@ -121,7 +120,7 @@
 		return details.filter((d) => d);
 	}
 
-	let { entry, class: klass, editable = false, catalogId, onUpdate }: Props = $props();
+	let { entry, editable = false, catalogId, onUpdate }: Props = $props();
 	let tools = $state<MCPServerTool[]>([]);
 	let prompts = $state<MCPServerPrompt[]>([]);
 	let resources = $state<McpServerResource[]>([]);
@@ -187,7 +186,9 @@
 </script>
 
 <div class="flex w-full flex-col gap-4 md:flex-row">
-	<div class={twMerge('flex flex-col gap-4 md:w-1/2 lg:w-8/12', klass)}>
+	<div
+		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm md:w-1/2 lg:w-8/12"
+	>
 		{#if editable}
 			{#if editDescription}
 				<MarkdownTextEditor
@@ -196,22 +197,25 @@
 					onUpdate={handleDescriptionUpdate}
 					onCancel={() => (editDescription = false)}
 				/>
+			{:else if description}
+				<div class="group relative w-full">
+					<div class="milkdown-content">
+						{@html toHTMLFromMarkdown(description)}
+					</div>
+					<button
+						class="icon-button absolute top-0 right-0 z-10 min-h-8 opacity-0 transition-all group-hover:opacity-100"
+						onclick={() => (editDescription = true)}
+					>
+						<Pencil class="size-5 text-gray-400 dark:text-gray-600" />
+					</button>
+				</div>
 			{:else}
 				<button
-					class="group relative min-h-8 w-fit max-w-full pr-8 text-left"
+					class="group relative flex min-h-8 w-full justify-between gap-2 pt-0 text-left"
 					onclick={() => (editDescription = true)}
 				>
-					{#if description}
-						<div class="milkdown-content">
-							{@html toHTMLFromMarkdown(description)}
-						</div>
-					{:else}
-						<span class="text-md text-gray-400 dark:text-gray-600">Add description here...</span>
-					{/if}
-					<div
-						class="absolute top-1.5 right-0 z-10 opacity-0 transition-opacity group-hover:opacity-100"
-						use:tooltip={'Edit Content'}
-					>
+					<span class="text-md text-gray-400 dark:text-gray-600">Add description here...</span>
+					<div class="icon-button opacity-0 group-hover:opacity-100">
 						<Pencil class="size-5 text-gray-400 dark:text-gray-600" />
 					</div>
 				</button>
