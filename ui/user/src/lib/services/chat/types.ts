@@ -674,6 +674,7 @@ export interface MCPCatalogServer {
 	missingRequiredHeaders: string[];
 	sharedWithinCatalogName: string;
 	created: string;
+	deleted?: string;
 	updated: string;
 	type: string;
 	manifest: MCPServer;

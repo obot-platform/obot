@@ -59,6 +59,18 @@ export async function listMCPCatalogEntries(
 	return response.items ?? [];
 }
 
+export async function getMCPCatalogEntry(
+	catalogID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogEntry> {
+	const response = (await doGet(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}`,
+		opts
+	)) as MCPCatalogEntry;
+	return response;
+}
+
 export async function createMCPCatalogEntry(
 	catalogID: string,
 	entry: MCPCatalogEntryServerManifest,

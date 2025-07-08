@@ -76,18 +76,20 @@
 			return [];
 		}
 
-		return entries.map((entry) => {
-			return {
-				id: entry.id,
-				name: entry.commandManifest?.name ?? entry.urlManifest?.name ?? '',
-				icon: entry.commandManifest?.icon ?? entry.urlManifest?.icon,
-				source: entry.sourceURL || 'manual',
-				data: entry,
-				users: '-',
-				editable: !entry.sourceURL,
-				type: entry.commandManifest ? 'single' : 'remote'
-			};
-		});
+		return entries
+			.filter((entry) => !entry.deleted)
+			.map((entry) => {
+				return {
+					id: entry.id,
+					name: entry.commandManifest?.name ?? entry.urlManifest?.name ?? '',
+					icon: entry.commandManifest?.icon ?? entry.urlManifest?.icon,
+					source: entry.sourceURL || 'manual',
+					data: entry,
+					users: '-',
+					editable: !entry.sourceURL,
+					type: entry.commandManifest ? 'single' : 'remote'
+				};
+			});
 	}
 
 	function convertServersToTableData(servers: MCPCatalogServer[] | undefined) {
@@ -96,7 +98,7 @@
 		}
 
 		return servers
-			.filter((server) => !server.catalogEntryID)
+			.filter((server) => !server.catalogEntryID && !server.deleted)
 			.map((server) => {
 				return {
 					id: server.id,

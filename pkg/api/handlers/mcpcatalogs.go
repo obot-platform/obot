@@ -133,6 +133,28 @@ func (h *MCPCatalogHandler) ListEntriesForCatalog(req api.Context) error {
 	return req.Write(types.MCPServerCatalogEntryList{Items: items})
 }
 
+// GetEntry returns a specific entry from a catalog.
+func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	entryName := req.PathValue("entry_id")
+
+	var catalog v1.MCPCatalog
+	if err := req.Get(&catalog, catalogName); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return fmt.Errorf("failed to get entry: %w", err)
+	}
+
+	if entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	}
+
+	return req.Write(convertMCPServerCatalogEntry(entry))
+}
+
 // CreateEntry creates a new entry for a catalog.
 func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")

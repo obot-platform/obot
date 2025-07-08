@@ -9,10 +9,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 
 	let catalogEntry;
 	try {
-		const catalogEntries = await AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, {
-			fetch
-		});
-		catalogEntry = catalogEntries.find((entry) => entry.id === id);
+		catalogEntry = await AdminService.getMCPCatalogEntry(DEFAULT_MCP_CATALOG_ID, id, { fetch });
 	} catch (err) {
 		handleRouteError(err, `/v2/admin/mcp-servers/c/${id}`, profile.current);
 	}

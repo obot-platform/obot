@@ -32,6 +32,7 @@ export interface MCPCatalogEntryServerManifest {
 export interface MCPCatalogEntry {
 	id: string;
 	created: string;
+	deleted?: string;
 	commandManifest?: MCPCatalogEntryServerManifest;
 	urlManifest?: MCPCatalogEntryServerManifest;
 	sourceURL?: string;
