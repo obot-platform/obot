@@ -138,11 +138,6 @@ func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
 	entryName := req.PathValue("entry_id")
 
-	var catalog v1.MCPCatalog
-	if err := req.Get(&catalog, catalogName); err != nil {
-		return fmt.Errorf("failed to get catalog: %w", err)
-	}
-
 	var entry v1.MCPServerCatalogEntry
 	if err := req.Get(&entry, entryName); err != nil {
 		return fmt.Errorf("failed to get entry: %w", err)
