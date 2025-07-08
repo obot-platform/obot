@@ -80,17 +80,19 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 		return fmt.Errorf("failed to get MCP server: %v", err)
 	}
 
-	// Make sure the user is allowed to access this MCP server.
-	if server.Spec.SharedWithinMCPCatalogName == system.DefaultCatalog {
-		hasAccess, err := h.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), server.Name)
-		if err != nil {
-			return err
-		}
-		if !hasAccess {
+	if !req.UserIsAdmin() {
+		// If the user is not an admin, make sure they're allowed to access this MCP server.
+		if server.Spec.SharedWithinMCPCatalogName == system.DefaultCatalog {
+			hasAccess, err := h.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), server.Name)
+			if err != nil {
+				return err
+			}
+			if !hasAccess {
+				return types.NewErrNotFound("MCP server not found")
+			}
+		} else if server.Spec.UserID != req.User.GetUID() {
 			return types.NewErrNotFound("MCP server not found")
 		}
-	} else if server.Spec.UserID != req.User.GetUID() {
-		return types.NewErrNotFound("MCP server not found")
 	}
 
 	var (
