@@ -308,7 +308,11 @@
 				<button
 					class="button text-sm"
 					onclick={() => {
-						goto('/v2/admin/access-control');
+						if (redirect) {
+							goto(redirect);
+						} else {
+							goto('/v2/admin/access-control');
+						}
 					}}
 				>
 					Cancel
