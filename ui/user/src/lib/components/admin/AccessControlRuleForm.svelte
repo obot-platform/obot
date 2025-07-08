@@ -132,11 +132,11 @@
 </script>
 
 <div
-	class="flex h-full w-full flex-col gap-8"
+	class="flex h-full w-full flex-col gap-4"
 	out:fly={{ x: 100, duration }}
 	in:fly={{ x: 100, delay: duration }}
 >
-	<div class="flex grow flex-col gap-8" out:fly={{ x: -100, duration }} in:fly={{ x: -100 }}>
+	<div class="flex grow flex-col gap-4" out:fly={{ x: -100, duration }} in:fly={{ x: -100 }}>
 		{#if topContent}
 			{@render topContent()}
 		{/if}

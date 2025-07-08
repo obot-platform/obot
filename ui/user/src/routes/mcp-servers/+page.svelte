@@ -20,7 +20,7 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import McpServerInfo from '$lib/components/mcp/McpServerInfo.svelte';
-	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import { stripMarkdownToText } from '$lib/markdown';
 
 	let userServerInstances = $state<MCPServerInstance[]>([]);
 	let userConfiguredServers = $state<MCPCatalogServer[]>([]);
@@ -349,7 +349,7 @@
 	{@const categories = parseCategories(item)}
 	<div class="mcp-server-card relative flex flex-col">
 		<button
-			class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white px-2 py-4 text-left shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
 			onclick={() => {
 				if (!instance) {
 					handleSelectItem(item);
@@ -373,15 +373,15 @@
 						<Server />
 					{/if}
 				</div>
-				<div class="flex flex-col">
+				<div class="flex max-w-[calc(100%-2rem)] flex-col">
 					<p class="text-sm font-semibold">{name}</p>
 					<span
 						class="line-clamp-2 text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600"
 					>
 						{#if 'manifest' in item}
-							{@html toHTMLFromMarkdown(item.manifest.description ?? '')}
+							{stripMarkdownToText(item.manifest.description ?? '')}
 						{:else}
-							{@html toHTMLFromMarkdown(
+							{stripMarkdownToText(
 								item.commandManifest?.description ?? item.urlManifest?.description ?? ''
 							)}
 						{/if}

@@ -187,7 +187,7 @@
 </script>
 
 <div class="flex w-full flex-col gap-4 md:flex-row">
-	<div class={twMerge('flex flex-col gap-4 md:w-3/5 lg:w-3/4', klass)}>
+	<div class={twMerge('flex flex-col gap-4 md:w-1/2 lg:w-8/12', klass)}>
 		{#if editable}
 			{#if editDescription}
 				<MarkdownTextEditor
@@ -223,7 +223,7 @@
 		{/if}
 	</div>
 	<div
-		class="dark:bg-surface1 dark:border-surface3 flex h-fit w-full flex-shrink-0 flex-col gap-4 rounded-md border border-transparent bg-white p-4 shadow-sm md:w-2/5 lg:w-1/4"
+		class="dark:bg-surface1 dark:border-surface3 flex h-fit w-full flex-shrink-0 flex-col gap-4 rounded-md border border-transparent bg-white p-4 shadow-sm md:w-1/2 lg:w-4/12"
 	>
 		{#if loading}
 			<div class="flex items-center justify-center">
@@ -241,7 +241,7 @@
 	{#if 'manifest' in entry}
 		<div class="flex flex-col gap-2">
 			<h4 class="text-md font-semibold">Capabilities</h4>
-			<ul class="flex flex-wrap items-center gap-4">
+			<ul class="flex flex-wrap items-center gap-2">
 				{@render capabiliity('Tool Catalog', tools.length > 0)}
 				{@render capabiliity('Prompts', prompts.length > 0)}
 				{@render capabiliity('Resources', resources.length > 0)}
@@ -253,14 +253,14 @@
 {#snippet capabiliity(name: string, enabled: boolean)}
 	<li
 		class={twMerge(
-			'flex w-fit items-center justify-center gap-2 rounded-full px-4 py-1 text-sm font-light',
+			'flex w-fit items-center justify-center gap-1 rounded-full px-4 py-1 text-xs font-light',
 			enabled ? 'bg-blue-200/50 dark:bg-blue-800/50' : 'bg-gray-200/50 dark:bg-gray-800/50'
 		)}
 	>
 		{#if enabled}
-			<CircleCheckBig class="size-4 text-blue-500" />
+			<CircleCheckBig class="size-3 text-blue-500" />
 		{:else}
-			<CircleOff class="size-4 text-gray-400 dark:text-gray-600" />
+			<CircleOff class="size-3 text-gray-400 dark:text-gray-600" />
 		{/if}
 		{name}
 	</li>
@@ -280,7 +280,7 @@
 		<div class="flex flex-col gap-4">
 			{#each details.filter( (d) => (Array.isArray(d.value) ? d.value.length > 0 : d.value) ) as detail}
 				<div
-					class="dark:bg-surface2 dark:border-surface3 rounded-md border border-transparent bg-white p-3 shadow-sm"
+					class="dark:bg-surface2 dark:border-surface3 border-surface2 rounded-md border bg-gray-50 p-3"
 				>
 					<p class="mb-1 text-xs font-medium">{detail.label}</p>
 					{#if detail.link}

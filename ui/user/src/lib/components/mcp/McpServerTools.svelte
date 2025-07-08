@@ -42,24 +42,24 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<div class="flex items-center justify-between gap-4">
-		<h4 class="text-md font-semibold">Tools</h4>
-		<div class="flex flex-wrap justify-end gap-4 border-r border-transparent pr-3">
+	<h4 class="text-md font-semibold">Tools</h4>
+	<div class="flex w-full justify-end">
+		<div class="flex flex-wrap items-center justify-end gap-2">
 			<Toggle
 				checked={allDescriptionsEnabled}
 				onChange={(checked) => {
 					allDescriptionsEnabled = checked;
 					expandedDescriptions = {};
 				}}
-				label="Show All Descriptions"
+				label="All Descriptions"
 				labelInline
 				classes={{
-					label: 'text-sm gap-2'
+					label: 'text-xs gap-2'
 				}}
 			/>
 
 			{#if !responsive.isMobile}
-				<div class="bg-surface3 h-5 w-0.5"></div>
+				<div class="bg-surface3 mx-2 h-5 w-0.5"></div>
 			{/if}
 
 			<Toggle
@@ -68,10 +68,10 @@
 					allParamsEnabled = checked;
 					expandedParams = {};
 				}}
-				label="Show All Parameters"
+				label="All Parameters"
 				labelInline
 				classes={{
-					label: 'text-sm gap-2'
+					label: 'text-xs gap-2'
 				}}
 			/>
 		</div>
@@ -79,14 +79,12 @@
 	<div class="flex flex-col gap-2 overflow-hidden">
 		{#each tools as tool}
 			<div
-				class="border-surface2 dark:bg-surface2 dark:border-surface3 flex flex-col gap-2 rounded-md border p-3"
+				class="border-surface2 dark:bg-surface2 dark:border-surface3 flex flex-col gap-2 rounded-md border"
+				class:pb-2={!expandedDescriptions[tool.id] && !allDescriptionsEnabled}
 			>
-				<div class="flex items-center justify-between gap-2">
-					<p class="text-md font-semibold">
+				<div class="flex items-center justify-between gap-2 px-2 pt-2">
+					<p class="text-xs font-medium">
 						{tool.name}
-						{#if tool.unsupported}
-							<span class="ml-3 text-sm text-gray-500"> ⚠️ Not yet fully supported in Obot </span>
-						{/if}
 					</p>
 					<div class="flex flex-shrink-0 items-center gap-2">
 						<button
@@ -101,22 +99,31 @@
 						</button>
 					</div>
 				</div>
+				{#if tool.unsupported}
+					<p class="px-2 text-[11px] font-light text-gray-500">
+						⚠️ Not yet fully supported in Obot
+					</p>
+				{/if}
 				{#if expandedDescriptions[tool.id] || allDescriptionsEnabled}
-					<p in:slide={{ axis: 'y' }} class="text-sm font-light text-gray-500">
+					<p
+						in:slide={{ axis: 'y' }}
+						class="px-2 text-xs font-light text-gray-500"
+						class:pb-2={!expandedParams[tool.id] && !allParamsEnabled}
+					>
 						{tool.description}
 					</p>
 					{#if Object.keys(tool.params ?? {}).length > 0}
 						{#if expandedParams[tool.id] || allParamsEnabled}
 							<div
-								class={'from-surface2 dark:from-surface3 flex w-full flex-shrink-0 bg-linear-to-r to-transparent px-4 py-2 text-xs font-semibold text-gray-500 md:w-sm'}
+								class={'from-surface2 dark:from-surface3 flex w-full flex-shrink-0 bg-linear-to-r to-transparent p-2 text-xs font-semibold text-gray-500'}
 							>
 								Parameters
 							</div>
-							<div class="flex flex-col px-4 text-xs" in:slide={{ axis: 'y' }}>
+							<div class="flex flex-col px-2 pb-2 text-xs" in:slide={{ axis: 'y' }}>
 								<div class="flex flex-col gap-2">
 									{#each Object.keys(tool.params ?? {}) as paramKey}
 										<div class="flex flex-col items-center gap-2 md:flex-row">
-											<p class="self-start font-semibold text-gray-500 md:min-w-xs">
+											<p class="self-start font-semibold text-gray-500">
 												{paramKey}
 											</p>
 											<p class="self-start font-light text-gray-500">

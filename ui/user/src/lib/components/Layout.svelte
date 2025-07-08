@@ -60,7 +60,7 @@
 				]
 			: [
 					{
-						href: '/v2/admin/mcp-servers',
+						href: '/mcp-servers',
 						icon: Server,
 						label: 'MCP Servers'
 					}

@@ -61,8 +61,8 @@
 </script>
 
 <div class="flex flex-wrap items-center">
-	{#each links as link}
-		<ChevronLeft class="mx-2 size-4" />
+	{#each links as link, index}
+		<ChevronLeft class={index === 0 ? 'mr-2 size-4' : 'mx-2 size-4'} />
 
 		<a href={link.href} class="button-text flex items-center gap-2 p-0 text-lg font-light">
 			{link.label}

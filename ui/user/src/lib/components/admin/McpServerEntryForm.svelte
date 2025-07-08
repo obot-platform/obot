@@ -58,7 +58,7 @@
 	}
 </script>
 
-<div class="flex h-full w-full flex-col gap-8">
+<div class="flex h-full w-full flex-col gap-4">
 	{#if entry}
 		<div class="flex items-center justify-between gap-4">
 			<div class="flex items-center gap-2">
