@@ -123,7 +123,6 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		}
 	}()
 
-	m.serverConfig.Scope = msg.Session.ID()
 	client, err = m.handler.mcpSessionManager.ClientForServer(ctx, m.mcpServer, m.serverConfig, m.clientMessageHandlerAsClientOption(m.handler.tokenStore.ForServerInstance(m.mcpServerInstanceName), msg.Session))
 	if err != nil {
 		log.Errorf("Failed to get client for server %s: %v", m.mcpServer.Name, err)
