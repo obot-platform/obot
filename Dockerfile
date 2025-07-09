@@ -41,10 +41,9 @@ COPY --from=build-pgvector /usr/share/postgresql17/extension/vector* /usr/share/
 
 RUN apk add --no-cache git python-3.13 py3.13-pip npm nodejs bash tini procps libreoffice docker perl-utils sqlite sqlite-dev curl kubectl jq
 COPY --chmod=0755 /tools/package-chrome.sh /
-COPY --chmod=0444 catalog /catalog
 
 RUN /package-chrome.sh && rm /package-chrome.sh
-ENV OBOT_SERVER_DEFAULT_MCPCATALOG_PATH=/catalog
+ENV OBOT_SERVER_DEFAULT_MCPCATALOG_PATH=https://github.com/obot-platform/mcp-catalog
 
 COPY aws-encryption.yaml /
 COPY azure-encryption.yaml /

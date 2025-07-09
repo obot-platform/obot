@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -254,7 +255,17 @@ func (h *Handler) readMCPCatalogDirectory(catalog string) ([]types.MCPServerCata
 func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) error {
 	var existing v1.MCPCatalog
 	if err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultCatalog), &existing); err == nil {
-		// Default catalog already exists, do nothing.
+		// TODO: Remove this migration logic once we've migrated all Obot deployments to the new catalog path.
+		if i := slices.IndexFunc(existing.Spec.SourceURLs, func(url string) bool {
+			matched, _ := regexp.MatchString(`^(\./)?/?catalog$`, url)
+			return matched
+		}); i >= 0 {
+			existing.Spec.SourceURLs[i] = h.defaultCatalogPath
+			if err := c.Update(ctx, &existing); err != nil {
+				return fmt.Errorf("failed to migrate default catalog: %w", err)
+			}
+		}
+
 		return nil
 	}
 
