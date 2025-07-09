@@ -296,7 +296,7 @@
 
 		<div class="flex flex-col gap-1">
 			<span class="text-sm font-light capitalize">Categories</span>
-			{#each formData.categories as _category, index}
+			{#each formData.categories as _category, index (index)}
 				<div class="flex w-full items-center gap-2">
 					<div class="flex grow items-center gap-2">
 						<input

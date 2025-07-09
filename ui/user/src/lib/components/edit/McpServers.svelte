@@ -212,7 +212,7 @@
 	<div class="flex flex-col gap-2">
 		{#if projectMCPs.items.length > 0}
 			<div class="flex flex-col">
-				{#each projectMCPs.items as mcp}
+				{#each projectMCPs.items as mcp (mcp.id)}
 					<div
 						class="group hover:bg-surface3 flex w-full items-center rounded-md transition-colors duration-200"
 					>

@@ -35,7 +35,7 @@
 		<div class="flex gap-4">
 			<span class="pt-2.5 text-sm font-light">Arguments</span>
 			<div class="flex min-h-10 grow flex-col gap-4">
-				{#each config.args as _arg, i}
+				{#each config.args as _arg, i (i)}
 					<div class="flex items-center gap-2">
 						<input
 							class="text-input-filled w-full dark:bg-black"
@@ -138,7 +138,7 @@
 
 {#snippet showConfigEnv(envs: MCPCatalogEntryServerManifest['env'])}
 	{#if envs}
-		{#each envs as env, i}
+		{#each envs as env, i (i)}
 			<div
 				class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
 			>

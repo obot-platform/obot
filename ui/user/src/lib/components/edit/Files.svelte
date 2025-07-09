@@ -160,7 +160,7 @@
 {#snippet content()}
 	{#if files && files.length > 0}
 		<ul class={classes?.list}>
-			{#each files as file}
+			{#each files as file, i (i)}
 				<li class="group">
 					<div class="flex">
 						<button
@@ -290,7 +290,7 @@
 		<X class="size-6 md:size-8" />
 	</button>
 	<div class="flex h-full flex-col p-5">
-		{#each items as item}
+		{#each items as item (item.id)}
 			{#if item.selected}
 				<h2 class="ml-2 pr-12 text-base font-semibold break-words md:text-xl">{item.name}</h2>
 			{/if}

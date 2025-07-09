@@ -104,7 +104,7 @@
 		tasks, or working with some tools, etc. Select your default models for the usage types below.
 	</p>
 	<div class="flex flex-col gap-4 py-4">
-		{#each sortedModelAliases as modelAlias}
+		{#each sortedModelAliases as modelAlias (modelAlias.alias)}
 			{@const usage = getModelUsageFromAlias(modelAlias.alias)}
 			{@const activeModelOptions = usage
 				? filterModelsByActive(filterModelsByUsage(adminModels.items ?? [], usage))

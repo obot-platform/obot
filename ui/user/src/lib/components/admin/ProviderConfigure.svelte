@@ -115,7 +115,7 @@
 				<div class="flex flex-col gap-4">
 					<h4 class="text-lg font-semibold">Required Configuration</h4>
 					<ul class="flex flex-col gap-4">
-						{#each requiredConfigurationParameters as parameter}
+						{#each requiredConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
 								{@const error = !form[parameter.name].length && showRequired}
 								<li class="flex flex-col gap-1">
@@ -147,7 +147,7 @@
 				<div class="flex flex-col gap-2">
 					<h4 class="text-lg font-semibold">Optional Configuration</h4>
 					<ul class="flex flex-col gap-4">
-						{#each optionalConfigurationParameters as parameter}
+						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
 								<li class="flex flex-col gap-1">
 									<label for={parameter.name}>{parameter.friendlyName}</label>

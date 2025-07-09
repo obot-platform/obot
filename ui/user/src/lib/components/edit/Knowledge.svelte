@@ -87,7 +87,7 @@
 			<div class="flex flex-col gap-2 pr-3">
 				{#if knowledgeFiles.length > 0}
 					<div class="flex flex-col gap-4 text-sm">
-						{#each knowledgeFiles as file}
+						{#each knowledgeFiles as file (file.fileName)}
 							{#key file.fileName}
 								<KnowledgeFile {file} onDelete={() => remove(file)} iconSize={4} />
 							{/key}

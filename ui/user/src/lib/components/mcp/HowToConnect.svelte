@@ -111,7 +111,7 @@
 		class="default-scrollbar-thin scrollbar-none flex overflow-x-auto"
 		style="scroll-behavior: smooth;"
 	>
-		{#each options as option}
+		{#each options as option (option.key)}
 			<li class="w-36 flex-shrink-0">
 				<button
 					class={twMerge(
@@ -158,7 +158,7 @@
 
 <div class="w-full overflow-hidden">
 	<div class="flex min-h-[400px] w-[200%]">
-		{#each options as option}
+		{#each options as option (option.key)}
 			{#if selected === option.key}
 				<div
 					in:fly={{ x: flyDirection, duration: 200, delay: 200 }}

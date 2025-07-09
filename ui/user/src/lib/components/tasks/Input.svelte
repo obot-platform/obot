@@ -51,7 +51,7 @@
 
 	{#if task?.onDemand?.params}
 		<div class="mt-4 flex flex-col items-baseline gap-4">
-			{#each Object.keys(task.onDemand.params) as key}
+			{#each Object.keys(task.onDemand.params) as key (key)}
 				<div class="flex w-full flex-col gap-1">
 					<label for="param-{key}" class="flex-1 text-sm font-medium capitalize">{key}</label>
 					<input

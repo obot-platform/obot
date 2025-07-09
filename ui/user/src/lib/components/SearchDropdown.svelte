@@ -1,7 +1,4 @@
 <script lang="ts" generics="T extends { id: string | number }">
-	/* eslint-disable no-undef */
-	// need to disable until eslint/typescript supports generics in svelte
-
 	import { responsive } from '$lib/stores';
 	import { onMount, type Snippet } from 'svelte';
 	import Search from './Search.svelte';
@@ -100,7 +97,7 @@
 	>
 		<div class="flex h-full flex-col">
 			<div class="default-scrollbar-thin flex min-h-0 grow flex-col overflow-y-auto">
-				{#each filteredItems as result}
+				{#each filteredItems as result (result.id)}
 					{@render searchResult(result)}
 				{/each}
 				{#if filteredItems.length === 0 && search}

@@ -82,7 +82,7 @@
 			files is made, but no changes are persisted back to the global workspace.
 		</p>
 		<ul class="space-y-4 py-6 text-sm">
-			{#each files.items as file}
+			{#each files.items as file (file.name)}
 				<li class="group">
 					<div class="flex">
 						<button

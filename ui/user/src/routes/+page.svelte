@@ -213,7 +213,7 @@
 			<div
 				class="border-surface3 relative -top-[18px] flex -translate-y-5 flex-col items-center gap-4 rounded-xl border-2 px-4 pt-6 pb-4"
 			>
-				{#each authProviders as provider}
+				{#each authProviders as provider (provider.id)}
 					<a
 						rel="external"
 						href="/oauth2/start?rd={encodeURIComponent(

@@ -79,7 +79,7 @@
 		role="button"
 		tabindex="0"
 	>
-		{#each value as item}
+		{#each value as item (item.label)}
 			<div
 				class="flex items-center gap-1 rounded bg-gray-100 px-2 py-0.5 text-sm dark:bg-gray-600"
 				transition:fade
@@ -122,7 +122,7 @@
 					Add "{inputValue}"
 				</button>
 			{/if}
-			{#each options.filter((o) => !value.some((v) => v.value === o.value)) as option}
+			{#each options.filter((o) => !value.some((v) => v.value === o.value)) as option (option.label)}
 				<button
 					type="button"
 					class="w-full px-3 py-1 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"

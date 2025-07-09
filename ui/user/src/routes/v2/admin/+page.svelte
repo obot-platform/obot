@@ -92,7 +92,7 @@
 						<div
 							class="border-surface3 relative flex -translate-y-4 flex-col items-center gap-4 rounded-xl border-2 px-4 pt-6 pb-4"
 						>
-							{#each authProviders as authProvider}
+							{#each authProviders as authProvider (authProvider.id)}
 								<a
 									rel="external"
 									href="/oauth2/start?rd={encodeURIComponent(

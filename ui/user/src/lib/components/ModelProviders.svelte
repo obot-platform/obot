@@ -194,8 +194,8 @@
 						>Select the default model for this agent</option
 					>
 					{#if hasOneModelSelected}
-						{#each Object.entries(selectedModels) as [providerId, models]}
-							{#each models as model}
+						{#each Object.entries(selectedModels) as [providerId, models] (providerId)}
+							{#each models as model (model)}
 								{#if providerId}
 									{@const provider = modelProviders.find((p) => p.id === providerId)}
 

@@ -165,11 +165,11 @@
 {#snippet body()}
 	<div class="relative flex w-full max-w-(--breakpoint-2xl)">
 		{#if !responsive.isMobile}
-			<div class={'sticky top-0 left-0 h-[calc(100vh-9rem)] w-xs flex-shrink-0 p-4'}>
+			<div class="sticky top-0 left-0 h-[calc(100vh-9rem)] w-xs flex-shrink-0 p-4">
 				<div class="flex flex-col gap-4">
 					<h3 class="text-2xl font-semibold">Categories</h3>
 					<ul class="flex flex-col">
-						{#each categories as category}
+						{#each categories as category (category)}
 							<li>
 								<button
 									class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"

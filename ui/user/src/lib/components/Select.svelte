@@ -63,7 +63,7 @@
 		bind:this={popover}
 		class="default-scrollbar-thin absolute top-0 left-0 z-10 max-h-[300px] w-full translate-y-10 overflow-y-auto rounded-sm"
 	>
-		{#each availableOptions as option}
+		{#each availableOptions as option (option.id)}
 			<button
 				class="hover:bg-surface2 text-md w-full px-4 py-2 text-left"
 				onclick={() => {

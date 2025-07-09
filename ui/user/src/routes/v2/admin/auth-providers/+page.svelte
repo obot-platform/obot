@@ -87,7 +87,7 @@
 			<h1 class="text-2xl font-semibold">Auth Providers</h1>
 		</div>
 		<div class="grid grid-cols-1 gap-4 py-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-			{#each sortedAuthProviders as authProvider}
+			{#each sortedAuthProviders as authProvider (authProvider.id)}
 				<ProviderCard
 					provider={authProvider}
 					recommended={RecommendedModelProviders.includes(authProvider.id)}

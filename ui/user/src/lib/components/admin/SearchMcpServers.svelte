@@ -110,7 +110,7 @@
 				</div>
 
 				<div class="flex flex-col">
-					{#each filteredData as item}
+					{#each filteredData as item (item.id)}
 						<button
 							class={twMerge(
 								'dark:hover:bg-surface1 hover:bg-surface2 flex w-full items-center gap-2 px-4 py-2 text-left',

@@ -492,7 +492,7 @@
 			}
 		})()}
 		{#if parsedOutput?.content}
-			{#each parsedOutput.content as content}
+			{#each parsedOutput.content as content, i (i)}
 				{#if content.type === 'image' && content.mimeType && content.data}
 					<div class="flex flex-col gap-2">
 						<img
@@ -550,7 +550,7 @@
 
 {#snippet messageContent()}
 	{#if msg.sent}
-		{#each content.split('\n') as line}
+		{#each content.split('\n') as line, i (i)}
 			<p class="text-md">{line}</p>
 		{/each}
 		{@render explain()}
@@ -597,7 +597,7 @@
 				<div class="flex flex-col">
 					<div class="flex w-full flex-col items-center gap-2">
 						<div class="inline-flex flex-col gap-2">
-							{#each msg.fields[0].options as option}
+							{#each msg.fields[0].options as option, i (i)}
 								<button
 									class="button-primary"
 									onclick={() => (promptCredentials[msg.fields![0].name] = option)}
@@ -618,12 +618,12 @@
 					</div>
 				</div>
 			{:else}
-				{#each msg.fields as field}
+				{#each msg.fields as field, i (i)}
 					<div class="flex flex-col gap-1">
 						<label for={field.name} class="mt-1 text-sm font-medium">{field.name}</label>
 						{#if field.options}
 							<div class="flex flex-col gap-2">
-								{#each field.options as option}
+								{#each field.options as option, i (i)}
 									<button class="button" onclick={() => (promptCredentials[field.name] = option)}>
 										{option}
 									</button>
@@ -669,7 +669,7 @@
 		<div class="mb-4 flex flex-wrap gap-2">
 			{#each deduplicateCitations(msg.citations
 					.map((c) => c.url)
-					.filter((url) => url !== undefined)) as url, i}
+					.filter((url) => url !== undefined)) as url, i (i)}
 				{#if msg.done}
 					<a
 						href={citationURL(url)}

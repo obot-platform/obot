@@ -189,7 +189,7 @@
 			<div
 				class="default-scrollbar-thin bg-surface1 flex flex-1 flex-col gap-2 overflow-y-auto p-2 dark:bg-gray-950"
 			>
-				{#each resources as resource}
+				{#each resources as resource (resource.uri)}
 					{@const alreadyAdded = isAlreadyAdded(resource)}
 					<div class="resource flex items-center gap-2">
 						<button class="icon-button" onclick={() => handleAddResource(resource, true)}>

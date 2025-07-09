@@ -17,7 +17,7 @@
 	<div class="mt-6 flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServer}
 			{@const currentLabel = mcpServer?.manifest?.name ?? 'MCP Server'}
-			<BackLink fromURL={'mcp-servers'} {currentLabel} />
+			<BackLink fromURL="mcp-servers" {currentLabel} />
 		{/if}
 
 		<McpServerEntryForm

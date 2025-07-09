@@ -109,7 +109,7 @@
 			<div
 				class="grid grid-cols-3 items-center gap-2 text-sm font-light md:grid-cols-4 lg:grid-cols-6"
 			>
-				{#each tabs as tab}
+				{#each tabs as tab (tab.view)}
 					<button
 						onclick={() => (view = tab.view)}
 						class={twMerge(

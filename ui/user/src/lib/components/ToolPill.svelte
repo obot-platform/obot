@@ -43,7 +43,7 @@
 	{/if}
 	{#if tools}
 		<ul class="flex flex-col gap-4 p-2">
-			{#each tools as tool}
+			{#each tools as tool (tool.id)}
 				<li class="flex items-center gap-2">
 					{#if tool?.metadata?.icon}
 						<div class="bg-surface2 rounded-full p-2 dark:bg-gray-100">

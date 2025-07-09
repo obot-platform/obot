@@ -287,7 +287,7 @@
 				<h3 class="text-sm font-medium">Tools</h3>
 			</div>
 			<div class="flex flex-wrap gap-2 p-3">
-				{#each templateTools as tool}
+				{#each templateTools as tool (tool.id)}
 					<div
 						class="flex items-center gap-2 rounded-md bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700"
 					>
@@ -359,7 +359,7 @@
 					<div class="p-3">
 						<h4 class="mb-2 text-xs font-medium text-gray-500">Conversation Starters</h4>
 						<div class="flex flex-col gap-2">
-							{#each template.projectSnapshot.starterMessages as message}
+							{#each template.projectSnapshot.starterMessages as message (message)}
 								<div
 									class="w-fit max-w-[90%] rounded-lg rounded-tl-none bg-blue-50 p-2 text-xs whitespace-pre-wrap text-gray-700 dark:bg-gray-700 dark:text-gray-300"
 								>
@@ -374,7 +374,7 @@
 					<div class="p-3">
 						<h4 class="mb-2 text-xs font-medium text-gray-500">MCP Servers</h4>
 						<div class="flex flex-col gap-2">
-							{#each mcpServers as mcp}
+							{#each mcpServers as mcp (mcp.id)}
 								<div
 									class="flex w-fit items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-gray-800"
 								>
@@ -392,7 +392,7 @@
 					<div class="p-3">
 						<h4 class="mb-2 text-xs font-medium text-gray-500">Project Files</h4>
 						<ul class="flex flex-col gap-1.5">
-							{#each files as file}
+							{#each files as file (file.name)}
 								<li class="group">
 									<div class="flex items-center rounded-md hover:bg-gray-50 dark:hover:bg-gray-800">
 										<div class="flex flex-1 items-center gap-1.5 truncate p-1.5 text-start text-sm">
@@ -421,7 +421,7 @@
 					<div class="p-3">
 						<h4 class="mb-1 text-xs font-medium text-gray-500">Knowledge Files</h4>
 						<ul class="mt-2">
-							{#each knowledgeFiles as file}
+							{#each knowledgeFiles as file (file.fileName)}
 								<li class="mb-1 text-xs text-gray-600 last:mb-0 dark:text-gray-300">
 									{file.fileName}
 									{#if file.state && file.state !== 'ready'}
@@ -436,7 +436,7 @@
 				{#if template.projectSnapshot.websiteKnowledge && Object.keys(template.projectSnapshot.websiteKnowledge).length > 0}
 					<div class="p-3">
 						<h4 class="mb-1 text-xs font-medium text-gray-500">Website Knowledge</h4>
-						{#each Object.entries(template.projectSnapshot.websiteKnowledge) as key}
+						{#each Object.entries(template.projectSnapshot.websiteKnowledge) as key (key)}
 							<div class="mb-1 flex items-start gap-1 last:mb-0">
 								<span class="text-xs font-medium text-gray-500">Site:</span>
 								<span class="text-xs text-gray-600 dark:text-gray-300">{key}</span>
@@ -448,7 +448,7 @@
 				{#if template.projectSnapshot.sharedTasks && template.projectSnapshot.sharedTasks.length > 0}
 					<div class="p-3">
 						<h4 class="mb-1 text-xs font-medium text-gray-500">Shared Tasks</h4>
-						{#each template.projectSnapshot.sharedTasks as task}
+						{#each template.projectSnapshot.sharedTasks as task (task)}
 							<div class="mb-1 text-xs text-gray-600 last:mb-0 dark:text-gray-300">{task}</div>
 						{/each}
 					</div>

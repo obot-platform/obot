@@ -316,7 +316,7 @@
 	<div class="flex flex-col gap-2">
 		<h4 class="text-md font-semibold">Details</h4>
 		<div class="flex flex-col gap-4">
-			{#each details.filter( (d) => (Array.isArray(d.value) ? d.value.length > 0 : d.value) ) as detail}
+			{#each details.filter( (d) => (Array.isArray(d.value) ? d.value.length > 0 : d.value) ) as detail, i (i)}
 				<div
 					class="dark:bg-surface2 dark:border-surface3 border-surface2 rounded-md border bg-gray-50 p-3"
 				>
@@ -349,7 +349,7 @@
 		<p class={twMerge('text-xs font-light', detail.class)}>{detail.value}</p>
 	{:else if Array.isArray(detail.value)}
 		<ul class="flex flex-col gap-1">
-			{#each detail.value as value}
+			{#each detail.value as value, i (i)}
 				<li class="text-xs font-light">{value}</li>
 			{/each}
 		</ul>

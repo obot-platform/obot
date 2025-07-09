@@ -21,7 +21,7 @@
 </script>
 
 <div bind:this={div} class="absolute right-0 bottom-0 z-50 hidden flex-col gap-2 pr-5 pb-5">
-	{#each errors.items as error, i}
+	{#each errors.items as error, i (i)}
 		<div
 			class="relative flex max-w-sm items-center gap-2 rounded-xl bg-gray-50 p-5 pr-12 dark:bg-gray-950"
 		>

@@ -76,7 +76,7 @@
 		</div>
 	</div>
 	<div class="flex flex-col gap-2 overflow-hidden">
-		{#each tools as tool}
+		{#each tools as tool (tool.id)}
 			<div
 				class="border-surface2 dark:bg-surface2 dark:border-surface3 flex flex-col gap-2 rounded-md border"
 				class:pb-2={!expandedDescriptions[tool.id] && !allDescriptionsEnabled}
@@ -114,13 +114,13 @@
 					{#if Object.keys(tool.params ?? {}).length > 0}
 						{#if expandedParams[tool.id] || allParamsEnabled}
 							<div
-								class={'from-surface2 dark:from-surface3 flex w-full flex-shrink-0 bg-linear-to-r to-transparent p-2 text-xs font-semibold text-gray-500'}
+								class="from-surface2 dark:from-surface3 flex w-full flex-shrink-0 bg-linear-to-r to-transparent p-2 text-xs font-semibold text-gray-500"
 							>
 								Parameters
 							</div>
 							<div class="flex flex-col px-2 pb-2 text-xs" in:slide={{ axis: 'y' }}>
 								<div class="flex flex-col gap-2">
-									{#each Object.keys(tool.params ?? {}) as paramKey}
+									{#each Object.keys(tool.params ?? {}) as paramKey (paramKey)}
 										<div class="flex flex-col items-center gap-2 md:flex-row">
 											<p class="self-start font-semibold text-gray-500">
 												{paramKey}

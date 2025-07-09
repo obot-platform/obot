@@ -79,7 +79,7 @@
 				<div class="pb-2">
 					<p class="mb-1 text-sm font-medium">Configured providers:</p>
 					<ul class="flex flex-col text-xs">
-						{#each projectProviderModelIds as providerId}
+						{#each projectProviderModelIds as providerId (providerId)}
 							{@const provider = providersWithMoreData.get(providerId)}
 
 							<li class="model-provider w-full">

@@ -130,7 +130,7 @@
 			helpText={HELPER_TEXTS.agentTemplate}
 		>
 			<div class="flex flex-col gap-1.5">
-				{#each templates as template}
+				{#each templates as template (template.id)}
 					<div
 						class="hover:bg-surface3 group flex min-h-9 items-center justify-between rounded-md bg-transparent p-2 pr-3 text-xs transition-colors duration-200"
 					>
@@ -247,7 +247,7 @@
 							</div>
 						{/if}
 					</div>
-					{#each members as member}
+					{#each members as member (member.userID)}
 						<div
 							class="group flex min-h-9 w-full items-center rounded-md transition-colors duration-300"
 						>

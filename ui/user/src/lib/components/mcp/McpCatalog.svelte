@@ -326,7 +326,7 @@
 				<div class="flex h-full flex-col gap-4">
 					<h3 class="p-4 text-2xl font-semibold">Categories</h3>
 					<ul class="default-scrollbar-thin flex min-h-0 grow flex-col overflow-y-auto px-4">
-						{#each categories as category}
+						{#each categories as category (category)}
 							<li>
 								<button
 									class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"

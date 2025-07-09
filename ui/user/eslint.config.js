@@ -27,11 +27,22 @@ export default tseslint.config(
 		}
 	},
 	{
+		files: ['**/*.ts', '**/*.js'],
+		languageOptions: {
+			parser: tseslint.parser,
+			parserOptions: {
+				ecmaVersion: 'latest',
+				sourceType: 'module'
+			}
+		}
+	},
+	{
 		ignores: ['build/', '.svelte-kit/', 'dist/']
 	},
 	{
 		rules: {
 			'svelte/no-at-html-tags': 'off',
+			'svelte/prefer-writable-derived': 'off',
 			'@typescript-eslint/no-unused-vars': [
 				'error',
 				{

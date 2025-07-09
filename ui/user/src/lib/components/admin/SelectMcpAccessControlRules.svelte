@@ -100,7 +100,7 @@
 				<p>User/Groups</p>
 			</div>
 			<div class="flex flex-col gap-1">
-				{#each accessControlRules as rule}
+				{#each accessControlRules as rule (rule.id)}
 					{@const hasEverything = rule.resources?.find((r) => r.id === '*') !== undefined}
 					<div class="flex items-center gap-2">
 						<button

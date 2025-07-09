@@ -114,7 +114,7 @@
 	{#if expanded}
 		<ul class="ml-4 flex flex-col text-xs" transition:slide>
 			{#if taskRuns && taskRuns?.length > 0}
-				{#each taskRuns?.slice(0, displayCount) ?? [] as taskRun}
+				{#each taskRuns?.slice(0, displayCount) ?? [] as taskRun (taskRun.id)}
 					<li class="track-mark relative w-full pb-[2px] pl-3">
 						<div
 							class={twMerge(

@@ -1,7 +1,4 @@
 <script lang="ts" generics="T extends { id: string | number }">
-	/* eslint-disable no-undef */
-	// need to disable until eslint/typescript supports generics in svelte
-
 	import { ChevronsLeft, ChevronsRight } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -48,7 +45,7 @@
 		<table class="w-full border-collapse">
 			<thead class="dark:bg-surface1 bg-surface2">
 				<tr>
-					{#each fields as property}
+					{#each fields as property (property)}
 						{@const headerClass = headerClasses?.find((hc) => hc.property === property)?.class}
 						{@const headerTitle = headers?.find((h) => h.property === property)?.title}
 						<th
@@ -116,7 +113,7 @@
 		)}
 		onclick={() => onSelectRow?.(d)}
 	>
-		{#each fields as fieldName}
+		{#each fields as fieldName (fieldName)}
 			<td class="overflow-hidden text-sm font-light">
 				<div class="flex h-full w-full px-4 py-2">
 					{#if onRenderColumn}

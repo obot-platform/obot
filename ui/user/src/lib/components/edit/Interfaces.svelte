@@ -72,7 +72,7 @@
 	helpText={HELPER_TEXTS.interfaces}
 >
 	<div class="flex flex-col p-2">
-		{#each options as option}
+		{#each options as option (option.id)}
 			<button
 				class={twMerge(
 					'flex min-h-9 items-center justify-between rounded-md bg-transparent p-2 pr-3 text-xs transition-colors duration-200',

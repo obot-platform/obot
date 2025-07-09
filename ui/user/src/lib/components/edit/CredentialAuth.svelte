@@ -116,7 +116,7 @@
 				</div>
 			{:else if authMessages}
 				<div class="flex flex-col gap-5 p-4 md:m-5 md:mt-0 md:p-0">
-					{#each authMessages.messages as msg}
+					{#each authMessages.messages as msg, i (i)}
 						<Message
 							{msg}
 							{project}

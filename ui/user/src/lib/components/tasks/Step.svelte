@@ -436,7 +436,7 @@
 						use:transitionParentHeight={() => isRunning || messages}
 					>
 						{#if messages.length || isRunning}
-							{#each messages as msg}
+							{#each messages as msg, i (i)}
 								{#if !msg.sent}
 									<Message {msg} {project} disableMessageToEditor />
 								{/if}
@@ -463,7 +463,7 @@
 					transition:slide={{ duration: 300, easing: linear }}
 				>
 					{#if iterations.length && (isRunning || isRunnedBefore)}
-						{#each iterations as iteration, i}
+						{#each iterations as iteration, i (i)}
 							<!-- Get the current iteration steps messages array -->
 							{@const messages = iteration ?? []}
 
@@ -517,21 +517,21 @@
 <!-- REFACTOR: Move out to the Steps.svelte component; having one dialog shared with many steps is better than each steps has its own dialog-->
 <Confirm
 	show={toDelete !== undefined}
-	msg={`Are you sure you want to delete this step`}
+	msg="Are you sure you want to delete this step?"
 	onsuccess={() => onDelete?.()}
 	oncancel={() => (toDelete = undefined)}
 />
 
 <Confirm
 	show={isConvertToRegularDialogShown}
-	msg={`Making this a regular step will delete all loop step, are you sure you want to continue?`}
+	msg="Making this a regular step will delete all loop step, are you sure you want to continue?"
 	onsuccess={makeRegularStep}
 	oncancel={() => (isConvertToRegularDialogShown = false)}
 />
 
 <Confirm
 	show={isLoopStepDeleteDialogShown}
-	msg={`Are you sure you want to delete this loop step?`}
+	msg="Are you sure you want to delete this loop step?"
 	onsuccess={() => {
 		deleteLoopStep(loopStepToDeleteIndex);
 		loopStepToDeleteIndex = undefined;

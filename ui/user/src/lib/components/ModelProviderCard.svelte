@@ -531,7 +531,7 @@
 				</div>
 
 				<div class="flex flex-col gap-4">
-					{#each provider.requiredConfigurationParameters || [] as param}
+					{#each provider.requiredConfigurationParameters || [] as param (param.name)}
 						<div class="flex w-full flex-col gap-1">
 							<label class="mb-1 block text-sm font-medium" for={param.name}>
 								{param.friendlyName || param.name}

@@ -463,7 +463,7 @@
 
 		<Confirm
 			show={toDelete}
-			msg={`Are you sure you want to delete this task`}
+			msg="Are you sure you want to delete this task?"
 			onsuccess={deleteTask}
 			oncancel={() => (toDelete = false)}
 		/>

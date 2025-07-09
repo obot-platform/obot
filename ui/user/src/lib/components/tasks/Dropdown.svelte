@@ -48,7 +48,7 @@
 	</button>
 	<div use:tooltip class="min-w-[150px] rounded-3xl bg-white shadow dark:bg-gray-900">
 		<ul>
-			{#each Object.keys(values) as key}
+			{#each Object.keys(values) as key (key)}
 				{@const value = values[key]}
 				<li>
 					<button

@@ -101,7 +101,7 @@
 
 			<h2 class="text-xl font-semibold">Members</h2>
 			<div class="dark:bg-gray-980 flex flex-col gap-2 rounded-md bg-gray-50 p-2 shadow-inner">
-				{#each members as member}
+				{#each members as member (member.userID)}
 					<div
 						class="group dark:bg-surface1 dark:border-surface3 flex w-full items-center rounded-md bg-white p-2 shadow-sm dark:border"
 					>
@@ -171,7 +171,7 @@
 				<p class="p-4 text-center text-gray-500">No invitations found</p>
 			{:else}
 				<ul class="flex flex-col gap-4">
-					{#each invitations as invitation}
+					{#each invitations as invitation (invitation.code)}
 						<li
 							class="dark:bg-surface1 dark:border-surface3 flex items-center justify-between gap-4 rounded-md bg-white p-4 shadow-sm dark:border"
 						>
@@ -281,7 +281,7 @@
 </dialog>
 
 <Confirm
-	msg={`Delete this invitation?`}
+	msg="Delete this invitation?"
 	show={!!deleteInvitationCode}
 	onsuccess={async () => {
 		if (!deleteInvitationCode) return;

@@ -41,7 +41,7 @@
 				<Wrench class="h-5 w-5" />
 			{/snippet}
 			<div class="default-dialog flex min-w-max flex-col p-2">
-				{#each projectMCPs.items as projectMcp}
+				{#each projectMCPs.items as projectMcp (projectMcp.id)}
 					<button
 						class="menu-button"
 						onclick={async () => {

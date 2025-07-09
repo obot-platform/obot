@@ -466,7 +466,7 @@
 			{/if}
 			{#if project.starterMessages?.length}
 				<div class="flex flex-wrap justify-center gap-4 px-4">
-					{#each project.starterMessages as msg}
+					{#each project.starterMessages as msg, i (i)}
 						<button
 							class="border-surface3 hover:bg-surface2 w-52 rounded-2xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300"
 							onclick={async () => {
@@ -503,7 +503,7 @@
 				</div>
 			{/if}
 
-			{#each messages.messages as msg}
+			{#each messages.messages as msg, i (i)}
 				<Message
 					{project}
 					{msg}
@@ -542,7 +542,7 @@
 								thread
 								{project}
 								bind:currentThreadID={id}
-								helperText={'Files'}
+								helperText="Files"
 								classes={{ list: 'max-h-[60vh] space-y-4 overflow-y-auto pt-2 pb-6 text-sm' }}
 							/>
 							{#if project.editor && !shared}

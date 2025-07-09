@@ -45,7 +45,7 @@
 			</div>
 			{#if mcps.length > 0}
 				<div class="absolute bottom-2 flex gap-1">
-					{#each mcps.slice(0, 5) as mcp}
+					{#each mcps.slice(0, 5) as mcp (mcp.id)}
 						{#if mcp.commandManifest?.icon}
 							{@render mcpPill(mcp.commandManifest)}
 						{/if}

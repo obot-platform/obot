@@ -321,7 +321,7 @@
 						<p class="text-sm text-gray-500">No MCP servers configured.</p>
 					{:else}
 						<div class="flex w-full flex-col gap-2">
-							{#each mcpServers as server}
+							{#each mcpServers as server (server.id)}
 								<div
 									class="group hover:bg-surface3 flex w-full items-center justify-between rounded-md p-2 transition-colors duration-200"
 								>
@@ -422,7 +422,7 @@
 						{#if mcpConfig.env && mcpConfig.env.length > 0}
 							<div class="flex flex-col gap-1">
 								<h4 class="text-base font-semibold">Environment Variables</h4>
-								{#each mcpConfig.env as env}
+								{#each mcpConfig.env as env (env.key)}
 									<div class="flex w-full items-center gap-2">
 										<div class="flex grow flex-col gap-1">
 											{#if env.custom}
@@ -477,7 +477,7 @@
 						{#if mcpConfig.headers && mcpConfig.headers.length > 0}
 							<div class="flex flex-col gap-1">
 								<h4 class="text-base font-semibold">Headers</h4>
-								{#each mcpConfig.headers as header}
+								{#each mcpConfig.headers as header (header.key)}
 									<div class="flex w-full items-center gap-2">
 										<div class="flex grow flex-col gap-1">
 											{#if header.custom}

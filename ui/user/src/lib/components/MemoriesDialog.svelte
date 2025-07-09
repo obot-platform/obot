@@ -338,7 +338,7 @@
 {/snippet}
 
 <Confirm
-	msg={'Are you sure you want to delete all memories?'}
+	msg="Are you sure you want to delete all memories?"
 	show={toDeleteAll}
 	onsuccess={deleteAll}
 	oncancel={() => (toDeleteAll = false)}

@@ -90,7 +90,7 @@
 			{#if mcps.length > 0}
 				<div class="mb-5 flex flex-col items-center">
 					<div class="flex flex-wrap justify-center gap-2">
-						{#each mcps as mcp}
+						{#each mcps as mcp (mcp.id)}
 							{@const manifest = mcp.commandManifest ?? mcp.urlManifest}
 							{#if manifest}
 								<div

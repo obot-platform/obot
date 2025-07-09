@@ -610,7 +610,7 @@
 				</div>
 			{/if}
 			<div class="default-scrollbar-thin flex min-h-0 grow flex-col overflow-y-auto">
-				{#each getSearchResults() as result}
+				{#each getSearchResults() as result (result.tool.id)}
 					{@render searchResult(result)}
 				{/each}
 				{#if getSearchResults().length === 0 && search}

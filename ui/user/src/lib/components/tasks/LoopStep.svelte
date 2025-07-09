@@ -54,13 +54,13 @@
 	class:outline-2={isStepRunning && isLoopStepRunning}
 	class:outline-blue={isStepRunning && isLoopStepRunning}
 >
-	<div class={'flex items-center gap-2 overflow-hidden pl-4'}>
+	<div class="flex items-center gap-2 overflow-hidden pl-4">
 		<textarea
 			use:autoHeight
 			{value}
 			rows="1"
 			placeholder="Instructions..."
-			class={'ghost-input border-surface2 h-auto grow resize-none'}
+			class="ghost-input border-surface2 h-auto grow resize-none"
 			disabled={isReadOnly}
 			readonly={isReadOnly || isTaskRunning}
 			onkeydown={onKeydown}
@@ -101,7 +101,7 @@
 				use:transitionParentHeight={() => (isStepRunning && shouldShowOutput) || messages.messages}
 			>
 				{#if messages.messages?.length > 0}
-					{#each messages.messages as msg}
+					{#each messages.messages as msg, i (i)}
 						{#if !msg.sent}
 							<!-- automatically exapnd the message content when loop step is running -->
 							<Message {msg} {project} disableMessageToEditor />

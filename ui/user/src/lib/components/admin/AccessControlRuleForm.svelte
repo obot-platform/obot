@@ -249,7 +249,7 @@
 					data={tableData}
 					fields={['displayName', 'type', 'role']}
 					headers={[{ property: 'displayName', title: 'Name' }]}
-					noDataMessage={'No users or groups added.'}
+					noDataMessage="No users or groups added."
 				>
 					{#snippet actions(d)}
 						<button
@@ -282,7 +282,7 @@
 					</button>
 				</div>
 			</div>
-			<Table data={mcpServersTableData} fields={['name']} noDataMessage={'No MCP servers added.'}>
+			<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
 				{#snippet actions(d)}
 					<button
 						class="icon-button hover:text-red-500"

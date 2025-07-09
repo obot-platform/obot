@@ -53,7 +53,7 @@
 				<div class="flex w-full grow justify-between gap-2 text-xs">
 					<div class="flex h-fit flex-wrap gap-1">
 						{#if tags}
-							{#each tags as tag}
+							{#each tags as tag (tag)}
 								<span
 									class="border-surface3 dark:border-surface3 flex h-fit items-center gap-1 rounded-md border px-1 text-[11px] text-gray-500"
 								>

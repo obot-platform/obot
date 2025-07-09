@@ -18,7 +18,7 @@
 		{#if catalogEntry}
 			{@const currentLabel =
 				catalogEntry?.commandManifest?.name ?? catalogEntry?.urlManifest?.name ?? 'MCP Server'}
-			<BackLink fromURL={'mcp-servers'} {currentLabel} />
+			<BackLink fromURL="mcp-servers" {currentLabel} />
 		{/if}
 
 		<McpServerEntryForm

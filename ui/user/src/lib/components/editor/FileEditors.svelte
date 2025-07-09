@@ -17,7 +17,7 @@
 	let { onFileChanged, onInvoke, items = $bindable() }: Props = $props();
 </script>
 
-{#each items as file}
+{#each items as file (file.name)}
 	{#if file.name.toLowerCase().endsWith('.pdf')}
 		<div
 			class:hidden={!file.selected}

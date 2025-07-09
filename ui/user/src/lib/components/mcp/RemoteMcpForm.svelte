@@ -97,7 +97,7 @@
 				as default fixed values or requested by the user during initial setup.
 			</p>
 			{#if config.headers}
-				{#each config.headers as header, i}
+				{#each config.headers as header, i (i)}
 					<div
 						class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
 					>

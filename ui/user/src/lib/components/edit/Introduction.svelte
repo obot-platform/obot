@@ -41,7 +41,7 @@
 		</div>
 
 		<div class="flex w-full flex-col gap-4">
-			{#each project.starterMessages?.keys() ?? [] as i}
+			{#each project.starterMessages?.keys() ?? [] as i (i)}
 				{#if project.starterMessages}
 					<div class="flex gap-2">
 						<textarea

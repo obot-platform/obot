@@ -222,7 +222,7 @@
 						goto(`/v2/admin/mcp-servers/s/${d.id}`);
 					}
 				}}
-				noDataMessage={'No catalog servers added.'}
+				noDataMessage="No catalog servers added."
 			>
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'name'}
@@ -281,7 +281,7 @@
 				<Table
 					data={defaultCatalog?.sourceURLs?.map((url, index) => ({ id: index, url })) ?? []}
 					fields={['url']}
-					noDataMessage={'No Git Source URLs added.'}
+					noDataMessage="No Git Source URLs added."
 				>
 					{#snippet actions(d)}
 						<button
@@ -407,7 +407,7 @@
 </dialog>
 
 <Confirm
-	msg={`Are you sure you want to delete this server?`}
+	msg="Are you sure you want to delete this server?"
 	show={Boolean(deletingEntry)}
 	onsuccess={async () => {
 		if (!deletingEntry) {
@@ -422,7 +422,7 @@
 />
 
 <Confirm
-	msg={`Are you sure you want to delete this server?`}
+	msg="Are you sure you want to delete this server?"
 	show={Boolean(deletingServer)}
 	onsuccess={async () => {
 		if (!deletingServer) {
@@ -436,7 +436,7 @@
 />
 
 <Confirm
-	msg={`Are you sure you want to delete this Git Source URL?`}
+	msg="Are you sure you want to delete this Git Source URL?"
 	show={Boolean(deletingSource)}
 	onsuccess={async () => {
 		if (!deletingSource || !defaultCatalog) {

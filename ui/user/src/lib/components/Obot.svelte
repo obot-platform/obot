@@ -201,7 +201,7 @@
 			>
 				{#if !responsive.isMobile || (responsive.isMobile && !layout.fileEditorOpen)}
 					{#if layout.editTaskID && layout.tasks}
-						{#each layout.tasks as task, i}
+						{#each layout.tasks as task, i (task.id)}
 							{#if task.id === layout.editTaskID}
 								{#key layout.editTaskID}
 									<Task

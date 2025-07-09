@@ -66,7 +66,7 @@
 		<div class="file-tabs relative flex items-center pt-1">
 			{#if currentThreadID}
 				<div class="pb-1 pl-1">
-					<Files {project} thread {currentThreadID} primary={false} helperText={'Browse Files'} />
+					<Files {project} thread {currentThreadID} primary={false} helperText="Browse Files" />
 				</div>
 			{/if}
 			<ul

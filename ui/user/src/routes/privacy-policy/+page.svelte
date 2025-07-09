@@ -166,7 +166,7 @@
 		<div class="relative mt-12 flex w-full gap-8">
 			<div class="hidden flex-shrink-0 flex-col text-base font-light md:flex md:w-xs lg:w-sm">
 				<ul class="sticky top-0 left-0 flex flex-col pt-8 pr-8">
-					{#each sectionHeaders as header}
+					{#each sectionHeaders as header (header.id)}
 						<li
 							class={twMerge(
 								'border-l-4 border-transparent',

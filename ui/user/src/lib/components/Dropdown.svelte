@@ -42,7 +42,7 @@
 </button>
 <div use:tooltip bind:this={tt} class="max-h-full overflow-auto">
 	<ul class="w-full">
-		{#each keys as key, i}
+		{#each keys as key, i (i)}
 			<li class="w-full">
 				<button class="w-full" onclick={() => select(key)}>
 					{@render option(key, {

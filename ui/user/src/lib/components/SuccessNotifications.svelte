@@ -20,7 +20,7 @@
 </script>
 
 <div bind:this={div} class="absolute right-0 bottom-0 z-50 hidden flex-col gap-2 pr-5 pb-5">
-	{#each $success as message}
+	{#each $success as message (message.id)}
 		<Success message={message.message} onClose={() => success.remove(message.id)} />
 	{/each}
 </div>

@@ -94,7 +94,7 @@
 		role="none"
 		onclick={() => toggle(false)}
 	>
-		{#each projects.slice(0, limit) as p}
+		{#each projects.slice(0, limit) as p (p.id)}
 			{@render ProjectItem(p)}
 		{/each}
 		{@render LoadMoreButton(projects.length, limit)}

@@ -155,7 +155,7 @@
 								<p class="text-xs font-light">
 									{prompt.name}
 									{#if variant === 'popover' && prompt.arguments}
-										{#each prompt.arguments as argument}
+										{#each prompt.arguments as argument (argument.name)}
 											<span class="text-xs text-gray-500">
 												[{argument.name}]
 											</span>
@@ -244,7 +244,7 @@
 		</button>
 	</h3>
 	{#if selectedPrompt?.prompt.arguments}
-		{#each selectedPrompt.prompt.arguments as argument}
+		{#each selectedPrompt.prompt.arguments as argument (argument.name)}
 			<div class="my-4 flex flex-col gap-1">
 				<label for={argument.name} class="text-md font-semibold">{argument.name}</label>
 				<input
