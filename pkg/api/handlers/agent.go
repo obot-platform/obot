@@ -28,16 +28,14 @@ import (
 )
 
 type AgentHandler struct {
-	gptscript  *gptscript.GPTScript
 	invoker    *invoke.Invoker
 	dispatcher *dispatcher.Dispatcher
 	serverURL  string
 }
 
-func NewAgentHandler(dispatcher *dispatcher.Dispatcher, gClient *gptscript.GPTScript, invoker *invoke.Invoker, serverURL string) *AgentHandler {
+func NewAgentHandler(dispatcher *dispatcher.Dispatcher, invoker *invoke.Invoker, serverURL string) *AgentHandler {
 	return &AgentHandler{
 		serverURL:  serverURL,
-		gptscript:  gClient,
 		invoker:    invoker,
 		dispatcher: dispatcher,
 	}
@@ -62,7 +60,7 @@ func (a *AgentHandler) Authenticate(req api.Context) (err error) {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req.Context(), req.Storage, a.invoker, a.gptscript, &agent, id, tools, req.User.GetUID(), "")
+	resp, err := runAuthForAgent(req, a.invoker, &agent, id, tools, req.User.GetUID(), "")
 	if err != nil {
 		return err
 	}
@@ -96,7 +94,7 @@ func (a *AgentHandler) DeAuthenticate(req api.Context) error {
 		return err
 	}
 
-	errs := removeToolCredentials(req.Context(), req.Storage, a.gptscript, id, agent.Namespace, tools)
+	errs := removeToolCredentials(req, id, agent.Namespace, tools)
 
 	if err := kickAgent(req.Context(), req.Storage, &agent); err != nil {
 		errs = append(errs, fmt.Errorf("failed to update agent status: %w", err))
@@ -348,7 +346,7 @@ func (a *AgentHandler) ListFiles(req api.Context) error {
 		return err
 	}
 
-	return listFiles(req.Context(), req, a.gptscript, workspaceName)
+	return listFiles(req, workspaceName)
 }
 
 func (a *AgentHandler) GetFile(req api.Context) error {
@@ -366,7 +364,7 @@ func (a *AgentHandler) GetFile(req api.Context) error {
 		return err
 	}
 
-	return getFileInWorkspace(req.Context(), req, a.gptscript, workspace.Status.WorkspaceID, "files/")
+	return getFileInWorkspace(req, workspace.Status.WorkspaceID, "files/")
 }
 
 func (a *AgentHandler) UploadFile(req api.Context) error {
@@ -380,7 +378,7 @@ func (a *AgentHandler) UploadFile(req api.Context) error {
 		return fmt.Errorf("failed to get workspace with id %s: %w", workspaceName, err)
 	}
 
-	if _, err := uploadFileToWorkspace(req.Context(), req, a.dispatcher, a.gptscript, ws.Status.WorkspaceID, "files/", api.BodyOptions{
+	if _, err := uploadFileToWorkspace(req, a.dispatcher, ws.Status.WorkspaceID, "files/", api.BodyOptions{
 		// 100MB
 		MaxBytes: 100 * 1024 * 1024,
 	}); err != nil {
@@ -397,7 +395,7 @@ func (a *AgentHandler) DeleteFile(req api.Context) error {
 		return err
 	}
 
-	return deleteFile(req.Context(), req, a.gptscript, workspaceName, "files/")
+	return deleteFile(req, workspaceName, "files/")
 }
 
 func (a *AgentHandler) getKnowledgeSetsAndName(req api.Context, agentName string) ([]string, string, error) {
@@ -440,7 +438,7 @@ func (a *AgentHandler) GetKnowledgeFile(req api.Context) error {
 		return err
 	}
 
-	return getKnowledgeFileFromAllowedSets(req, a.gptscript, knowledgeSetNames, req.PathValue("file"))
+	return getKnowledgeFileFromAllowedSets(req, knowledgeSetNames, req.PathValue("file"))
 }
 
 func (a *AgentHandler) UploadKnowledgeFile(req api.Context) error {
@@ -458,7 +456,7 @@ func (a *AgentHandler) UploadKnowledgeFile(req api.Context) error {
 		return err
 	}
 
-	return uploadKnowledgeToWorkspace(req, a.dispatcher, a.gptscript, ws, agentName, "", knowledgeSetNames[0])
+	return uploadKnowledgeToWorkspace(req, a.dispatcher, ws, agentName, "", knowledgeSetNames[0])
 }
 
 func (a *AgentHandler) ApproveKnowledgeFile(req api.Context) error {
@@ -918,13 +916,13 @@ func MetadataFrom(obj kclient.Object, linkKV ...string) types.Metadata {
 	return m
 }
 
-func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.Invoker, gClient *gptscript.GPTScript, agent *v1.Agent, credContext string, tools []string, userID string, parentThreadName string) (*invoke.Response, error) {
+func runAuthForAgent(req api.Context, invoker *invoke.Invoker, agent *v1.Agent, credContext string, tools []string, userID string, parentThreadName string) (*invoke.Response, error) {
 	credentials := make([]string, 0, len(tools))
 
 	var toolRef v1.ToolReference
 	for _, tool := range tools {
 		if render.IsExternalTool(tool) {
-			prg, err := gClient.LoadFile(ctx, tool)
+			prg, err := req.GPTClient.LoadFile(req.Context(), tool)
 			if err != nil {
 				return nil, err
 			}
@@ -935,7 +933,7 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 			}
 
 			credentials = append(credentials, credentails...)
-		} else if err := c.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: tool}, &toolRef); err == nil {
+		} else if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: agent.Namespace, Name: tool}, &toolRef); err == nil {
 			if toolRef.Status.Tool == nil {
 				return nil, types.NewErrHTTP(http.StatusTooEarly, fmt.Sprintf("tool %q is not ready", tool))
 			}
@@ -964,7 +962,7 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 	agent.Spec.Manifest.Credentials = credentials
 	agent.Name = ""
 
-	return invoker.Agent(ctx, c, agent, "", invoke.Options{
+	return invoker.Agent(req.Context(), req.Storage, agent, "", invoke.Options{
 		Synchronous:          true,
 		EphemeralThread:      true,
 		ParentThreadName:     parentThreadName,
@@ -973,7 +971,7 @@ func runAuthForAgent(ctx context.Context, c kclient.WithWatch, invoker *invoke.I
 	})
 }
 
-func removeToolCredentials(ctx context.Context, client kclient.Client, gClient *gptscript.GPTScript, credCtx, namespace string, tools []string) []error {
+func removeToolCredentials(req api.Context, credCtx, namespace string, tools []string) []error {
 	var (
 		errs            []error
 		toolRef         v1.ToolReference
@@ -981,7 +979,7 @@ func removeToolCredentials(ctx context.Context, client kclient.Client, gClient *
 	)
 	for _, tool := range tools {
 		if render.IsExternalTool(tool) {
-			prg, err := gClient.LoadFile(ctx, tool)
+			prg, err := req.GPTClient.LoadFile(req.Context(), tool)
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -994,7 +992,7 @@ func removeToolCredentials(ctx context.Context, client kclient.Client, gClient *
 			}
 
 			credentialNames = append(credentialNames, names...)
-		} else if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: tool}, &toolRef); err == nil {
+		} else if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: namespace, Name: tool}, &toolRef); err == nil {
 			if toolRef.Status.Tool != nil {
 				credentialNames = append(credentialNames, toolRef.Status.Tool.CredentialNames...)
 			}
@@ -1008,7 +1006,7 @@ func removeToolCredentials(ctx context.Context, client kclient.Client, gClient *
 		toolRef.Status.Tool = nil
 
 		for _, cred := range credentialNames {
-			if err := gClient.DeleteCredential(ctx, credCtx, cred); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			if err := req.GPTClient.DeleteCredential(req.Context(), credCtx, cred); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				errs = append(errs, err)
 			}
 		}

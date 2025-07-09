@@ -5,14 +5,10 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 )
 
-type PromptHandler struct {
-	gptScript *gptscript.GPTScript
-}
+type PromptHandler struct{}
 
-func NewPromptHandler(gClient *gptscript.GPTScript) *PromptHandler {
-	return &PromptHandler{
-		gptScript: gClient,
-	}
+func NewPromptHandler() *PromptHandler {
+	return &PromptHandler{}
 }
 
 func (p *PromptHandler) Prompt(req api.Context) error {
@@ -20,5 +16,5 @@ func (p *PromptHandler) Prompt(req api.Context) error {
 	if err := req.Read(&promptResponse); err != nil {
 		return err
 	}
-	return p.gptScript.PromptResponse(req.Context(), promptResponse)
+	return req.GPTClient.PromptResponse(req.Context(), promptResponse)
 }

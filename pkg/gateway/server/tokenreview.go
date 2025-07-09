@@ -5,17 +5,28 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/obot-platform/obot/pkg/gateway/client"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-func (s *Server) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+type gatewayTokenReview struct {
+	gatewayClient *client.Client
+}
+
+func NewGatewayTokenReviewer(gatewayClient *client.Client) authenticator.Request {
+	return &gatewayTokenReview{
+		gatewayClient: gatewayClient,
+	}
+}
+
+func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
 	bearer := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
 	if bearer == "" {
 		return nil, false, nil
 	}
 
-	u, namespace, name, err := s.client.UserFromToken(req.Context(), bearer)
+	u, namespace, name, err := g.gatewayClient.UserFromToken(req.Context(), bearer)
 	if err != nil {
 		return nil, false, err
 	}

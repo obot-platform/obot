@@ -21,12 +21,10 @@ import (
 
 type AvailableModelsHandler struct {
 	dispatcher *dispatcher.Dispatcher
-	gptscript  *gptscript.GPTScript
 }
 
-func NewAvailableModelsHandler(gClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher) *AvailableModelsHandler {
+func NewAvailableModelsHandler(dispatcher *dispatcher.Dispatcher) *AvailableModelsHandler {
 	return &AvailableModelsHandler{
-		gptscript:  gClient,
 		dispatcher: dispatcher,
 	}
 }
@@ -47,7 +45,7 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 		credCtxs = append(credCtxs, string(ref.UID))
 	}
 
-	creds, err := a.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
 		CredentialContexts: credCtxs,
 	})
 	if err != nil {
@@ -125,7 +123,7 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 	var credEnvVars map[string]string
 	if modelProviderReference.Status.Tool != nil {
 		if len(modelProvider.RequiredConfigurationParameters) > 0 {
-			cred, err := a.gptscript.RevealCredential(req.Context(), credCtxs, modelProviderReference.Name)
+			cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, modelProviderReference.Name)
 			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to reveal credential for model provider %q: %w", modelProviderReference.Name, err)
 			} else if err == nil {

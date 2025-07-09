@@ -155,7 +155,7 @@ func (s *Server) createOAuthApp(apiContext api.Context) error {
 		Type:     gptscript.CredentialTypeTool,
 		Env:      map[string]string{"CLIENT_SECRET": clientSecret},
 	}
-	if err := s.gptClient.CreateCredential(apiContext.Context(), credential); err != nil {
+	if err := apiContext.GPTClient.CreateCredential(apiContext.Context(), credential); err != nil {
 		return err
 	}
 
@@ -181,7 +181,7 @@ func (s *Server) updateOAuthApp(apiContext api.Context) error {
 	}
 
 	// Delete the existing credential and recreate it.
-	if err := s.gptClient.DeleteCredential(apiContext.Context(), originalApp.Name, originalApp.Spec.Manifest.Alias); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	if err := apiContext.GPTClient.DeleteCredential(apiContext.Context(), originalApp.Name, originalApp.Spec.Manifest.Alias); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return err
 	}
 
@@ -191,7 +191,7 @@ func (s *Server) updateOAuthApp(apiContext api.Context) error {
 		Type:     gptscript.CredentialTypeTool,
 		Env:      map[string]string{"CLIENT_SECRET": merged.ClientSecret},
 	}
-	if err := s.gptClient.CreateCredential(apiContext.Context(), credential); err != nil {
+	if err := apiContext.GPTClient.CreateCredential(apiContext.Context(), credential); err != nil {
 		return err
 	}
 
@@ -215,7 +215,7 @@ func (s *Server) deleteOAuthApp(apiContext api.Context) error {
 		return err
 	}
 
-	if err := s.gptClient.DeleteCredential(apiContext.Context(), app.Name, app.Spec.Manifest.Alias); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+	if err := apiContext.GPTClient.DeleteCredential(apiContext.Context(), app.Name, app.Spec.Manifest.Alias); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return err
 	}
 
@@ -351,7 +351,7 @@ func (s *Server) refreshOAuthApp(apiContext api.Context) error {
 	var clientSecret string
 
 	// Reveal the credential to get the client secret.
-	cred, err := s.gptClient.RevealCredential(apiContext.Context(), []string{app.Name}, app.Spec.Manifest.Alias)
+	cred, err := apiContext.GPTClient.RevealCredential(apiContext.Context(), []string{app.Name}, app.Spec.Manifest.Alias)
 	if err != nil {
 		var errNotFound gptscript.ErrNotFound
 		if errors.As(err, &errNotFound) {
@@ -490,7 +490,7 @@ func (s *Server) callbackOAuthApp(apiContext api.Context) error {
 	var clientSecret string
 
 	// Reveal the credential to get the client secret.
-	cred, err := s.gptClient.RevealCredential(apiContext.Context(), []string{app.Name}, app.Spec.Manifest.Alias)
+	cred, err := apiContext.GPTClient.RevealCredential(apiContext.Context(), []string{app.Name}, app.Spec.Manifest.Alias)
 	if err != nil {
 		var errNotFound gptscript.ErrNotFound
 		if errors.As(err, &errNotFound) {

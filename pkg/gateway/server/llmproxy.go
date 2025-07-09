@@ -55,7 +55,7 @@ func (s *Server) llmProxy(req api.Context) error {
 	if modelProvider == "" || modelStr != token.Model {
 		// First, check that the user has token usage available for this request.
 		if token.UserID != "" {
-			remainingUsage, err := s.client.RemainingTokenUsageForUser(req.Context(), token.UserID, tokenUsageTimePeriod, s.dailyUserTokenPromptTokenLimit, s.dailyUserTokenCompletionTokenLimit)
+			remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(req.Context(), token.UserID, tokenUsageTimePeriod, s.dailyUserTokenPromptTokenLimit, s.dailyUserTokenCompletionTokenLimit)
 			if err != nil {
 				return err
 			} else if !remainingUsage.UnlimitedPromptTokens && remainingUsage.PromptTokens <= 0 || !remainingUsage.UnlimitedCompletionTokens && remainingUsage.CompletionTokens <= 0 {
@@ -63,7 +63,7 @@ func (s *Server) llmProxy(req api.Context) error {
 			}
 		}
 
-		m, err := getModelProviderForModel(req.Context(), s.storageClient, token.Namespace, modelStr)
+		m, err := getModelProviderForModel(req.Context(), req.Storage, token.Namespace, modelStr)
 		if err != nil {
 			return fmt.Errorf("failed to get model: %w", err)
 		}
@@ -110,7 +110,7 @@ func (s *Server) llmProxy(req api.Context) error {
 
 	(&httputil.ReverseProxy{
 		Director:       s.dispatcher.TransformRequest(u, credEnv),
-		ModifyResponse: (&responseModifier{userID: token.UserID, runID: token.RunID, client: s.client, personalToken: personalToken}).modifyResponse,
+		ModifyResponse: (&responseModifier{userID: token.UserID, runID: token.RunID, client: req.GatewayClient, personalToken: personalToken}).modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil

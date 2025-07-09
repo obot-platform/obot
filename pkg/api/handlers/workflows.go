@@ -1,11 +1,9 @@
 package handlers
 
 import (
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflow"
-	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,18 +13,10 @@ import (
 
 const fieldSelector = "spec.workflow"
 
-type WorkflowHandler struct {
-	gptscript *gptscript.GPTScript
-	serverURL string
-	invoker   *invoke.Invoker
-}
+type WorkflowHandler struct{}
 
-func NewWorkflowHandler(gClient *gptscript.GPTScript, serverURL string, invoker *invoke.Invoker) *WorkflowHandler {
-	return &WorkflowHandler{
-		gptscript: gClient,
-		serverURL: serverURL,
-		invoker:   invoker,
-	}
+func NewWorkflowHandler() *WorkflowHandler {
+	return &WorkflowHandler{}
 }
 
 func (a *WorkflowHandler) Update(req api.Context) error {

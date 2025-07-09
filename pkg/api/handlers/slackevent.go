@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -22,12 +21,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type SlackEventHandler struct {
-	gptscript *gptscript.GPTScript
-}
+type SlackEventHandler struct{}
 
-func NewSlackEventHandler(gptscript *gptscript.GPTScript) *SlackEventHandler {
-	return &SlackEventHandler{gptscript: gptscript}
+func NewSlackEventHandler() *SlackEventHandler {
+	return &SlackEventHandler{}
 }
 
 type SlackEvent struct {
@@ -92,7 +89,7 @@ func (h *SlackEventHandler) validateRequest(req api.Context, event SlackEvent, b
 
 		oauthApp = oauthApps.Items[0]
 
-		cred, err := h.gptscript.RevealCredential(req.Context(), []string{oauthApp.Name}, oauthApp.Spec.Manifest.Alias)
+		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{oauthApp.Name}, oauthApp.Spec.Manifest.Alias)
 		if err != nil {
 			return err
 		}

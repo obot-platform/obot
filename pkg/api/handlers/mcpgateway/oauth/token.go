@@ -164,7 +164,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		}
 	}
 
-	tkn, accessToken, err := h.gatewayClient.NewAuthTokenWithExpiration(req.Context(), oauthAuthRequest.Spec.AuthProviderNamespace, oauthAuthRequest.Spec.AuthProviderName, oauthAuthRequest.Spec.UserID, time.Hour)
+	tkn, accessToken, err := req.GatewayClient.NewAuthTokenWithExpiration(req.Context(), oauthAuthRequest.Spec.AuthProviderNamespace, oauthAuthRequest.Spec.AuthProviderName, oauthAuthRequest.Spec.UserID, time.Hour)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
@@ -216,7 +216,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		return fmt.Errorf("failed to refresh oauth token: %w", err)
 	}
 
-	tkn, accessToken, err := h.gatewayClient.NewAuthTokenWithExpiration(req.Context(), oauthToken.Spec.AuthProviderNamespace, oauthToken.Spec.AuthProviderName, oauthToken.Spec.UserID, time.Hour)
+	tkn, accessToken, err := req.GatewayClient.NewAuthTokenWithExpiration(req.Context(), oauthToken.Spec.AuthProviderNamespace, oauthToken.Spec.AuthProviderName, oauthToken.Spec.UserID, time.Hour)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}

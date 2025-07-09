@@ -30,16 +30,14 @@ var log = logger.Package()
 type AssistantHandler struct {
 	invoker      *invoke.Invoker
 	events       *events.Emitter
-	gptScript    *gptscript.GPTScript
 	dispatcher   *dispatcher.Dispatcher
 	cachedClient kclient.WithWatch
 }
 
-func NewAssistantHandler(dispatcher *dispatcher.Dispatcher, invoker *invoke.Invoker, events *events.Emitter, gptScript *gptscript.GPTScript, cachedClient kclient.WithWatch) *AssistantHandler {
+func NewAssistantHandler(dispatcher *dispatcher.Dispatcher, invoker *invoke.Invoker, events *events.Emitter, cachedClient kclient.WithWatch) *AssistantHandler {
 	return &AssistantHandler{
 		invoker:      invoker,
 		events:       events,
-		gptScript:    gptScript,
 		dispatcher:   dispatcher,
 		cachedClient: cachedClient,
 	}
@@ -268,7 +266,7 @@ func (a *AssistantHandler) SetEnv(req api.Context) error {
 		return err
 	}
 
-	if err := setEnvMap(req, a.gptScript, thread.Name, thread.Name, envs); err != nil {
+	if err := setEnvMap(req, thread.Name, thread.Name, envs); err != nil {
 		return err
 	}
 
@@ -293,7 +291,7 @@ func (a *AssistantHandler) GetEnv(req api.Context) error {
 		return err
 	}
 
-	data, err := getEnvMap(req, a.gptScript, thread.Name, thread.Name)
+	data, err := getEnvMap(req, req.GPTClient, thread.Name, thread.Name)
 	if err != nil {
 		return err
 	}
@@ -319,7 +317,7 @@ func (a *AssistantHandler) GetKnowledgeFile(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	return getKnowledgeFile(req, a.gptScript, thread, nil, req.PathValue("file"))
+	return getKnowledgeFile(req, thread, nil, req.PathValue("file"))
 }
 
 func (a *AssistantHandler) UploadKnowledge(req api.Context) error {
@@ -337,7 +335,7 @@ func (a *AssistantHandler) UploadKnowledge(req api.Context) error {
 		return err
 	}
 
-	return uploadKnowledgeToWorkspace(req, a.dispatcher, a.gptScript, ws, "", thread.Name, thread.Status.KnowledgeSetNames[0])
+	return uploadKnowledgeToWorkspace(req, a.dispatcher, ws, "", thread.Name, thread.Status.KnowledgeSetNames[0])
 }
 
 func (a *AssistantHandler) DeleteKnowledge(req api.Context) error {

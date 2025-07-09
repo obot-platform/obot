@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) getFileScannerConfig(apiContext api.Context) error {
-	config, err := s.client.GetVirusScannerConfig(apiContext.Context())
+	config, err := apiContext.GatewayClient.GetVirusScannerConfig(apiContext.Context())
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func (s *Server) updateFileScannerConfig(apiContext api.Context) error {
 		}
 	}
 
-	if err := s.client.UpdateVirusScannerConfig(apiContext.Context(), &config); err != nil {
+	if err := apiContext.GatewayClient.UpdateVirusScannerConfig(apiContext.Context(), &config); err != nil {
 		return err
 	}
 

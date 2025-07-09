@@ -14,25 +14,23 @@ import (
 )
 
 type ToolHandler struct {
-	gptScript *gptscript.GPTScript
-	invoke    *invoke.Invoker
+	invoke *invoke.Invoker
 }
 
-func NewToolHandler(gptScript *gptscript.GPTScript, invoke *invoke.Invoker) *ToolHandler {
+func NewToolHandler(invoke *invoke.Invoker) *ToolHandler {
 	return &ToolHandler{
-		gptScript: gptScript,
-		invoke:    invoke,
+		invoke: invoke,
 	}
 }
 
-func setEnvMap(req api.Context, gptScript *gptscript.GPTScript, threadName, toolName string, env map[string]string) error {
+func setEnvMap(req api.Context, threadName, toolName string, env map[string]string) error {
 	for k := range env {
 		if err := render.IsValidEnv(k); err != nil {
 			return types.NewErrBadRequest("%v", err)
 		}
 	}
 
-	return gptScript.CreateCredential(req.Context(), gptscript.Credential{
+	return req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
 		Context:  threadName,
 		ToolName: toolName,
 		Type:     gptscript.CredentialTypeTool,
@@ -54,7 +52,7 @@ func (t *ToolHandler) SetEnv(req api.Context) error {
 	}
 
 	var tool v1.Tool
-	if err := req.Get(&tool, toolID); err != nil {
+	if err = req.Get(&tool, toolID); err != nil {
 		return err
 	}
 
@@ -62,12 +60,12 @@ func (t *ToolHandler) SetEnv(req api.Context) error {
 		return types.NewErrNotFound("tool %s not found", toolID)
 	}
 
-	if err := setEnvMap(req, t.gptScript, thread.Name, tool.Name, env); err != nil {
+	if err = setEnvMap(req, thread.Name, tool.Name, env); err != nil {
 		return err
 	}
 
 	tool.Spec.Envs = slices.Collect(maps.Keys(env))
-	if err := req.Update(&tool); err != nil {
+	if err = req.Update(&tool); err != nil {
 		return err
 	}
 
@@ -83,7 +81,7 @@ func (t *ToolHandler) GetEnv(req api.Context) error {
 	}
 
 	var tool v1.Tool
-	if err := req.Get(&tool, toolID); err != nil {
+	if err = req.Get(&tool, toolID); err != nil {
 		return err
 	}
 
@@ -91,7 +89,7 @@ func (t *ToolHandler) GetEnv(req api.Context) error {
 		return types.NewErrNotFound("tool %s not found", toolID)
 	}
 
-	data, err := getEnvMap(req, t.gptScript, thread.Name, tool.Name)
+	data, err := getEnvMap(req, req.GPTClient, thread.Name, tool.Name)
 	if err != nil {
 		return err
 	}
@@ -119,7 +117,7 @@ func (t *ToolHandler) Get(req api.Context) error {
 	}
 
 	var tool v1.Tool
-	if err := req.Get(&tool, toolID); err != nil {
+	if err = req.Get(&tool, toolID); err != nil {
 		return err
 	}
 

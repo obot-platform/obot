@@ -11,7 +11,6 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -23,18 +22,14 @@ import (
 )
 
 type ProjectsHandler struct {
-	cachedClient  kclient.Client
-	invoker       *invoke.Invoker
-	gptScript     *gptscript.GPTScript
-	gatewayClient *gateway.Client
+	cachedClient kclient.Client
+	invoker      *invoke.Invoker
 }
 
-func NewProjectsHandler(cachedClient kclient.Client, invoker *invoke.Invoker, gptScript *gptscript.GPTScript, gatewayClient *gateway.Client) *ProjectsHandler {
+func NewProjectsHandler(cachedClient kclient.Client, invoker *invoke.Invoker) *ProjectsHandler {
 	return &ProjectsHandler{
-		cachedClient:  cachedClient,
-		invoker:       invoker,
-		gptScript:     gptScript,
-		gatewayClient: gatewayClient,
+		cachedClient: cachedClient,
+		invoker:      invoker,
 	}
 }
 
@@ -53,7 +48,7 @@ func (h *ProjectsHandler) ListMembers(req api.Context) error {
 
 	result := make([]types.ProjectMember, 0, len(threadAuths.Items)+1)
 	for _, threadAuth := range threadAuths.Items {
-		user, err := h.gatewayClient.UserByID(req.Context(), threadAuth.Spec.UserID)
+		user, err := req.GatewayClient.UserByID(req.Context(), threadAuth.Spec.UserID)
 		if err != nil {
 			return err
 		}
@@ -67,7 +62,7 @@ func (h *ProjectsHandler) ListMembers(req api.Context) error {
 	}
 
 	// Also get the details of the project owner.
-	owner, err := h.gatewayClient.UserByID(req.Context(), thread.Spec.UserID)
+	owner, err := req.GatewayClient.UserByID(req.Context(), thread.Spec.UserID)
 	if err != nil {
 		return err
 	}
@@ -756,7 +751,7 @@ func (h *ProjectsHandler) authenticate(req api.Context, local bool) (err error) 
 	if local {
 		credContext = thread.Name + "-local"
 	}
-	resp, err := runAuthForAgent(req.Context(), req.Storage, h.invoker, h.gptScript, &agent, credContext, tools, req.User.GetUID(), thread.Name)
+	resp, err := runAuthForAgent(req, h.invoker, &agent, credContext, tools, req.User.GetUID(), thread.Name)
 	if err != nil {
 		return err
 	}
@@ -797,7 +792,7 @@ func (h *ProjectsHandler) deAuthenticate(req api.Context, local bool) error {
 		credContext = thread.Name + "-local"
 	}
 
-	errs := removeToolCredentials(req.Context(), req.Storage, h.gptScript, credContext, agent.Namespace, tools)
+	errs := removeToolCredentials(req, credContext, agent.Namespace, tools)
 	return errors.Join(errs...)
 }
 

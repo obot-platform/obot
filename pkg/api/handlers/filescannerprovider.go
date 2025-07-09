@@ -22,14 +22,12 @@ import (
 )
 
 type FileScannerProviderHandler struct {
-	gptscript  *gptscript.GPTScript
 	dispatcher *dispatcher.Dispatcher
 	invoker    *invoke.Invoker
 }
 
-func NewFileScannerProviderHandler(gClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher, invoker *invoke.Invoker) *FileScannerProviderHandler {
+func NewFileScannerProviderHandler(dispatcher *dispatcher.Dispatcher, invoker *invoke.Invoker) *FileScannerProviderHandler {
 	return &FileScannerProviderHandler{
-		gptscript:  gClient,
 		dispatcher: dispatcher,
 		invoker:    invoker,
 	}
@@ -56,7 +54,7 @@ func (f *FileScannerProviderHandler) ByID(req api.Context) error {
 	var credEnvVars map[string]string
 	if ref.Status.Tool != nil {
 		if len(mps.RequiredConfigurationParameters) > 0 {
-			cred, err := f.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericFileScannerProviderCredentialContext}, ref.Name)
+			cred, err := req.GPTClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericFileScannerProviderCredentialContext}, ref.Name)
 			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to reveal credential for file scanner provider %q: %w", ref.Name, err)
 			} else if err == nil {
@@ -90,7 +88,7 @@ func (f *FileScannerProviderHandler) List(req api.Context) error {
 	}
 	credCtxs = append(credCtxs, system.GenericFileScannerProviderCredentialContext)
 
-	creds, err := f.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
 		CredentialContexts: credCtxs,
 	})
 	if err != nil {
@@ -206,12 +204,12 @@ func (f *FileScannerProviderHandler) Configure(req api.Context) error {
 	}
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	cred, err := f.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericFileScannerProviderCredentialContext}, ref.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericFileScannerProviderCredentialContext}, ref.Name)
 	if err != nil {
 		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
-	} else if err = f.gptscript.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
+	} else if err = req.GPTClient.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
 		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 
@@ -221,7 +219,7 @@ func (f *FileScannerProviderHandler) Configure(req api.Context) error {
 		}
 	}
 
-	if err = f.gptscript.CreateCredential(req.Context(), gptscript.Credential{
+	if err = req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
 		Context:  string(ref.UID),
 		ToolName: ref.Name,
 		Type:     gptscript.CredentialTypeTool,
@@ -254,12 +252,12 @@ func (f *FileScannerProviderHandler) Deconfigure(req api.Context) error {
 		return types.NewErrBadRequest("%q is not a file scanner provider", ref.Name)
 	}
 
-	cred, err := f.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericFileScannerProviderCredentialContext}, ref.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericFileScannerProviderCredentialContext}, ref.Name)
 	if err != nil {
 		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
-	} else if err = f.gptscript.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
+	} else if err = req.GPTClient.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
 		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 
@@ -288,7 +286,7 @@ func (f *FileScannerProviderHandler) Reveal(req api.Context) error {
 		return types.NewErrBadRequest("%q is not a file scanner provider", ref.Name)
 	}
 
-	cred, err := f.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericFileScannerProviderCredentialContext}, ref.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericFileScannerProviderCredentialContext}, ref.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to reveal credential: %w", err)
 	} else if err == nil {

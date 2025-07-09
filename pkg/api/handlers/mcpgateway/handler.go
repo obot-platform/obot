@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/api"
@@ -24,7 +23,6 @@ import (
 var log = mvl.Package()
 
 type Handler struct {
-	gptscript         *gptscript.GPTScript
 	mcpSessionManager *mcp.SessionManager
 	sessions          *sessionStoreFactory
 	pendingRequests   *nmcp.PendingRequests
@@ -32,9 +30,8 @@ type Handler struct {
 	baseURL           string
 }
 
-func NewHandler(storageClient kclient.Client, gptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, baseURL string) *Handler {
+func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, baseURL string) *Handler {
 	return &Handler{
-		gptscript:         gptClient,
 		mcpSessionManager: mcpSessionManager,
 		sessions: &sessionStoreFactory{
 			client:       storageClient,

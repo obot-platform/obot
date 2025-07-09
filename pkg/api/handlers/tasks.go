@@ -7,7 +7,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/obot/apiclient"
@@ -26,18 +25,14 @@ import (
 )
 
 type TaskHandler struct {
-	invoker   *invoke.Invoker
-	events    *events.Emitter
-	gptscript *gptscript.GPTScript
-	serverURL string
+	invoker *invoke.Invoker
+	events  *events.Emitter
 }
 
-func NewTaskHandler(invoker *invoke.Invoker, events *events.Emitter, gptscript *gptscript.GPTScript, serverURL string) *TaskHandler {
+func NewTaskHandler(invoker *invoke.Invoker, events *events.Emitter) *TaskHandler {
 	return &TaskHandler{
-		invoker:   invoker,
-		events:    events,
-		gptscript: gptscript,
-		serverURL: serverURL,
+		invoker: invoker,
+		events:  events,
 	}
 }
 

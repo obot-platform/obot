@@ -1,7 +1,6 @@
 package oauth
 
 import (
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -10,8 +9,6 @@ import (
 )
 
 type handler struct {
-	gptClient         *gptscript.GPTScript
-	gatewayClient     *client.Client
 	oauthConfig       services.OAuthAuthorizationServerConfig
 	mcpSessionManager *mcp.SessionManager
 	baseURL           string
@@ -19,10 +16,8 @@ type handler struct {
 	tokenStore        mcpgateway.GlobalTokenStore
 }
 
-func SetupHandlers(gptClient *gptscript.GPTScript, gatewayClient *client.Client, mcpSessionManager *mcp.SessionManager, oauthConfig services.OAuthAuthorizationServerConfig, baseURL string, mux *server.Server) {
+func SetupHandlers(gatewayClient *client.Client, mcpSessionManager *mcp.SessionManager, oauthConfig services.OAuthAuthorizationServerConfig, baseURL string, mux *server.Server) {
 	h := &handler{
-		gptClient:         gptClient,
-		gatewayClient:     gatewayClient,
 		oauthConfig:       oauthConfig,
 		mcpSessionManager: mcpSessionManager,
 		baseURL:           baseURL,

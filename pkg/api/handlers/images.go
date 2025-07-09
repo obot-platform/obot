@@ -8,7 +8,6 @@ import (
 
 	"github.com/gen2brain/webp"
 	"github.com/obot-platform/obot/pkg/api"
-	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gemini"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -23,14 +22,12 @@ var allowedUploadedImageMIMETypes = map[string]bool{
 const maxUploadSize = 2 * 1024 * 1024 // 2MB
 
 type ImageHandler struct {
-	gatewayClient *gateway.Client
-	geminiClient  *gemini.Client
+	geminiClient *gemini.Client
 }
 
-func NewImageHandler(gatewayClient *gateway.Client, geminiClient *gemini.Client) *ImageHandler {
+func NewImageHandler(geminiClient *gemini.Client) *ImageHandler {
 	return &ImageHandler{
-		gatewayClient: gatewayClient,
-		geminiClient:  geminiClient,
+		geminiClient: geminiClient,
 	}
 }
 
@@ -65,7 +62,7 @@ func (h *ImageHandler) GenerateImage(req api.Context) error {
 		return apierrors.NewInternalError(fmt.Errorf("failed to convert image to WebP: %w", err))
 	}
 
-	stored, err := h.gatewayClient.CreateImage(req.Context(), data, "image/webp")
+	stored, err := req.GatewayClient.CreateImage(req.Context(), data, "image/webp")
 	if err != nil {
 		return apierrors.NewInternalError(fmt.Errorf("failed to store generated image: %w", err))
 	}
@@ -106,7 +103,7 @@ func (h *ImageHandler) UploadImage(req api.Context) error {
 	}
 
 	// Store image in gateway
-	stored, err := h.gatewayClient.CreateImage(req.Context(), data, "image/webp")
+	stored, err := req.GatewayClient.CreateImage(req.Context(), data, "image/webp")
 	if err != nil {
 		return apierrors.NewInternalError(fmt.Errorf("failed to store uploaded image: %w", err))
 	}
@@ -122,7 +119,7 @@ func (h *ImageHandler) GetImage(req api.Context) error {
 		return apierrors.NewBadRequest("id is required")
 	}
 
-	image, err := h.gatewayClient.GetImage(req.Context(), id)
+	image, err := req.GatewayClient.GetImage(req.Context(), id)
 	if err != nil {
 		return apierrors.NewNotFound(schema.GroupResource{}, id)
 	}

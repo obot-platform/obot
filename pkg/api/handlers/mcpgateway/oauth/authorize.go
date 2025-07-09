@@ -255,7 +255,8 @@ func (h *handler) callback(req api.Context) error {
 	}
 
 	// Give the server config a scope that makes sense.
-	// Clients used in the proxy will set the scope to the session ID, but we don't have a session ID here.
+	// Clients used in the proxy will set the scope that comes with the server config, but we need to ensure we get a different client here
+	// because the client we use here needs the CallbackHandler and ClientCredLookup set.
 	mcpServerConfig.Scope = mcpID
 
 	ctx, cancel := context.WithCancel(req.Context())
@@ -263,7 +264,7 @@ func (h *handler) callback(req api.Context) error {
 
 	oauthHandler := &mcpOAuthHandler{
 		client:     req.Storage,
-		gptscript:  h.gptClient,
+		gptscript:  req.GPTClient,
 		stateCache: h.stateCache,
 		urlChan:    make(chan string),
 		mcpID:      mcpServerConfig.Scope,

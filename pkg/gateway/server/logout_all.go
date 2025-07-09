@@ -17,7 +17,7 @@ func (s *Server) logoutAll(apiContext api.Context) error {
 		return err
 	}
 
-	return apiContext.GatewayClient.DeleteSessionsForUser(apiContext.Context(), s.storageClient, identities, sessionID)
+	return apiContext.GatewayClient.DeleteSessionsForUser(apiContext.Context(), apiContext.Storage, identities, sessionID)
 }
 
 func getSessionID(req *http.Request) string {

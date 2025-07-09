@@ -56,7 +56,6 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	gocache "k8s.io/client-go/tools/cache"
 
@@ -467,22 +466,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	gatewayServer, err := gserver.New(
-		ctx,
-		storageClient,
-		gptscriptClient,
-		gatewayDB,
-		tokenServer,
-		providerDispatcher,
-		encryptionConfig,
-		config.AuthAdminEmails,
-		gserver.Options(config.GatewayConfig),
-	)
+	gatewayServer, err := gserver.New(ctx, gatewayDB, tokenServer, providerDispatcher, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}
 
-	var authenticators authenticator.Request = gatewayServer
+	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient)
 	if config.EnableAuthentication {
 		proxyManager = proxy.NewProxyManager(ctx, providerDispatcher)
 

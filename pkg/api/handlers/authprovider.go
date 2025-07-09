@@ -24,14 +24,12 @@ import (
 )
 
 type AuthProviderHandler struct {
-	gptscript   *gptscript.GPTScript
 	dispatcher  *dispatcher.Dispatcher
 	postgresDSN string
 }
 
-func NewAuthProviderHandler(gClient *gptscript.GPTScript, dispatcher *dispatcher.Dispatcher, postgresDSN string) *AuthProviderHandler {
+func NewAuthProviderHandler(dispatcher *dispatcher.Dispatcher, postgresDSN string) *AuthProviderHandler {
 	return &AuthProviderHandler{
-		gptscript:   gClient,
 		dispatcher:  dispatcher,
 		postgresDSN: postgresDSN,
 	}
@@ -57,7 +55,7 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 			return err
 		}
 		if len(aps.RequiredConfigurationParameters) > 0 {
-			cred, err := ap.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
+			cred, err := req.GPTClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
 			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return fmt.Errorf("failed to reveal credential for auth provider %q: %w", ref.Name, err)
 			} else if err == nil {
@@ -100,7 +98,7 @@ func (ap *AuthProviderHandler) listAuthProviders(req api.Context) ([]types.AuthP
 	}
 	credCtxs = append(credCtxs, system.GenericAuthProviderCredentialContext)
 
-	creds, err := ap.gptscript.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
 		CredentialContexts: credCtxs,
 	})
 	if err != nil {
@@ -150,12 +148,12 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	envVars[providers.CookieSecretEnvVar] = cookieSecret
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	cred, err := ap.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
 	if err != nil {
 		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
-	} else if err = ap.gptscript.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
+	} else if err = req.GPTClient.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
 		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 
@@ -169,7 +167,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		go ap.dispatcher.UpdateConfiguredAuthProviders(context.Background())
 	}()
 
-	if err := ap.gptscript.CreateCredential(req.Context(), gptscript.Credential{
+	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
 		Context:  string(ref.UID),
 		ToolName: ref.Name,
 		Type:     gptscript.CredentialTypeTool,
@@ -202,12 +200,12 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
 	}
 
-	cred, err := ap.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
 	if err != nil {
 		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
-	} else if err = ap.gptscript.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
+	} else if err = req.GPTClient.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
 		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 
@@ -267,7 +265,7 @@ func (ap *AuthProviderHandler) Reveal(req api.Context) error {
 		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
 	}
 
-	cred, err := ap.gptscript.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to reveal credential for auth provider %q: %w", ref.Name, err)
 	} else if err == nil {

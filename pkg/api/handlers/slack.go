@@ -11,14 +11,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type SlackHandler struct {
-	gptScript *gptscript.GPTScript
-}
+type SlackHandler struct{}
 
-func NewSlackHandler(gptScript *gptscript.GPTScript) *SlackHandler {
-	return &SlackHandler{
-		gptScript: gptScript,
-	}
+func NewSlackHandler() *SlackHandler {
+	return &SlackHandler{}
 }
 
 func (s *SlackHandler) Create(req api.Context) error {

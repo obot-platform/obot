@@ -3,13 +3,9 @@ package server
 import (
 	"context"
 
-	"github.com/gptscript-ai/go-gptscript"
-	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/jwt"
-	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Options struct {
@@ -23,26 +19,20 @@ type Options struct {
 
 type Server struct {
 	db                                 *db.DB
-	client                             *client.Client
 	baseURL, uiURL                     string
 	tokenService                       *jwt.TokenService
 	dispatcher                         *dispatcher.Dispatcher
-	gptClient                          *gptscript.GPTScript
-	storageClient                      kclient.Client
 	dailyUserTokenPromptTokenLimit     int
 	dailyUserTokenCompletionTokenLimit int
 }
 
-func New(ctx context.Context, storageClient kclient.Client, g *gptscript.GPTScript, db *db.DB, tokenService *jwt.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, opts Options) (*Server, error) {
+func New(ctx context.Context, db *db.DB, tokenService *jwt.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, opts Options) (*Server, error) {
 	s := &Server{
 		db:                                 db,
-		client:                             client.New(db, encryptionConfig, adminEmails),
 		baseURL:                            opts.Hostname,
 		uiURL:                              opts.UIHostname,
 		tokenService:                       tokenService,
 		dispatcher:                         modelProviderDispatcher,
-		gptClient:                          g,
-		storageClient:                      storageClient,
 		dailyUserTokenPromptTokenLimit:     opts.DailyUserPromptTokenLimit,
 		dailyUserTokenCompletionTokenLimit: opts.DailyUserCompletionTokenLimit,
 	}

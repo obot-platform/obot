@@ -18,8 +18,11 @@ type InboundWebhookHandler struct {
 }
 
 func NewInboundWebhookHandler(c kclient.Client, hostname string, username, password string) *InboundWebhookHandler {
-	emailTrigger := emailtrigger.EmailTrigger(c, hostname)
-	return &InboundWebhookHandler{emailTrigger: emailTrigger, username: username, password: password}
+	return &InboundWebhookHandler{
+		emailTrigger: emailtrigger.EmailTrigger(c, hostname),
+		username:     username,
+		password:     password,
+	}
 }
 
 func (h *InboundWebhookHandler) InboundWebhookHandler(req api.Context) error {
