@@ -242,6 +242,9 @@
 	}
 
 	function handleSelectItem(item: (typeof filteredData)[0]) {
+		connectToServer = undefined;
+		connectToEntry = undefined;
+
 		if ('manifest' in item) {
 			connectToServer = {
 				server: item as MCPCatalogServer
@@ -383,6 +386,9 @@
 		<button
 			class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
 			onclick={() => {
+				connectToServer = undefined;
+				connectToEntry = undefined;
+
 				if (connectedServer.parent) {
 					connectToServer = {
 						server: connectedServer.server,
