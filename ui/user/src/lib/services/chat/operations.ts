@@ -1445,8 +1445,9 @@ export async function deleteSingleOrRemoteMcpServer(id: string): Promise<void> {
 export async function configureSingleOrRemoteMcpServer(
 	id: string,
 	envs: Record<string, string>
-): Promise<void> {
-	await doPost(`/mcp-servers/${id}/configure`, envs);
+): Promise<MCPCatalogServer> {
+	const response = (await doPost(`/mcp-servers/${id}/configure`, envs)) as MCPCatalogServer;
+	return response;
 }
 
 export async function deconfigureSingleOrRemoteMcpServer(id: string): Promise<void> {

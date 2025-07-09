@@ -668,6 +668,7 @@ export interface ChatModelList {
 
 export interface MCPCatalogServer {
 	id: string;
+	connectURL?: string;
 	configured: boolean;
 	catalogEntryID: string;
 	missingRequiredEnvVars: string[];

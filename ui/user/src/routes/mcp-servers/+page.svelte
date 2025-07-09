@@ -31,19 +31,20 @@
 	let loading = $state(true);
 
 	let deletingInstance = $state<MCPServerInstance>();
+	let deletingServer = $state<MCPCatalogServer>();
 	let connectToEntry = $state<{
 		entry: MCPCatalogEntry;
 		envs: MCPServerInfo['env'];
 		headers: MCPServerInfo['headers'];
 		url: MCPServerInfo['url'];
 		connectURL?: string;
-		launching: boolean;
+		launching?: boolean;
 	}>();
 	let connectToServer = $state<{
-		server: MCPCatalogServer;
-		userConfiguredServer?: MCPCatalogServer;
+		server?: MCPCatalogServer;
 		instance?: MCPServerInstance;
 		connectURL?: string;
+		parent?: MCPCatalogEntry;
 	}>();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -73,8 +74,12 @@
 	);
 	let filteredEntriesData = $derived(
 		entries.filter((item) => {
+			if (item.deleted) {
+				return false;
+			}
+
 			const userConfiguredServer = userConfiguredServersMap.get(item.id);
-			if (userConfiguredServer && serverInstancesMap.has(userConfiguredServer.id)) {
+			if (userConfiguredServer) {
 				return false;
 			}
 
@@ -88,6 +93,10 @@
 	);
 	let filteredServers = $derived(
 		servers.filter((item) => {
+			if (item.deleted) {
+				return false;
+			}
+
 			if (serverInstancesMap.has(item.id)) {
 				return false;
 			}
@@ -100,37 +109,54 @@
 		})
 	);
 	let filteredData = $derived([...filteredServers, ...filteredEntriesData]);
-	let connectedServers = $derived(
-		userServerInstances.map((instance) => {
-			const userConfiguredServer = userConfiguredServers.find((s) => s.id === instance.mcpServerID);
-			return {
-				instance,
-				userConfiguredServer,
-				parent: userConfiguredServer?.catalogEntryID
-					? entries.find((e) => e.id === userConfiguredServer.catalogEntryID)
-					: servers.find((s) => s.id === instance.mcpServerID)
-			};
-		})
-	);
+	let connectedServers = $derived([
+		...userConfiguredServers
+			.filter((server) => server.connectURL && !server.deleted)
+			.map((server) => ({
+				connectURL: server.connectURL ?? '',
+				server,
+				instance: undefined,
+				parent: server.catalogEntryID
+					? (entries.find((e) => e.id === server.catalogEntryID) ?? undefined)
+					: undefined
+			})),
+		...userServerInstances.map((instance) => ({
+			connectURL: instance.connectURL ?? '',
+			instance,
+			server: servers.find((s) => s.id === instance.mcpServerID) ?? undefined,
+			parent: undefined
+		}))
+	]);
 
 	let page = $state(0);
 	let pageSize = $state(30);
 	let paginatedData = $derived(filteredData.slice(page * pageSize, (page + 1) * pageSize));
 
-	async function loadData() {
+	async function loadData(partialRefresh?: boolean) {
 		loading = true;
 		try {
-			const [singleOrRemoteUserServers, entriesResult, serversResult, serverInstances] =
-				await Promise.all([
+			if (partialRefresh) {
+				const [singleOrRemoteUserServers, serverInstances] = await Promise.all([
 					ChatService.listSingleOrRemoteMcpServers(),
-					ChatService.listMCPs(),
-					ChatService.listMCPCatalogServers(),
 					ChatService.listMcpServerInstances()
 				]);
-			userConfiguredServers = singleOrRemoteUserServers;
-			entries = entriesResult;
-			servers = serversResult;
-			userServerInstances = serverInstances;
+
+				userConfiguredServers = singleOrRemoteUserServers;
+				userServerInstances = serverInstances;
+			} else {
+				const [singleOrRemoteUserServers, entriesResult, serversResult, serverInstances] =
+					await Promise.all([
+						ChatService.listSingleOrRemoteMcpServers(),
+						ChatService.listMCPs(),
+						ChatService.listMCPCatalogServers(),
+						ChatService.listMcpServerInstances()
+					]);
+
+				userConfiguredServers = singleOrRemoteUserServers;
+				entries = entriesResult;
+				servers = serversResult;
+				userServerInstances = serverInstances;
+			}
 		} catch (error) {
 			console.error('Failed to load data:', error);
 		} finally {
@@ -142,7 +168,8 @@
 		loadData();
 	});
 
-	function parseCategories(item: (typeof filteredData)[0]) {
+	function parseCategories(item?: (typeof filteredData)[0] | null) {
+		if (!item) return [];
 		if ('manifest' in item && item.manifest.metadata?.categories) {
 			return item.manifest.metadata.categories.split(',') ?? [];
 		}
@@ -174,42 +201,6 @@
 		return secretValues;
 	}
 
-	async function handleMcpServer(server: MCPCatalogServer, instance?: MCPServerInstance) {
-		connectToServer = {
-			server,
-			userConfiguredServer: userConfiguredServersMap.get(server.id),
-			instance,
-			connectURL: instance?.connectURL
-		};
-
-		if (connectToServer.connectURL) {
-			connectDialog?.open();
-		} else {
-			showServerInfo = true;
-		}
-	}
-
-	async function handleMcpEntry(entry: MCPCatalogEntry, instance?: MCPServerInstance) {
-		const envs = (
-			(entry.commandManifest ? entry.commandManifest.env : entry.urlManifest?.env) ?? []
-		).map((env) => ({ ...env, value: '' }));
-
-		const headers = (
-			(entry.commandManifest ? entry.commandManifest.headers : entry.urlManifest?.headers) ?? []
-		).map((header) => ({ ...header, value: '' }));
-
-		const url = entry.urlManifest?.fixedURL ?? '';
-
-		connectToEntry = { entry, envs, headers, url, launching: false };
-
-		if (instance) {
-			connectToEntry.connectURL = instance.connectURL;
-			connectDialog?.open();
-		} else {
-			showServerInfo = true;
-		}
-	}
-
 	async function handleLaunch() {
 		if (connectToEntry) {
 			connectToEntry.launching = true;
@@ -225,67 +216,75 @@
 				catalogEntryID: connectToEntry.entry.id,
 				...(connectToEntry.entry.urlManifest ? { manifest: { url } } : {})
 			});
-			const instance = await ChatService.createMcpServerInstance(response.id);
 
 			const secretValues = convertEnvHeadersToRecord(connectToEntry.envs, connectToEntry.headers);
-			await ChatService.configureSingleOrRemoteMcpServer(response.id, secretValues);
-			connectToEntry.connectURL = instance.connectURL;
-			connectToEntry.launching = false;
+			const configuredResponse = await ChatService.configureSingleOrRemoteMcpServer(
+				response.id,
+				secretValues
+			);
+
+			connectToServer = {
+				server: configuredResponse,
+				connectURL: configuredResponse.connectURL,
+				instance: undefined,
+				parent: connectToEntry?.entry
+			};
+			connectToEntry = undefined;
 			configDialog?.close();
 			connectDialog?.open();
-		} else if (connectToServer) {
+		} else if (connectToServer?.server) {
 			const instance = await ChatService.createMcpServerInstance(connectToServer.server.id);
 			connectToServer.connectURL = instance.connectURL;
 			connectDialog?.open();
 		}
 
-		await loadData();
+		await loadData(true);
 	}
 
 	function handleSelectItem(item: (typeof filteredData)[0]) {
-		connectToEntry = undefined;
-		connectToServer = undefined;
-
-		if (item.type === 'mcpserver') {
-			handleMcpServer(item as MCPCatalogServer, serverInstancesMap.get(item.id));
+		if ('manifest' in item) {
+			connectToServer = {
+				server: item as MCPCatalogServer
+			};
 		} else {
-			const userConfiguredServer = userConfiguredServersMap.get(item.id);
-			handleMcpEntry(
-				item as MCPCatalogEntry,
-				userConfiguredServer ? serverInstancesMap.get(userConfiguredServer.id) : undefined
-			);
+			const manifest = item.commandManifest ?? item.urlManifest;
+			const envs = (manifest?.env ?? []).map((env) => ({ ...env, value: '' }));
+			const headers = (manifest?.headers ?? []).map((header) => ({ ...header, value: '' }));
+			const url = manifest?.fixedURL ?? '';
+			connectToEntry = { entry: item, envs, headers, url, launching: false };
 		}
+		showServerInfo = true;
 	}
 
 	function hasEditableConfiguration(item: MCPCatalogEntry) {
-		const userConfiguredServer = userConfiguredServersMap.get(item.id);
-		if (!userConfiguredServer) {
-			return false;
-		}
+		const manifest = item.commandManifest ?? item.urlManifest;
+		const hasUrlToFill = manifest?.fixedURL && manifest.hostname;
+		const hasEnvsToFill = manifest?.env && manifest.env.length > 0;
+		const hasHeadersToFill = manifest?.headers && manifest.headers.length > 0;
 
-		const hasEnvs =
-			userConfiguredServer.manifest.env && userConfiguredServer.manifest.env.length > 0;
-		const hasHeaders =
-			userConfiguredServer.manifest.headers && userConfiguredServer.manifest.headers.length > 0;
-		return hasEnvs || hasHeaders;
+		return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
 	}
 
 	function getCurrentName() {
 		if (connectToEntry) {
-			return connectToEntry.entry.commandManifest?.name ?? connectToEntry.entry.urlManifest?.name;
+			return (
+				connectToEntry.entry.commandManifest?.name ?? connectToEntry.entry.urlManifest?.name ?? ''
+			);
 		}
 		if (connectToServer) {
-			return connectToServer.server.manifest.name;
+			return connectToServer.server?.manifest.name ?? '';
 		}
 		return '';
 	}
 
 	function getCurrentIcon() {
 		if (connectToEntry) {
-			return connectToEntry.entry.commandManifest?.icon ?? connectToEntry.entry.urlManifest?.icon;
+			return (
+				connectToEntry.entry.commandManifest?.icon ?? connectToEntry.entry.urlManifest?.icon ?? ''
+			);
 		}
 		if (connectToServer) {
-			return connectToServer.server.manifest.icon;
+			return connectToServer.server?.manifest.icon ?? '';
 		}
 		return '';
 	}
@@ -325,9 +324,7 @@
 					</div>
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 						{#each connectedServers as connectedServer}
-							{#if connectedServer.parent}
-								{@render mcpServerCard(connectedServer.parent, connectedServer.instance)}
-							{/if}
+							{@render connectedMcpServerCard(connectedServer)}
 						{/each}
 					</div>
 				</div>
@@ -377,7 +374,136 @@
 	</div>
 {/snippet}
 
-{#snippet mcpServerCard(item: (typeof filteredData)[0], instance?: MCPServerInstance)}
+{#snippet connectedMcpServerCard(connectedServer: (typeof connectedServers)[0])}
+	{@const icon = connectedServer.server?.manifest.icon}
+	{@const name = connectedServer.server?.manifest.name}
+	{@const description = connectedServer.server?.manifest.description}
+	{@const categories = parseCategories(connectedServer.server ?? connectedServer.parent)}
+	<div class="mcp-server-card relative flex flex-col">
+		<button
+			class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
+			onclick={() => {
+				if (connectedServer.parent) {
+					connectToServer = {
+						server: connectedServer.server,
+						connectURL: connectedServer.connectURL,
+						parent: connectedServer.parent
+					};
+				} else {
+					connectToServer = {
+						server: connectedServer.server,
+						instance: connectedServer.instance,
+						connectURL: connectedServer.connectURL
+					};
+				}
+				showServerInfo = true;
+			}}
+		>
+			<div class="flex items-center gap-2 pr-6">
+				<div
+					class="flex size-8 flex-shrink-0 items-center justify-center self-start rounded-md bg-transparent p-0.5 dark:bg-gray-600"
+				>
+					{#if icon}
+						<img src={icon} alt={name} />
+					{:else}
+						<Server />
+					{/if}
+				</div>
+				<div class="flex max-w-[calc(100%-2rem)] flex-col">
+					<p class="text-sm font-semibold">{name}</p>
+					<span
+						class={twMerge(
+							'text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600',
+							categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
+						)}
+					>
+						{stripMarkdownToText(description ?? '')}
+					</span>
+				</div>
+			</div>
+			<div class="flex w-full flex-wrap gap-1 pt-2">
+				{#each categories as category}
+					<div
+						class="border-surface3 rounded-full border px-1.5 py-0.5 text-[10px] font-light text-gray-400 dark:text-gray-600"
+					>
+						{category}
+					</div>
+				{/each}
+			</div>
+		</button>
+		<div
+			class="absolute -top-2 right-0 flex h-full translate-y-2 flex-col justify-between gap-4 p-2"
+		>
+			<DotDotDot
+				class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
+			>
+				<div class="default-dialog flex min-w-max flex-col p-2">
+					<button
+						class="menu-button"
+						onclick={() => {
+							connectDialog?.open();
+						}}
+					>
+						Get Connection URL
+					</button>
+					{#if connectedServer.parent && hasEditableConfiguration(connectedServer.parent)}
+						<button
+							class="menu-button"
+							onclick={async () => {
+								let values: Record<string, string>;
+								try {
+									values = await ChatService.revealSingleOrRemoteMcpServer(
+										connectedServer.server.id
+									);
+								} catch (error) {
+									if (error instanceof Error && !error.message.includes('404')) {
+										console.error(
+											'Failed to reveal user server values due to unexpected error',
+											error
+										);
+									}
+									values = {};
+								}
+
+								userConfiguredServerToEdit = {
+									id: connectedServer.server.id,
+									envs: connectedServer.server.manifest.env?.map((env) => ({
+										...env,
+										value: values[env.key] ?? ''
+									})),
+									headers: connectedServer.server.manifest.headers?.map((header) => ({
+										...header,
+										value: values[header.key] ?? ''
+									})),
+									url: connectedServer.server.manifest.url,
+									icon: connectedServer.server.manifest.icon,
+									name: connectedServer.server.manifest.name
+								};
+								editUserConfiguredServerDialog?.open();
+							}}
+						>
+							Edit Configuration
+						</button>
+					{/if}
+					<button
+						class="menu-button text-red-500"
+						onclick={async () => {
+							if (connectedServer.instance) {
+								deletingInstance = connectedServer.instance;
+							} else if (connectedServer.parent) {
+								deletingServer = connectedServer.server;
+							}
+						}}
+					>
+						Disconnect
+					</button>
+				</div>
+			</DotDotDot>
+		</div>
+	</div>
+{/snippet}
+
+{#snippet mcpServerCard(item: (typeof filteredData)[0])}
 	{@const icon =
 		'manifest' in item
 			? item.manifest.icon
@@ -391,18 +517,7 @@
 		<button
 			class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
 			onclick={() => {
-				if (!instance) {
-					handleSelectItem(item);
-				} else {
-					connectToEntry = undefined;
-					connectToServer = {
-						server: 'manifest' in item ? item : userConfiguredServersMap.get(item.id)!,
-						userConfiguredServer: 'manifest' in item ? item : userConfiguredServersMap.get(item.id),
-						instance,
-						connectURL: instance?.connectURL
-					};
-					showServerInfo = true;
-				}
+				handleSelectItem(item);
 			}}
 		>
 			<div class="flex items-center gap-2 pr-6">
@@ -446,85 +561,15 @@
 		<div
 			class="absolute -top-2 right-0 flex h-full translate-y-2 flex-col justify-between gap-4 p-2"
 		>
-			{#if instance}
-				<DotDotDot
-					class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
-				>
-					<div class="default-dialog flex min-w-max flex-col p-2">
-						<button
-							class="menu-button"
-							onclick={() => {
-								handleSelectItem(item);
-							}}
-						>
-							Get Connection URL
-						</button>
-						{#if !('manifest' in item) && hasEditableConfiguration(item)}
-							<button
-								class="menu-button"
-								onclick={async () => {
-									const userConfiguredServer = userConfiguredServersMap.get(item.id);
-									if (!userConfiguredServer) {
-										console.error('No user configured server for this entry found');
-										return;
-									}
-
-									let values: Record<string, string>;
-									try {
-										values = await ChatService.revealSingleOrRemoteMcpServer(
-											userConfiguredServer.id
-										);
-									} catch (error) {
-										if (error instanceof Error && !error.message.includes('404')) {
-											console.error(
-												'Failed to reveal user server values due to unexpected error',
-												error
-											);
-										}
-										values = {};
-									}
-
-									userConfiguredServerToEdit = {
-										id: userConfiguredServer.id,
-										envs: userConfiguredServer.manifest.env?.map((env) => ({
-											...env,
-											value: values[env.key] ?? ''
-										})),
-										headers: userConfiguredServer.manifest.headers?.map((header) => ({
-											...header,
-											value: values[header.key] ?? ''
-										})),
-										url: userConfiguredServer.manifest.url,
-										icon: userConfiguredServer.manifest.icon,
-										name: userConfiguredServer.manifest.name
-									};
-									editUserConfiguredServerDialog?.open();
-								}}
-							>
-								Edit Configuration
-							</button>
-						{/if}
-						<button
-							class="menu-button text-red-500"
-							onclick={async () => {
-								deletingInstance = instance;
-							}}
-						>
-							Disconnect
-						</button>
-					</div>
-				</DotDotDot>
-			{:else}
-				<button
-					class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
-					use:tooltip={'Connect to server'}
-					onclick={() => {
-						handleSelectItem(item);
-					}}
-				>
-					<Unplug class="size-4" />
-				</button>
-			{/if}
+			<button
+				class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
+				use:tooltip={'Connect to server'}
+				onclick={() => {
+					handleSelectItem(item);
+				}}
+			>
+				<Unplug class="size-4" />
+			</button>
 		</div>
 	</div>
 {/snippet}
@@ -555,17 +600,12 @@
 				{getCurrentName()}
 			</h1>
 			<div class="flex grow items-center justify-end gap-4">
-				{#if connectToEntry || (connectToServer && !connectToServer.userConfiguredServer)}
+				{#if connectToEntry || (connectToServer && !connectToServer.connectURL)}
 					<button
 						class="button-primary"
 						onclick={() => {
 							if (connectToEntry) {
-								const hasUrlToFill =
-									connectToEntry.entry.urlManifest && connectToEntry.entry.urlManifest.hostname;
-								const hasEnvsToFill = connectToEntry.envs && connectToEntry.envs.length > 0;
-								const hasHeadersToFill =
-									connectToEntry.headers && connectToEntry.headers.length > 0;
-								if (hasUrlToFill || hasEnvsToFill || hasHeadersToFill) {
+								if (hasEditableConfiguration(connectToEntry.entry)) {
 									configDialog?.open();
 								} else {
 									handleLaunch();
@@ -573,12 +613,11 @@
 							} else if (connectToServer) {
 								handleLaunch();
 							}
-							showServerInfo = false;
 						}}
 					>
 						Connect To Server
 					</button>
-				{:else if connectToServer && connectToServer.userConfiguredServer}
+				{:else if connectToServer && connectToServer.connectURL}
 					<button
 						class="button-primary"
 						onclick={() => {
@@ -589,58 +628,63 @@
 					</button>
 					<DotDotDot class="icon-button h size-10 min-h-auto min-w-auto flex-shrink-0 p-1">
 						<div class="default-dialog flex min-w-max flex-col p-2">
-							<button
-								class="menu-button"
-								onclick={async () => {
-									if (!connectToServer?.userConfiguredServer) {
-										console.error('No user configured server for this entry found');
-										return;
-									}
-
-									let values: Record<string, string>;
-									try {
-										values = await ChatService.revealSingleOrRemoteMcpServer(
-											connectToServer.userConfiguredServer.id
-										);
-									} catch (error) {
-										if (error instanceof Error && !error.message.includes('404')) {
-											console.error(
-												'Failed to reveal user server values due to unexpected error',
-												error
-											);
+							{#if connectToServer.parent && hasEditableConfiguration(connectToServer.parent)}
+								<button
+									class="menu-button"
+									onclick={async () => {
+										if (!connectToServer?.server) {
+											console.error('No user configured server for this entry found');
+											return;
 										}
-										values = {};
-									}
 
-									userConfiguredServerToEdit = {
-										id: connectToServer.userConfiguredServer.id,
-										envs: connectToServer.userConfiguredServer.manifest.env?.map((env) => ({
-											...env,
-											value: values[env.key] ?? ''
-										})),
-										headers: connectToServer.userConfiguredServer.manifest.headers?.map(
-											(header) => ({
+										let values: Record<string, string>;
+										try {
+											values = await ChatService.revealSingleOrRemoteMcpServer(
+												connectToServer.server.id
+											);
+										} catch (error) {
+											if (error instanceof Error && !error.message.includes('404')) {
+												console.error(
+													'Failed to reveal user server values due to unexpected error',
+													error
+												);
+											}
+											values = {};
+										}
+
+										userConfiguredServerToEdit = {
+											id: connectToServer.server.id,
+											envs: connectToServer.server.manifest.env?.map((env) => ({
+												...env,
+												value: values[env.key] ?? ''
+											})),
+											headers: connectToServer.server.manifest.headers?.map((header) => ({
 												...header,
 												value: values[header.key] ?? ''
-											})
-										),
-										url: connectToServer.userConfiguredServer.manifest.url,
-										icon: connectToServer.userConfiguredServer.manifest.icon,
-										name: connectToServer.userConfiguredServer.manifest.name
-									};
-									editUserConfiguredServerDialog?.open();
-								}}
-							>
-								Edit Configuration
-							</button>
+											})),
+											url: connectToServer.server.manifest.url,
+											icon: connectToServer.server.manifest.icon,
+											name: connectToServer.server.manifest.name
+										};
+										editUserConfiguredServerDialog?.open();
+									}}
+								>
+									Edit Configuration
+								</button>
+							{/if}
 							<button
 								class="menu-button text-red-500"
 								onclick={async () => {
-									if (!connectToServer?.instance) {
-										console.error('No instance for this server found');
+									if (!connectToServer) {
+										console.error('No server to disconnect from');
 										return;
 									}
-									deletingInstance = connectToServer.instance;
+
+									if (connectToServer.instance) {
+										deletingInstance = connectToServer.instance;
+									} else if (connectToServer.parent) {
+										deletingServer = connectToServer.server;
+									}
 								}}
 							>
 								Disconnect
@@ -655,8 +699,8 @@
 			<McpServerInfo entry={connectToEntry.entry as MCPCatalogEntry} />
 		{/if}
 
-		{#if connectToServer}
-			<McpServerInfo entry={connectToServer.userConfiguredServer ?? connectToServer.server} />
+		{#if connectToServer?.server}
+			<McpServerInfo entry={connectToServer.server} />
 		{/if}
 	</div>
 {/snippet}
@@ -732,7 +776,7 @@
 							secretValues
 						);
 						editUserConfiguredServerDialog?.close();
-						await loadData();
+						await loadData(true);
 					}
 				}}>Update</button
 			>
@@ -826,7 +870,7 @@
 	{:else if connectToServer?.connectURL}
 		{@render connectUrlButton(
 			connectToServer.connectURL,
-			connectToServer.server.manifest.name ?? ''
+			connectToServer.server?.manifest.name ?? ''
 		)}
 	{/if}
 </ResponsiveDialog>
@@ -843,8 +887,8 @@
 
 	<HowToConnect
 		servers={connectedServers.map((server) => ({
-			url: server.instance?.connectURL ?? '',
-			name: server.userConfiguredServer?.manifest.name ?? ''
+			url: server.connectURL ?? '',
+			name: server.server?.manifest.name ?? ''
 		}))}
 	/>
 </ResponsiveDialog>
@@ -866,17 +910,17 @@
 		{name}
 	{:else if connectToServer}
 		<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
-			{#if connectToServer.server.manifest.icon}
+			{#if connectToServer.server?.manifest.icon}
 				<img
-					src={connectToServer.server.manifest.icon}
-					alt={connectToServer.server.manifest.name}
+					src={connectToServer.server?.manifest.icon}
+					alt={connectToServer.server?.manifest.name}
 					class="size-8"
 				/>
 			{:else}
 				<Server class="size-8" />
 			{/if}
 		</div>
-		{connectToServer.server.manifest.name}
+		{connectToServer.server?.manifest.name}
 	{/if}
 {/snippet}
 
@@ -885,23 +929,29 @@
 	show={Boolean(deletingInstance)}
 	onsuccess={async () => {
 		if (deletingInstance) {
-			if (deletingInstance.mcpCatalogID) {
-				// find & delete user server
-				const matchingUserServer = userConfiguredServers.find(
-					(server) => server.id === deletingInstance?.mcpCatalogID
-				);
-				if (matchingUserServer) {
-					await ChatService.deleteSingleOrRemoteMcpServer(matchingUserServer.id);
-				}
-			}
 			await ChatService.deleteMcpServerInstance(deletingInstance.id);
-			// TODO: does loadData need to happen or can it one or two calls to reload
-			await loadData();
+			await loadData(true);
 			deletingInstance = undefined;
 			showServerInfo = false;
+			connectToServer = undefined;
 		}
 	}}
 	oncancel={() => (deletingInstance = undefined)}
+/>
+
+<Confirm
+	msg={'Are you sure you want to delete this server?'}
+	show={Boolean(deletingServer)}
+	onsuccess={async () => {
+		if (deletingServer) {
+			await ChatService.deleteSingleOrRemoteMcpServer(deletingServer.id);
+			await loadData(true);
+			deletingServer = undefined;
+			showServerInfo = false;
+			connectToServer = undefined;
+		}
+	}}
+	oncancel={() => (deletingServer = undefined)}
 />
 
 <svelte:head>
