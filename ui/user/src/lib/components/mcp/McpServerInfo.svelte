@@ -120,10 +120,23 @@
 		return details.filter((d) => d);
 	}
 
+	// Extract tool previews from the appropriate manifest
+	function getToolPreview(entry: MCPCatalogEntry | MCPCatalogServer): MCPServerTool[] {
+		if ('manifest' in entry) {
+			// Connected server - get from manifest.toolPreview
+			return entry.manifest?.toolPreview || [];
+		} else {
+			// Catalog entry - get from commandManifest or urlManifest
+			const manifest = entry.commandManifest || entry.urlManifest;
+			return manifest?.toolPreview || [];
+		}
+	}
+
 	let { entry, editable = false, catalogId, onUpdate }: Props = $props();
 	let tools = $state<MCPServerTool[]>([]);
 	let prompts = $state<MCPServerPrompt[]>([]);
 	let resources = $state<McpServerResource[]>([]);
+	let previewTools = $derived(getToolPreview(entry));
 	let details = $derived(convertEntryDetails(entry));
 	let loading = $state(false);
 	let editDescription = $state(false);
@@ -133,6 +146,14 @@
 			? entry.manifest.description
 			: entry.commandManifest?.description || entry.urlManifest?.description) ?? ''
 	);
+
+	// Determine if we have "real" tools or should show previews
+	let hasConnectedServer = $derived('manifest' in entry);
+	let showRealTools = $derived(hasConnectedServer && tools.length > 0);
+	let showPreviewTools = $derived(
+		previewTools.length > 0 && (!hasConnectedServer || (loading && tools.length === 0))
+	);
+	let displayTools = $derived(showRealTools ? tools : showPreviewTools ? previewTools : []);
 
 	async function loadServerData() {
 		loading = true;
@@ -242,11 +263,11 @@
 </div>
 
 {#snippet capabilitiesSection()}
-	{#if 'manifest' in entry}
+	{#if hasConnectedServer}
 		<div class="flex flex-col gap-2">
 			<h4 class="text-md font-semibold">Capabilities</h4>
 			<ul class="flex flex-wrap items-center gap-2">
-				{@render capabiliity('Tool Catalog', tools.length > 0)}
+				{@render capabiliity('Tool Catalog', displayTools.length > 0)}
 				{@render capabiliity('Prompts', prompts.length > 0)}
 				{@render capabiliity('Resources', resources.length > 0)}
 			</ul>
@@ -271,9 +292,22 @@
 {/snippet}
 
 {#snippet toolsSection()}
-	{#if tools.length > 0}
+	{#if displayTools.length > 0}
 		<div class="flex flex-col gap-2">
-			<McpServerTools {tools} />
+			<div class="flex items-center gap-2">
+				<h4 class="text-md font-semibold">Tools</h4>
+				{#if showPreviewTools}
+					<span
+						class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+					>
+						Preview
+					</span>
+				{/if}
+				{#if hasConnectedServer && loading}
+					<LoaderCircle class="size-3 animate-spin text-gray-400" />
+				{/if}
+			</div>
+			<McpServerTools tools={displayTools} />
 		</div>
 	{/if}
 {/snippet}

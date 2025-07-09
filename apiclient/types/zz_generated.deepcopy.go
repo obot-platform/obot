@@ -1281,6 +1281,13 @@ func (in *MCPServerCatalogEntryManifest) DeepCopyInto(out *MCPServerCatalogEntry
 			(*out)[key] = val
 		}
 	}
+	if in.ToolPreview != nil {
+		in, out := &in.ToolPreview, &out.ToolPreview
+		*out = make([]MCPServerTool, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Env != nil {
 		in, out := &in.Env, &out.Env
 		*out = make([]MCPEnv, len(*in))
@@ -1376,6 +1383,13 @@ func (in *MCPServerManifest) DeepCopyInto(out *MCPServerManifest) {
 		*out = make(map[string]string, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
+		}
+	}
+	if in.ToolPreview != nil {
+		in, out := &in.ToolPreview, &out.ToolPreview
+		*out = make([]MCPServerTool, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 	if in.Env != nil {

@@ -287,6 +287,7 @@ export interface MCPServer {
 	url?: string;
 	hostname?: string;
 	headers?: MCPSubField[];
+	toolPreview?: MCPServerTool[];
 	metadata?: {
 		categories?: string;
 	};

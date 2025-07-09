@@ -42,7 +42,6 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<h4 class="text-md font-semibold">Tools</h4>
 	<div class="flex w-full justify-end">
 		<div class="flex flex-wrap items-center justify-end gap-2">
 			<Toggle

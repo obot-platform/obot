@@ -1482,9 +1482,33 @@ func (m *MCPHandler) ListServersInDefaultCatalog(req api.Context) error {
 		}
 	}
 
+	// Load catalog entries to enrich servers with tool previews
+	var catalogEntries v1.MCPServerCatalogEntryList
+	if err := req.List(&catalogEntries); err != nil {
+		// Don't fail if we can't load catalog entries, just continue without previews
+		log.Errorf("failed to load catalog entries: %v", err)
+	}
+
+	catalogEntryMap := make(map[string]v1.MCPServerCatalogEntry, len(catalogEntries.Items))
+	for _, entry := range catalogEntries.Items {
+		catalogEntryMap[entry.Name] = entry
+	}
+
 	var mcpServers []types.MCPServer
 	for _, server := range allowedServers {
 		addExtractedEnvVars(&server)
+		// Enrich with tool preview data if catalog entry exists
+		if server.Spec.MCPServerCatalogEntryName != "" {
+			if entry, exists := catalogEntryMap[server.Spec.MCPServerCatalogEntryName]; exists {
+				// Add tool preview from catalog entry to server manifest
+				if entry.Spec.CommandManifest.ToolPreview != nil {
+					server.Spec.Manifest.ToolPreview = entry.Spec.CommandManifest.ToolPreview
+				} else if entry.Spec.URLManifest.ToolPreview != nil {
+					server.Spec.Manifest.ToolPreview = entry.Spec.URLManifest.ToolPreview
+				}
+			}
+		}
+
 		mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name], m.serverURL))
 	}
 
@@ -1522,6 +1546,20 @@ func (m *MCPHandler) GetServerFromDefaultCatalog(req api.Context) error {
 	}
 
 	addExtractedEnvVars(&server)
+
+	// Enrich with tool preview data if catalog entry exists
+	if server.Spec.MCPServerCatalogEntryName != "" {
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err == nil {
+			// Add tool preview from catalog entry to server manifest
+			if entry.Spec.CommandManifest.ToolPreview != nil {
+				server.Spec.Manifest.ToolPreview = entry.Spec.CommandManifest.ToolPreview
+			} else if entry.Spec.URLManifest.ToolPreview != nil {
+				server.Spec.Manifest.ToolPreview = entry.Spec.URLManifest.ToolPreview
+			}
+		}
+		// Don't fail if catalog entry is missing, just continue without preview
+	}
 
 	return req.Write(convertMCPServer(server, cred.Env, m.serverURL))
 }

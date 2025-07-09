@@ -6,5 +6,33 @@
   },
   "icon": "https://avatars.githubusercontent.com/u/182288589?v=4",
   "repoURL": "https://gitmcp.io",
-  "hostname": "gitmcp.io"
+  "hostname": "gitmcp.io",
+  "toolPreview": [
+    {
+      "name": "fetch_<repo>_documentation",
+      "description": "Fetch entire documentation file from GitHub repository: <org>/<repo>. Useful for general questions. Always call this tool first if asked about <org>/<repo>."
+    },
+    {
+      "name": "search_<repo>_documentation",
+      "description": "Semantically search within the fetched documentation from GitHub repository: <org>/<repo>. Useful for specific queries.",
+      "params": {
+        "query": "The search query to find relevant documentation"
+      }
+    },
+    {
+      "name": "search_<repo>_code",
+      "description": "Search for code within the GitHub repository: \"<org>/<repo>\" using the GitHub Search API (exact match). Returns matching files for you to query further if relevant.",
+      "params": {
+        "page": "Page number to retrieve (starting from 1). Each page contains 30 results.",
+        "query": "The search query to find relevant code files"
+      }
+    },
+    {
+      "name": "fetch_generic_url_content",
+      "description": "Generic tool to fetch content from any absolute URL, respecting robots.txt rules. Use this to retrieve referenced urls (absolute urls) that were mentioned in previously fetched documentation.",
+      "params": {
+        "url": "The URL of the document or page to fetch"
+      }
+    }
+  ]
 }

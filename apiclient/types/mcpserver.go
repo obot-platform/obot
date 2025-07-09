@@ -16,6 +16,7 @@ type MCPServerCatalogEntryManifest struct {
 	Description string            `json:"description"`
 	Icon        string            `json:"icon"`
 	RepoURL     string            `json:"repoURL,omitempty"`
+	ToolPreview []MCPServerTool   `json:"toolPreview,omitempty"`
 
 	// For single-user servers:
 	Env     []MCPEnv `json:"env,omitempty"`
@@ -49,6 +50,7 @@ type MCPServerManifest struct {
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Icon        string            `json:"icon"`
+	ToolPreview []MCPServerTool   `json:"toolPreview,omitempty"`
 
 	// For local servers:
 	Env     []MCPEnv `json:"env,omitempty"`

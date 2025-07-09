@@ -1,3 +1,5 @@
+import { type MCPServerTool } from '../chat/types';
+
 export interface MCPCatalogManifest {
 	displayName: string;
 	sourceURLs: string[];
@@ -23,6 +25,7 @@ export interface MCPCatalogEntryServerManifest {
 	headers?: MCPCatalogEntryFieldManifest[];
 	name?: string;
 	description?: string;
+	toolPreview?: MCPServerTool[];
 	metadata?: {
 		categories?: string;
 		'allow-multiple'?: string;
