@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@source '../node_modules/layerchart/dist';
 
 @plugin 'tailwind-scrollbar' {
 	nocompatible: true;
@@ -90,6 +91,12 @@
 
 	--color-yellow-500: oklch(79.5% 0.184 86.047);
 	--color-green-500: oklch(72.3% 0.219 149.579);
+
+	--color-primary: var(--color-blue-500);
+	--color-surface-100: var(--color-surface1);
+	--color-surface-200: var(--color-surface2);
+	--color-surface-300: var(--color-surface3);
+	--color-surface-content: var(--color-on-surface1);
 }
 
 /*

@@ -80,6 +80,6 @@
 		"d3-array": "^3.2.4",
 		"d3-scale": "^4.0.2",
 		"es-toolkit": "^1.37.2",
-		"layerchart": "2.0.0-next.29"
+		"layerchart": "1.0.11"
 	}
 }

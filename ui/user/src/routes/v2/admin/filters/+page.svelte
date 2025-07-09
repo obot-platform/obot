@@ -5,14 +5,11 @@
 	import { BookOpenText, ChevronLeft, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
-	import { type AccessControlRule } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import { onMount } from 'svelte';
 	import {
 		fetchMcpServerAndEntries,
-		getAdminMcpServerAndEntries,
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService } from '$lib/services/index.js';

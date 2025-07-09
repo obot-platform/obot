@@ -229,3 +229,73 @@ export interface AccessControlRule extends Omit<AccessControlRuleManifest, 'id'>
 export interface BootstrapStatus {
 	enabled: boolean;
 }
+
+export type AuditLogClient = {
+	name: string;
+	version: string;
+};
+
+export interface AuditLog {
+	id: string;
+	createdAt: string;
+	userID: string;
+	userAgent?: string;
+	mcpServerInstanceName: string;
+	mcpServerName: string;
+	mcpServerDisplayName: string;
+	client: AuditLogClient;
+	clientIp: string;
+	callType: string;
+	callIdentifier?: string;
+	responseStatus: number;
+	processingTimeMs: number;
+	requestHeaders?: Record<string, string>;
+	requestBody?: Record<string, unknown>;
+	responseHeaders?: Record<string, string>;
+	responseBody?: Record<string, unknown>;
+	error?: string;
+	sessionID?: string;
+	requestID?: string;
+}
+
+export interface AuditLogToolCallStat {
+	toolName: string;
+	callCount: number;
+}
+
+export interface AuditLogResourceReadStat {
+	resourceUri: string;
+	readCount: number;
+}
+
+export interface AuditLogPromptReadStat {
+	promptName: string;
+	readCount: number;
+}
+
+export interface AuditLogUsageStats {
+	mcpID: string;
+	mcpServerInstanceName: string;
+	mcpServerName: string;
+	mcpServerDisplayName: string;
+	timeStart: string;
+	timeEnd: string;
+	totalCalls: number;
+	uniqueUsers: number;
+	toolCalls?: AuditLogToolCallStat[];
+	resourceReads?: AuditLogResourceReadStat[];
+	promptReads?: AuditLogPromptReadStat[];
+}
+
+export type AuditLogFilters = {
+	userId?: string | null;
+	mcpServerCatalogEntryName?: string | null;
+	mcpServerDisplayName?: string | null;
+	client?: string | null;
+	callType?: string | null; // tools/call, resources/read, prompts/get
+	sessionId?: string | null;
+	startTime?: string | null; // RFC3339 format (e.g., "2024-01-01T00:00:00Z"
+	endTime?: string | null;
+	limit?: number | null;
+	offset?: number | null;
+};

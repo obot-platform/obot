@@ -115,7 +115,7 @@
 	>
 		{#each fields as fieldName (fieldName)}
 			<td class="overflow-hidden text-sm font-light">
-				<div class="flex h-full w-full px-4 py-2">
+				<div class="flex h-full min-h-12 w-full items-center px-4 py-2">
 					{#if onRenderColumn}
 						{@render onRenderColumn(fieldName, d)}
 					{:else}

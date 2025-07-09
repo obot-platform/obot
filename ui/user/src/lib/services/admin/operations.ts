@@ -1,4 +1,10 @@
-import type { ModelProvider, Project, Task, MCPCatalogServer } from '../chat/types';
+import type {
+	ModelProvider,
+	Project,
+	Task,
+	MCPCatalogServer,
+	MCPServerInstance
+} from '../chat/types';
 import { doDelete, doGet, doPatch, doPost, doPut, type Fetcher } from '../http';
 import type {
 	FileScannerConfig,
@@ -16,10 +22,19 @@ import type {
 	AccessControlRule,
 	AccessControlRuleManifest,
 	AuthProvider,
-	BootstrapStatus
+	BootstrapStatus,
+	AuditLog,
+	AuditLogUsageStats,
+	AuditLogFilters
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
+export type PaginatedResponse<T> = {
+	items: T[] | null;
+	total: number;
+	offset: number;
+	limit: number;
+};
 
 export async function listMCPCatalogs(opts?: { fetch?: Fetcher }): Promise<MCPCatalog[]> {
 	const response = (await doGet('/mcp-catalogs', opts)) as ItemsResponse<MCPCatalog>;
@@ -113,6 +128,18 @@ export async function createMCPCatalogServer(
 		opts
 	)) as MCPCatalogServer;
 	return response;
+}
+
+export async function listMcpCatalogServerInstances(
+	catalogId: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = (await doGet(
+		`/mcp-catalogs/${catalogId}/servers/${mcpServerId}/instances`,
+		opts
+	)) as ItemsResponse<MCPServerInstance>;
+	return response.items ?? [];
 }
 
 export async function updateMCPCatalogServer(
@@ -411,4 +438,76 @@ export async function bootstrapLogin(token: string) {
 
 export async function bootstrapLogout() {
 	return doPost('/bootstrap/logout', {});
+}
+
+function camelToSnakeCase(str: string): string {
+	return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+}
+
+function buildQueryString(filters: Record<string, string | number | boolean | undefined | null>) {
+	return Object.entries(filters)
+		.filter(([_, value]) => value !== undefined && value !== null)
+		.map(
+			([key, value]) =>
+				`${camelToSnakeCase(key)}=${typeof value === 'string' ? encodeURIComponent(value) : value}`
+		)
+		.join('&');
+}
+
+export async function listAuditLogs(filters?: AuditLogFilters, opts?: { fetch?: Fetcher }) {
+	const queryString = buildQueryString(filters ?? {});
+	const response = (await doGet(
+		`/mcp-audit-logs${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as PaginatedResponse<AuditLog>;
+	return response;
+}
+
+export async function listServerOrInstanceAuditLogs(
+	mcpId: string, // can either by server instance or mcp server id ex. ms- or msi-
+	filters?: AuditLogFilters,
+	opts?: { fetch?: Fetcher }
+) {
+	const queryString = buildQueryString(filters ?? {});
+	const response = (await doGet(
+		`/mcp-audit-logs/${mcpId}${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as PaginatedResponse<AuditLog>;
+	return response;
+}
+
+type AuditLogUsageFilters = {
+	mcpServerCatalogEntryName?: string;
+	mcpServerDisplayName?: string;
+	startTime?: string; // RFC3339 format (e.g., "2024-01-01T00:00:00Z"
+	endTime?: string;
+};
+
+export async function listAuditLogUsageStats(
+	filters?: AuditLogUsageFilters,
+	opts?: { fetch?: Fetcher }
+) {
+	const queryString = buildQueryString(filters ?? {});
+	const response = (await doGet(
+		`/mcp-stats${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as AuditLogUsageStats[];
+	return response;
+}
+
+type ServerOrInstanceAuditLogStatsFilters = {
+	startTime?: string;
+	endTime?: string;
+};
+export async function listServerOrInstanceAuditLogStats(
+	mcpId: string, // can either by server instance or mcp server id ex. ms- or msi-
+	filters?: ServerOrInstanceAuditLogStatsFilters,
+	opts?: { fetch?: Fetcher }
+) {
+	const queryString = buildQueryString(filters ?? {});
+	const response = (await doGet(
+		`/mcp-stats/${mcpId}${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as AuditLogUsageStats[];
+	return response;
 }

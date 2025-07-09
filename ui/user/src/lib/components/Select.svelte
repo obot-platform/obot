@@ -18,9 +18,19 @@
 		classes?: {
 			root?: string;
 		};
+		position?: 'top' | 'bottom';
 	}
 
-	const { id, disabled, options, onSelect, selected, class: klass, classes }: Props = $props();
+	const {
+		id,
+		disabled,
+		options,
+		onSelect,
+		selected,
+		class: klass,
+		classes,
+		position = 'bottom'
+	}: Props = $props();
 
 	let search = $state('');
 	let availableOptions = $derived(
@@ -61,7 +71,11 @@
 	<dialog
 		use:clickOutside={() => popover?.close()}
 		bind:this={popover}
-		class="default-scrollbar-thin absolute top-0 left-0 z-10 max-h-[300px] w-full translate-y-10 overflow-y-auto rounded-sm"
+		class={twMerge(
+			'default-scrollbar-thin absolute top-0 left-0 z-10 max-h-[300px] w-full overflow-y-auto rounded-sm',
+			position === 'top' && 'translate-y-10',
+			position === 'bottom' && '-translate-y-full'
+		)}
 	>
 		{#each availableOptions as option (option.id)}
 			<button

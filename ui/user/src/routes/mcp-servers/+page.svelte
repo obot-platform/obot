@@ -428,7 +428,7 @@
 				</div>
 			</div>
 			<div class="flex w-full flex-wrap gap-1 pt-2">
-				{#each categories as category}
+				{#each categories as category (category)}
 					<div
 						class="border-surface3 rounded-full border px-1.5 py-0.5 text-[10px] font-light text-gray-400 dark:text-gray-600"
 					>
@@ -946,7 +946,7 @@
 />
 
 <Confirm
-	msg={'Are you sure you want to delete this server?'}
+	msg="Are you sure you want to delete this server?"
 	show={Boolean(deletingServer)}
 	onsuccess={async () => {
 		if (deletingServer) {

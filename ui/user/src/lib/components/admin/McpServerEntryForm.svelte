@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { AdminService, type MCPCatalogServer } from '$lib/services';
-	import type { AccessControlRule, MCPCatalogEntry } from '$lib/services/admin/types';
+	import { AdminService, type MCPCatalogServer, type MCPServerInstance } from '$lib/services';
+	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { twMerge } from 'tailwind-merge';
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import CatalogServerForm from './CatalogServerForm.svelte';
@@ -10,6 +10,9 @@
 	import { goto } from '$app/navigation';
 	import Confirm from '../Confirm.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
+	import { formatTimeAgo } from '$lib/time';
+	import { onMount } from 'svelte';
+	import AuditDetails from './AuditDetails.svelte';
 
 	type MCPType = 'single' | 'multi' | 'remote';
 
@@ -37,9 +40,11 @@
 			: []
 	);
 
-	let usage = $state([]);
-	let instances = $state([]);
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
+	let listServerInstances = $state<Promise<MCPServerInstance[]>>();
+	let users = $state<OrgUser[]>([]);
+	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
+
 	let deleteServer = $state(false);
 	let deleteResourceFromRule = $state<{
 		rule: AccessControlRule;
@@ -50,6 +55,20 @@
 	$effect(() => {
 		if (view === 'access-control') {
 			listAccessControlRules = AdminService.listAccessControlRules();
+		} else if (view === 'server-instances' && entry && 'manifest' in entry && catalogId) {
+			listServerInstances = AdminService.listMcpCatalogServerInstances(catalogId, entry.id);
+		}
+	});
+
+	onMount(() => {
+		AdminService.listUsers().then((data) => {
+			users = data;
+		});
+
+		const url = new URL(window.location.href);
+		const initialView = url.searchParams.get('view');
+		if (initialView) {
+			view = initialView;
 		}
 	});
 
@@ -57,6 +76,18 @@
 		if (!entry || !rules) return [];
 		return rules.filter((r) =>
 			r.resources?.find((resource) => resource.id === entry.id || resource.id === '*')
+		);
+	}
+
+	function setLastVisitedMcpServer() {
+		if (!entry) return;
+		const name =
+			'manifest' in entry
+				? entry.manifest?.name
+				: (entry.commandManifest?.name ?? entry.urlManifest?.name);
+		sessionStorage.setItem(
+			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
+			JSON.stringify({ id: entry.id, name, type })
 		);
 	}
 </script>
@@ -111,7 +142,12 @@
 			>
 				{#each tabs as tab (tab.view)}
 					<button
-						onclick={() => (view = tab.view)}
+						onclick={() => {
+							view = tab.view;
+							const url = new URL(window.location.href);
+							url.searchParams.set('view', tab.view);
+							goto(url.toString(), { replaceState: true });
+						}}
 						class={twMerge(
 							'rounded-md border border-transparent px-4 py-2 text-center transition-colors duration-300',
 							view === tab.view && 'dark:bg-surface1 dark:border-surface3 bg-white shadow-sm',
@@ -183,30 +219,21 @@
 				]}
 				onSelectRow={(d) => {
 					if (!entry) return;
-					const name =
-						'manifest' in entry
-							? entry.manifest?.name
-							: (entry.commandManifest?.name ?? entry.urlManifest?.name);
-					sessionStorage.setItem(
-						ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
-						JSON.stringify({ id: entry.id, name, type })
-					);
+					setLastVisitedMcpServer();
 					goto(
 						`/v2/admin/access-control/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry.id}`)}`
 					);
 				}}
 			>
 				{#snippet onRenderColumn(property, d)}
-					<span class="flex min-h-9 items-center">
-						{#if property === 'resources'}
-							{@const referencedResource = d.resources?.find(
-								(r) => r.id === entry?.id || r.id === '*'
-							)}
-							{referencedResource?.id === '*' ? 'Everything' : 'Self'}
-						{:else}
-							{d[property as keyof typeof d]}
-						{/if}
-					</span>
+					{#if property === 'resources'}
+						{@const referencedResource = d.resources?.find(
+							(r) => r.id === entry?.id || r.id === '*'
+						)}
+						{referencedResource?.id === '*' ? 'Everything' : 'Self'}
+					{:else}
+						{d[property as keyof typeof d]}
+					{/if}
 				{/snippet}
 			</Table>
 		{:else}
@@ -224,21 +251,96 @@
 {/snippet}
 
 {#snippet usageView()}
-	{#if usage.length === 0}
-		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Users class="size-24 text-gray-200 dark:text-gray-900" />
-			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No usage data</h4>
-			<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-				This server has not been used yet or data is not available.
-			</p>
-		</div>
-	{:else}
-		<Table data={[]} fields={['name']} />
+	{#if entry}
+		{@const name = 'manifest' in entry ? entry.manifest.name : undefined}
+		{@const mcpId = 'manifest' in entry ? entry.id : undefined}
+		{@const mcpCatalogEntryId = !('manifest' in entry) ? entry.id : undefined}
+		<AuditDetails
+			mcpServerDisplayName={name}
+			{mcpCatalogEntryId}
+			{users}
+			filters={{
+				startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+				endTime: new Date().toISOString()
+			}}
+		>
+			{#snippet emptyContent()}
+				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+					<Users class="size-24 text-gray-200 dark:text-gray-900" />
+					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
+						No recent usage data
+					</h4>
+					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+						This server has not had any active usage in the last 7 days.
+					</p>
+					{#if mcpId || mcpCatalogEntryId}
+						{@const param = mcpId ? 'mcpId=' + mcpId : 'entryId=' + mcpCatalogEntryId}
+						<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+							See more usage details in the server's <a
+								href={`/v2/admin/audit-logs?${param}`}
+								class="text-link"
+							>
+								Audit Logs
+							</a>.
+						</p>
+					{/if}
+				</div>
+			{/snippet}
+		</AuditDetails>
 	{/if}
 {/snippet}
 
 {#snippet serverInstancesView()}
-	{#if instances.length === 0}
+	{#if listServerInstances}
+		{#await listServerInstances}
+			<div class="flex w-full justify-center">
+				<LoaderCircle class="size-6 animate-spin" />
+			</div>
+		{:then instances}
+			{#if instances.length > 0}
+				<Table
+					data={instances}
+					fields={['id', 'userID', 'created']}
+					headers={[{ title: 'User', property: 'userID' }]}
+					onSelectRow={(d) => {
+						setLastVisitedMcpServer();
+						goto(`/v2/admin/mcp-servers/s/${entry?.id}/instance/${d.id}`);
+					}}
+				>
+					{#snippet onRenderColumn(property, d)}
+						{#if property === 'userID'}
+							{@const user = usersMap.get(d[property] as string)}
+							{user?.email || user?.username || 'Unknown'}
+						{:else if property === 'created'}
+							{formatTimeAgo(d[property] as unknown as string).fullDate}
+						{:else}
+							{d[property as keyof typeof d]}
+						{/if}
+					{/snippet}
+
+					{#snippet actions(d)}
+						<button
+							class="button-text"
+							onclick={(e) => {
+								e.stopPropagation();
+								goto(`/v2/admin/audit-logs?mcpId=${encodeURIComponent(d.id)}`);
+							}}
+						>
+							View Audit Logs
+						</button>
+					{/snippet}
+				</Table>
+			{:else}
+				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+					<Router class="size-24 text-gray-200 dark:text-gray-900" />
+					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No server instance</h4>
+					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+						No server instances have been created yet for this server.
+					</p>
+				</div>
+			{/if}
+		{/await}
+	{:else}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Router class="size-24 text-gray-200 dark:text-gray-900" />
 			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No server instance</h4>
@@ -246,8 +348,6 @@
 				No server instances have been created yet for this server.
 			</p>
 		</div>
-	{:else}
-		<Table data={[]} fields={['name']} />
 	{/if}
 {/snippet}
 

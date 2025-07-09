@@ -208,7 +208,7 @@
 
 <div class="flex w-full flex-col gap-4 md:flex-row">
 	<div
-		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm md:w-1/2 lg:w-8/12"
+		class="dark:bg-surface1 dark:border-surface3 flex h-fit flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm md:w-1/2 lg:w-8/12"
 	>
 		{#if editable}
 			{#if editDescription}
