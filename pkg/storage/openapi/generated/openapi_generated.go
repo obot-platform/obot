@@ -2591,6 +2591,13 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format:  "",
 						},
 					},
+					"mcpServerCatalogEntryName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"client": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -2680,7 +2687,7 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"id", "createdAt", "userID", "mcpID", "mcpServerDisplayName", "client", "clientIP", "callType", "responseStatus", "processingTimeMs"},
+				Required: []string{"id", "createdAt", "userID", "mcpID", "mcpServerDisplayName", "mcpServerCatalogEntryName", "client", "clientIP", "callType", "responseStatus", "processingTimeMs"},
 			},
 		},
 		Dependencies: []string{
@@ -3685,6 +3692,13 @@ func schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref common.Referenc
 							Format:  "",
 						},
 					},
+					"mcpServerCatalogEntryName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"timeStart": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
@@ -3749,7 +3763,7 @@ func schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"mcpID", "mcpServerDisplayName", "timeStart", "timeEnd", "totalCalls", "uniqueUsers"},
+				Required: []string{"mcpID", "mcpServerDisplayName", "mcpServerCatalogEntryName", "timeStart", "timeEnd", "totalCalls", "uniqueUsers"},
 			},
 		},
 		Dependencies: []string{

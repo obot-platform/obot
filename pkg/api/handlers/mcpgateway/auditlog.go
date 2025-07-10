@@ -20,25 +20,27 @@ func NewAuditLogHandler() *AuditLogHandler {
 func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	query := req.URL.Query()
 
-	var mcpServerDisplayName, userID string
+	var mcpServerDisplayName, userID, mcpServerCatalogEntryName string
 	mcpID := req.PathValue("mcp_id")
 	if mcpID == "" {
 		mcpID = query.Get("mcp_id")
 		// Only look at these query parameters if the MCP ID is not provided in the URL.
 		mcpServerDisplayName = query.Get("mcp_server_display_name")
+		mcpServerCatalogEntryName = query.Get("mcp_server_catalog_entry_name")
 		userID = query.Get("user_id")
 	}
 
 	// Parse query parameters
 	opts := gateway.MCPAuditLogOptions{
 		// Default limit is 100.
-		Limit:                100,
-		UserID:               userID,
-		MCPID:                mcpID,
-		MCPServerDisplayName: mcpServerDisplayName,
-		Client:               query.Get("client"),
-		CallType:             query.Get("call_type"),
-		SessionID:            query.Get("session_id"),
+		Limit:                     100,
+		UserID:                    userID,
+		MCPID:                     mcpID,
+		MCPServerDisplayName:      mcpServerDisplayName,
+		MCPServerCatalogEntryName: mcpServerCatalogEntryName,
+		Client:                    query.Get("client"),
+		CallType:                  query.Get("call_type"),
+		SessionID:                 query.Get("session_id"),
 	}
 
 	// Parse time range
@@ -99,18 +101,20 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 	query := req.URL.Query()
 
-	var mcpServerDisplayName string
+	var mcpServerDisplayName, mcpServerCatalogEntryName string
 	mcpID := req.PathValue("mcp_id")
 	if mcpID == "" {
 		mcpID = query.Get("mcp_id")
-		// Only look at the display name if the MCP ID is not provided.
+		// Only look at these query parameters if the MCP ID is not provided.
 		mcpServerDisplayName = query.Get("mcp_server_display_name")
+		mcpServerCatalogEntryName = query.Get("mcp_server_catalog_entry_name")
 	}
 
 	// Parse query parameters
 	opts := gateway.MCPUsageStatsOptions{
-		MCPID:                mcpID,
-		MCPServerDisplayName: mcpServerDisplayName,
+		MCPID:                     mcpID,
+		MCPServerDisplayName:      mcpServerDisplayName,
+		MCPServerCatalogEntryName: mcpServerCatalogEntryName,
 	}
 
 	var (

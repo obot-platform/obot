@@ -9,21 +9,22 @@ import (
 
 // MCPAuditLog represents an audit log entry for MCP API calls
 type MCPAuditLog struct {
-	ID                   uint            `json:"id" gorm:"primaryKey"`
-	CreatedAt            time.Time       `json:"createdAt" gorm:"index"`
-	UserID               string          `json:"userID" gorm:"index"`
-	MCPID                string          `json:"mcpID" gorm:"index"`
-	MCPServerDisplayName string          `json:"mcpServerDisplayName" gorm:"index"`
-	ClientInfo           ClientInfo      `json:"clientInfo" gorm:"embedded"`
-	ClientIP             string          `json:"clientIP"`
-	CallType             string          `json:"callType" gorm:"index"`
-	CallIdentifier       string          `json:"callIdentifier,omitempty" gorm:"index"`
-	RequestBody          json.RawMessage `json:"requestBody,omitempty"`
-	ResponseBody         json.RawMessage `json:"responseBody,omitempty"`
-	ResponseStatus       int             `json:"responseStatus"`
-	Error                string          `json:"error,omitempty"`
-	ProcessingTimeMs     int64           `json:"processingTimeMs"`
-	SessionID            string          `json:"sessionID,omitempty"`
+	ID                        uint            `json:"id" gorm:"primaryKey"`
+	CreatedAt                 time.Time       `json:"createdAt" gorm:"index"`
+	UserID                    string          `json:"userID" gorm:"index"`
+	MCPID                     string          `json:"mcpID" gorm:"index"`
+	MCPServerDisplayName      string          `json:"mcpServerDisplayName" gorm:"index"`
+	MCPServerCatalogEntryName string          `json:"mcpServerCatalogEntryName" gorm:"index"`
+	ClientInfo                ClientInfo      `json:"clientInfo" gorm:"embedded"`
+	ClientIP                  string          `json:"clientIP"`
+	CallType                  string          `json:"callType" gorm:"index"`
+	CallIdentifier            string          `json:"callIdentifier,omitempty" gorm:"index"`
+	RequestBody               json.RawMessage `json:"requestBody,omitempty"`
+	ResponseBody              json.RawMessage `json:"responseBody,omitempty"`
+	ResponseStatus            int             `json:"responseStatus"`
+	Error                     string          `json:"error,omitempty"`
+	ProcessingTimeMs          int64           `json:"processingTimeMs"`
+	SessionID                 string          `json:"sessionID,omitempty"`
 
 	// Additional metadata
 	RequestID       string          `json:"requestID,omitempty" gorm:"index"`
@@ -39,15 +40,16 @@ type ClientInfo struct {
 
 // MCPUsageStats represents usage statistics for MCP servers
 type MCPUsageStats struct {
-	MCPID                string                 `json:"mcpID"`
-	MCPServerDisplayName string                 `json:"mcpServerDisplayName"`
-	TimeStart            time.Time              `json:"timeStart"`
-	TimeEnd              time.Time              `json:"timeEnd"`
-	TotalCalls           int64                  `json:"totalCalls"`
-	UniqueUsers          int64                  `json:"uniqueUsers"`
-	ToolCalls            []MCPToolCallStats     `json:"toolCalls,omitempty"`
-	ResourceReads        []MCPResourceReadStats `json:"resourceReads,omitempty"`
-	PromptReads          []MCPPromptReadStats   `json:"promptReads,omitempty"`
+	MCPID                     string                 `json:"mcpID"`
+	MCPServerDisplayName      string                 `json:"mcpServerDisplayName"`
+	MCPServerCatalogEntryName string                 `json:"mcpServerCatalogEntryName"`
+	TimeStart                 time.Time              `json:"timeStart"`
+	TimeEnd                   time.Time              `json:"timeEnd"`
+	TotalCalls                int64                  `json:"totalCalls"`
+	UniqueUsers               int64                  `json:"uniqueUsers"`
+	ToolCalls                 []MCPToolCallStats     `json:"toolCalls,omitempty"`
+	ResourceReads             []MCPResourceReadStats `json:"resourceReads,omitempty"`
+	PromptReads               []MCPPromptReadStats   `json:"promptReads,omitempty"`
 }
 
 // MCPToolCallStats represents statistics for individual tool calls
@@ -71,25 +73,26 @@ type MCPPromptReadStats struct {
 // ConvertMCPAuditLog converts internal MCPAuditLog to API type
 func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 	return types2.MCPAuditLog{
-		ID:                   a.ID,
-		CreatedAt:            *types2.NewTime(a.CreatedAt),
-		UserID:               a.UserID,
-		MCPID:                a.MCPID,
-		MCPServerDisplayName: a.MCPServerDisplayName,
-		ClientInfo:           types2.ClientInfo(a.ClientInfo),
-		ClientIP:             a.ClientIP,
-		CallType:             a.CallType,
-		CallIdentifier:       a.CallIdentifier,
-		RequestBody:          a.RequestBody,
-		ResponseBody:         a.ResponseBody,
-		ResponseStatus:       a.ResponseStatus,
-		Error:                a.Error,
-		ProcessingTimeMs:     a.ProcessingTimeMs,
-		SessionID:            a.SessionID,
-		RequestID:            a.RequestID,
-		UserAgent:            a.UserAgent,
-		RequestHeaders:       a.RequestHeaders,
-		ResponseHeaders:      a.ResponseHeaders,
+		ID:                        a.ID,
+		CreatedAt:                 *types2.NewTime(a.CreatedAt),
+		UserID:                    a.UserID,
+		MCPID:                     a.MCPID,
+		MCPServerDisplayName:      a.MCPServerDisplayName,
+		MCPServerCatalogEntryName: a.MCPServerCatalogEntryName,
+		ClientInfo:                types2.ClientInfo(a.ClientInfo),
+		ClientIP:                  a.ClientIP,
+		CallType:                  a.CallType,
+		CallIdentifier:            a.CallIdentifier,
+		RequestBody:               a.RequestBody,
+		ResponseBody:              a.ResponseBody,
+		ResponseStatus:            a.ResponseStatus,
+		Error:                     a.Error,
+		ProcessingTimeMs:          a.ProcessingTimeMs,
+		SessionID:                 a.SessionID,
+		RequestID:                 a.RequestID,
+		UserAgent:                 a.UserAgent,
+		RequestHeaders:            a.RequestHeaders,
+		ResponseHeaders:           a.ResponseHeaders,
 	}
 }
 
@@ -120,14 +123,15 @@ func ConvertMCPUsageStats(s MCPUsageStats) types2.MCPUsageStats {
 	}
 
 	return types2.MCPUsageStats{
-		MCPID:                s.MCPID,
-		MCPServerDisplayName: s.MCPServerDisplayName,
-		TimeStart:            *types2.NewTime(s.TimeStart),
-		TimeEnd:              *types2.NewTime(s.TimeEnd),
-		TotalCalls:           s.TotalCalls,
-		UniqueUsers:          s.UniqueUsers,
-		ToolCalls:            toolCalls,
-		ResourceReads:        resourceReads,
-		PromptReads:          promptReads,
+		MCPID:                     s.MCPID,
+		MCPServerDisplayName:      s.MCPServerDisplayName,
+		MCPServerCatalogEntryName: s.MCPServerCatalogEntryName,
+		TimeStart:                 *types2.NewTime(s.TimeStart),
+		TimeEnd:                   *types2.NewTime(s.TimeEnd),
+		TotalCalls:                s.TotalCalls,
+		UniqueUsers:               s.UniqueUsers,
+		ToolCalls:                 toolCalls,
+		ResourceReads:             resourceReads,
+		PromptReads:               promptReads,
 	}
 }

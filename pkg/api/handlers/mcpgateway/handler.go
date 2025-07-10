@@ -110,15 +110,16 @@ type messageHandler struct {
 
 func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 	auditLog := &gatewaytypes.MCPAuditLog{
-		UserID:               m.userID,
-		MCPID:                m.mcpID,
-		MCPServerDisplayName: m.mcpServer.Spec.Manifest.Name,
-		ClientInfo:           gatewaytypes.ClientInfo(msg.Session.InitializeRequest.ClientInfo),
-		ClientIP:             m.getClientIP(),
-		CallIdentifier:       m.extractCallIdentifier(msg),
-		SessionID:            msg.Session.ID(),
-		UserAgent:            m.req.UserAgent(),
-		RequestHeaders:       m.captureHeaders(m.req.Header),
+		UserID:                    m.userID,
+		MCPID:                     m.mcpID,
+		MCPServerDisplayName:      m.mcpServer.Spec.Manifest.Name,
+		MCPServerCatalogEntryName: m.mcpServer.Spec.MCPServerCatalogEntryName,
+		ClientInfo:                gatewaytypes.ClientInfo(msg.Session.InitializeRequest.ClientInfo),
+		ClientIP:                  m.getClientIP(),
+		CallIdentifier:            m.extractCallIdentifier(msg),
+		SessionID:                 msg.Session.ID(),
+		UserAgent:                 m.req.UserAgent(),
+		RequestHeaders:            m.captureHeaders(m.req.Header),
 	}
 	auditLog.RequestID, _ = msg.ID.(string)
 

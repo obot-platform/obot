@@ -38,9 +38,7 @@ func load(ctx context.Context, c kclient.Client, obj kclient.Object, create bool
 
 	if obj.GetName() != "" {
 		err := c.Get(ctx, kclient.ObjectKeyFromObject(obj), obj)
-		if err == nil {
-			return nil
-		} else if err := kclient.IgnoreNotFound(err); err != nil {
+		if !apierrors.IsNotFound(err) {
 			return err
 		}
 

@@ -33,12 +33,13 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 	// Capture audit log information
 	startTime := time.Now()
 	auditLog := &gatewaytypes.MCPAuditLog{
-		UserID:               c.messageHandler.userID,
-		MCPID:                c.messageHandler.mcpID,
-		MCPServerDisplayName: c.messageHandler.mcpServer.Spec.Manifest.Name,
-		ClientInfo:           gatewaytypes.ClientInfo(msg.Session.InitializeRequest.ClientInfo),
-		CreatedAt:            startTime,
-		CallType:             msg.Method,
+		UserID:                    c.messageHandler.userID,
+		MCPID:                     c.messageHandler.mcpID,
+		MCPServerDisplayName:      c.messageHandler.mcpServer.Spec.Manifest.Name,
+		MCPServerCatalogEntryName: c.messageHandler.mcpServer.Spec.MCPServerCatalogEntryName,
+		ClientInfo:                gatewaytypes.ClientInfo(msg.Session.InitializeRequest.ClientInfo),
+		CreatedAt:                 startTime,
+		CallType:                  msg.Method,
 	}
 	auditLog.RequestID, _ = msg.ID.(string)
 

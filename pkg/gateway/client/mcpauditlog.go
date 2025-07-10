@@ -33,6 +33,9 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	if opts.MCPServerDisplayName != "" {
 		db = db.Where("mcp_server_display_name = ?", opts.MCPServerDisplayName)
 	}
+	if opts.MCPServerCatalogEntryName != "" {
+		db = db.Where("mcp_server_catalog_entry_name = ?", opts.MCPServerCatalogEntryName)
+	}
 	if opts.Client != "" {
 		db = db.Where("client = ?", opts.Client)
 	}
@@ -70,7 +73,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 	// Get basic stats for each server
 	if err := c.db.WithContext(ctx).Transaction(func(base *gorm.DB) error {
 		tx := base.Model(&types.MCPAuditLog{}).
-			Select("mcp_id, mcp_server_display_name, COUNT(*) as total_calls, COUNT(DISTINCT user_id) as unique_users").
+			Select("mcp_id, mcp_server_display_name, mcp_server_catalog_entry_name, COUNT(*) as total_calls, COUNT(DISTINCT user_id) as unique_users").
 			Where("created_at >= ? AND created_at < ?", opts.StartTime, opts.EndTime)
 
 		if opts.MCPID != "" {
@@ -79,28 +82,33 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 		if opts.MCPServerDisplayName != "" {
 			tx = tx.Where("mcp_server_display_name = ?", opts.MCPServerDisplayName)
 		}
+		if opts.MCPServerCatalogEntryName != "" {
+			tx = tx.Where("mcp_server_catalog_entry_name = ?", opts.MCPServerCatalogEntryName)
+		}
 
 		type basicStats struct {
-			MCPID                string
-			MCPServerDisplayName string
-			TotalCalls           int64
-			UniqueUsers          int64
+			MCPID                     string
+			MCPServerDisplayName      string
+			MCPServerCatalogEntryName string
+			TotalCalls                int64
+			UniqueUsers               int64
 		}
 
 		var basicStatsList []basicStats
-		if err := tx.Group("mcp_id, mcp_server_display_name").Scan(&basicStatsList).Error; err != nil {
+		if err := tx.Group("mcp_id, mcp_server_display_name, mcp_server_catalog_entry_name").Scan(&basicStatsList).Error; err != nil {
 			return err
 		}
 
 		// Build the full stats with tool call breakdown
 		for _, basic := range basicStatsList {
 			stat := types.MCPUsageStats{
-				MCPID:                basic.MCPID,
-				MCPServerDisplayName: basic.MCPServerDisplayName,
-				TimeStart:            opts.StartTime,
-				TimeEnd:              opts.EndTime,
-				TotalCalls:           basic.TotalCalls,
-				UniqueUsers:          basic.UniqueUsers,
+				MCPID:                     basic.MCPID,
+				MCPServerDisplayName:      basic.MCPServerDisplayName,
+				MCPServerCatalogEntryName: basic.MCPServerCatalogEntryName,
+				TimeStart:                 opts.StartTime,
+				TimeEnd:                   opts.EndTime,
+				TotalCalls:                basic.TotalCalls,
+				UniqueUsers:               basic.UniqueUsers,
 			}
 
 			// Get tool call breakdown for this server
@@ -169,6 +177,9 @@ func (c *Client) CountMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions)
 	if opts.MCPServerDisplayName != "" {
 		db = db.Where("mcp_server_display_name = ?", opts.MCPServerDisplayName)
 	}
+	if opts.MCPServerCatalogEntryName != "" {
+		db = db.Where("mcp_server_catalog_entry_name = ?", opts.MCPServerCatalogEntryName)
+	}
 	if opts.Client != "" {
 		db = db.Where("client = ?", opts.Client)
 	}
@@ -190,22 +201,24 @@ func (c *Client) CountMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions)
 
 // MCPAuditLogOptions represents options for querying MCP audit logs
 type MCPAuditLogOptions struct {
-	UserID               string
-	MCPID                string
-	MCPServerDisplayName string
-	Client               string
-	CallType             string
-	SessionID            string
-	StartTime            time.Time
-	EndTime              time.Time
-	Limit                int
-	Offset               int
+	UserID                    string
+	MCPID                     string
+	MCPServerDisplayName      string
+	MCPServerCatalogEntryName string
+	Client                    string
+	CallType                  string
+	SessionID                 string
+	StartTime                 time.Time
+	EndTime                   time.Time
+	Limit                     int
+	Offset                    int
 }
 
 // MCPUsageStatsOptions represents options for querying MCP usage statistics
 type MCPUsageStatsOptions struct {
-	MCPID                string
-	MCPServerDisplayName string
-	StartTime            time.Time
-	EndTime              time.Time
+	MCPID                     string
+	MCPServerDisplayName      string
+	MCPServerCatalogEntryName string
+	StartTime                 time.Time
+	EndTime                   time.Time
 }

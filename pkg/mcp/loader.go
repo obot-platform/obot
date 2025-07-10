@@ -191,7 +191,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 			}
 
 			// LookupHost will properly detect IP addresses.
-			addrs, err := net.LookupHost(u.Hostname())
+			addrs, err := net.DefaultResolver.LookupHost(ctx, u.Hostname())
 			if err != nil {
 				return gmcp.ServerConfig{}, fmt.Errorf("failed to resolve MCP server URL hostname: %w", err)
 			}
