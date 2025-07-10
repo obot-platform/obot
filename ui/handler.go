@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -12,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/obot-platform/obot/pkg/oauth"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -78,11 +76,6 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	userPath := path.Join("user/build/", r.URL.Path)
 	adminPath := path.Join("admin/build/client", strings.TrimPrefix(r.URL.Path, "/admin"))
 
-	if !strings.HasPrefix(r.URL.Path, "/admin/") && !s.hasModelProviderConfigured(r.Context()) {
-		http.Redirect(w, r, "/admin/", http.StatusFound)
-		return
-	}
-
 	if r.URL.Path == "/" {
 		http.ServeFileFS(w, r, embedded, "user/build/index.html")
 	} else if _, err := fs.Stat(embedded, userPath); err == nil {
@@ -94,27 +87,4 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		http.ServeFileFS(w, r, embedded, "user/build/fallback.html")
 	}
-}
-
-func (s *uiServer) hasModelProviderConfigured(ctx context.Context) bool {
-	s.lock.RLock()
-	configured := s.configured
-	s.lock.RUnlock()
-	if configured {
-		return configured
-	}
-
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	if s.configured {
-		return s.configured
-	}
-
-	var models v1.ModelList
-	if err := s.client.List(ctx, &models); err != nil {
-		return false
-	}
-
-	s.configured = len(models.Items) > 0
-	return s.configured
 }
