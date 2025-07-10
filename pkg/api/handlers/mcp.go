@@ -1577,6 +1577,10 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 }
 
 func (m *MCPHandler) GetServerDetails(req api.Context) error {
+	if !m.mcpSessionManager.KubernetesEnabled() {
+		return types.NewErrNotFound("Kubernetes is not enabled")
+	}
+
 	_, serverConfig, err := ServerForAction(req)
 	if err != nil {
 		return err
@@ -1591,6 +1595,10 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 }
 
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
+	if !m.mcpSessionManager.KubernetesEnabled() {
+		return types.NewErrNotFound("Kubernetes is not enabled")
+	}
+
 	_, serverConfig, err := ServerForAction(req)
 	if err != nil {
 		return err
@@ -1652,7 +1660,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 				if err != nil {
 					// Send error event
 					select {
-					case logChan <- fmt.Sprintf("ERROR: %v", err):
+					case logChan <- fmt.Sprintf("ERROR retrieving logs: %v", err):
 					case <-req.Context().Done():
 					}
 					return

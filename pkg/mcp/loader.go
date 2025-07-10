@@ -101,7 +101,7 @@ func (sm *SessionManager) Close() error {
 
 // CloseClient will close the client for this MCP server, but leave the server running.
 func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig) error {
-	if sm.client == nil || server.Command == "" {
+	if !sm.KubernetesEnabled() || server.Command == "" {
 		return sm.local.ShutdownServer(server.ServerConfig)
 	}
 
@@ -182,6 +182,10 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 	return nil, fmt.Errorf("no MCP server configuration found in tool instructions: %s", configData)
 }
 
+func (sm *SessionManager) KubernetesEnabled() bool {
+	return sm.client != nil
+}
+
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, key, serverName string) (gmcp.ServerConfig, error) {
 	image := sm.baseImage
 	if server.Command == "docker" {
@@ -193,7 +197,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 		image = server.Args[len(server.Args)-1]
 	}
 
-	if server.Command == "" || sm.client == nil {
+	if server.Command == "" || !sm.KubernetesEnabled() {
 		if !sm.allowLocalhostMCP && server.URL != "" {
 			// Ensure the URL is not a localhost URL.
 			u, err := url.Parse(server.URL)
