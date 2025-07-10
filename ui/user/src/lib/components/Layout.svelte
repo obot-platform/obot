@@ -7,6 +7,7 @@
 	import { fade, slide } from 'svelte/transition';
 	import {
 		Captions,
+		Funnel,
 		GlobeLock,
 		LockKeyhole,
 		Server,
@@ -46,6 +47,11 @@
 						icon: Captions,
 						label: 'Audit Logs',
 						disabled: isBootStrapUser
+					},
+					{
+						href: '/v2/admin/filters',
+						icon: Funnel,
+						label: 'Filters'
 					},
 					{
 						href: '/v2/admin/users',
