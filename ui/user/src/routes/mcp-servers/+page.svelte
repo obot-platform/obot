@@ -261,7 +261,7 @@
 
 	function hasEditableConfiguration(item: MCPCatalogEntry) {
 		const manifest = item.commandManifest ?? item.urlManifest;
-		const hasUrlToFill = manifest?.fixedURL && manifest.hostname;
+		const hasUrlToFill = !manifest?.fixedURL && manifest?.hostname;
 		const hasEnvsToFill = manifest?.env && manifest.env.length > 0;
 		const hasHeadersToFill = manifest?.headers && manifest.headers.length > 0;
 
