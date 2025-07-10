@@ -15,6 +15,10 @@ import (
 )
 
 func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig ServerConfig) (types.MCPServerDetails, error) {
+	if !sm.KubernetesEnabled() {
+		return types.MCPServerDetails{}, fmt.Errorf("Kubernetes is not enabled")
+	}
+
 	id := sessionID(serverConfig)
 
 	var deployment appsv1.Deployment
@@ -72,6 +76,10 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig Ser
 }
 
 func (sm *SessionManager) StreamServerLogs(ctx context.Context, serverConfig ServerConfig) (io.ReadCloser, error) {
+	if !sm.KubernetesEnabled() {
+		return nil, fmt.Errorf("Kubernetes is not enabled")
+	}
+
 	id := sessionID(serverConfig)
 
 	var deployment appsv1.Deployment
