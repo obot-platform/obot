@@ -8,20 +8,15 @@ import (
 	"net/http/httputil"
 	"path"
 	"strings"
-	"sync"
 
 	"github.com/obot-platform/obot/pkg/oauth"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 //go:embed all:admin/*build all:user/*build
 var embedded embed.FS
 
-func Handler(devPort, userOnlyPort int, client kclient.Client) http.Handler {
-	server := &uiServer{
-		client: client,
-		lock:   new(sync.RWMutex),
-	}
+func Handler(devPort, userOnlyPort int) http.Handler {
+	server := &uiServer{}
 
 	if userOnlyPort != 0 {
 		server.rp = &httputil.ReverseProxy{
@@ -48,11 +43,8 @@ func Handler(devPort, userOnlyPort int, client kclient.Client) http.Handler {
 }
 
 type uiServer struct {
-	lock       *sync.RWMutex
-	configured bool
-	client     kclient.Client
-	rp         *httputil.ReverseProxy
-	userOnly   bool
+	rp       *httputil.ReverseProxy
+	userOnly bool
 }
 
 func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
