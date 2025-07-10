@@ -161,7 +161,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 	}
 
 	for key, server := range servers.MCPServers {
-		config, err := sm.ensureDeployment(ctx, server, key, tool)
+		config, err := sm.ensureDeployment(ctx, server, key, strings.TrimSuffix(tool.Name, "-bundle"))
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +171,7 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 	return nil, fmt.Errorf("no MCP server configuration found in tool instructions: %s", configData)
 }
 
-func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, key string, tool types.Tool) (gmcp.ServerConfig, error) {
+func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, key, serverName string) (gmcp.ServerConfig, error) {
 	image := sm.baseImage
 	if server.Command == "docker" {
 		if len(server.Args) == 0 || !slices.ContainsFunc(sm.allowedDockerImageRepos, func(s string) bool {
@@ -208,7 +208,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 
 	args := []string{"--stdio", fmt.Sprintf("%s %s", server.Command, strings.Join(server.Args, " ")), "--port", "8080", "--healthEndpoint", "/healthz"}
 	annotations := map[string]string{
-		"mcp-server-tool-name":   tool.Name,
+		"mcp-server-tool-name":   serverName,
 		"mcp-server-config-name": key,
 		"mcp-server-scope":       server.Scope,
 	}
@@ -368,19 +368,12 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 }
 
 func (sm *SessionManager) transformServerConfig(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig) (gmcp.ServerConfig, error) {
-	tool, err := ServerToolWithCreds(mcpServer, serverConfig)
-	if err != nil {
-		return gmcp.ServerConfig{}, err
+	serverName := mcpServer.Spec.Manifest.Name
+	if serverName == "" {
+		serverName = mcpServer.Name
 	}
 
-	return sm.ensureDeployment(ctx, serverConfig, "default", types.Tool{
-		ToolDef: types.ToolDef{
-			Parameters: types.Parameters{
-				Name: tool.Name,
-			},
-			Instructions: tool.Instructions,
-		},
-	})
+	return sm.ensureDeployment(ctx, serverConfig, "default", serverName)
 }
 
 func sessionID(server ServerConfig) string {
@@ -407,12 +400,6 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string)
 
 	url = fmt.Sprintf("%s/healthz", url)
 	for {
-		select {
-		case <-ctx.Done():
-			return "", fmt.Errorf("timed out waiting for MCP server to be ready")
-		case <-time.After(100 * time.Millisecond):
-		}
-
 		resp, err := client.Get(url)
 		if err == nil {
 			resp.Body.Close()
@@ -420,17 +407,17 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string)
 				break
 			}
 		}
+
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("timed out waiting for MCP server to be ready")
+		case <-time.After(100 * time.Millisecond):
+		}
 	}
 
 	// Not get the pod name that is currently running, waiting for there to only be one pod.
 	var pods corev1.PodList
-	for len(pods.Items) != 1 || pods.Items[0].Status.Phase != corev1.PodRunning {
-		select {
-		case <-ctx.Done():
-			return "", fmt.Errorf("timed out waiting for MCP server to be ready")
-		case <-time.After(time.Second):
-		}
-
+	for {
 		if err = sm.client.List(ctx, &pods, &kclient.ListOptions{
 			Namespace: sm.mcpNamespace,
 			LabelSelector: labels.SelectorFromSet(map[string]string{
@@ -439,9 +426,17 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string)
 		}); err != nil {
 			return "", fmt.Errorf("failed to list MCP pods: %w", err)
 		}
-	}
 
-	return pods.Items[0].Name, nil
+		if len(pods.Items) == 1 && pods.Items[0].Status.Phase == corev1.PodRunning {
+			return pods.Items[0].Name, nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return "", fmt.Errorf("timed out waiting for MCP server to be ready")
+		case <-time.After(time.Second):
+		}
+	}
 }
 
 func buildConfig() (*rest.Config, error) {

@@ -3579,21 +3579,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerTool(ref common.Referenc
 							Format: "",
 						},
 					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
 					"params": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"object"},

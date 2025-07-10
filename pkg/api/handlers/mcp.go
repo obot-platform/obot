@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -12,8 +13,8 @@ import (
 	"strings"
 	"time"
 
+	humav2 "github.com/danielgtaylor/huma/v2"
 	"github.com/gptscript-ai/go-gptscript"
-	gtypes "github.com/gptscript-ai/gptscript/pkg/types"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -1173,7 +1174,6 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 					ID:          ref.Name,
 					Name:        ref.Status.Tool.Name,
 					Description: ref.Status.Tool.Description,
-					Metadata:    ref.Status.Tool.Metadata,
 					Params:      ref.Status.Tool.Params,
 					Credentials: ref.Status.Tool.Credentials,
 					Enabled:     allTools || slices.Contains(allowedTools, ref.Name),
@@ -1184,21 +1184,9 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 		return tools, nil
 	}
 
-	tool, err := mcp.ServerToolWithCreds(server, serverConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	gTools, err := m.mcpSessionManager.Load(ctx, gtypes.Tool{
-		ToolDef: gtypes.ToolDef{
-			Parameters: gtypes.Parameters{
-				Name: tool.Name,
-			},
-			Instructions: tool.Instructions,
-		},
-	})
+	gTools, err := m.mcpSessionManager.ListTools(ctx, server, serverConfig)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
@@ -1206,21 +1194,30 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 		return nil, err
 	}
 
-	// Exclude the first tool because it is the "bundle" tool, and we aren't concerned with that.
-	tools := make([]types.MCPServerTool, 0, len(gTools)-1)
-	for _, t := range gTools[1:] {
+	tools := make([]types.MCPServerTool, 0, len(gTools))
+	for _, t := range gTools {
 		mcpTool := types.MCPServerTool{
 			ID:          t.Name,
 			Name:        t.Name,
 			Description: t.Description,
-			Metadata:    t.MetaData,
 			Enabled:     allTools && !slices.Contains(server.Spec.UnsupportedTools, t.Name) || slices.Contains(allowedTools, t.Name),
 			Unsupported: slices.Contains(server.Spec.UnsupportedTools, t.Name),
 		}
 
-		if t.Arguments != nil {
-			mcpTool.Params = make(map[string]string, len(t.Arguments.Properties))
-			for name, param := range t.Arguments.Properties {
+		if len(t.InputSchema) > 0 {
+			var schema humav2.Schema
+
+			schemaData, err := json.Marshal(t.InputSchema)
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal input schema for tool %s: %w", t.Name, err)
+			}
+
+			if err := json.Unmarshal(schemaData, &schema); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal tool input schema: %w", err)
+			}
+
+			mcpTool.Params = make(map[string]string, len(schema.Properties))
+			for name, param := range schema.Properties {
 				if param != nil {
 					mcpTool.Params[name] = param.Description
 				}

@@ -14,6 +14,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.12
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.78.2
+	github.com/danielgtaylor/huma/v2 v2.32.1-0.20250509235652-c7ead6f3c67f
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.18.0
 	github.com/gen2brain/webp v0.5.4
@@ -26,7 +27,7 @@ require (
 	github.com/gptscript-ai/gptscript v0.9.6-0.20250623175741-7a49337eef7b
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
-	github.com/nanobot-ai/nanobot v0.0.6-0.20250708194048-f0a6fc56c15f
+	github.com/nanobot-ai/nanobot v0.0.6-0.20250711172227-76b309568190
 	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
 	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2
@@ -129,7 +130,6 @@ require (
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.4.1 // indirect
-	github.com/danielgtaylor/huma/v2 v2.32.1-0.20250509235652-c7ead6f3c67f // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/docker/cli v27.5.1+incompatible // indirect
