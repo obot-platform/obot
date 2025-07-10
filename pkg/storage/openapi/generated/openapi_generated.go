@@ -3910,10 +3910,11 @@ func schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref common.Refer
 							Format:      "",
 						},
 					},
-					"defaultScope": {
+					"authorizationServerURL": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "AuthorizationServerURL is the URL used in the MCP oauth flow",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

@@ -263,22 +263,23 @@ func (h *handler) callback(req api.Context) error {
 	defer cancel()
 
 	oauthHandler := &mcpOAuthHandler{
-		client:     req.Storage,
-		gptscript:  req.GPTClient,
-		stateCache: h.stateCache,
-		urlChan:    make(chan string),
-		mcpID:      mcpServerConfig.Scope,
+		client:             req.Storage,
+		gptscript:          req.GPTClient,
+		stateCache:         h.stateCache,
+		urlChan:            make(chan string),
+		mcpID:              mcpServerConfig.Scope,
+		oauthAuthRequestID: oauthAppAuthRequest.Name,
 	}
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(errChan)
 		_, err := h.mcpSessionManager.ClientForServer(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
-			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback/%s/%s", h.baseURL, oauthAppAuthRequest.Name, mcpID),
+			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback", h.baseURL),
 			OAuthClientName:  "Obot MCP Gateway",
 			CallbackHandler:  oauthHandler,
 			ClientCredLookup: oauthHandler,
-			TokenStorage:     h.tokenStore.ForMCPID(mcpServerConfig.Scope),
+			TokenStorage:     h.tokenStore.ForMCPID(oauthHandler.mcpID),
 		})
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
@@ -315,12 +316,13 @@ func (h *handler) callback(req api.Context) error {
 
 // oauthCallback handles the second-level third-party OAuth for MCP servers.
 func (h *handler) oauthCallback(req api.Context) error {
-	if err := h.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description")); err != nil {
+	oauthAuthRequestID, err := h.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
+	if err != nil {
 		return types.NewErrHTTP(http.StatusBadRequest, err.Error())
 	}
 
 	var oauthAppAuthRequest v1.OAuthAuthRequest
-	if err := req.Get(&oauthAppAuthRequest, req.PathValue("oauth_auth_request")); err != nil {
+	if err := req.Get(&oauthAppAuthRequest, oauthAuthRequestID); err != nil {
 		return err
 	}
 

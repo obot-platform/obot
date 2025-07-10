@@ -46,7 +46,8 @@ type OAuthAppManifest struct {
 	InstanceURL string `json:"instanceURL,omitempty"`
 	// This field is used for GitLab enterprise instances
 	GitLabBaseURL string `json:"gitlabBaseURL,omitempty"`
-	DefaultScope  string `json:"defaultScope,omitempty"`
+	// AuthorizationServerURL is the URL used in the MCP oauth flow
+	AuthorizationServerURL string `json:"authorizationServerURL,omitempty"`
 }
 
 type OAuthAppList List[OAuthApp]

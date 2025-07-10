@@ -32,5 +32,5 @@ func SetupHandlers(gatewayClient *client.Client, mcpSessionManager *mcp.SessionM
 	mux.HandleFunc("GET /oauth/authorize/{mcp_id}", h.authorize)
 	mux.HandleFunc("GET /oauth/callback/{oauth_auth_request}/{mcp_id}", h.callback)
 	mux.HandleFunc("POST /oauth/token/{mcp_id}", h.token)
-	mux.HandleFunc("GET /oauth/mcp/callback/{oauth_auth_request}/{mcp_id}", h.oauthCallback)
+	mux.HandleFunc("GET /oauth/mcp/callback", h.oauthCallback)
 }

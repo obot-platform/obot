@@ -69,5 +69,5 @@ func (t *tokenStore) GetTokenConfig(ctx context.Context, _ string) (*oauth2.Conf
 }
 
 func (t *tokenStore) SetTokenConfig(ctx context.Context, _ string, config *oauth2.Config, token *oauth2.Token) error {
-	return t.gatewayClient.ReplaceMCPOAuthToken(ctx, t.mcpID, "", "", config, token)
+	return t.gatewayClient.ReplaceMCPOAuthToken(ctx, t.mcpID, "", "", "", config, token)
 }

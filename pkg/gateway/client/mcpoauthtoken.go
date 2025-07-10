@@ -48,21 +48,22 @@ func (c *Client) GetMCPOAuthTokenByState(ctx context.Context, state string) (*ty
 	return token, nil
 }
 
-func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, mcpID, state, verifier string, oauthConf *oauth2.Config, token *oauth2.Token) error {
+func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, mcpID, oauthAuthRequestID, state, verifier string, oauthConf *oauth2.Config, token *oauth2.Token) error {
 	t := &types.MCPOAuthToken{
-		MCPID:        mcpID,
-		State:        state,
-		Verifier:     verifier,
-		AccessToken:  token.AccessToken,
-		TokenType:    token.TokenType,
-		RefreshToken: token.RefreshToken,
-		Expiry:       token.Expiry,
-		ExpiresIn:    token.ExpiresIn,
-		ClientID:     oauthConf.ClientID,
-		ClientSecret: oauthConf.ClientSecret,
-		Endpoint:     oauthConf.Endpoint,
-		RedirectURL:  oauthConf.RedirectURL,
-		Scopes:       strings.Join(oauthConf.Scopes, " "),
+		MCPID:              mcpID,
+		OAuthAuthRequestID: oauthAuthRequestID,
+		State:              state,
+		Verifier:           verifier,
+		AccessToken:        token.AccessToken,
+		TokenType:          token.TokenType,
+		RefreshToken:       token.RefreshToken,
+		Expiry:             token.Expiry,
+		ExpiresIn:          token.ExpiresIn,
+		ClientID:           oauthConf.ClientID,
+		ClientSecret:       oauthConf.ClientSecret,
+		Endpoint:           oauthConf.Endpoint,
+		RedirectURL:        oauthConf.RedirectURL,
+		Scopes:             strings.Join(oauthConf.Scopes, " "),
 	}
 
 	if state != "" {

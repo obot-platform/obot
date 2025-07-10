@@ -58,6 +58,8 @@ func (r *OAuthApp) Get(field string) string {
 			return r.Spec.ThreadName
 		case "spec.slackReceiverName":
 			return r.Spec.SlackReceiverName
+		case "spec.manifest.authorizationServerURL":
+			return r.Spec.Manifest.AuthorizationServerURL
 		}
 	}
 
@@ -65,7 +67,7 @@ func (r *OAuthApp) Get(field string) string {
 }
 
 func (r *OAuthApp) FieldNames() []string {
-	return []string{"spec.manifest.alias", "spec.threadName", "spec.slackReceiverName"}
+	return []string{"spec.manifest.alias", "spec.threadName", "spec.slackReceiverName", "spec.manifest.authorizationServerURL"}
 }
 
 func (r *OAuthApp) RedirectURL(baseURL string) string {

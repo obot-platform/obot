@@ -12,9 +12,9 @@ import (
 )
 
 type stateObj struct {
-	conf            *oauth2.Config
-	verifier, mcpID string
-	ch              chan<- nmcp.CallbackPayload
+	verifier, mcpID, oauthAuthRequestID string
+	conf                                *oauth2.Config
+	ch                                  chan<- nmcp.CallbackPayload
 }
 type stateCache struct {
 	lock          sync.Mutex
@@ -29,42 +29,44 @@ func newStateCache(gatewayClient *client.Client) *stateCache {
 	}
 }
 
-func (sm *stateCache) store(ctx context.Context, mcpID, state, verifier string, conf *oauth2.Config, ch chan<- nmcp.CallbackPayload) error {
-	if err := sm.gatewayClient.ReplaceMCPOAuthToken(ctx, mcpID, state, verifier, conf, &oauth2.Token{}); err != nil {
+func (sm *stateCache) store(ctx context.Context, mcpID, oauthAuthRequestID, state, verifier string, conf *oauth2.Config, ch chan<- nmcp.CallbackPayload) error {
+	if err := sm.gatewayClient.ReplaceMCPOAuthToken(ctx, mcpID, oauthAuthRequestID, state, verifier, conf, &oauth2.Token{}); err != nil {
 		return fmt.Errorf("failed to persist state: %w", err)
 	}
 
 	sm.lock.Lock()
 	sm.cache[state] = stateObj{
-		conf:     conf,
-		verifier: verifier,
-		mcpID:    mcpID,
-		ch:       ch,
+		conf:               conf,
+		verifier:           verifier,
+		mcpID:              mcpID,
+		oauthAuthRequestID: oauthAuthRequestID,
+		ch:                 ch,
 	}
 	sm.lock.Unlock()
 	return nil
 }
 
-func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, errorDescription string) error {
+func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, errorDescription string) (string, error) {
 	sm.lock.Lock()
 	s, ok := sm.cache[state]
 	delete(sm.cache, state)
 	sm.lock.Unlock()
 
 	var (
-		conf            *oauth2.Config
-		mcpID, verifier string
+		mcpID, verifier, oauthAuthRequestID string
+		conf                                *oauth2.Config
 	)
 	if ok {
 		defer close(s.ch)
 
 		mcpID = s.mcpID
+		oauthAuthRequestID = s.oauthAuthRequestID
 		verifier = s.verifier
 		conf = s.conf
 	} else {
 		token, err := sm.gatewayClient.GetMCPOAuthTokenByState(ctx, state)
 		if err != nil {
-			return fmt.Errorf("failed to get oauth state: %w", err)
+			return "", fmt.Errorf("failed to get oauth state: %w", err)
 		}
 
 		conf = &oauth2.Config{
@@ -81,18 +83,19 @@ func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, er
 			conf.Scopes = strings.Split(token.Scopes, " ")
 		}
 
+		oauthAuthRequestID = token.OAuthAuthRequestID
 		mcpID = token.MCPID
 		verifier = token.Verifier
 	}
 
 	if errorStr != "" {
-		return fmt.Errorf("error returned from oauth server: %s, %s", errorStr, errorDescription)
+		return "", fmt.Errorf("error returned from oauth server: %s, %s", errorStr, errorDescription)
 	}
 
 	token, err := conf.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", verifier))
 	if err != nil {
-		return fmt.Errorf("failed to exchange code: %w", err)
+		return "", fmt.Errorf("failed to exchange code: %w", err)
 	}
 
-	return sm.gatewayClient.ReplaceMCPOAuthToken(ctx, mcpID, "", "", conf, token)
+	return oauthAuthRequestID, sm.gatewayClient.ReplaceMCPOAuthToken(ctx, mcpID, "", "", "", conf, token)
 }
