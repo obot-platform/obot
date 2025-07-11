@@ -312,12 +312,13 @@
 		);
 
 		if (match) {
-			// open new tab with project /o/{project.id}
+			// go ahead and open the tab with the project
 			window.open(`/o/${match.id}`, '_blank');
 			chatLoading = false;
 			return;
 		}
 
+		// if no project match, create a new one w/ mcp server connected to it
 		const project = await EditorService.createObot({
 			name: connectedServer.server?.manifest.name ?? ''
 		});

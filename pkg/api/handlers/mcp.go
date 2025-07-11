@@ -155,6 +155,18 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		return nil
 	}
 
+	// Filter out servers that are tied to projects when listing user-deployed servers
+	if catalogID == "" && req.PathValue("project_id") == "" {
+		filteredServers := make([]v1.MCPServer, 0, len(servers.Items))
+		for _, server := range servers.Items {
+			// Only include servers that don't have a ThreadName (not tied to projects)
+			if server.Spec.ThreadName == "" {
+				filteredServers = append(filteredServers, server)
+			}
+		}
+		servers.Items = filteredServers
+	}
+
 	credCtxs := make([]string, 0, len(servers.Items))
 	if catalogID != "" {
 		for _, server := range servers.Items {
