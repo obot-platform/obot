@@ -112,7 +112,7 @@
 			</h1>
 		</div>
 		<div class="grid grid-cols-2 gap-4 py-8 md:grid-cols-3 lg:grid-cols-4">
-			{#each sortedModelProviders as modelProvider}
+			{#each sortedModelProviders as modelProvider (modelProvider.id)}
 				<ProviderCard
 					provider={modelProvider}
 					recommended={RecommendedModelProviders.includes(modelProvider.id)}

@@ -56,7 +56,7 @@
 				placeholder="Search by name..."
 			/>
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-				{#each paginatedData as item}
+				{#each paginatedData as item (item.id)}
 					{@render modelCard(item)}
 				{/each}
 			</div>
