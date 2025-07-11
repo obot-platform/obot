@@ -3,7 +3,7 @@
 	import type { Project, ModelProvider } from '$lib/services/chat/types';
 	import {
 		updateProject,
-		listAvailableModels,
+		listAvailableProjectModels,
 		listModelProviders
 	} from '$lib/services/chat/operations';
 	import { ChevronDown, Loader2 } from 'lucide-svelte';
@@ -65,7 +65,7 @@
 		loadingModels[providerId] = true;
 
 		try {
-			const models = await listAvailableModels(project.assistantID, project.id, providerId);
+			const models = await listAvailableProjectModels(project.assistantID, project.id, providerId);
 
 			availableModels[providerId] = (models.data || [])
 				.filter((m) => m.metadata && m.metadata.usage === 'llm')

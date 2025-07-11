@@ -433,7 +433,7 @@
 	{@const name = connectedServer.server?.manifest.name}
 	{@const description = connectedServer.server?.manifest.description}
 	{@const categories = parseCategories(connectedServer.server ?? connectedServer.parent)}
-	<div class="mcp-server-card relative flex flex-col">
+	<div class="relative flex flex-col">
 		<button
 			class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
 			onclick={() => {
@@ -580,7 +580,7 @@
 			? item.manifest.name
 			: (item.commandManifest?.name ?? item.urlManifest?.name)}
 	{@const categories = parseCategories(item)}
-	<div class="mcp-server-card relative flex flex-col">
+	<div class="relative flex flex-col">
 		<button
 			class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
 			onclick={() => {

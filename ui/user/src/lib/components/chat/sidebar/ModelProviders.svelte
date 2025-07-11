@@ -8,7 +8,7 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import { darkMode } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
-	import { delay } from 'es-toolkit';
+	import { delay } from '$lib/utils';
 
 	interface Props {
 		project?: Project;

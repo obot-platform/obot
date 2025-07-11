@@ -20,6 +20,7 @@ import {
 	type MCPServerTool,
 	type Memory,
 	type MemoryList,
+	type Model,
 	type ModelProviderList,
 	type Profile,
 	type Project,
@@ -1335,7 +1336,7 @@ export async function copyTemplate(publicID: string, opts?: { fetch?: Fetcher })
 	return (await doPost(`/templates/${publicID}`, {}, opts)) as Project;
 }
 
-export async function listAvailableModels(
+export async function listAvailableProjectModels(
 	assistantID: string,
 	projectID: string,
 	providerId: string
@@ -1343,6 +1344,11 @@ export async function listAvailableModels(
 	return (await doGet(
 		`/assistants/${assistantID}/projects/${projectID}/model-providers/${providerId}/available-models`
 	)) as ChatModelList;
+}
+
+export async function listModels(opts?: { fetch?: Fetcher }): Promise<Model[]> {
+	const response = (await doGet('/models', opts)) as ItemsResponse<Model>;
+	return response.items ?? [];
 }
 
 // Model provider operations

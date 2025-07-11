@@ -29,14 +29,14 @@
 	import { darkMode } from '$lib/stores';
 	import {
 		updateProject,
-		listAvailableModels,
+		listAvailableProjectModels,
 		configureModelProvider,
 		deconfigureModelProvider,
 		getModelProviderConfig
 	} from '$lib/services/chat/operations';
 	import { twMerge } from 'tailwind-merge';
 	import { fade, slide } from 'svelte/transition';
-	import { delay, throttle } from 'es-toolkit';
+	import { delay, throttle } from '$lib/utils';
 	import { untrack } from 'svelte';
 	import Confirm from './Confirm.svelte';
 
@@ -203,7 +203,11 @@
 		isModelsLoading = true;
 
 		try {
-			const response = await listAvailableModels(project.assistantID, project.id, providerId);
+			const response = await listAvailableProjectModels(
+				project.assistantID,
+				project.id,
+				providerId
+			);
 
 			return (response.data || [])
 				.filter((m) => m.metadata && m.metadata.usage === 'llm')

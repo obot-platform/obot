@@ -663,6 +663,18 @@ export interface ChatModel {
 	};
 }
 
+export interface Model {
+	id: string;
+	active: boolean;
+	aliasAssigned: boolean;
+	created: number;
+	modelProvider: string;
+	modelProviderName: string;
+	name: string;
+	targetModel: string;
+	usage: string;
+}
+
 export interface ChatModelList {
 	data: ChatModel[];
 }
