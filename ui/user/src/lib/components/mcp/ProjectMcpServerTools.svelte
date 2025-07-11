@@ -17,7 +17,6 @@
 	import { responsive } from '$lib/stores';
 	import { parseErrorContent } from '$lib/errors';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
-	import { toHTMLFromMarkdown } from '$lib/markdown';
 
 	interface Props {
 		mcpServer: ProjectMCP;
