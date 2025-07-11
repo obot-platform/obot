@@ -4289,6 +4289,18 @@ func schema_obot_platform_obot_apiclient_types_ModelStatus(ref common.ReferenceC
 							Format:  "",
 						},
 					},
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"iconDark": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"modelProviderName"},
 			},
