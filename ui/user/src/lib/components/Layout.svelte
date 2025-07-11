@@ -70,12 +70,12 @@
 						href: '/v2/admin/model-providers',
 						icon: Boxes,
 						label: 'Model Providers'
-					},
-					{
-						href: '/v2/admin/guardrails',
-						icon: TrainTrack,
-						label: 'Guardrails'
 					}
+					// {
+					// 	href: '/v2/admin/guardrails',
+					// 	icon: TrainTrack,
+					// 	label: 'Guardrails'
+					// }
 				]
 			: [
 					{
