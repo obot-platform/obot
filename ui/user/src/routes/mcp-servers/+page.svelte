@@ -447,6 +447,10 @@
 					<button
 						class="menu-button"
 						onclick={() => {
+							connectToEntry = undefined;
+							connectToServer = {
+								...connectedServer
+							};
 							connectDialog?.open();
 						}}
 					>
