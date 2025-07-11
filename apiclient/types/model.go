@@ -20,6 +20,8 @@ type ModelList List[Model]
 type ModelStatus struct {
 	AliasAssigned     *bool  `json:"aliasAssigned,omitempty"`
 	ModelProviderName string `json:"modelProviderName"`
+	Icon              string `json:"icon,omitempty"`
+	IconDark          string `json:"iconDark,omitempty"`
 }
 
 type ModelUsage string

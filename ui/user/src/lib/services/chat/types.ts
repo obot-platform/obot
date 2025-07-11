@@ -673,6 +673,8 @@ export interface Model {
 	name: string;
 	targetModel: string;
 	usage: string;
+	icon?: string;
+	iconDark?: string;
 }
 
 export interface ChatModelList {

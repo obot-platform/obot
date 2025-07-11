@@ -6,6 +6,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import type { Model } from '$lib/services/index.js';
+	import { darkMode } from '$lib/stores/index.js';
 	import { Box, ChevronLeft, ChevronRight } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 
@@ -97,8 +98,17 @@
 				connectDialog?.open();
 			}}
 		>
-			<div class="flex-shrink-0 rounded-md bg-transparent p-0.5 dark:bg-gray-600">
-				<Box class="size-8" />
+			<div
+				class="flex-shrink-0 rounded-md bg-transparent p-0.5"
+				class:dark:bg-gray-600={darkMode.isDark && !model.iconDark}
+			>
+				{#if darkMode.isDark && model.iconDark}
+					<img src={model.iconDark} alt={model.name} class="size-8" />
+				{:else if model.icon}
+					<img src={model.icon} alt={model.name} class="size-8" />
+				{:else}
+					<Box class="size-8" />
+				{/if}
 			</div>
 			<div class="flex flex-col">
 				<div class="flex items-center gap-2 pr-6">
@@ -138,8 +148,17 @@
 
 <ResponsiveDialog bind:this={connectDialog} animate="slide">
 	{#snippet titleContent()}
-		<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
-			<Box class="size-8" />
+		<div
+			class="bg-surface1 rounded-sm p-1 dark:bg-gray-600"
+			class:dark:bg-gray-600={darkMode.isDark && !selectedModel?.iconDark}
+		>
+			{#if darkMode.isDark && selectedModel?.iconDark}
+				<img src={selectedModel.iconDark} alt={selectedModel.name} class="size-8" />
+			{:else if selectedModel?.icon}
+				<img src={selectedModel.icon} alt={selectedModel.name} class="size-8" />
+			{:else}
+				<Box class="size-8" />
+			{/if}
 		</div>
 		{selectedModel?.name}
 	{/snippet}

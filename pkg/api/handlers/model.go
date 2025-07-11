@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 
+	"encoding/json"
+
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -185,12 +187,26 @@ func convertModel(model v1.Model, toolRef v1.ToolReference) (types.Model, error)
 	var (
 		aliasAssigned *bool
 		toolName      string
+		icon          string
+		iconDark      string
 	)
 	if model.Generation == model.Status.ObservedGeneration {
 		aliasAssigned = &model.Status.AliasAssigned
 	}
 	if toolRef.Status.Tool != nil {
 		toolName = toolRef.Status.Tool.Name
+
+		// getting model provider meta icon and iconDark
+		if toolRef.Status.Tool.Metadata["providerMeta"] != "" {
+			var providerMeta struct {
+				Icon     string `json:"icon,omitempty"`
+				IconDark string `json:"iconDark,omitempty"`
+			}
+			if err := json.Unmarshal([]byte(toolRef.Status.Tool.Metadata["providerMeta"]), &providerMeta); err == nil {
+				icon = providerMeta.Icon
+				iconDark = providerMeta.IconDark
+			}
+		}
 	}
 
 	return types.Model{
@@ -199,6 +215,8 @@ func convertModel(model v1.Model, toolRef v1.ToolReference) (types.Model, error)
 		ModelStatus: types.ModelStatus{
 			AliasAssigned:     aliasAssigned,
 			ModelProviderName: toolName,
+			Icon:              icon,
+			IconDark:          iconDark,
 		},
 	}, nil
 }
