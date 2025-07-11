@@ -13,6 +13,10 @@ import (
 )
 
 func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig ServerConfig) (types.MCPServerDetails, error) {
+	if serverConfig.URL != "" {
+		return types.MCPServerDetails{}, fmt.Errorf("getting server details is not supported for remote servers")
+	}
+
 	if !sm.KubernetesEnabled() {
 		return types.MCPServerDetails{}, fmt.Errorf("kubernetes is not enabled")
 	}
@@ -74,6 +78,10 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig Ser
 }
 
 func (sm *SessionManager) StreamServerLogs(ctx context.Context, serverConfig ServerConfig) (io.ReadCloser, error) {
+	if serverConfig.URL != "" {
+		return nil, fmt.Errorf("streaming logs is not supported for remote servers")
+	}
+
 	if !sm.KubernetesEnabled() {
 		return nil, fmt.Errorf("kubernetes is not enabled")
 	}
