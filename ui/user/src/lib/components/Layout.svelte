@@ -15,7 +15,6 @@
 		Server,
 		SidebarClose,
 		SidebarOpen,
-		TrainTrack,
 		Users
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
