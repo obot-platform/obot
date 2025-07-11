@@ -296,33 +296,6 @@
 				{/each}
 			</div>
 		{/if}
-		{#if !chatbot}
-			<div class="flex justify-end">
-				<DotDotDot class="button flex items-center gap-1 text-xs">
-					{#snippet icon()}
-						<Plus class="size-4" /> Add MCP Server
-					{/snippet}
-					<div class="default-dialog flex min-w-max flex-col p-2">
-						<button class="menu-button" onclick={() => mcpSetupWizard?.open()}>
-							<Server class="size-4" /> Browse Catalog
-						</button>
-					</div>
-				</DotDotDot>
-				<McpSetupWizard
-					bind:this={mcpSetupWizard}
-					catalogDescription="Extend your agent's capabilities by adding multiple MCP servers from our evergrowing catalog."
-					catalogSubmitText="Add to agent"
-					{selectedMcpIds}
-					{project}
-					onFinish={(newProjectMcp) => {
-						if (newProjectMcp) {
-							projectMCPs.items.push(newProjectMcp);
-						}
-						mcpSetupWizard?.close();
-					}}
-				/>
-			</div>
-		{/if}
 	</div>
 </CollapsePane>
 

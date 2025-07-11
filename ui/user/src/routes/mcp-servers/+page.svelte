@@ -9,26 +9,36 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
-	import { type MCPServerInfo } from '$lib/services/chat/mcp';
+	import { createProjectMcp, type MCPServerInfo } from '$lib/services/chat/mcp';
 	import {
 		ChatService,
+		EditorService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services/index.js';
-	import { ChevronLeft, ChevronRight, LoaderCircle, Server, Unplug } from 'lucide-svelte';
+	import {
+		ChevronLeft,
+		ChevronRight,
+		ExternalLink,
+		LoaderCircle,
+		Server,
+		Unplug
+	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import McpServerInfo from '$lib/components/mcp/McpServerInfo.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { twMerge } from 'tailwind-merge';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import PageLoading from '$lib/components/PageLoading.svelte';
 
 	let userServerInstances = $state<MCPServerInstance[]>([]);
 	let userConfiguredServers = $state<MCPCatalogServer[]>([]);
 	let servers = $state<MCPCatalogServer[]>([]);
 	let entries = $state<MCPCatalogEntry[]>([]);
 	let loading = $state(true);
+	let chatLoading = $state(false);
 
 	let deletingInstance = $state<MCPServerInstance>();
 	let deletingServer = $state<MCPCatalogServer>();
@@ -292,6 +302,46 @@
 		return '';
 	}
 
+	async function handleSetupChat(connectedServer: typeof connectToServer) {
+		if (!connectedServer || !connectedServer.server) return;
+		chatLoading = true;
+
+		const projects = await ChatService.listProjects();
+		const match = projects.items.find(
+			(project) => project.name === connectedServer.server?.manifest.name
+		);
+
+		if (match) {
+			// open new tab with project /o/{project.id}
+			window.open(`/o/${match.id}`, '_blank');
+			chatLoading = false;
+			return;
+		}
+
+		const project = await EditorService.createObot({
+			name: connectedServer.server?.manifest.name ?? ''
+		});
+
+		let values: Record<string, string> = {};
+		if (connectedServer.parent) {
+			values = await ChatService.revealSingleOrRemoteMcpServer(connectedServer.server.id);
+		}
+		const mcpServerInfo = {
+			...connectedServer.server,
+			env: connectedServer.server?.manifest.env?.map((env) => ({
+				...env,
+				value: values[env.key] ?? ''
+			})),
+			headers: connectedServer.server?.manifest.headers?.map((header) => ({
+				...header,
+				value: values[header.key] ?? ''
+			}))
+		};
+		await createProjectMcp(mcpServerInfo, project);
+		window.open(`/o/${project.id}`, '_blank');
+		chatLoading = false;
+	}
+
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
@@ -496,6 +546,12 @@
 						</button>
 					{/if}
 					<button
+						class="menu-button justify-between"
+						onclick={() => handleSetupChat(connectedServer)}
+					>
+						Chat <ExternalLink class="size-4 -translate-y-[1px]" />
+					</button>
+					<button
 						class="menu-button text-red-500"
 						onclick={async () => {
 							if (connectedServer.instance) {
@@ -637,7 +693,7 @@
 						Get Connection URL
 					</button>
 					<DotDotDot class="icon-button h size-10 min-h-auto min-w-auto flex-shrink-0 p-1">
-						<div class="default-dialog flex min-w-max flex-col p-2">
+						<div class="default-dialog flex min-w-48 flex-col p-2">
 							{#if connectToServer.parent && hasEditableConfiguration(connectToServer.parent)}
 								<button
 									class="menu-button"
@@ -682,6 +738,15 @@
 									Edit Configuration
 								</button>
 							{/if}
+							<button
+								class="menu-button justify-between"
+								onclick={() => {
+									if (!connectToServer) return;
+									handleSetupChat(connectToServer);
+								}}
+							>
+								Chat <ExternalLink class="size-4 -translate-y-[1px]" />
+							</button>
 							<button
 								class="menu-button text-red-500"
 								onclick={async () => {
@@ -963,6 +1028,8 @@
 	}}
 	oncancel={() => (deletingServer = undefined)}
 />
+
+<PageLoading show={chatLoading} text="Loading chat..." />
 
 <svelte:head>
 	<title>Obot | MCP Servers</title>

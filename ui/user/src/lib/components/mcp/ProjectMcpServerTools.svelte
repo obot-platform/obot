@@ -17,6 +17,7 @@
 	import { responsive } from '$lib/stores';
 	import { parseErrorContent } from '$lib/errors';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
+	import { toHTMLFromMarkdown } from '$lib/markdown';
 
 	interface Props {
 		mcpServer: ProjectMCP;
@@ -171,9 +172,6 @@
 					</h3>
 				</div>
 			</div>
-			<p class="text-sm font-light text-gray-500">
-				{mcpServer.manifest.description}
-			</p>
 		</div>
 
 		{#if loading}

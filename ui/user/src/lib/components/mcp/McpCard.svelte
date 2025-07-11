@@ -2,7 +2,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import { CircleCheckBig, Server } from 'lucide-svelte';
 	import type { TransformedMcp } from './McpCatalog.svelte';
-	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
+	import { stripMarkdownToText } from '$lib/markdown';
 	interface Props {
 		data: TransformedMcp;
 		onSelect: (data: TransformedMcp) => void;
@@ -45,7 +45,7 @@
 						</h4>
 						{#if data.description}
 							<div class="card-description-content message-content line-clamp-1 grow text-left">
-								{@html toHTMLFromMarkdownWithNewTabLinks(data.description)}
+								{@html stripMarkdownToText(data.description)}
 							</div>
 						{/if}
 					</div>
