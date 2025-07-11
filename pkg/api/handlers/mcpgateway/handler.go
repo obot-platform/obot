@@ -213,7 +213,9 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		result = nmcp.PingResult{}
 	case "initialize":
 		sessionID := msg.Session.ID()
-		context.AfterFunc(ctx, func() {
+		go func() {
+			msg.Session.Wait()
+
 			if err := m.handler.mcpSessionManager.CloseClient(context.Background(), m.serverConfig); err != nil {
 				log.Errorf("Failed to shutdown server %s: %v", m.mcpServer.Name, err)
 			}
@@ -228,7 +230,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			if _, _, err := m.handler.sessions.NewStore(m).LoadAndDelete(req, sessionID); err != nil {
 				log.Errorf("Failed to delete session %s: %v", sessionID, err)
 			}
-		})
+		}()
 
 		if client.Session.InitializeResult.ServerInfo.Name != "" || client.Session.InitializeResult.ServerInfo.Version != "" {
 			if err = msg.Reply(ctx, client.Session.InitializeResult); err != nil {

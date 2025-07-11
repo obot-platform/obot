@@ -33,9 +33,15 @@ type sessionStore struct {
 	handler *messageHandler
 }
 
+func (s *sessionStore) ExtractID(req *http.Request) string {
+	return req.Header.Get("Mcp-Session-Id")
+}
+
 func (s *sessionStore) Store(req *http.Request, sessionID string, session *nmcp.ServerSession) error {
 	var state nmcp.SessionState
-	if sessionState := session.GetSession().State(); sessionState != nil {
+	if sessionState, err := session.GetSession().State(); err != nil {
+		return fmt.Errorf("failed to get session state: %w", err)
+	} else if sessionState != nil {
 		state = *sessionState
 	}
 
