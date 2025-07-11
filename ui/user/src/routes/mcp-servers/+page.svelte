@@ -23,6 +23,7 @@
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { twMerge } from 'tailwind-merge';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { afterNavigate, goto } from '$app/navigation';
 
 	let userServerInstances = $state<MCPServerInstance[]>([]);
 	let userConfiguredServers = $state<MCPCatalogServer[]>([]);
@@ -61,6 +62,8 @@
 	let showServerInfo = $state(false);
 
 	let search = $state('');
+	let selectedCategory = $state('');
+
 	let serverInstancesMap = $derived(
 		new Map(
 			userServerInstances.map((instance) => [
@@ -72,8 +75,28 @@
 	let userConfiguredServersMap = $derived(
 		new Map(userConfiguredServers.map((server) => [server.catalogEntryID, server]))
 	);
+
+	let convertedEntries: (MCPCatalogEntry & { categories: string[] })[] = $derived(
+		entries.map((entry) => ({
+			...entry,
+			categories: parseCategories(entry)
+		}))
+	);
+	let convertedServers: (MCPCatalogServer & { categories: string[] })[] = $derived(
+		servers.map((server) => ({
+			...server,
+			categories: parseCategories(server)
+		}))
+	);
+	let convertedUserConfiguredServers: (MCPCatalogServer & { categories: string[] })[] = $derived(
+		userConfiguredServers.map((server) => ({
+			...server,
+			categories: parseCategories(server)
+		}))
+	);
+
 	let filteredEntriesData = $derived(
-		entries.filter((item) => {
+		convertedEntries.filter((item) => {
 			if (item.deleted) {
 				return false;
 			}
@@ -88,11 +111,15 @@
 				return nameToUse?.toLowerCase().includes(search.toLowerCase());
 			}
 
+			if (selectedCategory && !item.categories.includes(selectedCategory)) {
+				return false;
+			}
+
 			return true;
 		})
 	);
 	let filteredServers = $derived(
-		servers.filter((item) => {
+		convertedServers.filter((item) => {
 			if (item.deleted) {
 				return false;
 			}
@@ -105,13 +132,30 @@
 				return item.manifest.name?.toLowerCase().includes(search.toLowerCase());
 			}
 
+			if (selectedCategory && !item.categories.includes(selectedCategory)) {
+				return false;
+			}
+
 			return true;
 		})
 	);
+	let categories = $derived(
+		[
+			...convertedEntries.map((entry) => entry.categories),
+			...convertedServers.map((server) => server.categories)
+		]
+			.flat()
+			.filter((category, index, self) => self.indexOf(category) === index)
+	);
 	let filteredData = $derived([...filteredServers, ...filteredEntriesData]);
 	let connectedServers = $derived([
-		...userConfiguredServers
-			.filter((server) => server.connectURL && !server.deleted)
+		...convertedUserConfiguredServers
+			.filter(
+				(server) =>
+					server.connectURL &&
+					!server.deleted &&
+					(!selectedCategory || server.categories.includes(selectedCategory))
+			)
 			.map((server) => ({
 				connectURL: server.connectURL ?? '',
 				server,
@@ -120,12 +164,14 @@
 					? (entries.find((e) => e.id === server.catalogEntryID) ?? undefined)
 					: undefined
 			})),
-		...userServerInstances.map((instance) => ({
-			connectURL: instance.connectURL ?? '',
-			instance,
-			server: servers.find((s) => s.id === instance.mcpServerID) ?? undefined,
-			parent: undefined
-		}))
+		...userServerInstances
+			.map((instance) => ({
+				connectURL: instance.connectURL ?? '',
+				instance,
+				server: convertedServers.find((s) => s.id === instance.mcpServerID) ?? undefined,
+				parent: undefined
+			}))
+			.filter((item) => !selectedCategory || item.server?.categories?.includes(selectedCategory))
 	]);
 
 	let page = $state(0);
@@ -168,7 +214,12 @@
 		loadData();
 	});
 
-	function parseCategories(item?: (typeof filteredData)[0] | null) {
+	afterNavigate(() => {
+		const url = new URL(window.location.href);
+		selectedCategory = url.searchParams.get('category') ?? '';
+	});
+
+	function parseCategories(item?: MCPCatalogEntry | MCPCatalogServer | null) {
 		if (!item) return [];
 		if ('manifest' in item && item.manifest.metadata?.categories) {
 			return item.manifest.metadata.categories.split(',') ?? [];
@@ -303,6 +354,24 @@
 			{@render mainContent()}
 		{/if}
 	</div>
+
+	{#snippet navSubContent()}
+		{#each categories as category (category)}
+			<div class="flex flex-col gap-1 pl-9">
+				<button
+					class="text-left text-sm font-light transition-all duration-300 hover:font-semibold"
+					class:font-semibold={selectedCategory === category}
+					onclick={() => {
+						const url = new URL(window.location.href);
+						url.searchParams.set('category', category);
+						goto(url.toString(), { replaceState: true });
+					}}
+				>
+					{category}
+				</button>
+			</div>
+		{/each}
+	{/snippet}
 </Layout>
 
 {#snippet mainContent()}
@@ -381,7 +450,7 @@
 	{@const icon = connectedServer.server?.manifest.icon}
 	{@const name = connectedServer.server?.manifest.name}
 	{@const description = connectedServer.server?.manifest.description}
-	{@const categories = parseCategories(connectedServer.server ?? connectedServer.parent)}
+	{@const itemCategories = connectedServer.server?.categories ?? []}
 	<div class="mcp-server-card relative flex flex-col">
 		<button
 			class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
@@ -420,22 +489,24 @@
 					<span
 						class={twMerge(
 							'text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600',
-							categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
+							itemCategories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
 						)}
 					>
 						{stripMarkdownToText(description ?? '')}
 					</span>
 				</div>
 			</div>
-			<div class="flex w-full flex-wrap gap-1 pt-2">
-				{#each categories as category}
-					<div
-						class="border-surface3 rounded-full border px-1.5 py-0.5 text-[10px] font-light text-gray-400 dark:text-gray-600"
-					>
-						{category}
-					</div>
-				{/each}
-			</div>
+			{#if itemCategories.length > 0}
+				<div class="flex w-full flex-wrap gap-1 pt-2">
+					{#each itemCategories as category}
+						<div
+							class="border-surface3 rounded-full border px-1.5 py-0.5 text-[10px] font-light text-gray-400 dark:text-gray-600"
+						>
+							{category}
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</button>
 		<div
 			class="absolute -top-2 right-0 flex h-full translate-y-2 flex-col justify-between gap-4 p-2"
@@ -518,7 +589,6 @@
 		'manifest' in item
 			? item.manifest.name
 			: (item.commandManifest?.name ?? item.urlManifest?.name)}
-	{@const categories = parseCategories(item)}
 	<div class="mcp-server-card relative flex flex-col">
 		<button
 			class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
@@ -541,7 +611,7 @@
 					<span
 						class={twMerge(
 							'text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600',
-							categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
+							item.categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
 						)}
 					>
 						{#if 'manifest' in item}
@@ -555,7 +625,7 @@
 				</div>
 			</div>
 			<div class="flex w-full flex-wrap gap-1 pt-2">
-				{#each categories as category}
+				{#each item.categories as category}
 					<div
 						class="border-surface3 rounded-full border px-1.5 py-0.5 text-[10px] font-light text-gray-400 dark:text-gray-600"
 					>
