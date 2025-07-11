@@ -156,7 +156,7 @@
 {/snippet}
 
 <Confirm
-	msg="Are you sure you want to delete this filter?"
+	msg="Are you sure you want to delete this guardrail?"
 	show={Boolean(guardrailToDelete)}
 	onsuccess={async () => {
 		if (!guardrailToDelete) return;
