@@ -20,9 +20,10 @@
 	interface Props {
 		children: Snippet;
 		showUserLinks?: boolean;
+		navSubContent?: Snippet;
 	}
 
-	const { children, showUserLinks }: Props = $props();
+	const { children, showUserLinks, navSubContent }: Props = $props();
 	let nav = $state<HTMLDivElement>();
 
 	let isBootStrapUser = $derived(profile.current.username === BOOTSTRAP_USER_ID);
@@ -89,7 +90,7 @@
 					{@render logo()}
 				</div>
 
-				<div class="text-md flex grow flex-col gap-8 px-3 pt-8 font-light">
+				<div class="text-md flex grow flex-col gap-4 px-3 pt-8 font-light">
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link}
 							{#if link.disabled}
@@ -105,6 +106,10 @@
 							{/if}
 						{/each}
 					</div>
+
+					{#if navSubContent}
+						{@render navSubContent()}
+					{/if}
 				</div>
 
 				<div class="flex justify-end px-3 py-2">
