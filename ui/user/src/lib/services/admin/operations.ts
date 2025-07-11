@@ -3,7 +3,8 @@ import type {
 	Project,
 	Task,
 	MCPCatalogServer,
-	MCPServerInstance
+	MCPServerInstance,
+	Model
 } from '../chat/types';
 import { doDelete, doGet, doPatch, doPost, doPut, type Fetcher } from '../http';
 import type {
@@ -14,7 +15,6 @@ import type {
 	MCPCatalogEntryServerManifest,
 	MCPCatalogManifest,
 	OrgUser,
-	Model,
 	ProjectThread,
 	MCPCatalogServerManifest,
 	DefaultModelAlias,

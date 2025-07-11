@@ -1,4 +1,4 @@
-import type { Model } from '$lib/services/admin/types';
+import type { Model } from '$lib/services';
 import { getContext, hasContext, setContext } from 'svelte';
 
 const Key = Symbol('admin-models');
