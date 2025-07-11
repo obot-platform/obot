@@ -10,5 +10,9 @@ export default defineConfig({
 			'/oauth2': 'http://localhost:8080'
 		}
 	},
+	optimizeDeps: {
+		// currently incompatible with dep optimizer
+		exclude: ['d3-array']
+	},
 	plugins: [sveltekit()]
 });
