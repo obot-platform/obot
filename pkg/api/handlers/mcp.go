@@ -1,11 +1,11 @@
 package handlers
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"maps"
 	"net/http"
 	"net/url"
@@ -1615,17 +1615,14 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 	req.ResponseWriter.Header().Set("Content-Type", "text/event-stream")
 	req.ResponseWriter.Header().Set("Cache-Control", "no-cache")
 	req.ResponseWriter.Header().Set("Connection", "keep-alive")
-	req.ResponseWriter.Header().Set("Access-Control-Allow-Origin", "*")
-	req.ResponseWriter.Header().Set("Access-Control-Allow-Headers", "Cache-Control")
 
-	flusher, ok := req.ResponseWriter.(http.Flusher)
-	if !ok {
-		return fmt.Errorf("response writer does not support flushing")
-	}
+	flusher, shouldFlush := req.ResponseWriter.(http.Flusher)
 
 	// Send initial connection event
 	fmt.Fprintf(req.ResponseWriter, "event: connected\ndata: Log stream started\n\n")
-	flusher.Flush()
+	if shouldFlush {
+		flusher.Flush()
+	}
 
 	// Channel to coordinate between goroutines
 	logChan := make(chan string, 100) // Buffered to prevent blocking
@@ -1634,38 +1631,22 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 	go func() {
 		defer close(logChan)
 
-		buf := make([]byte, 1024)
-		for {
+		scanner := bufio.NewScanner(logs)
+		for scanner.Scan() {
+			line := scanner.Text()
 			select {
 			case <-req.Context().Done():
 				return
-			default:
-				n, err := logs.Read(buf)
-				if n > 0 {
-					// Split by lines to send each line as separate event
-					lines := strings.Split(string(buf[:n]), "\n")
-					for _, line := range lines {
-						if line != "" {
-							select {
-							case logChan <- line:
-							case <-req.Context().Done():
-								return
-							}
-						}
-					}
-				}
-				if err == io.EOF {
-					return
-				}
-				if err != nil {
-					// Send error event
-					select {
-					case logChan <- fmt.Sprintf("ERROR retrieving logs: %v", err):
-					case <-req.Context().Done():
-					}
-					return
-				}
+			case logChan <- line:
 			}
+		}
+		if err := scanner.Err(); err != nil {
+			// Send error event
+			select {
+			case logChan <- fmt.Sprintf("ERROR retrieving logs: %v", err):
+			case <-req.Context().Done():
+			}
+			return
 		}
 	}()
 
@@ -1677,22 +1658,28 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		select {
 		case <-req.Context().Done():
 			fmt.Fprintf(req.ResponseWriter, "event: disconnected\ndata: Client disconnected\n\n")
-			flusher.Flush()
+			if shouldFlush {
+				flusher.Flush()
+			}
 			return nil
 		case <-ticker.C:
 			// Send keep-alive ping
 			fmt.Fprintf(req.ResponseWriter, "event: ping\ndata: keep-alive\n\n")
-			flusher.Flush()
+			if shouldFlush {
+				flusher.Flush()
+			}
 		case logLine, ok := <-logChan:
 			if !ok {
 				fmt.Fprintf(req.ResponseWriter, "event: ended\ndata: Log stream ended\n\n")
-				flusher.Flush()
+				if shouldFlush {
+					flusher.Flush()
+				}
 				return nil
 			}
-			// Escape newlines in log data and send as SSE event
-			escapedLine := strings.ReplaceAll(logLine, "\n", "\\n")
-			fmt.Fprintf(req.ResponseWriter, "event: log\ndata: %s\n\n", escapedLine)
-			flusher.Flush()
+			fmt.Fprintf(req.ResponseWriter, "event: log\ndata: %s\n\n", logLine)
+			if shouldFlush {
+				flusher.Flush()
+			}
 		}
 	}
 }

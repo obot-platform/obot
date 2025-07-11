@@ -8,9 +8,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -87,11 +85,9 @@ func (sm *SessionManager) StreamServerLogs(ctx context.Context, serverConfig Ser
 		return nil, fmt.Errorf("failed to get deployment %s: %w", id, err)
 	}
 
-	pods, err := sm.clientset.CoreV1().Pods(sm.mcpNamespace).List(ctx, metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels).String(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get logs: %w", err)
+	var pods corev1.PodList
+	if err := sm.client.List(ctx, &pods, client.InNamespace(sm.mcpNamespace), client.MatchingLabels(deployment.Spec.Selector.MatchLabels)); err != nil {
+		return nil, fmt.Errorf("failed to get pods: %w", err)
 	}
 
 	if len(pods.Items) == 0 {
