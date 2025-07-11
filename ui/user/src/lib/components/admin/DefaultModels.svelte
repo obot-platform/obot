@@ -6,7 +6,7 @@
 		type Model,
 		type DefaultModelAlias,
 		ModelAliasToUsageMap
-	} from '$lib/services/admin/types';
+	} from '$lib/services';
 	import { onMount } from 'svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { AdminService } from '$lib/services';

@@ -4,7 +4,7 @@
 	import { PictureInPicture2 } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Table from '../Table.svelte';
-	import { ModelUsage, ModelUsageLabels, type Model } from '$lib/services/admin/types';
+	import { ModelUsage, ModelUsageLabels, type Model } from '$lib/services';
 	import Toggle from '../Toggle.svelte';
 	import Select from '../Select.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';

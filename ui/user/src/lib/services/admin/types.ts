@@ -123,18 +123,6 @@ export interface FileScannerConfig {
 	updatedAt: string;
 }
 
-export interface Model {
-	active: boolean;
-	aliasAssigned: boolean;
-	created: string;
-	id: string;
-	modelProvider: string;
-	modelProviderName: string;
-	name: string;
-	targetModel: string;
-	usage: string;
-}
-
 interface BaseThread {
 	created: string;
 	id: string;
