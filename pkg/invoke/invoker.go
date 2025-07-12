@@ -364,9 +364,17 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		}
 	}
 
+	token, err := i.tokenService.NewToken(jwt.TokenContext{
+		UserID: thread.Spec.UserID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	tools, extraEnv, err := render.Agent(ctx, c, i.gptClient, agent, i.serverURL, render.AgentOptions{
 		Thread:         thread,
 		WorkflowStepID: opt.WorkflowStepID,
+		MCPToken:       token,
 	})
 	if err != nil {
 		return nil, err

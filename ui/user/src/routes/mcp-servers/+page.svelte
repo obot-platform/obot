@@ -320,21 +320,15 @@
 		}
 
         if (project && !(await ChatService.listProjectMCPs(project.assistantID, project.id)).find((mcp) => mcp.manifest.name === connectedServer.server?.id)) {
-            let values: Record<string, string> = {};
-            if (connectedServer.parent) {
-                values = await ChatService.revealSingleOrRemoteMcpServer(connectedServer.server.id);
-            }
             const mcpServerInfo = {
-                ...connectedServer.server,
-                env: connectedServer.server?.manifest.env?.map((env) => ({
-                    ...env,
-                    value: values[env.key] ?? ''
-                })),
-                headers: connectedServer.server?.manifest.headers?.map((header) => ({
-                    ...header,
-                    value: values[header.key] ?? ''
-                }))
-            };
+                manifest: {
+                    name: connectedServer.server.manifest.name,
+					icon: connectedServer.server.manifest.icon,
+					description: connectedServer.server.manifest.description,
+                    metadata: connectedServer.server.manifest.metadata,
+					url: connectedServer.connectURL,
+                },
+            } as MCPServerInfo;
 
             await createProjectMcp(mcpServerInfo, project);
         }

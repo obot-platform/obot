@@ -2,11 +2,13 @@ package render
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
@@ -20,7 +22,7 @@ func (e *UnconfiguredMCPError) Error() string {
 	return fmt.Sprintf("MCP server %s missing required configuration parameters: %s", e.MCPName, strings.Join(e.Missing, ", "))
 }
 
-func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, projectName string, allowedTools []string) (gptscript.ToolDef, error) {
+func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, projectName, mcpToken, serverURL string, allowedTools []string) (gptscript.ToolDef, error) {
 	var credEnv map[string]string
 	if len(mcpServer.Spec.Manifest.Env) != 0 || len(mcpServer.Spec.Manifest.Headers) != 0 {
 		// Add the credential context for the direct parent to pick up credentials specifically for this project.
@@ -46,5 +48,27 @@ func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServe
 			Missing: missingRequiredNames,
 		}
 	}
-	return mcp.ServerToolWithCreds(mcpServer, serverConfig)
+
+	if mcpToken != "" && strings.HasPrefix(serverConfig.URL, serverURL+"/mcp-connect/") {
+		serverConfig.Headers = append(serverConfig.Headers, "Authorization=Bearer "+mcpToken)
+	}
+
+	return serverToolWithCreds(mcpServer, serverConfig)
+}
+
+func serverToolWithCreds(mcpServer v1.MCPServer, serverConfig mcp.ServerConfig) (gptscript.ToolDef, error) {
+	b, err := json.Marshal(serverConfig)
+	if err != nil {
+		return gptscript.ToolDef{}, fmt.Errorf("failed to marshal MCP Server %s config: %w", mcpServer.Spec.Manifest.Name, err)
+	}
+
+	name := mcpServer.Spec.Manifest.Name
+	if name == "" {
+		name = mcpServer.Name
+	}
+
+	return gptscript.ToolDef{
+		Name:         name + "-bundle",
+		Instructions: fmt.Sprintf("%s\n%s", types.MCPPrefix, string(b)),
+	}, nil
 }
