@@ -311,27 +311,32 @@
 			(project) => project.name === connectedServer.server?.manifest.name
 		);
 
-        let project = match;
+		let project = match;
 		if (!match) {
-            // if no project match, create a new one w/ mcp server connected to it
-            project = await EditorService.createObot({
-                name: connectedServer.server?.manifest.name ?? ''
-            });
+			// if no project match, create a new one w/ mcp server connected to it
+			project = await EditorService.createObot({
+				name: connectedServer.server?.manifest.name ?? ''
+			});
 		}
 
-        if (project && !(await ChatService.listProjectMCPs(project.assistantID, project.id)).find((mcp) => mcp.manifest.name === connectedServer.server?.id)) {
-            const mcpServerInfo = {
-                manifest: {
-                    name: connectedServer.server.manifest.name,
+		if (
+			project &&
+			!(await ChatService.listProjectMCPs(project.assistantID, project.id)).find(
+				(mcp) => mcp.manifest.name === connectedServer.server?.id
+			)
+		) {
+			const mcpServerInfo = {
+				manifest: {
+					name: connectedServer.server.manifest.name,
 					icon: connectedServer.server.manifest.icon,
 					description: connectedServer.server.manifest.description,
-                    metadata: connectedServer.server.manifest.metadata,
-					url: connectedServer.connectURL,
-                },
-            } as MCPServerInfo;
+					metadata: connectedServer.server.manifest.metadata,
+					url: connectedServer.connectURL
+				}
+			} as MCPServerInfo;
 
-            await createProjectMcp(mcpServerInfo, project);
-        }
+			await createProjectMcp(mcpServerInfo, project);
+		}
 
 		window.open(`/o/${project?.id}`, '_blank');
 		chatLoading = false;
