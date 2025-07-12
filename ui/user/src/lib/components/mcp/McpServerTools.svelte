@@ -76,7 +76,7 @@
 		</div>
 	</div>
 	<div class="flex flex-col gap-2 overflow-hidden">
-		{#each tools as tool (tool.id)}
+		{#each tools as tool (tool.name)}
 			<div
 				class="border-surface2 dark:bg-surface2 dark:border-surface3 flex flex-col gap-2 rounded-md border"
 				class:pb-2={!expandedDescriptions[tool.id] && !allDescriptionsEnabled}
