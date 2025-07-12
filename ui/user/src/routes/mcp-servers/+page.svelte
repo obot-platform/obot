@@ -322,7 +322,7 @@
 		if (
 			project &&
 			!(await ChatService.listProjectMCPs(project.assistantID, project.id)).find(
-				(mcp) => mcp.manifest.name === connectedServer.server?.id
+				(mcp) => mcp.manifest.name === connectedServer.server?.manifest.name
 			)
 		) {
 			const mcpServerInfo = {
