@@ -57,7 +57,7 @@ func (c *Controller) setupRoutes() error {
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
 	toolInfo := toolinfo.New(c.services.GPTClient)
 	threads := threads.NewHandler(c.services.GPTClient, c.services.Invoker)
-	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient, c.services.MCPLoader, c.services.GatewayClient)
+	credentialCleanup := cleanup.NewCredentials(c.services.TokenServer, c.services.GPTClient, c.services.MCPLoader, c.services.GatewayClient, c.services.ServerURL)
 	projects := projects.NewHandler()
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)

@@ -4,11 +4,13 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/services"
 )
 
 type handler struct {
+	tokenService      *jwt.TokenService
 	oauthConfig       services.OAuthAuthorizationServerConfig
 	mcpSessionManager *mcp.SessionManager
 	baseURL           string
@@ -16,8 +18,9 @@ type handler struct {
 	tokenStore        mcpgateway.GlobalTokenStore
 }
 
-func SetupHandlers(gatewayClient *client.Client, mcpSessionManager *mcp.SessionManager, oauthConfig services.OAuthAuthorizationServerConfig, baseURL string, mux *server.Server) {
+func SetupHandlers(tokenService *jwt.TokenService, gatewayClient *client.Client, mcpSessionManager *mcp.SessionManager, oauthConfig services.OAuthAuthorizationServerConfig, baseURL string, mux *server.Server) {
 	h := &handler{
+		tokenService:      tokenService,
 		oauthConfig:       oauthConfig,
 		mcpSessionManager: mcpSessionManager,
 		baseURL:           baseURL,

@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/creds"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/invoke"
+	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
@@ -28,16 +29,18 @@ import (
 )
 
 type AgentHandler struct {
-	invoker    *invoke.Invoker
-	dispatcher *dispatcher.Dispatcher
-	serverURL  string
+	tokenService *jwt.TokenService
+	invoker      *invoke.Invoker
+	dispatcher   *dispatcher.Dispatcher
+	serverURL    string
 }
 
-func NewAgentHandler(dispatcher *dispatcher.Dispatcher, invoker *invoke.Invoker, serverURL string) *AgentHandler {
+func NewAgentHandler(tokenService *jwt.TokenService, dispatcher *dispatcher.Dispatcher, invoker *invoke.Invoker, serverURL string) *AgentHandler {
 	return &AgentHandler{
-		serverURL:  serverURL,
-		invoker:    invoker,
-		dispatcher: dispatcher,
+		serverURL:    serverURL,
+		invoker:      invoker,
+		dispatcher:   dispatcher,
+		tokenService: tokenService,
 	}
 }
 
@@ -813,7 +816,7 @@ func (a *AgentHandler) Script(req api.Context) error {
 		}
 	}
 
-	tools, extraEnv, err := render.Agent(req.Context(), req.Storage, req.GPTClient, &agent, a.serverURL, render.AgentOptions{
+	tools, extraEnv, err := render.Agent(req.Context(), a.tokenService, req.Storage, req.GPTClient, &agent, a.serverURL, render.AgentOptions{
 		Thread: thread,
 	})
 	if err != nil {

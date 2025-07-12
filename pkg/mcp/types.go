@@ -3,8 +3,10 @@ package mcp
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/jwt"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -39,7 +41,7 @@ func expandEnvVars(text string, credEnv map[string]string) string {
 	})
 }
 
-func ToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]string, allowedTools ...string) (ServerConfig, []string) {
+func ToServerConfig(tokenService *jwt.TokenService, mcpServer v1.MCPServer, baseURL, scope string, credEnv map[string]string, allowedTools ...string) (ServerConfig, []string, error) {
 	// Expand environment variables in command, args, and URL
 	command := expandEnvVars(mcpServer.Spec.Manifest.Command, credEnv)
 	url := expandEnvVars(mcpServer.Spec.Manifest.URL, credEnv)
@@ -90,5 +92,16 @@ func ToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]str
 		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
 	}
 
-	return serverConfig, missingRequiredNames
+	if strings.HasPrefix(serverConfig.URL, baseURL+"/mcp-connect/") {
+		token, err := tokenService.NewToken(jwt.TokenContext{
+			UserID: mcpServer.Spec.UserID,
+		})
+		if err != nil {
+			return ServerConfig{}, nil, fmt.Errorf("failed to create token: %w", err)
+		}
+
+		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("Authorization=Bearer %s", token))
+	}
+
+	return serverConfig, missingRequiredNames, nil
 }

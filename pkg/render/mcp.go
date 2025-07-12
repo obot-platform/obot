@@ -9,6 +9,7 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/types"
+	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
@@ -22,7 +23,7 @@ func (e *UnconfiguredMCPError) Error() string {
 	return fmt.Sprintf("MCP server %s missing required configuration parameters: %s", e.MCPName, strings.Join(e.Missing, ", "))
 }
 
-func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, projectName, mcpToken, serverURL string, allowedTools []string) (gptscript.ToolDef, error) {
+func mcpServerTool(ctx context.Context, tokenService *jwt.TokenService, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, projectName, serverURL string, allowedTools []string) (gptscript.ToolDef, error) {
 	var credEnv map[string]string
 	if len(mcpServer.Spec.Manifest.Env) != 0 || len(mcpServer.Spec.Manifest.Headers) != 0 {
 		// Add the credential context for the direct parent to pick up credentials specifically for this project.
@@ -40,17 +41,16 @@ func mcpServerTool(ctx context.Context, gptClient *gptscript.GPTScript, mcpServe
 		credEnv = cred.Env
 	}
 
-	serverConfig, missingRequiredNames := mcp.ToServerConfig(mcpServer, projectName, credEnv, allowedTools...)
+	serverConfig, missingRequiredNames, err := mcp.ToServerConfig(tokenService, mcpServer, serverURL, projectName, credEnv, allowedTools...)
+	if err != nil {
+		return gptscript.ToolDef{}, fmt.Errorf("failed to convert MCP server %s to server config: %w", mcpServer.Spec.Manifest.Name, err)
+	}
 
 	if len(missingRequiredNames) > 0 {
 		return gptscript.ToolDef{}, &UnconfiguredMCPError{
 			MCPName: mcpServer.Spec.Manifest.Name,
 			Missing: missingRequiredNames,
 		}
-	}
-
-	if mcpToken != "" && strings.HasPrefix(serverConfig.URL, serverURL+"/mcp-connect/") {
-		serverConfig.Headers = append(serverConfig.Headers, "Authorization=Bearer "+mcpToken)
 	}
 
 	return serverToolWithCreds(mcpServer, serverConfig)

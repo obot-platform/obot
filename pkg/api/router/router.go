@@ -18,7 +18,7 @@ import (
 func Router(services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
 
-	agents := handlers.NewAgentHandler(services.ProviderDispatcher, services.Invoker, services.ServerURL)
+	agents := handlers.NewAgentHandler(services.TokenServer, services.ProviderDispatcher, services.Invoker, services.ServerURL)
 	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.Invoker, services.Events, services.Router.Backend())
 	tools := handlers.NewToolHandler(services.Invoker)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events)
@@ -49,9 +49,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler()
-	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.ServerURL)
+	mcp := handlers.NewMCPHandler(services.TokenServer, services.MCPLoader, services.AccessControlRuleHelper, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
-	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.GatewayClient, services.ServerURL)
+	mcpGateway := mcpgateway.NewHandler(services.TokenServer, services.StorageClient, services.MCPLoader, services.GatewayClient, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 
@@ -568,7 +568,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	}
 
 	// Obot OAuth
-	oauth.SetupHandlers(services.GatewayClient, services.MCPLoader, services.OAuthServerConfig, services.ServerURL, mux)
+	oauth.SetupHandlers(services.TokenServer, services.GatewayClient, services.MCPLoader, services.OAuthServerConfig, services.ServerURL, mux)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

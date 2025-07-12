@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	"github.com/obot-platform/obot/pkg/render"
@@ -33,13 +34,15 @@ import (
 type MCPHandler struct {
 	mcpSessionManager *mcp.SessionManager
 	acrHelper         *accesscontrolrule.Helper
+	tokenService      *jwt.TokenService
 	serverURL         string
 }
 
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
-func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, serverURL string) *MCPHandler {
+func NewMCPHandler(tokenService *jwt.TokenService, mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, serverURL string) *MCPHandler {
 	return &MCPHandler{
+		tokenService:      tokenService,
 		mcpSessionManager: mcpLoader,
 		acrHelper:         acrHelper,
 		serverURL:         serverURL,
@@ -303,7 +306,7 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 }
 
 func (m *MCPHandler) GetTools(req api.Context) error {
-	server, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
+	server, serverConfig, caps, err := serverForActionWithCapabilities(req, m.tokenService, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -370,7 +373,11 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
-	serverConfig, missingRequiredNames := mcp.ToServerConfig(mcpServer, project.Name, cred.Env, tools...)
+	serverConfig, missingRequiredNames, err := mcp.ToServerConfig(m.tokenService, mcpServer, m.serverURL, project.Name, cred.Env, tools...)
+	if err != nil {
+		return fmt.Errorf("failed to get server config: %w", err)
+	}
+
 	if len(missingRequiredNames) > 0 {
 		return types.NewErrBadRequest("MCP server %s is missing required parameters: %s", mcpServer.Name, strings.Join(missingRequiredNames, ", "))
 	}
@@ -409,7 +416,7 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 }
 
 func (m *MCPHandler) GetResources(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.tokenService, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -420,6 +427,9 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 
 	resources, err := m.mcpSessionManager.ListResources(req.Context(), mcpServer, serverConfig)
 	if err != nil {
+		if strings.HasSuffix(err.Error(), "Method not found") {
+			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
+		}
 		return fmt.Errorf("failed to list resources: %w", err)
 	}
 
@@ -427,7 +437,7 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 }
 
 func (m *MCPHandler) ReadResource(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.tokenService, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -438,6 +448,9 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 
 	contents, err := m.mcpSessionManager.ReadResource(req.Context(), mcpServer, serverConfig, req.PathValue("resource_uri"))
 	if err != nil {
+		if strings.HasSuffix(err.Error(), "Method not found") {
+			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
+		}
 		return fmt.Errorf("failed to list resources: %w", err)
 	}
 
@@ -445,7 +458,7 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompts(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.tokenService, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -456,6 +469,9 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 
 	prompts, err := m.mcpSessionManager.ListPrompts(req.Context(), mcpServer, serverConfig)
 	if err != nil {
+		if strings.HasSuffix(err.Error(), "Method not found") {
+			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
+		}
 		return fmt.Errorf("failed to list prompts: %w", err)
 	}
 
@@ -463,7 +479,7 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompt(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager)
+	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.tokenService, m.mcpSessionManager)
 	if err != nil {
 		return err
 	}
@@ -479,6 +495,9 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 
 	messages, description, err := m.mcpSessionManager.GetPrompt(req.Context(), mcpServer, serverConfig, req.PathValue("prompt_name"), args)
 	if err != nil {
+		if strings.HasSuffix(err.Error(), "Method not found") {
+			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
+		}
 		return fmt.Errorf("failed to get prompt: %w", err)
 	}
 
@@ -488,7 +507,7 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 	})
 }
 
-func ServerFromMCPServerInstance(req api.Context, instanceID string) (v1.MCPServer, mcp.ServerConfig, error) {
+func ServerFromMCPServerInstance(req api.Context, tokenService *jwt.TokenService, instanceID string) (v1.MCPServer, mcp.ServerConfig, error) {
 	var (
 		server   v1.MCPServer
 		instance v1.MCPServerInstance
@@ -522,7 +541,11 @@ func ServerFromMCPServerInstance(req api.Context, instanceID string) (v1.MCPServ
 		return server, mcp.ServerConfig{}, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	serverConfig, missingConfig := mcp.ToServerConfig(server, scope, cred.Env)
+	serverConfig, missingConfig, err := mcp.ToServerConfig(tokenService, server, strings.TrimSuffix(req.APIBaseURL, "/api"), scope, cred.Env)
+	if err != nil {
+		return server, mcp.ServerConfig{}, err
+	}
+
 	if len(missingConfig) > 0 {
 		return server, mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
 	}
@@ -530,7 +553,7 @@ func ServerFromMCPServerInstance(req api.Context, instanceID string) (v1.MCPServ
 	return server, serverConfig, nil
 }
 
-func ServerForActionWithID(req api.Context, id string) (v1.MCPServer, mcp.ServerConfig, error) {
+func ServerForActionWithID(req api.Context, tokenService *jwt.TokenService, id string) (v1.MCPServer, mcp.ServerConfig, error) {
 	var server v1.MCPServer
 	if err := req.Get(&server, id); err != nil {
 		return server, mcp.ServerConfig{}, err
@@ -576,7 +599,10 @@ func ServerForActionWithID(req api.Context, id string) (v1.MCPServer, mcp.Server
 		return server, mcp.ServerConfig{}, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	serverConfig, missingConfig := mcp.ToServerConfig(server, scope, cred.Env)
+	serverConfig, missingConfig, err := mcp.ToServerConfig(tokenService, server, strings.TrimSuffix(req.APIBaseURL, "/api"), scope, cred.Env)
+	if err != nil {
+		return server, mcp.ServerConfig{}, err
+	}
 
 	if len(missingConfig) > 0 {
 		return server, mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
@@ -585,12 +611,12 @@ func ServerForActionWithID(req api.Context, id string) (v1.MCPServer, mcp.Server
 	return server, serverConfig, nil
 }
 
-func ServerForAction(req api.Context) (v1.MCPServer, mcp.ServerConfig, error) {
-	return ServerForActionWithID(req, req.PathValue("mcp_server_id"))
+func ServerForAction(req api.Context, tokenService *jwt.TokenService) (v1.MCPServer, mcp.ServerConfig, error) {
+	return ServerForActionWithID(req, tokenService, req.PathValue("mcp_server_id"))
 }
 
-func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
-	server, serverConfig, err := ServerForAction(req)
+func serverForActionWithCapabilities(req api.Context, tokenService *jwt.TokenService, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
+	server, serverConfig, err := ServerForAction(req, tokenService)
 	if err != nil {
 		return server, serverConfig, nmcp.ServerCapabilities{}, err
 	}
@@ -1193,6 +1219,9 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
 		}
+		if strings.HasSuffix(err.Error(), "Method not found") {
+			return nil, types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support tools")
+		}
 		return nil, err
 	}
 
@@ -1233,8 +1262,12 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 }
 
 func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer, scope string, credEnv map[string]string) error {
-	serverConfig, _ := mcp.ToServerConfig(mcpServer, scope, credEnv)
-	if err := m.mcpSessionManager.ShutdownServer(ctx, serverConfig); err != nil {
+	serverConfig, _, err := mcp.ToServerConfig(m.tokenService, mcpServer, m.serverURL, scope, credEnv)
+	if err != nil {
+		return err
+	}
+
+	if err = m.mcpSessionManager.ShutdownServer(ctx, serverConfig); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 
@@ -1582,7 +1615,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		return types.NewErrNotFound("Kubernetes is not enabled")
 	}
 
-	_, serverConfig, err := ServerForAction(req)
+	_, serverConfig, err := ServerForAction(req, m.tokenService)
 	if err != nil {
 		return err
 	}
@@ -1600,7 +1633,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		return types.NewErrNotFound("Kubernetes is not enabled")
 	}
 
-	_, serverConfig, err := ServerForAction(req)
+	_, serverConfig, err := ServerForAction(req, m.tokenService)
 	if err != nil {
 		return err
 	}

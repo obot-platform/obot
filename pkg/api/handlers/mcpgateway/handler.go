@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -27,6 +28,7 @@ import (
 var log = mvl.Package()
 
 type Handler struct {
+	tokenService      *jwt.TokenService
 	mcpSessionManager *mcp.SessionManager
 	sessions          *sessionStoreFactory
 	pendingRequests   *nmcp.PendingRequests
@@ -34,8 +36,9 @@ type Handler struct {
 	baseURL           string
 }
 
-func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, baseURL string) *Handler {
+func NewHandler(tokenService *jwt.TokenService, storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, baseURL string) *Handler {
 	return &Handler{
+		tokenService:      tokenService,
 		mcpSessionManager: mcpSessionManager,
 		sessions: &sessionStoreFactory{
 			client: storageClient,
@@ -57,9 +60,9 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 	)
 
 	if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
-		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, mcpID)
+		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, h.tokenService, mcpID)
 	} else {
-		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, mcpID)
+		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, h.tokenService, mcpID)
 	}
 
 	if err != nil {

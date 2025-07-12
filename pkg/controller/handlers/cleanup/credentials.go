@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -17,16 +18,20 @@ import (
 )
 
 type Credentials struct {
+	tokenService      *jwt.TokenService
 	gClient           *gptscript.GPTScript
 	gatewayClient     *gateway.Client
 	mcpSessionManager *mcp.SessionManager
+	serverURL         string
 }
 
-func NewCredentials(gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client) *Credentials {
+func NewCredentials(tokenService *jwt.TokenService, gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, serverURL string) *Credentials {
 	return &Credentials{
+		tokenService:      tokenService,
 		gClient:           gClient,
 		gatewayClient:     gatewayClient,
 		mcpSessionManager: mcpSessionManager,
+		serverURL:         serverURL,
 	}
 }
 
@@ -119,7 +124,11 @@ func (c *Credentials) removeMCPCredentialsForProject(req router.Request, _ route
 			}
 
 			// Shutdown the server
-			serverConfig, _ := mcp.ToServerConfig(*mcpServer, projectName, cred.Env)
+			serverConfig, _, err := mcp.ToServerConfig(c.tokenService, *mcpServer, c.serverURL, projectName, cred.Env)
+			if err != nil {
+				return fmt.Errorf("failed to create server config: %w", err)
+			}
+
 			if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
 				return fmt.Errorf("failed to shutdown server: %w", err)
 			}
@@ -130,7 +139,11 @@ func (c *Credentials) removeMCPCredentialsForProject(req router.Request, _ route
 		}
 
 		// Shutdown a potential server running without any configuration. We wouldn't detect its existence with a credential.
-		serverConfig, _ := mcp.ToServerConfig(*mcpServer, projectName, nil)
+		serverConfig, _, err := mcp.ToServerConfig(c.tokenService, *mcpServer, c.serverURL, projectName, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create server config: %w", err)
+		}
+
 		if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
 			return fmt.Errorf("failed to shutdown server: %w", err)
 		}
@@ -174,7 +187,11 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, resp router.Respo
 		}
 
 		// Shutdown the server
-		serverConfig, _ := mcp.ToServerConfig(*mcpServer, scope, cred.Env)
+		serverConfig, _, err := mcp.ToServerConfig(c.tokenService, *mcpServer, c.serverURL, scope, cred.Env)
+		if err != nil {
+			return fmt.Errorf("failed to create server config: %w", err)
+		}
+
 		if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
 			return fmt.Errorf("failed to shutdown server: %w", err)
 		}
@@ -185,7 +202,11 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, resp router.Respo
 	}
 
 	// Shutdown a potential server running without any configuration. We wouldn't detect its existence with a credential.
-	serverConfig, _ := mcp.ToServerConfig(*mcpServer, scope, nil)
+	serverConfig, _, err := mcp.ToServerConfig(c.tokenService, *mcpServer, c.serverURL, scope, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create server config: %w", err)
+	}
+
 	if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gz"
+	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -34,7 +35,6 @@ var DefaultAgentParams = []string{
 type AgentOptions struct {
 	Thread         *v1.Thread
 	WorkflowStepID string
-	MCPToken       string
 }
 
 func stringAppend(first string, second ...string) string {
@@ -47,7 +47,7 @@ func stringAppend(first string, second ...string) string {
 	return strings.Join(append([]string{first}, second...), "\n\n")
 }
 
-func Agent(ctx context.Context, db kclient.Client, gptClient *gptscript.GPTScript, agent *v1.Agent, serverURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
+func Agent(ctx context.Context, tokenService *jwt.TokenService, db kclient.Client, gptClient *gptscript.GPTScript, agent *v1.Agent, serverURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
 	defer func() {
 		sort.Strings(extraEnv)
 	}()
@@ -161,7 +161,7 @@ func Agent(ctx context.Context, db kclient.Client, gptClient *gptscript.GPTScrip
 				continue
 			}
 
-			toolDef, err := mcpServerTool(ctx, gptClient, mcpServer, opts.Thread.Spec.ParentThreadName, opts.MCPToken, serverURL, allowedTools)
+			toolDef, err := mcpServerTool(ctx, tokenService, gptClient, mcpServer, opts.Thread.Spec.ParentThreadName, serverURL, allowedTools)
 			if err != nil {
 				if uc := (*UnconfiguredMCPError)(nil); errors.As(err, &uc) {
 					// Leave out un-configured MCP servers.

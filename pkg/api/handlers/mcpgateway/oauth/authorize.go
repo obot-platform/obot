@@ -246,9 +246,9 @@ func (h *handler) callback(req api.Context) error {
 	)
 
 	if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
-		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, mcpID)
+		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, h.tokenService, mcpID)
 	} else {
-		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, mcpID)
+		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, h.tokenService, mcpID)
 	}
 	if err != nil {
 		return err
