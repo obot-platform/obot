@@ -15,6 +15,7 @@
 		Server,
 		SidebarClose,
 		SidebarOpen,
+		TrainTrack,
 		Users
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
@@ -36,7 +37,33 @@
 						href: '/v2/admin/mcp-servers',
 						icon: Server,
 						label: 'MCP Servers',
-						disabled: isBootStrapUser
+						disabled: isBootStrapUser,
+						items: [
+							{
+								href: '/v2/admin/filters',
+								icon: Funnel,
+								label: 'Filters',
+								disabled: isBootStrapUser
+							}
+						]
+					},
+					{
+						href: '/v2/admin/model-providers',
+						icon: Boxes,
+						label: 'Model Providers',
+						items: [
+							{
+								href: '/v2/admin/guardrails',
+								icon: TrainTrack,
+								label: 'Guardrails',
+								disabled: isBootStrapUser
+							}
+						]
+					},
+					{
+						href: '/v2/admin/users',
+						icon: Users,
+						label: 'Users'
 					},
 					{
 						href: '/v2/admin/access-control',
@@ -45,36 +72,16 @@
 						disabled: isBootStrapUser
 					},
 					{
-						href: '/v2/admin/audit-logs',
-						icon: Captions,
-						label: 'Audit Logs',
-						disabled: isBootStrapUser
-					},
-					{
-						href: '/v2/admin/filters',
-						icon: Funnel,
-						label: 'Filters'
-					},
-					{
-						href: '/v2/admin/users',
-						icon: Users,
-						label: 'Users'
-					},
-					{
 						href: '/v2/admin/auth-providers',
 						icon: LockKeyhole,
 						label: 'Auth Providers'
 					},
 					{
-						href: '/v2/admin/model-providers',
-						icon: Boxes,
-						label: 'Model Providers'
+						href: '/v2/admin/audit-logs',
+						icon: Captions,
+						label: 'Audit Logs',
+						disabled: isBootStrapUser
 					}
-					// {
-					// 	href: '/v2/admin/guardrails',
-					// 	icon: TrainTrack,
-					// 	label: 'Guardrails'
-					// }
 				]
 			: [
 					{
@@ -112,7 +119,7 @@
 					{@render logo()}
 				</div>
 
-				<div class="text-md flex grow flex-col gap-8 px-3 pt-8 font-light">
+				<div class="text-md flex grow flex-col gap-8 px-3 pt-8 font-medium">
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link (link.href)}
 							{#if link.disabled}
@@ -125,6 +132,28 @@
 									<link.icon class="size-5" />
 									{link.label}
 								</a>
+							{/if}
+							{#if link.items}
+								<div class="flex flex-col gap-1 px-7 text-sm font-light">
+									{#each link.items as item (item.href)}
+										<div class="relative">
+											<div
+												class="bg-surface3 absolute top-1/2 left-0 h-3/4 w-0.5 -translate-x-3 -translate-y-1/2"
+											></div>
+											{#if item.disabled}
+												<div class="sidebar-link disabled">
+													<link.icon class="size-4" />
+													{link.label}
+												</div>
+											{:else}
+												<a href={item.href} class="sidebar-link">
+													<item.icon class="size-4" />
+													{item.label}
+												</a>
+											{/if}
+										</div>
+									{/each}
+								</div>
 							{/if}
 						{/each}
 					</div>

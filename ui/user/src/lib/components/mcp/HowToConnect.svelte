@@ -157,7 +157,7 @@
 </div>
 
 <div class="w-full overflow-hidden">
-	<div class="flex min-h-[400px] w-[200%]">
+	<div class="flex min-h-[380px] w-[200%]">
 		{#each options as option (option.key)}
 			{#if selected === option.key}
 				<div

@@ -781,19 +781,29 @@
 {/snippet}
 
 {#snippet connectUrlButton(url: string, name: string)}
-	<div class="mb-8 flex flex-col gap-1">
-		<label for="connectURL" class="font-light">Connection URL</label>
-		<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
-			<p>
-				{url}
-			</p>
-			<CopyButton
-				showTextLeft
-				text={url}
-				classes={{
-					button: 'flex-shrink-0 flex items-center gap-1 text-xs font-light hover:text-blue-500'
-				}}
-			/>
+	<div class="flex items-center gap-4">
+		<div class="mb-4 flex grow flex-col gap-1">
+			<label for="connectURL" class="font-light">Connection URL</label>
+			<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
+				<p>
+					{url}
+				</p>
+				<CopyButton
+					showTextLeft
+					text={url}
+					classes={{
+						button: 'flex-shrink-0 flex items-center gap-1 text-xs font-light hover:text-blue-500'
+					}}
+				/>
+			</div>
+		</div>
+		<div class="w-32">
+			<button
+				class="button-primary flex h-fit w-full grow items-center justify-center gap-2 text-sm"
+				onclick={() => handleSetupChat(connectToServer)}
+			>
+				Chat <ExternalLink class="size-4" />
+			</button>
 		</div>
 	</div>
 

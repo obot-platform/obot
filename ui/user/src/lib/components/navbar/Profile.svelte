@@ -90,7 +90,7 @@
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
 			{#if profile.current.role === 1}
-				<a href="/admin/" rel="external" role="menuitem" class="link">
+				<a href="/v2/admin" rel="external" role="menuitem" class="link">
 					<LayoutDashboard class="size-4" />Admin Dashboard
 				</a>
 				<a href="/mcp-servers" rel="external" role="menuitem" class="link">
