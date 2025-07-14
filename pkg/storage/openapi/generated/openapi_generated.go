@@ -3439,8 +3439,22 @@ func schema_obot_platform_obot_apiclient_types_MCPServerEvent(ref common.Referen
 							Format:  "int32",
 						},
 					},
+					"resourceName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"resourceKind": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"time", "reason", "message", "eventType", "action", "count"},
+				Required: []string{"time", "reason", "message", "eventType", "action", "count", "resourceName", "resourceKind"},
 			},
 		},
 		Dependencies: []string{

@@ -31,6 +31,7 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig Ser
 	var (
 		lastRestart types.Time
 		pods        corev1.PodList
+		podEvents   []corev1.Event
 	)
 	if err := sm.client.List(ctx, &pods, client.InNamespace(sm.mcpNamespace), client.MatchingLabels(deployment.Spec.Selector.MatchLabels)); err != nil {
 		return types.MCPServerDetails{}, fmt.Errorf("failed to get pods: %w", err)
@@ -39,12 +40,24 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig Ser
 	for _, pod := range pods.Items {
 		if pod.Status.Phase == corev1.PodRunning {
 			lastRestart = types.Time{Time: pod.CreationTimestamp.Time}
-			break
 		}
+
+		var eventList corev1.EventList
+		if err := sm.client.List(ctx, &eventList, client.InNamespace(sm.mcpNamespace), client.MatchingFieldsSelector{
+			Selector: fields.SelectorFromSet(map[string]string{
+				"involvedObject.kind":      "Pod",
+				"involvedObject.name":      pod.Name,
+				"involvedObject.namespace": pod.Namespace,
+			}),
+		}); err != nil {
+			return types.MCPServerDetails{}, fmt.Errorf("failed to get events: %w", err)
+		}
+
+		podEvents = append(podEvents, eventList.Items...)
 	}
 
-	var events corev1.EventList
-	if err := sm.client.List(ctx, &events, client.InNamespace(sm.mcpNamespace), client.MatchingFieldsSelector{
+	var deploymentEvents corev1.EventList
+	if err := sm.client.List(ctx, &deploymentEvents, client.InNamespace(sm.mcpNamespace), client.MatchingFieldsSelector{
 		Selector: fields.SelectorFromSet(map[string]string{
 			"involvedObject.kind":      "Deployment",
 			"involvedObject.name":      deployment.Name,
@@ -55,14 +68,16 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig Ser
 	}
 
 	var mcpEvents []types.MCPServerEvent
-	for _, event := range events.Items {
+	for _, event := range append(deploymentEvents.Items, podEvents...) {
 		mcpEvents = append(mcpEvents, types.MCPServerEvent{
-			Time:      types.Time{Time: event.CreationTimestamp.Time},
-			Reason:    event.Reason,
-			Message:   event.Message,
-			EventType: event.Type,
-			Action:    event.Action,
-			Count:     event.Count,
+			Time:         types.Time{Time: event.CreationTimestamp.Time},
+			Reason:       event.Reason,
+			Message:      event.Message,
+			EventType:    event.Type,
+			Action:       event.Action,
+			Count:        event.Count,
+			ResourceName: event.InvolvedObject.Name,
+			ResourceKind: event.InvolvedObject.Kind,
 		})
 	}
 

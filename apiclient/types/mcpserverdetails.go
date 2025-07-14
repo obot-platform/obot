@@ -1,12 +1,14 @@
 package types
 
 type MCPServerEvent struct {
-	Time      Time   `json:"time"`
-	Reason    string `json:"reason"`
-	Message   string `json:"message"`
-	EventType string `json:"eventType"`
-	Action    string `json:"action"`
-	Count     int32  `json:"count"`
+	Time         Time   `json:"time"`
+	Reason       string `json:"reason"`
+	Message      string `json:"message"`
+	EventType    string `json:"eventType"`
+	Action       string `json:"action"`
+	Count        int32  `json:"count"`
+	ResourceName string `json:"resourceName"`
+	ResourceKind string `json:"resourceKind"`
 }
 
 type MCPServerDetails struct {
