@@ -12,7 +12,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgesummary"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
-	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpsession"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
@@ -229,7 +228,6 @@ func (c *Controller) setupRoutes() error {
 
 	// MCPServer
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteOrphans)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
 
 	// MCPServerInstance
