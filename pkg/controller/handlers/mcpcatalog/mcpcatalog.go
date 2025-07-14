@@ -235,7 +235,7 @@ func (h *Handler) readMCPCatalogDirectory(catalog string) ([]types.MCPServerCata
 				return nil, fmt.Errorf("failed to read nested catalog directory %s: %w", file.Name(), err)
 			}
 			entries = append(entries, nestedEntries...)
-		} else {
+		} else if strings.HasSuffix(file.Name(), ".json") {
 			contents, err := os.ReadFile(filepath.Join(catalog, file.Name()))
 			if err != nil {
 				return nil, fmt.Errorf("failed to read catalog file %s: %w", file.Name(), err)
