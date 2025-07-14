@@ -292,3 +292,26 @@ export type AuditLogFilters = {
 	limit?: number | null;
 	offset?: number | null;
 };
+
+export interface K8sServerEvent {
+	action: string;
+	count: number;
+	eventType: string;
+	message: string;
+	reason: string;
+	time: string;
+}
+
+export interface K8sServerDetail {
+	deploymentName: string;
+	events: K8sServerEvent[];
+	isAvailable: boolean;
+	lastRestart: string;
+	namespace: string;
+	readyReplicas: number;
+	repliaces: number;
+}
+
+export interface K8sServerLog {
+	message: string;
+}
