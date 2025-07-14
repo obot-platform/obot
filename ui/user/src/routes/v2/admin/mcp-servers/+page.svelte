@@ -32,6 +32,7 @@
 	import { goto } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
+	import BackLink from '$lib/components/admin/BackLink.svelte';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 
@@ -64,7 +65,10 @@
 	afterNavigate(({ to }) => {
 		if (browser && to?.url) {
 			const serverId = to.url.searchParams.get('id');
-			if (!serverId && (selectedEntryServer || showServerForm)) {
+			const createNewType = to.url.searchParams.get('new') as 'single' | 'multi' | 'remote';
+			if (createNewType) {
+				selectServerType(createNewType, false);
+			} else if (!serverId && (selectedEntryServer || showServerForm)) {
 				selectedEntryServer = undefined;
 				showServerForm = false;
 			}
@@ -142,10 +146,13 @@
 	let deletingSource = $state<string>();
 	let saving = $state(false);
 	let refreshing = $state(false);
-	function selectServerType(type: 'single' | 'multi' | 'remote') {
+	function selectServerType(type: 'single' | 'multi' | 'remote', updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
 		showServerForm = true;
+		if (updateUrl) {
+			goto(`/v2/admin/mcp-servers?new=${type}`, { replaceState: false });
+		}
 	}
 
 	function closeSourceDialog() {
@@ -300,7 +307,14 @@
 {/snippet}
 
 {#snippet configureEntryScreen()}
+	{@const currentLabelType =
+		selectedServerType === 'single'
+			? 'Single User'
+			: selectedServerType === 'multi'
+				? 'Multi-User'
+				: 'Remote'}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
+		<BackLink fromURL="mcp-servers" currentLabel={`Create ${currentLabelType} Server`} />
 		<McpServerEntryForm
 			type={selectedServerType}
 			catalogId={defaultCatalogId}

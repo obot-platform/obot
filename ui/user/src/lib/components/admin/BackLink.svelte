@@ -46,7 +46,7 @@
 	}
 </script>
 
-<div class="flex flex-wrap items-center">
+<div class="flex flex-wrap items-center capitalize">
 	{#each links as link, index (link.href)}
 		<ChevronLeft class={index === 0 ? 'mr-2 size-4' : 'mx-2 size-4'} />
 
