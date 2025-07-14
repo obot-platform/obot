@@ -3,7 +3,6 @@ module github.com/obot-platform/obot
 go 1.24.2
 
 replace (
-	github.com/danielgtaylor/huma/v2 => github.com/gptscript-ai/huma v0.0.0-20250617131016-b2081da6c65b
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
 )
@@ -14,7 +13,6 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/config v1.29.12
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.78.2
-	github.com/danielgtaylor/huma/v2 v2.32.1-0.20250509235652-c7ead6f3c67f
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.18.0
 	github.com/gen2brain/webp v0.5.4
@@ -23,10 +21,11 @@ require (
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
 	github.com/gptscript-ai/cmd v0.0.0-20250530150401-bc71fddf8070
 	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b
-	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250617131750-9129819aea51
-	github.com/gptscript-ai/gptscript v0.9.6-0.20250623175741-7a49337eef7b
+	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250714170123-17ad44ae8c54
+	github.com/gptscript-ai/gptscript v0.9.6-0.20250715193535-30c8c32e5d5d
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
+	github.com/modelcontextprotocol/go-sdk v0.2.0
 	github.com/nanobot-ai/nanobot v0.0.6-0.20250715005108-4948aef5dc74
 	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
 	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
@@ -196,6 +195,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lib/pq v1.10.9 // indirect
@@ -212,7 +212,6 @@ require (
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/moby/spdystream v0.4.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
-	github.com/modelcontextprotocol/go-sdk v0.2.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
@@ -253,6 +252,7 @@ require (
 	github.com/therootcompany/xz v1.0.1 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect

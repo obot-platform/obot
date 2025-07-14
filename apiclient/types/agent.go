@@ -4,8 +4,8 @@ import (
 	"maps"
 	"slices"
 
-	humav2 "github.com/danielgtaylor/huma/v2"
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 )
 
 type Agent struct {
@@ -66,7 +66,7 @@ type AgentManifest struct {
 	AllowedModelProviders []string          `json:"allowedModelProviders"`
 }
 
-func GetParams(params map[string]string) *humav2.Schema {
+func GetParams(params map[string]string) *jsonschema.Schema {
 	var args []string
 	for _, k := range slices.Sorted(maps.Keys(params)) {
 		args = append(args, k)
@@ -76,7 +76,7 @@ func GetParams(params map[string]string) *humav2.Schema {
 	return gptscript.ObjectSchema(args...)
 }
 
-func (m AgentManifest) GetParams() *humav2.Schema {
+func (m AgentManifest) GetParams() *jsonschema.Schema {
 	return GetParams(m.Params)
 }
 

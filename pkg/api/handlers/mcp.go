@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	humav2 "github.com/danielgtaylor/huma/v2"
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -1237,7 +1237,7 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 		}
 
 		if len(t.InputSchema) > 0 {
-			var schema humav2.Schema
+			var schema jsonschema.Schema
 
 			schemaData, err := json.Marshal(t.InputSchema)
 			if err != nil {
