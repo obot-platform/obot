@@ -4,8 +4,9 @@
 	import AuditDetails from '$lib/components/admin/AuditDetails.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { type OrgUser, type AuditLogFilters } from '$lib/services';
+	import { type OrgUser, type AuditLogFilters, AdminService } from '$lib/services';
 	import { Captions, X } from 'lucide-svelte';
+	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -15,6 +16,10 @@
 
 	afterNavigate(() => {
 		currentFilters = compileFilters();
+
+		AdminService.listUsers().then((userData) => {
+			users = userData;
+		});
 	});
 
 	function compileFilters(): AuditLogFilters & { mcpId?: string | null } {
