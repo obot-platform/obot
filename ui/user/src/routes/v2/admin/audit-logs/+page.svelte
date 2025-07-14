@@ -6,7 +6,6 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { type OrgUser, type AuditLogFilters, AdminService } from '$lib/services';
 	import { Captions, X } from 'lucide-svelte';
-	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
