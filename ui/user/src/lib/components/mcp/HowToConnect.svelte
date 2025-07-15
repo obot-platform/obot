@@ -168,7 +168,7 @@
 					{#if option.key === 'cursor'}
 						<p>
 							To add this MCP server to Cursor, update your <span class="snippet"
-								>~/.cursor/mcp/json</span
+								>~/.cursor/mcp.json</span
 							>
 						</p>
 						{@render codeSnippet(`
