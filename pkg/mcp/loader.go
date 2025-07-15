@@ -221,7 +221,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 		return server.ServerConfig, nil
 	}
 
-	args := []string{"--stdio", fmt.Sprintf("%s %s", server.Command, strings.Join(server.Args, " ")), "--port", "8080", "--healthEndpoint", "/healthz"}
+	args := []string{"run", "--listen-address", ":8099", "/run/nanobot.yaml"}
 	annotations := map[string]string{
 		"mcp-server-tool-name":   serverName,
 		"mcp-server-config-name": key,
@@ -229,10 +229,31 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 	}
 
 	id := sessionID(server)
-	objs := make([]kclient.Object, 0, 4)
+	objs := make([]kclient.Object, 0, 5)
 
-	secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+1)
+	nanobotFileStringData := make(map[string]string, 1)
+	secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+2)
 	secretVolumeStringData := make(map[string]string, len(server.Files))
+
+	nanobotFileStringData["nanobot.yaml"] = fmt.Sprintf(`
+publish:
+    mcpServers: ["%s"]
+
+mcpServers:
+    %[1]s:
+        command: %s
+        args: ["%s"]`, serverName, server.Command, strings.Join(server.Args, `","`),
+	)
+
+	objs = append(objs, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name.SafeConcatName(id, "run"),
+			Namespace:   sm.mcpNamespace,
+			Annotations: annotations,
+		},
+		StringData: nanobotFileStringData,
+	})
+
 	for _, file := range server.Files {
 		filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
 		secretVolumeStringData[filename] = file.Data
@@ -263,9 +284,14 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 		}
 	}
 
+	annotations["obot-revision"] = hash.Digest(hash.Digest(secretStringData) + hash.Digest(secretVolumeStringData))
+
 	// Set an environment variable to indicate that the MCP server is running in Kubernetes.
 	// This is something that our special images read and react to.
 	secretStringData["OBOT_KUBERNETES_MODE"] = "true"
+
+	// Tell nanobot to expose the healthz endpoint
+	secretStringData["NANOBOT_RUN_HEALTHZ_PATH"] = "/healthz"
 
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -298,21 +324,31 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 					},
 				},
 				Spec: corev1.PodSpec{
-					Volumes: []corev1.Volume{{
-						Name: "files",
-						VolumeSource: corev1.VolumeSource{
-							Secret: &corev1.SecretVolumeSource{
-								SecretName: name.SafeConcatName(id, "files"),
+					Volumes: []corev1.Volume{
+						{
+							Name: "files",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: name.SafeConcatName(id, "files"),
+								},
 							},
 						},
-					}},
+						{
+							Name: "run-file",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: name.SafeConcatName(id, "run"),
+								},
+							},
+						},
+					},
 					Containers: []corev1.Container{{
 						Name:            "mcp",
 						Image:           image,
 						ImagePullPolicy: corev1.PullAlways,
 						Ports: []corev1.ContainerPort{{
 							Name:          "http",
-							ContainerPort: 8080,
+							ContainerPort: 8099,
 						}},
 						SecurityContext: &corev1.SecurityContext{
 							AllowPrivilegeEscalation: &[]bool{false}[0],
@@ -324,7 +360,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 							ProbeHandler: corev1.ProbeHandler{
 								HTTPGet: &corev1.HTTPGetAction{
 									Path: "/healthz",
-									Port: intstr.FromInt32(8080),
+									Port: intstr.FromString("http"),
 								},
 							},
 						},
@@ -336,10 +372,16 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 								},
 							},
 						}},
-						VolumeMounts: []corev1.VolumeMount{{
-							Name:      "files",
-							MountPath: "/files",
-						}},
+						VolumeMounts: []corev1.VolumeMount{
+							{
+								Name:      "files",
+								MountPath: "/files",
+							},
+							{
+								Name:      "run-file",
+								MountPath: "/run",
+							},
+						},
 					}},
 				},
 			},
@@ -358,7 +400,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 				{
 					Name:       "http",
 					Port:       80,
-					TargetPort: intstr.FromInt32(8080),
+					TargetPort: intstr.FromString("http"),
 				},
 			},
 			Selector: map[string]string{
