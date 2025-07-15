@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"sigs.k8s.io/yaml"
 )
 
 var githubToken = os.Getenv("GITHUB_AUTH_TOKEN")
@@ -56,7 +57,7 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 
 	var (
 		rawBaseURL            = fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s", org, repo, branch)
-		catalogPatterns       = []string{"*.json"} // Default to all JSON files
+		catalogPatterns       = []string{"*.json", "*.yaml", "*.yml"} // Default to all JSON and YAML files
 		usingObotCatalogsFile bool
 	)
 
@@ -166,10 +167,10 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 
 		// Try to unmarshal as array first
 		var fileEntries []types.MCPServerCatalogEntryManifest
-		if err := json.Unmarshal(content, &fileEntries); err != nil {
-			// If that fails, try single object
+		if err := yaml.Unmarshal(content, &fileEntries); err != nil {
+			// If that fails, try single object with YAML
 			var entry types.MCPServerCatalogEntryManifest
-			if err := json.Unmarshal(content, &entry); err != nil {
+			if err := yaml.Unmarshal(content, &entry); err != nil {
 				if usingObotCatalogsFile {
 					log.Warnf("Failed to parse %s as catalog entry: %v", item.Path, err)
 				} else {

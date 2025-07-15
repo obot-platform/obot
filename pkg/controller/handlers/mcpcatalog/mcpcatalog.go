@@ -2,7 +2,6 @@ package mcpcatalog
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -25,6 +24,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 var log = logger.Package()
@@ -100,7 +100,7 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 				return nil, fmt.Errorf("unexpected status when reading catalog %s: %s", sourceURL, string(contents))
 			}
 
-			if err = json.Unmarshal(contents, &entries); err != nil {
+			if err = yaml.Unmarshal(contents, &entries); err != nil {
 				return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 			}
 		}
@@ -121,7 +121,7 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
 
-			if err = json.Unmarshal(contents, &entries); err != nil {
+			if err = yaml.Unmarshal(contents, &entries); err != nil {
 				return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 			}
 		}
@@ -235,14 +235,14 @@ func (h *Handler) readMCPCatalogDirectory(catalog string) ([]types.MCPServerCata
 				return nil, fmt.Errorf("failed to read nested catalog directory %s: %w", file.Name(), err)
 			}
 			entries = append(entries, nestedEntries...)
-		} else if strings.HasSuffix(file.Name(), ".json") {
+		} else if strings.HasSuffix(file.Name(), ".json") || strings.HasSuffix(file.Name(), ".yaml") || strings.HasSuffix(file.Name(), ".yml") {
 			contents, err := os.ReadFile(filepath.Join(catalog, file.Name()))
 			if err != nil {
 				return nil, fmt.Errorf("failed to read catalog file %s: %w", file.Name(), err)
 			}
 
 			var entry types.MCPServerCatalogEntryManifest
-			if err = json.Unmarshal(contents, &entry); err != nil {
+			if err = yaml.Unmarshal(contents, &entry); err != nil {
 				return nil, fmt.Errorf("failed to decode catalog file %s: %w", file.Name(), err)
 			}
 			entries = append(entries, entry)
