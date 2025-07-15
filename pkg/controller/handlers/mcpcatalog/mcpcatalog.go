@@ -49,12 +49,16 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog := req.Object.(*v1.MCPCatalog)
 	toAdd := make([]client.Object, 0)
 
+	mcpCatalog.Status.SyncErrors = make(map[string]string)
+
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
 		objs, err := h.readMCPCatalog(mcpCatalog.Name, sourceURL)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
+			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
 			continue
 		}
+		delete(mcpCatalog.Status.SyncErrors, sourceURL)
 
 		toAdd = append(toAdd, objs...)
 	}

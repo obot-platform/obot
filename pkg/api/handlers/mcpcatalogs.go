@@ -333,5 +333,6 @@ func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {
 			SourceURLs:  catalog.Spec.SourceURLs,
 		},
 		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
+		SyncErrors: catalog.Status.SyncErrors,
 	}
 }

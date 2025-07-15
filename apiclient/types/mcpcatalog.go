@@ -3,7 +3,8 @@ package types
 type MCPCatalog struct {
 	Metadata
 	MCPCatalogManifest
-	LastSynced Time `json:"lastSynced,omitzero"`
+	LastSynced Time              `json:"lastSynced,omitzero"`
+	SyncErrors map[string]string `json:"syncErrors,omitempty"`
 }
 
 type MCPCatalogManifest struct {
