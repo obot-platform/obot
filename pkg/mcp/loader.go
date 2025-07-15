@@ -146,6 +146,10 @@ func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfi
 	return nil
 }
 
+func (sm *SessionManager) KubernetesEnabled() bool {
+	return sm.client != nil
+}
+
 func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []types.Tool, _ error) {
 	_, configData, _ := strings.Cut(tool.Instructions, "\n")
 
@@ -183,10 +187,6 @@ func (sm *SessionManager) Load(ctx context.Context, tool types.Tool) (result []t
 	return nil, fmt.Errorf("no MCP server configuration found in tool instructions: %s", configData)
 }
 
-func (sm *SessionManager) KubernetesEnabled() bool {
-	return sm.client != nil
-}
-
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, key, serverName string) (gmcp.ServerConfig, error) {
 	image := sm.baseImage
 	if server.Command == "docker" {
@@ -199,6 +199,10 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 	}
 
 	if server.Command == "" || !sm.KubernetesEnabled() {
+		if server.Command == "" && server.URL == "" {
+			return gmcp.ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", serverName)
+		}
+
 		if !sm.allowLocalhostMCP && server.URL != "" {
 			// Ensure the URL is not a localhost URL.
 			u, err := url.Parse(server.URL)

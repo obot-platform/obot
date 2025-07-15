@@ -3115,6 +3115,27 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"needsURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsURL indicates whether the server's URL needs to be updated to match the catalog entry.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"previousURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreviousURL contains the URL of the server before it was updated to match the catalog entry.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "manifest", "configured", "catalogEntryID"},
 			},
@@ -10783,6 +10804,20 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"needsURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsURL indicates whether the server's URL needs to be updated to match the catalog entry.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"previousURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreviousURL contains the URL of the server before it was updated to match the catalog entry.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -10796,6 +10831,15 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}

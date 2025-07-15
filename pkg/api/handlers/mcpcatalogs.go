@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"slices"
 	"strings"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -18,12 +20,14 @@ import (
 type MCPCatalogHandler struct {
 	allowedDockerImageRepos []string
 	defaultCatalogPath      string
+	serverURL               string
 }
 
-func NewMCPCatalogHandler(allowedDockerImageRepos []string, defaultCatalogPath string) *MCPCatalogHandler {
+func NewMCPCatalogHandler(allowedDockerImageRepos []string, defaultCatalogPath string, serverURL string) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		allowedDockerImageRepos: allowedDockerImageRepos,
 		defaultCatalogPath:      defaultCatalogPath,
+		serverURL:               serverURL,
 	}
 }
 
@@ -184,8 +188,10 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	}
 
 	if hasCommand {
+		manifest.Headers = nil
 		entry.Spec.CommandManifest = manifest
 	} else if hasURL {
+		manifest.Args = nil
 		entry.Spec.URLManifest = manifest
 	} else {
 		// Should be impossible since we validated this earlier.
@@ -232,9 +238,11 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	}
 
 	if hasCommand {
+		manifest.Headers = nil
 		entry.Spec.CommandManifest = manifest
 		entry.Spec.URLManifest = types.MCPServerCatalogEntryManifest{}
 	} else if hasURL {
+		manifest.Args = nil
 		entry.Spec.URLManifest = manifest
 		entry.Spec.CommandManifest = types.MCPServerCatalogEntryManifest{}
 	} else {
@@ -276,6 +284,51 @@ func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 	}
 
 	return nil
+}
+
+func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	entryName := req.PathValue("entry_id")
+
+	var catalog v1.MCPCatalog
+	if err := req.Get(&catalog, catalogName); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return fmt.Errorf("failed to get entry: %w", err)
+	}
+
+	if entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	}
+
+	var list v1.MCPServerList
+	if err := req.List(&list, client.MatchingFields{
+		"spec.mcpServerCatalogEntryName": entryName,
+	}); err != nil {
+		return fmt.Errorf("failed to list servers: %w", err)
+	}
+
+	var items []types.MCPServer
+	for _, server := range list.Items {
+		var credCtx string
+		if server.Spec.SharedWithinMCPCatalogName != "" {
+			credCtx = fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name)
+		} else {
+			credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
+		}
+
+		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential: %w", err)
+		}
+
+		items = append(items, convertMCPServer(server, cred.Env, h.serverURL))
+	}
+
+	return req.Write(types.MCPServerList{Items: items})
 }
 
 func (h *MCPCatalogHandler) validateMCPServerCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) (bool, bool, error) {

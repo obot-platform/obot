@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -26,6 +27,10 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig Ser
 
 	var deployment appsv1.Deployment
 	if err := sm.client.Get(ctx, client.ObjectKey{Name: id, Namespace: sm.mcpNamespace}, &deployment); err != nil {
+		if apierrors.IsNotFound(err) {
+			return types.MCPServerDetails{}, fmt.Errorf("mcp server %s is not running", id)
+		}
+
 		return types.MCPServerDetails{}, fmt.Errorf("failed to get deployment %s: %w", id, err)
 	}
 
@@ -111,6 +116,10 @@ func (sm *SessionManager) StreamServerLogs(ctx context.Context, serverConfig Ser
 
 	var deployment appsv1.Deployment
 	if err := sm.client.Get(ctx, client.ObjectKey{Name: id, Namespace: sm.mcpNamespace}, &deployment); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("mcp server %s is not running", id)
+		}
+
 		return nil, fmt.Errorf("failed to get deployment %s: %w", id, err)
 	}
 

@@ -163,6 +163,7 @@ var apiResources = []string{
 	"PUT    /api/mcp-servers/{mcpserver_id}",
 	"DELETE /api/mcp-servers/{mcpserver_id}",
 	"DELETE /api/mcp-servers/{mcpserver_id}/oauth",
+	"POST   /api/mcp-servers/{mcpserver_id}/update-url",
 	"POST   /api/mcp-servers/{mcpserver_id}/configure",
 	"POST   /api/mcp-servers/{mcpserver_id}/deconfigure",
 	"POST   /api/mcp-servers/{mcpserver_id}/reveal",
