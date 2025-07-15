@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 var log = logger.Package()
@@ -231,28 +232,9 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 	id := sessionID(server)
 	objs := make([]kclient.Object, 0, 5)
 
-	nanobotFileStringData := make(map[string]string, 1)
 	secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+2)
 	secretVolumeStringData := make(map[string]string, len(server.Files))
-
-	nanobotFileStringData["nanobot.yaml"] = fmt.Sprintf(`
-publish:
-    mcpServers: ["%s"]
-
-mcpServers:
-    %[1]s:
-        command: %s
-        args: ["%s"]`, serverName, server.Command, strings.Join(server.Args, `","`),
-	)
-
-	objs = append(objs, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(id, "run"),
-			Namespace:   sm.mcpNamespace,
-			Annotations: annotations,
-		},
-		StringData: nanobotFileStringData,
-	})
+	nanobotFileStringData := make(map[string]string, 1)
 
 	for _, file := range server.Files {
 		filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
@@ -283,6 +265,21 @@ mcpServers:
 			secretStringData[k] = v
 		}
 	}
+
+	var err error
+	nanobotFileStringData["nanobot.yaml"], err = constructNanobotYAML(serverName, server.Command, server.Args, secretStringData)
+	if err != nil {
+		return gmcp.ServerConfig{}, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
+	}
+
+	objs = append(objs, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name.SafeConcatName(id, "run"),
+			Namespace:   sm.mcpNamespace,
+			Annotations: annotations,
+		},
+		StringData: nanobotFileStringData,
+	})
 
 	annotations["obot-revision"] = hash.Digest(hash.Digest(secretStringData) + hash.Digest(secretVolumeStringData))
 
@@ -319,6 +316,7 @@ mcpServers:
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
+					Annotations: annotations,
 					Labels: map[string]string{
 						"app": id,
 					},
@@ -494,6 +492,43 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string)
 		case <-time.After(time.Second):
 		}
 	}
+}
+
+func constructNanobotYAML(name, command string, args []string, env map[string]string) (string, error) {
+	config := nanobotConfig{
+		Publish: nanobotConfigPublish{
+			MCPServers: []string{name},
+		},
+		MCPServers: map[string]nanobotConfigMCPServer{
+			name: {
+				Command: command,
+				Args:    args,
+				Env:     env,
+			},
+		},
+	}
+
+	data, err := yaml.Marshal(config)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal nanobot.yaml: %w", err)
+	}
+
+	return string(data), nil
+}
+
+type nanobotConfig struct {
+	Publish    nanobotConfigPublish              `json:"publish,omitempty"`
+	MCPServers map[string]nanobotConfigMCPServer `json:"mcpServers,omitempty"`
+}
+
+type nanobotConfigPublish struct {
+	MCPServers []string `json:"mcpServers,omitempty"`
+}
+
+type nanobotConfigMCPServer struct {
+	Command string            `json:"command,omitempty"`
+	Args    []string          `json:"args,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
 }
 
 func buildConfig() (*rest.Config, error) {
