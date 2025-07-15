@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sort"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	appsv1 "k8s.io/api/apps/v1"
@@ -67,8 +68,13 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig Ser
 		return types.MCPServerDetails{}, fmt.Errorf("failed to get events: %w", err)
 	}
 
+	allEvents := append(deploymentEvents.Items, podEvents...)
+	sort.Slice(allEvents, func(i, j int) bool {
+		return allEvents[i].CreationTimestamp.Before(&allEvents[j].CreationTimestamp)
+	})
+
 	var mcpEvents []types.MCPServerEvent
-	for _, event := range append(deploymentEvents.Items, podEvents...) {
+	for _, event := range allEvents {
 		mcpEvents = append(mcpEvents, types.MCPServerEvent{
 			Time:         types.Time{Time: event.CreationTimestamp.Time},
 			Reason:       event.Reason,
