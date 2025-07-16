@@ -61,10 +61,11 @@ func (t *tokenStore) GetTokenConfig(ctx context.Context, _ string) (*oauth2.Conf
 	}
 
 	return conf, &oauth2.Token{
-		AccessToken: mcpToken.AccessToken,
-		TokenType:   mcpToken.TokenType,
-		ExpiresIn:   mcpToken.ExpiresIn,
-		Expiry:      mcpToken.Expiry,
+		AccessToken:  mcpToken.AccessToken,
+		RefreshToken: mcpToken.RefreshToken,
+		TokenType:    mcpToken.TokenType,
+		ExpiresIn:    mcpToken.ExpiresIn,
+		Expiry:       mcpToken.Expiry,
 	}, nil
 }
 
