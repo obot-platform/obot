@@ -241,7 +241,7 @@ export interface AccessControlRuleResource {
 }
 
 export interface AccessControlRuleSubject {
-	type: 'user' | 'selector';
+	type: 'user' | 'group' | 'selector';
 	id: string;
 }
 

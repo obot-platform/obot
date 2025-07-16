@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { debounce } from 'es-toolkit';
 	import { AdminService } from '$lib/services';
 	import { Role, type OrgGroup, type OrgUser } from '$lib/services/admin/types';
 	import { Check, LoaderCircle, User, Users } from 'lucide-svelte';
@@ -7,59 +8,87 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 
 	interface Props {
-		onAdd: (users: OrgUser[], groups: string[]) => void;
+		onAdd: (users: OrgUser[], groups: OrgGroup[]) => void;
 		filterIds?: string[];
 	}
 
+	let { onAdd, filterIds }: Props = $props();
+
 	let addUserGroupDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let fetchingUsers = $state<Promise<OrgUser[]>>();
-	let searchUsers = $state('');
+	let users = $state<OrgUser[]>([]);
+	let loading = $state(false);
+	let searchNames = $state('');
 	let selectedUsers = $state<(OrgUser | OrgGroup)[]>([]);
 	let selectedUsersMap = $derived(new Set(selectedUsers.map((user) => user.id)));
+	let filteredUsers = $state<OrgUser[]>([]);
+	let filteredGroups = $state<OrgGroup[]>([]);
+
+	let filteredData = $derived.by(() => {
+		const everyoneGroup: OrgGroup = { id: '*', name: 'Everyone' };
+		const shouldIncludeEveryone =
+			!searchNames.length || everyoneGroup.name.toLowerCase().includes(searchNames.toLowerCase());
+
+		const allGroups = shouldIncludeEveryone ? [everyoneGroup, ...filteredGroups] : filteredGroups;
+		const combined: (OrgUser | OrgGroup)[] = [...allGroups, ...filteredUsers];
+		const filterIdSet = new Set(filterIds ?? []);
+
+		return combined.filter((item) => !filterIdSet.has(item.id));
+	});
+
+	async function search() {
+		loading = true;
+
+		filteredUsers =
+			searchNames.length > 0
+				? users.filter(
+						(user) =>
+							user.email.toLowerCase().includes(searchNames.toLowerCase()) ||
+							user.username.toLowerCase().includes(searchNames.toLowerCase())
+					)
+				: users;
+
+		try {
+			// Fetch groups with server-side search
+			filteredGroups = (
+				await AdminService.listGroups(searchNames.length > 0 ? { query: searchNames } : undefined)
+			).sort((a, b) => a.name.localeCompare(b.name));
+		} catch (error) {
+			console.error('Error loading groups:', error);
+		} finally {
+			loading = false;
+		}
+	}
+
+	const handleSearch = debounce(() => {
+		// Debounce search to avoid making too many requests
+		search();
+	}, 500);
 
 	export function open() {
 		addUserGroupDialog?.open();
 	}
 
-	function onOpen() {
-		fetchingUsers = AdminService.listUsers();
+	async function onOpen() {
+		loading = true;
+
+		try {
+			users = await AdminService.listUsers();
+		} catch (error) {
+			console.error('Error loading initial users:', error);
+		} finally {
+			loading = false;
+		}
+
+		// Now search to populate filtered data
+		await search();
 	}
 
 	function onClose() {
-		searchUsers = '';
+		loading = false;
+		searchNames = '';
 		selectedUsers = [];
-	}
-
-	let { onAdd, filterIds }: Props = $props();
-
-	function getFilteredData(users?: OrgUser[]) {
-		if (!users) {
-			return [];
-		}
-
-		const withEveryone: (OrgUser | OrgGroup)[] = [
-			{
-				id: '*',
-				name: 'Everyone'
-			} satisfies OrgGroup,
-			...users
-		];
-
-		const filterIdSet = new Set(filterIds);
-		const filteredIds = withEveryone.filter((user) => !filterIdSet.has(user.id));
-
-		return searchUsers.length > 0
-			? (filteredIds?.filter((item) => {
-					if ('email' in item) {
-						return (
-							item.email.toLowerCase().includes(searchUsers.toLowerCase()) ||
-							item.username.toLowerCase().includes(searchUsers.toLowerCase())
-						);
-					}
-
-					return item.name.toLowerCase().includes(searchUsers.toLowerCase());
-				}) ?? [])
-			: (filteredIds ?? []);
+		filteredUsers = [];
+		filteredGroups = [];
 	}
 </script>
 
@@ -72,19 +101,21 @@
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit' }}
 >
 	<div class="default-scrollbar-thin flex grow flex-col gap-4 overflow-y-auto pt-1">
-		{#await fetchingUsers}
+		<div class="px-4">
+			<Search
+				class="dark:bg-surface1 dark:border-surface3 shadow-inner dark:border"
+				onChange={(val) => {
+					searchNames = val;
+					handleSearch();
+				}}
+				placeholder="Search by user name, email, or group name..."
+			/>
+		</div>
+		{#if loading}
 			<div class="flex grow items-center justify-center">
 				<LoaderCircle class="size-6 animate-spin" />
 			</div>
-		{:then users}
-			{@const filteredData = getFilteredData(users)}
-			<div class="px-4">
-				<Search
-					class="dark:bg-surface1 dark:border-surface3 shadow-inner dark:border"
-					onChange={(val) => (searchUsers = val)}
-					placeholder="Search by name or email..."
-				/>
-			</div>
+		{:else}
 			<div class="flex flex-col">
 				{#each filteredData ?? [] as item (item.id)}
 					<button
@@ -132,7 +163,7 @@
 					</button>
 				{/each}
 			</div>
-		{/await}
+		{/if}
 	</div>
 	<div class="flex w-full flex-col justify-between gap-4 p-4 md:flex-row">
 		<div class="flex items-center gap-1 font-light">
@@ -154,10 +185,7 @@
 				onclick={() => {
 					const users = selectedUsers.filter((user) => 'email' in user) as OrgUser[];
 					const groups = selectedUsers.filter((user) => !('email' in user)) as OrgGroup[];
-					onAdd(
-						users,
-						groups.map((group) => group.id)
-					);
+					onAdd(users, groups);
 					addUserGroupDialog?.close();
 				}}
 			>

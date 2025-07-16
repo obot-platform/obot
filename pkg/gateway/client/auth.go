@@ -32,13 +32,14 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
-	gatewayUser, err := u.client.EnsureIdentity(req.Context(), &types.Identity{
+	identity := &types.Identity{
 		Email:                 firstValue(resp.User.GetExtra(), "email"),
 		AuthProviderName:      firstValue(resp.User.GetExtra(), "auth_provider_name"),
 		AuthProviderNamespace: firstValue(resp.User.GetExtra(), "auth_provider_namespace"),
 		ProviderUsername:      resp.User.GetName(),
 		ProviderUserID:        resp.User.GetUID(),
-	}, req.Header.Get("X-Obot-User-Timezone"))
+	}
+	gatewayUser, err := u.client.EnsureIdentity(req.Context(), identity, req.Header.Get("X-Obot-User-Timezone"))
 	if err != nil {
 		return nil, false, err
 	}
@@ -48,10 +49,13 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		groups = append(groups, authz.AdminGroup)
 	}
 
+	extra := resp.User.GetExtra()
+	extra["auth_provider_groups"] = identity.GetAuthProviderGroupIDs()
+
 	resp.User = &user.DefaultInfo{
 		Name:   gatewayUser.Username,
 		UID:    fmt.Sprintf("%d", gatewayUser.ID),
-		Extra:  resp.User.GetExtra(),
+		Extra:  extra,
 		Groups: append(groups, authz.AuthenticatedGroup),
 	}
 	return resp, true, nil

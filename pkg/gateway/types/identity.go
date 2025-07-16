@@ -15,4 +15,19 @@ type Identity struct {
 	IconURL               string    `json:"iconURL"`
 	IconLastChecked       time.Time `json:"iconLastChecked"`
 	Encrypted             bool      `json:"encrypted"`
+
+	// AuthProviderGroupsLastChecked is the last time the identity's auth provider groups were checked.
+	AuthProviderGroupsLastChecked time.Time `json:"authProviderGroupsLastChecked"`
+
+	// AuthProviderGroups is the set of auth provider groups that the identity is a member of.
+	AuthProviderGroups []Group `json:"groups" gorm:"-"`
+}
+
+func (i Identity) GetAuthProviderGroupIDs() []string {
+	ids := make([]string, len(i.AuthProviderGroups))
+	for i, group := range i.AuthProviderGroups {
+		ids[i] = group.ID
+	}
+
+	return ids
 }

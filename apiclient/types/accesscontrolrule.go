@@ -35,13 +35,14 @@ type Subject struct {
 type SubjectType string
 
 const (
+	SubjectTypeGroup    SubjectType = "group"
 	SubjectTypeUser     SubjectType = "user"
 	SubjectTypeSelector SubjectType = "selector"
 )
 
 func (s Subject) Validate() error {
 	switch s.Type {
-	case SubjectTypeUser:
+	case SubjectTypeUser, SubjectTypeGroup:
 		if s.ID == "" {
 			return fmt.Errorf("user ID is required")
 		}

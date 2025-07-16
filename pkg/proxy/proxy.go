@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -297,13 +298,15 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	p.proxy.ServeHTTP(w, r)
 }
 
-type SerializableRequest struct {
+// serializableRequest represents an HTTP request that can be serialized for authentication flows
+type serializableRequest struct {
 	Method string              `json:"method"`
 	URL    string              `json:"url"`
 	Header map[string][]string `json:"header"`
 }
 
-type SerializableState struct {
+// serializableState represents the authentication state returned from auth providers
+type serializableState struct {
 	ExpiresOn         *time.Time `json:"expiresOn"`
 	AccessToken       string     `json:"accessToken"`
 	PreferredUsername string     `json:"preferredUsername"`
@@ -313,7 +316,7 @@ type SerializableState struct {
 }
 
 func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	sr := SerializableRequest{
+	sr := serializableRequest{
 		Method: req.Method,
 		URL:    req.URL.String(),
 		Header: req.Header,
@@ -335,7 +338,7 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 	}
 	defer stateResponse.Body.Close()
 
-	var ss SerializableState
+	var ss serializableState
 	if err = json.NewDecoder(stateResponse.Body).Decode(&ss); err != nil {
 		return nil, false, err
 	}
@@ -356,10 +359,19 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		u.Extra["set-cookies"] = ss.SetCookies
 	}
 
-	if req.URL.Path == "/api/me" {
-		// Put the access token on the context so that the profile icon can be fetched.
-		*req = *req.WithContext(accesstoken.ContextWithAccessToken(req.Context(), ss.AccessToken))
-	}
+	// Put the access token on the context so that the profile icon and group info can be fetched.
+	// TODO(njhale): This needs to be stored in the database instead of the context so that we can use it to fetch a fresh
+	// list of the user's auth groups during token auth when the cached groups expire.
+	// Why? Right now, token auth only hits the cached groups and never updates them.
+	// This is bad because if there are upstream changes to the user's groups -- e.g. the user is removed from a github team --
+	// we won't kick them out of the ACR group until they hit the UI again, so connected external mcp clients would stay connected.
+	// Alternatively, the caching could happen on the auth provider's side. The key to this approach
+	// would be mapping Obot Identities/AuthTokens to tokens cached on the auth provider's side, but that feels insecure.
+	*req = *req.WithContext(accesstoken.ContextWithAccessToken(req.Context(), ss.AccessToken))
+
+	// TODO(njhale): we can't rely on this being set when AuthToken requests are authenticated.
+	// I think we'll need to call the manager's URLForAuthProvider() and plumb it through to the pkg/gateway/client somehow.
+	*req = *req.WithContext(auth.ContextWithProviderURL(req.Context(), p.url))
 
 	return &authenticator.Response{
 		User: u,
@@ -369,7 +381,7 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 // Important: do not change the order of these checks.
 // We rely on the preferred username from GitHub being the user ID in the sessions table.
 // See pkg/gateway/server/logout_all.go for more details, as well as the GitHub auth provider code.
-func getUsername(providerName string, ss SerializableState) string {
+func getUsername(providerName string, ss serializableState) string {
 	if providerName == "github-auth-provider" {
 		return ss.PreferredUsername
 	}

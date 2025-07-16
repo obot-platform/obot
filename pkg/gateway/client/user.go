@@ -26,10 +26,14 @@ var (
 	}
 )
 
-func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, string, string, error) {
+func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, string, string, []string, error) {
 	id, token, _ := strings.Cut(token, ":")
 	u := new(types.User)
-	var namespace, name string
+
+	var (
+		namespace, name string
+		groupIDs        []string
+	)
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		tkn := new(types.AuthToken)
 		if err := tx.Where("id = ? AND hashed_token = ?", id, hash.String(token)).First(tkn).Error; err != nil {
@@ -38,12 +42,29 @@ func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, 
 
 		namespace = tkn.AuthProviderNamespace
 		name = tkn.AuthProviderName
-		return tx.Where("id = ? AND deleted_at IS NULL", tkn.UserID).First(u).Error
+
+		// Get the user
+		if err := tx.Where("id = ? AND deleted_at IS NULL", tkn.UserID).First(u).Error; err != nil {
+			return err
+		}
+
+		// Get the user's auth provider group IDs for the given auth provider.
+		// Note: This omits orphaned memberships; i.e. memberships to groups that no longer exist.
+		if err := tx.WithContext(ctx).
+			Table("groups").
+			Joins("JOIN group_memberships ON groups.id = group_memberships.group_id").
+			Where("group_memberships.user_id = ?", tkn.UserID).
+			Where("groups.auth_provider_namespace = ? AND groups.auth_provider_name = ?", namespace, name).
+			Pluck("groups.id", &groupIDs).Error; err != nil {
+			return fmt.Errorf("failed to list auth provider groups for token: %w", err)
+		}
+
+		return nil
 	}); err != nil {
-		return nil, "", "", err
+		return nil, "", "", nil, err
 	}
 
-	return u, namespace, name, c.decryptUser(ctx, u)
+	return u, namespace, name, groupIDs, c.decryptUser(ctx, u)
 }
 
 func (c *Client) Users(ctx context.Context, query types.UserQuery) ([]types.User, error) {
@@ -146,6 +167,11 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, er
 		// Encrypt the modified user
 		if err := c.encryptUser(ctx, existingUser); err != nil {
 			return fmt.Errorf("failed to encrypt user: %w", err)
+		}
+
+		// Clean up group memberships for the deleted user
+		if err := c.deleteGroupMembershipsForUser(ctx, tx, existingUser.ID); err != nil {
+			return err
 		}
 
 		// Update the user with soft delete fields and modified email/username

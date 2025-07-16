@@ -162,7 +162,7 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 	}
 
 	if !req.UserIsAdmin() && mcpServer.Spec.UserID != req.User.GetUID() {
-		hasAccess, err := p.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), mcpServer.Name)
+		hasAccess, err := p.acrHelper.UserHasAccessToMCPServer(req.User, mcpServer.Name)
 		if err != nil {
 			return err
 		}

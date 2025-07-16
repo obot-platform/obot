@@ -83,7 +83,7 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 			return types.NewErrNotFound("MCP server not found")
 		}
 
-		hasAccess, err := h.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), server.Name)
+		hasAccess, err := h.acrHelper.UserHasAccessToMCPServer(req.User, server.Name)
 		if err != nil {
 			return err
 		}

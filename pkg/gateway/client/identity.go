@@ -28,6 +28,7 @@ var (
 	}
 )
 
+// FindIdentitiesForUser finds all identities for the given user.
 func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]types.Identity, error) {
 	var identities []types.Identity
 	if err := c.db.WithContext(ctx).Where("user_id = ?", userID).Find(&identities).Error; err != nil {
@@ -271,19 +272,38 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		id.ProviderUserID = providerUserID
 		id.HashedProviderUserID = hash.String(id.ProviderUserID)
 
-		// Copy so we don't have to decrypt again
-		i := *id
-
-		if err := c.encryptIdentity(ctx, &i); err != nil {
-			return nil, fmt.Errorf("failed to encrypt identity: %w", err)
+		if err := c.encryptAndUpdateIdentity(ctx, tx, *id); err != nil {
+			return nil, err
 		}
+	}
 
-		if err := tx.Updates(&i).Error; err != nil {
+	// Ensure groups and group memberships are up to date
+	groupsLastChecked := id.AuthProviderGroupsLastChecked
+	if err := c.ensureGroups(ctx, tx, id); err != nil {
+		return nil, fmt.Errorf("failed to update groups for identity: %w", err)
+	}
+	if !groupsLastChecked.Equal(id.AuthProviderGroupsLastChecked) {
+		// Groups were updated, so we should update the last checked time on the identity.
+		if err := c.encryptAndUpdateIdentity(ctx, tx, *id); err != nil {
 			return nil, err
 		}
 	}
 
 	return user, nil
+}
+
+// encryptAndUpdateIdentity encrypts the identity and updates it in the database.
+// It does not take a pointer so that the caller can use the identity object after the call without decrypting it.
+func (c *Client) encryptAndUpdateIdentity(ctx context.Context, tx *gorm.DB, id types.Identity) error {
+	if err := c.encryptIdentity(ctx, &id); err != nil {
+		return fmt.Errorf("failed to encrypt identity: %w", err)
+	}
+
+	if err := tx.Updates(&id).Error; err != nil {
+		return fmt.Errorf("failed to update identity: %w", err)
+	}
+
+	return nil
 }
 
 // RemoveIdentity deletes an identity from the database.

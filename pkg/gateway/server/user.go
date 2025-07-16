@@ -36,7 +36,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 	if name != "" && namespace != "" {
 		providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
 		if err != nil {
-			return fmt.Errorf("failmed to get auth provider URL: %v", err)
+			return fmt.Errorf("failed to get auth provider URL: %v", err)
 		}
 		if err = apiContext.GatewayClient.UpdateProfileIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
 			pkgLog.Warnf("failed to update profile icon for user %s: %v", user.Username, err)
@@ -217,4 +217,28 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	})
 
 	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.IsExplicitAdmin(existingUser.Email), ""))
+}
+
+func (s *Server) listAuthGroups(apiContext api.Context) error {
+	name, namespace := apiContext.AuthProviderNameAndNamespace()
+
+	if name != "" && namespace != "" {
+		providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
+		if err != nil {
+			return fmt.Errorf("failed to get auth provider URL: %v", err)
+		}
+		groups, err := apiContext.GatewayClient.ListAuthGroups(
+			apiContext.Context(),
+			providerURL.String(),
+			namespace,
+			name,
+			apiContext.URL.Query().Get("name"),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to list auth groups: %v", err)
+		}
+		return apiContext.Write(groups)
+	}
+
+	return apiContext.Write([]types.Group{})
 }
