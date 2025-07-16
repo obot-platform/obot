@@ -121,11 +121,11 @@
 							<div class="flex flex-col px-2 pb-2 text-xs" in:slide={{ axis: 'y' }}>
 								<div class="flex flex-col gap-2">
 									{#each Object.keys(tool.params ?? {}) as paramKey (paramKey)}
-										<div class="flex flex-col items-center gap-2 md:flex-row">
+										<div class="flex flex-col items-center gap-2">
 											<p class="self-start font-semibold text-gray-500">
 												{paramKey}
 											</p>
-											<p class="self-start font-light text-gray-500">
+											<p class="self-start pl-4 font-light text-gray-500">
 												{tool.params?.[paramKey]}
 											</p>
 										</div>
