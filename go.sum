@@ -508,8 +508,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f h1:y5//uYreIhSUg3J1GEMiLbxo1LJaP8RfCpH6pymGZus=
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f/go.mod h1:ZdcZmHo+o7JKHSa8/e818NopupXU1YMK5fe1lsApnBw=
-github.com/nanobot-ai/nanobot v0.0.6-0.20250715005108-4948aef5dc74 h1:EZJJpa3lRRFLhPb90q7PqAv+f+GflYSiGduynZeoHkQ=
-github.com/nanobot-ai/nanobot v0.0.6-0.20250715005108-4948aef5dc74/go.mod h1:vKoxU5Fro4DuvHq2AsxjhNYF3/KRlAuHLFT+NZ9ns5w=
+github.com/nanobot-ai/nanobot v0.0.6-0.20250716194037-d3e10303c955 h1:HpKDZcW8lQIKtdRKynPMa1Zp5fGkGcKtS+DjNkAn5Kw=
+github.com/nanobot-ai/nanobot v0.0.6-0.20250716194037-d3e10303c955/go.mod h1:vKoxU5Fro4DuvHq2AsxjhNYF3/KRlAuHLFT+NZ9ns5w=
 github.com/nightlyone/lockfile v1.0.0 h1:RHep2cFKK4PonZJDdEl4GmkabuhbsRMgk/k3uAmxBiA=
 github.com/nightlyone/lockfile v1.0.0/go.mod h1:rywoIealpdNse2r832aiD9jRk8ErCatROs6LzC841CI=
 github.com/nwaples/rardecode/v2 v2.1.0 h1:JQl9ZoBPDy+nIZGb1mx8+anfHp/LV3NE2MjMiv0ct/U=

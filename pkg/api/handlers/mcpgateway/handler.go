@@ -165,7 +165,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 				auditLog.ResponseStatus = http.StatusUnauthorized
 				m.resp.Header().Set(
 					"WWW-Authenticate",
-					fmt.Sprintf(`Bearer error="invalid_token", error_description="The access token is invalid or expired. Please re-authenticate and try again.", resource_metadata="%s/.well-known/oauth-protected-resource/mcp-connect/%s"`, m.handler.baseURL, m.mcpID),
+					fmt.Sprintf(`Bearer error="invalid_token", error_description="The access token is invalid or expired. Please re-authenticate and try again.", resource_metadata="%s/.well-known/oauth-protected-resource%s"`, m.handler.baseURL, m.req.URL.Path),
 				)
 				http.Error(m.resp, fmt.Sprintf("Unauthorized: %v", oauthErr), http.StatusUnauthorized)
 				m.insertAuditLog(auditLog)

@@ -299,6 +299,7 @@ func (h *handler) callback(req api.Context) error {
 				Code:        ErrServerError,
 				Description: err.Error(),
 			})
+			return nil
 		}
 	case <-ctx.Done():
 		return fmt.Errorf("failed to check for MCP server OAuth: %w", ctx.Err())
