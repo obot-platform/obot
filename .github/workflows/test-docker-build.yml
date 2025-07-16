@@ -23,3 +23,5 @@ jobs:
           project: bbqjs4tj1g
           context: .
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest

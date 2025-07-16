@@ -1,10 +1,13 @@
 ARG TOOLS_IMAGE=ghcr.io/obot-platform/tools:latest
 ARG PROVIDER_IMAGE=ghcr.io/obot-platform/tools/providers:latest
 ARG ENTERPRISE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
+ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base
 
-FROM cgr.dev/chainguard/wolfi-base AS base
-
-RUN apk add --no-cache gcc=14.2.0-r13 go make git nodejs npm pnpm
+FROM ${BASE_IMAGE} AS base
+ARG BASE_IMAGE
+RUN if [ "${BASE_IMAGE}" = "cgr.dev/chainguard/wolfi-base" ]; then \
+        apk add --no-cache gcc=14.2.0-r13 go make git nodejs npm pnpm; \
+    fi
 
 FROM base AS bin
 WORKDIR /app
