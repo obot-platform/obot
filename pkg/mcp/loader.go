@@ -102,7 +102,7 @@ func (sm *SessionManager) Close() error {
 	return sm.local.Close()
 }
 
-// CloseClient will close the client for this MCP server, but leave the server running.
+// CloseClient will close the client for this MCP server, but leave the deployment running.
 func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig) error {
 	if !sm.KubernetesEnabled() || server.Command == "" {
 		return sm.local.ShutdownServer(server.ServerConfig)

@@ -27,4 +27,6 @@ const (
 	GenericModelProviderCredentialContext       = "model-provider"
 	GenericAuthProviderCredentialContext        = "auth-provider"
 	GenericFileScannerProviderCredentialContext = "file-scanner-provider"
+
+	MCPWebhookValidationCredentialContext = "mcp-webhook-context"
 )

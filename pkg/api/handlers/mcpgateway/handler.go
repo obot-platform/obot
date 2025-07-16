@@ -1,15 +1,20 @@
 package mcpgateway
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/gptscript-ai/go-gptscript"
 	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
@@ -31,16 +36,18 @@ var log = mvl.Package()
 type Handler struct {
 	tokenService      *jwt.TokenService
 	mcpSessionManager *mcp.SessionManager
+	webhookHelper     *mcp.WebhookHelper
 	sessions          *sessionStoreFactory
 	pendingRequests   *nmcp.PendingRequests
 	tokenStore        mcp.GlobalTokenStore
 	baseURL           string
 }
 
-func NewHandler(tokenService *jwt.TokenService, storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, baseURL string) *Handler {
+func NewHandler(tokenService *jwt.TokenService, storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, globalTokenStore mcp.GlobalTokenStore, baseURL string) *Handler {
 	return &Handler{
 		tokenService:      tokenService,
 		mcpSessionManager: mcpSessionManager,
+		webhookHelper:     webhookHelper,
 		sessions: &sessionStoreFactory{
 			client: storageClient,
 		},
@@ -89,6 +96,7 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 		mcpID:         mcpID,
 		client:        req.Storage,
 		gatewayClient: req.GatewayClient,
+		gptClient:     req.GPTClient,
 		resp:          req.ResponseWriter,
 		serverConfig:  mcpServerConfig,
 		mcpServer:     mcpServer,
@@ -105,6 +113,7 @@ type messageHandler struct {
 	mcpID         string
 	client        kclient.Client
 	gatewayClient *gateway.Client
+	gptClient     *gptscript.GPTScript
 	resp          http.ResponseWriter
 	mcpServer     v1.MCPServer
 	serverConfig  mcp.ServerConfig
@@ -120,12 +129,64 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		MCPServerCatalogEntryName: m.mcpServer.Spec.MCPServerCatalogEntryName,
 		ClientInfo:                gatewaytypes.ClientInfo(msg.Session.InitializeRequest.ClientInfo),
 		ClientIP:                  m.getClientIP(),
+		CallType:                  msg.Method,
 		CallIdentifier:            m.extractCallIdentifier(msg),
 		SessionID:                 msg.Session.ID(),
 		UserAgent:                 m.req.UserAgent(),
 		RequestHeaders:            m.captureHeaders(m.req.Header),
 	}
 	auditLog.RequestID, _ = msg.ID.(string)
+
+	// Go through webhook validations.
+	webhooks, err := m.handler.webhookHelper.GetWebhooksForMCPServer(ctx, m.gptClient, m.mcpServer, msg.Method, auditLog.CallIdentifier)
+	if err != nil {
+		log.Errorf("Failed to get webhooks for server %s: %v", m.mcpServer.Name, err)
+		err = msg.Reply(ctx, &nmcp.RPCError{
+			Code:    -32603,
+			Message: fmt.Sprintf("failed to get webhooks for server %s: %v", m.mcpServer.Name, err),
+		})
+		return
+	}
+
+	signatures := make(map[string]string)
+	httpClient := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	body, err := json.Marshal(msg)
+	if err != nil {
+		log.Errorf("Failed to marshal message: %v", err)
+		msg.SendError(ctx, &nmcp.RPCError{
+			Code:    -32603,
+			Message: fmt.Sprintf("failed to marshal message: %v", err),
+		})
+		return
+	}
+
+	auditLog.WebhookStatuses = make([]gatewaytypes.MCPWebhookStatus, 0, len(webhooks))
+	var (
+		webhookStatus string
+		rpcError      *nmcp.RPCError
+	)
+	for i, webhook := range webhooks {
+		webhookStatus, rpcError = fireWebhook(ctx, httpClient, body, m.mcpID, m.userID, webhook.URL, webhook.Secret, signatures)
+		auditLog.WebhookStatuses = append(auditLog.WebhookStatuses, gatewaytypes.MCPWebhookStatus{
+			URL:    webhook.URL,
+			Status: webhookStatus,
+		})
+		if rpcError != nil {
+			auditLog.WebhookStatuses[i] = gatewaytypes.MCPWebhookStatus{
+				URL:     webhook.URL,
+				Status:  webhookStatus,
+				Message: rpcError.Message,
+			}
+			msg.SendError(ctx, rpcError)
+			err = rpcError
+
+			m.insertAuditLog(auditLog)
+
+			return
+		}
+	}
 
 	if m.handler.pendingRequests.Notify(msg) {
 		// Insert the audit log for this request. The message handler will update it with its fields.
@@ -137,7 +198,6 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 	// Capture audit log information
 	auditLog.CreatedAt = time.Now()
-	auditLog.CallType = msg.Method
 
 	// Capture request body if available
 	if msg.Params != nil {
@@ -149,7 +209,6 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 	// If an unauthorized error occurs, send the proper status code.
 	var (
 		client *gmcp.Client
-		err    error
 		result any
 	)
 	defer func() {
@@ -367,4 +426,51 @@ func (m *messageHandler) updateAuditLog(auditLog *gatewaytypes.MCPAuditLog) {
 			log.Errorf("Failed to insert MCP audit log: %v", err)
 		}
 	}()
+}
+
+func fireWebhook(ctx context.Context, httpClient *http.Client, body []byte, mcpID, userID, url, secret string, signatures map[string]string) (string, *nmcp.RPCError) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return "", &nmcp.RPCError{
+			Code:    -32603,
+			Message: fmt.Sprintf("failed to construct request to webhook %s: %v", url, err),
+		}
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+
+	req.Header.Set("X-Obot-Mcp-Server-Id", mcpID)
+	req.Header.Set("X-Obot-User-Id", userID)
+
+	if secret != "" {
+		sig := signatures[secret]
+		if sig == "" {
+			h := hmac.New(sha256.New, []byte(secret))
+			h.Write(body)
+			sig = fmt.Sprintf("sha256=%x", h.Sum(nil))
+			signatures[secret] = sig
+		}
+
+		req.Header.Set("X-Obot-Signature-256", sig)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", &nmcp.RPCError{
+			Code:    -32603,
+			Message: fmt.Sprintf("failed to send request to webhook %s: %v", url, err),
+		}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return resp.Status, &nmcp.RPCError{
+			Code:    -32000,
+			Message: fmt.Sprintf("webhook %s returned status code %d: %v", url, resp.StatusCode, string(respBody)),
+		}
+	}
+
+	return resp.Status, nil
 }

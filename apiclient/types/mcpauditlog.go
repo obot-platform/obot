@@ -17,6 +17,7 @@ type MCPAuditLog struct {
 	RequestBody               json.RawMessage `json:"requestBody,omitempty"`
 	ResponseBody              json.RawMessage `json:"responseBody,omitempty"`
 	ResponseStatus            int             `json:"responseStatus"`
+	WebhookStatuses           []WebhookStatus `json:"webhookStatus,omitempty"`
 	Error                     string          `json:"error,omitempty"`
 	ProcessingTimeMs          int64           `json:"processingTimeMs"`
 	SessionID                 string          `json:"sessionID,omitempty"`
@@ -36,6 +37,12 @@ type MCPAuditLogResponse struct {
 type ClientInfo struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
+}
+
+type WebhookStatus struct {
+	URL     string `json:"url"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
 }
 
 // MCPAuditLogList represents a list of MCP audit logs
