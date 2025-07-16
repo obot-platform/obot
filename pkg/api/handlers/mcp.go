@@ -65,7 +65,7 @@ func (m *MCPHandler) GetCatalogEntryFromDefaultCatalog(req api.Context) error {
 
 	// Authorization check.
 	if !req.UserIsAdmin() {
-		hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntry(req.User.GetUID(), entry.Name)
+		hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntry(req.User, entry.Name)
 		if err != nil {
 			return err
 		}
@@ -98,7 +98,7 @@ func (m *MCPHandler) ListEntriesInDefaultCatalog(req api.Context) error {
 	for _, entry := range list.Items {
 		// For default catalog entries, check AccessControlRule authorization
 		if entry.Spec.MCPCatalogName == system.DefaultCatalog {
-			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntry(req.User.GetUID(), entry.Name)
+			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntry(req.User, entry.Name)
 			if err != nil {
 				return err
 			}
@@ -729,7 +729,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 
 	if input.CatalogEntryID != "" {
 		if !req.UserIsAdmin() {
-			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntry(req.User.GetUID(), input.CatalogEntryID)
+			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntry(req.User, input.CatalogEntryID)
 			if err != nil {
 				return err
 			}
@@ -1482,7 +1482,7 @@ func (m *MCPHandler) ListServersInDefaultCatalog(req api.Context) error {
 		allowedServers = list.Items
 	} else {
 		for _, server := range list.Items {
-			hasAccess, err := m.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), server.Name)
+			hasAccess, err := m.acrHelper.UserHasAccessToMCPServer(req.User, server.Name)
 			if err != nil {
 				return err
 			}
@@ -1564,7 +1564,7 @@ func (m *MCPHandler) GetServerFromDefaultCatalog(req api.Context) error {
 
 	// Authorization check.
 	if !req.UserIsAdmin() {
-		hasAccess, err := m.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), server.Name)
+		hasAccess, err := m.acrHelper.UserHasAccessToMCPServer(req.User, server.Name)
 		if err != nil {
 			return err
 		}
