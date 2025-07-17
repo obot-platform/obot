@@ -93,9 +93,9 @@
 				class="bg-surface1 dark:bg-surface2 flex h-full w-full flex-col items-center justify-center gap-4 p-5 md:h-fit md:max-w-md md:rounded-xl"
 			>
 				<div class="flex max-w-sm grow flex-col gap-4 text-center md:grow-0">
-					<h2 class="border-surface3 border-b pb-4 text-xl font-semibold">Shared Agent</h2>
+					<h2 class="border-surface3 border-b pb-4 text-xl font-semibold">Shared Project</h2>
 					<p class="text-md">
-						This agent was published by a third-party user and may include prompts or tools not
+						This project was published by a third-party user and may include prompts or tools not
 						reviewed or verified by our team. It could interact with external systems, access
 						additional data sources, or behave in unexpected ways.
 					</p>

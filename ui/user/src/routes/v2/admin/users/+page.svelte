@@ -145,8 +145,8 @@
 		<div class="my-4 flex flex-col gap-2 text-sm text-gray-500">
 			<p><b>Admin</b>: Admins can manage all aspects of the platform.</p>
 			<p>
-				<b>Users</b>: Users are restricted to only interracting with agents shared with them. They
-				cannot access the Admin UI
+				<b>Users</b>: Users are restricted to only interracting with projects that were shared with
+				them. They cannot access the Admin UI.
 			</p>
 		</div>
 		<div>

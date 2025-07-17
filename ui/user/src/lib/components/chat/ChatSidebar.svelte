@@ -8,8 +8,6 @@
 	import McpServers from '$lib/components/edit/McpServers.svelte';
 	import Knowledge from '$lib/components/edit/Knowledge.svelte';
 	import Files from '$lib/components/edit/Files.svelte';
-	import Sharing from '$lib/components/edit/Sharing.svelte';
-	import Interfaces from '$lib/components/edit/Interfaces.svelte';
 
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
@@ -17,7 +15,6 @@
 
 	import ModelProviders from '$lib/components/chat/sidebar/ModelProviders.svelte';
 	import SystemPrompt from '$lib/components/edit/SystemPrompt.svelte';
-	import Introduction from '$lib/components/edit/Introduction.svelte';
 	import { responsive } from '$lib/stores';
 	import Logo from '$lib/components/navbar/Logo.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
@@ -90,12 +87,9 @@
 					<General bind:project />
 					<SystemPrompt bind:project />
 					<BuiltInCapabilities bind:project />
-					<Introduction bind:project />
 					<Knowledge {project} />
 					<Files {project} classes={{ list: 'text-sm flex flex-col gap-2' }} />
 					<ModelProviders {project} />
-					<Interfaces />
-					<Sharing {project} />
 				</CollapsePane>
 			</div>
 		{:else}

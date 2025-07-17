@@ -11,6 +11,8 @@
 		placement?: Placement;
 		icon?: Snippet;
 		onClick?: () => void;
+		disablePortal?: boolean;
+		el?: Element;
 	}
 
 	let {
@@ -18,7 +20,9 @@
 		class: clazz = 'icon-button',
 		placement = 'right-start',
 		icon,
-		onClick
+		onClick,
+		disablePortal,
+		el
 	}: Props = $props();
 
 	const { tooltip, ref, toggle } = popover({
@@ -44,7 +48,9 @@
 <div
 	use:tooltip={{
 		fixed: responsive.isMobile ? true : undefined,
-		slide: responsive.isMobile ? 'up' : undefined
+		slide: responsive.isMobile ? 'up' : undefined,
+		disablePortal,
+		el
 	}}
 	role="none"
 	onclick={(e) => {

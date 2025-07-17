@@ -100,7 +100,7 @@
 	title="Default Model Aliases"
 >
 	<p class="pb-4 font-light text-gray-400 dark:text-gray-600">
-		When no model is specified, a default model is used for creating a new agent, running user
+		When no model is specified, a default model is used for creating a new project, running user
 		tasks, or working with some tools, etc. Select your default models for the usage types below.
 	</p>
 	<div class="flex flex-col gap-4 py-4">

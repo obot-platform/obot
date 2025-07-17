@@ -16,6 +16,7 @@
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import MarkdownTextEditor from '../admin/MarkdownTextEditor.svelte';
+	import { onDestroy } from 'svelte';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer;
@@ -157,36 +158,55 @@
 	);
 	let displayTools = $derived(showRealTools ? tools : showPreviewTools ? previewTools : []);
 
+	// Create AbortController for cancelling API calls
+	let abortController = $state<AbortController | null>(null);
+
 	async function loadServerData() {
+		// Cancel any existing requests
+		if (abortController) {
+			abortController.abort();
+		}
+
+		// Create new AbortController for this request
+		abortController = new AbortController();
+
 		loading = true;
 		oauthURL = '';
 		showRefresh = false;
 
-		const isOauthNeeded = await ChatService.isMcpServerOauthNeeded(entry.id);
-		if (isOauthNeeded) {
-			oauthURL = await ChatService.getMcpServerOauthURL(entry.id);
-			loading = false;
-			return;
-		}
-
-		// Try loading tools first, if that fails with a 424,
-		// prompt user for MCP oauth authentication then try again
 		try {
+			const isOauthNeeded = await ChatService.isMcpServerOauthNeeded(entry.id, {
+				signal: abortController.signal
+			});
+			if (isOauthNeeded) {
+				oauthURL = await ChatService.getMcpServerOauthURL(entry.id, {
+					signal: abortController.signal
+				});
+				loading = false;
+				return;
+			}
+
+			// Try loading tools first, if that fails with a 424,
+			// prompt user for MCP oauth authentication then try again
 			const [toolsRes, promptsRes, resourcesRes] = await Promise.all([
-				ChatService.listMcpCatalogServerTools(entry.id),
-				ChatService.listMcpCatalogServerPrompts(entry.id),
-				ChatService.listMcpCatalogServerResources(entry.id)
+				ChatService.listMcpCatalogServerTools(entry.id, { signal: abortController.signal }),
+				ChatService.listMcpCatalogServerPrompts(entry.id, { signal: abortController.signal }),
+				ChatService.listMcpCatalogServerResources(entry.id, { signal: abortController.signal })
 			]);
 			tools = toolsRes;
 			prompts = promptsRes;
 			resources = resourcesRes;
-		} catch (err) {
-			console.error(err);
-			tools = [];
-			prompts = [];
-			resources = [];
+		} catch (err: unknown) {
+			// Only handle errors if the request wasn't aborted
+			if (err instanceof Error && err.name !== 'AbortError') {
+				console.error(err);
+				tools = [];
+				prompts = [];
+				resources = [];
+			}
+		} finally {
+			loading = false;
 		}
-		loading = false;
 	}
 
 	async function handleDescriptionUpdate(markdown: string) {
@@ -213,6 +233,13 @@
 		if (entry && 'manifest' in entry && entry.id !== previousEntryId) {
 			previousEntryId = entry.id;
 			loadServerData();
+		}
+	});
+
+	// Clean up AbortController when component is destroyed
+	onDestroy(() => {
+		if (abortController) {
+			abortController.abort();
 		}
 	});
 </script>

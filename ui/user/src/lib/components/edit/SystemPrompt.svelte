@@ -23,6 +23,6 @@
 		rows="12"
 		use:autoHeight
 		bind:value={project.prompt}
-		placeholder="Describe how your agent should behave, what it should aim to do, and any special instructions it should follow."
+		placeholder="Describe how your project AI should behave, what it should aim to do, and any special instructions it should follow."
 	></textarea>
 </CollapsePane>

@@ -26,7 +26,7 @@
 				id="project-introduction"
 				class="dark:border-surface3 grow resize-none rounded-lg bg-white p-2 shadow-sm dark:border dark:bg-black"
 				rows="5"
-				placeholder="This will be your agent's go-to message."
+				placeholder="This will be your project's go-to message."
 				use:autoHeight
 				bind:value={project.introductionMessage}
 			></textarea>
@@ -36,7 +36,7 @@
 			<p class="font-medium">Conversation Starters</p>
 			<p class="text-xs font-light text-gray-500">
 				These messages are conversation options that are provided to the user. Help break the ice
-				with your agent by providing a few different options!
+				with your project by providing a few different options!
 			</p>
 		</div>
 

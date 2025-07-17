@@ -293,7 +293,7 @@
 
 			<div class="w-full">
 				<p class="text-sm text-gray-600">
-					Create a simplified chat-only view of this agent to share with others. Users of your
+					Create a simplified chat-only view of this project to share with others. Users of your
 					chatbot will get see their own threads and files.
 				</p>
 			</div>

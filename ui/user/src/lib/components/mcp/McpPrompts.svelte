@@ -31,6 +31,8 @@
 	let selectedPrompt = $state<{ prompt: MCPServerPrompt; mcp: ProjectMCP }>();
 	let argsDialog = $state<HTMLDialogElement>();
 
+	let hasPrompts = $derived(mcpPromptSets.some((mcpPromptSet) => mcpPromptSet.prompts.length > 0));
+
 	const projectMcps = getProjectMCPs();
 
 	$effect(() => {
@@ -98,77 +100,79 @@
 		<div class="flex h-full flex-col items-center justify-center">
 			<LoaderCircle class="size-4 animate-spin" />
 		</div>
-	{:else if setsToUse.length === 0 && variant !== 'messages'}
+	{:else if !hasPrompts && variant !== 'messages'}
 		<div class="flex h-full flex-col items-center justify-center">
 			<p class="text-sm text-gray-500">No prompts found</p>
 		</div>
 	{:else}
 		{#each setsToUse as mcpPromptSet (mcpPromptSet.mcp.id)}
-			<div
-				class={twMerge(
-					'w-full text-xs font-semibold',
-					variant === 'messages' && 'flex items-center gap-2 pt-8 pb-4 first:pt-0',
-					variant !== 'messages' && 'border-0 px-2 py-2 first:pt-0'
-				)}
-			>
-				{#if variant === 'messages'}
-					<img
-						src={mcpPromptSet.mcp.manifest.icon}
-						alt={mcpPromptSet.mcp.manifest.name}
-						class="size-4 rounded-sm"
-					/>
-				{/if}
-				{mcpPromptSet.mcp.manifest.name}
-			</div>
-
-			{#if variant === 'messages'}
-				<div class="flex flex-wrap gap-4 px-5">
-					{#each mcpPromptSet.prompts as prompt (prompt.name)}
-						<button
-							class="border-surface3 hover:bg-surface2 w-fit max-w-full rounded-xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300 md:max-w-72"
-							onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
-						>
-							<p class="mb-1 flex items-center gap-1.5 text-xs">
-								{prompt.name}
-							</p>
-							<span class="line-clamp-3 text-xs font-light text-gray-400 dark:text-gray-600">
-								{prompt.description}
-							</span>
-						</button>
-					{/each}
-				</div>
-			{:else}
+			{#if mcpPromptSet.prompts.length > 0}
 				<div
-					class="dark:border-surface3 flex flex-col border-0 bg-gray-50 p-2 shadow-inner dark:bg-gray-950"
+					class={twMerge(
+						'w-full text-xs font-semibold',
+						variant === 'messages' && 'flex items-center gap-2 pt-8 pb-4 first:pt-0',
+						variant !== 'messages' && 'border-0 px-2 py-2 first:pt-0'
+					)}
 				>
-					{#each mcpPromptSet.prompts as prompt (prompt.name)}
-						<button
-							class="menu-button flex h-full w-full items-center gap-2 border-0 text-left"
-							onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
-						>
-							<img
-								src={mcpPromptSet.mcp.manifest.icon}
-								alt={mcpPromptSet.mcp.manifest.name}
-								class="size-6 rounded-sm"
-							/>
-							<div class="flex flex-col">
-								<p class="text-xs font-light">
-									{prompt.name}
-									{#if variant === 'popover' && prompt.arguments}
-										{#each prompt.arguments as argument (argument.name)}
-											<span class="text-xs text-gray-500">
-												[{argument.name}]
-											</span>
-										{/each}
-									{/if}
-								</p>
-								<p class="text-xs font-light text-gray-400 dark:text-gray-600">
-									{prompt.description}
-								</p>
-							</div>
-						</button>
-					{/each}
+					{#if variant === 'messages'}
+						<img
+							src={mcpPromptSet.mcp.manifest.icon}
+							alt={mcpPromptSet.mcp.manifest.name}
+							class="size-4 rounded-sm"
+						/>
+					{/if}
+					{mcpPromptSet.mcp.manifest.name}
 				</div>
+
+				{#if variant === 'messages'}
+					<div class="flex flex-wrap gap-4 px-5">
+						{#each mcpPromptSet.prompts as prompt (prompt.name)}
+							<button
+								class="border-surface3 hover:bg-surface2 w-fit max-w-full rounded-xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300 md:max-w-72"
+								onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
+							>
+								<p class="mb-1 flex items-center gap-1.5 text-xs">
+									{prompt.name}
+								</p>
+								<span class="line-clamp-3 text-xs font-light text-gray-400 dark:text-gray-600">
+									{prompt.description}
+								</span>
+							</button>
+						{/each}
+					</div>
+				{:else}
+					<div
+						class="dark:border-surface3 flex flex-col border-0 bg-gray-50 p-2 shadow-inner dark:bg-gray-950"
+					>
+						{#each mcpPromptSet.prompts as prompt (prompt.name)}
+							<button
+								class="menu-button flex h-full w-full items-center gap-2 border-0 text-left"
+								onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
+							>
+								<img
+									src={mcpPromptSet.mcp.manifest.icon}
+									alt={mcpPromptSet.mcp.manifest.name}
+									class="size-6 rounded-sm"
+								/>
+								<div class="flex flex-col">
+									<p class="text-xs font-light">
+										{prompt.name}
+										{#if variant === 'popover' && prompt.arguments}
+											{#each prompt.arguments as argument (argument.name)}
+												<span class="text-xs text-gray-500">
+													[{argument.name}]
+												</span>
+											{/each}
+										{/if}
+									</p>
+									<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+										{prompt.description}
+									</p>
+								</div>
+							</button>
+						{/each}
+					</div>
+				{/if}
 			{/if}
 		{/each}
 	{/if}

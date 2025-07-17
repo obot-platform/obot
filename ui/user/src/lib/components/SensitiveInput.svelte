@@ -30,7 +30,10 @@
 		data-1p-ignore
 		id={name}
 		{name}
-		class={twMerge('text-input-filled w-full pr-10', error && 'border-red-500 bg-red-500/20')}
+		class={twMerge(
+			'text-input-filled w-full pr-10',
+			error && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+		)}
 		class:text-red-500={error}
 		{value}
 		type={showSensitive ? 'text' : 'password'}

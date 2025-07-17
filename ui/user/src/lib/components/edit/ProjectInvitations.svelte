@@ -97,7 +97,7 @@
 <div class="flex w-full flex-col items-center">
 	<div class="flex w-full items-center p-4">
 		<div class="mx-auto flex w-full flex-col gap-4 md:max-w-[1200px]">
-			<h1 class="text-2xl font-semibold">Manage Agent Members</h1>
+			<h1 class="text-2xl font-semibold">Manage Project Members</h1>
 
 			<h2 class="text-xl font-semibold">Members</h2>
 			<div class="dark:bg-gray-980 flex flex-col gap-2 rounded-md bg-gray-50 p-2 shadow-inner">
@@ -143,7 +143,7 @@
 			</div>
 
 			<div class="mt-8 flex items-center justify-between">
-				<h2 class="text-xl font-semibold">Agent Invitations</h2>
+				<h2 class="text-xl font-semibold">Project Invitations</h2>
 				{#if isOwnerOrAdmin}
 					<button
 						class="button flex items-center gap-1 text-sm"
@@ -228,7 +228,7 @@
 </div>
 
 <Confirm
-	msg={`Remove ${toDelete} from your agent?`}
+	msg={`Remove ${toDelete} from your project?`}
 	show={!!toDelete}
 	onsuccess={async () => {
 		if (!toDelete) return;
@@ -259,17 +259,17 @@
 	<button
 		class="icon-button absolute top-2 right-2 z-40 float-right self-end"
 		onclick={() => invitationDialog?.close()}
-		use:tooltip={{ disablePortal: true, text: 'Close Agent Catalog' }}
+		use:tooltip={{ disablePortal: true, text: 'Close Project Catalog' }}
 	>
 		<X class="size-6" />
 	</button>
 
 	<div class="flex flex-col items-center gap-4">
 		<img src="/user/images/sharing-agent.webp" alt="invitation" />
-		<h4 class="text-2xl font-semibold">Your Agent <i>Invite</i> Link</h4>
+		<h4 class="text-2xl font-semibold">Your Project <i>Invite</i> Link</h4>
 		<p class="text-md max-w-md text-center leading-6 font-light">
 			Copy the invitation link below and share with your colleagues to get started collaborating on
-			this agent!
+			this project!
 		</p>
 		<CopyButton
 			text={invitationUrl}

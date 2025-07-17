@@ -78,7 +78,7 @@
 	<div class="flex flex-col gap-2">
 		{#if !hasKnowledgeCapability}
 			<p class="flex items-center gap-1 text-xs font-light text-gray-500">
-				<span> Enable Knowledge in "Built-In Capabilities" to add knowledge to your agent. </span>
+				<span> Enable Knowledge in "Built-In Capabilities" to add knowledge to your project. </span>
 			</p>
 		{/if}
 		{#if hasTool(projectTools.tools, 'knowledge')}

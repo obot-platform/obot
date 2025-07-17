@@ -27,8 +27,8 @@
 	<h4 class="text-base font-medium">Arguments</h4>
 	<p class="text-gray text-sm">
 		If your task has arguments, you’ll be prompted to enter them when running the task manually from
-		the UI and if the task is invoked from a chat thread or another task, the agent will supply the
-		arguments based on its current context and instructions.
+		the UI and if the task is invoked from a chat thread or another task, the project will supply
+		the arguments based on its current context and instructions.
 	</p>
 	<p class="text-gray text-sm">
 		You can reference these arguments in your steps using

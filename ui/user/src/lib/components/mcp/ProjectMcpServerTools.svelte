@@ -335,7 +335,7 @@
 
 	<div
 		class={twMerge(
-			'dark:bg-surface2 sticky bottom-0 left-0 flex w-full justify-end bg-white py-4 md:px-4',
+			'sticky bottom-0 left-0 flex w-full justify-end bg-inherit py-4 md:px-4 dark:bg-inherit',
 			classes?.actions
 		)}
 	>

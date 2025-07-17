@@ -25,7 +25,7 @@
 	);
 
 	// Get project details
-	let projectName = $derived(invitation.project?.name || 'My Agent');
+	let projectName = $derived(invitation.project?.name || 'My Project');
 	let projectDescription = $derived(invitation.project?.description || 'No description available');
 
 	async function acceptInvitation() {
@@ -150,20 +150,20 @@
 			>
 				<div class="flex flex-col items-center gap-4">
 					<img src="/user/images/sharing-agent.webp" alt="invitation" />
-					<h1 class="text-2xl font-semibold">Your Agent <i>Invitation</i> Link</h1>
+					<h1 class="text-2xl font-semibold">Your Project <i>Invitation</i> Link</h1>
 					<h2 class="w-sm text-center text-lg font-extralight">
 						You're already a member of <strong class="font-semibold">{projectName}</strong>!
 					</h2>
 					<p class="text-md text-center leading-6 font-light">
 						Good news! You already have access! Click the link below to get started on or continue
-						collaborating on this agent.
+						collaborating on this project.
 					</p>
 					<div class="mt-4 flex w-full justify-center">
 						<a
 							href="/o/{invitation.project?.id}"
 							class="button-primary w-full rounded-full p-2 px-6 text-center"
 						>
-							Go To Agent
+							Go To Project
 						</a>
 					</div>
 					<div class="flex w-full justify-center">
@@ -177,7 +177,7 @@
 			>
 				<div class="flex flex-col items-center gap-4">
 					<img src="/user/images/sharing-agent.webp" alt="invitation" />
-					<h1 class="text-2xl font-semibold">Your Agent <i>Invitation</i> Link</h1>
+					<h1 class="text-2xl font-semibold">Your Project <i>Invitation</i> Link</h1>
 					<h2 class="max-w-sm text-center text-lg font-extralight">
 						You've been invited to join <strong class="font-semibold">{projectName}</strong>!
 					</h2>
@@ -233,5 +233,5 @@
 </div>
 
 <svelte:head>
-	<title>Obot | Agent Invitation</title>
+	<title>Obot | Project Invitation</title>
 </svelte:head>

@@ -316,7 +316,7 @@
 	<div class={twMerge('mb-1 flex items-center space-x-2', classes?.nameAndTime)}>
 		{#if msg.sourceName}
 			<span class="text-sm font-semibold"
-				>{msg.sourceName === 'Assistant' ? project?.name || 'Agent' : msg.sourceName}</span
+				>{msg.sourceName === 'Assistant' ? project?.name || 'Project' : msg.sourceName}</span
 			>
 		{/if}
 		{#if msg.time}

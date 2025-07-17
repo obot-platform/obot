@@ -103,61 +103,6 @@
 	{#if project}
 		{#key project.id}
 			<EditMode bind:project bind:currentThreadID assistant={data.assistant} />
-			<!-- <Tutorial
-				id="agent-tutorial-seen"
-				steps={[
-					{
-						title: "Looks like it's your first time here!",
-						description: "Let's get you started with a quick tour of your obot."
-					},
-					{
-						title: 'Go Back Home',
-						description: 'If you need to go back to your agents, click here.',
-						elementId: 'navbar-home-link'
-					},
-					{
-						title: 'Send a message',
-						description: 'Click the send button to send a message to the obot.',
-						elementId: 'thread-input'
-					},
-					{
-						title: 'Edit basic details',
-						description:
-							'Click here to modify basic agent information such as its icon, name, and description',
-						elementId: 'edit-basic-details-button'
-					},
-					{
-						title: "Update your agent's MCP servers",
-						description: 'Modify what MCP servers your agent is using here.',
-						elementId: 'sidebar-mcp-servers'
-					},
-					{
-						title: 'Create agent specific tasks',
-						description: 'Click here to create a new task.',
-						elementId: 'sidebar-tasks'
-					},
-					{
-						title: 'Create a new thread',
-						description: 'Click here to create a new thread.',
-						elementId: 'sidebar-threads'
-					},
-					{
-						title: 'Supply agent file knowledge',
-						description: 'Your agent can learn from files you share. You can upload them here.',
-						elementId: 'sidebar-knowledge'
-					},
-					{
-						title: 'Add Starter Files',
-						description:
-							"A copy of each starter file will be added to every chat thread and task run when they're created.",
-						elementId: 'sidebar-starter-files'
-					},
-					{
-						title: 'Tutorial Complete',
-						description: "And that's it! You're all set to start using your agent."
-					}
-				]}
-			/> -->
 		{/key}
 	{/if}
 </div>

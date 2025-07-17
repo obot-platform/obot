@@ -207,7 +207,7 @@
 		>
 			<div class="flex flex-col gap-3">
 				<p class="text-xs text-gray-500">
-					Configure ChatBot to produce a link that allows anyone to use this agent in a read-only
+					Configure ChatBot to produce a link that allows anyone to use this project in a read-only
 					mode.
 				</p>
 				<div class="mt-2 flex justify-end" in:fade>
@@ -234,7 +234,7 @@
 			<div class="flex flex-col gap-2 text-sm">
 				<div class="flex flex-col gap-1">
 					<div class="flex items-center justify-between">
-						<span class="text-sm font-medium">Agent Members</span>
+						<span class="text-sm font-medium">Project Members</span>
 						{#if isOwnerOrAdmin}
 							<div class="flex gap-2">
 								<button
@@ -287,7 +287,7 @@
 </CollapsePane>
 
 <Confirm
-	msg={`Remove ${toDelete} from your agent?`}
+	msg={`Remove ${toDelete} from your project?`}
 	show={!!toDelete}
 	onsuccess={async () => {
 		if (!toDelete) return;

@@ -261,7 +261,7 @@
 		<div class="space-y-4">
 			<p class="text-sm text-gray-600">
 				We'll add the Slack Bot tool to your project and automatically create a task that can be
-				triggered from Slack messages. This will allow your agent to:
+				triggered from Slack messages. This will allow your project to:
 			</p>
 			<ul class="list-disc pl-6 text-sm text-gray-600">
 				<li>Automatically respond when mentioned in Slack</li>
@@ -314,7 +314,7 @@
 {#snippet steps()}
 	<div class="space-y-6">
 		<p class="text-sm font-light text-gray-500">
-			To message your agent from Slack, you'll need to create a Slack App and complete this
+			To message your project from Slack, you'll need to create a Slack App and complete this
 			configuration. You must be an administrator in your Slack Workspace.
 		</p>
 		<div>

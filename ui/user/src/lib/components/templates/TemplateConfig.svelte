@@ -247,7 +247,7 @@
 					<div class="flex flex-col">
 						<span class="text-sm">Featured</span>
 						<span class="text-xs text-gray-500"
-							>Make this template appear in the "Featured" category of the Agent Catalog.</span
+							>Make this template appear in the "Featured" category of the Project Catalog.</span
 						>
 					</div>
 					<Toggle
@@ -301,7 +301,7 @@
 
 	<div class="rounded-md border border-gray-100 dark:border-gray-700">
 		<div class="border-b border-gray-100 p-3 dark:border-gray-700">
-			<h3 class="text-sm font-medium">Agent Details</h3>
+			<h3 class="text-sm font-medium">Project Details</h3>
 		</div>
 		{#if loading}
 			<div class="flex items-center justify-center p-6">

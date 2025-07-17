@@ -191,7 +191,7 @@
 					onclick={() => (isDefaultModelSelectOpen = !isDefaultModelSelectOpen)}
 				>
 					<option class="dark:bg-surface3" value="" disabled
-						>Select the default model for this agent</option
+						>Select the default model for this project</option
 					>
 					{#if hasOneModelSelected}
 						{#each Object.entries(selectedModels) as [providerId, models] (providerId)}

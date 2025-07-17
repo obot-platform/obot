@@ -12,6 +12,7 @@ interface GetOptions {
 	blob?: boolean;
 	fetch?: typeof fetch;
 	dontLogErrors?: boolean;
+	signal?: AbortSignal;
 }
 
 function handle401Redirect() {
@@ -40,7 +41,8 @@ export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 			// This is consumed during authentication to set the user's default timezone in Obot.
 			// The timezone is plumbed down to tools at runtime as an environment variable.
 			'x-obot-user-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone
-		}
+		},
+		signal: opts?.signal
 	});
 
 	if (!resp.ok) {
@@ -63,9 +65,10 @@ export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 	return await resp.json();
 }
 
-export async function doDelete(path: string): Promise<unknown> {
+export async function doDelete(path: string, opts?: { signal?: AbortSignal }): Promise<unknown> {
 	const resp = await fetch(baseURL + path, {
-		method: 'DELETE'
+		method: 'DELETE',
+		signal: opts?.signal
 	});
 
 	if (!resp.ok && resp.status === 401) {
@@ -80,6 +83,7 @@ export async function doPut(
 	opts?: {
 		dontLogErrors?: boolean;
 		fetch?: typeof fetch;
+		signal?: AbortSignal;
 	}
 ): Promise<unknown> {
 	return await doWithBody('PUT', path, input, opts);
@@ -115,6 +119,7 @@ export async function doWithBody(
 		dontLogErrors?: boolean;
 		fetch?: typeof fetch;
 		headers?: Record<string, string>;
+		signal?: AbortSignal;
 	}
 ): Promise<unknown> {
 	let headers: Record<string, string> | undefined;
@@ -140,7 +145,8 @@ export async function doWithBody(
 		const resp = await f(baseURL + path, {
 			method,
 			headers: { ...headers, ...opts?.headers },
-			body
+			body,
+			signal: opts?.signal
 		});
 
 		if (!resp.ok && resp.status === 401) {
@@ -163,6 +169,7 @@ export async function doPost(
 		dontLogErrors?: boolean;
 		fetch?: typeof fetch;
 		headers?: Record<string, string>;
+		signal?: AbortSignal;
 	}
 ): Promise<unknown> {
 	return await doWithBody('POST', path, input, opts);
@@ -174,6 +181,7 @@ export async function doPatch(
 	opts?: {
 		dontLogErrors?: boolean;
 		fetch?: typeof fetch;
+		signal?: AbortSignal;
 	}
 ): Promise<unknown> {
 	return await doWithBody('PATCH', path, input, opts);

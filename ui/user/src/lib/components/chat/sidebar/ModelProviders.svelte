@@ -69,7 +69,7 @@
 	<div class="flex flex-col gap-8 p-2">
 		<div class="flex flex-col gap-4">
 			<p class="text-xs font-light text-gray-500">
-				Agents use our included LLM by default. Connect other model providers to unlock more LLMs
+				Projects use our included LLM by default. Connect other model providers to unlock more LLMs
 				you can chat with.
 			</p>
 

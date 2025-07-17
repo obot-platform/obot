@@ -15,6 +15,7 @@ interface TooltipOptions {
 	fixed?: boolean;
 	hover?: boolean;
 	disablePortal?: boolean;
+	el?: Element;
 }
 
 interface Popover {
@@ -78,7 +79,9 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			options?.onOpenChange?.(open);
 		};
 
-		if (options?.disablePortal) {
+		if (options?.el && options.disablePortal) {
+			options.el.appendChild(div);
+		} else if (options?.disablePortal) {
 			ref.insertAdjacentElement('afterend', div);
 		} else {
 			document.body.appendChild(div);
@@ -147,6 +150,8 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 		// Always move tooltip to document.body unless disablePortal is enabled
 		if (tooltip.parentElement !== document.body && !options?.disablePortal) {
 			document.body.appendChild(tooltip);
+		} else if (options?.disablePortal && options?.el) {
+			options.el.appendChild(tooltip);
 		}
 
 		if (options?.slide) {

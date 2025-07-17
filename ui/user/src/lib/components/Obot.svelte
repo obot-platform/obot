@@ -180,7 +180,7 @@
 										class="button flex flex-shrink-0 items-center gap-1 text-xs"
 										onclick={() => createNewAgent()}
 									>
-										<Plus class="size-4" /> Create New Agent
+										<Plus class="size-4" /> Create New Project
 									</button>
 								{/if}
 							</div>

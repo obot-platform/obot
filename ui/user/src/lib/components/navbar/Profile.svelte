@@ -11,15 +11,22 @@
 		Sun,
 		BadgeInfo,
 		X,
-		Server
+		Server,
+		MessageCircle,
+		ExternalLink
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { AdminService } from '$lib/services';
+	import { AdminService, ChatService, EditorService } from '$lib/services';
 	import { BOOTSTRAP_USER_ID } from '$lib/constants';
+	import { afterNavigate } from '$app/navigation';
+	import PageLoading from '../PageLoading.svelte';
 
 	let versionDialog = $state<HTMLDialogElement>();
+	let showChatLink = $state(false);
+	let showMyMcpServersLink = $state(false);
+	let loadingChat = $state(false);
 
 	function getLink(key: string, value: string | boolean) {
 		if (typeof value !== 'string') return;
@@ -41,6 +48,30 @@
 		} catch (err) {
 			console.error(err);
 		}
+	}
+
+	afterNavigate(() => {
+		const routesToShowChatLink = ['/mcp-servers', '/models'];
+		showChatLink = routesToShowChatLink.includes(window.location.pathname);
+		showMyMcpServersLink =
+			window.location.pathname.includes('/o/') || window.location.pathname.includes('/v2/admin');
+	});
+
+	async function handleChat() {
+		if (!window) return;
+		loadingChat = true;
+		const projects = (await ChatService.listProjects()).items.sort(
+			(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
+		);
+		const lastProject = projects[0];
+		// TODO: should we open last project or always create new one?
+		if (lastProject) {
+			window.open(`/o/${lastProject.id}`, '_blank');
+		} else {
+			const newProject = await EditorService.createObot();
+			window.open(`/o/${newProject.id}`, '_blank');
+		}
+		loadingChat = false;
 	}
 </script>
 
@@ -93,9 +124,21 @@
 				<a href="/v2/admin/mcp-servers" rel="external" role="menuitem" class="link">
 					<LayoutDashboard class="size-4" />Admin Dashboard
 				</a>
+			{/if}
+			{#if showMyMcpServersLink}
 				<a href="/mcp-servers" rel="external" role="menuitem" class="link">
 					<Server class="size-4" />My MCP Servers
 				</a>
+			{/if}
+			{#if showChatLink}
+				<button class="link justify-between" onclick={handleChat}>
+					<div class="flex items-center gap-2">
+						<MessageCircle class="size-4" />
+						Chat
+					</div>
+
+					<ExternalLink class="size-4" />
+				</button>
 			{/if}
 			{#if responsive.isMobile}
 				<a href="https://docs.obot.ai" rel="external" target="_blank" class="link"
@@ -167,6 +210,8 @@
 		{/each}
 	</div>
 </dialog>
+
+<PageLoading show={loadingChat} text="Loading chat..." />
 
 <style lang="postcss">
 	.link {

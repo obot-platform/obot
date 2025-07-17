@@ -4,30 +4,21 @@
 		ChatService,
 		type Project,
 		type ProjectMCP,
-		type ProjectCredential,
-		type McpServerResource
+		type ProjectCredential
 	} from '$lib/services';
-	import { type MCPServerInfo } from '$lib/services/chat/mcp';
-	import {
-		Server,
-		Trash2,
-		Wrench,
-		TriangleAlert,
-		HardDrive,
-		LoaderCircle
-	} from 'lucide-svelte/icons';
+	import { Server, Trash2, TriangleAlert, Plus } from 'lucide-svelte/icons';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import McpInfoConfig from '$lib/components/mcp/McpInfoConfig.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { onMount } from 'svelte';
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import { getLayout, openMCPServerTools } from '$lib/context/chatLayout.svelte';
+	import { getLayout, openMCPServer } from '$lib/context/chatLayout.svelte';
 	import { getToolBundleMap } from '$lib/context/toolReferences.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { errors } from '$lib/stores';
-	import ProjectMcpResources from '../mcp/ProjectMcpResources.svelte';
+	import McpServerSetup from '../chat/McpServerSetup.svelte';
+	import McpServerActions from '../chat/McpServerActions.svelte';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import CollapsePane from './CollapsePane.svelte';
 
 	interface Props {
 		project: Project;
@@ -35,21 +26,16 @@
 	}
 
 	let { project, chatbot = false }: Props = $props();
-	let mcpToShow = $state<ProjectMCP>();
 	let toDelete = $state<ProjectMCP>();
 	let localCredentials = $state<ProjectCredential[]>([]);
 	let inheritedCredentials = $state<ProjectCredential[]>([]);
 	let localConfigurations = $state<Record<string, boolean>>({});
+	let loading = $state(false);
 
-	let mcpConfigDialog = $state<ReturnType<typeof McpInfoConfig>>();
-	let resourcesDialog = $state<ReturnType<typeof ProjectMcpResources>>();
-
+	let mcpServerSetup = $state<ReturnType<typeof McpServerSetup>>();
 	const projectMCPs = getProjectMCPs();
 	const toolBundleMap = getToolBundleMap();
 	const layout = getLayout();
-
-	let resources = $state<Record<string, McpServerResource[]>>({});
-	let mcpResourceToShow = $state<ProjectMCP>();
 
 	// Refresh MCP list whenever sidebar config changes (and we're not currently editing an MCP)
 	$effect(() => {
@@ -70,12 +56,6 @@
 		);
 		await fetchCredentials();
 	}
-
-	let legacyBundleId = $derived(
-		mcpToShow?.catalogEntryID && toolBundleMap.get(mcpToShow.catalogEntryID)
-			? mcpToShow.catalogEntryID
-			: undefined
-	);
 
 	async function fetchCredentials() {
 		if (!project?.assistantID || !project.id) return;
@@ -151,44 +131,11 @@
 
 	async function handleRemoveMcp() {
 		if (!project?.assistantID || !project.id || !toDelete) return;
-
-		if (chatbot) {
-			if (toDelete.catalogEntryID && toolBundleMap.get(toDelete.catalogEntryID)) {
-				await ChatService.deleteProjectLocalCredential(
-					project.assistantID,
-					project.id,
-					toDelete.catalogEntryID
-				);
-			} else if (toDelete.configured) {
-				await ChatService.deconfigureProjectMCP(project.assistantID, project.id, toDelete.id);
-			}
-		} else {
-			await ChatService.deleteProjectMCP(project.assistantID, project.id, toDelete.id);
-		}
-
+		loading = true;
+		await ChatService.deleteProjectMCP(project.assistantID, project.id, toDelete.id);
 		await refreshMcpList();
 		toDelete = undefined;
-	}
-
-	async function loadResources(mcp: ProjectMCP) {
-		if (!project?.assistantID || !project.id) return;
-
-		try {
-			const res = await ChatService.listProjectMcpServerResources(
-				project.assistantID,
-				project.id,
-				mcp.id
-			);
-			resources[mcp.id] = res;
-		} catch (error) {
-			// 424 means resources not supported
-			if (error instanceof Error && !error.message.includes('424')) {
-				console.error('Failed to load resources for MCP server:', mcp.id, error);
-				errors.append(error);
-			}
-
-			resources[mcp.id] = [];
-		}
+		loading = false;
 	}
 </script>
 
@@ -202,24 +149,19 @@
 	<div class="flex flex-col gap-2">
 		{#if projectMCPs.items.length > 0}
 			<div class="flex flex-col">
-				{#each projectMCPs.items as mcp (mcp.id)}
+				{#each projectMCPs.items as mcpServer (mcpServer.id)}
 					<div
 						class="group hover:bg-surface3 flex w-full items-center rounded-md transition-colors duration-200"
 					>
 						<button
 							class="flex grow items-center gap-1 py-2 pl-1.5"
 							onclick={() => {
-								const isLegacyBundleServer =
-									mcp.catalogEntryID && toolBundleMap.get(mcp.catalogEntryID);
-								if (isLegacyBundleServer) {
-									mcpToShow = mcp;
-									mcpConfigDialog?.open();
-								}
+								openMCPServer(layout, mcpServer);
 							}}
 						>
 							<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-								{#if mcp.manifest.icon}
-									<img src={mcp.manifest.icon} class="size-4" alt={mcp.manifest.name} />
+								{#if mcpServer.manifest.icon}
+									<img src={mcpServer.manifest.icon} class="size-4" alt={mcpServer.manifest.name} />
 								{:else}
 									<Server class="size-4" />
 								{/if}
@@ -227,8 +169,8 @@
 							<p
 								class="flex w-[calc(100%-24px)] items-center truncate text-left text-xs font-light"
 							>
-								{mcp.manifest.name || DEFAULT_CUSTOM_SERVER_NAME}
-								{#if shouldShowWarning(mcp)}
+								{mcpServer.manifest.name || DEFAULT_CUSTOM_SERVER_NAME}
+								{#if shouldShowWarning(mcpServer)}
 									<span class="ml-1" use:tooltip={'Configuration Required'}>
 										<TriangleAlert
 											class="size-4"
@@ -241,42 +183,18 @@
 							</p>
 						</button>
 						{#if !chatbot}
-							<DotDotDot
+							<McpServerActions
 								class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
-								onClick={() => loadResources(mcp)}
-							>
-								<div class="default-dialog flex min-w-max flex-col p-2">
-									<button class="menu-button" onclick={() => openMCPServerTools(layout, mcp)}>
-										<Wrench class="size-4" /> Manage Tools
-									</button>
-									{#if resources[mcp.id]}
-										{#if resources[mcp.id].length > 0}
-											<button
-												class="menu-button"
-												onclick={() => {
-													mcpResourceToShow = mcp;
-													resourcesDialog?.open();
-												}}
-											>
-												<HardDrive class="size-4" /> View Resources
-											</button>
-										{/if}
-									{:else}
-										<button disabled class="menu-button opacity-50 hover:bg-transparent">
-											<LoaderCircle class="size-4 animate-spin" /> View Resources
-										</button>
-									{/if}
-									<button class="menu-button" onclick={() => (toDelete = mcp)}>
-										<Trash2 class="size-4" /> Delete
-									</button>
-								</div>
-							</DotDotDot>
-						{:else if localConfigurations[mcp.id]}
+								{mcpServer}
+								{project}
+								onDelete={() => refreshMcpList()}
+							/>
+						{:else if localConfigurations[mcpServer.id]}
 							<DotDotDot
 								class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
 							>
 								<div class="default-dialog flex min-w-max flex-col p-2">
-									<button class="menu-button" onclick={() => (toDelete = mcp)}>
+									<button class="menu-button" onclick={() => (toDelete = mcpServer)}>
 										<Trash2 class="size-4" /> Delete My Configuration
 									</button>
 								</div>
@@ -286,40 +204,20 @@
 				{/each}
 			</div>
 		{/if}
+
+		<div class="flex justify-end">
+			<button class="button flex items-center gap-1 text-xs" onclick={() => mcpServerSetup?.open()}>
+				<Plus class="size-4" /> Add MCP Server
+			</button>
+			<McpServerSetup bind:this={mcpServerSetup} {project} onSuccess={() => refreshMcpList()} />
+		</div>
 	</div>
 </CollapsePane>
 
-<McpInfoConfig
-	bind:this={mcpConfigDialog}
-	manifest={mcpToShow}
-	{project}
-	{legacyBundleId}
-	submitText={legacyBundleId ? 'Reauthenticate' : 'Modify server'}
-	legacyAuthText="You will be prompted to login again to reauthenticate."
-	onUpdate={async (manifest: MCPServerInfo) => {
-		if (!project?.assistantID || !project.id || !mcpToShow) return;
-
-		if (!legacyBundleId) {
-			await ChatService.updateProjectMCP(project.assistantID, project.id, mcpToShow.id, manifest);
-		}
-
-		await refreshMcpList();
-		mcpConfigDialog?.close();
-	}}
-/>
-
 <Confirm
-	msg={chatbot
-		? `Are you sure you want to delete your MCP server configuration?`
-		: `Are you sure you want to delete MCP server: ${toDelete?.manifest.name}?`}
+	msg="Are you sure you want to delete your MCP server configuration?"
 	show={!!toDelete}
 	onsuccess={handleRemoveMcp}
 	oncancel={() => (toDelete = undefined)}
-/>
-
-<ProjectMcpResources
-	bind:this={resourcesDialog}
-	{project}
-	mcp={mcpResourceToShow}
-	resources={mcpResourceToShow ? (resources[mcpResourceToShow?.id] ?? []) : []}
+	{loading}
 />

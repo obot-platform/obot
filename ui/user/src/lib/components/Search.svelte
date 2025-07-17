@@ -14,7 +14,7 @@
 	let {
 		onChange,
 		class: klass,
-		placeholder = 'Search Agents...',
+		placeholder = 'Search Projects...',
 		onMouseDown,
 		onMouseUp,
 		compact

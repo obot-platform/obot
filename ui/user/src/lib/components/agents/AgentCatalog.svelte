@@ -139,7 +139,7 @@
 			<button
 				class="icon-button sticky top-3 right-2 z-40 float-right self-end"
 				onclick={() => dialog?.close()}
-				use:tooltip={{ disablePortal: true, text: 'Close Agent Catalog' }}
+				use:tooltip={{ disablePortal: true, text: 'Close Project Catalog' }}
 			>
 				<X class="size-7" />
 			</button>
@@ -151,9 +151,9 @@
 
 {#snippet content()}
 	<div class="mt-4 flex w-full flex-col items-center justify-center gap-2 px-4 py-4">
-		<h2 class="text-3xl font-semibold md:text-4xl">Agent Catalog</h2>
+		<h2 class="text-3xl font-semibold md:text-4xl">Project Catalog</h2>
 		<p class="mb-8 max-w-full text-center text-base font-light md:max-w-md">
-			Copy an existing agent to jumpstart your journey
+			Copy an existing project to jumpstart your journey
 		</p>
 	</div>
 	<div class="pr-12 pb-4">
@@ -194,7 +194,7 @@
 						onChange={(val) => {
 							search = val;
 						}}
-						placeholder="Search Agents..."
+						placeholder="Search Projects..."
 					/>
 				</div>
 			</div>

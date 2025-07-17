@@ -1,4 +1,4 @@
-export const DEFAULT_PROJECT_NAME = 'My Agent';
+export const DEFAULT_PROJECT_NAME = 'My Project';
 export const DEFAULT_PROJECT_DESCRIPTION = 'Do more with AI';
 export const DEFAULT_CUSTOM_SERVER_NAME = 'My Custom Server';
 
