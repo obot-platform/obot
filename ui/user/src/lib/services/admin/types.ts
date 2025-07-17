@@ -8,6 +8,7 @@ export interface MCPCatalogManifest {
 
 export interface MCPCatalog extends MCPCatalogManifest {
 	id: string;
+	syncErrors?: Record<string, string>;
 }
 
 export interface MCPCatalogSource {

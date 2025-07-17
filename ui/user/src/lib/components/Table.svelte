@@ -14,6 +14,7 @@
 		data: T[];
 		onSelectRow?: (row: T) => void;
 		onRenderColumn?: Snippet<[string, T]>;
+		setRowClasses?: (row: T) => string;
 		noDataMessage?: string;
 		pageSize?: number;
 	}
@@ -28,7 +29,8 @@
 		onSelectRow,
 		onRenderColumn,
 		pageSize,
-		noDataMessage = 'No data'
+		noDataMessage = 'No data',
+		setRowClasses
 	}: Props<T> = $props();
 
 	let page = $state(0);
@@ -109,7 +111,8 @@
 	<tr
 		class={twMerge(
 			'border-surface2 dark:border-surface2 border-t shadow-xs transition-colors duration-300',
-			onSelectRow && ' hover:bg-surface1 dark:hover:bg-surface3 cursor-pointer'
+			onSelectRow && ' hover:bg-surface1 dark:hover:bg-surface3 cursor-pointer',
+			setRowClasses?.(d)
 		)}
 		onclick={() => onSelectRow?.(d)}
 	>

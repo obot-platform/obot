@@ -727,6 +727,17 @@
 		color: var(--color-red-500);
 	}
 
+	.notification-alert {
+		border-radius: 0.5rem;
+		border: 1px solid var(--color-yellow-500);
+		background-color: rgba(252, 199, 93, 0.15);
+		padding: 0.5rem 1rem;
+
+		svg {
+			color: var(--color-yellow-500);
+		}
+	}
+
 	.notification-info {
 		border-radius: 0.5rem;
 		border: 1px solid var(--color-blue-500);

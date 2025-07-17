@@ -16,6 +16,8 @@
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalog, MCPCatalogEntry } from '$lib/services/admin/types';
 	import {
+		AlertCircle,
+		AlertTriangle,
 		Container,
 		Eye,
 		LoaderCircle,
@@ -23,6 +25,7 @@
 		RefreshCcw,
 		Server,
 		Trash2,
+		TriangleAlert,
 		User,
 		Users,
 		X
@@ -139,6 +142,9 @@
 	let selectServerTypeDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectedServerType = $state<'single' | 'multi' | 'remote'>();
 	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
+
+	let syncError = $state<{ url: string; error: string }>();
+	let syncErrorDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
@@ -288,7 +294,19 @@
 				<Table
 					data={defaultCatalog?.sourceURLs?.map((url, index) => ({ id: index, url })) ?? []}
 					fields={['url']}
+					headers={[
+						{
+							property: 'url',
+							title: 'URL'
+						}
+					]}
 					noDataMessage="No Git Source URLs added."
+					setRowClasses={(d) => {
+						if (defaultCatalog?.syncErrors?.[d.url]) {
+							return 'bg-yellow-500/10';
+						}
+						return '';
+					}}
 				>
 					{#snippet actions(d)}
 						<button
@@ -299,6 +317,30 @@
 						>
 							<Trash2 class="size-4" />
 						</button>
+					{/snippet}
+					{#snippet onRenderColumn(property, d)}
+						{#if property === 'url'}
+							<div class="flex items-center gap-2">
+								<p>{d.url}</p>
+								{#if defaultCatalog?.syncErrors?.[d.url]}
+									<button
+										onclick={() => {
+											syncError = {
+												url: d.url,
+												error: defaultCatalog?.syncErrors?.[d.url] ?? ''
+											};
+											syncErrorDialog?.open();
+										}}
+										use:tooltip={{
+											text: 'An issue occurred. Click to see more details.',
+											classes: ['break-words']
+										}}
+									>
+										<TriangleAlert class="size-4 text-yellow-500" />
+									</button>
+								{/if}
+							</div>
+						{/if}
 					{/snippet}
 				</Table>
 			</div>
@@ -517,6 +559,20 @@
 				</span>
 			</div>
 		</button>
+	</div>
+</ResponsiveDialog>
+
+<ResponsiveDialog title="Git Source URL Sync" bind:this={syncErrorDialog} class="md:w-2xl">
+	<div class="mb-4 flex flex-col gap-4">
+		<div class="notification-alert flex flex-col gap-2">
+			<div class="flex items-center gap-2">
+				<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+				<p class="my-0.5 flex flex-col text-sm font-semibold">
+					An issue occurred fetching this source URL:
+				</p>
+			</div>
+			<span class="font-sm font-light break-all">{syncError?.error}</span>
+		</div>
 	</div>
 </ResponsiveDialog>
 
