@@ -310,7 +310,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	if config.Hostname == "" {
-		config.Hostname = "http://localhost:8080"
+		config.Hostname = fmt.Sprintf("http://localhost:%d", config.HTTPListenPort)
 	}
 	if config.UIHostname == "" {
 		config.UIHostname = config.Hostname
