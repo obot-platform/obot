@@ -16,7 +16,6 @@
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalog, MCPCatalogEntry } from '$lib/services/admin/types';
 	import {
-		AlertCircle,
 		AlertTriangle,
 		Container,
 		Eye,
