@@ -60,7 +60,7 @@ func (s *sessionStore) Store(req *http.Request, sessionID string, session *nmcp.
 		},
 	}
 
-	if err = create.IfNotExists(req.Context(), s.client, mcpSession); err != nil {
+	if err = create.OrUpdate(req.Context(), s.client, mcpSession); err != nil {
 		return err
 	}
 
@@ -93,8 +93,6 @@ func (s *sessionStore) Load(req *http.Request, sessionID string) (*nmcp.ServerSe
 		return nil, false, err
 	}
 
-	s.mcpSessionCache.Store(sessionID, mcpSess)
-
 	// If the session hasn't been updated in the last hour, update it.
 	if time.Since(mcpSess.Status.LastUsedTime.Time) > time.Hour {
 		mcpSess.Status.LastUsedTime = metav1.Now()
@@ -102,6 +100,8 @@ func (s *sessionStore) Load(req *http.Request, sessionID string) (*nmcp.ServerSe
 			return nil, false, err
 		}
 	}
+
+	s.mcpSessionCache.Store(sessionID, mcpSess)
 
 	return sess, true, nil
 }

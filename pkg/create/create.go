@@ -29,3 +29,11 @@ func IfNotExists(ctx context.Context, c kclient.Client, obj kclient.Object) erro
 	}
 	return err
 }
+
+func OrUpdate(ctx context.Context, c kclient.Client, obj kclient.Object) error {
+	err := c.Update(ctx, obj)
+	if apierrors.IsNotFound(err) {
+		return OrGet(ctx, c, obj)
+	}
+	return err
+}
