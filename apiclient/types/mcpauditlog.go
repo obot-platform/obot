@@ -41,18 +41,22 @@ type ClientInfo struct {
 // MCPAuditLogList represents a list of MCP audit logs
 type MCPAuditLogList List[MCPAuditLog]
 
-// MCPUsageStats represents usage statistics for MCP servers
-type MCPUsageStats struct {
+// MCPUsageStatItem represents usage statistics for MCP servers
+type MCPUsageStatItem struct {
 	MCPID                     string                 `json:"mcpID"`
 	MCPServerDisplayName      string                 `json:"mcpServerDisplayName"`
 	MCPServerCatalogEntryName string                 `json:"mcpServerCatalogEntryName"`
-	TimeStart                 Time                   `json:"timeStart"`
-	TimeEnd                   Time                   `json:"timeEnd"`
-	TotalCalls                int64                  `json:"totalCalls"`
-	UniqueUsers               int64                  `json:"uniqueUsers"`
 	ToolCalls                 []MCPToolCallStats     `json:"toolCalls,omitempty"`
 	ResourceReads             []MCPResourceReadStats `json:"resourceReads,omitempty"`
 	PromptReads               []MCPPromptReadStats   `json:"promptReads,omitempty"`
+}
+
+type MCPUsageStats struct {
+	TotalCalls  int64              `json:"totalCalls"`
+	UniqueUsers int64              `json:"uniqueUsers"`
+	TimeStart   Time               `json:"timeStart"`
+	TimeEnd     Time               `json:"timeEnd"`
+	Items       []MCPUsageStatItem `json:"items"`
 }
 
 // MCPToolCallStats represents statistics for individual tool calls
@@ -74,4 +78,4 @@ type MCPPromptReadStats struct {
 }
 
 // MCPUsageStatsList represents a list of MCP usage statistics
-type MCPUsageStatsList List[MCPUsageStats]
+type MCPUsageStatsList List[MCPUsageStatItem]

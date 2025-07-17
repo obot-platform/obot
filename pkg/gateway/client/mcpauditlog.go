@@ -67,14 +67,21 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 }
 
 // GetMCPUsageStats retrieves usage statistics for MCP servers
-func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions) ([]types.MCPUsageStats, error) {
-	var stats []types.MCPUsageStats
+func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions) (types.MCPUsageStatsList, error) {
+	type totalCallsAndUniqueUsers struct {
+		TotalCalls  int64
+		UniqueUsers int64
+	}
+
+	var (
+		callsAndUsers totalCallsAndUniqueUsers
+		stats         []types.MCPUsageStatItem
+	)
 
 	// Get basic stats for each server
 	if err := c.db.WithContext(ctx).Transaction(func(base *gorm.DB) error {
-		tx := base.Model(&types.MCPAuditLog{}).
-			Select("mcp_id, mcp_server_display_name, mcp_server_catalog_entry_name, COUNT(*) as total_calls, COUNT(DISTINCT user_id) as unique_users").
-			Where("created_at >= ? AND created_at < ?", opts.StartTime, opts.EndTime)
+		base = base.Model(&types.MCPAuditLog{}).Session(&gorm.Session{})
+		tx := base.Where("created_at >= ? AND created_at < ?", opts.StartTime, opts.EndTime)
 
 		if opts.MCPID != "" {
 			tx = tx.Where("mcp_id = ?", opts.MCPID)
@@ -90,30 +97,32 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 			MCPID                     string
 			MCPServerDisplayName      string
 			MCPServerCatalogEntryName string
-			TotalCalls                int64
-			UniqueUsers               int64
 		}
 
 		var basicStatsList []basicStats
-		if err := tx.Group("mcp_id, mcp_server_display_name, mcp_server_catalog_entry_name").Scan(&basicStatsList).Error; err != nil {
+		if err := tx.Select("mcp_id, mcp_server_display_name, mcp_server_catalog_entry_name").
+			Group("mcp_id, mcp_server_display_name, mcp_server_catalog_entry_name").
+			Scan(&basicStatsList).Error; err != nil {
 			return err
 		}
 
+		if err := tx.Select("COUNT(*) AS total_calls, COUNT(DISTINCT user_id) AS unique_users").Scan(&callsAndUsers).Error; err != nil {
+			return err
+		}
+
+		var stat types.MCPUsageStatItem
+		stats = make([]types.MCPUsageStatItem, 0, len(basicStatsList))
 		// Build the full stats with tool call breakdown
 		for _, basic := range basicStatsList {
-			stat := types.MCPUsageStats{
+			stat = types.MCPUsageStatItem{
 				MCPID:                     basic.MCPID,
 				MCPServerDisplayName:      basic.MCPServerDisplayName,
 				MCPServerCatalogEntryName: basic.MCPServerCatalogEntryName,
-				TimeStart:                 opts.StartTime,
-				TimeEnd:                   opts.EndTime,
-				TotalCalls:                basic.TotalCalls,
-				UniqueUsers:               basic.UniqueUsers,
 			}
 
 			// Get tool call breakdown for this server
 			var toolStats []types.MCPToolCallStats
-			if err := base.Model(&types.MCPAuditLog{}).
+			if err := base.
 				Select("call_identifier as tool_name, COUNT(*) as call_count").
 				Where("mcp_id = ? AND call_type = ? AND created_at >= ? AND created_at < ?",
 					basic.MCPID, "tools/call", opts.StartTime, opts.EndTime).
@@ -125,7 +134,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 			// Get resource read breakdown for this server
 			var resourceStats []types.MCPResourceReadStats
-			if err := base.Model(&types.MCPAuditLog{}).
+			if err := base.
 				Select("call_identifier as resource_uri, COUNT(*) as read_count").
 				Where("mcp_id = ? AND call_type = ? AND created_at >= ? AND created_at < ?",
 					basic.MCPID, "resources/read", opts.StartTime, opts.EndTime).
@@ -137,7 +146,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 			// Get prompt read breakdown for this server
 			var promptStats []types.MCPPromptReadStats
-			if err := base.Model(&types.MCPAuditLog{}).
+			if err := base.
 				Select("call_identifier as prompt_name, COUNT(*) as read_count").
 				Where("mcp_id = ? AND call_type = ? AND created_at >= ? AND created_at < ?",
 					basic.MCPID, "prompts/get", opts.StartTime, opts.EndTime).
@@ -155,10 +164,16 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 		return nil
 	}); err != nil {
-		return nil, err
+		return types.MCPUsageStatsList{}, err
 	}
 
-	return stats, nil
+	return types.MCPUsageStatsList{
+		TimeStart:   opts.StartTime,
+		TimeEnd:     opts.EndTime,
+		TotalCalls:  callsAndUsers.TotalCalls,
+		UniqueUsers: callsAndUsers.UniqueUsers,
+		Items:       stats,
+	}, nil
 }
 
 // CountMCPAuditLogs counts the total number of audit logs matching the given criteria

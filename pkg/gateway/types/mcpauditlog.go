@@ -38,18 +38,22 @@ type ClientInfo struct {
 	Version string `json:"version"`
 }
 
-// MCPUsageStats represents usage statistics for MCP servers
-type MCPUsageStats struct {
+// MCPUsageStatItem represents usage statistics for MCP servers
+type MCPUsageStatItem struct {
 	MCPID                     string                 `json:"mcpID"`
 	MCPServerDisplayName      string                 `json:"mcpServerDisplayName"`
 	MCPServerCatalogEntryName string                 `json:"mcpServerCatalogEntryName"`
-	TimeStart                 time.Time              `json:"timeStart"`
-	TimeEnd                   time.Time              `json:"timeEnd"`
-	TotalCalls                int64                  `json:"totalCalls"`
-	UniqueUsers               int64                  `json:"uniqueUsers"`
 	ToolCalls                 []MCPToolCallStats     `json:"toolCalls,omitempty"`
 	ResourceReads             []MCPResourceReadStats `json:"resourceReads,omitempty"`
 	PromptReads               []MCPPromptReadStats   `json:"promptReads,omitempty"`
+}
+
+type MCPUsageStatsList struct {
+	TotalCalls  int64              `json:"totalCalls"`
+	UniqueUsers int64              `json:"uniqueUsers"`
+	TimeStart   time.Time          `json:"timeStart"`
+	TimeEnd     time.Time          `json:"timeEnd"`
+	Items       []MCPUsageStatItem `json:"items"`
 }
 
 // MCPToolCallStats represents statistics for individual tool calls
@@ -96,8 +100,8 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 	}
 }
 
-// ConvertMCPUsageStats converts internal MCPUsageStats to API type
-func ConvertMCPUsageStats(s MCPUsageStats) types2.MCPUsageStats {
+// ConvertMCPUsageStats converts internal MCPUsageStatItem to API type
+func ConvertMCPUsageStats(s MCPUsageStatItem) types2.MCPUsageStatItem {
 	toolCalls := make([]types2.MCPToolCallStats, len(s.ToolCalls))
 	for i, tc := range s.ToolCalls {
 		toolCalls[i] = types2.MCPToolCallStats{
@@ -122,14 +126,10 @@ func ConvertMCPUsageStats(s MCPUsageStats) types2.MCPUsageStats {
 		}
 	}
 
-	return types2.MCPUsageStats{
+	return types2.MCPUsageStatItem{
 		MCPID:                     s.MCPID,
 		MCPServerDisplayName:      s.MCPServerDisplayName,
 		MCPServerCatalogEntryName: s.MCPServerCatalogEntryName,
-		TimeStart:                 *types2.NewTime(s.TimeStart),
-		TimeEnd:                   *types2.NewTime(s.TimeEnd),
-		TotalCalls:                s.TotalCalls,
-		UniqueUsers:               s.UniqueUsers,
 		ToolCalls:                 toolCalls,
 		ResourceReads:             resourceReads,
 		PromptReads:               promptReads,

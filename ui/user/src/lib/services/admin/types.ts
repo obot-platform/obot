@@ -261,18 +261,22 @@ export interface AuditLogPromptReadStat {
 	readCount: number;
 }
 
-export interface AuditLogUsageStats {
+export interface AuthLogUsageStatItem {
 	mcpID: string;
 	mcpServerInstanceName: string;
 	mcpServerName: string;
 	mcpServerDisplayName: string;
+	toolCalls?: AuditLogToolCallStat[];
+	resourceReads?: AuditLogResourceReadStat[];
+	promptReads?: AuditLogPromptReadStat[];
+}
+
+export interface AuditLogUsageStats {
+	items: AuthLogUsageStatItem[];
 	timeStart: string;
 	timeEnd: string;
 	totalCalls: number;
 	uniqueUsers: number;
-	toolCalls?: AuditLogToolCallStat[];
-	resourceReads?: AuditLogResourceReadStat[];
-	promptReads?: AuditLogPromptReadStat[];
 }
 
 export type AuditLogFilters = {

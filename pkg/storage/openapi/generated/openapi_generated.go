@@ -85,6 +85,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServerManifest":                            schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerTool":                                schema_obot_platform_obot_apiclient_types_MCPServerTool(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStats":                             schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem":                             schema_obot_platform_obot_apiclient_types_MCPUsageStatItem(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStats":                                schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatsList":                            schema_obot_platform_obot_apiclient_types_MCPUsageStatsList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Memory":                                       schema_obot_platform_obot_apiclient_types_Memory(ref),
@@ -3810,11 +3811,11 @@ func schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref common.Refer
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_MCPUsageStatItem(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "MCPUsageStats represents usage statistics for MCP servers",
+				Description: "MCPUsageStatItem represents usage statistics for MCP servers",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"mcpID": {
@@ -3836,30 +3837,6 @@ func schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref common.Referenc
 							Default: "",
 							Type:    []string{"string"},
 							Format:  "",
-						},
-					},
-					"timeStart": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"timeEnd": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
-						},
-					},
-					"totalCalls": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
-						},
-					},
-					"uniqueUsers": {
-						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
 						},
 					},
 					"toolCalls": {
@@ -3902,11 +3879,63 @@ func schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"mcpID", "mcpServerDisplayName", "mcpServerCatalogEntryName", "timeStart", "timeEnd", "totalCalls", "uniqueUsers"},
+				Required: []string{"mcpID", "mcpServerDisplayName", "mcpServerCatalogEntryName"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats", "github.com/obot-platform/obot/apiclient/types.MCPResourceReadStats", "github.com/obot-platform/obot/apiclient/types.MCPToolCallStats", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats", "github.com/obot-platform/obot/apiclient/types.MCPResourceReadStats", "github.com/obot-platform/obot/apiclient/types.MCPToolCallStats"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"totalCalls": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"uniqueUsers": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"timeStart": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"timeEnd": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"totalCalls", "uniqueUsers", "timeStart", "timeEnd", "items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -3924,7 +3953,7 @@ func schema_obot_platform_obot_apiclient_types_MCPUsageStatsList(ref common.Refe
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPUsageStats"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem"),
 									},
 								},
 							},
@@ -3935,7 +3964,7 @@ func schema_obot_platform_obot_apiclient_types_MCPUsageStatsList(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPUsageStats"},
+			"github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem"},
 	}
 }
 

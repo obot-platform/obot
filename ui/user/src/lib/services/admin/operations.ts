@@ -491,7 +491,7 @@ export async function listAuditLogUsageStats(
 	const response = (await doGet(
 		`/mcp-stats${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as AuditLogUsageStats[];
+	)) as AuditLogUsageStats;
 	return response;
 }
 
@@ -508,6 +508,6 @@ export async function listServerOrInstanceAuditLogStats(
 	const response = (await doGet(
 		`/mcp-stats/${mcpId}${queryString ? `?${queryString}` : ''}`,
 		opts
-	)) as AuditLogUsageStats[];
+	)) as AuditLogUsageStats;
 	return response;
 }

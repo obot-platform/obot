@@ -150,10 +150,16 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 	}
 
 	// Convert to API types
-	var result []types.MCPUsageStats
-	for _, stat := range stats {
+	var result []types.MCPUsageStatItem
+	for _, stat := range stats.Items {
 		result = append(result, gatewaytypes.ConvertMCPUsageStats(stat))
 	}
 
-	return req.Write(result)
+	return req.Write(types.MCPUsageStats{
+		TimeStart:   *types.NewTime(stats.TimeStart),
+		TimeEnd:     *types.NewTime(stats.TimeEnd),
+		TotalCalls:  stats.TotalCalls,
+		UniqueUsers: stats.UniqueUsers,
+		Items:       result,
+	})
 }

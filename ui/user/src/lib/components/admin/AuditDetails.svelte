@@ -45,7 +45,7 @@
 		emptyContent,
 		allowPagination
 	}: Props = $props();
-	let listUsageStats = $state<Promise<AuditLogUsageStats[]>>();
+	let listUsageStats = $state<Promise<AuditLogUsageStats>>();
 	let listAuditLogs = $state<Promise<PaginatedResponse<AuditLog>>>();
 
 	let currentPage = $state(0);
@@ -175,14 +175,15 @@
 	}
 
 	function compileBarGraphData(
-		usageStats: AuditLogUsageStats[],
+		usageStats: AuditLogUsageStats | undefined,
 		view: 'tools' | 'resources' | 'prompts'
 	): Array<{ [key: string]: string | number; count: number }> {
+		if (!usageStats) return [];
 		if (view === 'tools') {
 			// Aggregate tool call statistics across all usage stats
 			const toolCounts = new Map<string, number>();
 
-			usageStats.forEach((stat) => {
+			usageStats.items.forEach((stat) => {
 				stat.toolCalls?.forEach((toolCall) => {
 					const currentCount = toolCounts.get(toolCall.toolName) || 0;
 					toolCounts.set(toolCall.toolName, currentCount + toolCall.callCount);
@@ -199,7 +200,7 @@
 			// Aggregate resource read statistics across all usage stats
 			const resourceCounts = new Map<string, number>();
 
-			usageStats.forEach((stat) => {
+			usageStats.items.forEach((stat) => {
 				stat.resourceReads?.forEach((resourceRead) => {
 					const currentCount = resourceCounts.get(resourceRead.resourceUri) || 0;
 					resourceCounts.set(resourceRead.resourceUri, currentCount + resourceRead.readCount);
@@ -214,7 +215,7 @@
 			// Aggregate prompt read statistics across all usage stats
 			const promptCounts = new Map<string, number>();
 
-			usageStats.forEach((stat) => {
+			usageStats.items.forEach((stat) => {
 				stat.promptReads?.forEach((promptRead) => {
 					const currentCount = promptCounts.get(promptRead.promptName) || 0;
 					promptCounts.set(promptRead.promptName, currentCount + promptRead.readCount);
@@ -248,9 +249,8 @@
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
 	{:then usageResponse}
-		{@const totalCalls = usageResponse?.reduce((acc, curr) => acc + curr.totalCalls, 0) ?? 0}
-		{@const uniqueUsers =
-			usageResponse?.reduce((acc, curr) => Math.max(acc, curr.uniqueUsers), 0) ?? 0}
+		{@const totalCalls = usageResponse?.totalCalls ?? 0}
+		{@const uniqueUsers = usageResponse?.uniqueUsers ?? 0}
 		<div class="flex flex-col gap-4">
 			<div class="flex w-full items-center justify-between gap-4">
 				<div>
@@ -332,7 +332,7 @@
 						</div>
 					{/if}
 				{:else}
-					{@const graphData = compileBarGraphData(usageResponse ?? [], graphView)}
+					{@const graphData = compileBarGraphData(usageResponse, graphView)}
 					{#if graphData.length > 0}
 						{@const config = {
 							tools: { x: 'toolName', tooltip: 'calls' },
