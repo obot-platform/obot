@@ -99,14 +99,14 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 			MCPServerCatalogEntryName string
 		}
 
+		if err := tx.Select("COUNT(*) AS total_calls, COUNT(DISTINCT user_id) AS unique_users").Scan(&callsAndUsers).Error; err != nil {
+			return err
+		}
+
 		var basicStatsList []basicStats
 		if err := tx.Select("mcp_id, mcp_server_display_name, mcp_server_catalog_entry_name").
 			Group("mcp_id, mcp_server_display_name, mcp_server_catalog_entry_name").
 			Scan(&basicStatsList).Error; err != nil {
-			return err
-		}
-
-		if err := tx.Select("COUNT(*) AS total_calls, COUNT(DISTINCT user_id) AS unique_users").Scan(&callsAndUsers).Error; err != nil {
 			return err
 		}
 
