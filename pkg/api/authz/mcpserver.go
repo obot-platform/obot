@@ -14,10 +14,7 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 		return true, nil
 	}
 
-	var (
-		mcpServer v1.MCPServer
-	)
-
+	var mcpServer v1.MCPServer
 	if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, resources.MCPServerID), &mcpServer); err != nil {
 		return false, err
 	}

@@ -15,6 +15,7 @@ import type {
 	MCPCatalogEntryServerManifest,
 	MCPCatalogManifest,
 	OrgUser,
+	OrgGroup,
 	ProjectThread,
 	MCPCatalogServerManifest,
 	DefaultModelAlias,
@@ -223,6 +224,12 @@ export async function deconfigureMCPCatalogServer(
 export async function listUsers(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> {
 	const response = (await doGet('/users', opts)) as ItemsResponse<OrgUser>;
 	return response.items ?? [];
+}
+
+export async function listGroups(opts?: { fetch?: Fetcher; query?: string }): Promise<OrgGroup[]> {
+	const queryParam = opts?.query ? `?name=${encodeURIComponent(opts.query)}` : '';
+	const response = (await doGet(`/groups${queryParam}`, opts)) as OrgGroup[];
+	return response ?? [];
 }
 
 export async function updateUserRole(
