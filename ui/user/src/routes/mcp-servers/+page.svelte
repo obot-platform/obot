@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
@@ -17,21 +16,14 @@
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services/index.js';
-	import {
-		ChevronLeft,
-		ChevronRight,
-		ExternalLink,
-		LoaderCircle,
-		Server,
-		Unplug
-	} from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight, ExternalLink, LoaderCircle, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import McpServerInfo from '$lib/components/mcp/McpServerInfo.svelte';
-	import { stripMarkdownToText } from '$lib/markdown';
-	import { twMerge } from 'tailwind-merge';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import PageLoading from '$lib/components/PageLoading.svelte';
+	import { afterNavigate, goto } from '$app/navigation';
+	import McpCard from '$lib/components/mcp/McpCard.svelte';
 
 	let userServerInstances = $state<MCPServerInstance[]>([]);
 	let userConfiguredServers = $state<MCPCatalogServer[]>([]);
@@ -71,6 +63,8 @@
 	let showServerInfo = $state(false);
 
 	let search = $state('');
+	let selectedCategory = $state('');
+
 	let serverInstancesMap = $derived(
 		new Map(
 			userServerInstances.map((instance) => [
@@ -82,14 +76,38 @@
 	let userConfiguredServersMap = $derived(
 		new Map(userConfiguredServers.map((server) => [server.catalogEntryID, server]))
 	);
+
+	let convertedEntries: (MCPCatalogEntry & { categories: string[] })[] = $derived(
+		entries.map((entry) => ({
+			...entry,
+			categories: parseCategories(entry)
+		}))
+	);
+	let convertedServers: (MCPCatalogServer & { categories: string[] })[] = $derived(
+		servers.map((server) => ({
+			...server,
+			categories: parseCategories(server)
+		}))
+	);
+	let convertedUserConfiguredServers: (MCPCatalogServer & { categories: string[] })[] = $derived(
+		userConfiguredServers.map((server) => ({
+			...server,
+			categories: parseCategories(server)
+		}))
+	);
+
 	let filteredEntriesData = $derived(
-		entries.filter((item) => {
+		convertedEntries.filter((item) => {
 			if (item.deleted) {
 				return false;
 			}
 
 			const userConfiguredServer = userConfiguredServersMap.get(item.id);
 			if (userConfiguredServer) {
+				return false;
+			}
+
+			if (selectedCategory && !item.categories.includes(selectedCategory)) {
 				return false;
 			}
 
@@ -102,12 +120,16 @@
 		})
 	);
 	let filteredServers = $derived(
-		servers.filter((item) => {
+		convertedServers.filter((item) => {
 			if (item.deleted) {
 				return false;
 			}
 
 			if (serverInstancesMap.has(item.id)) {
+				return false;
+			}
+
+			if (selectedCategory && !item.categories.includes(selectedCategory)) {
 				return false;
 			}
 
@@ -118,10 +140,23 @@
 			return true;
 		})
 	);
+
+	let categories = $derived([
+		...new Set([
+			...convertedEntries.flatMap((item) => item.categories),
+			...convertedServers.flatMap((item) => item.categories)
+		])
+	]);
+
 	let filteredData = $derived([...filteredServers, ...filteredEntriesData]);
 	let connectedServers = $derived([
-		...userConfiguredServers
-			.filter((server) => server.connectURL && !server.deleted)
+		...convertedUserConfiguredServers
+			.filter(
+				(server) =>
+					server.connectURL &&
+					!server.deleted &&
+					(!selectedCategory || server.categories.includes(selectedCategory))
+			)
 			.map((server) => ({
 				connectURL: server.connectURL ?? '',
 				server,
@@ -130,12 +165,14 @@
 					? (entries.find((e) => e.id === server.catalogEntryID) ?? undefined)
 					: undefined
 			})),
-		...userServerInstances.map((instance) => ({
-			connectURL: instance.connectURL ?? '',
-			instance,
-			server: servers.find((s) => s.id === instance.mcpServerID) ?? undefined,
-			parent: undefined
-		}))
+		...userServerInstances
+			.map((instance) => ({
+				connectURL: instance.connectURL ?? '',
+				instance,
+				server: convertedServers.find((s) => s.id === instance.mcpServerID) ?? undefined,
+				parent: undefined
+			}))
+			.filter((item) => !selectedCategory || item.server?.categories?.includes(selectedCategory))
 	]);
 
 	let page = $state(0);
@@ -178,7 +215,12 @@
 		loadData();
 	});
 
-	function parseCategories(item?: (typeof filteredData)[0] | null) {
+	afterNavigate(() => {
+		const url = new URL(window.location.href);
+		selectedCategory = url.searchParams.get('category') ?? '';
+	});
+
+	function parseCategories(item?: MCPCatalogEntry | MCPCatalogServer | null) {
 		if (!item) return [];
 		if ('manifest' in item && item.manifest.metadata?.categories) {
 			return item.manifest.metadata.categories.split(',') ?? [];
@@ -333,7 +375,7 @@
 					metadata: connectedServer.server.manifest.metadata,
 					url: connectedServer.connectURL
 				}
-			} as MCPServerInfo;
+			};
 
 			await createProjectMcp(mcpServerInfo, project);
 		}
@@ -346,6 +388,29 @@
 </script>
 
 <Layout showUserLinks>
+	{#snippet onRenderSubContent(label: string)}
+		{#if label === 'MCP Servers'}
+			<div class="flex flex-col">
+				{#each categories as category (category)}
+					<button
+						class="flex items-center text-left text-sm font-light transition-all duration-300 hover:font-semibold"
+						class:font-semibold={selectedCategory === category}
+						onclick={() => {
+							const url = new URL(window.location.href);
+							url.searchParams.set('category', category);
+							goto(url.toString(), { replaceState: true });
+						}}
+					>
+						<div
+							class="bg-surface3 mx-4 h-full min-h-8 w-0.5 flex-shrink-0"
+							class:bg-blue-500!={selectedCategory === category}
+						></div>
+						{category}
+					</button>
+				{/each}
+			</div>
+		{/if}
+	{/snippet}
 	<div class="flex flex-col gap-8 pt-4" in:fade>
 		{#if showServerInfo}
 			{@render serverContent()}
@@ -377,7 +442,108 @@
 					</div>
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 						{#each connectedServers as connectedServer, i (i)}
-							{@render connectedMcpServerCard(connectedServer)}
+							{#if connectedServer.server}
+								<McpCard
+									data={connectedServer.server}
+									onClick={() => {
+										connectToServer = undefined;
+										connectToEntry = undefined;
+
+										if (connectedServer.parent) {
+											connectToServer = {
+												server: connectedServer.server,
+												connectURL: connectedServer.connectURL,
+												parent: connectedServer.parent
+											};
+										} else {
+											connectToServer = {
+												server: connectedServer.server,
+												instance: connectedServer.instance,
+												connectURL: connectedServer.connectURL
+											};
+										}
+										showServerInfo = true;
+									}}
+								>
+									{#snippet action()}
+										<DotDotDot
+											class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
+										>
+											<div class="default-dialog flex min-w-max flex-col p-2">
+												<button
+													class="menu-button"
+													onclick={() => {
+														connectToEntry = undefined;
+														connectToServer = {
+															...connectedServer
+														};
+														connectDialog?.open();
+													}}
+												>
+													Get Connection URL
+												</button>
+												{#if connectedServer.parent && hasEditableConfiguration(connectedServer.parent)}
+													<button
+														class="menu-button"
+														onclick={async () => {
+															let values: Record<string, string>;
+															try {
+																values = await ChatService.revealSingleOrRemoteMcpServer(
+																	connectedServer.server.id
+																);
+															} catch (error) {
+																if (error instanceof Error && !error.message.includes('404')) {
+																	console.error(
+																		'Failed to reveal user server values due to unexpected error',
+																		error
+																	);
+																}
+																values = {};
+															}
+
+															userConfiguredServerToEdit = {
+																id: connectedServer.server.id,
+																envs: connectedServer.server.manifest.env?.map((env) => ({
+																	...env,
+																	value: values[env.key] ?? ''
+																})),
+																headers: connectedServer.server.manifest.headers?.map((header) => ({
+																	...header,
+																	value: values[header.key] ?? ''
+																})),
+																url: connectedServer.server.manifest.url,
+																icon: connectedServer.server.manifest.icon,
+																name: connectedServer.server.manifest.name
+															};
+															editUserConfiguredServerDialog?.open();
+														}}
+													>
+														Edit Configuration
+													</button>
+												{/if}
+												<button
+													class="menu-button justify-between"
+													onclick={() => handleSetupChat(connectedServer)}
+												>
+													Chat <ExternalLink class="size-4 -translate-y-[1px]" />
+												</button>
+												<button
+													class="menu-button text-red-500"
+													onclick={async () => {
+														if (connectedServer.instance) {
+															deletingInstance = connectedServer.instance;
+														} else if (connectedServer.parent) {
+															deletingServer = connectedServer.server;
+														}
+													}}
+												>
+													Disconnect
+												</button>
+											</div>
+										</DotDotDot>
+									{/snippet}
+								</McpCard>
+							{/if}
 						{/each}
 					</div>
 				</div>
@@ -394,7 +560,7 @@
 				/>
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 					{#each paginatedData as item (item.id)}
-						{@render mcpServerCard(item)}
+						<McpCard data={item} onClick={() => handleSelectItem(item)} />
 					{/each}
 				</div>
 				{#if filteredEntriesData.length > pageSize}
@@ -424,219 +590,6 @@
 				{/if}
 			</div>
 		{/if}
-	</div>
-{/snippet}
-
-{#snippet connectedMcpServerCard(connectedServer: (typeof connectedServers)[0])}
-	{@const icon = connectedServer.server?.manifest.icon}
-	{@const name = connectedServer.server?.manifest.name}
-	{@const description = connectedServer.server?.manifest.description}
-	{@const categories = parseCategories(connectedServer.server ?? connectedServer.parent)}
-	<div class="relative flex flex-col">
-		<button
-			class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
-			onclick={() => {
-				connectToServer = undefined;
-				connectToEntry = undefined;
-
-				if (connectedServer.parent) {
-					connectToServer = {
-						server: connectedServer.server,
-						connectURL: connectedServer.connectURL,
-						parent: connectedServer.parent
-					};
-				} else {
-					connectToServer = {
-						server: connectedServer.server,
-						instance: connectedServer.instance,
-						connectURL: connectedServer.connectURL
-					};
-				}
-				showServerInfo = true;
-			}}
-		>
-			<div class="flex items-center gap-2 pr-6">
-				<div
-					class="flex size-8 flex-shrink-0 items-center justify-center self-start rounded-md bg-transparent p-0.5 dark:bg-gray-600"
-				>
-					{#if icon}
-						<img src={icon} alt={name} />
-					{:else}
-						<Server />
-					{/if}
-				</div>
-				<div class="flex max-w-[calc(100%-2rem)] flex-col">
-					<p class="text-sm font-semibold">{name}</p>
-					<span
-						class={twMerge(
-							'text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600',
-							categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
-						)}
-					>
-						{stripMarkdownToText(description ?? '')}
-					</span>
-				</div>
-			</div>
-			<div class="flex w-full flex-wrap gap-1 pt-2">
-				{#each categories as category (category)}
-					<div
-						class="border-surface3 rounded-full border px-1.5 py-0.5 text-[10px] font-light text-gray-400 dark:text-gray-600"
-					>
-						{category}
-					</div>
-				{/each}
-			</div>
-		</button>
-		<div
-			class="absolute -top-2 right-0 flex h-full translate-y-2 flex-col justify-between gap-4 p-2"
-		>
-			<DotDotDot
-				class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
-			>
-				<div class="default-dialog flex min-w-max flex-col p-2">
-					<button
-						class="menu-button"
-						onclick={() => {
-							connectToEntry = undefined;
-							connectToServer = {
-								...connectedServer
-							};
-							connectDialog?.open();
-						}}
-					>
-						Get Connection URL
-					</button>
-					{#if connectedServer.parent && hasEditableConfiguration(connectedServer.parent)}
-						<button
-							class="menu-button"
-							onclick={async () => {
-								let values: Record<string, string>;
-								try {
-									values = await ChatService.revealSingleOrRemoteMcpServer(
-										connectedServer.server.id
-									);
-								} catch (error) {
-									if (error instanceof Error && !error.message.includes('404')) {
-										console.error(
-											'Failed to reveal user server values due to unexpected error',
-											error
-										);
-									}
-									values = {};
-								}
-
-								userConfiguredServerToEdit = {
-									id: connectedServer.server.id,
-									envs: connectedServer.server.manifest.env?.map((env) => ({
-										...env,
-										value: values[env.key] ?? ''
-									})),
-									headers: connectedServer.server.manifest.headers?.map((header) => ({
-										...header,
-										value: values[header.key] ?? ''
-									})),
-									url: connectedServer.server.manifest.url,
-									icon: connectedServer.server.manifest.icon,
-									name: connectedServer.server.manifest.name
-								};
-								editUserConfiguredServerDialog?.open();
-							}}
-						>
-							Edit Configuration
-						</button>
-					{/if}
-					<button
-						class="menu-button justify-between"
-						onclick={() => handleSetupChat(connectedServer)}
-					>
-						Chat <ExternalLink class="size-4 -translate-y-[1px]" />
-					</button>
-					<button
-						class="menu-button text-red-500"
-						onclick={async () => {
-							if (connectedServer.instance) {
-								deletingInstance = connectedServer.instance;
-							} else if (connectedServer.parent) {
-								deletingServer = connectedServer.server;
-							}
-						}}
-					>
-						Disconnect
-					</button>
-				</div>
-			</DotDotDot>
-		</div>
-	</div>
-{/snippet}
-
-{#snippet mcpServerCard(item: (typeof filteredData)[0])}
-	{@const icon =
-		'manifest' in item
-			? item.manifest.icon
-			: (item.commandManifest?.icon ?? item.urlManifest?.icon)}
-	{@const name =
-		'manifest' in item
-			? item.manifest.name
-			: (item.commandManifest?.name ?? item.urlManifest?.name)}
-	{@const categories = parseCategories(item)}
-	<div class="relative flex flex-col">
-		<button
-			class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
-			onclick={() => {
-				handleSelectItem(item);
-			}}
-		>
-			<div class="flex items-center gap-2 pr-6">
-				<div
-					class="flex size-8 flex-shrink-0 items-center justify-center self-start rounded-md bg-transparent p-0.5 dark:bg-gray-600"
-				>
-					{#if icon}
-						<img src={icon} alt={name} />
-					{:else}
-						<Server />
-					{/if}
-				</div>
-				<div class="flex max-w-[calc(100%-2rem)] flex-col">
-					<p class="text-sm font-semibold">{name}</p>
-					<span
-						class={twMerge(
-							'text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600',
-							categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
-						)}
-					>
-						{#if 'manifest' in item}
-							{stripMarkdownToText(item.manifest.description ?? '')}
-						{:else}
-							{stripMarkdownToText(
-								item.commandManifest?.description ?? item.urlManifest?.description ?? ''
-							)}
-						{/if}
-					</span>
-				</div>
-			</div>
-			<div class="flex w-full flex-wrap gap-1 pt-2">
-				{#each categories as category (category)}
-					<div
-						class="border-surface3 rounded-full border px-1.5 py-0.5 text-[10px] font-light text-gray-400 dark:text-gray-600"
-					>
-						{category}
-					</div>
-				{/each}
-			</div>
-		</button>
-		<div
-			class="absolute -top-2 right-0 flex h-full translate-y-2 flex-col justify-between gap-4 p-2"
-		>
-			<button
-				class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
-				use:tooltip={'Connect to server'}
-				onclick={() => {
-					handleSelectItem(item);
-				}}
-			>
-				<Unplug class="size-4" />
-			</button>
-		</div>
 	</div>
 {/snippet}
 

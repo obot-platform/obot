@@ -1,18 +1,9 @@
 <script lang="ts">
 	import { ChatService, type MCPServerTool, type Project, type ProjectMCP } from '$lib/services';
-	import {
-		AlertCircle,
-		ChevronDown,
-		ChevronsRight,
-		ChevronUp,
-		LoaderCircle,
-		Server,
-		X
-	} from 'lucide-svelte';
+	import { AlertCircle, ChevronDown, ChevronUp, LoaderCircle, Server, X } from 'lucide-svelte';
 	import Toggle from '../Toggle.svelte';
 	import { onMount, type Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
-	import { twMerge } from 'tailwind-merge';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { responsive } from '$lib/stores';
 	import { parseErrorContent } from '$lib/errors';
@@ -23,14 +14,10 @@
 		project: Project;
 		header?: Snippet;
 		onClose?: () => void;
-		onSubmit?: (selected: string[]) => void;
 		submitText?: string;
 		currentThreadID?: string;
 		tools?: MCPServerTool[];
 		isNew?: boolean;
-		classes?: {
-			actions?: string;
-		};
 	}
 
 	const {
@@ -38,12 +25,9 @@
 		project,
 		header,
 		onClose,
-		onSubmit,
 		currentThreadID,
 		tools: refTools,
-		submitText = 'Continue',
-		isNew,
-		classes
+		isNew
 	}: Props = $props();
 
 	let tools = $state<MCPServerTool[]>(refTools ?? []);
@@ -118,27 +102,6 @@
 		) {
 			allDescriptionsEnabled = true;
 		}
-	}
-
-	async function handleSubmit() {
-		if (currentThreadID) {
-			await ChatService.configureProjectThreadMcpServerTools(
-				project.assistantID,
-				project.id,
-				mcpServer.id,
-				currentThreadID,
-				selected
-			);
-		} else {
-			await ChatService.configureProjectMcpServerTools(
-				project.assistantID,
-				project.id,
-				mcpServer.id,
-				selected
-			);
-		}
-
-		onSubmit?.(selected);
 	}
 </script>
 
@@ -332,18 +295,4 @@
 		{/if}
 	</div>
 	<div class="flex grow"></div>
-
-	<div
-		class={twMerge(
-			'dark:bg-surface2 sticky bottom-0 left-0 flex w-full justify-end bg-white py-4 md:px-4',
-			classes?.actions
-		)}
-	>
-		{#if !requiresConfiguration}
-			<button class="button-primary flex items-center gap-1" onclick={handleSubmit}>
-				{submitText}
-				<ChevronsRight class="size-4" />
-			</button>
-		{/if}
-	</div>
 </div>

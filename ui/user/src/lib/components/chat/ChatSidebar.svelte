@@ -1,31 +1,14 @@
 <script lang="ts">
 	import { ChatService, type Project } from '$lib/services';
 	import { MessageCirclePlus, SidebarClose } from 'lucide-svelte';
-	import { hasTool } from '$lib/tools';
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
-	import Tasks from '$lib/components/edit/Tasks.svelte';
-	import General from '$lib/components/edit/General.svelte';
 	import McpServers from '$lib/components/edit/McpServers.svelte';
-	import Knowledge from '$lib/components/edit/Knowledge.svelte';
-	import Files from '$lib/components/edit/Files.svelte';
-	import Sharing from '$lib/components/edit/Sharing.svelte';
-	import Interfaces from '$lib/components/edit/Interfaces.svelte';
-
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import Threads from '$lib/components/chat/sidebar/Threads.svelte';
 
-	import ModelProviders from '$lib/components/chat/sidebar/ModelProviders.svelte';
-	import SystemPrompt from '$lib/components/edit/SystemPrompt.svelte';
-	import Introduction from '$lib/components/edit/Introduction.svelte';
 	import { responsive } from '$lib/stores';
 	import Logo from '$lib/components/navbar/Logo.svelte';
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { getHelperMode, HELPER_TEXTS } from '$lib/context/helperMode.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
-	import Memories from '$lib/components/edit/Memories.svelte';
 	import { scrollFocus } from '$lib/actions/scrollFocus.svelte';
-	import BuiltInCapabilities from '$lib/components/edit/BuiltInCapabilities.svelte';
 
 	interface Props {
 		project: Project;
@@ -35,8 +18,6 @@
 
 	let { project = $bindable(), currentThreadID = $bindable(), shared }: Props = $props();
 	const layout = getLayout();
-	const projectTools = getProjectTools();
-	const helperMode = getHelperMode();
 
 	async function createNewThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
@@ -68,55 +49,11 @@
 		{/if}
 	</div>
 	<div class="default-scrollbar-thin flex w-full grow flex-col" use:scrollFocus>
-		{#if project.editor && !shared}
-			<Threads {project} bind:currentThreadID editor />
-			<Tasks {project} bind:currentThreadID />
-			<McpServers {project} />
-			{#if hasTool(projectTools.tools, 'memory')}
-				<Memories {project} />
-			{/if}
-
-			<div class="mt-auto flex flex-col">
-				<CollapsePane
-					classes={{
-						header: 'pl-3 border-y border-surface2 dark:border-surface3 py-2',
-						content: 'p-0 bg-transparent dark:bg-transparent shadow-none',
-						headerText: 'text-sm font-medium'
-					}}
-					header="Configuration"
-					helpText={HELPER_TEXTS.configuration}
-					iconSize={5}
-				>
-					<General bind:project />
-					<SystemPrompt bind:project />
-					<BuiltInCapabilities bind:project />
-					<Introduction bind:project />
-					<Knowledge {project} />
-					<Files {project} classes={{ list: 'text-sm flex flex-col gap-2' }} />
-					<ModelProviders {project} />
-					<Interfaces />
-					<Sharing {project} />
-				</CollapsePane>
-			</div>
-		{:else}
-			<Threads {project} bind:currentThreadID />
-			<McpServers {project} chatbot={true} />
-			{#if hasTool(projectTools.tools, 'memory')}
-				<Memories {project} />
-			{/if}
-		{/if}
+		<Threads {project} bind:currentThreadID />
+		<McpServers {project} />
 	</div>
 
-	<div class="flex items-center justify-between px-3 py-2">
-		<div class="flex items-center gap-1">
-			<Toggle
-				label="Toggle Help"
-				labelInline
-				checked={helperMode.isEnabled}
-				onChange={() => (helperMode.isEnabled = !helperMode.isEnabled)}
-			/>
-		</div>
-
+	<div class="flex items-center justify-end px-3 py-2">
 		{#if !responsive.isMobile}
 			{@render closeSidebar()}
 		{/if}

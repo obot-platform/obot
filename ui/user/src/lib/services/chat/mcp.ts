@@ -1,5 +1,7 @@
 import {
 	ChatService,
+	type MCPCatalogEntry,
+	type MCPCatalogServer,
 	type MCPInfo,
 	type MCPServer,
 	type MCPSubField,
@@ -11,6 +13,7 @@ export interface MCPServerInfo extends MCPServer {
 	id?: string;
 	env?: (MCPSubField & { value: string; custom?: string })[];
 	headers?: (MCPSubField & { value: string; custom?: string })[];
+	manifest?: MCPServer;
 }
 
 export function getKeyValuePairs(customMcpConfig: MCPServerInfo) {
@@ -112,4 +115,18 @@ export function isAuthRequiredBundle(bundleId?: string): boolean {
 		'proxycurl-bundle'
 	];
 	return !nonRequiredAuthBundles.includes(bundleId);
+}
+
+export function parseCategories(item?: MCPCatalogServer | MCPCatalogEntry | null) {
+	if (!item) return [];
+	if ('manifest' in item && item.manifest.metadata?.categories) {
+		return item.manifest.metadata.categories.split(',') ?? [];
+	}
+	if ('commandManifest' in item && item.commandManifest?.metadata?.categories) {
+		return item.commandManifest.metadata.categories.split(',') ?? [];
+	}
+	if ('urlManifest' in item && item.urlManifest?.metadata?.categories) {
+		return item.urlManifest.metadata.categories.split(',') ?? [];
+	}
+	return [];
 }

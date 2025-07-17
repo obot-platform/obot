@@ -12,6 +12,7 @@
 	import Discord from '../integrations/discord/Discord.svelte';
 	import Webhook from '../integrations/webhook/Webhook.svelte';
 	import Email from '../integrations/email/Email.svelte';
+	import ChatSidebarMcpServer from './ChatSidebarMcpServer.svelte';
 
 	interface Props {
 		project: Project;
@@ -32,16 +33,10 @@
 		{#key layout.mcpServer.id}
 			<div class="flex w-full justify-center px-4 py-4 md:px-8">
 				<div class="flex w-full flex-col gap-4 md:max-w-[1200px]">
-					<ProjectMcpServerTools
-						{project}
-						mcpServer={layout.mcpServer}
-						onSubmit={() => closeSidebarConfig(layout)}
-						submitText="Update"
-						classes={{ actions: 'dark:bg-black' }}
-					>
+					<ProjectMcpServerTools {project} mcpServer={layout.mcpServer}>
 						{#snippet header()}
 							<h2 class="flex items-center justify-between text-xl font-semibold">
-								Manage Tools
+								View Tools
 								<button onclick={() => closeSidebarConfig(layout)} class="icon-button">
 									<X class="size-6" />
 								</button>
@@ -51,6 +46,8 @@
 				</div>
 			</div>
 		{/key}
+	{:else if layout.sidebarConfig === 'mcp-server' && layout.mcpServer}
+		<ChatSidebarMcpServer mcpServer={layout.mcpServer} {project} />
 	{:else if layout.sidebarConfig === 'discord'}
 		<Discord {project} />
 	{:else if layout.sidebarConfig === 'webhook'}

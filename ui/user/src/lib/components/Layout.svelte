@@ -9,9 +9,13 @@
 		Box,
 		Boxes,
 		Captions,
+		ChevronDown,
+		ChevronUp,
+		ExternalLink,
 		Funnel,
 		GlobeLock,
 		LockKeyhole,
+		MessageCircle,
 		Server,
 		SidebarClose,
 		SidebarOpen,
@@ -20,14 +24,19 @@
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { BOOTSTRAP_USER_ID } from '$lib/constants';
+	import { ChatService, EditorService } from '$lib/services';
+	import PageLoading from './PageLoading.svelte';
 
 	interface Props {
 		children: Snippet;
 		showUserLinks?: boolean;
+		onRenderSubContent?: Snippet<[string]>;
 	}
 
-	const { children, showUserLinks }: Props = $props();
+	const { children, showUserLinks, onRenderSubContent }: Props = $props();
 	let nav = $state<HTMLDivElement>();
+	let loadingChat = $state(false);
+	let collapsed = $state<Record<string, boolean>>({});
 
 	let isBootStrapUser = $derived(profile.current.username === BOOTSTRAP_USER_ID);
 	let navLinks = $derived(
@@ -58,41 +67,48 @@
 								label: 'Guardrails',
 								disabled: isBootStrapUser
 							}
-						]
+						],
+						collapsible: false
 					},
 					{
 						href: '/v2/admin/users',
 						icon: Users,
-						label: 'Users'
+						label: 'Users',
+						collapsible: false
 					},
 					{
 						href: '/v2/admin/access-control',
 						icon: GlobeLock,
 						label: 'Access Control',
-						disabled: isBootStrapUser
+						disabled: isBootStrapUser,
+						collapsible: false
 					},
 					{
 						href: '/v2/admin/auth-providers',
 						icon: LockKeyhole,
-						label: 'Auth Providers'
+						label: 'Auth Providers',
+						collapsible: false
 					},
 					{
 						href: '/v2/admin/audit-logs',
 						icon: Captions,
 						label: 'Audit Logs',
-						disabled: isBootStrapUser
+						disabled: isBootStrapUser,
+						collapsible: false
 					}
 				]
 			: [
 					{
 						href: '/mcp-servers',
 						icon: Server,
-						label: 'MCP Servers'
+						label: 'MCP Servers',
+						collapsible: true
 					},
 					{
 						href: '/models',
 						icon: Box,
-						label: 'Models'
+						label: 'Models',
+						collapsible: false
 					}
 				]
 	);
@@ -102,6 +118,23 @@
 			layout.sidebarOpen = false;
 		}
 	});
+
+	async function handleChat() {
+		if (!window) return;
+		loadingChat = true;
+		const projects = (await ChatService.listProjects()).items.sort(
+			(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
+		);
+		const lastProject = projects[0];
+		// TODO: should we open last project or always create new one?
+		if (lastProject) {
+			window.open(`/o/${lastProject.id}`, '_blank');
+		} else {
+			const newProject = await EditorService.createObot();
+			window.open(`/o/${newProject.id}`, '_blank');
+		}
+		loadingChat = false;
+	}
 
 	initLayout();
 	const layout = getLayout();
@@ -119,43 +152,77 @@
 					{@render logo()}
 				</div>
 
-				<div class="text-md flex grow flex-col gap-8 px-3 pt-8 font-medium">
+				<div
+					class="text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 font-medium"
+				>
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link (link.href)}
-							{#if link.disabled}
-								<div class="sidebar-link disabled">
-									<link.icon class="size-5" />
-									{link.label}
-								</div>
-							{:else}
-								<a href={link.href} class="sidebar-link">
-									<link.icon class="size-5" />
-									{link.label}
-								</a>
-							{/if}
-							{#if link.items}
-								<div class="flex flex-col gap-1 px-7 text-sm font-light">
-									{#each link.items as item (item.href)}
-										<div class="relative">
-											<div
-												class="bg-surface3 absolute top-1/2 left-0 h-3/4 w-0.5 -translate-x-3 -translate-y-1/2"
-											></div>
-											{#if item.disabled}
-												<div class="sidebar-link disabled">
-													<link.icon class="size-4" />
-													{link.label}
+							<div class="flex">
+								{#if link.disabled}
+									<div class="sidebar-link disabled">
+										<link.icon class="size-5" />
+										{link.label}
+									</div>
+								{:else}
+									<a href={link.href} class="sidebar-link">
+										<link.icon class="size-5" />
+										{link.label}
+									</a>
+								{/if}
+								{#if link.collapsible}
+									<button
+										class="px-2"
+										onclick={() => (collapsed[link.href] = !collapsed[link.href])}
+									>
+										{#if collapsed[link.href]}
+											<ChevronUp class="size-5" />
+										{:else}
+											<ChevronDown class="size-5" />
+										{/if}
+									</button>
+								{/if}
+							</div>
+							{#if !collapsed[link.href]}
+								<div in:slide={{ axis: 'y' }}>
+									{#if onRenderSubContent}
+										{@render onRenderSubContent(link.label)}
+									{/if}
+									{#if link.items}
+										<div class="flex flex-col gap-1 px-7 text-sm font-light">
+											{#each link.items as item (item.href)}
+												<div class="relative">
+													<div
+														class="bg-surface3 absolute top-1/2 left-0 h-3/4 w-0.5 -translate-x-3 -translate-y-1/2"
+													></div>
+													{#if item.disabled}
+														<div class="sidebar-link disabled">
+															<link.icon class="size-4" />
+															{link.label}
+														</div>
+													{:else}
+														<a href={item.href} class="sidebar-link">
+															<item.icon class="size-4" />
+															{item.label}
+														</a>
+													{/if}
 												</div>
-											{:else}
-												<a href={item.href} class="sidebar-link">
-													<item.icon class="size-4" />
-													{item.label}
-												</a>
-											{/if}
+											{/each}
 										</div>
-									{/each}
+									{/if}
 								</div>
 							{/if}
 						{/each}
+
+						{#if !profile.current.isAdmin?.() || showUserLinks}
+							<button onclick={() => handleChat()} class="sidebar-link flex justify-between">
+								<div class="flex items-center gap-2">
+									<MessageCircle class="size-5" />
+									Chat
+								</div>
+
+								<ExternalLink class="size-4" />
+							</button>
+						{/if}
 					</div>
 				</div>
 
@@ -224,6 +291,8 @@
 		</div>
 	</a>
 {/snippet}
+
+<PageLoading show={loadingChat} text="Loading chat..." />
 
 <style lang="postcss">
 	.sidebar-link {
