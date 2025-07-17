@@ -35,22 +35,15 @@ func DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	server.Status.NeedsUpdate = drifted
-	return req.Client.Status().Update(req.Ctx, server)
+	if server.Status.NeedsUpdate != drifted {
+		server.Status.NeedsUpdate = drifted
+		return req.Client.Status().Update(req.Ctx, server)
+	}
+	return nil
 }
 
 func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest) (bool, error) {
-	drifted := !utils.SlicesEqualIgnoreOrder(serverManifest.Env, entryManifest.Env) ||
-		serverManifest.Command != entryManifest.Command ||
-		!slices.Equal(serverManifest.Args, entryManifest.Args) ||
-		!utils.SlicesEqualIgnoreOrder(serverManifest.Headers, entryManifest.Headers)
-
-	if drifted {
-		return true, nil
-	}
-
-	// Now check on the URL.
-
+	// First, check on the URL or hostname.
 	if entryManifest.FixedURL != "" && serverManifest.URL != entryManifest.FixedURL {
 		return true, nil
 	}
@@ -67,5 +60,11 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 		}
 	}
 
-	return false, nil
+	// Check the rest of the fields to see if anything has changed.
+	drifted := serverManifest.Command != entryManifest.Command ||
+		!slices.Equal(serverManifest.Args, entryManifest.Args) ||
+		!utils.SlicesEqualIgnoreOrder(serverManifest.Env, entryManifest.Env) ||
+		!utils.SlicesEqualIgnoreOrder(serverManifest.Headers, entryManifest.Headers)
+
+	return drifted, nil
 }
