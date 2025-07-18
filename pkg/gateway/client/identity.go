@@ -277,6 +277,16 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		}
 	}
 
+	for i := range id.AuthProviderGroups {
+		if err := tx.Save(&id.AuthProviderGroups[i]).Error; err != nil {
+			return nil, fmt.Errorf("failed to save group %s: %w", id.AuthProviderGroups[i].ID, err)
+		}
+	}
+
+	if err := tx.Model(id).Association("AuthProviderGroups").Replace(id.AuthProviderGroups); err != nil {
+		return nil, fmt.Errorf("failed to associate groups with identity: %w", err)
+	}
+
 	return user, nil
 }
 
