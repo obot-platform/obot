@@ -17,7 +17,9 @@ func SetupHandlers(baseURL string, config services.OAuthAuthorizationServerConfi
 	}
 
 	mux.HandleFunc("GET /.well-known/oauth-protected-resource/mcp-connect/{mcp_id}", h.oauthProtectedResource)
+	// Some clients choose the wrong URL for oauth-authorization-server. It doesn't harm anything to serve both.
 	mux.HandleFunc("GET /.well-known/oauth-authorization-server/{mcp_id}", h.oauthAuthorization)
+	mux.HandleFunc("GET /.well-known/oauth-authorization-server/mcp-connect/{mcp_id}", h.oauthAuthorization)
 
 	return nil
 }
