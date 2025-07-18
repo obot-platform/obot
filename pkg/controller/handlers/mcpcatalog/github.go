@@ -93,7 +93,6 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 		return nil, fmt.Errorf("not a GitHub URL: %s", catalogURL)
 	}
 
-	// Convert github.com URL to clone URL
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid GitHub URL format, expected github.com/org/repo")
