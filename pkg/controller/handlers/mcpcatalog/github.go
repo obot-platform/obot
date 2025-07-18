@@ -2,25 +2,86 @@ package mcpcatalog
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/obot-platform/obot/apiclient/types"
 	"sigs.k8s.io/yaml"
 )
 
 var githubToken = os.Getenv("GITHUB_AUTH_TOKEN")
 
+// GitHubRepoInfo represents the repository information from GitHub API
+type GitHubRepoInfo struct {
+	Size int `json:"size"` // Size in KB
+}
+
 func isGitHubURL(catalogURL string) bool {
 	u, err := url.Parse(catalogURL)
 	return err == nil && u.Host == "github.com"
+}
+
+// checkRepoSize checks the repository size using GitHub API before cloning
+func checkRepoSize(org, repo string, maxSizeMB int) error {
+	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", org, repo)
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Create request
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create API request: %w", err)
+	}
+
+	// Add authentication if token is available
+	if githubToken != "" {
+		req.Header.Set("Authorization", "Bearer "+githubToken)
+	}
+
+	// Make the request
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to fetch repository info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status
+	if resp.StatusCode == 404 {
+		return fmt.Errorf("repository not found: %s/%s", org, repo)
+	}
+	if resp.StatusCode == 403 {
+		return fmt.Errorf("access denied to repository: %s/%s (may be private or rate limited)", org, repo)
+	}
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("GitHub API returned status %d for repository %s/%s", resp.StatusCode, org, repo)
+	}
+
+	// Parse response
+	var repoInfo GitHubRepoInfo
+	if err := json.NewDecoder(resp.Body).Decode(&repoInfo); err != nil {
+		return fmt.Errorf("failed to parse repository info: %w", err)
+	}
+
+	// Check size (GitHub API returns size in KB)
+	sizeMB := repoInfo.Size / 1024
+	if sizeMB > maxSizeMB {
+		return fmt.Errorf("repository %s/%s is too large: %d MB (limit: %d MB)", org, repo, sizeMB, maxSizeMB)
+	}
+
+	return nil
 }
 
 // validateBranchName validates that the branch name doesn't contain suspicious characters
@@ -107,6 +168,12 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 		}
 	}
 
+	// Check repository size before cloning (limit to 100 MB)
+	const maxRepoSizeMB = 100
+	if err := checkRepoSize(org, repo, maxRepoSizeMB); err != nil {
+		return nil, fmt.Errorf("repository size check failed: %w", err)
+	}
+
 	// Create temporary directory for cloning
 	tempDir, err := os.MkdirTemp("", "catalog-clone-*")
 	if err != nil {
@@ -126,7 +193,7 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 
 	// Set up git credentials if token is available
 	if githubToken != "" {
-		cloneOptions.Auth = &http.BasicAuth{
+		cloneOptions.Auth = &githttp.BasicAuth{
 			Username: "obot", // Use a dummy username. The username is ignored, but required to be non-empty.
 			Password: githubToken,
 		}
