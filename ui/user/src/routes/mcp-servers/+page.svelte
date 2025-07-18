@@ -71,6 +71,7 @@
 	let showServerInfo = $state(false);
 
 	let search = $state('');
+	let highlightedFields = $state<Set<string>>(new Set());
 	let serverInstancesMap = $derived(
 		new Map(
 			userServerInstances.map((instance) => [
@@ -240,6 +241,7 @@
 				parent: connectToEntry?.entry
 			};
 			connectToEntry = undefined;
+			clearHighlights();
 			configDialog?.close();
 			connectDialog?.open();
 		} else if (connectToServer?.server) {
@@ -341,6 +343,78 @@
 		window.open(`/o/${project?.id}`, '_blank');
 		chatLoading = false;
 	}
+
+	function highlightMissingRequiredFields() {
+		const fieldsToHighlight = new Set<string>();
+
+		if (connectToEntry) {
+			// Check required envs
+			connectToEntry.envs?.forEach((env) => {
+				if (env.required && !env.value) {
+					fieldsToHighlight.add(env.key);
+				}
+			});
+
+			// Check required headers
+			connectToEntry.headers?.forEach((header) => {
+				if (header.required && !header.value) {
+					fieldsToHighlight.add(header.key);
+				}
+			});
+
+			// Check URL for URL manifest entries
+			if (connectToEntry.entry.urlManifest && !connectToEntry.url) {
+				fieldsToHighlight.add('url-manifest-url');
+			}
+		}
+
+		highlightedFields = fieldsToHighlight;
+	}
+
+	function clearHighlights() {
+		highlightedFields = new Set();
+	}
+
+	// Clear highlights when values change for sensitive inputs
+	$effect(() => {
+		if (connectToEntry) {
+			connectToEntry.envs?.forEach((env) => {
+				if (env.value && highlightedFields.has(env.key)) {
+					highlightedFields.delete(env.key);
+					highlightedFields = new Set(highlightedFields);
+				}
+			});
+			connectToEntry.headers?.forEach((header) => {
+				if (header.value && highlightedFields.has(header.key)) {
+					highlightedFields.delete(header.key);
+					highlightedFields = new Set(highlightedFields);
+				}
+			});
+			if (connectToEntry.url && highlightedFields.has('url-manifest-url')) {
+				highlightedFields.delete('url-manifest-url');
+				highlightedFields = new Set(highlightedFields);
+			}
+		}
+
+		if (userConfiguredServerToEdit) {
+			userConfiguredServerToEdit.envs?.forEach((env) => {
+				if (env.value && highlightedFields.has(env.key)) {
+					highlightedFields.delete(env.key);
+					highlightedFields = new Set(highlightedFields);
+				}
+			});
+			userConfiguredServerToEdit.headers?.forEach((header) => {
+				if (header.value && highlightedFields.has(header.key)) {
+					highlightedFields.delete(header.key);
+					highlightedFields = new Set(highlightedFields);
+				}
+			});
+			if (userConfiguredServerToEdit.url && highlightedFields.has('url-manifest-url')) {
+				highlightedFields.delete('url-manifest-url');
+				highlightedFields = new Set(highlightedFields);
+			}
+		}
+	});
 
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
@@ -810,7 +884,7 @@
 	<HowToConnect servers={[{ url, name }]} />
 {/snippet}
 
-<ResponsiveDialog bind:this={configDialog} animate="slide">
+<ResponsiveDialog bind:this={configDialog} animate="slide" onClose={clearHighlights}>
 	{#snippet titleContent()}
 		{@render title()}
 	{/snippet}
@@ -822,11 +896,28 @@
 			{@render configureForm(connectToEntry, connectToEntry.entry)}
 			<div class="flex justify-end">
 				<button
-					class="button-primary"
-					disabled={connectToEntry.envs?.some((env) => env.required && !env.value) ||
+					class={`button-primary ${
+						connectToEntry.envs?.some((env) => env.required && !env.value) ||
 						connectToEntry.headers?.some((header) => header.required && !header.value) ||
-						(connectToEntry.entry.urlManifest && !connectToEntry.url)}
-					onclick={handleLaunch}
+						(connectToEntry.entry.urlManifest && !connectToEntry.url)
+							? 'cursor-not-allowed opacity-50'
+							: ''
+					}`}
+					onclick={(e) => {
+						if (!connectToEntry) return;
+
+						const isDisabled =
+							connectToEntry.envs?.some((env) => env.required && !env.value) ||
+							connectToEntry.headers?.some((header) => header.required && !header.value) ||
+							(connectToEntry.entry.urlManifest && !connectToEntry.url);
+
+						if (isDisabled) {
+							e.preventDefault();
+							highlightMissingRequiredFields();
+						} else {
+							handleLaunch();
+						}
+					}}
 				>
 					Launch
 				</button>
@@ -837,7 +928,10 @@
 
 <ResponsiveDialog
 	bind:this={editUserConfiguredServerDialog}
-	onClose={() => (userConfiguredServerToEdit = undefined)}
+	onClose={() => {
+		userConfiguredServerToEdit = undefined;
+		clearHighlights();
+	}}
 >
 	{#snippet titleContent()}
 		<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
@@ -857,9 +951,38 @@
 		{@render configureForm(userConfiguredServerToEdit)}
 		<div class="flex justify-end">
 			<button
-				class="button-primary"
-				onclick={async () => {
-					if (userConfiguredServerToEdit) {
+				class={`button-primary ${
+					userConfiguredServerToEdit?.envs?.some((env) => env.required && !env.value) ||
+					userConfiguredServerToEdit?.headers?.some((header) => header.required && !header.value)
+						? 'cursor-not-allowed opacity-50'
+						: ''
+				}`}
+				onclick={async (e) => {
+					if (!userConfiguredServerToEdit) return;
+
+					const isDisabled =
+						userConfiguredServerToEdit.envs?.some((env) => env.required && !env.value) ||
+						userConfiguredServerToEdit.headers?.some((header) => header.required && !header.value);
+
+					if (isDisabled) {
+						e.preventDefault();
+						// Highlight missing fields for edit dialog
+						const fieldsToHighlight = new Set<string>();
+
+						userConfiguredServerToEdit.envs?.forEach((env) => {
+							if (env.required && !env.value) {
+								fieldsToHighlight.add(env.key);
+							}
+						});
+
+						userConfiguredServerToEdit.headers?.forEach((header) => {
+							if (header.required && !header.value) {
+								fieldsToHighlight.add(header.key);
+							}
+						});
+
+						highlightedFields = fieldsToHighlight;
+					} else {
 						const secretValues = convertEnvHeadersToRecord(
 							userConfiguredServerToEdit.envs,
 							userConfiguredServerToEdit.headers
@@ -868,6 +991,7 @@
 							userConfiguredServerToEdit.id,
 							secretValues
 						);
+						clearHighlights();
 						editUserConfiguredServerDialog?.close();
 						await loadData(true);
 					}
@@ -898,16 +1022,24 @@
 						</label>
 						<InfoTooltip text={env.description} />
 					</span>
-					{#if env.sensitive}
-						<SensitiveInput name={env.name} bind:value={fields.envs[i].value} />
-					{:else}
-						<input
-							type="text"
-							id={env.key}
-							bind:value={fields.envs[i].value}
-							class="text-input-filled"
-						/>
-					{/if}
+					<div class={highlightedFields.has(env.key) ? 'rounded ring-2 ring-red-500' : ''}>
+						{#if env.sensitive}
+							<SensitiveInput name={env.name} bind:value={fields.envs[i].value} />
+						{:else}
+							<input
+								type="text"
+								id={env.key}
+								bind:value={fields.envs[i].value}
+								class="text-input-filled"
+								oninput={() => {
+									if (highlightedFields.has(env.key)) {
+										highlightedFields.delete(env.key);
+										highlightedFields = new Set(highlightedFields);
+									}
+								}}
+							/>
+						{/if}
+					</div>
 				</div>
 			{/each}
 		{/if}
@@ -923,29 +1055,52 @@
 						</label>
 						<InfoTooltip text={header.description} />
 					</span>
-					{#if header.sensitive}
-						<SensitiveInput name={header.name} bind:value={fields.headers[i].value} />
-					{:else}
-						<input
-							type="text"
-							id={header.key}
-							bind:value={fields.headers[i].value}
-							class="text-input-filled"
-						/>
-					{/if}
+					<div class={highlightedFields.has(header.key) ? 'rounded ring-2 ring-red-500' : ''}>
+						{#if header.sensitive}
+							<SensitiveInput name={header.name} bind:value={fields.headers[i].value} />
+						{:else}
+							<input
+								type="text"
+								id={header.key}
+								bind:value={fields.headers[i].value}
+								class="text-input-filled"
+								oninput={() => {
+									if (highlightedFields.has(header.key)) {
+										highlightedFields.delete(header.key);
+										highlightedFields = new Set(highlightedFields);
+									}
+								}}
+							/>
+						{/if}
+					</div>
 				</div>
 			{/each}
 		{/if}
 		{#if entry?.urlManifest || fields.url}
-			<label for="url-manifest-url"> URL </label>
-			<input type="text" id="url-manifest-url" bind:value={fields.url} class="text-input-filled" />
-			{#if entry?.urlManifest?.hostname}
-				<span class="font-light text-gray-400 dark:text-gray-600">
-					The URL must contain the hostname: <b class="font-semibold">
-						{entry.urlManifest.hostname}
-					</b>
-				</span>
-			{/if}
+			<div class="flex flex-col gap-1">
+				<label for="url-manifest-url"> URL </label>
+				<div class={highlightedFields.has('url-manifest-url') ? 'rounded ring-2 ring-red-500' : ''}>
+					<input
+						type="text"
+						id="url-manifest-url"
+						bind:value={fields.url}
+						class="text-input-filled"
+						oninput={() => {
+							if (highlightedFields.has('url-manifest-url')) {
+								highlightedFields.delete('url-manifest-url');
+								highlightedFields = new Set(highlightedFields);
+							}
+						}}
+					/>
+				</div>
+				{#if entry?.urlManifest?.hostname}
+					<span class="font-light text-gray-400 dark:text-gray-600">
+						The URL must contain the hostname: <b class="font-semibold">
+							{entry.urlManifest.hostname}
+						</b>
+					</span>
+				{/if}
+			</div>
 		{/if}
 	</div>
 {/snippet}
