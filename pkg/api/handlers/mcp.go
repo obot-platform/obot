@@ -1718,3 +1718,203 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		}
 	}
 }
+
+func (m *MCPHandler) TestCatalogEntryInstance(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+	entryID := req.PathValue("entry_id")
+
+	// Get the catalog entry
+	var catalogEntry v1.MCPServerCatalogEntry
+	if err := req.Get(&catalogEntry, entryID); err != nil {
+		return fmt.Errorf("failed to get catalog entry: %w", err)
+	}
+
+	// Verify the entry belongs to the specified catalog
+	if catalogEntry.Spec.MCPCatalogName != catalogID {
+		return types.NewErrNotFound("catalog entry not found in specified catalog")
+	}
+
+	// Read test configuration from request body
+	var testConfig struct {
+		Env     map[string]string `json:"env,omitempty"`
+		Headers map[string]string `json:"headers,omitempty"`
+		URL     string            `json:"url,omitempty"`
+	}
+	if err := req.Read(&testConfig); err != nil {
+		return types.NewErrBadRequest("failed to read test configuration: %v", err)
+	}
+
+	// Determine which manifest to use and convert to MCPServerManifest
+	var manifest types.MCPServerManifest
+	if catalogEntry.Spec.CommandManifest.Command != "" {
+		// Convert from catalog entry manifest to server manifest
+		catalogManifest := catalogEntry.Spec.CommandManifest
+		manifest = types.MCPServerManifest{
+			Metadata:    catalogManifest.Metadata,
+			Name:        catalogManifest.Name,
+			Description: catalogManifest.Description,
+			Icon:        catalogManifest.Icon,
+			ToolPreview: catalogManifest.ToolPreview,
+			Env:         catalogManifest.Env,
+			Command:     catalogManifest.Command,
+			Args:        catalogManifest.Args,
+			Headers:     catalogManifest.Headers,
+		}
+	} else if catalogEntry.Spec.URLManifest.FixedURL != "" || catalogEntry.Spec.URLManifest.Hostname != "" {
+		// Convert from catalog entry manifest to server manifest
+		catalogManifest := catalogEntry.Spec.URLManifest
+		manifest = types.MCPServerManifest{
+			Metadata:    catalogManifest.Metadata,
+			Name:        catalogManifest.Name,
+			Description: catalogManifest.Description,
+			Icon:        catalogManifest.Icon,
+			ToolPreview: catalogManifest.ToolPreview,
+			Env:         catalogManifest.Env,
+			Command:     catalogManifest.Command,
+			Args:        catalogManifest.Args,
+			Headers:     catalogManifest.Headers,
+		}
+		// Set URL from FixedURL or test config
+		if catalogManifest.FixedURL != "" {
+			manifest.URL = catalogManifest.FixedURL
+		} else if testConfig.URL != "" {
+			manifest.URL = testConfig.URL
+		}
+	} else {
+		return types.NewErrBadRequest("catalog entry has no valid manifest")
+	}
+
+	// Create a temporary MCP server for testing
+	testServer := v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.MCPServerPrefix + "test-",
+			Namespace:    req.Namespace(),
+		},
+		Spec: v1.MCPServerSpec{
+			MCPServerCatalogEntryName: entryID,
+			UserID:                    req.User.GetUID(),
+			Manifest:                  manifest,
+		},
+	}
+
+	// Add extracted env vars to the server definition
+	addExtractedEnvVars(&testServer)
+
+	if err := req.Create(&testServer); err != nil {
+		return fmt.Errorf("failed to create test server: %w", err)
+	}
+
+	// Ensure cleanup happens regardless of success or failure
+	defer func() {
+		// Clean up the test server
+		if err := req.Delete(&testServer); err != nil {
+			fmt.Printf("Warning: failed to cleanup test server %s: %v\n", testServer.Name, err)
+		}
+	}()
+
+	// Configure the server with provided env vars and headers
+	credCtx := fmt.Sprintf("%s-%s", req.User.GetUID(), testServer.Name)
+
+	// Merge env and headers into a single map for credential storage
+	allEnvVars := make(map[string]string)
+	for k, v := range testConfig.Env {
+		if v != "" {
+			allEnvVars[k] = v
+		}
+	}
+	for k, v := range testConfig.Headers {
+		if v != "" {
+			allEnvVars[k] = v
+		}
+	}
+
+	if len(allEnvVars) > 0 {
+		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
+			Context:  credCtx,
+			ToolName: testServer.Name,
+			Type:     gptscript.CredentialTypeTool,
+			Env:      allEnvVars,
+		}); err != nil {
+			return fmt.Errorf("failed to create test credentials: %w", err)
+		}
+
+		// Ensure credential cleanup
+		defer func() {
+			if err := req.GPTClient.DeleteCredential(req.Context(), credCtx, testServer.Name); err != nil {
+				fmt.Printf("Warning: failed to cleanup test credentials for %s: %v\n", testServer.Name, err)
+			}
+		}()
+	}
+
+	// Create server config and fetch tools
+	serverConfig, missingConfig, err := mcp.ToServerConfig(m.tokenService, testServer, strings.TrimSuffix(req.APIBaseURL, "/api"), req.User.GetUID(), allEnvVars)
+	if err != nil {
+		return fmt.Errorf("failed to create server config: %w", err)
+	}
+
+	if len(missingConfig) > 0 {
+		return types.NewErrBadRequest("missing required configuration: %s", strings.Join(missingConfig, ", "))
+	}
+
+	// Try to fetch tools with a timeout
+	ctx, cancel := context.WithTimeout(req.Context(), 30*time.Second)
+	defer cancel()
+
+	tools, err := m.mcpSessionManager.ListTools(ctx, testServer, serverConfig)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return types.NewErrHTTP(http.StatusRequestTimeout, "timeout while fetching tools from MCP server")
+		}
+		if strings.HasSuffix(err.Error(), "Method not found") {
+			// Server doesn't support tools, return empty list
+			return req.Write([]types.MCPServerTool{})
+		}
+		return fmt.Errorf("failed to fetch tools: %w", err)
+	}
+
+	// Convert tools to response format
+	mcpTools := make([]types.MCPServerTool, 0, len(tools))
+	for _, tool := range tools {
+		mcpTool := types.MCPServerTool{
+			ID:          tool.Name,
+			Name:        tool.Name,
+			Description: tool.Description,
+			Enabled:     true,
+		}
+
+		if len(tool.InputSchema) > 0 {
+			var schema jsonschema.Schema
+			schemaData, err := json.Marshal(tool.InputSchema)
+			if err != nil {
+				return fmt.Errorf("failed to marshal input schema for tool %s: %w", tool.Name, err)
+			}
+
+			if err := json.Unmarshal(schemaData, &schema); err != nil {
+				return fmt.Errorf("failed to unmarshal tool input schema: %w", err)
+			}
+
+			mcpTool.Params = make(map[string]string, len(schema.Properties))
+			for name, param := range schema.Properties {
+				if param != nil {
+					mcpTool.Params[name] = param.Description
+				}
+			}
+		}
+
+		mcpTools = append(mcpTools, mcpTool)
+	}
+
+	// Update the catalog entry with the tool preview directly (bypasses editable check)
+	if catalogEntry.Spec.CommandManifest.Command != "" {
+		catalogEntry.Spec.CommandManifest.ToolPreview = mcpTools
+	} else if catalogEntry.Spec.URLManifest.FixedURL != "" || catalogEntry.Spec.URLManifest.Hostname != "" {
+		catalogEntry.Spec.URLManifest.ToolPreview = mcpTools
+	}
+
+	if err := req.Update(&catalogEntry); err != nil {
+		// Log error but don't fail the request since the tools were successfully fetched
+		fmt.Printf("Warning: failed to update catalog entry with tool preview: %v\n", err)
+	}
+
+	return req.Write(mcpTools)
+}

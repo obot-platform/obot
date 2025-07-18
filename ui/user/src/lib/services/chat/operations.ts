@@ -1471,6 +1471,8 @@ export async function listSingleOrRemoteMcpServerTools(id: string): Promise<MCPS
 	return response.items ?? [];
 }
 
+
+
 export async function listSingleOrRemoteMcpServerPrompts(id: string): Promise<MCPServerPrompt[]> {
 	const response = (await doGet(`/mcp-servers/${id}/prompts`, {
 		dontLogErrors: true
@@ -1506,6 +1508,22 @@ export async function createMcpServerInstance(mcpServerID: string): Promise<MCPS
 	const response = (await doPost('/mcp-server-instances', {
 		mcpServerID
 	})) as MCPServerInstance;
+	return response;
+}
+
+export async function testMcpCatalogEntryInstance(
+	catalogId: string,
+	entryId: string,
+	config: {
+		env?: Record<string, string>;
+		headers?: Record<string, string>;
+		url?: string;
+	}
+): Promise<MCPServerTool[]> {
+	const response = (await doPost(
+		`/mcp-catalogs/${catalogId}/entries/${entryId}/test-instance`,
+		config
+	)) as MCPServerTool[];
 	return response;
 }
 
