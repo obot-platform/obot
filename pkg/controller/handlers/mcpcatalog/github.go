@@ -127,7 +127,7 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 	// Set up git credentials if token is available
 	if githubToken != "" {
 		cloneOptions.Auth = &http.BasicAuth{
-			Username: "obot", // Use a dummy username
+			Username: "obot", // Use a dummy username. The username is ignored, but required to be non-empty.
 			Password: githubToken,
 		}
 	}
