@@ -821,7 +821,17 @@
 		{:else}
 			{@render configureForm(connectToEntry, connectToEntry.entry)}
 			<div class="flex justify-end">
-				<button class="button-primary" onclick={handleLaunch}>Launch</button>
+				<button
+					class="button-primary"
+					disabled={
+						connectToEntry.envs?.some((env) => env.required && !env.value) ||
+						connectToEntry.headers?.some((header) => header.required && !header.value) ||
+						(connectToEntry.entry.urlManifest && !connectToEntry.url)
+					}
+					onclick={handleLaunch}
+				>
+					Launch
+				</button>
 			</div>
 		{/if}
 	{/if}
