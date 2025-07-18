@@ -5,7 +5,8 @@
 		type MCPServerPrompt,
 		type McpServerResource,
 		ChatService,
-		AdminService
+		AdminService,
+		type Project
 	} from '$lib/services';
 	import type { MCPCatalogEntry, MCPCatalogServerManifest } from '$lib/services/admin/types';
 	import { CircleCheckBig, CircleOff, LoaderCircle, Pencil } from 'lucide-svelte';
@@ -22,6 +23,7 @@
 		editable?: boolean;
 		catalogId?: string;
 		onUpdate?: () => void;
+		project?: Project;
 	}
 
 	type EntryDetail = {
@@ -132,7 +134,7 @@
 		}
 	}
 
-	let { entry, editable = false, catalogId, onUpdate }: Props = $props();
+	let { entry, editable = false, catalogId, onUpdate, project }: Props = $props();
 	let tools = $state<MCPServerTool[]>([]);
 	let prompts = $state<MCPServerPrompt[]>([]);
 	let resources = $state<McpServerResource[]>([]);
@@ -158,19 +160,25 @@
 	async function loadServerData() {
 		loading = true;
 		try {
-			tools = await ChatService.listMcpCatalogServerTools(entry.id);
+			tools = project
+				? await ChatService.listProjectMCPServerTools(project.assistantID, project.id, entry.id)
+				: await ChatService.listMcpCatalogServerTools(entry.id);
 		} catch (err) {
 			tools = [];
 			console.error(err);
 		}
 		try {
-			prompts = await ChatService.listMcpCatalogServerPrompts(entry.id);
+			prompts = project
+				? await ChatService.listProjectMcpServerPrompts(project.assistantID, project.id, entry.id)
+				: await ChatService.listMcpCatalogServerPrompts(entry.id);
 		} catch (err) {
 			prompts = [];
 			console.error(err);
 		}
 		try {
-			resources = await ChatService.listMcpCatalogServerResources(entry.id);
+			resources = project
+				? await ChatService.listProjectMcpServerResources(project.assistantID, project.id, entry.id)
+				: await ChatService.listMcpCatalogServerResources(entry.id);
 		} catch (err) {
 			resources = [];
 			console.error(err);

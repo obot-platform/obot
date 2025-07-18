@@ -30,6 +30,7 @@ export interface Layout {
 		| 'invitations'
 		| 'model-providers'
 		| 'mcp-server-tools'
+		| 'mcp-server'
 		| 'mcpserver-interface';
 
 	editProjectMcp?: ProjectMCP;
@@ -84,6 +85,12 @@ export function openMCPServerTools(layout: Layout, mcpServer: ProjectMCP) {
 	layout.mcpServer = mcpServer;
 }
 
+export function openMCPServer(layout: Layout, mcpServer: ProjectMCP) {
+	closeAll(layout);
+	layout.fileEditorOpen = false;
+	layout.sidebarConfig = 'mcp-server';
+	layout.mcpServer = mcpServer;
+}
 export function closeSidebarConfig(layout: Layout) {
 	layout.sidebarConfig = undefined;
 	layout.editProjectMcp = undefined;

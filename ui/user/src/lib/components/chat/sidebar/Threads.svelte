@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Pen, Plus, Save, Trash2 } from 'lucide-svelte';
+	import { Pen, Save, Trash2 } from 'lucide-svelte';
 	import { ChatService, type Project, type Thread } from '$lib/services';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { CircleX } from 'lucide-svelte/icons';
@@ -8,17 +8,13 @@
 	import { overflowToolTip } from '$lib/actions/overflow.js';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { responsive } from '$lib/stores';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	interface Props {
 		currentThreadID?: string;
 		project: Project;
-		editor?: boolean;
 	}
 
-	let { currentThreadID = $bindable(), project, editor }: Props = $props();
+	let { currentThreadID = $bindable(), project }: Props = $props();
 
 	let input = $state<HTMLInputElement>();
 	let editMode = $state(false);
@@ -202,36 +198,12 @@
 </script>
 
 {#if isOpen}
-	{#if editor}
-		<CollapsePane
-			classes={{ header: 'pl-3 py-2', content: 'p-2' }}
-			iconSize={5}
-			header="Threads"
-			helpText={HELPER_TEXTS.threads}
-			open={(layout.threads?.length ?? 0) > 0}
-		>
-			<div class="flex flex-col gap-4 text-xs">
-				{@render content()}
-			</div>
-			{#if (layout.threads?.length ?? 0) === 0}
-				<div class="flex justify-end" in:fade>
-					<button class="button flex items-center gap-1 text-xs" onclick={() => createThread()}>
-						<Plus class="size-4" /> Start New Thread
-					</button>
-				</div>
-			{/if}
-		</CollapsePane>
-	{:else}
-		<div class="flex flex-col px-3 text-xs">
-			<div class="mb-1 flex items-center justify-between">
-				<p class="grow text-sm font-semibold">Threads</p>
-				<button class="icon-button" onclick={createThread} use:tooltip={'Start New Thread'}>
-					<Plus class="h-5 w-5" />
-				</button>
-			</div>
-			{@render content()}
+	<div class="flex flex-col px-3 text-xs">
+		<div class="mb-1 flex items-center justify-between">
+			<p class="grow text-sm font-light text-gray-500">Threads</p>
 		</div>
-	{/if}
+		{@render content()}
+	</div>
 {/if}
 
 {#snippet content()}

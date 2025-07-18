@@ -1,89 +1,86 @@
 <script lang="ts">
-	import { twMerge } from 'tailwind-merge';
-	import { CircleCheckBig, Server } from 'lucide-svelte';
-	import type { TransformedMcp } from './McpCatalog.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
+	import type { MCPCatalogServer, MCPCatalogEntry } from '$lib/services';
+	import { parseCategories } from '$lib/services/chat/mcp';
+	import { Server, Unplug } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
+
 	interface Props {
-		data: TransformedMcp;
-		onSelect: (data: TransformedMcp) => void;
-		selected?: boolean;
-		disabled?: boolean;
-		tags?: string[];
+		data:
+			| MCPCatalogServer
+			| MCPCatalogEntry
+			| (MCPCatalogServer & { categories: string[] })
+			| (MCPCatalogEntry & { categories: string[] });
+		onClick: () => void;
+		action?: Snippet;
 	}
-	let { data, selected, disabled, tags, onSelect }: Props = $props();
+
+	let { data, onClick, action }: Props = $props();
+	let icon = $derived(
+		'manifest' in data ? data.manifest.icon : (data.commandManifest?.icon ?? data.urlManifest?.icon)
+	);
+	let name = $derived(
+		'manifest' in data ? data.manifest.name : (data.commandManifest?.name ?? data.urlManifest?.name)
+	);
+	let categories = $derived('categories' in data ? data.categories : parseCategories(data));
 </script>
 
-<div class="relative h-full w-full">
-	{#if selected && !disabled}
-		<CircleCheckBig class="absolute top-3 right-3 z-25 size-5 text-blue-500" />
-	{/if}
+<div class="relative flex flex-col">
 	<button
-		onclick={() => {
-			if (!disabled) {
-				onSelect(data);
-			}
-		}}
-		class={twMerge(
-			'card group from-surface2 to-surface1 relative z-20 h-full w-full flex-col overflow-hidden border border-transparent bg-radial-[at_25%_25%] to-75% shadow-sm select-none',
-			selected && !disabled && 'transform-none border border-blue-500',
-			disabled && 'cursor-not-allowed opacity-50'
-		)}
+		class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
+		onclick={onClick}
 	>
-		{#if data}
-			<div class="flex h-fit w-full flex-col gap-2 p-3 md:h-auto md:grow">
-				<div class="flex w-full items-center gap-2">
-					<div class="flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-						{#if data.icon}
-							<img alt="obot logo" src={data.icon} class="size-6" />
-						{:else}
-							<Server class="size-4" />
-						{/if}
-					</div>
-					<div class="flex flex-col text-left">
-						<h4 class="line-clamp-1 text-sm font-semibold">
-							{data.name}
-						</h4>
-						{#if data.description}
-							<div class="card-description-content message-content line-clamp-1 grow text-left">
-								{@html stripMarkdownToText(data.description)}
-							</div>
-						{/if}
-					</div>
-				</div>
-				<div class="flex w-full grow justify-between gap-2 text-xs">
-					<div class="flex h-fit flex-wrap gap-1">
-						{#if tags}
-							{#each tags as tag (tag)}
-								<span
-									class="border-surface3 dark:border-surface3 flex h-fit items-center gap-1 rounded-md border px-1 text-[11px] text-gray-500"
-								>
-									{tag}
-								</span>
-							{/each}
-						{/if}
-					</div>
-				</div>
+		<div class="flex items-center gap-2 pr-6">
+			<div
+				class="flex size-8 flex-shrink-0 items-center justify-center self-start rounded-md bg-transparent p-0.5 dark:bg-gray-600"
+			>
+				{#if icon}
+					<img src={icon} alt={name} />
+				{:else}
+					<Server />
+				{/if}
 			</div>
-		{/if}
+			<div class="flex max-w-[calc(100%-2rem)] flex-col">
+				<p class="text-sm font-semibold">{name}</p>
+				<span
+					class={twMerge(
+						'text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600',
+						categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
+					)}
+				>
+					{#if 'manifest' in data}
+						{stripMarkdownToText(data.manifest.description ?? '')}
+					{:else}
+						{stripMarkdownToText(
+							data.commandManifest?.description ?? data.urlManifest?.description ?? ''
+						)}
+					{/if}
+				</span>
+			</div>
+		</div>
+		<div class="flex w-full flex-wrap gap-1 pt-2">
+			{#each categories as category (category)}
+				<div
+					class="border-surface3 rounded-full border px-1.5 py-0.5 text-[10px] font-light text-gray-400 dark:text-gray-600"
+				>
+					{category}
+				</div>
+			{/each}
+		</div>
 	</button>
+	<div class="absolute -top-2 right-0 flex h-full translate-y-2 flex-col justify-between gap-4 p-2">
+		{#if action}
+			{@render action()}
+		{:else}
+			<button
+				class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
+				use:tooltip={'Connect to server'}
+				onclick={onClick}
+			>
+				<Unplug class="size-4" />
+			</button>
+		{/if}
+	</div>
 </div>
-
-<style lang="postcss">
-	:global {
-		.card-description-content.message-content {
-			/** override some message-content styles that don't fit for description section */
-			& p {
-				color: var(--color-gray-500);
-				font-size: var(--text-xs);
-				font-weight: var(--font-weight-light);
-			}
-
-			& a {
-				color: var(--color-blue-600);
-				.dark & {
-					color: var(--color-blue-400);
-				}
-			}
-		}
-	}
-</style>

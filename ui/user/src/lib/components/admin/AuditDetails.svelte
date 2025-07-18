@@ -194,7 +194,6 @@
 				toolName,
 				count
 			}));
-			console.log(results);
 			return results;
 		} else if (view === 'resources') {
 			// Aggregate resource read statistics across all usage stats
