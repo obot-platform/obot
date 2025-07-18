@@ -69,7 +69,7 @@ var apiResources = []string{
 	"POST    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/deconfigure-shared",
 	"POST    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/reveal-shared",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/prompts",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/prompts/{prompt_name}",
+	"POST   /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/prompts/{prompt_name}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/resources",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/resources/{resource_uri}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/tools",
