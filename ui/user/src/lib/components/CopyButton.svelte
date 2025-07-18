@@ -28,6 +28,12 @@
 	let buttonTextToShow = $state(buttonText);
 	const COPIED_TEXT = 'Copied!';
 
+	// Check if clipboard is available
+	let clipboardUnavailable = $derived(typeof navigator === 'undefined' || !navigator.clipboard);
+
+	// Combine explicit disabled prop with clipboard availability
+	let isDisabled = $derived(disabled || clipboardUnavailable);
+
 	function copy() {
 		if (!text) return;
 		if (!navigator.clipboard) return;
@@ -45,7 +51,7 @@
 	<button
 		use:tooltip={message}
 		onclick={() => copy()}
-		{disabled}
+		disabled={isDisabled}
 		onmouseenter={() => (buttonTextToShow = buttonText)}
 		class={twMerge(
 			buttonText &&
