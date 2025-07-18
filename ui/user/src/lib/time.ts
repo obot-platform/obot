@@ -87,3 +87,120 @@ export function formatTimeAgo(timestamp: string | undefined): TimeAgoResult {
 
 	return { relativeTime, fullDate };
 }
+
+export function formatTimeRange(startTime: string, endTime: string): string {
+	if (!startTime || !endTime) return '';
+
+	const start = new Date(startTime);
+	const end = new Date(endTime);
+	const now = new Date();
+
+	const durationInHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+	const endIsCloseToNow = Math.abs(end.getTime() - now.getTime()) < 1000; // 1 sec leeway
+	if (Math.abs(durationInHours - 24) < 0.1 && endIsCloseToNow) {
+		// Within 6 minutes of exactly 24 hours and ending close to now
+		return 'Last 24 Hours';
+	}
+
+	// Check if it's the last 7 days
+	const sevenDayDurationInHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+	const isLast7Days =
+		Math.abs(sevenDayDurationInHours - 168) < 0.1 &&
+		Math.abs(end.getTime() - now.getTime()) < 24 * 60 * 60 * 1000;
+
+	if (isLast7Days) {
+		return 'Last 7 Days';
+	}
+
+	// Check if it's a whole day (start at 00:00 and end at 23:59 or next day 00:00)
+	const startHour = start.getHours();
+	const startMinute = start.getMinutes();
+	const endHour = end.getHours();
+	const endMinute = end.getMinutes();
+
+	// Check if start and end are on the same date
+	const isSameDate =
+		start.getDate() === end.getDate() &&
+		start.getMonth() === end.getMonth() &&
+		start.getFullYear() === end.getFullYear();
+
+	const isWholeDay =
+		isSameDate &&
+		startHour === 0 &&
+		startMinute === 0 &&
+		((endHour === 0 && endMinute === 0) || (endHour === 23 && endMinute === 59));
+
+	if (isWholeDay) {
+		// Format as just the date
+		return start.toLocaleDateString(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		});
+	}
+
+	// Check if both times are at midnight (00:00)
+	const bothAtMidnight = startHour === 0 && startMinute === 0 && endHour === 0 && endMinute === 0;
+
+	if (bothAtMidnight) {
+		// Format as just date range when both times are at midnight
+		const startDateFormatted = start.toLocaleDateString(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		});
+
+		const endDateFormatted = end.toLocaleDateString(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		});
+
+		return `${startDateFormatted} - ${endDateFormatted}`;
+	}
+
+	// Format as date & time range
+	const startFormatted = start.toLocaleString(undefined, {
+		month: 'numeric',
+		day: 'numeric',
+		year: '2-digit',
+		hour: 'numeric',
+		minute: '2-digit',
+		hour12: true
+	});
+
+	const endFormatted = end.toLocaleString(undefined, {
+		month: 'numeric',
+		day: 'numeric',
+		year: '2-digit',
+		hour: 'numeric',
+		minute: '2-digit',
+		hour12: true
+	});
+
+	return `${startFormatted} - ${endFormatted}`;
+}
+
+export function getTimeRangeShorthand(startTime: string, endTime: string): string {
+	const start = new Date(startTime);
+	const end = new Date(endTime);
+	const diffMs = end.getTime() - start.getTime();
+
+	const hours = diffMs / (1000 * 60 * 60);
+	const days = hours / 24;
+	const weeks = days / 7;
+	const months = days / 30.44; // Average days per month
+	const years = days / 365.25; // Average days per year
+
+	if (years >= 1) {
+		return `${Math.round(years)}y`;
+	} else if (months >= 1) {
+		return `${Math.round(months)}mo`;
+	} else if (weeks >= 1) {
+		return `${Math.round(weeks)}w`;
+	} else if (days >= 1) {
+		return `${Math.round(days)}d`;
+	} else {
+		return `${Math.round(hours)}h`;
+	}
+}

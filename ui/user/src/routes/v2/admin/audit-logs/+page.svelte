@@ -2,9 +2,11 @@
 	import { browser } from '$app/environment';
 	import { afterNavigate, goto } from '$app/navigation';
 	import AuditDetails from '$lib/components/admin/AuditDetails.svelte';
+	import Calendar, { type DateRange } from '$lib/components/Calendar.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { type OrgUser, type AuditLogFilters, AdminService } from '$lib/services';
+	import { formatTimeRange, getTimeRangeShorthand } from '$lib/time';
 	import { Captions, X } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 
@@ -12,6 +14,18 @@
 
 	let users = $state<OrgUser[]>([]);
 	let currentFilters = $state<AuditLogFilters & { mcpId?: string | null }>({});
+
+	let timeRange = $derived(
+		currentFilters.startTime || currentFilters.endTime
+			? {
+					startTime: currentFilters.startTime ?? '',
+					endTime: currentFilters.endTime ?? ''
+				}
+			: {
+					startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+					endTime: new Date().toISOString()
+				}
+	);
 
 	afterNavigate(() => {
 		currentFilters = compileFilters();
@@ -70,6 +84,36 @@
 		if (key === 'sessionId') return 'Session ID';
 		return key;
 	}
+
+	function handleDateChange(value: DateRange) {
+		const url = new URL(window.location.href);
+
+		// make sure to preserve existing filters
+		Object.entries(currentFilters).forEach(([key, filterValue]) => {
+			if (filterValue && key !== 'startTime' && key !== 'endTime') {
+				let urlKey = key;
+				if (key === 'mcpServerDisplayName') {
+					urlKey = 'name';
+				} else if (key === 'mcpServerCatalogEntryName') {
+					urlKey = 'entryId';
+				}
+				url.searchParams.set(urlKey, String(filterValue));
+			}
+		});
+
+		if (value.start && value.end) {
+			url.searchParams.set('startTime', value.start.toISOString());
+			url.searchParams.set('endTime', value.end.toISOString());
+		} else if (value.start) {
+			// If no end time, assume full day of startTime (end at 23:59:59)
+			const endOfDay = new Date(value.start);
+			endOfDay.setHours(23, 59, 59, 999);
+			url.searchParams.set('startTime', value.start.toISOString());
+			url.searchParams.set('endTime', endOfDay.toISOString());
+		}
+
+		goto(url.toString());
+	}
 </script>
 
 <Layout>
@@ -77,6 +121,7 @@
 		<div class="flex min-h-full flex-col gap-8 pb-8">
 			<div class="flex items-center justify-between gap-4">
 				<h1 class="text-2xl font-semibold">Audit Logs</h1>
+				{@render datetimeRangeSelector()}
 			</div>
 			{@render filters()}
 			{@render logsContent()}
@@ -89,7 +134,7 @@
 	{@const hasFilters = Object.entries(currentFilters).some(([_, value]) => value)}
 	{#if hasFilters}
 		<div class="flex flex-wrap items-center gap-2">
-			{#each keys as key (key)}
+			{#each keys.filter((key) => key !== 'startTime' && key !== 'endTime') as key (key)}
 				{@const value = currentFilters[key as keyof typeof currentFilters]}
 				{#if value}
 					<div
@@ -132,6 +177,11 @@
 			mcpCatalogEntryId={mcpServerCatalogEntryName ?? undefined}
 			mcpServerDisplayName={mcpServerDisplayName ?? undefined}
 			{users}
+			filters={{
+				...currentFilters,
+				startTime: timeRange.startTime,
+				endTime: timeRange.endTime
+			}}
 		>
 			{#snippet emptyContent()}
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
@@ -143,6 +193,28 @@
 				</div>
 			{/snippet}
 		</AuditDetails>
+	</div>
+{/snippet}
+
+{#snippet datetimeRangeSelector()}
+	<div class="flex items-center">
+		<div
+			class="dark:border-surface3 dark:bg-surface1 flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-l-lg border border-r-0 border-transparent bg-white px-2 text-sm shadow-sm"
+		>
+			<span class="bg-surface3 rounded-md px-3 py-1 text-xs">
+				{getTimeRangeShorthand(timeRange.startTime, timeRange.endTime)}
+			</span>
+			{formatTimeRange(timeRange.startTime, timeRange.endTime)}
+		</div>
+		<Calendar
+			compact
+			class="dark:border-surface3 hover:bg-surface1 dark:hover:bg-surface3 dark:bg-surface1 flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-none rounded-r-lg border border-transparent bg-white px-4 text-sm shadow-sm"
+			initialValue={{
+				start: new Date(timeRange.startTime),
+				end: timeRange.endTime ? new Date(timeRange.endTime) : null
+			}}
+			onChange={handleDateChange}
+		/>
 	</div>
 {/snippet}
 

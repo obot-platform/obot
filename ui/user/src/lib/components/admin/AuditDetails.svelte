@@ -79,8 +79,8 @@
 				limit
 			});
 			listUsageStats = AdminService.listServerOrInstanceAuditLogStats(mcpId, {
-				startTime: filters?.startTime ?? undefined,
-				endTime: filters?.endTime ?? undefined
+				startTime: filters?.startTime ?? '',
+				endTime: filters?.endTime ?? ''
 			});
 		} else {
 			listAuditLogs = AdminService.listAuditLogs({
@@ -91,8 +91,8 @@
 				limit
 			});
 			listUsageStats = AdminService.listAuditLogUsageStats({
-				startTime: filters?.startTime ?? undefined,
-				endTime: filters?.endTime ?? undefined,
+				startTime: filters?.startTime ?? '',
+				endTime: filters?.endTime ?? '',
 				mcpServerCatalogEntryName: mcpCatalogEntryId,
 				mcpServerDisplayName
 			});
@@ -194,7 +194,6 @@
 				toolName,
 				count
 			}));
-			console.log(results);
 			return results;
 		} else if (view === 'resources') {
 			// Aggregate resource read statistics across all usage stats
@@ -253,8 +252,13 @@
 		{@const uniqueUsers = usageResponse?.uniqueUsers ?? 0}
 		<div class="flex flex-col gap-4">
 			<div class="flex w-full items-center justify-between gap-4">
-				<div>
-					<StatBar {totalCalls} {uniqueUsers} />
+				<div class="flex items-center gap-4">
+					<StatBar
+						{totalCalls}
+						{uniqueUsers}
+						startTime={filters?.startTime ?? ''}
+						endTime={filters?.endTime ?? ''}
+					/>
 				</div>
 				<div
 					class="border-surface3 flex h-fit items-center overflow-hidden rounded-full border text-sm"
@@ -440,7 +444,18 @@
 							{d.client.name}/{d.client.version}
 						{/if}
 					{:else if property === 'createdAt'}
-						{new Date(d.createdAt).toISOString()}
+						{new Date(d.createdAt)
+							.toLocaleString(undefined, {
+								year: 'numeric',
+								month: 'short',
+								day: 'numeric',
+								hour: '2-digit',
+								minute: '2-digit',
+								second: '2-digit',
+								hour12: true,
+								timeZoneName: 'short'
+							})
+							.replace(/,/g, '')}
 					{:else}
 						{d[property as keyof typeof d]}
 					{/if}
