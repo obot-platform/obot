@@ -823,11 +823,9 @@
 			<div class="flex justify-end">
 				<button
 					class="button-primary"
-					disabled={
-						connectToEntry.envs?.some((env) => env.required && !env.value) ||
+					disabled={connectToEntry.envs?.some((env) => env.required && !env.value) ||
 						connectToEntry.headers?.some((header) => header.required && !header.value) ||
-						(connectToEntry.entry.urlManifest && !connectToEntry.url)
-					}
+						(connectToEntry.entry.urlManifest && !connectToEntry.url)}
 					onclick={handleLaunch}
 				>
 					Launch
