@@ -158,7 +158,7 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 	org, repo := parts[0], parts[1]
 	branch := "main"
 	if len(parts) > 2 {
-		branch = parts[2]
+		branch = strings.Join(parts[2:], "/")
 		// Validate branch name for security
 		if err := validateBranchName(branch); err != nil {
 			return nil, fmt.Errorf("invalid branch name: %w", err)
