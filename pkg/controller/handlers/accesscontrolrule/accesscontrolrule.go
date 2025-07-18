@@ -23,19 +23,22 @@ func (h *Handler) PruneDeletedResources(req router.Request, _ router.Response) e
 	acr := req.Object.(*v1.AccessControlRule)
 
 	// Make sure each resource still exists, and remove it if it is gone.
-	newResources := make([]types.Resource, 0, len(acr.Spec.Manifest.Resources))
+	var (
+		mcpservercatalogentry v1.MCPServerCatalogEntry
+		mcpserver             v1.MCPServer
+		newResources          = make([]types.Resource, 0, len(acr.Spec.Manifest.Resources))
+	)
+
 	for _, resource := range acr.Spec.Manifest.Resources {
 		switch resource.Type {
 		case types.ResourceTypeMCPServerCatalogEntry:
-			mcpservercatalogentry := &v1.MCPServerCatalogEntry{}
-			if err := req.Get(mcpservercatalogentry, req.Namespace, resource.ID); err == nil {
+			if err := req.Get(&mcpservercatalogentry, req.Namespace, resource.ID); err == nil {
 				newResources = append(newResources, resource)
 			} else if !errors.IsNotFound(err) {
 				return fmt.Errorf("failed to get MCPServerCatalogEntry %s: %w", resource.ID, err)
 			}
 		case types.ResourceTypeMCPServer:
-			mcpserver := &v1.MCPServer{}
-			if err := req.Get(mcpserver, req.Namespace, resource.ID); err == nil {
+			if err := req.Get(&mcpserver, req.Namespace, resource.ID); err == nil {
 				newResources = append(newResources, resource)
 			} else if !errors.IsNotFound(err) {
 				return fmt.Errorf("failed to get MCPServer %s: %w", resource.ID, err)
