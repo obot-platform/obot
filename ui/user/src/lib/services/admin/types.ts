@@ -309,7 +309,7 @@ export interface K8sServerDetail {
 	lastRestart: string;
 	namespace: string;
 	readyReplicas: number;
-	repliaces: number;
+	replicas: number;
 }
 
 export interface K8sServerLog {
