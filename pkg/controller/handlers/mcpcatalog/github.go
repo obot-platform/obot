@@ -37,7 +37,7 @@ func checkRepoSize(org, repo string, maxSizeMB int) error {
 
 	// Create HTTP client with timeout
 	client := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 5 * time.Second,
 	}
 
 	// Create request
@@ -59,21 +59,7 @@ func checkRepoSize(org, repo string, maxSizeMB int) error {
 	defer resp.Body.Close()
 
 	// Check response status
-	if resp.StatusCode == 404 {
-		body, _ := io.ReadAll(resp.Body)
-		if len(body) > 0 {
-			return fmt.Errorf("repository not found: %s/%s - %s", org, repo, string(body))
-		}
-		return fmt.Errorf("repository not found: %s/%s", org, repo)
-	}
-	if resp.StatusCode == 403 {
-		body, _ := io.ReadAll(resp.Body)
-		if len(body) > 0 {
-			return fmt.Errorf("access denied to repository: %s/%s - %s", org, repo, string(body))
-		}
-		return fmt.Errorf("access denied to repository: %s/%s (may be private or rate limited)", org, repo)
-	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		if len(body) > 0 {
 			return fmt.Errorf("GitHub API returned status %d for repository %s/%s - %s", resp.StatusCode, org, repo, string(body))
@@ -103,9 +89,8 @@ func validateBranchName(branch string) error {
 	}
 
 	// Check for path traversal attempts and other suspicious characters
-	if strings.Contains(branch, "..") || strings.Contains(branch, "/") ||
-		strings.Contains(branch, "\\") || strings.Contains(branch, ":") ||
-		strings.HasPrefix(branch, "-") {
+	if strings.Contains(branch, "..") || strings.Contains(branch, "\\") ||
+		strings.Contains(branch, ":") || strings.HasPrefix(branch, "-") {
 		return fmt.Errorf("invalid branch name: %s", branch)
 	}
 
