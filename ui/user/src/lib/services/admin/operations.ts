@@ -25,7 +25,9 @@ import type {
 	BootstrapStatus,
 	AuditLog,
 	AuditLogUsageStats,
-	AuditLogFilters
+	AuditLogFilters,
+	K8sServerLog,
+	K8sServerDetail
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -115,6 +117,18 @@ export async function updateMCPCatalogEntry(
 
 export async function deleteMCPCatalogEntry(catalogID: string, entryID: string): Promise<void> {
 	await doDelete(`/mcp-catalogs/${catalogID}/entries/${entryID}`);
+}
+
+export async function listMCPServersForEntry(
+	catalogID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer[]> {
+	const response = (await doGet(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/servers`,
+		opts
+	)) as ItemsResponse<MCPCatalogServer>;
+	return response.items ?? [];
 }
 
 export async function createMCPCatalogServer(
@@ -509,5 +523,15 @@ export async function listServerOrInstanceAuditLogStats(
 		`/mcp-stats/${mcpId}${queryString ? `?${queryString}` : ''}`,
 		opts
 	)) as AuditLogUsageStats;
+	return response;
+}
+
+export async function getK8sServerDetail(mcpServerId: string, opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(`/mcp-servers/${mcpServerId}/details`, opts)) as K8sServerDetail;
+	return response;
+}
+
+export async function listK8sServerLogs(mcpServerId: string, opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(`/mcp-servers/${mcpServerId}/logs`, opts)) as K8sServerLog[];
 	return response;
 }

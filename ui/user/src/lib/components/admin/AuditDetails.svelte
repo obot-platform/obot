@@ -439,6 +439,8 @@
 						{:else}
 							{d.client.name}/{d.client.version}
 						{/if}
+					{:else if property === 'createdAt'}
+						{new Date(d.createdAt).toISOString()}
 					{:else}
 						{d[property as keyof typeof d]}
 					{/if}
