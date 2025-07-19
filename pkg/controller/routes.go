@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/obot-platform/nah/pkg/handlers"
 	"github.com/obot-platform/obot/pkg/controller/generationed"
+	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/controller/handlers/agents"
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
@@ -66,6 +67,7 @@ func (c *Controller) setupRoutes() error {
 	mcpCatalog := mcpcatalog.New(c.services.AllowedMCPDockerImageRepos, c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpSession := mcpsession.New(c.services.GPTClient)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
+	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -234,6 +236,9 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.MigrationDeleteSingleUserInstances)
 	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, mcpserverinstance.RemoveOAuthToken)
+
+	// AccessControlRule
+	root.Type(&v1.AccessControlRule{}).HandlerFunc(accesscontrolrule.PruneDeletedResources)
 
 	// ProjectInvitations
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.SetRespondedTime)
