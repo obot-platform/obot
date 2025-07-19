@@ -73,9 +73,15 @@ type MCPServerSpec struct {
 	MCPServerCatalogEntryName string `json:"mcpServerCatalogEntryName,omitempty"`
 	// ToolReferenceName contains the name of the legacy gptscript tool reference for this MCP server, if there is one.
 	ToolReferenceName string `json:"toolReferenceName,omitempty"`
+	// NeedsURL indicates whether the server's URL needs to be updated to match the catalog entry.
+	NeedsURL bool `json:"needsURL,omitempty"`
+	// PreviousURL contains the URL of the server before it was updated to match the catalog entry.
+	PreviousURL string `json:"previousURL,omitempty"`
 }
 
 type MCPServerStatus struct {
+	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
+	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 }
 
 type MCPServerType string

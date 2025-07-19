@@ -525,6 +525,10 @@ func ServerFromMCPServerInstance(req api.Context, tokenService *jwt.TokenService
 		return server, mcp.ServerConfig{}, nil
 	}
 
+	if server.Spec.NeedsURL {
+		return server, mcp.ServerConfig{}, fmt.Errorf("mcp server %s needs to update its URL", server.Name)
+	}
+
 	addExtractedEnvVars(&server)
 
 	var credCtx, scope string
@@ -557,6 +561,10 @@ func ServerForActionWithID(req api.Context, tokenService *jwt.TokenService, id s
 	var server v1.MCPServer
 	if err := req.Get(&server, id); err != nil {
 		return server, mcp.ServerConfig{}, err
+	}
+
+	if server.Spec.NeedsURL {
+		return server, mcp.ServerConfig{}, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
 	}
 
 	var (
@@ -1466,6 +1474,9 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 		CatalogEntryID:          server.Spec.MCPServerCatalogEntryName,
 		SharedWithinCatalogName: server.Spec.SharedWithinMCPCatalogName,
 		ConnectURL:              connectURL,
+		NeedsUpdate:             server.Status.NeedsUpdate,
+		NeedsURL:                server.Spec.NeedsURL,
+		PreviousURL:             server.Spec.PreviousURL,
 	}
 }
 
@@ -1717,4 +1728,140 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 			}
 		}
 	}
+}
+
+func (m *MCPHandler) UpdateURL(req api.Context) error {
+	var mcpServer v1.MCPServer
+	if err := req.Get(&mcpServer, req.PathValue("mcp_server_id")); err != nil {
+		return fmt.Errorf("failed to get server: %w", err)
+	}
+
+	if mcpServer.Spec.SharedWithinMCPCatalogName != "" {
+		return types.NewErrBadRequest("cannot update the URL for a multi-user MCP server; use the UpdateServer endpoint instead")
+	}
+
+	if mcpServer.Spec.MCPServerCatalogEntryName == "" {
+		return types.NewErrBadRequest("this server does not have a catalog entry")
+	}
+
+	if mcpServer.Spec.Manifest.Command != "" {
+		return types.NewErrBadRequest("cannot update the URL for a non-remote MCP server")
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, mcpServer.Spec.MCPServerCatalogEntryName); err != nil {
+		return fmt.Errorf("failed to get catalog entry: %w", err)
+	}
+
+	if entry.Spec.URLManifest.FixedURL != "" {
+		return types.NewErrBadRequest("this server already has a fixed URL that cannot be updated")
+	}
+
+	if entry.Spec.URLManifest.Hostname == "" {
+		return types.NewErrBadRequest("the catalog entry for this server does not have a hostname")
+	}
+
+	var input struct {
+		URL string `json:"url"`
+	}
+	if err := req.Read(&input); err != nil {
+		return fmt.Errorf("failed to read input: %w", err)
+	}
+
+	parsedURL, err := url.Parse(input.URL)
+	if err != nil {
+		return types.NewErrBadRequest("failed to parse input URL: %v", err)
+	}
+
+	if parsedURL.Hostname() != entry.Spec.URLManifest.Hostname {
+		return types.NewErrBadRequest("the hostname in the URL does not match the hostname in the catalog entry")
+	}
+
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return types.NewErrBadRequest("the URL must be HTTP or HTTPS")
+	}
+
+	mcpServer.Spec.Manifest.URL = input.URL
+	mcpServer.Spec.NeedsURL = false
+	mcpServer.Spec.PreviousURL = ""
+
+	if err := req.Update(&mcpServer); err != nil {
+		return fmt.Errorf("failed to update server: %w", err)
+	}
+
+	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL))
+}
+
+func (m *MCPHandler) TriggerUpdate(req api.Context) error {
+	var server v1.MCPServer
+	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
+		return err
+	}
+
+	if server.Spec.SharedWithinMCPCatalogName != "" {
+		return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server; use the UpdateServer endpoint instead")
+	}
+
+	if server.Spec.MCPServerCatalogEntryName == "" || !server.Status.NeedsUpdate {
+		return nil
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+		return err
+	}
+
+	if entry.Spec.CommandManifest.Name != "" {
+		server.Spec.Manifest.Metadata = entry.Spec.CommandManifest.Metadata
+		server.Spec.Manifest.Name = entry.Spec.CommandManifest.Name
+		server.Spec.Manifest.Description = entry.Spec.CommandManifest.Description
+		server.Spec.Manifest.Icon = entry.Spec.CommandManifest.Icon
+		server.Spec.Manifest.Env = entry.Spec.CommandManifest.Env
+		server.Spec.Manifest.Command = entry.Spec.CommandManifest.Command
+		server.Spec.Manifest.Args = entry.Spec.CommandManifest.Args
+
+		server.Spec.Manifest.Headers = nil
+		server.Spec.Manifest.URL = ""
+	} else {
+		server.Spec.Manifest.Metadata = entry.Spec.URLManifest.Metadata
+		server.Spec.Manifest.Name = entry.Spec.URLManifest.Name
+		server.Spec.Manifest.Description = entry.Spec.URLManifest.Description
+		server.Spec.Manifest.Icon = entry.Spec.URLManifest.Icon
+		server.Spec.Manifest.Headers = entry.Spec.URLManifest.Headers
+		server.Spec.Manifest.Env = entry.Spec.URLManifest.Env
+
+		server.Spec.Manifest.Command = ""
+		server.Spec.Manifest.Args = nil
+
+		if entry.Spec.URLManifest.FixedURL != "" {
+			server.Spec.Manifest.URL = entry.Spec.URLManifest.FixedURL
+		} else {
+			// Check to see if the server's URL no longer matches the catalog entry's hostname.
+			currentURL, err := url.Parse(server.Spec.Manifest.URL)
+			if err != nil {
+				return err
+			}
+
+			server.Spec.NeedsURL = currentURL.Hostname() != entry.Spec.URLManifest.Hostname
+			server.Spec.PreviousURL = server.Spec.Manifest.URL
+			server.Spec.Manifest.URL = ""
+		}
+	}
+
+	// Shutdown any server that is using the default credentials.
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)}, server.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
+	}
+
+	// Shutdown the server, even if there is no credential
+	if err := m.removeMCPServer(req.Context(), server, server.Spec.UserID, cred.Env); err != nil {
+		return err
+	}
+
+	if err := req.Update(&server); err != nil {
+		return err
+	}
+
+	return nil
 }
