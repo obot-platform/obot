@@ -430,6 +430,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries", mcpCatalogs.CreateEntry)
 	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.UpdateEntry)
 	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.DeleteEntry)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/test-instance", mcp.TestCatalogEntryInstance)
 
 	// MCPServers within the catalog (admin only, for multi-user MCP servers)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers", mcp.ListServer)
