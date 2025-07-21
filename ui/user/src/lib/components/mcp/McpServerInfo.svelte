@@ -8,7 +8,7 @@
 		AdminService
 	} from '$lib/services';
 	import type { MCPCatalogEntry, MCPCatalogServerManifest } from '$lib/services/admin/types';
-	import { CircleCheckBig, CircleOff, LoaderCircle, Pencil } from 'lucide-svelte';
+	import { CircleCheckBig, CircleOff, Info, LoaderCircle, Pencil, RefreshCcw } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import McpServerTools from './McpServerTools.svelte';
 	import { formatTimeAgo } from '$lib/time';
@@ -141,6 +141,8 @@
 	let loading = $state(false);
 	let editDescription = $state(false);
 	let previousEntryId = $state<string | undefined>(undefined);
+	let oauthURL = $state<string>('');
+	let showRefresh = $state(false);
 	let description = $derived(
 		('manifest' in entry
 			? entry.manifest.description
@@ -157,23 +159,32 @@
 
 	async function loadServerData() {
 		loading = true;
+		oauthURL = '';
+		showRefresh = false;
+
+		const isOauthNeeded = await ChatService.isMcpServerOauthNeeded(entry.id);
+		if (isOauthNeeded) {
+			oauthURL = await ChatService.getMcpServerOauthURL(entry.id);
+			loading = false;
+			return;
+		}
+
+		// Try loading tools first, if that fails with a 424,
+		// prompt user for MCP oauth authentication then try again
 		try {
-			tools = await ChatService.listMcpCatalogServerTools(entry.id);
+			const [toolsRes, promptsRes, resourcesRes] = await Promise.all([
+				ChatService.listMcpCatalogServerTools(entry.id),
+				ChatService.listMcpCatalogServerPrompts(entry.id),
+				ChatService.listMcpCatalogServerResources(entry.id)
+			]);
+			tools = toolsRes;
+			prompts = promptsRes;
+			resources = resourcesRes;
 		} catch (err) {
+			console.error(err);
 			tools = [];
-			console.error(err);
-		}
-		try {
-			prompts = await ChatService.listMcpCatalogServerPrompts(entry.id);
-		} catch (err) {
 			prompts = [];
-			console.error(err);
-		}
-		try {
-			resources = await ChatService.listMcpCatalogServerResources(entry.id);
-		} catch (err) {
 			resources = [];
-			console.error(err);
 		}
 		loading = false;
 	}
@@ -255,6 +266,38 @@
 				<LoaderCircle class="size-6 animate-spin" />
 			</div>
 		{:else}
+			{#if oauthURL}
+				<div class="notification-info p-3 text-sm font-light">
+					<div class="flex items-center gap-3">
+						<Info class="size-6 flex-shrink-0" />
+						<p>
+							For detailed information about this MCP server, server authentication is required.
+						</p>
+					</div>
+				</div>
+
+				{#if showRefresh}
+					<button
+						class="button flex items-center justify-center gap-1 text-center text-sm"
+						onclick={() => loadServerData()}
+					>
+						<RefreshCcw class="size-4" /> Reload
+					</button>
+				{:else}
+					<a
+						target="_blank"
+						href={oauthURL}
+						class="button-primary text-center text-sm"
+						onclick={() => {
+							setTimeout(() => {
+								showRefresh = true;
+							}, 500);
+						}}
+					>
+						Authenticate
+					</a>
+				{/if}
+			{/if}
 			{@render capabilitiesSection()}
 			{@render toolsSection()}
 			{@render detailsSection()}
