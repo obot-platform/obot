@@ -1,12 +1,17 @@
 package mcpcatalog
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestReadGitHubCatalog(t *testing.T) {
+	if os.Getenv("GITHUB_AUTH_TOKEN") == "" {
+		t.Skip("GITHUB_AUTH_TOKEN is not set")
+	}
+
 	tests := []struct {
 		name       string
 		catalog    string
