@@ -118,26 +118,56 @@
 		isUpdatingModel = true;
 
 		try {
-			const updatedThread = await updateThread(project.assistantID, project.id, {
-				...threadType,
-				model: model,
-				modelProvider: provider
-			});
+			let retryCount = 0;
+			const maxRetries = 5;
 
-			// Update local state
-			threadType = updatedThread;
+			while (retryCount < maxRetries) {
+				try {
+					const updatedThread = await updateThread(
+						project.assistantID,
+						project.id,
+						{
+							...threadType,
+							model: model,
+							modelProvider: provider
+						},
+						{
+							dontLogErrors: true
+						}
+					);
 
-			// If resetting to default, fetch the default model
-			if (!model && !provider) {
-				await fetchDefaultModel();
+					// Update local state
+					threadType = updatedThread;
+
+					// If resetting to default, fetch the default model
+					if (!model && !provider) {
+						await fetchDefaultModel();
+					}
+
+					// Close dropdown
+					showModelSelector = false;
+
+					// Notify parent that model changed
+					if (onModelChanged) {
+						onModelChanged();
+					}
+
+					break;
+				} catch (err) {
+					if (err instanceof Error && err.message.includes('409')) {
+						retryCount++;
+						await fetchThreadDetails();
+						await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
+						continue;
+					} else {
+						throw err;
+					}
+				}
 			}
 
-			// Close dropdown
-			showModelSelector = false;
-
-			// Notify parent that model changed
-			if (onModelChanged) {
-				onModelChanged();
+			// If we've exhausted all retries, throw an error
+			if (retryCount >= maxRetries) {
+				throw new Error('Failed to update thread model after multiple retries due to conflicts');
 			}
 		} catch (err) {
 			console.error('Error updating thread model:', err);

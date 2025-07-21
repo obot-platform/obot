@@ -444,11 +444,16 @@ export async function deleteThread(assistantID: string, projectID: string, threa
 export async function updateThread(
 	assistantID: string,
 	projectID: string,
-	thread: Thread
+	thread: Thread,
+	opts?: {
+		dontLogErrors?: boolean;
+		fetch?: typeof fetch;
+	}
 ): Promise<Thread> {
 	return (await doPut(
 		`/assistants/${assistantID}/projects/${projectID}/threads/${thread.id}`,
-		thread
+		thread,
+		opts
 	)) as Thread;
 }
 
