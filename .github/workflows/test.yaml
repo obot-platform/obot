@@ -25,3 +25,5 @@ jobs:
       - name: Run Tests
         run: |
           make test
+        env:
+          GITHUB_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
