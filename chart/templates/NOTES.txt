@@ -1,0 +1,11 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+You can retrieve the bootstrap token by running:
+  $ kubectl get secret -n {{ .Release.Namespace }} {{ include "obot.config.secretName" . }} -ojson | jq -r .data.OBOT_BOOTSTRAP_TOKEN | base64 -d
