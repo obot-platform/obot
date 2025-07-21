@@ -132,7 +132,7 @@ resources: {}
 
 persistence:
   # persistence.enabled -- Enables persistence using a PVC
-  enabled: false
+  enabled: true
   # persistence.path -- The path the volume will be mounted
   path: /data
   # persistence.storageClass -- Persistent Volume storage class
