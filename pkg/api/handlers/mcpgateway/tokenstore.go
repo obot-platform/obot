@@ -7,15 +7,12 @@ import (
 
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
 )
 
-type GlobalTokenStore interface {
-	ForMCPID(mcpID string) nmcp.TokenStorage
-}
-
-func NewGlobalTokenStore(gatewayClient *gateway.Client) GlobalTokenStore {
+func NewGlobalTokenStore(gatewayClient *gateway.Client) mcp.GlobalTokenStore {
 	return &globalTokenStore{
 		gatewayClient: gatewayClient,
 	}

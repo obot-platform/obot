@@ -9,14 +9,9 @@ import (
 )
 
 func (sm *SessionManager) ListPrompts(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig) ([]mcp.Prompt, error) {
-	config, err := sm.transformServerConfig(ctx, mcpServer, serverConfig)
+	client, err := sm.ClientForServer(ctx, mcpServer, serverConfig)
 	if err != nil {
 		return nil, err
-	}
-
-	client, err := sm.local.Client(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create MCP client: %w", err)
 	}
 
 	resp, err := client.ListPrompts(ctx)
@@ -28,14 +23,9 @@ func (sm *SessionManager) ListPrompts(ctx context.Context, mcpServer v1.MCPServe
 }
 
 func (sm *SessionManager) GetPrompt(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig, name string, args map[string]string) ([]mcp.PromptMessage, string, error) {
-	config, err := sm.transformServerConfig(ctx, mcpServer, serverConfig)
+	client, err := sm.ClientForServer(ctx, mcpServer, serverConfig)
 	if err != nil {
 		return nil, "", err
-	}
-
-	client, err := sm.local.Client(config)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to create MCP client: %w", err)
 	}
 
 	resp, err := client.GetPrompt(ctx, name, args)

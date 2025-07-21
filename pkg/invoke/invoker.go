@@ -24,6 +24,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gz"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -47,24 +48,26 @@ const (
 )
 
 type Invoker struct {
-	gptClient     *gptscript.GPTScript
-	uncached      kclient.WithWatch
-	gatewayClient *client.Client
-	tokenService  *jwt.TokenService
-	events        *events.Emitter
-	serverURL     string
-	serverPort    int
+	gptClient         *gptscript.GPTScript
+	uncached          kclient.WithWatch
+	gatewayClient     *client.Client
+	tokenService      *jwt.TokenService
+	mcpSessionManager *mcp.SessionManager
+	events            *events.Emitter
+	serverURL         string
+	serverPort        int
 }
 
-func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, mcpSessionManager *mcp.SessionManager, serverURL string, serverPort int, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
 	return &Invoker{
-		uncached:      c,
-		gptClient:     gptClient,
-		gatewayClient: gatewayClient,
-		tokenService:  tokenService,
-		events:        events,
-		serverURL:     serverURL,
-		serverPort:    serverPort,
+		uncached:          c,
+		gptClient:         gptClient,
+		gatewayClient:     gatewayClient,
+		tokenService:      tokenService,
+		mcpSessionManager: mcpSessionManager,
+		events:            events,
+		serverURL:         serverURL,
+		serverPort:        serverPort,
 	}
 }
 
@@ -364,7 +367,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		}
 	}
 
-	tools, extraEnv, err := render.Agent(ctx, i.tokenService, c, i.gptClient, agent, i.serverURL, render.AgentOptions{
+	tools, extraEnv, err := render.Agent(ctx, i.tokenService, i.mcpSessionManager, c, i.gptClient, agent, i.serverURL, render.AgentOptions{
 		Thread:         thread,
 		WorkflowStepID: opt.WorkflowStepID,
 	})

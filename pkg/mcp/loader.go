@@ -47,13 +47,14 @@ type Options struct {
 type SessionManager struct {
 	client                                    kclient.WithWatch
 	clientset                                 kubernetes.Interface
+	tokenStorage                              GlobalTokenStore
 	local                                     *gmcp.Local
 	baseImage, mcpNamespace, mcpClusterDomain string
 	allowedDockerImageRepos                   []string
 	allowLocalhostMCP                         bool
 }
 
-func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, opts Options) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, tokenStorage GlobalTokenStore, opts Options) (*SessionManager, error) {
 	var (
 		client    kclient.WithWatch
 		clientset kubernetes.Interface
@@ -87,6 +88,7 @@ func NewSessionManager(ctx context.Context, defaultLoader *gmcp.Local, opts Opti
 		client:                  client,
 		clientset:               clientset,
 		local:                   defaultLoader,
+		tokenStorage:            tokenStorage,
 		baseImage:               opts.MCPBaseImage,
 		mcpClusterDomain:        opts.MCPClusterDomain,
 		mcpNamespace:            opts.MCPNamespace,

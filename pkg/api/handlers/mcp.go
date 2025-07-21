@@ -23,7 +23,6 @@ import (
 	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
-	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,19 +30,26 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
+
+// MCPOAuthChecker will check the OAuth status for an MCP server. This interface breaks an import cycle.
+type MCPOAuthChecker interface {
+	CheckForMCPAuth(ctx context.Context, server v1.MCPServer, config mcp.ServerConfig, mcpID, oauthAppAuthRequestID string) (string, error)
+}
+
 type MCPHandler struct {
 	mcpSessionManager *mcp.SessionManager
+	mcpOAuthChecker   MCPOAuthChecker
 	acrHelper         *accesscontrolrule.Helper
 	tokenService      *jwt.TokenService
 	serverURL         string
 }
 
-var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
-
-func NewMCPHandler(tokenService *jwt.TokenService, mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, serverURL string) *MCPHandler {
+func NewMCPHandler(tokenService *jwt.TokenService, mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, serverURL string) *MCPHandler {
 	return &MCPHandler{
 		tokenService:      tokenService,
 		mcpSessionManager: mcpLoader,
+		mcpOAuthChecker:   mcpOAuthChecker,
 		acrHelper:         acrHelper,
 		serverURL:         serverURL,
 	}
@@ -305,6 +311,60 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	return req.Write(convertMCPServer(server, nil, m.serverURL))
 }
 
+func (m *MCPHandler) CheckOAuth(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+
+	server, serverConfig, err := serverForAction(req, m.tokenService)
+	if err != nil {
+		return err
+	}
+
+	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
+	// For servers that are not in catalogs, this checks to make sure that no catalogID was provided. (Both are empty strings.)
+	if server.Spec.SharedWithinMCPCatalogName != catalogID {
+		return types.NewErrNotFound("MCP server not found")
+	}
+
+	if server.Spec.ToolReferenceName != "" || server.Spec.Manifest.Command != "" {
+		return nil
+	}
+
+	var are nmcp.AuthRequiredErr
+	if _, err = m.mcpSessionManager.PingServer(req.Context(), server, serverConfig); err != nil {
+		if !errors.As(err, &are) {
+			return fmt.Errorf("failed to ping MCP server: %w", err)
+		}
+		req.WriteHeader(http.StatusPreconditionFailed)
+	}
+
+	return nil
+}
+
+func (m *MCPHandler) GetOAuthURL(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+
+	server, serverConfig, err := serverForAction(req, m.tokenService)
+	if err != nil {
+		return err
+	}
+
+	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
+	// For servers that are not in catalogs, this checks to make sure that no catalogID was provided. (Both are empty strings.)
+	if server.Spec.SharedWithinMCPCatalogName != catalogID {
+		return types.NewErrNotFound("MCP server not found")
+	}
+
+	var u string
+	if server.Spec.ToolReferenceName == "" && server.Spec.Manifest.URL != "" {
+		u, err = m.mcpOAuthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, server.Name, "")
+		if err != nil {
+			return fmt.Errorf("failed to get OAuth URL: %w", err)
+		}
+	}
+
+	return req.Write(map[string]string{"oauthURL": u})
+}
+
 func (m *MCPHandler) GetTools(req api.Context) error {
 	server, serverConfig, caps, err := serverForActionWithCapabilities(req, m.tokenService, m.mcpSessionManager)
 	if err != nil {
@@ -334,7 +394,7 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 
 	tools, err := m.toolsForServer(req.Context(), req.Storage, server, serverConfig, allowedTools)
 	if err != nil {
-		return fmt.Errorf("failed to list resources: %w", err)
+		return fmt.Errorf("failed to list tools: %w", err)
 	}
 
 	return req.Write(tools)
@@ -384,9 +444,6 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 
 	mcpTools, err := m.toolsForServer(req.Context(), req.Storage, mcpServer, serverConfig, tools)
 	if err != nil {
-		if uc := (*render.UnconfiguredMCPError)(nil); errors.As(err, &uc) {
-			return types.NewErrBadRequest("MCP server %s is missing required parameters: %s", uc.MCPName, strings.Join(uc.Missing, ", "))
-		}
 		return fmt.Errorf("failed to render tools: %w", err)
 	}
 
@@ -427,8 +484,11 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 
 	resources, err := m.mcpSessionManager.ListResources(req.Context(), mcpServer, serverConfig)
 	if err != nil {
+		var are nmcp.AuthRequiredErr
 		if strings.HasSuffix(err.Error(), "Method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
+		} else if errors.As(err, &are) {
+			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to list resources: %w", err)
 	}
@@ -448,8 +508,11 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 
 	contents, err := m.mcpSessionManager.ReadResource(req.Context(), mcpServer, serverConfig, req.PathValue("resource_uri"))
 	if err != nil {
+		var are nmcp.AuthRequiredErr
 		if strings.HasSuffix(err.Error(), "Method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
+		} else if errors.As(err, &are) {
+			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to list resources: %w", err)
 	}
@@ -469,8 +532,11 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 
 	prompts, err := m.mcpSessionManager.ListPrompts(req.Context(), mcpServer, serverConfig)
 	if err != nil {
+		var are nmcp.AuthRequiredErr
 		if strings.HasSuffix(err.Error(), "Method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
+		} else if errors.As(err, &are) {
+			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to list prompts: %w", err)
 	}
@@ -495,8 +561,11 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 
 	messages, description, err := m.mcpSessionManager.GetPrompt(req.Context(), mcpServer, serverConfig, req.PathValue("prompt_name"), args)
 	if err != nil {
+		var are nmcp.AuthRequiredErr
 		if strings.HasSuffix(err.Error(), "Method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
+		} else if errors.As(err, &are) {
+			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to get prompt: %w", err)
 	}
@@ -611,12 +680,12 @@ func ServerForActionWithID(req api.Context, tokenService *jwt.TokenService, id s
 	return server, serverConfig, nil
 }
 
-func ServerForAction(req api.Context, tokenService *jwt.TokenService) (v1.MCPServer, mcp.ServerConfig, error) {
+func serverForAction(req api.Context, tokenService *jwt.TokenService) (v1.MCPServer, mcp.ServerConfig, error) {
 	return ServerForActionWithID(req, tokenService, req.PathValue("mcp_server_id"))
 }
 
 func serverForActionWithCapabilities(req api.Context, tokenService *jwt.TokenService, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
-	server, serverConfig, err := ServerForAction(req, tokenService)
+	server, serverConfig, err := serverForAction(req, tokenService)
 	if err != nil {
 		return server, serverConfig, nmcp.ServerCapabilities{}, err
 	}
@@ -1220,8 +1289,11 @@ func (m *MCPHandler) toolsForServer(ctx context.Context, client kclient.Client, 
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
 		}
+		var are nmcp.AuthRequiredErr
 		if strings.HasSuffix(err.Error(), "Method not found") {
 			return nil, types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support tools")
+		} else if errors.As(err, &are) {
+			return nil, types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return nil, err
 	}
@@ -1598,11 +1670,18 @@ func (m *MCPHandler) GetServerFromDefaultCatalog(req api.Context) error {
 }
 
 func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+
 	var server v1.MCPServer
 	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
 		return err
 	}
 
+	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
+	// For servers that are not in catalogs, this checks to make sure that no catalogID was provided. (Both are empty strings.)
+	if server.Spec.SharedWithinMCPCatalogName != catalogID {
+		return types.NewErrNotFound("MCP server not found")
+	}
 	if err := req.GatewayClient.DeleteMCPOAuthToken(req.Context(), server.Name); err != nil {
 		return fmt.Errorf("failed to delete OAuth credentials: %v", err)
 	}
@@ -1616,7 +1695,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		return types.NewErrNotFound("Kubernetes is not enabled")
 	}
 
-	_, serverConfig, err := ServerForAction(req, m.tokenService)
+	_, serverConfig, err := serverForAction(req, m.tokenService)
 	if err != nil {
 		return err
 	}
@@ -1634,7 +1713,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		return types.NewErrNotFound("Kubernetes is not enabled")
 	}
 
-	_, serverConfig, err := ServerForAction(req, m.tokenService)
+	_, serverConfig, err := serverForAction(req, m.tokenService)
 	if err != nil {
 		return err
 	}

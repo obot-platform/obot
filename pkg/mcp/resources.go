@@ -9,14 +9,9 @@ import (
 )
 
 func (sm *SessionManager) ListResources(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig) ([]mcp.Resource, error) {
-	config, err := sm.transformServerConfig(ctx, mcpServer, serverConfig)
+	client, err := sm.ClientForServer(ctx, mcpServer, serverConfig)
 	if err != nil {
 		return nil, err
-	}
-
-	client, err := sm.local.Client(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create MCP client: %w", err)
 	}
 
 	resp, err := client.ListResources(ctx)
@@ -28,14 +23,9 @@ func (sm *SessionManager) ListResources(ctx context.Context, mcpServer v1.MCPSer
 }
 
 func (sm *SessionManager) ReadResource(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig, uri string) ([]mcp.ResourceContent, error) {
-	config, err := sm.transformServerConfig(ctx, mcpServer, serverConfig)
+	client, err := sm.ClientForServer(ctx, mcpServer, serverConfig)
 	if err != nil {
 		return nil, err
-	}
-
-	client, err := sm.local.Client(config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create MCP client: %w", err)
 	}
 
 	resp, err := client.ReadResource(ctx, uri)

@@ -6,9 +6,14 @@ import (
 	"strings"
 
 	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
+	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/jwt"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
+
+type GlobalTokenStore interface {
+	ForMCPID(mcpID string) nmcp.TokenStorage
+}
 
 type Config struct {
 	MCPServers map[string]ServerConfig `json:"mcpServers"`
