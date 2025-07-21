@@ -1512,3 +1512,60 @@ export async function createMcpServerInstance(mcpServerID: string): Promise<MCPS
 export async function deleteMcpServerInstance(id: string): Promise<void> {
 	await doDelete(`/mcp-server-instances/${id}`);
 }
+
+// 412 means oauth is needed
+export async function getMcpServerOauthURL(id: string): Promise<string> {
+	try {
+		const response = (await doGet(`/mcp-servers/${id}/oauth-url`, { dontLogErrors: true })) as {
+			oauthURL: string;
+		};
+		return response.oauthURL;
+	} catch (_err) {
+		return '';
+	}
+}
+
+export async function isMcpServerOauthNeeded(id: string): Promise<boolean> {
+	try {
+		await doGet(`/mcp-servers/${id}/check-oauth`, { dontLogErrors: true });
+	} catch (err) {
+		if (err instanceof Error && err.message.includes('412')) {
+			return true;
+		}
+	}
+	return false;
+}
+
+export async function getProjectMcpServerOauthURL(
+	assistantID: string,
+	projectID: string,
+	mcpServerID: string
+): Promise<string> {
+	try {
+		const response = (await doPost(
+			`/assistants/${assistantID}/projects/${projectID}/mcp-servers/${mcpServerID}/oauth-url`,
+			{ dontLogErrors: true }
+		)) as { oauthURL: string };
+		return response.oauthURL;
+	} catch (_err) {
+		return '';
+	}
+}
+
+export async function isProjectMcpServerOauthNeeded(
+	assistantID: string,
+	projectID: string,
+	mcpServerID: string
+): Promise<boolean> {
+	try {
+		await doGet(
+			`/assistants/${assistantID}/projects/${projectID}/mcp-servers/${mcpServerID}/check-oauth`,
+			{ dontLogErrors: true }
+		);
+	} catch (err) {
+		if (err instanceof Error && err.message.includes('412')) {
+			return true;
+		}
+	}
+	return false;
+}
