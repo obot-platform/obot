@@ -375,9 +375,11 @@
 		highlightedFields = new Set();
 	}
 
-	function missingRequiredFields(config: typeof connectToEntry | typeof userConfiguredServerToEdit) {
+	function missingRequiredFields(
+		config: typeof connectToEntry | typeof userConfiguredServerToEdit
+	) {
 		if (!config) return false;
-		
+
 		if ('entry' in config && config.entry.urlManifest && !config.url) {
 			return true;
 		}
