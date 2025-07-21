@@ -33,11 +33,11 @@ type Handler struct {
 	mcpSessionManager *mcp.SessionManager
 	sessions          *sessionStoreFactory
 	pendingRequests   *nmcp.PendingRequests
-	tokenStore        GlobalTokenStore
+	tokenStore        mcp.GlobalTokenStore
 	baseURL           string
 }
 
-func NewHandler(tokenService *jwt.TokenService, storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, baseURL string) *Handler {
+func NewHandler(tokenService *jwt.TokenService, storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, baseURL string) *Handler {
 	return &Handler{
 		tokenService:      tokenService,
 		mcpSessionManager: mcpSessionManager,
@@ -45,7 +45,7 @@ func NewHandler(tokenService *jwt.TokenService, storageClient kclient.Client, mc
 			client: storageClient,
 		},
 		pendingRequests: &nmcp.PendingRequests{},
-		tokenStore:      NewGlobalTokenStore(gatewayClient),
+		tokenStore:      globalTokenStore,
 		baseURL:         baseURL,
 	}
 }
@@ -196,7 +196,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		m.insertAuditLog(auditLog)
 	}()
 
-	client, err = m.handler.mcpSessionManager.ClientForServer(ctx, m.mcpServer, m.serverConfig, m.clientMessageHandlerAsClientOption(m.handler.tokenStore.ForMCPID(m.mcpID), msg.Session))
+	client, err = m.handler.mcpSessionManager.ClientForServerWithOptions(ctx, m.mcpServer, m.serverConfig, m.clientMessageHandlerAsClientOption(m.handler.tokenStore.ForMCPID(m.mcpID), msg.Session))
 	if err != nil {
 		log.Errorf("Failed to get client for server %s: %v", m.mcpServer.Name, err)
 		return

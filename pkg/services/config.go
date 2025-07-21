@@ -28,6 +28,7 @@ import (
 	apiclienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
@@ -152,6 +153,9 @@ type Services struct {
 	// Used for loading and running MCP servers with GPTScript.
 	MCPRunner engine.MCPRunner
 	MCPLoader *mcp.SessionManager
+
+	// Global token storage client for MCP OAuth
+	MCPOAuthTokenStorage mcp.GlobalTokenStore
 
 	// OAuth configuration
 	OAuthServerConfig OAuthAuthorizationServerConfig
@@ -279,6 +283,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
+	var electionConfig *leader.ElectionConfig
+	if config.ElectionFile != "" {
+		electionConfig = leader.NewFileElectionConfig(config.ElectionFile)
+	} else {
+		electionConfig = leader.NewDefaultElectionConfig("", "obot-controller", restConfig)
+	}
+
 	// For now, always auto-migrate.
 	gatewayDB, err := db.New(dbAccess.DB, dbAccess.SQLDB, true)
 	if err != nil {
@@ -325,8 +336,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
+	gatewayClient := client.New(gatewayDB, encryptionConfig, config.AuthAdminEmails)
+	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
+
 	mcpRunner := gmcp.DefaultRunner
-	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, mcp.Options(config.MCPConfig))
+	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, mcpOAuthTokenStorage, mcp.Options(config.MCPConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -352,13 +366,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		if err := gptscriptClient.DeleteCredential(ctx, system.DefaultNamespace, system.KnowledgeCredID); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return nil, err
 		}
-	}
-
-	var electionConfig *leader.ElectionConfig
-	if config.ElectionFile != "" {
-		electionConfig = leader.NewFileElectionConfig(config.ElectionFile)
-	} else {
-		electionConfig = leader.NewDefaultElectionConfig("", "obot-controller", restConfig)
 	}
 
 	r, err := nah.NewRouter("obot-controller", &nah.Options{
@@ -444,10 +451,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	var (
-		tokenServer   = &jwt.TokenService{}
-		gatewayClient = client.New(gatewayDB, encryptionConfig, config.AuthAdminEmails)
-		events        = events.NewEmitter(storageClient, gatewayClient)
-		invoker       = invoke.NewInvoker(
+		tokenServer = &jwt.TokenService{}
+		events      = events.NewEmitter(storageClient, gatewayClient)
+		invoker     = invoke.NewInvoker(
 			storageClient,
 			gptscriptClient,
 			gatewayClient,
@@ -595,6 +601,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AllowedMCPDockerImageRepos: config.AllowedMCPDockerImageRepos,
 		MCPLoader:                  mcpLoader,
 		MCPRunner:                  mcpRunner,
+		MCPOAuthTokenStorage:       mcpOAuthTokenStorage,
 		OAuthServerConfig: OAuthAuthorizationServerConfig{
 			ResponseTypesSupported:            []string{"code"},
 			GrantTypesSupported:               []string{"authorization_code", "refresh_token"},

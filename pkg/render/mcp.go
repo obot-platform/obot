@@ -47,7 +47,7 @@ func mcpServerTools(ctx context.Context, tokenService *jwt.TokenService, gptClie
 		return nil, nil
 	}
 
-	client, err := sessionHandler.ClientForServer(ctx, mcpServer, serverConfig)
+	client, err := sessionHandler.ClientForServerWithOptions(ctx, mcpServer, serverConfig)
 	if err != nil {
 		var uae nmcp.AuthRequiredErr
 		if errors.As(err, &uae) {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
-	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -25,17 +24,17 @@ type MCPOAuthHandlerFactory struct {
 	client            kclient.Client
 	gptscript         *gptscript.GPTScript
 	stateCache        *stateCache
-	tokenStore        mcpgateway.GlobalTokenStore
+	tokenStore        mcp.GlobalTokenStore
 }
 
-func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gptClient *gptscript.GPTScript, gatewayClient *client.Client) *MCPOAuthHandlerFactory {
+func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gptClient *gptscript.GPTScript, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore) *MCPOAuthHandlerFactory {
 	return &MCPOAuthHandlerFactory{
 		baseURL:           baseURL,
 		mcpSessionManager: sessionManager,
 		client:            client,
 		gptscript:         gptClient,
 		stateCache:        newStateCache(gatewayClient),
-		tokenStore:        mcpgateway.NewGlobalTokenStore(gatewayClient),
+		tokenStore:        globalTokenStore,
 	}
 }
 func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, mcpID, oauthAppAuthRequestID string) (string, error) {
@@ -49,7 +48,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer 
 
 	go func() {
 		defer close(errChan)
-		_, err := f.mcpSessionManager.ClientForServer(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
+		_, err := f.mcpSessionManager.ClientForServerWithOptions(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
 			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback", f.baseURL),
 			OAuthClientName:  "Obot MCP Gateway",
 			CallbackHandler:  oauthHandler,

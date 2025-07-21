@@ -18,7 +18,7 @@ import (
 func Router(services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
 
-	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient)
+	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient, services.MCPOAuthTokenStorage)
 
 	agents := handlers.NewAgentHandler(services.TokenServer, services.ProviderDispatcher, services.Invoker, services.ServerURL)
 	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.Invoker, services.Events, services.Router.Backend())
@@ -53,7 +53,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	slackHandler := handlers.NewSlackHandler()
 	mcp := handlers.NewMCPHandler(services.TokenServer, services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
-	mcpGateway := mcpgateway.NewHandler(services.TokenServer, services.StorageClient, services.MCPLoader, services.GatewayClient, services.ServerURL)
+	mcpGateway := mcpgateway.NewHandler(services.TokenServer, services.StorageClient, services.MCPLoader, services.MCPOAuthTokenStorage, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 
@@ -421,8 +421,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-server-instances", serverInstances.CreateServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.DeleteServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}/oauth", serverInstances.ClearOAuthCredentials)
-	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}/check-oauth", mcp.CheckOAuth)
-	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}/oauth-url", mcp.GetOAuthURL)
 
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)
