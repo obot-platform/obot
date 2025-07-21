@@ -7,14 +7,16 @@
 		name: string;
 		value?: string;
 		error?: boolean;
+		oninput?: () => void;
 	}
 
-	let { name, value = $bindable(''), error }: Props = $props();
+	let { name, value = $bindable(''), error, oninput }: Props = $props();
 	let showSensitive = $state(false);
 
 	function handleInput(event: Event) {
 		const input = event.target as HTMLInputElement;
 		value = input.value;
+		oninput?.();
 	}
 
 	function toggleVisibility(e: MouseEvent) {

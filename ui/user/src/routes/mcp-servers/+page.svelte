@@ -375,46 +375,17 @@
 		highlightedFields = new Set();
 	}
 
-	// Clear highlights when values change for sensitive inputs
-	$effect(() => {
-		if (connectToEntry) {
-			connectToEntry.envs?.forEach((env) => {
-				if (env.value && highlightedFields.has(env.key)) {
-					highlightedFields.delete(env.key);
-					highlightedFields = new Set(highlightedFields);
-				}
-			});
-			connectToEntry.headers?.forEach((header) => {
-				if (header.value && highlightedFields.has(header.key)) {
-					highlightedFields.delete(header.key);
-					highlightedFields = new Set(highlightedFields);
-				}
-			});
-			if (connectToEntry.url && highlightedFields.has('url-manifest-url')) {
-				highlightedFields.delete('url-manifest-url');
-				highlightedFields = new Set(highlightedFields);
-			}
+	function missingRequiredFields(config: typeof connectToEntry | typeof userConfiguredServerToEdit) {
+		if (!config) return false;
+		
+		if ('entry' in config && config.entry.urlManifest && !config.url) {
+			return true;
 		}
 
-		if (userConfiguredServerToEdit) {
-			userConfiguredServerToEdit.envs?.forEach((env) => {
-				if (env.value && highlightedFields.has(env.key)) {
-					highlightedFields.delete(env.key);
-					highlightedFields = new Set(highlightedFields);
-				}
-			});
-			userConfiguredServerToEdit.headers?.forEach((header) => {
-				if (header.value && highlightedFields.has(header.key)) {
-					highlightedFields.delete(header.key);
-					highlightedFields = new Set(highlightedFields);
-				}
-			});
-			if (userConfiguredServerToEdit.url && highlightedFields.has('url-manifest-url')) {
-				highlightedFields.delete('url-manifest-url');
-				highlightedFields = new Set(highlightedFields);
-			}
-		}
-	});
+		return [...(config.envs ?? []), ...(config.headers ?? [])].some(
+			(field) => field.required && !field.value
+		);
+	}
 
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
@@ -896,21 +867,11 @@
 			{@render configureForm(connectToEntry, connectToEntry.entry)}
 			<div class="flex justify-end">
 				<button
-					class={`button-primary ${
-						connectToEntry.envs?.some((env) => env.required && !env.value) ||
-						connectToEntry.headers?.some((header) => header.required && !header.value) ||
-						(connectToEntry.entry.urlManifest && !connectToEntry.url)
-							? 'cursor-not-allowed opacity-50'
-							: ''
-					}`}
+					class="button-primary"
 					onclick={(e) => {
 						if (!connectToEntry) return;
 
-						const isDisabled =
-							connectToEntry.envs?.some((env) => env.required && !env.value) ||
-							connectToEntry.headers?.some((header) => header.required && !header.value) ||
-							(connectToEntry.entry.urlManifest && !connectToEntry.url);
-
+						const isDisabled = missingRequiredFields(connectToEntry);
 						if (isDisabled) {
 							e.preventDefault();
 							highlightMissingRequiredFields();
@@ -951,19 +912,11 @@
 		{@render configureForm(userConfiguredServerToEdit)}
 		<div class="flex justify-end">
 			<button
-				class={`button-primary ${
-					userConfiguredServerToEdit?.envs?.some((env) => env.required && !env.value) ||
-					userConfiguredServerToEdit?.headers?.some((header) => header.required && !header.value)
-						? 'cursor-not-allowed opacity-50'
-						: ''
-				}`}
+				class="button-primary"
 				onclick={async (e) => {
 					if (!userConfiguredServerToEdit) return;
 
-					const isDisabled =
-						userConfiguredServerToEdit.envs?.some((env) => env.required && !env.value) ||
-						userConfiguredServerToEdit.headers?.some((header) => header.required && !header.value);
-
+					const isDisabled = missingRequiredFields(userConfiguredServerToEdit);
 					if (isDisabled) {
 						e.preventDefault();
 						// Highlight missing fields for edit dialog
@@ -1024,7 +977,16 @@
 					</span>
 					<div class={highlightedFields.has(env.key) ? 'rounded ring-2 ring-red-500' : ''}>
 						{#if env.sensitive}
-							<SensitiveInput name={env.name} bind:value={fields.envs[i].value} />
+							<SensitiveInput
+								name={env.name}
+								bind:value={fields.envs[i].value}
+								oninput={() => {
+									if (highlightedFields.has(env.key)) {
+										highlightedFields.delete(env.key);
+										highlightedFields = new Set(highlightedFields);
+									}
+								}}
+							/>
 						{:else}
 							<input
 								type="text"
@@ -1057,7 +1019,16 @@
 					</span>
 					<div class={highlightedFields.has(header.key) ? 'rounded ring-2 ring-red-500' : ''}>
 						{#if header.sensitive}
-							<SensitiveInput name={header.name} bind:value={fields.headers[i].value} />
+							<SensitiveInput
+								name={header.name}
+								bind:value={fields.headers[i].value}
+								oninput={() => {
+									if (highlightedFields.has(header.key)) {
+										highlightedFields.delete(header.key);
+										highlightedFields = new Set(highlightedFields);
+									}
+								}}
+							/>
 						{:else}
 							<input
 								type="text"
