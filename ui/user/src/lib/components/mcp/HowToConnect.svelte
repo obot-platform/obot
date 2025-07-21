@@ -199,7 +199,7 @@ ${servers
 		(server) => `			"${server.name}": {
 				"command": "npx",
 				"args": [
-					"mcp-remote",
+					"mcp-remote@latest",
 					"${server.url}"
 				]
 			}`
