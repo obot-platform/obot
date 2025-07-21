@@ -1,7 +1,6 @@
 package oauth
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
@@ -11,7 +10,6 @@ import (
 	"slices"
 	"strings"
 
-	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
@@ -254,47 +252,10 @@ func (h *handler) callback(req api.Context) error {
 		return err
 	}
 
-	// Give the server config a scope that makes sense.
-	// Clients used in the proxy will set the scope that comes with the server config, but we need to ensure we get a different client here
-	// because the client we use here needs the CallbackHandler and ClientCredLookup set.
-	mcpServerConfig.Scope = mcpID
-
-	ctx, cancel := context.WithCancel(req.Context())
-	defer cancel()
-
-	oauthHandler := &mcpOAuthHandler{
-		client:             req.Storage,
-		gptscript:          req.GPTClient,
-		stateCache:         h.stateCache,
-		urlChan:            make(chan string),
-		mcpID:              mcpServerConfig.Scope,
-		oauthAuthRequestID: oauthAppAuthRequest.Name,
-	}
-	errChan := make(chan error, 1)
-
-	go func() {
-		defer close(errChan)
-		_, err := h.mcpSessionManager.ClientForServer(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
-			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback", h.baseURL),
-			OAuthClientName:  "Obot MCP Gateway",
-			CallbackHandler:  oauthHandler,
-			ClientCredLookup: oauthHandler,
-			TokenStorage:     h.tokenStore.ForMCPID(oauthHandler.mcpID),
-		})
-		if err != nil {
-			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
-		} else {
-			errChan <- nil
-		}
-
-		// We only need this client for checking for OAuth. Close it, now that we're done.
-		if err = h.mcpSessionManager.ShutdownServer(context.Background(), mcpServerConfig); err != nil {
-			log.Errorf("failed to shutdown server after authentication %s: %v", mcpServer.Name, err)
-		}
-	}()
-
-	select {
-	case err = <-errChan:
+	// For now, we only need to check for OAuth if the MCP server is remote.
+	// This may change in the future as the protocol matures, but, for now, this is an optimization for loading times for the redirects.
+	if mcpServerConfig.Command == "" {
+		u, err := h.oauthChecker.CheckForMCPAuth(req.Context(), mcpServer, mcpServerConfig, mcpID, oauthAppAuthRequest.Name)
 		if err != nil {
 			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 				Code:        ErrServerError,
@@ -302,9 +263,7 @@ func (h *handler) callback(req api.Context) error {
 			})
 			return nil
 		}
-	case <-ctx.Done():
-		return fmt.Errorf("failed to check for MCP server OAuth: %w", ctx.Err())
-	case u := <-oauthHandler.urlChan:
+
 		if u != "" {
 			http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
 			return nil
@@ -318,9 +277,16 @@ func (h *handler) callback(req api.Context) error {
 
 // oauthCallback handles the second-level third-party OAuth for MCP servers.
 func (h *handler) oauthCallback(req api.Context) error {
-	oauthAuthRequestID, err := h.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
+	oauthAuthRequestID, err := h.oauthChecker.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
 	if err != nil {
 		return types.NewErrHTTP(http.StatusBadRequest, err.Error())
+	}
+
+	if oauthAuthRequestID == "" {
+		// If there is no OAuth request object, then MCP OAuth wasn't started by OAuth; likely the UI kicked it off.
+		// Redirect to the login complete page.
+		http.Redirect(req.ResponseWriter, req.Request, "/login_complete", http.StatusFound)
+		return nil
 	}
 
 	var oauthAppAuthRequest v1.OAuthAuthRequest

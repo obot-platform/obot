@@ -1336,6 +1336,11 @@ func (in *MCPServer) DeepCopyInto(out *MCPServer) {
 	*out = *in
 	in.Metadata.DeepCopyInto(&out.Metadata)
 	in.MCPServerManifest.DeepCopyInto(&out.MCPServerManifest)
+	if in.AuthRequired != nil {
+		in, out := &in.AuthRequired, &out.AuthRequired
+		*out = new(bool)
+		**out = **in
+	}
 	if in.MissingRequiredEnvVars != nil {
 		in, out := &in.MissingRequiredEnvVars, &out.MissingRequiredEnvVars
 		*out = make([]string, len(*in))

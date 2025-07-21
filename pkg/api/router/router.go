@@ -18,6 +18,8 @@ import (
 func Router(services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
 
+	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient)
+
 	agents := handlers.NewAgentHandler(services.TokenServer, services.ProviderDispatcher, services.Invoker, services.ServerURL)
 	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.Invoker, services.Events, services.Router.Backend())
 	tools := handlers.NewToolHandler(services.Invoker)
@@ -49,7 +51,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler()
-	mcp := handlers.NewMCPHandler(services.TokenServer, services.MCPLoader, services.AccessControlRuleHelper, services.ServerURL)
+	mcp := handlers.NewMCPHandler(services.TokenServer, services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.TokenServer, services.StorageClient, services.MCPLoader, services.GatewayClient, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
@@ -396,6 +398,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	// User-Deployed MCP Servers (single-user and remote)
 	mux.HandleFunc("GET /api/mcp-servers", mcp.ListServer)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}", mcp.GetServer)
+	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/check-oauth", mcp.CheckOAuth)
+	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/oauth-url", mcp.GetOAuthURL)
 	mux.HandleFunc("POST /api/mcp-servers", mcp.CreateServer)
 	mux.HandleFunc("PUT /api/mcp-servers/{mcp_server_id}", mcp.UpdateServer)
 	mux.HandleFunc("DELETE /api/mcp-servers/{mcp_server_id}", mcp.DeleteServer)
@@ -417,6 +421,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-server-instances", serverInstances.CreateServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.DeleteServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}/oauth", serverInstances.ClearOAuthCredentials)
+	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}/check-oauth", mcp.CheckOAuth)
+	mux.HandleFunc("GET /api/mcp-server-instances/{mcp_server_instance_id}/oauth-url", mcp.GetOAuthURL)
 
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)
@@ -463,6 +469,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", mcp.CreateServer)
 	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}", mcp.UpdateServer)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}", mcp.GetServer)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/check-oauth", mcp.CheckOAuth)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/oauth-url", mcp.GetOAuthURL)
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}", mcp.DeleteServer)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/configure", mcp.ConfigureServer)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
@@ -568,7 +576,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	}
 
 	// Obot OAuth
-	oauth.SetupHandlers(services.TokenServer, services.GatewayClient, services.MCPLoader, services.OAuthServerConfig, services.ServerURL, mux)
+	oauth.SetupHandlers(oauthChecker, services.TokenServer, services.OAuthServerConfig, services.ServerURL, mux)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)

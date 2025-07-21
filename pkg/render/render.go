@@ -3,7 +3,6 @@ package render
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -161,17 +160,17 @@ func Agent(ctx context.Context, tokenService *jwt.TokenService, db kclient.Clien
 				continue
 			}
 
-			toolDef, err := mcpServerTool(ctx, tokenService, gptClient, mcpServer, opts.Thread.Spec.ParentThreadName, serverURL, allowedTools)
+			toolDefs, err := mcpServerTools(ctx, tokenService, gptClient, mcpServer, opts.Thread.Spec.ParentThreadName, serverURL, allowedTools)
 			if err != nil {
-				if uc := (*UnconfiguredMCPError)(nil); errors.As(err, &uc) {
-					// Leave out un-configured MCP servers.
-					continue
-				}
 				return nil, nil, err
 			}
 
-			mainTool.Tools = append(mainTool.Tools, toolDef.Name)
-			otherTools = append(otherTools, toolDef)
+			slices.Grow(mainTool.Tools, len(toolDefs))
+			slices.Grow(otherTools, len(toolDefs))
+			for _, toolDef := range toolDefs {
+				mainTool.Tools = append(mainTool.Tools, toolDef.Name)
+				otherTools = append(otherTools, toolDef)
+			}
 		}
 
 		toolNames, err := projects.GetStrings(ctx, db, opts.Thread, func(thread *v1.Thread) []string {

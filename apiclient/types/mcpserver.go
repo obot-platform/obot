@@ -66,6 +66,7 @@ type MCPServer struct {
 	Metadata
 	MCPServerManifest       MCPServerManifest `json:"manifest"`
 	Configured              bool              `json:"configured"`
+	AuthRequired            *bool             `json:"authRequired,omitempty"`
 	MissingRequiredEnvVars  []string          `json:"missingRequiredEnvVars,omitempty"`
 	MissingRequiredHeaders  []string          `json:"missingRequiredHeader,omitempty"`
 	CatalogEntryID          string            `json:"catalogEntryID"`

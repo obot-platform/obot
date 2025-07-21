@@ -5,25 +5,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/types"
+	"github.com/modelcontextprotocol/go-sdk/jsonschema"
+	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-type UnconfiguredMCPError struct {
-	MCPName string
-	Missing []string
-}
+var sessionHandler *mcp.SessionManager
 
-func (e *UnconfiguredMCPError) Error() string {
-	return fmt.Sprintf("MCP server %s missing required configuration parameters: %s", e.MCPName, strings.Join(e.Missing, ", "))
-}
-
-func mcpServerTool(ctx context.Context, tokenService *jwt.TokenService, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, projectName, serverURL string, allowedTools []string) (gptscript.ToolDef, error) {
+func mcpServerTools(ctx context.Context, tokenService *jwt.TokenService, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, projectName, serverURL string, allowedTools []string) ([]gptscript.ToolDef, error) {
 	var credEnv map[string]string
 	if len(mcpServer.Spec.Manifest.Env) != 0 || len(mcpServer.Spec.Manifest.Headers) != 0 {
 		// Add the credential context for the direct parent to pick up credentials specifically for this project.
@@ -35,7 +31,7 @@ func mcpServerTool(ctx context.Context, tokenService *jwt.TokenService, gptClien
 
 		cred, err := gptClient.RevealCredential(ctx, credCtxs, mcpServer.Name)
 		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-			return gptscript.ToolDef{}, fmt.Errorf("failed to reveal credential for MCP server %s: %w", mcpServer.Spec.Manifest.Name, err)
+			return nil, fmt.Errorf("failed to reveal credential for MCP server %s: %w", mcpServer.Spec.Manifest.Name, err)
 		}
 
 		credEnv = cred.Env
@@ -43,23 +39,84 @@ func mcpServerTool(ctx context.Context, tokenService *jwt.TokenService, gptClien
 
 	serverConfig, missingRequiredNames, err := mcp.ToServerConfig(tokenService, mcpServer, serverURL, projectName, credEnv, allowedTools...)
 	if err != nil {
-		return gptscript.ToolDef{}, fmt.Errorf("failed to convert MCP server %s to server config: %w", mcpServer.Spec.Manifest.Name, err)
+		return nil, fmt.Errorf("failed to convert MCP server %s to server config: %w", mcpServer.Spec.Manifest.Name, err)
 	}
 
 	if len(missingRequiredNames) > 0 {
-		return gptscript.ToolDef{}, &UnconfiguredMCPError{
-			MCPName: mcpServer.Spec.Manifest.Name,
-			Missing: missingRequiredNames,
-		}
+		// Ignore MCP servers that aren't configured.
+		return nil, nil
 	}
 
-	return serverToolWithCreds(mcpServer, serverConfig)
-}
-
-func serverToolWithCreds(mcpServer v1.MCPServer, serverConfig mcp.ServerConfig) (gptscript.ToolDef, error) {
-	b, err := json.Marshal(serverConfig)
+	client, err := sessionHandler.ClientForServer(ctx, mcpServer, serverConfig)
 	if err != nil {
-		return gptscript.ToolDef{}, fmt.Errorf("failed to marshal MCP Server %s config: %w", mcpServer.Spec.Manifest.Name, err)
+		var uae nmcp.AuthRequiredErr
+		if errors.As(err, &uae) {
+			// If the MCP server needs OAuth, ignore it and let the chat continue.
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to create MCP client for server %s: %w", mcpServer.Spec.Manifest.Name, err)
+	}
+
+	tools, err := client.ListTools(ctx)
+	if err != nil {
+		var uae nmcp.AuthRequiredErr
+		if errors.As(err, &uae) {
+			// If the MCP server needs OAuth, ignore it and let the chat continue.
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to list tools for MCP server %s: %w", mcpServer.Spec.Manifest.Name, err)
+	}
+
+	allToolsAllowed := allowedTools == nil || slices.Contains(allowedTools, "*")
+
+	toolDefs := []gptscript.ToolDef{{ /* this is a placeholder for main tool */ }}
+	var toolNames []string
+
+	for _, tool := range tools.Tools {
+		if !allToolsAllowed && !slices.Contains(allowedTools, tool.Name) {
+			continue
+		}
+		if tool.Name == "" {
+			// I dunno, bad tool?
+			continue
+		}
+
+		var schema jsonschema.Schema
+
+		schemaData, err := json.Marshal(tool.InputSchema)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal tool input schema: %w", err)
+		}
+
+		if err := json.Unmarshal(schemaData, &schema); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal tool input schema: %w", err)
+		}
+
+		annotations, err := json.Marshal(tool.Annotations)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal tool annotations: %w", err)
+		}
+
+		toolDef := gptscript.ToolDef{
+			Name:         tool.Name,
+			Description:  tool.Description,
+			Arguments:    &schema,
+			Instructions: types.MCPInvokePrefix + tool.Name + " " + client.ID,
+		}
+
+		if string(annotations) != "{}" && string(annotations) != "null" {
+			toolDef.MetaData = map[string]string{
+				"mcp-tool-annotations": string(annotations),
+			}
+		}
+
+		if tool.Annotations != nil && tool.Annotations.Title != "" && !slices.Contains(strings.Fields(tool.Annotations.Title), "as") {
+			toolNames = append(toolNames, tool.Name+" as "+tool.Annotations.Title)
+		} else {
+			toolNames = append(toolNames, tool.Name)
+		}
+
+		toolDefs = append(toolDefs, toolDef)
 	}
 
 	name := mcpServer.Spec.Manifest.Name
@@ -67,8 +124,32 @@ func serverToolWithCreds(mcpServer v1.MCPServer, serverConfig mcp.ServerConfig) 
 		name = mcpServer.Name
 	}
 
-	return gptscript.ToolDef{
-		Name:         name + "-bundle",
-		Instructions: fmt.Sprintf("%s\n%s", types.MCPPrefix, string(b)),
-	}, nil
+	main := gptscript.ToolDef{
+		Name:        name + "-bundle",
+		Description: client.Session.InitializeResult.ServerInfo.Name,
+		Export:      toolNames,
+		MetaData: map[string]string{
+			"bundle": "true",
+		},
+	}
+
+	if client.Session.InitializeResult.Instructions != "" {
+		data, _ := json.Marshal(map[string]any{
+			"tools":        toolNames,
+			"instructions": client.Session.InitializeResult.Instructions,
+		})
+		toolDefs = append(toolDefs, gptscript.ToolDef{
+			Name: client.ID,
+			Type: "context",
+			Instructions: types.EchoPrefix + "\n" + `# START MCP SERVER INFO: ` + client.Session.InitializeResult.ServerInfo.Name + "\n" +
+				`You have available the following tools from an MCP Server that has provided the following additional instructions` + "\n" +
+				string(data) + "\n" +
+				`# END MCP SERVER INFO` + "\n",
+		})
+
+		main.ExportContext = append(main.ExportContext, client.ID)
+	}
+
+	toolDefs[0] = main
+	return toolDefs, nil
 }

@@ -3069,6 +3069,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:  "",
 						},
 					},
+					"authRequired": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"missingRequiredEnvVars": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},

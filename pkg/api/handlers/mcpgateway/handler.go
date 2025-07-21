@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/api"
@@ -147,7 +148,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 	// If an unauthorized error occurs, send the proper status code.
 	var (
-		client *nmcp.Client
+		client *gmcp.Client
 		err    error
 		result any
 	)

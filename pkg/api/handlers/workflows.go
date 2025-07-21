@@ -11,8 +11,6 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const fieldSelector = "spec.workflow"
-
 type WorkflowHandler struct{}
 
 func NewWorkflowHandler() *WorkflowHandler {
@@ -58,7 +56,7 @@ func (a *WorkflowHandler) Delete(req api.Context) error {
 	if deleteTriggers == "true" {
 		listOptions := &kclient.ListOptions{
 			FieldSelector: fields.SelectorFromSet(map[string]string{
-				fieldSelector: id,
+				"spec.workflow": id,
 			}),
 			Namespace: req.Namespace(),
 		}
