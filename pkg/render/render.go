@@ -165,8 +165,8 @@ func Agent(ctx context.Context, tokenService *jwt.TokenService, db kclient.Clien
 				return nil, nil, err
 			}
 
-			slices.Grow(mainTool.Tools, len(toolDefs))
-			slices.Grow(otherTools, len(toolDefs))
+			mainTool.Tools = slices.Grow(mainTool.Tools, len(toolDefs))
+			otherTools = slices.Grow(otherTools, len(toolDefs))
 			for _, toolDef := range toolDefs {
 				mainTool.Tools = append(mainTool.Tools, toolDef.Name)
 				otherTools = append(otherTools, toolDef)
