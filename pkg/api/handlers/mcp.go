@@ -360,13 +360,12 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 		return err
 	}
 
-	if server.Spec.ToolReferenceName != "" || server.Spec.Manifest.Command != "" {
-		return nil
-	}
-
-	u, err := m.mcpOAuthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, mcpID, "")
-	if err != nil {
-		return fmt.Errorf("failed to get OAuth URL: %w", err)
+	var u string
+	if server.Spec.ToolReferenceName == "" && server.Spec.Manifest.URL != "" {
+		u, err = m.mcpOAuthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, mcpID, "")
+		if err != nil {
+			return fmt.Errorf("failed to get OAuth URL: %w", err)
+		}
 	}
 
 	return req.Write(map[string]string{"oauthURL": u})
