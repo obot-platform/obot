@@ -3,7 +3,7 @@
 	import '@milkdown/crepe/theme/frame.css';
 	import { twMerge } from 'tailwind-merge';
 	import { onMount } from 'svelte';
-	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 
 	import {
 		lineNumbers,
@@ -208,7 +208,7 @@
 		<div
 			class="milkdown-content default-scrollbar-thin h-48 overflow-y-auto bg-white p-4 dark:bg-black"
 		>
-			{@html toHTMLFromMarkdown(value)}
+			{@html toHTMLFromMarkdownWithNewTabLinks(value)}
 		</div>
 	{:else}
 		<div

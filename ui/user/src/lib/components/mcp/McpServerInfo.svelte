@@ -13,7 +13,7 @@
 	import McpServerTools from './McpServerTools.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { responsive } from '$lib/stores';
-	import { toHTMLFromMarkdown } from '$lib/markdown';
+	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import MarkdownTextEditor from '../admin/MarkdownTextEditor.svelte';
 
@@ -221,7 +221,7 @@
 			{:else if description}
 				<div class="group relative w-full">
 					<div class="milkdown-content">
-						{@html toHTMLFromMarkdown(description)}
+						{@html toHTMLFromMarkdownWithNewTabLinks(description)}
 					</div>
 					<button
 						class="icon-button absolute top-0 right-0 z-10 min-h-8 opacity-0 transition-all group-hover:opacity-100"
@@ -243,7 +243,7 @@
 			{/if}
 		{:else if description}
 			<div class="milkdown-content">
-				{@html toHTMLFromMarkdown(description)}
+				{@html toHTMLFromMarkdownWithNewTabLinks(description)}
 			</div>
 		{/if}
 	</div>
