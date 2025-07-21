@@ -69,6 +69,10 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		}
 	}
 
+	// Parse sorting parameters
+	opts.SortBy = query.Get("sort_by")
+	opts.SortOrder = query.Get("sort_order")
+
 	// Get audit logs
 	logs, err := req.GatewayClient.GetMCPAuditLogs(req.Context(), opts)
 	if err != nil {

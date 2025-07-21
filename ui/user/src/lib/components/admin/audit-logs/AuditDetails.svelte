@@ -1,13 +1,13 @@
 <script lang="ts">
 	import {
 		ArrowDownWideNarrow,
-		ChevronDown,
+		ArrowUpNarrowWide,
 		ChevronsLeft,
 		ChevronsRight,
 		ListFilter,
 		LoaderCircle
 	} from 'lucide-svelte';
-	import Table from '../Table.svelte';
+	import Table from '../../Table.svelte';
 	import { type Snippet } from 'svelte';
 	import {
 		AdminService,
@@ -17,14 +17,18 @@
 		type OrgUser
 	} from '$lib/services';
 	import type { PaginatedResponse } from '$lib/services/admin/operations';
-	import StatBar from './StatBar.svelte';
-	import Select from '../Select.svelte';
+	import StatBar from '../StatBar.svelte';
+	import Select from '../../Select.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import LineGraph from '../graph/LineGraph.svelte';
-	import BarGraph from '../graph/BarGraph.svelte';
-	import { afterNavigate } from '$app/navigation';
+	import LineGraph from '../../graph/LineGraph.svelte';
+	import BarGraph from '../../graph/BarGraph.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import Search from '../Search.svelte';
+	import Search from '../../Search.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import AuditLogDetails from './AuditLogDetails.svelte';
+	import AuditFilters from './AuditFilters.svelte';
+	import { goto } from '$app/navigation';
 
 	interface Props {
 		mcpId?: string;
@@ -32,6 +36,10 @@
 		mcpServerDisplayName?: string;
 		users: OrgUser[];
 		filters?: AuditLogFilters;
+		sort?: {
+			sortBy: string;
+			sortOrder: 'asc' | 'desc';
+		};
 		emptyContent?: Snippet;
 		allowPagination?: boolean;
 	}
@@ -41,6 +49,10 @@
 		mcpCatalogEntryId,
 		mcpServerDisplayName,
 		filters,
+		sort = {
+			sortBy: 'created_at',
+			sortOrder: 'desc'
+		},
 		users,
 		emptyContent,
 		allowPagination
@@ -55,40 +67,43 @@
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 	let graphView = $state<'calls' | 'tools' | 'resources' | 'prompts'>('calls');
 
+	let showFilters = $state(false);
+	let selectedAuditLog = $state<AuditLog & { user: string }>();
+	let rightSidebar = $state<HTMLDialogElement>();
+
+	let selectedSortOption = $derived(`${sort.sortBy}_${sort.sortOrder}`);
+
 	async function reload() {
 		currentPage = 0;
 		const offset = currentPage * limit;
 		fetchLogsAndUsers(filters, offset, limit);
 	}
 
-	afterNavigate(() => {
-		reload();
-	});
-
 	$effect(() => {
-		if (mcpId || mcpCatalogEntryId || mcpServerDisplayName) {
+		if (mcpId || mcpCatalogEntryId || mcpServerDisplayName || filters || sort) {
 			reload();
 		}
 	});
 
 	async function fetchLogsAndUsers(filters?: AuditLogFilters, offset?: number, limit?: number) {
+		const sortAndFilters = {
+			...filters,
+			...sort,
+			offset,
+			limit
+		};
+
 		if (mcpId) {
-			listAuditLogs = AdminService.listServerOrInstanceAuditLogs(mcpId, {
-				...filters,
-				offset,
-				limit
-			});
+			listAuditLogs = AdminService.listServerOrInstanceAuditLogs(mcpId, sortAndFilters);
 			listUsageStats = AdminService.listServerOrInstanceAuditLogStats(mcpId, {
 				startTime: filters?.startTime ?? '',
 				endTime: filters?.endTime ?? ''
 			});
 		} else {
 			listAuditLogs = AdminService.listAuditLogs({
-				...filters,
+				...sortAndFilters,
 				mcpServerCatalogEntryName: mcpCatalogEntryId,
-				mcpServerDisplayName,
-				offset,
-				limit
+				mcpServerDisplayName
 			});
 			listUsageStats = AdminService.listAuditLogUsageStats({
 				startTime: filters?.startTime ?? '',
@@ -228,6 +243,14 @@
 		}
 
 		return [];
+	}
+
+	function handleRightSidebarClose() {
+		rightSidebar?.close();
+		setTimeout(() => {
+			showFilters = false;
+			selectedAuditLog = undefined;
+		}, 300);
 	}
 
 	const views = [
@@ -395,12 +418,91 @@
 				onChange={(val) => (search = val)}
 				placeholder="Search..."
 			/>
+			<div class="flex items-center gap-2">
+				<Select
+					class="dark:border-surface3 dark:bg-surface1 min-h-12 border border-transparent bg-white shadow-sm hover:outline-2 hover:outline-blue-500"
+					classes={{
+						root: 'w-64',
+						buttonContent: 'flex items-center gap-1'
+					}}
+					options={[
+						{
+							label: 'Latest',
+							id: 'created_at_desc',
+							property: 'created_at',
+							order: 'desc'
+						},
+						{
+							label: 'Oldest',
+							id: 'created_at_asc',
+							property: 'created_at',
+							order: 'asc'
+						},
+						{
+							label: 'Server Name - A to Z',
+							id: 'mcp_server_display_name_asc',
+							property: 'mcp_server_display_name',
+							order: 'asc'
+						},
+						{
+							label: 'Server Name - Z to A',
+							id: 'mcp_server_display_name_desc',
+							property: 'mcp_server_display_name',
+							order: 'desc'
+						},
+						{
+							label: 'Call Type - A to Z',
+							id: 'call_type_asc',
+							property: 'call_type',
+							order: 'asc'
+						},
+						{
+							label: 'Call Type - Z to A',
+							id: 'call_type_desc',
+							property: 'call_type',
+							order: 'desc'
+						},
+						{
+							label: 'Processing Time - Low to High',
+							id: 'processing_time_ms_asc',
+							property: 'processing_time_ms',
+							order: 'asc'
+						},
+						{
+							label: 'Processing Time - High to Low',
+							id: 'processing_time_ms_desc',
+							property: 'processing_time_ms',
+							order: 'desc'
+						}
+					]}
+					selected={selectedSortOption}
+					onSelect={(option) => {
+						const urlParams = new URLSearchParams(window.location.search);
+						urlParams.set('sortBy', option.property as string);
+						urlParams.set('sortOrder', option.order as string);
+						goto(`${window.location.pathname}?${urlParams.toString()}`);
+					}}
+				>
+					{#snippet buttonStartContent()}
+						<span class="flex flex-shrink-0">
+							{#if sort.sortOrder === 'desc'}
+								<ArrowDownWideNarrow class="size-5" />
+							{:else}
+								<ArrowUpNarrowWide class="size-5" />
+							{/if}
+						</span>
+					{/snippet}
+				</Select>
+			</div>
 			<button
-				class="button dark:border-surface3 hover:bg-surface1 dark:hover:bg-surface3 dark:bg-surface1 flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-lg border border-transparent bg-white px-4 text-sm shadow-sm"
+				class="icon-button flex-shrink-0"
+				onclick={() => {
+					showFilters = true;
+					selectedAuditLog = undefined;
+					rightSidebar?.show();
+				}}
+				use:tooltip={'Filter Logs'}
 			>
-				<ArrowDownWideNarrow class="size-4" /> Sort By - Latest <ChevronDown class="size-5" />
-			</button>
-			<button class="icon-button flex-shrink-0">
 				<ListFilter class="size-6 flex-shrink-0" />
 			</button>
 		</div>
@@ -435,14 +537,18 @@
 					}
 				]}
 				noDataMessage="No audit logs."
+				onSelectRow={(d) => {
+					selectedAuditLog = d;
+					showFilters = false;
+					rightSidebar?.show();
+				}}
 			>
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'client'}
-						{#if d.clientIp}
-							{d.clientIp}
-						{:else}
+						{#if d.client}
 							{d.client.name}/{d.client.version}
 						{/if}
+						{d.clientIP}
 					{:else if property === 'createdAt'}
 						{new Date(d.createdAt)
 							.toLocaleString(undefined, {
@@ -523,4 +629,18 @@
 			</a>.
 		</p>
 	{/if}
+
+	<dialog
+		bind:this={rightSidebar}
+		use:clickOutside={[handleRightSidebarClose, true]}
+		use:dialogAnimation={{ type: 'drawer' }}
+		class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-screen w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
+	>
+		{#if selectedAuditLog}
+			<AuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
+		{/if}
+		{#if showFilters}
+			<AuditFilters {auditLogs} onClose={handleRightSidebarClose} {filters} />
+		{/if}
+	</dialog>
 {/await}

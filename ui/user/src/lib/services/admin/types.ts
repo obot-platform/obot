@@ -232,16 +232,26 @@ export interface AuditLog {
 	mcpServerInstanceName: string;
 	mcpServerName: string;
 	mcpServerDisplayName: string;
+	mcpServerCatalogEntryName?: string;
+	mcpID?: string;
 	client: AuditLogClient;
-	clientIp: string;
+	clientIP: string;
 	callType: string;
 	callIdentifier?: string;
 	responseStatus: number;
 	processingTimeMs: number;
-	requestHeaders?: Record<string, string>;
-	requestBody?: Record<string, unknown>;
-	responseHeaders?: Record<string, string>;
-	responseBody?: Record<string, unknown>;
+	requestHeaders?: Record<string, string | string[]>;
+	requestBody?: {
+		capabilities?: Record<string, unknown>;
+		clientInfo?: Record<string, string>;
+		protocolVersion?: string;
+	};
+	responseHeaders?: Record<string, string | string[]>;
+	responseBody?: {
+		tools?: Record<string, unknown>[];
+		prompts?: Record<string, unknown>[];
+		resources?: Record<string, unknown>[];
+	};
 	error?: string;
 	sessionID?: string;
 	requestID?: string;
@@ -291,6 +301,8 @@ export type AuditLogFilters = {
 	endTime?: string | null;
 	limit?: number | null;
 	offset?: number | null;
+	sortBy?: string | null; // Field to sort by (e.g., "created_at", "user_id", "call_type")
+	sortOrder?: string | null; // Sort order: "asc" or "desc"
 };
 
 export interface K8sServerEvent {

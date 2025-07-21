@@ -1,6 +1,6 @@
 import type { Action } from 'svelte/action';
 
-type AnimationType = 'slide' | 'fade';
+type AnimationType = 'slide' | 'fade' | 'drawer';
 
 interface DialogAnimationParams {
 	type?: AnimationType;
@@ -13,6 +13,11 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 ) => {
 	let { type } = params;
 
+	// Set data attribute for drawer styling
+	if (type === 'drawer') {
+		node.setAttribute('data-drawer', 'true');
+	}
+
 	const slideIn = [
 		{ transform: 'translateX(200%)', opacity: 0 },
 		{ transform: 'translateX(0)', opacity: 1 }
@@ -23,13 +28,22 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		{ transform: 'translateX(-200%)', opacity: 0 }
 	];
 
+	const drawerIn = [
+		{ transform: 'translateX(100%)', opacity: 0 },
+		{ transform: 'translateX(0)', opacity: 1 }
+	];
+	const drawerOut = [
+		{ transform: 'translateX(0)', opacity: 1 },
+		{ transform: 'translateX(100%)', opacity: 0 }
+	];
+
 	const fadeIn = [{ opacity: 0 }, { opacity: 1 }];
 
 	const fadeOut = [{ opacity: 1 }, { opacity: 0 }];
 
 	const getAnimationOptions = (animationType: AnimationType): KeyframeAnimationOptions => ({
 		duration: 200,
-		easing: animationType === 'slide' ? 'ease-out' : 'ease-in-out',
+		easing: animationType === 'slide' || animationType === 'drawer' ? 'ease-out' : 'ease-in-out',
 		fill: 'forwards' as const
 	});
 
@@ -47,7 +61,7 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		}
 
 		const dialogAnimation = node.animate(
-			type === 'slide' ? slideOut : fadeOut,
+			type === 'drawer' ? drawerOut : type === 'slide' ? slideOut : fadeOut,
 			getAnimationOptions(type)
 		);
 
@@ -68,7 +82,10 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 				if (node.hasAttribute('open')) {
 					if (!type) return;
 
-					node.animate(type === 'slide' ? slideIn : fadeIn, getAnimationOptions(type));
+					node.animate(
+						type === 'drawer' ? drawerIn : type === 'slide' ? slideIn : fadeIn,
+						getAnimationOptions(type)
+					);
 				}
 			}
 		});
@@ -89,6 +106,16 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		dialog[closing]::backdrop {
 			opacity: 0;
 		}
+		dialog[data-drawer="true"] {
+			position: fixed !important;
+			top: 0 !important;
+			right: 0 !important;
+			left: auto !important;
+			bottom: 0 !important;
+			margin: 0 !important;
+			width: auto !important;
+			max-width: none !important;
+		}
 	`;
 	document.head.appendChild(style);
 
@@ -97,6 +124,13 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 			const { type: newType } = newParams;
 			type = newType;
 
+			// Update data attribute for drawer styling
+			if (newType === 'drawer') {
+				node.setAttribute('data-drawer', 'true');
+			} else {
+				node.removeAttribute('data-drawer');
+			}
+
 			if (node.hasAttribute('open') && newType) {
 				node.animate(newType === 'slide' ? slideIn : fadeIn, getAnimationOptions(newType));
 			}
@@ -104,6 +138,7 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		destroy() {
 			observer.disconnect();
 			node.close = originalClose;
+			node.removeAttribute('data-drawer');
 			style.remove();
 		}
 	};

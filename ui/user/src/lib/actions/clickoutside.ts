@@ -1,21 +1,24 @@
-export function clickOutside(element: HTMLElement, params: (() => void) | [() => void, boolean]) {
+export function clickOutside(
+	element: HTMLElement,
+	params: ((e: MouseEvent) => void) | [(e: MouseEvent) => void, boolean]
+) {
 	const [onClickOutside, inline = false] = Array.isArray(params) ? params : [params, false];
 
 	let ignoreNextClick = false;
 	let observer: MutationObserver | undefined;
 
-	function checkClickOutside(event: Event) {
+	function checkClickOutside(event: MouseEvent) {
 		if (element.contains(event.target as Node)) return;
-		onClickOutside();
+		onClickOutside(event);
 	}
 
-	function checkDialogClickOutside(event: Event) {
+	function checkDialogClickOutside(event: MouseEvent) {
 		if (!(element as HTMLDialogElement).open) return;
 		if (!(event.target as HTMLElement)?.contains(element)) return;
-		onClickOutside();
+		onClickOutside(event);
 	}
 
-	function checkInlineDialogClickOutside(event: Event) {
+	function checkInlineDialogClickOutside(event: MouseEvent) {
 		if (element.contains(event.target as Node)) return;
 
 		if (ignoreNextClick) {
@@ -23,7 +26,7 @@ export function clickOutside(element: HTMLElement, params: (() => void) | [() =>
 			return;
 		}
 
-		onClickOutside();
+		onClickOutside(event);
 	}
 
 	// <dialog> called with showModal()

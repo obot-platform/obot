@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { afterNavigate, goto } from '$app/navigation';
-	import AuditDetails from '$lib/components/admin/AuditDetails.svelte';
+	import AuditDetails from '$lib/components/admin/audit-logs/AuditDetails.svelte';
 	import Calendar, { type DateRange } from '$lib/components/Calendar.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -27,15 +27,28 @@
 				}
 	);
 
+	let sort = $derived(
+		currentFilters.sortBy && currentFilters.sortOrder
+			? {
+					sortBy: currentFilters.sortBy,
+					sortOrder: currentFilters.sortOrder as 'asc' | 'desc'
+				}
+			: undefined
+	);
+
 	afterNavigate(() => {
-		currentFilters = compileFilters();
+		currentFilters = compileSortAndFilters();
 
 		AdminService.listUsers().then((userData) => {
 			users = userData;
 		});
 	});
 
-	function compileFilters(): AuditLogFilters & { mcpId?: string | null } {
+	function compileSortAndFilters(): AuditLogFilters & {
+		mcpId?: string | null;
+		sortBy?: string | null;
+		sortOrder?: string | null;
+	} {
 		if (!browser) return {};
 
 		const url = new URL(window.location.href);
@@ -58,6 +71,8 @@
 		const mcpServerCatalogEntryName = url.searchParams.get('entryId')
 			? decodeURIComponent(url.searchParams.get('entryId')!)
 			: null;
+		const sortBy = url.searchParams.get('sortBy');
+		const sortOrder = url.searchParams.get('sortOrder');
 
 		return {
 			mcpId,
@@ -68,7 +83,9 @@
 			callType,
 			sessionId,
 			mcpServerDisplayName,
-			mcpServerCatalogEntryName
+			mcpServerCatalogEntryName,
+			sortBy,
+			sortOrder
 		};
 	}
 
@@ -134,7 +151,7 @@
 	{@const hasFilters = Object.entries(currentFilters).some(([_, value]) => value)}
 	{#if hasFilters}
 		<div class="flex flex-wrap items-center gap-2">
-			{#each keys.filter((key) => key !== 'startTime' && key !== 'endTime') as key (key)}
+			{#each keys.filter((key) => key !== 'startTime' && key !== 'endTime' && key !== 'sortBy' && key !== 'sortOrder') as key (key)}
 				{@const value = currentFilters[key as keyof typeof currentFilters]}
 				{#if value}
 					<div
@@ -182,6 +199,7 @@
 				startTime: timeRange.startTime,
 				endTime: timeRange.endTime
 			}}
+			{sort}
 		>
 			{#snippet emptyContent()}
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">

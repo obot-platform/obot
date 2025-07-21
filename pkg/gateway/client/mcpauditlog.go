@@ -60,8 +60,32 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		db = db.Offset(opts.Offset)
 	}
 
-	// Order by created_at descending by default
-	db = db.Order("created_at DESC")
+	// Apply sorting
+	if opts.SortBy != "" {
+		// Validate sort field to prevent SQL injection
+		validSortFields := map[string]bool{
+			"created_at":                     true,
+			"mcp_id":                         true,
+			"mcp_server_display_name":        true,
+			"mcp_server_catalog_entry_name":  true,
+			"call_type":                      true,
+			"processing_time_ms":             true,
+		}
+		
+		if validSortFields[opts.SortBy] {
+			sortOrder := "DESC" // default to descending
+			if opts.SortOrder == "asc" {
+				sortOrder = "ASC"
+			}
+			db = db.Order(opts.SortBy + " " + sortOrder)
+		} else {
+			// Fallback to default sorting if invalid field
+			db = db.Order("created_at DESC")
+		}
+	} else {
+		// Default sorting by created_at descending
+		db = db.Order("created_at DESC")
+	}
 
 	return logs, db.Find(&logs).Error
 }
@@ -227,6 +251,8 @@ type MCPAuditLogOptions struct {
 	EndTime                   time.Time
 	Limit                     int
 	Offset                    int
+	SortBy                    string // Field to sort by (e.g., "created_at", "user_id", "call_type")
+	SortOrder                 string // Sort order: "asc" or "desc"
 }
 
 // MCPUsageStatsOptions represents options for querying MCP usage statistics

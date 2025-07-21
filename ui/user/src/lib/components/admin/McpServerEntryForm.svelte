@@ -12,7 +12,7 @@
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { formatTimeAgo } from '$lib/time';
 	import { onMount } from 'svelte';
-	import AuditDetails from './AuditDetails.svelte';
+	import AuditDetails from './audit-logs/AuditDetails.svelte';
 
 	type MCPType = 'single' | 'multi' | 'remote';
 
