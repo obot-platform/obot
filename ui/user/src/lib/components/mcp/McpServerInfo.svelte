@@ -24,7 +24,7 @@
 
 	function convertEntryDetails(entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP) {
 		let items: Record<string, EntryDetail> = {};
-		if ('manifest' in entry || 'mcpID' in entry) {
+		if (!('isCatalogEntry' in entry) && ('manifest' in entry || 'mcpID' in entry)) {
 			items = {
 				requiredConfig: {
 					label: 'Required Configuration',
@@ -52,13 +52,12 @@
 					value: 'updated' in entry ? formatTimeAgo(entry.updated).relativeTime : ''
 				}
 			};
-		} else if ('commandManifest' in entry || 'urlManifest' in entry) {
-			const manifest = entry.commandManifest || entry.urlManifest;
+		} else if ('isCatalogEntry' in entry) {
 			items = {
 				requiredConfig: {
 					label: 'Required Configuration',
 					value:
-						manifest?.env
+						entry.manifest?.env
 							?.filter((e) => e.required)
 							.map((e) => e.name)
 							.join(', ') ?? []
@@ -73,8 +72,8 @@
 				},
 				moreInfo: {
 					label: 'More Information',
-					value: manifest?.repoURL ?? '',
-					link: manifest?.repoURL ?? '',
+					value: entry.manifest?.repoURL ?? '',
+					link: entry.manifest?.repoURL ?? '',
 					class: 'line-clamp-1',
 					showTooltip: true
 				},
@@ -114,13 +113,9 @@
 	let description = $derived(
 		('manifest' in entry
 			? entry.manifest.description
-			: 'commandManifest' in entry
-				? entry.commandManifest?.description
-				: 'urlManifest' in entry
-					? entry.urlManifest?.description
-					: 'description' in entry
-						? entry.description
-						: '') ?? ''
+			: 'description' in entry
+				? entry.description
+				: '') ?? ''
 	);
 </script>
 

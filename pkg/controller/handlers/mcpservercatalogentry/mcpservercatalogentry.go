@@ -10,22 +10,6 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func RemoveArgsOnRemoteEntries(req router.Request, _ router.Response) error {
-	entry := req.Object.(*v1.MCPServerCatalogEntry)
-
-	if entry.Spec.SourceURL != "" {
-		return nil
-	}
-
-	// The URLManifest should never have args on it, but there was a bug where sometimes they were created with one empty string as an argument.
-	if entry.Spec.URLManifest.Args != nil {
-		entry.Spec.URLManifest.Args = nil
-		return req.Client.Update(req.Ctx, entry)
-	}
-
-	return nil
-}
-
 // EnsureUserCount ensures that the user count for an MCP server catalog entry is up to date.
 func EnsureUserCount(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
@@ -51,6 +35,15 @@ func EnsureUserCount(req router.Request, _ router.Response) error {
 	if newUserCount := len(uniqueUsers); entry.Status.UserCount != newUserCount {
 		entry.Status.UserCount = newUserCount
 		return req.Client.Status().Update(req.Ctx, entry)
+	}
+
+	return nil
+}
+
+func DeleteEntriesWithoutRuntime(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+	if string(entry.Spec.Manifest.Runtime) == "" {
+		return req.Client.Delete(req.Ctx, entry)
 	}
 
 	return nil

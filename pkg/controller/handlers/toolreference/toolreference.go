@@ -76,72 +76,6 @@ func New(gptClient *gptscript.GPTScript,
 	}
 }
 
-func (h *Handler) mcpServers(ctx context.Context, registryURL string, entries map[string]indexEntry) (result []client.Object) {
-	for _, entry := range entries {
-		if ref, ok := strings.CutPrefix(entry.Reference, "./"); ok {
-			entry.Reference = registryURL + "/" + ref
-		}
-
-		run, err := h.gptClient.Run(ctx, entry.Reference, gptscript.Options{})
-		if err != nil {
-			log.Errorf("Failed to run %s: %v", entry.Reference, err)
-		}
-		out, err := run.Text()
-		if err != nil {
-			log.Errorf("Failed to get text for run %s: %v", entry.Reference, err)
-			continue
-		}
-
-		for _, filename := range strings.Split(strings.TrimSpace(out), "\n") {
-			filename = strings.TrimSpace(filename)
-			if filename == "" || !strings.HasSuffix(filename, ".yaml") {
-				continue
-			}
-
-			input, _ := json.Marshal(map[string]interface{}{
-				"name": filename,
-			})
-
-			out, err := h.gptClient.Run(ctx, "read from "+entry.Reference, gptscript.Options{
-				Input: string(input),
-			})
-			if err != nil {
-				log.Errorf("Failed to get contents of %s: %v", filename, err)
-				continue
-			}
-
-			text, err := out.Text()
-			if err != nil {
-				log.Errorf("Failed to get server text for %s: %v", filename, err)
-				continue
-			}
-
-			var manifest types.MCPServerCatalogEntryManifest
-			if err := yaml.Unmarshal([]byte(text), &manifest); err != nil {
-				log.Errorf("Failed to decode manifest for %s: %v", filename, err)
-				continue
-			}
-			catalogEntry := &v1.MCPServerCatalogEntry{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      strings.TrimSuffix(filename, ".yaml"),
-					Namespace: system.DefaultNamespace,
-				},
-			}
-
-			if manifest.Command != "" {
-				catalogEntry.Spec.CommandManifest = manifest
-			} else if manifest.FixedURL != "" || manifest.Hostname != "" {
-				catalogEntry.Spec.URLManifest = manifest
-			} else {
-				continue
-			}
-			result = append(result, catalogEntry)
-		}
-	}
-
-	return
-}
-
 func (h *Handler) toolsToToolReferences(ctx context.Context, toolType types.ToolReferenceType, registryURL string, entries map[string]indexEntry) (result []client.Object) {
 	for name, entry := range entries {
 		if ref, ok := strings.CutPrefix(entry.Reference, "./"); ok {
@@ -204,7 +138,6 @@ func (h *Handler) readFromRegistry(ctx context.Context, c client.Client) error {
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeTool, registryURL, index.Tools)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDataSource, registryURL, index.KnowledgeDataSources)...)
 		toAdd = append(toAdd, h.toolsToToolReferences(ctx, types.ToolReferenceTypeKnowledgeDocumentLoader, registryURL, index.KnowledgeDocumentLoaders)...)
-		toAdd = append(toAdd, h.mcpServers(ctx, registryURL, index.MCPServers)...)
 	}
 
 	if len(errs) > 0 {

@@ -140,7 +140,7 @@
 				const entry = mcpEntriesMap.get(resource.id);
 				return {
 					id: resource.id,
-					name: entry?.commandManifest?.name || entry?.urlManifest?.name || '-',
+					name: entry?.manifest?.name || '-',
 					type: 'mcpentry'
 				};
 			}

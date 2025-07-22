@@ -261,6 +261,38 @@ export interface ToolReferenceList {
 	items: ToolReference[];
 }
 
+export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote';
+
+export interface UVXRuntimeConfig {
+	package: string;
+	command?: string;
+	args?: string[];
+}
+
+export interface NPXRuntimeConfig {
+	package: string;
+	args?: string[];
+}
+
+export interface ContainerizedRuntimeConfig {
+	image: string;
+	port: number;
+	path: string;
+	command?: string;
+	args?: string[];
+}
+
+export interface RemoteRuntimeConfig {
+	url: string;
+	headers?: MCPSubField[];
+}
+
+export interface RemoteCatalogConfig {
+	fixedURL?: string;
+	hostname?: string;
+	headers?: MCPSubField[];
+}
+
 export interface MCPSubField {
 	description: string;
 	file?: boolean;
@@ -273,8 +305,7 @@ export interface MCPSubField {
 export interface MCP {
 	id: string;
 	created: string;
-	commandManifest?: MCPInfo;
-	urlManifest?: MCPInfo;
+	manifest: MCPInfo;
 	type: string;
 }
 
@@ -282,16 +313,17 @@ export interface MCPServer {
 	description?: string;
 	icon?: string;
 	name?: string;
-	args?: string[];
 	env?: MCPSubField[];
-	command?: string;
-	url?: string;
-	hostname?: string;
-	headers?: MCPSubField[];
 	toolPreview?: MCPServerTool[];
 	metadata?: {
 		categories?: string;
 	};
+
+	runtime: Runtime;
+	uvxConfig?: UVXRuntimeConfig;
+	npxConfig?: NPXRuntimeConfig;
+	containerizedConfig?: ContainerizedRuntimeConfig;
+	remoteConfig?: RemoteRuntimeConfig;
 }
 
 export interface MCPServerTool {

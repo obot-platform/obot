@@ -121,7 +121,7 @@
 			}
 
 			if (search) {
-				const nameToUse = item.commandManifest?.name ?? item.urlManifest?.name;
+				const nameToUse = item.manifest?.name;
 				return nameToUse?.toLowerCase().includes(search.toLowerCase());
 			}
 
@@ -197,18 +197,18 @@
 		deletingInstance = undefined;
 		deletingServer = undefined;
 	}
+
 	async function handleLaunchCatalogEntry(entry: Entry) {
-		const manifest = entry.commandManifest ?? entry.urlManifest;
-		if (!manifest) {
+		if (!entry.manifest) {
 			console.error('No server manifest found');
 			return;
 		}
 
-		const url = configureForm?.url;
+		const url = configureForm?.url ?? entry.manifest.remoteConfig?.fixedURL;
 		try {
 			const response = await ChatService.createSingleOrRemoteMcpServer({
 				catalogEntryID: entry.id,
-				...(entry.urlManifest ? { manifest: { url } } : {})
+				manifest: { remoteConfig: { url } }
 			});
 			const secretValues = convertEnvHeadersToRecord(configureForm?.envs, configureForm?.headers);
 			const configuredResponse = await ChatService.configureSingleOrRemoteMcpServer(
@@ -250,9 +250,8 @@
 		error = undefined;
 		saving = true;
 		try {
-			const isCatalogEntry =
-				'urlManifest' in selectedEntryOrServer || 'commandManifest' in selectedEntryOrServer;
-			if (isCatalogEntry) {
+			console.log('selected: ', JSON.stringify(selectedEntryOrServer));
+			if ('isCatalogEntry' in selectedEntryOrServer) {
 				await handleLaunchCatalogEntry(selectedEntryOrServer as Entry);
 			} else {
 				await handleMultiUserServer(selectedEntryOrServer as Server);
@@ -271,25 +270,22 @@
 			return item.manifest;
 		}
 
-		if ('commandManifest' in item || 'urlManifest' in item) {
-			return item.commandManifest ?? item.urlManifest;
-		}
-
 		return (item as ConnectedServer).server?.manifest;
 	}
 
 	function initConfigureForm(item: Entry) {
-		const manifest = item.commandManifest ?? item.urlManifest;
 		configureForm = {
-			envs: manifest?.env?.map((env) => ({
+			envs: item.manifest?.env?.map((env) => ({
 				...env,
 				value: ''
 			})),
-			headers: manifest?.headers?.map((header) => ({
+			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
 				...header,
 				value: ''
 			})),
-			...(manifest?.hostname ? { hostname: manifest.hostname, url: '' } : {})
+			...(item.manifest?.remoteConfig?.hostname
+				? { hostname: item.manifest.remoteConfig?.hostname, url: '' }
+				: {})
 		};
 	}
 
@@ -299,10 +295,16 @@
 
 		try {
 			if ('server' in selectedEntryOrServer && selectedEntryOrServer.server?.id) {
-				if (selectedEntryOrServer.parent && selectedEntryOrServer.parent.urlManifest) {
+				if (
+					selectedEntryOrServer.parent &&
+					selectedEntryOrServer.parent.manifest.runtime === 'remote' &&
+					configureForm.url
+				) {
 					await ChatService.updateSingleOrRemoteMcpServer(selectedEntryOrServer.server.id, {
-						...selectedEntryOrServer.parent.urlManifest,
-						url: configureForm.url
+						...selectedEntryOrServer.parent.manifest,
+						remoteConfig: {
+							url: configureForm.url
+						}
 					});
 				}
 
@@ -526,8 +528,7 @@
 						class="button-primary"
 						onclick={() => {
 							configureForm = undefined;
-							const isCatalogEntry = 'commandManifest' in item || 'urlManifest' in item;
-							if (isCatalogEntry && hasEditableConfiguration(item)) {
+							if ('isCatalogEntry' in item && hasEditableConfiguration(item)) {
 								initConfigureForm(item);
 								configDialog?.open();
 							} else {
@@ -594,12 +595,12 @@
 						...env,
 						value: values[env.key] ?? ''
 					})),
-					headers: connectedServer.server.manifest.headers?.map((header) => ({
+					headers: connectedServer.server.manifest.remoteConfig?.headers?.map((header) => ({
 						...header,
 						value: values[header.key] ?? ''
 					})),
-					url: connectedServer.server.manifest.url,
-					hostname: connectedServer.parent?.urlManifest?.hostname
+					url: connectedServer.server.manifest.remoteConfig?.url,
+					hostname: connectedServer.parent?.manifest.remoteConfig?.hostname
 				};
 				configDialog?.open();
 			}}

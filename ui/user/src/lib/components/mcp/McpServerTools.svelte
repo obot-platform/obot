@@ -67,12 +67,8 @@
 	// Extract tool previews from the appropriate manifest
 	function getToolPreview(entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP): MCPServerTool[] {
 		if ('manifest' in entry) {
-			// Connected server - get from manifest.toolPreview
+			// Catalog entry or connected server - get from manifest.toolPreview
 			return entry.manifest?.toolPreview || [];
-		} else if ('commandManifest' in entry || 'urlManifest' in entry) {
-			// Catalog entry - get from commandManifest or urlManifest
-			const manifest = entry.commandManifest || entry.urlManifest;
-			return manifest?.toolPreview || [];
 		}
 		return [];
 	}

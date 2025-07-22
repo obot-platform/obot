@@ -67,7 +67,7 @@ func (c *Controller) setupRoutes() error {
 	discord := workflow.NewDiscordController(c.services.GPTClient)
 	taskHandler := task.NewHandler()
 	slackReceiverHandler := slackreceiver.NewHandler(c.services.GPTClient, c.services.StorageClient)
-	mcpCatalog := mcpcatalog.New(c.services.AllowedMCPDockerImageRepos, c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
+	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpSession := mcpsession.New(c.services.GPTClient)
 	mcpserver := mcpserver.New(c.services.ServerURL)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
@@ -232,13 +232,13 @@ func (c *Controller) setupRoutes() error {
 
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.RemoveArgsOnRemoteEntries)
+	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.DeleteEntriesWithoutRuntime)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.EnsureUserCount)
 
 	// MCPServer
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersWithoutRuntime)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectDrift)
-	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateProjectMCPServers)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerInstanceUserCount)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
 

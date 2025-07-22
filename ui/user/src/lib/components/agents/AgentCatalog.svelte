@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type ProjectTemplate, type MCP, ChatService, type MCPCatalogEntry } from '$lib/services';
+	import { type ProjectTemplate, ChatService, type MCPCatalogEntry } from '$lib/services';
 	import AgentCard from '$lib/components/agents/AgentCard.svelte';
 	import AgentCopy from '$lib/components/agents/AgentCopy.svelte';
 	import { sortTemplatesByFeaturedNameOrder } from '$lib/sort';
@@ -115,8 +115,9 @@
 		const preselectedTemplate = preselected && templates.find((t) => t.id === preselected);
 		if (preselectedTemplate) {
 			const templateMcps =
-				(preselectedTemplate?.mcpServers?.map((id) => mcpsMap.get(id)).filter(Boolean) as MCP[]) ||
-				[];
+				(preselectedTemplate?.mcpServers
+					?.map((id) => mcpsMap.get(id))
+					.filter(Boolean) as MCPCatalogEntry[]) || [];
 
 			dialog?.showModal();
 			agentCopy?.open(preselectedTemplate, templateMcps);
@@ -249,7 +250,7 @@
 
 {#snippet agentCard(template: ProjectTemplate)}
 	{@const templateMcps =
-		(template.mcpServers?.map((id) => mcpsMap.get(id)).filter(Boolean) as MCP[]) || []}
+		(template.mcpServers?.map((id) => mcpsMap.get(id)).filter(Boolean) as MCPCatalogEntry[]) || []}
 
 	<AgentCard
 		{template}

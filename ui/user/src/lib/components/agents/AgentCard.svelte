@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
-	import type { ProjectTemplate, MCP, MCPInfo } from '$lib/services';
+	import type { ProjectTemplate, MCPCatalogEntry } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { Star } from 'lucide-svelte';
 
 	interface Props {
 		template: ProjectTemplate;
-		mcps?: MCP[];
+		mcps?: MCPCatalogEntry[];
 		onclick?: () => void;
 	}
 
@@ -46,11 +46,8 @@
 			{#if mcps.length > 0}
 				<div class="absolute bottom-2 flex gap-1">
 					{#each mcps.slice(0, 5) as mcp (mcp.id)}
-						{#if mcp.commandManifest?.icon}
-							{@render mcpPill(mcp.commandManifest)}
-						{/if}
-						{#if mcp.urlManifest?.icon}
-							{@render mcpPill(mcp.urlManifest)}
+						{#if mcp.manifest?.icon}
+							{@render mcpPill(mcp.manifest)}
 						{/if}
 					{/each}
 					{#if mcps.length > 5}
@@ -66,7 +63,7 @@
 	</button>
 </div>
 
-{#snippet mcpPill(mcp: MCPInfo)}
+{#snippet mcpPill(mcp: { name?: string; icon?: string })}
 	<div class="h-fit w-fit flex-shrink-0 rounded-md bg-gray-50 p-1 dark:bg-gray-600">
 		<img use:tooltip={mcp.name} src={mcp.icon} alt={`${mcp.name} logo`} class="size-6" />
 	</div>

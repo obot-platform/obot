@@ -18,14 +18,10 @@
 	}
 
 	let { data, onClick, action }: Props = $props();
-	let icon = $derived(
-		'manifest' in data ? data.manifest.icon : (data.commandManifest?.icon ?? data.urlManifest?.icon)
-	);
-	let name = $derived(
-		'manifest' in data ? data.manifest.name : (data.commandManifest?.name ?? data.urlManifest?.name)
-	);
+	let icon = $derived(data.manifest.icon);
+	let name = $derived(data.manifest.name);
 	let categories = $derived('categories' in data ? data.categories : parseCategories(data));
-	let needsUpdate = $derived('manifest' in data ? !data.configured : false);
+	let needsUpdate = $derived(!('isCatalogEntry' in data) ? !data.configured : false);
 </script>
 
 <div class="relative flex flex-col">
@@ -55,13 +51,7 @@
 						categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
 					)}
 				>
-					{#if 'manifest' in data}
-						{stripMarkdownToText(data.manifest.description ?? '')}
-					{:else}
-						{stripMarkdownToText(
-							data.commandManifest?.description ?? data.urlManifest?.description ?? ''
-						)}
-					{/if}
+					{stripMarkdownToText(data.manifest.description ?? '')}
 				</span>
 			</div>
 		</div>

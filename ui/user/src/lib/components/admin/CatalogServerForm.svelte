@@ -1,13 +1,17 @@
 <script lang="ts">
 	import {
 		type MCPCatalogEntry,
-		type MCPCatalogEntryFormData,
+		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
 		type MCPCatalogServerManifest
 	} from '$lib/services/admin/types';
+	import type { Runtime } from '$lib/services/chat/types';
 	import { Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
-	import SingleMultiMcpForm from '../mcp/SingleMultiMcpForm.svelte';
-	import RemoteMcpForm from '../mcp/RemoteMcpForm.svelte';
+	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
+	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
+	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
+	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
+	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import { onMount, type Snippet } from 'svelte';
 	import MarkdownInput from './MarkdownInput.svelte';
@@ -26,10 +30,12 @@
 
 	function getType(entry?: MCPCatalogEntry | MCPCatalogServer) {
 		if (!entry) return undefined;
-		if ('manifest' in entry) {
+		if (entry.type === 'mcpserver') {
 			return 'multi';
-		} else if ('commandManifest' in entry || 'urlManifest' in entry) {
-			return entry.commandManifest ? 'single' : 'remote';
+		} else {
+			// For catalog entries, determine type based on runtime
+			const catalogEntry = entry as MCPCatalogEntry;
+			return catalogEntry.manifest.runtime === 'remote' ? 'remote' : 'single';
 		}
 	}
 
@@ -49,88 +55,220 @@
 	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
 	let loading = $state(false);
 
-	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): MCPCatalogEntryFormData {
+	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
+			// Default initialization for new servers
 			return {
 				categories: [''],
 				name: '',
 				description: '',
 				env: [],
-				args: [''],
-				command: '',
-				fixedURL: '',
-				url: '',
-				headers: [],
-				icon: ''
+				icon: '',
+				runtime: 'npx' as Runtime,
+				npxConfig: { package: '', args: [] },
+				uvxConfig: undefined,
+				containerizedConfig: undefined,
+				remoteConfig: undefined,
+				remoteServerConfig: undefined
 			};
 		}
 
 		if (item.type === 'mcpserver') {
-			const server = item as MCPCatalogServerManifest;
-			return {
-				categories: server.manifest.metadata?.categories?.split(',') ?? [],
-				icon: server.manifest.icon ?? '',
-				name: server.manifest.name ?? '',
-				description: server.manifest.description ?? '',
-				env:
-					server.manifest.env?.map((env) => ({
-						...env,
-						value: ''
-					})) ?? [],
-				args: server.manifest.args ?? [],
-				command: server.manifest.command ?? '',
-				url: server.manifest.url ?? '',
-				headers:
-					server.manifest.headers?.map((header) => ({
-						...header,
-						value: ''
-					})) ?? []
+			// Handle MCPCatalogServer (multi-user servers)
+			const server = item as MCPCatalogServer;
+			const manifest = server.manifest;
+
+			const formData: RuntimeFormData = {
+				categories: manifest.metadata?.categories?.split(',').filter((c) => c.trim()) ?? [''],
+				icon: manifest.icon ?? '',
+				name: manifest.name ?? '',
+				description: manifest.description ?? '',
+				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
+				runtime: manifest.runtime,
+				npxConfig: undefined,
+				uvxConfig: undefined,
+				containerizedConfig: undefined,
+				remoteConfig: undefined,
+				remoteServerConfig: undefined
 			};
+
+			// Initialize the appropriate runtime config based on the runtime type
+			switch (manifest.runtime) {
+				case 'npx':
+					formData.npxConfig = manifest.npxConfig || { package: '', args: [] };
+					break;
+				case 'uvx':
+					formData.uvxConfig = manifest.uvxConfig || { package: '', command: '', args: [] };
+					break;
+				case 'containerized':
+					formData.containerizedConfig = manifest.containerizedConfig || {
+						image: '',
+						port: 0,
+						path: '',
+						command: '',
+						args: []
+					};
+					break;
+				case 'remote':
+					formData.remoteServerConfig = manifest.remoteConfig
+						? {
+								url: manifest.remoteConfig.url,
+								headers: manifest.remoteConfig.headers?.map((h) => ({ ...h, value: '' })) ?? []
+							}
+						: { url: '', headers: [] };
+					break;
+			}
+
+			return formData;
 		} else {
+			// Handle MCPCatalogEntry (single-user servers)
 			const entry = item as MCPCatalogEntry;
-			return {
-				categories:
-					entry.commandManifest?.metadata?.categories?.split(',') ??
-					entry.urlManifest?.metadata?.categories?.split(',') ??
-					[],
-				name: entry.commandManifest?.name ?? entry.urlManifest?.name ?? '',
-				icon: entry.commandManifest?.icon ?? entry.urlManifest?.icon ?? '',
-				env:
-					(entry.commandManifest?.env ?? entry.urlManifest?.env ?? []).map((env) => ({
-						...env,
-						value: ''
-					})) ?? [],
-				description: entry.commandManifest?.description ?? entry.urlManifest?.description ?? '',
-				args: entry.commandManifest?.args ?? entry.urlManifest?.args ?? [],
-				command: entry.commandManifest?.command ?? entry.urlManifest?.command ?? '',
-				fixedURL: entry.commandManifest?.fixedURL ?? entry.urlManifest?.fixedURL ?? '',
-				hostname: entry.commandManifest?.hostname ?? entry.urlManifest?.hostname ?? '',
-				headers:
-					(entry.commandManifest?.headers ?? entry.urlManifest?.headers ?? []).map((header) => ({
-						...header,
-						value: ''
-					})) ?? []
+			const manifest = entry.manifest;
+
+			const formData: RuntimeFormData = {
+				categories: manifest.metadata?.categories?.split(',').filter((c) => c.trim()) ?? [''],
+				name: manifest.name ?? '',
+				icon: manifest.icon ?? '',
+				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
+				description: manifest.description ?? '',
+				runtime: manifest.runtime,
+				npxConfig: undefined,
+				uvxConfig: undefined,
+				containerizedConfig: undefined,
+				remoteConfig: undefined,
+				remoteServerConfig: undefined
 			};
+
+			// Initialize the appropriate runtime config based on the runtime type
+			switch (manifest.runtime) {
+				case 'npx':
+					formData.npxConfig = manifest.npxConfig || { package: '', args: [] };
+					break;
+				case 'uvx':
+					formData.uvxConfig = manifest.uvxConfig || { package: '', command: '', args: [] };
+					break;
+				case 'containerized':
+					formData.containerizedConfig = manifest.containerizedConfig || {
+						image: '',
+						port: 0,
+						path: '',
+						command: '',
+						args: []
+					};
+					break;
+				case 'remote':
+					formData.remoteConfig = manifest.remoteConfig || { fixedURL: '', headers: [] };
+					break;
+			}
+
+			return formData;
 		}
 	}
-	let formData = $state<MCPCatalogEntryFormData>(convertToFormData(entry));
+	let formData = $state<RuntimeFormData>(convertToFormData(entry));
 
 	async function revealCatalogServer(catalogId: string, entryId: string) {
 		try {
 			const response = await AdminService.revealMcpCatalogServer(catalogId, entryId);
-			formData.env = formData.env?.map((env) => ({
-				...env,
-				value: response[env.key] ?? ''
-			}));
-			formData.headers = formData.headers?.map((header) => ({
-				...header,
-				value: response[header.key] ?? ''
-			}));
+
+			// Update environment variables with revealed values
+			if (formData.env) {
+				formData.env = formData.env.map((env) => ({
+					...env,
+					value: response[env.key] ?? ''
+				}));
+			}
+
+			// Update headers in the appropriate runtime config based on runtime type
+			if (formData.runtime === 'remote') {
+				if (formData.remoteConfig?.headers) {
+					formData.remoteConfig.headers = formData.remoteConfig.headers.map((header) => ({
+						...header,
+						value: response[header.key] ?? ''
+					}));
+				}
+				if (formData.remoteServerConfig?.headers) {
+					formData.remoteServerConfig.headers = formData.remoteServerConfig.headers.map(
+						(header) => ({
+							...header,
+							value: response[header.key] ?? ''
+						})
+					);
+				}
+			}
 		} catch (error) {
 			if (error instanceof Error && error.message.includes('404')) {
 				// ignore, 404 means no credentials were set
 				return;
 			}
+			// Re-throw other errors
+			throw error;
+		}
+	}
+
+	// Runtime change handler
+	function handleRuntimeChange(newRuntime: Runtime) {
+		formData.runtime = newRuntime;
+
+		// Clear all runtime configs first
+		formData.npxConfig = undefined;
+		formData.uvxConfig = undefined;
+		formData.containerizedConfig = undefined;
+		formData.remoteConfig = undefined;
+		formData.remoteServerConfig = undefined;
+
+		// Initialize the appropriate config based on the new runtime
+		switch (newRuntime) {
+			case 'npx':
+				formData.npxConfig = { package: '', args: [] };
+				break;
+			case 'uvx':
+				formData.uvxConfig = { package: '', command: '', args: [] };
+				break;
+			case 'containerized':
+				formData.containerizedConfig = {
+					image: '',
+					port: 0,
+					path: '',
+					command: '',
+					args: []
+				};
+				break;
+			case 'remote':
+				// For remote servers (catalog entries), use remoteConfig
+				formData.remoteConfig = { fixedURL: '', headers: [] };
+				break;
+		}
+	}
+
+	// Form validation
+	function validateForm(): boolean {
+		// Basic validation - name is required
+		if (!formData.name.trim()) return false;
+
+		// Runtime-specific validation
+		switch (formData.runtime) {
+			case 'npx':
+				return !!formData.npxConfig?.package?.trim();
+			case 'uvx':
+				return !!formData.uvxConfig?.package?.trim();
+			case 'containerized':
+				return !!(
+					formData.containerizedConfig?.image?.trim() &&
+					formData.containerizedConfig?.path?.trim() &&
+					formData.containerizedConfig?.port > 0
+				);
+			case 'remote':
+				if (type === 'remote') {
+					// For remote catalog entries, either fixedURL or hostname is required
+					return !!(
+						formData.remoteConfig?.fixedURL?.trim() || formData.remoteConfig?.hostname?.trim()
+					);
+				} else {
+					// For multi-user servers with remote runtime, URL is required
+					return !!formData.remoteServerConfig?.url?.trim();
+				}
+			default:
+				return false;
 		}
 	}
 
@@ -151,24 +289,119 @@
 			: undefined;
 	}
 
-	function convertToEntryManifest(
-		formData: MCPCatalogEntryFormData
-	): MCPCatalogEntryServerManifest {
-		const { categories, ...rest } = formData;
-		return {
-			...rest,
+	function convertToEntryManifest(formData: RuntimeFormData): MCPCatalogEntryServerManifest {
+		const { categories, ...baseData } = formData;
+
+		// Build base manifest structure
+		const manifest: MCPCatalogEntryServerManifest = {
+			name: baseData.name,
+			description: baseData.description,
+			icon: baseData.icon,
+			env: baseData.env,
+			runtime: baseData.runtime,
 			...convertCategoriesToMetadata(categories)
 		};
+
+		// Add runtime-specific config based on the runtime type
+		switch (baseData.runtime) {
+			case 'npx':
+				if (baseData.npxConfig) {
+					manifest.npxConfig = {
+						package: baseData.npxConfig.package,
+						args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || []
+					};
+				}
+				break;
+			case 'uvx':
+				if (baseData.uvxConfig) {
+					manifest.uvxConfig = {
+						package: baseData.uvxConfig.package,
+						command: baseData.uvxConfig.command || undefined,
+						args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || []
+					};
+				}
+				break;
+			case 'containerized':
+				if (baseData.containerizedConfig) {
+					manifest.containerizedConfig = {
+						image: baseData.containerizedConfig.image,
+						port: baseData.containerizedConfig.port,
+						path: baseData.containerizedConfig.path,
+						command: baseData.containerizedConfig.command || undefined,
+						args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || []
+					};
+				}
+				break;
+			case 'remote':
+				if (baseData.remoteConfig) {
+					manifest.remoteConfig = {
+						fixedURL: baseData.remoteConfig.fixedURL || undefined,
+						hostname: baseData.remoteConfig.hostname || undefined,
+						headers: baseData.remoteConfig.headers || []
+					};
+				}
+				break;
+		}
+
+		return manifest;
 	}
 
-	function convertToServerManifest(formData: MCPCatalogEntryFormData): MCPCatalogServerManifest {
-		const { categories, ...rest } = formData;
-		return {
+	function convertToServerManifest(formData: RuntimeFormData): MCPCatalogServerManifest {
+		const { categories, ...baseData } = formData;
+
+		// Build base manifest structure for server
+		const serverManifest: MCPCatalogServerManifest = {
 			manifest: {
-				...rest,
+				name: baseData.name,
+				description: baseData.description,
+				icon: baseData.icon,
+				env: baseData.env,
+				runtime: baseData.runtime,
 				...convertCategoriesToMetadata(categories)
 			}
 		};
+
+		// Add runtime-specific config based on the runtime type
+		switch (baseData.runtime) {
+			case 'npx':
+				if (baseData.npxConfig) {
+					serverManifest.manifest.npxConfig = {
+						package: baseData.npxConfig.package,
+						args: baseData.npxConfig.args?.filter((arg) => arg.trim()) || []
+					};
+				}
+				break;
+			case 'uvx':
+				if (baseData.uvxConfig) {
+					serverManifest.manifest.uvxConfig = {
+						package: baseData.uvxConfig.package,
+						command: baseData.uvxConfig.command || undefined,
+						args: baseData.uvxConfig.args?.filter((arg) => arg.trim()) || []
+					};
+				}
+				break;
+			case 'containerized':
+				if (baseData.containerizedConfig) {
+					serverManifest.manifest.containerizedConfig = {
+						image: baseData.containerizedConfig.image,
+						port: baseData.containerizedConfig.port,
+						path: baseData.containerizedConfig.path,
+						command: baseData.containerizedConfig.command || undefined,
+						args: baseData.containerizedConfig.args?.filter((arg) => arg.trim()) || []
+					};
+				}
+				break;
+			case 'remote':
+				if (baseData.remoteServerConfig) {
+					serverManifest.manifest.remoteConfig = {
+						url: baseData.remoteServerConfig.url,
+						headers: baseData.remoteServerConfig.headers || []
+					};
+				}
+				break;
+		}
+
+		return serverManifest;
 	}
 
 	async function handleEntrySubmit(catalogId: string) {
@@ -199,37 +432,62 @@
 			response = await AdminService.createMCPCatalogServer(catalogId, serverManifest);
 		}
 
-		let envValues: Record<string, string> = {};
+		let configValues: Record<string, string> = {};
+
+		// Add environment variables
 		if (serverManifest.manifest.env) {
-			envValues = Object.fromEntries(
-				serverManifest.manifest.env.map((env) => [env.key, env.value])
+			const envValues = Object.fromEntries(
+				serverManifest.manifest.env
+					.filter((env) => env.key && env.value) // Only include env vars with both key and value
+					.map((env) => [env.key, env.value])
 			);
+			configValues = { ...configValues, ...envValues };
 		}
 
-		if (Object.keys(envValues).length > 0) {
-			await AdminService.configureMCPCatalogServer(catalogId, response.id, envValues);
+		// Add headers from remote config (only for remote runtime)
+		if (
+			serverManifest.manifest.runtime === 'remote' &&
+			serverManifest.manifest.remoteConfig?.headers
+		) {
+			const headerValues = Object.fromEntries(
+				serverManifest.manifest.remoteConfig.headers
+					.filter((header) => header.key && header.value) // Only include headers with both key and value
+					.map((header) => [header.key, header.value])
+			);
+			configValues = { ...configValues, ...headerValues };
 		}
+
+		// Configure the server with the collected values if any exist
+		if (Object.keys(configValues).length > 0) {
+			await AdminService.configureMCPCatalogServer(catalogId, response.id, configValues);
+		}
+
 		return response;
 	}
 
 	async function handleSubmit() {
-		if (!catalogId) return;
+		if (!catalogId || !validateForm()) return;
 
 		loading = true;
-		const handleFns = {
-			single: handleEntrySubmit,
-			multi: handleServerSubmit,
-			remote: handleEntrySubmit
-		};
-		const entryResponse = await handleFns[type]?.(catalogId);
-		savedEntry = entryResponse;
+		try {
+			const handleFns = {
+				single: handleEntrySubmit,
+				multi: handleServerSubmit,
+				remote: handleEntrySubmit
+			};
+			const entryResponse = await handleFns[type]?.(catalogId);
+			savedEntry = entryResponse;
 
-		if (!entry) {
-			await selectRulesDialog?.open();
+			if (!entry) {
+				await selectRulesDialog?.open();
+				loading = false;
+			} else {
+				loading = false;
+				onSubmit?.(entryResponse.id, type);
+			}
+		} catch (error) {
 			loading = false;
-		} else {
-			loading = false;
-			onSubmit?.(entryResponse.id, type);
+			throw error;
 		}
 	}
 </script>
@@ -328,12 +586,163 @@
 	</div>
 </div>
 
-{#if type === 'single'}
-	<SingleMultiMcpForm bind:config={formData} {readonly} type="single" />
-{:else if type === 'multi'}
-	<SingleMultiMcpForm bind:config={formData} {readonly} type="multi" />
-{:else if type === 'remote'}
-	<RemoteMcpForm bind:config={formData} {readonly} />
+<!-- Runtime Selection -->
+<RuntimeSelector
+	bind:runtime={formData.runtime}
+	serverType={type}
+	{readonly}
+	onRuntimeChange={handleRuntimeChange}
+/>
+
+<!-- Runtime-specific Forms -->
+{#if formData.runtime === 'npx' && formData.npxConfig}
+	<NpxRuntimeForm bind:config={formData.npxConfig} {readonly} />
+{:else if formData.runtime === 'uvx' && formData.uvxConfig}
+	<UvxRuntimeForm bind:config={formData.uvxConfig} {readonly} />
+{:else if formData.runtime === 'containerized' && formData.containerizedConfig}
+	<ContainerizedRuntimeForm bind:config={formData.containerizedConfig} {readonly} />
+{:else if formData.runtime === 'remote' && formData.remoteConfig}
+	<RemoteRuntimeForm bind:config={formData.remoteConfig} {readonly} />
+{/if}
+
+<!-- Environment Variables Section -->
+{#if !readonly || (readonly && formData.env && formData.env.length > 0)}
+	<div
+		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+	>
+		<h4 class="text-sm font-semibold">
+			{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
+		</h4>
+		<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+			{type === 'single' ? 'User supplied config' : 'Config'} values will be available as environment
+			variables in the MCP server and can be referenced in the runtime configuration using the syntax
+			$KEY_NAME.
+		</p>
+
+		{#if formData.env}
+			{#each formData.env as _, i (i)}
+				<div
+					class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
+				>
+					{#if type === 'single'}
+						<div class="flex w-full flex-col gap-4">
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
+								<input
+									id={`env-name-${i}`}
+									class="text-input-filled w-full"
+									bind:value={formData.env[i].name}
+									disabled={readonly}
+								/>
+							</div>
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
+								<input
+									id={`env-description-${i}`}
+									class="text-input-filled w-full"
+									bind:value={formData.env[i].description}
+									disabled={readonly}
+								/>
+							</div>
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
+								<input
+									id={`env-key-${i}`}
+									class="text-input-filled w-full"
+									bind:value={formData.env[i].key}
+									placeholder="e.g. CUSTOM_API_KEY"
+									disabled={readonly}
+								/>
+							</div>
+							<div class="flex gap-8">
+								<label class="flex items-center gap-2">
+									<input
+										type="checkbox"
+										bind:checked={formData.env[i].sensitive}
+										disabled={readonly}
+									/>
+									<span class="text-sm">Sensitive</span>
+								</label>
+								<label class="flex items-center gap-2">
+									<input
+										type="checkbox"
+										bind:checked={formData.env[i].required}
+										disabled={readonly}
+									/>
+									<span class="text-sm">Required</span>
+								</label>
+							</div>
+						</div>
+					{:else}
+						<div class="flex w-full flex-col gap-4">
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
+								<input
+									id={`env-key-${i}`}
+									class="text-input-filled w-full"
+									bind:value={formData.env[i].key}
+									placeholder="e.g. CUSTOM_API_KEY"
+									disabled={readonly}
+								/>
+							</div>
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
+								<input
+									id={`env-value-${i}`}
+									class="text-input-filled w-full"
+									bind:value={formData.env[i].value}
+									placeholder="e.g. 123abcdef456"
+									disabled={readonly}
+									type={formData.env[i].sensitive ? 'password' : 'text'}
+								/>
+							</div>
+							<div>
+								<label class="flex items-center gap-2">
+									<input
+										type="checkbox"
+										bind:checked={formData.env[i].sensitive}
+										disabled={readonly}
+									/>
+									<span class="text-sm">Sensitive</span>
+								</label>
+							</div>
+						</div>
+					{/if}
+
+					{#if !readonly}
+						<button
+							class="icon-button"
+							onclick={() => {
+								formData.env.splice(i, 1);
+							}}
+						>
+							<Trash2 class="size-4" />
+						</button>
+					{/if}
+				</div>
+			{/each}
+		{/if}
+
+		{#if !readonly}
+			<div class="flex justify-end">
+				<button
+					class="button flex items-center gap-1 text-xs"
+					onclick={() =>
+						formData.env.push({
+							key: '',
+							description: '',
+							name: '',
+							value: '',
+							required: false,
+							sensitive: false
+						})}
+				>
+					<Plus class="size-4" />
+					{type === 'single' ? 'User Configuration' : 'Configuration'}
+				</button>
+			</div>
+		{/if}
+	</div>
 {/if}
 
 {#if !readonly}
@@ -343,7 +752,7 @@
 		<button class="button flex items-center gap-1" onclick={() => onCancel?.()}> Cancel </button>
 		<button
 			class="button-primary flex items-center gap-1"
-			disabled={loading}
+			disabled={loading || !validateForm()}
 			onclick={handleSubmit}
 		>
 			{#if loading}

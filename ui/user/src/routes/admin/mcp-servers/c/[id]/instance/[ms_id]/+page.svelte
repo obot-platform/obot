@@ -13,8 +13,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 	let connectedUsers = $state<OrgUser[]>([]);
 
-	let catalogEntryName =
-		catalogEntry?.urlManifest?.name ?? catalogEntry?.commandManifest?.name ?? 'Unknown';
+	let catalogEntryName = catalogEntry?.manifest?.name ?? 'Unknown';
 
 	async function fetchUserInfo() {
 		const mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
@@ -35,7 +34,7 @@
 			<BackLink fromURL={`/mcp-servers/${catalogEntry?.id}`} {currentLabel} />
 		{/if}
 
-		{#if mcpServerId && catalogEntry?.commandManifest}
+		{#if mcpServerId && catalogEntry?.manifest.runtime !== 'remote'}
 			<McpServerK8sInfo {mcpServerId} name={catalogEntryName} {connectedUsers} />
 		{:else}
 			<h1 class="text-2xl font-semibold">

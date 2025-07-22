@@ -76,7 +76,14 @@ export async function listMCPCatalogEntries(
 		`/mcp-catalogs/${catalogID}/entries`,
 		opts
 	)) as ItemsResponse<MCPCatalogEntry>;
-	return response.items ?? [];
+	return (
+		response.items?.map((item) => {
+			return {
+				...item,
+				isCatalogEntry: true
+			};
+		}) ?? []
+	);
 }
 
 export async function getMCPCatalogEntry(
@@ -88,7 +95,10 @@ export async function getMCPCatalogEntry(
 		`/mcp-catalogs/${catalogID}/entries/${entryID}`,
 		opts
 	)) as MCPCatalogEntry;
-	return response;
+	return {
+		...response,
+		isCatalogEntry: true
+	};
 }
 
 export async function createMCPCatalogEntry(
@@ -101,7 +111,10 @@ export async function createMCPCatalogEntry(
 		entry,
 		opts
 	)) as MCPCatalogEntry;
-	return response;
+	return {
+		...response,
+		isCatalogEntry: true
+	};
 }
 
 export async function updateMCPCatalogEntry(
@@ -115,7 +128,10 @@ export async function updateMCPCatalogEntry(
 		entry,
 		opts
 	)) as MCPCatalogEntry;
-	return response;
+	return {
+		...response,
+		isCatalogEntry: true
+	};
 }
 
 export async function deleteMCPCatalogEntry(catalogID: string, entryID: string): Promise<void> {

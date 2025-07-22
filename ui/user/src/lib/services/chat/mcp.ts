@@ -3,7 +3,6 @@ import {
 	ChatService,
 	type MCPCatalogEntry,
 	type MCPCatalogServer,
-	type MCPInfo,
 	type MCPServer,
 	type MCPSubField,
 	type Project
@@ -27,19 +26,6 @@ export function isValidMcpConfig(mcpConfig: MCPServerInfo) {
 	);
 }
 
-export function initMCPConfig(manifest?: MCPInfo | MCPServer): MCPServerInfo {
-	return {
-		...manifest,
-		name: manifest?.name ?? '',
-		description: manifest?.description ?? '',
-		icon: manifest?.icon ?? '',
-		env: manifest?.env?.map((e) => ({ ...e, value: '' })) ?? [],
-		args: manifest?.args ? [...manifest.args] : [],
-		command: manifest?.command ?? '',
-		headers: manifest?.headers?.map((e) => ({ ...e, value: '' })) ?? []
-	};
-}
-
 export function isAuthRequiredBundle(bundleId?: string): boolean {
 	if (!bundleId) return false;
 
@@ -60,16 +46,7 @@ export function isAuthRequiredBundle(bundleId?: string): boolean {
 
 export function parseCategories(item?: MCPCatalogServer | MCPCatalogEntry | null) {
 	if (!item) return [];
-	if ('manifest' in item && item.manifest.metadata?.categories) {
-		return item.manifest.metadata.categories.split(',') ?? [];
-	}
-	if ('commandManifest' in item && item.commandManifest?.metadata?.categories) {
-		return item.commandManifest.metadata.categories.split(',') ?? [];
-	}
-	if ('urlManifest' in item && item.urlManifest?.metadata?.categories) {
-		return item.urlManifest.metadata.categories.split(',') ?? [];
-	}
-	return [];
+	return item.manifest.metadata ? (item.manifest.metadata.categories?.split(',') ?? []) : [];
 }
 
 export function convertEnvHeadersToRecord(
@@ -92,10 +69,11 @@ export function convertEnvHeadersToRecord(
 }
 
 export function hasEditableConfiguration(item: MCPCatalogEntry) {
-	const manifest = item.commandManifest ?? item.urlManifest;
-	const hasUrlToFill = !manifest?.fixedURL && manifest?.hostname;
-	const hasEnvsToFill = manifest?.env && manifest.env.length > 0;
-	const hasHeadersToFill = manifest?.headers && manifest.headers.length > 0;
+	const hasUrlToFill =
+		!item.manifest?.remoteConfig?.fixedURL && item.manifest?.remoteConfig?.hostname;
+	const hasEnvsToFill = item.manifest?.env && item.manifest.env.length > 0;
+	const hasHeadersToFill =
+		item.manifest?.remoteConfig?.headers && item.manifest.remoteConfig?.headers.length > 0;
 
 	return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
 }

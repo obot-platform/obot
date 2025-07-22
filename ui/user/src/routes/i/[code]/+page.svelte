@@ -36,7 +36,7 @@
 		responseError = false;
 
 		try {
-			const result = await ChatService.acceptProjectInvitation(page.params.code);
+			const result = await ChatService.acceptProjectInvitation(page.params.code ?? '');
 			responseMessage = 'Invitation accepted! Redirecting to project...';
 			if (result.project) {
 				goto(`/o/${result.project.id}`);
@@ -67,7 +67,7 @@
 		responseError = false;
 
 		try {
-			await ChatService.rejectProjectInvitation(page.params.code);
+			await ChatService.rejectProjectInvitation(page.params.code ?? '');
 			responseMessage = 'Invitation rejected.';
 			view = 'rejected';
 		} catch (error) {

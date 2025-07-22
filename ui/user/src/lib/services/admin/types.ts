@@ -1,4 +1,11 @@
-import { type MCPServerTool, type Project } from '../chat/types';
+import {
+	type MCPServerTool,
+	type Project,
+	type Runtime,
+	type UVXRuntimeConfig,
+	type NPXRuntimeConfig,
+	type ContainerizedRuntimeConfig
+} from '../chat/types';
 
 export interface MCPCatalogManifest {
 	displayName: string;
@@ -15,15 +22,21 @@ export interface MCPCatalogSource {
 	id: string;
 }
 
-export interface MCPCatalogEntryServerManifest {
-	icon?: string;
-	args?: string[];
-	env?: MCPCatalogEntryFieldManifest[];
-	command?: string;
+export interface RemoteRuntimeConfigAdmin {
+	url: string;
+	headers?: MCPCatalogEntryFieldManifest[];
+}
+
+export interface RemoteCatalogConfigAdmin {
 	fixedURL?: string;
-	repoURL?: string;
 	hostname?: string;
 	headers?: MCPCatalogEntryFieldManifest[];
+}
+
+export interface MCPCatalogEntryServerManifest {
+	icon?: string;
+	env?: MCPCatalogEntryFieldManifest[];
+	repoURL?: string;
 	name?: string;
 	description?: string;
 	toolPreview?: MCPServerTool[];
@@ -31,17 +44,23 @@ export interface MCPCatalogEntryServerManifest {
 		categories?: string;
 		'allow-multiple'?: string;
 	};
+
+	runtime: Runtime;
+	uvxConfig?: UVXRuntimeConfig;
+	npxConfig?: NPXRuntimeConfig;
+	containerizedConfig?: ContainerizedRuntimeConfig;
+	remoteConfig?: RemoteCatalogConfigAdmin;
 }
 
 export interface MCPCatalogEntry {
 	id: string;
 	created: string;
 	deleted?: string;
-	commandManifest?: MCPCatalogEntryServerManifest;
-	urlManifest?: MCPCatalogEntryServerManifest;
+	manifest: MCPCatalogEntryServerManifest;
 	sourceURL?: string;
 	userCount?: number;
 	type: string;
+	isCatalogEntry: true;
 }
 
 export interface MCPCatalogEntryFieldManifest {
@@ -58,10 +77,30 @@ export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryServerManifest, 'metad
 	url?: string;
 };
 
+// New runtime-based form data structure
+export interface RuntimeFormData {
+	// Common fields
+	name: string;
+	description: string;
+	icon: string;
+	categories: string[];
+	env: MCPCatalogEntryFieldManifest[];
+
+	// Runtime selection
+	runtime: Runtime;
+
+	// Runtime-specific configs (only one populated based on runtime)
+	npxConfig?: NPXRuntimeConfig;
+	uvxConfig?: UVXRuntimeConfig;
+	containerizedConfig?: ContainerizedRuntimeConfig;
+	remoteConfig?: RemoteCatalogConfigAdmin; // For catalog entries
+	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
+}
+
 export interface MCPCatalogServerManifest {
 	catalogEntryID?: string;
-	manifest: Omit<MCPCatalogEntryServerManifest, 'fixedURL'> & {
-		url?: string;
+	manifest: Omit<MCPCatalogEntryServerManifest, 'remoteConfig'> & {
+		remoteConfig?: RemoteRuntimeConfigAdmin;
 	};
 }
 

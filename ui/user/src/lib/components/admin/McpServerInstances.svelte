@@ -58,9 +58,9 @@
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 
 	onMount(() => {
-		if (entry && 'manifest' in entry && catalogId) {
+		if (entry && !('isCatalogEntry' in entry) && catalogId) {
 			listServerInstances = AdminService.listMcpCatalogServerInstances(catalogId, entry.id);
-		} else if (entry && !('manifest' in entry) && catalogId) {
+		} else if (entry && 'isCatalogEntry' in entry && catalogId) {
 			listEntryServers = AdminService.listMCPServersForEntry(catalogId, entry.id);
 		}
 	});
@@ -105,10 +105,7 @@
 
 	function setLastVisitedMcpServer() {
 		if (!entry) return;
-		const name =
-			'manifest' in entry
-				? entry.manifest?.name
-				: (entry.commandManifest?.name ?? entry.urlManifest?.name);
+		const name = entry.manifest?.name;
 		sessionStorage.setItem(
 			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
 			JSON.stringify({ id: entry.id, name, type })
@@ -190,7 +187,7 @@
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'url'}
 						<span class="flex items-center gap-1">
-							{d.manifest.url}
+							{d.manifest.remoteConfig?.url}
 							{#if d.needsUpdate}
 								<div
 									use:tooltip={{
@@ -366,10 +363,7 @@
 		{/if}
 	{/snippet}
 	{#if entry}
-		{@const newServerManifest =
-			'commandManifest' in entry || 'urlManifest' in entry
-				? (entry.commandManifest ?? entry.urlManifest)
-				: undefined}
+		{@const newServerManifest = entry.manifest}
 		{@const diffManifest = diffServer?.manifest}
 		{#if newServerManifest && diffManifest}
 			{@const diff = generateJsonDiff(diffManifest, newServerManifest)}

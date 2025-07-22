@@ -31,7 +31,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
-	mcpCatalogs := handlers.NewMCPCatalogHandler(services.AllowedMCPDockerImageRepos, services.DefaultMCPCatalogPath, services.ServerURL)
+	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher)

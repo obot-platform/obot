@@ -80,7 +80,7 @@
 			if (entryMatch) {
 				return {
 					id: resource.id,
-					name: entryMatch.commandManifest?.name || entryMatch.urlManifest?.name || '-',
+					name: entryMatch.manifest.name || '-',
 					type: 'mcpentry'
 				};
 			}

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"slices"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -13,21 +12,20 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MCPCatalogHandler struct {
-	allowedDockerImageRepos []string
-	defaultCatalogPath      string
-	serverURL               string
+	defaultCatalogPath string
+	serverURL          string
 }
 
-func NewMCPCatalogHandler(allowedDockerImageRepos []string, defaultCatalogPath string, serverURL string) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
-		allowedDockerImageRepos: allowedDockerImageRepos,
-		defaultCatalogPath:      defaultCatalogPath,
-		serverURL:               serverURL,
+		defaultCatalogPath: defaultCatalogPath,
+		serverURL:          serverURL,
 	}
 }
 
@@ -175,8 +173,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
 
-	hasCommand, hasURL, err := h.validateMCPServerCatalogEntryManifest(manifest)
-	if err != nil {
+	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
@@ -190,19 +187,9 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		Spec: v1.MCPServerCatalogEntrySpec{
 			MCPCatalogName: catalogName,
 			Editable:       true,
+			Manifest:       manifest,
 			// TODO(g-linville): add support for unsupportedTools field?
 		},
-	}
-
-	if hasCommand {
-		manifest.Headers = nil
-		entry.Spec.CommandManifest = manifest
-	} else if hasURL {
-		manifest.Args = nil
-		entry.Spec.URLManifest = manifest
-	} else {
-		// Should be impossible since we validated this earlier.
-		return types.NewErrBadRequest("invalid manifest")
 	}
 
 	if err := req.Create(&entry); err != nil {
@@ -239,23 +226,11 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
 
-	hasCommand, hasURL, err := h.validateMCPServerCatalogEntryManifest(manifest)
-	if err != nil {
+	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
-	if hasCommand {
-		manifest.Headers = nil
-		entry.Spec.CommandManifest = manifest
-		entry.Spec.URLManifest = types.MCPServerCatalogEntryManifest{}
-	} else if hasURL {
-		manifest.Args = nil
-		entry.Spec.URLManifest = manifest
-		entry.Spec.CommandManifest = types.MCPServerCatalogEntryManifest{}
-	} else {
-		// Should be impossible since we validated this earlier.
-		return types.NewErrBadRequest("invalid manifest")
-	}
+	entry.Spec.Manifest = manifest
 
 	if err := req.Update(&entry); err != nil {
 		return fmt.Errorf("failed to update entry: %w", err)
@@ -336,53 +311,6 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
-}
-
-func (h *MCPCatalogHandler) validateMCPServerCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) (bool, bool, error) {
-	if manifest.Name == "" {
-		return false, false, fmt.Errorf("server name is required")
-	}
-
-	var (
-		hasCommand, hasURL bool
-	)
-	if manifest.Command != "" {
-		hasCommand = true
-
-		if len(manifest.Args) == 0 {
-			return false, false, fmt.Errorf("command must be followed by at least one argument")
-		}
-
-		if manifest.Command == "docker" {
-			if len(h.allowedDockerImageRepos) == 0 {
-				return false, false, fmt.Errorf("docker command is not allowed")
-			}
-
-			if !slices.ContainsFunc(h.allowedDockerImageRepos, func(s string) bool {
-				return strings.HasPrefix(manifest.Args[len(manifest.Args)-1], s)
-			}) {
-				return false, false, fmt.Errorf("docker command must be followed by a valid image name from one of the allowed repos (%s)", strings.Join(h.allowedDockerImageRepos, ", "))
-			}
-		} else if manifest.Command != "npx" && manifest.Command != "uvx" {
-			return false, false, fmt.Errorf("unsupported command: %s", manifest.Command)
-		}
-	}
-	if manifest.FixedURL != "" || manifest.Hostname != "" {
-		hasURL = true
-		if manifest.FixedURL != "" && manifest.Hostname != "" {
-			return false, false, fmt.Errorf("only one of fixedURL or hostname is allowed")
-		}
-	}
-
-	if hasCommand && hasURL {
-		return false, false, fmt.Errorf("only one of command or url is allowed")
-	}
-
-	if !hasCommand && !hasURL {
-		return false, false, fmt.Errorf("one of command or url is required")
-	}
-
-	return hasCommand, hasURL, nil
 }
 
 func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {

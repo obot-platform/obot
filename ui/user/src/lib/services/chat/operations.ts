@@ -903,7 +903,14 @@ export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCPCatalogEn
 		'/all-mcp-catalogs/entries',
 		opts
 	)) as ItemsResponse<MCPCatalogEntry>;
-	return response.items ?? [];
+	return (
+		response.items?.map((item) => {
+			return {
+				...item,
+				isCatalogEntry: true
+			};
+		}) ?? []
+	);
 }
 
 export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MCP> {
@@ -1354,7 +1361,9 @@ export async function getSingleOrRemoteMcpServer(
 export async function createSingleOrRemoteMcpServer(server: {
 	catalogEntryID?: string;
 	manifest?: {
-		url?: string;
+		remoteConfig?: {
+			url?: string;
+		};
 	};
 }): Promise<MCPCatalogServer> {
 	const response = (await doPost('/mcp-servers', server)) as MCPCatalogServer;

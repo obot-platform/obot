@@ -4,15 +4,12 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
-	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -39,15 +36,7 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	var (
-		drifted bool
-		err     error
-	)
-	if entry.Spec.CommandManifest.Name != "" {
-		drifted, err = configurationHasDrifted(server.Spec.NeedsURL, server.Spec.Manifest, entry.Spec.CommandManifest)
-	} else {
-		drifted, err = configurationHasDrifted(server.Spec.NeedsURL, server.Spec.Manifest, entry.Spec.URLManifest)
-	}
+	drifted, err := configurationHasDrifted(server.Spec.NeedsURL, server.Spec.Manifest, entry.Spec.Manifest)
 	if err != nil {
 		return err
 	}
@@ -60,81 +49,122 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 }
 
 func configurationHasDrifted(needsURL bool, serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest) (bool, error) {
-	// First, check on the URL or hostname.
-	if entryManifest.FixedURL != "" && serverManifest.URL != entryManifest.FixedURL {
+	// Check if runtime types differ
+	if serverManifest.Runtime != entryManifest.Runtime {
 		return true, nil
+	}
+
+	// Check runtime-specific configurations
+	var (
+		drifted bool
+		err     error
+	)
+	switch serverManifest.Runtime {
+	case types.RuntimeUVX:
+		drifted = uvxConfigHasDrifted(serverManifest.UVXConfig, entryManifest.UVXConfig)
+
+	case types.RuntimeNPX:
+		drifted = npxConfigHasDrifted(serverManifest.NPXConfig, entryManifest.NPXConfig)
+
+	case types.RuntimeContainerized:
+		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig)
+
+	case types.RuntimeRemote:
+		drifted, err = remoteConfigHasDrifted(needsURL, serverManifest.RemoteConfig, entryManifest.RemoteConfig)
+		if err != nil {
+			return false, err
+		}
+
+	default:
+		return false, fmt.Errorf("unknown runtime type: %s", serverManifest.Runtime)
+	}
+
+	if drifted {
+		return true, nil
+	}
+
+	// Check environment
+	return !utils.SlicesEqualIgnoreOrder(serverManifest.Env, entryManifest.Env), nil
+}
+
+// uvxConfigHasDrifted checks if UVX configuration has drifted
+func uvxConfigHasDrifted(serverConfig, entryConfig *types.UVXRuntimeConfig) bool {
+	if serverConfig == nil && entryConfig == nil {
+		return false
+	}
+	if serverConfig == nil || entryConfig == nil {
+		return true
+	}
+
+	return serverConfig.Package != entryConfig.Package ||
+		serverConfig.Command != entryConfig.Command ||
+		!slices.Equal(serverConfig.Args, entryConfig.Args)
+}
+
+// npxConfigHasDrifted checks if NPX configuration has drifted
+func npxConfigHasDrifted(serverConfig, entryConfig *types.NPXRuntimeConfig) bool {
+	if serverConfig == nil && entryConfig == nil {
+		return false
+	}
+	if serverConfig == nil || entryConfig == nil {
+		return true
+	}
+
+	return serverConfig.Package != entryConfig.Package ||
+		!slices.Equal(serverConfig.Args, entryConfig.Args)
+}
+
+// containerizedConfigHasDrifted checks if containerized configuration has drifted
+func containerizedConfigHasDrifted(serverConfig, entryConfig *types.ContainerizedRuntimeConfig) bool {
+	if serverConfig == nil && entryConfig == nil {
+		return false
+	}
+	if serverConfig == nil || entryConfig == nil {
+		return true
+	}
+
+	return serverConfig.Image != entryConfig.Image ||
+		serverConfig.Command != entryConfig.Command ||
+		serverConfig.Port != entryConfig.Port ||
+		serverConfig.Path != entryConfig.Path ||
+		!slices.Equal(serverConfig.Args, entryConfig.Args)
+}
+
+// remoteConfigHasDrifted checks if remote configuration has drifted
+func remoteConfigHasDrifted(needsURL bool, serverConfig *types.RemoteRuntimeConfig, entryConfig *types.RemoteCatalogConfig) (bool, error) {
+	if serverConfig == nil && entryConfig == nil {
+		return false, nil
+	}
+	if serverConfig == nil || entryConfig == nil {
+		return true, nil
+	}
+
+	// For remote runtime, we need to check if the server URL matches what the catalog entry expects
+	if entryConfig.FixedURL != "" {
+		// If catalog entry has a fixed URL, server URL should match exactly
+		if serverConfig.URL != entryConfig.FixedURL {
+			return true, nil
+		}
 	}
 
 	// We skip the hostname check if needsURL is already set to true.
 	// NeedsURL is true if the admin already triggered an update for this server, and the user has not yet fixed the URL to make it match the hostname.
 	// If NeedsURL is false, then we can check the hostname, and if it doesn't match, that means that admin does have an update available to trigger.
-	if entryManifest.Hostname != "" && !needsURL {
-		u, err := url.Parse(serverManifest.URL)
+	if entryConfig.Hostname != "" && !needsURL {
+		// If catalog entry has a hostname constraint, check if server URL uses that hostname
+		u, err := url.Parse(serverConfig.URL)
 		if err != nil {
-			// Shouldn't ever happen.
+			// Invalid URL in server config - consider it drifted
 			return true, err
 		}
 
-		if u.Hostname() != entryManifest.Hostname {
+		if u.Hostname() != entryConfig.Hostname {
 			return true, nil
 		}
 	}
 
-	// Check the rest of the fields to see if anything has changed.
-	drifted := serverManifest.Command != entryManifest.Command ||
-		!slices.Equal(serverManifest.Args, entryManifest.Args) ||
-		!utils.SlicesEqualIgnoreOrder(serverManifest.Env, entryManifest.Env) ||
-		!utils.SlicesEqualIgnoreOrder(serverManifest.Headers, entryManifest.Headers)
-
-	return drifted, nil
-}
-
-func (h *Handler) MigrateProjectMCPServers(req router.Request, _ router.Response) error {
-	server := req.Object.(*v1.MCPServer)
-	mcpID, ok := strings.CutPrefix(server.Spec.Manifest.URL, fmt.Sprintf("%s/mcp-connect/", h.baseURL))
-	if !ok || server.Spec.ThreadName == "" {
-		return nil
-	}
-
-	var projectMCPServers v1.ProjectMCPServerList
-	if err := req.List(untriggered.UncachedList(&projectMCPServers), &kclient.ListOptions{
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.threadName": server.Spec.ThreadName,
-		}),
-	}); err != nil {
-		return err
-	}
-
-	var found bool
-	for _, projectMCPServer := range projectMCPServers.Items {
-		if projectMCPServer.Spec.Manifest.MCPID == mcpID {
-			found = true
-			break
-		}
-	}
-
-	if found {
-		return kclient.IgnoreNotFound(req.Delete(server))
-	}
-
-	if err := req.Client.Create(req.Ctx, &v1.ProjectMCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ProjectMCPServerPrefix,
-			Namespace:    req.Namespace,
-			Finalizers:   []string{v1.ProjectMCPServerFinalizer},
-		},
-		Spec: v1.ProjectMCPServerSpec{
-			Manifest: types.ProjectMCPServerManifest{
-				MCPID: mcpID,
-			},
-			ThreadName: server.Spec.ThreadName,
-			UserID:     server.Spec.UserID,
-		},
-	}); err != nil {
-		return err
-	}
-
-	return kclient.IgnoreNotFound(req.Delete(server))
+	// Check if headers have drifted
+	return !utils.SlicesEqualIgnoreOrder(serverConfig.Headers, entryConfig.Headers), nil
 }
 
 // EnsureMCPServerInstanceUserCount ensures that mcp server instance user count for multi-user MCP servers is up to date.
@@ -170,6 +200,15 @@ func (*Handler) EnsureMCPServerInstanceUserCount(req router.Request, _ router.Re
 	if oldUserCount, newUserCount := server.Status.MCPServerInstanceUserCount, len(uniqueUsers); oldUserCount == nil || *oldUserCount != newUserCount {
 		server.Status.MCPServerInstanceUserCount = &newUserCount
 		return req.Client.Status().Update(req.Ctx, server)
+	}
+
+	return nil
+}
+
+func (h *Handler) DeleteServersWithoutRuntime(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+	if string(server.Spec.Manifest.Runtime) == "" {
+		return req.Client.Delete(req.Ctx, server)
 	}
 
 	return nil

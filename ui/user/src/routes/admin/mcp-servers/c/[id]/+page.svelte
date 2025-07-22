@@ -15,14 +15,13 @@
 <Layout>
 	<div class="mt-6 flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if catalogEntry}
-			{@const currentLabel =
-				catalogEntry?.commandManifest?.name ?? catalogEntry?.urlManifest?.name ?? 'MCP Server'}
+			{@const currentLabel = catalogEntry?.manifest?.name ?? 'MCP Server'}
 			<BackLink fromURL="mcp-servers" {currentLabel} />
 		{/if}
 
 		<McpServerEntryForm
 			entry={catalogEntry}
-			type={catalogEntry?.urlManifest ? 'remote' : 'single'}
+			type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
 			readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
 			catalogId={DEFAULT_MCP_CATALOG_ID}
 			onCancel={() => {
@@ -36,9 +35,5 @@
 </Layout>
 
 <svelte:head>
-	<title
-		>Obot | {catalogEntry?.commandManifest?.name ??
-			catalogEntry?.urlManifest?.name ??
-			'MCP Server'}</title
-	>
+	<title>Obot | {catalogEntry?.manifest?.name ?? 'MCP Server'}</title>
 </svelte:head>

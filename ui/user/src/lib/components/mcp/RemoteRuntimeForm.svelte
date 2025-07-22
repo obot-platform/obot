@@ -1,5 +1,8 @@
 <script lang="ts">
-	import type { MCPCatalogEntryFormData } from '$lib/services/admin/types';
+	import type {
+		RemoteCatalogConfigAdmin,
+		RemoteRuntimeConfigAdmin
+	} from '$lib/services/admin/types';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import Select from '../Select.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
@@ -7,19 +10,30 @@
 	import Toggle from '../Toggle.svelte';
 
 	interface Props {
-		config: MCPCatalogEntryFormData;
+		config: RemoteCatalogConfigAdmin | RemoteRuntimeConfigAdmin;
 		readonly?: boolean;
 	}
 	let { config = $bindable(), readonly }: Props = $props();
+
+	// For catalog entries, we show advanced config if hostname or headers exist
+	// For servers, we always show the URL field (no advanced toggle needed)
 	let showAdvanced = $state(
-		Boolean(config.hostname || (config.headers && config.headers.length > 0))
+		Boolean(
+			(config as RemoteCatalogConfigAdmin).hostname || (config.headers && config.headers.length > 0)
+		)
 	);
+
 	let selectedType = $state<'fixedURL' | 'hostname'>(
-		config.hostname && config.hostname.length > 0 ? 'hostname' : 'fixedURL'
+		(config as RemoteCatalogConfigAdmin).hostname &&
+			(config as RemoteCatalogConfigAdmin).hostname!.length > 0
+			? 'hostname'
+			: 'fixedURL'
 	);
 </script>
 
 {#if !showAdvanced}
+	{@const remoteConfig = config as RemoteCatalogConfigAdmin}
+	<!-- For catalog entries, show simple fixed URL when not in advanced mode -->
 	<div
 		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
@@ -27,7 +41,7 @@
 		<h4 class="w-24 text-sm font-light">URL</h4>
 		<input
 			class="text-input-filled flex grow dark:bg-black"
-			bind:value={config.fixedURL}
+			bind:value={remoteConfig.fixedURL}
 			disabled={readonly || showAdvanced}
 		/>
 	</div>
@@ -38,7 +52,7 @@
 		<div
 			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
 		>
-			<div class="flex items-center gap-4">
+			<div class="flex items-center gap-4 {readonly ? 'hidden' : ''}">
 				<label for="remote-type" class="flex-shrink-0 text-sm font-light"
 					>Restrict connections to:</label
 				>
@@ -53,48 +67,52 @@
 					]}
 					selected={selectedType}
 					onSelect={(option) => {
+						const catalogConfig = config as RemoteCatalogConfigAdmin;
 						if (option.id === 'fixedURL') {
-							config.hostname = undefined;
+							catalogConfig.hostname = undefined;
 							selectedType = 'fixedURL';
-							config.fixedURL = '';
+							catalogConfig.fixedURL = '';
 						} else {
-							config.fixedURL = undefined;
-							config.hostname = '';
+							catalogConfig.fixedURL = undefined;
+							catalogConfig.hostname = '';
 							selectedType = 'hostname';
 						}
 					}}
 				/>
 			</div>
-			{#if selectedType === 'fixedURL' && typeof config.fixedURL !== 'undefined'}
+			{#if selectedType === 'fixedURL' && typeof (config as RemoteCatalogConfigAdmin).fixedURL !== 'undefined'}
+				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 				<div class="flex items-center gap-2">
 					<label for="remote-url" class="min-w-18 text-sm font-light">Exact URL</label>
 					<input
 						class="text-input-filled flex grow dark:bg-black"
-						bind:value={config.fixedURL}
+						bind:value={remoteConfig.fixedURL}
 						disabled={readonly}
 						placeholder="e.g. https://custom.mcpserver.example.com/go/to"
 					/>
 				</div>
-			{:else if selectedType === 'hostname' && typeof config.hostname !== 'undefined'}
+			{:else if selectedType === 'hostname' && typeof (config as RemoteCatalogConfigAdmin).hostname !== 'undefined'}
+				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 				<div class="flex items-center gap-2">
 					<label for="remote-url" class="min-w-18 text-sm font-light">Hostname</label>
 					<input
 						class="text-input-filled flex grow dark:bg-black"
-						bind:value={config.hostname}
+						bind:value={remoteConfig.hostname}
 						disabled={readonly}
 						placeholder="e.g. mycustomdomain"
 					/>
 				</div>
 			{/if}
 		</div>
-
+	</div>
+	<div class="flex w-full flex-col gap-8" in:slide>
 		<div
 			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
 		>
 			<h4 class="text-sm font-semibold">Headers</h4>
 			<p class="text-xs font-light text-gray-400 dark:text-gray-600">
-				Header values will be supplied with the URL to configure the MCP server and can be supplied
-				as default fixed values or requested by the user during initial setup.
+				Header values will be supplied with the URL to configure the MCP server. Their values will
+				be supplied by the user during initial setup.
 			</p>
 			{#if config.headers}
 				{#each config.headers as header, i (i)}
@@ -202,8 +220,9 @@
 		showAdvanced = !showAdvanced;
 
 		if (!showAdvanced) {
-			config.hostname = undefined;
-			config.fixedURL = config.fixedURL ?? '';
+			const catalogConfig = config as RemoteCatalogConfigAdmin;
+			catalogConfig.hostname = undefined;
+			catalogConfig.fixedURL = catalogConfig.fixedURL ?? '';
 		}
 	}}
 >

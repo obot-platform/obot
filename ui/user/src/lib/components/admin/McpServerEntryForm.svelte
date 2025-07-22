@@ -109,10 +109,7 @@
 
 	function setLastVisitedMcpServer() {
 		if (!entry) return;
-		const name =
-			'manifest' in entry
-				? entry.manifest?.name
-				: (entry.commandManifest?.name ?? entry.urlManifest?.name);
+		const name = entry.manifest.name;
 		sessionStorage.setItem(
 			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
 			JSON.stringify({ id: entry.id, name, type })
@@ -160,28 +157,14 @@
 	{#if entry}
 		<div class="flex items-center justify-between gap-4">
 			<div class="flex items-center gap-2">
-				{#if 'manifest' in entry}
-					{#if entry.manifest.icon}
-						<img
-							src={entry.manifest.icon}
-							alt={entry.manifest.name}
-							class="bg-surface1 size-10 rounded-md p-1 dark:bg-gray-600"
-						/>
-					{/if}
-					<h1 class="text-2xl font-semibold capitalize">{entry.manifest.name || 'Unknown'}</h1>
-				{:else}
-					{@const icon = entry.commandManifest?.icon || entry.urlManifest?.icon}
-					{#if icon}
-						<img
-							src={icon}
-							alt={entry.commandManifest?.name || entry.urlManifest?.name}
-							class="bg-surface1 size-10 rounded-md p-1 dark:bg-gray-600"
-						/>
-					{/if}
-					<h1 class="text-2xl font-semibold capitalize">
-						{entry?.commandManifest?.name || entry?.urlManifest?.name || 'Unknown'}
-					</h1>
+				{#if entry.manifest.icon}
+					<img
+						src={entry.manifest.icon}
+						alt={entry.manifest.name}
+						class="bg-surface1 size-10 rounded-md p-1 dark:bg-gray-600"
+					/>
 				{/if}
+				<h1 class="text-2xl font-semibold capitalize">{entry.manifest.name || 'Unknown'}</h1>
 			</div>
 			{#if !readonly}
 				<button
@@ -334,8 +317,8 @@
 {#snippet usageView()}
 	{#if entry}
 		{@const name = 'manifest' in entry ? entry.manifest.name : undefined}
-		{@const mcpId = 'manifest' in entry ? entry.id : undefined}
-		{@const mcpCatalogEntryId = !('manifest' in entry) ? entry.id : undefined}
+		{@const mcpId = 'isCatalogEntry' in entry ? undefined : entry.id}
+		{@const mcpCatalogEntryId = 'isCatalogEntry' in entry ? entry.id : undefined}
 		<AuditDetails
 			mcpServerDisplayName={name}
 			{mcpCatalogEntryId}
@@ -433,7 +416,7 @@
 	show={deleteServer}
 	onsuccess={async () => {
 		if (!catalogId || !entry) return;
-		if ('manifest' in entry) {
+		if (!('isCatalogEntry' in entry)) {
 			await AdminService.deleteMCPCatalogServer(catalogId, entry.id);
 		} else {
 			await AdminService.deleteMCPCatalogEntry(catalogId, entry.id);

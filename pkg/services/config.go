@@ -145,8 +145,6 @@ type Services struct {
 	SendgridWebhookUsername string
 	SendgridWebhookPassword string
 
-	AllowedMCPDockerImageRepos []string
-
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
 
@@ -647,7 +645,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		PostgresDSN:                postgresDSN,
 		RetentionPolicy:            retentionPolicy,
 		DefaultMCPCatalogPath:      config.DefaultMCPCatalogPath,
-		AllowedMCPDockerImageRepos: config.AllowedMCPDockerImageRepos,
 		MCPLoader:                  mcpLoader,
 		MCPRunner:                  mcpRunner,
 		MCPOAuthTokenStorage:       mcpOAuthTokenStorage,

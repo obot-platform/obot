@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -22,6 +21,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -30,15 +30,13 @@ import (
 var log = logger.Package()
 
 type Handler struct {
-	allowedDockerImageRepos []string
 	defaultCatalogPath      string
 	gatewayClient           *gclient.Client
 	accessControlRuleHelper *accesscontrolrule.Helper
 }
 
-func New(allowedDockerImageRepos []string, defaultCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
+func New(defaultCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper) *Handler {
 	return &Handler{
-		allowedDockerImageRepos: allowedDockerImageRepos,
 		defaultCatalogPath:      defaultCatalogPath,
 		gatewayClient:           gatewayClient,
 		accessControlRuleHelper: accessControlRuleHelper,
@@ -179,66 +177,38 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 			catalogEntry.Spec.UnsupportedTools = strings.Split(entry.Metadata["unsupportedTools"], ",")
 		}
 
-		if entry.Command != "" {
-			switch entry.Command {
-			case "npx", "uvx":
-			case "docker":
-				// Only allow docker commands if the image name starts with one of the allowed repos.
-				if len(entry.Args) == 0 || len(h.allowedDockerImageRepos) > 0 && !slices.ContainsFunc(h.allowedDockerImageRepos, func(s string) bool {
-					return strings.HasPrefix(entry.Args[len(entry.Args)-1], s)
-				}) {
-					continue
-				}
-			default:
-				log.Infof("Ignoring MCP catalog entry %s: unsupported command %s", entry.Name, entry.Command)
-				continue
+		// Sanitize the environment variables
+		for i, env := range entry.Env {
+			if env.Key == "" {
+				env.Key = env.Name
 			}
 
-			// Sanitize the environment variables
-			for i, env := range entry.Env {
-				if env.Key == "" {
-					env.Key = env.Name
-				}
-
-				if filepath.Ext(env.Key) != "" {
-					env.Key = strings.ReplaceAll(env.Key, ".", "_")
-					env.File = true
-				}
-
-				env.Key = strings.ReplaceAll(strings.ToUpper(env.Key), "-", "_")
-
-				entry.Env[i] = env
+			if filepath.Ext(env.Key) != "" {
+				env.Key = strings.ReplaceAll(env.Key, ".", "_")
+				env.File = true
 			}
 
-			catalogEntry.Spec.CommandManifest = entry
-		} else if entry.FixedURL != "" || entry.Hostname != "" {
-			// Make sure that only one or the other is set.
-			if entry.FixedURL != "" && entry.Hostname != "" {
-				log.Warnf("Ignoring MCP catalog entry %s: both FixedURL and Hostname are set (only one can be set)", entry.Name)
-				continue
-			}
+			env.Key = strings.ReplaceAll(strings.ToUpper(env.Key), "-", "_")
 
-			if entry.FixedURL != "" {
-				if u, err := url.Parse(entry.FixedURL); err != nil || u.Hostname() == "localhost" || u.Hostname() == "127.0.0.1" {
-					log.Warnf("Ignoring MCP catalog entry %s: fixedURL is invalid (must be a valid, non-localhost URL)", entry.Name)
-					continue
-				}
-			}
+			entry.Env[i] = env
+		}
 
-			// Sanitize the headers
-			for i, header := range entry.Headers {
+		// Sanitize the headers
+		if entry.Runtime == types.RuntimeRemote && entry.RemoteConfig != nil {
+			for i, header := range entry.RemoteConfig.Headers {
 				if header.Key == "" {
 					header.Key = header.Name
 				}
 
 				header.Key = strings.ReplaceAll(strings.ToUpper(header.Key), "_", "-")
-				entry.Headers[i] = header
+				entry.RemoteConfig.Headers[i] = header
 			}
-
-			catalogEntry.Spec.URLManifest = entry
-		} else {
-			continue
 		}
+
+		if err := validation.ValidateCatalogEntryManifest(entry); err != nil {
+			return nil, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err)
+		}
+		catalogEntry.Spec.Manifest = entry
 
 		objs = append(objs, &catalogEntry)
 	}

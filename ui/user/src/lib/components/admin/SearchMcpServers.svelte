@@ -37,9 +37,9 @@
 				type: 'all' as const
 			},
 			...mcpServerAndEntries.entries.map((entry) => ({
-				icon: entry.commandManifest?.icon || entry.urlManifest?.icon,
-				name: entry.commandManifest?.name || entry.urlManifest?.name || '',
-				description: entry.commandManifest?.description || entry.urlManifest?.description,
+				icon: entry.manifest?.icon,
+				name: entry.manifest?.name || '',
+				description: entry.manifest?.description,
 				id: entry.id,
 				type: 'mcpcatalogentry' as const
 			})),

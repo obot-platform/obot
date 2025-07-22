@@ -89,13 +89,13 @@
 			.map((entry) => {
 				return {
 					id: entry.id,
-					name: entry.commandManifest?.name ?? entry.urlManifest?.name ?? '',
-					icon: entry.commandManifest?.icon ?? entry.urlManifest?.icon,
+					name: entry.manifest?.name ?? '',
+					icon: entry.manifest?.icon,
 					source: entry.sourceURL || 'manual',
 					data: entry,
 					users: entry.userCount ?? 0,
 					editable: !entry.sourceURL,
-					type: entry.commandManifest ? 'single' : 'remote'
+					type: entry.manifest.runtime === 'remote' ? 'remote' : 'single'
 				};
 			});
 	}

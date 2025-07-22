@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -24,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -118,13 +118,12 @@ func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServe
 	addExtractedEnvVarsToCatalogEntry(&entry)
 
 	return types.MCPServerCatalogEntry{
-		Metadata:        MetadataFrom(&entry),
-		CommandManifest: entry.Spec.CommandManifest,
-		URLManifest:     entry.Spec.URLManifest,
-		Editable:        entry.Spec.Editable,
-		CatalogName:     entry.Spec.MCPCatalogName,
-		SourceURL:       entry.Spec.SourceURL,
-		UserCount:       entry.Status.UserCount,
+		Metadata:    MetadataFrom(&entry),
+		Manifest:    entry.Spec.Manifest,
+		Editable:    entry.Spec.Editable,
+		CatalogName: entry.Spec.MCPCatalogName,
+		SourceURL:   entry.Spec.SourceURL,
+		UserCount:   entry.Status.UserCount,
 	}
 }
 
@@ -321,7 +320,7 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
-	if server.Spec.Manifest.URL != "" {
+	if server.Spec.Manifest.Runtime == types.RuntimeRemote {
 		var are nmcp.AuthRequiredErr
 		if _, err = m.mcpSessionManager.PingServer(req.Context(), req.User.GetUID(), server, serverConfig); err != nil {
 			if !errors.As(err, &are) {
@@ -349,7 +348,7 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 	}
 
 	var u string
-	if server.Spec.Manifest.URL != "" {
+	if server.Spec.Manifest.RemoteConfig != nil && server.Spec.Manifest.RemoteConfig.URL != "" {
 		u, err = m.mcpOAuthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, req.User.GetUID(), server.Name, "")
 		if err != nil {
 			return fmt.Errorf("failed to get OAuth URL: %w", err)
@@ -716,39 +715,20 @@ func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.Ses
 }
 
 func serverManifestFromCatalogEntryManifest(isAdmin bool, entry types.MCPServerCatalogEntryManifest, input types.MCPServerManifest) (types.MCPServerManifest, error) {
-	result := types.MCPServerManifest{
-		Name:        entry.Name,
-		Description: entry.Description,
-		Icon:        entry.Icon,
-		Metadata:    maps.Clone(entry.Metadata),
-		Env:         entry.Env,
-		Command:     entry.Command,
-		Args:        entry.Args,
-		Headers:     entry.Headers,
+	// Use the mapping function from types package to convert catalog entry to server manifest
+	var userURL string
+	if entry.Runtime == types.RuntimeRemote && entry.RemoteConfig != nil && entry.RemoteConfig.Hostname != "" && input.RemoteConfig != nil {
+		userURL = input.RemoteConfig.URL
+	}
+
+	result, err := types.MapCatalogEntryToServer(entry, userURL)
+	if err != nil {
+		return types.MCPServerManifest{}, err
 	}
 
 	// If the user is an admin, they can override anything from the catalog entry.
 	if isAdmin {
 		result = mergeMCPServerManifests(result, input)
-	}
-
-	if entry.FixedURL != "" {
-		result.URL = entry.FixedURL
-	} else if entry.Hostname != "" {
-		if input.URL == "" {
-			return types.MCPServerManifest{}, types.NewErrBadRequest("the server must use a specific URL that matches the hostname %q", entry.Hostname)
-		}
-
-		u, err := url.Parse(input.URL)
-		if err != nil {
-			return types.MCPServerManifest{}, fmt.Errorf("failed to parse URL %q: %w", input.URL, err)
-		}
-
-		if u.Hostname() != entry.Hostname {
-			return types.MCPServerManifest{}, types.NewErrBadRequest("the server must use a specific URL that matches the hostname %q", entry.Hostname)
-		}
-
-		result.URL = input.URL
 	}
 
 	return result, nil
@@ -767,14 +747,22 @@ func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.M
 	if len(override.Env) > 0 {
 		existing.Env = override.Env
 	}
-	if override.Command != "" {
-		existing.Command = override.Command
+	if override.Runtime != "" {
+		existing.Runtime = override.Runtime
 	}
-	if len(override.Args) > 0 {
-		existing.Args = override.Args
+
+	// Merge runtime-specific configurations
+	if override.UVXConfig != nil {
+		existing.UVXConfig = override.UVXConfig
 	}
-	if len(override.Headers) > 0 {
-		existing.Headers = override.Headers
+	if override.NPXConfig != nil {
+		existing.NPXConfig = override.NPXConfig
+	}
+	if override.ContainerizedConfig != nil {
+		existing.ContainerizedConfig = override.ContainerizedConfig
+	}
+	if override.RemoteConfig != nil {
+		existing.RemoteConfig = override.RemoteConfig
 	}
 
 	return existing
@@ -826,15 +814,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return err
 		}
 
-		var (
-			manifest types.MCPServerManifest
-			err      error
-		)
-		if catalogEntry.Spec.CommandManifest.Command != "" {
-			manifest, err = serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.CommandManifest, input.MCPServerManifest)
-		} else {
-			manifest, err = serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.URLManifest, input.MCPServerManifest)
-		}
+		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.Manifest, input.MCPServerManifest)
 		if err != nil {
 			return err
 		}
@@ -846,6 +826,10 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		server.Spec.Manifest = input.MCPServerManifest
 	} else {
 		return types.NewErrBadRequest("catalogEntryID is required")
+	}
+
+	if err := validation.ValidateServerManifest(server.Spec.Manifest); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
 	// Add extracted env vars to the server definition
@@ -913,6 +897,10 @@ func (m *MCPHandler) AdminOnlyUpdateServer(req api.Context) error {
 	}
 	if err != nil {
 		return err
+	}
+
+	if err := validation.ValidateServerManifest(updated); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
 	existing.Spec.Manifest = updated
@@ -1159,28 +1147,113 @@ func addExtractedEnvVars(server *v1.MCPServer) {
 		existing[env.Key] = struct{}{}
 	}
 
-	// Extract variables from command
-	extracted := make(map[string]struct{})
-	for _, v := range extractEnvVars(server.Spec.Manifest.Command) {
-		extracted[v] = struct{}{}
-	}
-
-	// Extract variables from args
-	for _, arg := range server.Spec.Manifest.Args {
-		for _, v := range extractEnvVars(arg) {
-			extracted[v] = struct{}{}
+	// Extract variables based on runtime type
+	var toExtract []string
+	switch server.Spec.Manifest.Runtime {
+	case types.RuntimeUVX:
+		if server.Spec.Manifest.UVXConfig != nil {
+			toExtract = []string{server.Spec.Manifest.UVXConfig.Command}
+			if len(server.Spec.Manifest.UVXConfig.Args) > 0 {
+				toExtract = append(toExtract, server.Spec.Manifest.UVXConfig.Args...)
+			}
+		}
+	case types.RuntimeNPX:
+		if server.Spec.Manifest.NPXConfig != nil && len(server.Spec.Manifest.NPXConfig.Args) > 0 {
+			toExtract = append(toExtract, server.Spec.Manifest.NPXConfig.Args...)
+		}
+	case types.RuntimeContainerized:
+		if server.Spec.Manifest.ContainerizedConfig != nil {
+			toExtract = []string{server.Spec.Manifest.ContainerizedConfig.Command}
+			if len(server.Spec.Manifest.ContainerizedConfig.Args) > 0 {
+				toExtract = append(toExtract, server.Spec.Manifest.ContainerizedConfig.Args...)
+			}
+		}
+	case types.RuntimeRemote:
+		if server.Spec.Manifest.RemoteConfig != nil {
+			toExtract = []string{server.Spec.Manifest.RemoteConfig.URL}
 		}
 	}
 
-	// Extract variables from URL
-	for _, v := range extractEnvVars(server.Spec.Manifest.URL) {
-		extracted[v] = struct{}{}
+	for _, v := range toExtract {
+		for _, env := range extractEnvVars(v) {
+			if _, exists := existing[env]; !exists {
+				server.Spec.Manifest.Env = append(server.Spec.Manifest.Env, types.MCPEnv{
+					MCPHeader: types.MCPHeader{
+						Name:        env,
+						Key:         env,
+						Description: "Automatically detected variable",
+						Sensitive:   true,
+						Required:    true,
+					},
+				})
+			}
+		}
+	}
+}
+
+// addExtractedEnvVarsToCatalogEntry extracts and adds environment variables to the catalog entry manifest
+func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
+	// Keep track of existing env vars in the manifest to avoid duplicates
+	existing := make(map[string]struct{})
+	for _, env := range entry.Spec.Manifest.Env {
+		existing[env.Key] = struct{}{}
 	}
 
-	// Add any new vars to the server's Env list
+	// Extract variables based on runtime type
+	extracted := make(map[string]struct{})
+
+	switch entry.Spec.Manifest.Runtime {
+	case types.RuntimeUVX:
+		if entry.Spec.Manifest.UVXConfig != nil {
+			// Extract variables from command
+			for _, v := range extractEnvVars(entry.Spec.Manifest.UVXConfig.Command) {
+				extracted[v] = struct{}{}
+			}
+
+			// Extract variables from args
+			for _, arg := range entry.Spec.Manifest.UVXConfig.Args {
+				for _, v := range extractEnvVars(arg) {
+					extracted[v] = struct{}{}
+				}
+			}
+		}
+	case types.RuntimeNPX:
+		if entry.Spec.Manifest.NPXConfig != nil {
+			// Extract variables from args
+			for _, arg := range entry.Spec.Manifest.NPXConfig.Args {
+				for _, v := range extractEnvVars(arg) {
+					extracted[v] = struct{}{}
+				}
+			}
+		}
+	case types.RuntimeContainerized:
+		if entry.Spec.Manifest.ContainerizedConfig != nil {
+			// Extract variables from command
+			for _, v := range extractEnvVars(entry.Spec.Manifest.ContainerizedConfig.Command) {
+				extracted[v] = struct{}{}
+			}
+			// Extract variables from args
+			for _, arg := range entry.Spec.Manifest.ContainerizedConfig.Args {
+				for _, v := range extractEnvVars(arg) {
+					extracted[v] = struct{}{}
+				}
+			}
+		}
+	case types.RuntimeRemote:
+		if entry.Spec.Manifest.RemoteConfig != nil {
+			// Extract variables from FixedURL if present
+			if entry.Spec.Manifest.RemoteConfig.FixedURL != "" {
+				for _, v := range extractEnvVars(entry.Spec.Manifest.RemoteConfig.FixedURL) {
+					extracted[v] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Add any new vars to the manifest's Env list
 	for v := range extracted {
 		if _, exists := existing[v]; !exists {
-			server.Spec.Manifest.Env = append(server.Spec.Manifest.Env, types.MCPEnv{
+			entry.Spec.Manifest.Env = append(entry.Spec.Manifest.Env, types.MCPEnv{
 				MCPHeader: types.MCPHeader{
 					Name:        v,
 					Key:         v,
@@ -1189,76 +1262,6 @@ func addExtractedEnvVars(server *v1.MCPServer) {
 					Required:    true,
 				},
 			})
-		}
-	}
-}
-
-// addExtractedEnvVarsToCatalogEntry extracts and adds environment variables to both manifests in the catalog entry
-func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
-	// Extract and add env vars to Command Manifest
-	if entry.Spec.CommandManifest.Command != "" {
-		// Keep track of existing env vars in the command manifest to avoid duplicates
-		existingCmd := make(map[string]struct{})
-		for _, env := range entry.Spec.CommandManifest.Env {
-			existingCmd[env.Key] = struct{}{}
-		}
-
-		// Extract variables from command
-		extractedCmd := make(map[string]struct{})
-		for _, v := range extractEnvVars(entry.Spec.CommandManifest.Command) {
-			extractedCmd[v] = struct{}{}
-		}
-
-		// Extract variables from args
-		for _, arg := range entry.Spec.CommandManifest.Args {
-			for _, v := range extractEnvVars(arg) {
-				extractedCmd[v] = struct{}{}
-			}
-		}
-
-		// Add any new vars to the Command Manifest's Env list
-		for v := range extractedCmd {
-			if _, exists := existingCmd[v]; !exists {
-				entry.Spec.CommandManifest.Env = append(entry.Spec.CommandManifest.Env, types.MCPEnv{
-					MCPHeader: types.MCPHeader{
-						Name:        v,
-						Key:         v,
-						Description: "Automatically detected variable",
-						Sensitive:   true,
-						Required:    true,
-					},
-				})
-			}
-		}
-	}
-
-	// Extract and add env vars to URL Manifest
-	if entry.Spec.URLManifest.FixedURL != "" {
-		// Keep track of existing env vars in the URL manifest to avoid duplicates
-		existingURL := make(map[string]struct{})
-		for _, env := range entry.Spec.URLManifest.Env {
-			existingURL[env.Key] = struct{}{}
-		}
-
-		// Extract variables from URL
-		extractedURL := make(map[string]struct{})
-		for _, v := range extractEnvVars(entry.Spec.URLManifest.FixedURL) {
-			extractedURL[v] = struct{}{}
-		}
-
-		// Add any new vars to the URL Manifest's Env list
-		for v := range extractedURL {
-			if _, exists := existingURL[v]; !exists {
-				entry.Spec.URLManifest.Env = append(entry.Spec.URLManifest.Env, types.MCPEnv{
-					MCPHeader: types.MCPHeader{
-						Name:        v,
-						Key:         v,
-						Description: "Automatically detected variable",
-						Sensitive:   true,
-						Required:    true,
-					},
-				})
-			}
 		}
 	}
 }
@@ -1277,14 +1280,16 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 		}
 	}
 
-	// Check for missing required headers
-	for _, header := range server.Spec.Manifest.Headers {
-		if !header.Required {
-			continue
-		}
+	// Check for missing required headers (only for remote runtime)
+	if server.Spec.Manifest.Runtime == types.RuntimeRemote && server.Spec.Manifest.RemoteConfig != nil {
+		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
+			if !header.Required {
+				continue
+			}
 
-		if _, ok := credEnv[header.Key]; !ok {
-			missingHeaders = append(missingHeaders, header.Key)
+			if _, ok := credEnv[header.Key]; !ok {
+				missingHeaders = append(missingHeaders, header.Key)
+			}
 		}
 	}
 
@@ -1377,10 +1382,8 @@ func (m *MCPHandler) ListServersInDefaultCatalog(req api.Context) error {
 		if server.Spec.MCPServerCatalogEntryName != "" {
 			if entry, exists := catalogEntryMap[server.Spec.MCPServerCatalogEntryName]; exists {
 				// Add tool preview from catalog entry to server manifest
-				if entry.Spec.CommandManifest.ToolPreview != nil {
-					server.Spec.Manifest.ToolPreview = entry.Spec.CommandManifest.ToolPreview
-				} else if entry.Spec.URLManifest.ToolPreview != nil {
-					server.Spec.Manifest.ToolPreview = entry.Spec.URLManifest.ToolPreview
+				if entry.Spec.Manifest.ToolPreview != nil {
+					server.Spec.Manifest.ToolPreview = entry.Spec.Manifest.ToolPreview
 				}
 			}
 		}
@@ -1428,10 +1431,8 @@ func (m *MCPHandler) GetServerFromDefaultCatalog(req api.Context) error {
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err == nil {
 			// Add tool preview from catalog entry to server manifest
-			if entry.Spec.CommandManifest.ToolPreview != nil {
-				server.Spec.Manifest.ToolPreview = entry.Spec.CommandManifest.ToolPreview
-			} else if entry.Spec.URLManifest.ToolPreview != nil {
-				server.Spec.Manifest.ToolPreview = entry.Spec.URLManifest.ToolPreview
+			if entry.Spec.Manifest.ToolPreview != nil {
+				server.Spec.Manifest.ToolPreview = entry.Spec.Manifest.ToolPreview
 			}
 		}
 		// Don't fail if catalog entry is missing, just continue without preview
@@ -1601,7 +1602,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return types.NewErrBadRequest("this server does not have a catalog entry")
 	}
 
-	if mcpServer.Spec.Manifest.Command != "" {
+	if mcpServer.Spec.Manifest.Runtime != types.RuntimeRemote || mcpServer.Spec.Manifest.RemoteConfig == nil {
 		return types.NewErrBadRequest("cannot update the URL for a non-remote MCP server")
 	}
 
@@ -1610,11 +1611,15 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to get catalog entry: %w", err)
 	}
 
-	if entry.Spec.URLManifest.FixedURL != "" {
+	if entry.Spec.Manifest.RemoteConfig == nil {
+		return types.NewErrBadRequest("the catalog entry for this server does not have remote configuration")
+	}
+
+	if entry.Spec.Manifest.RemoteConfig.FixedURL != "" {
 		return types.NewErrBadRequest("this server already has a fixed URL that cannot be updated")
 	}
 
-	if entry.Spec.URLManifest.Hostname == "" {
+	if entry.Spec.Manifest.RemoteConfig.Hostname == "" {
 		return types.NewErrBadRequest("the catalog entry for this server does not have a hostname")
 	}
 
@@ -1630,7 +1635,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return types.NewErrBadRequest("failed to parse input URL: %v", err)
 	}
 
-	if parsedURL.Hostname() != entry.Spec.URLManifest.Hostname {
+	if parsedURL.Hostname() != entry.Spec.Manifest.RemoteConfig.Hostname {
 		return types.NewErrBadRequest("the hostname in the URL does not match the hostname in the catalog entry")
 	}
 
@@ -1638,7 +1643,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return types.NewErrBadRequest("the URL must be HTTP or HTTPS")
 	}
 
-	mcpServer.Spec.Manifest.URL = input.URL
+	mcpServer.Spec.Manifest.RemoteConfig.URL = input.URL
 	mcpServer.Spec.NeedsURL = false
 	mcpServer.Spec.PreviousURL = ""
 
@@ -1668,41 +1673,53 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		return err
 	}
 
-	if entry.Spec.CommandManifest.Name != "" {
-		server.Spec.Manifest.Metadata = entry.Spec.CommandManifest.Metadata
-		server.Spec.Manifest.Name = entry.Spec.CommandManifest.Name
-		server.Spec.Manifest.Description = entry.Spec.CommandManifest.Description
-		server.Spec.Manifest.Icon = entry.Spec.CommandManifest.Icon
-		server.Spec.Manifest.Env = entry.Spec.CommandManifest.Env
-		server.Spec.Manifest.Command = entry.Spec.CommandManifest.Command
-		server.Spec.Manifest.Args = entry.Spec.CommandManifest.Args
+	// Update the server manifest with the latest from the catalog entry
+	server.Spec.Manifest.Metadata = entry.Spec.Manifest.Metadata
+	server.Spec.Manifest.Name = entry.Spec.Manifest.Name
+	server.Spec.Manifest.Description = entry.Spec.Manifest.Description
+	server.Spec.Manifest.Icon = entry.Spec.Manifest.Icon
+	server.Spec.Manifest.Env = entry.Spec.Manifest.Env
+	server.Spec.Manifest.Runtime = entry.Spec.Manifest.Runtime
+	server.Spec.Manifest.UVXConfig = entry.Spec.Manifest.UVXConfig
+	server.Spec.Manifest.NPXConfig = entry.Spec.Manifest.NPXConfig
+	server.Spec.Manifest.ContainerizedConfig = entry.Spec.Manifest.ContainerizedConfig
 
-		server.Spec.Manifest.Headers = nil
-		server.Spec.Manifest.URL = ""
-	} else {
-		server.Spec.Manifest.Metadata = entry.Spec.URLManifest.Metadata
-		server.Spec.Manifest.Name = entry.Spec.URLManifest.Name
-		server.Spec.Manifest.Description = entry.Spec.URLManifest.Description
-		server.Spec.Manifest.Icon = entry.Spec.URLManifest.Icon
-		server.Spec.Manifest.Headers = entry.Spec.URLManifest.Headers
-		server.Spec.Manifest.Env = entry.Spec.URLManifest.Env
-
-		server.Spec.Manifest.Command = ""
-		server.Spec.Manifest.Args = nil
-
-		if entry.Spec.URLManifest.FixedURL != "" {
-			server.Spec.Manifest.URL = entry.Spec.URLManifest.FixedURL
-		} else {
-			// Check to see if the server's URL no longer matches the catalog entry's hostname.
-			currentURL, err := url.Parse(server.Spec.Manifest.URL)
-			if err != nil {
-				return err
+	// Handle remote runtime URL updates
+	if entry.Spec.Manifest.Runtime == types.RuntimeRemote && entry.Spec.Manifest.RemoteConfig != nil {
+		if entry.Spec.Manifest.RemoteConfig.FixedURL != "" {
+			// Use the fixed URL from catalog entry
+			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
+				URL:     entry.Spec.Manifest.RemoteConfig.FixedURL,
+				Headers: entry.Spec.Manifest.RemoteConfig.Headers,
 			}
+		} else if entry.Spec.Manifest.RemoteConfig.Hostname != "" {
+			// Check if the server's current URL matches the new hostname requirement
+			if server.Spec.Manifest.RemoteConfig != nil && server.Spec.Manifest.RemoteConfig.URL != "" {
+				currentURL, err := url.Parse(server.Spec.Manifest.RemoteConfig.URL)
+				if err != nil {
+					return err
+				}
 
-			server.Spec.NeedsURL = currentURL.Hostname() != entry.Spec.URLManifest.Hostname
-			server.Spec.PreviousURL = server.Spec.Manifest.URL
-			server.Spec.Manifest.URL = ""
+				server.Spec.NeedsURL = currentURL.Hostname() != entry.Spec.Manifest.RemoteConfig.Hostname
+				if server.Spec.NeedsURL {
+					server.Spec.PreviousURL = server.Spec.Manifest.RemoteConfig.URL
+					server.Spec.Manifest.RemoteConfig.URL = ""
+				}
+
+				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
+					Headers: entry.Spec.Manifest.RemoteConfig.Headers,
+				}
+			} else {
+				// No current URL, needs one
+				server.Spec.NeedsURL = true
+				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
+					Headers: entry.Spec.Manifest.RemoteConfig.Headers,
+				}
+			}
 		}
+	} else {
+		// For non-remote runtimes, clear the remote config
+		server.Spec.Manifest.RemoteConfig = nil
 	}
 
 	// Shutdown any server that is using the default credentials.

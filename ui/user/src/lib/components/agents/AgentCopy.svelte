@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ProjectTemplate, MCP } from '$lib/services';
+	import type { ProjectTemplate, MCPCatalogEntry } from '$lib/services';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { X } from 'lucide-svelte';
@@ -12,13 +12,13 @@
 		inline?: boolean;
 		onBack?: () => void;
 		template?: ProjectTemplate;
-		mcps?: MCP[];
+		mcps?: MCPCatalogEntry[];
 	}
 
 	let { template, mcps = [], inline = false, onBack }: Props = $props();
 	let dialog: HTMLDialogElement | undefined = $state();
 
-	export function open(selectedTemplate: ProjectTemplate, templateMcps: MCP[]) {
+	export function open(selectedTemplate: ProjectTemplate, templateMcps: MCPCatalogEntry[]) {
 		template = selectedTemplate;
 		mcps = templateMcps;
 
@@ -91,17 +91,16 @@
 				<div class="mb-5 flex flex-col items-center">
 					<div class="flex flex-wrap justify-center gap-2">
 						{#each mcps as mcp (mcp.id)}
-							{@const manifest = mcp.commandManifest ?? mcp.urlManifest}
-							{#if manifest}
+							{#if mcp.manifest}
 								<div
 									class="flex w-fit items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-gray-800"
 								>
-									{#if manifest.icon}
+									{#if mcp.manifest.icon}
 										<div class="flex-shrink-0 rounded-md bg-white p-1 dark:bg-gray-700">
-											<img src={manifest.icon} class="size-3.5" alt={manifest.name} />
+											<img src={mcp.manifest.icon} class="size-3.5" alt={mcp.manifest.name} />
 										</div>
 									{/if}
-									<span class="truncate text-xs">{manifest.name}</span>
+									<span class="truncate text-xs">{mcp.manifest.name}</span>
 								</div>
 							{/if}
 						{/each}
