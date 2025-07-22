@@ -64,14 +64,14 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	if opts.SortBy != "" {
 		// Validate sort field to prevent SQL injection
 		validSortFields := map[string]bool{
-			"created_at":                     true,
-			"mcp_id":                         true,
-			"mcp_server_display_name":        true,
-			"mcp_server_catalog_entry_name":  true,
-			"call_type":                      true,
-			"processing_time_ms":             true,
+			"created_at":                    true,
+			"mcp_id":                        true,
+			"mcp_server_display_name":       true,
+			"mcp_server_catalog_entry_name": true,
+			"call_type":                     true,
+			"processing_time_ms":            true,
 		}
-		
+
 		if validSortFields[opts.SortBy] {
 			sortOrder := "DESC" // default to descending
 			if opts.SortOrder == "asc" {
