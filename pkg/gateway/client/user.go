@@ -268,7 +268,6 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 			user.DisplayName = displayName
 		}
 	}
-
 	identity.IconLastChecked = time.Now()
 
 	if err = c.encryptIdentity(ctx, &identity); err != nil {

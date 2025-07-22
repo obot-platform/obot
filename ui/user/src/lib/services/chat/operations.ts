@@ -54,9 +54,6 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	obj.isAdmin = () => {
 		return obj.role === 1;
 	};
-	obj.getDisplayName = () => {
-		return obj?.currentAuthProvider === 'github-auth-provider' ? obj.username : obj?.email;
-	};
 	obj.loaded = true;
 	return obj;
 }

@@ -63,7 +63,7 @@
 					/>
 					<div class="flex flex-row py-3">
 						<div class="w-1/2 max-w-[150px]">Display Name:</div>
-						<div class="w-1/2 break-words">{profile.current.getDisplayName?.()}</div>
+						<div class="w-1/2 break-words">{profile.current.displayName}</div>
 					</div>
 					<hr />
 					<div class="flex flex-row py-3">

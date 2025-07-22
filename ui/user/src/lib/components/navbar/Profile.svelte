@@ -45,7 +45,7 @@
 </script>
 
 <Menu
-	title={profile.current.getDisplayName?.() || 'Anonymous'}
+	title={profile.current.displayName || 'Anonymous'}
 	slide={responsive.isMobile ? 'left' : undefined}
 	fixed={responsive.isMobile}
 	classes={{
@@ -65,7 +65,7 @@
 				<ProfileIcon class="size-12" />
 				<div class="flex grow flex-col">
 					<span>
-						{profile.current.getDisplayName?.() || 'Anonymous'}
+						{profile.current.displayName || 'Anonymous'}
 					</span>
 					<span class="text-sm text-gray-500">
 						{profile.current.role === 1 ? 'Admin' : 'User'}

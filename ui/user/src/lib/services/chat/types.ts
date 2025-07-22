@@ -151,12 +151,12 @@ export interface Profile {
 	role: number;
 	loaded?: boolean;
 	isAdmin?: () => boolean;
-	getDisplayName?: () => string;
 	unauthorized?: boolean;
 	username: string;
 	currentAuthProvider?: string;
 	expired?: boolean;
 	created?: string;
+	displayName?: string;
 }
 
 export interface Files {

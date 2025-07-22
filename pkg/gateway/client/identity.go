@@ -220,6 +220,12 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 				userChanged = true
 			}
 
+			if user.Username != id.ProviderUsername {
+				user.Username = id.ProviderUsername
+				user.HashedUsername = hash.String(user.Username)
+				userChanged = true
+			}
+
 			// Update the verified email status if needed.
 			// This can happen in two cases:
 			// 1. The user was created before we started tracking verified emails (user.VerifiedEmail is nil)
