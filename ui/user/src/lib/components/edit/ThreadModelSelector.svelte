@@ -119,9 +119,9 @@
 
 		try {
 			let retryCount = 0;
-			const maxRetries = 5;
+			const maxTries = 5;
 
-			while (retryCount < maxRetries) {
+			while (retryCount < maxTries) {
 				try {
 					const updatedThread = await updateThread(
 						project.assistantID,
@@ -166,7 +166,7 @@
 			}
 
 			// If we've exhausted all retries, throw an error
-			if (retryCount >= maxRetries) {
+			if (retryCount >= maxTries) {
 				throw new Error('Failed to update thread model after multiple retries due to conflicts');
 			}
 		} catch (err) {
