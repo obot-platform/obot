@@ -8,8 +8,8 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) ListPrompts(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig) ([]mcp.Prompt, error) {
-	client, err := sm.ClientForServer(ctx, mcpServer, serverConfig)
+func (sm *SessionManager) ListPrompts(ctx context.Context, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig) ([]mcp.Prompt, error) {
+	client, err := sm.ClientForMCPServer(ctx, userID, mcpServer, serverConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -22,8 +22,8 @@ func (sm *SessionManager) ListPrompts(ctx context.Context, mcpServer v1.MCPServe
 	return resp.Prompts, nil
 }
 
-func (sm *SessionManager) GetPrompt(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig, name string, args map[string]string) ([]mcp.PromptMessage, string, error) {
-	client, err := sm.ClientForServer(ctx, mcpServer, serverConfig)
+func (sm *SessionManager) GetPrompt(ctx context.Context, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig, name string, args map[string]string) ([]mcp.PromptMessage, string, error) {
+	client, err := sm.ClientForMCPServer(ctx, userID, mcpServer, serverConfig)
 	if err != nil {
 		return nil, "", err
 	}

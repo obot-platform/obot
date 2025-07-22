@@ -2,12 +2,11 @@ package types
 
 type MCPServerCatalogEntry struct {
 	Metadata
-	CommandManifest   MCPServerCatalogEntryManifest `json:"commandManifest,omitzero"`
-	URLManifest       MCPServerCatalogEntryManifest `json:"urlManifest,omitzero"`
-	ToolReferenceName string                        `json:"toolReferenceName,omitzero"`
-	Editable          bool                          `json:"editable,omitempty"`
-	CatalogName       string                        `json:"catalogName,omitempty"`
-	SourceURL         string                        `json:"sourceURL,omitempty"`
+	CommandManifest MCPServerCatalogEntryManifest `json:"commandManifest,omitzero"`
+	URLManifest     MCPServerCatalogEntryManifest `json:"urlManifest,omitzero"`
+	Editable        bool                          `json:"editable,omitempty"`
+	CatalogName     string                        `json:"catalogName,omitempty"`
+	SourceURL       string                        `json:"sourceURL,omitempty"`
 }
 
 type MCPServerCatalogEntryManifest struct {
@@ -90,3 +89,19 @@ type MCPServerTool struct {
 	Enabled     bool              `json:"enabled"`
 	Unsupported bool              `json:"unsupported,omitempty"`
 }
+
+type ProjectMCPServerManifest struct {
+	MCPID string `json:"mcpID"`
+}
+
+type ProjectMCPServer struct {
+	Metadata
+	ProjectMCPServerManifest
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Icon        string `json:"icon"`
+	MCPID       string `json:"mcpID"`
+	UserID      string `json:"userID"`
+}
+
+type ProjectMCPServerList List[ProjectMCPServer]

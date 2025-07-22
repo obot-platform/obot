@@ -35,6 +35,7 @@ const (
 	UserDeletePrefix          = "ud1"
 	MCPServerPrefix           = "ms1"
 	MCPServerInstancePrefix   = "msi1"
+	ProjectMCPServerPrefix    = "pms1"
 	CatalogPrefix             = "mcat1"
 	OAuthClientPrefix         = "oc1"
 	OAuthAuthRequestPrefix    = "oar1"
@@ -75,6 +76,14 @@ func IsEmailReceiverID(id string) bool {
 
 func IsChatRunID(id string) bool {
 	return strings.HasPrefix(id, ChatRunPrefix)
+}
+
+func IsMCPServerID(id string) bool {
+	return strings.HasPrefix(id, MCPServerPrefix)
+}
+
+func IsMCPServerInstanceID(id string) bool {
+	return strings.HasPrefix(id, MCPServerInstancePrefix)
 }
 
 // GetProjectShareName returns the project share name for a given user ID and project ID.

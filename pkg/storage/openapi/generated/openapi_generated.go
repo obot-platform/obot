@@ -117,6 +117,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ProjectCredentialList":                        schema_obot_platform_obot_apiclient_types_ProjectCredentialList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectInvitationManifest":                    schema_obot_platform_obot_apiclient_types_ProjectInvitationManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectList":                                  schema_obot_platform_obot_apiclient_types_ProjectList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectMCPServer":                             schema_obot_platform_obot_apiclient_types_ProjectMCPServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectMCPServerList":                         schema_obot_platform_obot_apiclient_types_ProjectMCPServerList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProjectMCPServerManifest":                     schema_obot_platform_obot_apiclient_types_ProjectMCPServerManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectManifest":                              schema_obot_platform_obot_apiclient_types_ProjectManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectMember":                                schema_obot_platform_obot_apiclient_types_ProjectMember(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectShare":                                 schema_obot_platform_obot_apiclient_types_ProjectShare(ref),
@@ -232,9 +235,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalogList":              schema_storage_apis_obotobotai_v1_MCPCatalogList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalogSpec":              schema_storage_apis_obotobotai_v1_MCPCatalogSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalogStatus":            schema_storage_apis_obotobotai_v1_MCPCatalogStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCommand":                  schema_storage_apis_obotobotai_v1_MCPCommand(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServer":                   schema_storage_apis_obotobotai_v1_MCPServer(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCapabilities":       schema_storage_apis_obotobotai_v1_MCPServerCapabilities(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCatalogEntry":       schema_storage_apis_obotobotai_v1_MCPServerCatalogEntry(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCatalogEntryList":   schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerCatalogEntrySpec":   schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref),
@@ -243,7 +244,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceList":       schema_storage_apis_obotobotai_v1_MCPServerInstanceList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerInstanceSpec":       schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerList":               schema_storage_apis_obotobotai_v1_MCPServerList(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerMetadata":           schema_storage_apis_obotobotai_v1_MCPServerMetadata(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerSpec":               schema_storage_apis_obotobotai_v1_MCPServerSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerStatus":             schema_storage_apis_obotobotai_v1_MCPServerStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPSession":                  schema_storage_apis_obotobotai_v1_MCPSession(ref),
@@ -281,6 +281,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationList":       schema_storage_apis_obotobotai_v1_ProjectInvitationList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationSpec":       schema_storage_apis_obotobotai_v1_ProjectInvitationSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationStatus":     schema_storage_apis_obotobotai_v1_ProjectInvitationStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServer":            schema_storage_apis_obotobotai_v1_ProjectMCPServer(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerList":        schema_storage_apis_obotobotai_v1_ProjectMCPServerList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerSpec":        schema_storage_apis_obotobotai_v1_ProjectMCPServerSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerStatus":      schema_storage_apis_obotobotai_v1_ProjectMCPServerStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Ref":                         schema_storage_apis_obotobotai_v1_Ref(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Run":                         schema_storage_apis_obotobotai_v1_Run(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.RunList":                     schema_storage_apis_obotobotai_v1_RunList(ref),
@@ -3170,13 +3174,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
 						},
 					},
-					"toolReferenceName": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 					"editable": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -3196,7 +3193,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 						},
 					},
 				},
-				Required: []string{"Metadata", "commandManifest", "urlManifest", "toolReferenceName"},
+				Required: []string{"Metadata", "commandManifest", "urlManifest"},
 			},
 		},
 		Dependencies: []string{
@@ -5394,6 +5391,116 @@ func schema_obot_platform_obot_apiclient_types_ProjectList(ref common.ReferenceC
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Project"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ProjectMCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"ProjectMCPServerManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ProjectMCPServerManifest"),
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"mcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"Metadata", "ProjectMCPServerManifest", "name", "description", "icon", "mcpID", "userID"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectMCPServerManifest"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ProjectMCPServerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ProjectMCPServer"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.ProjectMCPServer"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ProjectMCPServerManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"mcpID"},
+			},
+		},
 	}
 }
 
@@ -10311,16 +10418,6 @@ func schema_storage_apis_obotobotai_v1_MCPCatalogStatus(ref common.ReferenceCall
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_MCPCommand(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-			},
-		},
-	}
-}
-
 func schema_storage_apis_obotobotai_v1_MCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -10364,25 +10461,6 @@ func schema_storage_apis_obotobotai_v1_MCPServer(ref common.ReferenceCallback) c
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPServerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_MCPServerCapabilities(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"sampling": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Sampling indicates whether the server supports MCP Sampling.",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
 	}
 }
 
@@ -10496,12 +10574,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref common.Refe
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
-						},
-					},
-					"toolReferenceName": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
 						},
 					},
 					"unsupportedTools": {
@@ -10731,46 +10803,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerList(ref common.ReferenceCallbac
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_MCPServerMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Description: "A human-readable name for the server.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"description": {
-						SchemaProps: spec.SchemaProps{
-							Description: "A human-readable description of the server.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"httpURL": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The HTTP URL of the server if it is accessible via SSE or HTTP Streaming",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"gitRepo": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The GitRepo of the server code",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -10822,13 +10854,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 					"mcpServerCatalogEntryName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MCPServerCatalogEntryName contains the name of the MCPServerCatalogEntry from which this MCP server was created, if there is one.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"toolReferenceName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ToolReferenceName contains the name of the legacy gptscript tool reference for this MCP server, if there is one.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -12220,6 +12245,142 @@ func schema_storage_apis_obotobotai_v1_ProjectInvitationStatus(ref common.Refere
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ProjectMCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServerStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ProjectMCPServerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServer"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectMCPServer", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ProjectMCPServerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ProjectMCPServerManifest"),
+						},
+					},
+					"threadName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.ProjectMCPServerManifest"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_ProjectMCPServerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
 	}
 }
 

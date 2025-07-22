@@ -47,7 +47,7 @@ func stringAppend(first string, second ...string) string {
 	return strings.Join(append([]string{first}, second...), "\n\n")
 }
 
-func Agent(ctx context.Context, tokenService *jwt.TokenService, mcpSessionManager *mcp.SessionManager, db kclient.Client, gptClient *gptscript.GPTScript, agent *v1.Agent, serverURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
+func Agent(ctx context.Context, tokenService *jwt.TokenService, mcpSessionManager *mcp.SessionManager, db kclient.Client, agent *v1.Agent, userID, serverURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
 	defer func() {
 		sort.Strings(extraEnv)
 	}()
@@ -131,37 +131,38 @@ func Agent(ctx context.Context, tokenService *jwt.TokenService, mcpSessionManage
 			allowedToolsPerMCP[key] = val
 		}
 
-		var mcpServers v1.MCPServerList
-		if err = db.List(ctx, &mcpServers, kclient.InNamespace(topMost.Namespace), kclient.MatchingFields{
+		var projectMCPServers v1.ProjectMCPServerList
+		if err = db.List(ctx, &projectMCPServers, kclient.InNamespace(topMost.Namespace), kclient.MatchingFields{
 			"spec.threadName": topMost.Name,
 		}); err != nil {
 			return nil, nil, err
 		}
 
-		var allowedTools []string
-		for _, mcpServer := range mcpServers.Items {
-			allowedTools = allowedToolsPerMCP[mcpServer.Name]
-			if mcpServer.Spec.ToolReferenceName != "" {
-				// This is a "fake" MCP server really referencing our tools.
-				if allowedTools == nil || slices.Contains(allowedTools, "*") {
-					allowedTools = []string{mcpServer.Spec.ToolReferenceName}
-				}
+		var (
+			allowedTools      []string
+			mcpServer         v1.MCPServer
+			mcpServerInstance v1.MCPServerInstance
+			mcpServerID       string
+			mcpDisplayName    string
+		)
+		for _, projectMCPServer := range projectMCPServers.Items {
+			allowedTools = allowedToolsPerMCP[projectMCPServer.Name]
 
-				for _, t := range allowedTools {
-					name, tools, err := tool(ctx, db, agent.Namespace, t)
-					if err != nil {
-						return nil, nil, err
-					}
-
-					if name != "" {
-						mainTool.Tools = append(mainTool.Tools, name)
-						otherTools = append(otherTools, tools...)
-					}
+			if system.IsMCPServerInstanceID(projectMCPServer.Spec.Manifest.MCPID) {
+				if err = db.Get(ctx, kclient.ObjectKey{Namespace: projectMCPServer.Namespace, Name: projectMCPServer.Spec.Manifest.MCPID}, &mcpServerInstance); err != nil {
+					return nil, nil, err
 				}
-				continue
+				mcpServerID = mcpServerInstance.Spec.MCPServerName
+			} else {
+				mcpServerID = projectMCPServer.Spec.Manifest.MCPID
 			}
 
-			toolDefs, err := mcpSessionManager.ServerTools(ctx, tokenService, gptClient, mcpServer, opts.Thread.Spec.ParentThreadName, serverURL, allowedTools)
+			if err = db.Get(ctx, kclient.ObjectKey{Namespace: projectMCPServer.Namespace, Name: mcpServerID}, &mcpServer); err != nil {
+				return nil, nil, err
+			}
+			mcpDisplayName = mcpServer.Spec.Manifest.Name
+
+			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, tokenService, projectMCPServer, userID, mcpDisplayName, serverURL, allowedTools)
 			if err != nil {
 				return nil, nil, err
 			}

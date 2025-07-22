@@ -37,24 +37,24 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 		tokenStore:        globalTokenStore,
 	}
 }
-func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, mcpID, oauthAppAuthRequestID string) (string, error) {
+func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
 	// Give the server config a scope that makes sense.
 	// Clients used in the proxy will set the scope that comes with the server config, but we need to ensure we get a different client here
 	// because the client we use here needs the CallbackHandler and ClientCredLookup set.
 	mcpServerConfig.Scope = mcpID
 
-	oauthHandler := f.newMCPOAuthHandler(mcpID, oauthAppAuthRequestID)
+	oauthHandler := f.newMCPOAuthHandler(userID, mcpID, oauthAppAuthRequestID)
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(errChan)
-		_, err := f.mcpSessionManager.ClientForServerWithOptions(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
+		_, err := f.mcpSessionManager.ClientForMCPServerWithOptions(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
 			ClientName:       "Obot MCP OAuth",
 			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback", f.baseURL),
 			OAuthClientName:  "Obot MCP Gateway",
 			CallbackHandler:  oauthHandler,
 			ClientCredLookup: oauthHandler,
-			TokenStorage:     f.tokenStore.ForMCPID(oauthHandler.mcpID),
+			TokenStorage:     f.tokenStore.ForUserAndMCP(oauthHandler.userID, oauthHandler.mcpID),
 		})
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
@@ -83,15 +83,17 @@ type mcpOAuthHandler struct {
 	gptscript          *gptscript.GPTScript
 	stateCache         *stateCache
 	mcpID              string
+	userID             string
 	oauthAuthRequestID string
 	urlChan            chan string
 }
 
-func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(mcpID, oauthAuthRequestID string) *mcpOAuthHandler {
+func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(userID, mcpID, oauthAuthRequestID string) *mcpOAuthHandler {
 	return &mcpOAuthHandler{
 		client:             f.client,
 		gptscript:          f.gptscript,
 		stateCache:         f.stateCache,
+		userID:             userID,
 		mcpID:              mcpID,
 		oauthAuthRequestID: oauthAuthRequestID,
 		urlChan:            make(chan string, 1),
@@ -117,7 +119,7 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, ver
 	state := strings.ToLower(rand.Text())
 
 	ch := make(chan nmcp.CallbackPayload)
-	return state, ch, m.stateCache.store(ctx, m.mcpID, m.oauthAuthRequestID, state, verifier, conf, ch)
+	return state, ch, m.stateCache.store(ctx, m.userID, m.mcpID, m.oauthAuthRequestID, state, verifier, conf, ch)
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context, authServerURL string) (string, string, error) {

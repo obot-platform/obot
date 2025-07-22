@@ -140,7 +140,7 @@ func (h *ServerInstancesHandler) ClearOAuthCredentials(req api.Context) error {
 		return err
 	}
 
-	if err := req.GatewayClient.DeleteMCPOAuthToken(req.Context(), mcpServerInstance.Name); err != nil {
+	if err := req.GatewayClient.DeleteMCPOAuthToken(req.Context(), req.User.GetUID(), mcpServerInstance.Name); err != nil {
 		return fmt.Errorf("failed to delete OAuth credentials: %v", err)
 	}
 

@@ -53,7 +53,6 @@ func (in *MCPServer) FieldNames() []string {
 func (in *MCPServer) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: &Thread{}, Name: in.Spec.ThreadName},
-		{ObjType: &ToolReference{}, Name: in.Spec.ToolReferenceName},
 		{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName},
 		{ObjType: &MCPCatalog{}, Name: in.Spec.SharedWithinMCPCatalogName},
 	}
@@ -71,8 +70,6 @@ type MCPServerSpec struct {
 	SharedWithinMCPCatalogName string `json:"sharedWithinMCPCatalogName,omitempty"`
 	// MCPServerCatalogEntryName contains the name of the MCPServerCatalogEntry from which this MCP server was created, if there is one.
 	MCPServerCatalogEntryName string `json:"mcpServerCatalogEntryName,omitempty"`
-	// ToolReferenceName contains the name of the legacy gptscript tool reference for this MCP server, if there is one.
-	ToolReferenceName string `json:"toolReferenceName,omitempty"`
 	// NeedsURL indicates whether the server's URL needs to be updated to match the catalog entry.
 	NeedsURL bool `json:"needsURL,omitempty"`
 	// PreviousURL contains the URL of the server before it was updated to match the catalog entry.
@@ -82,27 +79,6 @@ type MCPServerSpec struct {
 type MCPServerStatus struct {
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
-}
-
-type MCPServerType string
-
-type MCPServerMetadata struct {
-	// A human-readable name for the server.
-	Name string `json:"name,omitempty"`
-	// A human-readable description of the server.
-	Description string `json:"description,omitempty"`
-	// The HTTP URL of the server if it is accessible via SSE or HTTP Streaming
-	HTTPURL string `json:"httpURL,omitempty"`
-	// The GitRepo of the server code
-	GitRepo string `json:"gitRepo,omitempty"`
-}
-
-type MCPCommand struct {
-}
-
-type MCPServerCapabilities struct {
-	// Sampling indicates whether the server supports MCP Sampling.
-	Sampling bool `json:"sampling,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

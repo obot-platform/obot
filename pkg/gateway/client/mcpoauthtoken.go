@@ -20,9 +20,9 @@ var mcpOAuthTokenGroupResource = schema.GroupResource{
 	Resource: "mcpoauthtokens",
 }
 
-func (c *Client) GetMCPOAuthToken(ctx context.Context, mcpID string) (*types.MCPOAuthToken, error) {
+func (c *Client) GetMCPOAuthToken(ctx context.Context, userID, mcpID string) (*types.MCPOAuthToken, error) {
 	token := new(types.MCPOAuthToken)
-	err := c.db.WithContext(ctx).Where("mcp_id = ?", mcpID).First(token).Error
+	err := c.db.WithContext(ctx).Where("mcp_id = ? AND user_id = ?", mcpID, userID).First(token).Error
 	if err != nil {
 		return nil, err
 	}
@@ -48,8 +48,9 @@ func (c *Client) GetMCPOAuthTokenByState(ctx context.Context, state string) (*ty
 	return token, nil
 }
 
-func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, mcpID, oauthAuthRequestID, state, verifier string, oauthConf *oauth2.Config, token *oauth2.Token) error {
+func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, userID, mcpID, oauthAuthRequestID, state, verifier string, oauthConf *oauth2.Config, token *oauth2.Token) error {
 	t := &types.MCPOAuthToken{
+		UserID:             userID,
 		MCPID:              mcpID,
 		OAuthAuthRequestID: oauthAuthRequestID,
 		State:              state,
@@ -77,8 +78,15 @@ func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, mcpID, oauthAuthReque
 	return c.db.WithContext(ctx).Save(t).Error
 }
 
-func (c *Client) DeleteMCPOAuthToken(ctx context.Context, mcpID string) error {
-	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{MCPID: mcpID}).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+func (c *Client) DeleteMCPOAuthToken(ctx context.Context, userID, mcpID string) error {
+	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{MCPID: mcpID, UserID: userID}).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	return nil
+}
+
+func (c *Client) DeleteMCPOAuthTokenForAllUsers(ctx context.Context, mcpID string) error {
+	if err := c.db.WithContext(ctx).Model(&types.MCPOAuthToken{}).Where("mcp_id = ?", mcpID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	return nil

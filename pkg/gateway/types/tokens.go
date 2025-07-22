@@ -41,6 +41,7 @@ type MCPOAuthToken struct {
 	Verifier    string
 
 	MCPID              string `gorm:"primaryKey"`
+	UserID             string `gorm:"primaryKey"`
 	OAuthAuthRequestID string `gorm:"index"`
 	AccessToken        string
 	TokenType          string

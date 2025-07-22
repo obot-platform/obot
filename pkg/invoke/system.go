@@ -53,7 +53,7 @@ func (i *Invoker) EphemeralThreadTask(ctx context.Context, thread *v1.Thread, to
 			}
 		}
 
-		tool, extraEnv, err = render.Agent(ctx, i.tokenService, i.mcpSessionManager, i.uncached, i.gptClient, &v1.Agent{
+		tool, extraEnv, err = render.Agent(ctx, i.tokenService, i.mcpSessionManager, i.uncached, &v1.Agent{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: thread.Namespace,
 			},
@@ -64,7 +64,7 @@ func (i *Invoker) EphemeralThreadTask(ctx context.Context, thread *v1.Thread, to
 					Env:    agent.Spec.Manifest.Env,
 				},
 			},
-		}, i.serverURL, render.AgentOptions{
+		}, "", i.serverURL, render.AgentOptions{
 			Thread: thread,
 		})
 		if err != nil {

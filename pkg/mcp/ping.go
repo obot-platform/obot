@@ -7,8 +7,8 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) PingServer(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig) (*nmcp.PingResult, error) {
-	client, err := sm.ClientForServer(ctx, mcpServer, serverConfig)
+func (sm *SessionManager) PingServer(ctx context.Context, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig) (*nmcp.PingResult, error) {
+	client, err := sm.ClientForMCPServer(ctx, userID, mcpServer, serverConfig)
 	if err != nil {
 		return nil, err
 	}

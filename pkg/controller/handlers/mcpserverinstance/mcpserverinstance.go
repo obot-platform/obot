@@ -17,7 +17,7 @@ func New(gatewayClient *gateway.Client) *Handler {
 }
 
 func (h *Handler) RemoveOAuthToken(req router.Request, _ router.Response) error {
-	return h.gatewayClient.DeleteMCPOAuthToken(req.Ctx, req.Object.GetName())
+	return h.gatewayClient.DeleteMCPOAuthTokenForAllUsers(req.Ctx, req.Object.GetName())
 }
 
 func (h *Handler) MigrationDeleteSingleUserInstances(req router.Request, _ router.Response) error {

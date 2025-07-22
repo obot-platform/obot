@@ -61,9 +61,9 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 	)
 
 	if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
-		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, h.tokenService, mcpID)
+		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, mcpID)
 	} else {
-		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, h.tokenService, mcpID)
+		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, mcpID)
 	}
 
 	if err != nil {
@@ -196,7 +196,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		m.insertAuditLog(auditLog)
 	}()
 
-	client, err = m.handler.mcpSessionManager.ClientForServerWithOptions(ctx, m.mcpServer, m.serverConfig, m.clientMessageHandlerAsClientOption(m.handler.tokenStore.ForMCPID(m.mcpID), msg.Session))
+	client, err = m.handler.mcpSessionManager.ClientForMCPServerWithOptions(ctx, m.mcpServer, m.serverConfig, m.clientMessageHandlerAsClientOption(m.handler.tokenStore.ForUserAndMCP(m.userID, m.mcpID), msg.Session))
 	if err != nil {
 		log.Errorf("Failed to get client for server %s: %v", m.mcpServer.Name, err)
 		return

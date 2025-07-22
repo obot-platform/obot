@@ -59,25 +59,19 @@ var apiResources = []string{
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/memories/{memory_id}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/mcpservers",
-	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}",
-	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/check-oauth",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/oauth-url",
-	"POST   /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/configure",
-	"POST   /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/deconfigure",
-	"POST   /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/reveal",
-	"POST   /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/configure-shared",
-	"POST   /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/deconfigure-shared",
-	"POST   /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/reveal-shared",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/prompts",
-	"POST   /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/prompts/{prompt_name}",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/resources",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/resources/{resource_uri}",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/tools",
-	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/tools",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/tools/{thread_id}",
-	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{mcpserver_id}/tools/{thread_id}",
+	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}",
+	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/check-oauth",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/oauth-url",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/prompts",
+	"POST   /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/prompts/{prompt_name}",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/resources",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/resources/{resource_uri}",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/tools",
+	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/tools",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/tools/{thread_id}",
+	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/tools/{thread_id}",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/model-providers",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/model-providers/{model_provider_id}/configure",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/model-providers/{model_provider_id}/deconfigure",
@@ -232,6 +226,7 @@ type Resources struct {
 	TaskID              string
 	MCPServerID         string
 	MCPServerInstanceID string
+	ProjectMCPServerID  string
 	// MCPID is the ID of either an MCPServer or an MCPServerInstance. It is used for interaction with the MCP gateway.
 	MCPID                  string
 	RunID                  string
@@ -264,6 +259,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		WorkflowID:             vars("workflow_id"),
 		MCPServerID:            vars("mcpserver_id"),
 		MCPServerInstanceID:    vars("mcp_server_instance_id"),
+		ProjectMCPServerID:     vars("project_mcp_server_id"),
 		MCPID:                  vars("mcp_id"), // this will be either a server ID or a server instance ID
 		PendingAuthorizationID: vars("pending_authorization_id"),
 		ThreadShareID:          vars("share_public_id"),
@@ -303,6 +299,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 	}
 
 	if ok, err := a.checkMCPServerInstance(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkProjectMCPServer(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

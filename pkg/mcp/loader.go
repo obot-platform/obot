@@ -19,7 +19,6 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/logger"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -455,13 +454,8 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 	return gmcp.ServerConfig{URL: fmt.Sprintf("%s/sse", u), Scope: podName, AllowedTools: server.AllowedTools}, nil
 }
 
-func (sm *SessionManager) transformServerConfig(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig) (gmcp.ServerConfig, error) {
-	serverName := mcpServer.Spec.Manifest.Name
-	if serverName == "" {
-		serverName = mcpServer.Name
-	}
-
-	return sm.ensureDeployment(ctx, serverConfig, "default", serverName)
+func (sm *SessionManager) transformServerConfig(ctx context.Context, mcpServerName string, serverConfig ServerConfig) (gmcp.ServerConfig, error) {
+	return sm.ensureDeployment(ctx, serverConfig, "default", mcpServerName)
 }
 
 func sessionID(server ServerConfig) string {

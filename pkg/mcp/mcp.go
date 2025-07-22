@@ -16,42 +16,24 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) ServerTools(ctx context.Context, tokenService *jwt.TokenService, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, projectName, serverURL string, allowedTools []string) ([]gptscript.ToolDef, error) {
-	var credEnv map[string]string
-	if len(mcpServer.Spec.Manifest.Env) != 0 || len(mcpServer.Spec.Manifest.Headers) != 0 {
-		// Add the credential context for the direct parent to pick up credentials specifically for this project.
-		credCtxs := []string{fmt.Sprintf("%s-%s", projectName, mcpServer.Name)}
-		if projectName != mcpServer.Spec.ThreadName {
-			// Add shared MCP credentials from the agent project to chatbot threads.
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", mcpServer.Spec.ThreadName, mcpServer.Name))
-		}
-
-		cred, err := gptClient.RevealCredential(ctx, credCtxs, mcpServer.Name)
-		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-			return nil, fmt.Errorf("failed to reveal credential for MCP server %s: %w", mcpServer.Spec.Manifest.Name, err)
-		}
-
-		credEnv = cred.Env
+func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *jwt.TokenService, projectMCPServer v1.ProjectMCPServer, userID, mcpServerDisplayName, serverURL string, allowedTools []string) ([]gptscript.ToolDef, error) {
+	if mcpServerDisplayName == "" {
+		mcpServerDisplayName = projectMCPServer.Name
 	}
 
-	serverConfig, missingRequiredNames, err := ToServerConfig(tokenService, mcpServer, serverURL, projectName, credEnv, allowedTools...)
+	serverConfig, err := ProjectServerToConfig(tokenService, projectMCPServer, serverURL, "", allowedTools...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to convert MCP server %s to server config: %w", mcpServer.Spec.Manifest.Name, err)
+		return nil, fmt.Errorf("failed to convert MCP server %s to server config: %w", mcpServerDisplayName, err)
 	}
 
-	if len(missingRequiredNames) > 0 {
-		// Ignore MCP servers that aren't configured.
-		return nil, nil
-	}
-
-	client, err := sm.ClientForServer(ctx, mcpServer, serverConfig)
+	client, err := sm.ClientForServer(ctx, userID, mcpServerDisplayName, projectMCPServer.Name, serverConfig)
 	if err != nil {
 		var uae nmcp.AuthRequiredErr
 		if errors.As(err, &uae) {
 			// If the MCP server needs OAuth, ignore it and let the chat continue.
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to create MCP client for server %s: %w", mcpServer.Spec.Manifest.Name, err)
+		return nil, fmt.Errorf("failed to create MCP client for server %s: %w", mcpServerDisplayName, err)
 	}
 
 	tools, err := client.ListTools(ctx)
@@ -61,7 +43,7 @@ func (sm *SessionManager) ServerTools(ctx context.Context, tokenService *jwt.Tok
 			// If the MCP server needs OAuth, ignore it and let the chat continue.
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to list tools for MCP server %s: %w", mcpServer.Spec.Manifest.Name, err)
+		return nil, fmt.Errorf("failed to list tools for MCP server %s: %w", mcpServerDisplayName, err)
 	}
 
 	allToolsAllowed := allowedTools == nil || slices.Contains(allowedTools, "*")
@@ -116,13 +98,8 @@ func (sm *SessionManager) ServerTools(ctx context.Context, tokenService *jwt.Tok
 		toolDefs = append(toolDefs, toolDef)
 	}
 
-	name := mcpServer.Spec.Manifest.Name
-	if name == "" {
-		name = mcpServer.Name
-	}
-
 	main := gptscript.ToolDef{
-		Name:        name + "-bundle",
+		Name:        mcpServerDisplayName + "-bundle",
 		Description: client.Session.InitializeResult.ServerInfo.Name,
 		Export:      toolNames,
 		MetaData: map[string]string{

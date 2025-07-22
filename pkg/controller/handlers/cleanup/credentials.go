@@ -18,19 +18,19 @@ import (
 )
 
 type Credentials struct {
-	tokenService      *jwt.TokenService
 	gClient           *gptscript.GPTScript
 	gatewayClient     *gateway.Client
 	mcpSessionManager *mcp.SessionManager
+	tokenService      *jwt.TokenService
 	serverURL         string
 }
 
-func NewCredentials(tokenService *jwt.TokenService, gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, serverURL string) *Credentials {
+func NewCredentials(gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, tokenService *jwt.TokenService, serverURL string) *Credentials {
 	return &Credentials{
-		tokenService:      tokenService,
 		gClient:           gClient,
 		gatewayClient:     gatewayClient,
 		mcpSessionManager: mcpSessionManager,
+		tokenService:      tokenService,
 		serverURL:         serverURL,
 	}
 }
@@ -124,7 +124,7 @@ func (c *Credentials) removeMCPCredentialsForProject(req router.Request, _ route
 			}
 
 			// Shutdown the server
-			serverConfig, _, err := mcp.ToServerConfig(c.tokenService, *mcpServer, c.serverURL, projectName, cred.Env)
+			serverConfig, _, err := mcp.ServerToServerConfig(*mcpServer, projectName, cred.Env)
 			if err != nil {
 				return fmt.Errorf("failed to create server config: %w", err)
 			}
@@ -139,7 +139,7 @@ func (c *Credentials) removeMCPCredentialsForProject(req router.Request, _ route
 		}
 
 		// Shutdown a potential server running without any configuration. We wouldn't detect its existence with a credential.
-		serverConfig, _, err := mcp.ToServerConfig(c.tokenService, *mcpServer, c.serverURL, projectName, nil)
+		serverConfig, _, err := mcp.ServerToServerConfig(*mcpServer, projectName, nil)
 		if err != nil {
 			return fmt.Errorf("failed to create server config: %w", err)
 		}
@@ -155,7 +155,7 @@ func (c *Credentials) removeMCPCredentialsForProject(req router.Request, _ route
 func (c *Credentials) RemoveMCPCredentials(req router.Request, resp router.Response) error {
 	mcpServer := req.Object.(*v1.MCPServer)
 
-	if err := c.gatewayClient.DeleteMCPOAuthToken(req.Ctx, req.Object.GetName()); err != nil {
+	if err := c.gatewayClient.DeleteMCPOAuthTokenForAllUsers(req.Ctx, req.Object.GetName()); err != nil {
 		return err
 	}
 
@@ -187,7 +187,7 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, resp router.Respo
 		}
 
 		// Shutdown the server
-		serverConfig, _, err := mcp.ToServerConfig(c.tokenService, *mcpServer, c.serverURL, scope, cred.Env)
+		serverConfig, _, err := mcp.ServerToServerConfig(*mcpServer, scope, cred.Env)
 		if err != nil {
 			return fmt.Errorf("failed to create server config: %w", err)
 		}
@@ -202,7 +202,7 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, resp router.Respo
 	}
 
 	// Shutdown a potential server running without any configuration. We wouldn't detect its existence with a credential.
-	serverConfig, _, err := mcp.ToServerConfig(c.tokenService, *mcpServer, c.serverURL, scope, nil)
+	serverConfig, _, err := mcp.ServerToServerConfig(*mcpServer, scope, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create server config: %w", err)
 	}

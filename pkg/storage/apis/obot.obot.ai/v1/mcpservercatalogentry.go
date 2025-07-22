@@ -48,19 +48,17 @@ func (in *MCPServerCatalogEntry) FieldNames() []string {
 
 func (in *MCPServerCatalogEntry) DeleteRefs() []Ref {
 	return []Ref{
-		{ObjType: &ToolReference{}, Name: in.Spec.ToolReferenceName},
 		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogName},
 	}
 }
 
 type MCPServerCatalogEntrySpec struct {
-	CommandManifest   types.MCPServerCatalogEntryManifest `json:"commandManifest,omitzero"`
-	URLManifest       types.MCPServerCatalogEntryManifest `json:"urlManifest,omitzero"`
-	ToolReferenceName string                              `json:"toolReferenceName,omitempty"`
-	UnsupportedTools  []string                            `json:"unsupportedTools,omitempty"`
-	MCPCatalogName    string                              `json:"mcpCatalogName,omitempty"`
-	Editable          bool                                `json:"editable,omitempty"`
-	SourceURL         string                              `json:"sourceURL,omitempty"`
+	CommandManifest  types.MCPServerCatalogEntryManifest `json:"commandManifest,omitzero"`
+	URLManifest      types.MCPServerCatalogEntryManifest `json:"urlManifest,omitzero"`
+	UnsupportedTools []string                            `json:"unsupportedTools,omitempty"`
+	MCPCatalogName   string                              `json:"mcpCatalogName,omitempty"`
+	Editable         bool                                `json:"editable,omitempty"`
+	SourceURL        string                              `json:"sourceURL,omitempty"`
 }
 
 type MCPServerCatalogEntryStatus struct {

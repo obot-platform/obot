@@ -48,6 +48,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to add identity and user hashed fields: %w", err)
 	}
 
+	if err = dropMCPOAuthTokensTableForUserIDPrimaryKey(tx); err != nil {
+		return fmt.Errorf("failed to drop mcp_server_instance table: %w", err)
+	}
+
 	if err := tx.AutoMigrate(&GptscriptCredential{}); err != nil {
 		return fmt.Errorf("failed to auto migrate GptscriptCredential: %w", err)
 	}

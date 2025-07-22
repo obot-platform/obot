@@ -3,7 +3,6 @@ package mcp
 import (
 	"fmt"
 	"regexp"
-	"strings"
 
 	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
@@ -12,7 +11,7 @@ import (
 )
 
 type GlobalTokenStore interface {
-	ForMCPID(mcpID string) nmcp.TokenStorage
+	ForUserAndMCP(userID, mcpID string) nmcp.TokenStorage
 }
 
 type Config struct {
@@ -46,7 +45,7 @@ func expandEnvVars(text string, credEnv map[string]string) string {
 	})
 }
 
-func ToServerConfig(tokenService *jwt.TokenService, mcpServer v1.MCPServer, baseURL, scope string, credEnv map[string]string, allowedTools ...string) (ServerConfig, []string, error) {
+func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]string, allowedTools ...string) (ServerConfig, []string, error) {
 	// Expand environment variables in command, args, and URL
 	command := expandEnvVars(mcpServer.Spec.Manifest.Command, credEnv)
 	url := expandEnvVars(mcpServer.Spec.Manifest.URL, credEnv)
@@ -97,16 +96,23 @@ func ToServerConfig(tokenService *jwt.TokenService, mcpServer v1.MCPServer, base
 		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
 	}
 
-	if strings.HasPrefix(serverConfig.URL, baseURL+"/mcp-connect/") {
-		token, err := tokenService.NewToken(jwt.TokenContext{
-			UserID: mcpServer.Spec.UserID,
-		})
-		if err != nil {
-			return ServerConfig{}, nil, fmt.Errorf("failed to create token: %w", err)
-		}
+	return serverConfig, missingRequiredNames, nil
+}
 
-		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("Authorization=Bearer %s", token))
+func ProjectServerToConfig(tokenService *jwt.TokenService, projectMCPServer v1.ProjectMCPServer, baseURL, userID string, allowedTools ...string) (ServerConfig, error) {
+	token, err := tokenService.NewToken(jwt.TokenContext{
+		UserID: userID,
+	})
+	if err != nil {
+		return ServerConfig{}, fmt.Errorf("failed to create token: %w", err)
 	}
 
-	return serverConfig, missingRequiredNames, nil
+	return ServerConfig{
+		ServerConfig: gmcp.ServerConfig{
+			URL:          projectMCPServer.ConnectURL(baseURL),
+			Headers:      []string{fmt.Sprintf("Authorization=Bearer %s", token)},
+			Scope:        fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
+			AllowedTools: allowedTools,
+		},
+	}, nil
 }

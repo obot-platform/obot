@@ -57,7 +57,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 
 	for _, server := range servers.Items {
-		if err := req.Delete(&server); err != nil {
+		if err := kclient.IgnoreNotFound(req.Delete(&server)); err != nil {
 			return err
 		}
 	}
@@ -75,7 +75,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 
 	for _, instance := range instances.Items {
-		if err := req.Delete(&instance); err != nil {
+		if err := kclient.IgnoreNotFound(req.Delete(&instance)); err != nil {
 			return err
 		}
 	}

@@ -34,6 +34,7 @@ func (i *Invoker) Step(ctx context.Context, c kclient.WithWatch, step *v1.Workfl
 	}
 
 	return i.Thread(ctx, c, &thread, input, Options{
+		UserUID:               thread.Spec.UserID,
 		WorkflowName:          wfe.Spec.WorkflowName,
 		WorkflowStepName:      step.Name,
 		WorkflowStepID:        step.Spec.Step.ID,

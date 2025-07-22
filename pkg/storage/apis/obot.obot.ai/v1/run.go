@@ -18,6 +18,7 @@ const (
 	WorkflowFinalizer          = "obot.obot.ai/workflow"
 	MCPServerFinalizer         = "obot.obot.ai/mcp-server"
 	MCPServerInstanceFinalizer = "obot.obot.ai/mcp-server-instance"
+	ProjectMCPServerFinalizer  = "obot.obot.ai/project-mcp-server"
 	SlackReceiverFinalizer     = "obot.obot.ai/slack-receiver"
 	MCPSessionFinalizer        = "obot.obot.ai/mcp-session"
 

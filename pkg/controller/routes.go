@@ -59,7 +59,7 @@ func (c *Controller) setupRoutes() error {
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
 	toolInfo := toolinfo.New(c.services.GPTClient)
 	threads := threads.NewHandler(c.services.GPTClient, c.services.Invoker)
-	credentialCleanup := cleanup.NewCredentials(c.services.TokenServer, c.services.GPTClient, c.services.MCPLoader, c.services.GatewayClient, c.services.ServerURL)
+	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient, c.services.MCPLoader, c.services.GatewayClient, c.services.TokenServer, c.services.ServerURL)
 	projects := projects.NewHandler()
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
@@ -68,6 +68,7 @@ func (c *Controller) setupRoutes() error {
 	slackReceiverHandler := slackreceiver.NewHandler(c.services.GPTClient, c.services.StorageClient)
 	mcpCatalog := mcpcatalog.New(c.services.AllowedMCPDockerImageRepos, c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpSession := mcpsession.New(c.services.GPTClient)
+	mcpserver := mcpserver.New(c.services.ServerURL)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 
@@ -234,6 +235,7 @@ func (c *Controller) setupRoutes() error {
 	// MCPServer
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectDrift)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateProjectMCPServers)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
 
 	// MCPServerInstance
@@ -263,6 +265,10 @@ func (c *Controller) setupRoutes() error {
 	// MCP Sessions
 	root.Type(&v1.MCPSession{}).HandlerFunc(mcpSession.RemoveUnused)
 	root.Type(&v1.MCPSession{}).FinalizeFunc(v1.MCPSessionFinalizer, mcpSession.CleanupCredentials)
+
+	// Project-based MCP Servers
+	root.Type(&v1.ProjectMCPServer{}).FinalizeFunc(v1.ProjectMCPServerFinalizer, credentialCleanup.ShutdownProjectMCP)
+	root.Type(&v1.ProjectMCPServer{}).HandlerFunc(cleanup.Cleanup)
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog

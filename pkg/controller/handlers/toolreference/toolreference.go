@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"maps"
 	"os"
 	"regexp"
 	"strings"
@@ -25,7 +24,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tools"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -299,80 +297,12 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 		}
 	}
 
-	if err := h.createMCPServerCatalog(req, toolRef); err != nil {
-		toolRef.Status.Error = err.Error()
-		return nil
-	}
-
 	toolRef.Status.Tool.Credentials, toolRef.Status.Tool.CredentialNames, err = creds.DetermineCredsAndCredNames(prg, tool, toolRef.Spec.Reference)
 	if err != nil {
 		toolRef.Status.Error = err.Error()
 	}
 
 	return nil
-}
-
-func (h *Handler) createMCPServerCatalog(req router.Request, toolRef *v1.ToolReference) error {
-	if toolRef.Spec.Type != types.ToolReferenceTypeTool || toolRef.Spec.BundleToolName != "" {
-		return nil
-	}
-
-	// MIGRATION: delete catalog entries for existing non-mcp tools.
-	if toolRef.Spec.ToolMetadata["mcp"] != "true" {
-		return client.IgnoreNotFound(req.Client.Delete(req.Ctx, &v1.MCPServerCatalogEntry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      toolRef.Name,
-				Namespace: system.DefaultNamespace,
-			},
-		}))
-	}
-
-	if toolRef.Status.Tool == nil {
-		return nil
-	}
-
-	if toolRef.Spec.Active != nil && !*toolRef.Spec.Active {
-		err := req.Client.Delete(req.Ctx, &v1.MCPServerCatalogEntry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      toolRef.Name,
-				Namespace: system.DefaultNamespace,
-			},
-		})
-		return client.IgnoreNotFound(err)
-	}
-
-	manifest := types.MCPServerCatalogEntryManifest{
-		Name:        toolRef.Status.Tool.Name,
-		Description: toolRef.Status.Tool.Description,
-		Icon:        toolRef.Status.Tool.Metadata["icon"],
-		Metadata:    maps.Clone(toolRef.Spec.ToolMetadata),
-	}
-
-	var mcpCatalogEntry v1.MCPServerCatalogEntry
-	if err := req.Client.Get(req.Ctx, router.Key(system.DefaultNamespace, toolRef.Name), &mcpCatalogEntry); client.IgnoreNotFound(err) != nil {
-		return err
-	} else if err == nil {
-		// Check if we need to update the MCP catalog entry.
-		if !equality.Semantic.DeepEqual(mcpCatalogEntry.Spec.CommandManifest, manifest) &&
-			mcpCatalogEntry.Spec.ToolReferenceName == toolRef.Name {
-			mcpCatalogEntry.Spec.CommandManifest = manifest
-			return req.Client.Update(req.Ctx, &mcpCatalogEntry)
-		}
-
-		return nil
-	}
-
-	return req.Client.Create(req.Ctx, &v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      toolRef.Name,
-			Namespace: system.DefaultNamespace,
-		},
-		Spec: v1.MCPServerCatalogEntrySpec{
-			CommandManifest:   manifest,
-			ToolReferenceName: toolRef.Name,
-			Editable:          false, // entries from toolreferences are not editable
-		},
-	})
 }
 
 func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c client.Client) error {
