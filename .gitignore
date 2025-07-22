@@ -3,7 +3,6 @@ bin/
 
 # Random TLS files
 apiserver.local.config/
-
 # Ignore the kubeconfig file
 kubeconfig
 
@@ -52,3 +51,6 @@ http/
 
 # Ignore the catalog.json file downloaded from the MCP registry
 catalog.json
+
+# Ignore Kiro files
+.kiro/

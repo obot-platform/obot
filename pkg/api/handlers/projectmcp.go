@@ -224,7 +224,7 @@ func (p *ProjectMCPHandler) CheckOAuth(req api.Context) error {
 		return err
 	}
 
-	if server.Spec.Manifest.URL != "" {
+	if server.Spec.Manifest.Runtime == types.RuntimeRemote && server.Spec.Manifest.RemoteConfig != nil && server.Spec.Manifest.RemoteConfig.URL != "" {
 		var are nmcp.AuthRequiredErr
 		if _, err = p.mcpSessionManager.PingServer(req.Context(), req.User.GetUID(), server, serverConfig); err != nil {
 			if !errors.As(err, &are) {
@@ -258,7 +258,7 @@ func (p *ProjectMCPHandler) GetOAuthURL(req api.Context) error {
 	}
 
 	var u string
-	if server.Spec.Manifest.URL != "" {
+	if server.Spec.Manifest.Runtime == types.RuntimeRemote && server.Spec.Manifest.RemoteConfig != nil && server.Spec.Manifest.RemoteConfig.URL != "" {
 		u, err = p.mcpOAuthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, req.User.GetUID(), server.Name, "")
 		if err != nil {
 			return fmt.Errorf("failed to get OAuth URL: %w", err)

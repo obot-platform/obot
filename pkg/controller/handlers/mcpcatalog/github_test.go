@@ -57,7 +57,6 @@ func TestReadGitHubCatalog(t *testing.T) {
 
 				assert.NotEmpty(t, entry.Name, "Name should not be empty")
 				assert.NotEmpty(t, entry.Description, "Description should not be empty")
-				assert.NotEmpty(t, entry.Command, "Command should not be empty")
 			}
 		})
 	}
