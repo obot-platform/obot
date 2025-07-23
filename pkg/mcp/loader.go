@@ -148,6 +148,29 @@ func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfi
 	return nil
 }
 
+// RestartK8sDeployment restarts the Kubernetes deployment by deleting its pods, which will trigger a restart.
+func (sm *SessionManager) RestartK8sDeployment(ctx context.Context, server ServerConfig) error {
+	id := sessionID(server)
+
+	var deployment appsv1.Deployment
+	if err := sm.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: sm.mcpNamespace}, &deployment); err != nil {
+		return fmt.Errorf("failed to get deployment %s: %w", id, err)
+	}
+
+	var pods corev1.PodList
+	if err := sm.client.List(ctx, &pods, kclient.InNamespace(sm.mcpNamespace), kclient.MatchingLabels(deployment.Spec.Selector.MatchLabels)); err != nil {
+		return fmt.Errorf("failed to list pods for deployment %s: %w", id, err)
+	}
+
+	for _, pod := range pods.Items {
+		if err := sm.client.Delete(ctx, &pod); err != nil {
+			return fmt.Errorf("failed to delete pod %s: %w", pod.Name, err)
+		}
+	}
+
+	return nil
+}
+
 func (sm *SessionManager) KubernetesEnabled() bool {
 	return sm.client != nil
 }

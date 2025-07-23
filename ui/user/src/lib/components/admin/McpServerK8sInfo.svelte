@@ -2,9 +2,10 @@
 	import { AdminService, type K8sServerDetail } from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import { formatTimeAgo } from '$lib/time';
-	import { AlertTriangle, Info, LoaderCircle } from 'lucide-svelte';
+	import { AlertTriangle, Info, LoaderCircle, RotateCcw, RefreshCw } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import Table from '../Table.svelte';
+	import Confirm from '../Confirm.svelte';
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 
@@ -20,6 +21,10 @@
 	let messages = $state<string[]>([]);
 	let error = $state<string>();
 	let logsContainer: HTMLDivElement;
+	let showRestartConfirm = $state(false);
+	let restarting = $state(false);
+	let refreshingEvents = $state(false);
+	let refreshingLogs = $state(false);
 
 	const eventStream = new EventStreamService<string>();
 
@@ -65,6 +70,61 @@
 		eventStream.disconnect();
 	});
 
+	async function handleRestart() {
+		restarting = true;
+		try {
+			await AdminService.restartK8sDeployment(mcpServerId);
+			// Refresh the k8s info after restart
+			listK8sInfo = AdminService.getK8sServerDetail(mcpServerId);
+		} catch (err) {
+			console.error('Failed to restart deployment:', err);
+		} finally {
+			restarting = false;
+			showRestartConfirm = false;
+		}
+	}
+
+	async function handleRefreshEvents() {
+		refreshingEvents = true;
+		try {
+			listK8sInfo = AdminService.getK8sServerDetail(mcpServerId);
+		} catch (err) {
+			console.error('Failed to refresh events:', err);
+		} finally {
+			refreshingEvents = false;
+		}
+	}
+
+	async function handleRefreshLogs() {
+		refreshingLogs = true;
+		try {
+			// Clear existing messages and reconnect to get fresh logs
+			messages = [];
+			eventStream.disconnect();
+			eventStream.connect(`/api/mcp-servers/${mcpServerId}/logs`, {
+				onMessage: (data) => {
+					messages = [...messages, data];
+					// Trigger auto-scroll after adding new message
+					handleScroll();
+				},
+				onOpen: () => {
+					console.debug(`${mcpServerId} event stream opened`);
+					error = undefined;
+				},
+				onError: () => {
+					error = 'Connection failed';
+				},
+				onClose: () => {
+					console.debug(`${mcpServerId} event stream closed`);
+				}
+			});
+		} catch (err) {
+			console.error('Failed to refresh logs:', err);
+		} finally {
+			refreshingLogs = false;
+		}
+	}
+
 	function compileK8sInfo(info?: K8sServerDetail) {
 		if (!info) return [];
 		const details = [
@@ -88,13 +148,22 @@
 	}
 </script>
 
-<h1 class="text-2xl font-semibold">
-	{#if mcpServerInstanceId}
-		{name} | {mcpServerInstanceId}
-	{:else}
-		{name}
-	{/if}
-</h1>
+<div class="flex items-center gap-3">
+	<h1 class="text-2xl font-semibold">
+		{#if mcpServerInstanceId}
+			{name} | {mcpServerInstanceId}
+		{:else}
+			{name}
+		{/if}
+	</h1>
+	<button
+		onclick={handleRefreshEvents}
+		class="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+		disabled={refreshingEvents}
+	>
+		<RefreshCw class="size-4 {refreshingEvents ? 'animate-spin' : ''}" />
+	</button>
+</div>
 
 {#if mcpServerInstanceId}
 	<div class="notification-info p-3 text-sm font-light">
@@ -121,17 +190,29 @@
 			>
 				<div class="grid grid-cols-12 gap-4">
 					<p class="col-span-4 text-sm font-semibold">{detail.label}</p>
-					<p class="col-span-8 truncate text-sm font-light">{detail.value}</p>
+					<div class="col-span-8 flex items-center justify-between">
+						<p class="truncate text-sm font-light">{detail.value}</p>
+						{#if detail.id === 'status'}
+							<button
+								onclick={() => (showRestartConfirm = true)}
+								class="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+								disabled={restarting}
+							>
+								<RotateCcw class="size-3" />
+								Restart
+							</button>
+						{/if}
+					</div>
 				</div>
 			</div>
 		{/each}
 	</div>
 
 	<div>
-		<h2 class="mb-2 text-lg font-semibold">Events</h2>
+		<h2 class="mb-2 text-lg font-semibold">Recent Events</h2>
 		{#if info?.events && info.events.length > 0}
-			{@const tableData = info.events.map((event) => ({
-				id: event.time,
+			{@const tableData = info.events.map((event, index) => ({
+				id: `${event.time}-${index}`,
 				...event
 			}))}
 			<Table
@@ -167,7 +248,14 @@
 
 <div>
 	<div class="mb-2 flex items-center gap-2">
-		<h2 class=" text-lg font-semibold">Deployment Logs</h2>
+		<h2 class="text-lg font-semibold">Deployment Logs</h2>
+		<button
+			onclick={handleRefreshLogs}
+			class="rounded-md p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+			disabled={refreshingLogs}
+		>
+			<RefreshCw class="size-4 {refreshingLogs ? 'animate-spin' : ''}" />
+		</button>
 		{#if error}
 			<div
 				use:tooltip={`An error occurred in connecting to the event stream. This is normal if the server is still starting up.`}
@@ -193,3 +281,11 @@
 		{/if}
 	</div>
 </div>
+
+<Confirm
+	show={showRestartConfirm}
+	msg="Are you sure you want to restart this deployment? This will cause a brief service interruption."
+	onsuccess={handleRestart}
+	oncancel={() => (showRestartConfirm = false)}
+	loading={restarting}
+/>

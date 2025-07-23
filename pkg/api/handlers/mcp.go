@@ -1719,6 +1719,24 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 	return req.Write(details)
 }
 
+func (m *MCPHandler) RestartK8sDeployment(req api.Context) error {
+	if !m.mcpSessionManager.KubernetesEnabled() {
+		return types.NewErrNotFound("Kubernetes is not enabled")
+	}
+
+	_, serverConfig, err := serverForAction(req, m.tokenService)
+	if err != nil {
+		return err
+	}
+
+	if err := m.mcpSessionManager.RestartK8sDeployment(req.Context(), serverConfig); err != nil {
+		return err
+	}
+
+	req.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 	if !m.mcpSessionManager.KubernetesEnabled() {
 		return types.NewErrNotFound("Kubernetes is not enabled")

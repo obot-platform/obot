@@ -406,6 +406,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/mcp-servers/{mcp_server_id}/oauth", mcp.ClearOAuthCredentials)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/details", mcp.GetServerDetails)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/restart", mcp.RestartK8sDeployment)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/configure", mcp.ConfigureServer)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/reveal", mcp.Reveal)

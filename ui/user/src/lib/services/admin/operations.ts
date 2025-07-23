@@ -535,3 +535,7 @@ export async function listK8sServerLogs(mcpServerId: string, opts?: { fetch?: Fe
 	const response = (await doGet(`/mcp-servers/${mcpServerId}/logs`, opts)) as K8sServerLog[];
 	return response;
 }
+
+export async function restartK8sDeployment(mcpServerId: string, opts?: { fetch?: Fetcher }) {
+	await doPost(`/mcp-servers/${mcpServerId}/restart`, {}, opts);
+}
