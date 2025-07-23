@@ -9,7 +9,11 @@
 	import DotDotDot from '../DotDotDot.svelte';
 	import ProjectMcpResources from '../mcp/ProjectMcpResources.svelte';
 	import { errors } from '$lib/stores';
-	import { getLayout, openMCPServerTools } from '$lib/context/chatLayout.svelte';
+	import {
+		closeSidebarConfig,
+		getLayout,
+		openMCPServerTools
+	} from '$lib/context/chatLayout.svelte';
 	import Confirm from '../Confirm.svelte';
 	import type { LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import CatalogConfigureForm from '../mcp/CatalogConfigureForm.svelte';
@@ -57,6 +61,8 @@
 
 	async function handleRemoveMcp() {
 		if (!toDelete || !project?.assistantID || !project.id) return;
+
+		closeSidebarConfig(layout);
 		if (toDelete.configured) {
 			await ChatService.deconfigureProjectMCP(project.assistantID, project.id, toDelete.id);
 		}

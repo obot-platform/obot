@@ -127,7 +127,7 @@
 	}
 
 	function shouldShowWarning(mcp: (typeof projectMCPs.items)[0]) {
-		if (!mcp.authenticated) {
+		if (typeof mcp.authenticated === 'boolean' && !mcp.authenticated) {
 			return true;
 		}
 

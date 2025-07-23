@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
+	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import { Server, X } from 'lucide-svelte';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import { onMount } from 'svelte';
 
 	const projectMcps = getProjectMCPs();
 	let currentIndex = $state(0);
@@ -11,13 +12,32 @@
 	let dialogs = $state<HTMLDialogElement[]>([]);
 
 	$effect(() => {
-		console.log('hmm');
 		if (mcpServersThatRequireOauth.length > 0) {
-			console.log('a');
 			currentIndex = 0;
 			dialogs[currentIndex]?.showModal();
 		}
 	});
+
+	onMount(() => {
+		const handleVisibilityChange = () => {
+			if (document.visibilityState === 'visible') {
+				checkMcpOauths();
+			}
+		};
+
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+
+		return () => {
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		};
+	});
+
+	async function checkMcpOauths() {
+		const updatedMcps = await validateOauthProjectMcps(projectMcps.items);
+		if (updatedMcps.length > 0) {
+			projectMcps.items = updatedMcps;
+		}
+	}
 
 	function next() {
 		dialogs[currentIndex]?.close();

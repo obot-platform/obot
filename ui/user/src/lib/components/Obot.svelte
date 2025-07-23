@@ -61,19 +61,6 @@
 		}
 	}
 
-	async function checkMcpOauths() {
-		const updatedMcps = await validateOauthProjectMcps(projectMcps.items);
-		if (updatedMcps.length > 0) {
-			projectMcps.items = updatedMcps;
-		}
-	}
-
-	onMount(() => {
-		if (project.id) {
-			checkMcpOauths();
-		}
-	});
-
 	function handleKeydown(event: KeyboardEvent) {
 		// Ctrl + E for edit mode
 		if (event.ctrlKey && event.key === 'e') {
