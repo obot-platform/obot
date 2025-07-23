@@ -43,6 +43,8 @@ func (h *Handler) PruneDeletedResources(req router.Request, _ router.Response) e
 			} else if !errors.IsNotFound(err) {
 				return fmt.Errorf("failed to get MCPServer %s: %w", resource.ID, err)
 			}
+		case types.ResourceTypeSelector:
+			newResources = append(newResources, resource)
 		}
 	}
 
