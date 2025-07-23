@@ -6,14 +6,18 @@
 	import GenerateIcon from '$lib/components/edit/GenerateIcon.svelte';
 	import UploadIcon from '$lib/components/edit/UploadIcon.svelte';
 	import { ChevronRight, CircleX, Pencil } from 'lucide-svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;
 		onSubmit?: () => void;
 		inline?: boolean;
+		classes?: {
+			icon?: string;
+		};
 	}
 
-	let { project = $bindable(), onSubmit, inline }: Props = $props();
+	let { project = $bindable(), onSubmit, inline, classes }: Props = $props();
 
 	let urlIcon:
 		| {
@@ -45,7 +49,7 @@
 			onclick={() => toggle()}
 			disabled={!project.editor}
 		>
-			<AssistantIcon {project} class="size-24" />
+			<AssistantIcon {project} class={twMerge('size-24', classes?.icon)} />
 
 			{#if project.editor}
 				<div
@@ -114,7 +118,7 @@
 	{:else}
 		<div class="flex flex-col items-center gap-2">
 			<div class="flex justify-center">
-				<AssistantIcon {project} class="h-56 w-56" />
+				<AssistantIcon {project} class="size-56" />
 			</div>
 
 			<GenerateIcon {project} />

@@ -13,26 +13,39 @@
 	import type { UIEventHandler } from 'svelte/elements';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import { responsive } from '$lib/stores';
-	import { Bug, Pencil, X } from 'lucide-svelte';
+	import { Bug, LoaderCircle, Pencil, X } from 'lucide-svelte';
 	import { autoHeight } from '$lib/actions/textarea';
 	import EditIcon from '$lib/components/edit/EditIcon.svelte';
 	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import { twMerge } from 'tailwind-merge';
 	import { getProjectDefaultModel, getThread } from '$lib/services/chat/operations';
-	import type { MCPServerPrompt, ProjectMCP, Thread as ThreadType } from '$lib/services/chat/types';
+	import type {
+		CreateProjectForm,
+		MCPServerPrompt,
+		ProjectMCP,
+		Thread as ThreadType
+	} from '$lib/services/chat/types';
 	import ThreadModelSelector from '$lib/components/edit/ThreadModelSelector.svelte';
 	import McpPrompts from './mcp/McpPrompts.svelte';
+	import { goto } from '$app/navigation';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 
 	interface Props {
 		id?: string;
 		project: Project;
 		shared?: boolean;
+		createProject?: CreateProjectForm;
 	}
 
-	let { id = $bindable(), project = $bindable(), shared }: Props = $props();
+	let {
+		id = $bindable(),
+		project = $bindable(),
+		shared,
+		createProject = $bindable()
+	}: Props = $props();
 
 	let messagesDiv = $state<HTMLDivElement>();
-	let nameInput: HTMLInputElement;
+	let nameInput = $state<HTMLInputElement>();
 	let messages = $state<Messages>({ messages: [], inProgress: false });
 	let thread = $state<Thread>();
 	let scrollSmooth = $state(false);
@@ -43,6 +56,7 @@
 	let showLoadOlderButton = $state(false);
 	let input = $state<ReturnType<typeof Input>>();
 	let promptPending = $state(false);
+	let savingNewProject = $state(false);
 
 	// Model selector state
 	let threadDetails = $state<ThreadType | null>(null);
@@ -82,7 +96,8 @@
 	});
 
 	$effect(() => {
-		if (editBasicDetails) {
+		if (createProject) {
+			editBasicDetails = true;
 			setTimeout(() => nameInput?.focus(), 0);
 		}
 	});
@@ -354,33 +369,98 @@
 		input?.setValue(promptContent);
 		promptPending = false;
 	}
+
+	async function handleSaveNewProject() {
+		if (!createProject) return;
+		savingNewProject = true;
+		const { name, description, prompt, icons } = createProject;
+		const response = await EditorService.createObot({
+			name,
+			description,
+			prompt,
+			icons
+		});
+		editBasicDetails = false;
+		createProject = undefined;
+		savingNewProject = false;
+		await goto(`/o/${response.id}`);
+	}
 </script>
 
 {#snippet editBasicSection()}
 	<button
 		aria-label="backdrop"
 		class="fixed top-0 left-0 z-20 h-full w-full"
-		onclick={() => (editBasicDetails = false)}
+		onclick={() => {
+			editBasicDetails = false;
+			createProject = undefined;
+		}}
 	></button>
 	<div class="relative z-30 mt-4 w-sm self-center border-2 border-transparent pt-4 md:w-md">
 		<div class="flex flex-col items-center justify-center text-center">
-			<EditIcon {project} />
-			<input
-				id="project-name"
-				type="text"
-				placeholder="Project Name"
-				class="ghost-input border-b-surface1 mb-[1px] w-full pt-4 pb-0 text-center text-base font-bold"
-				bind:value={project.name}
-				bind:this={nameInput}
-			/>
-			<textarea
-				id="project-desc"
-				class="ghost-input border-b-surface1 text-md scrollbar-none mb-4 w-full grow resize-none pt-0.5 pb-0 text-center font-light"
-				rows="1"
-				placeholder="A short description of your project"
-				use:autoHeight
-				bind:value={project.description}
-			></textarea>
+			{#if createProject}
+				<EditIcon project={createProject as Project} />
+				<input
+					id="project-name"
+					type="text"
+					placeholder="Project Name"
+					class="ghost-input border-b-surface1 mb-[1px] w-full pt-4 pb-0 text-center text-base font-bold"
+					bind:value={createProject.name}
+					bind:this={nameInput}
+				/>
+				<textarea
+					id="project-desc"
+					class="ghost-input border-b-surface1 text-md scrollbar-none mb-4 w-full grow resize-none pt-0.5 pb-0 text-center font-light"
+					rows="1"
+					placeholder="A short description of your project"
+					use:autoHeight
+					bind:value={createProject.description}
+				></textarea>
+
+				<div class="mt-2 flex w-full flex-col justify-start text-left">
+					<label
+						for="project-prompt"
+						class="mb-1 text-sm font-semibold text-gray-400 dark:text-gray-600">Instructions</label
+					>
+					<textarea
+						id="project-prompt"
+						class="ghost-input bg-surface1 text-md scrollbar-none mb-4 w-full grow resize-none rounded-md p-4 text-left font-light shadow-inner"
+						rows="4"
+						placeholder={HELPER_TEXTS.prompt}
+						use:autoHeight
+						bind:value={createProject.prompt}
+					></textarea>
+				</div>
+				<button
+					class="button-primary w-full text-sm"
+					disabled={savingNewProject}
+					onclick={handleSaveNewProject}
+				>
+					{#if savingNewProject}
+						<LoaderCircle class="size-4" />
+					{:else}
+						Save
+					{/if}
+				</button>
+			{:else}
+				<EditIcon {project} />
+				<input
+					id="project-name"
+					type="text"
+					placeholder="Project Name"
+					class="ghost-input border-b-surface1 mb-[1px] w-full pt-4 pb-0 text-center text-base font-bold"
+					bind:value={project.name}
+					bind:this={nameInput}
+				/>
+				<textarea
+					id="project-desc"
+					class="ghost-input border-b-surface1 text-md scrollbar-none mb-4 w-full grow resize-none pt-0.5 pb-0 text-center font-light"
+					rows="1"
+					placeholder="A short description of your project"
+					use:autoHeight
+					bind:value={project.description}
+				></textarea>
+			{/if}
 		</div>
 		{#if project?.introductionMessage}
 			<div class="pt-8">
@@ -388,7 +468,13 @@
 			</div>
 		{/if}
 
-		<button class="icon-button absolute top-2 right-2" onclick={() => (editBasicDetails = false)}>
+		<button
+			class="icon-button absolute top-2 right-2"
+			onclick={() => {
+				editBasicDetails = false;
+				createProject = undefined;
+			}}
+		>
 			<X class="size-6" />
 		</button>
 
@@ -453,66 +539,71 @@
 			{:else if project.editor && !shared}
 				<button
 					class="message-content hover:bg-surface1 hover:border-surface2 group relative mt-4 w-fit self-center rounded-md border-2 border-dashed border-transparent pt-4 transition-all duration-200"
-					onclick={() => (editBasicDetails = true)}
+					onclick={() => {
+						editBasicDetails = true;
+						setTimeout(() => nameInput?.focus(), 0);
+					}}
 					id="edit-basic-details-button"
 				>
 					{@render basicSection()}
 				</button>
 			{/if}
-			{#if project?.introductionMessage}
-				<div class="message-content w-full self-center">
-					{@html toHTMLFromMarkdown(project?.introductionMessage)}
-				</div>
-			{/if}
-			{#if project.starterMessages?.length}
-				<div class="flex flex-wrap justify-center gap-4 px-4">
-					{#each project.starterMessages as msg, i (i)}
-						<button
-							class="border-surface3 hover:bg-surface2 w-52 rounded-2xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300"
-							onclick={async () => {
-								await ensureThread();
-								await thread?.invoke(msg);
-							}}
-						>
-							<span class="line-clamp-3">{msg}</span>
-						</button>
-					{/each}
-				</div>
-			{/if}
-			<McpPrompts {project} variant="messages" onSelect={handleMcpPromptSelect} />
-
-			{#if showLoadOlderButton}
-				<div class="mb-4 flex justify-center">
-					<button
-						class="border-surface3 hover:bg-surface2 rounded-full border bg-white px-4 py-2 text-sm font-light transition-all duration-300 dark:bg-black"
-						onclick={loadOlderMessages}
-						disabled={loadingOlderMessages}
-					>
-						{#if loadingOlderMessages}
-							<div
-								class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-								role="status"
+			{#if !createProject}
+				{#if project?.introductionMessage}
+					<div class="message-content w-full self-center">
+						{@html toHTMLFromMarkdown(project?.introductionMessage)}
+					</div>
+				{/if}
+				{#if project.starterMessages?.length}
+					<div class="flex flex-wrap justify-center gap-4 px-4">
+						{#each project.starterMessages as msg, i (i)}
+							<button
+								class="border-surface3 hover:bg-surface2 w-52 rounded-2xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300"
+								onclick={async () => {
+									await ensureThread();
+									await thread?.invoke(msg);
+								}}
 							>
-								<span class="sr-only">Loading...</span>
-							</div>
-							<span class="ml-2">Loading...</span>
-						{:else}
-							Load older messages
-						{/if}
-					</button>
-				</div>
-			{/if}
+								<span class="line-clamp-3">{msg}</span>
+							</button>
+						{/each}
+					</div>
+				{/if}
+				<McpPrompts {project} variant="messages" onSelect={handleMcpPromptSelect} />
 
-			{#each messages.messages as msg, i (i)}
-				<Message
-					{project}
-					{msg}
-					currentThreadID={id}
-					{onLoadFile}
-					{onSendCredentials}
-					onSendCredentialsCancel={() => thread?.abort()}
-				/>
-			{/each}
+				{#if showLoadOlderButton}
+					<div class="mb-4 flex justify-center">
+						<button
+							class="border-surface3 hover:bg-surface2 rounded-full border bg-white px-4 py-2 text-sm font-light transition-all duration-300 dark:bg-black"
+							onclick={loadOlderMessages}
+							disabled={loadingOlderMessages}
+						>
+							{#if loadingOlderMessages}
+								<div
+									class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+									role="status"
+								>
+									<span class="sr-only">Loading...</span>
+								</div>
+								<span class="ml-2">Loading...</span>
+							{:else}
+								Load older messages
+							{/if}
+						</button>
+					</div>
+				{/if}
+
+				{#each messages.messages as msg, i (i)}
+					<Message
+						{project}
+						{msg}
+						currentThreadID={id}
+						{onLoadFile}
+						{onSendCredentials}
+						onSendCredentialsCancel={() => thread?.abort()}
+					/>
+				{/each}
+			{/if}
 			<div class="min-h-4">
 				<!-- Vertical Spacer -->
 			</div>

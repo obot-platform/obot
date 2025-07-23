@@ -6,7 +6,6 @@
 	import type { Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import {
-		Box,
 		Boxes,
 		Captions,
 		ChevronDown,
@@ -15,9 +14,9 @@
 		GlobeLock,
 		LockKeyhole,
 		Server,
+		Settings,
 		SidebarClose,
 		SidebarOpen,
-		TrainTrack,
 		Users
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
@@ -27,9 +26,10 @@
 		children: Snippet;
 		showUserLinks?: boolean;
 		onRenderSubContent?: Snippet<[string]>;
+		hideSidebar?: boolean;
 	}
 
-	const { children, showUserLinks, onRenderSubContent }: Props = $props();
+	const { children, showUserLinks, onRenderSubContent, hideSidebar }: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
 
@@ -48,28 +48,15 @@
 								icon: Funnel,
 								label: 'Filters',
 								disabled: isBootStrapUser
+							},
+							{
+								href: '/v2/admin/audit-logs',
+								icon: Captions,
+								label: 'Audit Logs',
+								disabled: isBootStrapUser,
+								collapsible: false
 							}
 						]
-					},
-					{
-						href: '/v2/admin/model-providers',
-						icon: Boxes,
-						label: 'Model Providers',
-						items: [
-							{
-								href: '/v2/admin/guardrails',
-								icon: TrainTrack,
-								label: 'Guardrails',
-								disabled: isBootStrapUser
-							}
-						],
-						collapsible: false
-					},
-					{
-						href: '/v2/admin/users',
-						icon: Users,
-						label: 'Users',
-						collapsible: false
 					},
 					{
 						href: '/v2/admin/access-control',
@@ -79,33 +66,32 @@
 						collapsible: false
 					},
 					{
+						href: '/v2/admin/chat-configuration',
+						icon: Settings,
+						label: 'Chat Configuration',
+						disabled: isBootStrapUser,
+						collapsible: false
+					},
+					{
+						href: '/v2/admin/users',
+						icon: Users,
+						label: 'Users',
+						collapsible: false
+					},
+					{
+						href: '/v2/admin/model-providers',
+						icon: Boxes,
+						label: 'Model Providers',
+						collapsible: false
+					},
+					{
 						href: '/v2/admin/auth-providers',
 						icon: LockKeyhole,
 						label: 'Auth Providers',
 						collapsible: false
-					},
-					{
-						href: '/v2/admin/audit-logs',
-						icon: Captions,
-						label: 'Audit Logs',
-						disabled: isBootStrapUser,
-						collapsible: false
 					}
 				]
-			: [
-					{
-						href: '/mcp-servers',
-						icon: Server,
-						label: 'MCP Servers',
-						collapsible: true
-					},
-					{
-						href: '/models',
-						icon: Box,
-						label: 'Models',
-						collapsible: false
-					}
-				]
+			: []
 	);
 
 	$effect(() => {
@@ -120,7 +106,7 @@
 
 <div class="flex min-h-dvh flex-col items-center">
 	<div class="relative flex w-full grow">
-		{#if layout.sidebarOpen}
+		{#if layout.sidebarOpen && !hideSidebar}
 			<div
 				class="dark:bg-gray-990 flex max-h-screen w-screen min-w-screen flex-shrink-0 flex-col bg-white md:w-1/6 md:max-w-xl md:min-w-[250px]"
 				transition:slide={{ axis: 'x' }}
@@ -217,7 +203,7 @@
 		>
 			<Navbar class="dark:bg-gray-990 sticky top-0 left-0 z-30 w-full">
 				{#snippet leftContent()}
-					{#if !layout.sidebarOpen}
+					{#if !layout.sidebarOpen || hideSidebar}
 						{@render logo()}
 					{/if}
 				{/snippet}
@@ -229,7 +215,7 @@
 			</div>
 		</main>
 	</div>
-	{#if !layout.sidebarOpen}
+	{#if !layout.sidebarOpen && !hideSidebar}
 		<div class="absolute bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
 			<button
 				class="icon-button"
@@ -243,20 +229,18 @@
 </div>
 
 {#snippet logo()}
-	<a href="/" class="relative flex items-end">
-		{#if darkMode.isDark}
-			<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-		{:else}
-			<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-		{/if}
-		<div class="ml-1.5 -translate-y-1">
-			<span
-				class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
-			>
-				BETA
-			</span>
-		</div>
-	</a>
+	{#if darkMode.isDark}
+		<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
+	{:else}
+		<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
+	{/if}
+	<div class="ml-1.5 -translate-y-1">
+		<span
+			class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
+		>
+			BETA
+		</span>
+	</div>
 {/snippet}
 
 <style lang="postcss">

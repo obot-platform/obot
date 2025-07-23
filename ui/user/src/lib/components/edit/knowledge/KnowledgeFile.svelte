@@ -3,6 +3,7 @@
 	import { type KnowledgeFile } from '$lib/services';
 	import { CircleX, FileText, Trash2 } from 'lucide-svelte/icons';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onDelete?: () => void;
@@ -10,6 +11,7 @@
 		iconSize?: number;
 		classes?: {
 			delete?: string;
+			button?: string;
 		};
 	}
 
@@ -19,7 +21,7 @@
 
 <div class="space-between group flex items-center gap-2">
 	<button
-		class="flex flex-1 items-center gap-1 truncate"
+		class={twMerge('flex flex-1 items-center gap-1 truncate', classes?.button)}
 		use:tooltip={isError ? (file.error ?? 'Failed') : file.fileName}
 	>
 		<div class="flex items-center gap-1">
@@ -41,6 +43,7 @@
 					onDelete();
 				}
 			}}
+			use:tooltip={'Delete Knowledge File'}
 		>
 			<Trash2 class={`size-${iconSize} text-gray`} />
 		</button>

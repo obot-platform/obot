@@ -51,24 +51,26 @@
 			{#if note}
 				{@render note()}
 			{/if}
-			<button
-				onclick={onsuccess}
-				type="button"
-				class="inline-flex items-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50"
-				disabled={loading}
-			>
-				{#if loading}
-					<LoaderCircle class="size-4 animate-spin" />
-				{:else}
-					Yes, I'm sure
-				{/if}
-			</button>
-			<button
-				onclick={oncancel}
-				type="button"
-				class="ms-3 rounded-3xl bg-gray-100 px-5 py-2.5 text-sm font-medium text-black hover:bg-gray-200 dark:bg-gray-800
+			<div class="flex items-center justify-center gap-2">
+				<button
+					onclick={onsuccess}
+					type="button"
+					class="inline-flex min-h-10 items-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50"
+					disabled={loading}
+				>
+					{#if loading}
+						<LoaderCircle class="size-4 animate-spin" />
+					{:else}
+						Yes, I'm sure
+					{/if}
+				</button>
+				<button
+					onclick={oncancel}
+					type="button"
+					class="ms-3 rounded-3xl bg-gray-100 px-5 py-2.5 text-sm font-medium text-black hover:bg-gray-200 dark:bg-gray-800
 					 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">No, cancel</button
-			>
+				>
+			</div>
 		</div>
 	</div>
 </dialog>

@@ -55,7 +55,7 @@
 <button
 	bind:this={buttonElement}
 	class={twMerge(
-		'bg-surface1 dark:border-surface3 relative z-10 flex grow items-center justify-between gap-2 truncate rounded-xl p-2 shadow-inner transition-colors duration-200 dark:border dark:bg-black',
+		'hover:bg-surface3 relative z-10 flex min-h-10 grow items-center justify-between gap-2 truncate rounded-sm bg-transparent px-1.5 py-2 transition-colors duration-200',
 		classes?.button
 	)}
 	class:hover:bg-surface2={!disabled}
@@ -74,12 +74,12 @@
 		toggle();
 	}}
 >
-	<span class="text-on-background max-w-[100%-24px] truncate text-sm font-semibold">
+	<span class="text-on-background max-w-[100%-24px] truncate text-sm font-extralight">
 		{project.name || DEFAULT_PROJECT_NAME}
 	</span>
 	{#if !disabled}
 		<div class={twMerge('text-gray transition-transform duration-200', open && 'rotate-180')}>
-			<ChevronDown />
+			<ChevronDown class="size-5" />
 		</div>
 	{/if}
 </button>

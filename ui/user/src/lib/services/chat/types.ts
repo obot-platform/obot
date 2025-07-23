@@ -470,6 +470,14 @@ export interface Project {
 	workflowNamesFromIntegration?: WorkflowNamesFromIntegration;
 }
 
+export interface CreateProjectForm {
+	name: string;
+	description?: string;
+	icons?: AssistantIcons;
+	prompt?: string;
+	editor?: boolean;
+}
+
 export interface WorkflowNamesFromIntegration {
 	slackWorkflowName?: string;
 	discordWorkflowName?: string;

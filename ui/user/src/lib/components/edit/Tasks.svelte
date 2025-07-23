@@ -9,8 +9,8 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Input from '$lib/components/tasks/Input.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		project: Project;
@@ -97,54 +97,47 @@
 	let taskToDelete = $state<Task>();
 </script>
 
-<CollapsePane
-	classes={{ header: 'pl-3 py-2', content: 'p-2' }}
-	iconSize={5}
-	header="Tasks"
-	helpText={HELPER_TEXTS.tasks}
-	open={(layout.tasks?.length ?? 0) > 0}
->
-	<div class="flex flex-col gap-4">
-		{#if layout.tasks && layout.tasks.length > 0}
-			<ul class="flex flex-col">
-				{#each layout.tasks as task, i (task.id)}
-					<TaskItem
-						{task}
-						{project}
-						taskRuns={layout.taskRuns?.filter((run) => run.taskID === task.id) ?? []}
-						expanded={i < 5}
-						bind:currentThreadID
-						classes={{
-							taskItemAction: 'pr-3'
-						}}
-					>
-						{#snippet taskActions()}
-							{#if !isTaskFromIntegration(task)}
-								<DotDotDot
-									class="p-2 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
-								>
-									<div class="default-dialog flex min-w-max flex-col p-2">
-										<button class="menu-button" onclick={() => runTask(task)}>
-											<Play class="size-4" /> Run Task
-										</button>
-										<button class="menu-button" onclick={() => (taskToDelete = task)}>
-											<Trash2 class="size-4" /> Delete
-										</button>
-									</div>
-								</DotDotDot>
-							{/if}
-						{/snippet}
-					</TaskItem>
-				{/each}
-			</ul>
-		{/if}
-		<div class="flex justify-end">
-			<button class="button flex items-center gap-1 text-xs" onclick={() => newTask()}>
-				<Plus class="size-4" /> New Task
-			</button>
-		</div>
+<div class="flex flex-col px-3 text-xs">
+	<div class="flex items-center justify-between">
+		<p class="grow text-sm font-extralight">Tasks</p>
+		<button class="icon-button" onclick={() => newTask()} use:tooltip={'Start New Task'}>
+			<Plus class="size-5" />
+		</button>
 	</div>
-</CollapsePane>
+	{#if layout.tasks && layout.tasks.length > 0}
+		<ul class="flex flex-col" transition:fade>
+			{#each layout.tasks as task, i (task.id)}
+				<TaskItem
+					{task}
+					{project}
+					taskRuns={layout.taskRuns?.filter((run) => run.taskID === task.id) ?? []}
+					expanded={i < 5}
+					bind:currentThreadID
+					classes={{
+						taskItemAction: 'pr-3'
+					}}
+				>
+					{#snippet taskActions()}
+						{#if !isTaskFromIntegration(task)}
+							<DotDotDot
+								class="p-2 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+							>
+								<div class="default-dialog flex min-w-max flex-col p-2">
+									<button class="menu-button" onclick={() => runTask(task)}>
+										<Play class="size-4" /> Run Task
+									</button>
+									<button class="menu-button" onclick={() => (taskToDelete = task)}>
+										<Trash2 class="size-4" /> Delete
+									</button>
+								</div>
+							</DotDotDot>
+						{/if}
+					{/snippet}
+				</TaskItem>
+			{/each}
+		</ul>
+	{/if}
+</div>
 
 <dialog
 	bind:this={inputDialog}

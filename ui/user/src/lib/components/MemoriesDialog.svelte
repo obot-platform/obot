@@ -7,15 +7,26 @@
 		deleteMemory,
 		updateMemory
 	} from '$lib/services';
-	import { X, Trash2, RefreshCcw, Edit, Check, X as XIcon } from 'lucide-svelte/icons';
+	import {
+		X,
+		Trash2,
+		RefreshCcw,
+		Edit,
+		Check,
+		X as XIcon,
+		CircleX,
+		Save,
+		Pencil
+	} from 'lucide-svelte/icons';
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import errors from '$lib/stores/errors.svelte';
 	import Confirm from './Confirm.svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { responsive } from '$lib/stores';
 	import { clickOutside } from '$lib/actions/clickoutside';
+	import { overflowToolTip } from '$lib/actions/overflow';
+	import DotDotDot from './DotDotDot.svelte';
 
 	interface Props {
 		project?: Project;
@@ -31,6 +42,7 @@
 	let editingMemoryId = $state<string | null>(null);
 	let editContent = $state('');
 	let editingPreview = $state(false);
+	let input = $state<HTMLInputElement>();
 
 	export function show(projectToUse?: Project) {
 		if (projectToUse) {
@@ -151,6 +163,14 @@
 			return '';
 		}
 	}
+
+	export async function viewAllMemories() {
+		dialog?.showModal();
+	}
+
+	export function refresh() {
+		loadMemories();
+	}
 </script>
 
 {#if showPreview}
@@ -179,23 +199,18 @@
 	{#if error}
 		<div class="rounded bg-red-100 p-3 text-red-800">{error}</div>
 	{/if}
-
-	<div class="flex items-center justify-between">
-		{#if preview}
-			<span class="text-text2 text-xs"> Most recent memories </span>
-		{:else}
+	{#if !preview}
+		<div class="flex items-center justify-between">
 			<span class="text-text2 text-sm">{memories.length} memories</span>
-		{/if}
-		<div class="flex gap-2">
-			<button class="icon-button" onclick={() => loadMemories()} use:tooltip={'Refresh Memories'}>
-				<RefreshCcw class="size-4" />
-			</button>
+			<div class="flex gap-2">
+				<button class="icon-button" onclick={() => loadMemories()} use:tooltip={'Refresh Memories'}>
+					<RefreshCcw class="size-4" />
+				</button>
 
-			{#if !preview}
 				{@render deleteAllButton(preview)}
-			{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 
 	<div class="min-h-0 flex-1 overflow-auto">
 		{#if loading}
@@ -204,7 +219,7 @@
 					class="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"
 				></div>
 			</div>
-		{:else if memories.length === 0}
+		{:else if memories.length === 0 && !preview}
 			<p
 				in:fade
 				class="text-gray pt-6 pb-3 text-center text-sm dark:text-gray-300"
@@ -246,28 +261,61 @@
 		{:else}
 			<div class="flex w-full flex-col gap-2">
 				{#each memories.slice(0, 5) as memory (memory.id)}
-					<div class="memory group flex gap-2 rounded-sm shadow-sm">
-						{@render memoryContent(memory, preview)}
-
-						<div
-							class="flex flex-col justify-start gap-1 opacity-0 transition-all duration-300 group-hover:opacity-100"
-							class:opacity-100={(editingMemoryId === memory.id && preview === editingPreview) ||
-								responsive.isMobile}
-						>
-							{@render options(memory, preview)}
+					<div
+						class="group hover:bg-surface3 flex w-full items-center rounded-md transition-colors duration-200"
+					>
+						<div class="flex grow items-center gap-1 py-2 pl-1.5">
+							{#if editingMemoryId === memory.id}
+								<input
+									bind:value={editContent}
+									bind:this={input}
+									onkeyup={(e) => {
+										switch (e.key) {
+											case 'Escape':
+												cancelEdit();
+												break;
+											case 'Enter':
+												saveEdit();
+												break;
+										}
+									}}
+									class="mx-2 w-0 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
+									placeholder="Enter name"
+									type="text"
+								/>
+								<div class="flex gap-3">
+									<button class="list-button-primary" onclick={cancelEdit}>
+										<CircleX class="h-4 w-4" />
+									</button>
+									<button class="list-button-primary" onclick={saveEdit}>
+										<Save class="mr-2 h-4 w-4" />
+									</button>
+								</div>
+							{:else}
+								<p
+									class="flex w-[calc(100%-24px)] items-center truncate text-left text-xs font-light"
+									use:overflowToolTip
+								>
+									{memory.content}
+								</p>
+							{/if}
 						</div>
+						{#if editingMemoryId !== memory.id}
+							<DotDotDot
+								class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+							>
+								<div class="default-dialog flex min-w-max flex-col p-2">
+									<button class="menu-button" onclick={() => startEdit(memory, true)}>
+										<Pencil class="size-4" /> Edit
+									</button>
+									<button class="menu-button" onclick={() => deleteOne(memory.id)}>
+										<Trash2 class="size-4" /> Delete
+									</button>
+								</div>
+							</DotDotDot>
+						{/if}
 					</div>
 				{/each}
-			</div>
-
-			<div class="mt-4 flex justify-between">
-				{@render deleteAllButton(preview)}
-				<button
-					class="button-small flex items-center gap-1 text-xs"
-					onclick={() => dialog?.showModal()}
-				>
-					View All Memories
-				</button>
 			</div>
 		{/if}
 	</div>

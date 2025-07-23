@@ -31,7 +31,8 @@ export interface Layout {
 		| 'model-providers'
 		| 'mcp-server-tools'
 		| 'mcp-server'
-		| 'mcpserver-interface';
+		| 'mcpserver-interface'
+		| 'project-configuration';
 
 	editProjectMcp?: ProjectMCP;
 	template?: ProjectTemplate;
@@ -97,6 +98,10 @@ export function closeSidebarConfig(layout: Layout) {
 	layout.template = undefined;
 	layout.mcpServer = undefined;
 	layout.chatbotMcpEdit = undefined;
+}
+export function openConfigureProject(layout: Layout) {
+	closeAll(layout);
+	layout.sidebarConfig = 'project-configuration';
 }
 
 export function initLayout(layout: Layout) {

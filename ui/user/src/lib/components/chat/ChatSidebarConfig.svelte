@@ -13,6 +13,7 @@
 	import Webhook from '../integrations/webhook/Webhook.svelte';
 	import Email from '../integrations/email/Email.svelte';
 	import ChatSidebarMcpServer from './ChatSidebarMcpServer.svelte';
+	import ProjectConfiguration from '../edit/ProjectConfiguration.svelte';
 
 	interface Props {
 		project: Project;
@@ -25,7 +26,9 @@
 </script>
 
 <div class="default-scrollbar-thin relative flex w-full justify-center overflow-y-auto" in:fade>
-	{#if layout.sidebarConfig === 'slack'}
+	{#if layout.sidebarConfig === 'project-configuration'}
+		<ProjectConfiguration {project} />
+	{:else if layout.sidebarConfig === 'slack'}
 		<Slack {project} />
 	{:else if layout.sidebarConfig === 'invitations'}
 		<ProjectInvitations {project} />

@@ -15,8 +15,9 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import PageLoading from '$lib/components/PageLoading.svelte';
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
 	import MyMcpServers from '$lib/components/mcp/MyMcpServers.svelte';
+	import { responsive } from '$lib/stores';
 
 	let userServerInstances = $state<MCPServerInstance[]>([]);
 	let userConfiguredServers = $state<MCPCatalogServer[]>([]);
@@ -143,73 +144,80 @@
 	}
 </script>
 
-<Layout showUserLinks>
-	{#snippet onRenderSubContent(label: string)}
-		{#if label === 'MCP Servers'}
-			<div class="flex flex-col">
-				{#each categories as category (category)}
+<Layout showUserLinks hideSidebar>
+	<div class="flex w-full">
+		{#if !responsive.isMobile}
+			<ul class="flex min-h-0 w-xs flex-shrink-0 grow flex-col px-4 py-6">
+				<li>
 					<button
-						class="flex items-center text-left text-sm font-light transition-all duration-300 hover:font-semibold"
-						class:font-semibold={selectedCategory === category}
+						class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
+						class:!border-blue-500={!selectedCategory}
 						onclick={() => {
-							const url = new URL(window.location.href);
-							url.searchParams.set('category', category);
-							goto(url.toString(), { replaceState: true });
+							selectedCategory = '';
 						}}
 					>
-						<div
-							class="bg-surface3 mx-4 h-full min-h-8 w-0.5 flex-shrink-0"
-							class:bg-blue-500!={selectedCategory === category}
-						></div>
-						{category}
+						Browse All
 					</button>
+				</li>
+				{#each categories as category (category)}
+					<li>
+						<button
+							class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
+							class:!border-blue-500={category === selectedCategory}
+							onclick={() => {
+								selectedCategory = category;
+							}}
+						>
+							{category}
+						</button>
+					</li>
 				{/each}
-			</div>
+			</ul>
 		{/if}
-	{/snippet}
-	<div class="flex flex-col gap-8 pt-4" in:fade>
-		<MyMcpServers
-			{userServerInstances}
-			userConfiguredServers={convertedUserConfiguredServers}
-			servers={convertedServers}
-			entries={convertedEntries}
-			{loading}
-			onConnectServer={(connectedServer) => {
-				loadData(true);
-				connectToServer = connectedServer;
-				connectDialog?.open();
-			}}
-			onSelectConnectedServer={(connectedServer) => {
-				connectToServer = connectedServer;
-				connectDialog?.open();
-			}}
-			onDisconnect={() => {
-				loadData(true);
-			}}
-			connectSelectText="Get Connection URL"
-			{selectedCategory}
-		>
-			{#snippet appendConnectedServerTitle()}
-				<button class="button text-xs" onclick={() => showAllServersConfigDialog?.open()}>
-					Generate Configuration
-				</button>
-			{/snippet}
-			{#snippet additConnectedServerViewActions(connectedServer)}
-				{@render connectedActions(connectedServer)}
-			{/snippet}
-			{#snippet additConnectedServerCardActions(connectedServer)}
-				<button
-					class="menu-button"
-					onclick={async () => {
-						connectToServer = connectedServer;
-						connectDialog?.open();
-					}}
-				>
-					Get Connection URL
-				</button>
-				{@render connectedActions(connectedServer)}
-			{/snippet}
-		</MyMcpServers>
+		<div class="flex w-full flex-col gap-8 pt-4" in:fade>
+			<MyMcpServers
+				{userServerInstances}
+				userConfiguredServers={convertedUserConfiguredServers}
+				servers={convertedServers}
+				entries={convertedEntries}
+				{loading}
+				onConnectServer={(connectedServer) => {
+					loadData(true);
+					connectToServer = connectedServer;
+					connectDialog?.open();
+				}}
+				onSelectConnectedServer={(connectedServer) => {
+					connectToServer = connectedServer;
+					connectDialog?.open();
+				}}
+				onDisconnect={() => {
+					loadData(true);
+				}}
+				connectSelectText="Get Connection URL"
+				{selectedCategory}
+			>
+				{#snippet appendConnectedServerTitle()}
+					<button class="button text-xs" onclick={() => showAllServersConfigDialog?.open()}>
+						Generate Configuration
+					</button>
+				{/snippet}
+				{#snippet additConnectedServerViewActions(connectedServer)}
+					{@render connectedActions(connectedServer)}
+				{/snippet}
+				{#snippet additConnectedServerCardActions(connectedServer)}
+					<button
+						class="menu-button"
+						onclick={async () => {
+							connectToServer = connectedServer;
+							connectDialog?.open();
+						}}
+					>
+						Get Connection URL
+					</button>
+					{@render connectedActions(connectedServer)}
+				{/snippet}
+			</MyMcpServers>
+		</div>
 	</div>
 </Layout>
 

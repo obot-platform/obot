@@ -2,6 +2,7 @@ import type { AuthProvider, MCPCatalogEntry } from '../admin/types';
 import { baseURL, doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
 import {
 	type Assistant,
+	type AssistantIcons,
 	type Assistants,
 	type AssistantToolList,
 	type ChatModelList,
@@ -591,19 +592,13 @@ export async function createProject(
 	opts?: {
 		name?: string;
 		description?: string;
+		prompt?: string;
+		icons?: AssistantIcons;
 		fetch?: Fetcher;
 	}
 ): Promise<Project> {
-	return (await doPost(
-		`/assistants/${assistantID}/projects`,
-		{
-			name: opts?.name,
-			description: opts?.description
-		},
-		{
-			fetch: opts?.fetch
-		}
-	)) as Project;
+	const { fetch, ...fields } = opts ?? {};
+	return (await doPost(`/assistants/${assistantID}/projects`, { ...fields }, { fetch })) as Project;
 }
 
 export async function getProject(id: string, opts?: { fetch?: Fetcher }): Promise<Project> {

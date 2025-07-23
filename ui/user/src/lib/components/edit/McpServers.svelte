@@ -17,8 +17,6 @@
 	import { errors } from '$lib/stores';
 	import McpServerSetup from '../chat/McpServerSetup.svelte';
 	import McpServerActions from '../chat/McpServerActions.svelte';
-	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
-	import CollapsePane from './CollapsePane.svelte';
 
 	interface Props {
 		project: Project;
@@ -164,85 +162,75 @@
 	}
 </script>
 
-<CollapsePane
-	classes={{ header: 'pl-3 py-2', content: 'p-2' }}
-	iconSize={5}
-	header="MCP Servers"
-	helpText={HELPER_TEXTS.mcpServers}
-	open={projectMCPs.items.some(shouldShowWarning) || (!chatbot && projectMCPs.items.length > 0)}
->
-	<div class="flex flex-col gap-2">
-		{#if projectMCPs.items.length > 0}
-			<div class="flex flex-col">
-				{#each projectMCPs.items as mcpServer (mcpServer.id)}
-					<div
-						class="group hover:bg-surface3 flex w-full items-center rounded-md transition-colors duration-200"
-					>
-						<button
-							class="flex grow items-center gap-1 py-2 pl-1.5"
-							onclick={() => {
-								openMCPServer(layout, mcpServer);
-							}}
-						>
-							<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-								{#if mcpServer.manifest.icon}
-									<img src={mcpServer.manifest.icon} class="size-4" alt={mcpServer.manifest.name} />
-								{:else}
-									<Server class="size-4" />
-								{/if}
-							</div>
-							<p
-								class="flex w-[calc(100%-24px)] items-center truncate text-left text-xs font-light"
-							>
-								{mcpServer.manifest.name || DEFAULT_CUSTOM_SERVER_NAME}
-								{#if shouldShowWarning(mcpServer)}
-									<span
-										class="ml-1"
-										use:tooltip={mcpServer.authenticated
-											? 'Configuration Required'
-											: 'Authentication Required'}
-									>
-										<TriangleAlert
-											class="size-4"
-											stroke="currentColor"
-											fill="none"
-											color="orange"
-										/>
-									</span>
-								{/if}
-							</p>
-						</button>
-						{#if !chatbot}
-							<McpServerActions
-								class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
-								{mcpServer}
-								{project}
-								onDelete={() => refreshMcpList()}
-							/>
-						{:else if localConfigurations[mcpServer.id]}
-							<DotDotDot
-								class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
-							>
-								<div class="default-dialog flex min-w-max flex-col p-2">
-									<button class="menu-button" onclick={() => (toDelete = mcpServer)}>
-										<Trash2 class="size-4" /> Delete My Configuration
-									</button>
-								</div>
-							</DotDotDot>
-						{/if}
-					</div>
-				{/each}
-			</div>
-		{/if}
-
-		<div class="flex justify-end">
-			<button class="button flex items-center gap-1 text-xs" onclick={() => mcpServerSetup?.open()}>
-				<Plus class="size-4" /> Add MCP Server
-			</button>
-			<McpServerSetup bind:this={mcpServerSetup} {project} onSuccess={() => refreshMcpList()} />
-		</div>
+<div class="flex flex-col px-3 text-xs">
+	<div class="flex items-center justify-between">
+		<p class="grow text-sm font-extralight">MCP Servers</p>
+		<button
+			class="icon-button"
+			onclick={() => mcpServerSetup?.open()}
+			use:tooltip={'Add MCP Server'}
+		>
+			<Plus class="h-5 w-5" />
+		</button>
 	</div>
-</CollapsePane>
+	{#if projectMCPs.items.length > 0}
+		<div class="flex flex-col">
+			{#each projectMCPs.items as mcpServer (mcpServer.id)}
+				<div
+					class="group hover:bg-surface3 flex w-full items-center rounded-md transition-colors duration-200"
+				>
+					<button
+						class="flex grow items-center gap-1 py-2 pl-1.5"
+						onclick={() => {
+							openMCPServer(layout, mcpServer);
+						}}
+					>
+						<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+							{#if mcpServer.manifest.icon}
+								<img src={mcpServer.manifest.icon} class="size-4" alt={mcpServer.manifest.name} />
+							{:else}
+								<Server class="size-4" />
+							{/if}
+						</div>
+						<p class="flex w-[calc(100%-24px)] items-center truncate text-left text-xs font-light">
+							{mcpServer.manifest.name || DEFAULT_CUSTOM_SERVER_NAME}
+							{#if shouldShowWarning(mcpServer)}
+								<span
+									class="ml-1"
+									use:tooltip={mcpServer.authenticated
+										? 'Configuration Required'
+										: 'Authentication Required'}
+								>
+									<TriangleAlert class="size-4" stroke="currentColor" fill="none" color="orange" />
+								</span>
+							{/if}
+						</p>
+					</button>
+					{#if !chatbot}
+						<McpServerActions
+							class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+							{mcpServer}
+							{project}
+							onDelete={() => refreshMcpList()}
+						/>
+					{:else if localConfigurations[mcpServer.id]}
+						<DotDotDot
+							class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+						>
+							<div class="default-dialog flex min-w-max flex-col p-2">
+								<button class="menu-button" onclick={() => (toDelete = mcpServer)}>
+									<Trash2 class="size-4" /> Delete My Configuration
+								</button>
+							</div>
+						</DotDotDot>
+					{/if}
+				</div>
+			{/each}
+		</div>
+	{/if}
+
+	<McpServerSetup bind:this={mcpServerSetup} {project} onSuccess={() => refreshMcpList()} />
+</div>
 
 <Confirm
 	msg="Are you sure you want to delete your MCP server configuration?"

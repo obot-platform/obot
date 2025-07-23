@@ -3,7 +3,6 @@
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
 	import { darkMode } from '$lib/stores';
-	import { Home } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -45,10 +44,7 @@
 			{/if}
 		</div>
 		{#if !unauthorized}
-			<div class="flex items-center gap-4">
-				<a class="nav-link" href="/" id="navbar-home-link">
-					<Home class="size-6" />
-				</a>
+			<div class="flex h-16 items-center">
 				<Profile />
 			</div>
 		{/if}

@@ -26,6 +26,7 @@
 	let versionDialog = $state<HTMLDialogElement>();
 	let showChatLink = $state(false);
 	let showMyMcpServersLink = $state(false);
+	let inAdminRoute = $state(false);
 	let loadingChat = $state(false);
 
 	function getLink(key: string, value: string | boolean) {
@@ -52,7 +53,7 @@
 
 	afterNavigate(() => {
 		const routesToShowChatLink = ['/mcp-servers', '/models'];
-		const inAdminRoute = window.location.pathname.includes('/v2/admin');
+		inAdminRoute = window.location.pathname.includes('/v2/admin');
 		showChatLink = routesToShowChatLink.includes(window.location.pathname) || inAdminRoute;
 		showMyMcpServersLink = window.location.pathname.includes('/o/') || inAdminRoute;
 	});
@@ -120,7 +121,7 @@
 	{/snippet}
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
-			{#if profile.current.role === 1}
+			{#if profile.current.role === 1 && !inAdminRoute}
 				<a href="/v2/admin/mcp-servers" rel="external" role="menuitem" class="link">
 					<LayoutDashboard class="size-4" />Admin Dashboard
 				</a>

@@ -1,97 +1,89 @@
 <script lang="ts">
-	import { ChatService, type Project } from '$lib/services';
-	import { MessageCirclePlus, SidebarClose } from 'lucide-svelte';
+	import { type Project } from '$lib/services';
+	import { Plus, Settings, SidebarClose } from 'lucide-svelte';
 	import { hasTool } from '$lib/tools';
-	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
+	import { closeAll, getLayout, openConfigureProject } from '$lib/context/chatLayout.svelte';
 	import Tasks from '$lib/components/edit/Tasks.svelte';
-	import General from '$lib/components/edit/General.svelte';
 	import McpServers from '$lib/components/edit/McpServers.svelte';
-	import Knowledge from '$lib/components/edit/Knowledge.svelte';
-	import Files from '$lib/components/edit/Files.svelte';
 
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import Threads from '$lib/components/chat/sidebar/Threads.svelte';
 
-	import ModelProviders from '$lib/components/chat/sidebar/ModelProviders.svelte';
-	import SystemPrompt from '$lib/components/edit/SystemPrompt.svelte';
-	import { responsive } from '$lib/stores';
-	import Logo from '$lib/components/navbar/Logo.svelte';
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { getHelperMode, HELPER_TEXTS } from '$lib/context/helperMode.svelte';
-	import Toggle from '$lib/components/Toggle.svelte';
+	import { darkMode, responsive } from '$lib/stores';
 	import Memories from '$lib/components/edit/Memories.svelte';
 	import { scrollFocus } from '$lib/actions/scrollFocus.svelte';
-	import BuiltInCapabilities from '$lib/components/edit/BuiltInCapabilities.svelte';
+	import Projects from '../navbar/Projects.svelte';
 
 	interface Props {
 		project: Project;
 		currentThreadID?: string;
 		shared?: boolean;
+		onCreateProject?: () => void;
 	}
 
-	let { project = $bindable(), currentThreadID = $bindable(), shared }: Props = $props();
+	let {
+		project = $bindable(),
+		currentThreadID = $bindable(),
+		shared,
+		onCreateProject
+	}: Props = $props();
 	const layout = getLayout();
 	const projectTools = getProjectTools();
-	const helperMode = getHelperMode();
-
-	async function createNewThread() {
-		const thread = await ChatService.createThread(project.assistantID, project.id);
-		const found = layout.threads?.find((t) => t.id === thread.id);
-		if (!found) {
-			layout.threads?.splice(0, 0, thread);
-		}
-
-		closeAll(layout);
-		currentThreadID = thread.id;
-	}
 </script>
 
 <div class="bg-surface1 dark:bg-surface2 relative flex size-full flex-col">
 	<div class="flex h-16 w-full flex-shrink-0 items-center px-3">
-		<Logo class="ml-0" />
-		<div class="flex grow"></div>
-		{#if !shared}
-			<button
-				class="icon-button p-0.5"
-				use:tooltip={'Start New Thread'}
-				onclick={() => createNewThread()}
-			>
-				<MessageCirclePlus class="size-6" />
-			</button>
-		{/if}
+		<div class="flex flex-shrink-0 items-center">
+			{#if darkMode.isDark}
+				<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
+			{:else}
+				<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
+			{/if}
+			<div class="ml-1.5 -translate-y-1">
+				<span
+					class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
+				>
+					BETA
+				</span>
+			</div>
+		</div>
 		{#if responsive.isMobile}
 			{@render closeSidebar()}
 		{/if}
 	</div>
-	<div class="default-scrollbar-thin flex w-full grow flex-col" use:scrollFocus>
+	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2" use:scrollFocus>
+		<div class="flex w-full items-center justify-between px-1">
+			<Projects {project} />
+			<div class="flex items-center pr-2 pl-1">
+				<button
+					class="icon-button flex-shrink-0"
+					onclick={() => {
+						closeAll(layout);
+						onCreateProject?.();
+					}}
+					use:tooltip={'Create New Project'}
+				>
+					<Plus class="size-5" />
+				</button>
+				<button
+					class="icon-button flex-shrink-0"
+					onclick={() => {
+						openConfigureProject(layout);
+					}}
+					use:tooltip={'Configure Current Project'}
+				>
+					<Settings class="size-5" />
+				</button>
+			</div>
+		</div>
 		{#if project.editor && !shared}
-			<Threads {project} bind:currentThreadID editor />
+			<Threads {project} bind:currentThreadID />
 			<Tasks {project} bind:currentThreadID />
 			<McpServers {project} />
 			{#if hasTool(projectTools.tools, 'memory')}
 				<Memories {project} />
 			{/if}
-
-			<div class="mt-auto flex flex-col">
-				<CollapsePane
-					classes={{
-						header: 'pl-3 border-y border-surface2 dark:border-surface3 py-2',
-						content: 'p-0 bg-transparent dark:bg-transparent shadow-none',
-						headerText: 'text-sm font-medium'
-					}}
-					header="Configuration"
-					helpText={HELPER_TEXTS.configuration}
-					iconSize={5}
-				>
-					<General bind:project />
-					<SystemPrompt bind:project />
-					<BuiltInCapabilities bind:project />
-					<Knowledge {project} />
-					<Files {project} classes={{ list: 'text-sm flex flex-col gap-2' }} />
-					<ModelProviders {project} />
-				</CollapsePane>
-			</div>
 		{:else}
 			<Threads {project} bind:currentThreadID />
 			<McpServers {project} chatbot={true} />
@@ -101,16 +93,7 @@
 		{/if}
 	</div>
 
-	<div class="flex items-center justify-between px-3 py-2">
-		<div class="flex items-center gap-1">
-			<Toggle
-				label="Toggle Help"
-				labelInline
-				checked={helperMode.isEnabled}
-				onChange={() => (helperMode.isEnabled = !helperMode.isEnabled)}
-			/>
-		</div>
-
+	<div class="flex items-center justify-end px-3 py-2">
 		{#if !responsive.isMobile}
 			{@render closeSidebar()}
 		{/if}

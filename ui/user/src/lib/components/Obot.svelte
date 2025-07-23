@@ -4,21 +4,18 @@
 	import Sidebar from '$lib/components/chat/ChatSidebar.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import Thread from '$lib/components/Thread.svelte';
-	import { ChatService, EditorService, type Project } from '$lib/services';
+	import { ChatService, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
-	import { errors, responsive } from '$lib/stores';
+	import { darkMode, responsive } from '$lib/stores';
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
-	import { GripVertical, MessageCirclePlus, Plus, SidebarOpen } from 'lucide-svelte';
+	import { GripVertical, MessageCirclePlus, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import Logo from './navbar/Logo.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { columnResize } from '$lib/actions/resize';
 	import { X } from 'lucide-svelte';
-	import Projects from '$lib/components/navbar/Projects.svelte';
-	import type { Assistant } from '$lib/services';
+	import type { Assistant, CreateProjectForm } from '$lib/services';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import { goto } from '$app/navigation';
 	import SidebarConfig from './chat/ChatSidebarConfig.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
@@ -35,6 +32,7 @@
 	let { project = $bindable(), currentThreadID = $bindable(), assistant, shared }: Props = $props();
 	let layout = getLayout();
 	let editor: HTMLDivElement | undefined = $state();
+	let createProject = $state<CreateProjectForm>();
 
 	let shortcutsDialog: HTMLDialogElement;
 	let nav = $state<HTMLDivElement>();
@@ -48,15 +46,6 @@
 
 		closeAll(layout);
 		currentThreadID = thread.id;
-	}
-
-	async function createNewAgent() {
-		try {
-			const project = await EditorService.createObot();
-			await goto(`/o/${project.id}`);
-		} catch (error) {
-			errors.append((error as Error).message);
-		}
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -78,6 +67,15 @@
 			event.preventDefault();
 			shortcutsDialog?.showModal();
 		}
+	}
+
+	function initProjectForm(): CreateProjectForm {
+		return {
+			name: '',
+			description: '',
+			icons: undefined,
+			prompt: ''
+		};
 	}
 
 	onMount(() => {
@@ -104,7 +102,11 @@
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
-				<Sidebar bind:project bind:currentThreadID />
+				<Sidebar
+					bind:project
+					bind:currentThreadID
+					onCreateProject={() => (createProject = initProjectForm())}
+				/>
 			</div>
 			{#if !responsive.isMobile}
 				<div
@@ -124,18 +126,9 @@
 				<Navbar>
 					{#snippet leftContent()}
 						{#if !layout.sidebarOpen || layout.fileEditorOpen}
+							{@render logo()}
 							<button
-								in:fade={{ delay: 350, duration: 0 }}
-								onclick={() => {
-									layout.sidebarOpen = true;
-									layout.fileEditorOpen = false;
-								}}
-								use:tooltip={'Open Sidebar'}
-							>
-								<Logo class="ml-0" />
-							</button>
-							<button
-								class="icon-button p-0.5"
+								class="icon-button ml-2 p-0.5"
 								in:fade={{ delay: 350, duration: 0 }}
 								use:tooltip={'Start New Thread'}
 								onclick={() => createNewThread()}
@@ -145,27 +138,6 @@
 						{/if}
 						{#if !layout.sidebarOpen && responsive.isMobile}
 							{@render openSidebar()}
-						{/if}
-					{/snippet}
-					{#snippet centerContent()}
-						{#if !responsive.isMobile}
-							<div class="flex w-full items-center justify-center gap-4 px-8">
-								<div class="relative flex max-w-xs grow">
-									<Projects {project} />
-								</div>
-								{#if responsive.isMobile}
-									<button class="icon-button flex-shrink-0" onclick={() => createNewAgent()}>
-										<Plus class="size-5" />
-									</button>
-								{:else}
-									<button
-										class="button flex flex-shrink-0 items-center gap-1 text-xs"
-										onclick={() => createNewAgent()}
-									>
-										<Plus class="size-4" /> Create New Project
-									</button>
-								{/if}
-							</div>
 						{/if}
 					{/snippet}
 				</Navbar>
@@ -211,7 +183,7 @@
 					{:else if layout.sidebarConfig}
 						<SidebarConfig bind:project bind:currentThreadID {assistant} />
 					{:else}
-						<Thread bind:id={currentThreadID} bind:project {shared} />
+						<Thread bind:id={currentThreadID} bind:project {shared} bind:createProject />
 					{/if}
 				{/if}
 
@@ -274,4 +246,21 @@
 	<button class="icon-button" onclick={() => (layout.sidebarOpen = true)}>
 		<SidebarOpen class="size-6" />
 	</button>
+{/snippet}
+
+{#snippet logo()}
+	<div class="flex flex-shrink-0 items-center">
+		{#if darkMode.isDark}
+			<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
+		{:else}
+			<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
+		{/if}
+		<div class="ml-1.5 -translate-y-1">
+			<span
+				class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
+			>
+				BETA
+			</span>
+		</div>
+	</div>
 {/snippet}

@@ -1,21 +1,38 @@
 <script lang="ts">
 	import { type Project } from '$lib/services';
-	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
-	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import MemoryContent from '$lib/components/MemoriesDialog.svelte';
+	import { RefreshCcw, View } from 'lucide-svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		project: Project;
 	}
 
 	let { project = $bindable() }: Props = $props();
+	let memories = $state<ReturnType<typeof MemoryContent>>();
 </script>
 
-<CollapsePane
-	classes={{ header: 'pl-3 py-2 text-md', content: 'p-2 font-light' }}
-	iconSize={5}
-	header="Memories"
-	helpText={HELPER_TEXTS.memories}
->
-	<MemoryContent {project} showPreview />
-</CollapsePane>
+<div class="flex flex-col px-3 text-xs">
+	<div class="flex items-center justify-between">
+		<p class="grow text-sm font-extralight">Memories</p>
+		<div class="flex items-center">
+			<button
+				class="icon-button"
+				onclick={() => memories?.refresh()}
+				use:tooltip={'Refresh Memories'}
+			>
+				<RefreshCcw class="size-4" />
+			</button>
+			<button
+				class="icon-button"
+				onclick={() => memories?.viewAllMemories()}
+				use:tooltip={'View All Memories'}
+			>
+				<View class="size-5" />
+			</button>
+		</div>
+	</div>
+	<div>
+		<MemoryContent bind:this={memories} {project} showPreview />
+	</div>
+</div>
