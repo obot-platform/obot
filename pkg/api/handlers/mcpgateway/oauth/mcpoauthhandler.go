@@ -49,6 +49,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer 
 	go func() {
 		defer close(errChan)
 		_, err := f.mcpSessionManager.ClientForServerWithOptions(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
+			ClientName:       "Obot MCP OAuth",
 			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback", f.baseURL),
 			OAuthClientName:  "Obot MCP Gateway",
 			CallbackHandler:  oauthHandler,

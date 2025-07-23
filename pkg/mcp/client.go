@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/gptscript-ai/gptscript/pkg/mcp"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
@@ -10,7 +11,15 @@ import (
 )
 
 func (sm *SessionManager) ClientForServer(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig) (*mcp.Client, error) {
-	return sm.ClientForServerWithOptions(ctx, mcpServer, serverConfig, nmcp.ClientOption{TokenStorage: sm.tokenStorage.ForMCPID(mcpServer.Name)})
+	clientName := "Obot MCP Gateway"
+	if strings.HasPrefix(serverConfig.URL, fmt.Sprintf("%s/mcp-connect/", sm.baseURL)) {
+		// If the URL points back to us, then this is Obot chat. Ensure the client name reflects that.
+		clientName = "Obot MCP Chat"
+	}
+	return sm.ClientForServerWithOptions(ctx, mcpServer, serverConfig, nmcp.ClientOption{
+		ClientName:   clientName,
+		TokenStorage: sm.tokenStorage.ForMCPID(mcpServer.Name),
+	})
 }
 
 func (sm *SessionManager) ClientForServerWithOptions(ctx context.Context, mcpServer v1.MCPServer, serverConfig ServerConfig, opts ...nmcp.ClientOption) (*mcp.Client, error) {

@@ -44,7 +44,7 @@ func (sm *SessionManager) ServerTools(ctx context.Context, tokenService *jwt.Tok
 		return nil, nil
 	}
 
-	client, err := sm.ClientForServerWithOptions(ctx, mcpServer, serverConfig)
+	client, err := sm.ClientForServer(ctx, mcpServer, serverConfig)
 	if err != nil {
 		var uae nmcp.AuthRequiredErr
 		if errors.As(err, &uae) {

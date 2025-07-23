@@ -14,6 +14,7 @@ import (
 
 func (m *messageHandler) clientMessageHandlerAsClientOption(tokenStore nmcp.TokenStorage, session *nmcp.Session) nmcp.ClientOption {
 	return nmcp.ClientOption{
+		ClientName:   "Obot MCP Gateway",
 		TokenStorage: tokenStore,
 		OnMessage: (&clientMessageHandler{
 			session:         session,

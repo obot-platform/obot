@@ -546,7 +546,7 @@
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'client'}
 						{#if d.client}
-							{d.client.name}/{d.client.version}
+							{d.client.name}{#if d.client.version}/{d.client.version}{/if}
 						{/if}
 						{d.clientIP}
 					{:else if property === 'createdAt'}

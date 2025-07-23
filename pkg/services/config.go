@@ -340,7 +340,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	mcpRunner := gmcp.DefaultRunner
-	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, mcpOAuthTokenStorage, mcp.Options(config.MCPConfig))
+	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig))
 	if err != nil {
 		return nil, err
 	}
