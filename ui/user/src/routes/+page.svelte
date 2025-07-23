@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { responsive } from '$lib/stores';
-	import { goto } from '$app/navigation';
 	import { darkMode } from '$lib/stores';
 	import { MenuIcon, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -10,10 +9,9 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import Footer from '$lib/components/Footer.svelte';
 	import Logo from '$lib/components/navbar/Logo.svelte';
-	import { q } from '$lib/url';
 
 	let { data }: PageProps = $props();
-	let { authProviders, loggedIn, isAdmin } = data;
+	let { authProviders, loggedIn } = data;
 	let loginDialog = $state<HTMLDialogElement>();
 	let overrideRedirect = $state<string | null>(null);
 	let signUp = $state(true);
@@ -21,17 +19,6 @@
 	onMount(() => {
 		if (browser && new URL(window.location.href).searchParams.get('rd') && !loggedIn) {
 			loginDialog?.showModal();
-		}
-
-		if (loggedIn) {
-			const redirectRoute = q('rd');
-			if (redirectRoute) {
-				goto(redirectRoute);
-			}
-
-			if (browser) {
-				goto(isAdmin ? '/v2/admin/mcp-servers' : '/mcp-servers');
-			}
 		}
 	});
 
