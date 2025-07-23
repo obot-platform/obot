@@ -22,7 +22,6 @@
 	import SidebarConfig from './chat/ChatSidebarConfig.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import McpServerOauths from './chat/McpServerOauths.svelte';
 
 	interface Props {
@@ -39,7 +38,6 @@
 
 	let shortcutsDialog: HTMLDialogElement;
 	let nav = $state<HTMLDivElement>();
-	const projectMcps = getProjectMCPs();
 
 	async function createNewThread() {
 		const thread = await ChatService.createThread(project.assistantID, project.id);
