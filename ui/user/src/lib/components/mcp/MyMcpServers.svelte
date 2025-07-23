@@ -5,7 +5,7 @@
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services';
-	import type { MCPServerInfo } from '$lib/services/chat/mcp';
+	import { convertEnvHeadersToRecord, hasEditableConfiguration } from '$lib/services/chat/mcp';
 	import { fly } from 'svelte/transition';
 	import type { LaunchFormData } from './CatalogConfigureForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -18,6 +18,7 @@
 	import CatalogConfigureForm from './CatalogConfigureForm.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 	import Confirm from '../Confirm.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	type Entry = MCPCatalogEntry & {
 		categories: string[]; // categories for the entry
@@ -49,6 +50,7 @@
 		onConnectServer: (connectedServer: ConnectedServer) => void;
 		onSelectConnectedServer?: (connectedServer: ConnectedServer) => void;
 		onDisconnect?: () => void;
+		onUpdateConfigure?: () => void;
 		connectSelectText: string;
 		disablePortal?: boolean;
 	}
@@ -68,6 +70,7 @@
 		onConnectServer,
 		onSelectConnectedServer,
 		onDisconnect,
+		onUpdateConfigure,
 		connectSelectText,
 		disablePortal
 	}: Props = $props();
@@ -190,35 +193,6 @@
 		deletingInstance = undefined;
 		deletingServer = undefined;
 	}
-
-	function hasEditableConfiguration(item: MCPCatalogEntry) {
-		const manifest = item.commandManifest ?? item.urlManifest;
-		const hasUrlToFill = !manifest?.fixedURL && manifest?.hostname;
-		const hasEnvsToFill = manifest?.env && manifest.env.length > 0;
-		const hasHeadersToFill = manifest?.headers && manifest.headers.length > 0;
-
-		return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
-	}
-
-	function convertEnvHeadersToRecord(
-		envs: MCPServerInfo['env'],
-		headers: MCPServerInfo['headers']
-	) {
-		const secretValues: Record<string, string> = {};
-		for (const env of envs ?? []) {
-			if (env.value) {
-				secretValues[env.key] = env.value;
-			}
-		}
-
-		for (const header of headers ?? []) {
-			if (header.value) {
-				secretValues[header.key] = header.value;
-			}
-		}
-		return secretValues;
-	}
-
 	async function handleLaunchCatalogEntry(entry: Entry) {
 		const manifest = entry.commandManifest ?? entry.urlManifest;
 		if (!manifest) {
@@ -327,6 +301,7 @@
 					secretValues
 				);
 				configDialog?.close();
+				onUpdateConfigure?.();
 			} else {
 				configDialog?.close();
 				// Add a small delay to ensure dialog is fully closed before handling launch
@@ -577,8 +552,12 @@
 {/snippet}
 
 {#snippet prependedDefaultActions(connectedServer: ConnectedServer)}
+	{@const configured = connectedServer?.server?.configured}
 	<button
-		class="menu-button"
+		class={twMerge(
+			'menu-button',
+			!configured && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+		)}
 		onclick={async () => {
 			if (!connectedServer?.server) {
 				console.error('No user configured server for this entry found');

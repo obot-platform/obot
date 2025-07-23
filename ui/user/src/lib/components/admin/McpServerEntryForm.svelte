@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { AdminService, type MCPCatalogServer, type MCPServerInstance } from '$lib/services';
+	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { twMerge } from 'tailwind-merge';
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import CatalogServerForm from './CatalogServerForm.svelte';
 	import Table from '../Table.svelte';
-	import { GlobeLock, ListFilter, LoaderCircle, Router, Trash2, Users } from 'lucide-svelte';
+	import { GlobeLock, ListFilter, LoaderCircle, Trash2, Users } from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { goto } from '$app/navigation';
 	import Confirm from '../Confirm.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
-	import { formatTimeAgo } from '$lib/time';
 	import { onMount } from 'svelte';
 	import AuditDetails from './audit-logs/AuditDetails.svelte';
+	import McpServerInstances from './McpServerInstances.svelte';
 
 	type MCPType = 'single' | 'multi' | 'remote';
 
@@ -41,10 +41,7 @@
 	);
 
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
-	let listServerInstances = $state<Promise<MCPServerInstance[]>>();
-	let listEntryServers = $state<Promise<MCPCatalogServer[]>>();
 	let users = $state<OrgUser[]>([]);
-	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 
 	let deleteServer = $state(false);
 	let deleteResourceFromRule = $state<{
@@ -56,10 +53,6 @@
 	$effect(() => {
 		if (view === 'access-control') {
 			listAccessControlRules = AdminService.listAccessControlRules();
-		} else if (view === 'server-instances' && entry && 'manifest' in entry && catalogId) {
-			listServerInstances = AdminService.listMcpCatalogServerInstances(catalogId, entry.id);
-		} else if (view === 'server-instances' && entry && !('manifest' in entry) && catalogId) {
-			listEntryServers = AdminService.listMCPServersForEntry(catalogId, entry.id);
 		}
 	});
 
@@ -97,7 +90,10 @@
 
 <div
 	class="flex h-full w-full flex-col gap-4"
-	class:mb-8={view !== 'configuration' || (view === 'configuration' && readonly)}
+	class:mb-8={view !== 'configuration' &&
+		view !== 'server-instances' &&
+		view === 'configuration' &&
+		readonly}
 >
 	{#if entry}
 		<div class="flex items-center justify-between gap-4">
@@ -138,7 +134,7 @@
 			{/if}
 		</div>
 	{/if}
-	<div class="flex flex-col gap-2">
+	<div class="flex grow flex-col gap-2">
 		{#if tabs.length > 0}
 			<div
 				class="grid grid-cols-3 items-center gap-2 text-sm font-light md:grid-cols-4 lg:grid-cols-6"
@@ -176,7 +172,7 @@
 		{:else if view === 'usage'}
 			{@render usageView()}
 		{:else if view === 'server-instances'}
-			{@render serverInstancesView()}
+			<McpServerInstances {catalogId} {entry} {users} {type} />
 		{:else if view === 'filters'}
 			{@render filtersView()}
 		{/if}
@@ -295,106 +291,6 @@
 			{/snippet}
 		</AuditDetails>
 	{/if}
-{/snippet}
-
-{#snippet serverInstancesView()}
-	{#if listServerInstances}
-		{#await listServerInstances}
-			<div class="flex w-full justify-center">
-				<LoaderCircle class="size-6 animate-spin" />
-			</div>
-		{:then instances}
-			{#if instances.length > 0}
-				<Table
-					data={instances}
-					fields={['id', 'userID', 'created']}
-					headers={[{ title: 'User', property: 'userID' }]}
-					onSelectRow={(d) => {
-						setLastVisitedMcpServer();
-						goto(`/v2/admin/mcp-servers/s/${entry?.id}/instance/${d.id}`);
-					}}
-				>
-					{#snippet onRenderColumn(property, d)}
-						{#if property === 'userID'}
-							{@const user = usersMap.get(d[property] as string)}
-							{user?.email || user?.username || 'Unknown'}
-						{:else if property === 'created'}
-							{formatTimeAgo(d[property] as unknown as string).fullDate}
-						{:else}
-							{d[property as keyof typeof d]}
-						{/if}
-					{/snippet}
-
-					{#snippet actions(d)}
-						<button
-							class="button-text"
-							onclick={(e) => {
-								e.stopPropagation();
-								goto(`/v2/admin/audit-logs?mcpId=${encodeURIComponent(d.id)}`);
-							}}
-						>
-							View Audit Logs
-						</button>
-					{/snippet}
-				</Table>
-			{:else}
-				{@render emptyInstancesContent()}
-			{/if}
-		{/await}
-	{:else if listEntryServers}
-		{#await listEntryServers}
-			<div class="flex w-full justify-center">
-				<LoaderCircle class="size-6 animate-spin" />
-			</div>
-		{:then servers}
-			{#if servers.length > 0}
-				<Table
-					data={servers}
-					fields={['id', 'created']}
-					onSelectRow={type === 'single'
-						? (d) => {
-								setLastVisitedMcpServer();
-								goto(`/v2/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`);
-							}
-						: undefined}
-				>
-					{#snippet onRenderColumn(property, d)}
-						{#if property === 'created'}
-							{formatTimeAgo(d[property] as unknown as string).fullDate}
-						{:else}
-							{d[property as keyof typeof d]}
-						{/if}
-					{/snippet}
-
-					{#snippet actions(d)}
-						<button
-							class="button-text"
-							onclick={(e) => {
-								e.stopPropagation();
-								goto(`/v2/admin/audit-logs?mcpId=${encodeURIComponent(d.id)}`);
-							}}
-						>
-							View Audit Logs
-						</button>
-					{/snippet}
-				</Table>
-			{:else}
-				{@render emptyInstancesContent()}
-			{/if}
-		{/await}
-	{:else}
-		{@render emptyInstancesContent()}
-	{/if}
-{/snippet}
-
-{#snippet emptyInstancesContent()}
-	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-		<Router class="size-24 text-gray-200 dark:text-gray-900" />
-		<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No server instance</h4>
-		<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-			No server instances have been created yet for this server.
-		</p>
-	</div>
 {/snippet}
 
 {#snippet filtersView()}

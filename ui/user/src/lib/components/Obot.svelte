@@ -92,7 +92,7 @@
 </script>
 
 <div class="colors-background relative flex h-full flex-col overflow-hidden">
-	<div class="border-surface1 relative flex h-full">
+	<div class="relative flex h-full">
 		{#if layout.sidebarOpen && !layout.fileEditorOpen}
 			<div
 				class="bg-surface1 w-screen min-w-screen flex-shrink-0 md:w-1/6 md:min-w-[250px]"

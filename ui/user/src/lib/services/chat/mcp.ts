@@ -70,3 +70,31 @@ export function parseCategories(item?: MCPCatalogServer | MCPCatalogEntry | null
 	}
 	return [];
 }
+
+export function convertEnvHeadersToRecord(
+	envs: MCPServerInfo['env'],
+	headers: MCPServerInfo['headers']
+) {
+	const secretValues: Record<string, string> = {};
+	for (const env of envs ?? []) {
+		if (env.value) {
+			secretValues[env.key] = env.value;
+		}
+	}
+
+	for (const header of headers ?? []) {
+		if (header.value) {
+			secretValues[header.key] = header.value;
+		}
+	}
+	return secretValues;
+}
+
+export function hasEditableConfiguration(item: MCPCatalogEntry) {
+	const manifest = item.commandManifest ?? item.urlManifest;
+	const hasUrlToFill = !manifest?.fixedURL && manifest?.hostname;
+	const hasEnvsToFill = manifest?.env && manifest.env.length > 0;
+	const hasHeadersToFill = manifest?.headers && manifest.headers.length > 0;
+
+	return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
+}

@@ -27,6 +27,7 @@
 		submitText?: string;
 		loading?: boolean;
 		error?: string;
+		serverId?: string;
 	}
 	let {
 		form = $bindable(),
@@ -37,7 +38,8 @@
 		cancelText = 'Cancel',
 		submitText = 'Save',
 		loading,
-		error
+		error,
+		serverId
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let highlightedFields = $state<Set<string>>(new Set());
@@ -111,7 +113,7 @@
 					<Server class="size-8" />
 				{/if}
 			</div>
-			{name}
+			{`${name} ${serverId ? `| ${serverId}` : ''}`}
 		</div>
 	{/snippet}
 	{#if error}
