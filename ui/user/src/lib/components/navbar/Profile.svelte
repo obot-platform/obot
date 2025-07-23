@@ -52,9 +52,9 @@
 
 	afterNavigate(() => {
 		const routesToShowChatLink = ['/mcp-servers', '/models'];
-		showChatLink = routesToShowChatLink.includes(window.location.pathname);
-		showMyMcpServersLink =
-			window.location.pathname.includes('/o/') || window.location.pathname.includes('/v2/admin');
+		const inAdminRoute = window.location.pathname.includes('/v2/admin');
+		showChatLink = routesToShowChatLink.includes(window.location.pathname) || inAdminRoute;
+		showMyMcpServersLink = window.location.pathname.includes('/o/') || inAdminRoute;
 	});
 
 	async function handleChat() {

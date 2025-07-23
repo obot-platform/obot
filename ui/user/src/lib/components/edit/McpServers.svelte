@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
+	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import {
 		ChatService,
 		type Project,
@@ -51,9 +51,30 @@
 	export async function refreshMcpList() {
 		if (!project?.assistantID || !project.id) return;
 
-		projectMCPs.items = (await ChatService.listProjectMCPs(project.assistantID, project.id)).filter(
+		const existingAuthenticatedMap = projectMCPs.items.reduce<Record<string, boolean>>(
+			(acc, mcp) => {
+				if (mcp.authenticated) {
+					acc[mcp.id] = mcp.authenticated;
+				}
+				return acc;
+			},
+			{}
+		);
+
+		const data = (await ChatService.listProjectMCPs(project.assistantID, project.id)).filter(
 			(projectMcp) => !projectMcp.deleted
 		);
+
+		const dataWithExistingAuthenticated = data.map((mcp) => {
+			if (existingAuthenticatedMap[mcp.id]) {
+				return { ...mcp, authenticated: existingAuthenticatedMap[mcp.id] };
+			}
+			return mcp;
+		});
+
+		const updatedMcps = await validateOauthProjectMcps(dataWithExistingAuthenticated);
+		projectMCPs.items = updatedMcps.length > 0 ? updatedMcps : dataWithExistingAuthenticated;
+
 		await fetchCredentials();
 	}
 
@@ -105,7 +126,11 @@
 		return Object.keys(envHeaders).length > 0;
 	}
 
-	function shouldShowWarning(mcp: ProjectMCP) {
+	function shouldShowWarning(mcp: (typeof projectMCPs.items)[0]) {
+		if (!mcp.authenticated) {
+			return true;
+		}
+
 		if (!mcp.catalogEntryID || !toolBundleMap.get(mcp.catalogEntryID)) {
 			return mcp.configured !== true;
 		}
@@ -171,7 +196,12 @@
 							>
 								{mcpServer.manifest.name || DEFAULT_CUSTOM_SERVER_NAME}
 								{#if shouldShowWarning(mcpServer)}
-									<span class="ml-1" use:tooltip={'Configuration Required'}>
+									<span
+										class="ml-1"
+										use:tooltip={mcpServer.authenticated
+											? 'Configuration Required'
+											: 'Authentication Required'}
+									>
 										<TriangleAlert
 											class="size-4"
 											stroke="currentColor"

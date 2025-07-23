@@ -5,7 +5,8 @@
 		type MCPServerPrompt,
 		type McpServerResource,
 		ChatService,
-		AdminService
+		AdminService,
+		type Project
 	} from '$lib/services';
 	import type { MCPCatalogEntry, MCPCatalogServerManifest } from '$lib/services/admin/types';
 	import { CircleCheckBig, CircleOff, Info, LoaderCircle, Pencil, RefreshCcw } from 'lucide-svelte';
@@ -23,6 +24,8 @@
 		editable?: boolean;
 		catalogId?: string;
 		onUpdate?: () => void;
+		onAuthenticate?: () => void;
+		project?: Project;
 	}
 
 	type EntryDetail = {
@@ -133,7 +136,7 @@
 		}
 	}
 
-	let { entry, editable = false, catalogId, onUpdate }: Props = $props();
+	let { entry, editable = false, catalogId, onUpdate, onAuthenticate, project }: Props = $props();
 	let tools = $state<MCPServerTool[]>([]);
 	let prompts = $state<MCPServerPrompt[]>([]);
 	let resources = $state<McpServerResource[]>([]);
@@ -175,24 +178,34 @@
 		showRefresh = false;
 
 		try {
-			const isOauthNeeded = await ChatService.isMcpServerOauthNeeded(entry.id, {
+			const oauthURLResponse = await ChatService.getMcpServerOauthURL(entry.id, {
 				signal: abortController.signal
 			});
-			if (isOauthNeeded) {
-				oauthURL = await ChatService.getMcpServerOauthURL(entry.id, {
-					signal: abortController.signal
-				});
+			if (oauthURLResponse) {
+				oauthURL = oauthURLResponse;
 				loading = false;
 				return;
 			}
 
-			// Try loading tools first, if that fails with a 424,
-			// prompt user for MCP oauth authentication then try again
-			const [toolsRes, promptsRes, resourcesRes] = await Promise.all([
-				ChatService.listMcpCatalogServerTools(entry.id, { signal: abortController.signal }),
-				ChatService.listMcpCatalogServerPrompts(entry.id, { signal: abortController.signal }),
-				ChatService.listMcpCatalogServerResources(entry.id, { signal: abortController.signal })
-			]);
+			let promises = project
+				? Promise.all([
+						ChatService.listProjectMCPServerTools(project.assistantID, project.id, entry.id, {
+							signal: abortController.signal
+						}),
+						ChatService.listProjectMcpServerPrompts(project.assistantID, project.id, entry.id, {
+							signal: abortController.signal
+						}),
+						ChatService.listProjectMcpServerResources(project.assistantID, project.id, entry.id, {
+							signal: abortController.signal
+						})
+					])
+				: Promise.all([
+						ChatService.listMcpCatalogServerTools(entry.id, { signal: abortController.signal }),
+						ChatService.listMcpCatalogServerPrompts(entry.id, { signal: abortController.signal }),
+						ChatService.listMcpCatalogServerResources(entry.id, { signal: abortController.signal })
+					]);
+
+			const [toolsRes, promptsRes, resourcesRes] = await promises;
 			tools = toolsRes;
 			prompts = promptsRes;
 			resources = resourcesRes;
@@ -306,7 +319,11 @@
 				{#if showRefresh}
 					<button
 						class="button flex items-center justify-center gap-1 text-center text-sm"
-						onclick={() => loadServerData()}
+						onclick={async () => {
+							await loadServerData();
+							onAuthenticate?.();
+						}}
+						disabled={loading}
 					>
 						<RefreshCcw class="size-4" /> Reload
 					</button>

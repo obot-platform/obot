@@ -576,7 +576,7 @@
 					class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
 				>
 					<span class="text-gray dark:text-gray-400"
-						>Project AIs aren't perfect. Double check their work.</span
+						>Obot isn't perfect. Double check its work.</span
 					>
 					<a
 						href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"

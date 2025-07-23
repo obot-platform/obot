@@ -16,7 +16,7 @@
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { responsive } from '$lib/stores';
 	import { parseErrorContent } from '$lib/errors';
-	import { getLayout } from '$lib/context/chatLayout.svelte';
+	import { getLayout, openMCPServer } from '$lib/context/chatLayout.svelte';
 
 	interface Props {
 		mcpServer: ProjectMCP;
@@ -240,11 +240,7 @@
 									<button
 										class="button-link font-semibold text-blue-500 hover:text-blue-600"
 										onclick={() => {
-											// const isLegacyBundleServer =
-											// 	mcpServer.catalogEntryID && toolBundleMap.get(mcpServer.catalogEntryID);
-											// if (!isLegacyBundleServer) {
-											// 	openEditProjectMcp(layout, mcpServer);
-											// }
+											openMCPServer(layout, mcpServer);
 										}}
 									>
 										Click Here

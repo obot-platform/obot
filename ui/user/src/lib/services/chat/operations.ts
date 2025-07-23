@@ -1087,12 +1087,14 @@ export async function deconfigureSharedProjectMCP(
 export async function listProjectMCPServerTools(
 	assistantID: string,
 	projectID: string,
-	projectMcpServerId: string
+	projectMcpServerId: string,
+	opts?: { signal?: AbortSignal }
 ): Promise<MCPServerTool[]> {
 	return (await doGet(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools`,
 		{
-			dontLogErrors: true
+			dontLogErrors: true,
+			signal: opts?.signal
 		}
 	)) as MCPServerTool[];
 }
@@ -1143,12 +1145,14 @@ export async function configureProjectThreadMcpServerTools(
 export async function listProjectMcpServerPrompts(
 	assistantID: string,
 	projectID: string,
-	projectMcpServerId: string
+	projectMcpServerId: string,
+	opts?: { signal?: AbortSignal }
 ): Promise<MCPServerPrompt[]> {
 	const response = (await doGet(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/prompts`,
 		{
-			dontLogErrors: true
+			dontLogErrors: true,
+			signal: opts?.signal
 		}
 	)) as MCPServerPrompt[];
 	return response;
@@ -1171,12 +1175,14 @@ export async function generateProjectMcpServerPrompt(
 export async function listProjectMcpServerResources(
 	assistantID: string,
 	projectID: string,
-	projectMcpServerId: string
+	projectMcpServerId: string,
+	opts?: { signal?: AbortSignal }
 ) {
 	const response = (await doGet(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/resources`,
 		{
-			dontLogErrors: true
+			dontLogErrors: true,
+			signal: opts?.signal
 		}
 	)) as McpServerResource[];
 	return response;

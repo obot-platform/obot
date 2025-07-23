@@ -5,6 +5,7 @@
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import McpServerActions from './McpServerActions.svelte';
+	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 
 	interface Props {
 		mcpServer: ProjectMCP;
@@ -13,6 +14,7 @@
 
 	let { mcpServer, project }: Props = $props();
 	const layout = getLayout();
+	const projectMcps = getProjectMCPs();
 </script>
 
 <div class="flex h-fit w-full justify-center bg-gray-50 dark:bg-black">
@@ -37,6 +39,16 @@
 				</button>
 			</div>
 		</div>
-		<McpServerInfo catalogId={DEFAULT_MCP_CATALOG_ID} entry={mcpServer as MCPCatalogServer} />
+		<McpServerInfo
+			catalogId={DEFAULT_MCP_CATALOG_ID}
+			entry={mcpServer as MCPCatalogServer}
+			onAuthenticate={async () => {
+				const updatedMcps = await validateOauthProjectMcps(projectMcps.items);
+				if (updatedMcps.length > 0) {
+					projectMcps.items = updatedMcps;
+				}
+			}}
+			{project}
+		/>
 	</div>
 </div>

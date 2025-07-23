@@ -490,7 +490,11 @@
 
 {#snippet serverInfo(item: Entry | Server | ConnectedServer)}
 	{@const manifest = getManifest(item)}
-	{@const serverOrEntry = 'server' in item ? item.server : (item as Entry | Server)}
+	{@const serverOrEntry = item
+		? 'server' in item
+			? item.server
+			: (item as Entry | Server)
+		: undefined}
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		<div class="flex flex-wrap items-center">
 			<ChevronLeft class="mr-2 size-4" />

@@ -14,11 +14,12 @@
 	import type { LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import CatalogConfigureForm from '../mcp/CatalogConfigureForm.svelte';
 	import { getKeyValuePairs } from '$lib/services/chat/mcp';
+	import type { ProjectMcpItem } from '$lib/context/projectMcps.svelte';
 
 	interface Props {
-		mcpServer: ProjectMCP;
+		mcpServer: ProjectMcpItem;
 		project: Project;
-		onDelete?: (mcp: ProjectMCP) => void;
+		onDelete?: (mcp: ProjectMcpItem) => void;
 		class?: string;
 		actionsOnly?: boolean;
 	}
@@ -33,8 +34,8 @@
 	let configForm = $state<LaunchFormData>();
 	const layout = getLayout();
 
-	async function loadResources(mcp: ProjectMCP) {
-		if (!project?.assistantID || !project.id) return;
+	async function loadResources(mcp: ProjectMcpItem) {
+		if (!project?.assistantID || !project.id || !mcp.authenticated) return;
 
 		try {
 			const res = await ChatService.listProjectMcpServerResources(
@@ -89,7 +90,11 @@
 {/if}
 
 {#snippet actions()}
-	<button class="menu-button" onclick={() => openMCPServerTools(layout, mcpServer)}>
+	<button
+		class="menu-button"
+		onclick={() => openMCPServerTools(layout, mcpServer)}
+		disabled={!mcpServer.authenticated}
+	>
 		<Wrench class="size-4" /> View Tools
 	</button>
 	{#if resources[mcpServer.id]}
@@ -100,13 +105,18 @@
 					mcpResourceToShow = mcpServer;
 					resourcesDialog?.open();
 				}}
+				disabled={!mcpServer.authenticated}
 			>
 				<HardDrive class="size-4" /> View Resources
 			</button>
 		{/if}
 	{:else}
 		<button disabled class="menu-button opacity-50 hover:bg-transparent">
-			<LoaderCircle class="size-4 animate-spin" /> View Resources
+			{#if !mcpServer.authenticated}
+				<HardDrive class="size-4" /> View Resources
+			{:else}
+				<LoaderCircle class="size-4 animate-spin" /> View Resources
+			{/if}
 		</button>
 	{/if}
 	{#if mcpServer.catalogEntryID}

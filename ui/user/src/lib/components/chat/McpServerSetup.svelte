@@ -189,13 +189,14 @@
 							loadData(true);
 						}}
 					>
-						{#snippet connectedServerCardAction(connectedServer)}
+						{#snippet connectedServerCardAction()}
 							<button
 								class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
 								use:tooltip={{
 									text: 'Add To Chat',
 									disablePortal: true,
-									classes: ['w-28']
+									placement: 'top-end',
+									classes: ['w-26.5']
 								}}
 							>
 								<Import class="size-4" />
@@ -207,9 +208,3 @@
 		</div>
 	</div>
 </dialog>
-
-{#snippet connectedActions(connectedServer: ConnectedServer)}
-	<button class="menu-button" onclick={() => setupProjectMcp(connectedServer)}>
-		Add to Chat
-	</button>
-{/snippet}

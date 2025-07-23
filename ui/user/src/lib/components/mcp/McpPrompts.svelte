@@ -54,14 +54,16 @@
 		loading = true;
 		mcpPromptSets = [];
 		for (const mcp of projectMcps.items) {
-			ChatService.listProjectMcpServerPrompts(project.assistantID, project.id, mcp.id).then(
-				(prompts) => {
-					mcpPromptSets.push({
-						mcp,
-						prompts
-					});
-				}
-			);
+			if (mcp.authenticated) {
+				ChatService.listProjectMcpServerPrompts(project.assistantID, project.id, mcp.id).then(
+					(prompts) => {
+						mcpPromptSets.push({
+							mcp,
+							prompts
+						});
+					}
+				);
+			}
 		}
 		loading = false;
 	}
