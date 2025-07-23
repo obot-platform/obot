@@ -9,6 +9,7 @@
 	import { fade } from 'svelte/transition';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import { responsive } from '$lib/stores';
+	import PageLoading from '../PageLoading.svelte';
 
 	interface Props {
 		project: Project;
@@ -20,6 +21,7 @@
 	let selectedProjectMcp = $state<ProjectMCP>();
 	const projectMCPs = getProjectMCPs();
 	let authenticatedMcps = $derived(projectMCPs.items.filter((mcp) => mcp.authenticated));
+	let loading = $state(false);
 
 	async function sleep(ms: number): Promise<void> {
 		return new Promise((resolve) => setTimeout(resolve, ms));
@@ -49,8 +51,10 @@
 							selectedProjectMcp = projectMcp;
 
 							if (!currentThreadID) {
+								loading = true;
 								const thread = await createThread();
 								currentThreadID = thread.id;
+								loading = false;
 							}
 							dialog?.showModal();
 						}}
@@ -91,3 +95,5 @@
 		{/key}
 	{/if}
 </dialog>
+
+<PageLoading show={loading} text="Loading tools..." />
