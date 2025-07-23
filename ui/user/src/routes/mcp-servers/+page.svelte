@@ -107,27 +107,28 @@
 		chatLoading = true;
 
 		const projects = await ChatService.listProjects();
-		const match = projects.items.find(
-			(project) => project.name === connectedServer.server?.manifest.name
+		const name = [connectedServer.server?.manifest.name ?? '', connectedServer.server.id].join(
+			' - '
 		);
+		const match = projects.items.find((project) => project.name === name);
 
 		let project = match;
 		if (!match) {
 			// if no project match, create a new one w/ mcp server connected to it
 			project = await EditorService.createObot({
-				name: connectedServer.server?.manifest.name ?? ''
+				name: name
 			});
 		}
 
 		if (
 			project &&
 			!(await ChatService.listProjectMCPs(project.assistantID, project.id)).find(
-				(mcp) => mcp.manifest.name === connectedServer.server?.manifest.name
+				(mcp) => mcp.manifest.name === name
 			)
 		) {
 			const mcpServerInfo = {
 				manifest: {
-					name: connectedServer.server.manifest.name,
+					name: name,
 					icon: connectedServer.server.manifest.icon,
 					description: connectedServer.server.manifest.description,
 					metadata: connectedServer.server.manifest.metadata,
