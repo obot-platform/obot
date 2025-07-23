@@ -702,6 +702,7 @@ export interface MCPCatalogServer {
 	updated: string;
 	type: string;
 	manifest: MCPServer;
+	needsUpdate?: boolean;
 }
 
 export interface MCPServerInstance {

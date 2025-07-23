@@ -14,7 +14,7 @@
 </script>
 
 <Layout>
-	<div class="mt-6 flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
+	<div class="mt-6 flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if catalogEntry}
 			{@const currentLabel =
 				catalogEntry?.commandManifest?.name ?? catalogEntry?.urlManifest?.name ?? 'MCP Server'}
