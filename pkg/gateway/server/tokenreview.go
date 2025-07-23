@@ -26,7 +26,7 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 		return nil, false, nil
 	}
 
-	u, namespace, name, err := g.gatewayClient.UserFromToken(req.Context(), bearer)
+	u, namespace, name, groups, err := g.gatewayClient.UserFromToken(req.Context(), bearer)
 	if err != nil {
 		return nil, false, err
 	}
@@ -39,6 +39,7 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 				"email":                   {u.Email},
 				"auth_provider_namespace": {namespace},
 				"auth_provider_name":      {name},
+				"auth_provider_groups":    groups,
 			},
 		},
 	}, true, nil

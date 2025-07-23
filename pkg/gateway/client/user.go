@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesstoken"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -29,10 +31,14 @@ var (
 	}
 )
 
-func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, string, string, error) {
+func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, string, string, []string, error) {
 	id, token, _ := strings.Cut(token, ":")
 	u := new(types.User)
-	var namespace, name string
+
+	var (
+		namespace, name string
+		groupIDs        []string
+	)
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		tkn := new(types.AuthToken)
 		if err := tx.Where("id = ? AND hashed_token = ?", id, hash.String(token)).First(tkn).Error; err != nil {
@@ -41,12 +47,32 @@ func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, 
 
 		namespace = tkn.AuthProviderNamespace
 		name = tkn.AuthProviderName
-		return tx.Where("id = ?", tkn.UserID).First(u).Error
+
+		// Get the user
+		if err := tx.Where("id = ?", tkn.UserID).First(u).Error; err != nil {
+			return err
+		}
+
+		// Get the related identity's associated auth groups
+		var hashedProviderUserID string
+		if err := tx.Where(
+			"user_id = ? AND auth_provider_namespace = ? AND auth_provider_name = ?",
+			tkn.UserID, namespace, name,
+		).Select("hashed_provider_user_id").First(&types.Identity{}).Scan(&hashedProviderUserID).Error; err == nil {
+			if groups, err := c.listGroups(ctx, tx, hashedProviderUserID); err == nil {
+				groupIDs = make([]string, len(groups))
+				for i, group := range groups {
+					groupIDs[i] = group.ID
+				}
+			}
+		}
+
+		return nil
 	}); err != nil {
-		return nil, "", "", err
+		return nil, "", "", nil, err
 	}
 
-	return u, namespace, name, c.decryptUser(ctx, u)
+	return u, namespace, name, groupIDs, c.decryptUser(ctx, u)
 }
 
 func (c *Client) Users(ctx context.Context, query types.UserQuery) ([]types.User, error) {
@@ -131,6 +157,91 @@ func (c *Client) DeleteUser(ctx context.Context, storageClient kclient.Client, u
 	}
 
 	return existingUser, c.decryptUser(ctx, existingUser)
+}
+
+func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName, nameFilter string) ([]types.Group, error) {
+	// Fetch groups from the auth provider
+	providerGroups := []auth.GroupInfo{}
+	if authProviderURL != "" {
+		u, err := url.Parse(authProviderURL + "/obot-list-auth-groups")
+		if err == nil {
+			if nameFilter != "" {
+				q := u.Query()
+				q.Set("name", nameFilter)
+				u.RawQuery = q.Encode()
+			}
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+			if err == nil {
+				if accessToken := accesstoken.GetAccessToken(ctx); accessToken != "" {
+					req.Header.Set("Authorization", "Bearer "+accessToken)
+				}
+
+				resp, err := http.DefaultClient.Do(req)
+				if err == nil {
+					defer resp.Body.Close()
+					if resp.StatusCode == http.StatusOK {
+						_ = json.NewDecoder(resp.Body).Decode(&providerGroups)
+					}
+				}
+			}
+		}
+	}
+
+	// Fetch groups from the database if we have auth provider info
+	var dbGroups []types.Group
+	if authProviderNamespace != "" && authProviderName != "" {
+		query := c.db.WithContext(ctx).Where("auth_provider_namespace = ? AND auth_provider_name = ?",
+			authProviderNamespace, authProviderName)
+
+		// Apply name filter if provided (case-insensitive, compatible with SQLite and PostgreSQL)
+		if nameFilter != "" {
+			query = query.Where("LOWER(name) LIKE LOWER(?)", "%"+nameFilter+"%")
+		}
+
+		if err := query.Find(&dbGroups).Error; err != nil {
+			return nil, fmt.Errorf("failed to fetch groups from database: %w", err)
+		}
+	}
+
+	groups := make(map[string]types.Group)
+	for _, group := range dbGroups {
+		groups[group.ID] = group
+	}
+
+	// Add/merge provider groups
+	for _, providerGroup := range providerGroups {
+		if providerGroup.ID == "" {
+			continue
+		}
+
+		if existing, ok := groups[providerGroup.ID]; ok {
+			// Keep database timestamps but update other fields from provider
+			if providerGroup.Name != "" {
+				existing.Name = providerGroup.Name
+			}
+			if providerGroup.IconURL != nil {
+				existing.IconURL = providerGroup.IconURL
+			}
+			groups[providerGroup.ID] = existing
+			continue
+		}
+
+		groups[providerGroup.ID] = types.Group{
+			ID:                    providerGroup.ID,
+			AuthProviderName:      authProviderName,
+			AuthProviderNamespace: authProviderNamespace,
+			Name:                  providerGroup.Name,
+			IconURL:               providerGroup.IconURL,
+		}
+	}
+
+	result := make([]types.Group, 0, len(groups))
+	for _, group := range groups {
+		result = append(result, group)
+	}
+
+	return result, nil
 }
 
 func (c *Client) deleteThreadAuthorizationsForUser(ctx context.Context, storageClient kclient.Client, userID string) error {

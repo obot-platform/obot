@@ -14,4 +14,7 @@ type Identity struct {
 	IconURL               string    `json:"iconURL"`
 	IconLastChecked       time.Time `json:"iconLastChecked"`
 	Encrypted             bool      `json:"encrypted"`
+
+	// AuthProviderGroups is the set of auth provider groups that the identity is a member of.
+	AuthProviderGroups []Group `json:"groups" gorm:"-"`
 }

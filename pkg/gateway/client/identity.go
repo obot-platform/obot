@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
 )
@@ -30,14 +31,27 @@ var (
 
 func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]types.Identity, error) {
 	var identities []types.Identity
-	if err := c.db.WithContext(ctx).Where("user_id = ?", userID).Find(&identities).Error; err != nil {
-		return nil, err
-	}
-
-	for i := range identities {
-		if err := c.decryptIdentity(ctx, &identities[i]); err != nil {
-			return nil, fmt.Errorf("failed to decrypt identity: %w", err)
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id = ?", userID).Find(&identities).Error; err != nil {
+			return err
 		}
+
+		for i := range identities {
+			if err := c.decryptIdentity(ctx, &identities[i]); err != nil {
+				return fmt.Errorf("failed to decrypt identity: %w", err)
+			}
+
+			// Load the groups that the identity is a member of
+			groups, err := c.listGroups(ctx, tx, identities[i].HashedProviderUserID)
+			if err != nil {
+				return fmt.Errorf("failed to load group memberships for identity: %w", err)
+			}
+			identities[i].AuthProviderGroups = groups
+		}
+
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("failed to find identities for user: %w", err)
 	}
 
 	return identities, nil
@@ -283,6 +297,15 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		}
 	}
 
+	// Ensure groups and group memberships are up to date
+	if err := c.ensureGroups(ctx, tx, id); err != nil {
+		return nil, fmt.Errorf("failed to update groups for identity: %w", err)
+	}
+
+	if err := c.ensureGroupMemberships(ctx, tx, id); err != nil {
+		return nil, fmt.Errorf("failed to update group memberships for identity: %w", err)
+	}
+
 	return user, nil
 }
 
@@ -304,6 +327,19 @@ func (c *Client) RemoveIdentity(ctx context.Context, id *types.Identity) error {
 			userQuery = tx.Where("hashed_username = ?", hash.String(id.ProviderUsername))
 		}
 
+		// Clean up group memberships first
+		if id.UserID != 0 {
+			// Delete group memberships for all identities of this user
+			if err := tx.Where("identity_hashed_provider_user_id IN (SELECT hashed_provider_user_id FROM identities WHERE user_id = ?)", id.UserID).Delete(&types.GroupMemberships{}).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+		} else {
+			// Delete group memberships for this specific identity
+			if err := tx.Where("identity_hashed_provider_user_id = ?", id.HashedProviderUserID).Delete(&types.GroupMemberships{}).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			}
+		}
+
 		// Attempt to delete the identity
 		if err := identityQuery.Delete(&types.Identity{}).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
@@ -316,6 +352,110 @@ func (c *Client) RemoveIdentity(ctx context.Context, id *types.Identity) error {
 
 		return nil
 	})
+}
+
+// listGroups lists the groups that the identity is a member of.
+// Note: This omits orphaned memberships; i.e. memberships to groups that no longer exist.
+func (c *Client) listGroups(ctx context.Context, tx *gorm.DB, hashedProviderUserID string) ([]types.Group, error) {
+	var groups []types.Group
+	if err := tx.WithContext(ctx).
+		Table("groups").
+		Joins("JOIN group_memberships ON groups.id = group_memberships.group_id").
+		Where("group_memberships.identity_hashed_provider_user_id = ?", hashedProviderUserID).
+		Find(&groups).Error; err != nil {
+		return nil, fmt.Errorf("failed to list groups for identity: %w", err)
+	}
+
+	return groups, nil
+}
+
+// ensureGroups ensures the groups that the identity is a member of exist and are up to date.
+func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.Identity) error {
+	if len(identity.AuthProviderGroups) < 1 {
+		// No groups to ensure, bail out
+		return nil
+	}
+
+	var groups []types.Group
+	if err := tx.WithContext(ctx).Where("auth_provider_name = ? AND auth_provider_namespace = ?", identity.AuthProviderName, identity.AuthProviderNamespace).Find(&groups).Error; err != nil {
+		return fmt.Errorf("failed to list auth provider groups: %w", err)
+	}
+
+	existingGroups := make(map[string]types.Group, len(groups))
+	for _, group := range groups {
+		existingGroups[group.ID] = group
+	}
+
+	var toUpsert []types.Group
+	for _, group := range identity.AuthProviderGroups {
+		if existing, ok := existingGroups[group.ID]; ok && (existing.Name != group.Name || existing.IconURL != group.IconURL) {
+			// The group already exists and is up to date, skip
+			continue
+		}
+		toUpsert = append(toUpsert, group)
+	}
+
+	if len(toUpsert) > 0 {
+		if err := tx.WithContext(ctx).Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "id"},
+			},
+			DoUpdates: clause.AssignmentColumns([]string{"name", "icon_url"}),
+		}).Create(&toUpsert).Error; err != nil {
+			return fmt.Errorf("failed to upsert groups: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// ensureGroupMemberships ensures the Identity is a member of the groups it references.
+func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identity *types.Identity) error {
+	// Get the existing memberships for this identity
+	var memberships []types.GroupMemberships
+	if err := tx.WithContext(ctx).Where("identity_hashed_provider_user_id = ?", identity.HashedProviderUserID).Find(&memberships).Error; err != nil {
+		return fmt.Errorf("failed to get existing group memberships: %w", err)
+	}
+
+	existingMemberships := make(map[string]types.GroupMemberships, len(memberships))
+	for _, membership := range memberships {
+		existingMemberships[membership.GroupID] = membership
+	}
+
+	var toInsert []types.GroupMemberships
+	for _, group := range identity.AuthProviderGroups {
+		if _, ok := existingMemberships[group.ID]; ok {
+			// The membership already exists, skip
+			delete(existingMemberships, group.ID)
+			continue
+		}
+
+		toInsert = append(toInsert, types.GroupMemberships{
+			IdentityHashedProviderUserID: identity.HashedProviderUserID,
+			GroupID:                      group.ID,
+		})
+	}
+
+	// Insert new memberships
+	if len(toInsert) > 0 {
+		if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&toInsert).Error; err != nil {
+			return fmt.Errorf("failed to create group memberships: %w", err)
+		}
+	}
+
+	toDelete := make([]types.GroupMemberships, 0, len(existingMemberships))
+	for _, membership := range existingMemberships {
+		toDelete = append(toDelete, membership)
+	}
+
+	if len(toDelete) > 0 {
+		// Delete memberships that are no longer in the identity's auth provider groups
+		if err := tx.WithContext(ctx).Delete(&toDelete).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("failed to delete group memberships: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (c *Client) encryptIdentity(ctx context.Context, identity *types.Identity) error {

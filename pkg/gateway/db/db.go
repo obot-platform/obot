@@ -60,6 +60,8 @@ func (db *DB) AutoMigrate() (err error) {
 		types.OAuthTokenResponse{},
 		types.User{},
 		types.Identity{},
+		types.Group{},
+		types.GroupMemberships{},
 		types.APIActivity{},
 		types.Image{},
 		types.RunState{},
