@@ -150,6 +150,9 @@ func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfi
 
 // RestartK8sDeployment restarts the Kubernetes deployment by deleting its pods, which will trigger a restart.
 func (sm *SessionManager) RestartK8sDeployment(ctx context.Context, server ServerConfig) error {
+	if server.Command == "" {
+		return nil
+	}
 	id := sessionID(server)
 
 	var deployment appsv1.Deployment
