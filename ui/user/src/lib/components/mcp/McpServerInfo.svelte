@@ -5,27 +5,24 @@
 		type MCPServerPrompt,
 		type McpServerResource,
 		ChatService,
-		AdminService,
 		type Project
 	} from '$lib/services';
-	import type { MCPCatalogEntry, MCPCatalogServerManifest } from '$lib/services/admin/types';
-	import { CircleCheckBig, CircleOff, Info, LoaderCircle, Pencil, RefreshCcw } from 'lucide-svelte';
+	import type { MCPCatalogEntry } from '$lib/services/admin/types';
+	import { CircleCheckBig, CircleOff, Info, LoaderCircle, RefreshCcw } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import McpServerTools from './McpServerTools.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { responsive } from '$lib/stores';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import MarkdownTextEditor from '../admin/MarkdownTextEditor.svelte';
 	import { onDestroy } from 'svelte';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer;
-		editable?: boolean;
 		catalogId?: string;
-		onUpdate?: () => void;
 		onAuthenticate?: () => void;
 		project?: Project;
+		descriptionPlaceholder?: string;
 	}
 
 	type EntryDetail = {
@@ -136,14 +133,18 @@
 		}
 	}
 
-	let { entry, editable = false, catalogId, onUpdate, onAuthenticate, project }: Props = $props();
+	let {
+		entry,
+		onAuthenticate,
+		project,
+		descriptionPlaceholder = 'No description available'
+	}: Props = $props();
 	let tools = $state<MCPServerTool[]>([]);
 	let prompts = $state<MCPServerPrompt[]>([]);
 	let resources = $state<McpServerResource[]>([]);
 	let previewTools = $derived(getToolPreview(entry));
 	let details = $derived(convertEntryDetails(entry));
 	let loading = $state(false);
-	let editDescription = $state(false);
 	let previousEntryId = $state<string | undefined>(undefined);
 	let oauthURL = $state<string>('');
 	let showRefresh = $state(false);
@@ -222,26 +223,6 @@
 		}
 	}
 
-	async function handleDescriptionUpdate(markdown: string) {
-		if (!entry?.id || !catalogId) return;
-
-		if ('manifest' in entry) {
-			await AdminService.updateMCPCatalogServer(catalogId, entry.id, {
-				...(entry.manifest as MCPCatalogServerManifest['manifest']),
-				description: markdown
-			});
-		} else {
-			const manifest = entry.commandManifest || entry.urlManifest;
-			await AdminService.updateMCPCatalogEntry(catalogId, entry.id, {
-				...manifest,
-				description: markdown
-			});
-		}
-
-		editDescription = false;
-		onUpdate?.();
-	}
-
 	$effect(() => {
 		if (entry && 'manifest' in entry && entry.id !== previousEntryId) {
 			previousEntryId = entry.id;
@@ -261,41 +242,14 @@
 	<div
 		class="dark:bg-surface1 dark:border-surface3 flex h-fit flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm md:w-1/2 lg:w-8/12"
 	>
-		{#if editable}
-			{#if editDescription}
-				<MarkdownTextEditor
-					bind:value={description}
-					initialFocus
-					onUpdate={handleDescriptionUpdate}
-					onCancel={() => (editDescription = false)}
-				/>
-			{:else if description}
-				<div class="group relative w-full">
-					<div class="milkdown-content">
-						{@html toHTMLFromMarkdownWithNewTabLinks(description)}
-					</div>
-					<button
-						class="icon-button absolute top-0 right-0 z-10 min-h-8 opacity-0 transition-all group-hover:opacity-100"
-						onclick={() => (editDescription = true)}
-					>
-						<Pencil class="size-5 text-gray-400 dark:text-gray-600" />
-					</button>
-				</div>
-			{:else}
-				<button
-					class="group relative flex min-h-8 w-full justify-between gap-2 pt-0 text-left"
-					onclick={() => (editDescription = true)}
-				>
-					<span class="text-md text-gray-400 dark:text-gray-600">Add description here...</span>
-					<div class="icon-button opacity-0 group-hover:opacity-100">
-						<Pencil class="size-5 text-gray-400 dark:text-gray-600" />
-					</div>
-				</button>
-			{/if}
-		{:else if description}
+		{#if description}
 			<div class="milkdown-content">
 				{@html toHTMLFromMarkdownWithNewTabLinks(description)}
 			</div>
+		{:else}
+			<p class="text-md text-center font-light text-gray-500 italic">
+				{descriptionPlaceholder}
+			</p>
 		{/if}
 	</div>
 	<div

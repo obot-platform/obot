@@ -5,7 +5,6 @@
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import BackLink from '$lib/components/admin/BackLink.svelte';
-	import { AdminService } from '$lib/services/index.js';
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
@@ -29,10 +28,6 @@
 			}}
 			onSubmit={async () => {
 				goto('/v2/admin/mcp-servers');
-			}}
-			onUpdate={async () => {
-				if (!mcpServer) return;
-				mcpServer = await AdminService.getMCPCatalogServer(DEFAULT_MCP_CATALOG_ID, mcpServer.id);
 			}}
 		/>
 	</div>

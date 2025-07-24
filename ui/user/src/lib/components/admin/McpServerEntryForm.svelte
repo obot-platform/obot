@@ -23,10 +23,10 @@
 		readonly?: boolean;
 		onCancel?: () => void;
 		onSubmit?: (id: string, type: MCPType) => void;
-		onUpdate?: () => void;
 	}
 
-	let { entry, catalogId, type, readonly, onCancel, onSubmit, onUpdate }: Props = $props();
+	let { entry, catalogId, type, readonly, onCancel, onSubmit }: Props = $props();
+
 	const tabs = $derived(
 		entry
 			? [
@@ -164,7 +164,11 @@
 		{/if}
 
 		{#if view === 'overview' && entry}
-			<McpServerInfo editable={!readonly} {catalogId} {entry} {onUpdate} />
+			<McpServerInfo
+				{catalogId}
+				{entry}
+				descriptionPlaceholder="Add a description for this MCP server in the Configuration tab"
+			/>
 		{:else if view === 'configuration'}
 			{@render configurationView()}
 		{:else if view === 'access-control'}
