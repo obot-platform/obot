@@ -516,10 +516,6 @@ func (p *ProjectMCPHandler) GetPrompts(req api.Context) error {
 	}
 
 	if caps.Prompts == nil {
-		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
-	}
-
-	if caps.Prompts == nil {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
 	}
 
@@ -560,10 +556,6 @@ func (p *ProjectMCPHandler) GetPrompt(req api.Context) error {
 	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
 	if err != nil {
 		return err
-	}
-
-	if caps.Prompts == nil {
-		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
 	}
 
 	if caps.Prompts == nil {
