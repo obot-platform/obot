@@ -106,6 +106,7 @@
 				mcpServerDisplayName
 			});
 			listUsageStats = AdminService.listAuditLogUsageStats({
+				...filters,
 				startTime: filters?.startTime ?? '',
 				endTime: filters?.endTime ?? '',
 				mcpServerCatalogEntryName: mcpCatalogEntryId,
