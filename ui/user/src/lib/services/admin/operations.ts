@@ -28,7 +28,9 @@ import type {
 	AuditLogFilters,
 	K8sServerLog,
 	K8sServerDetail,
-	BaseAgent
+	BaseAgent,
+	MCPFilter,
+	MCPFilterManifest
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -585,4 +587,33 @@ export async function getDefaultBaseAgent(opts?: { fetch?: Fetcher }) {
 
 export async function updateBaseAgent(agent: BaseAgent, opts?: { fetch?: Fetcher }) {
 	return (await doPut(`/agents/${agent.id}`, agent, opts)) as BaseAgent;
+}
+
+export async function listMCPFilters(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/mcp-webhook-validations', opts)) as ItemsResponse<MCPFilter>;
+	return response.items ?? [];
+}
+
+export async function getMCPFilter(id: string, opts?: { fetch?: Fetcher }) {
+	return (await doGet(`/mcp-webhook-validations/${id}`, opts)) as MCPFilter;
+}
+
+export async function deleteMCPFilter(id: string) {
+	await doDelete(`/mcp-webhook-validations/${id}`);
+}
+
+export async function createMCPFilter(filter: MCPFilterManifest, opts?: { fetch?: Fetcher }) {
+	return (await doPost('/mcp-webhook-validations', filter, opts)) as MCPFilter;
+}
+
+export async function updateMCPFilter(
+	id: string,
+	filter: MCPFilterManifest,
+	opts?: { fetch?: Fetcher }
+) {
+	return (await doPut(`/mcp-webhook-validations/${id}`, filter, opts)) as MCPFilter;
+}
+
+export async function removeSecret(id: string) {
+	await doDelete(`/mcp-webhook-validations/${id}/secret`);
 }

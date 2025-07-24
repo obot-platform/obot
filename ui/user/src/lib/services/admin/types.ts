@@ -335,3 +335,32 @@ export interface BaseAgent extends Project {
 	default?: boolean;
 	model?: string; // default model
 }
+
+export interface MCPFilterManifest {
+	name?: string;
+	resources?: MCPFilterResource[];
+	url: string;
+	secret?: string;
+	selectors?: MCPFilterWebhookSelector[];
+	disabled?: boolean;
+}
+
+export interface MCPFilterResource {
+	type: 'mcpServerCatalogEntry' | 'mcpServer' | 'selector';
+	id: string;
+}
+
+export interface MCPFilterWebhookSelector {
+	method?: string;
+	identifiers?: string[];
+}
+
+export interface MCPFilter extends MCPFilterManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	type: string;
+	hasSecret: boolean;
+}

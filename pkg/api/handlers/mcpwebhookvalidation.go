@@ -3,7 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"strconv"
+	"net/http"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -25,9 +25,20 @@ func (m *MCPWebhookValidationHandler) List(req api.Context) error {
 		return fmt.Errorf("failed to list mcp webhook validations: %w", err)
 	}
 
+	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{CredentialContexts: []string{system.MCPWebhookValidationCredentialContext}})
+	if err != nil {
+		return fmt.Errorf("failed to list credentials: %w", err)
+	}
+
+	credMap := make(map[string]struct{}, len(creds))
+	for _, cred := range creds {
+		credMap[cred.ToolName] = struct{}{}
+	}
+
 	items := make([]types.MCPWebhookValidation, 0, len(list.Items))
 	for _, item := range list.Items {
-		items = append(items, convertMCPWebhookValidation(item))
+		_, hasSecret := credMap[item.Name]
+		items = append(items, convertMCPWebhookValidation(item, hasSecret))
 	}
 
 	return req.Write(types.MCPWebhookValidationList{Items: items})
@@ -39,7 +50,12 @@ func (m *MCPWebhookValidationHandler) Get(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPWebhookValidation(validation))
+	secretCred, err := req.GPTClient.RevealCredential(req.Context(), []string{system.MCPWebhookValidationCredentialContext}, validation.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to reveal credential: %w", err)
+	}
+
+	return req.Write(convertMCPWebhookValidation(validation, secretCred.Env != nil))
 }
 
 func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
@@ -52,12 +68,14 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
 	}
 
-	secretCred := make(map[string]string, len(manifest.Webhooks))
-	for i, webhook := range manifest.Webhooks {
-		secretCred[strconv.Itoa(i)] = webhook.Secret
+	var secretCred map[string]string
+	if manifest.Secret != "" {
+		secretCred = map[string]string{
+			"secret": manifest.Secret,
+		}
+
 		// Don't save the secrets in the database.
-		webhook.Secret = ""
-		manifest.Webhooks[i] = webhook
+		manifest.Secret = ""
 	}
 
 	validation := v1.MCPWebhookValidation{
@@ -84,7 +102,7 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	return req.Write(convertMCPWebhookValidation(validation))
+	return req.Write(convertMCPWebhookValidation(validation, secretCred != nil))
 }
 
 func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
@@ -102,12 +120,13 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
 	}
 
-	secretCred := make(map[string]string, len(manifest.Webhooks))
-	for i, webhook := range manifest.Webhooks {
-		secretCred[strconv.Itoa(i)] = webhook.Secret
+	var secretCred map[string]string
+	if manifest.Secret != "" {
+		secretCred = map[string]string{
+			"secret": manifest.Secret,
+		}
 		// Don't save the secrets in the database.
-		webhook.Secret = ""
-		manifest.Webhooks[i] = webhook
+		manifest.Secret = ""
 	}
 
 	validation.Spec.Manifest = manifest
@@ -116,21 +135,30 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to update mcp webhook validation: %w", err)
 	}
 
-	// The only way to update a credential is to delete it and recreate it.
-	if err := req.GPTClient.DeleteCredential(req.Context(), system.MCPWebhookValidationCredentialContext, validation.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return fmt.Errorf("failed to delete credential: %w", err)
+	if secretCred != nil {
+		// The only way to update a credential is to delete it and recreate it.
+		if err := req.GPTClient.DeleteCredential(req.Context(), system.MCPWebhookValidationCredentialContext, validation.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to delete credential: %w", err)
+		}
+
+		if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
+			Context:  system.MCPWebhookValidationCredentialContext,
+			ToolName: validation.Name,
+			Type:     gptscript.CredentialTypeTool,
+			Env:      secretCred,
+		}); err != nil {
+			return fmt.Errorf("failed to create credential: %w", err)
+		}
+	} else {
+		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{system.MCPWebhookValidationCredentialContext}, validation.Name)
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to reveal credential: %w", err)
+		}
+
+		secretCred = cred.Env
 	}
 
-	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
-		Context:  system.MCPWebhookValidationCredentialContext,
-		ToolName: validation.Name,
-		Type:     gptscript.CredentialTypeTool,
-		Env:      secretCred,
-	}); err != nil {
-		return fmt.Errorf("failed to create credential: %w", err)
-	}
-
-	return req.Write(convertMCPWebhookValidation(validation))
+	return req.Write(convertMCPWebhookValidation(validation, secretCred != nil))
 }
 
 func (m *MCPWebhookValidationHandler) Delete(req api.Context) error {
@@ -147,12 +175,27 @@ func (m *MCPWebhookValidationHandler) Delete(req api.Context) error {
 		return fmt.Errorf("failed to delete mcp webhook validation: %w", err)
 	}
 
-	return req.Write(convertMCPWebhookValidation(validation))
+	return req.Write(convertMCPWebhookValidation(validation, false))
 }
 
-func convertMCPWebhookValidation(validation v1.MCPWebhookValidation) types.MCPWebhookValidation {
+func (m *MCPWebhookValidationHandler) RemoveSecret(req api.Context) error {
+	var validation v1.MCPWebhookValidation
+	if err := req.Get(&validation, req.PathValue("mcp_webhook_validation_id")); err != nil {
+		return err
+	}
+
+	if err := req.GPTClient.DeleteCredential(req.Context(), system.MCPWebhookValidationCredentialContext, validation.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to delete credential: %w", err)
+	}
+
+	req.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+func convertMCPWebhookValidation(validation v1.MCPWebhookValidation, hasSecret bool) types.MCPWebhookValidation {
 	return types.MCPWebhookValidation{
 		Metadata:                     MetadataFrom(&validation),
 		MCPWebhookValidationManifest: validation.Spec.Manifest,
+		HasSecret:                    hasSecret,
 	}
 }

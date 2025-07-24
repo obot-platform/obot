@@ -13,7 +13,10 @@
 
 	function convertToHistory(href: string) {
 		const pathParts = href.split('/').filter(Boolean);
-		const [type, id] = pathParts;
+		// Find the admin section part (skip v2/admin/)
+		const adminIndex = pathParts.findIndex((part) => part === 'admin');
+		const adminPath = adminIndex >= 0 ? pathParts.slice(adminIndex + 1) : pathParts;
+		const [type, id] = adminPath;
 		if (type === 'mcp-servers') {
 			return [
 				{ href: '/v2/admin/mcp-servers', label: 'MCP Servers' },
@@ -23,6 +26,10 @@
 
 		if (type === 'access-control') {
 			return [{ href: '/v2/admin/access-control', label: 'Access Control' }];
+		}
+
+		if (type === 'filters') {
+			return [{ href: '/v2/admin/filters', label: 'Filters' }];
 		}
 
 		return [];

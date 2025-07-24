@@ -70,10 +70,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalogList":                               schema_obot_platform_obot_apiclient_types_MCPCatalogList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalogManifest":                           schema_obot_platform_obot_apiclient_types_MCPCatalogManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPEnv":                                       schema_obot_platform_obot_apiclient_types_MCPEnv(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPFilter":                                    schema_obot_platform_obot_apiclient_types_MCPFilter(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPHeader":                                    schema_obot_platform_obot_apiclient_types_MCPHeader(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats":                           schema_obot_platform_obot_apiclient_types_MCPPromptReadStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPResourceReadStats":                         schema_obot_platform_obot_apiclient_types_MCPResourceReadStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPSelector":                                  schema_obot_platform_obot_apiclient_types_MCPSelector(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServer":                                    schema_obot_platform_obot_apiclient_types_MCPServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntry":                        schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryList":                    schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryList(ref),
@@ -89,7 +89,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem":                             schema_obot_platform_obot_apiclient_types_MCPUsageStatItem(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStats":                                schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatsList":                            schema_obot_platform_obot_apiclient_types_MCPUsageStatsList(ref),
-		"github.com/obot-platform/obot/apiclient/types.MCPWebhook":                                   schema_obot_platform_obot_apiclient_types_MCPWebhook(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPWebhookValidation":                         schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPWebhookValidationList":                     schema_obot_platform_obot_apiclient_types_MCPWebhookValidationList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPWebhookValidationManifest":                 schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref),
@@ -2994,38 +2993,6 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_MCPFilter(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"method": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"identifiers": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3125,6 +3092,38 @@ func schema_obot_platform_obot_apiclient_types_MCPResourceReadStats(ref common.R
 					},
 				},
 				Required: []string{"resourceURI", "readCount"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPSelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"method": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"identifiers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -4081,47 +4080,6 @@ func schema_obot_platform_obot_apiclient_types_MCPUsageStatsList(ref common.Refe
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_MCPWebhook(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"url": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"secret": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"filters": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPFilter"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"url"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPFilter"},
-	}
-}
-
 func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4180,7 +4138,7 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 							Format: "",
 						},
 					},
-					"displayName": {
+					"name": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -4199,14 +4157,26 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 							},
 						},
 					},
-					"webhooks": {
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"secret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"selectors": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPWebhook"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPSelector"),
 									},
 								},
 							},
@@ -4218,11 +4188,17 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 							Format: "",
 						},
 					},
+					"hasSecret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPWebhook", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -4260,7 +4236,7 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"displayName": {
+					"name": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -4279,14 +4255,26 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 							},
 						},
 					},
-					"webhooks": {
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"secret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"selectors": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPWebhook"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPSelector"),
 									},
 								},
 							},
@@ -4302,7 +4290,7 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPWebhook", "github.com/obot-platform/obot/apiclient/types.Resource"},
+			"github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource"},
 	}
 }
 

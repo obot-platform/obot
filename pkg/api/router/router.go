@@ -468,6 +468,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-webhook-validations", mcpWebhookValidations.Create)
 	mux.HandleFunc("PUT /api/mcp-webhook-validations/{mcp_webhook_validation_id}", mcpWebhookValidations.Update)
 	mux.HandleFunc("DELETE /api/mcp-webhook-validations/{mcp_webhook_validation_id}", mcpWebhookValidations.Delete)
+	mux.HandleFunc("DELETE /api/mcp-webhook-validations/{mcp_webhook_validation_id}/secret", mcpWebhookValidations.RemoveSecret)
 
 	// MCP Gateway Endpoints
 	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.StreamableHTTP)

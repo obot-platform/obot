@@ -2,7 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/Table.svelte';
-	import { BookOpenText, ChevronLeft, Plus, Trash2 } from 'lucide-svelte';
+	import { BookOpenText, ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -12,22 +12,26 @@
 		fetchMcpServerAndEntries,
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import { AdminService } from '$lib/services/index.js';
+	import {
+		fetchMcpFilters,
+		getAdminMcpFilters,
+		initMcpFilters
+	} from '$lib/context/admin/mcpFilters.svelte';
+	import { AdminService, type MCPFilter } from '$lib/services/index.js';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 
-	type Filter = {
-		id: string;
-		displayName: string;
-		urls: string[];
-		servers: string[];
-	};
-
+	let { data }: { data: { filters: MCPFilter[] } } = $props();
+	const { filters: initialFilters } = data;
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 	let showCreateFilter = $state(false);
-	let filterToDelete = $state<Filter>();
+	let filterToDelete = $state<MCPFilter>();
 
 	initMcpServerAndEntries();
-	let filters = $state<Filter[]>([]);
+	initMcpFilters({ filters: initialFilters, loading: false });
+	const mcpFiltersContext = getAdminMcpFilters();
+
+	// Use context data when loaded, fallback to initial data
+	let filters = $derived(mcpFiltersContext.loading ? initialFilters : mcpFiltersContext.filters);
 
 	onMount(() => {
 		const url = new URL(window.location.href);
@@ -41,14 +45,15 @@
 		goto(url, { replaceState: false });
 	}
 
-	// async function navigateToCreated(filterId: string) {
-	// 	showCreateFilter = false;
-	// 	goto(`/v2/admin/filters/${filterId}`, { replaceState: false });
-	// }
+	async function navigateAfterCreated() {
+		showCreateFilter = false;
+		// Refresh the filters list to ensure we have the latest data
+		await fetchMcpFilters(mcpFiltersContext);
+	}
 
 	const duration = PAGE_TRANSITION_DURATION;
 	onMount(async () => {
-		fetchMcpServerAndEntries(defaultCatalogId);
+		await Promise.all([fetchMcpServerAndEntries(defaultCatalogId), fetchMcpFilters()]);
 	});
 </script>
 
@@ -68,11 +73,12 @@
 			>
 				<div class="flex items-center justify-between">
 					<h1 class="text-2xl font-semibold">Filters</h1>
-					{#if filters.length > 0}
-						<div class="relative flex items-center gap-4">
-							{@render addFilterButton()}
-						</div>
-					{/if}
+					<div class="relative flex items-center gap-4">
+						{#if mcpFiltersContext.loading}
+							<LoaderCircle class="size-4 animate-spin" />
+						{/if}
+						{@render addFilterButton()}
+					</div>
 				</div>
 				{#if filters.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
@@ -82,26 +88,32 @@
 						</h4>
 						<p class="text-sm font-light text-gray-400 dark:text-gray-600">
 							Looks like you don't have any filters created yet. <br />
-							Click the button below to get started.
+							Click the "Add New Filter" button above to get started.
 						</p>
-
-						{@render addFilterButton()}
 					</div>
 				{:else}
 					<Table
 						data={filters}
-						fields={['displayName', 'servers']}
+						fields={['name', 'url', 'selectors']}
 						onSelectRow={(d) => {
 							handleNavigation(`/v2/admin/filters/${d.id}`);
 						}}
 						headers={[
 							{
 								title: 'Name',
-								property: 'displayName'
+								property: 'name'
+							},
+							{
+								title: 'Webhook URL',
+								property: 'url'
+							},
+							{
+								title: 'Selectors',
+								property: 'selectors'
 							}
 						]}
 					>
-						{#snippet actions(d)}
+						{#snippet actions(d: MCPFilter)}
 							<button
 								class="icon-button hover:text-red-500"
 								onclick={(e) => {
@@ -113,12 +125,16 @@
 								<Trash2 class="size-4" />
 							</button>
 						{/snippet}
-						{#snippet onRenderColumn(property, d)}
-							{#if property === 'servers'}
-								{@const count = d.servers.length}
-								{count ? count : '-'}
+						{#snippet onRenderColumn(property, d: MCPFilter)}
+							{#if property === 'name'}
+								{d.name || '-'}
+							{:else if property === 'url'}
+								{d.url || '-'}
+							{:else if property === 'selectors'}
+								{@const count = d.selectors?.length || 0}
+								{count > 0 ? `${count} selector${count > 1 ? 's' : ''}` : '-'}
 							{:else}
-								{d[property as keyof typeof d]}
+								-
 							{/if}
 						{/snippet}
 					</Table>
@@ -143,7 +159,7 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<FilterForm>
+		<FilterForm onCreate={navigateAfterCreated}>
 			{#snippet topContent()}
 				<button
 					onclick={() => (showCreateFilter = false)}
@@ -159,11 +175,11 @@
 
 <Confirm
 	msg="Are you sure you want to delete this filter?"
-	show={Boolean(filterToDelete)}
+	show={!!filterToDelete}
 	onsuccess={async () => {
 		if (!filterToDelete) return;
-		await AdminService.deleteAccessControlRule(filterToDelete.id);
-		// filters = await [fetchFilters]
+		await AdminService.deleteMCPFilter(filterToDelete.id);
+		await fetchMcpFilters(mcpFiltersContext);
 		filterToDelete = undefined;
 	}}
 	oncancel={() => (filterToDelete = undefined)}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strconv"
 
 	"github.com/gptscript-ai/go-gptscript"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -61,30 +60,29 @@ func appendWebhooks(ctx context.Context, gptClient *gptscript.GPTScript, namespa
 	for _, mwv := range objs {
 		res, ok := mwv.(*v1.MCPWebhookValidation)
 		if ok && res.Namespace == namespace {
-			for i, w := range res.Spec.Manifest.Webhooks {
-				if _, seen := seen[w.URL]; seen || !w.Filters.Matches(method, identifier) {
+			url := res.Spec.Manifest.URL
+			if _, seen := seen[url]; seen || !res.Spec.Manifest.Selectors.Matches(method, identifier) {
+				continue
+			}
+
+			seen[url] = struct{}{}
+			if credEnv == nil {
+				// Only reveal the credential once
+				cred, err := gptClient.RevealCredential(ctx, []string{system.MCPWebhookValidationCredentialContext}, res.Name)
+				if err != nil {
 					continue
 				}
 
-				seen[w.URL] = struct{}{}
+				credEnv = cred.Env
 				if credEnv == nil {
-					// Only reveal the credential once
-					cred, err := gptClient.RevealCredential(ctx, []string{system.MCPWebhookValidationCredentialContext}, res.Name)
-					if err != nil {
-						continue
-					}
-
-					credEnv = cred.Env
-					if credEnv == nil {
-						credEnv = make(map[string]string)
-					}
+					credEnv = make(map[string]string)
 				}
-
-				result = append(result, Webhook{
-					URL:    w.URL,
-					Secret: credEnv[strconv.Itoa(i)],
-				})
 			}
+
+			result = append(result, Webhook{
+				URL:    url,
+				Secret: credEnv[url],
+			})
 		}
 	}
 

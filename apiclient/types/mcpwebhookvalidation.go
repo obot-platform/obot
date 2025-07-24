@@ -2,54 +2,38 @@ package types
 
 import (
 	"fmt"
-	"net/url"
 	"slices"
 )
 
 type MCPWebhookValidation struct {
 	Metadata                     `json:",inline"`
 	MCPWebhookValidationManifest `json:",inline"`
+	HasSecret                    bool `json:"hasSecret,omitempty"`
 }
 
 type MCPWebhookValidationManifest struct {
-	DisplayName string       `json:"displayName,omitempty"`
-	Resources   []Resource   `json:"resources,omitempty"`
-	Webhooks    []MCPWebhook `json:"webhooks,omitempty"`
-	Disabled    bool         `json:"disabled,omitempty"`
+	Name      string       `json:"name,omitempty"`
+	Resources []Resource   `json:"resources,omitempty"`
+	URL       string       `json:"url,omitempty"`
+	Secret    string       `json:"secret,omitempty"`
+	Selectors MCPSelectors `json:"selectors,omitempty"`
+	Disabled  bool         `json:"disabled,omitempty"`
 }
 
 func (m *MCPWebhookValidationManifest) Validate() error {
+	if m.URL == "" {
+		return fmt.Errorf("webhook URL is required")
+	}
+
 	for _, resource := range m.Resources {
 		if err := resource.Validate(); err != nil {
 			return fmt.Errorf("invalid resource: %v", err)
 		}
 	}
 
-	for _, webhook := range m.Webhooks {
-		if err := webhook.Validate(); err != nil {
-			return fmt.Errorf("invalid webhook: %v", err)
-		}
-	}
-	return nil
-}
-
-type MCPWebhook struct {
-	URL     string     `json:"url"`
-	Secret  string     `json:"secret,omitempty"`
-	Filters MCPFilters `json:"filters,omitempty"`
-}
-
-func (w *MCPWebhook) Validate() error {
-	if w.URL == "" {
-		return fmt.Errorf("webhook URL is required")
-	}
-	if _, err := url.Parse(w.URL); err != nil {
-		return fmt.Errorf("invalid webhook URL: %v", err)
-	}
-
-	for _, filter := range w.Filters {
+	for _, filter := range m.Selectors {
 		if filter.Method == "*" {
-			w.Filters = []MCPFilter{{Method: filter.Method}}
+			m.Selectors = []MCPSelector{{Method: filter.Method}}
 			break
 		}
 		if slices.Contains(filter.Identifiers, "*") {
@@ -57,19 +41,14 @@ func (w *MCPWebhook) Validate() error {
 		}
 	}
 
-	// Default to all filters.
-	if len(w.Filters) == 0 {
-		w.Filters = []MCPFilter{{Method: "*"}}
-	}
-
 	return nil
 }
 
 type MCPWebhookValidationList List[MCPWebhookValidation]
 
-type MCPFilters []MCPFilter
+type MCPSelectors []MCPSelector
 
-func (f MCPFilters) Matches(method, identifier string) bool {
+func (f MCPSelectors) Matches(method, identifier string) bool {
 	for _, filter := range f {
 		if filter.Matches(method, identifier) {
 			return true
@@ -80,12 +59,12 @@ func (f MCPFilters) Matches(method, identifier string) bool {
 	return f == nil
 }
 
-type MCPFilter struct {
+type MCPSelector struct {
 	Method      string   `json:"method,omitempty"`
 	Identifiers []string `json:"identifiers,omitempty"`
 }
 
-func (f *MCPFilter) Matches(method, identifier string) bool {
+func (f *MCPSelector) Matches(method, identifier string) bool {
 	if f.Method != "*" && f.Method != method {
 		return false
 	}

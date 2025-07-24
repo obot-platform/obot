@@ -21,9 +21,10 @@ type MCPWebhookValidationSpec struct {
 func (in *MCPWebhookValidation) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
-		{"Display Name", "Spec.Manifest.DisplayName"},
-		{"MCP Servers", "{{len .Spec.Manifest.MCPServers}}"},
+		{"Display Name", "Spec.Manifest.Name"},
+		{"Resources ", "{{len .Spec.Manifest.Resources}}"},
 		{"Webhooks", "{{len .Spec.Manifest.Webhooks}}"},
+		{"Disabled", "{{.Spec.Manifest.Disabled}}"},
 	}
 }
 
