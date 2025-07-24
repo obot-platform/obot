@@ -33,7 +33,6 @@
 	}
 	let {
 		form = $bindable(),
-		onClose,
 		onCancel,
 		onSave,
 		name,
@@ -122,7 +121,13 @@
 	}
 </script>
 
-<ResponsiveDialog bind:this={configDialog} animate="slide" {onClose}>
+<ResponsiveDialog
+	bind:this={configDialog}
+	animate="slide"
+	onClose={() => {
+		clearHighlights();
+	}}
+>
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
 			<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
@@ -211,7 +216,7 @@
 						</div>
 					{/each}
 				{/if}
-				{#if form.url}
+				{#if form.hostname}
 					<label for="url-manifest-url"> URL </label>
 					<input
 						type="text"
@@ -219,13 +224,11 @@
 						bind:value={form.url}
 						class="text-input-filled"
 					/>
-					{#if form.hostname}
-						<span class="font-light text-gray-400 dark:text-gray-600">
-							The URL must contain the hostname: <b class="font-semibold">
-								{form.hostname}
-							</b>
-						</span>
-					{/if}
+					<span class="font-light text-gray-400 dark:text-gray-600">
+						The URL must contain the hostname: <b class="font-semibold">
+							{form.hostname}
+						</b>
+					</span>
 				{/if}
 			</div>
 		</form>

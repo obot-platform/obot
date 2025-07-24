@@ -261,6 +261,7 @@
 		if (!selectedEntryOrServer) return;
 		if ('server' in selectedEntryOrServer) return; // connected server doesn't need to launch again
 
+		error = undefined;
 		saving = true;
 		try {
 			const isCatalogEntry =
@@ -304,7 +305,6 @@
 			})),
 			...(manifest?.hostname ? { hostname: manifest.hostname, url: '' } : {})
 		};
-		return configureForm;
 	}
 
 	async function handleConfigureForm() {
@@ -454,10 +454,6 @@
 	icon={selectedManifest?.icon}
 	name={selectedManifest?.name}
 	onSave={handleConfigureForm}
-	onClose={() => {
-		configureForm = undefined;
-		error = undefined;
-	}}
 	submitText={selectedEntryOrServer && 'server' in selectedEntryOrServer ? 'Launch' : 'Update'}
 	loading={saving}
 />
@@ -530,9 +526,10 @@
 						disabled={saving}
 						class="button-primary"
 						onclick={() => {
+							configureForm = undefined;
 							const isCatalogEntry = 'commandManifest' in item || 'urlManifest' in item;
 							if (isCatalogEntry && hasEditableConfiguration(item)) {
-								configureForm = initConfigureForm(item);
+								initConfigureForm(item);
 								configDialog?.open();
 							} else {
 								handleLaunch();
