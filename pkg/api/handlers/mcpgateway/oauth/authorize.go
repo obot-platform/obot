@@ -269,10 +269,9 @@ func (h *handler) callback(req api.Context) error {
 			return nil
 		}
 
-			if u != "" {
-				http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
-				return nil
-			}
+		if u != "" {
+			http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
+			return nil
 		}
 	}
 

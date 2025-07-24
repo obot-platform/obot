@@ -11,8 +11,8 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -44,7 +44,6 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 		Name:                     mcpServer.Spec.Manifest.Name,
 		Description:              mcpServer.Spec.Manifest.Description,
 		Icon:                     mcpServer.Spec.Manifest.Icon,
-		MCPID:                    projectServer.Spec.Manifest.MCPID,
 		UserID:                   projectServer.Spec.UserID,
 	}
 }
