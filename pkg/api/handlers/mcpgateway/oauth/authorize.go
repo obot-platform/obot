@@ -199,8 +199,13 @@ func (h *handler) authorize(req api.Context) error {
 		return nil
 	}
 
+	mcpID := req.PathValue("mcp_id")
+	if mcpID != "" {
+		mcpID = "/" + mcpID
+	}
+
 	// We need to authenticate the user.
-	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s/%s", oauthAppAuthRequest.Name, req.PathValue("mcp_id")), http.StatusFound)
+	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s%s", oauthAppAuthRequest.Name, mcpID), http.StatusFound)
 	return nil
 }
 
@@ -243,30 +248,32 @@ func (h *handler) callback(req api.Context) error {
 		err             error
 	)
 
-	if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
-		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, h.tokenService, mcpID)
-	} else {
-		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, h.tokenService, mcpID)
-	}
-	if err != nil {
-		return err
-	}
-
-	// For now, we only need to check for OAuth if the MCP server is remote.
-	// This may change in the future as the protocol matures, but, for now, this is an optimization for loading times for the redirects.
-	if mcpServerConfig.Command == "" {
-		u, err := h.oauthChecker.CheckForMCPAuth(req.Context(), mcpServer, mcpServerConfig, mcpID, oauthAppAuthRequest.Name)
+	if mcpID != "" {
+		if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
+			mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, h.tokenService, mcpID)
+		} else {
+			mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, h.tokenService, mcpID)
+		}
 		if err != nil {
-			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
-				Code:        ErrServerError,
-				Description: err.Error(),
-			})
-			return nil
+			return err
 		}
 
-		if u != "" {
-			http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
-			return nil
+		// For now, we only need to check for OAuth if the MCP server is remote.
+		// This may change in the future as the protocol matures, but, for now, this is an optimization for loading times for the redirects.
+		if mcpServerConfig.Command == "" {
+			u, err := h.oauthChecker.CheckForMCPAuth(req.Context(), mcpServer, mcpServerConfig, mcpID, oauthAppAuthRequest.Name)
+			if err != nil {
+				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+					Code:        ErrServerError,
+					Description: err.Error(),
+				})
+				return nil
+			}
+
+			if u != "" {
+				http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
+				return nil
+			}
 		}
 	}
 
