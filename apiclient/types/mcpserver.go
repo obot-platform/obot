@@ -100,7 +100,6 @@ type ProjectMCPServer struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Icon        string `json:"icon"`
-	MCPID       string `json:"mcpID"`
 	UserID      string `json:"userID"`
 }
 

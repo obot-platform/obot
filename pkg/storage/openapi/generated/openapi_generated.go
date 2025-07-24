@@ -5712,13 +5712,6 @@ func schema_obot_platform_obot_apiclient_types_ProjectMCPServer(ref common.Refer
 							Format:  "",
 						},
 					},
-					"mcpID": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -5727,7 +5720,7 @@ func schema_obot_platform_obot_apiclient_types_ProjectMCPServer(ref common.Refer
 						},
 					},
 				},
-				Required: []string{"Metadata", "ProjectMCPServerManifest", "name", "description", "icon", "mcpID", "userID"},
+				Required: []string{"Metadata", "ProjectMCPServerManifest", "name", "description", "icon", "userID"},
 			},
 		},
 		Dependencies: []string{
