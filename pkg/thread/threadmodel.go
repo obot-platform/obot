@@ -77,14 +77,28 @@ func GetModelAndModelProviderForThread(ctx context.Context, c kclient.Client, th
 			}
 		}
 	} else {
-		// Make sure this model is allowed on the project.
+		// Make sure this model is allowed.
 		project, err := projects.GetRoot(ctx, c, thread)
 		if err != nil {
 			return "", "", err
 		}
 		if project != nil {
-			if _, ok := project.Spec.Models[modelProvider]; !ok || !slices.Contains(project.Spec.Models[modelProvider], model) {
-				return "", "", fmt.Errorf("model %q is not allowed on project", model)
+			var agent v1.Agent
+			if thread.Spec.AgentName != "" {
+				if err := c.Get(ctx, router.Key(thread.Namespace, thread.Spec.AgentName), &agent); err != nil {
+					return "", "", err
+				}
+
+				// Check if model is allowed by assistant OR project
+				allowedByAssistant := len(agent.Spec.Manifest.AllowedModels) == 0 || slices.Contains(agent.Spec.Manifest.AllowedModels, model)
+				allowedByProject := false
+				if projectModels, ok := project.Spec.Models[modelProvider]; ok {
+					allowedByProject = slices.Contains(projectModels, model)
+				}
+
+				if !allowedByAssistant && !allowedByProject {
+					return "", "", fmt.Errorf("model %q is not allowed for assistant or project", model)
+				}
 			}
 		} else {
 			// Shouldn't happen

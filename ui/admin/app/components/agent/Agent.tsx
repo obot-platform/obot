@@ -9,6 +9,7 @@ import { AgentAlias } from "~/components/agent/AgentAlias";
 import { useAgent } from "~/components/agent/AgentContext";
 import { AgentForm } from "~/components/agent/AgentForm";
 import { ToolForm } from "~/components/agent/ToolForm";
+import { AgentAllowedModelsSelect } from "~/components/agent/shared/AgentAllowedModelsSelect";
 import { AgentCapabilityForm } from "~/components/agent/shared/AgentCapabilityForm";
 import { AgentModelProviderSelect } from "~/components/agent/shared/AgentModelProviderSelect";
 import { AgentModelSelect } from "~/components/agent/shared/AgentModelSelect";
@@ -170,6 +171,21 @@ export function Agent() {
 							</CardDescription>
 
 							<AgentModelProviderSelect
+								entity={agentUpdates}
+								onChange={(updates) => partialSetAgent(updates)}
+							/>
+						</div>
+
+						<hr className="my-4 border-t border-border" />
+
+						<div className="flex flex-col gap-4">
+							<h4>Allowed Models</h4>
+
+							<CardDescription>
+								Select which models are allowed to be used with this agent.
+							</CardDescription>
+
+							<AgentAllowedModelsSelect
 								entity={agentUpdates}
 								onChange={(updates) => partialSetAgent(updates)}
 							/>

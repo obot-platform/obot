@@ -1354,6 +1354,13 @@ export async function listModels(opts?: { fetch?: Fetcher }): Promise<Model[]> {
 	return response.items ?? [];
 }
 
+export async function listGlobalModelProviders(opts?: {
+	fetch?: Fetcher;
+}): Promise<ModelProviderList> {
+	const response = (await doGet('/model-providers', opts)) as ModelProviderList;
+	return response;
+}
+
 // Model provider operations
 export async function listModelProviders(
 	assistantID: string,

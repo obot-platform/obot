@@ -994,8 +994,22 @@ func schema_obot_platform_obot_apiclient_types_AgentManifest(ref common.Referenc
 							},
 						},
 					},
+					"allowedModels": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "introductionMessage", "starterMessages", "maxThreadTools", "params", "model", "env", "credentials", "allowedModelProviders"},
+				Required: []string{"name", "icons", "description", "default", "temperature", "cache", "alias", "prompt", "knowledgeDescription", "tools", "availableThreadTools", "defaultThreadTools", "oauthApps", "introductionMessage", "starterMessages", "maxThreadTools", "params", "model", "env", "credentials", "allowedModelProviders", "allowedModels"},
 			},
 		},
 		Dependencies: []string{
@@ -1130,6 +1144,20 @@ func schema_obot_platform_obot_apiclient_types_Assistant(ref common.ReferenceCal
 						},
 					},
 					"tools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"allowedModels": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{

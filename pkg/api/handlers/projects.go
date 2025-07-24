@@ -538,10 +538,23 @@ func (h *ProjectsHandler) CreateProjectThread(req api.Context) error {
 			return fmt.Errorf("failed to unmarshal request body: %w", err)
 		}
 
-		// Make sure that this model and model provider are valid on the project.
-		if (bodyContents.Model != "" || bodyContents.ModelProvider != "") &&
-			!slices.Contains(projectThread.Spec.Models[bodyContents.ModelProvider], bodyContents.Model) {
-			return types.NewErrBadRequest("model %q from model provider %q is not configured for this project", bodyContents.Model, bodyContents.ModelProvider)
+		// Make sure that this model and model provider are valid.
+		if bodyContents.Model != "" || bodyContents.ModelProvider != "" {
+			agent, err := getAssistant(req, projectThread.Spec.AgentName)
+			if err != nil {
+				return err
+			}
+
+			// Check if model is allowed by assistant OR project
+			allowedByAssistant := len(agent.Spec.Manifest.AllowedModels) == 0 || slices.Contains(agent.Spec.Manifest.AllowedModels, bodyContents.Model)
+			allowedByProject := false
+			if projectModels, ok := projectThread.Spec.Models[bodyContents.ModelProvider]; ok {
+				allowedByProject = slices.Contains(projectModels, bodyContents.Model)
+			}
+
+			if !allowedByAssistant && !allowedByProject {
+				return types.NewErrBadRequest("model %q is not allowed for assistant or project", bodyContents.Model)
+			}
 		}
 
 		thread.Spec.DefaultModel = bodyContents.Model

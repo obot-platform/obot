@@ -209,6 +209,7 @@ export interface Assistant {
 	tools?: string[];
 	availableThreadTools?: string[];
 	defaultThreadTools?: string[];
+	allowedModels?: string[];
 }
 
 export type AssistantToolType = 'javascript' | 'python' | 'script' | 'container' | undefined;

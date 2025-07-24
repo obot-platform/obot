@@ -64,6 +64,7 @@ type AgentManifest struct {
 	Credentials           []string          `json:"credentials"`
 	WebsiteKnowledge      *WebsiteKnowledge `json:"websiteKnowledge,omitempty"`
 	AllowedModelProviders []string          `json:"allowedModelProviders"`
+	AllowedModels         []string          `json:"allowedModels"`
 }
 
 func GetParams(params map[string]string) *jsonschema.Schema {

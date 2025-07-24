@@ -16,6 +16,7 @@ type Assistant struct {
 	AvailableThreadTools  []string          `json:"availableThreadTools,omitempty"`
 	DefaultThreadTools    []string          `json:"defaultThreadTools,omitempty"`
 	Tools                 []string          `json:"tools,omitempty"`
+	AllowedModels         []string          `json:"allowedModels,omitempty"`
 }
 
 type AssistantList List[Assistant]

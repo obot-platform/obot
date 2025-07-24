@@ -1,21 +1,24 @@
 <script lang="ts">
 	import { onMount, tick, untrack } from 'svelte';
 	import { ChevronDown } from 'lucide-svelte';
-	import type { ModelProvider, Thread as ThreadType } from '$lib/services/chat/types';
+	import type { ModelProvider, Model, Thread as ThreadType } from '$lib/services/chat/types';
 	import type { Project } from '$lib/services';
 	import {
 		getThread,
 		updateThread,
 		getDefaultModelForThread,
-		listModelProviders
+		listGlobalModelProviders,
+		listModels
 	} from '$lib/services/chat/operations';
 	import { twMerge } from 'tailwind-merge';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { darkMode } from '$lib/stores';
+	import type { Assistant } from '$lib/services/chat/types';
 
 	interface Props {
 		threadId: string | undefined;
 		project: Project;
+		assistant?: Assistant;
 		projectDefaultModelProvider?: string;
 		projectDefaultModel?: string;
 		onModelChanged?: () => void;
@@ -28,7 +31,8 @@
 		projectDefaultModel,
 		projectDefaultModelProvider,
 		onModelChanged,
-		onCreateThread
+		onCreateThread,
+		assistant
 	}: Props = $props();
 
 	let showModelSelector = $state(false);
@@ -36,7 +40,7 @@
 	let isUpdatingModel = $state(false);
 	let modelSelectorRef = $state<HTMLDivElement>();
 	let modelButtonRef = $state<HTMLButtonElement>();
-	let modelsEntries = $derived(Object.entries(project.models || {}));
+	let allowedModels = $derived(assistant?.allowedModels || []);
 
 	let threadDefaultModel = $state<string>();
 	let threadDefaultModelProvider = $state<string>();
@@ -200,7 +204,13 @@
 	$effect(() => {
 		if (threadId) {
 			fetchThreadDetails().then(() => {
-				if (threadType && threadModel && threadModelProvider) {
+				if (
+					threadType &&
+					threadModel &&
+					threadModelProvider &&
+					!threadType.model &&
+					!threadType.modelProvider
+				) {
 					// Make sure that the thread model is available on the project, and replace it with default if not.
 					if (
 						!project.models ||
@@ -215,15 +225,31 @@
 	});
 
 	let modelProvidersMap = new SvelteMap<string, ModelProvider>();
+	let modelsMap = new SvelteMap<string, Model>();
 
 	$effect(() => {
-		loadModelProviders(project);
+		loadModelProviders();
+		loadModels();
 	});
 
-	// Function to fetch model providers
-	async function loadModelProviders(project: Project) {
+	async function loadModels() {
 		try {
-			listModelProviders(project.assistantID, project.id).then((res) => {
+			listModels().then((res) => {
+				untrack(() => {
+					for (const model of res ?? []) {
+						modelsMap.set(model.id, model);
+					}
+				});
+			});
+		} catch (error) {
+			console.error('Failed to load models:', error);
+		}
+	}
+
+	// Function to fetch model providers
+	async function loadModelProviders() {
+		try {
+			listGlobalModelProviders().then((res) => {
 				untrack(() => {
 					for (const provider of res.items ?? []) {
 						modelProvidersMap.set(provider.id, provider);
@@ -282,9 +308,9 @@
 	>
 		<div class="max-w-40 truncate sm:max-w-60 md:max-w-96 lg:max-w-none">
 			{#if threadModelProvider && threadModel}
-				{threadModel}
+				{modelsMap.get(threadModel)?.name || threadModel}
 			{:else if defaultModel}
-				{defaultModel}
+				{modelsMap.get(defaultModel)?.name || defaultModel}
 			{:else}
 				No Default Model
 			{/if}
@@ -312,10 +338,24 @@
 				modelId: threadModel
 			}}
 		>
-			{#if modelsEntries.length}
+			{#if allowedModels.length}
 				<div class="flex flex-col">
-					{#each modelsEntries as [providerId, models] (providerId)}
-						{#if Array.isArray(models) && models.length > 0 && providerId}
+					{#each (() => {
+						const modelsByProvider = new Map<string, string[]>();
+						allowedModels.forEach((modelName) => {
+							// Find model by name since allowedModels contains model names
+							const model = Array.from(modelsMap.values()).find((m) => m.name === modelName);
+							if (model) {
+								const providerId = model.modelProvider;
+								if (!modelsByProvider.has(providerId)) {
+									modelsByProvider.set(providerId, []);
+								}
+								modelsByProvider.get(providerId)!.push(modelName);
+							}
+						});
+						return Array.from(modelsByProvider.entries());
+					})() as [providerId, modelNames] (providerId)}
+						{#if modelNames.length > 0}
 							{@const provider = modelProvidersMap.get(providerId)}
 							<div class="border-surface1 flex flex-col border-b py-2 last:border-transparent">
 								<div class="mb-2 flex gap-1 text-xs">
@@ -332,42 +372,48 @@
 									<div>{provider?.name ?? ''}</div>
 								</div>
 								<div class="provider-models flex flex-col gap-1">
-									{#each models as model (model)}
+									{#each modelNames as modelName (modelName)}
+										{@const model = Array.from(modelsMap.values()).find(
+											(m) => m.name === modelName
+										)}
 										{@const isModelSelected =
-											threadModelProvider === providerId && threadModel === model}
+											threadModelProvider === providerId && threadModel === modelName}
 
 										{@const isDefaultModel =
-											defaultModelProvider === providerId && defaultModel === model}
+											defaultModelProvider === providerId && defaultModel === modelName}
 
-										<button
-											role="option"
-											aria-selected={isModelSelected}
-											class={twMerge(
-												'hover:bg-surface1/70 active:bg-surface1/80 focus:bg-surface1/70 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors duration-200 focus:outline-none',
-												isModelSelected && 'text-blue bg-blue/10 hover:bg-blue/15 active:bg-blue/20'
-											)}
-											onclick={() => setThreadModel(model, providerId)}
-											tabindex="0"
-											data-provider={providerId}
-											data-model={model}
-										>
-											<div>
-												{model}
-											</div>
+										{#if model}
+											<button
+												role="option"
+												aria-selected={isModelSelected}
+												class={twMerge(
+													'hover:bg-surface1/70 active:bg-surface1/80 focus:bg-surface1/70 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors duration-200 focus:outline-none',
+													isModelSelected &&
+														'text-blue bg-blue/10 hover:bg-blue/15 active:bg-blue/20'
+												)}
+												onclick={() => setThreadModel(model.name, providerId)}
+												tabindex="0"
+												data-provider={providerId}
+												data-model={modelName}
+											>
+												<div>
+													{model.name}
+												</div>
 
-											{#if isDefaultModel}
-												<img
-													class={twMerge(' size-4', !isModelSelected && 'grayscale-100')}
-													src="/user/images/obot-icon-blue.svg"
-													alt="Obot default model"
-													title="Obot default model"
-												/>
-											{/if}
+												{#if isDefaultModel}
+													<img
+														class={twMerge(' size-4', !isModelSelected && 'grayscale-100')}
+														src="/user/images/obot-icon-blue.svg"
+														alt="Obot default model"
+														title="Obot default model"
+													/>
+												{/if}
 
-											{#if threadModelProvider === providerId && threadModel === model}
-												<div class="ml-auto text-xs text-blue-500">✓</div>
-											{/if}
-										</button>
+												{#if threadModelProvider === providerId && threadModel === modelName}
+													<div class="ml-auto text-xs text-blue-500">✓</div>
+												{/if}
+											</button>
+										{/if}
 									{/each}
 								</div>
 							</div>

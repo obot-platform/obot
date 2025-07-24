@@ -84,6 +84,8 @@ export type ModelManifest = {
 	modelProviderName?: string;
 	active: boolean;
 	usage: ModelUsage;
+	icon?: string;
+	iconDark?: string;
 };
 
 export type Model = EntityMeta & ModelManifest;
