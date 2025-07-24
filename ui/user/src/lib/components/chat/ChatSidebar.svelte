@@ -14,6 +14,7 @@
 	import Memories from '$lib/components/edit/Memories.svelte';
 	import { scrollFocus } from '$lib/actions/scrollFocus.svelte';
 	import Projects from '../navbar/Projects.svelte';
+	import BetaLogo from '../navbar/BetaLogo.svelte';
 
 	interface Props {
 		project: Project;
@@ -32,30 +33,26 @@
 	const projectTools = getProjectTools();
 </script>
 
-<div class="bg-surface1 dark:bg-surface2 relative flex size-full flex-col">
+<div class="border-surface2 dark:bg-gray-990 relative flex size-full flex-col border-r bg-white">
 	<div class="flex h-16 w-full flex-shrink-0 items-center px-3">
-		<div class="flex flex-shrink-0 items-center">
-			{#if darkMode.isDark}
-				<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-			{:else}
-				<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-			{/if}
-			<div class="ml-1.5 -translate-y-1">
-				<span
-					class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
-				>
-					BETA
-				</span>
-			</div>
-		</div>
+		<BetaLogo />
 		{#if responsive.isMobile}
 			{@render closeSidebar()}
 		{/if}
 	</div>
-	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2" use:scrollFocus>
-		<div class="flex w-full items-center justify-between px-1">
+	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2 px-3 pt-8" use:scrollFocus>
+		<div class="flex w-[calc(100%+0.25em)] -translate-x-1 items-center justify-between">
 			<Projects {project} />
-			<div class="flex items-center pr-2 pl-1">
+			<div class="flex items-center">
+				<button
+					class="icon-button flex-shrink-0"
+					onclick={() => {
+						openConfigureProject(layout);
+					}}
+					use:tooltip={'Configure Current Project'}
+				>
+					<Settings class="size-5" />
+				</button>
 				<button
 					class="icon-button flex-shrink-0"
 					onclick={() => {
@@ -65,15 +62,6 @@
 					use:tooltip={'Create New Project'}
 				>
 					<Plus class="size-5" />
-				</button>
-				<button
-					class="icon-button flex-shrink-0"
-					onclick={() => {
-						openConfigureProject(layout);
-					}}
-					use:tooltip={'Configure Current Project'}
-				>
-					<Settings class="size-5" />
 				</button>
 			</div>
 		</div>

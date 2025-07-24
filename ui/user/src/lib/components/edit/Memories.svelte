@@ -12,9 +12,9 @@
 	let memories = $state<ReturnType<typeof MemoryContent>>();
 </script>
 
-<div class="flex flex-col px-3 text-xs">
+<div class="flex flex-col text-xs">
 	<div class="flex items-center justify-between">
-		<p class="grow text-sm font-extralight">Memories</p>
+		<p class="text-md grow font-medium">Memories</p>
 		<div class="flex items-center">
 			<button
 				class="icon-button"

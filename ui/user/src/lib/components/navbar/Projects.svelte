@@ -74,7 +74,7 @@
 		toggle();
 	}}
 >
-	<span class="text-on-background max-w-[100%-24px] truncate text-sm font-extralight">
+	<span class="text-on-background text-md max-w-[100%-24px] truncate font-medium">
 		{project.name || DEFAULT_PROJECT_NAME}
 	</span>
 	{#if !disabled}

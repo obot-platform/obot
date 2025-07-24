@@ -23,6 +23,7 @@
 	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 	import { twMerge } from 'tailwind-merge';
 	import { afterNavigate } from '$app/navigation';
+	import BetaLogo from './navbar/BetaLogo.svelte';
 
 	interface Props {
 		children: Snippet;
@@ -121,7 +122,7 @@
 				bind:this={nav}
 			>
 				<div class="flex h-16 flex-shrink-0 items-center px-3">
-					{@render logo()}
+					<BetaLogo />
 				</div>
 
 				<div
@@ -224,7 +225,7 @@
 			<Navbar class="dark:bg-gray-990 sticky top-0 left-0 z-30 w-full">
 				{#snippet leftContent()}
 					{#if !layout.sidebarOpen || hideSidebar}
-						{@render logo()}
+						<BetaLogo />
 					{/if}
 				{/snippet}
 			</Navbar>
@@ -247,21 +248,6 @@
 		</div>
 	{/if}
 </div>
-
-{#snippet logo()}
-	{#if darkMode.isDark}
-		<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-	{:else}
-		<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-	{/if}
-	<div class="ml-1.5 -translate-y-1">
-		<span
-			class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
-		>
-			BETA
-		</span>
-	</div>
-{/snippet}
 
 <style lang="postcss">
 	.sidebar-link {
