@@ -136,7 +136,7 @@ func addIdentityAndUserHashedFields(tx *gorm.DB) error {
 func dropMCPOAuthTokensTableForUserIDPrimaryKey(tx *gorm.DB) error {
 	migrator := tx.Migrator()
 	if migrator.HasTable(&types.MCPOAuthToken{}) && !migrator.HasColumn(&types.MCPOAuthToken{}, "user_id") {
-		if err := migrator.DropColumn(&types.MCPOAuthToken{}, "token"); err != nil {
+		if err := migrator.DropTable(&types.MCPOAuthToken{}); err != nil {
 			return err
 		}
 	}
