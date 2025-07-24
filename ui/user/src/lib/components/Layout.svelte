@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { columnResize } from '$lib/actions/resize';
-	import { darkMode, profile, responsive } from '$lib/stores';
+	import { profile, responsive } from '$lib/stores';
 	import { initLayout, getLayout } from '$lib/context/layout.svelte';
 	import type { Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';

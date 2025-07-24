@@ -10,7 +10,7 @@
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import Threads from '$lib/components/chat/sidebar/Threads.svelte';
 
-	import { darkMode, responsive } from '$lib/stores';
+	import { responsive } from '$lib/stores';
 	import Memories from '$lib/components/edit/Memories.svelte';
 	import { scrollFocus } from '$lib/actions/scrollFocus.svelte';
 	import Projects from '../navbar/Projects.svelte';
