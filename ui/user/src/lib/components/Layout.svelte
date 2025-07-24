@@ -21,6 +21,8 @@
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { BOOTSTRAP_USER_ID } from '$lib/constants';
+	import { twMerge } from 'tailwind-merge';
+	import { afterNavigate } from '$app/navigation';
 
 	interface Props {
 		children: Snippet;
@@ -32,6 +34,7 @@
 	const { children, showUserLinks, onRenderSubContent, hideSidebar }: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
+	let pathname = $state('');
 
 	let isBootStrapUser = $derived(profile.current.username === BOOTSTRAP_USER_ID);
 	let navLinks = $derived(
@@ -94,10 +97,15 @@
 			: []
 	);
 
+	afterNavigate(() => {
+		pathname = window.location.pathname;
+	});
+
 	$effect(() => {
 		if (responsive.isMobile) {
 			layout.sidebarOpen = false;
 		}
+		console.log(window.location.pathname);
 	});
 
 	initLayout();
@@ -128,7 +136,10 @@
 										{link.label}
 									</div>
 								{:else}
-									<a href={link.href} class="sidebar-link">
+									<a
+										href={link.href}
+										class={twMerge('sidebar-link', link.href === pathname && 'bg-surface2')}
+									>
 										<link.icon class="size-5" />
 										{link.label}
 									</a>
@@ -152,11 +163,14 @@
 										{@render onRenderSubContent(link.label)}
 									{/if}
 									{#if link.items}
-										<div class="flex flex-col gap-1 px-7 text-sm font-light">
+										<div class="flex flex-col px-7 text-sm font-light">
 											{#each link.items as item (item.href)}
 												<div class="relative">
 													<div
-														class="bg-surface3 absolute top-1/2 left-0 h-3/4 w-0.5 -translate-x-3 -translate-y-1/2"
+														class={twMerge(
+															'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
+															item.href === pathname && 'bg-blue-500'
+														)}
 													></div>
 													{#if item.disabled}
 														<div class="sidebar-link disabled">
@@ -164,7 +178,13 @@
 															{link.label}
 														</div>
 													{:else}
-														<a href={item.href} class="sidebar-link">
+														<a
+															href={item.href}
+															class={twMerge(
+																'sidebar-link',
+																item.href === pathname && 'bg-surface2'
+															)}
+														>
 															<item.icon class="size-4" />
 															{item.label}
 														</a>
