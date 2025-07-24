@@ -353,11 +353,14 @@ export interface ProjectMCPList {
 
 export interface ProjectMCP {
 	id: string;
-	catalogEntryID?: string;
-	configured?: boolean;
+	created: string;
 	deleted?: boolean;
 	type: string;
-	manifest: MCPServer;
+	userID: string;
+	mcpID: string;
+	name?: string;
+	description?: string;
+	icon?: string;
 }
 
 export interface Credential {

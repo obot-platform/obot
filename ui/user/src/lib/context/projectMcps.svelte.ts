@@ -19,7 +19,11 @@ export function getProjectMCPs() {
 	return getContext<ProjectMCPContext>(Key);
 }
 
-export async function validateOauthProjectMcps(projectMcps: ProjectMcpItem[]) {
+export async function validateOauthProjectMcps(
+	assistantID: string,
+	projectID: string,
+	projectMcps: ProjectMcpItem[]
+) {
 	const updatingMcps = [...projectMcps];
 	let needsMcpOauth = false;
 	for (let i = 0; i < updatingMcps.length; i++) {
@@ -28,7 +32,7 @@ export async function validateOauthProjectMcps(projectMcps: ProjectMcpItem[]) {
 		}
 
 		const mcp = updatingMcps[i];
-		const oauthURL = await ChatService.getMcpServerOauthURL(mcp.id);
+		const oauthURL = await ChatService.getProjectMcpServerOauthURL(assistantID, projectID, mcp.id!);
 		if (oauthURL) {
 			updatingMcps[i].oauthURL = oauthURL;
 			needsMcpOauth = true;

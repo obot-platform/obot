@@ -5,8 +5,7 @@ import {
 	type MCPInfo,
 	type MCPServer,
 	type MCPSubField,
-	type Project,
-	type ProjectMCP
+	type Project
 } from '..';
 
 export interface MCPServerInfo extends MCPServer {
@@ -16,66 +15,8 @@ export interface MCPServerInfo extends MCPServer {
 	manifest?: MCPServer;
 }
 
-export function getKeyValuePairs(customMcpConfig: MCPServerInfo) {
-	return [...(customMcpConfig.env ?? []), ...(customMcpConfig.headers ?? [])].reduce<
-		Record<string, string>
-	>(
-		(acc, item) => ({
-			...acc,
-			[item.key]: item.value
-		}),
-		{}
-	);
-}
-
-export async function createProjectMcp(
-	mcpServerInfo: MCPServerInfo,
-	project: Project,
-	mcpId?: string
-) {
-	const newProjectMcp = await ChatService.createProjectMCP(
-		project.assistantID,
-		project.id,
-		mcpServerInfo,
-		mcpId
-	);
-
-	// above handles creation of mcp server,
-	// now configure the env/header values
-	const keyValuePairs = getKeyValuePairs(mcpServerInfo);
-
-	const configuredProjectMcp = await ChatService.configureProjectMCPEnvHeaders(
-		project.assistantID,
-		project.id,
-		newProjectMcp.id,
-		keyValuePairs
-	);
-
-	return configuredProjectMcp;
-}
-
-export async function updateProjectMcp(
-	updatingMcpServerInfo: MCPServerInfo,
-	projectMcpId: string,
-	project: Project
-) {
-	const updatedProjectMcp = await ChatService.updateProjectMCP(
-		project.assistantID,
-		project.id,
-		projectMcpId,
-		updatingMcpServerInfo
-	);
-
-	const keyValuePairs = getKeyValuePairs(updatingMcpServerInfo);
-
-	await ChatService.configureProjectMCPEnvHeaders(
-		project.assistantID,
-		project.id,
-		projectMcpId,
-		keyValuePairs
-	);
-
-	return updatedProjectMcp;
+export async function createProjectMcp(project: Project, mcpId: string) {
+	return await ChatService.createProjectMCP(project.assistantID, project.id, mcpId);
 }
 
 export function isValidMcpConfig(mcpConfig: MCPServerInfo) {
@@ -85,17 +26,16 @@ export function isValidMcpConfig(mcpConfig: MCPServerInfo) {
 	);
 }
 
-export function initMCPConfig(manifest?: MCPInfo | ProjectMCP | MCPServer): MCPServerInfo {
-	const mcpServer = manifest && 'manifest' in manifest ? manifest.manifest : manifest;
+export function initMCPConfig(manifest?: MCPInfo | MCPServer): MCPServerInfo {
 	return {
-		...mcpServer,
-		name: mcpServer?.name ?? '',
-		description: mcpServer?.description ?? '',
-		icon: mcpServer?.icon ?? '',
-		env: mcpServer?.env?.map((e) => ({ ...e, value: '' })) ?? [],
-		args: mcpServer?.args ? [...mcpServer.args] : [],
-		command: mcpServer?.command ?? '',
-		headers: mcpServer?.headers?.map((e) => ({ ...e, value: '' })) ?? []
+		...manifest,
+		name: manifest?.name ?? '',
+		description: manifest?.description ?? '',
+		icon: manifest?.icon ?? '',
+		env: manifest?.env?.map((e) => ({ ...e, value: '' })) ?? [],
+		args: manifest?.args ? [...manifest.args] : [],
+		command: manifest?.command ?? '',
+		headers: manifest?.headers?.map((e) => ({ ...e, value: '' })) ?? []
 	};
 }
 

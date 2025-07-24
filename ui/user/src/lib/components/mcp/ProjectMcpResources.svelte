@@ -82,7 +82,7 @@
 	) {
 		if (!mcp) return;
 		try {
-			const filename = getFilename(mcp.manifest.name ?? '', resourceName, resourceContent.mimeType);
+			const filename = getFilename(mcp.name ?? '', resourceName, resourceContent.mimeType);
 			const fileExists = await checkFileExists(filename);
 			if (!fileExists) {
 				const file = convertResourceContentToFile(filename, resourceContent);
@@ -116,7 +116,7 @@
 			await saveResourceToWorkspace(resource.name, response);
 			loadExistingWorkspaceFiles();
 		} else {
-			const filename = getFilename(mcp.manifest.name ?? '', resource.name, response.mimeType);
+			const filename = getFilename(mcp.name ?? '', resource.name, response.mimeType);
 			const file = convertResourceContentToFile(filename, response);
 			const a = document.createElement('a');
 			const url = URL.createObjectURL(file);
@@ -135,7 +135,7 @@
 
 	function isAlreadyAdded(resource: McpServerResource) {
 		if (!mcp) return false;
-		const filename = `obot-${mcp.manifest.name}-resource-${resource.name}`;
+		const filename = `obot-${mcp.name}-resource-${resource.name}`;
 		return currentWorkspaceFiles.some((file) => file.name.startsWith(filename));
 	}
 
@@ -169,7 +169,7 @@
 				class:default-dialog-mobile-title={responsive.isMobile}
 			>
 				<span class="flex items-center gap-2">
-					<img src={mcp.manifest.icon} class="size-4" alt={mcp.manifest.name} />
+					<img src={mcp.icon} class="size-4" alt={mcp.name} />
 					Resources
 				</span>
 				<button

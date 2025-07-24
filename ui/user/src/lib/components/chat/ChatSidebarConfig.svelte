@@ -7,7 +7,6 @@
 	import TemplateConfig from '$lib/components/templates/TemplateConfig.svelte';
 	import ProjectMcpServerTools from '$lib/components/mcp/ProjectMcpServerTools.svelte';
 	import ModelProviders from '../ModelProviders.svelte';
-	import ChatbotConfig from '$lib/components/edit/ChatbotConfig.svelte';
 	import { X } from 'lucide-svelte';
 	import Discord from '../integrations/discord/Discord.svelte';
 	import Webhook from '../integrations/webhook/Webhook.svelte';
@@ -36,7 +35,13 @@
 		{#key layout.mcpServer.id}
 			<div class="flex w-full justify-center px-4 py-4 md:px-8">
 				<div class="flex w-full flex-col gap-4 md:max-w-[1200px]">
-					<ProjectMcpServerTools {project} mcpServer={layout.mcpServer}>
+					<ProjectMcpServerTools
+						{project}
+						mcpServer={layout.mcpServer}
+						submitText="Update"
+						onSubmit={() => closeSidebarConfig(layout)}
+						onClose={() => closeSidebarConfig(layout)}
+					>
 						{#snippet header()}
 							<h2 class="flex items-center justify-between text-xl font-semibold">
 								View Tools
@@ -57,8 +62,6 @@
 		<Webhook {project} />
 	{:else if layout.sidebarConfig === 'email'}
 		<Email {project} />
-	{:else if layout.sidebarConfig === 'chatbot'}
-		<ChatbotConfig {project} />
 	{:else if layout.sidebarConfig === 'template' && layout.template}
 		{#key layout.template.id}
 			<TemplateConfig bind:template={layout.template} />

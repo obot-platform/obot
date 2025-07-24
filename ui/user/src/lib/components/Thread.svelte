@@ -3,7 +3,13 @@
 	import Input from '$lib/components/messages/Input.svelte';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { Thread } from '$lib/services/chat/thread.svelte';
-	import { ChatService, EditorService, type Messages, type Project } from '$lib/services';
+	import {
+		ChatService,
+		EditorService,
+		type Messages,
+		type Project,
+		type ProjectMCP
+	} from '$lib/services';
 	import { fade } from 'svelte/transition';
 	import { onDestroy, onMount } from 'svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
@@ -22,7 +28,6 @@
 	import type {
 		CreateProjectForm,
 		MCPServerPrompt,
-		ProjectMCP,
 		Thread as ThreadType
 	} from '$lib/services/chat/types';
 	import ThreadModelSelector from '$lib/components/edit/ThreadModelSelector.svelte';

@@ -240,7 +240,7 @@
 	</div>
 </div>
 
-<McpServerOauths />
+<McpServerOauths assistantId={assistant?.id || ''} projectId={project.id} />
 
 {#snippet openSidebar()}
 	<button class="icon-button" onclick={() => (layout.sidebarOpen = true)}>

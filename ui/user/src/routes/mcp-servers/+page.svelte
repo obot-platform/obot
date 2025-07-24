@@ -124,20 +124,13 @@
 		if (
 			project &&
 			!(await ChatService.listProjectMCPs(project.assistantID, project.id)).find(
-				(mcp) => mcp.manifest.name === name
+				(mcp) => mcp.name === name
 			)
 		) {
-			const mcpServerInfo = {
-				manifest: {
-					name: name,
-					icon: connectedServer.server.manifest.icon,
-					description: connectedServer.server.manifest.description,
-					metadata: connectedServer.server.manifest.metadata,
-					url: connectedServer.connectURL
-				}
-			};
-
-			await createProjectMcp(mcpServerInfo, project);
+			await createProjectMcp(
+				project,
+				connectedServer.instance ? connectedServer.instance.id : connectedServer.server.id
+			);
 		}
 
 		window.open(`/o/${project?.id}`, '_blank');

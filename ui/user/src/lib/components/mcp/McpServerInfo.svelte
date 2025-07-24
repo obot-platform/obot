@@ -6,7 +6,8 @@
 		type McpServerResource,
 		ChatService,
 		AdminService,
-		type Project
+		type Project,
+		type ProjectMCP
 	} from '$lib/services';
 	import type { MCPCatalogEntry, MCPCatalogServerManifest } from '$lib/services/admin/types';
 	import { CircleCheckBig, CircleOff, Info, LoaderCircle, Pencil, RefreshCcw } from 'lucide-svelte';
@@ -20,7 +21,7 @@
 	import { onDestroy } from 'svelte';
 
 	interface Props {
-		entry: MCPCatalogEntry | MCPCatalogServer;
+		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
 		editable?: boolean;
 		catalogId?: string;
 		onUpdate?: () => void;
@@ -38,13 +39,14 @@
 		catalogId?: string;
 	};
 
-	function convertEntryDetails(entry: MCPCatalogEntry | MCPCatalogServer) {
+	function convertEntryDetails(entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP) {
 		let items: Record<string, EntryDetail> = {};
-		if ('manifest' in entry) {
+		if ('manifest' in entry || 'mcpID' in entry) {
 			items = {
 				requiredConfig: {
 					label: 'Required Configuration',
-					value: entry.manifest?.env?.map((e) => e.key).join(', ') ?? []
+					value:
+						'manifest' in entry ? (entry.manifest?.env?.map((e) => e.key).join(', ') ?? []) : []
 				},
 				users: {
 					label: 'Users',
@@ -64,10 +66,10 @@
 				},
 				lastUpdated: {
 					label: 'Last Updated',
-					value: formatTimeAgo(entry.updated).relativeTime
+					value: 'updated' in entry ? formatTimeAgo(entry.updated).relativeTime : ''
 				}
 			};
-		} else {
+		} else if ('commandManifest' in entry || 'urlManifest' in entry) {
 			const manifest = entry.commandManifest || entry.urlManifest;
 			items = {
 				requiredConfig: {
@@ -125,15 +127,16 @@
 	}
 
 	// Extract tool previews from the appropriate manifest
-	function getToolPreview(entry: MCPCatalogEntry | MCPCatalogServer): MCPServerTool[] {
+	function getToolPreview(entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP): MCPServerTool[] {
 		if ('manifest' in entry) {
 			// Connected server - get from manifest.toolPreview
 			return entry.manifest?.toolPreview || [];
-		} else {
+		} else if ('commandManifest' in entry || 'urlManifest' in entry) {
 			// Catalog entry - get from commandManifest or urlManifest
 			const manifest = entry.commandManifest || entry.urlManifest;
 			return manifest?.toolPreview || [];
 		}
+		return [];
 	}
 
 	let { entry, editable = false, catalogId, onUpdate, onAuthenticate, project }: Props = $props();
@@ -150,11 +153,17 @@
 	let description = $derived(
 		('manifest' in entry
 			? entry.manifest.description
-			: entry.commandManifest?.description || entry.urlManifest?.description) ?? ''
+			: 'commandManifest' in entry
+				? entry.commandManifest?.description
+				: 'urlManifest' in entry
+					? entry.urlManifest?.description
+					: 'description' in entry
+						? entry.description
+						: '') ?? ''
 	);
 
 	// Determine if we have "real" tools or should show previews
-	let hasConnectedServer = $derived('manifest' in entry);
+	let hasConnectedServer = $derived('manifest' in entry || 'mcpID' in entry);
 	let showRealTools = $derived(hasConnectedServer && tools.length > 0);
 	let showPreviewTools = $derived(
 		previewTools.length > 0 && (!hasConnectedServer || (loading && tools.length === 0))
@@ -178,11 +187,21 @@
 		showRefresh = false;
 
 		try {
-			const oauthURLResponse = await ChatService.getMcpServerOauthURL(entry.id, {
-				signal: abortController.signal
-			});
-			if (oauthURLResponse) {
-				oauthURL = oauthURLResponse;
+			if (project) {
+				oauthURL = await ChatService.getProjectMcpServerOauthURL(
+					project.assistantID,
+					project.id,
+					entry.id,
+					{
+						signal: abortController.signal
+					}
+				);
+			} else {
+				oauthURL = await ChatService.getMcpServerOauthURL(entry.id, {
+					signal: abortController.signal
+				});
+			}
+			if (oauthURL) {
 				loading = false;
 				return;
 			}
@@ -230,7 +249,7 @@
 				...(entry.manifest as MCPCatalogServerManifest['manifest']),
 				description: markdown
 			});
-		} else {
+		} else if ('commandManifest' in entry || 'urlManifest' in entry) {
 			const manifest = entry.commandManifest || entry.urlManifest;
 			await AdminService.updateMCPCatalogEntry(catalogId, entry.id, {
 				...manifest,
@@ -243,7 +262,11 @@
 	}
 
 	$effect(() => {
-		if (entry && 'manifest' in entry && entry.id !== previousEntryId) {
+		if (
+			entry &&
+			('manifest' in entry || 'mcpID' in entry) &&
+			(!previousEntryId || entry.id !== previousEntryId)
+		) {
 			previousEntryId = entry.id;
 			loadServerData();
 		}

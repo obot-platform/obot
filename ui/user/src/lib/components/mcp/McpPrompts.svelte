@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ChatService, type MCPServerPrompt, type Project, type ProjectMCP } from '$lib/services';
-	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
+	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { ChevronRight, LoaderCircle, Plus, X } from 'lucide-svelte';
 	import { responsive } from '$lib/stores';
@@ -50,9 +50,10 @@
 		onClickOutside?.();
 	}
 
-	function fetchPrompts() {
+	async function fetchPrompts() {
 		loading = true;
 		mcpPromptSets = [];
+		await validateOauthProjectMcps(project.assistantID, project.id, projectMcps.items);
 		for (const mcp of projectMcps.items) {
 			if (mcp.authenticated) {
 				ChatService.listProjectMcpServerPrompts(project.assistantID, project.id, mcp.id).then(
@@ -118,12 +119,12 @@
 				>
 					{#if variant === 'messages'}
 						<img
-							src={mcpPromptSet.mcp.manifest.icon}
-							alt={mcpPromptSet.mcp.manifest.name}
+							src={mcpPromptSet.mcp.icon}
+							alt={mcpPromptSet.mcp.name}
 							class="size-4 rounded-sm"
 						/>
 					{/if}
-					{mcpPromptSet.mcp.manifest.name}
+					{mcpPromptSet.mcp.name}
 				</div>
 
 				{#if variant === 'messages'}
@@ -152,8 +153,8 @@
 								onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
 							>
 								<img
-									src={mcpPromptSet.mcp.manifest.icon}
-									alt={mcpPromptSet.mcp.manifest.name}
+									src={mcpPromptSet.mcp.icon}
+									alt={mcpPromptSet.mcp.name}
 									class="size-6 rounded-sm"
 								/>
 								<div class="flex flex-col">

@@ -65,17 +65,10 @@
 
 	async function setupProjectMcp(connectedServer: ConnectedServer) {
 		if (!connectedServer || !connectedServer.server) return;
-		const mcpServerInfo = {
-			manifest: {
-				name: connectedServer.server.manifest.name,
-				icon: connectedServer.server.manifest.icon,
-				description: connectedServer.server.manifest.description,
-				metadata: connectedServer.server.manifest.metadata,
-				url: connectedServer.connectURL
-			}
-		};
-
-		const response = await createProjectMcp(mcpServerInfo, project);
+		const response = await createProjectMcp(
+			project,
+			connectedServer.instance ? connectedServer.instance.id : connectedServer.server.id
+		);
 		closeCatalogDialog();
 		onSuccess?.(response);
 	}

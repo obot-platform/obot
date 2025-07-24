@@ -17,7 +17,6 @@
 	import Confirm from '../Confirm.svelte';
 	import type { LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import CatalogConfigureForm from '../mcp/CatalogConfigureForm.svelte';
-	import { getKeyValuePairs } from '$lib/services/chat/mcp';
 	import type { ProjectMcpItem } from '$lib/context/projectMcps.svelte';
 
 	interface Props {
@@ -63,25 +62,9 @@
 		if (!toDelete || !project?.assistantID || !project.id) return;
 
 		closeSidebarConfig(layout);
-		if (toDelete.configured) {
-			await ChatService.deconfigureProjectMCP(project.assistantID, project.id, toDelete.id);
-		}
 		await ChatService.deleteProjectMCP(project.assistantID, project.id, toDelete.id);
 		onDelete?.(toDelete);
 		toDelete = undefined;
-	}
-
-	async function handleUpdateConfiguration() {
-		if (!configForm) return;
-
-		const keyValuePairs = getKeyValuePairs(configForm);
-		await ChatService.configureProjectMCPEnvHeaders(
-			project.assistantID,
-			project.id,
-			mcpServer.id,
-			keyValuePairs
-		);
-		configDialog?.close();
 	}
 </script>
 
@@ -125,26 +108,6 @@
 			{/if}
 		</button>
 	{/if}
-	{#if mcpServer.catalogEntryID}
-		<button
-			class="menu-button"
-			onclick={() => {
-				configForm = {
-					envs: mcpServer.manifest.env?.map((env) => ({
-						...env,
-						value: ''
-					})),
-					headers: mcpServer.manifest.headers?.map((header) => ({
-						...header,
-						value: ''
-					}))
-				};
-				configDialog?.open();
-			}}
-		>
-			<Wrench class="size-4" /> Edit Configuration
-		</button>
-	{/if}
 	<button class="menu-button" onclick={() => (toDelete = mcpServer)}>
 		<Trash2 class="size-4" /> Delete
 	</button>
@@ -167,10 +130,7 @@
 <CatalogConfigureForm
 	bind:this={configDialog}
 	bind:form={configForm}
-	catalogEntryId={mcpServer.catalogEntryID}
-	{project}
 	onClose={() => (configForm = undefined)}
-	onSave={handleUpdateConfiguration}
 	onCancel={() => {
 		configForm = undefined;
 	}}

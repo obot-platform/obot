@@ -5,7 +5,6 @@
 	import type { Snippet } from 'svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
-	import { ChatService, type Project } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
 
 	export type LaunchFormData = {
@@ -19,13 +18,11 @@
 		form?: LaunchFormData;
 		name?: string;
 		icon?: string;
-		onSave: () => void;
+		onSave?: () => void;
 		onCancel?: () => void;
 		onClose?: () => void;
 		actions?: Snippet;
 		catalogId?: string;
-		catalogEntryId?: string;
-		project?: Project;
 		cancelText?: string;
 		submitText?: string;
 		loading?: boolean;
@@ -37,8 +34,6 @@
 		onSave,
 		name,
 		icon,
-		catalogEntryId,
-		project,
 		cancelText = 'Cancel',
 		submitText = 'Save',
 		loading,
@@ -49,27 +44,6 @@
 
 	export function open() {
 		configDialog?.open();
-
-		if (catalogEntryId && project && form) {
-			ChatService.revealProjectMCPEnvHeaders(project.assistantID, project.id, catalogEntryId).then(
-				(envAndHeaders) => {
-					if (form.envs) {
-						for (const env of form.envs) {
-							if (envAndHeaders[env.key]) {
-								env.value = envAndHeaders[env.key];
-							}
-						}
-					}
-					if (form.headers) {
-						for (const header of form.headers) {
-							if (envAndHeaders[header.key]) {
-								header.value = envAndHeaders[header.key];
-							}
-						}
-					}
-				}
-			);
-		}
 	}
 
 	function clearHighlights() {
@@ -112,7 +86,7 @@
 			return;
 		}
 
-		onSave();
+		onSave?.();
 	}
 
 	export function close() {

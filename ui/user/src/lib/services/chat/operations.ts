@@ -971,108 +971,23 @@ export async function listProjectMCPs(
 export async function createProjectMCP(
 	assistantID: string,
 	projectID: string,
-	mcpServerManifest?: MCPServer,
-	catalogEntryID?: string,
+	mcpID: string,
 	opts?: { fetch?: Fetcher }
 ): Promise<ProjectMCP> {
 	return (await doPost(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers`,
-		catalogEntryID ? { catalogEntryID, ...(mcpServerManifest || {}) } : mcpServerManifest || {},
+		{ mcpID },
 		opts
-	)) as ProjectMCP;
-}
-
-export async function updateProjectMCP(
-	assistantID: string,
-	projectID: string,
-	mcpServerId: string,
-	mcpServerManifest: MCPServer
-) {
-	return (await doPut(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}`,
-		mcpServerManifest
 	)) as ProjectMCP;
 }
 
 export async function deleteProjectMCP(
 	assistantID: string,
 	projectID: string,
-	mcpServerId: string
+	projectMcpServerId: string
 ) {
-	return doDelete(`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}`);
-}
-
-export async function revealProjectMCPEnvHeaders(
-	assistantID: string,
-	projectID: string,
-	mcpServerId: string
-) {
-	return (await doPost(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/reveal`,
-		{},
-		{
-			dontLogErrors: true
-		}
-	)) as Record<string, string>;
-}
-
-export async function revealSharedProjectMCP(
-	assistantID: string,
-	projectID: string,
-	mcpServerId: string
-) {
-	return (await doPost(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/reveal-shared`,
-		{},
-		{
-			dontLogErrors: true
-		}
-	)) as Record<string, string>;
-}
-
-export async function configureProjectMCPEnvHeaders(
-	assistantID: string,
-	projectID: string,
-	mcpServerId: string,
-	envHeadersToConfigure: Record<string, string>
-) {
-	return (await doPost(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/configure`,
-		envHeadersToConfigure
-	)) as ProjectMCP;
-}
-
-export async function deconfigureProjectMCP(
-	assistantID: string,
-	projectID: string,
-	mcpServerId: string
-) {
-	return doPost(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/deconfigure`,
-		{}
-	);
-}
-
-export async function configureSharedProjectMCP(
-	assistantID: string,
-	projectID: string,
-	mcpServerId: string,
-	envHeadersToConfigure: Record<string, string>
-) {
-	return doPost(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/configure-shared`,
-		envHeadersToConfigure
-	);
-}
-
-export async function deconfigureSharedProjectMCP(
-	assistantID: string,
-	projectID: string,
-	mcpServerId: string
-) {
-	return doPost(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerId}/deconfigure-shared`,
-		{}
+	return doDelete(
+		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}`
 	);
 }
 
@@ -1554,12 +1469,16 @@ export async function isMcpServerOauthNeeded(
 export async function getProjectMcpServerOauthURL(
 	assistantID: string,
 	projectID: string,
-	mcpServerID: string
+	mcpServerID: string,
+	opts?: { signal?: AbortSignal }
 ): Promise<string> {
 	try {
-		const response = (await doPost(
-			`/assistants/${assistantID}/projects/${projectID}/mcp-servers/${mcpServerID}/oauth-url`,
-			{ dontLogErrors: true }
+		const response = (await doGet(
+			`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerID}/oauth-url`,
+			{
+				dontLogErrors: true,
+				signal: opts?.signal
+			}
 		)) as { oauthURL: string };
 		return response.oauthURL;
 	} catch (_err) {
