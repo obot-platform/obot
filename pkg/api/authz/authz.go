@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -63,8 +63,12 @@ var staticRules = map[string][]string{
 
 		"GET /.well-known/",
 		"POST /oauth/register/{mcp_id}",
+		"POST /oauth/register",
 		"GET /oauth/authorize/{mcp_id}",
+		"GET /oauth/authorize",
 		"POST /oauth/token/{mcp_id}",
+		"POST /oauth/token",
+		"GET /oauth/callback/{oauth_request_id}",
 	},
 
 	AuthenticatedGroup: {

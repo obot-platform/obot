@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/runtime"
 	apiclienttypes "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
@@ -33,7 +34,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	"github.com/obot-platform/obot/pkg/bootstrap"
-	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/credstores"
 	"github.com/obot-platform/obot/pkg/encryption"
 	"github.com/obot-platform/obot/pkg/events"
@@ -149,6 +149,8 @@ type Services struct {
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
+
+	WebhookHelper *mcp.WebhookHelper
 
 	// Used for loading and running MCP servers with GPTScript.
 	MCPRunner engine.MCPRunner
@@ -385,17 +387,17 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	gvk, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
+	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
 	if err != nil {
 		return nil, err
 	}
 
-	informer, err := r.Backend().GetInformerForKind(ctx, gvk)
+	acrInformer, err := r.Backend().GetInformerForKind(ctx, acrGVK)
 	if err != nil {
 		return nil, err
 	}
 
-	if err = informer.AddIndexers(map[string]gocache.IndexFunc{
+	if err = acrInformer.AddIndexers(map[string]gocache.IndexFunc{
 		"user-ids": func(obj any) ([]string, error) {
 			acr := obj.(*v1.AccessControlRule)
 			var results []string
@@ -440,7 +442,53 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	acrHelper := accesscontrolrule.NewAccessControlRuleHelper(informer.GetIndexer())
+	acrHelper := accesscontrolrule.NewAccessControlRuleHelper(acrInformer.GetIndexer())
+
+	// Set up MCPWebhookValidation indexer
+	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
+	if err != nil {
+		return nil, err
+	}
+
+	mcpWebhookValidationInformer, err := r.Backend().GetInformerForKind(ctx, mcpWebhookValidationGVK)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = mcpWebhookValidationInformer.AddIndexers(map[string]gocache.IndexFunc{
+		"server-names": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMCPServer {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		"selectors": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeSelector {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		"catalog-entry-names": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMCPServerCatalogEntry {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+	}); err != nil {
+		return nil, err
+	}
 
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
 	apply.AddValidOwnerChange("mcpcatalogentries", "catalog-default")
@@ -610,6 +658,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 		},
 		AccessControlRuleHelper: acrHelper,
+		WebhookHelper:           mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer()),
 	}, nil
 }
 

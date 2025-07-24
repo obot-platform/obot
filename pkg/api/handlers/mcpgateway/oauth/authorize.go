@@ -199,8 +199,13 @@ func (h *handler) authorize(req api.Context) error {
 		return nil
 	}
 
+	mcpID := req.PathValue("mcp_id")
+	if mcpID != "" {
+		mcpID = "/" + mcpID
+	}
+
 	// We need to authenticate the user.
-	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s/%s", oauthAppAuthRequest.Name, req.PathValue("mcp_id")), http.StatusFound)
+	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s%s", oauthAppAuthRequest.Name, mcpID), http.StatusFound)
 	return nil
 }
 
@@ -264,9 +269,10 @@ func (h *handler) callback(req api.Context) error {
 			return nil
 		}
 
-		if u != "" {
-			http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
-			return nil
+			if u != "" {
+				http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
+				return nil
+			}
 		}
 	}
 

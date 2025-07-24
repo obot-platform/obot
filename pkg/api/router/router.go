@@ -33,6 +33,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	models := handlers.NewModelHandler()
 	mcpCatalogs := handlers.NewMCPCatalogHandler(services.AllowedMCPDockerImageRepos, services.DefaultMCPCatalogPath, services.ServerURL)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
+	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.Invoker)
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN)
@@ -54,7 +55,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
 	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
-	mcpGateway := mcpgateway.NewHandler(services.TokenServer, services.StorageClient, services.MCPLoader, services.MCPOAuthTokenStorage, services.ServerURL)
+	mcpGateway := mcpgateway.NewHandler(services.TokenServer, services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 
@@ -460,6 +461,13 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/access-control-rules", accessControlRules.Create)
 	mux.HandleFunc("PUT /api/access-control-rules/{access_control_rule_id}", accessControlRules.Update)
 	mux.HandleFunc("DELETE /api/access-control-rules/{access_control_rule_id}", accessControlRules.Delete)
+
+	// MCP Webhook Validations (admin only)
+	mux.HandleFunc("GET /api/mcp-webhook-validations", mcpWebhookValidations.List)
+	mux.HandleFunc("GET /api/mcp-webhook-validations/{mcp_webhook_validation_id}", mcpWebhookValidations.Get)
+	mux.HandleFunc("POST /api/mcp-webhook-validations", mcpWebhookValidations.Create)
+	mux.HandleFunc("PUT /api/mcp-webhook-validations/{mcp_webhook_validation_id}", mcpWebhookValidations.Update)
+	mux.HandleFunc("DELETE /api/mcp-webhook-validations/{mcp_webhook_validation_id}", mcpWebhookValidations.Delete)
 
 	// MCP Gateway Endpoints
 	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.StreamableHTTP)

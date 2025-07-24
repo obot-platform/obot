@@ -99,6 +99,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&AccessControlRuleList{},
 		&MCPSession{},
 		&MCPSessionList{},
+		&MCPWebhookValidation{},
+		&MCPWebhookValidationList{},
 	); err != nil {
 		return err
 	}

@@ -10,22 +10,23 @@ import (
 
 // MCPAuditLog represents an audit log entry for MCP API calls
 type MCPAuditLog struct {
-	ID                        uint            `json:"id" gorm:"primaryKey"`
-	CreatedAt                 time.Time       `json:"createdAt" gorm:"index"`
-	UserID                    string          `json:"userID" gorm:"index"`
-	MCPID                     string          `json:"mcpID" gorm:"index"`
-	MCPServerDisplayName      string          `json:"mcpServerDisplayName" gorm:"index"`
-	MCPServerCatalogEntryName string          `json:"mcpServerCatalogEntryName" gorm:"index"`
-	ClientInfo                ClientInfo      `json:"clientInfo" gorm:"embedded"`
-	ClientIP                  string          `json:"clientIP"`
-	CallType                  string          `json:"callType" gorm:"index"`
-	CallIdentifier            string          `json:"callIdentifier,omitempty" gorm:"index"`
-	RequestBody               json.RawMessage `json:"requestBody,omitempty"`
-	ResponseBody              json.RawMessage `json:"responseBody,omitempty"`
-	ResponseStatus            int             `json:"responseStatus"`
-	Error                     string          `json:"error,omitempty"`
-	ProcessingTimeMs          int64           `json:"processingTimeMs"`
-	SessionID                 string          `json:"sessionID,omitempty"`
+	ID                        uint               `json:"id" gorm:"primaryKey"`
+	CreatedAt                 time.Time          `json:"createdAt" gorm:"index"`
+	UserID                    string             `json:"userID" gorm:"index"`
+	MCPID                     string             `json:"mcpID" gorm:"index"`
+	MCPServerDisplayName      string             `json:"mcpServerDisplayName" gorm:"index"`
+	MCPServerCatalogEntryName string             `json:"mcpServerCatalogEntryName" gorm:"index"`
+	ClientInfo                ClientInfo         `json:"clientInfo" gorm:"embedded"`
+	ClientIP                  string             `json:"clientIP"`
+	CallType                  string             `json:"callType" gorm:"index"`
+	CallIdentifier            string             `json:"callIdentifier,omitempty" gorm:"index"`
+	RequestBody               json.RawMessage    `json:"requestBody,omitempty"`
+	ResponseBody              json.RawMessage    `json:"responseBody,omitempty"`
+	ResponseStatus            int                `json:"responseStatus"`
+	Error                     string             `json:"error,omitempty"`
+	ProcessingTimeMs          int64              `json:"processingTimeMs"`
+	SessionID                 string             `json:"sessionID,omitempty"`
+	WebhookStatuses           []MCPWebhookStatus `json:"webhookStatuses,omitempty" gorm:"type:jsonb"`
 
 	// Additional metadata
 	RequestID       string          `json:"requestID,omitempty" gorm:"index"`
@@ -37,6 +38,12 @@ type MCPAuditLog struct {
 type ClientInfo struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
+}
+
+type MCPWebhookStatus struct {
+	URL     string `json:"url"`
+	Status  string `json:"status"`
+	Message string `json:"message,omitempty"`
 }
 
 // MCPUsageStatItem represents usage statistics for MCP servers
@@ -77,6 +84,14 @@ type MCPPromptReadStats struct {
 
 // ConvertMCPAuditLog converts internal MCPAuditLog to API type
 func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
+	webhookStatus := make([]types2.WebhookStatus, len(a.WebhookStatuses))
+	for i, ws := range a.WebhookStatuses {
+		webhookStatus[i] = types2.WebhookStatus{
+			URL:     ws.URL,
+			Status:  ws.Status,
+			Message: ws.Message,
+		}
+	}
 	return types2.MCPAuditLog{
 		ID:                        a.ID,
 		CreatedAt:                 *types2.NewTime(a.CreatedAt),
@@ -92,6 +107,7 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 		ResponseBody:              a.ResponseBody,
 		ResponseStatus:            a.ResponseStatus,
 		Error:                     a.Error,
+		WebhookStatuses:           webhookStatus,
 		ProcessingTimeMs:          a.ProcessingTimeMs,
 		SessionID:                 a.SessionID,
 		RequestID:                 a.RequestID,

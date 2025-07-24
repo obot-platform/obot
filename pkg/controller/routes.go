@@ -34,6 +34,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflowexecution"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflowstep"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workspace"
+	"github.com/obot-platform/obot/pkg/controller/mcpwebhookvalidation"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -71,6 +72,7 @@ func (c *Controller) setupRoutes() error {
 	mcpserver := mcpserver.New(c.services.ServerURL)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
+	mcpWebhookValidations := mcpwebhookvalidation.New()
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -265,6 +267,9 @@ func (c *Controller) setupRoutes() error {
 	// MCP Sessions
 	root.Type(&v1.MCPSession{}).HandlerFunc(mcpSession.RemoveUnused)
 	root.Type(&v1.MCPSession{}).FinalizeFunc(v1.MCPSessionFinalizer, mcpSession.CleanupCredentials)
+
+	// MCP Webhook Validations
+	root.Type(&v1.MCPWebhookValidation{}).HandlerFunc(mcpWebhookValidations.CleanupResources)
 
 	// Project-based MCP Servers
 	root.Type(&v1.ProjectMCPServer{}).FinalizeFunc(v1.ProjectMCPServerFinalizer, credentialCleanup.ShutdownProjectMCP)
