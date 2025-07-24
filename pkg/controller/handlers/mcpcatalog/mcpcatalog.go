@@ -47,8 +47,17 @@ func New(allowedDockerImageRepos []string, defaultCatalogPath string, gatewayCli
 
 func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog := req.Object.(*v1.MCPCatalog)
-	toAdd := make([]client.Object, 0)
 
+	forceSync := mcpCatalog.Annotations[v1.MCPCatalogSyncAnnotation] == "true"
+	if !forceSync && !mcpCatalog.Status.LastSyncTime.IsZero() {
+		timeSinceLastSync := time.Since(mcpCatalog.Status.LastSyncTime.Time)
+		if timeSinceLastSync < time.Hour {
+			resp.RetryAfter(time.Hour - timeSinceLastSync)
+			return nil
+		}
+	}
+
+	toAdd := make([]client.Object, 0)
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
@@ -67,10 +76,21 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	if err := req.Client.Status().Update(req.Ctx, mcpCatalog); err != nil {
 		return fmt.Errorf("failed to update catalog status: %w", err)
 	}
+	if forceSync {
+		delete(mcpCatalog.Annotations, v1.MCPCatalogSyncAnnotation)
+		if err := req.Client.Update(req.Ctx, mcpCatalog); err != nil {
+			return fmt.Errorf("failed to update catalog: %w", err)
+		}
+	}
 
 	// We want to refresh this every hour.
 	// TODO(g-linville): make this configurable.
 	resp.RetryAfter(time.Hour)
+
+	// Don't run apply if there are sync errors
+	if len(mcpCatalog.Status.SyncErrors) > 0 {
+		return nil
+	}
 
 	// I know we don't want to do apply anymore. But we were doing it before in a different place.
 	// Now we're doing it here. It's not important enough to change right now.

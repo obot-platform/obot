@@ -66,14 +66,10 @@ func (h *MCPCatalogHandler) Refresh(req api.Context) error {
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
 
-	if catalog.Annotations[v1.MCPCatalogSyncAnnotation] != "" {
-		delete(catalog.Annotations, v1.MCPCatalogSyncAnnotation)
-	} else {
-		if catalog.Annotations == nil {
-			catalog.Annotations = make(map[string]string)
-		}
-		catalog.Annotations[v1.MCPCatalogSyncAnnotation] = "true"
+	if catalog.Annotations == nil {
+		catalog.Annotations = make(map[string]string)
 	}
+	catalog.Annotations[v1.MCPCatalogSyncAnnotation] = "true"
 
 	return req.Update(&catalog)
 }
