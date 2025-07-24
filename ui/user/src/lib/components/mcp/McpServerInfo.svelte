@@ -354,15 +354,15 @@
 		<div class="flex flex-col gap-2">
 			<h4 class="text-md font-semibold">Capabilities</h4>
 			<ul class="flex flex-wrap items-center gap-2">
-				{@render capabiliity('Tool Catalog', displayTools.length > 0)}
-				{@render capabiliity('Prompts', prompts.length > 0)}
-				{@render capabiliity('Resources', resources.length > 0)}
+				{@render capability('Tool Catalog', displayTools.length > 0)}
+				{@render capability('Prompts', prompts.length > 0)}
+				{@render capability('Resources', resources.length > 0)}
 			</ul>
 		</div>
 	{/if}
 {/snippet}
 
-{#snippet capabiliity(name: string, enabled: boolean)}
+{#snippet capability(name: string, enabled: boolean)}
 	<li
 		class={twMerge(
 			'flex w-fit items-center justify-center gap-1 rounded-full px-4 py-1 text-xs font-light',
