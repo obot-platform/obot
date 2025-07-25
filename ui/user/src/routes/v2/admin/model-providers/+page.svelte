@@ -13,6 +13,7 @@
 	import { getAdminModels, initModels } from '$lib/context/admin/models.svelte.js';
 	import { onMount } from 'svelte';
 	import DefaultModels from '$lib/components/admin/DefaultModels.svelte';
+	import { sortModelProviders } from '$lib/sort.js';
 
 	let { data } = $props();
 	let { modelProviders: initialModelProviders } = data;
@@ -39,39 +40,6 @@
 			provider.id === CommonModelProviderIds.ANTHROPIC ||
 			provider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK
 		);
-	}
-
-	function sortModelProviders(modelProviders: ModelProviderType[]) {
-		return [...modelProviders].sort((a, b) => {
-			const preferredOrder = [
-				CommonModelProviderIds.OPENAI,
-				CommonModelProviderIds.AZURE_OPENAI,
-				CommonModelProviderIds.ANTHROPIC,
-				CommonModelProviderIds.ANTHROPIC_BEDROCK,
-				CommonModelProviderIds.XAI,
-				CommonModelProviderIds.OLLAMA,
-				CommonModelProviderIds.VOYAGE,
-				CommonModelProviderIds.GROQ,
-				CommonModelProviderIds.VLLM,
-				CommonModelProviderIds.DEEPSEEK,
-				CommonModelProviderIds.GEMINI_VERTEX,
-				CommonModelProviderIds.GENERIC_OPENAI
-			];
-			const aIndex = preferredOrder.indexOf(a.id);
-			const bIndex = preferredOrder.indexOf(b.id);
-
-			// If both providers are in preferredOrder, sort by their order
-			if (aIndex !== -1 && bIndex !== -1) {
-				return aIndex - bIndex;
-			}
-
-			// If only a is in preferredOrder, it comes first
-			if (aIndex !== -1) return -1;
-			// If only b is in preferredOrder, it comes first
-			if (bIndex !== -1) return 1;
-
-			return a.id.localeCompare(b.id);
-		});
 	}
 
 	let sortedModelProviders = $derived(sortModelProviders(modelProviders));
