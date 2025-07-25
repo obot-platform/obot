@@ -14,6 +14,10 @@ In order for authentication to be enabled, the Obot server must be run with `--e
 ### Bootstrap Token
 
 When launching Obot for the first time, the server will print a randomly generated bootstrap token to the console.
+
+:::info
+When installing via Helm, this token is saved inside a kubernetes secret.
+
 This token can be used to authenticate as an admin user in the UI.
 You will then be able to configure authentication providers.
 Once you have configured at least one authentication provider, and have granted admin access to at least one user,
@@ -21,7 +25,7 @@ the bootstrap token will no longer be valid.
 
 :::tip Custom Bootstrap Token
 You can use the `OBOT_BOOTSTRAP_TOKEN` environment variable to provide a specific value for the token,
-rather than having the server generate one for you. If you do this, the value will **not** be printed to the console.
+rather than having one generated for you. If you do this, the value will **not** be printed to the console.
 
 Obot will persist the value of the bootstrap token on its first launch (whether randomly generated or
 supplied by `OBOT_BOOTSTRAP_TOKEN`), and all future server launches will use that same value.
