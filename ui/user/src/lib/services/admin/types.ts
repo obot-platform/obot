@@ -1,4 +1,4 @@
-import { type MCPServerTool } from '../chat/types';
+import { type MCPServerTool, type Project } from '../chat/types';
 
 export interface MCPCatalogManifest {
 	displayName: string;
@@ -327,4 +327,10 @@ export interface K8sServerDetail {
 
 export interface K8sServerLog {
 	message: string;
+}
+
+export interface BaseAgent extends Project {
+	allowedModels?: string[];
+	allowedModelProviders?: string[];
+	default?: boolean;
 }

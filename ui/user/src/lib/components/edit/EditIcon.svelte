@@ -10,6 +10,7 @@
 
 	interface Props {
 		project: Project;
+		edit?: boolean;
 		onSubmit?: () => void;
 		inline?: boolean;
 		classes?: {
@@ -17,7 +18,7 @@
 		};
 	}
 
-	let { project = $bindable(), onSubmit, inline, classes }: Props = $props();
+	let { project = $bindable(), onSubmit, inline, classes, edit }: Props = $props();
 
 	let urlIcon:
 		| {
@@ -27,6 +28,7 @@
 		| undefined = $state();
 
 	let { ref, tooltip, toggle } = popover();
+	let canEdit = $derived(project.editor || edit);
 
 	$effect(() => {
 		if (project.icons?.icon === '' && project.icons?.iconDark === '') {
@@ -44,14 +46,14 @@
 	<div class="flex w-full items-center justify-center">
 		<button
 			class="icon-button group relative flex items-center gap-2 p-0 shadow-md"
-			class:cursor-default={!project.editor}
+			class:cursor-default={!canEdit}
 			use:ref
 			onclick={() => toggle()}
-			disabled={!project.editor}
+			disabled={!canEdit}
 		>
 			<AssistantIcon {project} class={twMerge('size-24', classes?.icon)} />
 
-			{#if project.editor}
+			{#if canEdit}
 				<div
 					class="bg-surface1 group-hover:bg-surface3 absolute -right-1 bottom-0 rounded-full p-2 shadow-md transition-all duration-200"
 				>
