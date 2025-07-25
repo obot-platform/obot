@@ -498,7 +498,10 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string)
 	}
 
 	// Not get the pod name that is currently running, waiting for there to only be one pod.
-	var pods corev1.PodList
+	var (
+		pods            corev1.PodList
+		runningPodCount int
+	)
 	for {
 		if err = sm.client.List(ctx, &pods, &kclient.ListOptions{
 			Namespace: sm.mcpNamespace,
@@ -509,7 +512,13 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string)
 			return "", fmt.Errorf("failed to list MCP pods: %w", err)
 		}
 
-		if len(pods.Items) == 1 && pods.Items[0].Status.Phase == corev1.PodRunning {
+		runningPodCount = 0
+		for _, p := range pods.Items {
+			if p.Status.Phase == corev1.PodRunning {
+				runningPodCount++
+			}
+		}
+		if runningPodCount == 1 {
 			return pods.Items[0].Name, nil
 		}
 
