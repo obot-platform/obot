@@ -2,6 +2,7 @@ package mcpgateway
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -16,31 +17,72 @@ func NewAuditLogHandler() *AuditLogHandler {
 	return &AuditLogHandler{}
 }
 
+// parseMultiValueParam parses query parameters that can have multiple values
+// Supports both comma-separated values in single parameter and repeated parameters
+func parseMultiValueParam(queryValues map[string][]string, key string) []string {
+	values := queryValues[key]
+	if len(values) == 0 {
+		return nil
+	}
+
+	var result []string
+	for _, value := range values {
+		if value == "" {
+			continue
+		}
+		// Split by comma to support comma-separated values
+		parts := strings.Split(value, ",")
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part != "" {
+				result = append(result, part)
+			}
+		}
+	}
+
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
 // ListAuditLogs handles GET /api/mcp-audit-logs and /api/mcp-audit-logs/{mcp_id}
 func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	query := req.URL.Query()
 
-	var mcpServerDisplayName, userID, mcpServerCatalogEntryName string
-	mcpID := req.PathValue("mcp_id")
-	if mcpID == "" {
-		mcpID = query.Get("mcp_id")
-		// Only look at these query parameters if the MCP ID is not provided in the URL.
-		mcpServerDisplayName = query.Get("mcp_server_display_name")
-		mcpServerCatalogEntryName = query.Get("mcp_server_catalog_entry_name")
-		userID = query.Get("user_id")
-	}
-
-	// Parse query parameters
+	// Parse query parameters with support for multiple values
 	opts := gateway.MCPAuditLogOptions{
 		// Default limit is 100.
 		Limit:                     100,
-		UserID:                    userID,
-		MCPID:                     mcpID,
-		MCPServerDisplayName:      mcpServerDisplayName,
-		MCPServerCatalogEntryName: mcpServerCatalogEntryName,
-		Client:                    query.Get("client"),
-		CallType:                  query.Get("call_type"),
-		SessionID:                 query.Get("session_id"),
+		UserID:                    parseMultiValueParam(query, "user_id"),
+		MCPID:                     parseMultiValueParam(query, "mcp_id"),
+		MCPServerDisplayName:      parseMultiValueParam(query, "mcp_server_display_name"),
+		MCPServerCatalogEntryName: parseMultiValueParam(query, "mcp_server_catalog_entry_name"),
+		CallType:                  parseMultiValueParam(query, "call_type"),
+		SessionID:                 parseMultiValueParam(query, "session_id"),
+		ClientName:                parseMultiValueParam(query, "client_name"),
+		ClientVersion:             parseMultiValueParam(query, "client_version"),
+		ResponseStatus:            parseMultiValueParam(query, "response_status"),
+		ClientIP:                  parseMultiValueParam(query, "client_ip"),
+		Query:                     strings.TrimSpace(query.Get("query")),
+	}
+
+	// Handle path parameter for mcp_id (takes precedence over query parameter)
+	if pathMcpID := req.PathValue("mcp_id"); pathMcpID != "" {
+		opts.MCPID = []string{pathMcpID}
+	}
+
+	// Parse processing time range
+	if processingTimeMin := query.Get("processing_time_min"); processingTimeMin != "" {
+		if minVal, err := strconv.ParseInt(processingTimeMin, 10, 64); err == nil && minVal >= 0 {
+			opts.ProcessingTimeMin = minVal
+		}
+	}
+
+	if processingTimeMax := query.Get("processing_time_max"); processingTimeMax != "" {
+		if maxVal, err := strconv.ParseInt(processingTimeMax, 10, 64); err == nil && maxVal >= 0 {
+			opts.ProcessingTimeMax = maxVal
+		}
 	}
 
 	// Parse time range
@@ -80,7 +122,7 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	}
 
 	// Convert to API types
-	var result []types.MCPAuditLog
+	result := make([]types.MCPAuditLog, 0, len(logs))
 	for _, log := range logs {
 		result = append(result, gatewaytypes.ConvertMCPAuditLog(log))
 	}

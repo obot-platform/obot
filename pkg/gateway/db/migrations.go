@@ -143,3 +143,17 @@ func dropMCPOAuthTokensTableForUserIDPrimaryKey(tx *gorm.DB) error {
 
 	return nil
 }
+
+func migrateMCPAuditLogClientInfo(tx *gorm.DB) error {
+	migrator := tx.Migrator()
+	if migrator.HasTable(&types.MCPAuditLog{}) && !migrator.HasColumn(&types.MCPAuditLog{}, "client_name") {
+		if err := migrator.RenameColumn(&types.MCPAuditLog{}, "name", "client_name"); err != nil {
+			return err
+		}
+		if err := migrator.RenameColumn(&types.MCPAuditLog{}, "version", "client_version"); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

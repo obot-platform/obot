@@ -38,7 +38,8 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 		MCPID:                     c.messageHandler.mcpID,
 		MCPServerDisplayName:      c.messageHandler.mcpServer.Spec.Manifest.Name,
 		MCPServerCatalogEntryName: c.messageHandler.mcpServer.Spec.MCPServerCatalogEntryName,
-		ClientInfo:                gatewaytypes.ClientInfo(msg.Session.InitializeRequest.ClientInfo),
+		ClientName:                msg.Session.InitializeRequest.ClientInfo.Name,
+		ClientVersion:             msg.Session.InitializeRequest.ClientInfo.Version,
 		CreatedAt:                 startTime,
 		CallType:                  msg.Method,
 	}

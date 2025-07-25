@@ -52,6 +52,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop mcp_server_instance table: %w", err)
 	}
 
+	if err = migrateMCPAuditLogClientInfo(tx); err != nil {
+		return fmt.Errorf("failed to migrate mcp_audit_log client info: %w", err)
+	}
+
 	if err := tx.AutoMigrate(&GptscriptCredential{}); err != nil {
 		return fmt.Errorf("failed to auto migrate GptscriptCredential: %w", err)
 	}

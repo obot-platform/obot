@@ -16,16 +16,17 @@ type MCPAuditLog struct {
 	MCPID                     string             `json:"mcpID" gorm:"index"`
 	MCPServerDisplayName      string             `json:"mcpServerDisplayName" gorm:"index"`
 	MCPServerCatalogEntryName string             `json:"mcpServerCatalogEntryName" gorm:"index"`
-	ClientInfo                ClientInfo         `json:"clientInfo" gorm:"embedded"`
-	ClientIP                  string             `json:"clientIP"`
+	ClientName                string             `json:"clientName" gorm:"index"`
+	ClientVersion             string             `json:"clientVersion" gorm:"index"`
+	ClientIP                  string             `json:"clientIP" gorm:"index"`
 	CallType                  string             `json:"callType" gorm:"index"`
 	CallIdentifier            string             `json:"callIdentifier,omitempty" gorm:"index"`
 	RequestBody               json.RawMessage    `json:"requestBody,omitempty"`
 	ResponseBody              json.RawMessage    `json:"responseBody,omitempty"`
-	ResponseStatus            int                `json:"responseStatus"`
+	ResponseStatus            int                `json:"responseStatus" gorm:"index"`
 	Error                     string             `json:"error,omitempty"`
-	ProcessingTimeMs          int64              `json:"processingTimeMs"`
-	SessionID                 string             `json:"sessionID,omitempty"`
+	ProcessingTimeMs          int64              `json:"processingTimeMs" gorm:"index"`
+	SessionID                 string             `json:"sessionID,omitempty" gorm:"index"`
 	WebhookStatuses           []MCPWebhookStatus `json:"webhookStatuses,omitempty" gorm:"type:jsonb"`
 
 	// Additional metadata
@@ -33,11 +34,6 @@ type MCPAuditLog struct {
 	UserAgent       string          `json:"userAgent,omitempty"`
 	RequestHeaders  json.RawMessage `json:"requestHeaders,omitempty"`
 	ResponseHeaders json.RawMessage `json:"responseHeaders,omitempty"`
-}
-
-type ClientInfo struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
 }
 
 type MCPWebhookStatus struct {
@@ -99,21 +95,24 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 		MCPID:                     a.MCPID,
 		MCPServerDisplayName:      a.MCPServerDisplayName,
 		MCPServerCatalogEntryName: a.MCPServerCatalogEntryName,
-		ClientInfo:                types2.ClientInfo(a.ClientInfo),
-		ClientIP:                  a.ClientIP,
-		CallType:                  a.CallType,
-		CallIdentifier:            a.CallIdentifier,
-		RequestBody:               a.RequestBody,
-		ResponseBody:              a.ResponseBody,
-		ResponseStatus:            a.ResponseStatus,
-		Error:                     a.Error,
-		WebhookStatuses:           webhookStatus,
-		ProcessingTimeMs:          a.ProcessingTimeMs,
-		SessionID:                 a.SessionID,
-		RequestID:                 a.RequestID,
-		UserAgent:                 a.UserAgent,
-		RequestHeaders:            a.RequestHeaders,
-		ResponseHeaders:           a.ResponseHeaders,
+		ClientInfo: types2.ClientInfo{
+			Name:    a.ClientName,
+			Version: a.ClientVersion,
+		},
+		ClientIP:         a.ClientIP,
+		CallType:         a.CallType,
+		CallIdentifier:   a.CallIdentifier,
+		RequestBody:      a.RequestBody,
+		ResponseBody:     a.ResponseBody,
+		ResponseStatus:   a.ResponseStatus,
+		Error:            a.Error,
+		WebhookStatuses:  webhookStatus,
+		ProcessingTimeMs: a.ProcessingTimeMs,
+		SessionID:        a.SessionID,
+		RequestID:        a.RequestID,
+		UserAgent:        a.UserAgent,
+		RequestHeaders:   a.RequestHeaders,
+		ResponseHeaders:  a.ResponseHeaders,
 	}
 }
 

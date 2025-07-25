@@ -24,32 +24,58 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{})
 
 	// Apply filters
-	if opts.UserID != "" {
-		db = db.Where("user_id = ?", opts.UserID)
+	if len(opts.UserID) > 0 {
+		db = db.Where("user_id IN (?)", opts.UserID)
 	}
-	if opts.MCPID != "" {
-		db = db.Where("mcp_id = ?", opts.MCPID)
+	if len(opts.MCPID) > 0 {
+		db = db.Where("mcp_id IN (?)", opts.MCPID)
 	}
-	if opts.MCPServerDisplayName != "" {
-		db = db.Where("mcp_server_display_name = ?", opts.MCPServerDisplayName)
+	if len(opts.MCPServerDisplayName) > 0 {
+		db = db.Where("mcp_server_display_name IN (?)", opts.MCPServerDisplayName)
 	}
-	if opts.MCPServerCatalogEntryName != "" {
-		db = db.Where("mcp_server_catalog_entry_name = ?", opts.MCPServerCatalogEntryName)
+	if len(opts.MCPServerCatalogEntryName) > 0 {
+		db = db.Where("mcp_server_catalog_entry_name IN (?)", opts.MCPServerCatalogEntryName)
 	}
-	if opts.Client != "" {
-		db = db.Where("client = ?", opts.Client)
+	if len(opts.CallType) > 0 {
+		db = db.Where("call_type IN (?)", opts.CallType)
 	}
-	if opts.CallType != "" {
-		db = db.Where("call_type = ?", opts.CallType)
+	if len(opts.SessionID) > 0 {
+		db = db.Where("session_id IN (?)", opts.SessionID)
 	}
-	if opts.SessionID != "" {
-		db = db.Where("session_id = ?", opts.SessionID)
+	if len(opts.ClientName) > 0 {
+		db = db.Where("client_name IN (?)", opts.ClientName)
+	}
+	if len(opts.ClientVersion) > 0 {
+		db = db.Where("client_version IN (?)", opts.ClientVersion)
+	}
+	if len(opts.ResponseStatus) > 0 {
+		db = db.Where("response_status IN (?)", opts.ResponseStatus)
+	}
+	if len(opts.ClientIP) > 0 {
+		db = db.Where("client_ip IN (?)", opts.ClientIP)
+	}
+	if opts.ProcessingTimeMin > 0 {
+		db = db.Where("processing_time_ms >= ?", opts.ProcessingTimeMin)
+	}
+	if opts.ProcessingTimeMax > 0 {
+		db = db.Where("processing_time_ms <= ?", opts.ProcessingTimeMax)
 	}
 	if !opts.StartTime.IsZero() {
 		db = db.Where("created_at >= ?", opts.StartTime)
 	}
 	if !opts.EndTime.IsZero() {
 		db = db.Where("created_at < ?", opts.EndTime)
+	}
+
+	// Apply text search across multiple fields
+	if opts.Query != "" {
+		searchTerm := "%" + opts.Query + "%"
+		db = db.Where(`user_id ILIKE ? OR mcp_id ILIKE ? OR mcp_server_display_name ILIKE ? OR 
+			mcp_server_catalog_entry_name ILIKE ? OR client_name ILIKE ? OR client_version ILIKE ? OR 
+			client_ip ILIKE ? OR call_type ILIKE ? OR call_identifier ILIKE ? OR error ILIKE ? OR 
+			session_id ILIKE ? OR request_id ILIKE ? OR user_agent ILIKE ?`,
+			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm,
+			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm)
 	}
 
 	// Apply pagination
@@ -70,6 +96,10 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 			"mcp_server_catalog_entry_name": true,
 			"call_type":                     true,
 			"processing_time_ms":            true,
+			"client_name":                   true,
+			"client_version":                true,
+			"response_status":               true,
+			"client_ip":                     true,
 		}
 
 		if validSortFields[opts.SortBy] {
@@ -207,26 +237,41 @@ func (c *Client) CountMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions)
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{})
 
 	// Apply filters
-	if opts.UserID != "" {
-		db = db.Where("user_id = ?", opts.UserID)
+	if len(opts.UserID) > 0 {
+		db = db.Where("user_id IN (?)", opts.UserID)
 	}
-	if opts.MCPID != "" {
-		db = db.Where("mcp_id = ?", opts.MCPID)
+	if len(opts.MCPID) > 0 {
+		db = db.Where("mcp_id IN (?)", opts.MCPID)
 	}
-	if opts.MCPServerDisplayName != "" {
-		db = db.Where("mcp_server_display_name = ?", opts.MCPServerDisplayName)
+	if len(opts.MCPServerDisplayName) > 0 {
+		db = db.Where("mcp_server_display_name IN (?)", opts.MCPServerDisplayName)
 	}
-	if opts.MCPServerCatalogEntryName != "" {
-		db = db.Where("mcp_server_catalog_entry_name = ?", opts.MCPServerCatalogEntryName)
+	if len(opts.MCPServerCatalogEntryName) > 0 {
+		db = db.Where("mcp_server_catalog_entry_name IN (?)", opts.MCPServerCatalogEntryName)
 	}
-	if opts.Client != "" {
-		db = db.Where("client = ?", opts.Client)
+	if len(opts.CallType) > 0 {
+		db = db.Where("call_type IN (?)", opts.CallType)
 	}
-	if opts.CallType != "" {
-		db = db.Where("call_type = ?", opts.CallType)
+	if len(opts.SessionID) > 0 {
+		db = db.Where("session_id IN (?)", opts.SessionID)
 	}
-	if opts.SessionID != "" {
-		db = db.Where("session_id = ?", opts.SessionID)
+	if len(opts.ClientName) > 0 {
+		db = db.Where("client_name IN (?)", opts.ClientName)
+	}
+	if len(opts.ClientVersion) > 0 {
+		db = db.Where("client_version IN (?)", opts.ClientVersion)
+	}
+	if len(opts.ResponseStatus) > 0 {
+		db = db.Where("response_status IN (?)", opts.ResponseStatus)
+	}
+	if len(opts.ClientIP) > 0 {
+		db = db.Where("client_ip IN (?)", opts.ClientIP)
+	}
+	if opts.ProcessingTimeMin > 0 {
+		db = db.Where("processing_time_ms >= ?", opts.ProcessingTimeMin)
+	}
+	if opts.ProcessingTimeMax > 0 {
+		db = db.Where("processing_time_ms <= ?", opts.ProcessingTimeMax)
 	}
 	if !opts.StartTime.IsZero() {
 		db = db.Where("created_at >= ?", opts.StartTime)
@@ -235,18 +280,35 @@ func (c *Client) CountMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions)
 		db = db.Where("created_at < ?", opts.EndTime)
 	}
 
+	// Apply text search across multiple fields
+	if opts.Query != "" {
+		searchTerm := "%" + opts.Query + "%"
+		db = db.Where(`user_id ILIKE ? OR mcp_id ILIKE ? OR mcp_server_display_name ILIKE ? OR 
+			mcp_server_catalog_entry_name ILIKE ? OR client_name ILIKE ? OR client_version ILIKE ? OR 
+			client_ip ILIKE ? OR call_type ILIKE ? OR call_identifier ILIKE ? OR error ILIKE ? OR 
+			session_id ILIKE ? OR request_id ILIKE ? OR user_agent ILIKE ?`,
+			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm,
+			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm)
+	}
+
 	return count, db.Count(&count).Error
 }
 
 // MCPAuditLogOptions represents options for querying MCP audit logs
 type MCPAuditLogOptions struct {
-	UserID                    string
-	MCPID                     string
-	MCPServerDisplayName      string
-	MCPServerCatalogEntryName string
-	Client                    string
-	CallType                  string
-	SessionID                 string
+	UserID                    []string
+	MCPID                     []string
+	MCPServerDisplayName      []string
+	MCPServerCatalogEntryName []string
+	CallType                  []string
+	SessionID                 []string
+	ClientName                []string
+	ClientVersion             []string
+	ResponseStatus            []string
+	ClientIP                  []string
+	ProcessingTimeMin         int64
+	ProcessingTimeMax         int64
+	Query                     string // Search term for text search across multiple fields
 	StartTime                 time.Time
 	EndTime                   time.Time
 	Limit                     int
