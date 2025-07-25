@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httputil"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -20,7 +19,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/jwt"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
@@ -72,7 +70,7 @@ func (s *Server) llmProxy(req api.Context) error {
 
 		modelProvider = m.Spec.Manifest.ModelProvider
 		model = m.Spec.Manifest.TargetModel
-	} else if isModelFromProjectLevel(req.Context(), req.Storage, token, model, modelProvider) {
+	} else {
 		// If this request is using a user-specific credential, then get it.
 		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", strings.Replace(token.TopLevelProjectID, system.ThreadPrefix, system.ProjectPrefix, 1), token.ModelProvider)}, token.ModelProvider)
 		if err != nil {
@@ -148,28 +146,6 @@ func getModelProviderForModel(ctx context.Context, client kclient.Client, namesp
 	}
 
 	return nil, fmt.Errorf("model %q not found", model)
-}
-
-func isModelFromProjectLevel(ctx context.Context, client kclient.Client, token *jwt.TokenContext, model string, modelProvider string) bool {
-	if token.TopLevelProjectID == "" {
-		return false
-	}
-
-	var project v1.Thread
-	if err := client.Get(ctx, kclient.ObjectKey{Namespace: token.Namespace, Name: token.TopLevelProjectID}, &project); err != nil {
-		return false
-	}
-
-	if project.Spec.Models == nil {
-		return false
-	}
-
-	modelsForProvider, exists := project.Spec.Models[modelProvider]
-	if !exists {
-		return false
-	}
-
-	return slices.Contains(modelsForProvider, model)
 }
 
 func readBody(r *http.Request) (map[string]any, error) {

@@ -204,13 +204,7 @@
 	$effect(() => {
 		if (threadId) {
 			fetchThreadDetails().then(() => {
-				if (
-					threadType &&
-					threadModel &&
-					threadModelProvider &&
-					!threadType.model &&
-					!threadType.modelProvider
-				) {
+				if (threadType && threadModel && threadModelProvider && !threadType.model) {
 					// Make sure that the thread model is available on the project, and replace it with default if not.
 					if (
 						!project.models ||
@@ -391,7 +385,7 @@
 													isModelSelected &&
 														'text-blue bg-blue/10 hover:bg-blue/15 active:bg-blue/20'
 												)}
-												onclick={() => setThreadModel(model.name, providerId)}
+												onclick={() => setThreadModel(model.name, '')}
 												tabindex="0"
 												data-provider={providerId}
 												data-model={modelName}
