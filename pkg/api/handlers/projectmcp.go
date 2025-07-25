@@ -61,7 +61,7 @@ func getMCPServerForProjectServer(ctx context.Context, client kclient.Client, pr
 	}
 
 	var mcpServer v1.MCPServer
-	if err := client.Get(ctx, kclient.ObjectKey{Namespace: projectServer.Namespace, Name: projectServer.Spec.Manifest.MCPID}, &mcpServer); err != nil {
+	if err := client.Get(ctx, kclient.ObjectKey{Namespace: projectServer.Namespace, Name: mcpServerName}, &mcpServer); err != nil {
 		return nil, fmt.Errorf("failed to get MCP server %q: %w", mcpServerName, err)
 	}
 
