@@ -18,7 +18,6 @@
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { onDestroy } from 'svelte';
-	import { getMCPCatalogServerOAuthURL } from '$lib/services/admin/operations';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -194,6 +193,14 @@
 				oauthURL = await ChatService.getProjectMcpServerOauthURL(
 					project.assistantID,
 					project.id,
+					entry.id,
+					{
+						signal: abortController.signal
+					}
+				);
+			} else if ('sharedWithinCatalogName' in entry) {
+				oauthURL = await AdminService.getMCPCatalogServerOAuthURL(
+					entry.sharedWithinCatalogName,
 					entry.id,
 					{
 						signal: abortController.signal

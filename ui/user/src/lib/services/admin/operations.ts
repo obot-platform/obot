@@ -233,10 +233,10 @@ export async function getMCPCatalogServerOAuthURL(
 	opts?: { signal?: AbortSignal }
 ): Promise<string> {
 	try {
-		const response = (await doGet(
-			`/mcp-catalogs/${catalogID}/servers/${serverID}/oauth-url`,
-			opts
-		)) as {
+		const response = (await doGet(`/mcp-catalogs/${catalogID}/servers/${serverID}/oauth-url`, {
+			dontLogErrors: true,
+			signal: opts?.signal
+		})) as {
 			oauthURL: string;
 		};
 		return response.oauthURL;
