@@ -70,6 +70,8 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.URL.Path == "/" {
 		http.ServeFileFS(w, r, embedded, "user/build/index.html")
+	} else if r.URL.Path == "/v2/admin" {
+		http.ServeFileFS(w, r, embedded, "user/build/v2/admin.html")
 	} else if _, err := fs.Stat(embedded, userPath); err == nil {
 		http.ServeFileFS(w, r, embedded, userPath)
 	} else if _, err := fs.Stat(embedded, adminPath); err == nil {

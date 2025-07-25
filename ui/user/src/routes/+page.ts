@@ -1,16 +1,20 @@
-import { ChatService, getProfile, type AuthProvider } from '$lib/services';
-import { Role } from '$lib/services/admin/types';
+import { AdminService, ChatService, getProfile, type AuthProvider } from '$lib/services';
+import { Role, type BootstrapStatus } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
 export const load: PageLoad = async ({ fetch, url }) => {
+	let bootstrapStatus: BootstrapStatus | undefined;
 	let authProviders: AuthProvider[] = [];
 	let profile;
 
 	try {
 		profile = await getProfile({ fetch });
 	} catch (_err) {
-		authProviders = await ChatService.listAuthProviders({ fetch });
+		[bootstrapStatus, authProviders] = await Promise.all([
+			AdminService.getBootstrapStatus(),
+			ChatService.listAuthProviders({ fetch })
+		]);
 	}
 
 	const loggedIn = profile?.loaded ?? false;
@@ -23,8 +27,10 @@ export const load: PageLoad = async ({ fetch, url }) => {
 		}
 
 		// Redirect to appropriate dashboard
-		throw redirect(302, isAdmin ? '/v2/admin/mcp-servers' : '/mcp-servers');
-	} else if (authProviders.length === 0) {
+		throw redirect(302, isAdmin ? '/v2/admin' : '/mcp-servers');
+	}
+
+	if (bootstrapStatus?.enabled && authProviders.length === 0) {
 		// If no auth providers are configured, redirect to admin page for bootstrap login
 		throw redirect(302, '/v2/admin');
 	}
