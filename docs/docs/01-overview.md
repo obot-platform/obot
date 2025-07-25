@@ -38,4 +38,4 @@ The Obot open source platform can be self-hosted to run on your own infrastructu
 
 ## Installation
 
-For detailed installation instructions, please refer to our [Installation Guide](/installation/overview).
+For detailed installation instructions, please refer to our [Installation Guide](/installation/general).

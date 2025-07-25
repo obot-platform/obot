@@ -10,7 +10,7 @@ Threads are different conversations with the project. They are useful for keepin
 
 ### Tasks
 
-See [tasks](06-tasks.md).
+See [tasks](03-tasks.md).
 
 ### MCP Servers
 

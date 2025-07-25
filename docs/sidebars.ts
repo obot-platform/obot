@@ -17,7 +17,7 @@ const sidebars = {
       type: "category",
       label: "Installation",
       items: [
-        "installation/General",
+        "installation/general",
         {
           type: "category",
           label: "Configuration",
