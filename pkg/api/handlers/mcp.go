@@ -1541,7 +1541,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 		Metadata:                MetadataFrom(&server),
 		MissingRequiredEnvVars:  missingEnvVars,
 		MissingRequiredHeaders:  missingHeaders,
-		Configured:              len(missingEnvVars) == 0 && len(missingHeaders) == 0,
+		Configured:              len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL,
 		MCPServerManifest:       server.Spec.Manifest,
 		CatalogEntryID:          server.Spec.MCPServerCatalogEntryName,
 		SharedWithinCatalogName: server.Spec.SharedWithinMCPCatalogName,
