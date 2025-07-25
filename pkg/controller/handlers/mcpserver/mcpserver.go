@@ -7,11 +7,13 @@ import (
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -89,6 +91,27 @@ func (h *Handler) MigrateProjectMCPServers(req router.Request, _ router.Response
 	mcpID, ok := strings.CutPrefix(server.Spec.Manifest.URL, fmt.Sprintf("%s/mcp-connect/", h.baseURL))
 	if !ok || server.Spec.ThreadName == "" {
 		return nil
+	}
+
+	var projectMCPServers v1.ProjectMCPServerList
+	if err := req.List(untriggered.UncachedList(&projectMCPServers), &kclient.ListOptions{
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.threadName": server.Spec.ThreadName,
+		}),
+	}); err != nil {
+		return err
+	}
+
+	var found bool
+	for _, projectMCPServer := range projectMCPServers.Items {
+		if projectMCPServer.Spec.Manifest.MCPID == mcpID {
+			found = true
+			break
+		}
+	}
+
+	if found {
+		return kclient.IgnoreNotFound(req.Delete(server))
 	}
 
 	if err := req.Client.Create(req.Ctx, &v1.ProjectMCPServer{
