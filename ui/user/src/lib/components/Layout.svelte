@@ -13,6 +13,7 @@
 		Funnel,
 		GlobeLock,
 		LockKeyhole,
+		MessageCircle,
 		Server,
 		Settings,
 		SidebarClose,
@@ -89,7 +90,13 @@
 						collapsible: false
 					},
 					{
-						href: '/admin/auth-providers',
+						href: '/admin/chat-threads',
+						icon: MessageCircle,
+						label: 'Chat Threads',
+						collapsible: false
+					},
+					{
+						href: 'admin/auth-providers',
 						icon: LockKeyhole,
 						label: 'Auth Providers',
 						collapsible: false

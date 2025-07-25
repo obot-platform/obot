@@ -74,6 +74,7 @@ export interface OrgUser {
 	iconURL: string;
 	id: string;
 	lastActiveDay?: string;
+	displayName?: string;
 }
 
 export interface OrgGroup {

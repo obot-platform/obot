@@ -279,6 +279,11 @@ export async function listUsers(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> 
 	return response.items ?? [];
 }
 
+export async function getUser(userID: string, opts?: { fetch?: Fetcher }): Promise<OrgUser> {
+	const response = (await doGet(`/users/${userID}`, opts)) as OrgUser;
+	return response;
+}
+
 export async function updateUserRole(
 	userID: string,
 	role: number,
@@ -291,14 +296,24 @@ export async function deleteUser(userID: string): Promise<void> {
 	await doDelete(`/users/${userID}`);
 }
 
+export async function listProjects(opts?: { fetch?: Fetcher }): Promise<Project[]> {
+	const response = (await doGet('/projects?all=true', opts)) as ItemsResponse<Project>;
+	return response.items ?? [];
+}
+
 export async function listThreads(opts?: { fetch?: Fetcher }): Promise<ProjectThread[]> {
 	const response = (await doGet('/threads', opts)) as ItemsResponse<ProjectThread>;
 	return response.items ?? [];
 }
 
-export async function listProjects(opts?: { fetch?: Fetcher }): Promise<Project[]> {
-	const response = (await doGet('/projects?all=true', opts)) as ItemsResponse<Project>;
-	return response.items ?? [];
+export async function getThread(id: string, opts?: { fetch?: Fetcher }): Promise<ProjectThread> {
+	const response = (await doGet(`/threads/${id}`, opts)) as ProjectThread;
+	return response;
+}
+
+export async function getProject(projectID: string, opts?: { fetch?: Fetcher }): Promise<Project> {
+	const response = (await doGet(`/projects/${projectID}`, opts)) as Project;
+	return response;
 }
 
 export async function listTasks(opts?: { fetch?: Fetcher }): Promise<Task[]> {
