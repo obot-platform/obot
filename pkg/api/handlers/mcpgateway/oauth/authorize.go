@@ -240,38 +240,38 @@ func (h *handler) callback(req api.Context) error {
 		return nil
 	}
 
-	// Check whether the MCP server needs authentication.
-	var (
-		mcpID           = req.PathValue("mcp_id")
-		mcpServer       v1.MCPServer
-		mcpServerConfig mcp.ServerConfig
-		err             error
-	)
-
-	if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
-		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, mcpID)
-	} else {
-		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, mcpID)
-	}
-	if err != nil {
-		return err
-	}
-
-	// For now, we only need to check for OAuth if the MCP server is remote.
-	// This may change in the future as the protocol matures, but, for now, this is an optimization for loading times for the redirects.
-	if mcpServerConfig.Command == "" {
-		u, err := h.oauthChecker.CheckForMCPAuth(req.Context(), mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
+	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
+		// Check whether the MCP server needs authentication.
+		var (
+			mcpServer       v1.MCPServer
+			mcpServerConfig mcp.ServerConfig
+			err             error
+		)
+		if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
+			mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, mcpID)
+		} else {
+			mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, mcpID)
+		}
 		if err != nil {
-			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
-				Code:        ErrServerError,
-				Description: err.Error(),
-			})
-			return nil
+			return err
 		}
 
-		if u != "" {
-			http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
-			return nil
+		// For now, we only need to check for OAuth if the MCP server is remote.
+		// This may change in the future as the protocol matures, but, for now, this is an optimization for loading times for the redirects.
+		if mcpServerConfig.Command == "" {
+			u, err := h.oauthChecker.CheckForMCPAuth(req.Context(), mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
+			if err != nil {
+				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+					Code:        ErrServerError,
+					Description: err.Error(),
+				})
+				return nil
+			}
+
+			if u != "" {
+				http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
+				return nil
+			}
 		}
 	}
 

@@ -21,7 +21,7 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *jwt.
 		mcpServerDisplayName = projectMCPServer.Name
 	}
 
-	serverConfig, err := ProjectServerToConfig(tokenService, projectMCPServer, serverURL, "", allowedTools...)
+	serverConfig, err := ProjectServerToConfig(tokenService, projectMCPServer, serverURL, userID, allowedTools...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert MCP server %s to server config: %w", mcpServerDisplayName, err)
 	}
