@@ -5,28 +5,25 @@
 		type MCPServerPrompt,
 		type McpServerResource,
 		ChatService,
-		AdminService,
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
-	import type { MCPCatalogEntry, MCPCatalogServerManifest } from '$lib/services/admin/types';
-	import { CircleCheckBig, CircleOff, Info, LoaderCircle, Pencil, RefreshCcw } from 'lucide-svelte';
+	import type { MCPCatalogEntry } from '$lib/services/admin/types';
+	import { CircleCheckBig, CircleOff, Info, LoaderCircle, RefreshCcw } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import McpServerTools from './McpServerTools.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { responsive } from '$lib/stores';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import MarkdownTextEditor from '../admin/MarkdownTextEditor.svelte';
 	import { onDestroy } from 'svelte';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
-		editable?: boolean;
 		catalogId?: string;
-		onUpdate?: () => void;
 		onAuthenticate?: () => void;
 		project?: Project;
+		descriptionPlaceholder?: string;
 	}
 
 	type EntryDetail = {
@@ -139,14 +136,18 @@
 		return [];
 	}
 
-	let { entry, editable = false, catalogId, onUpdate, onAuthenticate, project }: Props = $props();
+	let {
+		entry,
+		onAuthenticate,
+		project,
+		descriptionPlaceholder = 'No description available'
+	}: Props = $props();
 	let tools = $state<MCPServerTool[]>([]);
 	let prompts = $state<MCPServerPrompt[]>([]);
 	let resources = $state<McpServerResource[]>([]);
 	let previewTools = $derived(getToolPreview(entry));
 	let details = $derived(convertEntryDetails(entry));
 	let loading = $state(false);
-	let editDescription = $state(false);
 	let previousEntryId = $state<string | undefined>(undefined);
 	let oauthURL = $state<string>('');
 	let showRefresh = $state(false);
@@ -206,8 +207,9 @@
 				return;
 			}
 
+			// Make a best effort attempt to load tools, prompts, and resources concurrently
 			let promises = project
-				? Promise.all([
+				? Promise.allSettled([
 						ChatService.listProjectMCPServerTools(project.assistantID, project.id, entry.id, {
 							signal: abortController.signal
 						}),
@@ -218,47 +220,32 @@
 							signal: abortController.signal
 						})
 					])
-				: Promise.all([
+				: Promise.allSettled([
 						ChatService.listMcpCatalogServerTools(entry.id, { signal: abortController.signal }),
 						ChatService.listMcpCatalogServerPrompts(entry.id, { signal: abortController.signal }),
 						ChatService.listMcpCatalogServerResources(entry.id, { signal: abortController.signal })
 					]);
 
 			const [toolsRes, promptsRes, resourcesRes] = await promises;
-			tools = toolsRes;
-			prompts = promptsRes;
-			resources = resourcesRes;
+
+			// Keep capabilities from requests that were successful
+			tools = toolsRes.status === 'fulfilled' ? toolsRes.value : [];
+			prompts = promptsRes.status === 'fulfilled' ? promptsRes.value : [];
+			resources = resourcesRes.status === 'fulfilled' ? resourcesRes.value : [];
+
+			for (const result of [toolsRes, promptsRes, resourcesRes]) {
+				if (result.status === 'rejected') {
+					throw result.reason;
+				}
+			}
 		} catch (err: unknown) {
 			// Only handle errors if the request wasn't aborted
 			if (err instanceof Error && err.name !== 'AbortError') {
 				console.error(err);
-				tools = [];
-				prompts = [];
-				resources = [];
 			}
 		} finally {
 			loading = false;
 		}
-	}
-
-	async function handleDescriptionUpdate(markdown: string) {
-		if (!entry?.id || !catalogId) return;
-
-		if ('manifest' in entry) {
-			await AdminService.updateMCPCatalogServer(catalogId, entry.id, {
-				...(entry.manifest as MCPCatalogServerManifest['manifest']),
-				description: markdown
-			});
-		} else if ('commandManifest' in entry || 'urlManifest' in entry) {
-			const manifest = entry.commandManifest || entry.urlManifest;
-			await AdminService.updateMCPCatalogEntry(catalogId, entry.id, {
-				...manifest,
-				description: markdown
-			});
-		}
-
-		editDescription = false;
-		onUpdate?.();
 	}
 
 	$effect(() => {
@@ -284,41 +271,14 @@
 	<div
 		class="dark:bg-surface1 dark:border-surface3 flex h-fit flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm md:w-1/2 lg:w-8/12"
 	>
-		{#if editable}
-			{#if editDescription}
-				<MarkdownTextEditor
-					bind:value={description}
-					initialFocus
-					onUpdate={handleDescriptionUpdate}
-					onCancel={() => (editDescription = false)}
-				/>
-			{:else if description}
-				<div class="group relative w-full">
-					<div class="milkdown-content">
-						{@html toHTMLFromMarkdownWithNewTabLinks(description)}
-					</div>
-					<button
-						class="icon-button absolute top-0 right-0 z-10 min-h-8 opacity-0 transition-all group-hover:opacity-100"
-						onclick={() => (editDescription = true)}
-					>
-						<Pencil class="size-5 text-gray-400 dark:text-gray-600" />
-					</button>
-				</div>
-			{:else}
-				<button
-					class="group relative flex min-h-8 w-full justify-between gap-2 pt-0 text-left"
-					onclick={() => (editDescription = true)}
-				>
-					<span class="text-md text-gray-400 dark:text-gray-600">Add description here...</span>
-					<div class="icon-button opacity-0 group-hover:opacity-100">
-						<Pencil class="size-5 text-gray-400 dark:text-gray-600" />
-					</div>
-				</button>
-			{/if}
-		{:else if description}
+		{#if description}
 			<div class="milkdown-content">
 				{@html toHTMLFromMarkdownWithNewTabLinks(description)}
 			</div>
+		{:else}
+			<p class="text-md text-center font-light text-gray-500 italic">
+				{descriptionPlaceholder}
+			</p>
 		{/if}
 	</div>
 	<div
@@ -377,15 +337,15 @@
 		<div class="flex flex-col gap-2">
 			<h4 class="text-md font-semibold">Capabilities</h4>
 			<ul class="flex flex-wrap items-center gap-2">
-				{@render capabiliity('Tool Catalog', displayTools.length > 0)}
-				{@render capabiliity('Prompts', prompts.length > 0)}
-				{@render capabiliity('Resources', resources.length > 0)}
+				{@render capability('Tool Catalog', displayTools.length > 0)}
+				{@render capability('Prompts', prompts.length > 0)}
+				{@render capability('Resources', resources.length > 0)}
 			</ul>
 		</div>
 	{/if}
 {/snippet}
 
-{#snippet capabiliity(name: string, enabled: boolean)}
+{#snippet capability(name: string, enabled: boolean)}
 	<li
 		class={twMerge(
 			'flex w-fit items-center justify-center gap-1 rounded-full px-4 py-1 text-xs font-light',
