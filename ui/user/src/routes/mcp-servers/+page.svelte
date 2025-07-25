@@ -187,6 +187,9 @@
 				onDisconnect={() => {
 					loadData(true);
 				}}
+				onUpdateConfigure={() => {
+					loadData(true);
+				}}
 				connectSelectText="Get Connection URL"
 				{selectedCategory}
 			>
@@ -199,12 +202,14 @@
 					{@render connectedActions(connectedServer)}
 				{/snippet}
 				{#snippet additConnectedServerCardActions(connectedServer)}
+					{@const configured = connectedServer?.server?.configured}
 					<button
 						class="menu-button"
 						onclick={async () => {
 							connectToServer = connectedServer;
 							connectDialog?.open();
 						}}
+						disabled={!configured}
 					>
 						Get Connection URL
 					</button>
@@ -216,8 +221,10 @@
 </Layout>
 
 {#snippet connectedActions(connectedServer: typeof connectToServer)}
+	{@const configured = connectedServer?.server?.configured}
 	<button
 		class="menu-button justify-between"
+		disabled={!configured}
 		onclick={() => {
 			if (!connectedServer) return;
 			handleSetupChat(connectedServer);

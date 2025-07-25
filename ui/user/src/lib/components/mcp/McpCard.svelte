@@ -3,7 +3,7 @@
 	import { stripMarkdownToText } from '$lib/markdown';
 	import type { MCPCatalogServer, MCPCatalogEntry } from '$lib/services';
 	import { parseCategories } from '$lib/services/chat/mcp';
-	import { Server, Unplug } from 'lucide-svelte';
+	import { Server, TriangleAlert, Unplug } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -25,11 +25,16 @@
 		'manifest' in data ? data.manifest.name : (data.commandManifest?.name ?? data.urlManifest?.name)
 	);
 	let categories = $derived('categories' in data ? data.categories : parseCategories(data));
+	let needsUpdate = $derived('manifest' in data ? !data.configured : false);
 </script>
 
 <div class="relative flex flex-col">
 	<button
-		class="dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm"
+		class={twMerge(
+			'dark:bg-surface1 dark:border-surface3 flex h-full w-full flex-col rounded-sm border border-transparent bg-white p-3 text-left shadow-sm',
+			needsUpdate &&
+				'border-yellow-500 bg-yellow-50/20 dark:border-yellow-500 dark:bg-yellow-500/20'
+		)}
 		onclick={onClick}
 	>
 		<div class="flex items-center gap-2 pr-6">
@@ -83,4 +88,12 @@
 			</button>
 		{/if}
 	</div>
+	{#if needsUpdate}
+		<div
+			class="absolute -top-1 right-7 flex h-full translate-y-2 flex-col justify-between gap-4 p-2"
+			use:tooltip={'Server requires an update.'}
+		>
+			<TriangleAlert class="size-4 text-yellow-500" />
+		</div>
+	{/if}
 </div>

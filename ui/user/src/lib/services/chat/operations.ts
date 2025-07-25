@@ -1510,3 +1510,7 @@ export async function isProjectMcpServerOauthNeeded(
 	}
 	return false;
 }
+
+export async function triggerMcpServerUpdate(mcpServerId: string): Promise<MCPCatalogServer> {
+	return (await doPost(`/mcp-servers/${mcpServerId}/trigger-update`, {})) as MCPCatalogServer;
+}

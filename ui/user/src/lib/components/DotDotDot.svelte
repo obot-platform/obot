@@ -35,6 +35,7 @@
 	use:ref
 	onclick={(e) => {
 		toggle();
+		e.stopPropagation();
 		e.preventDefault();
 		onClick?.();
 	}}
