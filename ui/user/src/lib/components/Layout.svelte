@@ -175,8 +175,8 @@
 													></div>
 													{#if item.disabled}
 														<div class="sidebar-link disabled">
-															<link.icon class="size-4" />
-															{link.label}
+															<item.icon class="size-4" />
+															{item.label}
 														</div>
 													{:else}
 														<a
