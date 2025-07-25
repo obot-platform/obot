@@ -43,27 +43,6 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 				return true, nil
 			}
 		}
-
-		return false, nil
-	}
-
-	// Check to see if this MCP server is shared within a project that the user has access to.
-
-	if resources.Authorizated.Project == nil && resources.Authorizated.Thread != nil &&
-		resources.Authorizated.Thread.Spec.ParentThreadName != "" &&
-		resources.Authorizated.Thread.Spec.ParentThreadName == mcpServer.Spec.ThreadName {
-		resources.Authorizated.MCPServer = &mcpServer
-		return true, nil
-	}
-
-	if resources.Authorizated.Project == nil {
-		return false, nil
-	}
-
-	if resources.Authorizated.Project.Name == mcpServer.Spec.ThreadName ||
-		resources.Authorizated.Project.Spec.ParentThreadName == mcpServer.Spec.ThreadName {
-		resources.Authorizated.MCPServer = &mcpServer
-		return true, nil
 	}
 
 	return false, nil
