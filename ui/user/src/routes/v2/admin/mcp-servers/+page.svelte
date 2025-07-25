@@ -91,7 +91,7 @@
 					icon: entry.commandManifest?.icon ?? entry.urlManifest?.icon,
 					source: entry.sourceURL || 'manual',
 					data: entry,
-					users: '-',
+					users: entry.userCount ?? 0,
 					editable: !entry.sourceURL,
 					type: entry.commandManifest ? 'single' : 'remote'
 				};
@@ -113,7 +113,7 @@
 					source: 'manual',
 					type: 'multi',
 					data: server,
-					users: '-',
+					users: server.mcpServerInstanceUserCount ?? 0,
 					editable: true
 				};
 			});

@@ -40,6 +40,7 @@ export interface MCPCatalogEntry {
 	commandManifest?: MCPCatalogEntryServerManifest;
 	urlManifest?: MCPCatalogEntryServerManifest;
 	sourceURL?: string;
+	userCount?: number;
 	type: string;
 }
 

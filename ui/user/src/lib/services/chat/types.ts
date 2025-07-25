@@ -705,6 +705,7 @@ export interface MCPCatalogServer {
 	deleted?: string;
 	updated: string;
 	type: string;
+	mcpServerInstanceUserCount?: number;
 	manifest: MCPServer;
 }
 
