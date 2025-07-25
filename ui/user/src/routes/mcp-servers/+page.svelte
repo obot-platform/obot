@@ -121,16 +121,16 @@
 			});
 		}
 
+		const mcpId = connectedServer.instance
+			? connectedServer.instance.id
+			: connectedServer.server.id;
 		if (
 			project &&
 			!(await ChatService.listProjectMCPs(project.assistantID, project.id)).find(
-				(mcp) => mcp.mcpID === connectedServer.server?.id
+				(mcp) => mcp.mcpID === mcpId
 			)
 		) {
-			await createProjectMcp(
-				project,
-				connectedServer.instance ? connectedServer.instance.id : connectedServer.server.id
-			);
+			await createProjectMcp(project, mcpId);
 		}
 
 		window.open(`/o/${project?.id}`, '_blank');
