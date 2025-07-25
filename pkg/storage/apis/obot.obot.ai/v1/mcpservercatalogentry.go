@@ -62,6 +62,8 @@ type MCPServerCatalogEntrySpec struct {
 }
 
 type MCPServerCatalogEntryStatus struct {
+	// UserCount contains the current number of users with an MCP server created from this catalog entry.
+	UserCount int `json:"userCount,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

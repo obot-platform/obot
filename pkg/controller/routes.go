@@ -233,6 +233,7 @@ func (c *Controller) setupRoutes() error {
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.RemoveArgsOnRemoteEntries)
+	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.EnsureUserCount)
 
 	// MCPServer
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)

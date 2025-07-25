@@ -3274,6 +3274,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Format: "",
 						},
 					},
+					"userCount": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
 				},
 				Required: []string{"Metadata", "commandManifest", "urlManifest"},
 			},
@@ -10956,6 +10962,15 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref common.Re
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"userCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserCount contains the current number of users with an MCP server created from this catalog entry.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
 			},
 		},
 	}
