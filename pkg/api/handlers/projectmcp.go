@@ -156,7 +156,13 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 	}
 
 	if !req.UserIsAdmin() && mcpServer.Spec.UserID != req.User.GetUID() {
-		return types.NewErrNotFound("MCP server %s is not found", mcpServer.Name)
+		hasAccess, err := p.acrHelper.UserHasAccessToMCPServer(req.User.GetUID(), mcpServer.Name)
+		if err != nil {
+			return err
+		}
+		if !hasAccess {
+			return types.NewErrNotFound("MCP server %s is not found", mcpServer.Name)
+		}
 	}
 
 	if err = req.Create(&projectServer); err != nil {
