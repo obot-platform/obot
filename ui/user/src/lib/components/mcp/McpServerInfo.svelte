@@ -6,7 +6,8 @@
 		type McpServerResource,
 		ChatService,
 		type Project,
-		type ProjectMCP
+		type ProjectMCP,
+		AdminService
 	} from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
 	import { CircleCheckBig, CircleOff, Info, LoaderCircle, RefreshCcw } from 'lucide-svelte';
@@ -17,6 +18,7 @@
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { onDestroy } from 'svelte';
+	import { getMCPCatalogServerOAuthURL } from '$lib/services/admin/operations';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;

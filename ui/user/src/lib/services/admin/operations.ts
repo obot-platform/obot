@@ -226,6 +226,43 @@ export async function getMCPCatalogServer(
 	)) as MCPCatalogServer;
 	return response;
 }
+
+export async function getMCPCatalogServerOAuthURL(
+	catalogID: string,
+	serverID: string,
+	opts?: { signal?: AbortSignal }
+): Promise<string> {
+	try {
+		const response = (await doGet(
+			`/mcp-catalogs/${catalogID}/servers/${serverID}/oauth-url`,
+			opts
+		)) as {
+			oauthURL: string;
+		};
+		return response.oauthURL;
+	} catch (_err) {
+		return '';
+	}
+}
+
+export async function isMCPCatalogServerOauthNeeded(
+	catalogID: string,
+	serverID: string,
+	opts?: { signal?: AbortSignal }
+): Promise<boolean> {
+	try {
+		await doGet(`/mcp-catalogs/${catalogID}/servers/${serverID}/check-oauth`, {
+			dontLogErrors: true,
+			signal: opts?.signal
+		});
+	} catch (err) {
+		if (err instanceof Error && err.message.includes('412')) {
+			return true;
+		}
+	}
+	return false;
+}
+
 export async function deconfigureMCPCatalogServer(
 	catalogID: string,
 	serverID: string,

@@ -124,7 +124,7 @@
 		if (
 			project &&
 			!(await ChatService.listProjectMCPs(project.assistantID, project.id)).find(
-				(mcp) => mcp.name === name
+				(mcp) => mcp.mcpID === connectedServer.server?.id
 			)
 		) {
 			await createProjectMcp(
