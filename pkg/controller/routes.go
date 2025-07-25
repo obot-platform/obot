@@ -239,6 +239,7 @@ func (c *Controller) setupRoutes() error {
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectDrift)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateProjectMCPServers)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerInstanceUserCount)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
 
 	// MCPServerInstance

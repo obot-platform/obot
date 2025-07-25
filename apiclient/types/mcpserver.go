@@ -77,6 +77,9 @@ type MCPServer struct {
 	NeedsURL bool `json:"needsURL,omitempty"`
 	// PreviousURL contains the URL of the server before it was updated to match the catalog entry.
 	PreviousURL string `json:"previousURL,omitempty"`
+	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
+	// This is only set for multi-user servers.
+	MCPServerInstanceUserCount *int `json:"mcpServerInstanceUserCount,omitempty"`
 }
 
 type MCPServerList List[MCPServer]

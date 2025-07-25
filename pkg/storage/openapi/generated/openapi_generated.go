@@ -3223,6 +3223,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"mcpServerInstanceUserCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server. This is only set for multi-user servers.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 				Required: []string{"Metadata", "manifest", "configured", "catalogEntryID"},
 			},
@@ -11240,6 +11247,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",
 							Type:        []string{"boolean"},
 							Format:      "",
+						},
+					},
+					"mcpInstanceUserCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},

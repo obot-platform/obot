@@ -79,6 +79,8 @@ type MCPServerSpec struct {
 type MCPServerStatus struct {
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
+	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
+	MCPServerInstanceUserCount *int `json:"mcpInstanceUserCount,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

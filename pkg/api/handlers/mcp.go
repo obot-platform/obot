@@ -1267,17 +1267,18 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 	}
 
 	return types.MCPServer{
-		Metadata:                MetadataFrom(&server),
-		MissingRequiredEnvVars:  missingEnvVars,
-		MissingRequiredHeaders:  missingHeaders,
-		Configured:              len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL,
-		MCPServerManifest:       server.Spec.Manifest,
-		CatalogEntryID:          server.Spec.MCPServerCatalogEntryName,
-		SharedWithinCatalogName: server.Spec.SharedWithinMCPCatalogName,
-		ConnectURL:              connectURL,
-		NeedsUpdate:             server.Status.NeedsUpdate,
-		NeedsURL:                server.Spec.NeedsURL,
-		PreviousURL:             server.Spec.PreviousURL,
+		Metadata:                   MetadataFrom(&server),
+		MissingRequiredEnvVars:     missingEnvVars,
+		MissingRequiredHeaders:     missingHeaders,
+		Configured:                 len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL,
+		MCPServerManifest:          server.Spec.Manifest,
+		CatalogEntryID:             server.Spec.MCPServerCatalogEntryName,
+		SharedWithinCatalogName:    server.Spec.SharedWithinMCPCatalogName,
+		ConnectURL:                 connectURL,
+		NeedsUpdate:                server.Status.NeedsUpdate,
+		NeedsURL:                   server.Spec.NeedsURL,
+		PreviousURL:                server.Spec.PreviousURL,
+		MCPServerInstanceUserCount: server.Status.MCPServerInstanceUserCount,
 	}
 }
 
