@@ -79,6 +79,7 @@ var staticRules = map[string][]string{
 		"POST /api/llm-proxy/",
 		"POST /api/prompt",
 		"GET /api/models",
+		"GET /api/model-providers",
 		"GET /api/version",
 		"POST /api/image/generate",
 		"POST /api/image/upload",
