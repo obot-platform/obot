@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	ktypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -148,7 +149,8 @@ func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfi
 	return nil
 }
 
-// RestartK8sDeployment restarts the Kubernetes deployment by deleting its pods, which will trigger a restart.
+// RestartK8sDeployment restarts the Kubernetes deployment using kubectl rollout restart style.
+// This patches the deployment with a restart annotation to trigger a rolling restart.
 func (sm *SessionManager) RestartK8sDeployment(ctx context.Context, server ServerConfig) error {
 	if server.Command == "" {
 		return nil
@@ -160,15 +162,25 @@ func (sm *SessionManager) RestartK8sDeployment(ctx context.Context, server Serve
 		return fmt.Errorf("failed to get deployment %s: %w", id, err)
 	}
 
-	var pods corev1.PodList
-	if err := sm.client.List(ctx, &pods, kclient.InNamespace(sm.mcpNamespace), kclient.MatchingLabels(deployment.Spec.Selector.MatchLabels)); err != nil {
-		return fmt.Errorf("failed to list pods for deployment %s: %w", id, err)
+	patch := map[string]interface{}{
+		"spec": map[string]interface{}{
+			"template": map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"annotations": map[string]string{
+						"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
+					},
+				},
+			},
+		},
 	}
 
-	for _, pod := range pods.Items {
-		if err := sm.client.Delete(ctx, &pod); err != nil {
-			return fmt.Errorf("failed to delete pod %s: %w", pod.Name, err)
-		}
+	patchBytes, err := json.Marshal(patch)
+	if err != nil {
+		return fmt.Errorf("failed to marshal patch: %w", err)
+	}
+
+	if err := sm.client.Patch(ctx, &deployment, kclient.RawPatch(ktypes.MergePatchType, patchBytes)); err != nil {
+		return fmt.Errorf("failed to patch deployment %s: %w", id, err)
 	}
 
 	return nil
