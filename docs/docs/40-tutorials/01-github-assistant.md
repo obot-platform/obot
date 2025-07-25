@@ -1,18 +1,20 @@
-# Create a Personal GitHub Task Obot
+# Create a Personal GitHub Task Project
 
-This is a short tutorial demonstrating how to create an obot that interacts with GitHub. The obot will help you keep track of the work assigned to you in GitHub.
+This is a short tutorial demonstrating how to create a project that interacts with GitHub. The project will help you keep track of the work assigned to you in GitHub.
 
 :::note
-As you configure the obot, changes will be saved and applied automatically.
+As you configure the project, changes will be saved and applied automatically.
 :::
 
-## 1. Setting up the obot
+## 1. Setting up the project
+Start by going to the Obot homepage. Click on your profile picture in the top right and chose **Chat** from the dropdown.
+If you do not have an existing project, one will automatically be created for you. If you do already have a project, you can click on the **+** in the left sidebar next to the name of the project you are currently in.
+Set the project name and description to whatever you would like in the fields on the left hand side.
 
-Start by going to the main obot.ai page and scroll down until you see **+ Create New Obot**. Click the button to create a new obot.
-Set the obot name and description to whatever you would like in the fields on the left hand side.
+Next, name your project and optionally write a description of what the project should be used for.
 
-Next, write some instructions for the obot.
-This is a prompt that explains what you would like the obot to do for you.
+Next, click the gear nex to the project name in the sidebar and write some instructions for the project.
+This is a prompt that explains what you would like the project to do for you.
 Here is one example you can try:
 
 ```text
@@ -23,21 +25,15 @@ When I ask for a "status update", list all of the issues assigned to me, as well
 
 ## 2. Adding the tools
 
-Now we need to give the obot access to the GitHub tools.
-Click to expand the **Tools** section
-Click the **+ Tools** button and add `GitHub`.
-Click on the `+` button at the right side of the category name to add all the GitHub tools to the obot.
+Now we need to give the project access to the GitHub MCP server.
+Click the **+** button next to the `MCP Servers` header in the left sidebar.
+Type `GitHub` into the search box, and select the GitHub MCP server.
+Click the **Connect To Server** button.
+Fill our the required `GitHub Personal Access Token` field and click **Update** to save the configuration.
 
-## 3. Testing the obot
+## 3. Testing the project
 
-You can now begin chatting with the obot in the chat interface to the right.
+You can now begin chatting with the project in the chat interface to the right.
 Start by asking it to do something simple, like getting the star count of the repo "torvalds/linux".
-When it makes its first tool call, you will have to sign in to GitHub to authorize the obot to access your account.
 Then, try having it interact with things specific to your account.
-If you gave your obot instructions about a "status update", ask for one and see what it does.
-
-## 4. Sharing the obot (optional)
-
-If you're happy with the obot and want other users to try out your obot,
-you can click to expand the **Share** section when editing the obot configuration.
-Here you can click share and copy the link to share with others.
+If you gave your project instructions about a "status update", ask for one and see what it does.

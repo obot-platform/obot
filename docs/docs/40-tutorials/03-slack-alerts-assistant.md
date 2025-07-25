@@ -1,54 +1,46 @@
-# Create a Slack Alerts Obot
+# Create a Slack Alerts Project
 
-This is a short tutorial demonstrating how to create an **Obot** that helps with alerts in a Slack channel.
+This is a short tutorial demonstrating how to create an Obot project that helps with alerts in a Slack channel.
 
-> **Note:**
-> As you configure the obot, changes are saved and applied automatically — no need to click "Save".
+:::note
+As you configure the project, changes will be saved and applied automatically.
+:::
 
-## 1. Setting up the Obot
+## 1. Setting up the project
+Start by going to the Obot homepage. Click on your profile picture in the top right and chose **Chat** from the dropdown.
+If you do not have an existing project, one will automatically be created for you. If you do already have a project, you can click on the **+** in the left sidebar next to the name of the project you are currently in.
+Set the project name and description to whatever you would like in the fields on the left hand side.
 
-Start by visiting [Obot](https://obot.ai) scroll down and click **+ New Obot** to begin creating one.  
+Next, name your project and optionally write a description of what the project should be used for.
 
-In the **General** section on the left side:  
-
-- Set a **Name** and **Description** for the obot (e.g., "Slack Alerts Helper").  
-- Write **Instructions** to tell the obot what you want it to do. Be specific about which Slack channel contains the alerts, and what systems or types of alerts to expect.  
+Next, click the gear nex to the project name in the sidebar and write some instructions for the project.
+This is a prompt that explains what you would like the project to do for you.
+Here is one example you can try:
 
 ```text
 You are a smart assistant with expertise in Kubernetes and access to the Slack API.  
 Please help me with my alerts in Slack. They are in the channel #alerts.  
 ```
 
-Here’s what the editor looks like when starting a new obot:  
-
 ## 2. Adding Slack Tools
 
-To give the obot access to Slack, scroll down to the **Tools** section in the left sidebar.  
+Now we need to give the project access to the Slack Tools.
+Click the **+** button next to the `MCP Servers` header in the left sidebar.
+Type `Slack` into the search box, and select the GitHub MCP server.
+Click the **Connect To Server** button.
+Fill our the required `Slack Bot Token` and `Slack Team ID` fields, then click **Update** to save the configuration.
 
-- Click **+ Add Tool**.  
-- Search for `Slack`.  
-- You’ll see a category of Slack tools appear — click the toggle on the right side of that category to add all Slack-related tools to your obot.  
+This allows the project to read alerts from Slack channels and respond appropriately.
 
-This allows the obot to read alerts from Slack channels and respond appropriately.  
+## 3. Testing the project
 
-## 3. Testing the Obot
+Once configured, you can test the project using the **chat interface** on the right side of the editor.
 
-Once configured, you can test the obot using the **chat interface** on the right side of the editor.  
-
-Try asking it something like:  
+Try asking it something like:
 
 ```text
 What alerts have fired today?
 Which alerts have fired more than once?
 ```
 
-> 💡 **Note:** The first time the obot tries to interact with Slack, you’ll be prompted to log in and authorize access to your Slack account.  
-
-You can also ask the obot to suggest remediation steps for specific alerts.  
-
-## 4. Sharing the Obot (Optional)
-
-If you’re satisfied with how the obot works and want others to use it:  
-
-- Use the **Share** section in the left sidebar to manage access.  
-- Click **Share** and copy the link to share with others.
+You can also ask the chat to suggest remediation steps for specific alerts.

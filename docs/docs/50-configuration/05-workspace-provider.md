@@ -14,7 +14,9 @@ This section describes the configuration of the workspace provider.
 |----------------------|-------------|-------------------|
 | `OBOT_WORKSPACE_PROVIDER_TYPE` | The type of provider to use | `directory`, `s3`, `azure` |
 
-> **Note**: The `s3` provider is compatible with S3-compatible services like CloudFlare R2. The `azure` provider is for Azure Blob Storage.
+:::note
+The `s3` provider is compatible with S3-compatible services like CloudFlare R2. The `azure` provider is for Azure Blob Storage.
+:::
 
 ## Directory Provider Configuration
 
