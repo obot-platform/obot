@@ -357,16 +357,13 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string,
 			if err == nil {
 				resp.Body.Close()
 				if resp.StatusCode == http.StatusOK {
-					log.Infof("streamable health check success")
 					if sessionID := resp.Header.Get("Mcp-Session-Id"); sessionID != "" {
-						log.Infof("found session ID: %s", sessionID)
 						// Send a cancellation, since we don't need this session.
 						// If we get any errors, ignore them, because it doesn't matter for us.
 						req, err := http.NewRequest(http.MethodDelete, url, nil)
 						if err == nil {
 							req.Header.Set("Mcp-Session-Id", sessionID)
 							resp, _ = http.DefaultClient.Do(req)
-							log.Infof("cancellation request status: %s", resp.Status)
 						}
 					}
 					break
@@ -375,11 +372,6 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string,
 
 			if err != nil || (resp != nil && resp.StatusCode != http.StatusOK) {
 				// Fallback to trying SSE.
-				log.Infof("falling back to SSE")
-				log.Infof("error: %v", err)
-				if resp != nil {
-					log.Infof("status: %s", resp.Status)
-				}
 				req, err := http.NewRequest(http.MethodGet, url, nil)
 				if err != nil {
 					return "", fmt.Errorf("failed to create request: %w", err)
@@ -390,7 +382,6 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string,
 				if err == nil {
 					defer resp.Body.Close()
 					if resp.StatusCode == http.StatusOK {
-						log.Infof("SSE request succeeded, checking for events")
 						ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 						defer cancel()
 
@@ -400,12 +391,9 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string,
 						for scanner.Scan() {
 							select {
 							case <-ctx.Done():
-								log.Infof("SSE healthcheck: timed out")
 								break scannerLoop
 							default:
-								log.Infof("SSE healthcheck: got event: %s", scanner.Text())
 								if strings.Contains(scanner.Text(), "endpoint") {
-									log.Infof("SSE healthcheck: found endpoint")
 									break healthcheckLoop
 								}
 							}
@@ -420,8 +408,6 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string,
 			case <-time.After(100 * time.Millisecond):
 			}
 		}
-
-		log.Infof("healthcheck completed")
 	}
 
 	// Not get the pod name that is currently running, waiting for there to only be one pod.

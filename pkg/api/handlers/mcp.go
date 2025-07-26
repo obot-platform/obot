@@ -1593,7 +1593,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return types.NewErrBadRequest("this server does not have a catalog entry")
 	}
 
-	if mcpServer.Spec.Manifest.Runtime != types.RuntimeRemote {
+	if mcpServer.Spec.Manifest.Runtime != types.RuntimeRemote || mcpServer.Spec.Manifest.RemoteConfig == nil {
 		return types.NewErrBadRequest("cannot update the URL for a non-remote MCP server")
 	}
 
