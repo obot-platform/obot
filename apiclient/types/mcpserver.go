@@ -77,7 +77,6 @@ type MCPServerCatalogEntryManifest struct {
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
 
-	// Common environment variables and headers
 	Env []MCPEnv `json:"env,omitempty"`
 }
 
@@ -113,7 +112,6 @@ type MCPServerManifest struct {
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
 
-	// Common environment variables and headers
 	Env []MCPEnv `json:"env,omitempty"`
 }
 
