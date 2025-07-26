@@ -1,3 +1,4 @@
+//nolint:revive
 package utils
 
 // SlicesEqualIgnoreOrder returns true if slices a and b contain the same elements
