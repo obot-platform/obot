@@ -27,7 +27,8 @@ import type {
 	AuditLogUsageStats,
 	AuditLogFilters,
 	K8sServerLog,
-	K8sServerDetail
+	K8sServerDetail,
+	BaseAgent
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -575,4 +576,13 @@ export async function listK8sServerLogs(mcpServerId: string, opts?: { fetch?: Fe
 
 export async function restartK8sDeployment(mcpServerId: string, opts?: { fetch?: Fetcher }) {
 	await doPost(`/mcp-servers/${mcpServerId}/restart`, {}, opts);
+}
+
+export async function getDefaultBaseAgent(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/agents', opts)) as ItemsResponse<BaseAgent>;
+	return response.items?.find((agent) => agent.default);
+}
+
+export async function updateBaseAgent(agent: BaseAgent, opts?: { fetch?: Fetcher }) {
+	return (await doPut(`/agents/${agent.id}`, agent, opts)) as BaseAgent;
 }
