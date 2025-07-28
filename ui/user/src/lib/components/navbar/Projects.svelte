@@ -138,7 +138,7 @@
 			</div>
 		</a>
 		<button
-			class="icon-button flex-shrink-0 hover:text-blue-500"
+			class="icon-button flex-shrink-0 opacity-0 group-hover:opacity-100 hover:text-blue-500"
 			onclick={() => {
 				openConfigureProject(layout, p);
 			}}

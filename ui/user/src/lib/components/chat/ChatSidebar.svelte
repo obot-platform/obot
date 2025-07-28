@@ -41,7 +41,7 @@
 	</div>
 	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2" use:scrollFocus>
 		<Projects {project} {onCreateProject} />
-		<div class="px-2">
+		<div class="flex flex-col gap-2 px-2">
 			{#if project.editor && !shared}
 				<Threads {project} bind:currentThreadID />
 				<Tasks {project} bind:currentThreadID />

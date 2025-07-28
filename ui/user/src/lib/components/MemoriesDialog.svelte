@@ -284,7 +284,7 @@
 												break;
 										}
 									}}
-									class="mx-2 w-0 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
+									class="mr-2 w-0 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
 									placeholder="Enter name"
 									type="text"
 								/>
