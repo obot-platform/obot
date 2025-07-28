@@ -106,7 +106,6 @@
 		if (responsive.isMobile) {
 			layout.sidebarOpen = false;
 		}
-		console.log(window.location.pathname);
 	});
 
 	initLayout();

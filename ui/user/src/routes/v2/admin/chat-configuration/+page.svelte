@@ -9,7 +9,7 @@
 	import Table from '$lib/components/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte.js';
-	import { AdminService, type Model, type ModelProvider } from '$lib/services';
+	import { AdminService, ModelUsage, type Model, type ModelProvider } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort';
 	import { Check, Info, LoaderCircle, Plus, TriangleAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -40,11 +40,14 @@
 		new Map(modelsData.modelProviders.map((provider) => [provider.id, provider]))
 	);
 	let selectedModels = $derived(
-		modelsData.models.filter((model) => baseAgent?.allowedModels?.includes(model.id))
+		modelsData.models.filter((model) => baseAgent?.allowedModels?.includes(model.name))
+	);
+	let modelOptions = $derived(
+		modelsData.models.filter((model) => !model.usage || model.usage === ModelUsage.LLM)
 	);
 
 	let filterAvailableModelSets = $derived(
-		modelsData.models.filter(
+		modelOptions.filter(
 			(model) =>
 				model.name.toLowerCase().includes(addModelsSearch.toLowerCase()) ||
 				model.modelProviderName.toLowerCase().includes(addModelsSearch.toLowerCase())
@@ -54,19 +57,21 @@
 	let modelProviderSets = $derived(compileModelsByModelProviders(filterAvailableModelSets));
 
 	let sortedModelProviderAndModels = $derived(
-		sortModelProviders(modelsData.modelProviders).map((modelProvider) => ({
-			modelProvider,
-			models: (modelProviderSets[modelProvider.id] ?? []).sort((a, b) => {
-				const aStartsWithGpt = a.name.toLowerCase().startsWith('gpt');
-				const bStartsWithGpt = b.name.toLowerCase().startsWith('gpt');
+		modelProviderSets && modelsData.modelProviders.length > 0
+			? sortModelProviders(modelsData.modelProviders).map((modelProvider) => ({
+					modelProvider,
+					models: (modelProviderSets[modelProvider.id] ?? []).sort((a, b) => {
+						const aStartsWithGpt = a.name.toLowerCase().startsWith('gpt');
+						const bStartsWithGpt = b.name.toLowerCase().startsWith('gpt');
 
-				if (aStartsWithGpt === bStartsWithGpt) {
-					return a.name.localeCompare(b.name);
-				}
+						if (aStartsWithGpt === bStartsWithGpt) {
+							return a.name.localeCompare(b.name);
+						}
 
-				return aStartsWithGpt ? -1 : 1;
-			})
-		}))
+						return aStartsWithGpt ? -1 : 1;
+					})
+				}))
+			: []
 	);
 
 	let tableData = $derived(
@@ -83,34 +88,31 @@
 					modelProviders,
 					models
 				};
+
+				if (baseAgent && baseAgent.model && (baseAgent.allowedModels ?? []).length === 0) {
+					const match = models.find((m) => m.id === baseAgent!.model);
+					if (match) {
+						baseAgent.allowedModels = [match.name];
+					}
+				}
 			}
 		);
-
-		if (baseAgent && baseAgent.model && (baseAgent.allowedModels ?? []).length === 0) {
-			baseAgent.allowedModels = [baseAgent.model];
-		}
-	});
-
-	$effect(() => {
-		if (showSaved) {
-			clearTimeout(timeout);
-			timeout = setTimeout(() => {
-				showSaved = false;
-			}, 3000);
-		}
-		return () => {
-			clearTimeout(timeout);
-		};
 	});
 
 	async function handleSave() {
 		if (!baseAgent) return;
+		if (timeout) {
+			clearTimeout(timeout);
+		}
 		saving = true;
 		try {
 			const response = await AdminService.updateBaseAgent(baseAgent);
 			prevAgent = baseAgent;
 			baseAgent = response;
 			showSaved = true;
+			timeout = setTimeout(() => {
+				showSaved = false;
+			}, 3000);
 		} catch (err) {
 			console.error(err);
 			// default behavior will show snackbar error
@@ -267,7 +269,7 @@
 										onclick={() => {
 											if (!baseAgent) return;
 											baseAgent.allowedModels = baseAgent.allowedModels?.filter(
-												(modelId) => modelId !== d.id
+												(modelName) => modelName !== d.name
 											);
 										}}
 									>
@@ -385,18 +387,18 @@
 							<button
 								class={twMerge(
 									'hover:bg-surface3 flex items-center justify-between gap-4 rounded-md bg-transparent p-2 font-light',
-									addModelsSelected[model.id] && 'bg-surface2'
+									addModelsSelected[model.name] && 'bg-surface2'
 								)}
 								onclick={() => {
-									if (addModelsSelected[model.id]) {
-										delete addModelsSelected[model.id];
+									if (addModelsSelected[model.name]) {
+										delete addModelsSelected[model.name];
 									} else {
-										addModelsSelected[model.id] = true;
+										addModelsSelected[model.name] = true;
 									}
 								}}
 							>
 								{model.name}
-								{#if addModelsSelected[model.id]}
+								{#if addModelsSelected[model.name]}
 									<Check class="size-4 text-blue-500" />
 								{/if}
 							</button>
