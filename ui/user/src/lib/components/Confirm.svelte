@@ -2,6 +2,7 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { CircleAlert, LoaderCircle, X } from 'lucide-svelte/icons';
 	import type { Snippet } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		show: boolean;
@@ -11,9 +12,21 @@
 		loading?: boolean;
 		note?: Snippet;
 		title?: Snippet;
+		classes?: {
+			confirm?: string;
+		};
 	}
 
-	let { show = false, msg = 'OK?', onsuccess, oncancel, loading, note, title }: Props = $props();
+	let {
+		show = false,
+		msg = 'OK?',
+		onsuccess,
+		oncancel,
+		loading,
+		note,
+		title,
+		classes
+	}: Props = $props();
 
 	let dialog: HTMLDialogElement | undefined = $state();
 
@@ -55,7 +68,10 @@
 				<button
 					onclick={onsuccess}
 					type="button"
-					class="inline-flex min-h-10 items-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50"
+					class={twMerge(
+						'inline-flex min-h-10 items-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium hover:bg-red-800',
+						classes?.confirm
+					)}
 					disabled={loading}
 				>
 					{#if loading}

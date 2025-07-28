@@ -202,14 +202,14 @@
 					{@render connectedActions(connectedServer)}
 				{/snippet}
 				{#snippet additConnectedServerCardActions(connectedServer)}
-					{@const configured = requiresUserUpdate(connectedServer)}
+					{@const requiresUpdate = requiresUserUpdate(connectedServer)}
 					<button
 						class="menu-button"
 						onclick={async () => {
 							connectToServer = connectedServer;
 							connectDialog?.open();
 						}}
-						disabled={!configured}
+						disabled={requiresUpdate}
 					>
 						Connect To Server
 					</button>
@@ -221,10 +221,10 @@
 </Layout>
 
 {#snippet connectedActions(connectedServer: ConnectedServer)}
-	{@const configured = requiresUserUpdate(connectedServer)}
+	{@const requiresUpdate = requiresUserUpdate(connectedServer)}
 	<button
 		class="menu-button justify-between"
-		disabled={!configured}
+		disabled={requiresUpdate}
 		onclick={() => {
 			if (!connectedServer) return;
 			handleSetupChat(connectedServer);

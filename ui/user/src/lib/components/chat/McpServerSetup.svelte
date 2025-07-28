@@ -188,16 +188,16 @@
 						}}
 					>
 						{#snippet connectedServerCardAction(d)}
-							{@const configured = requiresUserUpdate(d)}
+							{@const requiresUpdate = requiresUserUpdate(d)}
 							<button
-								disabled={!configured}
+								disabled={requiresUpdate}
 								class={twMerge(
 									'icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500',
-									!configured &&
+									requiresUpdate &&
 										'hover:text-initial cursor-not-allowed opacity-50 hover:bg-transparent dark:hover:bg-transparent'
 								)}
 								onclick={() => {
-									if (!configured) return;
+									if (requiresUpdate) return;
 									setupProjectMcp(d);
 								}}
 								use:tooltip={{

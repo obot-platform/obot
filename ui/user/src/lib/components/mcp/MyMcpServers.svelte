@@ -564,11 +564,11 @@
 {/snippet}
 
 {#snippet prependedDefaultActions(connectedServer: ConnectedServer)}
-	{@const configured = requiresUserUpdate(connectedServer)}
+	{@const requiresUpdate = requiresUserUpdate(connectedServer)}
 	<button
 		class={twMerge(
 			'menu-button',
-			!configured && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+			requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
 		)}
 		onclick={async () => {
 			if (!connectedServer?.server) {

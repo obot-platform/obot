@@ -9,6 +9,7 @@
 	} from '$lib/services';
 
 	import {
+		CircleAlert,
 		Ellipsis,
 		GitCompare,
 		LoaderCircle,
@@ -30,6 +31,7 @@
 	import { goto } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import Confirm from '../Confirm.svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -43,6 +45,9 @@
 	let listServerInstances = $state<Promise<MCPServerInstance[]>>();
 	let listEntryServers = $state<Promise<MCPCatalogServer[]>>();
 
+	let showConfirm = $state<
+		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
+	>();
 	let diffDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let diffServer = $state<MCPCatalogServer>();
 	let selected = $state<Record<string, MCPCatalogServer>>({});
@@ -248,7 +253,10 @@
 										disabled={updating[d.id]?.inProgress}
 										onclick={async (e) => {
 											e.stopPropagation();
-											await updateServer(d);
+											showConfirm = {
+												type: 'single',
+												server: d
+											};
 										}}
 									>
 										{#if updating[d.id]?.inProgress}
@@ -307,7 +315,11 @@
 							</button>
 							<button
 								class="button-primary flex items-center gap-1"
-								onclick={handleMultiUpdate}
+								onclick={() => {
+									showConfirm = {
+										type: 'multi'
+									};
+								}}
 								disabled={updatingInProgress}
 							>
 								{#if updatingInProgress}
@@ -328,7 +340,10 @@
 	{@render emptyInstancesContent()}
 {/if}
 
-<ResponsiveDialog bind:this={diffDialog} class="h-screen w-full p-0 md:w-[calc(100vw-2em)]">
+<ResponsiveDialog
+	bind:this={diffDialog}
+	class="h-screen w-full max-w-full p-0 md:w-[calc(100vw-2em)]"
+>
 	{#snippet titleContent()}
 		{#if diffServer?.manifest}
 			<div class="flex items-center gap-2 md:p-4 md:pb-0">
@@ -427,3 +442,33 @@
 		</p>
 	</div>
 {/snippet}
+
+<Confirm
+	show={!!showConfirm}
+	onsuccess={async () => {
+		if (!showConfirm) return;
+		if (showConfirm.type === 'single') {
+			await updateServer(showConfirm.server);
+		} else {
+			await handleMultiUpdate();
+		}
+		showConfirm = undefined;
+	}}
+	oncancel={() => (showConfirm = undefined)}
+	classes={{
+		confirm: 'bg-blue-500 hover:bg-blue-400 transition-colors duration-200'
+	}}
+>
+	{#snippet title()}
+		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
+			<CircleAlert class="size-5" />
+			{`Update ${showConfirm?.type === 'single' ? showConfirm.server.id : 'selected server(s)'}?`}
+		</h4>
+	{/snippet}
+	{#snippet note()}
+		<p class="mb-8 text-sm font-light">
+			If this update introduces new required configuration parameters, users will have to supply
+			them before they can use {showConfirm?.type === 'multi' ? 'these servers' : 'this server'} again.
+		</p>
+	{/snippet}
+</Confirm>
