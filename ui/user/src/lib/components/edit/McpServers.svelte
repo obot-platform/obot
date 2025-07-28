@@ -79,7 +79,7 @@
 	<div class="flex items-center justify-between">
 		<p class="text-md grow font-medium">MCP Servers</p>
 		<button
-			class="icon-button"
+			class="p-2 text-gray-400 transition-colors duration-200 hover:text-black dark:text-gray-600 dark:hover:text-white"
 			onclick={() => mcpServerSetup?.open()}
 			use:tooltip={'Add MCP Server'}
 		>
@@ -105,7 +105,9 @@
 								<Server class="size-4" />
 							{/if}
 						</div>
-						<p class="flex w-[calc(100%-24px)] items-center truncate text-left text-xs font-light">
+						<p
+							class="flex w-[calc(100%-24px)] items-center truncate pl-1.5 text-left text-xs font-light"
+						>
 							{mcpServer.name || DEFAULT_CUSTOM_SERVER_NAME}
 							{#if shouldShowWarning(mcpServer)}
 								<span

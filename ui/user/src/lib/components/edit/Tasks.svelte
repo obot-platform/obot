@@ -100,7 +100,11 @@
 <div class="flex flex-col text-xs">
 	<div class="flex items-center justify-between">
 		<p class="text-md grow font-medium">Tasks</p>
-		<button class="icon-button" onclick={() => newTask()} use:tooltip={'Start New Task'}>
+		<button
+			class="p-2 text-gray-400 transition-colors duration-200 hover:text-black dark:text-gray-600 dark:hover:text-white"
+			onclick={() => newTask()}
+			use:tooltip={'Start New Task'}
+		>
 			<Plus class="size-5" />
 		</button>
 	</div>

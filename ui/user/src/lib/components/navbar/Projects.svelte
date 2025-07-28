@@ -32,7 +32,7 @@
 	let projects = $state<Project[]>([]);
 	let limit = $state(10);
 	let open = $state(false);
-	let buttonElement = $state<HTMLButtonElement>();
+	let container = $state<HTMLDivElement>();
 	let toDelete = $state<Project>();
 	const layout = getLayout();
 
@@ -53,17 +53,14 @@
 	}
 </script>
 
-<div class="flex">
-	<div class="h-full w-1 bg-blue-500"></div>
+<div class="flex" bind:this={container} use:ref>
 	<button
-		bind:this={buttonElement}
 		class={twMerge(
-			'hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface2 relative z-10 flex min-h-10 grow items-center justify-between gap-2 truncate bg-gray-50 px-3 py-2 transition-colors duration-200',
+			'hover:bg-surface3 relative  z-10 flex min-h-10 grow items-center justify-between gap-2 truncate bg-blue-500/10 px-2 py-2 transition-colors duration-200',
 			classes?.button
 		)}
 		class:hover:bg-surface2={!disabled}
 		class:cursor-default={disabled}
-		use:ref
 		onclick={async () => {
 			if (disabled) {
 				toggle(false);
@@ -78,10 +75,10 @@
 		}}
 	>
 		<div
-			class="text-on-background text-md flex max-w-[100%-24px] flex-col truncate text-left font-medium"
+			class="text-on-background text-md flex w-full max-w-[100%-24px] flex-col truncate text-left"
 		>
 			<span class="text-[11px] font-normal">Project</span>
-			<p>{project.name || DEFAULT_PROJECT_NAME}</p>
+			<p class="text-base font-semibold text-blue-500">{project.name || DEFAULT_PROJECT_NAME}</p>
 		</div>
 		{#if !disabled}
 			<div class={twMerge('text-gray transition-transform duration-200', open && 'rotate-180')}>
@@ -95,9 +92,10 @@
 	<div
 		use:buttonPopover={{ disablePortal: true }}
 		class={twMerge(
-			'border-surface3 dark:bg-surface1 flex w-full min-w-xs flex-col overflow-hidden rounded-md border bg-white',
+			'border-surface3 dark:bg-surface1 flex -translate-x-[3px] -translate-y-[3px] flex-col overflow-hidden rounded-b-xs border bg-white',
 			classes?.tooltip
 		)}
+		style="width: {container?.clientWidth}px"
 		role="none"
 		onclick={() => toggle(false)}
 	>

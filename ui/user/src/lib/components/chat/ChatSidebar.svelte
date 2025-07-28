@@ -41,20 +41,20 @@
 	</div>
 	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2" use:scrollFocus>
 		<Projects {project} {onCreateProject} />
-		<div class="flex flex-col gap-2 px-2">
+		<div class="flex flex-col gap-8 px-4">
 			{#if project.editor && !shared}
 				<Threads {project} bind:currentThreadID />
+				{#if hasTool(projectTools.tools, 'memory')}
+					<Memories {project} />
+				{/if}
 				<Tasks {project} bind:currentThreadID />
 				<McpServers {project} />
-				{#if hasTool(projectTools.tools, 'memory')}
-					<Memories {project} />
-				{/if}
 			{:else}
 				<Threads {project} bind:currentThreadID />
-				<McpServers {project} chatbot={true} />
 				{#if hasTool(projectTools.tools, 'memory')}
 					<Memories {project} />
 				{/if}
+				<McpServers {project} chatbot={true} />
 			{/if}
 		</div>
 	</div>

@@ -82,8 +82,8 @@
 			layout.displayTaskRun && layout.displayTaskRun.taskID === task.id && 'font-medium'
 		)}
 	>
-		<div class="flex grow items-center gap-1 truncate">
-			<button class="p-2" onclick={() => (expanded = !expanded)}>
+		<div class="flex grow items-center gap-1 truncate pl-1.5">
+			<button class="p-1" onclick={() => (expanded = !expanded)}>
 				<ChevronDown
 					class={twMerge('size-4 transition-transform duration-200', expanded && 'rotate-180')}
 				/>
@@ -91,7 +91,7 @@
 			<button
 				use:overflowToolTip
 				class:font-medium={layout.editTaskID === task.id}
-				class={twMerge('grow py-2 pr-2 text-left text-xs', classes?.title)}
+				class={twMerge('grow py-2 pr-2 pl-1 text-left text-xs', classes?.title)}
 				onclick={async () => {
 					if (responsive.isMobile) {
 						layout.sidebarOpen = false;

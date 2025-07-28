@@ -20,7 +20,7 @@
 		<div class="flex items-center">
 			{#if layout.sidebarMemoryUpdateAvailable}
 				<button
-					class="icon-button"
+					class="p-2 text-gray-400 transition-colors duration-200 hover:text-black dark:text-gray-600 dark:hover:text-white"
 					onclick={() => {
 						memories?.refresh();
 						layout.sidebarMemoryUpdateAvailable = false;
