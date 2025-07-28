@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"fmt"
-	"net/url"
 	"slices"
 	"strings"
 
@@ -65,17 +64,10 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 		return true, nil
 	}
 
-	if entryManifest.Hostname != "" {
-		u, err := url.Parse(serverManifest.URL)
-		if err != nil {
-			// Shouldn't ever happen.
-			return true, err
-		}
-
-		if u.Hostname() != entryManifest.Hostname {
-			return true, nil
-		}
-	}
+	// We are deliberately ignoring the hostname here, even if there is one.
+	// If there is drift between the server's URL and the catalog entry's hostname,
+	// that's the user's responsibility to fix, and triggering an update will not fix it,
+	// so there is no need to make needsUpdate as true for that.
 
 	// Check the rest of the fields to see if anything has changed.
 	drifted := serverManifest.Command != entryManifest.Command ||
