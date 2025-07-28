@@ -299,11 +299,19 @@
 
 		try {
 			if ('server' in selectedEntryOrServer && selectedEntryOrServer.server?.id) {
+				if (selectedEntryOrServer.parent && selectedEntryOrServer.parent.urlManifest) {
+					await ChatService.updateSingleOrRemoteMcpServer(selectedEntryOrServer.server.id, {
+						...selectedEntryOrServer.parent.urlManifest,
+						url: configureForm.url
+					});
+				}
+
 				const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
 				await ChatService.configureSingleOrRemoteMcpServer(
 					selectedEntryOrServer.server.id,
 					secretValues
 				);
+
 				configDialog?.close();
 				onUpdateConfigure?.();
 			} else {
@@ -587,7 +595,7 @@
 					value: values[header.key] ?? ''
 				})),
 				url: connectedServer.server.manifest.url,
-				hostname: connectedServer.server.manifest.hostname
+				hostname: connectedServer.parent?.urlManifest?.hostname
 			};
 			configDialog?.open();
 		}}
