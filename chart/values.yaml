@@ -115,7 +115,7 @@ config:
   OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE: false
 
   # config.OBOT_SERVER_MCPBASE_IMAGE -- Deploy MCP servers in the cluster using this base image. Setting this value will also create the necessary service account, role and rolebinding.
-  OBOT_SERVER_MCPBASE_IMAGE: ""
+  OBOT_SERVER_MCPBASE_IMAGE: "ghcr.io/obot-platform/mcp-images-phat:main"
   # config.OBOT_SERVER_MCPCLUSTER_DOMAIN -- The cluster domain to use for MCP services. Defaults to cluster.local. Only matters if the above image is set.
   OBOT_SERVER_MCPCLUSTER_DOMAIN: ""
   # config.OBOT_SERVER_DISALLOW_LOCALHOST_MCP -- disallow MCP servers that try to connect to localhost. Defaults to false.
