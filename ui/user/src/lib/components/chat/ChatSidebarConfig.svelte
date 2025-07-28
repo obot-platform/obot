@@ -26,7 +26,11 @@
 
 <div class="default-scrollbar-thin relative flex w-full justify-center overflow-y-auto" in:fade>
 	{#if layout.sidebarConfig === 'project-configuration'}
-		<ProjectConfiguration {project} />
+		{#if layout.projectToConfigure}
+			{#key layout.projectToConfigure.id}
+				<ProjectConfiguration project={layout.projectToConfigure} />
+			{/key}
+		{/if}
 	{:else if layout.sidebarConfig === 'slack'}
 		<Slack {project} />
 	{:else if layout.sidebarConfig === 'invitations'}

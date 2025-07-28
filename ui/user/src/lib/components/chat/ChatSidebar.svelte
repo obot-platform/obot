@@ -34,51 +34,30 @@
 </script>
 
 <div class="border-surface2 dark:bg-gray-990 relative flex size-full flex-col border-r bg-white">
-	<div class="flex h-16 w-full flex-shrink-0 items-center px-3">
+	<div class="flex h-16 w-full flex-shrink-0 items-center px-2">
 		<BetaLogo />
 		{#if responsive.isMobile}
 			{@render closeSidebar()}
 		{/if}
 	</div>
-	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2 px-3 pt-8" use:scrollFocus>
-		<div class="flex w-full items-center justify-between">
-			<Projects {project} />
-			<div class="flex items-center">
-				<button
-					class="icon-button flex-shrink-0"
-					onclick={() => {
-						openConfigureProject(layout);
-					}}
-					use:tooltip={'Configure Current Project'}
-				>
-					<Settings class="size-5" />
-				</button>
-				<button
-					class="icon-button flex-shrink-0"
-					onclick={() => {
-						closeAll(layout);
-						onCreateProject?.();
-					}}
-					use:tooltip={'Create New Project'}
-				>
-					<Plus class="size-5" />
-				</button>
-			</div>
+	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2" use:scrollFocus>
+		<Projects {project} {onCreateProject} />
+		<div class="px-2">
+			{#if project.editor && !shared}
+				<Threads {project} bind:currentThreadID />
+				<Tasks {project} bind:currentThreadID />
+				<McpServers {project} />
+				{#if hasTool(projectTools.tools, 'memory')}
+					<Memories {project} />
+				{/if}
+			{:else}
+				<Threads {project} bind:currentThreadID />
+				<McpServers {project} chatbot={true} />
+				{#if hasTool(projectTools.tools, 'memory')}
+					<Memories {project} />
+				{/if}
+			{/if}
 		</div>
-		{#if project.editor && !shared}
-			<Threads {project} bind:currentThreadID />
-			<Tasks {project} bind:currentThreadID />
-			<McpServers {project} />
-			{#if hasTool(projectTools.tools, 'memory')}
-				<Memories {project} />
-			{/if}
-		{:else}
-			<Threads {project} bind:currentThreadID />
-			<McpServers {project} chatbot={true} />
-			{#if hasTool(projectTools.tools, 'memory')}
-				<Memories {project} />
-			{/if}
-		{/if}
 	</div>
 
 	<div class="flex items-center justify-end px-3 py-2">

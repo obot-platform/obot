@@ -1,4 +1,4 @@
-import type { ProjectMCP, ProjectTemplate, Task, TaskRun, Thread } from '$lib/services';
+import type { Project, ProjectMCP, ProjectTemplate, Task, TaskRun, Thread } from '$lib/services';
 import type { EditorItem } from '$lib/services/editor/index.svelte';
 import { responsive } from '$lib/stores';
 import { getContext, hasContext, setContext } from 'svelte';
@@ -39,6 +39,7 @@ export interface Layout {
 	mcpServer?: ProjectMCP;
 	chatbotMcpEdit?: boolean;
 	sidebarMemoryUpdateAvailable?: boolean;
+	projectToConfigure?: Project;
 }
 
 export function isSomethingSelected(layout: Layout) {
@@ -53,6 +54,7 @@ export function closeAll(layout: Layout) {
 	layout.template = undefined;
 	layout.mcpServer = undefined;
 	layout.chatbotMcpEdit = undefined;
+	layout.projectToConfigure = undefined;
 }
 
 export function openTask(layout: Layout, taskID?: string) {
@@ -99,10 +101,12 @@ export function closeSidebarConfig(layout: Layout) {
 	layout.template = undefined;
 	layout.mcpServer = undefined;
 	layout.chatbotMcpEdit = undefined;
+	layout.projectToConfigure = undefined;
 }
-export function openConfigureProject(layout: Layout) {
+export function openConfigureProject(layout: Layout, project: Project) {
 	closeAll(layout);
 	layout.sidebarConfig = 'project-configuration';
+	layout.projectToConfigure = project;
 }
 
 export function initLayout(layout: Layout) {

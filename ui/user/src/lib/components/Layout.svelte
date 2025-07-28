@@ -120,12 +120,12 @@
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
-				<div class="flex h-16 flex-shrink-0 items-center px-3">
+				<div class="flex h-16 flex-shrink-0 items-center px-2">
 					<BetaLogo />
 				</div>
 
 				<div
-					class="text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 font-medium"
+					class="text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 pl-2 font-medium"
 				>
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link (link.href)}
