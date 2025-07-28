@@ -15,19 +15,19 @@
 	import { AdminService, type MCPFilter } from '$lib/services/index.js';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 
-    initMcpServerAndEntries();
+	initMcpServerAndEntries();
 
 	let showCreateFilter = $state(false);
-    let loading = $state(true);
+	let loading = $state(true);
 	let filterToDelete = $state<MCPFilter>();
 
 	let filters = $state<MCPFilter[]>([]);
 
-    async function refresh() {
-        loading = true;
-        filters = await AdminService.listMCPFilters();
-        loading = false;
-    }
+	async function refresh() {
+		loading = true;
+		filters = await AdminService.listMCPFilters();
+		loading = false;
+	}
 
 	onMount(() => {
 		const url = new URL(window.location.href);
@@ -49,7 +49,7 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	onMount(async () => {
-        await fetchMcpServerAndEntries(DEFAULT_MCP_CATALOG_ID);
+		await fetchMcpServerAndEntries(DEFAULT_MCP_CATALOG_ID);
 		await refresh();
 	});
 </script>

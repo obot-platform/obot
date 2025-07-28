@@ -42,7 +42,7 @@
 
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
 	let listEntryServers = $state<Promise<MCPCatalogServer[]>>();
-    let listFilters = $state<Promise<MCPFilter[]>>();
+	let listFilters = $state<Promise<MCPFilter[]>>();
 	let users = $state<OrgUser[]>([]);
 
 	let deleteServer = $state(false);
@@ -56,7 +56,7 @@
 		if (view === 'access-control') {
 			listAccessControlRules = AdminService.listAccessControlRules();
 		} else if (view === 'filters') {
-            listFilters = AdminService.listMCPFilters();
+			listFilters = AdminService.listMCPFilters();
 		}
 	});
 
@@ -323,7 +323,9 @@
 					]}
 					onSelectRow={(d) => {
 						setLastVisitedMcpServer();
-						goto(`/v2/admin/filters/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry?.id}`)}`);
+						goto(
+							`/v2/admin/filters/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry?.id}`)}`
+						);
 					}}
 				>
 					{#snippet onRenderColumn(property, d)}
@@ -354,9 +356,7 @@
 	{:else}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<ListFilter class="size-24 text-gray-200 dark:text-gray-900" />
-			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-				No filters available
-			</h4>
+			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No filters available</h4>
 			<p class="text-sm font-light text-gray-400 dark:text-gray-600">
 				No filters have been configured in the system.
 			</p>
