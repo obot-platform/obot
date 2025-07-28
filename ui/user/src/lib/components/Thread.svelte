@@ -496,8 +496,6 @@
 				{#if createProject}
 					{@render editBasicSection()}
 				{:else}
-					<McpPrompts {project} variant="messages" onSelect={handleMcpPromptSelect} />
-
 					{#if showLoadOlderButton}
 						<div class="mb-4 flex justify-center">
 							<button
