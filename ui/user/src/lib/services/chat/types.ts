@@ -641,6 +641,7 @@ export interface ModelProvider {
 	icon?: string;
 	iconDark?: string;
 	configured: boolean;
+	modelsBackPopulated?: boolean;
 	requiredConfigurationParameters?: {
 		name: string;
 		friendlyName?: string;

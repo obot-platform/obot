@@ -1,6 +1,12 @@
 <script lang="ts">
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
-	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
+	import {
+		AdminService,
+		type ModelProvider as ModelProviderType,
+		ModelAliasToUsageMap,
+		ModelAlias
+	} from '$lib/services';
+	import { delay } from '$lib/utils';
 	import Layout from '$lib/components/Layout.svelte';
 	import {
 		CommonModelProviderIds,
@@ -19,6 +25,7 @@
 
 	let modelProviders = $state(initialModelProviders);
 	let providerConfigure = $state<ReturnType<typeof ProviderConfigure>>();
+	let defaultModelsDialog = $state<ReturnType<typeof DefaultModels>>();
 	let configuringModelProvider = $state<ModelProviderType>();
 	let configuringModelProviderValues = $state<Record<string, string>>();
 	let configureError = $state<string>();
@@ -76,6 +83,71 @@
 
 	let sortedModelProviders = $derived(sortModelProviders(modelProviders));
 
+	// shouldOpenDefaultModelsDialog returns true IFF the model provider with the given providerID
+	// providers models that can be used for the unset default model aliases.
+	async function shouldOpenDefaultModelsDialog(providerId: string): Promise<boolean> {
+		try {
+			// Get current default model aliases
+			const defaultModelAliases = await AdminService.listDefaultModelAliases();
+
+			// Find aliases with empty model fields
+			const unsetAliases = defaultModelAliases
+				.filter((alias) => !alias.model || alias.model.trim() === '')
+				.map((alias) => alias.alias);
+
+			if (unsetAliases.length === 0) {
+				return false; // No unset aliases, no need to open dialog
+			}
+
+			// Get usage types for unset aliases
+			const unsetUsageTypes = unsetAliases
+				.map((alias) => ModelAliasToUsageMap[alias as ModelAlias])
+				.filter((usage) => !!usage);
+
+			if (unsetUsageTypes.length === 0) {
+				return false; // No valid usage types found
+			}
+
+			// Get models from the newly configured provider
+			const providerModels = adminModels.items.filter(
+				(model) => model.modelProvider === providerId && model.active
+			);
+
+			// Check if any provider models have usage types that match unset aliases
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			return providerModels.some((model) => unsetUsageTypes.includes(model.usage as any));
+		} catch (error) {
+			console.error('Error checking if default models dialog should open:', error);
+			return false;
+		}
+	}
+
+	// waitForProviderReady blocks until the models of the model provider with the given providerID
+	// are back populated.
+	// If its models aren't populated or the provider becomes unconfigured within 10 seconds, it
+	// throws an exception.
+	async function waitForProviderReady(providerId: string) {
+		const startTime = Date.now();
+		const timeout = 10000; // 10 seconds
+
+		while (Date.now() - startTime < timeout) {
+			const provider = await AdminService.getModelProvider(providerId);
+			if (provider.modelsBackPopulated === true) {
+				return;
+			}
+
+			if (provider.configured === false) {
+				throw new Error(`Model provider ${providerId} became unconfigured`);
+			}
+
+			// Wait before next poll
+			await delay(500);
+		}
+
+		// Timeout waiting for models to be back populated
+		throw new Error(`Timeout waiting for models to be populated for provider ${providerId}`);
+	}
+
 	async function handleModelProviderConfigure(form: Record<string, string>) {
 		if (configuringModelProvider) {
 			loading = true;
@@ -83,9 +155,24 @@
 			try {
 				await AdminService.validateModelProvider(configuringModelProvider.id, form);
 				await AdminService.configureModelProvider(configuringModelProvider.id, form);
+
+				// Wait for the provider's models to be back populated before fetching its models.
+				// Note: If we skip this check, the provider's models won't be returned when listing
+				// available models.
+				await waitForProviderReady(configuringModelProvider.id);
+
+				// Fetch the updated model providers and available models
 				modelProviders = await AdminService.listModelProviders();
 				adminModels.items = await AdminService.listModels();
+
+				// Close the provider configuration dialog
 				providerConfigure?.close();
+
+				// Open the default models dialog if the model provider adds models that can be used
+				// for unset default model aliases.
+				if (await shouldOpenDefaultModelsDialog(configuringModelProvider.id)) {
+					defaultModelsDialog?.open();
+				}
 			} catch (err: unknown) {
 				if (err instanceof Error) {
 					const errorMessageMatch = err.message.match(/{"error":\s*"(.*?)"}/);
@@ -108,7 +195,7 @@
 		<div class="flex flex-col gap-8">
 			<h1 class="flex items-center justify-between gap-4 text-2xl font-semibold">
 				Model Providers
-				<DefaultModels />
+				<DefaultModels bind:this={defaultModelsDialog} availableModels={adminModels.items} />
 			</h1>
 		</div>
 		<div class="grid grid-cols-2 gap-4 py-8 md:grid-cols-3 lg:grid-cols-4">

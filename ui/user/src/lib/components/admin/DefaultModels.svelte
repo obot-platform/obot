@@ -10,11 +10,10 @@
 	import { onMount } from 'svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { AdminService } from '$lib/services';
-	import { getAdminModels } from '$lib/context/admin/models.svelte';
 	import Select from '../Select.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
 
-	const adminModels = getAdminModels();
+	let { availableModels }: { availableModels: Model[] } = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let defaultModelAliases = $state<DefaultModelAlias[]>([]);
 	let sortedModelAliases = $derived(
@@ -23,6 +22,13 @@
 			.filter((x) => !!x)
 	);
 	let changes = $state<Partial<Record<ModelAlias, string>>>();
+	let changed = $derived(
+		defaultModelAliases.length > 0 &&
+			defaultModelAliases.some((modelAlias) => {
+				const currentSelection = changes?.[modelAlias.alias] ?? modelAlias.model;
+				return currentSelection && currentSelection !== modelAlias.model;
+			})
+	);
 	let loading = $state(false);
 
 	const SUGGESTED_MODEL_SELECTIONS: Record<ModelAlias, string> = {
@@ -33,9 +39,47 @@
 		[ModelAlias.Vision]: 'gpt-4.1'
 	};
 
+	export function open() {
+		setSuggestedModels();
+		dialog?.open();
+	}
+
 	onMount(async () => {
 		defaultModelAliases = await AdminService.listDefaultModelAliases();
 	});
+
+	function setSuggestedModels() {
+		if (!defaultModelAliases.length || !availableModels.length) return;
+
+		const suggestedChanges: Partial<Record<ModelAlias, string>> = {};
+		for (const modelAlias of defaultModelAliases) {
+			// Only suggest if no model is currently set
+			if (modelAlias.model) {
+				continue;
+			}
+
+			const usage = getModelUsageFromAlias(modelAlias.alias);
+			if (usage) {
+				const activeModelOptions = filterModelsByActive(
+					filterModelsByUsage(availableModels, usage)
+				);
+				const suggestedModelName = SUGGESTED_MODEL_SELECTIONS[modelAlias.alias];
+
+				if (suggestedModelName) {
+					const suggestedModel = activeModelOptions.find(
+						(model) => model.name === suggestedModelName
+					);
+					if (suggestedModel) {
+						suggestedChanges[modelAlias.alias] = suggestedModel.id;
+					}
+				}
+			}
+		}
+
+		if (Object.keys(suggestedChanges).length > 0) {
+			changes = { ...changes, ...suggestedChanges };
+		}
+	}
 
 	function getModelUsageFromAlias(alias: string) {
 		if (!(alias in ModelAliasToUsageMap)) return null;
@@ -68,6 +112,30 @@
 		return models.filter((model) => _usages.includes(model.usage as ModelUsage)).sort(sort);
 	}
 
+	function getSelectedModel(modelAlias: DefaultModelAlias, activeModelOptions: Model[]) {
+		// If there's a pending change, use that
+		if (changes?.[modelAlias.alias]) {
+			return changes[modelAlias.alias];
+		}
+
+		// If a model is already set, use it
+		if (modelAlias.model) {
+			return modelAlias.model;
+		}
+
+		// Auto-select suggested model if available
+		const suggestedModelName = SUGGESTED_MODEL_SELECTIONS[modelAlias.alias];
+		if (suggestedModelName) {
+			const suggestedModel = activeModelOptions.find((model) => model.name === suggestedModelName);
+			if (suggestedModel) {
+				return suggestedModel.id;
+			}
+		}
+
+		// No selection
+		return '';
+	}
+
 	async function handleSaveChanges() {
 		loading = true;
 		await Promise.all(
@@ -89,7 +157,11 @@
 	}
 </script>
 
-<button class="button-primary text-sm font-normal" onclick={() => dialog?.open()}>
+<button
+	class="button-primary text-sm font-normal"
+	disabled={availableModels.length === 0 || loading}
+	onclick={() => open()}
+>
 	Set Default Models
 </button>
 
@@ -107,7 +179,7 @@
 		{#each sortedModelAliases as modelAlias (modelAlias.alias)}
 			{@const usage = getModelUsageFromAlias(modelAlias.alias)}
 			{@const activeModelOptions = usage
-				? filterModelsByActive(filterModelsByUsage(adminModels.items ?? [], usage))
+				? filterModelsByActive(filterModelsByUsage(availableModels ?? [], usage))
 				: []}
 			<div class="flex items-center gap-2">
 				<label class="w-1/2" for={modelAlias.alias}>{getModelAliasLabel(modelAlias.alias)}</label>
@@ -121,7 +193,7 @@
 							: (model.name ?? ''),
 						id: model.id
 					}))}
-					selected={changes?.[modelAlias.alias] ?? modelAlias.model}
+					selected={getSelectedModel(modelAlias, activeModelOptions)}
 					onSelect={async (option) => {
 						changes = {
 							...changes,
@@ -136,7 +208,7 @@
 		<button
 			class="button-primary w-full text-sm font-normal"
 			onclick={handleSaveChanges}
-			disabled={loading}
+			disabled={loading || !changed}
 		>
 			{#if loading}
 				<LoaderCircle class="size-4 animate-spin" />
