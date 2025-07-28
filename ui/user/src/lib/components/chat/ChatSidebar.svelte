@@ -41,7 +41,7 @@
 		{/if}
 	</div>
 	<div class="default-scrollbar-thin flex w-full grow flex-col gap-2 px-3 pt-8" use:scrollFocus>
-		<div class="flex w-[calc(100%+0.25em)] -translate-x-1 items-center justify-between">
+		<div class="flex w-full items-center justify-between">
 			<Projects {project} />
 			<div class="flex items-center">
 				<button

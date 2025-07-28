@@ -7,6 +7,7 @@ type AdditionalOptions = {
 	taskID?: string;
 	runID?: string;
 	onItemsChanged?: (items: EditorItem[]) => void;
+	onMemoryCall?: () => void;
 };
 
 const errorIcon = 'Error';
@@ -167,7 +168,7 @@ export function buildMessagesFromProgress(
 	progresses: Progress[],
 	opts: AdditionalOptions
 ): Messages {
-	const messages = toMessages(progresses);
+	const messages = toMessages(progresses, opts);
 
 	// Post Process for much more better-ness
 	messages.messages.forEach((item, i) => {
@@ -195,7 +196,7 @@ export function buildMessagesFromProgress(
 	return messages;
 }
 
-function toMessages(progresses: Progress[]): Messages {
+function toMessages(progresses: Progress[], opts?: AdditionalOptions): Messages {
 	let messages: Message[] = [];
 	let lastRunID: string | undefined;
 	let lastStepID: string | undefined;
@@ -295,7 +296,15 @@ function toMessages(progresses: Progress[]): Messages {
 					found.message.push(progress.toolInput.input);
 				}
 			} else {
-				messages.push(newContentMessage(progress));
+				const newMessage = newContentMessage(progress);
+				messages.push(newMessage);
+				if (
+					newMessage.sourceName === 'Create Memory' ||
+					newMessage.sourceName === 'Update Memory' ||
+					newMessage.sourceName === 'Delete Memory'
+				) {
+					opts?.onMemoryCall?.();
+				}
 			}
 		} else if (progress.toolCall) {
 			const found = messages.findLast(

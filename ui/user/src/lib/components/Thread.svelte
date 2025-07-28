@@ -165,6 +165,9 @@
 			items: layout.items,
 			onItemsChanged: (items) => {
 				layout.items = items;
+			},
+			onMemoryCall: () => {
+				layout.sidebarMemoryUpdateAvailable = true;
 			}
 		});
 

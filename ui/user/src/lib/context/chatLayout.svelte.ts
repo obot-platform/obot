@@ -38,6 +38,7 @@ export interface Layout {
 	template?: ProjectTemplate;
 	mcpServer?: ProjectMCP;
 	chatbotMcpEdit?: boolean;
+	sidebarMemoryUpdateAvailable?: boolean;
 }
 
 export function isSomethingSelected(layout: Layout) {

@@ -31,6 +31,7 @@ export class Thread {
 	};
 	readonly #items: EditorItem[] = [];
 	readonly #onItemsChanged?: (items: EditorItem[]) => void;
+	readonly #onMemoryCall?: () => void;
 	readonly #follow?: boolean;
 	constructor(
 		project: Project,
@@ -50,6 +51,7 @@ export class Thread {
 			onItemsChanged?: (items: EditorItem[]) => void;
 			items?: EditorItem[];
 			follow?: boolean;
+			onMemoryCall?: () => void;
 		}
 	) {
 		this.threadID = opts?.threadID;
@@ -67,6 +69,9 @@ export class Thread {
 		if (opts?.onItemsChanged) {
 			this.#onItemsChanged = opts.onItemsChanged;
 		}
+		if (opts?.onMemoryCall) {
+			this.#onMemoryCall = opts.onMemoryCall;
+		}
 	}
 
 	#reconnect(): EventSource {
@@ -83,7 +88,7 @@ export class Thread {
 			history: true
 		});
 		es.onmessage = (e) => {
-			this.handleMessage(e);
+			this.handleMessage(e, this.replayComplete);
 		};
 		es.onopen = (e) => {
 			console.log('Message EventSource opened', currentID, e);
@@ -192,7 +197,7 @@ export class Thread {
 		}
 	}
 
-	#onProgress(progress: Progress) {
+	#onProgress(progress: Progress, afterReplay?: boolean) {
 		this.#progresses.push(progress);
 		if (this.replayComplete) {
 			this.onMessages(
@@ -200,14 +205,15 @@ export class Thread {
 					taskID: this.#task?.id,
 					runID: this.runID,
 					threadID: this.threadID,
-					onItemsChanged: this.#onItemsChanged
+					onItemsChanged: this.#onItemsChanged,
+					onMemoryCall: afterReplay ? this.#onMemoryCall : undefined
 				})
 			);
 			this.#handleSteps();
 		}
 	}
 
-	handleMessage(event: MessageEvent) {
+	handleMessage(event: MessageEvent, afterReplay?: boolean) {
 		const progress = JSON.parse(event.data) as Progress;
 		if (progress.replayComplete) {
 			this.replayComplete = true;
@@ -224,7 +230,7 @@ export class Thread {
 				errors.items.push(new Error(progress.error));
 			}
 		}
-		this.#onProgress(progress);
+		this.#onProgress(progress, afterReplay);
 		this.pending = false;
 	}
 

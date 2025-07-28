@@ -43,6 +43,7 @@
 	let editContent = $state('');
 	let editingPreview = $state(false);
 	let input = $state<HTMLInputElement>();
+	let previewDisplayCount = $state(10);
 
 	export function show(projectToUse?: Project) {
 		if (projectToUse) {
@@ -164,6 +165,10 @@
 		}
 	}
 
+	function loadMore() {
+		previewDisplayCount += 10;
+	}
+
 	export async function viewAllMemories() {
 		dialog?.showModal();
 	}
@@ -259,12 +264,12 @@
 				</table>
 			</div>
 		{:else}
-			<div class="flex w-full flex-col gap-2">
-				{#each memories.slice(0, 5) as memory (memory.id)}
+			<div class="flex w-full flex-col">
+				{#each memories.slice(0, previewDisplayCount) as memory (memory.id)}
 					<div
-						class="group hover:bg-surface3 flex w-full items-center rounded-md transition-colors duration-200"
+						class="group hover:bg-surface3 flex min-h-9 w-full items-center gap-3 rounded-md transition-colors duration-200"
 					>
-						<div class="flex grow items-center gap-1 py-2 pl-1.5">
+						<div class="line-clamp-1 flex grow items-center gap-1 py-2 pl-1.5">
 							{#if editingMemoryId === memory.id}
 								<input
 									bind:value={editContent}
@@ -292,10 +297,7 @@
 									</button>
 								</div>
 							{:else}
-								<p
-									class="flex w-[calc(100%-24px)] items-center truncate text-left text-xs font-light"
-									use:overflowToolTip
-								>
+								<p class="truncate" use:overflowToolTip>
 									{memory.content}
 								</p>
 							{/if}
@@ -316,6 +318,11 @@
 						{/if}
 					</div>
 				{/each}
+				{#if memories.length > previewDisplayCount}
+					<li class="hover:bg-surface3 flex w-full justify-center rounded-md p-2">
+						<button class="w-full text-xs" onclick={loadMore}> Show More </button>
+					</li>
+				{/if}
 			</div>
 		{/if}
 	</div>
