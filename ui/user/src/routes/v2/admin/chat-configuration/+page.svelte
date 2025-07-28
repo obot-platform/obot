@@ -1,7 +1,6 @@
 <script lang="ts">
 	import MarkdownInput from '$lib/components/admin/MarkdownInput.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import EditIcon from '$lib/components/edit/EditIcon.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
@@ -169,10 +168,6 @@
 					class="dark:bg-surface1 dark:border-surface3 flex h-fit w-full flex-col gap-4 rounded-lg border border-transparent bg-white p-6 shadow-sm"
 				>
 					<div class="flex gap-6">
-						<div>
-							<EditIcon project={baseAgent} edit classes={{ icon: 'size-36' }} />
-						</div>
-
 						<div class="flex grow flex-col gap-4">
 							<div class="flex flex-col gap-1">
 								<label class="text-sm" for="name">Name</label>

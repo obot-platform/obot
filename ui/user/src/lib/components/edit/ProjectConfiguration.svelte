@@ -2,7 +2,6 @@
 	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project } from '$lib/services';
 	import { X } from 'lucide-svelte';
-	import EditIcon from './EditIcon.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
 	import Confirm from '../Confirm.svelte';
@@ -47,10 +46,6 @@
 				class="dark:bg-surface1 dark:border-surface3 flex h-fit w-full flex-col gap-4 rounded-lg border border-transparent bg-white p-6 shadow-sm"
 			>
 				<div class="flex gap-6">
-					<div>
-						<EditIcon {project} classes={{ icon: 'size-36' }} />
-					</div>
-
 					<div class="flex grow flex-col gap-4">
 						<div class="flex flex-col gap-1">
 							<label class="text-sm" for="name">Name</label>

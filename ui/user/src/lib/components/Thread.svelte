@@ -17,12 +17,9 @@
 	import Files from '$lib/components/edit/Files.svelte';
 	import Tools from '$lib/components/navbar/Tools.svelte';
 	import type { UIEventHandler } from 'svelte/elements';
-	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import { responsive } from '$lib/stores';
-	import { Bug, LoaderCircle, Pencil, X } from 'lucide-svelte';
+	import { Bug, LoaderCircle, X } from 'lucide-svelte';
 	import { autoHeight } from '$lib/actions/textarea';
-	import EditIcon from '$lib/components/edit/EditIcon.svelte';
-	import { DEFAULT_PROJECT_DESCRIPTION, DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import { twMerge } from 'tailwind-merge';
 	import { getProjectDefaultModel, getThread } from '$lib/services/chat/operations';
 	import type {
@@ -57,7 +54,6 @@
 	let messages = $state<Messages>({ messages: [], inProgress: false });
 	let thread = $state<Thread>();
 	let scrollSmooth = $state(false);
-	let editBasicDetails = $state(false);
 	let threadContainer = $state<HTMLDivElement>();
 	let fadeBarWidth = $state<number>(0);
 	let loadingOlderMessages = $state(false);
@@ -105,7 +101,6 @@
 
 	$effect(() => {
 		if (createProject) {
-			editBasicDetails = true;
 			setTimeout(() => nameInput?.focus(), 0);
 		}
 	});
@@ -391,7 +386,6 @@
 			prompt,
 			icons
 		});
-		editBasicDetails = false;
 		createProject = undefined;
 		savingNewProject = false;
 		await goto(`/o/${response.id}`);
@@ -403,19 +397,17 @@
 		aria-label="backdrop"
 		class="fixed top-0 left-0 z-20 h-full w-full"
 		onclick={() => {
-			editBasicDetails = false;
 			createProject = undefined;
 		}}
 	></button>
 	<div class="relative z-30 mt-4 w-sm self-center border-2 border-transparent pt-4 md:w-md">
 		<div class="flex flex-col items-center justify-center text-center">
 			{#if createProject}
-				<EditIcon project={createProject as Project} />
 				<input
 					id="project-name"
 					type="text"
 					placeholder="Project Name"
-					class="ghost-input border-b-surface1 mb-[1px] w-full pt-4 pb-0 text-center text-base font-bold"
+					class="ghost-input border-b-surface1 mb-2 w-full pt-0 pb-0 text-center text-base font-bold"
 					bind:value={createProject.name}
 					bind:this={nameInput}
 				/>
@@ -453,36 +445,12 @@
 						Save
 					{/if}
 				</button>
-			{:else}
-				<EditIcon {project} />
-				<input
-					id="project-name"
-					type="text"
-					placeholder="Project Name"
-					class="ghost-input border-b-surface1 mb-[1px] w-full pt-4 pb-0 text-center text-base font-bold"
-					bind:value={project.name}
-					bind:this={nameInput}
-				/>
-				<textarea
-					id="project-desc"
-					class="ghost-input border-b-surface1 text-md scrollbar-none mb-4 w-full grow resize-none pt-0.5 pb-0 text-center font-light"
-					rows="1"
-					placeholder="A short description of your project"
-					use:autoHeight
-					bind:value={project.description}
-				></textarea>
 			{/if}
 		</div>
-		{#if project?.introductionMessage}
-			<div class="pt-8">
-				{@html toHTMLFromMarkdown(project?.introductionMessage)}
-			</div>
-		{/if}
 
 		<button
 			class="icon-button absolute top-2 right-2"
 			onclick={() => {
-				editBasicDetails = false;
 				createProject = undefined;
 			}}
 		>
@@ -492,23 +460,6 @@
 		<div
 			class="bg-surface1 dark:bg-surface2 m-auto mt-4 h-[1px] w-96 max-w-sm self-center rounded-full"
 		></div>
-	</div>
-{/snippet}
-
-{#snippet basicSection()}
-	<div class="flex flex-col items-center justify-center gap-1 text-center">
-		<AssistantIcon {project} class="h-24 w-24 shadow-lg" />
-		<h4 class="mb-1!">{project.name || DEFAULT_PROJECT_NAME}</h4>
-		<p class="text-gray w-sm font-light md:w-md">
-			{project.description || DEFAULT_PROJECT_DESCRIPTION}
-		</p>
-		<div class="bg-surface1 dark:bg-surface2 mt-4 h-[1px] w-96 max-w-sm rounded-full"></div>
-	</div>
-
-	<div
-		class="absolute top-4 right-4 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-	>
-		<Pencil class="text-surface3 size-6" />
 	</div>
 {/snippet}
 
@@ -535,92 +486,74 @@
 		style="width: {fadeBarWidth}px"
 	></div>
 	<div class="relative flex w-full max-w-[900px] flex-col">
-		<div
-			in:fade|global
-			bind:this={messagesDiv}
-			class="flex w-full grow flex-col justify-start gap-8 p-5 transition-all"
-			class:justify-center={!thread}
-		>
-			{#if editBasicDetails}
-				{@render editBasicSection()}
-			{:else if layout.projectEditorOpen || !project.editor || shared}
-				<div class="message-content mt-4 w-fit self-center border-2 border-transparent pt-4">
-					{@render basicSection()}
-				</div>
-			{:else if project.editor && !shared}
-				<button
-					class="message-content hover:bg-surface1 hover:border-surface2 group relative mt-4 w-fit self-center rounded-md border-2 border-dashed border-transparent pt-4 transition-all duration-200"
-					onclick={() => {
-						editBasicDetails = true;
-						setTimeout(() => nameInput?.focus(), 0);
-					}}
-					id="edit-basic-details-button"
-				>
-					{@render basicSection()}
-				</button>
-			{/if}
-			{#if !createProject}
-				{#if project?.introductionMessage}
-					<div class="message-content w-full self-center">
-						{@html toHTMLFromMarkdown(project?.introductionMessage)}
-					</div>
-				{/if}
-				{#if project.starterMessages?.length}
-					<div class="flex flex-wrap justify-center gap-4 px-4">
-						{#each project.starterMessages as msg, i (i)}
+		{#if messages.messages.length > 0 || createProject}
+			<div
+				in:fade|global
+				bind:this={messagesDiv}
+				class="flex w-full grow flex-col justify-start gap-8 p-5 transition-all"
+				class:justify-center={!thread}
+			>
+				{#if createProject}
+					{@render editBasicSection()}
+				{:else}
+					<McpPrompts {project} variant="messages" onSelect={handleMcpPromptSelect} />
+
+					{#if showLoadOlderButton}
+						<div class="mb-4 flex justify-center">
 							<button
-								class="border-surface3 hover:bg-surface2 w-52 rounded-2xl border bg-transparent p-4 text-left text-sm font-light transition-all duration-300"
-								onclick={async () => {
-									await ensureThread();
-									await thread?.invoke(msg);
-								}}
+								class="border-surface3 hover:bg-surface2 rounded-full border bg-white px-4 py-2 text-sm font-light transition-all duration-300 dark:bg-black"
+								onclick={loadOlderMessages}
+								disabled={loadingOlderMessages}
 							>
-								<span class="line-clamp-3">{msg}</span>
+								{#if loadingOlderMessages}
+									<div
+										class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+										role="status"
+									>
+										<span class="sr-only">Loading...</span>
+									</div>
+									<span class="ml-2">Loading...</span>
+								{:else}
+									Load older messages
+								{/if}
 							</button>
-						{/each}
-					</div>
-				{/if}
-				<McpPrompts {project} variant="messages" onSelect={handleMcpPromptSelect} />
+						</div>
+					{/if}
 
-				{#if showLoadOlderButton}
-					<div class="mb-4 flex justify-center">
-						<button
-							class="border-surface3 hover:bg-surface2 rounded-full border bg-white px-4 py-2 text-sm font-light transition-all duration-300 dark:bg-black"
-							onclick={loadOlderMessages}
-							disabled={loadingOlderMessages}
-						>
-							{#if loadingOlderMessages}
-								<div
-									class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-									role="status"
-								>
-									<span class="sr-only">Loading...</span>
-								</div>
-								<span class="ml-2">Loading...</span>
-							{:else}
-								Load older messages
-							{/if}
-						</button>
-					</div>
+					{#each messages.messages as msg, i (i)}
+						<Message
+							{project}
+							{msg}
+							currentThreadID={id}
+							{onLoadFile}
+							{onSendCredentials}
+							onSendCredentialsCancel={() => thread?.abort()}
+						/>
+					{/each}
 				{/if}
-
-				{#each messages.messages as msg, i (i)}
-					<Message
-						{project}
-						{msg}
-						currentThreadID={id}
-						{onLoadFile}
-						{onSendCredentials}
-						onSendCredentialsCancel={() => thread?.abort()}
-					/>
-				{/each}
-			{/if}
-			<div class="min-h-4">
-				<!-- Vertical Spacer -->
+				<div class="min-h-4">
+					<!-- Vertical Spacer -->
+				</div>
 			</div>
-		</div>
-		<div class="sticky bottom-0 z-30 flex justify-center bg-white pb-2 dark:bg-black">
+		{/if}
+		<div
+			class={twMerge(
+				'sticky z-30 flex justify-center bg-white pb-2 transition-transform duration-300 dark:bg-black',
+				messages.messages.length === 0 && !createProject
+					? 'top-1/2 -translate-y-[calc(50%+32px)]'
+					: 'top-auto bottom-0'
+			)}
+		>
 			<div class="w-full max-w-[1000px]">
+				{#if messages.messages.length === 0 && !createProject && assistant?.introductionMessage}
+					<div
+						class="milkdown-content mb-5 max-w-full px-5"
+						in:fade|global
+						out:fade={{ duration: 300 }}
+					>
+						{@html toHTMLFromMarkdown(assistant?.introductionMessage)}
+					</div>
+				{/if}
 				<Input
 					id="thread-input"
 					bind:this={input}
@@ -675,25 +608,27 @@
 						/>
 					{/snippet}
 				</Input>
-				<div
-					class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
-				>
-					<span class="text-gray dark:text-gray-400"
-						>Obot isn't perfect. Double check its work.</span
+				{#if messages.messages.length > 0 || createProject}
+					<div
+						class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
 					>
-					<a
-						href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="whitespace-nowrap text-blue-500/50 hover:underline"
-					>
-						{#if responsive.isMobile}
-							<Bug class="h-4 w-4" />
-						{:else}
-							Report issues here
-						{/if}
-					</a>
-				</div>
+						<span class="text-gray dark:text-gray-400"
+							>Obot isn't perfect. Double check its work.</span
+						>
+						<a
+							href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="whitespace-nowrap text-blue-500/50 hover:underline"
+						>
+							{#if responsive.isMobile}
+								<Bug class="h-4 w-4" />
+							{:else}
+								Report issues here
+							{/if}
+						</a>
+					</div>
+				{/if}
 			</div>
 		</div>
 	</div>
