@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AdminService, type MCPCatalogServer } from '$lib/services';
+	import { AdminService, type MCPFilter, type MCPCatalogServer } from '$lib/services';
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { twMerge } from 'tailwind-merge';
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
@@ -41,6 +41,8 @@
 	);
 
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
+	let listEntryServers = $state<Promise<MCPCatalogServer[]>>();
+    let listFilters = $state<Promise<MCPFilter[]>>();
 	let users = $state<OrgUser[]>([]);
 
 	let deleteServer = $state(false);
@@ -53,6 +55,8 @@
 	$effect(() => {
 		if (view === 'access-control') {
 			listAccessControlRules = AdminService.listAccessControlRules();
+		} else if (view === 'filters') {
+            listFilters = AdminService.listMCPFilters();
 		}
 	});
 
@@ -72,6 +76,13 @@
 		if (!entry || !rules) return [];
 		return rules.filter((r) =>
 			r.resources?.find((resource) => resource.id === entry.id || resource.id === '*')
+		);
+	}
+
+	function filterFiltersByEntry(filters?: MCPFilter[]) {
+		if (!entry || !filters) return [];
+		return filters.filter((f) =>
+			f.resources?.find((resource) => resource.id === entry.id || resource.id === '*')
 		);
 	}
 
@@ -294,23 +305,63 @@
 {/snippet}
 
 {#snippet filtersView()}
-	<div class="mt-12 flex w-lg flex-col items-center gap-4 self-center text-center">
-		<ListFilter class="size-24 text-gray-200 dark:text-gray-900" />
-		<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">Filters</h4>
-		<p class="text-md text-left font-light text-gray-400 dark:text-gray-600">
-			The <b class="font-semibold">Filters</b> feature allows you to intercept and process incoming
-			requests
-			<b class="font-semibold">before they reach the MCP Server</b>. This enables you to perform
-			critical tasks such as
-			<b class="font-semibold"
-				>authorization, request logging, tool access control, or traffic routing</b
-			>. <br /><br />
-
-			Filters act as customizable middleware components, giving you control over how requests are
-			handled and whether they should be modified, allowed, or blocked before reaching the core
-			application logic.
-		</p>
-	</div>
+	{#if listFilters}
+		{#await listFilters}
+			<div class="flex w-full justify-center">
+				<LoaderCircle class="size-6 animate-spin" />
+			</div>
+		{:then filters}
+			{@const serverFilters = entry ? filterFiltersByEntry(filters) : []}
+			{#if serverFilters && serverFilters.length > 0}
+				<Table
+					data={serverFilters}
+					fields={['name', 'url', 'selectors']}
+					headers={[
+						{ title: 'Name', property: 'name' },
+						{ title: 'Webhook URL', property: 'url' },
+						{ title: 'Selectors', property: 'selectors' }
+					]}
+					onSelectRow={(d) => {
+						setLastVisitedMcpServer();
+						goto(`/v2/admin/filters/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry?.id}`)}`);
+					}}
+				>
+					{#snippet onRenderColumn(property, d)}
+						{#if property === 'name'}
+							{d.name || '-'}
+						{:else if property === 'url'}
+							{d.url || '-'}
+						{:else if property === 'selectors'}
+							{@const count = d.selectors?.length || 0}
+							{count > 0 ? `${count} selector${count > 1 ? 's' : ''}` : '-'}
+						{:else}
+							{d[property as keyof typeof d]}
+						{/if}
+					{/snippet}
+				</Table>
+			{:else}
+				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+					<ListFilter class="size-24 text-gray-200 dark:text-gray-900" />
+					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
+						No filters configured
+					</h4>
+					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+						This server is not referenced by any filters.
+					</p>
+				</div>
+			{/if}
+		{/await}
+	{:else}
+		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+			<ListFilter class="size-24 text-gray-200 dark:text-gray-900" />
+			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
+				No filters available
+			</h4>
+			<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+				No filters have been configured in the system.
+			</p>
+		</div>
+	{/if}
 {/snippet}
 <Confirm
 	msg="Are you sure you want to delete this server?"
