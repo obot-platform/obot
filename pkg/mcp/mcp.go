@@ -52,22 +52,18 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *jwt.
 	var toolNames []string
 
 	for _, tool := range tools.Tools {
-		if !allToolsAllowed && !slices.Contains(allowedTools, tool.Name) {
-			continue
-		}
 		if tool.Name == "" {
 			// I dunno, bad tool?
 			continue
 		}
-
-		var schema jsonschema.Schema
-
-		schemaData, err := json.Marshal(tool.InputSchema)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal tool input schema: %w", err)
+		if !allToolsAllowed && !slices.Contains(allowedTools, tool.Name) {
+			continue
 		}
 
-		if err := json.Unmarshal(schemaData, &schema); err != nil {
+		toolName := mcpServerDisplayName + " -> " + tool.Name
+
+		var schema jsonschema.Schema
+		if err = json.Unmarshal(tool.InputSchema, &schema); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal tool input schema: %w", err)
 		}
 
@@ -77,7 +73,7 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *jwt.
 		}
 
 		toolDef := gptscript.ToolDef{
-			Name:         tool.Name,
+			Name:         toolName,
 			Description:  tool.Description,
 			Arguments:    &schema,
 			Instructions: types.MCPInvokePrefix + tool.Name + " " + client.ID,
@@ -90,9 +86,9 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *jwt.
 		}
 
 		if tool.Annotations != nil && tool.Annotations.Title != "" && !slices.Contains(strings.Fields(tool.Annotations.Title), "as") {
-			toolNames = append(toolNames, tool.Name+" as "+tool.Annotations.Title)
+			toolNames = append(toolNames, toolName+" as "+tool.Annotations.Title)
 		} else {
-			toolNames = append(toolNames, tool.Name)
+			toolNames = append(toolNames, toolName)
 		}
 
 		toolDefs = append(toolDefs, toolDef)
