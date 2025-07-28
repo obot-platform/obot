@@ -169,6 +169,14 @@
 			}))
 			.filter((item) => !selectedCategory || item.server?.categories?.includes(selectedCategory))
 	]);
+	let filteredConnectedServers = $derived(
+		connectedServers.filter((item) => {
+			if (search) {
+				return item.server?.manifest.name?.toLowerCase().includes(search.toLowerCase());
+			}
+			return true;
+		})
+	);
 
 	let page = $state(0);
 	let pageSize = $state(30);
@@ -347,7 +355,16 @@
 				<LoaderCircle class="size-6 animate-spin" />
 			</div>
 		{:else}
-			{#if connectedServers.length > 0}
+			<Search
+				class="dark:bg-surface1 dark:border-surface3 bg-white shadow-sm dark:border"
+				onChange={(val) => {
+					search = val;
+					page = 0;
+				}}
+				placeholder="Search by name..."
+			/>
+
+			{#if filteredConnectedServers.length > 0}
 				<div class="flex flex-col gap-4">
 					<div class="flex items-center gap-4">
 						<h2 class="text-lg font-semibold">Connected MCP Servers</h2>
@@ -356,7 +373,7 @@
 						{/if}
 					</div>
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-						{#each connectedServers as connectedServer, i (i)}
+						{#each filteredConnectedServers as connectedServer, i (i)}
 							{#if connectedServer.server}
 								<McpCard
 									data={connectedServer.server}
@@ -396,14 +413,6 @@
 			{/if}
 			<div class="flex flex-col gap-4">
 				<h2 class="text-lg font-semibold">Available MCP Servers</h2>
-				<Search
-					class="dark:bg-surface1 dark:border-surface3 bg-white shadow-sm dark:border"
-					onChange={(val) => {
-						search = val;
-						page = 0;
-					}}
-					placeholder="Search by name..."
-				/>
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 					{#each paginatedData as item (item.id)}
 						<McpCard

@@ -48,17 +48,17 @@
 						disabled: isBootStrapUser,
 						items: [
 							{
-								href: '/v2/admin/filters',
-								icon: Funnel,
-								label: 'Filters',
-								disabled: isBootStrapUser
-							},
-							{
 								href: '/v2/admin/audit-logs',
 								icon: Captions,
 								label: 'Audit Logs',
 								disabled: isBootStrapUser,
 								collapsible: false
+							},
+							{
+								href: '/v2/admin/filters',
+								icon: Funnel,
+								label: 'Filters',
+								disabled: isBootStrapUser
 							}
 						]
 					},

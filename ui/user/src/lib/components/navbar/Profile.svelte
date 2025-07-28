@@ -122,13 +122,33 @@
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
 			{#if profile.current.role === 1 && !inAdminRoute}
-				<a href="/v2/admin/mcp-servers" rel="external" role="menuitem" class="link">
-					<LayoutDashboard class="size-4" />Admin Dashboard
+				<a
+					href="/v2/admin/mcp-servers"
+					class="link justify-between"
+					target="_blank"
+					rel="external"
+					role="menuitem"
+				>
+					<div class="flex items-center gap-2">
+						<LayoutDashboard class="size-4" />
+						Admin Dashboard
+					</div>
+					<ExternalLink class="size-4" />
 				</a>
 			{/if}
 			{#if showMyMcpServersLink}
-				<a href="/mcp-servers" rel="external" role="menuitem" class="link">
-					<Server class="size-4" />My MCP Servers
+				<a
+					href="/mcp-servers"
+					class="link justify-between"
+					target="_blank"
+					rel="external"
+					role="menuitem"
+				>
+					<div class="flex items-center gap-2">
+						<Server class="size-4" />
+						My MCP Servers
+					</div>
+					<ExternalLink class="size-4" />
 				</a>
 			{/if}
 			{#if showChatLink}

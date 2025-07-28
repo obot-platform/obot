@@ -141,7 +141,7 @@
 <Layout showUserLinks hideSidebar>
 	<div class="flex w-full">
 		{#if !responsive.isMobile}
-			<ul class="flex min-h-0 w-xs flex-shrink-0 grow flex-col px-4 py-6">
+			<ul class="flex min-h-0 w-xs flex-shrink-0 grow flex-col p-4">
 				<li>
 					<button
 						class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
@@ -187,7 +187,7 @@
 				onDisconnect={() => {
 					loadData(true);
 				}}
-				connectSelectText="Get Connection URL"
+				connectSelectText="Connect To Server"
 				{selectedCategory}
 			>
 				{#snippet appendConnectedServerTitle()}
@@ -206,7 +206,7 @@
 							connectDialog?.open();
 						}}
 					>
-						Get Connection URL
+						Connect To Server
 					</button>
 					{@render connectedActions(connectedServer)}
 				{/snippet}

@@ -32,8 +32,8 @@
 			? [
 					{ label: 'Overview', view: 'overview' },
 					{ label: 'Configuration', view: 'configuration' },
+					{ label: 'Audit Logs', view: 'usage' },
 					{ label: 'Access Control', view: 'access-control' },
-					{ label: 'Usage', view: 'usage' },
 					{ label: 'Server Instances', view: 'server-instances' },
 					{ label: 'Filters', view: 'filters' }
 				]
