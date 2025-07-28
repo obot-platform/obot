@@ -333,4 +333,5 @@ export interface BaseAgent extends Project {
 	allowedModels?: string[];
 	allowedModelProviders?: string[];
 	default?: boolean;
+	model?: string; // default model
 }

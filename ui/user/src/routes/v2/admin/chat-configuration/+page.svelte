@@ -1,18 +1,17 @@
 <script lang="ts">
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import MarkdownInput from '$lib/components/admin/MarkdownInput.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import EditIcon from '$lib/components/edit/EditIcon.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import PageLoading from '$lib/components/PageLoading.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte.js';
 	import { AdminService, type Model, type ModelProvider } from '$lib/services';
-	import { sortModelProviders } from '$lib/sort.js';
-	import { darkMode } from '$lib/stores/index.js';
-	import { Check, Info, LoaderCircle, Plus, Trash2, TriangleAlert } from 'lucide-svelte';
+	import { sortModelProviders } from '$lib/sort';
+	import { Check, Info, LoaderCircle, Plus, TriangleAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -24,7 +23,6 @@
 	let saving = $state(false);
 	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
-	let loading = $state(false);
 
 	let showAddModelsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let addModelsSelected = $state<Record<string, boolean>>({});
@@ -38,19 +36,44 @@
 		models: []
 	});
 
-	let selectedModelProviders = $derived(new Set(baseAgent?.allowedModelProviders ?? []));
 	let modelProvidersMap = $derived(
 		new Map(modelsData.modelProviders.map((provider) => [provider.id, provider]))
 	);
 	let selectedModels = $derived(
 		modelsData.models.filter((model) => baseAgent?.allowedModels?.includes(model.id))
 	);
+
 	let filterAvailableModelSets = $derived(
 		modelsData.models.filter(
 			(model) =>
 				model.name.toLowerCase().includes(addModelsSearch.toLowerCase()) ||
 				model.modelProviderName.toLowerCase().includes(addModelsSearch.toLowerCase())
 		)
+	);
+
+	let modelProviderSets = $derived(compileModelsByModelProviders(filterAvailableModelSets));
+
+	let sortedModelProviderAndModels = $derived(
+		sortModelProviders(modelsData.modelProviders).map((modelProvider) => ({
+			modelProvider,
+			models: (modelProviderSets[modelProvider.id] ?? []).sort((a, b) => {
+				const aStartsWithGpt = a.name.toLowerCase().startsWith('gpt');
+				const bStartsWithGpt = b.name.toLowerCase().startsWith('gpt');
+
+				if (aStartsWithGpt === bStartsWithGpt) {
+					return a.name.localeCompare(b.name);
+				}
+
+				return aStartsWithGpt ? -1 : 1;
+			})
+		}))
+	);
+
+	let tableData = $derived(
+		selectedModels.map((model) => ({
+			...model,
+			isDefault: model.id === baseAgent?.model
+		}))
 	);
 
 	onMount(() => {
@@ -62,6 +85,10 @@
 				};
 			}
 		);
+
+		if (baseAgent && baseAgent.model && (baseAgent.allowedModels ?? []).length === 0) {
+			baseAgent.allowedModels = [baseAgent.model];
+		}
 	});
 
 	$effect(() => {
@@ -78,7 +105,7 @@
 
 	async function handleSave() {
 		if (!baseAgent) return;
-		loading = true;
+		saving = true;
 		try {
 			const response = await AdminService.updateBaseAgent(baseAgent);
 			prevAgent = baseAgent;
@@ -88,21 +115,19 @@
 			console.error(err);
 			// default behavior will show snackbar error
 		} finally {
-			loading = false;
+			saving = false;
 		}
 	}
 
 	function compileModelsByModelProviders(models: Model[]) {
-		return models
-			.filter((model) => selectedModelProviders.has(model.modelProvider))
-			.reduce(
-				(acc, model) => {
-					acc[model.modelProvider] = acc[model.modelProvider] || [];
-					acc[model.modelProvider].push(model);
-					return acc;
-				},
-				{} as Record<string, Model[]>
-			);
+		return models.reduce(
+			(acc, model) => {
+				acc[model.modelProvider] = acc[model.modelProvider] || [];
+				acc[model.modelProvider].push(model);
+				return acc;
+			},
+			{} as Record<string, Model[]>
+		);
 	}
 
 	function resetAddModels() {
@@ -175,19 +200,17 @@
 							placeholder="Begin every conversation with an introduction."
 						/>
 					</div>
-				</div>
 
-				<div class="flex flex-col gap-2">
-					<div class="flex items-center gap-2">
-						<h2 class="text-xl font-semibold">Model Providers</h2>
-						<InfoTooltip
-							text="Select the model providers that projects can utilize."
-							class="size-4"
-							classes={{ icon: 'size-4' }}
-						/>
+					<div class="flex flex-col gap-1">
+						<label class="text-sm" for="prompt">Instructions</label>
+						<textarea
+							rows={6}
+							id="prompt"
+							bind:value={baseAgent.prompt}
+							class="text-input-filled dark:bg-black"
+							placeholder={HELPER_TEXTS.prompt}
+						></textarea>
 					</div>
-
-					{@render modelProvidersView()}
 				</div>
 
 				<div class="flex flex-col gap-2">
@@ -210,20 +233,48 @@
 						</button>
 					</div>
 
-					<Table data={selectedModels} fields={['name']} noDataMessage="No models added.">
+					<Table
+						data={tableData}
+						fields={['name', 'isDefault']}
+						headers={[
+							{
+								property: 'isDefault',
+								title: 'Is Default'
+							}
+						]}
+						headerClasses={[
+							{
+								property: 'isDefault',
+								class: 'w-28'
+							}
+						]}
+						noDataMessage="No models added."
+					>
 						{#snippet actions(d)}
-							<button
-								class="icon-button hover:text-red-500"
-								onclick={() => {
-									if (!baseAgent) return;
-									baseAgent.allowedModels = baseAgent.allowedModels?.filter(
-										(modelId) => modelId !== d.id
-									);
-								}}
-								use:tooltip={'Remove Model'}
-							>
-								<Trash2 class="size-4" />
-							</button>
+							<DotDotDot>
+								<div class="default-dialog flex min-w-max flex-col p-2">
+									<button
+										class="menu-button"
+										onclick={() => {
+											if (!baseAgent) return;
+											baseAgent.model = d.id;
+										}}
+									>
+										Set as Default
+									</button>
+									<button
+										class="menu-button"
+										onclick={() => {
+											if (!baseAgent) return;
+											baseAgent.allowedModels = baseAgent.allowedModels?.filter(
+												(modelId) => modelId !== d.id
+											);
+										}}
+									>
+										Remove
+									</button>
+								</div>
+							</DotDotDot>
 						{/snippet}
 
 						{#snippet onRenderColumn(property, d)}
@@ -235,6 +286,14 @@
 										class="size-6 rounded-md bg-gray-50 p-1 dark:bg-gray-600"
 									/>
 									{d.name}
+								</div>
+							{:else if property === 'isDefault'}
+								<div class="flex w-full items-center justify-center gap-2">
+									{#if d.isDefault}
+										<Check class="size-5 text-blue-500" />
+									{:else}
+										<div class="size-5"></div>
+									{/if}
 								</div>
 							{/if}
 						{/snippet}
@@ -287,53 +346,6 @@
 	</div>
 </Layout>
 
-{#snippet modelProvidersView()}
-	{#if baseAgent}
-		<div class="grid grid-cols-2 gap-2">
-			{#each sortModelProviders(modelsData.modelProviders) as modelProvider}
-				<button
-					class={twMerge(
-						'dark:bg-surface1 dark:border-surface3 flex items-center justify-between rounded-md border border-transparent bg-white p-2 shadow-sm transition-colors duration-300 hover:border-blue-500 hover:bg-blue-500/30 dark:hover:border-blue-500 dark:hover:bg-blue-500/30',
-						selectedModelProviders.has(modelProvider.id) &&
-							'border-blue-500/75 bg-blue-500/10 dark:border-blue-500/75 dark:bg-blue-500/10'
-					)}
-					onclick={() => {
-						if (!baseAgent) return;
-						if (selectedModelProviders.has(modelProvider.id)) {
-							baseAgent.allowedModelProviders =
-								baseAgent.allowedModelProviders?.filter((id) => id !== modelProvider.id) ?? [];
-						} else {
-							baseAgent.allowedModelProviders = [
-								...(baseAgent.allowedModelProviders ?? []),
-								modelProvider.id
-							];
-						}
-					}}
-				>
-					<div class="flex items-center gap-3">
-						<div
-							class={twMerge(
-								'rounded-md p-1',
-								darkMode.isDark && !modelProvider.iconDark && 'bg-surface1 dark:bg-gray-600'
-							)}
-						>
-							{#if modelProvider.iconDark && darkMode.isDark}
-								<img src={modelProvider.iconDark} alt={modelProvider.name} class="size-6" />
-							{:else if modelProvider.icon}
-								<img src={modelProvider.icon} alt={modelProvider.name} class="size-6" />
-							{/if}
-						</div>
-						{modelProvider.name}
-					</div>
-					{#if selectedModelProviders.has(modelProvider.id)}
-						<Check class="mx-2 size-6 text-blue-500" />
-					{/if}
-				</button>
-			{/each}
-		</div>
-	{/if}
-{/snippet}
-
 <ResponsiveDialog
 	bind:this={showAddModelsDialog}
 	title="Add Models"
@@ -347,7 +359,6 @@
 	}}
 >
 	{#if baseAgent}
-		{@const modelProviderSets = compileModelsByModelProviders(filterAvailableModelSets)}
 		<div class="mb-4 px-4">
 			<Search
 				class="dark:border-surface3 border border-transparent bg-white shadow-sm dark:bg-black"
@@ -357,10 +368,8 @@
 		</div>
 
 		<div class="default-scrollbar-thin flex h-96 flex-col gap-2 overflow-y-auto">
-			{#each Object.keys(modelProviderSets) as modelProviderId (modelProviderId)}
-				{@const models = modelProviderSets[modelProviderId]}
-				{@const modelProvider = modelProvidersMap.get(modelProviderId)}
-				{#if modelProvider}
+			{#each sortedModelProviderAndModels as { modelProvider, models } (modelProvider.id)}
+				{#if models.length > 0}
 					<div class="flex flex-col gap-1 px-2 py-1">
 						<h4 class="text-md mx-2 flex items-center gap-2 font-semibold">
 							<img
@@ -372,7 +381,7 @@
 						</h4>
 					</div>
 					<div class="flex flex-col gap-1 px-8">
-						{#each models as model}
+						{#each models as model (model.id)}
 							<button
 								class={twMerge(
 									'hover:bg-surface3 flex items-center justify-between gap-4 rounded-md bg-transparent p-2 font-light',
