@@ -6,6 +6,7 @@
 	import FileEditors from '$lib/components/editor/FileEditors.svelte';
 	import Error from '$lib/components/Error.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
+	import McpResources from '$lib/components/mcp/McpResources.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { isImage } from '$lib/image';
@@ -199,7 +200,8 @@
 		</ul>
 	{/if}
 	{#if thread}
-		<div class="flex justify-end">
+		<div class="flex items-center justify-end gap-4">
+			<McpResources {project} bind:threadID={currentThreadID} bind:currentThreadFiles={files} />
 			<label class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm">
 				{#await uploadInProgress}
 					<Loading class="size-4" />
