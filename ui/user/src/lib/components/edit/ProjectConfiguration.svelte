@@ -5,7 +5,6 @@
 	import EditIcon from './EditIcon.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
-	import ProjectConfigurationFiles from './ProjectConfigurationFiles.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { goto } from '$app/navigation';
 
@@ -87,7 +86,6 @@
 			</div>
 
 			<ProjectConfigurationKnowledge {project} />
-			<ProjectConfigurationFiles {project} />
 
 			<div class="mb-8 flex flex-col gap-2">
 				<h2 class="text-xl font-semibold">Danger Zone</h2>
