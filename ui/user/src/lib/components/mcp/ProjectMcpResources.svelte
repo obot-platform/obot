@@ -15,9 +15,10 @@
 		project: Project;
 		mcp?: ProjectMCP;
 		resources: McpServerResource[];
+		enableProjectAdd?: boolean;
 	}
 
-	let { project, mcp, resources }: Props = $props();
+	let { project, mcp, resources, enableProjectAdd = false }: Props = $props();
 	let currentWorkspaceFiles = $state<File[]>([]);
 	let dialog = $state<HTMLDialogElement>();
 	let loadingFiles = $state(false);
@@ -198,23 +199,28 @@
 						<button
 							class="flex grow gap-4 text-left"
 							onclick={() => handleAddResource(resource)}
-							disabled={loadingFiles || addingFileUri === resource.uri || alreadyAdded}
+							disabled={enableProjectAdd ||
+								loadingFiles ||
+								addingFileUri === resource.uri ||
+								alreadyAdded}
 						>
 							<div>
 								<p class="text-sm">{resource.name}</p>
 								<p class="text-xs font-light text-gray-500">{resource.mimeType}</p>
 							</div>
 							<div class="flex grow"></div>
-							{#if alreadyAdded}
-								<span class="p-2 pr-0 text-xs text-gray-500">Added</span>
-							{:else}
-								<div class="button-text flex items-center gap-1 p-2 pr-0 text-xs">
-									{#if loadingFiles || addingFileUri === resource.uri}
-										<LoaderCircle class="size-3 animate-spin" />
-									{:else}
-										Add to Project <ChevronsRight class="size-3" />
-									{/if}
-								</div>
+							{#if enableProjectAdd}
+								{#if alreadyAdded}
+									<span class="p-2 pr-0 text-xs text-gray-500">Added</span>
+								{:else}
+									<div class="button-text flex items-center gap-1 p-2 pr-0 text-xs">
+										{#if loadingFiles || addingFileUri === resource.uri}
+											<LoaderCircle class="size-3 animate-spin" />
+										{:else}
+											Add to Project <ChevronsRight class="size-3" />
+										{/if}
+									</div>
+								{/if}
 							{/if}
 						</button>
 					</div>
