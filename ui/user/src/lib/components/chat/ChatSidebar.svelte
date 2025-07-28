@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { type Project } from '$lib/services';
-	import { Plus, Settings, SidebarClose } from 'lucide-svelte';
+	import { SidebarClose } from 'lucide-svelte';
 	import { hasTool } from '$lib/tools';
-	import { closeAll, getLayout, openConfigureProject } from '$lib/context/chatLayout.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import Tasks from '$lib/components/edit/Tasks.svelte';
 	import McpServers from '$lib/components/edit/McpServers.svelte';
 
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
 	import Threads from '$lib/components/chat/sidebar/Threads.svelte';
 

@@ -1,12 +1,11 @@
 <script lang="ts">
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
 	import { ChatService, type Project } from '$lib/services';
-	import { ChevronDown, Plus, Settings, Trash2, X } from 'lucide-svelte/icons';
+	import { ChevronDown, Settings } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
 	import { twMerge } from 'tailwind-merge';
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
 	import { goto } from '$app/navigation';
-	import { responsive } from '$lib/stores';
 	import Confirm from '../Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { closeAll, getLayout, openConfigureProject } from '$lib/context/chatLayout.svelte';
@@ -109,7 +108,7 @@
 
 		<button
 			class="hover:bg-surface3 mt-1 h-14 w-full justify-center py-2 text-sm font-medium"
-			onclick={(e) => {
+			onclick={() => {
 				closeAll(layout);
 				onCreateProject?.();
 			}}

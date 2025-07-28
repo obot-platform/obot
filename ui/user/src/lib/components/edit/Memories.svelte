@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type Project } from '$lib/services';
 	import MemoryContent from '$lib/components/MemoriesDialog.svelte';
-	import { RefreshCcw, View } from 'lucide-svelte';
+	import { RefreshCcw } from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
 
