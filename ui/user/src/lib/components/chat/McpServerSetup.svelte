@@ -11,7 +11,7 @@
 		type Project,
 		type ProjectMCP
 	} from '$lib/services';
-	import { createProjectMcp, parseCategories } from '$lib/services/chat/mcp';
+	import { createProjectMcp, parseCategories, requiresUserUpdate } from '$lib/services/chat/mcp';
 	import MyMcpServers, { type ConnectedServer } from '../mcp/MyMcpServers.svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -188,8 +188,7 @@
 						}}
 					>
 						{#snippet connectedServerCardAction(d)}
-							{@const configured =
-								typeof d.server?.configured === 'boolean' ? d.server?.configured : true}
+							{@const configured = requiresUserUpdate(d)}
 							<button
 								disabled={!configured}
 								class={twMerge(

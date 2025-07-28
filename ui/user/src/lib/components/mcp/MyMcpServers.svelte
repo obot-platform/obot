@@ -5,7 +5,11 @@
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services';
-	import { convertEnvHeadersToRecord, hasEditableConfiguration } from '$lib/services/chat/mcp';
+	import {
+		convertEnvHeadersToRecord,
+		hasEditableConfiguration,
+		requiresUserUpdate
+	} from '$lib/services/chat/mcp';
 	import { fly } from 'svelte/transition';
 	import type { LaunchFormData } from './CatalogConfigureForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -438,7 +442,7 @@
 	icon={selectedManifest?.icon}
 	name={selectedManifest?.name}
 	onSave={handleConfigureForm}
-	submitText={selectedEntryOrServer && 'server' in selectedEntryOrServer ? 'Launch' : 'Update'}
+	submitText={selectedEntryOrServer && 'server' in selectedEntryOrServer ? 'Update' : 'Launch'}
 	loading={saving}
 />
 
@@ -552,7 +556,7 @@
 {/snippet}
 
 {#snippet prependedDefaultActions(connectedServer: ConnectedServer)}
-	{@const configured = connectedServer?.server?.configured}
+	{@const configured = requiresUserUpdate(connectedServer)}
 	<button
 		class={twMerge(
 			'menu-button',

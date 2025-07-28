@@ -709,6 +709,7 @@ export interface MCPCatalogServer {
 	mcpServerInstanceUserCount?: number;
 	manifest: MCPServer;
 	needsUpdate?: boolean;
+	needsURL?: boolean;
 }
 
 export interface MCPServerInstance {

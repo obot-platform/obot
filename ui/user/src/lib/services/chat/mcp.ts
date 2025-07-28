@@ -1,3 +1,4 @@
+import type { ConnectedServer } from '$lib/components/mcp/MyMcpServers.svelte';
 import {
 	ChatService,
 	type MCPCatalogEntry,
@@ -97,4 +98,12 @@ export function hasEditableConfiguration(item: MCPCatalogEntry) {
 	const hasHeadersToFill = manifest?.headers && manifest.headers.length > 0;
 
 	return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
+}
+
+export function requiresUserUpdate(mcpServer?: ConnectedServer) {
+	if (!mcpServer) return false;
+	if (mcpServer.server?.needsURL) {
+		return true;
+	}
+	return typeof mcpServer.server?.configured === 'boolean' ? mcpServer.server?.configured : false;
 }
