@@ -6,11 +6,27 @@ const sidebars = {
     "overview",
     {
       type: "category",
-      label: "Concepts",
+      label: "Chat Interface",
       items: [
-        "concepts/projects",
-        "concepts/threads",
-        "concepts/tasks",
+        "concepts/chat/overview",
+        "concepts/chat/projects",
+        "concepts/chat/threads",
+      ],
+    },
+    {
+      type: "category",
+      label: "MCP Gateway",
+      items: [
+        "concepts/mcp-gateway/overview",
+        "concepts/mcp-gateway/servers-and-tools",
+      ],
+    },
+    {
+      type: "category",
+      label: "Admin Interface",
+      items: [
+        "concepts/admin/overview",
+        "concepts/admin/tasks",
       ],
     },
     {
