@@ -53,7 +53,9 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	// Parse query parameters with support for multiple values
 	opts := gateway.MCPAuditLogOptions{
 		// Default limit is 100.
-		Limit:                     100,
+		Limit: 100,
+		// Any of these filters that can be passed via query parameter need to be available in the "filter options" API.
+		// In order for that to be the case, the map in the GetAuditLogFilterOptions method should be updated.
 		UserID:                    parseMultiValueParam(query, "user_id"),
 		MCPID:                     parseMultiValueParam(query, "mcp_id"),
 		MCPServerDisplayName:      parseMultiValueParam(query, "mcp_server_display_name"),
@@ -140,6 +142,39 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		Total:  totalCount,
 		Limit:  opts.Limit,
 		Offset: opts.Offset,
+	})
+}
+
+var filterOptions = map[string]struct{}{
+	"user_id":                       {},
+	"mcp_id":                        {},
+	"mcp_server_display_name":       {},
+	"mcp_server_catalog_entry_name": {},
+	"call_type":                     {},
+	"session_id":                    {},
+	"client_name":                   {},
+	"client_version":                {},
+	"response_status":               {},
+	"client_ip":                     {},
+}
+
+func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
+	filter := req.PathValue("filter")
+	if filter == "" {
+		return types.NewErrBadRequest("missing option")
+	}
+
+	if _, ok := filterOptions[filter]; !ok {
+		return types.NewErrBadRequest("invalid option: %s", filter)
+	}
+
+	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(map[string]any{
+		"options": options,
 	})
 }
 

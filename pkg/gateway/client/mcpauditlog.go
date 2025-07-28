@@ -120,6 +120,11 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	return logs, db.Find(&logs).Error
 }
 
+func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string) ([]string, error) {
+	var result []string
+	return result, c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Distinct(option).Where(option + " != ''").Select(option).Scan(&result).Error
+}
+
 // GetMCPUsageStats retrieves usage statistics for MCP servers
 func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions) (types.MCPUsageStatsList, error) {
 	type totalCallsAndUniqueUsers struct {
