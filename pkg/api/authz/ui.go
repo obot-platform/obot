@@ -17,6 +17,7 @@ var uiResources = []string{
 	"GET /landing/images/",
 	"GET /_app/",
 	"GET /{assistant}",
+	"GET /chat",
 	"GET /o/",
 	"GET /s/",
 	"GET /t/",

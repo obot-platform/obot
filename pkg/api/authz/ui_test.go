@@ -105,6 +105,33 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "unauthenticated user can access /chat",
+			path: "/",
+			user: &user.DefaultInfo{
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: true,
+		},
+		{
+			name: "regular user can access /chat",
+			path: "/",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: []string{AuthenticatedGroup},
+			},
+			expected: true,
+		},
+		{
+			name: "admin user can access /chat",
+			path: "/chat",
+			user: &user.DefaultInfo{
+				Name:   "admin",
+				Groups: []string{AdminGroup, AuthenticatedGroup},
+			},
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {
