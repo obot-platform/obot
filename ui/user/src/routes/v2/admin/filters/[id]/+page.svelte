@@ -8,11 +8,6 @@
 		fetchMcpServerAndEntries,
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte.js';
-	import {
-		fetchMcpFilters,
-		getAdminMcpFilters,
-		initMcpFilters
-	} from '$lib/context/admin/mcpFilters.svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { browser } from '$app/environment';
@@ -34,9 +29,6 @@
 	});
 
 	initMcpServerAndEntries();
-	initMcpFilters();
-	const mcpFiltersContext = getAdminMcpFilters();
-
 	onMount(async () => {
 		await fetchMcpServerAndEntries(defaultCatalogId);
 	});
@@ -47,7 +39,6 @@
 		<FilterForm
 			{filter}
 			onUpdate={() => {
-				fetchMcpFilters(mcpFiltersContext);
 				goto('/v2/admin/filters');
 			}}
 		>

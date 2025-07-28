@@ -12,26 +12,22 @@
 		fetchMcpServerAndEntries,
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import {
-		fetchMcpFilters,
-		getAdminMcpFilters,
-		initMcpFilters
-	} from '$lib/context/admin/mcpFilters.svelte';
 	import { AdminService, type MCPFilter } from '$lib/services/index.js';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 
-	let { data }: { data: { filters: MCPFilter[] } } = $props();
-	const { filters: initialFilters } = data;
-	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
+    initMcpServerAndEntries();
+
 	let showCreateFilter = $state(false);
+    let loading = $state(true);
 	let filterToDelete = $state<MCPFilter>();
 
-	initMcpServerAndEntries();
-	initMcpFilters({ filters: initialFilters, loading: false });
-	const mcpFiltersContext = getAdminMcpFilters();
+	let filters = $state<MCPFilter[]>([]);
 
-	// Use context data when loaded, fallback to initial data
-	let filters = $derived(mcpFiltersContext.loading ? initialFilters : mcpFiltersContext.filters);
+    async function refresh() {
+        loading = true;
+        filters = await AdminService.listMCPFilters();
+        loading = false;
+    }
 
 	onMount(() => {
 		const url = new URL(window.location.href);
@@ -48,12 +44,13 @@
 	async function navigateAfterCreated() {
 		showCreateFilter = false;
 		// Refresh the filters list to ensure we have the latest data
-		await fetchMcpFilters(mcpFiltersContext);
+		await refresh();
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
 	onMount(async () => {
-		await Promise.all([fetchMcpServerAndEntries(defaultCatalogId), fetchMcpFilters()]);
+        await fetchMcpServerAndEntries(DEFAULT_MCP_CATALOG_ID);
+		await refresh();
 	});
 </script>
 
@@ -74,7 +71,7 @@
 				<div class="flex items-center justify-between">
 					<h1 class="text-2xl font-semibold">Filters</h1>
 					<div class="relative flex items-center gap-4">
-						{#if mcpFiltersContext.loading}
+						{#if loading}
 							<LoaderCircle class="size-4 animate-spin" />
 						{/if}
 						{@render addFilterButton()}
@@ -179,7 +176,7 @@
 	onsuccess={async () => {
 		if (!filterToDelete) return;
 		await AdminService.deleteMCPFilter(filterToDelete.id);
-		await fetchMcpFilters(mcpFiltersContext);
+		await refresh();
 		filterToDelete = undefined;
 	}}
 	oncancel={() => (filterToDelete = undefined)}
