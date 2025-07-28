@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"fmt"
+	"net/url"
 	"slices"
 	"strings"
 
@@ -43,9 +44,9 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		err     error
 	)
 	if entry.Spec.CommandManifest.Name != "" {
-		drifted, err = configurationHasDrifted(server.Spec.Manifest, entry.Spec.CommandManifest)
+		drifted, err = configurationHasDrifted(server.Spec.NeedsURL, server.Spec.Manifest, entry.Spec.CommandManifest)
 	} else {
-		drifted, err = configurationHasDrifted(server.Spec.Manifest, entry.Spec.URLManifest)
+		drifted, err = configurationHasDrifted(server.Spec.NeedsURL, server.Spec.Manifest, entry.Spec.URLManifest)
 	}
 	if err != nil {
 		return err
@@ -58,16 +59,26 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest) (bool, error) {
+func configurationHasDrifted(needsURL bool, serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest) (bool, error) {
 	// First, check on the URL or hostname.
 	if entryManifest.FixedURL != "" && serverManifest.URL != entryManifest.FixedURL {
 		return true, nil
 	}
 
-	// We are deliberately ignoring the hostname here, even if there is one.
-	// If there is drift between the server's URL and the catalog entry's hostname,
-	// that's the user's responsibility to fix, and triggering an update will not fix it,
-	// so there is no need to make needsUpdate as true for that.
+	// We skip the hostname check if needsURL is already set to true.
+	// NeedsURL is true if the admin already triggered an update for this server, and the user has not yet fixed the URL to make it match the hostname.
+	// If NeedsURL is false, then we can check the hostname, and if it doesn't match, that means that admin does have an update available to trigger.
+	if entryManifest.Hostname != "" && !needsURL {
+		u, err := url.Parse(serverManifest.URL)
+		if err != nil {
+			// Shouldn't ever happen.
+			return true, err
+		}
+
+		if u.Hostname() != entryManifest.Hostname {
+			return true, nil
+		}
+	}
 
 	// Check the rest of the fields to see if anything has changed.
 	drifted := serverManifest.Command != entryManifest.Command ||

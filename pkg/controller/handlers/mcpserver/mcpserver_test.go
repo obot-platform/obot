@@ -11,6 +11,7 @@ func TestConfigurationHasDrifted(t *testing.T) {
 		name           string
 		serverManifest types.MCPServerManifest
 		entryManifest  types.MCPServerCatalogEntryManifest
+		serverNeedsURL bool
 		expectedDrift  bool
 		expectedError  bool
 	}{
@@ -180,6 +181,22 @@ func TestConfigurationHasDrifted(t *testing.T) {
 			expectedError: false,
 		},
 		{
+			name: "no drift - different hostname, server needs URL",
+			serverManifest: types.MCPServerManifest{
+				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "KEY1", Name: "key1"}}},
+				Headers: []types.MCPHeader{{Key: "HEADER1", Name: "header1"}},
+				URL:     "http://example.com:8080/path",
+			},
+			entryManifest: types.MCPServerCatalogEntryManifest{
+				Env:      []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "KEY1", Name: "key1"}}},
+				Headers:  []types.MCPHeader{{Key: "HEADER1", Name: "header1"}},
+				Hostname: "different.example.com",
+			},
+			serverNeedsURL: true,
+			expectedDrift:  false,
+			expectedError:  false,
+		},
+		{
 			name: "no drift - matching hostname",
 			serverManifest: types.MCPServerManifest{
 				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "KEY1", Name: "key1"}}},
@@ -245,7 +262,7 @@ func TestConfigurationHasDrifted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			drifted, err := configurationHasDrifted(tt.serverManifest, tt.entryManifest)
+			drifted, err := configurationHasDrifted(tt.serverNeedsURL, tt.serverManifest, tt.entryManifest)
 
 			if tt.expectedError {
 				if err == nil {
@@ -273,7 +290,7 @@ func TestConfigurationHasDrifted_EdgeCases(t *testing.T) {
 			Hostname: "example.com",
 		}
 
-		drifted, err := configurationHasDrifted(serverManifest, entryManifest)
+		drifted, err := configurationHasDrifted(false, serverManifest, entryManifest)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
@@ -291,7 +308,7 @@ func TestConfigurationHasDrifted_EdgeCases(t *testing.T) {
 			Hostname: "example.com", // This should be ignored since FixedURL is set
 		}
 
-		drifted, err := configurationHasDrifted(serverManifest, entryManifest)
+		drifted, err := configurationHasDrifted(false, serverManifest, entryManifest)
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
