@@ -395,10 +395,6 @@
 					<FileText class="min-w-fit" />
 					<span use:overflowToolTip>{msg.file.filename}</span>
 				</div>
-				<div>
-					<Pencil />
-					<span class="sr-only">Open</span>
-				</div>
 			</div>
 			<div class="relative">
 				<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
