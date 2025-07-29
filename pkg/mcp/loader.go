@@ -513,6 +513,7 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string)
 	var (
 		pods            corev1.PodList
 		runningPodCount int
+		podName         string
 	)
 	for {
 		if err = sm.client.List(ctx, &pods, &kclient.ListOptions{
@@ -527,11 +528,12 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string)
 		runningPodCount = 0
 		for _, p := range pods.Items {
 			if p.Status.Phase == corev1.PodRunning {
+				podName = p.Name
 				runningPodCount++
 			}
 		}
 		if runningPodCount == 1 {
-			return pods.Items[0].Name, nil
+			return podName, nil
 		}
 
 		select {
