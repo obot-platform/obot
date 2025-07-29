@@ -41,26 +41,6 @@
 
 {#snippet unauthorizedContent()}
 	<div class="relative flex h-screen w-full flex-col text-black dark:text-white">
-		<!-- Header with logo and navigation -->
-		<div class="bg-surface1 sticky top-0 z-30 flex h-16 w-full items-center dark:bg-black">
-			<div class="relative flex items-end p-5">
-				{#if darkMode.isDark}
-					<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-				{:else}
-					<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-				{/if}
-				<div class="ml-1.5 -translate-y-1">
-					<span
-						class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
-					>
-						BETA
-					</span>
-				</div>
-			</div>
-			<div class="grow"></div>
-			<div class="flex items-center gap-4 px-5"></div>
-		</div>
-
 		<main
 			class="dark:from-surface2 to-surface1 mx-auto flex h-full w-full flex-col items-center justify-center gap-18 bg-radial-[at_50%_50%] from-gray-50 pb-6 md:gap-24 md:pb-12 dark:to-black"
 		>
