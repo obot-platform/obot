@@ -545,11 +545,7 @@
 		>
 			<div class="w-full max-w-[1000px]">
 				{#if messages.messages.length === 0 && !createProject && assistant?.introductionMessage}
-					<div
-						class="milkdown-content mb-5 max-w-full px-5"
-						in:fade|global
-						out:fade={{ duration: 300 }}
-					>
+					<div class="milkdown-content mb-5 max-w-full px-5" in:fade>
 						{@html toHTMLFromMarkdown(assistant?.introductionMessage)}
 					</div>
 				{/if}
