@@ -492,7 +492,7 @@
 	onsuccess={async () => {
 		if (!initialFilter) return;
 		await AdminService.deleteMCPFilter(initialFilter.id);
-		goto('/v2/admin/filters');
+		goto('/admin/filters');
 	}}
 	oncancel={() => (deletingFilter = false)}
 />

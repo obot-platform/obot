@@ -10,9 +10,11 @@ import (
 
 var uiResources = []string{
 	"GET /{$}",
+	"GET /legacy-admin/",
+	"GET /legacy-admin",
 	"GET /admin/",
-	"GET /v2/admin",
-	"GET /v2/admin/",
+	"GET /admin",
+	"GET /admin/assets/",
 	"GET /agent/images/",
 	"GET /landing/images/",
 	"GET /_app/",
@@ -35,13 +37,18 @@ func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
 		return false
 	}
 
-	// Allow all users to access /v2/admin and /v2/admin/
-	if req.URL.Path == "/v2/admin" || req.URL.Path == "/v2/admin/" {
+	// Allow all users to access /admin and /admin/
+	if req.URL.Path == "/admin" || req.URL.Path == "/admin/" {
 		return true
 	}
 
-	// For /v2/admin/ subroutes (but not /v2/admin/ itself), only allow admin users
-	if strings.HasPrefix(req.URL.Path, "/v2/admin/") && req.URL.Path != "/v2/admin/" {
+	// Allow all users to access /admin/assets/
+	if strings.HasPrefix(req.URL.Path, "/admin/assets/") {
+		return true
+	}
+
+	// For /admin/ subroutes (but not /admin/ itself), only allow admin users
+	if strings.HasPrefix(req.URL.Path, "/admin/") && req.URL.Path != "/admin/" {
 		return slices.Contains(user.GetGroups(), AdminGroup)
 	}
 

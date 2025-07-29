@@ -128,7 +128,7 @@
 				headers={[{ title: 'User', property: 'userID' }]}
 				onSelectRow={(d) => {
 					setLastVisitedMcpServer();
-					goto(`/v2/admin/mcp-servers/s/${entry?.id}/instance/${d.id}`);
+					goto(`/admin/mcp-servers/s/${entry?.id}/instance/${d.id}`);
 				}}
 			>
 				{#snippet onRenderColumn(property, d)}
@@ -147,7 +147,7 @@
 						class="button-text"
 						onclick={(e) => {
 							e.stopPropagation();
-							goto(`/v2/admin/audit-logs?mcpId=${encodeURIComponent(d.id)}`);
+							goto(`/admin/audit-logs?mcpId=${encodeURIComponent(d.id)}`);
 						}}
 					>
 						View Audit Logs
@@ -194,7 +194,7 @@
 				onSelectRow={type === 'single'
 					? (d) => {
 							setLastVisitedMcpServer();
-							goto(`/v2/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`);
+							goto(`/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`);
 						}
 					: undefined}
 			>
@@ -229,7 +229,7 @@
 							class="button-text px-1"
 							onclick={(e) => {
 								e.stopPropagation();
-								goto(`/v2/admin/audit-logs?mcpId=${encodeURIComponent(d.id)}`);
+								goto(`/admin/audit-logs?mcpId=${encodeURIComponent(d.id)}`);
 							}}
 						>
 							View Audit Logs

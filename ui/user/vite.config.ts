@@ -6,7 +6,7 @@ export default defineConfig({
 		port: 5174,
 		proxy: {
 			'/api': 'http://localhost:8080',
-			'/admin': 'http://localhost:8080',
+			'/legacy-admin': 'http://localhost:8080',
 			'/oauth2': 'http://localhost:8080'
 		}
 	},

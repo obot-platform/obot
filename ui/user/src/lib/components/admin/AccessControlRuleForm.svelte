@@ -88,7 +88,7 @@
 						...(accessControlRule.resources ?? []),
 						{ id: entry.id, type: 'mcpServerCatalogEntry' }
 					];
-					redirect = `/v2/admin/mcp-servers/c/${entry.id}`;
+					redirect = `/admin/mcp-servers/c/${entry.id}`;
 				} else {
 					const server = mcpServersMap.get(initialAdditionId);
 					if (server) {
@@ -96,7 +96,7 @@
 							...(accessControlRule.resources ?? []),
 							{ id: server.id, type: 'mcpServer' }
 						];
-						redirect = `/v2/admin/mcp-servers/s/${server.id}`;
+						redirect = `/admin/mcp-servers/s/${server.id}`;
 					}
 				}
 			}
@@ -311,7 +311,7 @@
 						if (redirect) {
 							goto(redirect);
 						} else {
-							goto('/v2/admin/access-control');
+							goto('/admin/access-control');
 						}
 					}}
 				>
@@ -428,7 +428,7 @@
 		if (!accessControlRule.id) return;
 		saving = true;
 		await AdminService.deleteAccessControlRule(accessControlRule.id);
-		goto('/v2/admin/access-control');
+		goto('/admin/access-control');
 	}}
 	oncancel={() => (deletingRule = false)}
 />

@@ -42,20 +42,20 @@
 		profile.current.isAdmin?.() && !showUserLinks
 			? [
 					{
-						href: '/v2/admin/mcp-servers',
+						href: '/admin/mcp-servers',
 						icon: Server,
 						label: 'MCP Servers',
 						disabled: isBootStrapUser,
 						items: [
 							{
-								href: '/v2/admin/audit-logs',
+								href: '/admin/audit-logs',
 								icon: Captions,
 								label: 'Audit Logs',
 								disabled: isBootStrapUser,
 								collapsible: false
 							},
 							{
-								href: '/v2/admin/filters',
+								href: '/admin/filters',
 								icon: Funnel,
 								label: 'Filters',
 								disabled: isBootStrapUser
@@ -63,33 +63,33 @@
 						]
 					},
 					{
-						href: '/v2/admin/access-control',
+						href: '/admin/access-control',
 						icon: GlobeLock,
 						label: 'Access Control',
 						disabled: isBootStrapUser,
 						collapsible: false
 					},
 					{
-						href: '/v2/admin/chat-configuration',
+						href: '/admin/chat-configuration',
 						icon: Settings,
 						label: 'Chat Configuration',
 						disabled: isBootStrapUser,
 						collapsible: false
 					},
 					{
-						href: '/v2/admin/users',
+						href: '/admin/users',
 						icon: Users,
 						label: 'Users',
 						collapsible: false
 					},
 					{
-						href: '/v2/admin/model-providers',
+						href: '/admin/model-providers',
 						icon: Boxes,
 						label: 'Model Providers',
 						collapsible: false
 					},
 					{
-						href: '/v2/admin/auth-providers',
+						href: '/admin/auth-providers',
 						icon: LockKeyhole,
 						label: 'Auth Providers',
 						collapsible: false

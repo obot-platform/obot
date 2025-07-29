@@ -201,7 +201,7 @@ export const useRowNavigate = <TData extends object | string>(
 	const handleAction = (row: TData, ctrl: boolean) => {
 		const path = getPath(row);
 		if (ctrl) {
-			window.open(`/admin${path}`, "_blank");
+			window.open(`/legacy-admin${path}`, "_blank");
 		} else {
 			navigate(path);
 		}

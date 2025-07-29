@@ -13,23 +13,23 @@
 
 	function convertToHistory(href: string) {
 		const pathParts = href.split('/').filter(Boolean);
-		// Find the admin section part (skip v2/admin/)
+		// Find the admin section part (skip admin/v2/)
 		const adminIndex = pathParts.findIndex((part) => part === 'admin');
 		const adminPath = adminIndex >= 0 ? pathParts.slice(adminIndex + 1) : pathParts;
 		const [type, id] = adminPath;
 		if (type === 'mcp-servers') {
 			return [
-				{ href: '/v2/admin/mcp-servers', label: 'MCP Servers' },
+				{ href: '/admin/mcp-servers', label: 'MCP Servers' },
 				...(id ? [convertToMcpLink(id)] : [])
 			];
 		}
 
 		if (type === 'access-control') {
-			return [{ href: '/v2/admin/access-control', label: 'Access Control' }];
+			return [{ href: '/admin/access-control', label: 'Access Control' }];
 		}
 
 		if (type === 'filters') {
-			return [{ href: '/v2/admin/filters', label: 'Filters' }];
+			return [{ href: '/admin/filters', label: 'Filters' }];
 		}
 
 		return [];
@@ -47,8 +47,8 @@
 		const label = id === json.id ? json.name : 'Unknown';
 		const href =
 			json.type === 'single' || json.type === 'remote'
-				? `/v2/admin/mcp-servers/c/${id}`
-				: `/v2/admin/mcp-servers/s/${id}`;
+				? `/admin/mcp-servers/c/${id}`
+				: `/admin/mcp-servers/s/${id}`;
 		return { href, label };
 	}
 </script>

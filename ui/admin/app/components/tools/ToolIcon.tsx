@@ -17,8 +17,8 @@ export function ToolIcon(props: ToolIconProps) {
 			alt={name}
 			src={icon}
 			className={cn("h-6 w-6", className, {
-				// icons served from /admin/assets are colored, so we should not invert them.
-				"dark:invert": !icon.startsWith("/admin/assets"),
+				// icons served from /legacy-admin/assets are colored, so we should not invert them.
+				"dark:invert": !icon.startsWith("/legacy-admin/assets"),
 			})}
 		/>
 	) : (

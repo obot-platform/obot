@@ -53,7 +53,7 @@
 
 	afterNavigate(() => {
 		const routesToShowChatLink = ['/mcp-servers', '/models'];
-		inAdminRoute = window.location.pathname.includes('/v2/admin');
+		inAdminRoute = window.location.pathname.includes('/admin');
 		showChatLink = routesToShowChatLink.includes(window.location.pathname) || inAdminRoute;
 		showMyMcpServersLink = window.location.pathname.includes('/o/') || inAdminRoute;
 	});
@@ -123,7 +123,7 @@
 		<div class="flex flex-col gap-2 px-2 pb-4">
 			{#if profile.current.role === 1 && !inAdminRoute}
 				<a
-					href="/v2/admin/mcp-servers"
+					href="/admin/mcp-servers"
 					class="link justify-between"
 					target="_blank"
 					rel="external"

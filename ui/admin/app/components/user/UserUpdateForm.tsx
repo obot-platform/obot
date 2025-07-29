@@ -79,7 +79,7 @@ export function UserUpdateForm({
 
 	useEffect(() => {
 		if (shouldRedirectLogout) {
-			window.location.href = "/oauth2/sign_out?rd=/admin/";
+			window.location.href = "/oauth2/sign_out?rd=/legacy-admin/";
 		}
 	}, [shouldRedirectLogout]);
 

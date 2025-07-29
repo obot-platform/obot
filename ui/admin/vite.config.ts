@@ -9,7 +9,7 @@ export default defineConfig({
 		tsconfigPaths(),
 		safeRoutes(),
 	],
-	base: "/admin/",
+	base: "/legacy-admin/",
 	server: {
 		watch: {
 			// Exclude test files from HMR

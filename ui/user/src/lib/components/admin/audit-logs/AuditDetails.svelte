@@ -622,7 +622,7 @@
 				: 'name=' + mcpServerDisplayName}
 		<p class="mt-2 text-sm font-light text-gray-400 dark:text-gray-600">
 			See more usage details in the server's <a
-				href={`/v2/admin/audit-logs?${param}`}
+				href={`/admin/audit-logs?${param}`}
 				class="text-link"
 			>
 				Audit Logs

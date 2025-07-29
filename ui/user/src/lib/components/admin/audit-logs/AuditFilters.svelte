@@ -108,7 +108,7 @@
 	});
 
 	function handleApplyFilters() {
-		const url = '/v2/admin/audit-logs';
+		const url = '/admin/audit-logs';
 		const params: string[] = [];
 		for (const filterInput of filterInputs) {
 			if (filterInput.selected) {

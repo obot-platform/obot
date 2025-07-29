@@ -76,7 +76,7 @@
 		if (entry) {
 			sessionStorage.setItem(ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION, entry.id);
 		}
-		goto('/v2/admin/access-control?new=true');
+		goto('/admin/access-control?new=true');
 	}
 </script>
 

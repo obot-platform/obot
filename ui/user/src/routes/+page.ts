@@ -27,12 +27,12 @@ export const load: PageLoad = async ({ fetch, url }) => {
 		}
 
 		// Redirect to appropriate dashboard
-		throw redirect(302, isAdmin ? '/v2/admin' : '/mcp-servers');
+		throw redirect(302, isAdmin ? '/admin' : '/mcp-servers');
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {
 		// If no auth providers are configured, redirect to admin page for bootstrap login
-		throw redirect(302, '/v2/admin');
+		throw redirect(302, '/admin');
 	}
 
 	return {

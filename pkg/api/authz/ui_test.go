@@ -16,8 +16,8 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "admin user can access /v2/admin/users",
-			path: "/v2/admin/users",
+			name: "admin user can access /admin/users",
+			path: "/admin/users",
 			user: &user.DefaultInfo{
 				Name:   "admin",
 				Groups: []string{AdminGroup, AuthenticatedGroup},
@@ -25,8 +25,8 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "bootstrap user can access /v2/admin/auth-providers",
-			path: "/v2/admin/auth-providers",
+			name: "bootstrap user can access /admin/auth-providers",
+			path: "/admin/auth-providers",
 			user: &user.DefaultInfo{
 				Name:   "bootstrap",
 				Groups: []string{AdminGroup, AuthenticatedGroup},
@@ -34,8 +34,8 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "regular user cannot access /v2/admin/users",
-			path: "/v2/admin/users",
+			name: "regular user cannot access /admin/users",
+			path: "/admin/users",
 			user: &user.DefaultInfo{
 				Name:   "user",
 				Groups: []string{AuthenticatedGroup},
@@ -43,8 +43,8 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "unauthenticated user can access /v2/admin",
-			path: "/v2/admin",
+			name: "unauthenticated user can access /admin",
+			path: "/admin",
 			user: &user.DefaultInfo{
 				Name:   "anonymous",
 				Groups: []string{UnauthenticatedGroup},
@@ -52,8 +52,8 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "authenticated user can access /v2/admin",
-			path: "/v2/admin",
+			name: "authenticated user can access /admin",
+			path: "/admin",
 			user: &user.DefaultInfo{
 				Name:   "user",
 				Groups: []string{AuthenticatedGroup},
@@ -61,8 +61,8 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "unauthenticated user can access /v2/admin/",
-			path: "/v2/admin/",
+			name: "unauthenticated user can access /admin/",
+			path: "/admin/",
 			user: &user.DefaultInfo{
 				Name:   "anonymous",
 				Groups: []string{UnauthenticatedGroup},
@@ -70,8 +70,8 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "authenticated user can access /v2/admin/",
-			path: "/v2/admin/",
+			name: "authenticated user can access /admin/",
+			path: "/admin/",
 			user: &user.DefaultInfo{
 				Name:   "user",
 				Groups: []string{AuthenticatedGroup},
@@ -79,8 +79,8 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "unauthenticated user cannot access /v2/admin/auth-providers",
-			path: "/v2/admin/auth-providers",
+			name: "unauthenticated user cannot access /admin/auth-providers",
+			path: "/admin/auth-providers",
 			user: &user.DefaultInfo{
 				Name:   "anonymous",
 				Groups: []string{UnauthenticatedGroup},

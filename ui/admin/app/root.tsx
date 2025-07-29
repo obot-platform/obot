@@ -3,6 +3,7 @@ import type { LinksFunction } from "react-router";
 import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import { SWRConfig } from "swr";
 
+import { LegacyWarningBanner } from "~/components/LegacyWarningBanner";
 import { AuthProvider } from "~/components/auth/AuthContext";
 import { NavigationProgress } from "~/components/composed/NavigationProgress";
 import { LayoutProvider } from "~/components/layout/LayoutProvider";
@@ -32,7 +33,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
 			<head>
 				<meta charSet="utf-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1" />
-				<link rel="shortcut icon apple-touch-icon" href="/admin/favicon.ico" />
+				<link
+					rel="shortcut icon apple-touch-icon"
+					href="/legacy-admin/favicon.ico"
+				/>
 				<Meta />
 				<Links />
 			</head>
@@ -57,6 +61,7 @@ export default function App() {
 			<AuthProvider>
 				<ThemeProvider>
 					<TooltipProvider>
+						<LegacyWarningBanner />
 						<SidebarProvider>
 							<LayoutProvider>
 								<NavigationProgress />

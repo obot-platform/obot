@@ -70,7 +70,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
 						onClick={async () => {
 							await BootstrapApiService.bootstrapLogout();
 
-							window.location.href = "/oauth2/sign_out?rd=/admin/";
+							window.location.href = "/oauth2/sign_out?rd=/legacy-admin/";
 						}}
 					>
 						<LogOutIcon className="size-4" />

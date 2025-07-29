@@ -302,7 +302,7 @@
 					if (!entry) return;
 					setLastVisitedMcpServer();
 					goto(
-						`/v2/admin/access-control/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry.id}`)}`
+						`/admin/access-control/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry.id}`)}`
 					);
 				}}
 			>
@@ -358,7 +358,7 @@
 						{@const param = mcpId ? 'mcpId=' + mcpId : 'entryId=' + mcpCatalogEntryId}
 						<p class="text-sm font-light text-gray-400 dark:text-gray-600">
 							See more usage details in the server's <a
-								href={`/v2/admin/audit-logs?${param}`}
+								href={`/admin/audit-logs?${param}`}
 								class="text-link"
 							>
 								Audit Logs
@@ -390,9 +390,7 @@
 					]}
 					onSelectRow={(d) => {
 						setLastVisitedMcpServer();
-						goto(
-							`/v2/admin/filters/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry?.id}`)}`
-						);
+						goto(`/admin/filters/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry?.id}`)}`);
 					}}
 				>
 					{#snippet onRenderColumn(property, d)}
@@ -440,7 +438,7 @@
 		} else {
 			await AdminService.deleteMCPCatalogEntry(catalogId, entry.id);
 		}
-		goto('/v2/admin/mcp-servers');
+		goto('/admin/mcp-servers');
 	}}
 	oncancel={() => (deleteServer = false)}
 />

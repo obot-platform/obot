@@ -30,7 +30,7 @@ func Handler(devPort, userOnlyPort int) http.Handler {
 		server.rp = &httputil.ReverseProxy{
 			Director: func(r *http.Request) {
 				r.URL.Scheme = "http"
-				if strings.HasPrefix(r.URL.Path, "/admin") {
+				if strings.HasPrefix(r.URL.Path, "/legacy-admin") {
 					r.URL.Host = fmt.Sprintf("localhost:%d", devPort)
 				} else {
 					r.URL.Host = fmt.Sprintf("localhost:%d", devPort+1)
@@ -66,17 +66,20 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userPath := path.Join("user/build/", r.URL.Path)
-	adminPath := path.Join("admin/build/client", strings.TrimPrefix(r.URL.Path, "/admin"))
+	adminPath := path.Join("admin/build/client", strings.TrimPrefix(r.URL.Path, "/legacy-admin"))
 
 	if r.URL.Path == "/" {
 		http.ServeFileFS(w, r, embedded, "user/build/index.html")
-	} else if r.URL.Path == "/v2/admin" {
-		http.ServeFileFS(w, r, embedded, "user/build/v2/admin.html")
+	} else if r.URL.Path == "/admin" {
+		http.ServeFileFS(w, r, embedded, "user/build/admin.html")
+	} else if r.URL.Path == "/admin/" {
+		// we have to redirect to /admin instead of serving the index.html file because ending slash will laod a different route for js files
+		http.Redirect(w, r, "/admin", http.StatusFound)
 	} else if _, err := fs.Stat(embedded, userPath); err == nil {
 		http.ServeFileFS(w, r, embedded, userPath)
 	} else if _, err := fs.Stat(embedded, adminPath); err == nil {
 		http.ServeFileFS(w, r, embedded, adminPath)
-	} else if strings.HasPrefix(r.URL.Path, "/admin") {
+	} else if strings.HasPrefix(r.URL.Path, "/legacy-admin") {
 		http.ServeFileFS(w, r, embedded, "admin/build/client/index.html")
 	} else {
 		http.ServeFileFS(w, r, embedded, "user/build/fallback.html")

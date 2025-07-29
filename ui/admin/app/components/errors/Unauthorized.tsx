@@ -26,7 +26,7 @@ export function Unauthorized() {
 						className="w-full"
 						variant="secondary"
 						onClick={() => {
-							window.location.href = "/oauth2/sign_out?rd=/admin/";
+							window.location.href = "/oauth2/sign_out?rd=/legacy-admin/";
 						}}
 					>
 						Sign Out

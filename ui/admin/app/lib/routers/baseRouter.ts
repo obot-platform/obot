@@ -1,7 +1,7 @@
 export const BaseUrl = (route: string = "/") => {
 	if (typeof window === "undefined") return "";
 
-	return window.location.origin + "/admin" + route;
+	return window.location.origin + "/legacy-admin" + route;
 };
 export const DomainUrl = (route: string = "/") => {
 	if (typeof window === "undefined") return "";
