@@ -262,6 +262,7 @@
 		}
 
 		.milkdown {
+			--crepe-color-background: transparent;
 			--crepe-font-title:
 				'Poppins', 'ui-sans-serif', 'system-ui', '-apple-system', 'system-ui', 'Segoe UI', 'Roboto',
 				'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif', 'Apple Color Emoji', 'Segoe UI Emoji',
@@ -331,7 +332,7 @@
 		}
 
 		.dark .milkdown {
-			--crepe-color-background: #000000;
+			--crepe-color-background: transparent;
 			--crepe-color-on-background: #e6e6e6;
 			--crepe-color-surface: #121212;
 			--crepe-color-surface-low: #1c1c1c;
