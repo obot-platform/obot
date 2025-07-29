@@ -91,7 +91,7 @@
 	<div
 		use:buttonPopover={{ disablePortal: true }}
 		class={twMerge(
-			'border-surface3 dark:bg-surface1 flex -translate-x-[3px] -translate-y-[3px] flex-col overflow-hidden rounded-b-xs border bg-white',
+			'border-surface3 dark:bg-surface1 default-scrollbar-thin flex max-h-[calc(100vh-123px)] -translate-x-[3px] -translate-y-[3px] flex-col overflow-hidden overflow-y-auto rounded-b-xs border bg-white',
 			classes?.tooltip
 		)}
 		style="width: {container?.clientWidth}px"
