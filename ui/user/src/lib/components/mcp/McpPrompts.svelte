@@ -2,7 +2,7 @@
 	import { ChatService, type MCPServerPrompt, type Project, type ProjectMCP } from '$lib/services';
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { ChevronRight, LoaderCircle, Plus, X } from 'lucide-svelte';
+	import { ChevronRight, LoaderCircle, MessageSquarePlus, X } from 'lucide-svelte';
 	import { responsive } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -56,7 +56,7 @@
 		await validateOauthProjectMcps(project.assistantID, project.id, projectMcps.items);
 		for (const mcp of projectMcps.items) {
 			if (mcp.authenticated) {
-				ChatService.listProjectMcpServerPrompts(project.assistantID, project.id, mcp.id).then(
+				await ChatService.listProjectMcpServerPrompts(project.assistantID, project.id, mcp.id).then(
 					(prompts) => {
 						mcpPromptSets.push({
 							mcp,
@@ -105,7 +105,7 @@
 		</div>
 	{:else if !hasPrompts && variant !== 'messages'}
 		<div class="flex h-full flex-col items-center justify-center">
-			<p class="text-sm text-gray-500">No prompts found</p>
+			<p class="text-sm text-gray-500">No prompts available</p>
 		</div>
 	{:else}
 		{#each setsToUse as mcpPromptSet (mcpPromptSet.mcp.id)}
@@ -117,13 +117,15 @@
 						variant !== 'messages' && 'border-0 px-2 py-2 first:pt-0'
 					)}
 				>
-					{#if variant === 'messages'}
-						<img
-							src={mcpPromptSet.mcp.icon}
-							alt={mcpPromptSet.mcp.name}
-							class="size-4 rounded-sm"
-						/>
-					{/if}
+					<div class="flex-shrink-0 rounded-sm">
+						{#if variant === 'messages'}
+							{#if mcpPromptSet.mcp.icon}
+								<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-4" />
+							{:else}
+								<MessageSquarePlus class="size-4 text-gray-400 dark:text-gray-600" />
+							{/if}
+						{/if}
+					</div>
 					{mcpPromptSet.mcp.name}
 				</div>
 
@@ -152,11 +154,13 @@
 								class="menu-button flex h-full w-full items-center gap-2 border-0 text-left"
 								onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
 							>
-								<img
-									src={mcpPromptSet.mcp.icon}
-									alt={mcpPromptSet.mcp.name}
-									class="size-6 rounded-sm"
-								/>
+								<div class="flex-shrink-0 rounded-sm">
+									{#if mcpPromptSet.mcp.icon}
+										<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-6" />
+									{:else}
+										<MessageSquarePlus class="size-5 text-gray-400 dark:text-gray-600" />
+									{/if}
+								</div>
 								<div class="flex flex-col">
 									<p class="text-xs font-light">
 										{prompt.name}
@@ -195,12 +199,13 @@
 			onLoad={fetchPrompts}
 			slide={responsive.isMobile ? 'up' : undefined}
 			fixed={responsive.isMobile}
+			placement="top-start"
 		>
 			{#snippet body()}
 				{@render content()}
 			{/snippet}
 			{#snippet icon()}
-				<Plus class="size-5" />
+				<MessageSquarePlus class="size-5" />
 			{/snippet}
 		</Menu>
 	</div>

@@ -233,6 +233,7 @@
 			}}
 			slide={responsive.isMobile ? 'up' : undefined}
 			fixed={responsive.isMobile}
+			placement="top-start"
 		>
 			{#snippet body()}
 				{@render content()}

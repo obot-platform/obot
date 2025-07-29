@@ -3,6 +3,7 @@
 	import type { Snippet } from 'svelte';
 	import { RotateCw } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
+	import type { Placement } from '@floating-ui/dom';
 
 	interface Props {
 		classes?: {
@@ -19,6 +20,7 @@
 		description?: string;
 		slide?: 'left' | 'up';
 		fixed?: boolean;
+		placement?: Placement;
 	}
 
 	let {
@@ -32,11 +34,12 @@
 		classes,
 		showRefresh = true,
 		slide,
-		fixed
+		fixed,
+		placement = 'bottom'
 	}: Props = $props();
 	let loading = $state(false);
 	const { ref, tooltip, toggle } = popover({
-		placement: 'bottom'
+		placement
 	});
 
 	$effect(() => {

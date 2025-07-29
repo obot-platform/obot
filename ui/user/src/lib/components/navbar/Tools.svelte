@@ -39,7 +39,7 @@
 
 {#if authenticatedMcps.length > 0}
 	<div use:tooltip={'Tools'} in:fade>
-		<DotDotDot class="icon-button hover:bg-surface2 hover:text-blue-500">
+		<DotDotDot class="icon-button hover:bg-surface2 hover:text-blue-500" placement="top-start">
 			{#snippet icon()}
 				<Wrench class="h-5 w-5" />
 			{/snippet}

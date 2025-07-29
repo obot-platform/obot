@@ -124,14 +124,6 @@
 					{#snippet leftContent()}
 						{#if !layout.sidebarOpen || (layout.fileEditorOpen && !isSomethingSelected(layout))}
 							{@render logo()}
-							<button
-								class="icon-button ml-2 p-0.5"
-								in:fade={{ delay: 350, duration: 0 }}
-								use:tooltip={'Start New Thread'}
-								onclick={() => createNewThread()}
-							>
-								<MessageCirclePlus class="size-6" />
-							</button>
 						{/if}
 						{#if !layout.sidebarOpen && responsive.isMobile}
 							{@render openSidebar()}

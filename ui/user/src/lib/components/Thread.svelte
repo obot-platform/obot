@@ -568,17 +568,21 @@
 				>
 					<div class="flex w-full items-center justify-between">
 						<div class="flex items-center">
-							<McpPrompts {project} variant="button" onSelect={handleMcpPromptSelect} />
-							<Files
-								thread
-								{project}
-								bind:currentThreadID={id}
-								helperText="Files"
-								classes={{ list: 'max-h-[60vh] space-y-4 overflow-y-auto pt-2 pb-6 text-sm' }}
-							/>
+							<div in:fade>
+								<Files
+									thread
+									{project}
+									bind:currentThreadID={id}
+									helperText="Files"
+									classes={{ list: 'max-h-[60vh] space-y-4 overflow-y-auto pt-2 pb-6 text-sm' }}
+								/>
+							</div>
 							{#if project.editor && !shared}
 								<Tools {project} bind:currentThreadID={id} />
 							{/if}
+							<div in:fade>
+								<McpPrompts {project} variant="button" onSelect={handleMcpPromptSelect} />
+							</div>
 						</div>
 						{#if projectModelProvider && projectModel}
 							<ThreadModelSelector
