@@ -97,7 +97,6 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *jwt.
 	main := gptscript.ToolDef{
 		Name:        mcpServerDisplayName + "-bundle",
 		Description: client.Session.InitializeResult.ServerInfo.Name,
-		Export:      toolNames,
 		MetaData: map[string]string{
 			"bundle": "true",
 		},
