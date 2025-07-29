@@ -1,13 +1,11 @@
 <script lang="ts">
-	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import type { Assistant, Project } from '$lib/services';
 	import { fade } from 'svelte/transition';
 	import Slack from '$lib/components/integrations/slack/Slack.svelte';
 	import ProjectInvitations from '$lib/components/edit/ProjectInvitations.svelte';
 	import TemplateConfig from '$lib/components/templates/TemplateConfig.svelte';
-	import ProjectMcpServerTools from '$lib/components/mcp/ProjectMcpServerTools.svelte';
 	import ModelProviders from '../ModelProviders.svelte';
-	import { X } from 'lucide-svelte';
 	import Discord from '../integrations/discord/Discord.svelte';
 	import Webhook from '../integrations/webhook/Webhook.svelte';
 	import Email from '../integrations/email/Email.svelte';
