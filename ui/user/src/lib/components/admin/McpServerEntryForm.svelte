@@ -41,7 +41,6 @@
 	);
 
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
-	let listEntryServers = $state<Promise<MCPCatalogServer[]>>();
 	let listFilters = $state<Promise<MCPFilter[]>>();
 	let users = $state<OrgUser[]>([]);
 
