@@ -105,5 +105,7 @@ export function requiresUserUpdate(mcpServer?: ConnectedServer) {
 	if (mcpServer.server?.needsURL) {
 		return true;
 	}
-	return typeof mcpServer.server?.configured === 'boolean' ? mcpServer.server?.configured : false;
+	return typeof mcpServer.server?.configured === 'boolean'
+		? mcpServer.server?.configured === false
+		: false;
 }

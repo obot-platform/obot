@@ -11,7 +11,7 @@
 		type ProjectMCP
 	} from '$lib/services';
 	import { fade } from 'svelte/transition';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import Files from '$lib/components/edit/Files.svelte';
@@ -486,54 +486,55 @@
 		style="width: {fadeBarWidth}px"
 	></div>
 	<div class="relative flex w-full max-w-[900px] flex-col">
-		{#if messages.messages.length > 0 || createProject}
-			<div
-				in:fade|global
-				bind:this={messagesDiv}
-				class="flex w-full grow flex-col justify-start gap-8 p-5 transition-all"
-				class:justify-center={!thread}
-			>
-				{#if createProject}
-					{@render editBasicSection()}
-				{:else}
-					{#if showLoadOlderButton}
-						<div class="mb-4 flex justify-center">
-							<button
-								class="border-surface3 hover:bg-surface2 rounded-full border bg-white px-4 py-2 text-sm font-light transition-all duration-300 dark:bg-black"
-								onclick={loadOlderMessages}
-								disabled={loadingOlderMessages}
-							>
-								{#if loadingOlderMessages}
-									<div
-										class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-										role="status"
-									>
-										<span class="sr-only">Loading...</span>
-									</div>
-									<span class="ml-2">Loading...</span>
-								{:else}
-									Load older messages
-								{/if}
-							</button>
-						</div>
-					{/if}
-
-					{#each messages.messages as msg, i (i)}
-						<Message
-							{project}
-							{msg}
-							currentThreadID={id}
-							{onLoadFile}
-							{onSendCredentials}
-							onSendCredentialsCancel={() => thread?.abort()}
-						/>
-					{/each}
+		<div
+			in:fade|global
+			bind:this={messagesDiv}
+			class={twMerge(
+				'flex w-full flex-col justify-start gap-8 p-5 transition-all',
+				messages.messages.length > 0 || createProject ? 'grow' : 'h-0 overflow-hidden'
+			)}
+			class:justify-center={!thread}
+		>
+			{#if createProject}
+				{@render editBasicSection()}
+			{:else}
+				{#if showLoadOlderButton}
+					<div class="mb-4 flex justify-center">
+						<button
+							class="border-surface3 hover:bg-surface2 rounded-full border bg-white px-4 py-2 text-sm font-light transition-all duration-300 dark:bg-black"
+							onclick={loadOlderMessages}
+							disabled={loadingOlderMessages}
+						>
+							{#if loadingOlderMessages}
+								<div
+									class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+									role="status"
+								>
+									<span class="sr-only">Loading...</span>
+								</div>
+								<span class="ml-2">Loading...</span>
+							{:else}
+								Load older messages
+							{/if}
+						</button>
+					</div>
 				{/if}
-				<div class="min-h-4">
-					<!-- Vertical Spacer -->
-				</div>
+
+				{#each messages.messages as msg, i (i)}
+					<Message
+						{project}
+						{msg}
+						currentThreadID={id}
+						{onLoadFile}
+						{onSendCredentials}
+						onSendCredentialsCancel={() => thread?.abort()}
+					/>
+				{/each}
+			{/if}
+			<div class="min-h-4">
+				<!-- Vertical Spacer -->
 			</div>
-		{/if}
+		</div>
 		<div
 			class={twMerge(
 				'sticky z-30 flex justify-center bg-white pb-2 transition-transform duration-300 dark:bg-black',
@@ -563,6 +564,7 @@
 					onSubmit={async (i) => {
 						await ensureThread();
 						scrollSmooth = false;
+						await tick();
 						scrollControls?.stickToBottom();
 						await thread?.invoke(i);
 					}}
