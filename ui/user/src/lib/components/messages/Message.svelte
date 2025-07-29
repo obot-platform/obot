@@ -380,7 +380,7 @@
 			class="my-2 flex max-w-[750px] cursor-pointer flex-col overflow-x-auto rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg dark:bg-black dark:text-gray-50"
 			onclick={fileLoad}
 		>
-			<div class="text-md flex justify-between gap-2 px-5 py-4">
+			<div class="text-md flex justify-between gap-2 px-5 pt-4">
 				<div class="flex items-center gap-2 truncate">
 					<FileText class="min-w-fit" />
 					<span use:overflowToolTip>{msg.file.filename}</span>
