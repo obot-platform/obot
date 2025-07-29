@@ -98,7 +98,7 @@
 					>
 						<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
 							{#if mcpServer.icon}
-								<img src={mcpServer.icon} class="size-4" alt={mcpServer.name} />
+								<img src={mcpServer.icon} class="size-4" alt={mcpServer.alias || mcpServer.name} />
 							{:else}
 								<Server class="size-4" />
 							{/if}
@@ -106,7 +106,7 @@
 						<p
 							class="flex w-[calc(100%-24px)] items-center truncate pl-1.5 text-left text-xs font-light"
 						>
-							{mcpServer.name || DEFAULT_CUSTOM_SERVER_NAME}
+							{mcpServer.alias || mcpServer.name || DEFAULT_CUSTOM_SERVER_NAME}
 							{#if shouldShowWarning(mcpServer)}
 								<span
 									class="ml-1"

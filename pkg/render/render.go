@@ -163,6 +163,9 @@ func Agent(ctx context.Context, tokenService *jwt.TokenService, mcpSessionManage
 				return nil, nil, err
 			}
 			mcpDisplayName = mcpServer.Spec.Manifest.Name
+			if mcpServer.Spec.Alias != "" {
+				mcpDisplayName = mcpServer.Spec.Alias
+			}
 
 			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, tokenService, projectMCPServer, opts.UserID, mcpDisplayName, serverURL, opts.UserIsAdmin, allowedTools)
 			if err != nil {

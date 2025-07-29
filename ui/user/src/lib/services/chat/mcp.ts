@@ -15,8 +15,8 @@ export interface MCPServerInfo extends MCPServer {
 	manifest?: MCPServer;
 }
 
-export async function createProjectMcp(project: Project, mcpId: string) {
-	return await ChatService.createProjectMCP(project.assistantID, project.id, mcpId);
+export async function createProjectMcp(project: Project, mcpId: string, alias?: string) {
+	return await ChatService.createProjectMCP(project.assistantID, project.id, mcpId, alias);
 }
 
 export function isValidMcpConfig(mcpConfig: MCPServerInfo) {

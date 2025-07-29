@@ -3219,6 +3219,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerManifest"),
 						},
 					},
+					"alias": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Alias is a user-defined alias for the MCP server. This may only be set for single user and remote MCP servers (i.e. where `SharedWithinCatalogName` is \"\").",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -5979,6 +5986,12 @@ func schema_obot_platform_obot_apiclient_types_ProjectMCPServerManifest(ref comm
 							Default: "",
 							Type:    []string{"string"},
 							Format:  "",
+						},
+					},
+					"alias": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
@@ -11517,6 +11530,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 					"threadName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ThreadName is the project or thread that owns this server, if there is one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"alias": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Alias is a user-defined alias for the MCP server. This may only be set for single user and remote MCP servers (i.e. where `SharedWithinCatalogName` is \"\").",
 							Type:        []string{"string"},
 							Format:      "",
 						},

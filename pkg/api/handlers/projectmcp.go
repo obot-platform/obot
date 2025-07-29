@@ -41,7 +41,7 @@ func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontro
 }
 
 func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.MCPServer) types.ProjectMCPServer {
-	return types.ProjectMCPServer{
+	pmcp := types.ProjectMCPServer{
 		Metadata:                 MetadataFrom(projectServer),
 		ProjectMCPServerManifest: projectServer.Spec.Manifest,
 		Name:                     mcpServer.Spec.Manifest.Name,
@@ -49,6 +49,9 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 		Icon:                     mcpServer.Spec.Manifest.Icon,
 		UserID:                   projectServer.Spec.UserID,
 	}
+	pmcp.Alias = mcpServer.Spec.Alias
+
+	return pmcp
 }
 
 func getMCPServerForProjectServer(ctx context.Context, client kclient.Client, projectServer v1.ProjectMCPServer) (*v1.MCPServer, error) {

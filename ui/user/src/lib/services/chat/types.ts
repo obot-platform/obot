@@ -391,6 +391,7 @@ export interface ProjectMCP {
 	type: string;
 	userID: string;
 	mcpID: string;
+	alias?: string;
 	name?: string;
 	description?: string;
 	icon?: string;
@@ -728,6 +729,7 @@ export interface ChatModelList {
 
 export interface MCPCatalogServer {
 	id: string;
+	alias?: string;
 	userID: string;
 	connectURL?: string;
 	configured: boolean;

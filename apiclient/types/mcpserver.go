@@ -123,20 +123,28 @@ type MCPServerManifest struct {
 
 type MCPServer struct {
 	Metadata
-	MCPServerManifest       MCPServerManifest `json:"manifest"`
-	UserID                  string            `json:"userID"`
-	Configured              bool              `json:"configured"`
-	MissingRequiredEnvVars  []string          `json:"missingRequiredEnvVars,omitempty"`
-	MissingRequiredHeaders  []string          `json:"missingRequiredHeader,omitempty"`
-	CatalogEntryID          string            `json:"catalogEntryID"`
-	SharedWithinCatalogName string            `json:"sharedWithinCatalogName,omitempty"`
-	ConnectURL              string            `json:"connectURL,omitempty"`
+	MCPServerManifest MCPServerManifest `json:"manifest"`
+
+	// Alias is a user-defined alias for the MCP server.
+	// This may only be set for single user and remote MCP servers (i.e. where `SharedWithinCatalogName` is "").
+	Alias                   string   `json:"alias,omitempty"`
+	UserID                  string   `json:"userID"`
+	Configured              bool     `json:"configured"`
+	MissingRequiredEnvVars  []string `json:"missingRequiredEnvVars,omitempty"`
+	MissingRequiredHeaders  []string `json:"missingRequiredHeader,omitempty"`
+	CatalogEntryID          string   `json:"catalogEntryID"`
+	SharedWithinCatalogName string   `json:"sharedWithinCatalogName,omitempty"`
+	ConnectURL              string   `json:"connectURL,omitempty"`
+
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
+
 	// NeedsURL indicates whether the server's URL needs to be updated to match the catalog entry.
 	NeedsURL bool `json:"needsURL,omitempty"`
+
 	// PreviousURL contains the URL of the server before it was updated to match the catalog entry.
 	PreviousURL string `json:"previousURL,omitempty"`
+
 	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
 	// This is only set for multi-user servers.
 	MCPServerInstanceUserCount *int `json:"mcpServerInstanceUserCount,omitempty"`
@@ -156,6 +164,7 @@ type MCPServerTool struct {
 
 type ProjectMCPServerManifest struct {
 	MCPID string `json:"mcpID"`
+	Alias string `json:"alias,omitempty"`
 }
 
 type ProjectMCPServer struct {

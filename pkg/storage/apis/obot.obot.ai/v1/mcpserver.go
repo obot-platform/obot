@@ -64,6 +64,9 @@ type MCPServerSpec struct {
 	UnsupportedTools []string `json:"unsupportedTools,omitempty"`
 	// ThreadName is the project or thread that owns this server, if there is one.
 	ThreadName string `json:"threadName,omitempty"`
+	// Alias is a user-defined alias for the MCP server.
+	// This may only be set for single user and remote MCP servers (i.e. where `SharedWithinCatalogName` is "").
+	Alias string `json:"alias,omitempty"`
 	// UserID is the user that created this server.
 	UserID string `json:"userID,omitempty"`
 	// SharedWithinMCPCatalogName contains the name of the MCPCatalog inside of which this server was directly created by the admin, if there is one.

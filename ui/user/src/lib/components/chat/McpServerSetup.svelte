@@ -13,11 +13,12 @@
 	} from '$lib/services';
 	import { createProjectMcp, parseCategories, requiresUserUpdate } from '$lib/services/chat/mcp';
 	import MyMcpServers, { type ConnectedServer } from '../mcp/MyMcpServers.svelte';
+	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;
-		onSuccess?: (projectMcp: ProjectMCP) => void;
+		onSuccess?: (projectMcp?: ProjectMCP) => void;
 	}
 
 	let { project, onSuccess }: Props = $props();
@@ -27,6 +28,8 @@
 	let servers = $state<MCPCatalogServer[]>([]);
 	let entries = $state<MCPCatalogEntry[]>([]);
 	let loading = $state(false);
+
+	const projectMCPs = getProjectMCPs();
 
 	let myMcpServers = $state<ReturnType<typeof MyMcpServers>>();
 	let catalogDialog = $state<HTMLDialogElement>();
@@ -66,12 +69,52 @@
 
 	async function setupProjectMcp(connectedServer: ConnectedServer) {
 		if (!connectedServer || !connectedServer.server) return;
-		const response = await createProjectMcp(
-			project,
-			connectedServer.instance ? connectedServer.instance.id : connectedServer.server.id
-		);
+
+		const mcpId = connectedServer.instance
+			? connectedServer.instance.id
+			: connectedServer.server.id;
+
+		// Check if this server is already added to the project
+		const existingMcp = projectMCPs.items.find((mcp) => mcp.mcpID === mcpId && !mcp.deleted);
+		if (existingMcp) {
+			// Server is already added, no-op
+			closeCatalogDialog();
+			return;
+		}
+
+		// Generate unique alias if there's a naming conflict
+		const serverName = connectedServer.server.manifest?.name || '';
+		const aliasToUse = getUniqueAlias(serverName);
+
+		// Create project MCP with optional alias
+		const result = await createProjectMcp(project, mcpId, aliasToUse);
+		onSuccess?.(result);
 		closeCatalogDialog();
-		onSuccess?.(response);
+	}
+
+	function getUniqueAlias(serverName: string): string | undefined {
+		const existingNames = projectMCPs.items
+			.filter((mcp) => !mcp.deleted)
+			.flatMap((mcp) => [mcp.name || '', mcp.alias || ''])
+			.filter(Boolean)
+			.map((name) => name.toLowerCase());
+
+		const nameLower = serverName.toLowerCase();
+
+		// Return undefined if no conflict
+		if (!existingNames.includes(nameLower)) {
+			return undefined;
+		}
+
+		// Generate unique alias with counter
+		let counter = 1;
+		let candidateAlias: string;
+		do {
+			candidateAlias = `${serverName} ${counter}`;
+			counter++;
+		} while (existingNames.includes(candidateAlias.toLowerCase()));
+
+		return candidateAlias;
 	}
 
 	async function loadData(partialRefresh?: boolean) {
@@ -186,11 +229,15 @@
 						onDisconnect={() => {
 							loadData(true);
 						}}
+						onUpdateConfigure={() => {
+							loadData(true);
+							onSuccess?.();
+						}}
 						classes={{
 							pageSelectorContainer: 'bg-gray-50'
 						}}
 					>
-						{#snippet connectedServerCardAction(d)}
+						{#snippet connectedServerCardAction(d: ConnectedServer)}
 							{@const requiresUpdate = requiresUserUpdate(d)}
 							<button
 								disabled={requiresUpdate}

@@ -819,6 +819,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			Finalizers:   []string{v1.MCPServerFinalizer},
 		},
 		Spec: v1.MCPServerSpec{
+			Alias:                     input.Alias,
 			MCPServerCatalogEntryName: input.CatalogEntryID,
 			UserID:                    req.User.GetUID(),
 		},
@@ -949,6 +950,40 @@ func (m *MCPHandler) AdminOnlyUpdateServer(req api.Context) error {
 	}
 
 	return req.Write(convertMCPServer(existing, cred.Env, m.serverURL))
+}
+
+func (m *MCPHandler) UpdateServerAlias(req api.Context) error {
+	var (
+		id     = req.PathValue("mcp_server_id")
+		server v1.MCPServer
+	)
+
+	if err := req.Get(&server, id); err != nil {
+		return err
+	}
+
+	if server.Spec.SharedWithinMCPCatalogName != "" {
+		return types.NewErrBadRequest("cannot update alias for a multi-user MCP server")
+	}
+
+	var input struct {
+		Alias string `json:"alias,omitempty"`
+	}
+	if err := req.Read(&input); err != nil {
+		return err
+	}
+
+	if input.Alias == server.Spec.Alias {
+		// If the alias is the same, skip update.
+		return nil
+	}
+	server.Spec.Alias = input.Alias
+
+	if err := req.Update(&server); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (m *MCPHandler) ConfigureServer(req api.Context) error {
@@ -1316,6 +1351,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 
 	return types.MCPServer{
 		Metadata:                   MetadataFrom(&server),
+		Alias:                      server.Spec.Alias,
 		MissingRequiredEnvVars:     missingEnvVars,
 		MissingRequiredHeaders:     missingHeaders,
 		UserID:                     server.Spec.UserID,

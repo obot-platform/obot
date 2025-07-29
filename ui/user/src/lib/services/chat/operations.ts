@@ -1000,11 +1000,16 @@ export async function createProjectMCP(
 	assistantID: string,
 	projectID: string,
 	mcpID: string,
+	alias?: string,
 	opts?: { fetch?: Fetcher }
 ): Promise<ProjectMCP> {
+	const body: { mcpID: string; alias?: string } = { mcpID };
+	if (alias) {
+		body.alias = alias;
+	}
 	return (await doPost(
 		`/assistants/${assistantID}/projects/${projectID}/mcpservers`,
-		{ mcpID },
+		body,
 		opts
 	)) as ProjectMCP;
 }
@@ -1414,6 +1419,7 @@ export async function createSingleOrRemoteMcpServer(server: {
 			url?: string;
 		};
 	};
+	alias?: string;
 }): Promise<MCPCatalogServer> {
 	const response = (await doPost('/mcp-servers', server)) as MCPCatalogServer;
 	return response;
@@ -1425,6 +1431,10 @@ export async function updateSingleOrRemoteMcpServer(
 ): Promise<MCPCatalogServer> {
 	const response = (await doPut(`/mcp-servers/${id}`, server)) as MCPCatalogServer;
 	return response;
+}
+
+export async function updateSingleOrRemoteMcpServerAlias(id: string, alias: string): Promise<void> {
+	await doPut(`/mcp-servers/${id}/alias`, { alias });
 }
 
 export async function deleteSingleOrRemoteMcpServer(id: string): Promise<void> {

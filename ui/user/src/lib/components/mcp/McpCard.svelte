@@ -19,7 +19,7 @@
 
 	let { data, onClick, action }: Props = $props();
 	let icon = $derived(data.manifest.icon);
-	let name = $derived(data.manifest.name);
+	let name = $derived('alias' in data ? data.alias : data.manifest.name);
 	let categories = $derived('categories' in data ? data.categories : parseCategories(data));
 	let needsUpdate = $derived(!('isCatalogEntry' in data) ? !data.configured : false);
 </script>

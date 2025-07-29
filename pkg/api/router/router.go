@@ -402,6 +402,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}", mcp.GetServer)
 	mux.HandleFunc("POST /api/mcp-servers", mcp.CreateServer)
 	mux.HandleFunc("PUT /api/mcp-servers/{mcp_server_id}", mcp.AdminOnlyUpdateServer)
+	mux.HandleFunc("PUT /api/mcp-servers/{mcp_server_id}/alias", mcp.UpdateServerAlias)
 	mux.HandleFunc("DELETE /api/mcp-servers/{mcp_server_id}", mcp.DeleteServer)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/launch", mcp.LaunchServer)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/check-oauth", mcp.CheckOAuth)
