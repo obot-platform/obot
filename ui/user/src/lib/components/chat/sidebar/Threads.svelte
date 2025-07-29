@@ -127,6 +127,7 @@
 
 		watchingThread = ChatService.watchThreads(project.assistantID, project.id, (thread) => {
 			if (thread.deleted) {
+				console.log('deleted thread', thread.id);
 				layout.threads = layout.threads?.filter((t) => t.id !== thread.id);
 				layout.taskRuns = layout.taskRuns?.filter((t) => t.id !== thread.id);
 				if (currentThreadID === thread.id) {
@@ -188,7 +189,7 @@
 	});
 
 	$effect(() => {
-		if (currentThreadID) {
+		if (currentThreadID && !isSomethingSelected(layout)) {
 			const thread = layout.threads?.find((t) => t.id === currentThreadID);
 			if (thread) {
 				name = thread.name;

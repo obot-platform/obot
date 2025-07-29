@@ -23,7 +23,7 @@
 </script>
 
 {#await src then src}
-	<div class="p-5">
-		<img class="rounded-3xl" {src} alt="AI generated, content unknown" />
+	<div class="flex h-full w-full items-center justify-center p-5">
+		<img class="h-full rounded-3xl" {src} alt="AI generated, content unknown" />
 	</div>
 {/await}

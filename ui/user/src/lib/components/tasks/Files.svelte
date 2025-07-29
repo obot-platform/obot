@@ -92,6 +92,7 @@
 									taskID,
 									runID
 								});
+								layout.fileEditorOpen = true;
 							}}
 						>
 							<FileText />

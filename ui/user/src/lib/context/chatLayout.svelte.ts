@@ -43,7 +43,13 @@ export interface Layout {
 }
 
 export function isSomethingSelected(layout: Layout) {
-	return layout.editTaskID || layout.displayTaskRun;
+	return (
+		layout.editTaskID ||
+		layout.displayTaskRun ||
+		layout.editProjectMcp ||
+		layout.mcpServer ||
+		layout.projectToConfigure
+	);
 }
 
 export function closeAll(layout: Layout) {

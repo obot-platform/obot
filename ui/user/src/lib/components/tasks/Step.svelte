@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		ChatService,
+		EditorService,
 		type Messages,
 		type Project,
 		type Task,
@@ -20,6 +21,7 @@
 	import { DraggableHandle, DraggableItem } from '../primitives/draggable';
 	import { twMerge } from 'tailwind-merge';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 
 	interface Props {
 		run?: (step: TaskStep) => Promise<void>;
@@ -117,6 +119,8 @@
 	const messages = $derived(!isLoopStep ? simpleStepMessages : loopStepMessage);
 
 	let runningProgress = $state(getCurrentRunData(step.id, lastStepId));
+
+	const layout = getLayout();
 
 	$effect(() => {
 		if (lastStepId && isRunning) {
@@ -408,6 +412,8 @@
 
 								onChange?.(s);
 							}}
+							{runID}
+							taskID={task.id}
 						/>
 					{/each}
 				</div>
@@ -438,7 +444,18 @@
 						{#if messages.length || isRunning}
 							{#each messages as msg, i (i)}
 								{#if !msg.sent}
-									<Message {msg} {project} disableMessageToEditor />
+									<Message
+										{msg}
+										{project}
+										disableMessageToEditor
+										onLoadFile={(filename) => {
+											EditorService.load(layout.items, project, filename, {
+												taskID: task.id,
+												runID: runID
+											});
+											layout.fileEditorOpen = true;
+										}}
+									/>
 								{/if}
 							{/each}
 							<!-- Show a loading placeholder in the first step when task is running and messages array is empty -->
@@ -501,6 +518,8 @@
 											onDelete={() => {
 												step.loop = step.loop!.splice(j, 1);
 											}}
+											{runID}
+											taskID={task.id}
 										/>
 									{/each}
 								</div>

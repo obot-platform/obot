@@ -69,7 +69,7 @@
 					onclick={onsuccess}
 					type="button"
 					class={twMerge(
-						'inline-flex min-h-10 items-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium hover:bg-red-800',
+						'inline-flex min-h-10 items-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800',
 						classes?.confirm
 					)}
 					disabled={loading}

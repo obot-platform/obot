@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Messages, Project } from '$lib/services';
+	import { EditorService, type Messages, type Project } from '$lib/services';
 	import Message from '$lib/components/messages/Message.svelte';
 	import { Trash2, Plus } from 'lucide-svelte/icons';
 	import { autoHeight } from '$lib/actions/textarea.js';
@@ -9,6 +9,7 @@
 	import { slide } from 'svelte/transition';
 	import { linear } from 'svelte/easing';
 	import { twMerge } from 'tailwind-merge';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 
 	type Props = {
 		class?: string;
@@ -25,6 +26,8 @@
 		onKeydown?: KeyboardEventHandler<HTMLTextAreaElement>;
 		onDelete?: () => void;
 		onAdd?: () => void;
+		runID?: string;
+		taskID?: string;
 	};
 
 	let {
@@ -41,8 +44,12 @@
 		index = 0,
 		onKeydown = undefined,
 		onDelete = undefined,
-		onAdd = undefined
+		onAdd = undefined,
+		runID,
+		taskID
 	}: Props = $props();
+
+	const layout = getLayout();
 </script>
 
 <div
@@ -104,7 +111,19 @@
 					{#each messages.messages as msg, i (i)}
 						{#if !msg.sent}
 							<!-- automatically exapnd the message content when loop step is running -->
-							<Message {msg} {project} disableMessageToEditor />
+							<Message
+								{msg}
+								{project}
+								disableMessageToEditor
+								onLoadFile={async (filename) => {
+									console.log('onLoadFile', filename, taskID, runID);
+									await EditorService.load(layout.items, project, filename, {
+										taskID,
+										runID
+									});
+									layout.fileEditorOpen = true;
+								}}
+							/>
 						{/if}
 					{/each}
 				{/if}

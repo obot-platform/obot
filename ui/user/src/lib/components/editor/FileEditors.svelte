@@ -29,11 +29,11 @@
 	{:else}
 		<div
 			class:hidden={!file.selected}
-			class="default-scrollbar-thin mr-[56px] h-full flex-1"
+			class="default-scrollbar-thin h-full flex-1"
 			bind:clientHeight={height}
 		>
 			{#if file.name.toLowerCase().endsWith('.md')}
-				<Milkdown {file} {onFileChanged} {onInvoke} {items} class="p-5" />
+				<Milkdown {file} {onFileChanged} {onInvoke} {items} class="p-5 pt-0" />
 			{:else if isImage(file.name)}
 				<Image {file} />
 			{:else if [...(file?.file?.contents ?? '')].some((char) => char.charCodeAt(0) === 0)}
@@ -47,9 +47,6 @@
 					class="m-0 overflow-hidden rounded-b-2xl"
 				/>
 			{/if}
-			<div
-				class="boxshadow-sm absolute top-0 right-0 flex h-full w-[56px] border-l-2 border-gray-100 bg-white dark:border-[#202020] dark:bg-[#333338]"
-			></div>
 		</div>
 	{/if}
 {/each}
