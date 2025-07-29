@@ -1,8 +1,9 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/Table.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import { AdminService, type ProjectThread, type Project, type OrgUser } from '$lib/services';
-	import { Search, Eye, LoaderCircle, RefreshCcw, MessageCircle, Filter, X } from 'lucide-svelte';
+	import { Search, Eye, LoaderCircle, MessageCircle, Filter } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
@@ -15,7 +16,7 @@
 	let projectMap = $derived(new Map(projects.map((p) => [p.id, p.name])));
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
 
-	// Get unique options from thread data
+	// Get unique options from thread data for Select components
 	let usernameOptions = $derived.by(() => {
 		const usernames = new Set<string>();
 		threads.forEach((thread) => {
@@ -24,7 +25,9 @@
 				usernames.add(user.displayName);
 			}
 		});
-		return Array.from(usernames).sort();
+		return Array.from(usernames)
+			.sort()
+			.map((username) => ({ id: username, label: username }));
 	});
 
 	let emailOptions = $derived.by(() => {
@@ -35,7 +38,9 @@
 				emails.add(user.email);
 			}
 		});
-		return Array.from(emails).sort();
+		return Array.from(emails)
+			.sort()
+			.map((email) => ({ id: email, label: email }));
 	});
 
 	let projectOptions = $derived.by(() => {
@@ -46,17 +51,16 @@
 				projectNames.add(projectName);
 			}
 		});
-		return Array.from(projectNames).sort();
+		return Array.from(projectNames)
+			.sort()
+			.map((projectName) => ({ id: projectName, label: projectName }));
 	});
 	let loading = $state(true);
 	let searchTerm = $state('');
 	let showFilters = $state(false);
-	let usernameFilter = $state('');
-	let emailFilter = $state('');
-	let projectFilter = $state('');
-	let showUsernameDropdown = $state(false);
-	let showEmailDropdown = $state(false);
-	let showProjectDropdown = $state(false);
+	let usernameFilter = $state<string>('');
+	let emailFilter = $state<string>('');
+	let projectFilter = $state<string>('');
 	let sortField = $state<'created' | 'name' | 'userID' | 'projectID' | 'userName' | 'userEmail'>(
 		'created'
 	);
@@ -196,57 +200,23 @@
 
 	function handleViewThread(thread: ProjectThread) {
 		// Navigate to thread view
-		goto(`/v2/admin/chat-threads/${thread.id}`);
+		goto(`/admin/chat-threads/${thread.id}`);
 	}
 
 	function formatThreadName(thread: ProjectThread) {
 		return thread.name || 'Unnamed Thread';
 	}
 
-	function handleFilterFocus(filterType: 'username' | 'email' | 'project') {
-		switch (filterType) {
-			case 'username':
-				showUsernameDropdown = true;
-				showEmailDropdown = false;
-				showProjectDropdown = false;
-				break;
-			case 'email':
-				showUsernameDropdown = false;
-				showEmailDropdown = true;
-				showProjectDropdown = false;
-				break;
-			case 'project':
-				showUsernameDropdown = false;
-				showEmailDropdown = false;
-				showProjectDropdown = true;
-				break;
-		}
+	function handleUsernameSelect(option: { id: string; label: string }) {
+		usernameFilter = option.id;
 	}
 
-	function handleFilterBlur() {
-		// Delay hiding dropdowns to allow for clicks
-		setTimeout(() => {
-			showUsernameDropdown = false;
-			showEmailDropdown = false;
-			showProjectDropdown = false;
-		}, 150);
+	function handleEmailSelect(option: { id: string; label: string }) {
+		emailFilter = option.id;
 	}
 
-	function selectFilterOption(value: string, filterType: 'username' | 'email' | 'project') {
-		switch (filterType) {
-			case 'username':
-				usernameFilter = value;
-				showUsernameDropdown = false;
-				break;
-			case 'email':
-				emailFilter = value;
-				showEmailDropdown = false;
-				break;
-			case 'project':
-				projectFilter = value;
-				showProjectDropdown = false;
-				break;
-		}
+	function handleProjectSelect(option: { id: string; label: string }) {
+		projectFilter = option.id;
 	}
 </script>
 
@@ -266,7 +236,7 @@
 							type="text"
 							placeholder="Search threads..."
 							bind:value={searchTerm}
-							class="w-64 rounded-md border border-gray-300 bg-white px-10 py-2 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800"
+							class="w-64 rounded-md border border-gray-300 bg-white px-10 py-2 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-black"
 						/>
 					</div>
 					<button
@@ -276,24 +246,12 @@
 						<Filter class="size-4" />
 						Filters
 					</button>
-					<button
-						onclick={loadThreads}
-						disabled={loading}
-						class="button-primary flex gap-2 text-sm font-normal"
-					>
-						{#if loading}
-							<LoaderCircle class="size-4 animate-spin" />
-						{:else}
-							<RefreshCcw class="size-4" />
-						{/if}
-						Refresh
-					</button>
 				</div>
 			</div>
 
 			{#if showFilters}
 				<div
-					class="flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800"
+					class="dark:border-surface3 flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:bg-black"
 				>
 					<div class="flex items-center justify-between">
 						<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</h3>
@@ -308,135 +266,54 @@
 							Clear all
 						</button>
 					</div>
-					<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-						<div class="flex flex-col gap-1">
+					<div class="dark:border-surface3 grid grid-cols-1 gap-4 md:grid-cols-3">
+						<div class="dark:border-surface3 flex flex-col gap-1">
 							<label
-								for="username-filter"
+								for="username-select"
 								class="text-xs font-medium text-gray-600 dark:text-gray-400"
 							>
 								Username
 							</label>
-							<div class="relative">
-								<input
-									id="username-filter"
-									type="text"
-									placeholder="Filter by username..."
-									bind:value={usernameFilter}
-									onfocus={() => handleFilterFocus('username')}
-									onblur={handleFilterBlur}
-									readonly
-									class="w-full cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-								/>
-								{#if usernameFilter}
-									<button
-										onclick={() => (usernameFilter = '')}
-										class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-										title="Clear username filter"
-									>
-										<X class="size-4" />
-									</button>
-								{/if}
-								{#if showUsernameDropdown && usernameOptions.length > 0}
-									<div
-										class="absolute top-full right-0 left-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-700"
-									>
-										{#each usernameOptions as option (option)}
-											<button
-												class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
-												onclick={() => selectFilterOption(option, 'username')}
-											>
-												{option}
-											</button>
-										{/each}
-									</div>
-								{/if}
-							</div>
+							<Select
+								id="username-select"
+								class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
+								options={usernameOptions}
+								selected={usernameFilter}
+								onSelect={handleUsernameSelect}
+								position="top"
+							/>
 						</div>
 						<div class="flex flex-col gap-1">
 							<label
-								for="email-filter"
+								for="email-select"
 								class="text-xs font-medium text-gray-600 dark:text-gray-400"
 							>
 								Email
 							</label>
-							<div class="relative">
-								<input
-									id="email-filter"
-									type="text"
-									placeholder="Filter by email..."
-									bind:value={emailFilter}
-									onfocus={() => handleFilterFocus('email')}
-									onblur={handleFilterBlur}
-									readonly
-									class="w-full cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-								/>
-								{#if emailFilter}
-									<button
-										onclick={() => (emailFilter = '')}
-										class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-										title="Clear email filter"
-									>
-										<X class="size-4" />
-									</button>
-								{/if}
-								{#if showEmailDropdown && emailOptions.length > 0}
-									<div
-										class="absolute top-full right-0 left-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-700"
-									>
-										{#each emailOptions as option (option)}
-											<button
-												class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
-												onclick={() => selectFilterOption(option, 'email')}
-											>
-												{option}
-											</button>
-										{/each}
-									</div>
-								{/if}
-							</div>
+							<Select
+								id="email-select"
+								class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
+								options={emailOptions}
+								selected={emailFilter}
+								onSelect={handleEmailSelect}
+								position="top"
+							/>
 						</div>
 						<div class="flex flex-col gap-1">
 							<label
-								for="project-filter"
+								for="project-select"
 								class="text-xs font-medium text-gray-600 dark:text-gray-400"
 							>
 								Project Name
 							</label>
-							<div class="relative">
-								<input
-									id="project-filter"
-									type="text"
-									placeholder="Filter by project..."
-									bind:value={projectFilter}
-									onfocus={() => handleFilterFocus('project')}
-									onblur={handleFilterBlur}
-									readonly
-									class="w-full cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-								/>
-								{#if projectFilter}
-									<button
-										onclick={() => (projectFilter = '')}
-										class="absolute top-1/2 right-2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-										title="Clear project filter"
-									>
-										<X class="size-4" />
-									</button>
-								{/if}
-								{#if showProjectDropdown && projectOptions.length > 0}
-									<div
-										class="absolute top-full right-0 left-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-700"
-									>
-										{#each projectOptions as option (option)}
-											<button
-												class="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-600"
-												onclick={() => selectFilterOption(option, 'project')}
-											>
-												{option}
-											</button>
-										{/each}
-									</div>
-								{/if}
-							</div>
+							<Select
+								id="project-select"
+								class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
+								options={projectOptions}
+								selected={projectFilter}
+								onSelect={handleProjectSelect}
+								position="top"
+							/>
 						</div>
 					</div>
 				</div>

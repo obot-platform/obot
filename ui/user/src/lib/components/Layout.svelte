@@ -31,9 +31,11 @@
 		showUserLinks?: boolean;
 		onRenderSubContent?: Snippet<[string]>;
 		hideSidebar?: boolean;
+		whiteBackground?: boolean;
 	}
 
-	const { children, showUserLinks, onRenderSubContent, hideSidebar }: Props = $props();
+	const { children, showUserLinks, onRenderSubContent, hideSidebar, whiteBackground }: Props =
+		$props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
 	let pathname = $state('');
@@ -71,6 +73,12 @@
 						collapsible: false
 					},
 					{
+						href: '/admin/chat-threads',
+						icon: MessageCircle,
+						label: 'Chat Threads',
+						collapsible: false
+					},
+					{
 						href: '/admin/chat-configuration',
 						icon: Settings,
 						label: 'Chat Configuration',
@@ -90,13 +98,7 @@
 						collapsible: false
 					},
 					{
-						href: '/admin/chat-threads',
-						icon: MessageCircle,
-						label: 'Chat Threads',
-						collapsible: false
-					},
-					{
-						href: 'admin/auth-providers',
+						href: '/admin/auth-providers',
 						icon: LockKeyhole,
 						label: 'Auth Providers',
 						collapsible: false
@@ -226,7 +228,10 @@
 		{/if}
 
 		<main
-			class="bg-surface1 default-scrollbar-thin relative flex h-svh w-full grow flex-col overflow-y-auto dark:bg-black"
+			class={twMerge(
+				'default-scrollbar-thin relative flex h-svh w-full grow flex-col overflow-y-auto',
+				whiteBackground ? 'bg-white dark:bg-black' : 'bg-surface1 dark:bg-black'
+			)}
 		>
 			<Navbar class="dark:bg-gray-990 sticky top-0 left-0 z-30 w-full">
 				{#snippet leftContent()}
