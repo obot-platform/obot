@@ -81,7 +81,7 @@ All users with project access can access thread history. Be careful not to share
 
 ## Best Practices
 
-### Effective System Prompts
+### Effective Instructions
 1. **Be Specific**: Clearly define the agent's role and responsibilities
 2. **Provide Context**: Include relevant background information
 3. **Set Boundaries**: Specify what the agent should and shouldn't do

@@ -1,6 +1,5 @@
 # Model Providers
 
-@TODO ensure this is still accurate
 The Model Providers page allows administrators to configure and manage various AI model providers. This guide will walk you through the setup process and explain the available options.
 
 ##### Configuring Model Providers
@@ -15,8 +14,9 @@ Obot supports a variety of model providers, including:
 - Groq
 - vLLM
 - DeepSeek
+- Google
 
-The UI will indicate whether each provider has been configured. If a provider is configured, options to view and manage its models and deconfigure it will be available.
+The UI will indicate whether each provider has been configured. If a provider is configured you will have the ability to modify or deconfigure it.
 
 :::note
 Our Enterprise release adds support for additional Enterprise-grade model providers. [See here](/enterprise) for more details.

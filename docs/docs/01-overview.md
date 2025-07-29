@@ -11,7 +11,7 @@ To quickly view a demo environment, you can visit our [hosted version](https://c
 
 ## The Three Parts of Obot
 
-### 🗣️ Chat Interface
+### 🗣️ Chat
 The **Chat Interface** is where end users interact with AI agents (called Projects) through conversational chat. This is the primary user-facing component of obot that provides:
 
 - **Projects**: Individual AI assistants that can be customized for specific tasks
@@ -21,38 +21,36 @@ The **Chat Interface** is where end users interact with AI agents (called Projec
 - **Collaboration**: Share projects with team members and collaborate on AI-powered workflows
 
 ### 🔌 MCP Gateway
-The **MCP Gateway** implements the Model Context Protocol (MCP) standard, enabling seamless integration between AI agents and external tools and services. This component handles:
+The **MCP Gateway** exposes access to MCP servers to clients via a single managed platform. This component handles:
 
 - **Tool Catalogs**: Browse and connect to available MCP servers and tools
 - **OAuth Flows**: Secure authentication with external services
 - **Session Management**: Handle connections between agents and MCP servers
 - **Webhook Support**: Receive events and data from external systems
+- **Audit Logging**: Logs all usage of MCP Servers and tools.
 - **Custom Integrations**: Connect your own tools and services through the MCP protocol
 
-### ⚙️ Admin Interface
-The **Admin Interface** provides comprehensive platform management capabilities for administrators and power users:
+### ⚙️ Admin
+The **Admin Interface** provides comprehensive platform management capabilities for administrators:
 
-- **User Management**: Manage users, roles, and access control
-- **Agent Configuration**: Create and manage base agents and system-wide obots
-- **Task Automation**: Set up scheduled tasks and workflows
+- **User Management**: Manage users, groups, and access control
 - **Model Providers**: Configure and manage LLM providers and settings
 - **System Configuration**: Configure authentication providers, encryption, and platform settings
-- **Monitoring**: View task runs, system health, and usage analytics
+- **Monitoring**: View system health and usage analytics
 
 ## How They Work Together
 
 These three components create a powerful, integrated AI platform:
 
-1. **Users** interact with AI agents through the **Chat Interface**
-2. **Agents** leverage tools and services via the **MCP Gateway**  
+1. **Users** interact with Obot projects through the **Chat Interface** and MCP Servers through the **MCP Gateway**.
+2. **Users** and **MCP Clients** leverage tools via the **MCP Gateway**
 3. **Administrators** manage the entire platform through the **Admin Interface**
 
 ## Key Features
 
 - **Self-Hosted**: Deploy on your own infrastructure for complete control
 - **MCP Standard**: Built on the open Model Context Protocol for maximum interoperability
-- **Enterprise Security**: OAuth 2.0 authentication, encryption, and audit logging
-- **Flexible Deployment**: Kubernetes, Docker, or any cloud provider
+- **Enterprise Security**: OAuth 2.1 authentication, encryption, and audit logging
 - **Extensible**: Easy integration with custom tools and services
 
 ## Getting Started

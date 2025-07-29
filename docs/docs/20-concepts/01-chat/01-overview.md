@@ -1,4 +1,4 @@
-# Chat Interface Overview
+# Chat Overview
 
 The Chat Interface provides a web-based conversational interface where users can chat with AI agents (called Projects) to accomplish tasks, get answers, and collaborate on work. The Chat Interface makes AI agents accessible and powerful while maintaining the familiar experience of conversational interaction.
 
@@ -54,3 +54,7 @@ Projects can interact with external systems through the Model Context Protocol:
 2. Multiple users can create their own threads
 3. Shared knowledge and memories benefit all users
 4. Project owners can modify configuration
+
+## Configuration
+
+For more information on configuring chat, visit the [chat configuration](/configuration/chat-configuration) documentation.

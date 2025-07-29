@@ -17,6 +17,7 @@ When launching Obot for the first time, the server will print a randomly generat
 
 :::info
 When installing via Helm, this token is saved inside a kubernetes secret.
+:::
 
 This token can be used to authenticate as an admin user in the UI.
 You will then be able to configure authentication providers.
