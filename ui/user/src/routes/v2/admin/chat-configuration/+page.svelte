@@ -40,7 +40,7 @@
 		new Map(modelsData.modelProviders.map((provider) => [provider.id, provider]))
 	);
 	let selectedModels = $derived(
-		modelsData.models.filter((model) => baseAgent?.allowedModels?.includes(model.name))
+		modelsData.models.filter((model) => baseAgent?.allowedModels?.includes(model.id))
 	);
 	let modelOptions = $derived(
 		modelsData.models.filter((model) => !model.usage || model.usage === ModelUsage.LLM)
@@ -264,17 +264,19 @@
 									>
 										Set as Default
 									</button>
-									<button
-										class="menu-button"
-										onclick={() => {
-											if (!baseAgent) return;
-											baseAgent.allowedModels = baseAgent.allowedModels?.filter(
-												(modelName) => modelName !== d.name
-											);
-										}}
-									>
-										Remove
-									</button>
+									{#if !d.isDefault}
+										<button
+											class="menu-button"
+											onclick={() => {
+												if (!baseAgent) return;
+												baseAgent.allowedModels = baseAgent.allowedModels?.filter(
+													(modelId) => modelId !== d.id
+												);
+											}}
+										>
+											Remove
+										</button>
+									{/if}
 								</div>
 							</DotDotDot>
 						{/snippet}
@@ -387,18 +389,18 @@
 							<button
 								class={twMerge(
 									'hover:bg-surface3 flex items-center justify-between gap-4 rounded-md bg-transparent p-2 font-light',
-									addModelsSelected[model.name] && 'bg-surface2'
+									addModelsSelected[model.id] && 'bg-surface2'
 								)}
 								onclick={() => {
-									if (addModelsSelected[model.name]) {
-										delete addModelsSelected[model.name];
+									if (addModelsSelected[model.id]) {
+										delete addModelsSelected[model.id];
 									} else {
-										addModelsSelected[model.name] = true;
+										addModelsSelected[model.id] = true;
 									}
 								}}
 							>
 								{model.name}
-								{#if addModelsSelected[model.name]}
+								{#if addModelsSelected[model.id]}
 									<Check class="size-4 text-blue-500" />
 								{/if}
 							</button>

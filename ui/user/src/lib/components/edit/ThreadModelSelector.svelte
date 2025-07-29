@@ -336,20 +336,20 @@
 				<div class="flex flex-col">
 					{#each (() => {
 						const modelsByProvider = new Map<string, string[]>();
-						allowedModels.forEach((modelName) => {
-							// Find model by name since allowedModels contains model names
-							const model = Array.from(modelsMap.values()).find((m) => m.name === modelName);
+						allowedModels.forEach((modelId) => {
+							// Find model by ID since allowedModels contains model IDs
+							const model = modelsMap.get(modelId);
 							if (model) {
 								const providerId = model.modelProvider;
 								if (!modelsByProvider.has(providerId)) {
 									modelsByProvider.set(providerId, []);
 								}
-								modelsByProvider.get(providerId)!.push(modelName);
+								modelsByProvider.get(providerId)!.push(modelId);
 							}
 						});
 						return Array.from(modelsByProvider.entries());
-					})() as [providerId, modelNames] (providerId)}
-						{#if modelNames.length > 0}
+					})() as [providerId, modelIds] (providerId)}
+						{#if modelIds.length > 0}
 							{@const provider = modelProvidersMap.get(providerId)}
 							<div class="border-surface1 flex flex-col border-b py-2 last:border-transparent">
 								<div class="mb-2 flex gap-1 text-xs">
@@ -366,15 +366,13 @@
 									<div>{provider?.name ?? ''}</div>
 								</div>
 								<div class="provider-models flex flex-col gap-1">
-									{#each modelNames as modelName (modelName)}
-										{@const model = Array.from(modelsMap.values()).find(
-											(m) => m.name === modelName
-										)}
+									{#each modelIds as modelId (modelId)}
+										{@const model = modelsMap.get(modelId)}
 										{@const isModelSelected =
-											threadModelProvider === providerId && threadModel === modelName}
+											threadModelProvider === providerId && threadModel === modelId}
 
 										{@const isDefaultModel =
-											defaultModelProvider === providerId && defaultModel === modelName}
+											defaultModelProvider === providerId && defaultModel === model?.name}
 
 										{#if model}
 											<button
@@ -385,10 +383,10 @@
 													isModelSelected &&
 														'text-blue bg-blue/10 hover:bg-blue/15 active:bg-blue/20'
 												)}
-												onclick={() => setThreadModel(model.name, '')}
+												onclick={() => setThreadModel(model.id, '')}
 												tabindex="0"
 												data-provider={providerId}
-												data-model={modelName}
+												data-model={modelId}
 											>
 												<div>
 													{model.name}
@@ -403,7 +401,7 @@
 													/>
 												{/if}
 
-												{#if threadModelProvider === providerId && threadModel === modelName}
+												{#if threadModelProvider === providerId && threadModel === modelId}
 													<div class="ml-auto text-xs text-blue-500">✓</div>
 												{/if}
 											</button>

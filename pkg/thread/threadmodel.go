@@ -48,7 +48,7 @@ func GetModelAndModelProviderForThread(ctx context.Context, c kclient.Client, th
 	model := thread.Spec.Manifest.Model
 
 	// If it wasn't set on the thread, try to find a parent project that has it set.
-	if modelProvider == "" || model == "" {
+	if model == "" {
 		project, err := projects.GetFirst(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
 			return thread.Spec.DefaultModelProvider != "" && thread.Spec.DefaultModel != "", nil
 		})
