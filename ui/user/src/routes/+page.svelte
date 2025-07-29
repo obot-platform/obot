@@ -7,7 +7,6 @@
 	let { data }: PageProps = $props();
 	let { authProviders, loggedIn } = data;
 	let overrideRedirect = $state<string | null>(null);
-	let signUp = $state(true);
 
 	let rd = $derived.by(() => {
 		if (browser) {
