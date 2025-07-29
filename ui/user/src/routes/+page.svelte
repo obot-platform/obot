@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { darkMode } from '$lib/stores';
 	import { type PageProps } from './$types';
 	import { browser } from '$app/environment';
 	import Logo from '$lib/components/navbar/Logo.svelte';
