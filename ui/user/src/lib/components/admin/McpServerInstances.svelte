@@ -189,7 +189,8 @@
 			{/if}
 			<Table
 				data={servers}
-				fields={['id', 'created']}
+				fields={['id', 'userID', 'created']}
+				headers={[{ title: 'User', property: 'userID' }]}
 				onSelectRow={type === 'single'
 					? (d) => {
 							setLastVisitedMcpServer();
@@ -212,6 +213,9 @@
 								</div>
 							{/if}
 						</span>
+					{:else if property === 'userID'}
+						{@const user = usersMap.get(d[property] as string)}
+						{user?.email || user?.username || 'Unknown'}
 					{:else if property === 'created'}
 						{formatTimeAgo(d[property] as unknown as string).fullDate}
 					{:else}

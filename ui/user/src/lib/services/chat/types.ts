@@ -696,6 +696,7 @@ export interface ChatModelList {
 
 export interface MCPCatalogServer {
 	id: string;
+	userID: string;
 	connectURL?: string;
 	configured: boolean;
 	catalogEntryID: string;

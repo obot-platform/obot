@@ -65,6 +65,7 @@ type MCPServerManifest struct {
 type MCPServer struct {
 	Metadata
 	MCPServerManifest       MCPServerManifest `json:"manifest"`
+	UserID                  string            `json:"userID"`
 	Configured              bool              `json:"configured"`
 	MissingRequiredEnvVars  []string          `json:"missingRequiredEnvVars,omitempty"`
 	MissingRequiredHeaders  []string          `json:"missingRequiredHeader,omitempty"`

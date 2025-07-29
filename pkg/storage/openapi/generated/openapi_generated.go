@@ -3147,6 +3147,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerManifest"),
 						},
 					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"configured": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,
@@ -3230,7 +3237,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"Metadata", "manifest", "configured", "catalogEntryID"},
+				Required: []string{"Metadata", "manifest", "userID", "configured", "catalogEntryID"},
 			},
 		},
 		Dependencies: []string{
