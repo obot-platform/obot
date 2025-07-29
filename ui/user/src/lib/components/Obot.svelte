@@ -4,14 +4,13 @@
 	import Sidebar from '$lib/components/chat/ChatSidebar.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import Thread from '$lib/components/Thread.svelte';
-	import { ChatService, type Project } from '$lib/services';
+	import { type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { darkMode, responsive } from '$lib/stores';
-	import { closeAll, getLayout, isSomethingSelected } from '$lib/context/chatLayout.svelte';
-	import { GripVertical, MessageCirclePlus, SidebarOpen } from 'lucide-svelte';
+	import { getLayout, isSomethingSelected } from '$lib/context/chatLayout.svelte';
+	import { GripVertical, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { columnResize } from '$lib/actions/resize';
 	import { X } from 'lucide-svelte';
 	import type { Assistant, CreateProjectForm } from '$lib/services';
@@ -36,17 +35,6 @@
 
 	let shortcutsDialog: HTMLDialogElement;
 	let nav = $state<HTMLDivElement>();
-
-	async function createNewThread() {
-		const thread = await ChatService.createThread(project.assistantID, project.id);
-		const found = layout.threads?.find((t) => t.id === thread.id);
-		if (!found) {
-			layout.threads?.splice(0, 0, thread);
-		}
-
-		closeAll(layout);
-		currentThreadID = thread.id;
-	}
 
 	function handleKeydown(event: KeyboardEvent) {
 		// Ctrl + E for edit mode
