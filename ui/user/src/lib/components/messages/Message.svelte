@@ -1,16 +1,6 @@
 <script lang="ts">
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
-	import {
-		FileText,
-		Pencil,
-		Copy,
-		Edit,
-		Info,
-		X,
-		Brain,
-		FileSymlink,
-		Download
-	} from 'lucide-svelte/icons';
+	import { FileText, Copy, Edit, Info, X, Brain, FileSymlink, Download } from 'lucide-svelte/icons';
 	import { Tween } from 'svelte/motion';
 	import { ChatService, type Message, type Project } from '$lib/services';
 	import highlight from 'highlight.js';

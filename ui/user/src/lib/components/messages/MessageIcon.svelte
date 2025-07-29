@@ -1,7 +1,6 @@
 <script lang="ts">
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import type { Message } from '$lib/services';
-	import { Pencil } from 'lucide-svelte/icons';
 	import { AlertCircle } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
