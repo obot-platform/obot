@@ -5,7 +5,15 @@
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import CatalogServerForm from './CatalogServerForm.svelte';
 	import Table from '../Table.svelte';
-	import { GlobeLock, ListFilter, LoaderCircle, Trash2, Users } from 'lucide-svelte';
+	import {
+		ChevronLeft,
+		ChevronRight,
+		GlobeLock,
+		ListFilter,
+		LoaderCircle,
+		Trash2,
+		Users
+	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { goto } from '$app/navigation';
 	import Confirm from '../Confirm.svelte';
@@ -13,6 +21,7 @@
 	import { onMount } from 'svelte';
 	import AuditDetails from './audit-logs/AuditDetails.svelte';
 	import McpServerInstances from './McpServerInstances.svelte';
+	import McpServerTools from '../mcp/McpServerTools.svelte';
 
 	type MCPType = 'single' | 'multi' | 'remote';
 
@@ -31,6 +40,7 @@
 		entry
 			? [
 					{ label: 'Overview', view: 'overview' },
+					{ label: 'Tools', view: 'tools' },
 					{ label: 'Configuration', view: 'configuration' },
 					{ label: 'Audit Logs', view: 'usage' },
 					{ label: 'Access Control', view: 'access-control' },
@@ -49,12 +59,15 @@
 		rule: AccessControlRule;
 		resourceId: string;
 	}>();
-	let view = $state<string>(entry ? 'overview' : 'configuration');
+	let selected = $state<string>(entry ? 'overview' : 'configuration');
+	let showLeftChevron = $state(false);
+	let showRightChevron = $state(false);
+	let scrollContainer = $state<HTMLDivElement>();
 
 	$effect(() => {
-		if (view === 'access-control') {
+		if (selected === 'access-control') {
 			listAccessControlRules = AdminService.listAccessControlRules();
-		} else if (view === 'filters') {
+		} else if (selected === 'filters') {
 			listFilters = AdminService.listMCPFilters();
 		}
 	});
@@ -67,8 +80,17 @@
 		const url = new URL(window.location.href);
 		const initialView = url.searchParams.get('view');
 		if (initialView) {
-			view = initialView;
+			selected = initialView;
 		}
+
+		checkScrollPosition();
+		scrollContainer?.addEventListener('scroll', checkScrollPosition);
+		window.addEventListener('resize', checkScrollPosition);
+
+		return () => {
+			scrollContainer?.removeEventListener('scroll', checkScrollPosition);
+			window.removeEventListener('resize', checkScrollPosition);
+		};
 	});
 
 	function filterRulesByEntry(rules?: AccessControlRule[]) {
@@ -96,13 +118,43 @@
 			JSON.stringify({ id: entry.id, name, type })
 		);
 	}
+
+	function checkScrollPosition() {
+		if (!scrollContainer) return;
+
+		const { scrollLeft, scrollWidth, clientWidth } = scrollContainer;
+		showLeftChevron = scrollLeft > 0;
+		showRightChevron = scrollLeft < scrollWidth - clientWidth - 1; // -1 for rounding errors
+	}
+
+	function scrollLeft() {
+		if (scrollContainer) {
+			scrollContainer.scrollBy({ left: -200, behavior: 'smooth' });
+		}
+	}
+
+	function scrollRight() {
+		if (scrollContainer) {
+			scrollContainer.scrollBy({ left: 200, behavior: 'smooth' });
+		}
+	}
+
+	function handleSelectionChange(newSelection: string) {
+		if (newSelection !== selected) {
+			selected = newSelection;
+
+			const url = new URL(window.location.href);
+			url.searchParams.set('view', newSelection);
+			goto(url.toString(), { replaceState: true });
+		}
+	}
 </script>
 
 <div
 	class="flex h-full w-full flex-col gap-4"
-	class:mb-8={view !== 'configuration' &&
-		view !== 'server-instances' &&
-		view === 'configuration' &&
+	class:mb-8={selected !== 'configuration' &&
+		selected !== 'server-instances' &&
+		selected === 'configuration' &&
 		readonly}
 >
 	{#if entry}
@@ -145,45 +197,59 @@
 		</div>
 	{/if}
 	<div class="flex grow flex-col gap-2">
-		{#if tabs.length > 0}
-			<div
-				class="grid grid-cols-3 items-center gap-2 text-sm font-light md:grid-cols-4 lg:grid-cols-6"
-			>
-				{#each tabs as tab (tab.view)}
-					<button
-						onclick={() => {
-							view = tab.view;
-							const url = new URL(window.location.href);
-							url.searchParams.set('view', tab.view);
-							goto(url.toString(), { replaceState: true });
-						}}
-						class={twMerge(
-							'rounded-md border border-transparent px-4 py-2 text-center transition-colors duration-300',
-							view === tab.view && 'dark:bg-surface1 dark:border-surface3 bg-white shadow-sm',
-							view !== tab.view && 'hover:bg-surface3'
-						)}
-					>
-						{tab.label}
-					</button>
-				{/each}
+		<div class="flex w-full items-center gap-2">
+			<div class="size-4">
+				<button disabled={!showLeftChevron} onclick={scrollLeft} class="disabled:opacity-30">
+					<ChevronLeft class="size-4" />
+				</button>
 			</div>
-		{/if}
+			{#if tabs.length > 0}
+				<div
+					bind:this={scrollContainer}
+					class="default-scrollbar-thin scrollbar-none flex gap-2 overflow-x-auto py-1 text-sm font-light"
+					style="scroll-behavior: smooth;"
+				>
+					{#each tabs as tab (tab.view)}
+						<button
+							onclick={() => {
+								handleSelectionChange(tab.view);
+							}}
+							class={twMerge(
+								'w-48 flex-shrink-0 rounded-md border border-transparent px-4 py-2 text-center transition-colors duration-300',
+								selected === tab.view && 'dark:bg-surface1 dark:border-surface3 bg-white shadow-sm',
+								selected !== tab.view && 'hover:bg-surface3'
+							)}
+						>
+							{tab.label}
+						</button>
+					{/each}
+				</div>
+			{/if}
+			<div class="size-4">
+				<button disabled={!showRightChevron} onclick={scrollRight} class="disabled:opacity-30">
+					<ChevronRight class="size-4" />
+				</button>
+			</div>
+		</div>
 
-		{#if view === 'overview' && entry}
-			<McpServerInfo
-				{catalogId}
-				{entry}
-				descriptionPlaceholder="Add a description for this MCP server in the Configuration tab"
-			/>
-		{:else if view === 'configuration'}
+		{#if selected === 'overview' && entry}
+			<div class="pb-8">
+				<McpServerInfo
+					{entry}
+					descriptionPlaceholder="Add a description for this MCP server in the Configuration tab"
+				/>
+			</div>
+		{:else if selected === 'configuration'}
 			{@render configurationView()}
-		{:else if view === 'access-control'}
+		{:else if selected === 'tools' && entry}
+			<McpServerTools {entry} {catalogId} />
+		{:else if selected === 'access-control'}
 			{@render accessControlView()}
-		{:else if view === 'usage'}
+		{:else if selected === 'usage'}
 			{@render usageView()}
-		{:else if view === 'server-instances'}
+		{:else if selected === 'server-instances'}
 			<McpServerInstances {catalogId} {entry} {users} {type} />
-		{:else if view === 'filters'}
+		{:else if selected === 'filters'}
 			{@render filtersView()}
 		{/if}
 	</div>

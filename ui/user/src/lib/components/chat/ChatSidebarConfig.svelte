@@ -24,7 +24,10 @@
 	const layout = getLayout();
 </script>
 
-<div class="default-scrollbar-thin relative flex w-full justify-center overflow-y-auto" in:fade>
+<div
+	class="default-scrollbar-thin relative flex w-full justify-center overflow-y-auto bg-gray-50 dark:bg-black"
+	in:fade
+>
 	{#if layout.sidebarConfig === 'project-configuration'}
 		{#if layout.projectToConfigure}
 			{#key layout.projectToConfigure.id}
@@ -35,31 +38,14 @@
 		<Slack {project} />
 	{:else if layout.sidebarConfig === 'invitations'}
 		<ProjectInvitations {project} />
-	{:else if layout.sidebarConfig === 'mcp-server-tools' && layout.mcpServer}
+	{:else if (layout.sidebarConfig === 'mcp-server-tools' && layout.mcpServer) || (layout.sidebarConfig === 'mcp-server' && layout.mcpServer)}
 		{#key layout.mcpServer.id}
-			<div class="flex w-full justify-center px-4 py-4 md:px-8">
-				<div class="flex w-full flex-col gap-4 md:max-w-[1200px]">
-					<ProjectMcpServerTools
-						{project}
-						mcpServer={layout.mcpServer}
-						submitText="Update"
-						onSubmit={() => closeSidebarConfig(layout)}
-						onClose={() => closeSidebarConfig(layout)}
-					>
-						{#snippet header()}
-							<h2 class="flex items-center justify-between text-xl font-semibold">
-								View Tools
-								<button onclick={() => closeSidebarConfig(layout)} class="icon-button">
-									<X class="size-6" />
-								</button>
-							</h2>
-						{/snippet}
-					</ProjectMcpServerTools>
-				</div>
-			</div>
+			<ChatSidebarMcpServer
+				mcpServer={layout.mcpServer}
+				{project}
+				view={layout.sidebarConfig === 'mcp-server-tools' ? 'tools' : 'overview'}
+			/>
 		{/key}
-	{:else if layout.sidebarConfig === 'mcp-server' && layout.mcpServer}
-		<ChatSidebarMcpServer mcpServer={layout.mcpServer} {project} />
 	{:else if layout.sidebarConfig === 'discord'}
 		<Discord {project} />
 	{:else if layout.sidebarConfig === 'webhook'}

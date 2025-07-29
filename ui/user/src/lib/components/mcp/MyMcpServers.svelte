@@ -18,11 +18,11 @@
 	import McpCard from './McpCard.svelte';
 	import Search from '../Search.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import McpServerInfo from './McpServerInfo.svelte';
 	import CatalogConfigureForm from './CatalogConfigureForm.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import McpServerInfoAndTools from './McpServerInfoAndTools.svelte';
 
 	type Entry = MCPCatalogEntry & {
 		categories: string[]; // categories for the entry
@@ -558,7 +558,7 @@
 		</div>
 
 		{#if serverOrEntry}
-			<McpServerInfo entry={serverOrEntry} />
+			<McpServerInfoAndTools entry={serverOrEntry} />
 		{/if}
 	</div>
 {/snippet}

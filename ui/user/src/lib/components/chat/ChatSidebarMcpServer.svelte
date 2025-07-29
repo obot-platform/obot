@@ -2,17 +2,18 @@
 	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 	import type { Project, ProjectMCP } from '$lib/services';
 	import { Server, X } from 'lucide-svelte';
-	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import McpServerActions from './McpServerActions.svelte';
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
+	import McpServerInfoAndTools from '../mcp/McpServerInfoAndTools.svelte';
 
 	interface Props {
 		mcpServer: ProjectMCP;
 		project: Project;
+		view?: 'overview' | 'tools';
 	}
 
-	let { mcpServer, project }: Props = $props();
+	let { mcpServer, project, view }: Props = $props();
 	const layout = getLayout();
 	const projectMcps = getProjectMCPs();
 </script>
@@ -39,9 +40,10 @@
 				</button>
 			</div>
 		</div>
-		<McpServerInfo
-			catalogId={DEFAULT_MCP_CATALOG_ID}
+		<McpServerInfoAndTools
+			{view}
 			entry={mcpServer}
+			catalogId={DEFAULT_MCP_CATALOG_ID}
 			onAuthenticate={async () => {
 				const updatedMcps = await validateOauthProjectMcps(
 					project.assistantID,
