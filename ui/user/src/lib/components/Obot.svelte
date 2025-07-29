@@ -7,7 +7,7 @@
 	import { ChatService, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { darkMode, responsive } from '$lib/stores';
-	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
+	import { closeAll, getLayout, isSomethingSelected } from '$lib/context/chatLayout.svelte';
 	import { GripVertical, MessageCirclePlus, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -120,9 +120,9 @@
 			class:hidden={layout.sidebarOpen && responsive.isMobile}
 		>
 			<div class="w-full">
-				<Navbar>
+				<Navbar hideProfileButton={layout.fileEditorOpen}>
 					{#snippet leftContent()}
-						{#if !layout.sidebarOpen || layout.fileEditorOpen}
+						{#if !layout.sidebarOpen || (layout.fileEditorOpen && !isSomethingSelected(layout))}
 							{@render logo()}
 							<button
 								class="icon-button ml-2 p-0.5"

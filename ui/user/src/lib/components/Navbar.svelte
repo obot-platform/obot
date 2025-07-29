@@ -10,9 +10,16 @@
 		centerContent?: Snippet;
 		class?: string;
 		unauthorized?: boolean;
+		hideProfileButton?: boolean;
 	}
 
-	let { leftContent, centerContent, class: klass, unauthorized }: Props = $props();
+	let {
+		leftContent,
+		centerContent,
+		class: klass,
+		unauthorized,
+		hideProfileButton
+	}: Props = $props();
 </script>
 
 <nav
@@ -43,7 +50,7 @@
 				{@render centerContent()}
 			{/if}
 		</div>
-		{#if !unauthorized}
+		{#if !unauthorized && !hideProfileButton}
 			<div class="flex h-16 items-center">
 				<Profile />
 			</div>
