@@ -22,6 +22,7 @@
 		title?: string;
 		children: Snippet;
 		animate?: 'slide' | 'fade';
+		hideHeader?: boolean;
 	}
 
 	let {
@@ -32,7 +33,8 @@
 		children,
 		class: klass,
 		classes,
-		animate
+		animate,
+		hideHeader
 	}: Props = $props();
 	let dialog = $state<HTMLDialogElement>();
 
@@ -49,40 +51,46 @@
 
 <dialog
 	bind:this={dialog}
-	class={twMerge('w-full max-w-2xl font-normal', !responsive.isMobile && 'p-4', klass)}
+	class={twMerge(
+		'w-full max-w-2xl font-normal backdrop:bg-black backdrop:opacity-100 backdrop:backdrop-brightness-100 dark:backdrop:backdrop-brightness-40',
+		!responsive.isMobile && 'p-4',
+		klass
+	)}
 	class:mobile-screen-dialog={responsive.isMobile}
 	use:clickOutside={() => close()}
 	use:dialogAnimation={{ type: animate }}
 >
 	<div class="flex h-full w-full flex-col">
-		<div class="mb-4 flex flex-col gap-4">
-			<h3
-				class={twMerge('default-dialog-title', classes?.header)}
-				class:default-dialog-mobile-title={responsive.isMobile}
-			>
-				<span class="flex items-center gap-2">
-					{#if titleContent}
-						{@render titleContent()}
-					{:else if title}
-						{title}
-					{/if}
-				</span>
-				<button
-					class:mobile-header-button={responsive.isMobile}
-					onclick={(e) => {
-						e.preventDefault();
-						close();
-					}}
-					class="icon-button"
+		{#if !hideHeader}
+			<div class="mb-4 flex flex-col gap-4">
+				<h3
+					class={twMerge('default-dialog-title', classes?.header)}
+					class:default-dialog-mobile-title={responsive.isMobile}
 				>
-					{#if responsive.isMobile}
-						<ChevronRight class="size-6" />
-					{:else}
-						<X class="size-5" />
-					{/if}
-				</button>
-			</h3>
-		</div>
+					<span class="flex items-center gap-2">
+						{#if titleContent}
+							{@render titleContent()}
+						{:else if title}
+							{title}
+						{/if}
+					</span>
+					<button
+						class:mobile-header-button={responsive.isMobile}
+						onclick={(e) => {
+							e.preventDefault();
+							close();
+						}}
+						class="icon-button"
+					>
+						{#if responsive.isMobile}
+							<ChevronRight class="size-6" />
+						{:else}
+							<X class="size-5" />
+						{/if}
+					</button>
+				</h3>
+			</div>
+		{/if}
 		{@render children()}
 	</div>
 </dialog>
