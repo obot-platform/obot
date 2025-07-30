@@ -7,14 +7,12 @@
 	import { getLayout, openMCPServer } from '$lib/context/chatLayout.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import McpServerSetup from '../chat/McpServerSetup.svelte';
-	import McpServerActions from '../chat/McpServerActions.svelte';
 
 	interface Props {
 		project: Project;
-		chatbot?: boolean;
 	}
 
-	let { project, chatbot = false }: Props = $props();
+	let { project }: Props = $props();
 	let toDelete = $state<ProjectMCP>();
 	let loading = $state(false);
 
@@ -121,14 +119,6 @@
 							{/if}
 						</p>
 					</button>
-					{#if !chatbot}
-						<McpServerActions
-							class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
-							{mcpServer}
-							{project}
-							onDelete={() => refreshMcpList()}
-						/>
-					{/if}
 				</div>
 			{/each}
 		</div>

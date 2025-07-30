@@ -18,10 +18,11 @@
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
 		catalogId?: string;
 		onAuthenticate?: () => void;
+		onProjectToolsUpdate?: (selected: string[]) => void;
 		project?: Project;
 	}
 
-	let { entry, onAuthenticate, project }: Props = $props();
+	let { entry, onAuthenticate, onProjectToolsUpdate, project }: Props = $props();
 	let search = $state('');
 	let tools = $state<MCPServerTool[]>([]);
 	let previewTools = $derived(getToolPreview(entry));
@@ -32,6 +33,8 @@
 	// Create AbortController for cancelling API calls
 	let abortController = $state<AbortController | null>(null);
 
+	let selected = $state<string[]>([]);
+	let allToolsEnabled = $derived(selected[0] === '*' || selected.length === tools.length);
 	let expandedDescriptions = $state<Record<string, boolean>>({});
 	let expandedParams = $state<Record<string, boolean>>({});
 	let allDescriptionsEnabled = $state(true);
@@ -146,6 +149,7 @@
 				: ChatService.listMcpCatalogServerTools(entry.id, { signal: abortController.signal });
 
 			tools = await toolCall;
+			selected = tools.filter((t) => t.enabled).map((t) => t.id);
 		} catch (err: unknown) {
 			// Only handle errors if the request wasn't aborted
 			if (err instanceof Error && err.name !== 'AbortError') {
@@ -155,9 +159,26 @@
 			loading = false;
 		}
 	}
+
+	async function handleProjectToolsUpdate() {
+		if (!project) return;
+
+		try {
+			await ChatService.configureProjectMcpServerTools(
+				project.assistantID,
+				project.id,
+				entry.id,
+				selected
+			);
+		} catch (err) {
+			console.error(err);
+		} finally {
+			onProjectToolsUpdate?.(selected);
+		}
+	}
 </script>
 
-<div class="flex w-full flex-col gap-4 pb-8">
+<div class="flex w-full flex-col gap-4">
 	<div class="flex w-full flex-col items-center gap-2 md:flex-row">
 		{#if oauthURL}
 			<div class="notification-info flex w-full flex-row justify-between p-3 text-sm font-light">
@@ -205,12 +226,7 @@
 	</div>
 
 	<div class="flex w-full flex-col gap-2">
-		<div class="mb-2 flex w-full flex-col justify-between gap-4 md:flex-row">
-			<Search
-				class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
-				onChange={(val) => (search = val)}
-				placeholder="Search tools..."
-			/>
+		<div class="mb-2 flex w-full flex-col justify-between gap-4">
 			<div class="flex flex-wrap items-center justify-end gap-2 md:flex-shrink-0">
 				<Toggle
 					checked={allDescriptionsEnabled}
@@ -241,7 +257,31 @@
 						label: 'text-sm gap-2'
 					}}
 				/>
+
+				{#if project}
+					{#if !responsive.isMobile}
+						<div class="bg-surface3 mx-2 h-5 w-0.5"></div>
+					{/if}
+
+					<Toggle
+						checked={allToolsEnabled}
+						onChange={(checked) => {
+							selected = checked ? ['*'] : [];
+						}}
+						label="Enable All Tools"
+						labelInline
+						classes={{
+							label: 'text-sm gap-2'
+						}}
+					/>
+				{/if}
 			</div>
+
+			<Search
+				class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+				onChange={(val) => (search = val)}
+				placeholder="Search tools..."
+			/>
 		</div>
 		<div class="flex flex-col gap-4 overflow-hidden">
 			{#if loading}
@@ -274,6 +314,20 @@
 										<ChevronDown class="size-4" />
 									{/if}
 								</button>
+								<Toggle
+									checked={selected.includes(tool.id) || allToolsEnabled}
+									onChange={(checked) => {
+										if (allToolsEnabled) {
+											selected = tools.map((t) => t.id).filter((id) => id !== tool.id);
+										} else {
+											selected = checked
+												? [...selected, tool.id]
+												: selected.filter((id) => id !== tool.id);
+										}
+									}}
+									label="On/Off"
+									disablePortal
+								/>
 							</div>
 						</div>
 						{#if expandedDescriptions[tool.id] || allDescriptionsEnabled}
@@ -322,3 +376,13 @@
 		</div>
 	</div>
 </div>
+
+{#if project}
+	<div
+		class="sticky bottom-0 left-0 flex w-full justify-end bg-gray-50 py-4 md:px-4 dark:bg-inherit"
+	>
+		<button class="button-primary flex items-center gap-1" onclick={handleProjectToolsUpdate}>
+			Save
+		</button>
+	</div>
+{/if}

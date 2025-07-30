@@ -242,7 +242,9 @@
 		{:else if selected === 'configuration'}
 			{@render configurationView()}
 		{:else if selected === 'tools' && entry}
-			<McpServerTools {entry} {catalogId} />
+			<div class="pb-8">
+				<McpServerTools {entry} {catalogId} />
+			</div>
 		{:else if selected === 'access-control'}
 			{@render accessControlView()}
 		{:else if selected === 'usage'}

@@ -44,7 +44,7 @@
 				<McpServers {project} />
 			{:else}
 				<Threads {project} bind:currentThreadID />
-				<McpServers {project} chatbot={true} />
+				<McpServers {project} />
 			{/if}
 		</div>
 	</div>

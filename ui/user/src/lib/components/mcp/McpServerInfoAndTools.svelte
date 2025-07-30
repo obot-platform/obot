@@ -10,9 +10,17 @@
 		onAuthenticate?: () => void;
 		project?: Project;
 		view?: 'overview' | 'tools';
+		onProjectToolsUpdate?: (selected: string[]) => void;
 	}
 
-	let { entry, catalogId, onAuthenticate, project, view = 'overview' }: Props = $props();
+	let {
+		entry,
+		catalogId,
+		onAuthenticate,
+		project,
+		view = 'overview',
+		onProjectToolsUpdate
+	}: Props = $props();
 	let selected = $state<string>(view);
 
 	const tabs = [
@@ -54,7 +62,7 @@
 				/>
 			</div>
 		{:else if selected === 'tools' && entry}
-			<McpServerTools {entry} {catalogId} {onAuthenticate} {project} />
+			<McpServerTools {entry} {catalogId} {onAuthenticate} {project} {onProjectToolsUpdate} />
 		{/if}
 	</div>
 </div>

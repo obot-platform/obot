@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
-	import type { Project, ProjectMCP } from '$lib/services';
-	import { Server, X } from 'lucide-svelte';
+	import { closeAll, closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
+	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
+	import { Server, Trash2, X } from 'lucide-svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
-	import McpServerActions from './McpServerActions.svelte';
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import McpServerInfoAndTools from '../mcp/McpServerInfoAndTools.svelte';
+	import Confirm from '../Confirm.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		mcpServer: ProjectMCP;
@@ -16,6 +17,16 @@
 	let { mcpServer, project, view }: Props = $props();
 	const layout = getLayout();
 	const projectMcps = getProjectMCPs();
+	let showDeleteConfirm = $state(false);
+
+	async function handleRemoveMcp() {
+		if (!project?.assistantID || !project.id) return;
+
+		closeSidebarConfig(layout);
+		await ChatService.deleteProjectMCP(project.assistantID, project.id, mcpServer.id);
+		showDeleteConfirm = false;
+		closeAll(layout);
+	}
 </script>
 
 <div class="flex h-fit w-full justify-center bg-gray-50 dark:bg-black">
@@ -33,8 +44,14 @@
 			<h1 class="text-2xl font-semibold capitalize">
 				{mcpServer.name}
 			</h1>
-			<McpServerActions {mcpServer} {project} onDelete={() => closeSidebarConfig(layout)} />
-			<div class="flex grow justify-end">
+			<div class="flex grow justify-end gap-2">
+				<button
+					class="button-destructive"
+					use:tooltip={'Delete'}
+					onclick={() => (showDeleteConfirm = true)}
+				>
+					<Trash2 class="size-4" />
+				</button>
 				<button class="icon-button" onclick={() => closeSidebarConfig(layout)}>
 					<X class="size-6" />
 				</button>
@@ -54,7 +71,17 @@
 					projectMcps.items = updatedMcps;
 				}
 			}}
+			onProjectToolsUpdate={() => {
+				closeAll(layout);
+			}}
 			{project}
 		/>
 	</div>
 </div>
+
+<Confirm
+	msg="Are you sure you want to delete this MCP server from the project?"
+	show={showDeleteConfirm}
+	onsuccess={handleRemoveMcp}
+	oncancel={() => (showDeleteConfirm = false)}
+/>
