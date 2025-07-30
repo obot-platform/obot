@@ -336,7 +336,6 @@
 		out:fly={{ x: -100, duration }}
 		bind:this={container}
 	>
-		<h1 class="text-2xl font-semibold">My Connectors</h1>
 		{#if loading}
 			<div class="my-2 flex items-center justify-center">
 				<LoaderCircle class="size-6 animate-spin" />

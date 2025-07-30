@@ -169,6 +169,7 @@
 			</ul>
 		{/if}
 		<div class="flex w-full flex-col gap-8 pt-4" in:fade>
+			<h1 class="text-2xl font-semibold">My Connectors</h1>
 			<MyMcpServers
 				{userServerInstances}
 				userConfiguredServers={convertedUserConfiguredServers}
