@@ -35,7 +35,6 @@
 	interface Props {
 		id?: string;
 		project: Project;
-		shared?: boolean;
 		createProject?: CreateProjectForm;
 		assistant?: Assistant;
 	}
@@ -43,7 +42,6 @@
 	let {
 		id = $bindable(),
 		project = $bindable(),
-		shared,
 		createProject = $bindable(),
 		assistant
 	}: Props = $props();
