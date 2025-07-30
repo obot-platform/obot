@@ -61,10 +61,20 @@ type MCPUsageStatsList struct {
 	Items       []MCPUsageStatItem `json:"items"`
 }
 
+type MCPToolCallStatsItem struct {
+	ToolName         string    `json:"toolName"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UserID           string    `json:"userID"`
+	ProcessingTimeMs int64     `json:"processingTimeMs"`
+	ResponseStatus   int       `json:"responseStatus"`
+	Error            string    `json:"error"`
+}
+
 // MCPToolCallStats represents statistics for individual tool calls
 type MCPToolCallStats struct {
-	ToolName  string `json:"toolName"`
-	CallCount int64  `json:"callCount"`
+	ToolName  string                 `json:"-"`
+	CallCount int64                  `json:"callCount"`
+	Items     []MCPToolCallStatsItem `json:"items"`
 }
 
 // MCPResourceReadStats represents statistics for individual resource reads
@@ -121,9 +131,21 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 func ConvertMCPUsageStats(s MCPUsageStatItem) types2.MCPUsageStatItem {
 	toolCalls := make([]types2.MCPToolCallStats, len(s.ToolCalls))
 	for i, tc := range s.ToolCalls {
+		items := make([]types2.MCPToolCallStatsItem, len(tc.Items))
+		for j, item := range tc.Items {
+			items[j] = types2.MCPToolCallStatsItem{
+				CreatedAt:        *types2.NewTime(item.CreatedAt),
+				UserID:           item.UserID,
+				ProcessingTimeMs: item.ProcessingTimeMs,
+				ResponseStatus:   item.ResponseStatus,
+				Error:            item.Error,
+			}
+		}
+
 		toolCalls[i] = types2.MCPToolCallStats{
 			ToolName:  tc.ToolName,
 			CallCount: tc.CallCount,
+			Items:     items,
 		}
 	}
 

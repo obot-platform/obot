@@ -188,16 +188,31 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 				MCPServerCatalogEntryName: basic.MCPServerCatalogEntryName,
 			}
 
-			// Get tool call breakdown for this server
-			var toolStats []types.MCPToolCallStats
+			// Get tool call items and build stats from them
+			var toolItems []types.MCPToolCallStatsItem
 			if err := base.
-				Select("call_identifier as tool_name, COUNT(*) as call_count").
+				Select("call_identifier as tool_name, created_at, user_id, processing_time_ms, response_status, error").
 				Where("mcp_id = ? AND call_type = ? AND created_at >= ? AND created_at < ?",
 					basic.MCPID, "tools/call", opts.StartTime, opts.EndTime).
 				Where("call_identifier != ''").
-				Group("call_identifier").
-				Scan(&toolStats).Error; err != nil {
+				Scan(&toolItems).Error; err != nil {
 				return err
+			}
+
+			// Build tool stats from items using a map for efficiency
+			toolStatsMap := make(map[string][]types.MCPToolCallStatsItem)
+			for _, item := range toolItems {
+				toolStatsMap[item.ToolName] = append(toolStatsMap[item.ToolName], item)
+			}
+
+			// Convert map to slice of MCPToolCallStats
+			var toolStats []types.MCPToolCallStats
+			for toolName, items := range toolStatsMap {
+				toolStats = append(toolStats, types.MCPToolCallStats{
+					ToolName:  toolName,
+					CallCount: int64(len(items)),
+					Items:     items,
+				})
 			}
 
 			// Get resource read breakdown for this server

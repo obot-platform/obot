@@ -8,6 +8,7 @@
 	import {
 		Boxes,
 		Captions,
+		ChartBarDecreasing,
 		ChevronDown,
 		ChevronUp,
 		Funnel,
@@ -63,6 +64,13 @@
 								href: '/admin/audit-logs',
 								icon: Captions,
 								label: 'Audit Logs',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								href: '/admin/usage',
+								icon: ChartBarDecreasing,
+								label: 'Usage',
 								disabled: isBootStrapUser,
 								collapsible: false
 							},

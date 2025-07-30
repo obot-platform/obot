@@ -1,6 +1,8 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // MCPAuditLog represents an audit log entry for MCP API calls
 type MCPAuditLog struct {
@@ -67,9 +69,19 @@ type MCPUsageStats struct {
 }
 
 // MCPToolCallStats represents statistics for individual tool calls
+type MCPToolCallStatsItem struct {
+	CreatedAt        Time   `json:"createdAt"`
+	UserID           string `json:"userID"`
+	ProcessingTimeMs int64  `json:"processingTimeMs"`
+	ResponseStatus   int    `json:"responseStatus"`
+	Error            string `json:"error"`
+}
+
+// MCPToolCallStats represents statistics for individual tool calls
 type MCPToolCallStats struct {
-	ToolName  string `json:"toolName"`
-	CallCount int64  `json:"callCount"`
+	ToolName  string                 `json:"toolName"`
+	CallCount int64                  `json:"callCount"`
+	Items     []MCPToolCallStatsItem `json:"items"`
 }
 
 // MCPResourceReadStats represents statistics for individual resource reads

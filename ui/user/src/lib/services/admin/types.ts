@@ -298,9 +298,18 @@ export interface AuditLog {
 	requestID?: string;
 }
 
+export interface AuditLogToolCallStatItem {
+	createdAt: string;
+	userID: string;
+	processingTimeMs: number;
+	responseStatus: number;
+	error: string;
+}
+
 export interface AuditLogToolCallStat {
 	toolName: string;
 	callCount: number;
+	items?: AuditLogToolCallStatItem[];
 }
 
 export interface AuditLogResourceReadStat {
@@ -362,6 +371,13 @@ export type AuditLogURLFilters = {
 	offset?: number | null;
 	query?: string | null;
 	response_status?: string | null;
+};
+
+export type UsageStatsFilters = {
+	userId?: string | null;
+	mcpServerDisplayName?: string | null;
+	startTime?: string | null; // RFC3339 format (e.g., "2024-01-01T00:00:00Z"
+	endTime?: string | null;
 };
 
 export interface K8sServerEvent {

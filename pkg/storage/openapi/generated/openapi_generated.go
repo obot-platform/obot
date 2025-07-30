@@ -87,6 +87,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServerManifest":                            schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerTool":                                schema_obot_platform_obot_apiclient_types_MCPServerTool(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStats":                             schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStatsItem":                         schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem":                             schema_obot_platform_obot_apiclient_types_MCPUsageStatItem(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStats":                                schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatsList":                            schema_obot_platform_obot_apiclient_types_MCPUsageStatsList(ref),
@@ -3992,10 +3993,74 @@ func schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref common.Refer
 							Format:  "int64",
 						},
 					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPToolCallStatsItem"),
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"toolName", "callCount"},
+				Required: []string{"toolName", "callCount", "items"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPToolCallStatsItem"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPToolCallStats represents statistics for individual tool calls",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"processingTimeMs": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"responseStatus": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"createdAt", "userID", "processingTimeMs", "responseStatus", "error"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
