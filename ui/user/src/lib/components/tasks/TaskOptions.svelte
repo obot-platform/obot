@@ -86,9 +86,9 @@
 				</div>
 				<p class="text-gray text-sm">
 					{#if triggerType === 'onDemand'}
-						On demands tasks can be ran manually from the UI or invoked by your project from chat
-						threads or even other tasks. Just tell it to invoke them by name like this: “Call the
-						Webpage Summarizer task.”
+						On demands tasks can be ran manually from the UI or invoked by your project from chat or
+						even other tasks. Just tell it to invoke them by name like this: “Call the Webpage
+						Summarizer task.”
 					{:else if triggerType === 'schedule'}
 						Scheduled tasks will be ran autonomously on your specified interval. Like on demand
 						tasks, they can also be invoked from the UI or by your project, but you cannot add

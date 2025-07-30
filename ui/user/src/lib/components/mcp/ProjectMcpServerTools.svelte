@@ -148,7 +148,7 @@
 			{@render header()}
 		{:else}
 			<h2 class="flex text-xl font-semibold">
-				{currentThreadID ? 'Modify Thread Tools' : 'Modify Server Tools'}
+				{currentThreadID ? 'Modify Chat Tools' : 'Modify Server Tools'}
 			</h2>
 		{/if}
 		{#if currentThreadID && onClose}

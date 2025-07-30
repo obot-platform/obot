@@ -152,7 +152,7 @@
 				{/if}
 			</div>
 			<p class="text-gray text-xs">
-				Configure model providers and select models to make them available to all threads and tasks.
+				Configure model providers and select models to make them available to all chats and tasks.
 				The default model will be used in place of Obot’s built-in model.
 			</p>
 		</div>

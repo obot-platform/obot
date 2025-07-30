@@ -297,7 +297,7 @@
 			? 'Default model is selected'
 			: threadModel
 				? ''
-				: 'Select model for this thread'}
+				: 'Select model for this chat'}
 		bind:this={modelButtonRef}
 	>
 		<div class="max-w-40 truncate sm:max-w-60 md:max-w-96 lg:max-w-none">

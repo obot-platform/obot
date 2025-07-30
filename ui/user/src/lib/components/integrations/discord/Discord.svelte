@@ -151,7 +151,7 @@
 						<div class="mt-2 space-y-1">
 							<div class="text-sm text-gray-600">• View Channels</div>
 							<div class="text-sm text-gray-600">• Send Messages</div>
-							<div class="text-sm text-gray-600">• Send Messages in Threads</div>
+							<div class="text-sm text-gray-600">• Send Messages in Chat</div>
 							<div class="text-sm text-gray-600">• Read Message History</div>
 						</div>
 					</div>

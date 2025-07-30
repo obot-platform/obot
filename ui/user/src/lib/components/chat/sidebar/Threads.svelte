@@ -217,7 +217,7 @@
 			{#if (layout.threads?.length ?? 0) === 0}
 				<div class="flex justify-end" in:fade>
 					<button class="button flex items-center gap-1 text-xs" onclick={() => createThread()}>
-						<Plus class="size-4" /> Start New Thread
+						<Plus class="size-4" /> Start New Chat
 					</button>
 				</div>
 			{/if}
@@ -225,11 +225,11 @@
 	{:else}
 		<div class="flex flex-col text-xs">
 			<div class="flex items-center justify-between">
-				<p class="text-md grow font-medium">Threads</p>
+				<p class="text-md grow font-medium">Chats</p>
 				<button
 					class="p-2 text-gray-400 transition-colors duration-200 hover:text-black dark:text-gray-600 dark:hover:text-white"
 					onclick={createThread}
-					use:tooltip={'Start New Thread'}
+					use:tooltip={'Start New Chat'}
 				>
 					<Plus class="size-5" />
 				</button>
@@ -271,7 +271,7 @@
 						class="h-full grow p-2 text-start"
 						onclick={() => selectThread(thread.id)}
 					>
-						{thread.name || 'New Thread'}
+						{thread.name || 'New Chat'}
 					</button>
 				{/if}
 				{#if isCurrentThread(thread) && editMode}
