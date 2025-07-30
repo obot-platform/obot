@@ -297,10 +297,21 @@
 	</p>
 
 	<HowToConnect
-		servers={userConfiguredServers.map((server) => ({
-			url: server.connectURL ?? '',
-			name: server.manifest.name ?? ''
-		}))}
+		servers={[
+			...userConfiguredServers.map((server) => ({
+				url: server.connectURL ?? '',
+				name: server.manifest.name ?? ''
+			})),
+			...userServerInstances
+				.filter((instance) => instance.connectURL)
+				.map((instance) => {
+					const server = servers.find((s) => s.id === instance.mcpServerID);
+					return {
+						url: instance.connectURL ?? '',
+						name: server?.manifest.name ?? `Server Instance ${instance.id}`
+					};
+				})
+		]}
 	/>
 </ResponsiveDialog>
 
