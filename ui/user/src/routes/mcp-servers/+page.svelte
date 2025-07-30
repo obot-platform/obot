@@ -187,7 +187,7 @@
 				onDisconnect={() => {
 					loadData(true);
 				}}
-				connectSelectText="Connect To Server"
+				connectSelectText="Connect"
 				onUpdateConfigure={() => {
 					loadData(true);
 				}}
@@ -203,6 +203,7 @@
 				{/snippet}
 				{#snippet additConnectedServerCardActions(connectedServer)}
 					{@const requiresUpdate = requiresUserUpdate(connectedServer)}
+					{@render connectedActions(connectedServer)}
 					<button
 						class="menu-button"
 						onclick={async () => {
@@ -211,9 +212,8 @@
 						}}
 						disabled={requiresUpdate}
 					>
-						Connect To Server
+						Connect
 					</button>
-					{@render connectedActions(connectedServer)}
 				{/snippet}
 			</MyMcpServers>
 		</div>

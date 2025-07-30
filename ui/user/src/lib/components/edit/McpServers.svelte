@@ -75,11 +75,11 @@
 
 <div class="flex flex-col text-xs">
 	<div class="flex items-center justify-between">
-		<p class="text-md grow font-medium">MCP Servers</p>
+		<p class="text-md grow font-medium">Connectors</p>
 		<button
 			class="p-2 text-gray-400 transition-colors duration-200 hover:text-black dark:text-gray-600 dark:hover:text-white"
 			onclick={() => mcpServerSetup?.open()}
-			use:tooltip={'Add MCP Server'}
+			use:tooltip={'Add Connector'}
 		>
 			<Plus class="h-5 w-5" />
 		</button>

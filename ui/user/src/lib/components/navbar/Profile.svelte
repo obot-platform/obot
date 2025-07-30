@@ -146,7 +146,7 @@
 				>
 					<div class="flex items-center gap-2">
 						<Server class="size-4" />
-						My MCP Servers
+						My Connectors
 					</div>
 					<ExternalLink class="size-4" />
 				</a>

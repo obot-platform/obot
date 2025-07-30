@@ -336,7 +336,7 @@
 		out:fly={{ x: -100, duration }}
 		bind:this={container}
 	>
-		<h1 class="text-2xl font-semibold">MCP Servers</h1>
+		<h1 class="text-2xl font-semibold">My Connectors</h1>
 		{#if loading}
 			<div class="my-2 flex items-center justify-center">
 				<LoaderCircle class="size-6 animate-spin" />
@@ -354,7 +354,7 @@
 			{#if filteredConnectedServers.length > 0}
 				<div class="flex flex-col gap-4">
 					<div class="flex items-center gap-4">
-						<h2 class="text-lg font-semibold">Connected MCP Servers</h2>
+						<h2 class="text-lg font-semibold">Enabled Connectors</h2>
 						{#if appendConnectedServerTitle}
 							{@render appendConnectedServerTitle()}
 						{/if}
@@ -383,7 +383,6 @@
 												el={container}
 											>
 												<div class="default-dialog flex min-w-48 flex-col p-2">
-													{@render prependedDefaultActions(connectedServer)}
 													{#if additConnectedServerCardActions}
 														{@render additConnectedServerCardActions(connectedServer)}
 													{/if}
@@ -399,7 +398,7 @@
 				</div>
 			{/if}
 			<div class="flex flex-col gap-4">
-				<h2 class="text-lg font-semibold">Available MCP Servers</h2>
+				<h2 class="text-lg font-semibold">Available Connectors</h2>
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 					{#each paginatedData as item (item.id)}
 						<McpCard
@@ -497,7 +496,7 @@
 				}}
 				class="button-text flex items-center gap-2 p-0 text-lg font-light"
 			>
-				MCP Servers
+				My Connectors
 			</button>
 			<ChevronLeft class="mx-2 size-4" />
 			<span class="text-lg font-light">{manifest?.name}</span>
@@ -548,7 +547,6 @@
 						{disablePortal}
 					>
 						<div class="default-dialog flex min-w-48 flex-col p-2">
-							{@render prependedDefaultActions(connectedServer)}
 							{@render additConnectedServerViewActions?.(connectedServer)}
 							{@render appendedDefaultActions(connectedServer)}
 						</div>
@@ -563,7 +561,7 @@
 	</div>
 {/snippet}
 
-{#snippet prependedDefaultActions(connectedServer: ConnectedServer)}
+{#snippet appendedDefaultActions(connectedServer: ConnectedServer)}
 	{@const requiresUpdate = requiresUserUpdate(connectedServer)}
 	<button
 		class={twMerge(
@@ -600,11 +598,8 @@
 			configDialog?.open();
 		}}
 	>
-		Edit Configuration
+		Edit
 	</button>
-{/snippet}
-
-{#snippet appendedDefaultActions(connectedServer: ConnectedServer)}
 	<button
 		class="menu-button text-red-500"
 		onclick={async () => {
