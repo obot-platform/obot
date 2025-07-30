@@ -7,26 +7,16 @@
 		deleteMemory,
 		updateMemory
 	} from '$lib/services';
-	import {
-		X,
-		Trash2,
-		RefreshCcw,
-		Edit,
-		Check,
-		X as XIcon,
-		CircleX,
-		Save,
-		Pencil
-	} from 'lucide-svelte/icons';
+	import { X, Trash2, RefreshCcw, Edit, Check, X as XIcon, Pencil } from 'lucide-svelte/icons';
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import errors from '$lib/stores/errors.svelte';
 	import Confirm from './Confirm.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import { overflowToolTip } from '$lib/actions/overflow';
 	import DotDotDot from './DotDotDot.svelte';
+	import { autoHeight } from '$lib/actions/textarea';
 
 	interface Props {
 		project?: Project;
@@ -42,8 +32,8 @@
 	let editingMemoryId = $state<string | null>(null);
 	let editContent = $state('');
 	let editingPreview = $state(false);
-	let input = $state<HTMLInputElement>();
-	let previewDisplayCount = $state(10);
+	let input = $state<HTMLTextAreaElement>();
+	let deleteMemoryId = $state<string>();
 
 	export function show(projectToUse?: Project) {
 		if (projectToUse) {
@@ -123,6 +113,11 @@
 		editingMemoryId = memory.id;
 		editContent = memory.content;
 		editingPreview = inPreview ?? false;
+
+		tick().then(() => {
+			input?.focus();
+			input?.setSelectionRange(0, 0);
+		});
 	}
 
 	function cancelEdit() {
@@ -163,10 +158,6 @@
 		} catch (_e) {
 			return '';
 		}
-	}
-
-	function loadMore() {
-		previewDisplayCount += 10;
 	}
 
 	export async function viewAllMemories() {
@@ -264,53 +255,48 @@
 				</table>
 			</div>
 		{:else}
-			<div class="flex w-full flex-col">
-				{#each memories.slice(0, previewDisplayCount) as memory (memory.id)}
+			<div class="flex w-full flex-col gap-4">
+				{#each memories as memory (memory.id)}
 					<div
-						class="group hover:bg-surface3 flex min-h-9 w-full items-center gap-3 rounded-md transition-colors duration-200"
+						class="text-md dark:bg-surface1 dark:border-surface3 flex items-center justify-between gap-4 rounded-md border border-transparent bg-white p-4 shadow-sm"
 					>
-						<div class="line-clamp-1 flex grow items-center gap-1 py-2 pl-1.5">
-							{#if editingMemoryId === memory.id}
-								<input
+						{#if editingMemoryId === memory.id}
+							<div class="flex w-full flex-col gap-4">
+								<textarea
+									use:autoHeight
 									bind:value={editContent}
-									bind:this={input}
 									onkeyup={(e) => {
 										switch (e.key) {
 											case 'Escape':
 												cancelEdit();
 												break;
-											case 'Enter':
-												saveEdit();
-												break;
 										}
 									}}
-									class="mr-2 w-0 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
-									placeholder="Enter name"
-									type="text"
-								/>
-								<div class="flex gap-3">
-									<button class="list-button-primary" onclick={cancelEdit}>
-										<CircleX class="h-4 w-4" />
-									</button>
-									<button class="list-button-primary" onclick={saveEdit}>
-										<Save class="mr-2 h-4 w-4" />
-									</button>
+									bind:this={input}
+									class="default-scrollbar-thin min-h-10 w-full border-none bg-transparent pr-0 ring-0 outline-hidden dark:text-white"
+								></textarea>
+								<div class="flex justify-end gap-4">
+									<button class="button text-xs" onclick={cancelEdit}> Cancel </button>
+									<button class="button-primary text-xs" onclick={saveEdit}> Save </button>
 								</div>
-							{:else}
-								<p class="truncate" use:overflowToolTip>
-									{memory.content}
-								</p>
-							{/if}
-						</div>
+							</div>
+						{:else}
+							<p>
+								{memory.content}
+							</p>
+						{/if}
 						{#if editingMemoryId !== memory.id}
 							<DotDotDot
-								class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+								class="p-0 text-gray-400 hover:text-black dark:text-gray-600 dark:hover:text-white"
 							>
 								<div class="default-dialog flex min-w-max flex-col p-2">
 									<button class="menu-button" onclick={() => startEdit(memory, true)}>
 										<Pencil class="size-4" /> Edit
 									</button>
-									<button class="menu-button" onclick={() => deleteOne(memory.id)}>
+									<button
+										class="menu-button text-red-500"
+										onclick={() => (deleteMemoryId = memory.id)}
+									>
 										<Trash2 class="size-4" /> Delete
 									</button>
 								</div>
@@ -318,11 +304,6 @@
 						{/if}
 					</div>
 				{/each}
-				{#if memories.length > previewDisplayCount}
-					<li class="hover:bg-surface3 flex w-full justify-center rounded-md p-2">
-						<button class="w-full text-xs" onclick={loadMore}> Show More </button>
-					</li>
-				{/if}
 			</div>
 		{/if}
 	</div>
@@ -397,6 +378,18 @@
 	show={toDeleteAll}
 	onsuccess={deleteAll}
 	oncancel={() => (toDeleteAll = false)}
+/>
+
+<Confirm
+	msg="Are you sure you want to delete this memory?"
+	show={!!deleteMemoryId}
+	onsuccess={() => {
+		if (deleteMemoryId) {
+			deleteOne(deleteMemoryId);
+			deleteMemoryId = undefined;
+		}
+	}}
+	oncancel={() => (deleteMemoryId = undefined)}
 />
 
 <style lang="postcss">

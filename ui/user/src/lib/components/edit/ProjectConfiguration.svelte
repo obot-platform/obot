@@ -3,9 +3,12 @@
 	import { ChatService, type Project } from '$lib/services';
 	import { X } from 'lucide-svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import Memories from '$lib/components/edit/Memories.svelte';
+	import { getProjectTools } from '$lib/context/projectTools.svelte';
+	import { goto } from '$app/navigation';
+	import { hasTool } from '$lib/tools';
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
 	import Confirm from '../Confirm.svelte';
-	import { goto } from '$app/navigation';
 
 	interface Props {
 		project: Project;
@@ -29,6 +32,8 @@
 			goto('/');
 		}
 	}
+
+	const projectTools = getProjectTools();
 </script>
 
 <div class="relative flex h-full w-full justify-center bg-gray-50 dark:bg-black">
@@ -81,6 +86,10 @@
 			</div>
 
 			<ProjectConfigurationKnowledge {project} />
+
+			{#if hasTool(projectTools.tools, 'memory')}
+				<Memories {project} />
+			{/if}
 
 			<div class="mb-8 flex flex-col gap-2">
 				<h2 class="text-xl font-semibold">Danger Zone</h2>
