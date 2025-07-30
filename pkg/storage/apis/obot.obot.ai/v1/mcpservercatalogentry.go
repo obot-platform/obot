@@ -22,7 +22,6 @@ type MCPServerCatalogEntry struct {
 func (in *MCPServerCatalogEntry) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
-		{"Tool Reference", "Spec.ToolReferenceName"},
 		{"MCP Catalog", "Spec.MCPCatalogName"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}

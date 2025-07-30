@@ -290,6 +290,9 @@ func (p *ProjectMCPHandler) GetTools(req api.Context) error {
 
 	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
 	if err != nil {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
 		return err
 	}
 
@@ -314,6 +317,9 @@ func (p *ProjectMCPHandler) GetTools(req api.Context) error {
 
 	tools, err := toolsForServer(req.Context(), p.mcpSessionManager, req.User.GetUID(), server, serverConfig, allowedTools)
 	if err != nil {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
 		return fmt.Errorf("failed to list tools: %w", err)
 	}
 
@@ -382,6 +388,9 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 
 	mcpTools, err := toolsForServer(req.Context(), p.mcpSessionManager, req.User.GetUID(), mcpServer, serverConfig, tools)
 	if err != nil {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
 		return fmt.Errorf("failed to render tools: %w", err)
 	}
 
@@ -432,6 +441,9 @@ func (p *ProjectMCPHandler) GetResources(req api.Context) error {
 
 	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
 	if err != nil {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
 		return err
 	}
 
@@ -442,7 +454,9 @@ func (p *ProjectMCPHandler) GetResources(req api.Context) error {
 	resources, err := p.mcpSessionManager.ListResources(req.Context(), req.User.GetUID(), server, serverConfig)
 	if err != nil {
 		var are nmcp.AuthRequiredErr
-		if strings.HasSuffix(err.Error(), "Method not found") {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		} else if strings.HasSuffix(err.Error(), "Method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
 		} else if errors.As(err, &are) {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
@@ -475,6 +489,9 @@ func (p *ProjectMCPHandler) ReadResource(req api.Context) error {
 
 	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
 	if err != nil {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
 		return err
 	}
 
@@ -485,7 +502,9 @@ func (p *ProjectMCPHandler) ReadResource(req api.Context) error {
 	contents, err := p.mcpSessionManager.ReadResource(req.Context(), req.User.GetUID(), server, serverConfig, req.PathValue("resource_uri"))
 	if err != nil {
 		var are nmcp.AuthRequiredErr
-		if strings.HasSuffix(err.Error(), "Method not found") {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		} else if strings.HasSuffix(err.Error(), "Method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
 		} else if errors.As(err, &are) {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
@@ -518,6 +537,9 @@ func (p *ProjectMCPHandler) GetPrompts(req api.Context) error {
 
 	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
 	if err != nil {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
 		return err
 	}
 
@@ -528,7 +550,9 @@ func (p *ProjectMCPHandler) GetPrompts(req api.Context) error {
 	prompts, err := p.mcpSessionManager.ListPrompts(req.Context(), req.User.GetUID(), server, serverConfig)
 	if err != nil {
 		var are nmcp.AuthRequiredErr
-		if strings.HasSuffix(err.Error(), "Method not found") {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		} else if strings.HasSuffix(err.Error(), "Method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
 		} else if errors.As(err, &are) {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
@@ -561,6 +585,9 @@ func (p *ProjectMCPHandler) GetPrompt(req api.Context) error {
 
 	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
 	if err != nil {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
 		return err
 	}
 
@@ -576,7 +603,9 @@ func (p *ProjectMCPHandler) GetPrompt(req api.Context) error {
 	messages, description, err := p.mcpSessionManager.GetPrompt(req.Context(), req.User.GetUID(), server, serverConfig, req.PathValue("prompt_name"), args)
 	if err != nil {
 		var are nmcp.AuthRequiredErr
-		if strings.HasSuffix(err.Error(), "Method not found") {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		} else if strings.HasSuffix(err.Error(), "Method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
 		} else if errors.As(err, &are) {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")

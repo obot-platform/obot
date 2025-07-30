@@ -16,7 +16,7 @@ func (sm *SessionManager) ListTools(ctx context.Context, userID string, mcpServe
 
 	resp, err := client.ListTools(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list MCP prompts: %w", err)
+		return nil, fmt.Errorf("failed to list MCP tools: %w", err)
 	}
 
 	return resp.Tools, nil
