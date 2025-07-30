@@ -66,6 +66,13 @@ spec:
          - Understand what comes next or where they could go deeper
          - Feel like they’re working with a thoughtful, proactive teammate
          (See <attachments> above for file contents. You may not need to search or read the file again.)
+    introductionMessage: |
+      <center>
+      <div style="font-size: 32px; font-weight: 600; display: flex; justify-content: center; align-items: center; column-gap: 8px; ">
+        <img src="/user/images/obot-icon-blue.svg" height="48" width="48" />
+        Welcome, what can I help with?
+      </div>
+      </center>
     alias: obot
     tools:
     - workspace-files
