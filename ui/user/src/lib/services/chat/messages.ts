@@ -214,7 +214,7 @@ function toMessages(progresses: Progress[], opts?: AdditionalOptions): Messages 
 		}
 	}
 
-	for (const progress of progresses) {
+	for (const [i, progress] of progresses.entries()) {
 		if (progress.error) {
 			if (progress.runID) {
 				for (const message of messages) {
@@ -229,13 +229,13 @@ function toMessages(progresses: Progress[], opts?: AdditionalOptions): Messages 
 			lastStepID = progress.step.id;
 		}
 
-		if (progress.runID) {
-			lastRunID = progress.runID;
-			inProgress = true;
-		} else {
+		if (!progress.runID) {
 			// if it doesn't have a runID we don't know what do to with it, so ignore
 			continue;
 		}
+
+		lastRunID = progress.runID;
+		inProgress = true;
 
 		if (progress.parentRunID) {
 			parentRunID = progress.parentRunID;
@@ -276,7 +276,7 @@ function toMessages(progresses: Progress[], opts?: AdditionalOptions): Messages 
 			// delete the current runID, this is to avoid duplicate messages
 			messages = messages.filter((m) => m.runID !== progress.runID);
 			messages.push(newInputMessage(progress, parentRunID));
-		} else if (progress.content || progress.waitingOnModel) {
+		} else if (progress.content || (progress.waitingOnModel && i == progresses.length - 1)) {
 			const found = messages.findLast(
 				(m) => m.contentID === progress.contentID && progress.contentID
 			);
