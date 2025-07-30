@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
+	import { closeAll, closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project } from '$lib/services';
-	import { X } from 'lucide-svelte';
+	import { LoaderCircle, X } from 'lucide-svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import Memories from '$lib/components/edit/Memories.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
@@ -14,10 +14,12 @@
 		project: Project;
 	}
 
-	let { project = $bindable() }: Props = $props();
-	const layout = getLayout();
+	let { project }: Props = $props();
+	let modifiedProject = $state(project);
 	let confirmDelete = $state(false);
 	let deleting = $state(false);
+	let saving = $state(false);
+	const layout = getLayout();
 
 	async function handleDeleteProject() {
 		deleting = true;
@@ -33,11 +35,18 @@
 		}
 	}
 
+	async function handleUpdate() {
+		saving = true;
+		await ChatService.updateProject(modifiedProject);
+		saving = false;
+		closeAll(layout);
+	}
+
 	const projectTools = getProjectTools();
 </script>
 
-<div class="relative flex h-full w-full justify-center bg-gray-50 dark:bg-black">
-	<div class="h-full w-full px-4 py-4 md:max-w-[1200px] md:px-8">
+<div class="min-h-full w-full flex-col bg-gray-50 dark:bg-black">
+	<div class="mx-auto min-h-full w-full px-4 py-4 md:max-w-[1200px] md:px-8">
 		<div class="mb-4 flex items-center gap-2">
 			<h1 class="text-2xl font-semibold capitalize">Project Configuration</h1>
 			<div class="flex grow justify-end">
@@ -57,7 +66,7 @@
 							<input
 								type="text"
 								id="name"
-								bind:value={project.name}
+								bind:value={modifiedProject.name}
 								class="text-input-filled dark:bg-black"
 							/>
 						</div>
@@ -66,7 +75,7 @@
 							<input
 								type="text"
 								id="description"
-								bind:value={project.description}
+								bind:value={modifiedProject.description}
 								class="text-input-filled dark:bg-black"
 							/>
 						</div>
@@ -78,14 +87,14 @@
 					<textarea
 						rows={6}
 						id="prompt"
-						bind:value={project.prompt}
+						bind:value={modifiedProject.prompt}
 						class="text-input-filled dark:bg-black"
 						placeholder={HELPER_TEXTS.prompt}
 					></textarea>
 				</div>
 			</div>
 
-			<ProjectConfigurationKnowledge {project} />
+			<ProjectConfigurationKnowledge project={modifiedProject} />
 
 			{#if hasTool(projectTools.tools, 'memory')}
 				<Memories {project} />
@@ -106,6 +115,18 @@
 				</div>
 			</div>
 		</div>
+	</div>
+	<div
+		class="sticky bottom-0 left-0 flex w-full justify-end gap-4 bg-gray-50 p-4 md:px-8 dark:bg-black"
+	>
+		<button disabled={saving} class="button" onclick={() => closeAll(layout)}> Cancel </button>
+		<button disabled={saving} class="button-primary" onclick={handleUpdate}>
+			{#if saving}
+				<LoaderCircle class="size-4 animate-spin" />
+			{:else}
+				Update
+			{/if}
+		</button>
 	</div>
 </div>
 
