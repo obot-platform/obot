@@ -318,8 +318,11 @@
 
 							<div class="flex flex-col gap-2">
 								<div class="flex items-center justify-between">
-									<label class="text-sm font-light">Identifiers (Optional)</label>
+									<label for="identifier-btn" class="text-sm font-light">
+										Identifiers (Optional)
+									</label>
 									<button
+										id="identifier-btn"
 										type="button"
 										class="button-text flex items-center gap-1 text-xs"
 										onclick={() => addIdentifier(selectorIndex)}

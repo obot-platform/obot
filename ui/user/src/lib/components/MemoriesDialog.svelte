@@ -421,21 +421,6 @@
 		background-color: var(--color-surface2);
 	}
 
-	.memory p {
-		position: relative;
-		padding-left: 1.25rem;
-	}
-
-	.memory p::before {
-		content: '“';
-		font-family: Georgia;
-		font-size: 36px;
-		line-height: normal;
-		position: absolute;
-		left: 0;
-		top: -2px;
-	}
-
 	.memory::before {
 		content: '';
 		position: absolute;

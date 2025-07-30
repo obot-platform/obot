@@ -28,7 +28,7 @@
 		shared?: boolean;
 	}
 
-	let { project = $bindable(), currentThreadID = $bindable(), assistant, shared }: Props = $props();
+	let { project = $bindable(), currentThreadID = $bindable(), assistant }: Props = $props();
 	let layout = getLayout();
 	let editor: HTMLDivElement | undefined = $state();
 	let createProject = $state<CreateProjectForm>();
@@ -160,13 +160,7 @@
 					{:else if layout.sidebarConfig}
 						<SidebarConfig bind:project bind:currentThreadID {assistant} />
 					{:else}
-						<Thread
-							bind:id={currentThreadID}
-							bind:project
-							{shared}
-							{assistant}
-							bind:createProject
-						/>
+						<Thread bind:id={currentThreadID} bind:project {assistant} bind:createProject />
 					{/if}
 				{/if}
 			</div>
