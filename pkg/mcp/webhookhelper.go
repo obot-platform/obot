@@ -81,7 +81,7 @@ func appendWebhooks(ctx context.Context, gptClient *gptscript.GPTScript, namespa
 
 			result = append(result, Webhook{
 				URL:    url,
-				Secret: credEnv[url],
+				Secret: credEnv["secret"],
 			})
 		}
 	}
