@@ -1,5 +1,5 @@
 <script lang="ts" generics="T extends { id: string | number }">
-	import { ChevronsLeft, ChevronsRight } from 'lucide-svelte';
+	import { ChevronDown, ChevronsLeft, ChevronsRight, ChevronUp } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -17,6 +17,7 @@
 		setRowClasses?: (row: T) => string;
 		noDataMessage?: string;
 		pageSize?: number;
+		sortable?: string[];
 	}
 
 	const {
@@ -30,14 +31,38 @@
 		onRenderColumn,
 		pageSize,
 		noDataMessage = 'No data',
-		setRowClasses
+		setRowClasses,
+		sortable
 	}: Props<T> = $props();
 
 	let page = $state(0);
 	let total = $state(data.length);
+
+	let sortableFields = $derived(new Set(sortable));
+	let sortedBy = $state<{ property: string; order: 'asc' | 'desc' }>();
+	let sortedData = $derived(
+		sortedBy
+			? data.sort((a, b) => {
+					const aValue = a[sortedBy!.property as keyof T];
+					const bValue = b[sortedBy!.property as keyof T];
+
+					if (typeof aValue === 'number' && typeof bValue === 'number') {
+						return sortedBy!.order === 'asc' ? aValue - bValue : bValue - aValue;
+					}
+
+					if (typeof aValue === 'string' && typeof bValue === 'string') {
+						return sortedBy!.order === 'asc'
+							? aValue.localeCompare(bValue)
+							: bValue.localeCompare(aValue);
+					}
+
+					return 0;
+				})
+			: data
+	);
 </script>
 
-{#if data.length > 0}
+{#if sortedData.length > 0}
 	<div
 		class={twMerge(
 			'dark:bg-surface2 w-full overflow-hidden rounded-md bg-white shadow-sm',
@@ -52,10 +77,36 @@
 						{@const headerTitle = headers?.find((h) => h.property === property)?.title}
 						<th
 							class={twMerge(
-								'text-md px-4 py-2 text-left font-medium text-gray-500 capitalize',
+								'text-md group px-4 py-2 text-left font-medium text-gray-500 capitalize',
+								sortableFields.has(property) && 'cursor-pointer',
 								headerClass
-							)}>{headerTitle ?? property}</th
+							)}
+							onclick={() => {
+								if (!sortable?.includes(property)) return;
+								if (!sortedBy || sortedBy.property !== property) {
+									sortedBy = { property, order: 'desc' };
+								} else {
+									sortedBy.order = sortedBy.order === 'asc' ? 'desc' : 'asc';
+								}
+							}}
 						>
+							<span class="flex grow items-center justify-between gap-4">
+								{headerTitle ?? property}
+								{#if sortable?.includes(property)}
+									<button class="opacity-0 group-hover:opacity-100">
+										{#if sortedBy && sortedBy.property === property}
+											{#if sortedBy.order === 'desc'}
+												<ChevronUp class="size-4" />
+											{:else}
+												<ChevronDown class="size-4" />
+											{/if}
+										{:else}
+											<ChevronDown class="size-4" />
+										{/if}
+									</button>
+								{/if}
+							</span>
+						</th>
 					{/each}
 					{#if actions}
 						{@const actionHeaderClass = headerClasses?.find(
@@ -71,7 +122,7 @@
 				</tr>
 			</thead>
 			<tbody>
-				{#each pageSize ? data.slice(page * pageSize, (page + 1) * pageSize) : data as d (d.id)}
+				{#each pageSize ? sortedData.slice(page * pageSize, (page + 1) * pageSize) : sortedData as d (sortedBy ? `${d.id}-${sortedBy.property}-${sortedBy.order}` : d.id)}
 					{@render row(d)}
 				{/each}
 			</tbody>
@@ -83,7 +134,7 @@
 	</div>
 {/if}
 
-{#if pageSize && data.length > pageSize}
+{#if pageSize && sortedData.length > pageSize}
 	<div class="flex items-center justify-center gap-4">
 		<button
 			class="button-text flex items-center gap-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline"

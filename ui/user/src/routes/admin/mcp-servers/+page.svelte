@@ -35,8 +35,10 @@
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import BackLink from '$lib/components/admin/BackLink.svelte';
+	import Search from '$lib/components/Search.svelte';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
+	let search = $state('');
 
 	initMcpServerAndEntries();
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
@@ -135,6 +137,10 @@
 		convertEntriesAndServersToTableData(mcpServerAndEntries.entries, mcpServerAndEntries.servers)
 	);
 
+	let filteredTableData = $derived(
+		tableData.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()))
+	);
+
 	let defaultCatalog = $state<MCPCatalog>();
 	let editingSource = $state<{ index: number; value: string }>();
 	let sourceDialog = $state<HTMLDialogElement>();
@@ -206,6 +212,13 @@
 				{@render addServerButton()}
 			{/if}
 		</div>
+
+		<Search
+			class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+			onChange={(val) => (search = val)}
+			placeholder="Search servers..."
+		/>
+
 		{#if mcpServerAndEntries.loading}
 			<div class="my-2 flex items-center justify-center">
 				<LoaderCircle class="size-6 animate-spin" />
@@ -225,7 +238,7 @@
 			</div>
 		{:else}
 			<Table
-				data={tableData}
+				data={filteredTableData}
 				fields={['name', 'type', 'users', 'source']}
 				onSelectRow={(d) => {
 					if (d.type === 'single' || d.type === 'remote') {
@@ -234,6 +247,7 @@
 						goto(`/admin/mcp-servers/s/${d.id}`);
 					}
 				}}
+				sortable={['name', 'type', 'users', 'source']}
 				noDataMessage="No catalog servers added."
 			>
 				{#snippet onRenderColumn(property, d)}
