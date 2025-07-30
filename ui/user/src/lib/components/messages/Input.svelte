@@ -12,6 +12,7 @@
 		onSubmit?: (input: InvokeInput) => void | Promise<void>;
 		onAbort?: () => Promise<void>;
 		onChange?: (value: string) => void;
+		onArrowKeys?: (direction: 'up' | 'down') => void;
 		children?: Snippet;
 		placeholder?: string;
 		readonly?: boolean;
@@ -26,6 +27,7 @@
 		onSubmit,
 		onAbort,
 		onChange,
+		onArrowKeys,
 		children,
 		readonly,
 		pending,
@@ -79,6 +81,11 @@
 	}
 
 	async function onKey(e: KeyboardEvent) {
+		if (onArrowKeys && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+			onArrowKeys(e.key === 'ArrowUp' ? 'up' : 'down');
+			return;
+		}
+
 		if (e.key !== 'Enter' || e.shiftKey) {
 			onChange?.(value);
 			return;

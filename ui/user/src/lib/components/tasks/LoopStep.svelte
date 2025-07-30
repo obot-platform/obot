@@ -116,7 +116,6 @@
 								{project}
 								disableMessageToEditor
 								onLoadFile={async (filename) => {
-									console.log('onLoadFile', filename, taskID, runID);
 									await EditorService.load(layout.items, project, filename, {
 										taskID,
 										runID

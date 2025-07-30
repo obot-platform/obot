@@ -56,8 +56,12 @@
 	let loadingOlderMessages = $state(false);
 	let showLoadOlderButton = $state(false);
 	let input = $state<ReturnType<typeof Input>>();
-	let promptPending = $state(false);
 	let savingNewProject = $state(false);
+
+	let promptDialogRef = $state<ReturnType<typeof McpPrompts>>();
+	let promptPending = $state(false);
+	let globalPromptIndex = $state(0);
+	let globalPromptCount = $state(0);
 
 	// Model selector state
 	let threadDetails = $state<ThreadType | null>(null);
@@ -555,11 +559,23 @@
 						await thread?.abort();
 					}}
 					onSubmit={async (i) => {
+						if (promptDialogRef?.hasPromptHighlighted()) {
+							promptDialogRef?.triggerSelectPrompt();
+							return;
+						}
+
 						await ensureThread();
 						scrollSmooth = false;
 						await tick();
 						scrollControls?.stickToBottom();
 						await thread?.invoke(i);
+					}}
+					onArrowKeys={(direction) => {
+						if (direction === 'up' && globalPromptIndex > 0) {
+							globalPromptIndex--;
+						} else if (direction === 'down' && globalPromptIndex < globalPromptCount - 1) {
+							globalPromptIndex++;
+						}
 					}}
 					bind:items={layout.items}
 				>
@@ -589,6 +605,7 @@
 					</div>
 					{#snippet inputPopover(value: string)}
 						<McpPrompts
+							bind:this={promptDialogRef}
 							{project}
 							variant="popover"
 							filterText={value}
@@ -596,6 +613,8 @@
 							onClickOutside={() => {
 								input?.clear();
 							}}
+							bind:selectedIndex={globalPromptIndex}
+							bind:limit={globalPromptCount}
 						/>
 					{/snippet}
 				</Input>

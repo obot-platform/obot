@@ -14,6 +14,8 @@
 		filterText?: string;
 		onSelect?: (prompt: MCPServerPrompt, mcp: ProjectMCP, params?: Record<string, string>) => void;
 		onClickOutside?: () => void;
+		limit?: number;
+		selectedIndex?: number;
 	}
 
 	type PromptSet = {
@@ -21,11 +23,27 @@
 		prompts: MCPServerPrompt[];
 	};
 
-	let { project, variant, filterText, onSelect, onClickOutside }: Props = $props();
+	let {
+		project,
+		variant,
+		filterText,
+		onSelect,
+		onClickOutside,
+		limit = $bindable(0),
+		selectedIndex = $bindable(0)
+	}: Props = $props();
 	let menu = $state<ReturnType<typeof Menu>>();
 	let ref = $state<HTMLDivElement>();
 	let loading = $state(false);
 	let mcpPromptSets = $state<PromptSet[]>([]);
+	let indexMatchedPrompt = $derived(
+		mcpPromptSets
+			.map((mcpPromptSet) =>
+				mcpPromptSet.prompts.map((prompt) => ({ prompt, mcp: mcpPromptSet.mcp }))
+			)
+			.flat()[selectedIndex]
+	);
+	let isHovering = $state(false);
 
 	let params = $state<Record<string, string>>({});
 	let selectedPrompt = $state<{ prompt: MCPServerPrompt; mcp: ProjectMCP }>();
@@ -43,6 +61,16 @@
 			ref?.classList.add('hidden');
 		}
 	});
+
+	export function hasPromptHighlighted() {
+		return !!indexMatchedPrompt;
+	}
+
+	export function triggerSelectPrompt() {
+		if (indexMatchedPrompt) {
+			handleClick(indexMatchedPrompt.prompt, indexMatchedPrompt.mcp);
+		}
+	}
 
 	function handleClickOutside() {
 		if (ref?.classList.contains('hidden')) return; // already hidden
@@ -66,6 +94,8 @@
 				);
 			}
 		}
+		limit = mcpPromptSets.reduce((acc, mcpPromptSet) => acc + mcpPromptSet.prompts.length, 0);
+		selectedIndex = 0;
 		loading = false;
 	}
 
@@ -151,7 +181,13 @@
 					>
 						{#each mcpPromptSet.prompts as prompt (prompt.name)}
 							<button
-								class="menu-button flex h-full w-full items-center gap-2 border-0 text-left"
+								class={twMerge(
+									'menu-button flex h-full w-full items-center gap-2 border-0 text-left',
+									indexMatchedPrompt?.prompt.name === prompt.name &&
+										indexMatchedPrompt?.mcp.id === mcpPromptSet.mcp.id &&
+										!isHovering &&
+										'bg-surface2 dark:bg-surface3 hover:bg-surface2 dark:hover:bg-surface3'
+								)}
 								onclick={() => handleClick(prompt, mcpPromptSet.mcp)}
 							>
 								<div class="flex-shrink-0 rounded-sm">
@@ -227,6 +263,10 @@
 		bind:this={ref}
 		class="default-dialog absolute top-0 left-0 w-full -translate-y-full py-2"
 		use:clickOutside={handleClickOutside}
+		onmouseenter={() => (isHovering = true)}
+		onmouseleave={() => (isHovering = false)}
+		role="listbox"
+		tabindex={0}
 	>
 		{@render content(filteredByNameDescription)}
 	</div>
