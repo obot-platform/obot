@@ -13,7 +13,7 @@ export const HELPER_TEXTS = {
 	introductions:
 		'Begin every conversation with an introduction and default options that a user can choose from.',
 	knowledge:
-		'Add a collection of information (from documents to websites) that the project can use to answer questions or perform tasks.',
+		'Add a collection of documents that the project can use to answer questions or perform tasks.',
 	projectFiles: 'Add files that are available to use/view by a user with every conversation.',
 	interfaces: 'Hook up a project to third party services to automate tasks and workflows.',
 	sharing:
