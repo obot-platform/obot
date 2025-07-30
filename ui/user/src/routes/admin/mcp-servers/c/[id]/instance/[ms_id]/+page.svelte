@@ -3,15 +3,29 @@
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { AdminService, ChatService, type OrgUser } from '$lib/services/index.js';
 	import { Info } from 'lucide-svelte';
+	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	let { catalogEntry, mcpServerId } = data;
 	const duration = PAGE_TRANSITION_DURATION;
+	let connectedUsers = $state<OrgUser[]>([]);
 
 	let catalogEntryName =
 		catalogEntry?.urlManifest?.name ?? catalogEntry?.commandManifest?.name ?? 'Unknown';
+
+	async function fetchUserInfo() {
+		const mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
+		if (mcpServer.userID) {
+			const user = await AdminService.getUser(mcpServer.userID);
+			connectedUsers = [user];
+		}
+	}
+	onMount(() => {
+		fetchUserInfo();
+	});
 </script>
 
 <Layout>
@@ -22,7 +36,7 @@
 		{/if}
 
 		{#if mcpServerId && catalogEntry?.commandManifest}
-			<McpServerK8sInfo {mcpServerId} name={catalogEntryName} />
+			<McpServerK8sInfo {mcpServerId} name={catalogEntryName} {connectedUsers} />
 		{:else}
 			<h1 class="text-2xl font-semibold">
 				{catalogEntryName} | {mcpServerId}

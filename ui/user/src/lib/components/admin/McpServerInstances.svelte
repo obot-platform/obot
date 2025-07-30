@@ -32,6 +32,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Confirm from '../Confirm.svelte';
+	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -121,39 +122,24 @@
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
 	{:then instances}
-		{#if instances.length > 0}
-			<Table
-				data={instances}
-				fields={['id', 'userID', 'created']}
-				headers={[{ title: 'User', property: 'userID' }]}
-				onSelectRow={(d) => {
-					setLastVisitedMcpServer();
-					goto(`/admin/mcp-servers/s/${entry?.id}/instance/${d.id}`);
-				}}
-			>
-				{#snippet onRenderColumn(property, d)}
-					{#if property === 'userID'}
-						{@const user = usersMap.get(d[property] as string)}
-						{user?.email || user?.username || 'Unknown'}
-					{:else if property === 'created'}
-						{formatTimeAgo(d[property] as unknown as string).fullDate}
-					{:else}
-						{d[property as keyof typeof d]}
-					{/if}
-				{/snippet}
-
-				{#snippet actions(d)}
-					<button
-						class="button-text"
-						onclick={(e) => {
-							e.stopPropagation();
-							goto(`/admin/audit-logs?mcpId=${encodeURIComponent(d.id)}`);
-						}}
-					>
-						View Audit Logs
-					</button>
-				{/snippet}
-			</Table>
+		{#if entry && instances.length > 0}
+			<div class="flex flex-col gap-6">
+				<McpServerK8sInfo
+					mcpServerId={entry.id}
+					name={'manifest' in entry ? entry.manifest.name || '' : ''}
+					connectedUsers={instances.map((instance) => {
+						const user = usersMap.get(instance.userID)!;
+						return {
+							...user,
+							mcpInstanceId: instance.id
+						};
+					})}
+					title="Details"
+					classes={{
+						title: 'text-lg font-semibold'
+					}}
+				/>
+			</div>
 		{:else}
 			{@render emptyInstancesContent()}
 		{/if}
@@ -189,8 +175,11 @@
 			{/if}
 			<Table
 				data={servers}
-				fields={['id', 'userID', 'created']}
-				headers={[{ title: 'User', property: 'userID' }]}
+				fields={type === 'single' ? ['userID', 'created'] : ['url', 'userID', 'created']}
+				headers={[
+					{ title: 'User', property: 'userID' },
+					{ title: 'URL', property: 'url' }
+				]}
 				onSelectRow={type === 'single'
 					? (d) => {
 							setLastVisitedMcpServer();
@@ -199,13 +188,13 @@
 					: undefined}
 			>
 				{#snippet onRenderColumn(property, d)}
-					{#if property === 'id'}
+					{#if property === 'url'}
 						<span class="flex items-center gap-1">
-							{d.id}
+							{d.manifest.url}
 							{#if d.needsUpdate}
 								<div
 									use:tooltip={{
-										text: 'This server needs an update. Click diff to see the changes.',
+										text: 'This server needs an update. View Diff to see the changes.',
 										classes: ['break-words', 'w-58']
 									}}
 								>
@@ -214,8 +203,22 @@
 							{/if}
 						</span>
 					{:else if property === 'userID'}
-						{@const user = usersMap.get(d[property] as string)}
-						{user?.email || user?.username || 'Unknown'}
+						{@const user = usersMap.get(d[property] as string)}'
+						<span class="flex items-center gap-1">
+							{user?.email || user?.username || 'Unknown'}
+							{#if type === 'single'}
+								{#if d.needsUpdate}
+									<div
+										use:tooltip={{
+											text: 'This server needs an update. View Diff to see the changes.',
+											classes: ['break-words', 'w-58']
+										}}
+									>
+										<TriangleAlert class="size-4 text-yellow-500" />
+									</div>
+								{/if}
+							{/if}
+						</span>
 					{:else if property === 'created'}
 						{formatTimeAgo(d[property] as unknown as string).fullDate}
 					{:else}
@@ -440,9 +443,9 @@
 {#snippet emptyInstancesContent()}
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Router class="size-24 text-gray-200 dark:text-gray-900" />
-		<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No server instance</h4>
+		<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No server details</h4>
 		<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-			No server instances have been created yet for this server.
+			No details available yet for this server.
 		</p>
 	</div>
 {/snippet}

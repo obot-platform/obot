@@ -44,7 +44,7 @@
 					{ label: 'Configuration', view: 'configuration' },
 					{ label: 'Audit Logs', view: 'usage' },
 					{ label: 'Access Control', view: 'access-control' },
-					{ label: 'Server Instances', view: 'server-instances' },
+					{ label: 'Server Details', view: 'server-instances' },
 					{ label: 'Filters', view: 'filters' }
 				]
 			: []

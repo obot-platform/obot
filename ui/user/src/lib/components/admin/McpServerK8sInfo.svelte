@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AdminService, type K8sServerDetail } from '$lib/services';
+	import { AdminService, type K8sServerDetail, type OrgUser } from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { AlertTriangle, Info, LoaderCircle, RotateCcw, RefreshCw } from 'lucide-svelte';
@@ -8,14 +8,22 @@
 	import Confirm from '../Confirm.svelte';
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { goto } from '$app/navigation';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		mcpServerId: string;
 		name: string;
 		mcpServerInstanceId?: string;
+		connectedUsers: (OrgUser & { mcpInstanceId?: string })[];
+		title?: string;
+		classes?: {
+			title?: string;
+		};
 	}
 
-	const { mcpServerId, mcpServerInstanceId, name }: Props = $props();
+	const { mcpServerId, mcpServerInstanceId, name, connectedUsers, title, classes }: Props =
+		$props();
 
 	let listK8sInfo = $state<Promise<K8sServerDetail>>();
 	let messages = $state<string[]>([]);
@@ -149,8 +157,10 @@
 </script>
 
 <div class="flex items-center gap-3">
-	<h1 class="text-2xl font-semibold">
-		{#if mcpServerInstanceId}
+	<h1 class={twMerge('text-2xl font-semibold', classes?.title)}>
+		{#if title}
+			{title}
+		{:else if mcpServerInstanceId}
 			{name} | {mcpServerInstanceId}
 		{:else}
 			{name}
@@ -280,6 +290,32 @@
 			<span class="text-sm font-light text-gray-400 dark:text-gray-600">No deployment logs.</span>
 		{/if}
 	</div>
+</div>
+
+<div>
+	<h2 class="mb-2 text-lg font-semibold">Connected Users</h2>
+	<Table data={connectedUsers ?? []} fields={['name']}>
+		{#snippet onRenderColumn(property, d)}
+			{#if property === 'name'}
+				{d.email || d.username || 'Unknown'}
+			{:else}
+				{d[property as keyof typeof d]}
+			{/if}
+		{/snippet}
+
+		{#snippet actions(d)}
+			{@const mcpId = d.mcpInstanceId ? d.mcpInstanceId : mcpServerId || mcpServerInstanceId}
+			<button
+				class="button-text px-1"
+				onclick={(e) => {
+					e.stopPropagation();
+					goto(`/admin/audit-logs?mcpId=${encodeURIComponent(mcpId ?? '')}&userId=${d.id}`);
+				}}
+			>
+				View Audit Logs
+			</button>
+		{/snippet}
+	</Table>
 </div>
 
 <Confirm
