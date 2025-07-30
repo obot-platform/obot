@@ -559,7 +559,7 @@
 						await thread?.abort();
 					}}
 					onSubmit={async (i) => {
-						if (promptDialogRef?.hasPromptHighlighted()) {
+						if (input?.getValue()?.startsWith('/') && promptDialogRef?.hasPromptHighlighted()) {
 							promptDialogRef?.triggerSelectPrompt();
 							return;
 						}

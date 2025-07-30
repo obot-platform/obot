@@ -36,13 +36,6 @@
 	let ref = $state<HTMLDivElement>();
 	let loading = $state(false);
 	let mcpPromptSets = $state<PromptSet[]>([]);
-	let indexMatchedPrompt = $derived(
-		mcpPromptSets
-			.map((mcpPromptSet) =>
-				mcpPromptSet.prompts.map((prompt) => ({ prompt, mcp: mcpPromptSet.mcp }))
-			)
-			.flat()[selectedIndex]
-	);
 	let isHovering = $state(false);
 
 	let params = $state<Record<string, string>>({});
@@ -50,6 +43,30 @@
 	let argsDialog = $state<HTMLDialogElement>();
 
 	let hasPrompts = $derived(mcpPromptSets.some((mcpPromptSet) => mcpPromptSet.prompts.length > 0));
+
+	function getFilteredSets() {
+		if (!filterText) return mcpPromptSets;
+		const textToFilter = filterText.slice(1) ?? '';
+		return mcpPromptSets
+			.map((mcpPromptSet) => ({
+				...mcpPromptSet,
+				prompts: mcpPromptSet.prompts.filter(
+					(prompt) =>
+						prompt.name.toLowerCase().includes(textToFilter.toLowerCase()) ||
+						prompt.description.toLowerCase().includes(textToFilter.toLowerCase())
+				)
+			}))
+			.filter((mcpPromptSet) => mcpPromptSet.prompts.length > 0);
+	}
+
+	let setsToUse = $derived(filterText ? getFilteredSets() : mcpPromptSets);
+	let indexMatchedPrompt = $derived(
+		setsToUse
+			.map((mcpPromptSet) =>
+				mcpPromptSet.prompts.map((prompt) => ({ prompt, mcp: mcpPromptSet.mcp }))
+			)
+			.flat()[selectedIndex]
+	);
 
 	const projectMcps = getProjectMCPs();
 
@@ -127,8 +144,7 @@
 	});
 </script>
 
-{#snippet content(filteredByNameDescription?: PromptSet[])}
-	{@const setsToUse = filteredByNameDescription ?? mcpPromptSets}
+{#snippet content()}
 	{#if loading}
 		<div class="flex h-full flex-col items-center justify-center">
 			<LoaderCircle class="size-4 animate-spin" />
@@ -246,19 +262,6 @@
 		</Menu>
 	</div>
 {:else if variant === 'popover'}
-	{@const textToFilter = filterText?.slice(1) ?? ''}
-	{@const filteredByNameDescription = filterText
-		? mcpPromptSets
-				.map((mcpPromptSet) => ({
-					...mcpPromptSet,
-					prompts: mcpPromptSet.prompts.filter(
-						(prompt) =>
-							prompt.name.toLowerCase().includes(textToFilter.toLowerCase()) ||
-							prompt.description.toLowerCase().includes(textToFilter.toLowerCase())
-					)
-				}))
-				.filter((mcpPromptSet) => mcpPromptSet.prompts.length > 0)
-		: mcpPromptSets}
 	<div
 		bind:this={ref}
 		class="default-dialog absolute top-0 left-0 w-full -translate-y-full py-2"
@@ -268,7 +271,7 @@
 		role="listbox"
 		tabindex={0}
 	>
-		{@render content(filteredByNameDescription)}
+		{@render content()}
 	</div>
 {:else if variant === 'messages'}
 	<div>

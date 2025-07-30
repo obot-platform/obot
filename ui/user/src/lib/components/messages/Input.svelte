@@ -43,6 +43,10 @@
 		chat?.focus();
 	}
 
+	export function getValue() {
+		return value;
+	}
+
 	async function submit() {
 		let input: InvokeInput = {
 			prompt: value,
