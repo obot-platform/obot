@@ -15,7 +15,6 @@
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import Files from '$lib/components/edit/Files.svelte';
-	import Tools from '$lib/components/navbar/Tools.svelte';
 	import type { UIEventHandler } from 'svelte/elements';
 	import { responsive } from '$lib/stores';
 	import { Bug, LoaderCircle, X } from 'lucide-svelte';
@@ -576,12 +575,6 @@
 									helperText="Files"
 									classes={{ list: 'max-h-[60vh] space-y-4 overflow-y-auto pt-2 pb-6 text-sm' }}
 								/>
-							</div>
-							{#if project.editor && !shared}
-								<Tools {project} bind:currentThreadID={id} />
-							{/if}
-							<div in:fade>
-								<McpPrompts {project} variant="button" onSelect={handleMcpPromptSelect} />
 							</div>
 						</div>
 						{#if projectModelProvider && projectModel}
