@@ -430,7 +430,7 @@
 			<div class="grow"></div>
 
 			<div
-				class="sticky bottom-0 flex items-center justify-center bg-white px-6 opacity-0 transition-opacity dark:bg-black"
+				class="sticky bottom-0 z-50 flex items-center justify-center bg-white px-6 opacity-0 transition-opacity dark:bg-black"
 				class:chat-overlay={showChat}
 			>
 				{#if allMessages.messages.length > 0 && showChat}
