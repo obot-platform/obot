@@ -22,7 +22,7 @@
 			...user,
 			role: user.role === Role.ADMIN ? 'Admin' : 'User',
 			roleId: user.role,
-			lastActive: user.lastActiveDay ? formatTimeAgo(user.lastActiveDay).relativeTime : '-'
+			lastActive: user.lastActiveDay ? formatTimeAgo(user.lastActiveDay, 'day').relativeTime : '-'
 		}))
 	);
 
