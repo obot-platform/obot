@@ -23,7 +23,7 @@ func (in *MCPWebhookValidation) GetColumns() [][]string {
 		{"Name", "Name"},
 		{"Display Name", "Spec.Manifest.Name"},
 		{"Resources ", "{{len .Spec.Manifest.Resources}}"},
-		{"Webhooks", "{{len .Spec.Manifest.Webhooks}}"},
+		{"URL", "{{.Spec.Manifest.URL}}"},
 		{"Disabled", "{{.Spec.Manifest.Disabled}}"},
 	}
 }

@@ -20,9 +20,9 @@ func (h *Handler) CleanupResources(req router.Request, _ router.Response) error 
 	newResources := make([]types.Resource, 0, len(webhookValidation.Spec.Manifest.Resources))
 
 	var (
-		mcpServer v1.MCPServer
-		catalog   v1.MCPCatalog
-		err       error
+		mcpServer    v1.MCPServer
+		catalogEntry v1.MCPServerCatalogEntry
+		err          error
 	)
 	for _, resource := range webhookValidation.Spec.Manifest.Resources {
 		switch resource.Type {
@@ -35,7 +35,7 @@ func (h *Handler) CleanupResources(req router.Request, _ router.Response) error 
 				return fmt.Errorf("failed to get mcp server %s: %w", resource.ID, err)
 			}
 		case types.ResourceTypeMCPServerCatalogEntry:
-			if err = req.Get(&catalog, req.Namespace, resource.ID); err == nil {
+			if err = req.Get(&catalogEntry, req.Namespace, resource.ID); err == nil {
 				newResources = append(newResources, resource)
 			} else if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to get mcp server catalog entry %s: %w", resource.ID, err)
