@@ -187,7 +187,7 @@
 							loadData(true);
 						}}
 					>
-						{#snippet connectedServerCardAction(d)}
+						{#snippet connectedServerCardAction(d: ConnectedServer)}
 							{@const requiresUpdate = requiresUserUpdate(d)}
 							<button
 								disabled={requiresUpdate}

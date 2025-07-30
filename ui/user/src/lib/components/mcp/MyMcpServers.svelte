@@ -19,6 +19,7 @@
 	import Search from '../Search.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import CatalogConfigureForm from './CatalogConfigureForm.svelte';
+	import CatalogEditNameForm from './CatalogEditNameForm.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -83,6 +84,8 @@
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configureForm = $state<LaunchFormData>();
 	let showServerInfo = $state(false);
+	let editingServer = $state<ConnectedServer>();
+	let editNameDialog = $state<ReturnType<typeof CatalogEditNameForm>>();
 
 	let selectedEntryOrServer = $state<Entry | ConnectedServer | Server>();
 	let selectedManifest = $derived(getManifest(selectedEntryOrServer));
@@ -101,18 +104,10 @@
 			])
 		)
 	);
-	let userConfiguredServersMap = $derived(
-		new Map(userConfiguredServers.map((server) => [server.catalogEntryID, server]))
-	);
 
 	let filteredEntriesData = $derived(
 		entries.filter((item) => {
 			if (item.deleted) {
-				return false;
-			}
-
-			const userConfiguredServer = userConfiguredServersMap.get(item.id);
-			if (userConfiguredServer) {
 				return false;
 			}
 
@@ -128,6 +123,7 @@
 			return true;
 		})
 	);
+
 	let filteredServers = $derived(
 		servers.filter((item) => {
 			if (item.deleted) {
@@ -278,6 +274,10 @@
 		return (item as ConnectedServer).server?.manifest;
 	}
 
+	function isSingleOrRemote(connectedServer: ConnectedServer | undefined) {
+		return connectedServer?.server && !connectedServer.instance;
+	}
+
 	function initConfigureForm(item: Entry) {
 		const manifest = item.commandManifest ?? item.urlManifest;
 		configureForm = {
@@ -374,23 +374,23 @@
 									}}
 								>
 									{#snippet action()}
-										{#if connectedServerCardAction}
-											{@render connectedServerCardAction(connectedServer)}
-										{:else}
+										<div class="flex items-center gap-1">
+											{@render connectedServerCardAction?.(connectedServer)}
 											<DotDotDot
 												class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
 												{disablePortal}
 												el={container}
 											>
 												<div class="default-dialog flex min-w-48 flex-col p-2">
-													{@render prependedDefaultActions(connectedServer)}
-													{#if additConnectedServerCardActions}
-														{@render additConnectedServerCardActions(connectedServer)}
+													{#if isSingleOrRemote(connectedServer)}
+														{@render editConfigAction(connectedServer)}
+														{@render editNameAction(connectedServer)}
 													{/if}
-													{@render appendedDefaultActions(connectedServer)}
+													{@render additConnectedServerCardActions?.(connectedServer)}
+													{@render disconnectAction(connectedServer)}
 												</div>
 											</DotDotDot>
-										{/if}
+										</div>
 									{/snippet}
 								</McpCard>
 							{/if}
@@ -453,6 +453,8 @@
 	submitText={selectedEntryOrServer && 'server' in selectedEntryOrServer ? 'Update' : 'Launch'}
 	loading={saving}
 />
+
+<CatalogEditNameForm bind:this={editNameDialog} {editingServer} {onUpdateConfigure} />
 
 <Confirm
 	msg="Are you sure you want to delete this server?"
@@ -548,9 +550,11 @@
 						{disablePortal}
 					>
 						<div class="default-dialog flex min-w-48 flex-col p-2">
-							{@render prependedDefaultActions(connectedServer)}
+							{#if isSingleOrRemote(connectedServer)}
+								{@render editConfigAction(connectedServer)}
+							{/if}
 							{@render additConnectedServerViewActions?.(connectedServer)}
-							{@render appendedDefaultActions(connectedServer)}
+							{@render disconnectAction(connectedServer)}
 						</div>
 					</DotDotDot>
 				{/if}
@@ -563,7 +567,7 @@
 	</div>
 {/snippet}
 
-{#snippet prependedDefaultActions(connectedServer: ConnectedServer)}
+{#snippet editConfigAction(connectedServer: ConnectedServer)}
 	{@const requiresUpdate = requiresUserUpdate(connectedServer)}
 	<button
 		class={twMerge(
@@ -604,7 +608,19 @@
 	</button>
 {/snippet}
 
-{#snippet appendedDefaultActions(connectedServer: ConnectedServer)}
+{#snippet editNameAction(connectedServer: ConnectedServer)}
+	<button
+		class="menu-button"
+		onclick={() => {
+			editingServer = connectedServer;
+			editNameDialog?.open();
+		}}
+	>
+		Edit Name
+	</button>
+{/snippet}
+
+{#snippet disconnectAction(connectedServer: ConnectedServer)}
 	<button
 		class="menu-button text-red-500"
 		onclick={async () => {
