@@ -158,7 +158,6 @@ var apiResources = []string{
 	"GET    /api/mcp-servers/{mcpserver_id}/check-oauth",
 	"GET    /api/mcp-servers/{mcpserver_id}/oauth-url",
 	"POST   /api/mcp-servers",
-	"PUT    /api/mcp-servers/{mcpserver_id}",
 	"DELETE /api/mcp-servers/{mcpserver_id}",
 	"DELETE /api/mcp-servers/{mcpserver_id}/oauth",
 	"POST   /api/mcp-servers/{mcpserver_id}/update-url",

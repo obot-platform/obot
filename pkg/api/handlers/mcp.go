@@ -842,7 +842,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	return req.WriteCreated(convertMCPServer(server, cred.Env, m.serverURL))
 }
 
-func (m *MCPHandler) UpdateServer(req api.Context) error {
+func (m *MCPHandler) AdminOnlyUpdateServer(req api.Context) error {
 	var (
 		id        = req.PathValue("mcp_server_id")
 		catalogID = req.PathValue("catalog_id")
