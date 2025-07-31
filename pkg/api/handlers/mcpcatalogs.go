@@ -105,6 +105,17 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 		}
 	}
 
+	// Check for duplicate URLs
+	seen := make(map[string]struct{}, len(manifest.SourceURLs))
+	for _, urlStr := range manifest.SourceURLs {
+		if urlStr != "" {
+			if _, ok := seen[urlStr]; ok {
+				return types.NewErrBadRequest("duplicate URL found: %s", urlStr)
+			}
+			seen[urlStr] = struct{}{}
+		}
+	}
+
 	catalog.Spec.SourceURLs = manifest.SourceURLs
 
 	if err := req.Update(&catalog); err != nil {

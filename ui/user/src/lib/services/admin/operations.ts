@@ -62,7 +62,7 @@ export async function refreshMCPCatalog(
 export async function updateMCPCatalog(
 	id: string,
 	catalog: MCPCatalogManifest,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<MCPCatalog> {
 	const response = (await doPut(`/mcp-catalogs/${id}`, catalog, opts)) as MCPCatalog;
 	return response;

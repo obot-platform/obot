@@ -157,6 +157,7 @@
 	let deletingSource = $state<string>();
 	let saving = $state(false);
 	let refreshing = $state(false);
+	let sourceError = $state<string>();
 	function selectServerType(type: 'single' | 'multi' | 'remote', updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
@@ -168,6 +169,7 @@
 
 	function closeSourceDialog() {
 		editingSource = undefined;
+		sourceError = undefined;
 		sourceDialog?.close();
 	}
 
@@ -440,6 +442,16 @@
 			<input id="catalog-source-name" bind:value={editingSource.value} class="text-input-filled" />
 		</div>
 
+		{#if sourceError}
+			<div class="mb-4 flex flex-col gap-2 text-red-500 dark:text-red-400">
+				<div class="flex items-center gap-2">
+					<AlertTriangle class="size-6 flex-shrink-0 self-start" />
+					<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>
+				</div>
+				<span class="font-sm font-light break-all">{sourceError}</span>
+			</div>
+		{/if}
+
 		<div class="flex w-full justify-end gap-2">
 			<button class="button" disabled={saving} onclick={() => closeSourceDialog()}>Cancel</button>
 			<button
@@ -451,22 +463,28 @@
 					}
 
 					saving = true;
-					const catalog = await AdminService.getMCPCatalog(defaultCatalogId);
-					if (!catalog) {
-						return;
-					}
+					sourceError = undefined;
 
-					if (editingSource.index === -1) {
-						catalog.sourceURLs = [...(catalog.sourceURLs ?? []), editingSource.value];
-					} else {
-						catalog.sourceURLs[editingSource.index] = editingSource.value;
-					}
+					try {
+						const catalog = await AdminService.getMCPCatalog(defaultCatalogId);
 
-					const response = await AdminService.updateMCPCatalog(defaultCatalogId, catalog);
-					defaultCatalog = response;
-					await refresh();
-					saving = false;
-					closeSourceDialog();
+						if (editingSource.index === -1) {
+							catalog.sourceURLs = [...(catalog.sourceURLs ?? []), editingSource.value];
+						} else {
+							catalog.sourceURLs[editingSource.index] = editingSource.value;
+						}
+
+						const response = await AdminService.updateMCPCatalog(defaultCatalogId, catalog, {
+							dontLogErrors: true
+						});
+						defaultCatalog = response;
+						await refresh();
+						closeSourceDialog();
+					} catch (error) {
+						sourceError = error instanceof Error ? error.message : 'An unexpected error occurred';
+					} finally {
+						saving = false;
+					}
 				}}
 			>
 				Add
@@ -497,6 +515,7 @@
 		if (!deletingServer) {
 			return;
 		}
+
 		await AdminService.deleteMCPCatalogServer(defaultCatalogId, deletingServer.id);
 		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
 		deletingServer = undefined;
@@ -511,6 +530,7 @@
 		if (!deletingSource || !defaultCatalog) {
 			return;
 		}
+
 		const response = await AdminService.updateMCPCatalog(defaultCatalogId, {
 			...defaultCatalog,
 			sourceURLs: defaultCatalog.sourceURLs?.filter((url) => url !== deletingSource)
