@@ -11,6 +11,7 @@ const sidebars = {
         "concepts/chat/overview",
         "concepts/chat/projects",
         "concepts/chat/threads",
+	"concepts/chat/tasks",
       ],
     },
     {
@@ -26,7 +27,6 @@ const sidebars = {
       label: "Admin Interface",
       items: [
         "concepts/admin/overview",
-        "concepts/admin/tasks",
       ],
     },
     {
