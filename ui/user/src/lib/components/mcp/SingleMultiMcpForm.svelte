@@ -28,6 +28,11 @@
 			bind:value={config.command}
 			disabled={readonly}
 			placeholder="e.g. npx, uvx"
+			onblur={() => {
+				if (config.command) {
+					config.command = config.command.trim();
+				}
+			}}
 		/>
 	</div>
 
@@ -41,6 +46,11 @@
 							class="text-input-filled w-full dark:bg-black"
 							bind:value={config.args[i]}
 							disabled={readonly}
+							onblur={() => {
+								if (config.args && config.args[i]) {
+									config.args[i] = config.args[i].trim();
+								}
+							}}
 							onpaste={(e) => {
 								if (readonly || !config.args) return;
 								e.preventDefault();
