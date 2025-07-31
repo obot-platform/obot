@@ -380,40 +380,40 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string,
 					}
 				}
 				break
-			} else {
-				// Fallback to trying SSE.
-				req, err := http.NewRequest(http.MethodGet, url, nil)
-				if err != nil {
-					return "", fmt.Errorf("failed to create request: %w", err)
-				}
-				req.Header.Set("Accept", "text/event-stream")
+			}
 
-				resp, err := http.DefaultClient.Do(req)
-				if err != nil {
-					continue
-				}
+			// Fallback to trying SSE.
+			req, err = http.NewRequest(http.MethodGet, url, nil)
+			if err != nil {
+				return "", fmt.Errorf("failed to create request: %w", err)
+			}
+			req.Header.Set("Accept", "text/event-stream")
 
-				if resp.StatusCode == http.StatusOK {
-					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			resp, err = http.DefaultClient.Do(req)
+			if err != nil {
+				continue
+			}
 
-					// Start looking for an event with "endpoint".
-					scanner := bufio.NewScanner(resp.Body)
-				scannerLoop:
-					for scanner.Scan() {
-						select {
-						case <-ctx.Done():
-							break scannerLoop
-						default:
-							if strings.Contains(scanner.Text(), "endpoint") {
-								resp.Body.Close()
-								cancel()
-								break healthcheckLoop
-							}
+			if resp.StatusCode == http.StatusOK {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+
+				// Start looking for an event with "endpoint".
+				scanner := bufio.NewScanner(resp.Body)
+			scannerLoop:
+				for scanner.Scan() {
+					select {
+					case <-ctx.Done():
+						break scannerLoop
+					default:
+						if strings.Contains(scanner.Text(), "endpoint") {
+							resp.Body.Close()
+							cancel()
+							break healthcheckLoop
 						}
 					}
-					resp.Body.Close()
-					cancel()
 				}
+				resp.Body.Close()
+				cancel()
 			}
 		}
 	}
