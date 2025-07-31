@@ -226,10 +226,12 @@
 									placement: 'top-end'
 								}}
 							>
-								{#if showSecret}
-									<EyeOff class="size-4" />
-								{:else}
-									<Eye class="size-4" />
+								{#if !initialFilter}
+									{#if showSecret}
+										<EyeOff class="size-4" />
+									{:else}
+										<Eye class="size-4" />
+									{/if}
 								{/if}
 							</button>
 						{/if}
