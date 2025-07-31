@@ -12,7 +12,7 @@ export default defineConfig({
 	},
 	optimizeDeps: {
 		// currently incompatible with dep optimizer
-		exclude: ['d3-array']
+		exclude: ['d3-array', 'd3-scale', 'layerchart']
 	},
 	plugins: [sveltekit()]
 });
