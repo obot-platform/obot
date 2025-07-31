@@ -29,7 +29,10 @@
 	{#if layout.sidebarConfig === 'project-configuration'}
 		{#if layout.projectToConfigure}
 			{#key layout.projectToConfigure.id}
-				<ProjectConfiguration project={layout.projectToConfigure} />
+				<ProjectConfiguration
+					project={layout.projectToConfigure}
+					isOnProject={layout.projectToConfigure.id === project.id}
+				/>
 			{/key}
 		{/if}
 	{:else if layout.sidebarConfig === 'slack'}

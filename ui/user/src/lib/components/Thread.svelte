@@ -37,13 +37,15 @@
 		project: Project;
 		createProject?: CreateProjectForm;
 		assistant?: Assistant;
+		isNew?: boolean;
 	}
 
 	let {
 		id = $bindable(),
 		project = $bindable(),
 		createProject = $bindable(),
-		assistant
+		assistant,
+		isNew = $bindable()
 	}: Props = $props();
 
 	let messagesDiv = $state<HTMLDivElement>();
@@ -65,6 +67,8 @@
 
 	// Model selector state
 	let threadDetails = $state<ThreadType | null>(null);
+
+	let centerInput = $derived(!createProject && (!id || isNew));
 
 	$effect(() => {
 		if (threadContainer) {
@@ -492,7 +496,7 @@
 			bind:this={messagesDiv}
 			class={twMerge(
 				'flex w-full flex-col justify-start gap-8 p-5 transition-all',
-				messages.messages.length > 0 || createProject ? 'grow' : 'h-0 overflow-hidden'
+				!centerInput ? 'grow' : 'h-0 overflow-hidden'
 			)}
 			class:justify-center={!thread}
 		>
@@ -538,14 +542,12 @@
 		</div>
 		<div
 			class={twMerge(
-				'sticky z-30 flex justify-center bg-white pb-2 transition-transform duration-300 dark:bg-black',
-				messages.messages.length === 0 && !createProject
-					? 'top-1/2 -translate-y-[calc(50%+32px)]'
-					: 'top-auto bottom-0'
+				'sticky z-30 flex justify-center bg-white pb-2 transition-transform  duration-300 dark:bg-black',
+				centerInput ? 'top-1/2 -translate-y-[calc(50%+32px)]' : 'top-auto bottom-0'
 			)}
 		>
 			<div class="w-full max-w-[1000px]">
-				{#if messages.messages.length === 0 && !createProject && assistant?.introductionMessage}
+				{#if centerInput && assistant?.introductionMessage}
 					<div class="milkdown-content mb-5 max-w-full px-5" in:fade>
 						{@html toHTMLFromMarkdown(assistant?.introductionMessage)}
 					</div>
@@ -569,6 +571,7 @@
 						await tick();
 						scrollControls?.stickToBottom();
 						await thread?.invoke(i);
+						isNew = false;
 					}}
 					onArrowKeys={(direction) => {
 						if (direction === 'up' && globalPromptIndex > 0) {
@@ -618,7 +621,7 @@
 						/>
 					{/snippet}
 				</Input>
-				{#if messages.messages.length > 0 || createProject}
+				{#if !centerInput}
 					<div
 						class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
 					>

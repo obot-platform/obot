@@ -40,6 +40,7 @@ export interface Layout {
 	chatbotMcpEdit?: boolean;
 	sidebarMemoryUpdateAvailable?: boolean;
 	projectToConfigure?: Project;
+	newChatMode?: boolean;
 }
 
 export function isSomethingSelected(layout: Layout) {

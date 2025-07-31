@@ -160,7 +160,13 @@
 					{:else if layout.sidebarConfig}
 						<SidebarConfig bind:project bind:currentThreadID {assistant} />
 					{:else}
-						<Thread bind:id={currentThreadID} bind:project {assistant} bind:createProject />
+						<Thread
+							bind:id={currentThreadID}
+							bind:project
+							{assistant}
+							bind:createProject
+							bind:isNew={layout.newChatMode}
+						/>
 					{/if}
 				{/if}
 			</div>

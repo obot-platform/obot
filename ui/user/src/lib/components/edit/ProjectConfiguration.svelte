@@ -12,9 +12,10 @@
 
 	interface Props {
 		project: Project;
+		isOnProject?: boolean;
 	}
 
-	let { project }: Props = $props();
+	let { project, isOnProject }: Props = $props();
 	let modifiedProject = $state(project);
 	let confirmDelete = $state(false);
 	let deleting = $state(false);
@@ -26,12 +27,16 @@
 		await ChatService.deleteProject(project.assistantID, project.id);
 		confirmDelete = false;
 
-		const projects = await ChatService.listProjects();
-		deleting = false;
-		if (projects.items.length > 0) {
-			goto(`/o/${projects.items[0].id}`);
+		if (isOnProject) {
+			const projects = await ChatService.listProjects();
+			deleting = false;
+			if (projects.items.length > 0) {
+				goto(`/o/${projects.items[0].id}`);
+			} else {
+				goto('/');
+			}
 		} else {
-			goto('/');
+			closeAll(layout);
 		}
 	}
 

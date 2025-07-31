@@ -77,6 +77,7 @@
 		if (responsive.isMobile) {
 			layout.sidebarOpen = false;
 		}
+		layout.newChatMode = true;
 		setCurrentThread(thread.id);
 		focusChat();
 	}
@@ -103,6 +104,7 @@
 			layout.sidebarOpen = false;
 		}
 
+		layout.newChatMode = false;
 		closeAll(layout);
 		setCurrentThread(id);
 		focusChat();
