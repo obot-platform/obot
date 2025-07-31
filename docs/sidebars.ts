@@ -43,6 +43,7 @@ const sidebars = {
             "configuration/auth-providers",
             "configuration/workspace-provider",
             "configuration/model-providers",
+            "configuration/oauth-configuration",
             {
               type: "category",
               label: "Encryption Providers",

@@ -1,14 +1,13 @@
 # Tasks & Automation
 
-Tasks provide a powerful way to automate interactions with AI agents through scripted workflows. They are managed through the Admin Interface and enable administrators to create scheduled, event-driven, and on-demand automation across the platform.
+Tasks provide a powerful way to automate interactions with projects through scripted workflows.
 
 ## What are Tasks?
 
-Tasks are automated workflows that combine AI agents with specific instructions and triggers. They enable:
+Tasks are automated workflows that combine chat projects with specific instructions and triggers. They enable:
 
 - **Automated Processing**: Execute complex workflows without manual intervention
 - **Scheduled Operations**: Run tasks on recurring schedules (hourly, daily, weekly, monthly)
-- **Event-Driven Actions**: Respond to webhooks, emails, or other external triggers
 - **Parameterized Execution**: Accept inputs to customize behavior for different contexts
 
 ## Task Components
@@ -42,16 +41,10 @@ Tasks can be initiated through various trigger mechanisms:
 - **Timezone Support**: Respect server or user-specific timezones
 - **Complex Scheduling**: Advanced cron-like scheduling patterns
 
-#### Event-Driven
-- **Webhooks**: Respond to HTTP webhook requests
-- **Email Triggers**: Process incoming emails automatically
-- **Message Triggers**: React to Slack or Discord messages
-- **Custom Events**: Handle application-specific events
-
 ## Task Management
 
 ### Creation & Configuration
-Through the Admin Interface, administrators can:
+Through the Chat Interface, users can:
 
 1. **Define Task Structure**: Create multi-step workflows with clear logic
 2. **Configure Triggers**: Set up scheduling or event-based activation
@@ -127,34 +120,3 @@ Track task performance and execution:
 3. **Timeout Handling**: Set reasonable execution time limits
 4. **Result Caching**: Cache expensive computations when appropriate
 5. **Cleanup**: Remove temporary files and data after task completion
-
-## Task Configuration Example
-
-A typical task configuration might look like:
-
-```yaml
-name: "Daily Sales Report"
-description: "Generate and distribute daily sales report"
-schedule:
-  interval: "daily"
-  hour: 8
-  minute: 0
-  timezone: "America/New_York"
-steps:
-  - id: "fetch_data"
-    step: "Query sales database for yesterday's transactions"
-  - id: "generate_report"
-    step: "Create formatted report with charts and summaries"
-  - id: "distribute"
-    step: "Email report to sales team and upload to shared drive"
-```
-
-## Integration with Admin Interface
-
-Tasks integrate seamlessly with other admin functions:
-- **User Management**: Tasks can be scoped to specific users or groups
-- **Resource Monitoring**: Task execution appears in system dashboards
-- **Audit Logs**: All task activities are recorded in audit trails
-- **Access Control**: Task permissions respect user roles and access controls
-
-Tasks enable administrators to automate routine operations, respond to events automatically, and scale AI agent capabilities across the entire platform efficiently. 

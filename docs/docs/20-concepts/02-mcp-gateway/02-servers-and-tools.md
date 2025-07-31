@@ -1,6 +1,6 @@
-# MCP Servers and Tools
+# Connectors
 
-MCP Servers are external services that implement the Model Context Protocol, providing tools and resources that AI agents can use. Understanding how servers and tools work is essential for extending obot's capabilities and integrating with external systems.
+Connectors are services that implement the Model Context Protocol, providing tools and resources that AI can use. Understanding how connectors work is essential for extending Obot's capabilities and integrating with external systems.
 
 ## MCP Servers
 

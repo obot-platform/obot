@@ -1,6 +1,6 @@
 # Projects
 
-A project is an AI agent that combines an LLM, a set of instructions, and MCP Servers to perform tasks, answer questions, and interact with its environment. Projects are the core building blocks of the obot chat interface.
+A project is a combination of an LLM, a set of instructions, and connectors to perform tasks, answer questions, and interact with its environment. Projects are the core building blocks of the Obot chat interface.
 
 ## Key Concepts
 
@@ -8,11 +8,12 @@ A project is an AI agent that combines an LLM, a set of instructions, and MCP Se
 
 Think of a project as a specialized AI assistant designed for specific tasks or domains. Each project can be customized with:
 
-- **Instructions (System Prompt)**: Define the agent's personality, goals, and behavior
+- **Instructions (System Prompt)**: Defines the agent's personality, goals, and behavior
 - **Knowledge**: Upload documents and data for the agent to reference
-- **Tools**: Enable specific capabilities through MCP server integrations
+- **Connectors**: Enable specific capabilities and integrations with external systems
 - **Model Configuration**: Choose which LLM providers and models to use
-- **Access Control**: Determine who can use and modify the project
+- **Access Control**: Determine who can use the project
+- **Memores**: Important information that will be given to the LLM across all threads in a project
 
 ### Memories
 

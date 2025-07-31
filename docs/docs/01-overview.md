@@ -12,7 +12,7 @@ To quickly view a demo environment, you can visit our [hosted version](https://c
 ## The Three Parts of Obot
 
 ### 🗣️ Chat
-The **Chat Interface** is where end users interact with AI agents (called Projects) through conversational chat. This is the primary user-facing component of obot that provides:
+The **Chat Interface** is where end users interact with AI agents (called Projects) through conversational chat. This is the primary user-facing component of Obot that provides:
 
 - **Projects**: Individual AI assistants that can be customized for specific tasks
 - **Threads**: Separate conversations within each project to maintain context
@@ -58,6 +58,6 @@ These three components create a powerful, integrated AI platform:
 For detailed installation instructions, please refer to our [Installation Guide](/installation/general).
 
 To understand each component in depth:
-- [Chat Interface Concepts](/concepts/chat/)
-- [MCP Gateway Concepts](/concepts/mcp-gateway/)  
-- [Admin Interface Concepts](/concepts/admin/)
+- [Chat Interface Concepts](/concepts/chat/overview)
+- [MCP Gateway Concepts](/concepts/mcp-gateway/overview)
+- [Admin Interface Concepts](/concepts/admin/overview)

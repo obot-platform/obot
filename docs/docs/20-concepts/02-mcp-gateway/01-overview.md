@@ -25,38 +25,6 @@ The obot MCP Gateway provides several key components:
 - **Token Management**: Store and refresh access tokens automatically
 - **Credential Isolation**: Separate credentials per user and thread
 
-## Core Concepts
-
-### MCP Servers
-
-### MCP Server Catalogs
-MCP server catalogs are collections of available MCP servers:
-- **Public Catalogs**: Community-maintained MCP server registries
-- **Private Catalogs**: Organization-specific and custom MCP server collections
-- **Verified Tools**: Recommended MCP servers for common use cases
-
-### Authentication Flows
-The MCP Gateway supports various authentication methods:
-- **OAuth 2.1**: For services like Google, Microsoft, GitHub, etc
-- **API Keys**: For simple token-based authentication
-- **Basic Auth**: Username/password combinations
-- **Custom Auth**: Specialized authentication schemes
-
-## Gateway Capabilities
-
-### Dynamic Tool Loading
-- **Runtime Discovery**: Find and connect to new MCP servers automatically
-- **Hot Swapping**: Add or remove tools without restarting
-- **Dependency Resolution**: Manage tool dependencies and conflicts
-
-### Monitoring & Observability
-- **Request Tracking**: Monitor all MCP interactions
-- **Performance Metrics**: Track response times and success rates
-- **Error Logging**: Detailed error reporting and debugging
-- **Audit Trails**: Complete record of tool usage for compliance
-
-## Security Considerations
-
 ### Credential Management
 - **Secure Storage**: Encrypted credential storage
 - **Scope Limitation**: Minimal required permissions
@@ -71,3 +39,9 @@ The MCP Gateway supports various authentication methods:
 - **User Isolation**: Separate credentials per user
 - **Role-Based Access**: Control which tools users can access
 - **Audit Compliance**: Meet security or regulatory requirements
+
+### Monitoring & Observability
+- **Request Tracking**: Monitor all MCP interactions
+- **Performance Metrics**: Track response times and success rates
+- **Error Logging**: Detailed error reporting and debugging
+- **Audit Trails**: Complete record of tool usage for compliance

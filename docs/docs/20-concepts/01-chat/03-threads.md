@@ -1,12 +1,12 @@
 # Threads
 
-Threads represent individual conversations within a project. They provide context isolation while sharing project resources like knowledge, memories, and files. Understanding threads is essential for effective collaboration and context management in obot.
+Threads represent individual conversations within a project. They provide context isolation while sharing project resources like knowledge, memories, and files. Understanding threads is essential for effective collaboration and context management in Obot.
 
-Threads provide the foundation for organized, collaborative AI agent interactions while maintaining clear separation between different conversations and users.
+Threads provide the foundation for organized, collaborative AI interactions while maintaining clear separation between different conversations and users.
 
 ## What are Threads?
 
-A thread is a single conversation stream between a user and an AI agent (project). Each thread maintains:
+A thread is a single conversation stream between a user and a project. This includes tasks, which are automated interactions within a project. Each thread maintains:
 
 - **Conversation History**: Complete record of messages and responses
 - **Context Isolation**: Separate from other threads in the same project
