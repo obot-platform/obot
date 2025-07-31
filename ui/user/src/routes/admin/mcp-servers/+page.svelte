@@ -215,92 +215,94 @@
 			{/if}
 		</div>
 
-		<Search
-			class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
-			onChange={(val) => (search = val)}
-			placeholder="Search servers..."
-		/>
+		<div class="flex flex-col gap-2">
+			<Search
+				class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+				onChange={(val) => (search = val)}
+				placeholder="Search servers..."
+			/>
 
-		{#if mcpServerAndEntries.loading}
-			<div class="my-2 flex items-center justify-center">
-				<LoaderCircle class="size-6 animate-spin" />
-			</div>
-		{:else if totalCount === 0}
-			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-				<Server class="size-24 text-gray-200 dark:text-gray-900" />
-				<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-					No created MCP servers
-				</h4>
-				<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-					Looks like you don't have any servers created yet. <br />
-					Click the button below to get started.
-				</p>
+			{#if mcpServerAndEntries.loading}
+				<div class="my-2 flex items-center justify-center">
+					<LoaderCircle class="size-6 animate-spin" />
+				</div>
+			{:else if totalCount === 0}
+				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+					<Server class="size-24 text-gray-200 dark:text-gray-900" />
+					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
+						No created MCP servers
+					</h4>
+					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+						Looks like you don't have any servers created yet. <br />
+						Click the button below to get started.
+					</p>
 
-				{@render addServerButton()}
-			</div>
-		{:else}
-			<Table
-				data={filteredTableData}
-				fields={['name', 'type', 'users', 'source']}
-				onSelectRow={(d) => {
-					if (d.type === 'single' || d.type === 'remote') {
-						goto(`/admin/mcp-servers/c/${d.id}`);
-					} else {
-						goto(`/admin/mcp-servers/s/${d.id}`);
-					}
-				}}
-				sortable={['name', 'type', 'users', 'source']}
-				noDataMessage="No catalog servers added."
-			>
-				{#snippet onRenderColumn(property, d)}
-					{#if property === 'name'}
-						<div class="flex flex-shrink-0 items-center gap-2">
-							<div
-								class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
-							>
-								{#if d.icon}
-									<img src={d.icon} alt={d.name} class="size-6" />
-								{:else}
-									<Server class="size-6" />
-								{/if}
+					{@render addServerButton()}
+				</div>
+			{:else}
+				<Table
+					data={filteredTableData}
+					fields={['name', 'type', 'users', 'source']}
+					onSelectRow={(d) => {
+						if (d.type === 'single' || d.type === 'remote') {
+							goto(`/admin/mcp-servers/c/${d.id}`);
+						} else {
+							goto(`/admin/mcp-servers/s/${d.id}`);
+						}
+					}}
+					sortable={['name', 'type', 'users', 'source']}
+					noDataMessage="No catalog servers added."
+				>
+					{#snippet onRenderColumn(property, d)}
+						{#if property === 'name'}
+							<div class="flex flex-shrink-0 items-center gap-2">
+								<div
+									class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
+								>
+									{#if d.icon}
+										<img src={d.icon} alt={d.name} class="size-6" />
+									{:else}
+										<Server class="size-6" />
+									{/if}
+								</div>
+								<p class="flex items-center gap-1">
+									{d.name}
+									{#if d.source !== 'manual'}
+										<span class="text-xs text-gray-500">({d.source.split('/').pop()})</span>{/if}
+								</p>
 							</div>
-							<p class="flex items-center gap-1">
-								{d.name}
-								{#if d.source !== 'manual'}
-									<span class="text-xs text-gray-500">({d.source.split('/').pop()})</span>{/if}
-							</p>
-						</div>
-					{:else if property === 'type'}
-						{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
-					{:else if property === 'source'}
-						{d.source === 'manual' ? 'Web Console' : d.source}
-					{:else}
-						{d[property as keyof typeof d]}
-					{/if}
-				{/snippet}
-				{#snippet actions(d)}
-					{#if d.editable}
-						<button
-							class="icon-button hover:text-red-500"
-							onclick={(e) => {
-								e.stopPropagation();
-								if (d.data.type === 'mcpserver') {
-									deletingServer = d.data as MCPCatalogServer;
-								} else {
-									deletingEntry = d.data as MCPCatalogEntry;
-								}
-							}}
-							use:tooltip={'Delete Entry'}
-						>
-							<Trash2 class="size-4" />
+						{:else if property === 'type'}
+							{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
+						{:else if property === 'source'}
+							{d.source === 'manual' ? 'Web Console' : d.source}
+						{:else}
+							{d[property as keyof typeof d]}
+						{/if}
+					{/snippet}
+					{#snippet actions(d)}
+						{#if d.editable}
+							<button
+								class="icon-button hover:text-red-500"
+								onclick={(e) => {
+									e.stopPropagation();
+									if (d.data.type === 'mcpserver') {
+										deletingServer = d.data as MCPCatalogServer;
+									} else {
+										deletingEntry = d.data as MCPCatalogEntry;
+									}
+								}}
+								use:tooltip={'Delete Entry'}
+							>
+								<Trash2 class="size-4" />
+							</button>
+						{/if}
+						<button class="icon-button hover:text-blue-500" use:tooltip={'View Entry'}>
+							<Eye class="size-4" />
 						</button>
-					{/if}
-					<button class="icon-button hover:text-blue-500" use:tooltip={'View Entry'}>
-						<Eye class="size-4" />
-					</button>
-				{/snippet}
-			</Table>
-		{/if}
+					{/snippet}
+				</Table>
+			{/if}
+		</div>
 
 		{#if defaultCatalog?.sourceURLs && defaultCatalog.sourceURLs.length > 0 && defaultCatalog.id}
 			<div class="flex flex-col gap-2" in:slide={{ axis: 'y', duration }}>

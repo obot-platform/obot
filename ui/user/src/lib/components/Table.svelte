@@ -40,11 +40,21 @@
 
 	let sortableFields = $derived(new Set(sortable));
 	let sortedBy = $state<{ property: string; order: 'asc' | 'desc' }>();
-	let sortedData = $derived(
-		sortedBy
+	let sortedData = $state<T[]>([]);
+
+	$effect(() => {
+		sortedData = sortedBy
 			? data.sort((a, b) => {
 					const aValue = a[sortedBy!.property as keyof T];
 					const bValue = b[sortedBy!.property as keyof T];
+
+					if (sortedBy?.property === 'created') {
+						const aDate = new Date(aValue as string);
+						const bDate = new Date(bValue as string);
+						return sortedBy!.order === 'asc'
+							? aDate.getTime() - bDate.getTime()
+							: bDate.getTime() - aDate.getTime();
+					}
 
 					if (typeof aValue === 'number' && typeof bValue === 'number') {
 						return sortedBy!.order === 'asc' ? aValue - bValue : bValue - aValue;
@@ -58,14 +68,14 @@
 
 					return 0;
 				})
-			: data
-	);
+			: data;
+	});
 </script>
 
 {#if sortedData.length > 0}
 	<div
 		class={twMerge(
-			'dark:bg-surface2 w-full overflow-hidden rounded-md bg-white shadow-sm',
+			'dark:bg-surface2 w-full overflow-hidden overflow-x-auto rounded-md bg-white shadow-sm',
 			classes?.root
 		)}
 	>
