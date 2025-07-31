@@ -819,8 +819,10 @@ func (a *AgentHandler) Script(req api.Context) error {
 		}
 	}
 
-	tools, extraEnv, err := render.Agent(req.Context(), a.tokenService, a.mcpSessionManager, req.Storage, &agent, req.User.GetUID(), a.serverURL, render.AgentOptions{
-		Thread: thread,
+	tools, extraEnv, err := render.Agent(req.Context(), a.tokenService, a.mcpSessionManager, req.Storage, &agent, a.serverURL, render.AgentOptions{
+		Thread:      thread,
+		UserID:      req.User.GetUID(),
+		UserIsAdmin: req.UserIsAdmin(),
 	})
 	if err != nil {
 		return err

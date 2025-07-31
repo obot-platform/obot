@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -25,14 +26,16 @@ type ProjectMCPHandler struct {
 	mcpSessionManager *mcp.SessionManager
 	mcpOAuthChecker   MCPOAuthChecker
 	acrHelper         *accesscontrolrule.Helper
+	tokenService      *jwt.TokenService
 	serverURL         string
 }
 
-func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, serverURL string) *ProjectMCPHandler {
+func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, tokenService *jwt.TokenService, mcpOAuthChecker MCPOAuthChecker, serverURL string) *ProjectMCPHandler {
 	return &ProjectMCPHandler{
 		mcpSessionManager: mcpLoader,
 		mcpOAuthChecker:   mcpOAuthChecker,
 		acrHelper:         acrHelper,
+		tokenService:      tokenService,
 		serverURL:         serverURL,
 	}
 }
@@ -275,17 +278,28 @@ func (p *ProjectMCPHandler) GetTools(req api.Context) error {
 		return err
 	}
 
-	var (
-		server       v1.MCPServer
-		serverConfig mcp.ServerConfig
-	)
-	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
-		server, serverConfig, err = ServerFromMCPServerInstance(req, projectServer.Spec.Manifest.MCPID)
-	} else {
-		server, serverConfig, err = ServerForActionWithID(req, projectServer.Spec.Manifest.MCPID)
+	if strings.Replace(projectServer.Spec.ThreadName, system.ThreadPrefix, system.ProjectPrefix, 1) != req.PathValue("project_id") {
+		return types.NewErrNotFound("project %s not found", req.PathValue("project_id"))
 	}
-	if err != nil {
+
+	mcpServerName := projectServer.Spec.Manifest.MCPID
+	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
+		var mcpServerInstance v1.MCPServerInstance
+		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+			return err
+		}
+
+		mcpServerName = mcpServerInstance.Spec.MCPServerName
+	}
+
+	var server v1.MCPServer
+	if err = req.Get(&server, mcpServerName); err != nil {
 		return err
+	}
+
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	if err != nil {
+		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
 	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
@@ -332,17 +346,17 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 		return err
 	}
 
-	var projectMCPServer v1.ProjectMCPServer
-	if err = req.Get(&projectMCPServer, req.PathValue("project_mcp_server_id")); err != nil {
+	var projectServer v1.ProjectMCPServer
+	if err = req.Get(&projectServer, req.PathValue("project_mcp_server_id")); err != nil {
 		return err
 	}
 
-	var (
-		mcpServer v1.MCPServer
+	if strings.Replace(projectServer.Spec.ThreadName, system.ThreadPrefix, system.ProjectPrefix, 1) != req.PathValue("project_id") {
+		return types.NewErrNotFound("project %s not found", req.PathValue("project_id"))
+	}
 
-		mcpServerName = projectMCPServer.Spec.Manifest.MCPID
-	)
-	if system.IsMCPServerInstanceID(projectMCPServer.Spec.Manifest.MCPID) {
+	mcpServerName := projectServer.Spec.Manifest.MCPID
+	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
 		var mcpServerInstance v1.MCPServerInstance
 		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
 			return err
@@ -351,8 +365,14 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 		mcpServerName = mcpServerInstance.Spec.MCPServerName
 	}
 
-	if err = req.Get(&mcpServer, mcpServerName); err != nil {
+	var server v1.MCPServer
+	if err = req.Get(&server, mcpServerName); err != nil {
 		return err
+	}
+
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	if err != nil {
+		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
 	var tools []string
@@ -366,27 +386,27 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 	}
 
 	credCtxs := []string{
-		fmt.Sprintf("%s-%s", project.Name, projectMCPServer.Name),
+		fmt.Sprintf("%s-%s", project.Name, projectServer.Name),
 	}
 	if project.IsSharedProject() {
 		// Add default credentials shared by the agent for this MCP server if available.
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", projectMCPServer.Spec.ThreadName, projectMCPServer.Name))
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", projectServer.Spec.ThreadName, projectServer.Name))
 	}
 
-	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, projectMCPServer.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, projectServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
-	serverConfig, missingRequiredNames, err := mcp.ServerToServerConfig(mcpServer, project.Name, cred.Env, tools...)
+	_, missingRequiredNames, err := mcp.ServerToServerConfig(server, project.Name, cred.Env, tools...)
 	if err != nil {
 		return fmt.Errorf("failed to get server config: %w", err)
 	}
 
 	if len(missingRequiredNames) > 0 {
-		return types.NewErrBadRequest("MCP server %s is missing required parameters: %s", projectMCPServer.Name, strings.Join(missingRequiredNames, ", "))
+		return types.NewErrBadRequest("MCP server %s is missing required parameters: %s", projectServer.Name, strings.Join(missingRequiredNames, ", "))
 	}
 
-	mcpTools, err := toolsForServer(req.Context(), p.mcpSessionManager, req.User.GetUID(), mcpServer, serverConfig, tools)
+	mcpTools, err := toolsForServer(req.Context(), p.mcpSessionManager, req.User.GetUID(), server, serverConfig, tools)
 	if err != nil {
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
@@ -399,17 +419,17 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 	}
 
 	if slices.Contains(tools, "*") {
-		thread.Spec.Manifest.AllowedMCPTools[projectMCPServer.Name] = []string{"*"}
+		thread.Spec.Manifest.AllowedMCPTools[projectServer.Name] = []string{"*"}
 	} else {
 		for _, t := range tools {
 			if !slices.ContainsFunc(mcpTools, func(tool types.MCPServerTool) bool {
 				return tool.ID == t
 			}) {
-				return types.NewErrBadRequest("tool %q is not a recognized tool for MCP server %q", t, projectMCPServer.Name)
+				return types.NewErrBadRequest("tool %q is not a recognized tool for MCP server %q", t, projectServer.Name)
 			}
 		}
 
-		thread.Spec.Manifest.AllowedMCPTools[projectMCPServer.Name] = tools
+		thread.Spec.Manifest.AllowedMCPTools[projectServer.Name] = tools
 	}
 
 	if err = req.Update(thread); err != nil {
@@ -426,17 +446,28 @@ func (p *ProjectMCPHandler) GetResources(req api.Context) error {
 		return err
 	}
 
-	var (
-		server       v1.MCPServer
-		serverConfig mcp.ServerConfig
-	)
-	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
-		server, serverConfig, err = ServerFromMCPServerInstance(req, projectServer.Spec.Manifest.MCPID)
-	} else {
-		server, serverConfig, err = ServerForActionWithID(req, projectServer.Spec.Manifest.MCPID)
+	if strings.Replace(projectServer.Spec.ThreadName, system.ThreadPrefix, system.ProjectPrefix, 1) != req.PathValue("project_id") {
+		return types.NewErrNotFound("project %s not found", req.PathValue("project_id"))
 	}
-	if err != nil {
+
+	mcpServerName := projectServer.Spec.Manifest.MCPID
+	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
+		var mcpServerInstance v1.MCPServerInstance
+		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+			return err
+		}
+
+		mcpServerName = mcpServerInstance.Spec.MCPServerName
+	}
+
+	var server v1.MCPServer
+	if err = req.Get(&server, mcpServerName); err != nil {
 		return err
+	}
+
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	if err != nil {
+		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
 	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
@@ -474,17 +505,28 @@ func (p *ProjectMCPHandler) ReadResource(req api.Context) error {
 		return err
 	}
 
-	var (
-		server       v1.MCPServer
-		serverConfig mcp.ServerConfig
-	)
-	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
-		server, serverConfig, err = ServerFromMCPServerInstance(req, projectServer.Spec.Manifest.MCPID)
-	} else {
-		server, serverConfig, err = ServerForActionWithID(req, projectServer.Spec.Manifest.MCPID)
+	if strings.Replace(projectServer.Spec.ThreadName, system.ThreadPrefix, system.ProjectPrefix, 1) != req.PathValue("project_id") {
+		return types.NewErrNotFound("project %s not found", req.PathValue("project_id"))
 	}
-	if err != nil {
+
+	mcpServerName := projectServer.Spec.Manifest.MCPID
+	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
+		var mcpServerInstance v1.MCPServerInstance
+		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+			return err
+		}
+
+		mcpServerName = mcpServerInstance.Spec.MCPServerName
+	}
+
+	var server v1.MCPServer
+	if err = req.Get(&server, mcpServerName); err != nil {
 		return err
+	}
+
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	if err != nil {
+		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
 	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
@@ -522,17 +564,28 @@ func (p *ProjectMCPHandler) GetPrompts(req api.Context) error {
 		return err
 	}
 
-	var (
-		server       v1.MCPServer
-		serverConfig mcp.ServerConfig
-	)
-	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
-		server, serverConfig, err = ServerFromMCPServerInstance(req, projectServer.Spec.Manifest.MCPID)
-	} else {
-		server, serverConfig, err = ServerForActionWithID(req, projectServer.Spec.Manifest.MCPID)
+	if strings.Replace(projectServer.Spec.ThreadName, system.ThreadPrefix, system.ProjectPrefix, 1) != req.PathValue("project_id") {
+		return types.NewErrNotFound("project %s not found", req.PathValue("project_id"))
 	}
-	if err != nil {
+
+	mcpServerName := projectServer.Spec.Manifest.MCPID
+	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
+		var mcpServerInstance v1.MCPServerInstance
+		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+			return err
+		}
+
+		mcpServerName = mcpServerInstance.Spec.MCPServerName
+	}
+
+	var server v1.MCPServer
+	if err = req.Get(&server, mcpServerName); err != nil {
 		return err
+	}
+
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	if err != nil {
+		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
 	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
@@ -570,17 +623,28 @@ func (p *ProjectMCPHandler) GetPrompt(req api.Context) error {
 		return err
 	}
 
-	var (
-		server       v1.MCPServer
-		serverConfig mcp.ServerConfig
-	)
-	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
-		server, serverConfig, err = ServerFromMCPServerInstance(req, projectServer.Spec.Manifest.MCPID)
-	} else {
-		server, serverConfig, err = ServerForActionWithID(req, projectServer.Spec.Manifest.MCPID)
+	if strings.Replace(projectServer.Spec.ThreadName, system.ThreadPrefix, system.ProjectPrefix, 1) != req.PathValue("project_id") {
+		return types.NewErrNotFound("project %s not found", req.PathValue("project_id"))
 	}
-	if err != nil {
+
+	mcpServerName := projectServer.Spec.Manifest.MCPID
+	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
+		var mcpServerInstance v1.MCPServerInstance
+		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+			return err
+		}
+
+		mcpServerName = mcpServerInstance.Spec.MCPServerName
+	}
+
+	var server v1.MCPServer
+	if err = req.Get(&server, mcpServerName); err != nil {
 		return err
+	}
+
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	if err != nil {
+		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
 	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)

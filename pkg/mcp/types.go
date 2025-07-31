@@ -6,6 +6,7 @@ import (
 
 	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/jwt"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
@@ -99,10 +100,14 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 	return serverConfig, missingRequiredNames, nil
 }
 
-func ProjectServerToConfig(tokenService *jwt.TokenService, projectMCPServer v1.ProjectMCPServer, baseURL, userID string, allowedTools ...string) (ServerConfig, error) {
-	token, err := tokenService.NewToken(jwt.TokenContext{
+func ProjectServerToConfig(tokenService *jwt.TokenService, projectMCPServer v1.ProjectMCPServer, baseURL, userID string, userIsAdmin bool, allowedTools ...string) (ServerConfig, error) {
+	tokenContext := jwt.TokenContext{
 		UserID: userID,
-	})
+	}
+	if userIsAdmin {
+		tokenContext.UserGroups = []string{authz.AdminGroup}
+	}
+	token, err := tokenService.NewToken(tokenContext)
 	if err != nil {
 		return ServerConfig{}, fmt.Errorf("failed to create token: %w", err)
 	}

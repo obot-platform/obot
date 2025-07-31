@@ -35,6 +35,8 @@ var DefaultAgentParams = []string{
 type AgentOptions struct {
 	Thread         *v1.Thread
 	WorkflowStepID string
+	UserID         string
+	UserIsAdmin    bool
 }
 
 func stringAppend(first string, second ...string) string {
@@ -47,7 +49,7 @@ func stringAppend(first string, second ...string) string {
 	return strings.Join(append([]string{first}, second...), "\n\n")
 }
 
-func Agent(ctx context.Context, tokenService *jwt.TokenService, mcpSessionManager *mcp.SessionManager, db kclient.Client, agent *v1.Agent, userID, serverURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
+func Agent(ctx context.Context, tokenService *jwt.TokenService, mcpSessionManager *mcp.SessionManager, db kclient.Client, agent *v1.Agent, serverURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
 	defer func() {
 		sort.Strings(extraEnv)
 	}()
@@ -162,7 +164,7 @@ func Agent(ctx context.Context, tokenService *jwt.TokenService, mcpSessionManage
 			}
 			mcpDisplayName = mcpServer.Spec.Manifest.Name
 
-			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, tokenService, projectMCPServer, userID, mcpDisplayName, serverURL, allowedTools)
+			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, tokenService, projectMCPServer, opts.UserID, mcpDisplayName, serverURL, opts.UserIsAdmin, allowedTools)
 			if err != nil {
 				return nil, nil, err
 			}

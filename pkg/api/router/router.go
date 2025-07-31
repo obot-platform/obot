@@ -53,7 +53,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	images := handlers.NewImageHandler(services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler()
 	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
-	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
+	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.TokenServer, oauthChecker, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.TokenServer, services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()

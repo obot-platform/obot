@@ -191,6 +191,7 @@ type Options struct {
 	CreateThread          bool
 	CredentialContextIDs  []string
 	UserUID               string
+	UserIsAdmin           bool
 	GenerateName          string
 	ExtraEnv              []string
 }
@@ -367,9 +368,10 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		}
 	}
 
-	tools, extraEnv, err := render.Agent(ctx, i.tokenService, i.mcpSessionManager, c, agent, opt.UserUID, i.serverURL, render.AgentOptions{
+	tools, extraEnv, err := render.Agent(ctx, i.tokenService, i.mcpSessionManager, c, agent, i.serverURL, render.AgentOptions{
 		Thread:         thread,
 		WorkflowStepID: opt.WorkflowStepID,
+		UserID:         opt.UserUID,
 	})
 	if err != nil {
 		return nil, err
