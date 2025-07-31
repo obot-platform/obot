@@ -22,7 +22,7 @@
 		topContent?: Snippet;
 		filter?: MCPFilter;
 		onCreate?: (filter?: MCPFilter) => void;
-		onUpdate?: (filter: MCPFilter) => void;
+		onUpdate?: (filter?: MCPFilter) => void;
 	}
 
 	let { topContent, filter: initialFilter, onCreate, onUpdate }: Props = $props();
@@ -405,7 +405,11 @@
 			<button
 				class="button text-sm"
 				onclick={() => {
-					onCreate?.(undefined);
+					if (initialFilter) {
+						onUpdate?.(undefined);
+					} else {
+						onCreate?.(undefined);
+					}
 				}}
 			>
 				Cancel
