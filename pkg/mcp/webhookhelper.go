@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -69,7 +70,7 @@ func appendWebhooks(ctx context.Context, gptClient *gptscript.GPTScript, namespa
 			if credEnv == nil {
 				// Only reveal the credential once
 				cred, err := gptClient.RevealCredential(ctx, []string{system.MCPWebhookValidationCredentialContext}, res.Name)
-				if err != nil {
+				if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 					continue
 				}
 
