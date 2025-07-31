@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -61,19 +62,23 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		db = db.Where("processing_time_ms <= ?", opts.ProcessingTimeMax)
 	}
 	if !opts.StartTime.IsZero() {
-		db = db.Where("created_at >= ?", opts.StartTime)
+		db = db.Where("created_at >= ?", opts.StartTime.Local())
 	}
 	if !opts.EndTime.IsZero() {
-		db = db.Where("created_at < ?", opts.EndTime)
+		db = db.Where("created_at < ?", opts.EndTime.Local())
 	}
 
 	// Apply text search across multiple fields
 	if opts.Query != "" {
 		searchTerm := "%" + opts.Query + "%"
-		db = db.Where(`user_id ILIKE ? OR mcp_id ILIKE ? OR mcp_server_display_name ILIKE ? OR 
-			mcp_server_catalog_entry_name ILIKE ? OR client_name ILIKE ? OR client_version ILIKE ? OR 
-			client_ip ILIKE ? OR call_type ILIKE ? OR call_identifier ILIKE ? OR error ILIKE ? OR 
-			session_id ILIKE ? OR request_id ILIKE ? OR user_agent ILIKE ?`,
+		like := "LIKE"
+		if db.Name() == "postgres" {
+			like = "ILIKE"
+		}
+		db = db.Where(fmt.Sprintf(`user_id %[1]s ? OR mcp_id %[1]s ? OR mcp_server_display_name %[1]s ? OR 
+			mcp_server_catalog_entry_name %[1]s ? OR client_name %[1]s ? OR client_version %[1]s ? OR 
+			client_ip %[1]s ? OR call_type %[1]s ? OR call_identifier %[1]s ? OR error %[1]s ? OR 
+			session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`, like),
 			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm,
 			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm)
 	}
@@ -279,19 +284,23 @@ func (c *Client) CountMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions)
 		db = db.Where("processing_time_ms <= ?", opts.ProcessingTimeMax)
 	}
 	if !opts.StartTime.IsZero() {
-		db = db.Where("created_at >= ?", opts.StartTime)
+		db = db.Where("created_at >= ?", opts.StartTime.Local())
 	}
 	if !opts.EndTime.IsZero() {
-		db = db.Where("created_at < ?", opts.EndTime)
+		db = db.Where("created_at < ?", opts.EndTime.Local())
 	}
 
 	// Apply text search across multiple fields
 	if opts.Query != "" {
 		searchTerm := "%" + opts.Query + "%"
-		db = db.Where(`user_id ILIKE ? OR mcp_id ILIKE ? OR mcp_server_display_name ILIKE ? OR 
-			mcp_server_catalog_entry_name ILIKE ? OR client_name ILIKE ? OR client_version ILIKE ? OR 
-			client_ip ILIKE ? OR call_type ILIKE ? OR call_identifier ILIKE ? OR error ILIKE ? OR 
-			session_id ILIKE ? OR request_id ILIKE ? OR user_agent ILIKE ?`,
+		like := "LIKE"
+		if db.Name() == "postgres" {
+			like = "ILIKE"
+		}
+		db = db.Where(fmt.Sprintf(`user_id %[1]s ? OR mcp_id %[1]s ? OR mcp_server_display_name %[1]s ? OR 
+			mcp_server_catalog_entry_name %[1]s ? OR client_name %[1]s ? OR client_version %[1]s ? OR 
+			client_ip %[1]s ? OR call_type %[1]s ? OR call_identifier %[1]s ? OR error %[1]s ? OR 
+			session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`, like),
 			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm,
 			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm)
 	}
