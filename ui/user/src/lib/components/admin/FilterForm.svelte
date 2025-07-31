@@ -226,7 +226,7 @@
 									placement: 'top-end'
 								}}
 							>
-								{#if !initialFilter}
+								{#if filter.secret}
 									{#if showSecret}
 										<EyeOff class="size-4" />
 									{:else}
