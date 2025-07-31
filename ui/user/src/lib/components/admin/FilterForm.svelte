@@ -435,9 +435,12 @@
 							secret: filter.secret || undefined,
 							selectors:
 								filter.selectors.length > 0
-									? filter.selectors.filter(
-											(s) => s.method || (s.identifiers && s.identifiers.some((id) => id.trim()))
-										)
+									? filter.selectors
+											.map((s) => ({
+												...s,
+												identifiers: s.identifiers?.filter((id) => id.trim()) || []
+											}))
+											.filter((s) => s.method || (s.identifiers && s.identifiers.length > 0))
 									: undefined
 						};
 
