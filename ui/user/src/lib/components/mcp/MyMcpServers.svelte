@@ -14,7 +14,7 @@
 	import type { LaunchFormData } from './CatalogConfigureForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ChevronLeft, ChevronRight, LoaderCircle, ServerIcon } from 'lucide-svelte';
-	import type { Snippet } from 'svelte';
+	import { tick, type Snippet } from 'svelte';
 	import McpCard from './McpCard.svelte';
 	import Search from '../Search.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -326,6 +326,13 @@
 		}
 	}
 
+	async function handleSelectCard(item: Entry | Server | ConnectedServer) {
+		showServerInfo = true;
+		selectedEntryOrServer = item;
+		await tick();
+		document.getElementsByTagName('main')[0].scrollTo({ top: 0, behavior: 'instant' });
+	}
+
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
@@ -367,8 +374,7 @@
 										if (onConnectedServerCardClick) {
 											onConnectedServerCardClick(connectedServer);
 										} else {
-											showServerInfo = true;
-											selectedEntryOrServer = connectedServer;
+											handleSelectCard(connectedServer);
 										}
 									}}
 								>
@@ -403,8 +409,7 @@
 						<McpCard
 							data={item}
 							onClick={() => {
-								showServerInfo = true;
-								selectedEntryOrServer = item;
+								handleSelectCard(item);
 							}}
 						/>
 					{/each}

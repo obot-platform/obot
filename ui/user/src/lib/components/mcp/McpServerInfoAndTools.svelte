@@ -33,7 +33,7 @@
 	});
 </script>
 
-<div class="gap-4mb-8 flex h-full w-full flex-col">
+<div class="flex h-full w-full flex-col gap-4">
 	<div class="flex grow flex-col gap-2">
 		<div class="flex w-full items-center gap-2">
 			<div class="flex gap-2 py-1 text-sm font-light">

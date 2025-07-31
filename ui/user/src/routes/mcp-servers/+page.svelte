@@ -34,6 +34,7 @@
 	}>();
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let showAllServersConfigDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let myMcpServers = $state<ReturnType<typeof MyMcpServers>>();
 	let selectedCategory = $state('');
 
 	let convertedEntries: (MCPCatalogEntry & { categories: string[] })[] = $derived(
@@ -160,6 +161,7 @@
 							class:!border-blue-500={category === selectedCategory}
 							onclick={() => {
 								selectedCategory = category;
+								myMcpServers?.reset();
 							}}
 						>
 							{category}
@@ -168,9 +170,12 @@
 				{/each}
 			</ul>
 		{/if}
-		<div class="flex w-full flex-col gap-8 pt-4" in:fade>
-			<h1 class="text-2xl font-semibold">My Connectors</h1>
+		<div class="flex w-full flex-col gap-8 overflow-x-hidden pt-4" in:fade>
+			<h1 class="text-2xl font-semibold">
+				{selectedCategory ? selectedCategory : 'My Connectors'}
+			</h1>
 			<MyMcpServers
+				bind:this={myMcpServers}
 				{userServerInstances}
 				userConfiguredServers={convertedUserConfiguredServers}
 				servers={convertedServers}
