@@ -191,37 +191,41 @@
 			position === 'bottom' && '-translate-y-full'
 		)}
 	>
-		{#each availableOptions as option (option.id)}
-			{@const isSelected = selectedValues.some((d) => d === option.id)}
+		{#if availableOptions.length === 0}
+			<div class="px-4 py-2 font-light text-gray-400 dark:text-gray-600">No options available</div>
+		{:else}
+			{#each availableOptions as option (option.id)}
+				{@const isSelected = selectedValues.some((d) => d === option.id)}
 
-			<button
-				class={twMerge(
-					'dark:hover:bg-surface3 hover:bg-surface2 text-md flex w-full items-center px-4 py-2 text-left break-all transition-colors duration-100',
-					isSelected && 'dark:bg-surface1 bg-surface2',
-					classes?.option
-				)}
-				onclick={(e) => {
-					e.stopPropagation();
+				<button
+					class={twMerge(
+						'dark:hover:bg-surface3 hover:bg-surface2 text-md flex w-full items-center px-4 py-2 text-left break-all transition-colors duration-100',
+						isSelected && 'dark:bg-surface1 bg-surface2',
+						classes?.option
+					)}
+					onclick={(e) => {
+						e.stopPropagation();
 
-					const key = option.id.toString();
+						const key = option.id.toString();
 
-					if (isSelected) {
-						selected = selectedValues.filter((d) => d !== key).join(',');
-					} else {
-						selected = [key, ...selectedValues].join(',');
-					}
+						if (isSelected) {
+							selected = selectedValues.filter((d) => d !== key).join(',');
+						} else {
+							selected = [key, ...selectedValues].join(',');
+						}
 
-					onSelect(option, selected);
+						onSelect(option, selected);
 
-					popover?.close();
-				}}
-			>
-				<div>{option.label}</div>
+						popover?.close();
+					}}
+				>
+					<div>{option.label}</div>
 
-				{#if multiple && isSelected}
-					<Check class="ml-auto size-4" />
-				{/if}
-			</button>
-		{/each}
+					{#if multiple && isSelected}
+						<Check class="ml-auto size-4" />
+					{/if}
+				</button>
+			{/each}
+		{/if}
 	</dialog>
 </div>
