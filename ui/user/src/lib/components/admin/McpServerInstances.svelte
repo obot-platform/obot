@@ -203,7 +203,7 @@
 							{/if}
 						</span>
 					{:else if property === 'userID'}
-						{@const user = usersMap.get(d[property] as string)}'
+						{@const user = usersMap.get(d[property] as string)}
 						<span class="flex items-center gap-1">
 							{user?.email || user?.username || 'Unknown'}
 							{#if type === 'single'}
