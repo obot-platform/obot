@@ -204,7 +204,7 @@
 			return;
 		}
 
-		const url = configureForm?.url ?? entry.manifest.remoteConfig?.fixedURL;
+		const url = configureForm?.url || entry.manifest.remoteConfig?.fixedURL;
 		try {
 			const response = await ChatService.createSingleOrRemoteMcpServer({
 				catalogEntryID: entry.id,
