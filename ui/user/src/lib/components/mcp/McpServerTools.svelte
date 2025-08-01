@@ -51,7 +51,7 @@
 	let allParamsEnabled = $state(false);
 
 	// Determine if we have "real" tools or should show previews
-	let hasConnectedServer = $derived('manifest' in entry || 'mcpID' in entry);
+	let hasConnectedServer = $derived('sharedWithinCatalogName' in entry || 'mcpID' in entry);
 	let showRealTools = $derived(hasConnectedServer && tools.length > 0);
 	let showPreviewTools = $derived(
 		previewTools.length > 0 && (!hasConnectedServer || (loading && tools.length === 0))
@@ -98,7 +98,7 @@
 	$effect(() => {
 		if (
 			entry &&
-			('manifest' in entry || 'mcpID' in entry) &&
+			('sharedWithinCatalogName' in entry || 'mcpID' in entry) &&
 			(!previousEntryId || entry.id !== previousEntryId)
 		) {
 			previousEntryId = entry.id;
@@ -385,7 +385,7 @@
 					<Wrench class="size-24 text-gray-200 dark:text-gray-900" />
 					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No tools</h4>
 					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-						{#if !entry || 'manifest' in entry}
+						{#if !entry || 'sharedWithinCatalogName' in entry}
 							Looks like this MCP server doesn't have any tools available.
 						{:else}
 							Connection to to the server is required to list available tools.
