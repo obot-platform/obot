@@ -1,11 +1,13 @@
 package authz
 
 import (
+	"context"
 	"maps"
 	"net/http"
 	"slices"
 
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -118,16 +120,18 @@ var devModeRules = map[string][]string{
 
 type Authorizer struct {
 	rules        []rule
-	storage      kclient.Client
+	cache        kclient.Client
+	uncached     kclient.Client
 	apiResources *pathMatcher
 	uiResources  *pathMatcher
 	acrHelper    *accesscontrolrule.Helper
 }
 
-func NewAuthorizer(storage kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper) *Authorizer {
+func NewAuthorizer(cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper) *Authorizer {
 	return &Authorizer{
 		rules:        defaultRules(devMode),
-		storage:      storage,
+		cache:        cache,
+		uncached:     uncached,
 		apiResources: newPathMatcher(apiResources...),
 		uiResources:  newPathMatcher(uiResources...),
 		acrHelper:    acrHelper,
@@ -145,6 +149,14 @@ func (a *Authorizer) Authorize(req *http.Request, user user.Info) bool {
 	}
 
 	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
+}
+
+func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+	err := a.cache.Get(ctx, key, obj, opts...)
+	if apierrors.IsNotFound(err) {
+		err = a.uncached.Get(ctx, key, obj, opts...)
+	}
+	return err
 }
 
 type rule struct {

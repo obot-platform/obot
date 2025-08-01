@@ -18,7 +18,7 @@ func (a *Authorizer) checkTask(req *http.Request, resources *Resources, _ user.I
 		workflow v1.Workflow
 	)
 
-	if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, resources.TaskID), &workflow); err != nil {
+	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.TaskID), &workflow); err != nil {
 		return false, err
 	}
 

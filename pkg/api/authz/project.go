@@ -25,7 +25,7 @@ func (a *Authorizer) checkProject(req *http.Request, resources *Resources, user 
 		projectThreadID = strings.Replace(resources.ProjectID, system.ProjectPrefix, system.ThreadPrefix, 1)
 	)
 
-	if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, projectThreadID), &thread); err != nil {
+	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, projectThreadID), &thread); err != nil {
 		return false, err
 	}
 
@@ -59,7 +59,7 @@ func (a *Authorizer) projectIsAuthorized(ctx context.Context, agentID string, th
 
 	for _, userID := range validUserIDs {
 		var access v1.ThreadAuthorizationList
-		err := a.storage.List(ctx, &access, kclient.InNamespace(system.DefaultNamespace), kclient.MatchingFields{
+		err := a.cache.List(ctx, &access, kclient.InNamespace(system.DefaultNamespace), kclient.MatchingFields{
 			"spec.userID":   userID,
 			"spec.threadID": thread.Name,
 		})

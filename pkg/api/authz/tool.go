@@ -21,7 +21,7 @@ func (a *Authorizer) checkTools(req *http.Request, resources *Resources, _ user.
 	}
 
 	var tool v1.Tool
-	if err := a.storage.Get(req.Context(), router.Key(resources.Authorizated.Project.Namespace,
+	if err := a.get(req.Context(), router.Key(resources.Authorizated.Project.Namespace,
 		resources.ToolID), &tool); err != nil {
 		return false, err
 	}

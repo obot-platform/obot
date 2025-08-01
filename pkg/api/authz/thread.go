@@ -19,7 +19,7 @@ func (a *Authorizer) checkThread(req *http.Request, resources *Resources, user u
 		thread v1.Thread
 	)
 
-	if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, resources.ThreadID), &thread); err != nil {
+	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.ThreadID), &thread); err != nil {
 		return false, err
 	}
 

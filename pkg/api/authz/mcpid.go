@@ -17,7 +17,7 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user us
 
 	if strings.HasPrefix(resources.MCPID, system.MCPServerInstancePrefix) {
 		var mcpServerInstance v1.MCPServerInstance
-		if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, resources.MCPID), &mcpServerInstance); err != nil {
+		if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.MCPID), &mcpServerInstance); err != nil {
 			return false, err
 		}
 
@@ -25,7 +25,7 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user us
 	}
 
 	var mcpServer v1.MCPServer
-	if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, resources.MCPID), &mcpServer); err != nil {
+	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.MCPID), &mcpServer); err != nil {
 		return false, err
 	}
 

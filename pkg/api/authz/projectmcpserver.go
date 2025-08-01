@@ -15,7 +15,7 @@ func (a *Authorizer) checkProjectMCPServer(req *http.Request, resources *Resourc
 	}
 
 	var projectMCPServer v1.ProjectMCPServer
-	if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, resources.ProjectMCPServerID), &projectMCPServer); err != nil {
+	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.ProjectMCPServerID), &projectMCPServer); err != nil {
 		return false, err
 	}
 

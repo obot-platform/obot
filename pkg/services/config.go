@@ -621,7 +621,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			gatewayClient,
 			gptscriptClient,
 			authn.NewAuthenticator(authenticators),
-			authz.NewAuthorizer(r.Backend(), config.DevMode, acrHelper),
+			authz.NewAuthorizer(r.Backend(), storageClient, config.DevMode, acrHelper),
 			proxyManager,
 			auditLogger,
 			rateLimiter,

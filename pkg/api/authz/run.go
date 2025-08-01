@@ -22,7 +22,7 @@ func (a *Authorizer) checkRun(req *http.Request, resources *Resources, _ user.In
 		wfe v1.WorkflowExecution
 	)
 
-	if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, resources.RunID), &wfe); err != nil {
+	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.RunID), &wfe); err != nil {
 		return false, err
 	}
 

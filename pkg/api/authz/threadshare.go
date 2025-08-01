@@ -19,7 +19,7 @@ func (a *Authorizer) checkThreadShare(req *http.Request, resources *Resources, u
 		threadShareList v1.ThreadShareList
 	)
 
-	err := a.storage.List(req.Context(), &threadShareList, kclient.InNamespace(system.DefaultNamespace), kclient.MatchingFields{
+	err := a.cache.List(req.Context(), &threadShareList, kclient.InNamespace(system.DefaultNamespace), kclient.MatchingFields{
 		"spec.publicID": resources.ThreadShareID,
 	})
 	if err != nil {

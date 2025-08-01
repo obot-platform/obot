@@ -22,7 +22,7 @@ func (a *Authorizer) checkWorkflow(req *http.Request, resources *Resources, _ us
 		workflow v1.Workflow
 	)
 
-	if err := a.storage.Get(req.Context(), router.Key(system.DefaultNamespace, resources.WorkflowID), &workflow); err != nil {
+	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.WorkflowID), &workflow); err != nil {
 		return false, err
 	}
 

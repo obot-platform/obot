@@ -6,6 +6,7 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -33,11 +34,15 @@ func (a *Authorizer) checkAssistant(req *http.Request, resources *Resources, _ u
 	)
 
 	if !system.IsAgentID(agentID) {
-		if err := alias.Get(req.Context(), a.storage, &agent, "", agentID); err != nil {
+		if err := alias.Get(req.Context(), a.cache, &agent, "", agentID); apierrors.IsNotFound(err) {
+			if err = alias.Get(req.Context(), a.uncached, &agent, "", agentID); err != nil {
+				return false, err
+			}
+		} else if err != nil {
 			return false, err
 		}
 	} else {
-		if err := a.storage.Get(req.Context(), client.ObjectKey{Name: agentID, Namespace: system.DefaultNamespace}, &agent); err != nil {
+		if err := a.get(req.Context(), client.ObjectKey{Name: agentID, Namespace: system.DefaultNamespace}, &agent); err != nil {
 			return false, err
 		}
 	}
