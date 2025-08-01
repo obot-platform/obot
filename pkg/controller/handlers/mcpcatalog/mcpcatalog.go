@@ -29,6 +29,14 @@ import (
 
 var log = logger.Package()
 
+const (
+	// These are used to force catalog sync on startup, used for times when changes are made to
+	// catalogs, and they must be synced on the next start.
+	forceSyncStartupAnnotation = "obot.ai/force-sync-startup"
+	// Bump this any time this functionality is needed.
+	startupSyncGeneration = "1"
+)
+
 type Handler struct {
 	defaultCatalogPath      string
 	gatewayClient           *gclient.Client
@@ -46,7 +54,7 @@ func New(defaultCatalogPath string, gatewayClient *gclient.Client, accessControl
 func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog := req.Object.(*v1.MCPCatalog)
 
-	forceSync := mcpCatalog.Annotations[v1.MCPCatalogSyncAnnotation] == "true"
+	forceSync := mcpCatalog.Annotations[v1.MCPCatalogSyncAnnotation] == "true" || mcpCatalog.Annotations[forceSyncStartupAnnotation] != startupSyncGeneration
 	if !forceSync && !mcpCatalog.Status.LastSyncTime.IsZero() {
 		timeSinceLastSync := time.Since(mcpCatalog.Status.LastSyncTime.Time)
 		if timeSinceLastSync < time.Hour {
@@ -76,6 +84,10 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}
 	if forceSync {
 		delete(mcpCatalog.Annotations, v1.MCPCatalogSyncAnnotation)
+		if mcpCatalog.Annotations == nil {
+			mcpCatalog.Annotations = make(map[string]string, 1)
+		}
+		mcpCatalog.Annotations[forceSyncStartupAnnotation] = startupSyncGeneration
 		if err := req.Client.Update(req.Ctx, mcpCatalog); err != nil {
 			return fmt.Errorf("failed to update catalog: %w", err)
 		}
