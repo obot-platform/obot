@@ -331,10 +331,7 @@
 							<div class="flex flex-shrink-0 items-center gap-2">
 								<button
 									class="icon-button h-fit min-h-auto w-fit min-w-auto flex-shrink-0 p-1"
-									onclick={() => {
-										console.log(tool);
-										handleToggleDescription(tool.id);
-									}}
+									onclick={() => handleToggleDescription(tool.id)}
 								>
 									{#if expandedDescriptions[tool.id]}
 										<ChevronUp class="size-4" />
