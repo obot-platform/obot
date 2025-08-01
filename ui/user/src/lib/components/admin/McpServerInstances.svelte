@@ -63,6 +63,8 @@
 		} else if (entry && 'isCatalogEntry' in entry && catalogId) {
 			listEntryServers = AdminService.listMCPServersForEntry(catalogId, entry.id);
 		}
+
+		console.log('type: ', type);
 	});
 
 	async function handleMultiUpdate() {
@@ -119,7 +121,7 @@
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
 	{:then instances}
-		{#if entry && instances.length > 0}
+		{#if entry && (type === 'multi' || instances.length > 0)}
 			<div class="flex flex-col gap-6">
 				<McpServerK8sInfo
 					mcpServerId={entry.id}
