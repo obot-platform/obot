@@ -3,11 +3,12 @@
 	import Table from '$lib/components/Table.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import { AdminService, type ProjectThread, type Project, type OrgUser } from '$lib/services';
-	import { Search, Eye, LoaderCircle, MessageCircle, Filter } from 'lucide-svelte';
+	import { Eye, LoaderCircle, MessageCircle, ListFilter } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { fly, slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { formatTimeAgo } from '$lib/time';
+	import Search from '$lib/components/Search.svelte';
 
 	let threads = $state<ProjectThread[]>([]);
 	let filteredThreads = $state<ProjectThread[]>([]);
@@ -65,6 +66,16 @@
 		'created'
 	);
 	let sortDirection = $state<'asc' | 'desc'>('desc');
+	let tableData = $derived(
+		filteredThreads.map((thread) => {
+			return {
+				...thread,
+				projectName: projectMap.get(thread.projectID || '') || thread.projectID,
+				userName: userMap.get(thread.userID || '')?.displayName || '-',
+				userEmail: userMap.get(thread.userID || '')?.email || '-'
+			};
+		})
+	);
 
 	onMount(() => {
 		loadThreads();
@@ -131,7 +142,11 @@
 					thread.userID?.toLowerCase().includes(term) ||
 					thread.projectID?.toLowerCase().includes(term) ||
 					user?.displayName?.toLowerCase().includes(term) ||
-					user?.email?.toLowerCase().includes(term)
+					user?.email?.toLowerCase().includes(term) ||
+					projectMap
+						.get(thread.projectID || '')
+						?.toLowerCase()
+						.includes(term)
 				);
 			});
 		}
@@ -226,188 +241,160 @@
 		in:fly={{ x: 100, duration: 300, delay: 150 }}
 		out:fly={{ x: -100, duration: 300 }}
 	>
-		<div class="flex flex-col gap-8">
-			<div class="flex items-center justify-between">
-				<h1 class="text-2xl font-semibold">Chat Threads</h1>
+		<div class="flex flex-col gap-8 pb-8">
+			<h1 class="text-2xl font-semibold">Chat Threads</h1>
+
+			<div class="flex flex-col gap-2">
 				<div class="flex items-center gap-4">
-					<div class="relative">
-						<Search class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-gray-400" />
-						<input
-							type="text"
-							placeholder="Search threads..."
-							bind:value={searchTerm}
-							class="w-64 rounded-md border border-gray-300 bg-white px-10 py-2 text-sm focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-black"
-						/>
-					</div>
-					<button
-						onclick={() => (showFilters = !showFilters)}
-						class="flex items-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-					>
-						<Filter class="size-4" />
-						Filters
+					<Search
+						class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+						onChange={(val) => (searchTerm = val)}
+						placeholder="Search threads..."
+					/>
+					<button onclick={() => (showFilters = !showFilters)} class="icon-button flex-shrink-0">
+						<ListFilter class="size-6 flex-shrink-0" />
 					</button>
 				</div>
+
+				{#if showFilters}
+					<div
+						in:slide={{ axis: 'y' }}
+						class="dark:border-surface3 dark:bg-surface1 mb-6 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+					>
+						<div class="flex items-center justify-between">
+							<h3 class="text-base font-semibold">Filters</h3>
+							<button
+								onclick={() => {
+									usernameFilter = '';
+									emailFilter = '';
+									projectFilter = '';
+								}}
+								class="button text-xs"
+							>
+								Clear all
+							</button>
+						</div>
+						<div class="dark:border-surface3 grid grid-cols-1 gap-4 md:grid-cols-3">
+							<div class="dark:border-surface3 flex flex-col gap-1">
+								<label for="username-select" class="text-sm"> Username </label>
+								<Select
+									id="username-select"
+									class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
+									options={usernameOptions}
+									selected={usernameFilter}
+									onSelect={handleUsernameSelect}
+									position="top"
+								/>
+							</div>
+							<div class="flex flex-col gap-1">
+								<label for="email-select" class="text-sm"> Email </label>
+								<Select
+									id="email-select"
+									class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
+									options={emailOptions}
+									selected={emailFilter}
+									onSelect={handleEmailSelect}
+									position="top"
+								/>
+							</div>
+							<div class="flex flex-col gap-1">
+								<label for="project-select" class="text-sm"> Project Name </label>
+								<Select
+									id="project-select"
+									class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
+									options={projectOptions}
+									selected={projectFilter}
+									onSelect={handleProjectSelect}
+									position="top"
+								/>
+							</div>
+						</div>
+					</div>
+				{/if}
+
+				{#if loading}
+					<div class="flex w-full justify-center py-12">
+						<LoaderCircle class="size-8 animate-spin text-blue-600" />
+					</div>
+				{:else if filteredThreads.length === 0}
+					<div class="flex w-full flex-col items-center justify-center py-12 text-center">
+						<MessageCircle class="size-24 text-gray-200 dark:text-gray-700" />
+						<h3 class="mt-4 text-lg font-semibold text-gray-400 dark:text-gray-600">
+							{#if searchTerm}
+								No threads found
+							{:else}
+								No threads available
+							{/if}
+						</h3>
+						<p class="mt-2 text-sm text-gray-400 dark:text-gray-600">
+							{#if searchTerm}
+								Try adjusting your search terms.
+							{:else}
+								Threads will appear here once they are created.
+							{/if}
+						</p>
+					</div>
+				{:else}
+					<Table
+						data={tableData}
+						fields={['name', 'userName', 'userEmail', 'projectName', 'created']}
+						onSelectRow={handleViewThread}
+						headers={[
+							{
+								title: 'Name',
+								property: 'name'
+							},
+							{
+								title: 'User Name',
+								property: 'userName'
+							},
+							{
+								title: 'User Email',
+								property: 'userEmail'
+							},
+							{
+								title: 'Project',
+								property: 'projectName'
+							},
+							{
+								title: 'Created',
+								property: 'created'
+							}
+						]}
+						headerClasses={[
+							{
+								property: 'name',
+								class: 'w-4/12 min-w-sm'
+							}
+						]}
+						sortable={['name', 'userName', 'userEmail', 'projectName', 'created']}
+					>
+						{#snippet actions(thread)}
+							<button
+								class="icon-button hover:text-blue-500"
+								onclick={(e) => {
+									e.stopPropagation();
+									handleViewThread(thread);
+								}}
+								title="View Thread"
+							>
+								<Eye class="size-4" />
+							</button>
+						{/snippet}
+						{#snippet onRenderColumn(property, thread)}
+							{#if property === 'name'}
+								<span>{formatThreadName(thread)}</span>
+							{:else if property === 'created'}
+								<span class="text-sm text-gray-600 dark:text-gray-400">
+									{formatTimeAgo(thread.created).relativeTime}
+								</span>
+							{:else}
+								{thread[property as keyof typeof thread]}
+							{/if}
+						{/snippet}
+					</Table>
+				{/if}
 			</div>
-
-			{#if showFilters}
-				<div
-					class="dark:border-surface3 flex flex-col gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:bg-black"
-				>
-					<div class="flex items-center justify-between">
-						<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">Filters</h3>
-						<button
-							onclick={() => {
-								usernameFilter = '';
-								emailFilter = '';
-								projectFilter = '';
-							}}
-							class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-						>
-							Clear all
-						</button>
-					</div>
-					<div class="dark:border-surface3 grid grid-cols-1 gap-4 md:grid-cols-3">
-						<div class="dark:border-surface3 flex flex-col gap-1">
-							<label
-								for="username-select"
-								class="text-xs font-medium text-gray-600 dark:text-gray-400"
-							>
-								Username
-							</label>
-							<Select
-								id="username-select"
-								class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
-								options={usernameOptions}
-								selected={usernameFilter}
-								onSelect={handleUsernameSelect}
-								position="top"
-							/>
-						</div>
-						<div class="flex flex-col gap-1">
-							<label
-								for="email-select"
-								class="text-xs font-medium text-gray-600 dark:text-gray-400"
-							>
-								Email
-							</label>
-							<Select
-								id="email-select"
-								class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
-								options={emailOptions}
-								selected={emailFilter}
-								onSelect={handleEmailSelect}
-								position="top"
-							/>
-						</div>
-						<div class="flex flex-col gap-1">
-							<label
-								for="project-select"
-								class="text-xs font-medium text-gray-600 dark:text-gray-400"
-							>
-								Project Name
-							</label>
-							<Select
-								id="project-select"
-								class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
-								options={projectOptions}
-								selected={projectFilter}
-								onSelect={handleProjectSelect}
-								position="top"
-							/>
-						</div>
-					</div>
-				</div>
-			{/if}
-
-			{#if loading}
-				<div class="flex w-full justify-center py-12">
-					<LoaderCircle class="size-8 animate-spin text-blue-600" />
-				</div>
-			{:else if filteredThreads.length === 0}
-				<div class="flex w-full flex-col items-center justify-center py-12 text-center">
-					<MessageCircle class="size-24 text-gray-200 dark:text-gray-700" />
-					<h3 class="mt-4 text-lg font-semibold text-gray-400 dark:text-gray-600">
-						{#if searchTerm}
-							No threads found
-						{:else}
-							No threads available
-						{/if}
-					</h3>
-					<p class="mt-2 text-sm text-gray-400 dark:text-gray-600">
-						{#if searchTerm}
-							Try adjusting your search terms.
-						{:else}
-							Threads will appear here once they are created.
-						{/if}
-					</p>
-				</div>
-			{:else}
-				<Table
-					data={filteredThreads}
-					fields={['name', 'userName', 'userEmail', 'projectID', 'created']}
-					onSelectRow={handleViewThread}
-					headers={[
-						{
-							title: 'Name',
-							property: 'name'
-						},
-						{
-							title: 'User Name',
-							property: 'userName'
-						},
-						{
-							title: 'User Email',
-							property: 'userEmail'
-						},
-						{
-							title: 'Project',
-							property: 'projectID'
-						},
-						{
-							title: 'Created',
-							property: 'created'
-						}
-					]}
-				>
-					{#snippet actions(thread)}
-						<button
-							class="icon-button hover:text-blue-500"
-							onclick={(e) => {
-								e.stopPropagation();
-								handleViewThread(thread);
-							}}
-							title="View Thread"
-						>
-							<Eye class="size-4" />
-						</button>
-					{/snippet}
-					{#snippet onRenderColumn(property, thread)}
-						{#if property === 'name'}
-							<span class="font-medium">{formatThreadName(thread)}</span>
-						{:else if property === 'userName'}
-							{@const user = userMap.get(thread.userID || '')}
-							<span class="text-sm text-gray-600 dark:text-gray-400">
-								{user?.displayName || '-'}
-							</span>
-						{:else if property === 'userEmail'}
-							{@const user = userMap.get(thread.userID || '')}
-							<span class="text-sm text-gray-600 dark:text-gray-400">
-								{user?.email || '-'}
-							</span>
-						{:else if property === 'projectID'}
-							<span class="text-sm text-gray-600 dark:text-gray-400">
-								{thread.projectID ? projectMap.get(thread.projectID) || thread.projectID : '-'}
-							</span>
-						{:else if property === 'created'}
-							<span class="text-sm text-gray-600 dark:text-gray-400">
-								{formatTimeAgo(thread.created).relativeTime}
-							</span>
-						{:else}
-							{thread[property as keyof typeof thread]}
-						{/if}
-					{/snippet}
-				</Table>
-			{/if}
 		</div>
 	</div>
 </Layout>

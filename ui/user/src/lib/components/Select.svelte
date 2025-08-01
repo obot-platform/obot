@@ -105,20 +105,24 @@
 			position === 'bottom' && '-translate-y-full'
 		)}
 	>
-		{#each availableOptions as option (option.id)}
-			<button
-				class={twMerge(
-					'dark:hover:bg-surface3 hover:bg-surface2 text-md w-full px-4 py-2 text-left',
-					classes?.option
-				)}
-				onclick={(e) => {
-					e.stopPropagation();
-					onSelect(option);
-					popover?.close();
-				}}
-			>
-				{option.label}
-			</button>
-		{/each}
+		{#if availableOptions.length === 0}
+			<div class="px-4 py-2 font-light text-gray-400 dark:text-gray-600">No options available</div>
+		{:else}
+			{#each availableOptions as option (option.id)}
+				<button
+					class={twMerge(
+						'dark:hover:bg-surface3 hover:bg-surface2 text-md w-full px-4 py-2 text-left',
+						classes?.option
+					)}
+					onclick={(e) => {
+						e.stopPropagation();
+						onSelect(option);
+						popover?.close();
+					}}
+				>
+					{option.label}
+				</button>
+			{/each}
+		{/if}
 	</dialog>
 </div>
