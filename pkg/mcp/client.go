@@ -32,7 +32,7 @@ func (sm *SessionManager) ClientForServer(ctx context.Context, userID, mcpServer
 	clientName := "Obot MCP Gateway"
 	if strings.HasPrefix(serverConfig.URL, fmt.Sprintf("%s/mcp-connect/", sm.baseURL)) {
 		// If the URL points back to us, then this is Obot chat. Ensure the client name reflects that.
-		clientName = "Obot MCP Chat"
+		clientName = "Obot Chat"
 	}
 
 	return sm.clientForServerWithOptions(ctx, mcpServerName, serverConfig, nmcp.ClientOption{
