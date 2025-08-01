@@ -60,6 +60,7 @@
 		<div class="w-full">
 			<Select
 				id="runtime-selector"
+				class="bg-surface1 dark:bg-surface2 dark:border-surface3 flex-1 border border-transparent shadow-inner"
 				options={runtimeOptions}
 				selected={runtime}
 				onSelect={handleRuntimeChange}

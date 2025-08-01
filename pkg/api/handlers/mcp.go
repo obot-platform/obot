@@ -348,7 +348,7 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 	}
 
 	var u string
-	if server.Spec.Manifest.RemoteConfig != nil && server.Spec.Manifest.RemoteConfig.URL != "" {
+	if server.Spec.Manifest.Runtime == types.RuntimeRemote {
 		u, err = m.mcpOAuthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, req.User.GetUID(), server.Name, "")
 		if err != nil {
 			return fmt.Errorf("failed to get OAuth URL: %w", err)
@@ -1200,68 +1200,46 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 
 	// Extract variables based on runtime type
-	extracted := make(map[string]struct{})
+	var toExtract []string
 
 	switch entry.Spec.Manifest.Runtime {
 	case types.RuntimeUVX:
 		if entry.Spec.Manifest.UVXConfig != nil {
-			// Extract variables from command
-			for _, v := range extractEnvVars(entry.Spec.Manifest.UVXConfig.Command) {
-				extracted[v] = struct{}{}
-			}
-
-			// Extract variables from args
-			for _, arg := range entry.Spec.Manifest.UVXConfig.Args {
-				for _, v := range extractEnvVars(arg) {
-					extracted[v] = struct{}{}
-				}
+			toExtract = append(toExtract, entry.Spec.Manifest.UVXConfig.Command)
+			if len(entry.Spec.Manifest.UVXConfig.Args) > 0 {
+				toExtract = append(toExtract, entry.Spec.Manifest.UVXConfig.Args...)
 			}
 		}
 	case types.RuntimeNPX:
-		if entry.Spec.Manifest.NPXConfig != nil {
-			// Extract variables from args
-			for _, arg := range entry.Spec.Manifest.NPXConfig.Args {
-				for _, v := range extractEnvVars(arg) {
-					extracted[v] = struct{}{}
-				}
-			}
+		if entry.Spec.Manifest.NPXConfig != nil && len(entry.Spec.Manifest.NPXConfig.Args) > 0 {
+			toExtract = append(toExtract, entry.Spec.Manifest.NPXConfig.Args...)
 		}
 	case types.RuntimeContainerized:
 		if entry.Spec.Manifest.ContainerizedConfig != nil {
-			// Extract variables from command
-			for _, v := range extractEnvVars(entry.Spec.Manifest.ContainerizedConfig.Command) {
-				extracted[v] = struct{}{}
-			}
-			// Extract variables from args
-			for _, arg := range entry.Spec.Manifest.ContainerizedConfig.Args {
-				for _, v := range extractEnvVars(arg) {
-					extracted[v] = struct{}{}
-				}
+			toExtract = append(toExtract, entry.Spec.Manifest.ContainerizedConfig.Command)
+			if len(entry.Spec.Manifest.ContainerizedConfig.Args) > 0 {
+				toExtract = append(toExtract, entry.Spec.Manifest.ContainerizedConfig.Args...)
 			}
 		}
 	case types.RuntimeRemote:
 		if entry.Spec.Manifest.RemoteConfig != nil {
-			// Extract variables from FixedURL if present
-			if entry.Spec.Manifest.RemoteConfig.FixedURL != "" {
-				for _, v := range extractEnvVars(entry.Spec.Manifest.RemoteConfig.FixedURL) {
-					extracted[v] = struct{}{}
-				}
-			}
+			toExtract = append(toExtract, entry.Spec.Manifest.RemoteConfig.FixedURL)
 		}
 	}
 
-	// Add any new vars to the manifest's Env list
-	for v := range extracted {
-		if _, exists := existing[v]; !exists {
-			entry.Spec.Manifest.Env = append(entry.Spec.Manifest.Env, types.MCPEnv{
-				MCPHeader: types.MCPHeader{
-					Name:        v,
-					Key:         v,
-					Description: "Automatically detected variable",
-					Sensitive:   true,
-					Required:    true,
-				},
-			})
+	for _, v := range toExtract {
+		for _, env := range extractEnvVars(v) {
+			if _, exists := existing[env]; !exists {
+				entry.Spec.Manifest.Env = append(entry.Spec.Manifest.Env, types.MCPEnv{
+					MCPHeader: types.MCPHeader{
+						Name:        env,
+						Key:         env,
+						Description: "Automatically detected variable",
+						Sensitive:   true,
+						Required:    true,
+					},
+				})
+			}
 		}
 	}
 }

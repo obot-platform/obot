@@ -250,7 +250,6 @@
 		error = undefined;
 		saving = true;
 		try {
-			console.log('selected: ', JSON.stringify(selectedEntryOrServer));
 			if ('isCatalogEntry' in selectedEntryOrServer) {
 				await handleLaunchCatalogEntry(selectedEntryOrServer as Entry);
 			} else {

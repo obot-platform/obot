@@ -113,7 +113,6 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 	serverConfig := ServerConfig{
 		ServerConfig: gmcp.ServerConfig{
 			Env:          make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
-			Headers:      make([]string, 0),
 			Scope:        fmt.Sprintf("%s-%s", mcpServer.Name, scope),
 			AllowedTools: allowedTools,
 		},

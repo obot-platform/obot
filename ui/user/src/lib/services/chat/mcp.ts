@@ -46,7 +46,7 @@ export function isAuthRequiredBundle(bundleId?: string): boolean {
 
 export function parseCategories(item?: MCPCatalogServer | MCPCatalogEntry | null) {
 	if (!item) return [];
-	return item.manifest.metadata ? (item.manifest.metadata.categories?.split(',') ?? []) : [];
+	return item.manifest.metadata ? (item.manifest.metadata.categories?.split(',') ?? []).map(c => c.trim()).filter(c => c) : [];
 }
 
 export function convertEnvHeadersToRecord(
