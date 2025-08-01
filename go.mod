@@ -27,7 +27,7 @@ require (
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/modelcontextprotocol/go-sdk v0.2.0
-	github.com/nanobot-ai/nanobot v0.0.6-0.20250730144017-c1d3b81c73fb
+	github.com/nanobot-ai/nanobot v0.0.6-0.20250801214102-578fd83dafb3
 	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
 	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2
@@ -73,13 +73,6 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/go-sql-driver/mysql v1.8.1 // indirect
-	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
-	gorm.io/driver/mysql v1.6.0 // indirect
-)
-
-require (
 	atomicgo.dev/cursor v0.2.0 // indirect
 	atomicgo.dev/keyboard v0.2.9 // indirect
 	atomicgo.dev/schedule v0.1.0 // indirect
@@ -87,6 +80,7 @@ require (
 	cloud.google.com/go/auth v0.9.3 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
 	dario.cat/mergo v1.0.1 // indirect
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/AlecAivazis/survey/v2 v2.3.7 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/BurntSushi/locker v0.0.0-20171006230638-a6e239ea1c69 // indirect
@@ -166,6 +160,8 @@ require (
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
+	github.com/go-sql-driver/mysql v1.8.1 // indirect
+	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -305,6 +301,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gorm.io/driver/mysql v1.6.0 // indirect
 	k8s.io/cli-runtime v0.29.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kms v0.31.1 // indirect
