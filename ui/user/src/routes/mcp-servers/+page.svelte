@@ -139,8 +139,8 @@
 	}
 </script>
 
-<Layout showUserLinks hideSidebar>
-	<div class="flex w-full">
+<Layout showUserLinks hideSidebar classes={{ container: 'pb-0' }}>
+	<div class="flex h-full w-full">
 		{#if !responsive.isMobile}
 			<ul class="flex min-h-0 w-xs flex-shrink-0 grow flex-col p-4">
 				<li>
@@ -170,7 +170,7 @@
 				{/each}
 			</ul>
 		{/if}
-		<div class="flex w-full flex-col gap-8 overflow-x-hidden px-2 pt-4" in:fade>
+		<div class="flex w-full flex-col gap-8 px-2 pt-4" in:fade>
 			<h1 class="text-2xl font-semibold">
 				{selectedCategory ? selectedCategory : 'My Connectors'}
 			</h1>

@@ -186,6 +186,9 @@
 						onDisconnect={() => {
 							loadData(true);
 						}}
+						classes={{
+							pageSelectorContainer: 'bg-gray-50'
+						}}
 					>
 						{#snippet connectedServerCardAction(d)}
 							{@const requiresUpdate = requiresUserUpdate(d)}

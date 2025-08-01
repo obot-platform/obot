@@ -22,6 +22,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { poll } from '$lib/utils';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		project: Project;
@@ -265,12 +266,25 @@
 			close();
 		}
 	}
+
+	onMount(() => {
+		fetchProjectResources();
+	});
 </script>
 
-<button class="button mt-3 -mr-3 -mb-3 flex items-center justify-end gap-1 text-sm" onclick={open}>
-	<HardDrive class="size-4" />
-	Add from Connector
-</button>
+{#if (!loading && filteredResources.length > 0) || loading}
+	<button
+		class="button mt-3 -mr-3 -mb-3 flex min-h-9 items-center justify-end gap-1 text-sm"
+		onclick={open}
+	>
+		{#if loading}
+			<LoaderCircle class="size-4 animate-spin" />
+		{:else}
+			<HardDrive class="size-4" />
+			Add from Connector
+		{/if}
+	</button>
+{/if}
 
 <dialog
 	bind:this={dialog}

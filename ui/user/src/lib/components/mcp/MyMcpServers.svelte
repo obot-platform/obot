@@ -40,6 +40,9 @@
 	};
 
 	interface Props {
+		classes?: {
+			pageSelectorContainer?: string;
+		};
 		userServerInstances: MCPServerInstance[]; // multi-user server instances
 		userConfiguredServers: Server[]; // user servers created from single/remote servers
 		servers: Server[]; // multi-user servers user has access to
@@ -60,6 +63,7 @@
 	}
 
 	let {
+		classes,
 		userServerInstances,
 		userConfiguredServers,
 		servers,
@@ -328,6 +332,7 @@
 	}
 
 	async function handleSelectCard(item: Entry | Server | ConnectedServer) {
+		search = ''; // reset search
 		showServerInfo = true;
 		selectedEntryOrServer = item;
 		await tick();
@@ -339,7 +344,7 @@
 
 {#if !showServerInfo}
 	<div
-		class="flex flex-col gap-8"
+		class="flex h-full flex-col gap-8"
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 		bind:this={container}
@@ -403,7 +408,7 @@
 					</div>
 				</div>
 			{/if}
-			<div class="flex flex-col gap-4">
+			<div class="flex h-full flex-col gap-4">
 				<h2 class="text-lg font-semibold">Available Connectors</h2>
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 					{#each paginatedData as item (item.id)}
@@ -417,7 +422,10 @@
 				</div>
 				{#if filteredEntriesData.length > pageSize}
 					<div
-						class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 items-center justify-center gap-4 p-2 md:w-[calc(100%+4em)] md:-translate-x-8 dark:bg-black"
+						class={twMerge(
+							'bg-surface1 sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 items-center justify-center gap-4 p-2 md:w-[calc(100%+4em)] md:-translate-x-8 dark:bg-black',
+							classes?.pageSelectorContainer
+						)}
 					>
 						<button
 							class="button-text flex items-center gap-1 disabled:no-underline disabled:opacity-50"

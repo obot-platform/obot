@@ -29,6 +29,7 @@
 
 	interface Props {
 		classes?: {
+			container?: string;
 			childrenContainer?: string;
 		};
 		children: Snippet;
@@ -257,7 +258,12 @@
 					{/if}
 				{/snippet}
 			</Navbar>
-			<div class="flex h-full flex-col items-center justify-center p-4 md:px-8">
+			<div
+				class={twMerge(
+					'flex h-full flex-col items-center justify-center p-4 md:px-8',
+					classes?.container
+				)}
+			>
 				<div
 					class={twMerge('h-full w-full max-w-(--breakpoint-xl)', classes?.childrenContainer ?? '')}
 				>

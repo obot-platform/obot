@@ -350,7 +350,7 @@
 		</button>
 		<button
 			class={twMerge('icon-button', inline && 'min-h-auto min-w-auto p-1.5')}
-			onclick={() => deleteOne(memory.id)}
+			onclick={() => (deleteMemoryId = memory.id)}
 			disabled={loading}
 			use:tooltip={'Delete memory'}
 		>

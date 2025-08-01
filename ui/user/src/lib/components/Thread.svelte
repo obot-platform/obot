@@ -17,7 +17,7 @@
 	import Files from '$lib/components/edit/Files.svelte';
 	import type { UIEventHandler } from 'svelte/elements';
 	import { responsive } from '$lib/stores';
-	import { Bug, LoaderCircle, X } from 'lucide-svelte';
+	import { Bug, LoaderCircle, Ticket, X } from 'lucide-svelte';
 	import { autoHeight } from '$lib/actions/textarea';
 	import { twMerge } from 'tailwind-merge';
 	import { getProjectDefaultModel, getThread } from '$lib/services/chat/operations';
@@ -378,6 +378,7 @@
 		}
 
 		input?.setValue(promptContent);
+		input?.focus();
 		promptPending = false;
 	}
 

@@ -286,7 +286,7 @@
 				fields={['displayName', 'resources']}
 				headers={[
 					{ title: 'Rule', property: 'displayName' },
-					{ title: 'Reference', property: 'resources' }
+					{ title: 'Accessible To', property: 'resources' }
 				]}
 				onSelectRow={(d) => {
 					if (!entry) return;
@@ -301,7 +301,30 @@
 						{@const referencedResource = d.resources?.find(
 							(r) => r.id === entry?.id || r.id === '*'
 						)}
-						{referencedResource?.id === '*' ? 'Everything' : 'Self'}
+						{@const { totalUsers, totalGroups } = d.subjects?.reduce(
+							(acc, s) => {
+								if (s.type === 'user') {
+									acc.totalUsers++;
+								} else {
+									acc.totalGroups++;
+								}
+								return acc;
+							},
+							{ totalUsers: 0, totalGroups: 0 }
+						) ?? { totalUsers: 0, totalGroups: 0 }}
+						{#if referencedResource?.id === '*'}
+							Everyone
+						{:else}
+							{@const userCount = `${totalUsers} user${totalUsers === 1 ? '' : 's'}`}
+							{@const groupCount = `${totalGroups} group${totalGroups === 1 ? '' : 's'}`}
+							{#if totalUsers > 0 && totalGroups > 0}
+								{userCount}, {groupCount}
+							{:else if totalUsers > 0}
+								{userCount}
+							{:else if totalGroups > 0}
+								{groupCount}
+							{/if}
+						{/if}
 					{:else}
 						{d[property as keyof typeof d]}
 					{/if}

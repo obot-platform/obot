@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { autoHeight } from '$lib/actions/textarea.js';
 	import MarkdownInput from '$lib/components/admin/MarkdownInput.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
@@ -206,6 +207,7 @@
 							bind:value={baseAgent.prompt}
 							class="text-input-filled dark:bg-black"
 							placeholder={HELPER_TEXTS.prompt}
+							use:autoHeight
 						></textarea>
 					</div>
 				</div>
