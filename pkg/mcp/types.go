@@ -222,5 +222,6 @@ func ProjectServerToConfig(tokenService *jwt.TokenService, projectMCPServer v1.P
 			Scope:        fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
 			AllowedTools: allowedTools,
 		},
+		Runtime: types.RuntimeRemote,
 	}, nil
 }
