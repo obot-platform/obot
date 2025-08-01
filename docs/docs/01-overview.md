@@ -5,43 +5,59 @@ slug: /
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Obot is an open source AI assistant platform offered as a SaaS and self-hosted deployments. The Obot SaaS platform is built on top of the same open source technology that you can deploy yourself, offering flexibility in how you access and control your AI assistants.
+Obot is an open source AI assistant platform that can be deployed self-hosted in the cloud or on-prem. The platform consists of three main components that work together to provide a comprehensive AI agent solution.
 
-To quickly get started try our hosted [SaaS platform](https://obot.ai).
+To quickly view a demo environment, you can visit our [hosted version](https://chat.obot.ai).
 
-## What is an Obot?
+## The Three Parts of Obot
 
-Obots are individual AI assistants that work with you to solve day-to-day problems and improve your productivity. Each obot can be customized for specific tasks or domains, making them versatile tools for various workflows.
+### 🗣️ Chat
+The **Chat Interface** is where end users interact with AI agents (called Projects) through conversational chat. This is the primary user-facing component of Obot that provides:
 
-### What can Obots do?
+- **Projects**: Individual AI assistants that can be customized for specific tasks
+- **Threads**: Separate conversations within each project to maintain context
+- **Knowledge Integration**: Built-in RAG for connecting agents to your organization's data
+- **Tool Integration**: Agents can work with tools, browsers, APIs, and external services through MCP
+- **Collaboration**: Share projects with team members and collaborate on AI-powered workflows
 
-- **Work with tools**: Obots accomplish complex tasks by working with a rich set of tools, like browsers, applications, email, systems, APIs or just about anything.
-- **Create content**: They are creative and will work with you to generate documents, databases, emails, images and code, and write it all to your own personal workspace.
-- **Collaborate and share**: When you've created an Obot you think is useful, you can share it with anyone and they can also use it.
+### 🔌 MCP Gateway
+The **MCP Gateway** exposes access to MCP servers to clients via a single managed platform. This component handles:
 
-## Platform Features
+- **Tool Catalogs**: Browse and connect to available MCP servers and tools
+- **OAuth Flows**: Secure authentication with external services
+- **Session Management**: Handle connections between agents and MCP servers
+- **Webhook Support**: Receive events and data from external systems
+- **Audit Logging**: Logs all usage of MCP Servers and tools.
+- **Custom Integrations**: Connect your own tools and services through the MCP protocol
 
-The Obot platform provides everything you need to build and deploy powerful AI assistants:
+### ⚙️ Admin
+The **Admin Interface** provides comprehensive platform management capabilities for administrators:
 
-- **Built-in RAG** for connecting your Obots to your organization's data
-- **Easy integration** with custom or private web services and APIs
-- **Seamless connectivity** with leading Language Model providers
-- **Enterprise-grade security** with OAuth 2.0 authentication
+- **User Management**: Manage users, groups, and access control
+- **Model Providers**: Configure and manage LLM providers and settings
+- **System Configuration**: Configure authentication providers, encryption, and platform settings
+- **Monitoring**: View system health and usage analytics
 
-## Deployment Options
+## How They Work Together
 
-### SaaS Platform
+These three components create a powerful, integrated AI platform:
 
-The fastest way to get started with Obot is our [hosted SaaS platform](https://obot.ai), built on our open source technology.
+1. **Users** interact with Obot projects through the **Chat Interface** and MCP Servers through the **MCP Gateway**.
+2. **Users** and **MCP Clients** leverage tools via the **MCP Gateway**
+3. **Administrators** manage the entire platform through the **Admin Interface**
 
-### Self-Hosting
+## Key Features
 
-The Obot open source platform can be self-hosted to run on your own infrastructure for complete control over your data and deployment:
+- **Self-Hosted**: Deploy on your own infrastructure for complete control
+- **MCP Standard**: Built on the open Model Context Protocol for maximum interoperability
+- **Enterprise Security**: OAuth 2.1 authentication, encryption, and audit logging
+- **Extensible**: Easy integration with custom tools and services
 
-- Deploy on Kubernetes, Docker, or any cloud provider
-- Integrate with your existing security infrastructure
-- Customize to meet your specific requirements
+## Getting Started
 
-## Installation
+For detailed installation instructions, please refer to our [Installation Guide](/installation/general).
 
-For detailed installation instructions, please refer to our [Installation Guide](/installation/overview).
+To understand each component in depth:
+- [Chat Interface Concepts](/concepts/chat/overview)
+- [MCP Gateway Concepts](/concepts/mcp-gateway/overview)
+- [Admin Interface Concepts](/concepts/admin/overview)

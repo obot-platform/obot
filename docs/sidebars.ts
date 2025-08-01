@@ -6,11 +6,56 @@ const sidebars = {
     "overview",
     {
       type: "category",
-      label: "Concepts",
+      label: "Chat Interface",
       items: [
-        "concepts/obots",
-        "concepts/threads",
-        "concepts/tasks",
+        "concepts/chat/overview",
+        "concepts/chat/projects",
+        "concepts/chat/threads",
+	"concepts/chat/tasks",
+      ],
+    },
+    {
+      type: "category",
+      label: "MCP Gateway",
+      items: [
+        "concepts/mcp-gateway/overview",
+        "concepts/mcp-gateway/servers-and-tools",
+      ],
+    },
+    {
+      type: "category",
+      label: "Admin Interface",
+      items: [
+        "concepts/admin/overview",
+      ],
+    },
+    {
+      type: "category",
+      label: "Installation",
+      items: [
+        "installation/general",
+        {
+          type: "category",
+          label: "Configuration",
+          items: [
+            "configuration/server-configuration",
+            "configuration/chat-configuration",
+            "configuration/auth-providers",
+            "configuration/workspace-provider",
+            "configuration/model-providers",
+            "configuration/oauth-configuration",
+            {
+              type: "category",
+              label: "Encryption Providers",
+              items: [
+                "configuration/encryption-providers/aws-kms",
+                "configuration/encryption-providers/azure-key-vault",
+                "configuration/encryption-providers/google-cloud-kms"
+              ]
+            }
+          ],
+        },
+        "enterprise"
       ],
     },
     {
@@ -18,48 +63,8 @@ const sidebars = {
       label: "Tutorials",
       items: [
         "tutorials/github-assistant",
-        "tutorials/github-ci-failure-notifier",
         "tutorials/knowledge-assistant",
         "tutorials/slack-alerts-assistant",
-      ],
-    },
-    {
-      type: "category",
-      label: "Self Hosted",
-      items: [
-        "installation/Installation",
-        "installation/Quickstart",
-        {
-          type: "category",
-          label: "Configuration",
-          items: [
-            "configuration/general",
-            "configuration/agents",
-            "configuration/auth-providers",
-            "configuration/email-webhook",
-            "configuration/model-providers",
-            "configuration/workspace-provider",
-            "configuration/oauth-tools",
-            {
-              type: "category",
-              label: "Encryption Providers",
-              items: [
-                  "configuration/encryption-providers/aws-kms",
-                  "configuration/encryption-providers/azure-key-vault",
-                  "configuration/encryption-providers/google-cloud-kms"
-              ]
-            }
-          ],
-        },
-        "enterprise",
-        {
-          type: "category",
-          label: "Tools",
-          items: [
-            "tools/first-tool",
-            "tools/integrating-oauth",
-          ],
-        },
       ],
     },
   ],
