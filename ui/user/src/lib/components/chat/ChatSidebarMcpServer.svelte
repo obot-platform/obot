@@ -22,10 +22,10 @@
 	async function handleRemoveMcp() {
 		if (!project?.assistantID || !project.id) return;
 
-		closeSidebarConfig(layout);
 		await ChatService.deleteProjectMCP(project.assistantID, project.id, mcpServer.id);
+		projectMcps.items = projectMcps.items.filter((mcp) => mcp.id !== mcpServer.id);
 		showDeleteConfirm = false;
-		closeAll(layout);
+		closeSidebarConfig(layout);
 	}
 </script>
 
