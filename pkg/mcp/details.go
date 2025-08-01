@@ -14,13 +14,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (sm *SessionManager) GetServerDetails(ctx context.Context, serverConfig ServerConfig) (types.MCPServerDetails, error) {
+func (sm *SessionManager) GetServerDetails(ctx context.Context, mcpServerName string, serverConfig ServerConfig) (types.MCPServerDetails, error) {
 	if serverConfig.URL != "" {
 		return types.MCPServerDetails{}, fmt.Errorf("getting server details is not supported for remote servers")
 	}
 
 	if !sm.KubernetesEnabled() {
 		return types.MCPServerDetails{}, fmt.Errorf("kubernetes is not enabled")
+	}
+
+	_, err := sm.ensureDeployment(ctx, serverConfig, "default", mcpServerName)
+	if err != nil {
+		return types.MCPServerDetails{}, err
 	}
 
 	id := sessionID(serverConfig)

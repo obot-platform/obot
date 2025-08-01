@@ -1445,12 +1445,12 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		return types.NewErrNotFound("Kubernetes is not enabled")
 	}
 
-	_, serverConfig, err := serverForAction(req)
+	server, serverConfig, err := serverForAction(req)
 	if err != nil {
 		return err
 	}
 
-	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
+	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), server.Spec.Manifest.Name, serverConfig)
 	if err != nil {
 		return err
 	}
