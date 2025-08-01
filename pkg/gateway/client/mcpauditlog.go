@@ -125,9 +125,13 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	return logs, db.Find(&logs).Error
 }
 
-func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string) ([]string, error) {
+func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, exclude ...any) ([]string, error) {
+	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Distinct(option)
 	var result []string
-	return result, c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Distinct(option).Where(option + " != ''").Select(option).Scan(&result).Error
+	if len(exclude) != 0 {
+		db.Where(option+" NOT IN ?", exclude)
+	}
+	return result, db.Select(option).Scan(&result).Error
 }
 
 // GetMCPUsageStats retrieves usage statistics for MCP servers

@@ -145,17 +145,20 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	})
 }
 
-var filterOptions = map[string]struct{}{
-	"user_id":                       {},
-	"mcp_id":                        {},
-	"mcp_server_display_name":       {},
-	"mcp_server_catalog_entry_name": {},
-	"call_type":                     {},
-	"session_id":                    {},
-	"client_name":                   {},
-	"client_version":                {},
-	"response_status":               {},
-	"client_ip":                     {},
+// filterOptions represent the values that a user can use to filter audit logs.
+// The values of this map represent the "zero" values that are excluded when looking for options in the database.
+// For example, "" for strings and 0 for numbers.
+var filterOptions = map[string]any{
+	"user_id":                       "",
+	"mcp_id":                        "",
+	"mcp_server_display_name":       "",
+	"mcp_server_catalog_entry_name": "",
+	"call_type":                     "",
+	"session_id":                    "",
+	"client_name":                   "",
+	"client_version":                "",
+	"response_status":               0,
+	"client_ip":                     "",
 }
 
 func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
@@ -164,11 +167,12 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 		return types.NewErrBadRequest("missing option")
 	}
 
-	if _, ok := filterOptions[filter]; !ok {
+	exclude, ok := filterOptions[filter]
+	if !ok {
 		return types.NewErrBadRequest("invalid option: %s", filter)
 	}
 
-	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter)
+	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter, exclude)
 	if err != nil {
 		return err
 	}
