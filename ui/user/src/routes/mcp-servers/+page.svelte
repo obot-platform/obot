@@ -170,7 +170,7 @@
 				{/each}
 			</ul>
 		{/if}
-		<div class="flex w-full flex-col gap-8 overflow-x-hidden pt-4" in:fade>
+		<div class="flex w-full flex-col gap-8 overflow-x-hidden px-2 pt-4" in:fade>
 			<h1 class="text-2xl font-semibold">
 				{selectedCategory ? selectedCategory : 'My Connectors'}
 			</h1>
