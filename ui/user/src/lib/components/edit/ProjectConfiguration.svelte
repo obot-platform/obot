@@ -9,6 +9,7 @@
 	import { hasTool } from '$lib/tools';
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
 	import Confirm from '../Confirm.svelte';
+	import { autoHeight } from '$lib/actions/textarea';
 
 	interface Props {
 		project: Project;
@@ -95,6 +96,7 @@
 						bind:value={modifiedProject.prompt}
 						class="text-input-filled dark:bg-black"
 						placeholder={HELPER_TEXTS.prompt}
+						use:autoHeight
 					></textarea>
 				</div>
 			</div>
