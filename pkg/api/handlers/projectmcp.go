@@ -207,6 +207,38 @@ func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
 	return req.Write(convertProjectMCPServer(&projectServer, mcpServer))
 }
 
+func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
+	var projectServer v1.ProjectMCPServer
+	err := req.Get(&projectServer, req.PathValue("project_mcp_server_id"))
+	if err != nil {
+		return err
+	}
+
+	var (
+		server       v1.MCPServer
+		serverConfig mcp.ServerConfig
+	)
+	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
+		server, serverConfig, err = ServerFromMCPServerInstance(req, projectServer.Spec.Manifest.MCPID)
+	} else {
+		server, serverConfig, err = ServerForActionWithID(req, projectServer.Spec.Manifest.MCPID)
+	}
+	if err != nil {
+		return err
+	}
+
+	if server.Spec.Manifest.Runtime != types.RuntimeRemote {
+		if _, err = p.mcpSessionManager.PingServer(req.Context(), req.User.GetUID(), server, serverConfig); err != nil {
+			if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+				return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+			}
+			return fmt.Errorf("failed to launch MCP server: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (p *ProjectMCPHandler) CheckOAuth(req api.Context) error {
 	var projectServer v1.ProjectMCPServer
 	err := req.Get(&projectServer, req.PathValue("project_mcp_server_id"))

@@ -306,6 +306,32 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	return req.Write(convertMCPServer(server, nil, m.serverURL))
 }
 
+func (m *MCPHandler) LaunchServer(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+
+	server, serverConfig, err := serverForAction(req)
+	if err != nil {
+		return err
+	}
+
+	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
+	// For servers that are not in catalogs, this checks to make sure that no catalogID was provided. (Both are empty strings.)
+	if server.Spec.SharedWithinMCPCatalogName != catalogID {
+		return types.NewErrNotFound("MCP server not found")
+	}
+
+	if server.Spec.Manifest.Runtime != types.RuntimeRemote {
+		if _, err = m.mcpSessionManager.PingServer(req.Context(), req.User.GetUID(), server, serverConfig); err != nil {
+			if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+				return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+			}
+			return fmt.Errorf("failed to launch MCP server: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (m *MCPHandler) CheckOAuth(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 

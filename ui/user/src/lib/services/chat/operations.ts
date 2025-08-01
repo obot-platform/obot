@@ -1470,7 +1470,7 @@ export async function isMcpServerOauthNeeded(
 	opts?: { signal?: AbortSignal }
 ): Promise<boolean> {
 	try {
-		await doGet(`/mcp-servers/${id}/check-oauth`, {
+		await doPost(`/mcp-servers/${id}/check-oauth`, {
 			dontLogErrors: true,
 			signal: opts?.signal
 		});
@@ -1508,7 +1508,7 @@ export async function isProjectMcpServerOauthNeeded(
 	mcpServerID: string
 ): Promise<boolean> {
 	try {
-		await doGet(
+		await doPost(
 			`/assistants/${assistantID}/projects/${projectID}/mcp-servers/${mcpServerID}/check-oauth`,
 			{ dontLogErrors: true }
 		);

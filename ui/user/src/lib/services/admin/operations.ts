@@ -270,7 +270,7 @@ export async function isMCPCatalogServerOauthNeeded(
 	opts?: { signal?: AbortSignal }
 ): Promise<boolean> {
 	try {
-		await doGet(`/mcp-catalogs/${catalogID}/servers/${serverID}/check-oauth`, {
+		await doPost(`/mcp-catalogs/${catalogID}/servers/${serverID}/check-oauth`, {
 			dontLogErrors: true,
 			signal: opts?.signal
 		});
