@@ -20,6 +20,7 @@
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { onMount } from 'svelte';
 	import AuditDetails from './audit-logs/AuditDetails.svelte';
+	import UsageGraphs from './usage/UsageGraphs.svelte';
 	import McpServerInstances from './McpServerInstances.svelte';
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 
@@ -42,7 +43,8 @@
 					{ label: 'Overview', view: 'overview' },
 					{ label: 'Tools', view: 'tools' },
 					{ label: 'Configuration', view: 'configuration' },
-					{ label: 'Audit Logs', view: 'usage' },
+					{ label: 'Usage', view: 'usage' },
+					{ label: 'Audit Logs', view: 'audit-logs' },
 					{ label: 'Access Control', view: 'access-control' },
 					{ label: 'Server Details', view: 'server-instances' },
 					{ label: 'Filters', view: 'filters' }
@@ -235,6 +237,8 @@
 			{@render accessControlView()}
 		{:else if selected === 'usage'}
 			{@render usageView()}
+		{:else if selected === 'audit-logs'}
+			{@render auditLogsView()}
 		{:else if selected === 'server-instances'}
 			<McpServerInstances {catalogId} {entry} {users} {type} />
 		{:else if selected === 'filters'}
@@ -320,6 +324,22 @@
 {#snippet usageView()}
 	{#if entry}
 		{@const name = 'manifest' in entry ? entry.manifest.name : undefined}
+		{@const mcpCatalogEntryId = 'isCatalogEntry' in entry ? entry.id : undefined}
+		<UsageGraphs
+			mcpServerDisplayName={name}
+			{mcpCatalogEntryId}
+			{users}
+			filters={{
+				startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+				endTime: new Date().toISOString()
+			}}
+		/>
+	{/if}
+{/snippet}
+
+{#snippet auditLogsView()}
+	{#if entry}
+		{@const name = 'manifest' in entry ? entry.manifest.name : undefined}
 		{@const mcpId = 'isCatalogEntry' in entry ? undefined : entry.id}
 		{@const mcpCatalogEntryId = 'isCatalogEntry' in entry ? entry.id : undefined}
 		<AuditDetails
@@ -335,7 +355,7 @@
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 					<Users class="size-24 text-gray-200 dark:text-gray-900" />
 					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-						No recent usage data
+						No recent audit logs
 					</h4>
 					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
 						This server has not had any active usage in the last 7 days.

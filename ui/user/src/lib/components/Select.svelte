@@ -1,4 +1,4 @@
-<script module>
+<script module lang="ts">
 	export interface SelectProps<T> {
 		id?: string;
 		disabled?: boolean;
@@ -153,7 +153,7 @@
 							{#if buttonStartContent}
 								{@render buttonStartContent()}
 							{/if}
-							<di>{selectedOptions[0]?.label ?? ''}</di>
+							<div>{selectedOptions[0]?.label ?? ''}</div>
 						</div>
 					{/if}
 				</div>
