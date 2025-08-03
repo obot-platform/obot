@@ -106,7 +106,7 @@
 		end_time: timeRangeFilters.endTime?.toISOString() ?? '',
 		limit: pageLimit,
 		offset: pageOffset,
-		query: encodeURIComponent(query)
+		query: query
 	});
 
 	afterNavigate(() => {
