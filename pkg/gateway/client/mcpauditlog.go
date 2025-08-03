@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -48,13 +49,20 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 			}
 		}
 
-		db = db.Where(fmt.Sprintf(`user_id in (?) OR mcp_id %[1]s ? OR mcp_server_display_name %[1]s ? OR 
+		// Check if the query is a valid integer for response_status search
+		query := `user_id in (?) OR mcp_id %[1]s ? OR mcp_server_display_name %[1]s ? OR 
 			mcp_server_catalog_entry_name %[1]s ? OR client_name %[1]s ? OR client_version %[1]s ? OR 
 			client_ip %[1]s ? OR call_type %[1]s ? OR call_identifier %[1]s ? OR error %[1]s ? OR 
-			session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`, like),
-			userIDs,
-			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm,
-			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm)
+			session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
+
+		args := append([]any{userIDs}, slices.Repeat([]any{searchTerm}, strings.Count(query, "%[1]s ?"))...)
+
+		if responseStatus, err := strconv.Atoi(opts.Query); err == nil {
+			query += " OR response_status = ?"
+			args = append(args, responseStatus)
+		}
+
+		db = db.Where(fmt.Sprintf(query, like), args...)
 	}
 
 	// Apply filters
