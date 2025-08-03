@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -19,10 +21,41 @@ func (c *Client) UpdateMCPAuditLogByRequestID(ctx context.Context, log *types.MC
 }
 
 // GetMCPAuditLogs retrieves MCP audit logs with optional filters
-func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) ([]types.MCPAuditLog, error) {
+func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) ([]types.MCPAuditLog, int64, error) {
 	var logs []types.MCPAuditLog
 
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{})
+
+	// Apply text search across multiple fields
+	if opts.Query != "" {
+		searchTerm := "%" + opts.Query + "%"
+		like := "LIKE"
+		if db.Name() == "postgres" {
+			like = "ILIKE"
+		}
+
+		// First, get any potential users that match the search term.
+
+		users, err := c.Users(ctx, types.UserQuery{})
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to get users: %w", err)
+		}
+
+		var userIDs []string
+		for _, u := range users {
+			if strings.Contains(u.DisplayName, opts.Query) {
+				userIDs = append(userIDs, strconv.FormatUint(uint64(u.ID), 10))
+			}
+		}
+
+		db = db.Where(fmt.Sprintf(`user_id in (?) OR mcp_id %[1]s ? OR mcp_server_display_name %[1]s ? OR 
+			mcp_server_catalog_entry_name %[1]s ? OR client_name %[1]s ? OR client_version %[1]s ? OR 
+			client_ip %[1]s ? OR call_type %[1]s ? OR call_identifier %[1]s ? OR error %[1]s ? OR 
+			session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`, like),
+			userIDs,
+			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm,
+			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm)
+	}
 
 	// Apply filters
 	if len(opts.UserID) > 0 {
@@ -68,19 +101,10 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		db = db.Where("created_at < ?", opts.EndTime.Local())
 	}
 
-	// Apply text search across multiple fields
-	if opts.Query != "" {
-		searchTerm := "%" + opts.Query + "%"
-		like := "LIKE"
-		if db.Name() == "postgres" {
-			like = "ILIKE"
-		}
-		db = db.Where(fmt.Sprintf(`user_id %[1]s ? OR mcp_id %[1]s ? OR mcp_server_display_name %[1]s ? OR 
-			mcp_server_catalog_entry_name %[1]s ? OR client_name %[1]s ? OR client_version %[1]s ? OR 
-			client_ip %[1]s ? OR call_type %[1]s ? OR call_identifier %[1]s ? OR error %[1]s ? OR 
-			session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`, like),
-			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm,
-			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm)
+	// Get the total before applying the limit
+	var total int64
+	if err := db.Count(&total).Error; err != nil {
+		return nil, 0, err
 	}
 
 	// Apply pagination
@@ -122,7 +146,7 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		db = db.Order("created_at DESC")
 	}
 
-	return logs, db.Find(&logs).Error
+	return logs, total, db.Find(&logs).Error
 }
 
 func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, exclude ...any) ([]string, error) {
@@ -257,74 +281,6 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 		UniqueUsers: callsAndUsers.UniqueUsers,
 		Items:       stats,
 	}, nil
-}
-
-// CountMCPAuditLogs counts the total number of audit logs matching the given criteria
-func (c *Client) CountMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (int64, error) {
-	var count int64
-
-	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{})
-
-	// Apply filters
-	if len(opts.UserID) > 0 {
-		db = db.Where("user_id IN (?)", opts.UserID)
-	}
-	if len(opts.MCPID) > 0 {
-		db = db.Where("mcp_id IN (?)", opts.MCPID)
-	}
-	if len(opts.MCPServerDisplayName) > 0 {
-		db = db.Where("mcp_server_display_name IN (?)", opts.MCPServerDisplayName)
-	}
-	if len(opts.MCPServerCatalogEntryName) > 0 {
-		db = db.Where("mcp_server_catalog_entry_name IN (?)", opts.MCPServerCatalogEntryName)
-	}
-	if len(opts.CallType) > 0 {
-		db = db.Where("call_type IN (?)", opts.CallType)
-	}
-	if len(opts.SessionID) > 0 {
-		db = db.Where("session_id IN (?)", opts.SessionID)
-	}
-	if len(opts.ClientName) > 0 {
-		db = db.Where("client_name IN (?)", opts.ClientName)
-	}
-	if len(opts.ClientVersion) > 0 {
-		db = db.Where("client_version IN (?)", opts.ClientVersion)
-	}
-	if len(opts.ResponseStatus) > 0 {
-		db = db.Where("response_status IN (?)", opts.ResponseStatus)
-	}
-	if len(opts.ClientIP) > 0 {
-		db = db.Where("client_ip IN (?)", opts.ClientIP)
-	}
-	if opts.ProcessingTimeMin > 0 {
-		db = db.Where("processing_time_ms >= ?", opts.ProcessingTimeMin)
-	}
-	if opts.ProcessingTimeMax > 0 {
-		db = db.Where("processing_time_ms <= ?", opts.ProcessingTimeMax)
-	}
-	if !opts.StartTime.IsZero() {
-		db = db.Where("created_at >= ?", opts.StartTime.Local())
-	}
-	if !opts.EndTime.IsZero() {
-		db = db.Where("created_at < ?", opts.EndTime.Local())
-	}
-
-	// Apply text search across multiple fields
-	if opts.Query != "" {
-		searchTerm := "%" + opts.Query + "%"
-		like := "LIKE"
-		if db.Name() == "postgres" {
-			like = "ILIKE"
-		}
-		db = db.Where(fmt.Sprintf(`user_id %[1]s ? OR mcp_id %[1]s ? OR mcp_server_display_name %[1]s ? OR 
-			mcp_server_catalog_entry_name %[1]s ? OR client_name %[1]s ? OR client_version %[1]s ? OR 
-			client_ip %[1]s ? OR call_type %[1]s ? OR call_identifier %[1]s ? OR error %[1]s ? OR 
-			session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`, like),
-			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm,
-			searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm)
-	}
-
-	return count, db.Count(&count).Error
 }
 
 // MCPAuditLogOptions represents options for querying MCP audit logs

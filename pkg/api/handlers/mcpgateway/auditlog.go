@@ -118,7 +118,7 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	opts.SortOrder = query.Get("sort_order")
 
 	// Get audit logs
-	logs, err := req.GatewayClient.GetMCPAuditLogs(req.Context(), opts)
+	logs, total, err := req.GatewayClient.GetMCPAuditLogs(req.Context(), opts)
 	if err != nil {
 		return err
 	}
@@ -129,17 +129,11 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		result = append(result, gatewaytypes.ConvertMCPAuditLog(log))
 	}
 
-	// Get total count for pagination
-	totalCount, err := req.GatewayClient.CountMCPAuditLogs(req.Context(), opts)
-	if err != nil {
-		return err
-	}
-
 	return req.Write(types.MCPAuditLogResponse{
 		MCPAuditLogList: types.MCPAuditLogList{
 			Items: result,
 		},
-		Total:  totalCount,
+		Total:  total,
 		Limit:  opts.Limit,
 		Offset: opts.Offset,
 	})
