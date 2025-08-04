@@ -1,5 +1,14 @@
 <script lang="ts">
-	import { addMinutes, getHours, getMinutes, setHours, setMinutes, subMinutes } from 'date-fns';
+	import {
+		addHours,
+		addMinutes,
+		getHours,
+		getMinutes,
+		setHours,
+		setMinutes,
+		subHours,
+		subMinutes
+	} from 'date-fns';
 	import { twMerge } from 'tailwind-merge';
 
 	type Props = {
@@ -22,48 +31,29 @@
 			type="number"
 			max="12"
 			min="0"
-			value={hours % 12}
+			bind:value={
+				() => (hours % 12).toString().padStart(2, '0'),
+				(v) => {
+					const valueAsNumber = parseInt(v, 10) || 0;
+
+					date = setHours(date, Math.min(valueAsNumber + amPmAsNumber * 12, 23));
+					onChange?.(date);
+				}
+			}
 			onkeydown={(ev) => {
 				if (['ArrowDown', 'ArrowUp'].includes(ev.key)) {
 					ev.preventDefault();
-				}
-
-				if (
-					(ev.key === 'Backspace' || ev.key === 'Delete') &&
-					ev.currentTarget.value.length === 1
-				) {
-					// Reset to 0 if the input is cleared
-
-					ev.preventDefault();
-
-					const hours = 0;
-
-					date = setHours(date, hours);
-					onChange?.(date);
-
-					ev.currentTarget.value = hours + '';
+					return;
 				}
 			}}
 			onkeyup={(ev) => {
 				if (ev.key === 'ArrowDown') {
-					ev.preventDefault();
-
-					date = subMinutes(date, 60);
-
+					date = subHours(date, 1);
+					onChange?.(date);
+				} else if (ev.key === 'ArrowUp') {
+					date = addHours(date, 1);
 					onChange?.(date);
 				}
-
-				if (ev.key === 'ArrowUp') {
-					ev.preventDefault();
-
-					date = addMinutes(date, 60);
-					onChange?.(date);
-				}
-			}}
-			oninput={(ev) => {
-				const valueAsNumber = ev.currentTarget.valueAsNumber;
-				date = setHours(date, (valueAsNumber + amPmAsNumber * 12) % 24);
-				onChange?.(date);
 			}}
 		/>
 	</div>
@@ -76,46 +66,29 @@
 			type="number"
 			max="60"
 			min="0"
-			value={minutes % 60}
+			bind:value={
+				() => (minutes % 60).toString().padStart(2, '0'),
+				(v) => {
+					const valueAsNumber = parseInt(v, 10) || 0;
+
+					date = setMinutes(date, Math.min(valueAsNumber, 59));
+					onChange?.(date);
+				}
+			}
 			onkeydown={(ev) => {
 				if (['ArrowDown', 'ArrowUp'].includes(ev.key)) {
 					ev.preventDefault();
-				}
-
-				if (
-					(ev.key === 'Backspace' || ev.key === 'Delete') &&
-					ev.currentTarget.value.length === 1
-				) {
-					// Reset to 0 if the input is cleared
-
-					ev.preventDefault();
-
-					const minutes = 0;
-
-					date = setMinutes(date, minutes);
-					onChange?.(date);
-
-					ev.currentTarget.value = minutes + '';
+					return;
 				}
 			}}
 			onkeyup={(ev) => {
 				if (ev.key === 'ArrowDown') {
 					date = subMinutes(date, 1);
-
 					onChange?.(date);
-				}
-
-				if (ev.key === 'ArrowUp') {
+				} else if (ev.key === 'ArrowUp') {
 					date = addMinutes(date, 1);
-
 					onChange?.(date);
 				}
-			}}
-			oninput={(ev) => {
-				const valueAsNumber = ev.currentTarget.valueAsNumber;
-				date = setMinutes(date, valueAsNumber % 60);
-
-				onChange?.(date);
 			}}
 		/>
 	</div>
