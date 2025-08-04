@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { columnResize } from '$lib/actions/resize';
 	import type { AuditLog } from '$lib/services/admin/types';
+	import { responsive } from '$lib/stores';
 	import { X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -11,9 +13,20 @@
 	}
 
 	let { auditLog, onClose }: Props = $props();
+	let container = $state<HTMLDivElement>();
 </script>
 
-<div class="dark:bg-gray-990 h-full w-screen bg-gray-50 md:w-lg">
+{#if !responsive.isMobile && container}
+	<div
+		role="none"
+		class="absolute z-30 h-full w-3 cursor-col-resize"
+		use:columnResize={{ column: container, direction: 'right' }}
+	></div>
+{/if}
+<div
+	class="dark:bg-gray-990 h-full w-screen max-w-[85vw] bg-gray-50 md:w-lg md:min-w-lg"
+	bind:this={container}
+>
 	<div class="dark:bg-surface1 relative flex w-full flex-col bg-white p-4 pl-5 shadow-xs">
 		<div
 			class={twMerge(

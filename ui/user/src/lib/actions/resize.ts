@@ -3,6 +3,7 @@ export function columnResize(
 	{ column, direction = 'left' }: { column: HTMLElement; direction?: 'left' | 'right' }
 ) {
 	const resizeMove = (e: MouseEvent) => {
+		e.stopPropagation();
 		const w =
 			direction === 'right'
 				? column.getBoundingClientRect().right - e.clientX
@@ -10,13 +11,15 @@ export function columnResize(
 		column.style.width = w + 'px';
 	};
 
-	const resizeDone = () => {
+	const resizeDone = (e: MouseEvent) => {
+		e.stopPropagation();
 		window.document.removeEventListener('mousemove', resizeMove);
 		window.document.removeEventListener('mouseup', resizeDone);
 	};
 
 	const resizeStart = (e: MouseEvent): void => {
 		e.preventDefault();
+		e.stopPropagation();
 		window.document.addEventListener('mousemove', resizeMove);
 		window.document.addEventListener('mouseup', resizeDone);
 	};
