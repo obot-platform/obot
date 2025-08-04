@@ -167,13 +167,13 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 			serverConfig.Headers = make([]string, 0, len(mcpServer.Spec.Manifest.RemoteConfig.Headers))
 			for _, header := range mcpServer.Spec.Manifest.RemoteConfig.Headers {
 				val, ok := credEnv[header.Key]
-				if !ok && header.Required {
-					missingRequiredNames = append(missingRequiredNames, header.Key)
+				if !ok || val == "" {
+					if header.Required {
+						missingRequiredNames = append(missingRequiredNames, header.Key)
+					}
 					continue
 				}
-				if ok {
-					serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
-				}
+				serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
 			}
 		} else {
 			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires remote config", mcpServer.Spec.Manifest.Runtime)
