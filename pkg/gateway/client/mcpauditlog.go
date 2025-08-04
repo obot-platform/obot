@@ -154,11 +154,14 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 		if opts.MCPID != "" {
 			tx = tx.Where("mcp_id = ?", opts.MCPID)
 		}
-		if opts.MCPServerDisplayName != "" {
-			tx = tx.Where("mcp_server_display_name = ?", opts.MCPServerDisplayName)
+		if len(opts.UserIDs) > 0 {
+			tx = tx.Where("user_id IN (?)", opts.UserIDs)
 		}
-		if opts.MCPServerCatalogEntryName != "" {
-			tx = tx.Where("mcp_server_catalog_entry_name = ?", opts.MCPServerCatalogEntryName)
+		if len(opts.MCPServerDisplayNames) > 0 {
+			tx = tx.Where("mcp_server_display_name IN (?)", opts.MCPServerDisplayNames)
+		}
+		if len(opts.MCPServerCatalogEntryNames) > 0 {
+			tx = tx.Where("mcp_server_catalog_entry_name IN (?)", opts.MCPServerCatalogEntryNames)
 		}
 
 		type basicStats struct {
@@ -352,9 +355,10 @@ type MCPAuditLogOptions struct {
 
 // MCPUsageStatsOptions represents options for querying MCP usage statistics
 type MCPUsageStatsOptions struct {
-	MCPID                     string
-	MCPServerDisplayName      string
-	MCPServerCatalogEntryName string
-	StartTime                 time.Time
-	EndTime                   time.Time
+	MCPID                      string
+	UserIDs                    []string
+	MCPServerDisplayNames      []string
+	MCPServerCatalogEntryNames []string
+	StartTime                  time.Time
+	EndTime                    time.Time
 }

@@ -186,20 +186,21 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 	query := req.URL.Query()
 
-	var mcpServerDisplayName, mcpServerCatalogEntryName string
+	var mcpServerDisplayNames, mcpServerCatalogEntryNames, userIDs []string
 	mcpID := req.PathValue("mcp_id")
 	if mcpID == "" {
 		mcpID = query.Get("mcp_id")
 		// Only look at these query parameters if the MCP ID is not provided.
-		mcpServerDisplayName = query.Get("mcp_server_display_name")
-		mcpServerCatalogEntryName = query.Get("mcp_server_catalog_entry_name")
+		mcpServerDisplayNames = parseMultiValueParam(query, "mcp_server_display_names")
+		mcpServerCatalogEntryNames = parseMultiValueParam(query, "mcp_server_catalog_entry_names")
+		userIDs = parseMultiValueParam(query, "user_ids")
 	}
 
-	// Parse query parameters
 	opts := gateway.MCPUsageStatsOptions{
-		MCPID:                     mcpID,
-		MCPServerDisplayName:      mcpServerDisplayName,
-		MCPServerCatalogEntryName: mcpServerCatalogEntryName,
+		MCPID:                      mcpID,
+		MCPServerDisplayNames:      mcpServerDisplayNames,
+		MCPServerCatalogEntryNames: mcpServerCatalogEntryNames,
+		UserIDs:                    userIDs,
 	}
 
 	var (
