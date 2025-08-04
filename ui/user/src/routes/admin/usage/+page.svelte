@@ -50,24 +50,34 @@
 		const endTime = url.searchParams.get('endTime')
 			? decodeURIComponent(url.searchParams.get('endTime')!)
 			: null;
-		const userId = url.searchParams.get('userId');
-		const mcpServerDisplayName = url.searchParams.get('name')
-			? decodeURIComponent(url.searchParams.get('name')!)
-			: null;
+		// Handle both single and array-based parameters for backward compatibility
+		const userIds = url.searchParams.get('userIds')
+			? decodeURIComponent(url.searchParams.get('userIds')!)
+					.split(',')
+					.map((s) => s.trim())
+					.filter(Boolean)
+			: undefined;
+
+		const mcpServerDisplayNames = url.searchParams.get('mcpServerDisplayNames')
+			? decodeURIComponent(url.searchParams.get('mcpServerDisplayNames')!)
+					.split(',')
+					.map((s) => s.trim())
+					.filter(Boolean)
+			: undefined;
 
 		return {
 			startTime,
 			endTime,
-			userId,
-			mcpServerDisplayName
+			userIds,
+			mcpServerDisplayNames
 		};
 	}
 
 	function convertFilterDisplayLabel(key: string) {
-		if (key === 'mcpServerDisplayName') return 'Server';
+		if (key === 'mcpServerDisplayNames') return 'Servers';
 		if (key === 'startTime') return 'Start Time';
 		if (key === 'endTime') return 'End Time';
-		if (key === 'userId') return 'User ID';
+		if (key === 'userIds') return 'Users';
 		return key;
 	}
 
@@ -77,11 +87,13 @@
 		// make sure to preserve existing filters
 		Object.entries(currentFilters).forEach(([key, filterValue]) => {
 			if (filterValue && key !== 'startTime' && key !== 'endTime') {
-				let urlKey = key;
-				if (key === 'mcpServerDisplayName') {
-					urlKey = 'name';
+				if (Array.isArray(filterValue)) {
+					// Handle array values (join with commas)
+					url.searchParams.set(key, filterValue.join(','));
+				} else {
+					// Handle string values
+					url.searchParams.set(key, String(filterValue));
 				}
-				url.searchParams.set(urlKey, String(filterValue));
 			}
 		});
 
@@ -153,10 +165,8 @@
 {/snippet}
 
 {#snippet usageContent()}
-	{@const { mcpServerDisplayName } = currentFilters}
 	<div class="flex flex-col gap-8" in:fade={{ duration }}>
 		<UsageGraphs
-			mcpServerDisplayName={mcpServerDisplayName ?? undefined}
 			{users}
 			filters={{
 				...currentFilters,

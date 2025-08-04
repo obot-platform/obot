@@ -17,6 +17,7 @@
 		property: string;
 		values: Record<string, FilterValue>;
 		selected: string;
+		multiple?: boolean;
 	};
 
 	type FilterValue = {
@@ -31,16 +32,18 @@
 	) {
 		const filterSets: FilterSet[] = [
 			{
-				label: 'User',
-				property: 'userId',
+				label: 'Users',
+				property: 'userIds',
 				values: {},
-				selected: filters?.userId ?? ''
+				selected: filters?.userIds?.join(',') ?? '',
+				multiple: true
 			},
 			{
-				label: 'MCP Server',
-				property: 'mcpServerDisplayName',
+				label: 'MCP Servers',
+				property: 'mcpServerDisplayNames',
 				values: {},
-				selected: filters?.mcpServerDisplayName ?? ''
+				selected: filters?.mcpServerDisplayNames?.join(',') ?? '',
+				multiple: true
 			}
 		];
 
@@ -69,7 +72,7 @@
 		for (const userId of userIds) {
 			const user = users.find((u) => u.id === userId);
 			filterSets[0].values[userId] = {
-				label: user?.email ?? 'Unknown',
+				label: user?.email || user?.displayName || 'Unknown',
 				id: userId
 			};
 		}
@@ -86,11 +89,28 @@
 	}
 
 	let { usageStats, users, onClose, filters }: Props = $props();
-	let filterInputs = $state<FilterSet[]>(generateFilters(usageStats, users, filters));
 
-	$effect(() => {
-		filterInputs = generateFilters(usageStats, users, filters);
+	let localFilters = $state({
+		userIds: filters?.userIds?.join(',') ?? '',
+		mcpServerDisplayNames: filters?.mcpServerDisplayNames?.join(',') ?? ''
 	});
+
+	let filterInputs = $derived(
+		generateFilters(usageStats, users, {
+			userIds: localFilters.userIds
+				? localFilters.userIds
+						.split(',')
+						.map((s) => s.trim())
+						.filter(Boolean)
+				: undefined,
+			mcpServerDisplayNames: localFilters.mcpServerDisplayNames
+				? localFilters.mcpServerDisplayNames
+						.split(',')
+						.map((s) => s.trim())
+						.filter(Boolean)
+				: undefined
+		})
+	);
 
 	function handleApplyFilters() {
 		const url = new URL(page.url);
@@ -108,17 +128,15 @@
 			if (endTime) url.searchParams.set('endTime', endTime);
 		}
 
-		for (const filterInput of filterInputs) {
-			if (filterInput.selected) {
-				let paramName = filterInput.property;
-				if (paramName === 'mcpServerDisplayName') {
-					paramName = 'name';
-				}
-				url.searchParams.set(paramName, filterInput.selected.toString());
-			}
+		if (localFilters.userIds) {
+			url.searchParams.set('userIds', localFilters.userIds);
+		}
+		if (localFilters.mcpServerDisplayNames) {
+			url.searchParams.set('mcpServerDisplayNames', localFilters.mcpServerDisplayNames);
 		}
 
 		goto(url.toString());
+		onClose();
 	}
 </script>
 
@@ -132,7 +150,7 @@
 	<div
 		class="default-scrollbar-thin flex h-[calc(100%-60px)] flex-col gap-4 overflow-y-auto p-4 pt-0"
 	>
-		{#each filterInputs as filterInput, index (filterInput.property)}
+		{#each filterInputs as filterInput, _index (filterInput.property)}
 			{@const options = Object.values(filterInput.values)}
 			{#if options.length > 0}
 				<div class="mb-2 flex flex-col gap-1">
@@ -147,15 +165,48 @@
 						}}
 						{options}
 						selected={filterInput.selected}
+						multiple={filterInput.multiple ?? false}
 						onSelect={(option) => {
-							const updatedFilterInputs = [...filterInputs];
-							updatedFilterInputs[index].selected = option.id.toString();
-							filterInputs = updatedFilterInputs;
+							if (filterInput.multiple) {
+								const currentValues = filterInput.selected
+									? filterInput.selected.split(',').map((s) => s.trim())
+									: [];
+								const optionId = option.id.toString();
+								let newValues;
+								if (currentValues.includes(optionId)) {
+									newValues = currentValues.filter((id) => id !== optionId);
+								} else {
+									newValues = [...currentValues, optionId];
+								}
+
+								if (filterInput.property === 'userIds') {
+									localFilters.userIds = newValues.join(',');
+								} else if (filterInput.property === 'mcpServerDisplayNames') {
+									localFilters.mcpServerDisplayNames = newValues.join(',');
+								}
+							} else {
+								const newValue = option.id.toString();
+								if (filterInput.property === 'userIds') {
+									localFilters.userIds = newValue;
+								} else if (filterInput.property === 'mcpServerDisplayNames') {
+									localFilters.mcpServerDisplayNames = newValue;
+								}
+							}
 						}}
-						onClear={() => {
-							const updatedFilterInputs = [...filterInputs];
-							updatedFilterInputs[index].selected = '';
-							filterInputs = updatedFilterInputs;
+						onClear={(option, value) => {
+							if (option === undefined) {
+								if (filterInput.property === 'userIds') {
+									localFilters.userIds = '';
+								} else if (filterInput.property === 'mcpServerDisplayNames') {
+									localFilters.mcpServerDisplayNames = '';
+								}
+							} else {
+								if (filterInput.property === 'userIds') {
+									localFilters.userIds = value?.toString() ?? '';
+								} else if (filterInput.property === 'mcpServerDisplayNames') {
+									localFilters.mcpServerDisplayNames = value?.toString() ?? '';
+								}
+							}
 						}}
 						position="top"
 					/>

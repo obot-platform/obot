@@ -529,13 +529,18 @@ function camelToSnakeCase(str: string): string {
 	return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 
-function buildQueryString(filters: Record<string, string | number | boolean | undefined | null>) {
+function buildQueryString(
+	filters: Record<string, string | number | boolean | string[] | undefined | null>
+) {
 	return Object.entries(filters)
 		.filter(([_, value]) => value !== undefined && value !== null)
-		.map(
-			([key, value]) =>
-				`${camelToSnakeCase(key)}=${typeof value === 'string' ? encodeURIComponent(value) : value}`
-		)
+		.map(([key, value]) => {
+			if (Array.isArray(value)) {
+				// Join arrays with commas for multi-value parameters
+				return `${camelToSnakeCase(key)}=${encodeURIComponent(value.join(','))}`;
+			}
+			return `${camelToSnakeCase(key)}=${typeof value === 'string' ? encodeURIComponent(value) : value}`;
+		})
 		.join('&');
 }
 
@@ -563,9 +568,10 @@ export async function listServerOrInstanceAuditLogs(
 
 type AuditLogUsageFilters = {
 	mcpServerCatalogEntryName?: string;
-	mcpServerDisplayName?: string;
-	startTime?: string; // RFC3339 format (e.g., "2024-01-01T00:00:00Z"
-	endTime?: string;
+	mcpServerDisplayNames?: string[];
+	userIds?: string[];
+	startTime?: string | null;
+	endTime?: string | null;
 };
 
 export async function listAuditLogUsageStats(

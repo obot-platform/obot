@@ -110,7 +110,7 @@
 				startTime: filters?.startTime ?? '',
 				endTime: filters?.endTime ?? '',
 				mcpServerCatalogEntryName: mcpCatalogEntryId,
-				mcpServerDisplayName
+				mcpServerDisplayNames: mcpServerDisplayName ? [mcpServerDisplayName] : undefined
 			});
 		}
 	}

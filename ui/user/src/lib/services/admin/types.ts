@@ -374,9 +374,9 @@ export type AuditLogURLFilters = {
 };
 
 export type UsageStatsFilters = {
-	userId?: string | null;
-	mcpServerDisplayName?: string | null;
-	startTime?: string | null; // RFC3339 format (e.g., "2024-01-01T00:00:00Z"
+	userIds?: string[];
+	mcpServerDisplayNames?: string[];
+	startTime?: string | null;
 	endTime?: string | null;
 };
 

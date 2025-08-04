@@ -285,44 +285,16 @@
 	});
 
 	async function reload() {
-		const statsPromise = mcpId
+		listUsageStats = mcpId
 			? AdminService.listServerOrInstanceAuditLogStats(mcpId, {
 					startTime: filters?.startTime ?? '',
 					endTime: filters?.endTime ?? ''
 				})
 			: AdminService.listAuditLogUsageStats({
-					startTime: filters?.startTime ?? '',
-					endTime: filters?.endTime ?? '',
-					mcpServerCatalogEntryName: mcpCatalogEntryId,
-					mcpServerDisplayName
+					...filters,
+					...(mcpCatalogEntryId && { mcpServerCatalogEntryName: mcpCatalogEntryId }),
+					...(mcpServerDisplayName && { mcpServerDisplayNames: [mcpServerDisplayName] })
 				});
-
-		// Apply client-side user filtering if userId filter is set
-		listUsageStats = statsPromise.then((stats) => {
-			if (!filters?.userId || !stats?.items) {
-				return stats;
-			}
-
-			// Filter the items to only include data for the specified user
-			const filteredItems = stats.items
-				.map((item) => ({
-					...item,
-					toolCalls:
-						item.toolCalls
-							?.map((toolCall) => ({
-								...toolCall,
-								items:
-									toolCall.items?.filter((callItem) => callItem.userID === filters.userId) ?? []
-							}))
-							?.filter((toolCall) => (toolCall.items?.length ?? 0) > 0) ?? []
-				}))
-				.filter((item) => (item.toolCalls?.length ?? 0) > 0);
-
-			return {
-				...stats,
-				items: filteredItems
-			};
-		});
 	}
 
 	$effect(() => {
