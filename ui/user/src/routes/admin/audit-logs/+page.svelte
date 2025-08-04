@@ -24,7 +24,6 @@
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
 	import { endOfDay, set, subDays } from 'date-fns';
 	import { localState } from '$lib/runes/localState.svelte';
-	import { responsive } from '$lib/stores';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
