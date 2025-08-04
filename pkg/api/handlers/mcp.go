@@ -788,7 +788,17 @@ func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.M
 		existing.ContainerizedConfig = override.ContainerizedConfig
 	}
 	if override.RemoteConfig != nil {
-		existing.RemoteConfig = override.RemoteConfig
+		if existing.RemoteConfig == nil {
+			existing.RemoteConfig = override.RemoteConfig
+		} else {
+			if override.RemoteConfig.URL != "" {
+				existing.RemoteConfig.URL = override.RemoteConfig.URL
+			}
+
+			if len(override.RemoteConfig.Headers) > 0 {
+				existing.RemoteConfig.Headers = override.RemoteConfig.Headers
+			}
+		}
 	}
 
 	return existing
