@@ -5,6 +5,7 @@ type MCPCatalog struct {
 	MCPCatalogManifest
 	LastSynced Time              `json:"lastSynced,omitzero"`
 	SyncErrors map[string]string `json:"syncErrors,omitempty"`
+	IsSyncing  bool              `json:"isSyncing,omitempty"`
 }
 
 type MCPCatalogManifest struct {

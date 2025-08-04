@@ -63,6 +63,25 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		}
 	}
 
+	mcpCatalog.Status.IsSyncing = true
+	if err := req.Client.Status().Update(req.Ctx, mcpCatalog); err != nil {
+		return fmt.Errorf("failed to update catalog status: %w", err)
+	}
+
+	defer func() {
+		// Fetch the catalog again
+		var catalog v1.MCPCatalog
+		if err := req.Client.Get(req.Ctx, router.Key(system.DefaultNamespace, mcpCatalog.Name), &catalog); err != nil {
+			log.Errorf("failed to get catalog: %v", err)
+			return
+		}
+
+		catalog.Status.IsSyncing = false
+		if err := req.Client.Status().Update(req.Ctx, &catalog); err != nil {
+			log.Errorf("failed to update catalog status: %v", err)
+		}
+	}()
+
 	toAdd := make([]client.Object, 0)
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 

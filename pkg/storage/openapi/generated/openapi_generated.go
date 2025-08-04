@@ -2933,6 +2933,12 @@ func schema_obot_platform_obot_apiclient_types_MCPCatalog(ref common.ReferenceCa
 							},
 						},
 					},
+					"isSyncing": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "MCPCatalogManifest", "lastSynced"},
 			},
@@ -11077,6 +11083,12 @@ func schema_storage_apis_obotobotai_v1_MCPCatalogStatus(ref common.ReferenceCall
 									},
 								},
 							},
+						},
+					},
+					"isSyncing": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 				},

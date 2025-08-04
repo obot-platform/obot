@@ -23,6 +23,7 @@ type MCPCatalogStatus struct {
 	LastSyncTime metav1.Time `json:"lastSyncTime,omitzero"`
 	// SyncErrors is a map of source URLs to the error encountered while syncing it, if any.
 	SyncErrors map[string]string `json:"syncErrors,omitempty"`
+	IsSyncing  bool              `json:"isSyncing,omitempty"`
 }
 
 func (in *MCPCatalog) GetColumns() [][]string {
