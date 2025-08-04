@@ -3,6 +3,7 @@ package mcpgateway
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -38,8 +39,8 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 		MCPID:                     c.messageHandler.mcpID,
 		MCPServerDisplayName:      c.messageHandler.mcpServer.Spec.Manifest.Name,
 		MCPServerCatalogEntryName: c.messageHandler.mcpServer.Spec.MCPServerCatalogEntryName,
-		ClientName:                msg.Session.InitializeRequest.ClientInfo.Name,
-		ClientVersion:             msg.Session.InitializeRequest.ClientInfo.Version,
+		ClientName:                c.session.InitializeRequest.ClientInfo.Name,
+		ClientVersion:             c.session.InitializeRequest.ClientInfo.Version,
 		CreatedAt:                 startTime,
 		CallType:                  msg.Method,
 	}
@@ -53,17 +54,24 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 	}
 
 	var (
-		err    error
-		result json.RawMessage
+		err          error
+		result       json.RawMessage
+		dropAuditLog bool
 	)
 
 	defer func() {
+		if dropAuditLog {
+			return
+		}
+
 		// Complete audit log
 		auditLog.ProcessingTimeMs = time.Since(startTime).Milliseconds()
 
 		if err != nil {
 			auditLog.Error = err.Error()
-			auditLog.ResponseStatus = http.StatusInternalServerError
+			if auditLog.ResponseStatus == 0 {
+				auditLog.ResponseStatus = http.StatusInternalServerError
+			}
 		} else {
 			auditLog.ResponseStatus = http.StatusOK
 			// Capture response body if available
@@ -85,6 +93,12 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 	defer c.pendingRequests.Done(msg.ID)
 
 	if err = c.session.Send(ctx, msg); err != nil {
+		if errors.Is(err, nmcp.ErrNoReader) {
+			// No clients are reading these messages. Return and drop the audit log.
+			dropAuditLog = true
+
+			return nil
+		}
 		msg.SendError(ctx, err)
 		return fmt.Errorf("failed to send message: %w", err)
 	}

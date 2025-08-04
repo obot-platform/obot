@@ -23,12 +23,12 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, mcpServerName st
 		return types.MCPServerDetails{}, fmt.Errorf("kubernetes is not enabled")
 	}
 
-	_, err := sm.ensureDeployment(ctx, serverConfig, "default", mcpServerName)
+	_, err := sm.ensureDeployment(ctx, serverConfig, mcpServerName)
 	if err != nil {
 		return types.MCPServerDetails{}, err
 	}
 
-	id := sessionID(serverConfig)
+	id := deploymentID(serverConfig)
 
 	var deployment appsv1.Deployment
 	if err := sm.client.Get(ctx, client.ObjectKey{Name: id, Namespace: sm.mcpNamespace}, &deployment); err != nil {
@@ -117,7 +117,7 @@ func (sm *SessionManager) StreamServerLogs(ctx context.Context, serverConfig Ser
 		return nil, fmt.Errorf("kubernetes is not enabled")
 	}
 
-	id := sessionID(serverConfig)
+	id := deploymentID(serverConfig)
 
 	var deployment appsv1.Deployment
 	if err := sm.client.Get(ctx, client.ObjectKey{Name: id, Namespace: sm.mcpNamespace}, &deployment); err != nil {

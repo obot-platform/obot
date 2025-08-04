@@ -14,10 +14,7 @@ import (
 	"github.com/adrg/xdg"
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/cache"
-	"github.com/gptscript-ai/gptscript/pkg/engine"
 	gptscriptai "github.com/gptscript-ai/gptscript/pkg/gptscript"
-	"github.com/gptscript-ai/gptscript/pkg/loader"
-	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	"github.com/gptscript-ai/gptscript/pkg/runner"
 	"github.com/gptscript-ai/gptscript/pkg/sdkserver"
 	"github.com/obot-platform/nah"
@@ -151,7 +148,6 @@ type Services struct {
 	WebhookHelper *mcp.WebhookHelper
 
 	// Used for loading and running MCP servers with GPTScript.
-	MCPRunner engine.MCPRunner
 	MCPLoader *mcp.SessionManager
 
 	// Global token storage client for MCP OAuth
@@ -204,8 +200,7 @@ func newGPTScript(ctx context.Context,
 	envPassThrough []string,
 	credStore string,
 	credStoreEnv []string,
-	mcpLoader loader.MCPLoader,
-	mcpRunner engine.MCPRunner,
+	mcpSessionManager *mcp.SessionManager,
 ) (*gptscript.GPTScript, error) {
 	if os.Getenv("GPTSCRIPT_URL") != "" {
 		return gptscript.NewGPTScript(gptscript.GlobalOptions{
@@ -227,7 +222,7 @@ func newGPTScript(ctx context.Context,
 			},
 			Runner: runner.Options{
 				CredentialOverrides: credOverrides,
-				MCPRunner:           mcpRunner,
+				MCPRunner:           mcpSessionManager,
 			},
 			SystemToolsDir:     os.Getenv("GPTSCRIPT_SYSTEM_TOOLS_DIR"),
 			CredentialStore:    credStore,
@@ -235,7 +230,7 @@ func newGPTScript(ctx context.Context,
 		},
 		DatasetTool:   datasetTool,
 		WorkspaceTool: workspaceTool,
-		MCPLoader:     mcpLoader,
+		MCPLoader:     mcpSessionManager,
 	})
 	if err != nil {
 		return nil, err
@@ -339,13 +334,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	gatewayClient := client.New(gatewayDB, encryptionConfig, config.AuthAdminEmails)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
-	mcpRunner := gmcp.DefaultRunner
-	mcpLoader, err := mcp.NewSessionManager(ctx, mcpRunner, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig))
+	mcpLoader, err := mcp.NewSessionManager(ctx, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig))
 	if err != nil {
 		return nil, err
 	}
 
-	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpLoader, mcpRunner)
+	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpLoader)
 	if err != nil {
 		return nil, err
 	}
@@ -646,7 +640,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		RetentionPolicy:            retentionPolicy,
 		DefaultMCPCatalogPath:      config.DefaultMCPCatalogPath,
 		MCPLoader:                  mcpLoader,
-		MCPRunner:                  mcpRunner,
 		MCPOAuthTokenStorage:       mcpOAuthTokenStorage,
 		OAuthServerConfig: OAuthAuthorizationServerConfig{
 			ResponseTypesSupported:            []string{"code"},

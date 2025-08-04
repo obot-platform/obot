@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
-	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/api"
@@ -72,7 +71,6 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 	} else {
 		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, mcpID)
 	}
-
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the MCP server is not found, remove the session.
@@ -209,7 +207,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 	// If an unauthorized error occurs, send the proper status code.
 	var (
-		client *gmcp.Client
+		client *mcp.Client
 		result any
 	)
 	defer func() {
@@ -255,6 +253,8 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 		m.insertAuditLog(auditLog)
 	}()
+
+	m.serverConfig.ClientScope = msg.Session.ID()
 
 	client, err = m.handler.mcpSessionManager.ClientForMCPServerWithOptions(ctx, m.mcpServer, m.serverConfig, m.clientMessageHandlerAsClientOption(m.handler.tokenStore.ForUserAndMCP(m.userID, m.mcpID), msg.Session))
 	if err != nil {

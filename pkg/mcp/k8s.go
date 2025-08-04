@@ -14,19 +14,18 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (sm *SessionManager) k8sObjectsForUVXOrNPX(server ServerConfig, key, serverName string) ([]kclient.Object, error) {
+func (sm *SessionManager) k8sObjectsForUVXOrNPX(server ServerConfig, serverName string) ([]kclient.Object, error) {
 	if server.Runtime != otypes.RuntimeUVX && server.Runtime != otypes.RuntimeNPX {
 		return nil, fmt.Errorf("invalid runtime: %s", server.Runtime)
 	}
 
 	args := []string{"run", "--listen-address", ":8099", "/run/nanobot.yaml"}
 	annotations := map[string]string{
-		"mcp-server-tool-name":   serverName,
-		"mcp-server-config-name": key,
-		"mcp-server-scope":       server.Scope,
+		"mcp-server-tool-name": serverName,
+		"mcp-server-scope":     server.Scope,
 	}
 
-	id := sessionID(server)
+	id := deploymentID(server)
 	objs := make([]kclient.Object, 0, 5)
 
 	secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+2)
@@ -208,18 +207,17 @@ func (sm *SessionManager) k8sObjectsForUVXOrNPX(server ServerConfig, key, server
 	return objs, nil
 }
 
-func (sm *SessionManager) k8sObjectsForContainerized(server ServerConfig, key, serverName string) ([]kclient.Object, error) {
+func (sm *SessionManager) k8sObjectsForContainerized(server ServerConfig, serverName string) ([]kclient.Object, error) {
 	if server.Runtime != otypes.RuntimeContainerized {
 		return nil, fmt.Errorf("invalid runtime: %s", server.Runtime)
 	}
 
 	annotations := map[string]string{
-		"mcp-server-tool-name":   serverName,
-		"mcp-server-config-name": key,
-		"mcp-server-scope":       server.Scope,
+		"mcp-server-tool-name": serverName,
+		"mcp-server-scope":     server.Scope,
 	}
 
-	id := sessionID(server)
+	id := deploymentID(server)
 	objs := make([]kclient.Object, 0, 4)
 
 	secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+2)

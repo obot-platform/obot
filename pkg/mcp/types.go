@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 
-	gmcp "github.com/gptscript-ai/gptscript/pkg/mcp"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authz"
@@ -21,12 +20,25 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	gmcp.ServerConfig `json:",inline"`
-	Files             []File        `json:"files"`
-	ContainerImage    string        `json:"containerImage"`
-	ContainerPort     int           `json:"containerPort"`
-	ContainerPath     string        `json:"containerPath"`
-	Runtime           types.Runtime `json:"runtime"`
+	DisableInstruction bool     `json:"disableInstruction"`
+	Command            string   `json:"command"`
+	Args               []string `json:"args"`
+	Env                []string `json:"env"`
+	URL                string   `json:"url"`
+	Headers            []string `json:"headers"`
+	// Scope ensures separate deployments for each user and project.
+	Scope string `json:"scope"`
+	// ClientScope is used to scope clients to sessions.
+	// This value will not be used to determine if a new deployment of the server is needed, but is used to ensure the
+	// client is new for the session.
+	ClientScope  string   `json:"clientScope"`
+	AllowedTools []string `json:"allowedTools"`
+
+	Files          []File        `json:"files"`
+	ContainerImage string        `json:"containerImage"`
+	ContainerPort  int           `json:"containerPort"`
+	ContainerPath  string        `json:"containerPath"`
+	Runtime        types.Runtime `json:"runtime"`
 }
 
 type File struct {
@@ -62,15 +74,13 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv ma
 	}
 
 	serverConfig := ServerConfig{
-		ServerConfig: gmcp.ServerConfig{
-			Command:      command,
-			Args:         args,
-			Env:          make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
-			URL:          url,
-			Headers:      make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
-			Scope:        fmt.Sprintf("%s-%s", mcpServer.Name, scope),
-			AllowedTools: allowedTools,
-		},
+		Command:      command,
+		Args:         args,
+		Env:          make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
+		URL:          url,
+		Headers:      make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
+		Scope:        fmt.Sprintf("%s-%s", mcpServer.Name, scope),
+		AllowedTools: allowedTools,
 	}
 
 	var missingRequiredNames []string
@@ -111,12 +121,10 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 	}
 
 	serverConfig := ServerConfig{
-		ServerConfig: gmcp.ServerConfig{
-			Env:          make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
-			Scope:        fmt.Sprintf("%s-%s", mcpServer.Name, scope),
-			AllowedTools: allowedTools,
-		},
-		Runtime: mcpServer.Spec.Manifest.Runtime,
+		Env:          make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
+		Scope:        fmt.Sprintf("%s-%s", mcpServer.Name, scope),
+		AllowedTools: allowedTools,
+		Runtime:      mcpServer.Spec.Manifest.Runtime,
 	}
 
 	var missingRequiredNames []string
@@ -218,12 +226,10 @@ func ProjectServerToConfig(tokenService *jwt.TokenService, projectMCPServer v1.P
 	}
 
 	return ServerConfig{
-		ServerConfig: gmcp.ServerConfig{
-			URL:          projectMCPServer.ConnectURL(baseURL),
-			Headers:      []string{fmt.Sprintf("Authorization=Bearer %s", token)},
-			Scope:        fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
-			AllowedTools: allowedTools,
-		},
-		Runtime: types.RuntimeRemote,
+		URL:          projectMCPServer.ConnectURL(baseURL),
+		Headers:      []string{fmt.Sprintf("Authorization=Bearer %s", token)},
+		Scope:        fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
+		AllowedTools: allowedTools,
+		Runtime:      types.RuntimeRemote,
 	}, nil
 }

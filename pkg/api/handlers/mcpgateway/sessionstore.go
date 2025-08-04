@@ -18,6 +18,7 @@ import (
 type sessionStoreFactory struct {
 	client          kclient.Client
 	mcpSessionCache sync.Map
+	sessionCache    sync.Map
 }
 
 func (sf *sessionStoreFactory) NewStore(handler *messageHandler) nmcp.SessionStore {
@@ -36,9 +37,9 @@ func (s *sessionStore) ExtractID(req *http.Request) string {
 	return req.Header.Get("Mcp-Session-Id")
 }
 
-func (s *sessionStore) Store(req *http.Request, sessionID string, session *nmcp.ServerSession) error {
+func (s *sessionStore) Store(req *http.Request, sessionID string, sess *nmcp.ServerSession) error {
 	var state nmcp.SessionState
-	if sessionState, err := session.GetSession().State(); err != nil {
+	if sessionState, err := sess.GetSession().State(); err != nil {
 		return fmt.Errorf("failed to get session state: %w", err)
 	} else if sessionState != nil {
 		state = *sessionState
@@ -49,7 +50,7 @@ func (s *sessionStore) Store(req *http.Request, sessionID string, session *nmcp.
 		return fmt.Errorf("failed to encode session state: %w", err)
 	}
 
-	mcpSession := &v1.MCPSession{
+	mcpSess := &v1.MCPSession{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:  system.DefaultNamespace,
 			Name:       sessionID,
@@ -60,37 +61,46 @@ func (s *sessionStore) Store(req *http.Request, sessionID string, session *nmcp.
 		},
 	}
 
-	if err = create.OrUpdate(req.Context(), s.client, mcpSession); err != nil {
+	if err = create.OrUpdate(req.Context(), s.client, mcpSess); err != nil {
 		return err
 	}
 
-	s.mcpSessionCache.Store(sessionID, mcpSession)
+	s.mcpSessionCache.Store(sessionID, mcpSess)
+	s.sessionCache.Store(sessionID, sess)
 
 	return nil
 }
 
 func (s *sessionStore) Load(req *http.Request, sessionID string) (*nmcp.ServerSession, bool, error) {
-	var mcpSess *v1.MCPSession
+	var (
+		sess    *nmcp.ServerSession
+		mcpSess *v1.MCPSession
+	)
 
 	mcpSession, ok := s.mcpSessionCache.Load(sessionID)
+	session, _ := s.sessionCache.Load(sessionID)
 	if ok {
 		mcpSess = mcpSession.(*v1.MCPSession)
+		sess = session.(*nmcp.ServerSession)
 	} else {
 		mcpSess = new(v1.MCPSession)
 		err := s.client.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSess)
 		if err != nil {
 			return nil, false, err
 		}
-	}
 
-	var sessionState nmcp.SessionState
-	if err := json.Unmarshal(mcpSess.Spec.State, &sessionState); err != nil {
-		return nil, false, fmt.Errorf("failed to decode session state: %w", err)
-	}
+		var sessionState nmcp.SessionState
+		if err = json.Unmarshal(mcpSess.Spec.State, &sessionState); err != nil {
+			return nil, false, fmt.Errorf("failed to decode session state: %w", err)
+		}
 
-	sess, err := nmcp.NewExistingServerSession(req.Context(), sessionState, s.handler)
-	if err != nil {
-		return nil, false, err
+		sess, err = nmcp.NewExistingServerSession(req.Context(), sessionState, s.handler)
+		if err != nil {
+			return nil, false, err
+		}
+
+		s.mcpSessionCache.Store(sessionID, mcpSess)
+		s.sessionCache.Store(sessionID, sess)
 	}
 
 	// If the session hasn't been updated in the last hour, update it.
@@ -101,37 +111,37 @@ func (s *sessionStore) Load(req *http.Request, sessionID string) (*nmcp.ServerSe
 		}
 	}
 
-	s.mcpSessionCache.Store(sessionID, mcpSess)
-
 	return sess, true, nil
 }
 
 func (s *sessionStore) LoadAndDelete(req *http.Request, sessionID string) (*nmcp.ServerSession, bool, error) {
-	session, ok := s.mcpSessionCache.LoadAndDelete(sessionID)
-	var mcpSession *v1.MCPSession
-	if !ok {
-		mcpSession = new(v1.MCPSession)
-		if err := s.client.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSession); err != nil {
+	mcpSession, ok := s.mcpSessionCache.LoadAndDelete(sessionID)
+	session, _ := s.sessionCache.LoadAndDelete(sessionID)
+
+	var (
+		mcpSess *v1.MCPSession
+		sess    *nmcp.ServerSession
+	)
+	if ok {
+		mcpSess = mcpSession.(*v1.MCPSession)
+		sess = session.(*nmcp.ServerSession)
+	} else {
+		mcpSess = new(v1.MCPSession)
+		err := s.client.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSess)
+		if err != nil {
 			return nil, false, err
 		}
-	} else {
-		mcpSession = session.(*v1.MCPSession)
+
+		var sessionState nmcp.SessionState
+		if err = json.Unmarshal(mcpSess.Spec.State, &sessionState); err != nil {
+			return nil, false, fmt.Errorf("failed to decode session state: %w", err)
+		}
+
+		sess, err = nmcp.NewExistingServerSession(req.Context(), sessionState, s.handler)
+		if err != nil {
+			return nil, false, err
+		}
 	}
 
-	var sessionState nmcp.SessionState
-	if err := json.Unmarshal(mcpSession.Spec.State, &sessionState); err != nil {
-		return nil, false, fmt.Errorf("failed to decode session state: %w", err)
-	}
-
-	sess, err := nmcp.NewExistingServerSession(req.Context(), sessionState, s.handler)
-	if err != nil {
-		return nil, false, err
-	}
-
-	return sess, ok, kclient.IgnoreNotFound(s.client.Delete(req.Context(), &v1.MCPSession{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sessionID,
-			Namespace: system.DefaultNamespace,
-		},
-	}))
+	return sess, ok, kclient.IgnoreNotFound(s.client.Delete(req.Context(), mcpSess))
 }
