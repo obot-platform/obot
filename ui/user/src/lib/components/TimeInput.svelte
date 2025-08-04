@@ -27,6 +27,22 @@
 				if (['ArrowDown', 'ArrowUp'].includes(ev.key)) {
 					ev.preventDefault();
 				}
+
+				if (
+					(ev.key === 'Backspace' || ev.key === 'Delete') &&
+					ev.currentTarget.value.length === 1
+				) {
+					// Reset to 0 if the input is cleared
+
+					ev.preventDefault();
+
+					const hours = 0;
+
+					date = setHours(date, hours);
+					onChange?.(date);
+
+					ev.currentTarget.value = hours + '';
+				}
 			}}
 			onkeyup={(ev) => {
 				if (ev.key === 'ArrowDown') {
@@ -64,6 +80,22 @@
 			onkeydown={(ev) => {
 				if (['ArrowDown', 'ArrowUp'].includes(ev.key)) {
 					ev.preventDefault();
+				}
+
+				if (
+					(ev.key === 'Backspace' || ev.key === 'Delete') &&
+					ev.currentTarget.value.length === 1
+				) {
+					// Reset to 0 if the input is cleared
+
+					ev.preventDefault();
+
+					const minutes = 0;
+
+					date = setMinutes(date, minutes);
+					onChange?.(date);
+
+					ev.currentTarget.value = minutes + '';
 				}
 			}}
 			onkeyup={(ev) => {
