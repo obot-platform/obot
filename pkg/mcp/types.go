@@ -184,8 +184,10 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 
 	for _, env := range mcpServer.Spec.Manifest.Env {
 		val, ok := credEnv[env.Key]
-		if !ok && env.Required {
-			missingRequiredNames = append(missingRequiredNames, env.Key)
+		if !ok || val == "" {
+			if env.Required {
+				missingRequiredNames = append(missingRequiredNames, env.Key)
+			}
 			continue
 		}
 
