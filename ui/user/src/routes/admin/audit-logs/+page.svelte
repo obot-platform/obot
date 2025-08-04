@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fade, slide } from 'svelte/transition';
-	import { X, ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import { X, ChevronLeft, ChevronRight, Funnel } from 'lucide-svelte';
 	import { throttle } from 'es-toolkit';
 	import { page } from '$app/state';
 	import { afterNavigate, goto } from '$app/navigation';
@@ -281,26 +281,14 @@
 				/>
 
 				<button
-					class="dark:bg-surface1 dark:hover:bg-surface2/70 dark:active:bg-surface2 dark:border-surface3 flex w-full items-center justify-center gap-1 rounded-lg border border-transparent bg-white px-4 py-2 shadow-sm hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:outline-none sm:w-auto"
+					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
 					onclick={() => {
 						showFilters = true;
 						selectedAuditLog = undefined;
 						rightSidebar?.show();
 					}}
 				>
-					<svg
-						class="size-4"
-						xmlns="http://www.w3.org/2000/svg"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-					</svg>
-
+					<Funnel class="size-4" />
 					Filters
 				</button>
 			</div>

@@ -3,12 +3,14 @@
 	import Table from '$lib/components/Table.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import { AdminService, type ProjectThread, type Project, type OrgUser } from '$lib/services';
-	import { Eye, LoaderCircle, MessageCircle, ListFilter } from 'lucide-svelte';
+	import { Eye, LoaderCircle, MessageCircle, Funnel, X } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { fly, slide } from 'svelte/transition';
-	import { goto } from '$app/navigation';
+	import { fly } from 'svelte/transition';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { formatTimeAgo } from '$lib/time';
 	import Search from '$lib/components/Search.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 
 	let threads = $state<ProjectThread[]>([]);
 	let filteredThreads = $state<ProjectThread[]>([]);
@@ -16,6 +18,18 @@
 	let users = $state<OrgUser[]>([]);
 	let projectMap = $derived(new Map(projects.map((p) => [p.id, p.name])));
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
+
+	let rightSidebar = $state<HTMLDialogElement>();
+	let filters = $state({
+		username: '',
+		email: '',
+		project: ''
+	});
+	let modifiedFilters = $state({
+		username: '',
+		email: '',
+		project: ''
+	});
 
 	// Get unique options from thread data for Select components
 	let usernameOptions = $derived.by(() => {
@@ -58,14 +72,6 @@
 	});
 	let loading = $state(true);
 	let searchTerm = $state('');
-	let showFilters = $state(false);
-	let usernameFilter = $state<string>('');
-	let emailFilter = $state<string>('');
-	let projectFilter = $state<string>('');
-	let sortField = $state<'created' | 'name' | 'userID' | 'projectID' | 'userName' | 'userEmail'>(
-		'created'
-	);
-	let sortDirection = $state<'asc' | 'desc'>('desc');
 	let tableData = $derived(
 		filteredThreads.map((thread) => {
 			return {
@@ -77,8 +83,22 @@
 		})
 	);
 
+	function getFiltersFromUrl() {
+		const url = new URL(window.location.href);
+		return {
+			username: url.searchParams.get('username') || '',
+			email: url.searchParams.get('email') || '',
+			project: url.searchParams.get('project') || ''
+		};
+	}
+
 	onMount(() => {
 		loadThreads();
+	});
+
+	afterNavigate(() => {
+		filters = getFiltersFromUrl();
+		modifiedFilters = { ...filters };
 	});
 
 	async function loadThreads() {
@@ -152,63 +172,29 @@
 		}
 
 		// Apply specific filters
-		if (usernameFilter.trim() !== '') {
-			const usernameTerm = usernameFilter.toLowerCase();
+		if (filters.username.trim() !== '') {
+			const usernameTerm = filters.username.toLowerCase();
 			filtered = filtered.filter((thread) => {
 				const user = userMap.get(thread.userID || '');
 				return user?.displayName?.toLowerCase().includes(usernameTerm);
 			});
 		}
 
-		if (emailFilter.trim() !== '') {
-			const emailTerm = emailFilter.toLowerCase();
+		if (filters.email.trim() !== '') {
+			const emailTerm = filters.email.toLowerCase();
 			filtered = filtered.filter((thread) => {
 				const user = userMap.get(thread.userID || '');
 				return user?.email?.toLowerCase().includes(emailTerm);
 			});
 		}
 
-		if (projectFilter.trim() !== '') {
-			const projectTerm = projectFilter.toLowerCase();
+		if (filters.project.trim() !== '') {
+			const projectTerm = filters.project.toLowerCase();
 			filtered = filtered.filter((thread) => {
 				const projectName = projectMap.get(thread.projectID || '') || thread.projectID;
 				return projectName?.toLowerCase().includes(projectTerm);
 			});
 		}
-
-		// Apply sorting
-		filtered.sort((a, b) => {
-			let aValue: string | number;
-			let bValue: string | number;
-
-			// Handle special cases for sorting
-			if (sortField === 'created') {
-				aValue = new Date(a.created).getTime();
-				bValue = new Date(b.created).getTime();
-			} else if (sortField === 'name') {
-				aValue = (a.name || '').toLowerCase();
-				bValue = (b.name || '').toLowerCase();
-			} else if (sortField === 'userName') {
-				const userA = userMap.get(a.userID || '');
-				const userB = userMap.get(b.userID || '');
-				aValue = (userA?.displayName || '').toLowerCase();
-				bValue = (userB?.displayName || '').toLowerCase();
-			} else if (sortField === 'userEmail') {
-				const userA = userMap.get(a.userID || '');
-				const userB = userMap.get(b.userID || '');
-				aValue = (userA?.email || '').toLowerCase();
-				bValue = (userB?.email || '').toLowerCase();
-			} else {
-				aValue = ((a[sortField] as string) || '').toLowerCase();
-				bValue = ((b[sortField] as string) || '').toLowerCase();
-			}
-
-			if (sortDirection === 'asc') {
-				return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
-			} else {
-				return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
-			}
-		});
 
 		filteredThreads = filtered;
 	});
@@ -222,16 +208,19 @@
 		return thread.name || 'Unnamed Thread';
 	}
 
-	function handleUsernameSelect(option: { id: string; label: string }) {
-		usernameFilter = option.id;
+	function handleRightSidebarClose() {
+		rightSidebar?.close();
+		modifiedFilters = filters;
 	}
 
-	function handleEmailSelect(option: { id: string; label: string }) {
-		emailFilter = option.id;
-	}
-
-	function handleProjectSelect(option: { id: string; label: string }) {
-		projectFilter = option.id;
+	function handleSetFilters() {
+		filters = modifiedFilters;
+		rightSidebar?.close();
+		const url = new URL(window.location.href);
+		url.searchParams.set('username', filters.username);
+		url.searchParams.set('email', filters.email);
+		url.searchParams.set('project', filters.project);
+		goto(url.toString(), { noScroll: true });
 	}
 </script>
 
@@ -251,66 +240,16 @@
 						onChange={(val) => (searchTerm = val)}
 						placeholder="Search threads..."
 					/>
-					<button onclick={() => (showFilters = !showFilters)} class="icon-button flex-shrink-0">
-						<ListFilter class="size-6 flex-shrink-0" />
+					<button
+						class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
+						onclick={() => {
+							rightSidebar?.show();
+						}}
+					>
+						<Funnel class="size-4" />
+						Filters
 					</button>
 				</div>
-
-				{#if showFilters}
-					<div
-						in:slide={{ axis: 'y' }}
-						class="dark:border-surface3 dark:bg-surface1 mb-6 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
-					>
-						<div class="flex items-center justify-between">
-							<h3 class="text-base font-semibold">Filters</h3>
-							<button
-								onclick={() => {
-									usernameFilter = '';
-									emailFilter = '';
-									projectFilter = '';
-								}}
-								class="button text-xs"
-							>
-								Clear all
-							</button>
-						</div>
-						<div class="dark:border-surface3 grid grid-cols-1 gap-4 md:grid-cols-3">
-							<div class="dark:border-surface3 flex flex-col gap-1">
-								<label for="username-select" class="text-sm"> Username </label>
-								<Select
-									id="username-select"
-									class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
-									options={usernameOptions}
-									selected={usernameFilter}
-									onSelect={handleUsernameSelect}
-									position="top"
-								/>
-							</div>
-							<div class="flex flex-col gap-1">
-								<label for="email-select" class="text-sm"> Email </label>
-								<Select
-									id="email-select"
-									class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
-									options={emailOptions}
-									selected={emailFilter}
-									onSelect={handleEmailSelect}
-									position="top"
-								/>
-							</div>
-							<div class="flex flex-col gap-1">
-								<label for="project-select" class="text-sm"> Project Name </label>
-								<Select
-									id="project-select"
-									class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
-									options={projectOptions}
-									selected={projectFilter}
-									onSelect={handleProjectSelect}
-									position="top"
-								/>
-							</div>
-						</div>
-					</div>
-				{/if}
 
 				{#if loading}
 					<div class="flex w-full justify-center py-12">
@@ -398,6 +337,80 @@
 		</div>
 	</div>
 </Layout>
+
+<dialog
+	bind:this={rightSidebar}
+	use:clickOutside={[handleRightSidebarClose, true]}
+	use:dialogAnimation={{ type: 'drawer' }}
+	class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-screen w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
+>
+	<div class="dark:border-surface3 h-full w-screen border-l border-transparent md:w-sm">
+		<div class="relative w-full text-center">
+			<h4 class="p-4 text-xl font-semibold">Filters</h4>
+			<button
+				class="icon-button absolute top-1/2 right-4 -translate-y-1/2"
+				onclick={handleRightSidebarClose}
+			>
+				<X class="size-5" />
+			</button>
+		</div>
+		<div
+			class="default-scrollbar-thin flex h-[calc(100%-60px)] flex-col gap-4 overflow-y-auto p-4 pt-0"
+		>
+			<div class="mb-2 flex flex-col gap-1">
+				<label for="username-select" class="text-md font-light"> Username </label>
+				<Select
+					classes={{
+						clear: 'hover:bg-surface3 bg-transparent'
+					}}
+					id="username-select"
+					class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+					options={usernameOptions}
+					selected={modifiedFilters.username}
+					onSelect={(option) => (modifiedFilters.username = option.id)}
+					position="top"
+					onClear={() => (modifiedFilters.username = '')}
+				/>
+			</div>
+			<div class="mb-2 flex flex-col gap-1">
+				<label for="email-select" class="text-sm"> Email </label>
+				<Select
+					classes={{
+						clear: 'hover:bg-surface3 bg-transparent'
+					}}
+					id="email-select"
+					class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
+					options={emailOptions}
+					selected={modifiedFilters.email}
+					onSelect={(option) => (modifiedFilters.email = option.id)}
+					position="top"
+					onClear={() => (modifiedFilters.email = '')}
+				/>
+			</div>
+			<div class="mb-2 flex flex-col gap-1">
+				<label for="project-select" class="text-sm"> Project Name </label>
+				<Select
+					classes={{
+						clear: 'hover:bg-surface3 bg-transparent'
+					}}
+					id="project-select"
+					class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
+					options={projectOptions}
+					selected={modifiedFilters.project}
+					onSelect={(option) => (modifiedFilters.project = option.id)}
+					position="top"
+					onClear={() => (modifiedFilters.project = '')}
+				/>
+			</div>
+			<div class="mt-auto">
+				<button
+					class="button-primary text-md w-full rounded-lg px-4 py-2"
+					onclick={handleSetFilters}>Apply Filters</button
+				>
+			</div>
+		</div>
+	</div>
+</dialog>
 
 <svelte:head>
 	<title>Obot | Admin - Chat Threads</title>

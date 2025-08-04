@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChevronsLeft, ChevronsRight, LoaderCircle, ListFilter } from 'lucide-svelte';
+	import { ChevronsLeft, ChevronsRight, LoaderCircle, Funnel } from 'lucide-svelte';
 	import {
 		AdminService,
 		type AuditLogUsageStats,
@@ -369,14 +369,14 @@
 			</div>
 			{#if !(mcpId || mcpCatalogEntryId)}
 				<button
-					class="icon-button flex-shrink-0"
+					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
 					onclick={() => {
 						showFilters = true;
 						rightSidebar?.show();
 					}}
-					use:tooltip={'Filter Usage'}
 				>
-					<ListFilter class="size-6 flex-shrink-0" />
+					<Funnel class="size-4" />
+					Filters
 				</button>
 			{/if}
 		</div>
