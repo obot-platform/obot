@@ -83,7 +83,7 @@
 			return 'monthly';
 		}
 
-		if (duration >= MS_DAY) {
+		if (duration > MS_DAY) {
 			return 'daily';
 		}
 
@@ -174,11 +174,9 @@
 		if (frame === 'hourly') {
 			generator = timeHour;
 			const duration = intervalToDuration({ start, end });
-			const hours = duration.hours ?? 0;
+			const hours = (duration.hours ?? 0) + (duration.days ?? 0) * 24;
 
-			if (hours >= 8) {
-				step = Math.ceil(12 / hours);
-			}
+			step = Math.ceil(hours / 16);
 		}
 
 		if (frame === 'daily') {
