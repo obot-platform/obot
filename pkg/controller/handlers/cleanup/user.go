@@ -1,7 +1,9 @@
 package cleanup
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strconv"
 
@@ -112,6 +114,27 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		}
 	}
 
+	if err = deleteThreadAuthorizationsForUser(req.Ctx, req.Client, strconv.FormatUint(uint64(userDelete.Spec.UserID), 10)); err != nil {
+		return fmt.Errorf("failed to delete thread authorizations for user %d: %w", userDelete.Spec.UserID, err)
+	}
+
 	// If everything is cleaned up successfully, then delete this object because we don't need it.
 	return req.Delete(userDelete)
+}
+
+func deleteThreadAuthorizationsForUser(ctx context.Context, storageClient kclient.Client, userID string) error {
+	var memberships v1.ThreadAuthorizationList
+	if err := storageClient.List(ctx, &memberships, kclient.MatchingFields{
+		"spec.userID": userID,
+	}); err != nil {
+		return err
+	}
+
+	for _, membership := range memberships.Items {
+		if err := storageClient.Delete(ctx, &membership); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

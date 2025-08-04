@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -15,11 +14,9 @@ import (
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -82,7 +79,7 @@ func (c *Client) UserByID(ctx context.Context, id string) (*types.User, error) {
 	return u, c.decryptUser(ctx, u)
 }
 
-func (c *Client) DeleteUser(ctx context.Context, storageClient kclient.Client, userID string) (*types.User, error) {
+func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, error) {
 	existingUser := new(types.User)
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("id = ?", userID).First(existingUser).Error; err != nil {
@@ -101,26 +98,6 @@ func (c *Client) DeleteUser(ctx context.Context, storageClient kclient.Client, u
 			}
 		}
 
-		var identities []types.Identity
-		if err := tx.Where("user_id = ?", existingUser.ID).Find(&identities).Error; err != nil {
-			return err
-		}
-
-		for i, id := range identities {
-			if err := c.decryptIdentity(ctx, &id); err != nil {
-				return err
-			}
-			identities[i] = id
-		}
-
-		if err := c.deleteThreadAuthorizationsForUser(ctx, storageClient, strconv.FormatUint(uint64(existingUser.ID), 10)); err != nil {
-			return err
-		}
-
-		if err := c.deleteSessionsForUser(ctx, tx, storageClient, identities, ""); err != nil && !errors.Is(err, LogoutAllErr{}) {
-			return err
-		}
-
 		if err := tx.Where("user_id = ?", existingUser.ID).Delete(new(types.Identity)).Error; err != nil {
 			return err
 		}
@@ -131,23 +108,6 @@ func (c *Client) DeleteUser(ctx context.Context, storageClient kclient.Client, u
 	}
 
 	return existingUser, c.decryptUser(ctx, existingUser)
-}
-
-func (c *Client) deleteThreadAuthorizationsForUser(ctx context.Context, storageClient kclient.Client, userID string) error {
-	var memberships v1.ThreadAuthorizationList
-	if err := storageClient.List(ctx, &memberships, kclient.MatchingFields{
-		"spec.userID": userID,
-	}); err != nil {
-		return err
-	}
-
-	for _, membership := range memberships.Items {
-		if err := storageClient.Delete(ctx, &membership); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updatedUser *types.User, userID string) (*types.User, error) {

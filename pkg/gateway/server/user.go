@@ -182,7 +182,7 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	}
 
 	status := http.StatusInternalServerError
-	_, err = apiContext.GatewayClient.DeleteUser(apiContext.Context(), apiContext.Storage, userID)
+	_, err = apiContext.GatewayClient.DeleteUser(apiContext.Context(), userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
