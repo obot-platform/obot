@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { differenceInHours, endOfDay, isSameDay, startOfDay } from 'date-fns';
+	import { differenceInHours, endOfDay, isBefore, isSameDay, startOfDay } from 'date-fns';
 	import { ChevronLeft, ChevronRight, CalendarCog } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import TimeInput from './TimeInput.svelte';
@@ -151,22 +151,22 @@
 	function handleDateClick(date: Date) {
 		if (isDisabled(date)) return;
 
-		let newRange: DateRange;
-
-		if (!start || (start && end)) {
-			// Start new range
-			newRange = { start: startOfDay(date), end: null };
-		} else {
-			// Complete the range
-			if (date < start) {
-				newRange = { start: startOfDay(date), end: endOfDay(start) };
+		if ((start && isSameDay(date, start)) || (end && isSameDay(date, end))) {
+			// If clicked date is both start or end, collapse the range to that date
+			start = startOfDay(date);
+			end = endOfDay(date);
+		} else if (start) {
+			if (isBefore(date, start)) {
+				// If clicked date is before start date, expand the range backwards
+				start = startOfDay(date);
 			} else {
-				newRange = { start: startOfDay(start), end: endOfDay(date) };
+				// If clicked date is after start date, expand the range forwards
+				end = endOfDay(date);
 			}
+		} else {
+			// If no start date, set start date
+			start = startOfDay(date);
 		}
-
-		start = newRange.start;
-		end = newRange.end;
 	}
 
 	function previousMonth() {
