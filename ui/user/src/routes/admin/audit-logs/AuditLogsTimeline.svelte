@@ -295,6 +295,10 @@
 									}
 								}
 
+								if (frame === 'hourly') {
+									return formatDayOfWeek;
+								}
+
 								return formatDayOfMonth;
 							}
 
