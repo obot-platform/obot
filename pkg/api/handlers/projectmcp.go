@@ -317,7 +317,7 @@ func (p *ProjectMCPHandler) GetTools(req api.Context) error {
 	mcpServerName := projectServer.Spec.Manifest.MCPID
 	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
 		var mcpServerInstance v1.MCPServerInstance
-		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+		if err = req.Get(&mcpServerInstance, projectServer.Spec.Manifest.MCPID); err != nil {
 			return err
 		}
 
@@ -390,7 +390,7 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 	mcpServerName := projectServer.Spec.Manifest.MCPID
 	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
 		var mcpServerInstance v1.MCPServerInstance
-		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+		if err = req.Get(&mcpServerInstance, projectServer.Spec.Manifest.MCPID); err != nil {
 			return err
 		}
 
@@ -485,7 +485,7 @@ func (p *ProjectMCPHandler) GetResources(req api.Context) error {
 	mcpServerName := projectServer.Spec.Manifest.MCPID
 	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
 		var mcpServerInstance v1.MCPServerInstance
-		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+		if err = req.Get(&mcpServerInstance, projectServer.Spec.Manifest.MCPID); err != nil {
 			return err
 		}
 
@@ -544,7 +544,7 @@ func (p *ProjectMCPHandler) ReadResource(req api.Context) error {
 	mcpServerName := projectServer.Spec.Manifest.MCPID
 	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
 		var mcpServerInstance v1.MCPServerInstance
-		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+		if err = req.Get(&mcpServerInstance, projectServer.Spec.Manifest.MCPID); err != nil {
 			return err
 		}
 
@@ -603,7 +603,7 @@ func (p *ProjectMCPHandler) GetPrompts(req api.Context) error {
 	mcpServerName := projectServer.Spec.Manifest.MCPID
 	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
 		var mcpServerInstance v1.MCPServerInstance
-		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+		if err = req.Get(&mcpServerInstance, projectServer.Spec.Manifest.MCPID); err != nil {
 			return err
 		}
 
@@ -662,7 +662,7 @@ func (p *ProjectMCPHandler) GetPrompt(req api.Context) error {
 	mcpServerName := projectServer.Spec.Manifest.MCPID
 	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
 		var mcpServerInstance v1.MCPServerInstance
-		if err = req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
+		if err = req.Get(&mcpServerInstance, projectServer.Spec.Manifest.MCPID); err != nil {
 			return err
 		}
 
