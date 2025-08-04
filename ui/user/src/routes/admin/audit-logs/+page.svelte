@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fade, slide } from 'svelte/transition';
-	import { X, ChevronLeft, ChevronRight, Funnel } from 'lucide-svelte';
+	import { X, ChevronLeft, ChevronRight, Funnel, Captions } from 'lucide-svelte';
 	import { throttle } from 'es-toolkit';
 	import { page } from '$app/state';
 	import { afterNavigate, goto } from '$app/navigation';
@@ -24,6 +24,7 @@
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
 	import { endOfDay, set, subDays } from 'date-fns';
 	import { localState } from '$lib/runes/localState.svelte';
+	import { responsive } from '$lib/stores';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -295,81 +296,92 @@
 
 			{@render filters()}
 
-			<!-- Timeline Graph (Placeholder) -->
-			<div
-				class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-transparent bg-white text-black shadow-sm dark:text-white"
-			>
-				<h3 class="mb-2 px-4 pt-4 text-lg font-medium">Timeline</h3>
-				<div class="px-4">
-					<div class="flex h-40 items-center justify-center rounded-md text-gray-500">
-						<AuditLogsTimeline
-							data={remoteAuditLogs}
-							start={timeRangeFilters.startTime}
-							end={timeRangeFilters.endTime}
-						/>
-					</div>
-				</div>
-				<hr class="dark:border-surface3 my-4 border" />
-				<div class="flex items-center justify-between gap-2 px-4 pb-4 text-xs text-gray-600">
-					<div class="flex gap-4">
-						<div>{Intl.NumberFormat().format(remoteAuditLogs.length)} results</div>
-
-						<div class="flex items-center">
-							{#if numberOfPages > 1}
-								<sapn>{Intl.NumberFormat().format(pageIndex + 1)}</sapn>/
-								<span>{Intl.NumberFormat().format(numberOfPages)}</span>
-								<span class="ml-1">pages</span>
-							{:else}
-								<span>1 page</span>
-							{/if}
+			{#if auditLogsTotalItems > 0}
+				<!-- Timeline Graph (Placeholder) -->
+				<div
+					class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-transparent bg-white text-black shadow-sm dark:text-white"
+				>
+					<h3 class="mb-2 px-4 pt-4 text-lg font-medium">Timeline</h3>
+					<div class="px-4">
+						<div class="flex h-40 items-center justify-center rounded-md text-gray-500">
+							<AuditLogsTimeline
+								data={remoteAuditLogs}
+								start={timeRangeFilters.startTime}
+								end={timeRangeFilters.endTime}
+							/>
 						</div>
 					</div>
+					<hr class="dark:border-surface3 my-4 border" />
+					<div class="flex items-center justify-between gap-2 px-4 pb-4 text-xs text-gray-600">
+						<div class="flex gap-4">
+							<div>{Intl.NumberFormat().format(remoteAuditLogs.length)} results</div>
 
-					<div class="flex gap-4">
-						<button
-							class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
-							disabled={isReachedMin}
-							onclick={prevPage}
-						>
-							<ChevronLeft class="size-[1.4em]" />
-							<div>Previous Page</div>
-						</button>
+							<div class="flex items-center">
+								{#if numberOfPages > 1}
+									<sapn>{Intl.NumberFormat().format(pageIndex + 1)}</sapn>/
+									<span>{Intl.NumberFormat().format(numberOfPages)}</span>
+									<span class="ml-1">pages</span>
+								{:else}
+									<span>1 page</span>
+								{/if}
+							</div>
+						</div>
 
-						<button
-							class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
-							disabled={isReachedMax}
-							onclick={nextPage}
-						>
-							<div>Next Page</div>
-							<ChevronRight class="size-[1.4em]" />
-						</button>
+						<div class="flex gap-4">
+							<button
+								class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
+								disabled={isReachedMin}
+								onclick={prevPage}
+							>
+								<ChevronLeft class="size-[1.4em]" />
+								<div>Previous Page</div>
+							</button>
+
+							<button
+								class="hover:text-on-surface1/80 active:text-on-surface1/100 flex items-center text-xs transition-colors duration-100 disabled:pointer-events-none disabled:opacity-50"
+								disabled={isReachedMax}
+								onclick={nextPage}
+							>
+								<div>Next Page</div>
+								<ChevronRight class="size-[1.4em]" />
+							</button>
+						</div>
 					</div>
 				</div>
-			</div>
 
-			<AuditLogsTable
-				data={fragmentedAuditLogs}
-				currentFragmentIndex={fragmentIndex}
-				getFragmentIndex={(rowIndex: number) => Math.floor(rowIndex / fragmentLimit)}
-				getFragmentRowIndex={(rowIndex: number) => {
-					const fragIndex = Math.floor(rowIndex / fragmentLimit);
+				<AuditLogsTable
+					data={fragmentedAuditLogs}
+					currentFragmentIndex={fragmentIndex}
+					getFragmentIndex={(rowIndex: number) => Math.floor(rowIndex / fragmentLimit)}
+					getFragmentRowIndex={(rowIndex: number) => {
+						const fragIndex = Math.floor(rowIndex / fragmentLimit);
 
-					return rowIndex - fragIndex * fragmentLimit;
-				}}
-				onLoadNextFragment={(rowFragmentIndex: number) => {
-					fragmentIndex = Math.min(numberOfFragments - 1, rowFragmentIndex + 1);
-				}}
-				onSelectRow={(d: typeof selectedAuditLog) => {
-					selectedAuditLog = d;
-					showFilters = false;
-					rightSidebar?.show();
-				}}
-				{fetchUserById}
-			>
-				{#snippet emptyContent()}
-					<!-- Just to skip ts checker, have to added later -->
-				{/snippet}
-			</AuditLogsTable>
+						return rowIndex - fragIndex * fragmentLimit;
+					}}
+					onLoadNextFragment={(rowFragmentIndex: number) => {
+						fragmentIndex = Math.min(numberOfFragments - 1, rowFragmentIndex + 1);
+					}}
+					onSelectRow={(d: typeof selectedAuditLog) => {
+						selectedAuditLog = d;
+						showFilters = false;
+						rightSidebar?.show();
+					}}
+					{fetchUserById}
+				>
+					{#snippet emptyContent()}
+						<!-- Just to skip ts checker, have to added later -->
+					{/snippet}
+				</AuditLogsTable>
+			{:else}
+				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+					<Captions class="size-24 text-gray-200 dark:text-gray-900" />
+					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No audit logs</h4>
+					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+						Currently, there are no audit logs for selected range or filters. Try modifying your
+						search criteria or try again later.
+					</p>
+				</div>
+			{/if}
 		</div>
 	</div>
 </Layout>

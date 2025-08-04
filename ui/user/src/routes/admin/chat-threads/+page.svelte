@@ -265,7 +265,7 @@
 								No threads available
 							{/if}
 						</h3>
-						<p class="mt-2 text-sm text-gray-400 dark:text-gray-600">
+						<p class="mt-2 text-sm font-light text-gray-400 dark:text-gray-600">
 							{#if searchTerm}
 								Try adjusting your search terms.
 							{:else}
