@@ -151,7 +151,7 @@
 	function handleDateClick(date: Date) {
 		if (isDisabled(date)) return;
 
-		if ((start && isSameDay(date, start)) || (end && isSameDay(date, end))) {
+		if (!start || (start && isSameDay(date, start)) || (end && isSameDay(date, end))) {
 			// If clicked date is both start or end, collapse the range to that date
 			start = startOfDay(date);
 			end = endOfDay(date);
@@ -163,9 +163,6 @@
 				// If clicked date is after start date, expand the range forwards
 				end = endOfDay(date);
 			}
-		} else {
-			// If no start date, set start date
-			start = startOfDay(date);
 		}
 	}
 
