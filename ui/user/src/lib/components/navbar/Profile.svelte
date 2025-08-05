@@ -12,8 +12,7 @@
 		BadgeInfo,
 		X,
 		Server,
-		MessageCircle,
-		ExternalLink
+		MessageCircle
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
