@@ -2,8 +2,8 @@
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
-	import { darkMode } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
+	import BetaLogo from './navbar/BetaLogo.svelte';
 
 	interface Props {
 		leftContent?: Snippet;
@@ -11,6 +11,7 @@
 		class?: string;
 		unauthorized?: boolean;
 		hideProfileButton?: boolean;
+		chat?: boolean;
 	}
 
 	let {
@@ -18,7 +19,8 @@
 		centerContent,
 		class: klass,
 		unauthorized,
-		hideProfileButton
+		hideProfileButton,
+		chat
 	}: Props = $props();
 </script>
 
@@ -30,20 +32,7 @@
 		{#if leftContent}
 			{@render leftContent()}
 		{:else}
-			<a href="/" class="relative flex items-end">
-				{#if darkMode.isDark}
-					<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-				{:else}
-					<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-				{/if}
-				<div class="ml-1.5 -translate-y-1">
-					<span
-						class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
-					>
-						BETA
-					</span>
-				</div>
-			</a>
+			<BetaLogo {chat} />
 		{/if}
 		<div class="flex grow items-center justify-center">
 			{#if centerContent}

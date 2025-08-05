@@ -7,6 +7,7 @@
 	import { goto } from '$app/navigation';
 	import { twMerge } from 'tailwind-merge';
 	import { onMount } from 'svelte';
+	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 
 	const sectionHeaders = [
 		{ label: 'Privacy Policy', id: 'privacy-policy' },
@@ -110,18 +111,7 @@
 	<!-- Header with logo and navigation -->
 	<div class="colors-background flex h-16 w-full items-center p-5">
 		<div class="relative flex items-end">
-			{#if darkMode.isDark}
-				<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-			{:else}
-				<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-			{/if}
-			<div class="ml-1.5 -translate-y-1">
-				<span
-					class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
-				>
-					BETA
-				</span>
-			</div>
+			<BetaLogo />
 		</div>
 		<div class="grow"></div>
 		<div class="flex items-center gap-4">

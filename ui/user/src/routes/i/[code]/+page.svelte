@@ -7,6 +7,7 @@
 	import Notifications from '$lib/components/Notifications.svelte';
 	import { darkMode } from '$lib/stores';
 	import { getProjectImage } from '$lib/image';
+	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 
 	interface PageData {
 		invitation: ProjectInvitation;
@@ -84,18 +85,7 @@
 	<header class="bg-surface1 border-surface2 sticky top-0 z-40 border-b">
 		<div class="colors-background sticky top-0 z-30 flex h-16 w-full items-center">
 			<div class="relative flex items-end p-5">
-				{#if darkMode.isDark}
-					<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-				{:else}
-					<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-				{/if}
-				<div class="ml-1.5 -translate-y-1">
-					<span
-						class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
-					>
-						BETA
-					</span>
-				</div>
+				<BetaLogo />
 			</div>
 		</div>
 	</header>

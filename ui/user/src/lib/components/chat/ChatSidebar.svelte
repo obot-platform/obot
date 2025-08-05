@@ -30,7 +30,7 @@
 
 <div class="border-surface2 dark:bg-gray-990 relative flex size-full flex-col border-r bg-white">
 	<div class="flex h-16 w-full flex-shrink-0 items-center px-2">
-		<BetaLogo />
+		<BetaLogo chat />
 		{#if responsive.isMobile}
 			{@render closeSidebar()}
 		{/if}

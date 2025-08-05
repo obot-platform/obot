@@ -6,7 +6,7 @@
 	import Thread from '$lib/components/Thread.svelte';
 	import { type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
-	import { darkMode, responsive } from '$lib/stores';
+	import { responsive } from '$lib/stores';
 	import { getLayout, isSomethingSelected } from '$lib/context/chatLayout.svelte';
 	import { GripVertical, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -19,6 +19,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import McpServerOauths from './chat/McpServerOauths.svelte';
+	import BetaLogo from './navbar/BetaLogo.svelte';
 
 	interface Props {
 		assistant?: Assistant;
@@ -108,10 +109,10 @@
 			class:hidden={layout.sidebarOpen && responsive.isMobile}
 		>
 			<div class="w-full">
-				<Navbar hideProfileButton={layout.fileEditorOpen}>
+				<Navbar hideProfileButton={layout.fileEditorOpen} chat>
 					{#snippet leftContent()}
 						{#if !layout.sidebarOpen || (layout.fileEditorOpen && !isSomethingSelected(layout))}
-							{@render logo()}
+							<BetaLogo chat />
 						{/if}
 						{#if !layout.sidebarOpen && responsive.isMobile}
 							{@render openSidebar()}
@@ -227,21 +228,4 @@
 	<button class="icon-button" onclick={() => (layout.sidebarOpen = true)}>
 		<SidebarOpen class="size-6" />
 	</button>
-{/snippet}
-
-{#snippet logo()}
-	<div class="flex flex-shrink-0 items-center">
-		{#if darkMode.isDark}
-			<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-		{:else}
-			<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-		{/if}
-		<div class="ml-1.5 -translate-y-1">
-			<span
-				class="rounded-full border-2 border-blue-400 px-1.5 py-[1px] text-[10px] font-bold text-blue-400 dark:border-blue-400 dark:text-blue-400"
-			>
-				BETA
-			</span>
-		</div>
-	</div>
 {/snippet}
