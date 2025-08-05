@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { darkMode } from '$lib/stores';
 	interface Props {
-		chat?: Boolean;
+		chat?: boolean;
 	}
 	let { chat }: Props = $props();
 </script>
