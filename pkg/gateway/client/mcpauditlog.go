@@ -43,8 +43,11 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		}
 
 		var userIDs []string
+		// Don't lowercase the query for the selecting from the database. Some databases aren't case-sensitive,
+		// and we want to preserve the case of the search term.
+		userQuery := strings.ToLower(opts.Query)
 		for _, u := range users {
-			if strings.Contains(u.DisplayName, opts.Query) {
+			if strings.Contains(strings.ToLower(u.DisplayName), userQuery) {
 				userIDs = append(userIDs, strconv.FormatUint(uint64(u.ID), 10))
 			}
 		}
