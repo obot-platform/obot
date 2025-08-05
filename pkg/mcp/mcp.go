@@ -76,7 +76,7 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *jwt.
 			Name:         toolName,
 			Description:  tool.Description,
 			Arguments:    &schema,
-			Instructions: types.MCPInvokePrefix + tool.Name + " " + client.ID,
+			Instructions: fmt.Sprintf("%s%s %s default", types.MCPInvokePrefix, tool.Name, client.ID),
 		}
 
 		if string(annotations) != "{}" && string(annotations) != "null" {

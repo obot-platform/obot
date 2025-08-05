@@ -260,10 +260,9 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		insertAuditLog(m.gatewayClient, auditLog)
 	}()
 
-	m.serverConfig.ClientScope = msg.Session.ID()
-
 	client, err = m.handler.mcpSessionManager.ClientForMCPServerWithOptions(
 		ctx,
+		msg.Session.ID(),
 		m.mcpServer,
 		m.serverConfig,
 		m.handler.clientMessageFactory.asClientOption(
@@ -295,7 +294,7 @@ func (m *messageHandler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		go func() {
 			msg.Session.Wait()
 
-			if err := m.handler.mcpSessionManager.CloseClient(context.Background(), m.serverConfig); err != nil {
+			if err := m.handler.mcpSessionManager.CloseClient(context.Background(), m.serverConfig, sessionID); err != nil {
 				log.Errorf("Failed to shutdown server %s: %v", m.mcpServer.Name, err)
 			}
 

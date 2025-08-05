@@ -38,17 +38,12 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 	}
 }
 func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
-	// Give the server config a scope that makes sense.
-	// Clients used in the proxy will set their own scope, and we need to ensure we get a different client here because the
-	// client we use here needs the CallbackHandler and ClientCredLookup set.
-	mcpServerConfig.ClientScope = "Obot OAuth Check"
-
 	oauthHandler := f.newMCPOAuthHandler(userID, mcpID, oauthAppAuthRequestID)
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(errChan)
-		_, err := f.mcpSessionManager.ClientForMCPServerWithOptions(ctx, mcpServer, mcpServerConfig, nmcp.ClientOption{
+		_, err := f.mcpSessionManager.ClientForMCPServerWithOptions(ctx, "Obot OAuth Check", mcpServer, mcpServerConfig, nmcp.ClientOption{
 			ClientName:       "Obot MCP OAuth",
 			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback", f.baseURL),
 			OAuthClientName:  "Obot MCP Gateway",

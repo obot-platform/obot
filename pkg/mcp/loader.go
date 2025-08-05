@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -46,10 +45,10 @@ type Options struct {
 type SessionManager struct {
 	client                                             kclient.WithWatch
 	clientset                                          kubernetes.Interface
+	contextLock                                        sync.Mutex
 	sessionCtx                                         context.Context
 	cancel                                             func()
-	lock                                               sync.RWMutex
-	sessions                                           map[string]*Client
+	sessions                                           sync.Map
 	tokenStorage                                       GlobalTokenStore
 	baseURL, baseImage, mcpNamespace, mcpClusterDomain string
 	allowLocalhostMCP                                  bool
@@ -112,33 +111,42 @@ func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseU
 }
 
 // Close does nothing with the deployments and services. It just closes the local session.
+// This should return an error to satisfy the GPTScript loader interface.
 func (sm *SessionManager) Close() error {
-	sm.lock.Lock()
-	defer sm.lock.Unlock()
-
+	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
+		sm.contextLock.Unlock()
 		return nil
 	}
+	sm.contextLock.Unlock()
 
 	defer func() {
 		sm.cancel()
+		sm.contextLock.Lock()
 		sm.sessionCtx = nil
+		sm.contextLock.Unlock()
 	}()
 
-	var errs []error
-	for id, session := range sm.sessions {
-		log.Infof("closing MCP session %s", id)
-		session.Session.Close()
-		session.Session.Wait()
-	}
+	sm.sessions.Range(func(id, value any) bool {
+		value.(*sync.Map).Range(func(clientScope, session any) bool {
+			if s, ok := session.(*Client); ok && s.Client != nil {
+				log.Infof("closing MCP session %s, %s", id, clientScope)
+				s.Session.Close()
+				s.Session.Wait()
+			}
+			return true
+		})
+		return true
+	})
 
-	return errors.Join(errs...)
+	return nil
 }
 
 // CloseClient will close the client for this MCP server, but leave the deployment running.
-func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig) error {
+func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig, clientScope string) error {
 	if !sm.KubernetesEnabled() || server.Command == "" {
-		return sm.closeClient(server)
+		sm.closeClient(server, clientScope)
+		return nil
 	}
 
 	id := deploymentID(server)
@@ -157,44 +165,48 @@ func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig) 
 	if len(pods.Items) != 0 {
 		// If the pod was removed, then this won't do anything. The session will only get cleaned up when the server restarts.
 		// That's better than the alternative of having unusable sessions that users are still trying to use.
-		if err = sm.closeClient(ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/%s", id, sm.mcpNamespace, sm.mcpClusterDomain, strings.TrimPrefix(server.ContainerPath, "/")), Scope: pods.Items[0].Name}); err != nil {
-			return err
-		}
+		sm.closeClient(ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/%s", id, sm.mcpNamespace, sm.mcpClusterDomain, strings.TrimPrefix(server.ContainerPath, "/")), Scope: pods.Items[0].Name}, clientScope)
+		return nil
 	}
 
 	return nil
 }
 
-func (sm *SessionManager) closeClient(server ServerConfig) error {
-	id := hash.Digest(server)
+func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
+	id := deploymentID(server)
 
-	sm.lock.Lock()
-
+	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
-		sm.lock.Unlock()
-		return nil
+		sm.contextLock.Unlock()
+		return
+	}
+	sm.contextLock.Unlock()
+
+	sessions, ok := sm.sessions.Load(id)
+	if !ok || sessions == nil {
+		return
 	}
 
-	session := sm.sessions[id]
-	delete(sm.sessions, id)
-
-	sm.lock.Unlock()
-
-	if session != nil && session.Client != nil {
-		session.Session.Close()
-		session.Session.Wait()
+	clientSessions, ok := sessions.(*sync.Map)
+	if !ok || clientSessions == nil {
+		return
 	}
 
-	return nil
+	sess, ok := clientSessions.LoadAndDelete(clientScope)
+	if !ok || sess == nil {
+		return
+	}
+
+	if s, ok := sess.(*Client); ok && s.Client != nil {
+		s.Session.Close()
+		s.Session.Wait()
+	}
 }
 
 // ShutdownServer will close the connections to the MCP server and remove the Kubernetes objects.
 func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfig) error {
-	if err := sm.CloseClient(ctx, server); err != nil {
-		return err
-	}
-
 	id := deploymentID(server)
+	sm.closeClients(id)
 
 	if sm.client != nil {
 		if err := apply.New(sm.client).WithNamespace(sm.mcpNamespace).WithOwnerSubContext(id).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil {
@@ -202,6 +214,33 @@ func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfi
 		}
 	}
 	return nil
+}
+
+func (sm *SessionManager) closeClients(id string) {
+	sm.contextLock.Lock()
+	if sm.sessionCtx == nil {
+		sm.contextLock.Unlock()
+		return
+	}
+	sm.contextLock.Unlock()
+
+	sessions, ok := sm.sessions.LoadAndDelete(id)
+	if !ok || sessions == nil {
+		return
+	}
+
+	clientSessions, ok := sessions.(*sync.Map)
+	if !ok || clientSessions == nil {
+		return
+	}
+
+	clientSessions.Range(func(_, session any) bool {
+		if s, ok := session.(*Client); ok && s.Client != nil {
+			s.Session.Close()
+			s.Session.Wait()
+		}
+		return true
+	})
 }
 
 // RestartK8sDeployment restarts the Kubernetes deployment using kubectl rollout restart style.
@@ -322,7 +361,6 @@ func (sm *SessionManager) transformServerConfig(ctx context.Context, mcpServerNa
 func deploymentID(server ServerConfig) string {
 	// The allowed tools and client scope aren't part of the deployment ID.
 	server.AllowedTools = nil
-	server.ClientScope = ""
 	return "mcp" + hash.Digest(server)[:60]
 }
 

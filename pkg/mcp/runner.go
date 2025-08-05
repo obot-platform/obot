@@ -17,6 +17,7 @@ func (sm *SessionManager) Run(ctx engine.Context, _ chan<- types.CompletionStatu
 	}
 
 	id := fields[1]
+	clientScope := fields[2]
 	toolName, ok := strings.CutPrefix(fields[0], types.MCPInvokePrefix)
 	if !ok {
 		return "", fmt.Errorf("invalid mcp call, invalid tool name in %s", tool.Instructions)
@@ -30,11 +31,9 @@ func (sm *SessionManager) Run(ctx engine.Context, _ chan<- types.CompletionStatu
 		}
 	}
 
-	sm.lock.Lock()
-	session, ok := sm.sessions[id]
-	sm.lock.Unlock()
-	if !ok {
-		return "", fmt.Errorf("session not found for MCP server %s", id)
+	session := sm.getClient(id, clientScope)
+	if session == nil {
+		return "", fmt.Errorf("session not found for MCP server %s, %s", id, clientScope)
 	}
 
 	result, err := session.Call(ctx.Ctx, toolName, arguments)

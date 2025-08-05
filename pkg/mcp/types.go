@@ -26,13 +26,8 @@ type ServerConfig struct {
 	Env                []string `json:"env"`
 	URL                string   `json:"url"`
 	Headers            []string `json:"headers"`
-	// Scope ensures separate deployments for each user and project.
-	Scope string `json:"scope"`
-	// ClientScope is used to scope clients to sessions.
-	// This value will not be used to determine if a new deployment of the server is needed, but is used to ensure the
-	// client is new for the session.
-	ClientScope  string   `json:"clientScope"`
-	AllowedTools []string `json:"allowedTools"`
+	Scope              string   `json:"scope"`
+	AllowedTools       []string `json:"allowedTools"`
 
 	Files          []File        `json:"files"`
 	ContainerImage string        `json:"containerImage"`
