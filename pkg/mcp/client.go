@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -48,14 +49,17 @@ func (sm *SessionManager) ClientForServer(ctx context.Context, userID, mcpServer
 
 func (sm *SessionManager) clientForServerWithScope(ctx context.Context, clientScope, userID, mcpServerName, mcpServerID string, serverConfig ServerConfig) (*Client, error) {
 	clientName := "Obot MCP Gateway"
-	if strings.HasPrefix(serverConfig.URL, fmt.Sprintf("%s/mcp-connect/", sm.baseURL)) {
+	var tokenStorage nmcp.TokenStorage
+	if serverConfig.Runtime == types.RuntimeRemote && strings.HasPrefix(serverConfig.URL, fmt.Sprintf("%s/mcp-connect/", sm.baseURL)) {
 		// If the URL points back to us, then this is Obot chat. Ensure the client name reflects that.
 		clientName = "Obot Chat"
+	} else {
+		tokenStorage = sm.tokenStorage.ForUserAndMCP(userID, mcpServerID)
 	}
 
 	return sm.clientForServerWithOptions(ctx, clientScope, mcpServerName, serverConfig, nmcp.ClientOption{
 		ClientName:   clientName,
-		TokenStorage: sm.tokenStorage.ForUserAndMCP(userID, mcpServerID),
+		TokenStorage: tokenStorage,
 	})
 }
 
