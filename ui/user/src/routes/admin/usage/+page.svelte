@@ -81,6 +81,24 @@
 		return key;
 	}
 
+	function formatFilterValue(key: string, value: string | string[]): string {
+		if (key === 'userIds' && Array.isArray(value)) {
+			// Convert user IDs to display names
+			return value
+				.map((userId) => {
+					const user = users.find((u) => u.id === userId);
+					const displayName = user?.displayName || 'Unknown';
+					const email = user?.email;
+					return email ? `${displayName} (${email})` : displayName;
+				})
+				.join(', ');
+		}
+		if (Array.isArray(value)) {
+			return value.join(', ');
+		}
+		return String(value);
+	}
+
 	function handleDateChange(value: DateRange) {
 		const url = new URL(window.location.href);
 
@@ -137,7 +155,8 @@
 						class="flex items-center gap-1 rounded-full border border-blue-500 bg-blue-500/33 px-4 py-2"
 					>
 						<p class="text-xs font-semibold">
-							{convertFilterDisplayLabel(key)}: <span class="font-light">{value}</span>
+							{convertFilterDisplayLabel(key)}:
+							<span class="font-light">{formatFilterValue(key, value)}</span>
 						</p>
 
 						<button
