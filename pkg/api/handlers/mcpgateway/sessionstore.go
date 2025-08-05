@@ -105,6 +105,10 @@ func (s *sessionStore) Load(req *http.Request, sessionID string) (*nmcp.ServerSe
 
 	// If the session hasn't been updated in the last hour, update it.
 	if time.Since(mcpSess.Status.LastUsedTime.Time) > time.Hour {
+		if err := s.client.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSess); err != nil {
+			return nil, false, err
+		}
+
 		mcpSess.Status.LastUsedTime = metav1.Now()
 		if err := s.client.Status().Update(req.Context(), mcpSess); err != nil {
 			return nil, false, err
