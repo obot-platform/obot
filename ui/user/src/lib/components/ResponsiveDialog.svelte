@@ -15,6 +15,7 @@
 		class?: string;
 		classes?: {
 			header?: string;
+			content?: string;
 		};
 		onClose?: () => void;
 		onOpen?: () => void;
@@ -54,7 +55,9 @@
 	use:clickOutside={() => close()}
 	use:dialogAnimation={{ type: animate }}
 >
-	<div class="flex h-full min-h-fit w-full flex-col">
+	<div
+		class={twMerge('flex h-full w-full flex-col', classes?.content ?? 'max-h-screen min-h-fit ')}
+	>
 		<div class="mb-4 flex flex-col gap-4">
 			<h3
 				class={twMerge('default-dialog-title', classes?.header)}

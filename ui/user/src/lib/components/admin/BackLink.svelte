@@ -32,6 +32,10 @@
 			return [{ href: '/admin/filters', label: 'Filters' }];
 		}
 
+		if (type === 'chat-threads') {
+			return [{ href: '/admin/chat-threads', label: 'Chat Threads' }];
+		}
+
 		return [];
 	}
 

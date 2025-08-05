@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import { AdminService } from '$lib/services';
+	import { AdminService, type ProjectThread } from '$lib/services';
 
 	import { LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount, onDestroy } from 'svelte';
@@ -11,12 +11,14 @@
 	import type { Project } from '$lib/services/chat/types';
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import type { Messages } from '$lib/services/chat/types';
+	import BackLink from '$lib/components/admin/BackLink.svelte';
 
 	const threadId = $page.params.id;
 
 	let messages = $state<Messages>({ messages: [], inProgress: false });
 	let project = $state<Project | null>(null);
 	let currentThread = $state<Thread | null>(null);
+	let currentThreadData = $state<ProjectThread>();
 
 	let loadingMessages = $state(true);
 	let threadContainer = $state<HTMLDivElement>();
@@ -35,10 +37,10 @@
 
 	async function loadThread() {
 		try {
-			const loadedThread = await AdminService.getThread(threadId);
+			currentThreadData = await AdminService.getThread(threadId);
 
-			if (loadedThread.projectID) {
-				project = await AdminService.getProject(loadedThread.projectID);
+			if (currentThreadData.projectID) {
+				project = await AdminService.getProject(currentThreadData.projectID);
 			}
 
 			try {
@@ -200,6 +202,12 @@
 		out:fly={{ x: -100, duration: 300 }}
 	>
 		<div class="flex h-full flex-col">
+			<div class="my-6">
+				{#if currentThreadData}
+					{@const currentLabel = currentThreadData.name}
+					<BackLink fromURL="chat-threads" {currentLabel} />
+				{/if}
+			</div>
 			<div class="flex w-full grow justify-center" bind:this={threadContainer}>
 				<div class="relative flex w-full max-w-[900px] flex-col">
 					{#if messages.messages.length > 0}

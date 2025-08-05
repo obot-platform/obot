@@ -15,7 +15,7 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import PageLoading from '$lib/components/PageLoading.svelte';
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import MyMcpServers, { type ConnectedServer } from '$lib/components/mcp/MyMcpServers.svelte';
 	import { responsive } from '$lib/stores';
 
@@ -134,7 +134,7 @@
 			await createProjectMcp(project, mcpId);
 		}
 
-		window.open(`/o/${project?.id}`, '_blank');
+		goto(`/o/${project?.id}`);
 		chatLoading = false;
 	}
 </script>
@@ -236,7 +236,7 @@
 			handleSetupChat(connectedServer);
 		}}
 	>
-		Chat <ExternalLink class="size-4 -translate-y-[1px]" />
+		Chat
 	</button>
 {/snippet}
 

@@ -196,6 +196,11 @@
 			});
 		}
 
+		// sort by most recent
+		filtered = filtered.sort(
+			(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
+		);
+
 		filteredThreads = filtered;
 	});
 
@@ -402,7 +407,18 @@
 					onClear={() => (modifiedFilters.project = '')}
 				/>
 			</div>
-			<div class="mt-auto">
+			<div class="mt-auto flex flex-col gap-2">
+				<button
+					class="button-secondary text-md w-full rounded-lg px-4 py-2"
+					onclick={() => {
+						modifiedFilters = {
+							username: '',
+							email: '',
+							project: ''
+						};
+						handleSetFilters();
+					}}>Clear All</button
+				>
 				<button
 					class="button-primary text-md w-full rounded-lg px-4 py-2"
 					onclick={handleSetFilters}>Apply Filters</button

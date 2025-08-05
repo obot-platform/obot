@@ -378,6 +378,7 @@
 		}
 
 		input?.setValue(promptContent);
+		await tick();
 		input?.focus();
 		promptPending = false;
 	}

@@ -69,7 +69,7 @@
 	{onOpen}
 	title="Add User/Group"
 	class="h-full w-full overflow-visible p-0 md:h-[500px] md:max-w-md"
-	classes={{ header: 'p-4 md:pb-0' }}
+	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit' }}
 >
 	<div class="default-scrollbar-thin flex grow flex-col gap-4 overflow-y-auto pt-1">
 		{#await fetchingUsers}

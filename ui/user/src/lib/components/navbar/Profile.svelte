@@ -20,7 +20,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { AdminService, ChatService, EditorService } from '$lib/services';
 	import { BOOTSTRAP_USER_ID } from '$lib/constants';
-	import { afterNavigate } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import PageLoading from '../PageLoading.svelte';
 
 	let versionDialog = $state<HTMLDialogElement>();
@@ -67,10 +67,10 @@
 		const lastProject = projects[0];
 		// TODO: should we open last project or always create new one?
 		if (lastProject) {
-			window.open(`/o/${lastProject.id}`, '_blank');
+			goto(`/o/${lastProject.id}`);
 		} else {
 			const newProject = await EditorService.createObot();
-			window.open(`/o/${newProject.id}`, '_blank');
+			goto(`/o/${newProject.id}`);
 		}
 		loadingChat = false;
 	}
@@ -122,43 +122,21 @@
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
 			{#if profile.current.role === 1 && !inAdminRoute}
-				<a
-					href="/admin/mcp-servers"
-					class="link justify-between"
-					target="_blank"
-					rel="external"
-					role="menuitem"
-				>
-					<div class="flex items-center gap-2">
-						<LayoutDashboard class="size-4" />
-						Admin Dashboard
-					</div>
-					<ExternalLink class="size-4" />
+				<a href="/admin/mcp-servers" class="link" rel="external" role="menuitem">
+					<LayoutDashboard class="size-4" />
+					Admin Dashboard
 				</a>
 			{/if}
 			{#if showMyMcpServersLink}
-				<a
-					href="/mcp-servers"
-					class="link justify-between"
-					target="_blank"
-					rel="external"
-					role="menuitem"
-				>
-					<div class="flex items-center gap-2">
-						<Server class="size-4" />
-						My Connectors
-					</div>
-					<ExternalLink class="size-4" />
+				<a href="/mcp-servers" class="link" rel="external" role="menuitem">
+					<Server class="size-4" />
+					My Connectors
 				</a>
 			{/if}
 			{#if showChatLink}
-				<button class="link justify-between" onclick={handleChat}>
-					<div class="flex items-center gap-2">
-						<MessageCircle class="size-4" />
-						Chat
-					</div>
-
-					<ExternalLink class="size-4" />
+				<button class="link" onclick={handleChat}>
+					<MessageCircle class="size-4" />
+					Chat
 				</button>
 			{/if}
 			{#if responsive.isMobile}
