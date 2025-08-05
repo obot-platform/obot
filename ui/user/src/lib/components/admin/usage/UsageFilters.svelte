@@ -71,8 +71,10 @@
 		// Populate user filter values
 		for (const userId of userIds) {
 			const user = users.find((u) => u.id === userId);
+			const displayName = user?.displayName || 'Unknown';
+			const email = user?.email;
 			filterSets[0].values[userId] = {
-				label: user?.email || user?.displayName || 'Unknown',
+				label: email ? `${displayName} (${email})` : displayName,
 				id: userId
 			};
 		}
