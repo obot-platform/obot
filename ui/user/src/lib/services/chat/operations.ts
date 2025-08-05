@@ -937,30 +937,51 @@ export async function listMcpCatalogServerTools(
 	id: string,
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<MCPServerTool[]> {
-	return (await doGet(`/all-mcp-catalogs/servers/${id}/tools`, {
-		...opts,
-		dontLogErrors: true
-	})) as MCPServerTool[];
+	try {
+		return (await doGet(`/all-mcp-catalogs/servers/${id}/tools`, {
+			...opts,
+			dontLogErrors: true
+		})) as MCPServerTool[];
+	} catch (error) {
+		if (error instanceof Error && error.message.startsWith('424')) {
+			return [];
+		}
+		throw error;
+	}
 }
 
 export async function listMcpCatalogServerPrompts(
 	id: string,
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<MCPServerPrompt[]> {
-	return (await doGet(`/all-mcp-catalogs/servers/${id}/prompts`, {
-		...opts,
-		dontLogErrors: true
-	})) as MCPServerPrompt[];
+	try {
+		return (await doGet(`/all-mcp-catalogs/servers/${id}/prompts`, {
+			...opts,
+			dontLogErrors: true
+		})) as MCPServerPrompt[];
+	} catch (error) {
+		if (error instanceof Error && error.message.startsWith('424')) {
+			return [];
+		}
+		throw error;
+	}
 }
 
 export async function listMcpCatalogServerResources(
 	id: string,
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<McpServerResource[]> {
-	return (await doGet(`/all-mcp-catalogs/servers/${id}/resources`, {
-		...opts,
-		dontLogErrors: true
-	})) as McpServerResource[];
+	try {
+		return (await doGet(`/all-mcp-catalogs/servers/${id}/resources`, {
+			...opts,
+			dontLogErrors: true
+		})) as McpServerResource[];
+	} catch (error) {
+		if (error instanceof Error && error.message.startsWith('424')) {
+			return [];
+		}
+		throw error;
+	}
 }
 
 export async function listProjectMCPs(
@@ -1004,13 +1025,20 @@ export async function listProjectMCPServerTools(
 	projectMcpServerId: string,
 	opts?: { signal?: AbortSignal }
 ): Promise<MCPServerTool[]> {
-	return (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools`,
-		{
-			dontLogErrors: true,
-			signal: opts?.signal
+	try {
+		return (await doGet(
+			`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools`,
+			{
+				dontLogErrors: true,
+				signal: opts?.signal
+			}
+		)) as MCPServerTool[];
+	} catch (error) {
+		if (error instanceof Error && error.message.startsWith('424')) {
+			return [];
 		}
-	)) as MCPServerTool[];
+		throw error;
+	}
 }
 
 export async function configureProjectMcpServerTools(
@@ -1033,12 +1061,19 @@ export async function listProjectThreadMcpServerTools(
 	projectMcpServerId: string,
 	threadID: string
 ): Promise<MCPServerTool[]> {
-	return (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools/${threadID}`,
-		{
-			dontLogErrors: true
+	try {
+		return (await doGet(
+			`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/tools/${threadID}`,
+			{
+				dontLogErrors: true
+			}
+		)) as MCPServerTool[];
+	} catch (error) {
+		if (error instanceof Error && error.message.startsWith('424')) {
+			return [];
 		}
-	)) as MCPServerTool[];
+		throw error;
+	}
 }
 
 export async function configureProjectThreadMcpServerTools(
@@ -1062,14 +1097,21 @@ export async function listProjectMcpServerPrompts(
 	projectMcpServerId: string,
 	opts?: { signal?: AbortSignal }
 ): Promise<MCPServerPrompt[]> {
-	const response = (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/prompts`,
-		{
-			dontLogErrors: true,
-			signal: opts?.signal
+	try {
+		const response = (await doGet(
+			`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/prompts`,
+			{
+				dontLogErrors: true,
+				signal: opts?.signal
+			}
+		)) as MCPServerPrompt[];
+		return response;
+	} catch (error) {
+		if (error instanceof Error && error.message.startsWith('424')) {
+			return [];
 		}
-	)) as MCPServerPrompt[];
-	return response;
+		throw error;
+	}
 }
 
 export async function generateProjectMcpServerPrompt(
@@ -1091,15 +1133,22 @@ export async function listProjectMcpServerResources(
 	projectID: string,
 	projectMcpServerId: string,
 	opts?: { signal?: AbortSignal }
-) {
-	const response = (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/resources`,
-		{
-			dontLogErrors: true,
-			signal: opts?.signal
+): Promise<McpServerResource[]> {
+	try {
+		const response = (await doGet(
+			`/assistants/${assistantID}/projects/${projectID}/mcpservers/${projectMcpServerId}/resources`,
+			{
+				dontLogErrors: true,
+				signal: opts?.signal
+			}
+		)) as McpServerResource[];
+		return response;
+	} catch (error) {
+		if (error instanceof Error && error.message.startsWith('424')) {
+			return [];
 		}
-	)) as McpServerResource[];
-	return response;
+		throw error;
+	}
 }
 
 export async function readProjectMcpServerResource(
@@ -1399,26 +1448,47 @@ export async function revealSingleOrRemoteMcpServer(id: string): Promise<Record<
 }
 
 export async function listSingleOrRemoteMcpServerTools(id: string): Promise<MCPServerTool[]> {
-	const response = (await doGet(`/mcp-servers/${id}/tools`, {
-		dontLogErrors: true
-	})) as ItemsResponse<MCPServerTool>;
-	return response.items ?? [];
+	try {
+		const response = (await doGet(`/mcp-servers/${id}/tools`, {
+			dontLogErrors: true
+		})) as ItemsResponse<MCPServerTool>;
+		return response.items ?? [];
+	} catch (error) {
+		if (error instanceof Error && error.message.startsWith('424')) {
+			return [];
+		}
+		throw error;
+	}
 }
 
 export async function listSingleOrRemoteMcpServerPrompts(id: string): Promise<MCPServerPrompt[]> {
-	const response = (await doGet(`/mcp-servers/${id}/prompts`, {
-		dontLogErrors: true
-	})) as ItemsResponse<MCPServerPrompt>;
-	return response.items ?? [];
+	try {
+		const response = (await doGet(`/mcp-servers/${id}/prompts`, {
+			dontLogErrors: true
+		})) as ItemsResponse<MCPServerPrompt>;
+		return response.items ?? [];
+	} catch (error) {
+		if (error instanceof Error && error.message.startsWith('424')) {
+			return [];
+		}
+		throw error;
+	}
 }
 
 export async function listSingleOrRemoteMcpServerResources(
 	id: string
 ): Promise<McpServerResource[]> {
-	const response = (await doGet(`/mcp-servers/${id}/resources`, {
-		dontLogErrors: true
-	})) as ItemsResponse<McpServerResource>;
-	return response.items ?? [];
+	try {
+		const response = (await doGet(`/mcp-servers/${id}/resources`, {
+			dontLogErrors: true
+		})) as ItemsResponse<McpServerResource>;
+		return response.items ?? [];
+	} catch (error) {
+		if (error instanceof Error && error.message.startsWith('424')) {
+			return [];
+		}
+		throw error;
+	}
 }
 
 export async function listMcpServerInstances(opts?: {
