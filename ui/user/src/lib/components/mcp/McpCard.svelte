@@ -3,7 +3,7 @@
 	import { stripMarkdownToText } from '$lib/markdown';
 	import type { MCPCatalogServer, MCPCatalogEntry } from '$lib/services';
 	import { parseCategories } from '$lib/services/chat/mcp';
-	import { Server, TriangleAlert, Unplug } from 'lucide-svelte';
+	import { Server, TriangleAlert } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
