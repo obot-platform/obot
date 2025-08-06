@@ -8,6 +8,7 @@
 	import Confirm from '../Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { closeAll, getLayout, openConfigureProject } from '$lib/context/chatLayout.svelte';
+	import PageLoading from '../PageLoading.svelte';
 
 	interface Props {
 		project: Project;
@@ -33,6 +34,7 @@
 	let open = $state(false);
 	let container = $state<HTMLDivElement>();
 	let toDelete = $state<Project>();
+	let loading = $state(false);
 	const layout = getLayout();
 
 	let {
@@ -119,11 +121,16 @@
 	{@const isActive = p.id === project.id}
 	<div
 		class={twMerge(
-			'group hover:bg-surface3 flex min-h-14 items-center p-2 transition-colors',
+			'group hover:bg-surface3 flex min-h-14 items-center transition-colors',
 			isActive && 'bg-surface1 dark:bg-surface2'
 		)}
 	>
-		<a href="/o/{p.id}" rel="external" class="flex grow items-center gap-2">
+		<a
+			href="/o/{p.id}"
+			rel="external"
+			class="flex min-h-14 w-full items-center gap-2 p-2"
+			onclick={() => (loading = true)}
+		>
 			<div class="flex grow flex-col">
 				<span class="text-on-background text-sm font-semibold"
 					>{p.name || DEFAULT_PROJECT_NAME}</span
@@ -180,3 +187,5 @@
 	}}
 	oncancel={() => (toDelete = undefined)}
 />
+
+<PageLoading show={loading} />
