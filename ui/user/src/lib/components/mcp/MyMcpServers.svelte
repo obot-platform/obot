@@ -13,13 +13,7 @@
 	import { fly } from 'svelte/transition';
 	import type { LaunchFormData } from './CatalogConfigureForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import {
-		ChevronLeft,
-		ChevronRight,
-		LoaderCircle,
-		RefreshCwIcon,
-		ServerIcon
-	} from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight, LoaderCircle, ServerIcon } from 'lucide-svelte';
 	import { tick, type Snippet } from 'svelte';
 	import McpCard from './McpCard.svelte';
 	import Search from '../Search.svelte';
