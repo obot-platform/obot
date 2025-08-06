@@ -180,6 +180,7 @@ func pollRunState(ctx context.Context, c *client.Client, run *v1.Run, done func(
 type Options struct {
 	Synchronous           bool
 	EphemeralThread       bool
+	Thread                *v1.Thread
 	ThreadName            string
 	ParentThreadName      string
 	WorkflowName          string
@@ -325,19 +326,23 @@ func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 	return thread, c.Create(ctx, thread)
 }
 
-func (i *Invoker) Thread(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, input string, opt Options) (_ *Response, err error) {
+func (i *Invoker) Thread(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, input string, opt Options) (*Response, error) {
 	var agent v1.Agent
 	if err := c.Get(ctx, router.Key(thread.Namespace, thread.Spec.AgentName), &agent); err != nil {
 		return nil, err
 	}
-	opt.ThreadName = thread.Name
+	opt.Thread = thread
 	return i.Agent(ctx, c, &agent, input, opt)
 }
 
 func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, input string, opt Options) (*Response, error) {
-	thread, err := getThreadForAgent(ctx, c, agent, opt)
-	if err != nil {
-		return nil, err
+	thread := opt.Thread
+	if thread == nil {
+		var err error
+		thread, err = getThreadForAgent(ctx, c, agent, opt)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if thread.Spec.AgentName != agent.Name {
@@ -348,7 +353,10 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		return nil, err
 	}
 
-	var credContextIDs []string
+	var (
+		credContextIDs []string
+		err            error
+	)
 	if opt.CredentialContextIDs != nil {
 		credContextIDs = opt.CredentialContextIDs
 	} else {
