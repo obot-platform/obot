@@ -140,6 +140,28 @@
 		goto(url.toString());
 		onClose();
 	}
+
+	function handleClearAllFilters() {
+		// Clear all local filters
+		localFilters.userIds = '';
+		localFilters.mcpServerDisplayNames = '';
+
+		const url = new URL(page.url);
+		url.search = '';
+
+		// Preserve existing date filters
+		if (typeof window !== 'undefined') {
+			const currentUrl = new URL(window.location.href);
+			const startTime = currentUrl.searchParams.get('startTime');
+			const endTime = currentUrl.searchParams.get('endTime');
+
+			if (startTime) url.searchParams.set('startTime', startTime);
+			if (endTime) url.searchParams.set('endTime', endTime);
+		}
+
+		goto(url.toString());
+		onClose();
+	}
 </script>
 
 <div class="dark:border-surface3 h-full w-screen border-l border-transparent md:w-sm">
@@ -215,10 +237,14 @@
 				</div>
 			{/if}
 		{/each}
-		<div class="mt-auto">
+		<div class="mt-auto flex flex-col gap-2">
 			<button
 				class="button-primary text-md w-full rounded-lg px-4 py-2"
 				onclick={handleApplyFilters}>Apply Filters</button
+			>
+			<button
+				class="button-secondary text-md w-full rounded-lg px-4 py-2"
+				onclick={handleClearAllFilters}>Clear All Filters</button
 			>
 		</div>
 	</div>
