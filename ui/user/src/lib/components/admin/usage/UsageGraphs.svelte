@@ -252,9 +252,13 @@
 			xKey: 'userId',
 			yKey: 'callCount',
 			tooltip: 'calls',
+			formatTooltipText: (data) => {
+				const user = users.find((u) => u.id === data.userId);
+				return `${data.callCount} calls • ${user ? user.email || user.id : String(data.userId)}`;
+			},
 			formatXLabel: (userId) => {
 				const user = users.find((u) => u.id === userId);
-				return user ? user.email : String(userId);
+				return user ? user.displayName || user.email || user.id : String(userId);
 			},
 			transform: (stats) => {
 				const userCounts = new Map<string, number>();
