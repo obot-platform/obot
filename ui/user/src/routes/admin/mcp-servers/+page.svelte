@@ -36,6 +36,7 @@
 	import { browser } from '$app/environment';
 	import BackLink from '$lib/components/admin/BackLink.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import { formatTimeAgo } from '$lib/time';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 	let search = $state('');
@@ -95,7 +96,8 @@
 					data: entry,
 					users: entry.userCount ?? 0,
 					editable: !entry.sourceURL,
-					type: entry.manifest.runtime === 'remote' ? 'remote' : 'single'
+					type: entry.manifest.runtime === 'remote' ? 'remote' : 'single',
+					created: entry.created
 				};
 			});
 	}
@@ -116,7 +118,8 @@
 					type: 'multi',
 					data: server,
 					users: server.mcpServerInstanceUserCount ?? 0,
-					editable: true
+					editable: true,
+					created: server.created
 				};
 			});
 	}
@@ -247,7 +250,7 @@
 			{:else}
 				<Table
 					data={filteredTableData}
-					fields={['name', 'type', 'users', 'source']}
+					fields={['name', 'type', 'users', 'source', 'created']}
 					onSelectRow={(d) => {
 						if (d.type === 'single' || d.type === 'remote') {
 							goto(`/admin/mcp-servers/c/${d.id}`);
@@ -255,7 +258,7 @@
 							goto(`/admin/mcp-servers/s/${d.id}`);
 						}
 					}}
-					sortable={['name', 'type', 'users', 'source']}
+					sortable={['name', 'type', 'users', 'source', 'created']}
 					noDataMessage="No catalog servers added."
 				>
 					{#snippet onRenderColumn(property, d)}
@@ -282,6 +285,8 @@
 								: d.source === OFFICIAL_MCP_CATALOG_LINK
 									? 'Official'
 									: d.source}
+						{:else if property === 'created'}
+							{formatTimeAgo(d.created).relativeTime}
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}
