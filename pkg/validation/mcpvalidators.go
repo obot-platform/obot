@@ -10,6 +10,8 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
+var hostnameRegex = regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$`)
+
 // RuntimeValidator defines the interface for validating runtime-specific configurations
 type RuntimeValidator interface {
 	ValidateConfig(manifest types.MCPServerManifest) error
@@ -351,7 +353,7 @@ func (v RemoteValidator) validateRemoteCatalogConfig(config types.RemoteCatalogC
 	if hasHostname {
 		// Basic hostname validation.
 		// A wildcard prefix of *. is allowed.
-		if !regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$`).MatchString(config.Hostname) {
+		if !hostnameRegex.MatchString(config.Hostname) {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeRemote,
 				Field:   "hostname",
