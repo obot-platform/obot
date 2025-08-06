@@ -24,7 +24,10 @@
 	let servers = $state<MCPCatalogServer[]>([]);
 	let entries = $state<MCPCatalogEntry[]>([]);
 	let loading = $state(true);
+
 	let chatLoading = $state(false);
+	let chatLoadingProgress = $state(0);
+	let chatLaunchError = $state<string>();
 
 	let connectToServer = $state<{
 		server?: MCPCatalogServer;
@@ -106,7 +109,20 @@
 
 	async function handleSetupChat(connectedServer: typeof connectToServer) {
 		if (!connectedServer || !connectedServer.server) return;
+		connectDialog?.close();
+		chatLaunchError = undefined;
 		chatLoading = true;
+		chatLoadingProgress = 0;
+
+		let timeout1 = setTimeout(() => {
+			chatLoadingProgress = 10;
+		}, 1000);
+		let timeout2 = setTimeout(() => {
+			chatLoadingProgress = 50;
+		}, 5000);
+		let timeout3 = setTimeout(() => {
+			chatLoadingProgress = 80;
+		}, 10000);
 
 		const projects = await ChatService.listProjects();
 		const name = [connectedServer.server?.manifest.name ?? '', connectedServer.server.id].join(
@@ -122,20 +138,31 @@
 			});
 		}
 
-		const mcpId = connectedServer.instance
-			? connectedServer.instance.id
-			: connectedServer.server.id;
-		if (
-			project &&
-			!(await ChatService.listProjectMCPs(project.assistantID, project.id)).find(
-				(mcp) => mcp.mcpID === mcpId
-			)
-		) {
-			await createProjectMcp(project, mcpId);
+		try {
+			const mcpId = connectedServer.instance
+				? connectedServer.instance.id
+				: connectedServer.server.id;
+			if (
+				project &&
+				!(await ChatService.listProjectMCPs(project.assistantID, project.id)).find(
+					(mcp) => mcp.mcpID === mcpId
+				)
+			) {
+				await createProjectMcp(project, mcpId);
+			}
+		} catch (err) {
+			chatLaunchError = err instanceof Error ? err.message : 'An unknown error occurred';
+		} finally {
+			clearTimeout(timeout1);
+			clearTimeout(timeout2);
+			clearTimeout(timeout3);
 		}
 
-		goto(`/o/${project?.id}`);
-		chatLoading = false;
+		chatLoadingProgress = 100;
+		setTimeout(() => {
+			chatLoading = false;
+			goto(`/o/${project?.id}`);
+		}, 1000);
 	}
 </script>
 
@@ -310,7 +337,18 @@
 	/>
 </ResponsiveDialog>
 
-<PageLoading show={chatLoading} text="Loading chat..." />
+<PageLoading
+	show={chatLoading}
+	isProgressBar
+	progress={chatLoadingProgress}
+	text="Loading chat..."
+	error={chatLaunchError}
+	longLoadMessage="Connecting MCP Server to chat..."
+	longLoadDuration={10000}
+	onClose={() => {
+		chatLoading = false;
+	}}
+/>
 
 <svelte:head>
 	<title>Obot | MCP Servers</title>

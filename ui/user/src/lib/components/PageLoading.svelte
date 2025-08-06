@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { AlertCircle, LoaderCircle, X } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
-	import { fade, slide } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { onDestroy } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { clickOutside } from '$lib/actions/clickoutside';
@@ -9,7 +9,7 @@
 	interface Props {
 		show: boolean;
 		text?: string;
-		longLoadContent?: Snippet;
+		longLoadMessage?: string;
 		longLoadDuration?: number;
 		isProgressBar?: boolean;
 		progress?: number;
@@ -22,7 +22,7 @@
 	let {
 		show,
 		text,
-		longLoadContent,
+		longLoadMessage,
 		longLoadDuration = 30000,
 		progress,
 		isProgressBar,
@@ -124,15 +124,13 @@
 					></div>
 				</div>
 
-				<div class="flex flex-col justify-center gap-2 text-center">
-					{#if text}
-						<p class="text-xl">{text}</p>
-					{/if}
-
-					{#if isLongLoad && longLoadContent}
-						<div in:slide class="mt-4">
-							{@render longLoadContent()}
-						</div>
+				<div class="flex w-md flex-col justify-center gap-2 text-center">
+					{#if isLongLoad && longLoadMessage}
+						<p in:fade class="text-md font-light text-white">
+							{longLoadMessage}
+						</p>
+					{:else if text}
+						<p class="text-md font-light text-white">{text}</p>
 					{/if}
 				</div>
 			</div>
@@ -144,10 +142,10 @@
 					<LoaderCircle class="size-8 animate-spin " />
 					<p class="text-xl font-semibold">{text ?? 'Loading...'}</p>
 				</div>
-				{#if isLongLoad && longLoadContent}
-					<div in:slide>
-						{@render longLoadContent()}
-					</div>
+				{#if isLongLoad && longLoadMessage}
+					<p in:fade class="text-md mt-4 font-light text-gray-500">
+						{longLoadMessage}
+					</p>
 				{/if}
 			</div>
 		{/if}
