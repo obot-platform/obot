@@ -363,7 +363,7 @@
 				<div class="flex-1">
 					<StatBar startTime={filters?.startTime ?? ''} endTime={filters?.endTime ?? ''} />
 				</div>
-				{#if !(mcpId || mcpCatalogEntryId)}
+				{#if !(mcpId || mcpCatalogEntryId || mcpServerDisplayName)}
 					<button
 						class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
 						onclick={() => {
