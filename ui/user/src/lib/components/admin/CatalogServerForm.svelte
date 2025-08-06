@@ -16,6 +16,7 @@
 	import { onMount, type Snippet } from 'svelte';
 	import MarkdownInput from './MarkdownInput.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		catalogId?: string;
@@ -53,6 +54,7 @@
 
 	let savedEntry = $state<MCPCatalogEntry | MCPCatalogServer>();
 	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
+	let showRequired = $state<Record<string, boolean>>({});
 	let loading = $state(false);
 
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
@@ -241,35 +243,59 @@
 	}
 
 	// Form validation
-	function validateForm(): boolean {
+	function validateForm(): Record<string, boolean> {
+		let missingFields: Record<string, boolean> = {};
 		// Basic validation - name is required
-		if (!formData.name.trim()) return false;
+		if (!formData.name.trim()) {
+			missingFields.name = true;
+		}
 
 		// Runtime-specific validation
 		switch (formData.runtime) {
 			case 'npx':
-				return !!formData.npxConfig?.package?.trim();
+				if (!formData.npxConfig?.package?.trim()) {
+					missingFields.package = true;
+				}
+				break;
 			case 'uvx':
-				return !!formData.uvxConfig?.package?.trim();
+				if (!formData.uvxConfig?.package?.trim()) {
+					missingFields.package = true;
+				}
+				break;
 			case 'containerized':
-				return !!(
-					formData.containerizedConfig?.image?.trim() &&
-					formData.containerizedConfig?.path?.trim() &&
-					formData.containerizedConfig?.port > 0
-				);
+				if (!formData.containerizedConfig?.image?.trim()) {
+					missingFields.image = true;
+				}
+				if (!formData.containerizedConfig?.path?.trim()) {
+					missingFields.path = true;
+				}
+				if ((formData.containerizedConfig?.port ?? 0) <= 0) {
+					missingFields.port = true;
+				}
+				break;
 			case 'remote':
 				if (type === 'remote') {
 					// For remote catalog entries, either fixedURL or hostname is required
-					return !!(
-						formData.remoteConfig?.fixedURL?.trim() || formData.remoteConfig?.hostname?.trim()
-					);
+					if (
+						!formData.remoteConfig?.fixedURL?.trim() &&
+						!formData.remoteConfig?.hostname?.trim()
+					) {
+						missingFields.fixedURL = true;
+						missingFields.hostname = true;
+					}
+					break;
 				} else {
 					// For multi-user servers with remote runtime, URL is required
-					return !!formData.remoteServerConfig?.url?.trim();
+					if (!formData.remoteServerConfig?.url?.trim()) {
+						missingFields.url = true;
+					}
+					break;
 				}
 			default:
-				return false;
+				break;
 		}
+
+		return missingFields;
 	}
 
 	onMount(() => {
@@ -466,7 +492,14 @@
 	}
 
 	async function handleSubmit() {
-		if (!catalogId || !validateForm()) return;
+		if (!catalogId) return;
+
+		showRequired = {}; // reset
+		const missingRequiredFields = validateForm();
+		if (Object.keys(missingRequiredFields).length > 0) {
+			showRequired = missingRequiredFields;
+			return;
+		}
 
 		loading = true;
 		try {
@@ -489,6 +522,10 @@
 			loading = false;
 			throw error;
 		}
+	}
+
+	function updateRequired(field: string) {
+		delete showRequired[field];
 	}
 </script>
 
@@ -518,13 +555,19 @@
 		{/if}
 
 		<div class="flex flex-col gap-1">
-			<label for="name" class="text-sm font-light capitalize">Name</label>
+			<label
+				for="name"
+				class={twMerge('text-sm font-light capitalize', showRequired.name && 'error')}>Name</label
+			>
 			<input
 				type="text"
 				id="name"
 				bind:value={formData.name}
-				class="text-input-filled dark:bg-black"
+				class={twMerge('text-input-filled dark:bg-black', showRequired.name && 'error')}
 				disabled={readonly}
+				oninput={() => {
+					updateRequired('name');
+				}}
 			/>
 		</div>
 
@@ -596,13 +639,33 @@
 
 <!-- Runtime-specific Forms -->
 {#if formData.runtime === 'npx' && formData.npxConfig}
-	<NpxRuntimeForm bind:config={formData.npxConfig} {readonly} />
+	<NpxRuntimeForm
+		bind:config={formData.npxConfig}
+		{readonly}
+		{showRequired}
+		onFieldChange={updateRequired}
+	/>
 {:else if formData.runtime === 'uvx' && formData.uvxConfig}
-	<UvxRuntimeForm bind:config={formData.uvxConfig} {readonly} />
+	<UvxRuntimeForm
+		bind:config={formData.uvxConfig}
+		{readonly}
+		{showRequired}
+		onFieldChange={updateRequired}
+	/>
 {:else if formData.runtime === 'containerized' && formData.containerizedConfig}
-	<ContainerizedRuntimeForm bind:config={formData.containerizedConfig} {readonly} />
+	<ContainerizedRuntimeForm
+		bind:config={formData.containerizedConfig}
+		{readonly}
+		{showRequired}
+		onFieldChange={updateRequired}
+	/>
 {:else if formData.runtime === 'remote' && formData.remoteConfig}
-	<RemoteRuntimeForm bind:config={formData.remoteConfig} {readonly} />
+	<RemoteRuntimeForm
+		bind:config={formData.remoteConfig}
+		{readonly}
+		{showRequired}
+		onFieldChange={updateRequired}
+	/>
 {/if}
 
 <!-- Environment Variables Section -->
@@ -747,14 +810,13 @@
 
 {#if !readonly}
 	<div
-		class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
+		class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 items-center justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
 	>
+		{#if Object.keys(showRequired).length > 0}
+			<span class="text-sm font-medium text-red-500">Fill out all required fields</span>
+		{/if}
 		<button class="button flex items-center gap-1" onclick={() => onCancel?.()}> Cancel </button>
-		<button
-			class="button-primary flex items-center gap-1"
-			disabled={loading || !validateForm()}
-			onclick={handleSubmit}
-		>
+		<button class="button-primary flex items-center gap-1" onclick={handleSubmit}>
 			{#if loading}
 				<LoaderCircle class="size-4 animate-spin" />
 			{:else}

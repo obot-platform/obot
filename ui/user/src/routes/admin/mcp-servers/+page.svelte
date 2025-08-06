@@ -19,6 +19,7 @@
 		AlertTriangle,
 		Container,
 		Eye,
+		Info,
 		LoaderCircle,
 		Plus,
 		RefreshCcw,
@@ -227,6 +228,18 @@
 				{@render addServerButton()}
 			{/if}
 		</div>
+
+		{#if defaultCatalog?.isSyncing}
+			<div class="notification-info p-3 text-sm font-light">
+				<div class="flex items-center gap-3">
+					<Info class="size-6" />
+					<div>
+						The catalog is currently syncing with the latest Git servers. Please check back in a few
+						minutes or try refreshing.
+					</div>
+				</div>
+			</div>
+		{/if}
 
 		<div class="flex flex-col gap-2">
 			<Search

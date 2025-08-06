@@ -481,6 +481,10 @@
 		}
 	}
 
+	label.error {
+		color: var(--color-red-500);
+	}
+
 	.text-input {
 		border-bottom-width: 1px;
 		border-color: var(--surface3);

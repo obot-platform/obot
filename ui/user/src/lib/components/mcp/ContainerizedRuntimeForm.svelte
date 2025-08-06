@@ -2,12 +2,15 @@
 	import type { ContainerizedRuntimeConfig } from '$lib/services/chat/types';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		config: ContainerizedRuntimeConfig;
 		readonly?: boolean;
+		showRequired?: Record<string, boolean>;
+		onFieldChange?: (field: string) => void;
 	}
-	let { config = $bindable(), readonly }: Props = $props();
+	let { config = $bindable(), readonly, showRequired, onFieldChange }: Props = $props();
 
 	// Initialize args array if it doesn't exist
 	if (!config.args) {
@@ -92,10 +95,13 @@
 
 	<!-- Image field (required) -->
 	<div class="flex items-center gap-4">
-		<label for="containerized-image" class="text-sm font-light">Image</label>
+		<label
+			for="containerized-image"
+			class={twMerge('w-20 text-sm font-light', showRequired?.image && 'error')}>Image</label
+		>
 		<input
 			id="containerized-image"
-			class="text-input-filled w-full dark:bg-black"
+			class={twMerge('text-input-filled w-full dark:bg-black', showRequired?.image && 'error')}
 			bind:value={config.image}
 			disabled={readonly}
 			placeholder="e.g. docker.io/myorg/mcp-server:latest"
@@ -104,33 +110,45 @@
 					config.image = config.image.trim();
 				}
 			}}
+			oninput={() => {
+				onFieldChange?.('image');
+			}}
 			required
 		/>
 	</div>
 
 	<!-- Port field (required) -->
 	<div class="flex items-center gap-4">
-		<label for="containerized-port" class="text-sm font-light">Port</label>
+		<label
+			for="containerized-port"
+			class={twMerge('w-20 text-sm font-light', showRequired?.port && 'error')}>Port</label
+		>
 		<input
 			id="containerized-port"
 			type="number"
-			class="text-input-filled w-full dark:bg-black"
+			class={twMerge('text-input-filled w-full dark:bg-black', showRequired?.port && 'error')}
 			value={config.port > 0 ? config.port : ''}
 			disabled={readonly}
 			placeholder="e.g. 8080"
 			min="1"
 			max="65535"
 			required
-			oninput={handlePortInput}
+			oninput={(e) => {
+				handlePortInput(e);
+				onFieldChange?.('port');
+			}}
 		/>
 	</div>
 
 	<!-- Path field (required) -->
 	<div class="flex items-center gap-4">
-		<label for="containerized-path" class="text-sm font-light">Path</label>
+		<label
+			for="containerized-path"
+			class={twMerge('w-20 text-sm font-light', showRequired?.path && 'error')}>Path</label
+		>
 		<input
 			id="containerized-path"
-			class="text-input-filled w-full dark:bg-black"
+			class={twMerge('text-input-filled w-full dark:bg-black', showRequired?.path && 'error')}
 			bind:value={config.path}
 			disabled={readonly}
 			placeholder="e.g. /mcp"
@@ -139,13 +157,16 @@
 					config.path = config.path.trim();
 				}
 			}}
+			oninput={() => {
+				onFieldChange?.('path');
+			}}
 			required
 		/>
 	</div>
 
 	<!-- Command field (optional) -->
 	<div class="flex items-center gap-4">
-		<label for="containerized-command" class="text-sm font-light">Command</label>
+		<label for="containerized-command" class="w-20 text-sm font-light">Command</label>
 		<input
 			id="containerized-command"
 			class="text-input-filled w-full dark:bg-black"

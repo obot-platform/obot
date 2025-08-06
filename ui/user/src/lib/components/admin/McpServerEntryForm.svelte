@@ -186,12 +186,12 @@
 	{/if}
 	<div class="flex grow flex-col gap-2">
 		<div class="flex w-full items-center gap-2">
-			<div class="size-4">
-				<button disabled={!showLeftChevron} onclick={scrollLeft} class="disabled:opacity-30">
-					<ChevronLeft class="size-4" />
-				</button>
-			</div>
 			{#if tabs.length > 0}
+				<div class="size-4">
+					<button disabled={!showLeftChevron} onclick={scrollLeft} class="disabled:opacity-30">
+						<ChevronLeft class="size-4" />
+					</button>
+				</div>
 				<div
 					bind:this={scrollContainer}
 					class="default-scrollbar-thin scrollbar-none flex gap-2 overflow-x-auto py-1 text-sm font-light"
@@ -212,12 +212,12 @@
 						</button>
 					{/each}
 				</div>
+				<div class="size-4">
+					<button disabled={!showRightChevron} onclick={scrollRight} class="disabled:opacity-30">
+						<ChevronRight class="size-4" />
+					</button>
+				</div>
 			{/if}
-			<div class="size-4">
-				<button disabled={!showRightChevron} onclick={scrollRight} class="disabled:opacity-30">
-					<ChevronRight class="size-4" />
-				</button>
-			</div>
 		</div>
 
 		{#if selected === 'overview' && entry}

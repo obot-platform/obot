@@ -2,12 +2,15 @@
 	import type { NPXRuntimeConfig } from '$lib/services/chat/types';
 	import { Plus, Trash2 } from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		config: NPXRuntimeConfig;
 		readonly?: boolean;
+		showRequired?: Record<string, boolean>;
+		onFieldChange?: (field: string) => void;
 	}
-	let { config = $bindable(), readonly }: Props = $props();
+	let { config = $bindable(), readonly, showRequired, onFieldChange }: Props = $props();
 
 	// Initialize args array if it doesn't exist
 	if (!config.args) {
@@ -71,10 +74,12 @@
 
 	<!-- Package field (required) -->
 	<div class="flex items-center gap-4">
-		<label for="npx-package" class="text-sm font-light">Package</label>
+		<label for="npx-package" class={twMerge('text-sm font-light', showRequired?.package && 'error')}
+			>Package</label
+		>
 		<input
 			id="npx-package"
-			class="text-input-filled w-full dark:bg-black"
+			class={twMerge('text-input-filled w-full dark:bg-black', showRequired?.package && 'error')}
 			bind:value={config.package}
 			disabled={readonly}
 			placeholder="e.g. @modelcontextprotocol/server-filesystem"
@@ -82,6 +87,9 @@
 				if (config.package) {
 					config.package = config.package.trim();
 				}
+			}}
+			oninput={() => {
+				onFieldChange?.('package');
 			}}
 			required
 		/>

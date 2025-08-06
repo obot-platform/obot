@@ -8,12 +8,15 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { fade, slide } from 'svelte/transition';
 	import Toggle from '../Toggle.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		config: RemoteCatalogConfigAdmin | RemoteRuntimeConfigAdmin;
 		readonly?: boolean;
+		showRequired?: Record<string, boolean>;
+		onFieldChange?: (field: string) => void;
 	}
-	let { config = $bindable(), readonly }: Props = $props();
+	let { config = $bindable(), readonly, showRequired, onFieldChange }: Props = $props();
 
 	// For catalog entries, we show advanced config if hostname or headers exist
 	// For servers, we always show the URL field (no advanced toggle needed)
@@ -83,23 +86,43 @@
 			{#if selectedType === 'fixedURL' && typeof (config as RemoteCatalogConfigAdmin).fixedURL !== 'undefined'}
 				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 				<div class="flex items-center gap-2">
-					<label for="remote-url" class="min-w-18 text-sm font-light">Exact URL</label>
+					<label
+						for="remote-url"
+						class={twMerge('min-w-18 text-sm font-light', showRequired?.fixedURL && 'error')}
+						>Exact URL</label
+					>
 					<input
-						class="text-input-filled flex grow dark:bg-black"
+						class={twMerge(
+							'text-input-filled flex grow dark:bg-black',
+							showRequired?.fixedURL && 'error'
+						)}
 						bind:value={remoteConfig.fixedURL}
 						disabled={readonly}
 						placeholder="e.g. https://custom.mcpserver.example.com/go/to"
+						oninput={() => {
+							onFieldChange?.('fixedURL');
+						}}
 					/>
 				</div>
 			{:else if selectedType === 'hostname' && typeof (config as RemoteCatalogConfigAdmin).hostname !== 'undefined'}
 				{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 				<div class="flex items-center gap-2">
-					<label for="remote-url" class="min-w-18 text-sm font-light">Hostname</label>
+					<label
+						for="remote-url"
+						class={twMerge('min-w-18 text-sm font-light', showRequired?.hostname && 'error')}
+						>Hostname</label
+					>
 					<input
-						class="text-input-filled flex grow dark:bg-black"
+						class={twMerge(
+							'text-input-filled flex grow dark:bg-black',
+							showRequired?.hostname && 'error'
+						)}
 						bind:value={remoteConfig.hostname}
 						disabled={readonly}
 						placeholder="e.g. mycustomdomain"
+						oninput={() => {
+							onFieldChange?.('hostname');
+						}}
 					/>
 				</div>
 			{/if}
