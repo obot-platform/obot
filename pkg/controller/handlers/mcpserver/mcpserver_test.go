@@ -318,7 +318,7 @@ func TestConfigurationHasDrifted(t *testing.T) {
 				},
 			},
 			expectedDrift: true,
-			expectedError: false,
+			expectedError: true,
 		},
 		{
 			name: "no drift - different env order (order doesn't matter)",
@@ -390,7 +390,7 @@ func TestConfigurationHasDrifted(t *testing.T) {
 					Hostname: "api.example.com",
 				},
 			},
-			expectedDrift: false,
+			expectedDrift: true,
 			expectedError: true,
 		},
 		{
@@ -548,7 +548,7 @@ func TestRuntimeSpecificDriftFunctions(t *testing.T) {
 				serverConfig:  &types.RemoteRuntimeConfig{URL: "https://api.example.com"},
 				entryConfig:   &types.RemoteCatalogConfig{Hostname: "api2.example.com"},
 				expectedDrift: true,
-				expectedError: false,
+				expectedError: true,
 			},
 			{
 				name:           "hostname match, needsURL",

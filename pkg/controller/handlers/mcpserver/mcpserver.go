@@ -71,7 +71,7 @@ func configurationHasDrifted(needsURL bool, serverManifest types.MCPServerManife
 	case types.RuntimeRemote:
 		drifted, err = remoteConfigHasDrifted(needsURL, serverManifest.RemoteConfig, entryManifest.RemoteConfig)
 		if err != nil {
-			return false, err
+			return drifted, err
 		}
 
 	default:
