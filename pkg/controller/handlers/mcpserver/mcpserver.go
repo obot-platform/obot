@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"fmt"
-	"net/url"
 	"slices"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -152,14 +151,9 @@ func remoteConfigHasDrifted(needsURL bool, serverConfig *types.RemoteRuntimeConf
 	// If NeedsURL is false, then we can check the hostname, and if it doesn't match, that means that admin does have an update available to trigger.
 	if entryConfig.Hostname != "" && !needsURL {
 		// If catalog entry has a hostname constraint, check if server URL uses that hostname
-		u, err := url.Parse(serverConfig.URL)
-		if err != nil {
-			// Invalid URL in server config - consider it drifted
+		if err := types.ValidateURLHostname(serverConfig.URL, entryConfig.Hostname); err != nil {
+			// Hostname failed to validate, so we consider it drifted
 			return true, err
-		}
-
-		if u.Hostname() != entryConfig.Hostname {
-			return true, nil
 		}
 	}
 

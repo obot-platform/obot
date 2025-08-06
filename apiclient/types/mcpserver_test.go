@@ -182,7 +182,7 @@ func TestMapCatalogEntryToServer_RemoteHostnameMismatch(t *testing.T) {
 		t.Fatalf("Expected RuntimeValidationError, got %T", err)
 	}
 
-	if validationErr.Runtime != string(RuntimeRemote) {
+	if validationErr.Runtime != RuntimeRemote {
 		t.Errorf("Expected runtime %s, got %s", RuntimeRemote, validationErr.Runtime)
 	}
 
@@ -209,52 +209,205 @@ func TestMapCatalogEntryToServer_MissingConfig(t *testing.T) {
 		t.Fatalf("Expected RuntimeValidationError, got %T", err)
 	}
 
-	if validationErr.Runtime != string(RuntimeUVX) {
+	if validationErr.Runtime != RuntimeUVX {
 		t.Errorf("Expected runtime %s, got %s", RuntimeUVX, validationErr.Runtime)
 	}
 }
 
-func TestValidateURLHostname(t *testing.T) {
+// Hostname validation tests
+
+func TestValidateURLMatchesHostname(t *testing.T) {
 	tests := []struct {
-		name             string
-		userURL          string
-		requiredHostname string
-		expectError      bool
+		name        string
+		url         string
+		hostname    string
+		expectError bool
 	}{
+		// Valid cases - exact hostname matches
 		{
-			name:             "Valid hostname match",
-			userURL:          "https://api.example.com/path",
-			requiredHostname: "api.example.com",
-			expectError:      false,
+			name:        "exact hostname match",
+			url:         "https://example.com/path",
+			hostname:    "example.com",
+			expectError: false,
 		},
 		{
-			name:             "Hostname mismatch",
-			userURL:          "https://wrong.example.com/path",
-			requiredHostname: "api.example.com",
-			expectError:      true,
+			name:        "exact hostname match with port",
+			url:         "https://example.com:8080/path",
+			hostname:    "example.com",
+			expectError: false,
 		},
 		{
-			name:             "Invalid URL format",
-			userURL:          "not-a-url",
-			requiredHostname: "api.example.com",
-			expectError:      true,
+			name:        "exact hostname match with subdomain",
+			url:         "https://api.example.com/path",
+			hostname:    "api.example.com",
+			expectError: false,
 		},
 		{
-			name:             "Different port same hostname",
-			userURL:          "https://api.example.com:8080/path",
-			requiredHostname: "api.example.com",
-			expectError:      false,
+			name:        "exact hostname match with http",
+			url:         "http://example.com/path",
+			hostname:    "example.com",
+			expectError: false,
+		},
+		{
+			name:        "exact hostname match with IP address",
+			url:         "https://192.168.1.1/path",
+			hostname:    "192.168.1.1",
+			expectError: false,
+		},
+		{
+			name:        "exact hostname match with localhost",
+			url:         "http://localhost:3000/path",
+			hostname:    "localhost",
+			expectError: false,
+		},
+
+		// Valid cases - wildcard matches
+		{
+			name:        "wildcard match with single subdomain",
+			url:         "https://api.example.com/path",
+			hostname:    "*.example.com",
+			expectError: false,
+		},
+		{
+			name:        "wildcard match with multiple subdomains",
+			url:         "https://api.v1.example.com/path",
+			hostname:    "*.example.com",
+			expectError: false,
+		},
+		{
+			name:        "wildcard match with deep subdomain",
+			url:         "https://foo.bar.baz.example.com/path",
+			hostname:    "*.example.com",
+			expectError: false,
+		},
+		{
+			name:        "wildcard match with port",
+			url:         "https://api.example.com:8080/path",
+			hostname:    "*.example.com",
+			expectError: false,
+		},
+
+		// Invalid cases - exact hostname mismatches
+		{
+			name:        "exact hostname mismatch",
+			url:         "https://example.com/path",
+			hostname:    "different.com",
+			expectError: true,
+		},
+		{
+			name:        "exact hostname mismatch with subdomain",
+			url:         "https://api.example.com/path",
+			hostname:    "example.com",
+			expectError: true,
+		},
+		{
+			name:        "exact hostname mismatch case sensitive",
+			url:         "https://Example.com/path",
+			hostname:    "example.com",
+			expectError: true,
+		},
+
+		// Invalid cases - wildcard mismatches
+		{
+			name:        "wildcard mismatch - base domain doesn't match wildcard",
+			url:         "https://example.com/path",
+			hostname:    "*.example.com",
+			expectError: true,
+		},
+		{
+			name:        "wildcard mismatch - different domain",
+			url:         "https://api.different.com/path",
+			hostname:    "*.example.com",
+			expectError: true,
+		},
+		{
+			name:        "wildcard mismatch - partial domain match",
+			url:         "https://api.notexample.com/path",
+			hostname:    "*.example.com",
+			expectError: true,
+		},
+
+		// Error cases - empty inputs
+		{
+			name:        "empty url",
+			url:         "",
+			hostname:    "example.com",
+			expectError: true,
+		},
+		{
+			name:        "empty hostname",
+			url:         "https://example.com/path",
+			hostname:    "",
+			expectError: true,
+		},
+		{
+			name:        "both empty",
+			url:         "",
+			hostname:    "",
+			expectError: true,
+		},
+
+		// Error cases - invalid URLs
+		{
+			name:        "invalid url - malformed",
+			url:         "not-a-valid-url",
+			hostname:    "example.com",
+			expectError: true,
+		},
+		{
+			name:        "invalid url - missing scheme",
+			url:         "example.com/path",
+			hostname:    "example.com",
+			expectError: true,
+		},
+		{
+			name:        "url without hostname - file scheme",
+			url:         "file:///path/to/file",
+			hostname:    "example.com",
+			expectError: true,
+		},
+		{
+			name:        "url without hostname - relative",
+			url:         "/path/only",
+			hostname:    "example.com",
+			expectError: true,
+		},
+
+		// Edge cases
+		{
+			name:        "url with query parameters",
+			url:         "https://api.example.com/path?param=value",
+			hostname:    "*.example.com",
+			expectError: false,
+		},
+		{
+			name:        "url with fragment",
+			url:         "https://api.example.com/path#section",
+			hostname:    "*.example.com",
+			expectError: false,
+		},
+		{
+			name:        "url with userinfo",
+			url:         "https://user:pass@api.example.com/path",
+			hostname:    "*.example.com",
+			expectError: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateURLHostname(tt.userURL, tt.requiredHostname)
-			if tt.expectError && err == nil {
-				t.Error("Expected error but got none")
+			err := ValidateURLHostname(tt.url, tt.hostname)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
 			}
-			if !tt.expectError && err != nil {
-				t.Errorf("Expected no error but got: %v", err)
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
 			}
 		})
 	}

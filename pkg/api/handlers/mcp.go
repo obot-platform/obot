@@ -812,6 +812,10 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return err
 	}
 
+	if input.MCPServerManifest.RemoteConfig != nil && !strings.HasPrefix(input.MCPServerManifest.RemoteConfig.URL, "http") {
+		input.MCPServerManifest.RemoteConfig.URL = "https://" + input.MCPServerManifest.RemoteConfig.URL
+	}
+
 	server := v1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.MCPServerPrefix,
@@ -912,6 +916,10 @@ func (m *MCPHandler) AdminOnlyUpdateServer(req api.Context) error {
 
 	if err = req.Read(&updated); err != nil {
 		return err
+	}
+
+	if updated.RemoteConfig != nil && !strings.HasPrefix(updated.RemoteConfig.URL, "http") {
+		updated.RemoteConfig.URL = "https://" + updated.RemoteConfig.URL
 	}
 
 	// Shutdown any server that is using the default credentials.
@@ -1644,13 +1652,17 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to read input: %w", err)
 	}
 
+	if !strings.HasPrefix(input.URL, "http") {
+		input.URL = "https://" + input.URL
+	}
+
+	if err := types.ValidateURLHostname(input.URL, entry.Spec.Manifest.RemoteConfig.Hostname); err != nil {
+		return types.NewErrBadRequest("the hostname in the URL does not match the hostname in the catalog entry: %v", err)
+	}
+
 	parsedURL, err := url.Parse(input.URL)
 	if err != nil {
 		return types.NewErrBadRequest("failed to parse input URL: %v", err)
-	}
-
-	if parsedURL.Hostname() != entry.Spec.Manifest.RemoteConfig.Hostname {
-		return types.NewErrBadRequest("the hostname in the URL does not match the hostname in the catalog entry")
 	}
 
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
@@ -1660,6 +1672,10 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 	mcpServer.Spec.Manifest.RemoteConfig.URL = input.URL
 	mcpServer.Spec.NeedsURL = false
 	mcpServer.Spec.PreviousURL = ""
+
+	if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest); err != nil {
+		return err
+	}
 
 	if err := req.Update(&mcpServer); err != nil {
 		return fmt.Errorf("failed to update server: %w", err)
@@ -1709,12 +1725,9 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		} else if entry.Spec.Manifest.RemoteConfig.Hostname != "" {
 			// Check if the server's current URL matches the new hostname requirement
 			if server.Spec.Manifest.RemoteConfig != nil && server.Spec.Manifest.RemoteConfig.URL != "" {
-				currentURL, err := url.Parse(server.Spec.Manifest.RemoteConfig.URL)
-				if err != nil {
-					return err
-				}
+				hostnameMismatchErr := types.ValidateURLHostname(server.Spec.Manifest.RemoteConfig.URL, entry.Spec.Manifest.RemoteConfig.Hostname)
 
-				server.Spec.NeedsURL = currentURL.Hostname() != entry.Spec.Manifest.RemoteConfig.Hostname
+				server.Spec.NeedsURL = hostnameMismatchErr != nil
 				if server.Spec.NeedsURL {
 					server.Spec.PreviousURL = server.Spec.Manifest.RemoteConfig.URL
 					server.Spec.Manifest.RemoteConfig.URL = ""

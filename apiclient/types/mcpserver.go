@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 // Runtime represents the execution runtime type for MCP servers
@@ -262,7 +263,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 					Message: "user URL is required when catalog entry specifies hostname constraint",
 				}
 			}
-			if err := validateURLHostname(userURL, catalogEntry.RemoteConfig.Hostname); err != nil {
+			if err := ValidateURLHostname(userURL, catalogEntry.RemoteConfig.Hostname); err != nil {
 				return serverManifest, err
 			}
 			remoteConfig.URL = userURL
@@ -289,24 +290,59 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 	return serverManifest, nil
 }
 
-// validateURLHostname checks if the provided URL uses the required hostname
-func validateURLHostname(userURL, requiredHostname string) error {
-	parsedURL, err := url.Parse(userURL)
+// ValidateURLHostname checks if the URL matches the hostname.
+// If the provided hostname does not contain a wildcard, the hostname in the URL must match the provided hostname.
+// A wildcard prefix (*.) can be used to match any number of characters (i.e. "*.example.com" matches both "foo.example.com" and "foo.bar.example.com", but not "example.com").
+func ValidateURLHostname(u string, hostname string) error {
+	if u == "" || hostname == "" {
+		return RuntimeValidationError{
+			Runtime: RuntimeRemote,
+			Field:   "userURL",
+			Message: "url and hostname are required",
+		}
+	}
+
+	parsedURL, err := url.Parse(u)
 	if err != nil {
 		return RuntimeValidationError{
 			Runtime: RuntimeRemote,
 			Field:   "userURL",
-			Message: fmt.Sprintf("invalid URL format: %v", err),
+			Message: fmt.Sprintf("invalid url: %v", err),
 		}
 	}
 
-	if parsedURL.Hostname() != requiredHostname {
+	if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
 		return RuntimeValidationError{
 			Runtime: RuntimeRemote,
 			Field:   "userURL",
-			Message: fmt.Sprintf("URL hostname '%s' does not match required hostname '%s'", parsedURL.Hostname(), requiredHostname),
+			Message: "URL scheme must be either https or http",
 		}
 	}
 
+	urlHostname := parsedURL.Hostname()
+	if urlHostname == "" {
+		return RuntimeValidationError{
+			Runtime: RuntimeRemote,
+			Field:   "userURL",
+			Message: "url hostname is required",
+		}
+	}
+
+	if !strings.HasPrefix(hostname, "*.") && urlHostname != hostname {
+		return RuntimeValidationError{
+			Runtime: RuntimeRemote,
+			Field:   "userURL",
+			Message: fmt.Sprintf("URL hostname '%s' does not match required hostname '%s'", urlHostname, hostname),
+		}
+	}
+
+	suffix := strings.TrimPrefix(hostname, "*")
+	if !strings.HasSuffix(urlHostname, suffix) {
+		return RuntimeValidationError{
+			Runtime: RuntimeRemote,
+			Field:   "userURL",
+			Message: fmt.Sprintf("URL hostname '%s' does not match required hostname '%s'", urlHostname, hostname),
+		}
+	}
 	return nil
 }

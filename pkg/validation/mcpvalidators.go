@@ -3,6 +3,7 @@ package validation
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -285,11 +286,20 @@ func (v RemoteValidator) validateRemoteConfig(config types.RemoteRuntimeConfig) 
 	}
 
 	// Validate URL format
-	if _, err := url.Parse(config.URL); err != nil {
+	parsedURL, err := url.Parse(config.URL)
+	if err != nil {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeRemote,
 			Field:   "url",
 			Message: fmt.Sprintf("invalid URL format: %v", err),
+		}
+	}
+
+	if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "url",
+			Message: "URL scheme must be either https or http",
 		}
 	}
 
@@ -319,23 +329,33 @@ func (v RemoteValidator) validateRemoteCatalogConfig(config types.RemoteCatalogC
 
 	// Validate FixedURL format if provided
 	if hasFixedURL {
-		if _, err := url.Parse(config.FixedURL); err != nil {
+		parsedURL, err := url.Parse(config.FixedURL)
+		if err != nil {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeRemote,
 				Field:   "fixedURL",
 				Message: fmt.Sprintf("invalid URL format: %v", err),
 			}
 		}
+
+		if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   "fixedURL",
+				Message: "URL scheme must be either https or http",
+			}
+		}
 	}
 
 	// Validate hostname format if provided
 	if hasHostname {
-		// Basic hostname validation - should not contain protocol or path
-		if strings.Contains(config.Hostname, "://") || strings.Contains(config.Hostname, "/") {
+		// Basic hostname validation.
+		// A wildcard prefix of *. is allowed.
+		if !regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$`).MatchString(config.Hostname) {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeRemote,
 				Field:   "hostname",
-				Message: "hostname should not contain protocol or path",
+				Message: "hostname should only contain alphanumeric and hyphens",
 			}
 		}
 	}
