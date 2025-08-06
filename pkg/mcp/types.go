@@ -165,6 +165,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 		}
 	case types.RuntimeRemote:
 		if mcpServer.Spec.Manifest.RemoteConfig != nil {
+			serverConfig.URL = mcpServer.Spec.Manifest.RemoteConfig.URL
 			// Add headers from remote config
 			serverConfig.Headers = make([]string, 0, len(mcpServer.Spec.Manifest.RemoteConfig.Headers))
 			for _, header := range mcpServer.Spec.Manifest.RemoteConfig.Headers {
