@@ -256,22 +256,18 @@ func (h *handler) callback(req api.Context) error {
 			return err
 		}
 
-		// For now, we only need to check for OAuth if the MCP server is remote.
-		// This may change in the future as the protocol matures, but, for now, this is an optimization for loading times for the redirects.
-		if mcpServerConfig.Command == "" {
-			u, err := h.oauthChecker.CheckForMCPAuth(req.Context(), mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
-			if err != nil {
-				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
-					Code:        ErrServerError,
-					Description: err.Error(),
-				})
-				return nil
-			}
+		u, err := h.oauthChecker.CheckForMCPAuth(req.Context(), mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
+		if err != nil {
+			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+				Code:        ErrServerError,
+				Description: err.Error(),
+			})
+			return nil
+		}
 
-			if u != "" {
-				http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
-				return nil
-			}
+		if u != "" {
+			http.Redirect(req.ResponseWriter, req.Request, u, http.StatusFound)
+			return nil
 		}
 	}
 

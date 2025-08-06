@@ -9,6 +9,7 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -38,6 +39,11 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 	}
 }
 func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
+	if mcpServerConfig.Runtime != types.RuntimeRemote {
+		// OAuth is only support for remote MCP servers.
+		return "", nil
+	}
+
 	oauthHandler := f.newMCPOAuthHandler(userID, mcpID, oauthAppAuthRequestID)
 	errChan := make(chan error, 1)
 
@@ -55,11 +61,6 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer 
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
 		} else {
 			errChan <- nil
-		}
-
-		// We only need this client for checking for OAuth. Close it, now that we're done.
-		if err = f.mcpSessionManager.ShutdownServer(context.Background(), mcpServerConfig); err != nil {
-			log.Errorf("failed to shutdown server after authentication %s: %v", mcpServer.Name, err)
 		}
 	}()
 

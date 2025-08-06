@@ -373,12 +373,9 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
-	var u string
-	if server.Spec.Manifest.Runtime == types.RuntimeRemote {
-		u, err = m.mcpOAuthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, req.User.GetUID(), server.Name, "")
-		if err != nil {
-			return fmt.Errorf("failed to get OAuth URL: %w", err)
-		}
+	u, err := m.mcpOAuthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, req.User.GetUID(), server.Name, "")
+	if err != nil {
+		return fmt.Errorf("failed to get OAuth URL: %w", err)
 	}
 
 	return req.Write(map[string]string{"oauthURL": u})
