@@ -57,19 +57,28 @@
 		showMyMcpServersLink = window.location.pathname.includes('/o/') || inAdminRoute;
 	});
 
-	async function handleChat() {
+	async function handleChat(event?: MouseEvent) {
 		if (!window) return;
+
+		const isNewTab = event?.ctrlKey || event?.metaKey;
 		loadingChat = true;
 		const projects = (await ChatService.listProjects()).items.sort(
 			(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
 		);
 		const lastProject = projects[0];
-		// TODO: should we open last project or always create new one?
 		if (lastProject) {
-			goto(`/o/${lastProject.id}`);
+			if (isNewTab) {
+				window.open(`/o/${lastProject.id}`, '_blank');
+			} else {
+				goto(`/o/${lastProject.id}`);
+			}
 		} else {
 			const newProject = await EditorService.createObot();
-			goto(`/o/${newProject.id}`);
+			if (isNewTab) {
+				window.open(`/o/${newProject.id}`, '_blank');
+			} else {
+				goto(`/o/${newProject.id}`);
+			}
 		}
 		loadingChat = false;
 	}
@@ -133,7 +142,7 @@
 				</a>
 			{/if}
 			{#if showChatLink}
-				<button class="link" onclick={handleChat}>
+				<button class="link" onclick={(event) => handleChat(event)}>
 					<MessageCircle class="size-4" />
 					Chat
 				</button>
