@@ -150,7 +150,14 @@
 		})
 	);
 
-	let filteredData = $derived([...filteredServers, ...filteredEntriesData]);
+	let filteredData = $derived(
+		[...filteredServers, ...filteredEntriesData].sort((a, b) => {
+			if (a.manifest?.name && b.manifest?.name) {
+				return a.manifest.name.localeCompare(b.manifest.name);
+			}
+			return 0;
+		})
+	);
 	let connectedServers: ConnectedServer[] = $derived([
 		...userConfiguredServers
 			.filter(
@@ -177,15 +184,22 @@
 			.filter((item) => !selectedCategory || item.server?.categories?.includes(selectedCategory))
 	]);
 	let filteredConnectedServers = $derived(
-		connectedServers.filter((item) => {
-			if (search) {
-				const searchLower = search.toLowerCase();
-				const manifestName = item.server?.manifest.name?.toLowerCase() || '';
-				const alias = item.server?.alias?.toLowerCase() || '';
-				return manifestName.includes(searchLower) || alias.includes(searchLower);
-			}
-			return true;
-		})
+		connectedServers
+			.filter((item) => {
+				if (search) {
+					const searchLower = search.toLowerCase();
+					const manifestName = item.server?.manifest.name?.toLowerCase() || '';
+					const alias = item.server?.alias?.toLowerCase() || '';
+					return manifestName.includes(searchLower) || alias.includes(searchLower);
+				}
+				return true;
+			})
+			.sort((a, b) => {
+				if (a.server?.manifest.name && b.server?.manifest.name) {
+					return a.server.manifest.name.localeCompare(b.server.manifest.name);
+				}
+				return 0;
+			})
 	);
 
 	let page = $state(0);

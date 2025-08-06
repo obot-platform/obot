@@ -138,7 +138,11 @@
 	);
 
 	let filteredTableData = $derived(
-		tableData.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()))
+		tableData
+			.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()))
+			.sort((a, b) => {
+				return a.name.localeCompare(b.name);
+			})
 	);
 
 	let defaultCatalog = $state<MCPCatalog>();
@@ -180,6 +184,7 @@
 		refreshing = false;
 	}
 	const duration = PAGE_TRANSITION_DURATION;
+	const OFFICIAL_MCP_CATALOG_LINK = 'https://github.com/obot-platform/mcp-catalog';
 </script>
 
 <Layout>
@@ -267,14 +272,16 @@
 								</div>
 								<p class="flex items-center gap-1">
 									{d.name}
-									{#if d.source !== 'manual'}
-										<span class="text-xs text-gray-500">({d.source.split('/').pop()})</span>{/if}
 								</p>
 							</div>
 						{:else if property === 'type'}
 							{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
 						{:else if property === 'source'}
-							{d.source === 'manual' ? 'Web Console' : d.source}
+							{d.source === 'manual'
+								? 'Web Console'
+								: d.source === OFFICIAL_MCP_CATALOG_LINK
+									? 'Official'
+									: d.source}
 						{:else}
 							{d[property as keyof typeof d]}
 						{/if}
