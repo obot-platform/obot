@@ -402,7 +402,7 @@
 	</div>
 </div>
 
-{#if project}
+{#if project && !loading && !error}
 	<div
 		class="sticky bottom-0 left-0 flex w-full justify-end bg-gray-50 py-4 md:px-4 dark:bg-inherit"
 	>
