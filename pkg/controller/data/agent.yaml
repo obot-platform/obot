@@ -69,7 +69,7 @@ spec:
     introductionMessage: |
       <center>
       <div style="font-size: 32px; font-weight: 600; display: flex; justify-content: center; align-items: center; column-gap: 8px; ">
-        <img src="/user/images/obot-icon-blue.svg" height="48" width="48" />
+        <img src="/user/images/obot-icon-blue.svg" height="48" width="48" style="margin-top: -4px;" />
         Welcome, what can I help with?
       </div>
       </center>
