@@ -1603,3 +1603,40 @@ export async function isProjectMcpServerOauthNeeded(
 export async function triggerMcpServerUpdate(mcpServerId: string): Promise<MCPCatalogServer> {
 	return (await doPost(`/mcp-servers/${mcpServerId}/trigger-update`, {})) as MCPCatalogServer;
 }
+
+export async function validateSingleOrRemoteMcpServerLaunched(mcpServerId: string): Promise<{
+	success: boolean;
+	message?: string;
+	code?: number;
+}> {
+	try {
+		await doPost(`/mcp-servers/${mcpServerId}/launch`, {}, { dontLogErrors: true });
+		return {
+			success: true
+		};
+	} catch (err) {
+		if (err instanceof Error) {
+			if (err.message.includes('404')) {
+				return {
+					success: false,
+					message: err.message,
+					code: 404
+				};
+			} else if (err.message.includes('503')) {
+				return {
+					success: false,
+					message: err.message,
+					code: 503
+				};
+			} else if (err.message.includes('500')) {
+				return {
+					success: false,
+					message: err.message,
+					code: 500
+				};
+			}
+		}
+
+		throw err;
+	}
+}

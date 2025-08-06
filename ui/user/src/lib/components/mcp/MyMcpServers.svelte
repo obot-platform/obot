@@ -13,7 +13,13 @@
 	import { fly } from 'svelte/transition';
 	import type { LaunchFormData } from './CatalogConfigureForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { ChevronLeft, ChevronRight, LoaderCircle, ServerIcon } from 'lucide-svelte';
+	import {
+		ChevronLeft,
+		ChevronRight,
+		LoaderCircle,
+		RefreshCwIcon,
+		ServerIcon
+	} from 'lucide-svelte';
 	import { tick, type Snippet } from 'svelte';
 	import McpCard from './McpCard.svelte';
 	import Search from '../Search.svelte';
@@ -24,6 +30,7 @@
 	import Confirm from '../Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import McpServerInfoAndTools from './McpServerInfoAndTools.svelte';
+	import PageLoading from '../PageLoading.svelte';
 
 	type Entry = MCPCatalogEntry & {
 		categories: string[]; // categories for the entry
@@ -96,6 +103,10 @@
 	let search = $state('');
 	let saving = $state(false);
 	let error = $state<string>();
+
+	let launching = $state(false);
+	let launchError = $state<string>();
+	let launchProgress = $state<number>(0);
 
 	let deletingInstance = $state<MCPServerInstance>();
 	let deletingServer = $state<MCPCatalogServer>();
@@ -245,6 +256,22 @@
 			return;
 		}
 
+		launchError = undefined;
+		launchProgress = 0;
+		launching = true;
+
+		let timeout1 = setTimeout(() => {
+			launchProgress = 10;
+		}, 100);
+
+		let timeout2 = setTimeout(() => {
+			launchProgress = 30;
+		}, 3000);
+
+		let timeout3 = setTimeout(() => {
+			launchProgress = 80;
+		}, 10000);
+
 		const url = configureForm?.url || entry.manifest.remoteConfig?.fixedURL;
 		const serverName = entry.manifest.name || '';
 
@@ -269,9 +296,26 @@
 				parent: entry
 			} as ConnectedServer;
 
-			onConnectServer?.(selectedEntryOrServer);
+			const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
+				configuredResponse.id
+			);
+			if (!launchResponse.success) {
+				launchError = launchResponse.message;
+			} else {
+				launchProgress = 100;
+				const ref = selectedEntryOrServer;
+				setTimeout(() => {
+					launching = false;
+					launchProgress = 0;
+					onConnectServer?.(ref);
+				}, 1000);
+			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'An unknown error occurred';
+			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+		} finally {
+			clearTimeout(timeout1);
+			clearTimeout(timeout2);
+			clearTimeout(timeout3);
 		}
 	}
 
@@ -540,6 +584,17 @@
 		}
 	}}
 	oncancel={() => (deletingServer = undefined)}
+/>
+
+<PageLoading
+	isProgressBar
+	show={launching}
+	text="Configuring and initializing server..."
+	progress={launchProgress}
+	error={launchError}
+	onClose={() => {
+		launching = false;
+	}}
 />
 
 {#snippet serverInfo(item: Entry | Server | ConnectedServer)}
