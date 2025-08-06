@@ -589,7 +589,19 @@
 	onClose={() => {
 		launching = false;
 	}}
-/>
+>
+	{#snippet errorPreContent()}
+		<h4 class="text-xl font-semibold">MCP Server Launch Failed</h4>
+	{/snippet}
+	{#snippet errorPostContent()}
+		<p class="text-md self-start">An issue occurred while launching the MCP server.</p>
+
+		<p class="text-md self-start">
+			Verify that the MCP server is properly configured and try again. If the problem persists,
+			please contact support.
+		</p>
+	{/snippet}
+</PageLoading>
 
 {#snippet serverInfo(item: Entry | Server | ConnectedServer)}
 	{@const manifest = getManifest(item)}

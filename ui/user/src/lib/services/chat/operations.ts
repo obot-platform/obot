@@ -1628,7 +1628,7 @@ export async function validateSingleOrRemoteMcpServerLaunched(mcpServerId: strin
 					message: err.message,
 					code: 503
 				};
-			} else if (err.message.includes('500')) {
+			} else {
 				return {
 					success: false,
 					message: err.message,
