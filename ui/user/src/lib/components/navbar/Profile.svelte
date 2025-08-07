@@ -82,6 +82,16 @@
 		}
 		loadingChat = false;
 	}
+
+	function handleNavigate(path: string, event: MouseEvent) {
+		if (!window) return;
+		const isNewTab = event?.ctrlKey || event?.metaKey;
+		if (isNewTab) {
+			window.open(path, '_blank');
+		} else {
+			goto(path);
+		}
+	}
 </script>
 
 <Menu
@@ -130,16 +140,20 @@
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
 			{#if profile.current.role === 1 && !inAdminRoute}
-				<a href="/admin/mcp-servers" class="link" rel="external" role="menuitem">
+				<button
+					onclick={(e) => handleNavigate('/admin/mcp-servers', e)}
+					class="link"
+					role="menuitem"
+				>
 					<LayoutDashboard class="size-4" />
 					Admin Dashboard
-				</a>
+				</button>
 			{/if}
 			{#if showMyMcpServersLink}
-				<a href="/mcp-servers" class="link" rel="external" role="menuitem">
+				<button onclick={(e) => handleNavigate('/mcp-servers', e)} class="link" role="menuitem">
 					<Server class="size-4" />
 					My Connectors
-				</a>
+				</button>
 			{/if}
 			{#if showChatLink}
 				<button class="link" onclick={(event) => handleChat(event)}>
