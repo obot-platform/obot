@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ChatService, type Project } from '$lib/services';
-	import { ChevronDown, Settings } from 'lucide-svelte/icons';
+	import { ChevronDown, Plus, Settings } from 'lucide-svelte/icons';
 	import { popover } from '$lib/actions';
 	import { twMerge } from 'tailwind-merge';
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
@@ -111,13 +111,13 @@
 		{@render LoadMoreButton(projects.length, limit)}
 
 		<button
-			class="hover:bg-surface3 mt-1 h-14 w-full justify-center py-2 text-sm font-medium"
+			class="flex h-14 w-full items-center justify-center gap-1 py-2 text-sm font-medium text-blue-500 hover:bg-blue-500/10"
 			onclick={() => {
 				closeAll(layout);
 				onCreateProject?.();
 			}}
 		>
-			Create New Project
+			<Plus class="size-4" /> Create New Project
 		</button>
 	</div>
 {/if}
