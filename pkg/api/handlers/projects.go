@@ -352,6 +352,7 @@ func (h *ProjectsHandler) CreateProject(req api.Context) error {
 					Name:        project.Name,
 					Description: project.Description,
 				},
+				Prompt:          project.Prompt,
 			},
 			AgentName:            agent.Name,
 			Project:              true,
