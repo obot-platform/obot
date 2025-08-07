@@ -30,7 +30,7 @@
 		Users,
 		X
 	} from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
@@ -164,8 +164,10 @@
 	let deletingServer = $state<MCPCatalogServer>();
 	let deletingSource = $state<string>();
 	let saving = $state(false);
-	let refreshing = $state(false);
+	let syncing = $state(false);
 	let sourceError = $state<string>();
+	let syncInterval = $state<ReturnType<typeof setInterval>>();
+
 	function selectServerType(type: 'single' | 'multi' | 'remote', updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
@@ -181,17 +183,27 @@
 		sourceDialog?.close();
 	}
 
-	async function refresh() {
-		refreshing = true;
+	async function sync() {
+		syncing = true;
 		await AdminService.refreshMCPCatalog(defaultCatalogId);
-		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
-		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
-		refreshing = false;
+		syncInterval = setInterval(async () => {
+			defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
+			if (defaultCatalog && !defaultCatalog.isSyncing) {
+				if (syncInterval) {
+					clearInterval(syncInterval);
+				}
+				fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
+				syncing = false;
+			}
+		}, 5000);
 	}
 
-	$effect(() => {
-		console.log(defaultCatalog);
+	onDestroy(() => {
+		if (syncInterval) {
+			clearInterval(syncInterval);
+		}
 	});
+
 	const duration = PAGE_TRANSITION_DURATION;
 	const OFFICIAL_MCP_CATALOG_LINK = 'https://github.com/obot-platform/mcp-catalog';
 </script>
@@ -215,12 +227,12 @@
 		<div class="flex items-center justify-between">
 			<h1 class="flex items-center gap-2 text-2xl font-semibold">
 				MCP Servers
-				<button class="button-small flex items-center gap-1 text-xs font-normal" onclick={refresh}>
-					{#if refreshing}
-						<LoaderCircle class="size-4 animate-spin" /> Refreshing...
+				<button class="button-small flex items-center gap-1 text-xs font-normal" onclick={sync}>
+					{#if syncing}
+						<LoaderCircle class="size-4 animate-spin" /> Syncing...
 					{:else}
 						<RefreshCcw class="size-4" />
-						Refresh
+						Sync
 					{/if}
 				</button>
 			</h1>
@@ -234,8 +246,12 @@
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />
 					<div>
-						The catalog is currently syncing with the latest Git servers. Please check back in a few
-						minutes or try refreshing.
+						The catalog is currently syncing with your configured Git repositories. <button
+							onclick={() => {
+								window.location.reload();
+							}}
+							class="link">Reload</button
+						> to check the status again.
 					</div>
 				</div>
 			</div>
@@ -517,7 +533,7 @@
 							}
 						);
 						defaultCatalog = response;
-						await refresh();
+						await sync();
 						closeSourceDialog();
 					} catch (error) {
 						sourceError = error instanceof Error ? error.message : 'An unexpected error occurred';
@@ -574,7 +590,7 @@
 			...defaultCatalog,
 			sourceURLs: defaultCatalog.sourceURLs?.filter((url) => url !== deletingSource)
 		});
-		await refresh();
+		await sync();
 		defaultCatalog = response;
 		deletingSource = undefined;
 	}}
