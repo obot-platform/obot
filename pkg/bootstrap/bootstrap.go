@@ -46,7 +46,6 @@ func New(ctx context.Context, serverURL string, c *client.Client, g *gptscript.G
 		return nil, err
 	}
 
-	var shouldPrintToken bool
 	if token != "" && !exists {
 		// Save the token from the env var to the credential.
 		if err := saveTokenToCredential(ctx, token, g); err != nil {
@@ -70,7 +69,6 @@ func New(ctx context.Context, serverURL string, c *client.Client, g *gptscript.G
 				return nil, err
 			}
 		}
-		shouldPrintToken = true
 	}
 
 	if len(token) < 6 {
@@ -85,14 +83,12 @@ func New(ctx context.Context, serverURL string, c *client.Client, g *gptscript.G
 		gatewayClient:        c,
 	}
 
-	if shouldPrintToken {
-		bootstrapEnabled, err := b.bootstrapEnabled(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check if bootstrap is enabled: %w", err)
-		}
-		if bootstrapEnabled {
-			printToken(token)
-		}
+	bootstrapEnabled, err := b.bootstrapEnabled(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check if bootstrap is enabled: %w", err)
+	}
+	if bootstrapEnabled {
+		printToken(token)
 	}
 
 	return b, nil
