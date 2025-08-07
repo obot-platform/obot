@@ -272,8 +272,8 @@
 				<button
 					class={twMerge(
 						'dark:hover:bg-surface3 hover:bg-surface2 text-md flex w-full items-center px-4 py-2 text-left break-all transition-colors duration-100',
-						isSelected && 'dark:bg-surface1 bg-surface2',
-						isHighlighted && 'dark:bg-surface3 bg-surface3',
+						isSelected && 'dark:bg-surface1 bg-gray-50',
+						isHighlighted && 'dark:bg-surface3 bg-surface2',
 						classes?.option
 					)}
 					onclick={(e) => {
