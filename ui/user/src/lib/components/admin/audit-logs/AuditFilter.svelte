@@ -46,7 +46,6 @@
 		{options}
 		bind:selected={filter.selected}
 		multiple
-		position="top"
 		{onSelect}
 	/>
 </div>
