@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -40,6 +41,7 @@ type Handler struct {
 	pendingRequests      *nmcp.PendingRequests
 	tokenStore           mcp.GlobalTokenStore
 	clientMessageFactory *clientMessageHandlerFactory
+	messageHandlers      sync.Map
 	baseURL              string
 }
 
@@ -71,7 +73,6 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 		mcpServerConfig mcp.ServerConfig
 		err             error
 	)
-
 	if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
 		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, mcpID)
 	} else {
@@ -106,6 +107,13 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 		mcpServer:     mcpServer,
 		req:           req.Request,
 		userID:        req.User.GetUID(),
+	}
+
+	m, loaded := h.messageHandlers.LoadOrStore(mcpID, handler)
+	if loaded {
+		handler = m.(*messageHandler)
+		handler.mcpServer = mcpServer
+		handler.serverConfig = mcpServerConfig
 	}
 	nmcp.NewHTTPServer(nil, handler, nmcp.HTTPServerOptions{SessionStore: h.sessions.NewStore(handler)}).ServeHTTP(req.ResponseWriter, req.Request)
 
