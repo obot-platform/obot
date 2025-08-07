@@ -7,14 +7,21 @@ export function clickOutside(
 	let ignoreNextClick = false;
 	let observer: MutationObserver | undefined;
 
+	function isTextSelected(): boolean {
+		const selection = window.getSelection();
+		return selection !== null && selection.toString().length > 0;
+	}
+
 	function checkClickOutside(event: MouseEvent) {
 		if (element.contains(event.target as Node)) return;
+		if (isTextSelected()) return;
 		onClickOutside(event);
 	}
 
 	function checkDialogClickOutside(event: MouseEvent) {
 		if (!(element as HTMLDialogElement).open) return;
 		if (!(event.target as HTMLElement)?.contains(element)) return;
+		if (isTextSelected()) return;
 		onClickOutside(event);
 	}
 
@@ -26,6 +33,7 @@ export function clickOutside(
 			return;
 		}
 
+		if (isTextSelected()) return;
 		onClickOutside(event);
 	}
 

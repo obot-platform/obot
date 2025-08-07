@@ -57,7 +57,7 @@
 <div class="flex" bind:this={container} use:ref>
 	<button
 		class={twMerge(
-			'hover:bg-surface3 relative  z-10 flex min-h-10 grow items-center justify-between gap-2 truncate bg-blue-500/10 px-2 py-2 transition-colors duration-200',
+			'hover:bg-surface3 relative  z-10 flex min-h-10 grow items-center justify-between gap-2 truncate bg-blue-500/10 py-2 pr-6 pl-2 transition-colors duration-200',
 			classes?.button
 		)}
 		class:hover:bg-surface2={!disabled}
@@ -82,7 +82,12 @@
 			<p class="text-base font-semibold text-blue-500">{project.name || DEFAULT_PROJECT_NAME}</p>
 		</div>
 		{#if !disabled}
-			<div class={twMerge('text-gray transition-transform duration-200', open && 'rotate-180')}>
+			<div
+				class={twMerge(
+					'text-gray translate-x-[1px] transition-transform duration-200',
+					open && 'rotate-180'
+				)}
+			>
 				<ChevronDown class="size-5" />
 			</div>
 		{/if}
