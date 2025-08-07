@@ -21,7 +21,6 @@
 	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 	import { afterNavigate, goto } from '$app/navigation';
 	import PageLoading from '../PageLoading.svelte';
-	import { path } from 'd3';
 
 	let versionDialog = $state<HTMLDialogElement>();
 	let showChatLink = $state(false);
