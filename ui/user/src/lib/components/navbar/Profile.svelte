@@ -123,7 +123,6 @@
 			{#if profile.current.role === 1 && !inAdminRoute}
 				<button
 					onclick={(event) => {
-						if (!window) return;
 						const asNewTab = event?.ctrlKey || event?.metaKey;
 						navigateTo('/admin', asNewTab);
 					}}
@@ -137,7 +136,6 @@
 			{#if showMyMcpServersLink}
 				<button
 					onclick={(event) => {
-						if (!window) return;
 						const asNewTab = event?.ctrlKey || event?.metaKey;
 						navigateTo('/mcp-servers', asNewTab);
 					}}
@@ -152,8 +150,6 @@
 				<button
 					class="link"
 					onclick={async (event) => {
-						if (!window) return;
-
 						const asNewTab = event?.ctrlKey || event?.metaKey;
 						loadingChat = true;
 						try {
