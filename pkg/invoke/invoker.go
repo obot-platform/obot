@@ -293,7 +293,7 @@ func CreateProjectFromProject(ctx context.Context, c kclient.WithWatch, projectT
 					Description: projectThread.Spec.Manifest.Description,
 					Icons:       projectThread.Spec.Manifest.Icons,
 				},
-				Prompt:          projectThread.Spec.Manifest.Prompt,
+				Prompt: projectThread.Spec.Manifest.Prompt,
 			},
 			AgentName:        projectThread.Spec.AgentName,
 			ParentThreadName: projectThread.Name,
