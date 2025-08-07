@@ -43,8 +43,9 @@
 
 	async function handleBootstrapLogout() {
 		try {
+			const isBootstrapUser = profile.current.username === BOOTSTRAP_USER_ID;
 			await AdminService.bootstrapLogout();
-			window.location.href = '/oauth2/sign_out?rd=/';
+			window.location.href = `/oauth2/sign_out?rd=${isBootstrapUser ? '/admin' : '/'}`;
 		} catch (err) {
 			console.error(err);
 		}
