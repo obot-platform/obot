@@ -127,7 +127,7 @@ func saveTokenToCredential(ctx context.Context, token string, g *gptscript.GPTSc
 }
 
 func printToken(token string) {
-	message := "Bootstrap token: " + token
+	message := "Bootstrap Token: " + token
 	line := strings.Repeat("-", len(message)+4)
 
 	fmt.Println(line)
