@@ -66,6 +66,10 @@
 			}
 		});
 		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
+
+		if (defaultCatalog?.isSyncing) {
+			pollTillSyncComplete();
+		}
 	});
 
 	afterNavigate(({ to }) => {
@@ -183,9 +187,11 @@
 		sourceDialog?.close();
 	}
 
-	async function sync() {
-		syncing = true;
-		await AdminService.refreshMCPCatalog(defaultCatalogId);
+	function pollTillSyncComplete() {
+		if (syncInterval) {
+			clearInterval(syncInterval);
+		}
+
 		syncInterval = setInterval(async () => {
 			defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
 			if (defaultCatalog && !defaultCatalog.isSyncing) {
@@ -196,6 +202,15 @@
 				syncing = false;
 			}
 		}, 5000);
+	}
+
+	async function sync() {
+		syncing = true;
+		await AdminService.refreshMCPCatalog(defaultCatalogId);
+		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
+		if (defaultCatalog?.isSyncing) {
+			pollTillSyncComplete();
+		}
 	}
 
 	onDestroy(() => {
@@ -245,14 +260,7 @@
 			<div class="notification-info p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />
-					<div>
-						The catalog is currently syncing with your configured Git repositories. <button
-							onclick={() => {
-								window.location.reload();
-							}}
-							class="link">Reload</button
-						> to check the status again.
-					</div>
+					<div>The catalog is currently syncing with your configured Git repositories.</div>
 				</div>
 			</div>
 		{/if}
