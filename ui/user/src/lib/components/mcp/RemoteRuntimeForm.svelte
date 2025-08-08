@@ -41,9 +41,16 @@
 		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
 	>
-		<h4 class="w-24 text-sm font-light">URL</h4>
+		<label
+			for="basic-url"
+			class={twMerge('w-24 text-sm font-light', showRequired?.fixedURL && 'error')}>URL</label
+		>
 		<input
-			class="text-input-filled flex grow dark:bg-black"
+			id="basic-url"
+			class={twMerge(
+				'text-input-filled flex grow dark:bg-black',
+				showRequired?.fixedURL && 'error'
+			)}
 			bind:value={remoteConfig.fixedURL}
 			disabled={readonly || showAdvanced}
 		/>
