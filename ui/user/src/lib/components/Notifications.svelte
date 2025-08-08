@@ -1,10 +1,13 @@
 <script lang="ts">
-	import { CircleX } from 'lucide-svelte/icons';
+	import { CircleX, Copy } from 'lucide-svelte/icons';
 	import { X } from 'lucide-svelte/icons';
 	import { errors, profile } from '$lib/stores';
 	import { navigating } from '$app/state';
+	import { fade } from 'svelte/transition';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	let div: HTMLElement;
+	let copied = $state<Record<string, boolean>>({});
 
 	$effect(() => {
 		if (profile.current.loaded && div.classList.contains('hidden')) {
@@ -16,6 +19,7 @@
 	$effect(() => {
 		if (navigating) {
 			errors.items = [];
+			copied = {};
 		}
 	});
 </script>
@@ -23,14 +27,33 @@
 <div bind:this={div} class="absolute right-0 bottom-0 z-50 hidden flex-col gap-2 pr-5 pb-5">
 	{#each errors.items as error, i (i)}
 		<div
-			class="relative flex max-w-sm items-center gap-2 rounded-xl bg-gray-50 p-5 pr-12 dark:bg-gray-950"
+			class="relative flex max-w-sm flex-col gap-1 rounded-xl bg-gray-50 p-5 pr-12 dark:bg-gray-950"
 		>
-			<div>
-				<CircleX class="h-5 w-5" />
-			</div>
-			<div class="line-clamp-3 pr-5 text-sm font-normal break-all">
-				{error.message}
-			</div>
+			<button
+				class="group flex w-full items-center gap-2 text-left"
+				onclick={() => {
+					if (!navigator.clipboard) return;
+
+					navigator.clipboard.writeText(error.message);
+					copied[error.message] = true;
+					setTimeout(() => {
+						delete copied[error.message];
+					}, 1000);
+				}}
+			>
+				<div>
+					<CircleX class="block size-5 group-hover:hidden" />
+					<Copy class="hidden size-5 group-hover:block" />
+				</div>
+				<div class="line-clamp-3 pr-5 text-sm font-normal break-all">
+					{error.message}
+				</div>
+			</button>
+			{#if copied[error.message]}
+				<div class="self-end text-xs text-gray-400 dark:text-gray-600" in:fade={{ duration: 200 }}>
+					Error copied to clipboard.
+				</div>
+			{/if}
 			<button
 				type="button"
 				onclick={() => errors.items.splice(i, 1)}
