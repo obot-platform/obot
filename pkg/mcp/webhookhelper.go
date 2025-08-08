@@ -26,30 +26,30 @@ type Webhook struct {
 	URL, Secret string
 }
 
-func (wh *WebhookHelper) GetWebhooksForMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, method, identifier string) ([]Webhook, error) {
+func (wh *WebhookHelper) GetWebhooksForMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, mcpServerNamespace, mcpServerName, mcpServerCatalogEntryName, method, identifier string) ([]Webhook, error) {
 	var result []Webhook
 	webhookSeen := make(map[string]struct{})
 
-	objs, err := wh.indexer.ByIndex("server-names", mcpServer.Name)
+	objs, err := wh.indexer.ByIndex("server-names", mcpServerName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from MCP server index: %w", err)
 	}
 
-	result = appendWebhooks(ctx, gptClient, mcpServer.Namespace, method, identifier, objs, webhookSeen, result)
+	result = appendWebhooks(ctx, gptClient, mcpServerNamespace, method, identifier, objs, webhookSeen, result)
 
-	objs, err = wh.indexer.ByIndex("catalog-entry-names", mcpServer.Spec.MCPServerCatalogEntryName)
+	objs, err = wh.indexer.ByIndex("catalog-entry-names", mcpServerCatalogEntryName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from catalog entry index: %w", err)
 	}
 
-	result = appendWebhooks(ctx, gptClient, mcpServer.Namespace, method, identifier, objs, webhookSeen, result)
+	result = appendWebhooks(ctx, gptClient, mcpServerNamespace, method, identifier, objs, webhookSeen, result)
 
 	objs, err = wh.indexer.ByIndex("selectors", "*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from selector index: %w", err)
 	}
 
-	result = appendWebhooks(ctx, gptClient, mcpServer.Namespace, method, identifier, objs, webhookSeen, result)
+	result = appendWebhooks(ctx, gptClient, mcpServerNamespace, method, identifier, objs, webhookSeen, result)
 
 	return result, nil
 }

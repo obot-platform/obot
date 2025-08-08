@@ -144,57 +144,6 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		auditLog.RequestID = fmt.Sprintf("%v", msg.ID)
 	}
 
-	// Go through webhook validations.
-	webhooks, err := h.webhookHelper.GetWebhooksForMCPServer(ctx, h.gptClient, m.mcpServer, msg.Method, auditLog.CallIdentifier)
-	if err != nil {
-		log.Errorf("Failed to get webhooks for server %s: %v", m.mcpServer.Name, err)
-		err = msg.Reply(ctx, &nmcp.RPCError{
-			Code:    -32603,
-			Message: fmt.Sprintf("failed to get webhooks for server %s: %v", m.mcpServer.Name, err),
-		})
-		return
-	}
-
-	signatures := make(map[string]string)
-	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-	body, err := json.Marshal(msg)
-	if err != nil {
-		log.Errorf("Failed to marshal message: %v", err)
-		msg.SendError(ctx, &nmcp.RPCError{
-			Code:    -32603,
-			Message: fmt.Sprintf("failed to marshal message: %v", err),
-		})
-		return
-	}
-
-	auditLog.WebhookStatuses = make([]gatewaytypes.MCPWebhookStatus, 0, len(webhooks))
-	var (
-		webhookStatus string
-		rpcError      *nmcp.RPCError
-	)
-	for i, webhook := range webhooks {
-		webhookStatus, rpcError = fireWebhook(ctx, httpClient, body, m.mcpID, m.userID, webhook.URL, webhook.Secret, signatures)
-		auditLog.WebhookStatuses = append(auditLog.WebhookStatuses, gatewaytypes.MCPWebhookStatus{
-			URL:    webhook.URL,
-			Status: webhookStatus,
-		})
-		if rpcError != nil {
-			auditLog.WebhookStatuses[i] = gatewaytypes.MCPWebhookStatus{
-				URL:     webhook.URL,
-				Status:  webhookStatus,
-				Message: rpcError.Message,
-			}
-			msg.SendError(ctx, rpcError)
-			err = rpcError
-
-			insertAuditLog(h.gatewayClient, auditLog)
-
-			return
-		}
-	}
-
 	if h.pendingRequests.Notify(msg) {
 		// This is a response to a pending request.
 		// We don't forward it to the client, just return.
@@ -213,6 +162,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 	// If an unauthorized error occurs, send the proper status code.
 	var (
+		err    error
 		client *mcp.Client
 		result any
 	)
@@ -239,14 +189,12 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 			if rpcError := (*nmcp.RPCError)(nil); errors.As(err, &rpcError) {
 				msg.SendError(ctx, rpcError)
-				insertAuditLog(h.gatewayClient, auditLog)
-				return
+			} else {
+				msg.SendError(ctx, &nmcp.RPCError{
+					Code:    -32603,
+					Message: fmt.Sprintf("failed to send %s message to server %s: %v", msg.Method, m.mcpServer.Name, err),
+				})
 			}
-
-			msg.SendError(ctx, &nmcp.RPCError{
-				Code:    -32603,
-				Message: fmt.Sprintf("failed to send message to server %s: %v", m.mcpServer.Name, err),
-			})
 		} else {
 			auditLog.ResponseStatus = http.StatusOK
 			// Capture response body if available
@@ -260,6 +208,12 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		insertAuditLog(h.gatewayClient, auditLog)
 	}()
 
+	if err = fireWebhooks(ctx, h.webhookHelper, h.gptClient, msg, auditLog, m.userID, m.mcpID, m.mcpServer.Namespace, m.mcpServer.Name, m.mcpServer.Spec.MCPServerCatalogEntryName); err != nil {
+		log.Errorf("Failed to fire webhooks for server %s: %v", m.mcpServer.Name, err)
+		auditLog.ResponseStatus = http.StatusFailedDependency
+		return
+	}
+
 	client, err = h.mcpSessionManager.ClientForMCPServerWithOptions(
 		ctx,
 		msg.Session.ID(),
@@ -269,6 +223,8 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			msg.Session,
 			m.userID,
 			m.mcpID,
+			m.mcpServer.Namespace,
+			m.mcpServer.Name,
 			m.mcpServer.Spec.Manifest.Name,
 			m.mcpServer.Spec.MCPServerCatalogEntryName,
 		),
@@ -337,28 +293,24 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		result = nmcp.Notification{}
 	default:
 		log.Errorf("Unknown method for server message: %s", msg.Method)
-		msg.SendError(ctx, &nmcp.RPCError{
+		err = &nmcp.RPCError{
 			Code:    -32601,
 			Message: "Method not allowed",
-		})
+		}
 		return
 	}
 
 	if err = client.Session.Exchange(ctx, msg.Method, &msg, &result); err != nil {
 		log.Errorf("Failed to send %s message to server %s: %v", msg.Method, m.mcpServer.Name, err)
-		msg.SendError(ctx, &nmcp.RPCError{
-			Code:    -32603,
-			Message: fmt.Sprintf("failed to send %s message to server %s: %v", msg.Method, m.mcpServer.Name, err),
-		})
 		return
 	}
 
 	if err = msg.Reply(ctx, result); err != nil {
 		log.Errorf("Failed to reply to server %s: %v", m.mcpServer.Name, err)
-		msg.SendError(ctx, &nmcp.RPCError{
+		err = &nmcp.RPCError{
 			Code:    -32603,
 			Message: fmt.Sprintf("failed to reply to server %s: %v", m.mcpServer.Name, err),
-		})
+		}
 	}
 }
 
@@ -429,6 +381,48 @@ func insertAuditLog(gatewayClient *gateway.Client, auditLog *gatewaytypes.MCPAud
 			log.Errorf("Failed to insert MCP audit log: %v", err)
 		}
 	}()
+}
+
+func fireWebhooks(ctx context.Context, webhookHelper *mcp.WebhookHelper, gptClient *gptscript.GPTScript, msg nmcp.Message, auditLog *gatewaytypes.MCPAuditLog, userID, mcpID, mcpServerNamespace, mcpServerName, mcpServerCatalogEntryName string) error {
+	// Go through webhook validations.
+	webhooks, err := webhookHelper.GetWebhooksForMCPServer(ctx, gptClient, mcpServerNamespace, mcpServerName, mcpServerCatalogEntryName, msg.Method, auditLog.CallIdentifier)
+	if err != nil {
+		return fmt.Errorf("failed to get webhooks for server %s: %w", mcpServerName, err)
+	}
+
+	signatures := make(map[string]string)
+	httpClient := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	body, err := json.Marshal(msg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	auditLog.WebhookStatuses = make([]gatewaytypes.MCPWebhookStatus, 0, len(webhooks))
+	var (
+		webhookStatus string
+		rpcError      *nmcp.RPCError
+	)
+	for _, webhook := range webhooks {
+		webhookStatus, rpcError = fireWebhook(ctx, httpClient, body, mcpID, userID, webhook.URL, webhook.Secret, signatures)
+		if rpcError != nil {
+			auditLog.WebhookStatuses = append(auditLog.WebhookStatuses, gatewaytypes.MCPWebhookStatus{
+				URL:     webhook.URL,
+				Status:  webhookStatus,
+				Message: rpcError.Message,
+			})
+			msg.SendError(ctx, rpcError)
+			return rpcError
+		}
+
+		auditLog.WebhookStatuses = append(auditLog.WebhookStatuses, gatewaytypes.MCPWebhookStatus{
+			URL:    webhook.URL,
+			Status: webhookStatus,
+		})
+	}
+
+	return nil
 }
 
 func fireWebhook(ctx context.Context, httpClient *http.Client, body []byte, mcpID, userID, url, secret string, signatures map[string]string) (string, *nmcp.RPCError) {

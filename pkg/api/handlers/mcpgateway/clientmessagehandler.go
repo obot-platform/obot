@@ -9,22 +9,28 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gptscript-ai/go-gptscript"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 )
 
-func (h *Handler) asClientOption(session *nmcp.Session, userID, mcpID, serverDisplayName, serverCatalogEntryName string) nmcp.ClientOption {
+func (h *Handler) asClientOption(session *nmcp.Session, userID, mcpID, mcpServerNamespace, mcpServerName, serverDisplayName, serverCatalogEntryName string) nmcp.ClientOption {
 	return nmcp.ClientOption{
 		ClientName:   "Obot MCP Gateway",
 		TokenStorage: h.tokenStore.ForUserAndMCP(userID, mcpID),
 		OnMessage: (&clientMessageHandler{
+			webhookHelper:   h.webhookHelper,
+			gptClient:       h.gptClient,
 			gatewayClient:   h.gatewayClient,
 			pendingRequests: h.pendingRequests,
 			session: &gatewaySession{
 				session:                session,
 				userID:                 userID,
 				mcpID:                  mcpID,
+				serverNamespace:        mcpServerNamespace,
+				serverName:             mcpServerName,
 				serverDisplayName:      serverDisplayName,
 				serverCatalogEntryName: serverCatalogEntryName,
 			},
@@ -33,6 +39,8 @@ func (h *Handler) asClientOption(session *nmcp.Session, userID, mcpID, serverDis
 }
 
 type clientMessageHandler struct {
+	webhookHelper   *mcp.WebhookHelper
+	gptClient       *gptscript.GPTScript
 	gatewayClient   *gateway.Client
 	pendingRequests *nmcp.PendingRequests
 	session         *gatewaySession
@@ -66,7 +74,6 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 		result       json.RawMessage
 		dropAuditLog bool
 	)
-
 	defer func() {
 		if dropAuditLog {
 			return
@@ -92,6 +99,12 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 
 		insertAuditLog(c.gatewayClient, auditLog)
 	}()
+
+	if err = fireWebhooks(ctx, c.webhookHelper, c.gptClient, msg, auditLog, c.session.userID, c.session.mcpID, c.session.serverNamespace, c.session.serverName, c.session.serverCatalogEntryName); err != nil {
+		msg.SendError(ctx, err)
+		auditLog.ResponseStatus = http.StatusFailedDependency
+		return fmt.Errorf("failed to fire webhooks: %w", err)
+	}
 
 	var ch <-chan nmcp.Message
 	if msg.ID != nil {
@@ -144,6 +157,8 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 type gatewaySession struct {
 	session                *nmcp.Session
 	userID, mcpID          string
+	serverNamespace        string
+	serverName             string
 	serverDisplayName      string
 	serverCatalogEntryName string
 }
