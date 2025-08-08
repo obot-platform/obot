@@ -35,15 +35,6 @@ For more installation methods, see our [Installation Guide](/installation/genera
 ## The Three Parts of Obot
 The platform consists of three main components that work together to deliver a comprehensive AI solution.
 
-### 🗣️ Chat
-The **Chat Interface** is where users interact with AI through natural, conversational chat. It’s the primary way to ask questions, get answers, and work with connected tools and data. Key features include:
-
-- **Chat Threads** – Keep discussions organized and maintain context over time
-- **MCP Server Integration** – Connect to SaaS platforms, APIs, and other tools through [MCP servers](https://modelcontextprotocol.io)
-- **Knowledge Integration** – Use built-in RAG to add relevant knowledge to your conversations
-- **Tasks** - Create and schedule repeatable tasks that can leverage all the same capabilities as Chat
-- **Project-Based Customization** – Tailor AI's behavior to meet your needs with custom instructions, knowledge, and MCP servers at the project level
-
 ### 🔌 MCP Gateway
 The **MCP Gateway** is where users discover and connect to MCP servers using any MCP client. It provides:
 
@@ -53,6 +44,14 @@ The **MCP Gateway** is where users discover and connect to MCP servers using any
 - **Broad Client Support** – Connect with local clients such as Claude Desktop and VS Code or use our hosted Obot Chat
 - **OAuth 2.1 Authentication** – Securely authenticate with external services
 
+### 🗣️ Chat
+The **Chat Interface** is where users interact with AI through natural, conversational chat. It’s the primary way to ask questions, get answers, and work with connected tools and data. Key features include:
+
+- **Chat Threads** – Keep discussions organized and maintain context over time
+- **MCP Server Integration** – Connect to SaaS platforms, APIs, and other tools through [MCP servers](https://modelcontextprotocol.io)
+- **Knowledge Integration** – Use built-in RAG to add relevant knowledge to your conversations
+- **Tasks** - Create and schedule repeatable tasks that can leverage all the same capabilities as Chat
+- **Project-Based Customization** – Tailor AI's behavior to meet your needs with custom instructions, knowledge, and MCP servers at the project level
 
 ### ⚙️ Admin
 The **Admin Interface** provides comprehensive platform management tools for administrators:
@@ -66,7 +65,6 @@ The **Admin Interface** provides comprehensive platform management tools for adm
 - **Model Provider Management** – Configure and manage LLM providers and settings for the Chat Interface
 - **Centralized Authentication** - Integrate with your existing auth provider to ensure proper user authentication and authorization
 - **Monitoring** – View system health metrics and usage analytics
-
 
 ## How They Work Together
 
