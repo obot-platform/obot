@@ -5,38 +5,43 @@ slug: /
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Obot is an open source AI assistant platform that can be deployed self-hosted in the cloud or on-prem. The platform consists of three main components that work together to provide a comprehensive AI agent solution.
+Obot is an open-source AI platform and MCP Gateway that can be deployed in the cloud or on-prem. The platform consists of three main components that work together to provide a comprehensive AI solution.
 
 To quickly view a demo environment, you can visit our [hosted version](https://chat.obot.ai).
 
 ## The Three Parts of Obot
 
 ### 🗣️ Chat
-The **Chat Interface** is where end users interact with AI agents (called Projects) through conversational chat. This is the primary user-facing component of Obot that provides:
+The **Chat Interface** is where users interact with AI through natural, conversational chat. It’s the primary way to ask questions, get answers, and work with connected tools and data. Key features include:
 
-- **Projects**: Individual AI assistants that can be customized for specific tasks
-- **Threads**: Separate conversations within each project to maintain context
-- **Knowledge Integration**: Built-in RAG for connecting agents to your organization's data
-- **Tool Integration**: Agents can work with tools, browsers, APIs, and external services through MCP
-- **Collaboration**: Share projects with team members and collaborate on AI-powered workflows
+- **Chat Threads** – Keep discussions organized and maintain context over time
+- **MCP Server Integration** – Connect to SaaS platforms, APIs, and other tools through [MCP servers](https://modelcontextprotocol.io)
+- **Knowledge Integration** – Use built-in RAG to add relevant knowledge to your conversations
+- **Tasks** - Create and schedule repeatable tasks that can leverage all the same capabilities as Chat
+- **Project-Based Customization** – Tailor AI's behavior to meet your needs with custom instructions, knowledge, and MCP servers at the project level
 
 ### 🔌 MCP Gateway
-The **MCP Gateway** exposes access to MCP servers to clients via a single managed platform. This component handles:
+The **MCP Gateway** is where users discover and connect to MCP servers using any MCP client. It provides:
 
-- **Tool Catalogs**: Browse and connect to available MCP servers and tools
-- **OAuth Flows**: Secure authentication with external services
-- **Session Management**: Handle connections between agents and MCP servers
-- **Webhook Support**: Receive events and data from external systems
-- **Audit Logging**: Logs all usage of MCP Servers and tools.
-- **Custom Integrations**: Connect your own tools and services through the MCP protocol
+- **Server Discovery** – Browse a catalog of MCP servers tailored to your role and permissions
+- **Configuration Management** – Manage all MCP server settings and credentials in one place
+- **Upgrade Management** – Receive notifications about available server upgrades and apply them easily
+- **Broad Client Support** – Connect with local clients such as Claude Desktop and VS Code or use our hosted Obot Chat
+- **OAuth 2.1 Authentication** – Securely authenticate with external services
+
 
 ### ⚙️ Admin
-The **Admin Interface** provides comprehensive platform management capabilities for administrators:
+The **Admin Interface** provides comprehensive platform management tools for administrators:
 
-- **User Management**: Manage users, groups, and access control
-- **Model Providers**: Configure and manage LLM providers and settings
-- **System Configuration**: Configure authentication providers, encryption, and platform settings
-- **Monitoring**: View system health and usage analytics
+- **MCP Server Catalog Management** – Create and update MCP server entries using GitOps or the admin portal
+- **Access Control Rules** – Define which users and groups can access specific MCP servers
+- **Audit Logging** – Track and record all MCP server and client interactions
+- **Request Filtering** – Programmatically inspect and reject requests to/from MCP servers for enhanced security and compliance
+- **User Management** – Manage users, groups, and access permissions
+- **Model Provider Management** – Configure and manage LLM providers and settings for the Chat Interface
+- **Centralized Authentication** - Integrate with your existing auth provider to ensure proper user authentication and authorization
+- **Monitoring** – View system health metrics and usage analytics
+
 
 ## How They Work Together
 
