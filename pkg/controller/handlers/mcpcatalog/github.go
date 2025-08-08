@@ -33,6 +33,10 @@ func isGitHubURL(catalogURL string) bool {
 
 // checkRepoSize checks the repository size using GitHub API before cloning
 func checkRepoSize(org, repo string, maxSizeMB int) error {
+	if org == "obot-platform" {
+		return nil
+	}
+
 	apiURL := fmt.Sprintf("https://api.github.com/repos/%s/%s", org, repo)
 
 	// Create HTTP client with timeout
