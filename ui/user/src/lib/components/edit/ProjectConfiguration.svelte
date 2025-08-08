@@ -10,7 +10,6 @@
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { autoHeight } from '$lib/actions/textarea';
-	import { onMount } from 'svelte';
 
 	interface Props {
 		project: Project;

@@ -4,7 +4,6 @@
 	import { errors, profile } from '$lib/stores';
 	import { navigating } from '$app/state';
 	import { fade } from 'svelte/transition';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	let div: HTMLElement;
 	let copied = $state<Record<string, boolean>>({});
