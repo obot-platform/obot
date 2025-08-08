@@ -24,6 +24,7 @@
 		project: Project;
 		currentThreadID?: string;
 		onLoadFile?: (filename: string) => void;
+		onPreviewImage?: (imgSrc: string) => void;
 		onSendCredentials?: (id: string, credentials: Record<string, string>) => void;
 		onSendCredentialsCancel?: (id: string) => void;
 		disableMessageToEditor?: boolean;
@@ -48,6 +49,7 @@
 		project,
 		currentThreadID,
 		onLoadFile = () => {},
+		onPreviewImage,
 		onSendCredentials = ChatService.sendCredentials,
 		onSendCredentialsCancel,
 		disableMessageToEditor,
@@ -480,20 +482,23 @@
 		{#if parsedOutput?.content}
 			{#each parsedOutput.content as content, i (i)}
 				{#if content.type === 'image' && content.mimeType && content.data}
+					{@const imgSrc = `data:${content.mimeType};base64,${content.data}`}
 					<div class="flex flex-col gap-2">
-						<img
-							src={`data:${content.mimeType};base64,${content.data}`}
-							alt="tool output"
-							class="mt-2 w-full max-w-md rounded-xl"
-							onerror={(e) => {
-								const img = e.currentTarget as HTMLImageElement;
-								img.style.display = 'none';
-								const fallbackDiv = document.createElement('div');
-								fallbackDiv.className = 'text-gray-500 text-xs';
-								fallbackDiv.textContent = '[Image Failed to Load.]';
-								img.parentNode?.insertBefore(fallbackDiv, img.nextSibling);
-							}}
-						/>
+						<button class="mt-2 w-full max-w-md" onclick={() => onPreviewImage?.(imgSrc)}>
+							<img
+								src={imgSrc}
+								alt="tool output"
+								class="rounded-xl"
+								onerror={(e) => {
+									const img = e.currentTarget as HTMLImageElement;
+									img.style.display = 'none';
+									const fallbackDiv = document.createElement('div');
+									fallbackDiv.className = 'text-gray-500 text-xs';
+									fallbackDiv.textContent = '[Image Failed to Load.]';
+									img.parentNode?.insertBefore(fallbackDiv, img.nextSibling);
+								}}
+							/>
+						</button>
 						<div class="flex gap-2">
 							<button
 								class="icon-button-small"

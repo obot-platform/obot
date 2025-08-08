@@ -31,6 +31,8 @@
 	import McpPrompts from './mcp/McpPrompts.svelte';
 	import { goto } from '$app/navigation';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import { clickOutside } from '$lib/actions/clickoutside';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		id?: string;
@@ -69,6 +71,8 @@
 	let threadDetails = $state<ThreadType | null>(null);
 
 	let centerInput = $derived(!createProject && (!id || isNew));
+	let imagePreviewDialog = $state<HTMLDialogElement>();
+	let imagePreviewSrc = $state<string>();
 
 	$effect(() => {
 		if (threadContainer) {
@@ -535,6 +539,10 @@
 						{onLoadFile}
 						{onSendCredentials}
 						onSendCredentialsCancel={() => thread?.abort()}
+						onPreviewImage={(imgSrc) => {
+							imagePreviewSrc = imgSrc;
+							imagePreviewDialog?.showModal();
+						}}
 					/>
 				{/each}
 			{/if}
@@ -648,6 +656,34 @@
 		</div>
 	</div>
 </div>
+
+<dialog
+	bind:this={imagePreviewDialog}
+	use:clickOutside={() => {
+		imagePreviewDialog?.close();
+		imagePreviewSrc = undefined;
+	}}
+>
+	<div
+		class="default-scrollbar-thin relative flex max-h-[95vh] w-full flex-col overflow-y-auto p-4"
+	>
+		<div class="sticky top-0 left-0 z-10 w-full">
+			<button
+				class="icon-button absolute top-0 right-0"
+				onclick={() => {
+					imagePreviewDialog?.close();
+					imagePreviewSrc = undefined;
+				}}
+				use:tooltip={'Close Preview'}
+			>
+				<X class="size-6" />
+			</button>
+		</div>
+		{#if imagePreviewSrc}
+			<img src={imagePreviewSrc} class="mx-auto max-w-full rounded-xl" alt="preview" />
+		{/if}
+	</div>
+</dialog>
 
 <style lang="postcss">
 	.bottom-fade-bar {
