@@ -52,10 +52,10 @@
 	}
 
 	afterNavigate(() => {
-		const routesToShowChatLink = ['/mcp-servers', '/models'];
+		const routesToShowChatLink = ['/mcp-servers', '/profile'];
 		inAdminRoute = window.location.pathname.includes('/admin');
 		showChatLink = routesToShowChatLink.includes(window.location.pathname) || inAdminRoute;
-		showMyMcpServersLink = window.location.pathname.includes('/o/') || inAdminRoute;
+		showMyMcpServersLink = window.location.pathname !== '/mcp-servers';
 	});
 
 	function navigateTo(path: string, asNewTab?: boolean) {
