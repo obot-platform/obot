@@ -5,11 +5,35 @@ slug: /
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-Obot is an open-source AI platform and MCP Gateway that can be deployed in the cloud or on-prem. The platform consists of three main components that work together to provide a comprehensive AI solution.
+Obot is an open-source MCP Gateway and AI platform that can be deployed in the cloud or on-prem.
 
-To quickly view a demo environment, you can visit our [hosted version](https://chat.obot.ai).
+## Getting Started
+
+To quickly try a live demo of the Obot MCP Gateway and chat experience, visit [https://chat.obot.ai](https://chat.obot.ai).
+
+To install Obot yourself, you’ll need access to a Kubernetes cluster. Once that’s ready, run:
+```bash
+helm repo add obot https://charts.obot.ai
+helm install obot obot/obot \
+  --set config.OPENAI_API_KEY="<API KEY>"
+```
+:::tip
+You need to replace `<API KEY>` with your [OpenAI API Key](https://platform.openai.com/api-keys).
+
+Setting this is optional, but you'll need to setup a model provider from the Admin UI before using chat.
+:::
+
+:::tip
+If you’re running on a simple local cluster (e.g., Kubernetes on Docker Desktop), you can port-forward to access Obot at http://localhost:8080:
+```
+kubectl port-forward svc/obot-obot 8080:80
+```
+:::
+
+For more installation methods, see our [Installation Guide](/installation/general).
 
 ## The Three Parts of Obot
+The platform consists of three main components that work together to deliver a comprehensive AI solution.
 
 ### 🗣️ Chat
 The **Chat Interface** is where users interact with AI through natural, conversational chat. It’s the primary way to ask questions, get answers, and work with connected tools and data. Key features include:
@@ -33,7 +57,8 @@ The **MCP Gateway** is where users discover and connect to MCP servers using any
 ### ⚙️ Admin
 The **Admin Interface** provides comprehensive platform management tools for administrators:
 
-- **MCP Server Catalog Management** – Create and update MCP server entries using GitOps or the admin portal
+- **Catalog Management** – Create and update MCP server entries using GitOps or the admin portal
+- **Server Deployment and Hosting** - Let Obot deploy and host MCP servers to ease your operational burden
 - **Access Control Rules** – Define which users and groups can access specific MCP servers
 - **Audit Logging** – Track and record all MCP server and client interactions
 - **Request Filtering** – Programmatically inspect and reject requests to/from MCP servers for enhanced security and compliance
@@ -58,7 +83,7 @@ These three components create a powerful, integrated AI platform:
 - **Enterprise Security**: OAuth 2.1 authentication, encryption, and audit logging
 - **Extensible**: Easy integration with custom tools and services
 
-## Getting Started
+## Next Steps
 
 For detailed installation instructions, please refer to our [Installation Guide](/installation/general).
 
