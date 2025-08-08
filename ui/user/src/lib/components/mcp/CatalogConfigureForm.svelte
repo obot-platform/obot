@@ -6,6 +6,7 @@
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import Confirm from '../Confirm.svelte';
 
 	export type LaunchFormData = {
 		envs?: MCPServerInfo['env'];
@@ -43,6 +44,7 @@
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let highlightedFields = $state<Set<string>>(new Set());
+	let showConfirmClose = $state(false);
 
 	export function open() {
 		configDialog?.open();
@@ -95,6 +97,17 @@
 		clearHighlights();
 		configDialog?.close();
 	}
+
+	function hasFieldFilledOut(form?: LaunchFormData) {
+		if (!form) return false;
+
+		const hasEnvOrHeaderFilled = [...(form.envs ?? []), ...(form.headers ?? [])].some(
+			(field) => field.value
+		);
+		const hasHostnameAndUrl = form.hostname && form.url;
+
+		return hasEnvOrHeaderFilled || hasHostnameAndUrl;
+	}
 </script>
 
 <ResponsiveDialog
@@ -102,6 +115,13 @@
 	animate="slide"
 	onClose={() => {
 		clearHighlights();
+	}}
+	onClickOutside={() => {
+		if (hasFieldFilledOut(form)) {
+			showConfirmClose = true;
+		} else {
+			configDialog?.close();
+		}
 	}}
 >
 	{#snippet titleContent()}
@@ -225,3 +245,24 @@
 		</button>
 	</div>
 </ResponsiveDialog>
+
+<Confirm
+	show={showConfirmClose}
+	onsuccess={async () => {
+		showConfirmClose = false;
+		configDialog?.close();
+	}}
+	oncancel={() => (showConfirmClose = false)}
+>
+	{#snippet title()}
+		<h3 class="mb-5 text-lg font-semibold break-words text-black dark:text-gray-100">
+			Are you sure you want to exit?
+		</h3>
+	{/snippet}
+	{#snippet note()}
+		<p class="mb-8 w-sm">
+			It looks like you have started filling out the server information. You will have to fill out
+			the form again to launch this server.
+		</p>
+	{/snippet}
+</Confirm>

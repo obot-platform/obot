@@ -17,6 +17,7 @@
 			header?: string;
 			content?: string;
 		};
+		onClickOutside?: () => void;
 		onClose?: () => void;
 		onOpen?: () => void;
 		titleContent?: Snippet;
@@ -26,6 +27,7 @@
 	}
 
 	let {
+		onClickOutside,
 		onClose,
 		onOpen,
 		titleContent,
@@ -52,7 +54,13 @@
 	bind:this={dialog}
 	class={twMerge('w-full max-w-2xl font-normal', !responsive.isMobile && 'p-4', klass)}
 	class:mobile-screen-dialog={responsive.isMobile}
-	use:clickOutside={() => close()}
+	use:clickOutside={() => {
+		if (onClickOutside) {
+			onClickOutside();
+		} else {
+			close();
+		}
+	}}
 	use:dialogAnimation={{ type: animate }}
 >
 	<div

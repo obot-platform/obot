@@ -146,11 +146,14 @@
 
 <Confirm
 	show={!!confirmDeconfigureAuthProvider}
+	{loading}
 	onsuccess={async () => {
 		if (confirmDeconfigureAuthProvider) {
-			AdminService.deconfigureAuthProvider(confirmDeconfigureAuthProvider.id);
+			loading = true;
+			await AdminService.deconfigureAuthProvider(confirmDeconfigureAuthProvider.id);
 			authProviders = await AdminService.listAuthProviders();
 			confirmDeconfigureAuthProvider = undefined;
+			loading = false;
 		}
 	}}
 	oncancel={() => (confirmDeconfigureAuthProvider = undefined)}
