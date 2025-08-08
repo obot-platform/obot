@@ -155,6 +155,11 @@ var filterOptions = map[string]any{
 	"client_ip":                     "",
 }
 
+// defaultFilterOptions will always be present of the given filter, regardless of what is in the database.
+var defaultFilterOptions = map[string][]string{
+	"call_type": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
+}
+
 func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 	filter := req.PathValue("filter")
 	if filter == "" {
@@ -169,6 +174,19 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter, exclude)
 	if err != nil {
 		return err
+	}
+
+	if defaultOptions := defaultFilterOptions[filter]; len(defaultOptions) > 0 {
+		existingOptions := make(map[string]struct{}, len(options))
+		for _, option := range options {
+			existingOptions[option] = struct{}{}
+		}
+
+		for _, option := range defaultOptions {
+			if _, ok := existingOptions[option]; !ok {
+				options = append(options, option)
+			}
+		}
 	}
 
 	return req.Write(map[string]any{
