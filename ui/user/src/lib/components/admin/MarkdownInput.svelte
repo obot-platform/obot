@@ -225,12 +225,22 @@
 		.cm-editor {
 			font-size: var(--text-md);
 			background-color: transparent;
+			height: 100%;
 			.cm-gutters {
 				display: none;
 			}
 		}
 		.cm-focused {
 			outline-style: none !important;
+		}
+		.cm-scroller {
+			height: inherit;
+			-ms-overflow-style: none; /* IE and Edge */
+			scrollbar-width: none; /* Firefox */
+			overflow: unset !important;
+		}
+		.cm-scroller::-webkit-scrollbar {
+			display: none;
 		}
 
 		/* Hide cursor when disabled but keep selection */

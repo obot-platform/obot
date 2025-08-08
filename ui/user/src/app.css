@@ -903,6 +903,12 @@
 			color: var(--on-surface2);
 		}
 	}
+
+	& video, & iframe {
+		width: 100%;
+		aspect-ratio: 16 / 9;
+		object-fit: cover;
+	}
 }
 
 .dark {
