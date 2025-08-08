@@ -50,7 +50,9 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 		CreatedAt:                 startTime,
 		CallType:                  msg.Method,
 	}
-	auditLog.RequestID, _ = msg.ID.(string)
+	if msg.ID != nil {
+		auditLog.RequestID = fmt.Sprintf("%v", msg.ID)
+	}
 
 	// Capture request body if available
 	if msg.Params != nil {
@@ -88,11 +90,7 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 			}
 		}
 
-		if strings.HasPrefix(msg.Method, "notifications/") {
-			insertAuditLog(c.gatewayClient, auditLog)
-		} else {
-			updateAuditLog(c.gatewayClient, auditLog)
-		}
+		insertAuditLog(c.gatewayClient, auditLog)
 	}()
 
 	var ch <-chan nmcp.Message

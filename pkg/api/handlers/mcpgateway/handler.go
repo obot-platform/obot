@@ -140,7 +140,9 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		UserAgent:                 m.req.UserAgent(),
 		RequestHeaders:            m.captureHeaders(m.req.Header),
 	}
-	auditLog.RequestID, _ = msg.ID.(string)
+	if msg.ID != nil {
+		auditLog.RequestID = fmt.Sprintf("%v", msg.ID)
+	}
 
 	// Go through webhook validations.
 	webhooks, err := h.webhookHelper.GetWebhooksForMCPServer(ctx, h.gptClient, m.mcpServer, msg.Method, auditLog.CallIdentifier)
@@ -194,8 +196,6 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 	}
 
 	if h.pendingRequests.Notify(msg) {
-		// Insert the audit log for this request. The message handler will update it with its fields.
-		insertAuditLog(h.gatewayClient, auditLog)
 		// This is a response to a pending request.
 		// We don't forward it to the client, just return.
 		return
@@ -425,20 +425,6 @@ func insertAuditLog(gatewayClient *gateway.Client, auditLog *gatewaytypes.MCPAud
 		defer cancel()
 
 		if err := gatewayClient.InsertMCPAuditLog(auditCtx, auditLog); err != nil {
-			// Log the error but don't fail the request
-			log.Errorf("Failed to insert MCP audit log: %v", err)
-		}
-	}()
-}
-
-func updateAuditLog(gatewayClient *gateway.Client, auditLog *gatewaytypes.MCPAuditLog) {
-	// Insert audit log asynchronously to avoid blocking the response
-	go func() {
-		// Use a background context with timeout to avoid blocking
-		auditCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		if err := gatewayClient.UpdateMCPAuditLogByRequestID(auditCtx, auditLog); err != nil {
 			// Log the error but don't fail the request
 			log.Errorf("Failed to insert MCP audit log: %v", err)
 		}
