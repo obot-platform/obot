@@ -77,7 +77,7 @@ config:
   # config.GITHUB_AUTH_TOKEN -- A github PAT, used to authenticate tool pulls to avoid github ratelimiting
   GITHUB_AUTH_TOKEN: ""
   # config.OBOT_SERVER_ENABLE_AUTHENTICATION -- Enables authentication for Obot
-  OBOT_SERVER_ENABLE_AUTHENTICATION: true
+  OBOT_SERVER_ENABLE_AUTHENTICATION: false
   # config.OBOT_SERVER_ENCRYPTION_PROVIDER -- Configures an encryption provider for credentials in Obot
   OBOT_SERVER_ENCRYPTION_PROVIDER: "" # "aws", "gcp", "azure", "custom"
   # config.OBOT_SERVER_ENCRYPTION_CONFIG_FILE -- The path to a file containing the encryption configuration. Only used if config.OBOT_SERVER_ENCRYPTION_PROVIDER is 'custom'
