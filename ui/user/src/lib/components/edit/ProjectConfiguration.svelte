@@ -10,6 +10,7 @@
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { autoHeight } from '$lib/actions/textarea';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		project: Project;
@@ -25,6 +26,11 @@
 
 	async function handleDeleteProject() {
 		deleting = true;
+		if (isOnProject) {
+			// signal current project is being deleted
+			layout.deleting = true;
+		}
+
 		await ChatService.deleteProject(project.assistantID, project.id);
 		confirmDelete = false;
 

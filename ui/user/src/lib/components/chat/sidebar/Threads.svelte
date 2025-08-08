@@ -122,6 +122,14 @@
 		}
 	});
 
+	$effect(() => {
+		if (layout.deleting) {
+			watchingThread?.();
+			watchingThread = undefined;
+			console.log('project being deleted, stop watching threads', project.id);
+		}
+	});
+
 	async function watchThreads(): Promise<void> {
 		if (watchingThread) {
 			return;

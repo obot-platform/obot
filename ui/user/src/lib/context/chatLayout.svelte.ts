@@ -41,6 +41,7 @@ export interface Layout {
 	sidebarMemoryUpdateAvailable?: boolean;
 	projectToConfigure?: Project;
 	newChatMode?: boolean;
+	deleting?: boolean;
 }
 
 export function isSomethingSelected(layout: Layout) {
