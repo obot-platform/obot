@@ -272,44 +272,57 @@
 		// Generate unique alias if there's a naming conflict
 		const aliasToUse = getUniqueAlias(serverName);
 
+		let response: MCPCatalogServer | undefined = undefined;
 		try {
-			const response = await ChatService.createSingleOrRemoteMcpServer({
+			response = await ChatService.createSingleOrRemoteMcpServer({
 				catalogEntryID: entry.id,
 				manifest: { remoteConfig: { url } },
 				alias: aliasToUse
 			});
-			const secretValues = convertEnvHeadersToRecord(configureForm?.envs, configureForm?.headers);
-			const configuredResponse = await ChatService.configureSingleOrRemoteMcpServer(
-				response.id,
-				secretValues
-			);
-			selectedEntryOrServer = {
-				server: configuredResponse,
-				connectURL: configuredResponse.connectURL,
-				instance: undefined,
-				parent: entry
-			} as ConnectedServer;
-
-			const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
-				configuredResponse.id
-			);
-			if (!launchResponse.success) {
-				launchError = launchResponse.message;
-			} else {
-				launchProgress = 100;
-				const ref = selectedEntryOrServer;
-				setTimeout(() => {
-					launching = false;
-					launchProgress = 0;
-					onConnectServer?.(ref);
-				}, 1000);
-			}
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
-		} finally {
-			clearTimeout(timeout1);
-			clearTimeout(timeout2);
-			clearTimeout(timeout3);
+		}
+
+		if (response) {
+			try {
+				const secretValues = convertEnvHeadersToRecord(configureForm?.envs, configureForm?.headers);
+				const configuredResponse = await ChatService.configureSingleOrRemoteMcpServer(
+					response.id,
+					secretValues
+				);
+
+				const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
+					configuredResponse.id
+				);
+				if (!launchResponse.success) {
+					// because something failed, go ahead and delete the server we created
+					launchError = launchResponse.message;
+					await ChatService.deleteSingleOrRemoteMcpServer(configuredResponse.id);
+				} else {
+					launchProgress = 100;
+
+					selectedEntryOrServer = {
+						server: configuredResponse,
+						connectURL: configuredResponse.connectURL,
+						instance: undefined,
+						parent: entry
+					} as ConnectedServer;
+
+					const ref = selectedEntryOrServer;
+					setTimeout(() => {
+						launching = false;
+						launchProgress = 0;
+						onConnectServer?.(ref);
+					}, 1000);
+				}
+			} catch (err) {
+				await ChatService.deleteSingleOrRemoteMcpServer(response.id);
+				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			} finally {
+				clearTimeout(timeout1);
+				clearTimeout(timeout2);
+				clearTimeout(timeout3);
+			}
 		}
 	}
 
@@ -596,10 +609,7 @@
 	{#snippet errorPostContent()}
 		<p class="text-md self-start">An issue occurred while launching the MCP server.</p>
 
-		<p class="text-md self-start">
-			Verify that the MCP server is properly configured and try again. If the problem persists,
-			please contact support.
-		</p>
+		<p class="text-md self-start">If the problem persists, please contact an administrator.</p>
 	{/snippet}
 </PageLoading>
 
