@@ -407,35 +407,21 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
+	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
+	if err != nil {
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
+		return err
+	}
+
+	if caps.Tools == nil {
+		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support tools")
+	}
+
 	var tools []string
 	if err = req.Read(&tools); err != nil {
 		return err
-	}
-
-	project, err := getProjectThread(req)
-	if err != nil {
-		return err
-	}
-
-	credCtxs := []string{
-		fmt.Sprintf("%s-%s", project.Name, projectServer.Name),
-	}
-	if project.IsSharedProject() {
-		// Add default credentials shared by the agent for this MCP server if available.
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", projectServer.Spec.ThreadName, projectServer.Name))
-	}
-
-	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, projectServer.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return fmt.Errorf("failed to find credential: %w", err)
-	}
-	_, missingRequiredNames, err := mcp.ServerToServerConfig(server, project.Name, cred.Env, tools...)
-	if err != nil {
-		return fmt.Errorf("failed to get server config: %w", err)
-	}
-
-	if len(missingRequiredNames) > 0 {
-		return types.NewErrBadRequest("MCP server %s is missing required parameters: %s", projectServer.Name, strings.Join(missingRequiredNames, ", "))
 	}
 
 	mcpTools, err := toolsForServer(req.Context(), p.mcpSessionManager, req.User.GetUID(), server, serverConfig, tools)
