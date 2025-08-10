@@ -38,6 +38,7 @@ type MCPAuditLog struct {
 }
 
 type MCPWebhookStatus struct {
+	Type    string `json:"type,omitempty"`
 	URL     string `json:"url"`
 	Status  string `json:"status"`
 	Message string `json:"message,omitempty"`

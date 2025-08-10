@@ -57,6 +57,7 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 		ClientVersion:             c.session.session.InitializeRequest.ClientInfo.Version,
 		CreatedAt:                 startTime,
 		CallType:                  msg.Method,
+		CallIdentifier:            extractCallIdentifier(msg),
 	}
 	if msg.ID != nil {
 		auditLog.RequestID = fmt.Sprintf("%v", msg.ID)
@@ -100,7 +101,15 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 		insertAuditLog(c.gatewayClient, auditLog)
 	}()
 
-	if err = fireWebhooks(ctx, c.webhookHelper, c.gptClient, msg, auditLog, c.session.userID, c.session.mcpID, c.session.serverNamespace, c.session.serverName, c.session.serverCatalogEntryName); err != nil {
+	var webhooks []mcp.Webhook
+	webhooks, err = c.webhookHelper.GetWebhooksForMCPServer(ctx, c.gptClient, c.session.serverNamespace, c.session.serverName, c.session.serverCatalogEntryName, msg.Method, auditLog.CallIdentifier)
+	if err != nil {
+		msg.SendError(ctx, err)
+		auditLog.ResponseStatus = http.StatusInternalServerError
+		return fmt.Errorf("failed to get webhooks: %w", err)
+	}
+
+	if err = fireWebhooks(ctx, webhooks, msg, auditLog, "request", c.session.userID, c.session.mcpID); err != nil {
 		msg.SendError(ctx, err)
 		auditLog.ResponseStatus = http.StatusFailedDependency
 		return fmt.Errorf("failed to fire webhooks: %w", err)
@@ -144,8 +153,14 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 			return fmt.Errorf("message returned with error: %w", err)
 		}
 
+		if err = fireWebhooks(ctx, webhooks, m, auditLog, "response", c.session.userID, c.session.mcpID); err != nil {
+			msg.SendError(ctx, err)
+			auditLog.ResponseStatus = http.StatusFailedDependency
+			return fmt.Errorf("failed to fire webhooks: %w", err)
+		}
+
 		result = m.Result
-		if err = msg.Reply(ctx, m.Result); err != nil {
+		if err = msg.Reply(ctx, result); err != nil {
 			msg.SendError(ctx, err)
 			return fmt.Errorf("failed to reply to message: %w", err)
 		}

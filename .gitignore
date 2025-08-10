@@ -54,3 +54,6 @@ catalog.json
 
 # Ignore Kiro files
 .kiro/
+
+# Ignore zed files
+.zed/
