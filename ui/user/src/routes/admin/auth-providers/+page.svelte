@@ -10,7 +10,7 @@
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { AdminService } from '$lib/services/index.js';
-	import { Info } from 'lucide-svelte';
+	import { AlertTriangle, Info } from 'lucide-svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -48,6 +48,7 @@
 	let providerConfigure = $state<ReturnType<typeof ProviderConfigure>>();
 	let configuringAuthProvider = $state<AuthProvider>();
 	let configuringAuthProviderValues = $state<Record<string, string>>();
+	let atLeastOneConfigured = $derived(authProviders.some((provider) => provider.configured));
 
 	let loading = $state(false);
 	let configureError = $state<string>();
@@ -85,6 +86,18 @@
 	<div class="my-4" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
 			<h1 class="text-2xl font-semibold">Auth Providers</h1>
+			{#if !atLeastOneConfigured}
+				<div class="notification-alert flex flex-col gap-2">
+					<div class="flex items-center gap-2">
+						<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+						<p class="my-0.5 flex flex-col text-sm font-semibold">No Auth Providers Configured!</p>
+					</div>
+					<span class="text-sm font-light break-all">
+						To finish setting up Obot, you'll need to configure an Auth Provider. Select one below
+						to get started!
+					</span>
+				</div>
+			{/if}
 		</div>
 		<div class="grid grid-cols-1 gap-4 py-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			{#each sortedAuthProviders as authProvider (authProvider.id)}

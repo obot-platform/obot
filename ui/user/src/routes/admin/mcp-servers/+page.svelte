@@ -667,7 +667,7 @@
 					An issue occurred fetching this source URL:
 				</p>
 			</div>
-			<span class="font-sm font-light break-all">{syncError?.error}</span>
+			<span class="text-sm font-light break-all">{syncError?.error}</span>
 		</div>
 	</div>
 </ResponsiveDialog>

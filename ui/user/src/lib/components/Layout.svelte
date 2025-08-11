@@ -26,6 +26,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import { afterNavigate } from '$app/navigation';
 	import BetaLogo from './navbar/BetaLogo.svelte';
+	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 
 	interface Props {
 		classes?: {
@@ -135,8 +136,16 @@
 		}
 	});
 
+	const excludeConfigureBanner = ['/admin/model-providers', '/admin/auth-providers'];
+
 	initLayout();
 	const layout = getLayout();
+
+	let configureBanner = $state<ReturnType<typeof ConfigureBanner>>();
+
+	export function refreshConfigureBanner() {
+		configureBanner?.refresh();
+	}
 </script>
 
 <div class="flex min-h-dvh flex-col items-center">
@@ -267,6 +276,9 @@
 				<div
 					class={twMerge('h-full w-full max-w-(--breakpoint-xl)', classes?.childrenContainer ?? '')}
 				>
+					{#if pathname.includes('/admin') && !excludeConfigureBanner.includes(pathname)}
+						<ConfigureBanner bind:this={configureBanner} />
+					{/if}
 					{@render children()}
 				</div>
 			</div>
