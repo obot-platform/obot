@@ -51,45 +51,6 @@
 
 	let sortedModelProviders = $derived(sortModelProviders(modelProviders));
 
-	// shouldOpenDefaultModelsDialog returns true IFF the model provider with the given providerID
-	// providers models that can be used for the unset default model aliases.
-	async function shouldOpenDefaultModelsDialog(providerId: string): Promise<boolean> {
-		try {
-			// Get current default model aliases
-			const defaultModelAliases = await AdminService.listDefaultModelAliases();
-
-			// Find aliases with empty model fields
-			const unsetAliases = defaultModelAliases
-				.filter((alias) => !alias.model || alias.model.trim() === '')
-				.map((alias) => alias.alias);
-
-			if (unsetAliases.length === 0) {
-				return false; // No unset aliases, no need to open dialog
-			}
-
-			// Get usage types for unset aliases
-			const unsetUsageTypes = unsetAliases
-				.map((alias) => ModelAliasToUsageMap[alias as ModelAlias])
-				.filter((usage) => !!usage);
-
-			if (unsetUsageTypes.length === 0) {
-				return false; // No valid usage types found
-			}
-
-			// Get models from the newly configured provider
-			const providerModels = adminModels.items.filter(
-				(model) => model.modelProvider === providerId && model.active
-			);
-
-			// Check if any provider models have usage types that match unset aliases
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			return providerModels.some((model) => unsetUsageTypes.includes(model.usage as any));
-		} catch (error) {
-			console.error('Error checking if default models dialog should open:', error);
-			return false;
-		}
-	}
-
 	// waitForProviderReady blocks until the models of the model provider with the given providerID
 	// are back populated.
 	// If its models aren't populated or the provider becomes unconfigured within 10 seconds, it
@@ -118,6 +79,7 @@
 
 	async function handleModelProviderConfigure(form: Record<string, string>) {
 		if (configuringModelProvider) {
+			const isAlreadyConfigured = configuringModelProvider.configured;
 			loading = true;
 			configureError = undefined;
 			try {
@@ -133,13 +95,10 @@
 				modelProviders = await AdminService.listModelProviders();
 				adminModels.items = await AdminService.listModels();
 
-				// Close the provider configuration dialog
 				providerConfigure?.close();
-
-				// Open the default models dialog if the model provider adds models that can be used
-				// for unset default model aliases.
-				if (await shouldOpenDefaultModelsDialog(configuringModelProvider.id)) {
-					defaultModelsDialog?.open();
+				if (!isAlreadyConfigured) {
+					// if first time configuring, open the default models dialog
+					defaultModelsDialog?.open(true);
 				}
 			} catch (err: unknown) {
 				if (err instanceof Error) {

@@ -30,6 +30,7 @@
 			})
 	);
 	let loading = $state(false);
+	let showSkip = $state(false);
 
 	const SUGGESTED_MODEL_SELECTIONS: Record<ModelAlias, string> = {
 		[ModelAlias.Llm]: 'gpt-4.1',
@@ -39,8 +40,9 @@
 		[ModelAlias.Vision]: 'gpt-4.1'
 	};
 
-	export function open() {
+	export function open(updateShowSkip = false) {
 		setSuggestedModels();
+		showSkip = updateShowSkip;
 		dialog?.open();
 	}
 
@@ -187,12 +189,22 @@
 					id={modelAlias.alias}
 					classes={{ root: 'w-1/2' }}
 					class="bg-surface1 dark:bg-surface2 dark:border-surface3 flex-1 border border-transparent shadow-inner"
-					options={activeModelOptions.map((model) => ({
-						label: SUGGESTED_MODEL_SELECTIONS[modelAlias.alias].includes(model.name)
-							? `${model.name ?? ''} (Suggested)`
-							: (model.name ?? ''),
-						id: model.id
-					}))}
+					options={activeModelOptions
+						.map((model) => ({
+							label: SUGGESTED_MODEL_SELECTIONS[modelAlias.alias].includes(model.name)
+								? `${model.name ?? ''} (Suggested)`
+								: (model.name ?? ''),
+							id: model.id
+						}))
+						.sort((a, b) => {
+							const aIsSuggested = a.label.includes('(Suggested)');
+							const bIsSuggested = b.label.includes('(Suggested)');
+							// Sort suggested models to the top
+							if (aIsSuggested && !bIsSuggested) return -1;
+							if (!aIsSuggested && bIsSuggested) return 1;
+							// Keep original order for models with same suggested status
+							return 0;
+						})}
 					selected={getSelectedModel(modelAlias, activeModelOptions)}
 					onSelect={async (option) => {
 						changes = {
@@ -204,7 +216,7 @@
 			</div>
 		{/each}
 	</div>
-	<div class="pt-4">
+	<div class="flex flex-col gap-4 pt-4">
 		<button
 			class="button-primary w-full text-sm font-normal"
 			onclick={handleSaveChanges}
@@ -216,5 +228,10 @@
 				Save Changes
 			{/if}
 		</button>
+		{#if showSkip}
+			<button class="button w-full text-sm font-normal" onclick={() => dialog?.close()}>
+				Skip
+			</button>
+		{/if}
 	</div>
 </ResponsiveDialog>
