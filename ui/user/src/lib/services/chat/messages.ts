@@ -50,7 +50,10 @@ function setFileContent(
 			name: name,
 			file: {
 				contents: content,
-				buffer: ''
+				buffer: '',
+				threadID: opts.threadID,
+				taskID: opts.taskID,
+				runID: opts.runID
 			}
 		});
 	}
