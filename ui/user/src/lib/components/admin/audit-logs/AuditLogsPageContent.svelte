@@ -374,7 +374,7 @@
 	</div>
 {/if}
 
-<div class="flex gap-4">
+<div class="flex flex-col gap-4 md:flex-row">
 	<Search
 		class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
 		onChange={handleQueryChange}
@@ -382,23 +382,25 @@
 		value={query}
 	/>
 
-	<AuditLogCalendar
-		start={timeRangeFilters.startTime}
-		end={timeRangeFilters.endTime}
-		onChange={handleDateChange}
-	/>
+	<div class="flex gap-4 self-start md:self-end">
+		<AuditLogCalendar
+			start={timeRangeFilters.startTime}
+			end={timeRangeFilters.endTime}
+			onChange={handleDateChange}
+		/>
 
-	<button
-		class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
-		onclick={() => {
-			showFilters = true;
-			selectedAuditLog = undefined;
-			rightSidebar?.show();
-		}}
-	>
-		<Funnel class="size-4" />
-		Filters
-	</button>
+		<button
+			class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
+			onclick={() => {
+				showFilters = true;
+				selectedAuditLog = undefined;
+				rightSidebar?.show();
+			}}
+		>
+			<Funnel class="size-4" />
+			Filters
+		</button>
+	</div>
 </div>
 
 {@render filters()}
@@ -477,7 +479,7 @@
 		{emptyContent}
 	></AuditLogsTable>
 {:else}
-	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
 		<Captions class="size-24 text-gray-200 dark:text-gray-900" />
 		<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No audit logs</h4>
 		<p class="text-sm font-light text-gray-400 dark:text-gray-600">
@@ -491,7 +493,7 @@
 	bind:this={rightSidebar}
 	use:clickOutside={[handleRightSidebarClose, true]}
 	use:dialogAnimation={{ type: 'drawer' }}
-	class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-screen w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
+	class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-dvh w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
 >
 	{#if selectedAuditLog}
 		<AuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />

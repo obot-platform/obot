@@ -235,12 +235,12 @@
 
 {#snippet mainContent()}
 	<div
-		class="flex flex-col gap-8"
+		class="flex flex-col gap-4 md:gap-8"
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<div class="flex items-center justify-between">
-			<h1 class="flex items-center gap-2 text-2xl font-semibold">
+		<div class="flex flex-col items-center justify-start md:flex-row md:justify-between">
+			<h1 class="flex w-full items-center gap-2 text-2xl font-semibold">
 				MCP Servers
 				<button class="button-small flex items-center gap-1 text-xs font-normal" onclick={sync}>
 					{#if syncing}
@@ -252,7 +252,9 @@
 				</button>
 			</h1>
 			{#if totalCount > 0}
-				{@render addServerButton()}
+				<div class="mt-4 w-full flex-shrink-0 md:mt-0 md:w-fit">
+					{@render addServerButton()}
+				</div>
 			{/if}
 		</div>
 
@@ -447,9 +449,9 @@
 {/snippet}
 
 {#snippet addServerButton()}
-	<DotDotDot class="button-primary text-sm" placement="bottom">
+	<DotDotDot class="button-primary w-full text-sm md:w-fit" placement="bottom">
 		{#snippet icon()}
-			<span class="flex items-center gap-1">
+			<span class="flex items-center justify-center gap-1">
 				<Plus class="size-4" /> Add MCP Server
 			</span>
 		{/snippet}

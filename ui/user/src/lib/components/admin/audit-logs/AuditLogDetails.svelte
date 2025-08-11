@@ -25,7 +25,7 @@
 	></div>
 {/if}
 <div
-	class="dark:bg-gray-990 h-full w-screen max-w-[85vw] bg-gray-50 md:w-lg md:min-w-lg"
+	class="dark:bg-gray-990 h-full w-screen max-w-full bg-gray-50 md:w-lg md:max-w-[85vw] md:min-w-lg"
 	bind:this={container}
 >
 	<div class="dark:bg-surface1 relative flex w-full flex-col bg-white p-4 pl-5 shadow-xs">

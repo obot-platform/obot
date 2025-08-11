@@ -227,7 +227,7 @@
 		{:else if showPreviewTools}
 			<div class="notification-info w-full p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
-					<Info class="size-6" />
+					<Info class="size-6 flex-shrink-0" />
 					<div>
 						This is a preview of the tools that are available for this MCP server; the actual tools
 						may differ on user connection.
