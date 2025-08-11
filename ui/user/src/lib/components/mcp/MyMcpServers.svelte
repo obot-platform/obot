@@ -13,7 +13,7 @@
 	import { fly } from 'svelte/transition';
 	import type { LaunchFormData } from './CatalogConfigureForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { ChevronLeft, ChevronRight, LoaderCircle, ServerIcon } from 'lucide-svelte';
+	import { ChevronLeft, ChevronRight, Info, LoaderCircle, ServerIcon } from 'lucide-svelte';
 	import { tick, type Snippet } from 'svelte';
 	import McpCard from './McpCard.svelte';
 	import Search from '../Search.svelte';
@@ -188,6 +188,9 @@
 			}))
 			.filter((item) => !selectedCategory || item.server?.categories?.includes(selectedCategory))
 	]);
+	let userServerConfigureMap = $derived(
+		new Set(userConfiguredServers.map((server) => server.catalogEntryID))
+	);
 	let filteredConnectedServers = $derived(
 		connectedServers
 			.filter((item) => {
@@ -270,7 +273,7 @@
 		const serverName = entry.manifest.name || '';
 
 		// Generate unique alias if there's a naming conflict
-		const aliasToUse = getUniqueAlias(serverName);
+		const aliasToUse = configureForm?.name || getUniqueAlias(serverName);
 
 		let response: MCPCatalogServer | undefined = undefined;
 		try {
@@ -376,6 +379,7 @@
 
 	function initConfigureForm(item: Entry) {
 		configureForm = {
+			name: '',
 			envs: item.manifest?.env?.map((env) => ({
 				...env,
 				value: ''
@@ -696,6 +700,19 @@
 				{/if}
 			</div>
 		</div>
+
+		{#if 'isCatalogEntry' in item && userServerConfigureMap.has(item.id)}
+			<div class="notification-info p-3 text-sm font-light">
+				<div class="flex items-center gap-3">
+					<Info class="size-6" />
+					<p>
+						It looks like you already have an existing server instance available. It is recommended
+						to only create another one if you need to instantiate another one with different
+						configurations.
+					</p>
+				</div>
+			</div>
+		{/if}
 
 		{#if serverOrEntry}
 			<McpServerInfoAndTools entry={serverOrEntry} />

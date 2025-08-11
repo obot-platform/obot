@@ -13,6 +13,7 @@
 		headers?: MCPServerInfo['headers'];
 		url?: string;
 		hostname?: string;
+		name?: string;
 	};
 
 	interface Props {
@@ -154,6 +155,16 @@
 			}}
 		>
 			<div class="my-4 flex flex-col gap-4">
+				<div class="flex flex-col gap-1">
+					<span class="flex items-center gap-2">
+						<label for="name"> Server Name </label>
+						<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+						<InfoTooltip
+							text="Uses server name as default. Duplicate instances default to a number increment added at the end of name."
+						/>
+					</span>
+					<input type="text" id="name" bind:value={form.name} class="text-input-filled" />
+				</div>
 				{#if form.envs && form.envs.length > 0}
 					{#each form.envs as env, i (env.key)}
 						{@const highlightRequired = highlightedFields.has(env.key) && !env.value}
