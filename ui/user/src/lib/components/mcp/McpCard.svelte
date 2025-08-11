@@ -48,7 +48,7 @@
 		</div>
 		<span
 			class={twMerge(
-				'mt-2 text-xs leading-4.5 font-light text-gray-400 dark:text-gray-600',
+				'mt-2 text-xs leading-4.5 font-light break-all text-gray-400 dark:text-gray-600',
 				categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
 			)}
 		>
