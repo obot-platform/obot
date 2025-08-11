@@ -1,11 +1,6 @@
 <script lang="ts">
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
-	import {
-		AdminService,
-		type ModelProvider as ModelProviderType,
-		ModelAliasToUsageMap,
-		ModelAlias
-	} from '$lib/services';
+	import { AdminService, type ModelProvider as ModelProviderType } from '$lib/services';
 	import { delay } from '$lib/utils';
 	import Layout from '$lib/components/Layout.svelte';
 	import {
