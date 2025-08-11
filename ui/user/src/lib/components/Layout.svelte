@@ -140,12 +140,6 @@
 
 	initLayout();
 	const layout = getLayout();
-
-	let configureBanner = $state<ReturnType<typeof ConfigureBanner>>();
-
-	export function refreshConfigureBanner() {
-		configureBanner?.refresh();
-	}
 </script>
 
 <div class="flex min-h-dvh flex-col items-center">
@@ -277,7 +271,7 @@
 					class={twMerge('h-full w-full max-w-(--breakpoint-xl)', classes?.childrenContainer ?? '')}
 				>
 					{#if pathname.includes('/admin') && !excludeConfigureBanner.includes(pathname)}
-						<ConfigureBanner bind:this={configureBanner} />
+						<ConfigureBanner />
 					{/if}
 					{@render children()}
 				</div>

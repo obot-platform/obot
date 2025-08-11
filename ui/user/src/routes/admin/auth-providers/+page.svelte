@@ -15,6 +15,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { darkMode } from '$lib/stores/index.js';
+	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 
 	let { data } = $props();
 	let { authProviders: initialAuthProviders } = data;
@@ -64,6 +65,7 @@
 			try {
 				await AdminService.configureAuthProvider(configuringAuthProvider.id, form);
 				authProviders = await AdminService.listAuthProviders();
+				adminConfigStore.updateAuthProviders(authProviders);
 				providerConfigure?.close();
 			} catch (err: unknown) {
 				if (err instanceof Error) {
@@ -165,6 +167,7 @@
 			loading = true;
 			await AdminService.deconfigureAuthProvider(confirmDeconfigureAuthProvider.id);
 			authProviders = await AdminService.listAuthProviders();
+			adminConfigStore.updateAuthProviders(authProviders);
 			confirmDeconfigureAuthProvider = undefined;
 			loading = false;
 		}

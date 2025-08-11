@@ -21,6 +21,7 @@
 	import DefaultModels from '$lib/components/admin/DefaultModels.svelte';
 	import { sortModelProviders } from '$lib/sort.js';
 	import { AlertTriangle } from 'lucide-svelte';
+	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 
 	let { data } = $props();
 	let { modelProviders: initialModelProviders } = data;
@@ -133,6 +134,7 @@
 
 				// Fetch the updated model providers and available models
 				modelProviders = await AdminService.listModelProviders();
+				adminConfigStore.updateModelProviders(modelProviders);
 				adminModels.items = await AdminService.listModels();
 
 				// Close the provider configuration dialog
@@ -203,6 +205,7 @@
 					onDeconfigure={async () => {
 						await AdminService.deconfigureModelProvider(modelProvider.id);
 						modelProviders = await AdminService.listModelProviders();
+						adminConfigStore.updateModelProviders(modelProviders);
 					}}
 				>
 					{#snippet configuredActions(provider)}

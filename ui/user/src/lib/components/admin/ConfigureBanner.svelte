@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AdminService } from '$lib/services';
+	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -8,35 +8,29 @@
 	}
 
 	let { modelProviderConfigured, authProviderConfigured }: Props = $props();
-	let isModelProviderConfigured = $state(false);
-	let isAuthProviderConfigured = $state(false);
-	let loading = $state(true);
 
-	async function init() {
-		loading = true;
-		if (typeof modelProviderConfigured === 'boolean') {
-			isModelProviderConfigured = modelProviderConfigured;
-		} else {
-			const modelProviders = await AdminService.listModelProviders();
-			isModelProviderConfigured = modelProviders.some((provider) => provider.configured);
-		}
+	// Use the store for reactive data
+	const storeData = $derived($adminConfigStore);
 
-		if (typeof authProviderConfigured === 'boolean') {
-			isAuthProviderConfigured = authProviderConfigured;
-		} else {
-			const authProviders = await AdminService.listAuthProviders();
-			isAuthProviderConfigured = authProviders.some((provider) => provider.configured);
-		}
-		loading = false;
-	}
+	// Use props if provided, otherwise use store values
+	const isModelProviderConfigured = $derived(
+		typeof modelProviderConfigured === 'boolean'
+			? modelProviderConfigured
+			: storeData.modelProviderConfigured
+	);
+
+	const isAuthProviderConfigured = $derived(
+		typeof authProviderConfigured === 'boolean'
+			? authProviderConfigured
+			: storeData.authProviderConfigured
+	);
+
+	const loading = $derived(storeData.loading);
 
 	onMount(() => {
-		init();
+		// Initialize the store if it hasn't been initialized yet
+		adminConfigStore.initialize();
 	});
-
-	export function refresh() {
-		init();
-	}
 </script>
 
 {#if !loading && (!isModelProviderConfigured || !isAuthProviderConfigured)}
