@@ -53,10 +53,10 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		}
 
 		// Check if the query is a valid integer for response_status search
-		query := `user_id in (?) OR mcp_id %[1]s ? OR mcp_server_display_name %[1]s ? OR 
-			mcp_server_catalog_entry_name %[1]s ? OR client_name %[1]s ? OR client_version %[1]s ? OR 
-			client_ip %[1]s ? OR call_type %[1]s ? OR call_identifier %[1]s ? OR error %[1]s ? OR 
-			session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
+		query := `user_id in (?) OR mcp_id %[1]s ? OR mcp_server_display_name %[1]s ? OR
+mcp_server_catalog_entry_name %[1]s ? OR client_name %[1]s ? OR client_version %[1]s ? OR
+client_ip %[1]s ? OR call_type %[1]s ? OR call_identifier %[1]s ? OR error %[1]s ? OR
+session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 
 		args := append([]any{userIDs}, slices.Repeat([]any{searchTerm}, strings.Count(query, "%[1]s ?"))...)
 
@@ -83,6 +83,9 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	}
 	if len(opts.CallType) > 0 {
 		db = db.Where("call_type IN (?)", opts.CallType)
+	}
+	if len(opts.CallIdentifier) > 0 {
+		db = db.Where("call_identifier IN (?)", opts.CallType)
 	}
 	if len(opts.SessionID) > 0 {
 		db = db.Where("session_id IN (?)", opts.SessionID)
@@ -135,6 +138,7 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 			"mcp_server_display_name":       true,
 			"mcp_server_catalog_entry_name": true,
 			"call_type":                     true,
+			"call_identifier":               true,
 			"processing_time_ms":            true,
 			"client_name":                   true,
 			"client_version":                true,
@@ -304,6 +308,7 @@ type MCPAuditLogOptions struct {
 	MCPServerDisplayName      []string
 	MCPServerCatalogEntryName []string
 	CallType                  []string
+	CallIdentifier            []string
 	SessionID                 []string
 	ClientName                []string
 	ClientVersion             []string
