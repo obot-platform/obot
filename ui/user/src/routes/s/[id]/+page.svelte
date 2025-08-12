@@ -76,7 +76,7 @@
 </script>
 
 <!-- Header -->
-<div class="flex h-screen w-screen flex-col">
+<div class="flex h-dvh w-dvw flex-col">
 	{#if showWarning}
 		<div
 			class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"

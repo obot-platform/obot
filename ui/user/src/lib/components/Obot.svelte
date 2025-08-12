@@ -115,7 +115,9 @@
 							<BetaLogo chat />
 						{/if}
 						{#if !layout.sidebarOpen && responsive.isMobile}
-							{@render openSidebar()}
+							<div class="ml-2">
+								{@render openSidebar()}
+							</div>
 						{/if}
 					{/snippet}
 				</Navbar>

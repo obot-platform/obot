@@ -63,9 +63,7 @@
 	}}
 	use:dialogAnimation={{ type: animate }}
 >
-	<div
-		class={twMerge('flex h-full w-full flex-col', classes?.content ?? 'max-h-screen min-h-fit ')}
-	>
+	<div class={twMerge('flex h-full w-full flex-col', classes?.content ?? 'max-h-dvh min-h-fit')}>
 		<div class="mb-4 flex flex-col gap-4">
 			<h3
 				class={twMerge('default-dialog-title', classes?.header)}

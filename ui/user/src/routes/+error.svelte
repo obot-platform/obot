@@ -21,7 +21,7 @@
 		defaultMessage[page.status as keyof typeof defaultMessage] || 'Please try again later.';
 </script>
 
-<div class="flex h-screen w-full flex-col items-center justify-center gap-4">
+<div class="flex h-dvh w-full flex-col items-center justify-center gap-4">
 	<div class="flex items-end justify-end gap-8">
 		<div>
 			<img

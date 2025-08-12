@@ -12,7 +12,7 @@
 </svelte:head>
 
 <Layout classes={{ childrenContainer: 'max-w-none' }}>
-	<div class="my-4 h-screen" in:fade={{ duration }} out:fade={{ duration }}>
+	<div class="my-4 h-dvh" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex min-h-full flex-col gap-8 pb-8">
 			<div class="flex items-center justify-between gap-4">
 				<h1 class="text-2xl font-semibold">Audit Logs</h1>

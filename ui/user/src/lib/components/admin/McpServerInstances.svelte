@@ -346,10 +346,7 @@
 	{@render emptyInstancesContent()}
 {/if}
 
-<ResponsiveDialog
-	bind:this={diffDialog}
-	class="h-screen w-full max-w-full p-0 md:w-[calc(100vw-2em)]"
->
+<ResponsiveDialog bind:this={diffDialog} class="h-dvh w-full max-w-full p-0 md:w-[calc(100vw-2em)]">
 	{#snippet titleContent()}
 		{#if diffServer?.manifest}
 			<div class="flex items-center gap-2 md:p-4 md:pb-0">

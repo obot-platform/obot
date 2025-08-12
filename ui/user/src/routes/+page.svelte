@@ -39,7 +39,7 @@
 {/if}
 
 {#snippet unauthorizedContent()}
-	<div class="relative flex h-screen w-full flex-col text-black dark:text-white">
+	<div class="relative flex h-dvh w-full flex-col text-black dark:text-white">
 		<main
 			class="dark:from-surface2 to-surface1 mx-auto flex h-full w-full flex-col items-center justify-center gap-18 bg-radial-[at_50%_50%] from-gray-50 pb-6 md:gap-24 md:pb-12 dark:to-black"
 		>

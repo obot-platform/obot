@@ -29,7 +29,7 @@
 </script>
 
 <div class="border-surface2 dark:bg-gray-990 relative flex size-full flex-col border-r bg-white">
-	<div class="flex h-16 w-full flex-shrink-0 items-center px-2">
+	<div class="flex h-16 w-full flex-shrink-0 items-center justify-between px-2 md:justify-start">
 		<BetaLogo chat />
 		{#if responsive.isMobile}
 			{@render closeSidebar()}

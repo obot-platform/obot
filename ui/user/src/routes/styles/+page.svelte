@@ -2,7 +2,7 @@
 	import { Trash2 } from 'lucide-svelte';
 </script>
 
-<div class="flex h-screen flex-col items-center justify-center gap-2 p-5">
+<div class="flex h-dvh flex-col items-center justify-center gap-2 p-5">
 	<h2 class="self-center text-xl">Buttons</h2>
 	<div class="flex gap-2">
 		<button class="button">button</button>

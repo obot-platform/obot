@@ -442,7 +442,7 @@
 				bind:this={rightSidebar}
 				use:clickOutside={[handleRightSidebarClose, true]}
 				use:dialogAnimation={{ type: 'drawer' }}
-				class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-screen w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
+				class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-dvh w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
 			>
 				{#if showFilters}
 					<UsageFilters usageStats={stats} {users} onClose={handleRightSidebarClose} {filters} />
