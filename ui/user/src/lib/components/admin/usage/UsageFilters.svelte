@@ -4,6 +4,8 @@
 	import Select from '$lib/components/Select.svelte';
 	import type { UsageStatsFilters, AuditLogUsageStats, OrgUser } from '$lib/services/admin/types';
 	import { X } from 'lucide-svelte';
+	import { slide } from 'svelte/transition';
+	import { selectedCompletion } from '@codemirror/autocomplete';
 
 	interface Props {
 		usageStats?: AuditLogUsageStats;
@@ -178,8 +180,24 @@
 			{@const options = Object.values(filterInput.values)}
 			{#if options.length > 0}
 				<div class="mb-2 flex flex-col gap-1">
-					<label for={filterInput.property} class="text-md font-light">
+					<label
+						for={filterInput.property}
+						class="text-md flex items-center justify-between gap-2 font-light"
+					>
 						By {filterInput.label}
+
+						{#if filterInput.selected && filterInput.selected.length > 0}
+							<button
+								class="text-xs opacity-50 hover:opacity-80 active:opacity-100"
+								onclick={() => {
+									localFilters[filterInput.property as keyof typeof localFilters] = '';
+								}}
+								in:slide={{ duration: 100, axis: 'x' }}
+								out:slide={{ duration: 100, axis: 'x' }}
+							>
+								{filterInput.selected.split(',').length === 1 ? 'Clear' : 'Clear All'}
+							</button>
+						{/if}
 					</label>
 					<Select
 						class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"

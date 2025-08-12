@@ -233,7 +233,7 @@
 			<ChevronDown class="size-5 flex-shrink-0 self-start" />
 		</div>
 
-		{#if onClear}
+		{#if onClear && !multiple}
 			<button
 				class={twMerge(
 					'button absolute top-1/2 right-12 -translate-y-1/2 p-1 transition-colors duration-300',

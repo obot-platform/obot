@@ -54,7 +54,25 @@ export function generateJsonDiff(
 	const oldLines = oldStr.split('\n');
 	const newLines = newStr.split('\n');
 
-	// Improved line-by-line diff with better matching
+	const oldLineMap = new Map<string, number[]>();
+	const newLineMap = new Map<string, number[]>();
+
+	oldLines.forEach((line, index) => {
+		const key = line.trim();
+		if (!oldLineMap.has(key)) {
+			oldLineMap.set(key, []);
+		}
+		oldLineMap.get(key)!.push(index);
+	});
+
+	newLines.forEach((line, index) => {
+		const key = line.trim();
+		if (!newLineMap.has(key)) {
+			newLineMap.set(key, []);
+		}
+		newLineMap.get(key)!.push(index);
+	});
+
 	const unifiedLines: string[] = [];
 	let oldIndex = 0;
 	let newIndex = 0;
@@ -97,6 +115,29 @@ export function generateJsonDiff(
 						foundMatch = true;
 						break;
 					}
+				}
+			}
+
+			// Check if this line content exists elsewhere in the other version (indicating movement)
+			if (!foundMatch) {
+				const oldLineContent = oldLine.trim();
+				const newLineContent = newLine.trim();
+
+				const oldExistsInNew = oldLineContent && newLineMap.has(oldLineContent);
+				const newExistsInOld = newLineContent && oldLineMap.has(newLineContent);
+
+				if (oldExistsInNew && newExistsInOld) {
+					// Both lines exist in the other version, this suggests content was moved
+					// Mark as unchanged to avoid false removal/addition
+					if (oldLine) {
+						unifiedLines.push(` ${oldLine}`);
+					}
+					if (newLine) {
+						unifiedLines.push(` ${newLine}`);
+					}
+					oldIndex++;
+					newIndex++;
+					foundMatch = true;
 				}
 			}
 
@@ -144,6 +185,30 @@ export function formatJsonWithDiffHighlighting(
 		const lines = formatted.split('\n');
 		let highlighted = '';
 
+		const oldContentMap = new Map<string, number[]>();
+		const newContentMap = new Map<string, number[]>();
+
+		// Build content maps for both versions
+		diff.oldLines.forEach((line, index) => {
+			if (line.trim()) {
+				const key = line.trim();
+				if (!oldContentMap.has(key)) {
+					oldContentMap.set(key, []);
+				}
+				oldContentMap.get(key)!.push(index);
+			}
+		});
+
+		diff.newLines.forEach((line, index) => {
+			if (line.trim()) {
+				const key = line.trim();
+				if (!newContentMap.has(key)) {
+					newContentMap.set(key, []);
+				}
+				newContentMap.get(key)!.push(index);
+			}
+		});
+
 		for (let i = 0; i < lines.length; i++) {
 			const line = lines[i];
 			const oldLine = diff.oldLines[i] || '';
@@ -151,9 +216,18 @@ export function formatJsonWithDiffHighlighting(
 
 			// Check if this line is different between old and new
 			const isChanged = oldLine !== newLine;
-			const isRemoved = isOldVersion && isChanged && oldLine && !newLine;
-			const isAdded = !isOldVersion && isChanged && newLine && !oldLine;
-			const isModified = isChanged && oldLine && newLine; // Both exist but are different
+
+			// Check if this line content exists in the other version (indicating it was moved)
+			const lineContent = line.trim();
+			const existsInOld = oldContentMap.has(lineContent);
+			const existsInNew = newContentMap.has(lineContent);
+
+			// A line is truly removed if it exists in old but not in new
+			const isRemoved = isOldVersion && isChanged && oldLine && !newLine && !existsInNew;
+			// A line is truly added if it exists in new but not in old
+			const isAdded = !isOldVersion && isChanged && newLine && !oldLine && !existsInOld;
+			// A line is modified if both exist but are different (and not just moved)
+			const isModified = isChanged && oldLine && newLine && oldLine.trim() !== newLine.trim();
 
 			// For old version: highlight removed and modified lines in red
 			// For new version: highlight added and modified lines in green
