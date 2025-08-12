@@ -40,6 +40,8 @@
 		createProject?: CreateProjectForm;
 		assistant?: Assistant;
 		isNew?: boolean;
+		onInputChange?: (input: string) => void;
+		inputValue?: string;
 	}
 
 	let {
@@ -47,7 +49,9 @@
 		project = $bindable(),
 		createProject = $bindable(),
 		assistant,
-		isNew = $bindable()
+		isNew = $bindable(),
+		onInputChange,
+		inputValue
 	}: Props = $props();
 
 	let messagesDiv = $state<HTMLDivElement>();
@@ -590,6 +594,8 @@
 							globalPromptIndex++;
 						}
 					}}
+					{onInputChange}
+					initialValue={inputValue}
 					bind:items={layout.items}
 				>
 					<div class="flex w-full items-center justify-between">

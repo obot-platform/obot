@@ -167,6 +167,8 @@
 							{assistant}
 							bind:createProject
 							bind:isNew={layout.newChatMode}
+							inputValue={layout.input}
+							onInputChange={(inputValue) => (layout.input = inputValue)}
 						/>
 					{/if}
 				{/if}

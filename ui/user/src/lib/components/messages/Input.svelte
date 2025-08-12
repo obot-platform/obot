@@ -12,11 +12,13 @@
 		onSubmit?: (input: InvokeInput) => void | Promise<void>;
 		onAbort?: () => Promise<void>;
 		onChange?: (value: string) => void;
+		onInputChange?: (value: string) => void;
 		onArrowKeys?: (direction: 'up' | 'down') => void;
 		children?: Snippet;
 		placeholder?: string;
 		readonly?: boolean;
 		pending?: boolean;
+		initialValue?: string;
 		items?: EditorItem[];
 		inputPopover?: Snippet<[string]>;
 	}
@@ -27,17 +29,25 @@
 		onSubmit,
 		onAbort,
 		onChange,
+		onInputChange,
 		onArrowKeys,
 		children,
 		readonly,
 		pending,
 		placeholder = 'Your message...',
+		initialValue,
 		items = $bindable([]),
 		inputPopover
 	}: Props = $props();
 
-	let value = $state('');
+	let value = $state(initialValue || '');
 	let chat: HTMLTextAreaElement | undefined = $state<HTMLTextAreaElement>();
+
+	$effect(() => {
+		if (!initialValue || (initialValue && initialValue !== value)) {
+			onInputChange?.(value);
+		}
+	});
 
 	export function focus() {
 		chat?.focus();
