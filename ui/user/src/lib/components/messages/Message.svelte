@@ -521,23 +521,24 @@
 							>
 								<FileSymlink class="size-4" />
 							</button>
-							<button
-								class="icon-button-small"
-								use:tooltip={'Download'}
-								onclick={() => {
-									const link = document.createElement('a');
-									link.href = `data:${content.mimeType};base64,${content.data}`;
-									link.download = `image-${Date.now()}.${content.mimeType.split('/')[1]}`;
-									document.body.appendChild(link);
-									link.click();
-									document.body.removeChild(link);
-								}}
-							>
-								<Download class="size-4" />
-							</button>
+							{@render downloadImageButton(
+								`data:${content.mimeType};base64,${content.data}`,
+								`image-${Date.now()}.${content.mimeType.split('/')[1]}`
+							)}
 						</div>
 					</div>
 				{/if}
+			{/each}
+		{:else if parsedOutput?.images}
+			{#each parsedOutput.images as image, i (i)}
+				<div class="flex flex-col gap-2">
+					<button class="mt-2 w-full max-w-md" onclick={() => onPreviewImage?.(image?.downloadUrl)}>
+						<img src={image?.downloadUrl} alt="tool output" class="rounded-xl" />
+					</button>
+					<div class="flex gap-2">
+						{@render downloadImageButton(image?.downloadUrl, image?.workspaceFilePath)}
+					</div>
+				</div>
 			{/each}
 		{/if}
 	{/if}
@@ -769,6 +770,23 @@
 {/if}
 
 <MemoriesDialog bind:this={memoriesDialog} {project} />
+
+{#snippet downloadImageButton(data: string, filename: string)}
+	<button
+		class="icon-button-small"
+		use:tooltip={'Download'}
+		onclick={() => {
+			const link = document.createElement('a');
+			link.href = data;
+			link.download = filename;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		}}
+	>
+		<Download class="size-4" />
+	</button>
+{/snippet}
 
 <style lang="postcss">
 	/* The :global is to get rid of warnings about the selector not being found */
