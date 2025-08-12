@@ -279,7 +279,7 @@
 		try {
 			response = await ChatService.createSingleOrRemoteMcpServer({
 				catalogEntryID: entry.id,
-				manifest: { remoteConfig: { url } },
+				manifest: url ? { remoteConfig: { url } } : {},
 				alias: aliasToUse
 			});
 		} catch (err) {
