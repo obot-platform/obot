@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (sm *SessionManager) GetServerDetails(ctx context.Context, mcpServerName string, serverConfig ServerConfig) (types.MCPServerDetails, error) {
+func (sm *SessionManager) GetServerDetails(ctx context.Context, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig) (types.MCPServerDetails, error) {
 	if serverConfig.URL != "" {
 		return types.MCPServerDetails{}, fmt.Errorf("getting server details is not supported for remote servers")
 	}
@@ -25,7 +25,7 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, mcpServerName st
 
 	id := deploymentID(serverConfig)
 
-	_, err := sm.ensureDeployment(ctx, id, serverConfig, mcpServerName)
+	_, err := sm.ensureDeployment(ctx, id, serverConfig, mcpServerDisplayName, mcpServerName)
 	if err != nil {
 		return types.MCPServerDetails{}, err
 	}

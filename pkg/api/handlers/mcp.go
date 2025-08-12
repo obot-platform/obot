@@ -1354,21 +1354,38 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 		connectURL = fmt.Sprintf("%s/mcp-connect/%s", serverURL, server.Name)
 	}
 
+	conditions := make([]types.DeploymentCondition, 0, len(server.Status.DeploymentConditions))
+	for _, cond := range server.Status.DeploymentConditions {
+		conditions = append(conditions, types.DeploymentCondition{
+			Type:               string(cond.Type),
+			Status:             string(cond.Status),
+			Reason:             cond.Reason,
+			Message:            cond.Message,
+			LastTransitionTime: *types.NewTime(cond.LastTransitionTime.Time),
+			LastUpdateTime:     *types.NewTime(cond.LastUpdateTime.Time),
+		})
+	}
+
 	return types.MCPServer{
-		Metadata:                   MetadataFrom(&server),
-		Alias:                      server.Spec.Alias,
-		MissingRequiredEnvVars:     missingEnvVars,
-		MissingRequiredHeaders:     missingHeaders,
-		UserID:                     server.Spec.UserID,
-		Configured:                 len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL,
-		MCPServerManifest:          server.Spec.Manifest,
-		CatalogEntryID:             server.Spec.MCPServerCatalogEntryName,
-		SharedWithinCatalogName:    server.Spec.SharedWithinMCPCatalogName,
-		ConnectURL:                 connectURL,
-		NeedsUpdate:                server.Status.NeedsUpdate,
-		NeedsURL:                   server.Spec.NeedsURL,
-		PreviousURL:                server.Spec.PreviousURL,
-		MCPServerInstanceUserCount: server.Status.MCPServerInstanceUserCount,
+		Metadata:                    MetadataFrom(&server),
+		Alias:                       server.Spec.Alias,
+		MissingRequiredEnvVars:      missingEnvVars,
+		MissingRequiredHeaders:      missingHeaders,
+		UserID:                      server.Spec.UserID,
+		Configured:                  len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL,
+		MCPServerManifest:           server.Spec.Manifest,
+		CatalogEntryID:              server.Spec.MCPServerCatalogEntryName,
+		SharedWithinCatalogName:     server.Spec.SharedWithinMCPCatalogName,
+		ConnectURL:                  connectURL,
+		NeedsUpdate:                 server.Status.NeedsUpdate,
+		NeedsURL:                    server.Spec.NeedsURL,
+		PreviousURL:                 server.Spec.PreviousURL,
+		MCPServerInstanceUserCount:  server.Status.MCPServerInstanceUserCount,
+		DeploymentStatus:            server.Status.DeploymentStatus,
+		DeploymentAvailableReplicas: server.Status.DeploymentAvailableReplicas,
+		DeploymentReadyReplicas:     server.Status.DeploymentReadyReplicas,
+		DeploymentReplicas:          server.Status.DeploymentReplicas,
+		DeploymentConditions:        conditions,
 	}
 }
 
@@ -1527,7 +1544,12 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		return err
 	}
 
-	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), server.Spec.Manifest.Name, serverConfig)
+	mcpServerDisplayName := server.Spec.Manifest.Name
+	if mcpServerDisplayName == "" {
+		mcpServerDisplayName = server.Name
+	}
+
+	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), mcpServerDisplayName, server.Name, serverConfig)
 	if err != nil {
 		return err
 	}

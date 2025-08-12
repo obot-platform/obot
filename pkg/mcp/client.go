@@ -22,12 +22,12 @@ func (c *Client) Capabilities() nmcp.ServerCapabilities {
 }
 
 func (sm *SessionManager) ClientForMCPServerWithOptions(ctx context.Context, clientScope string, mcpServer v1.MCPServer, serverConfig ServerConfig, opts ...nmcp.ClientOption) (*Client, error) {
-	mcpServerName := mcpServer.Spec.Manifest.Name
-	if mcpServerName == "" {
-		mcpServerName = mcpServer.Name
+	mcpServerDisplayName := mcpServer.Spec.Manifest.Name
+	if mcpServerDisplayName == "" {
+		mcpServerDisplayName = mcpServer.Name
 	}
 
-	return sm.clientForServerWithOptions(ctx, clientScope, mcpServerName, serverConfig, opts...)
+	return sm.clientForServerWithOptions(ctx, clientScope, mcpServerDisplayName, mcpServer.Name, serverConfig, opts...)
 }
 
 func (sm *SessionManager) ClientForMCPServer(ctx context.Context, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig) (*Client, error) {
@@ -35,41 +35,41 @@ func (sm *SessionManager) ClientForMCPServer(ctx context.Context, userID string,
 }
 
 func (sm *SessionManager) clientForMCPServerWithClientScope(ctx context.Context, clientScope, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig) (*Client, error) {
-	mcpServerName := mcpServer.Spec.Manifest.Name
-	if mcpServerName == "" {
-		mcpServerName = mcpServer.Name
+	mcpServerDisplayName := mcpServer.Spec.Manifest.Name
+	if mcpServerDisplayName == "" {
+		mcpServerDisplayName = mcpServer.Name
 	}
 
-	return sm.clientForServerWithScope(ctx, clientScope, userID, mcpServerName, mcpServer.Name, serverConfig)
+	return sm.clientForServerWithScope(ctx, clientScope, userID, mcpServerDisplayName, mcpServer.Name, serverConfig)
 }
 
-func (sm *SessionManager) ClientForServer(ctx context.Context, userID, mcpServerName, mcpServerID string, serverConfig ServerConfig) (*Client, error) {
-	return sm.clientForServerWithScope(ctx, "default", userID, mcpServerName, mcpServerID, serverConfig)
+func (sm *SessionManager) ClientForServer(ctx context.Context, userID, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig) (*Client, error) {
+	return sm.clientForServerWithScope(ctx, "default", userID, mcpServerDisplayName, mcpServerName, serverConfig)
 }
 
-func (sm *SessionManager) clientForServerWithScope(ctx context.Context, clientScope, userID, mcpServerName, mcpServerID string, serverConfig ServerConfig) (*Client, error) {
+func (sm *SessionManager) clientForServerWithScope(ctx context.Context, clientScope, userID, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig) (*Client, error) {
 	clientName := "Obot MCP Gateway"
 	var tokenStorage nmcp.TokenStorage
 	if serverConfig.Runtime == types.RuntimeRemote && strings.HasPrefix(serverConfig.URL, fmt.Sprintf("%s/mcp-connect/", sm.baseURL)) {
 		// If the URL points back to us, then this is Obot chat. Ensure the client name reflects that.
 		clientName = "Obot Chat"
 	} else {
-		tokenStorage = sm.tokenStorage.ForUserAndMCP(userID, mcpServerID)
+		tokenStorage = sm.tokenStorage.ForUserAndMCP(userID, mcpServerName)
 	}
 
-	return sm.clientForServerWithOptions(ctx, clientScope, mcpServerName, serverConfig, nmcp.ClientOption{
+	return sm.clientForServerWithOptions(ctx, clientScope, mcpServerDisplayName, mcpServerName, serverConfig, nmcp.ClientOption{
 		ClientName:   clientName,
 		TokenStorage: tokenStorage,
 	})
 }
 
-func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, clientScope, mcpServerName string, serverConfig ServerConfig, opts ...nmcp.ClientOption) (*Client, error) {
-	config, err := sm.transformServerConfig(ctx, mcpServerName, serverConfig)
+func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, clientScope, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig, opts ...nmcp.ClientOption) (*Client, error) {
+	config, err := sm.transformServerConfig(ctx, mcpServerDisplayName, mcpServerName, serverConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	session, err := sm.loadSession(config, clientScope, mcpServerName, opts...)
+	session, err := sm.loadSession(config, clientScope, mcpServerDisplayName, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MCP client: %w", err)
 	}
@@ -77,7 +77,7 @@ func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, client
 	return session, nil
 }
 
-func (sm *SessionManager) loadSession(server ServerConfig, clientScope, serverName string, clientOpts ...nmcp.ClientOption) (*Client, error) {
+func (sm *SessionManager) loadSession(server ServerConfig, clientScope, mcpServerDisplayName string, clientOpts ...nmcp.ClientOption) (*Client, error) {
 	id := deploymentID(server)
 	sessions, _ := sm.sessions.LoadOrStore(id, &sync.Map{})
 
@@ -99,7 +99,7 @@ func (sm *SessionManager) loadSession(server ServerConfig, clientScope, serverNa
 	}
 	sm.contextLock.Unlock()
 
-	c, err := nmcp.NewClient(sm.sessionCtx, serverName, nmcp.Server{
+	c, err := nmcp.NewClient(sm.sessionCtx, mcpServerDisplayName, nmcp.Server{
 		Env:     splitIntoMap(server.Env),
 		Command: server.Command,
 		Args:    server.Args,

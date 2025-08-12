@@ -149,6 +149,36 @@ type MCPServer struct {
 	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
 	// This is only set for multi-user servers.
 	MCPServerInstanceUserCount *int `json:"mcpServerInstanceUserCount,omitempty"`
+
+	// DeploymentStatus indicates the overall status of the MCP server deployment (Ready, Progressing, Failed).
+	DeploymentStatus string `json:"deploymentStatus,omitempty"`
+
+	// DeploymentAvailableReplicas is the number of available replicas in the deployment.
+	DeploymentAvailableReplicas *int32 `json:"deploymentAvailableReplicas,omitempty"`
+
+	// DeploymentReadyReplicas is the number of ready replicas in the deployment.
+	DeploymentReadyReplicas *int32 `json:"deploymentReadyReplicas,omitempty"`
+
+	// DeploymentReplicas is the desired number of replicas in the deployment.
+	DeploymentReplicas *int32 `json:"deploymentReplicas,omitempty"`
+
+	// DeploymentConditions contains key deployment conditions that indicate deployment health.
+	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
+}
+
+type DeploymentCondition struct {
+	// Type of deployment condition.
+	Type string `json:"type"`
+	// Status of the condition, one of True, False, Unknown.
+	Status string `json:"status"`
+	// The reason for the condition's last transition.
+	Reason string `json:"reason,omitempty"`
+	// A human readable message indicating details about the transition.
+	Message string `json:"message,omitempty"`
+	// Last time the condition transitioned from one status to another.
+	LastTransitionTime Time `json:"lastTransitionTime"`
+	// Last time the condition was updated.
+	LastUpdateTime Time `json:"lastUpdateTime"`
 }
 
 type MCPServerList List[MCPServer]

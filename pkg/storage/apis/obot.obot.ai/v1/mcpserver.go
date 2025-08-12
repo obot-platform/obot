@@ -5,6 +5,8 @@ import (
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -84,6 +86,31 @@ type MCPServerStatus struct {
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
 	MCPServerInstanceUserCount *int `json:"mcpInstanceUserCount,omitempty"`
+	// DeploymentStatus indicates the overall status of the MCP server deployment (Ready, Progressing, Failed).
+	DeploymentStatus string `json:"deploymentStatus,omitempty"`
+	// DeploymentAvailableReplicas is the number of available replicas in the deployment.
+	DeploymentAvailableReplicas *int32 `json:"deploymentAvailableReplicas,omitempty"`
+	// DeploymentReadyReplicas is the number of ready replicas in the deployment.
+	DeploymentReadyReplicas *int32 `json:"deploymentReadyReplicas,omitempty"`
+	// DeploymentReplicas is the desired number of replicas in the deployment.
+	DeploymentReplicas *int32 `json:"deploymentReplicas,omitempty"`
+	// DeploymentConditions contains key deployment conditions that indicate deployment health.
+	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
+}
+
+type DeploymentCondition struct {
+	// Type of deployment condition.
+	Type appsv1.DeploymentConditionType `json:"type"`
+	// Last time the condition transitioned from one status to another.
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+	// Last time the condition was updated.
+	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
+	// Status of the condition, one of True, False, Unknown.
+	Status corev1.ConditionStatus `json:"status"`
+	// The reason for the condition's last transition.
+	Reason string `json:"reason,omitempty" protobuf:"bytes,4,opt,name=reason"`
+	// A human readable message indicating details about the transition.
+	Message string `json:"message,omitempty" protobuf:"bytes,5,opt,name=message"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

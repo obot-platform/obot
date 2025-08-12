@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/obot-platform/nah"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/controller/data"
+	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/services"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/client-go/kubernetes/scheme"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Enable logrus logging in nah
@@ -18,6 +22,7 @@ import (
 
 type Controller struct {
 	router            *router.Router
+	localK8sRouter    *router.Router
 	services          *services.Services
 	toolRefHandler    *toolreference.Handler
 	mcpCatalogHandler *mcpcatalog.Handler
@@ -29,10 +34,18 @@ func New(services *services.Services) (*Controller, error) {
 		services: services,
 	}
 
-	err := c.setupRoutes()
-	if err != nil {
-		return nil, err
+	// Create local Kubernetes router if MCP is enabled and config is available
+	var err error
+	if services.LocalK8sConfig != nil {
+		c.localK8sRouter, err = c.createLocalK8sRouter()
+		if err != nil {
+			// Log warning but don't fail - MCP deployment monitoring is optional
+			return nil, fmt.Errorf("failed to create local Kubernetes router: %w", err)
+		}
 	}
+
+	c.setupRoutes()
+	c.setupLocalK8sRoutes()
 
 	services.Router.PosStart(c.PostStart)
 
@@ -69,5 +82,45 @@ func (c *Controller) Start(ctx context.Context) error {
 	if err := c.router.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start router: %w", err)
 	}
+
+	// Start the local Kubernetes router if it exists
+	if c.localK8sRouter != nil {
+		if err := c.localK8sRouter.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start local Kubernetes router: %w", err)
+		}
+	}
+
 	return nil
+}
+
+// createLocalK8sRouter creates a router for local Kubernetes resources
+func (c *Controller) createLocalK8sRouter() (*router.Router, error) {
+	// Create a scheme that includes the types we need to watch
+	localScheme := scheme.Scheme
+	if err := appsv1.AddToScheme(localScheme); err != nil {
+		return nil, fmt.Errorf("failed to add appsv1 to scheme: %w", err)
+	}
+
+	localRouter, err := nah.NewRouter("obot-local-k8s", &nah.Options{
+		RESTConfig:     c.services.LocalK8sConfig,
+		Scheme:         localScheme,
+		Namespace:      c.services.MCPLoader.GetMCPNamespace(),
+		ElectionConfig: nil, // No leader election for local router
+		HealthzPort:    -1,  // Disable healthz port
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create local Kubernetes router: %w", err)
+	}
+
+	return localRouter, nil
+}
+
+// setupLocalK8sRoutes sets up routes for the local Kubernetes router
+func (c *Controller) setupLocalK8sRoutes() {
+	if c.localK8sRouter == nil {
+		return
+	}
+
+	deploymentHandler := deployment.New(c.services.MCPLoader.GetMCPNamespace(), c.services.Router.Backend())
+	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 }

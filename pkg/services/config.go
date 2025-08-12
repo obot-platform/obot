@@ -55,7 +55,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
+	"k8s.io/client-go/rest"
 	gocache "k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 
 	// Setup nah logging
 	_ "github.com/obot-platform/nah/pkg/logrus"
@@ -155,6 +158,9 @@ type Services struct {
 
 	// OAuth configuration
 	OAuthServerConfig OAuthAuthorizationServerConfig
+
+	// Local Kubernetes configuration for deployment monitoring
+	LocalK8sConfig *rest.Config
 }
 
 const (
@@ -194,6 +200,19 @@ func copyKeys(envs []string) []string {
 
 	sort.Strings(newEnvs)
 	return newEnvs
+}
+
+// buildLocalK8sConfig creates a Kubernetes config for local cluster access
+func buildLocalK8sConfig() (*rest.Config, error) {
+	cfg, err := rest.InClusterConfig()
+	if err == nil {
+		return cfg, nil
+	}
+	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
+	if k := os.Getenv("KUBECONFIG"); k != "" {
+		kubeconfig = k
+	}
+	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
 
 func newGPTScript(ctx context.Context,
@@ -334,7 +353,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	gatewayClient := client.New(gatewayDB, encryptionConfig, config.AuthAdminEmails)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
-	mcpLoader, err := mcp.NewSessionManager(ctx, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig))
+	// Build local Kubernetes config for deployment monitoring (optional)
+	var localK8sConfig *rest.Config
+	if config.MCPBaseImage != "" {
+		localK8sConfig, err = buildLocalK8sConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to build local Kubernetes config: %w", err)
+		}
+	}
+
+	mcpLoader, err := mcp.NewSessionManager(ctx, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -649,6 +677,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		},
 		AccessControlRuleHelper: acrHelper,
 		WebhookHelper:           mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer()),
+		LocalK8sConfig:          localK8sConfig,
 	}, nil
 }
 

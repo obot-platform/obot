@@ -38,7 +38,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (c *Controller) setupRoutes() error {
+func (c *Controller) setupRoutes() {
 	root := c.router
 
 	workflowExecution := workflowexecution.New(c.services.Invoker)
@@ -279,5 +279,4 @@ func (c *Controller) setupRoutes() error {
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog
-	return nil
 }

@@ -14,15 +14,15 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (sm *SessionManager) k8sObjectsForUVXOrNPX(id string, server ServerConfig, serverName string) ([]kclient.Object, error) {
+func (sm *SessionManager) k8sObjectsForUVXOrNPX(id string, server ServerConfig, serverDisplayName, serverName string) ([]kclient.Object, error) {
 	if server.Runtime != otypes.RuntimeUVX && server.Runtime != otypes.RuntimeNPX {
 		return nil, fmt.Errorf("invalid runtime: %s", server.Runtime)
 	}
 
 	args := []string{"run", "--listen-address", ":8099", "/run/nanobot.yaml"}
 	annotations := map[string]string{
-		"mcp-server-tool-name": serverName,
-		"mcp-server-scope":     server.Scope,
+		"mcp-server-name":  serverName,
+		"mcp-server-scope": server.Scope,
 	}
 
 	objs := make([]kclient.Object, 0, 5)
@@ -62,7 +62,7 @@ func (sm *SessionManager) k8sObjectsForUVXOrNPX(id string, server ServerConfig, 
 	}
 
 	var err error
-	nanobotFileStringData["nanobot.yaml"], err = constructNanobotYAML(serverName, server.Command, server.Args, secretStringData)
+	nanobotFileStringData["nanobot.yaml"], err = constructNanobotYAML(serverDisplayName, server.Command, server.Args, secretStringData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
 	}
@@ -100,7 +100,8 @@ func (sm *SessionManager) k8sObjectsForUVXOrNPX(id string, server ServerConfig, 
 			Namespace:   sm.mcpNamespace,
 			Annotations: annotations,
 			Labels: map[string]string{
-				"app": id,
+				"app":             id,
+				"mcp-server-name": serverName,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -113,7 +114,8 @@ func (sm *SessionManager) k8sObjectsForUVXOrNPX(id string, server ServerConfig, 
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: annotations,
 					Labels: map[string]string{
-						"app": id,
+						"app":             id,
+						"mcp-server-name": serverName,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -212,8 +214,8 @@ func (sm *SessionManager) k8sObjectsForContainerized(id string, server ServerCon
 	}
 
 	annotations := map[string]string{
-		"mcp-server-tool-name": serverName,
-		"mcp-server-scope":     server.Scope,
+		"mcp-server-name":  serverName,
+		"mcp-server-scope": server.Scope,
 	}
 
 	objs := make([]kclient.Object, 0, 4)
@@ -273,7 +275,8 @@ func (sm *SessionManager) k8sObjectsForContainerized(id string, server ServerCon
 			Namespace:   sm.mcpNamespace,
 			Annotations: annotations,
 			Labels: map[string]string{
-				"app": id,
+				"app":             id,
+				"mcp-server-name": serverName,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -286,7 +289,8 @@ func (sm *SessionManager) k8sObjectsForContainerized(id string, server ServerCon
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: annotations,
 					Labels: map[string]string{
-						"app": id,
+						"app":             id,
+						"mcp-server-name": serverName,
 					},
 				},
 				Spec: corev1.PodSpec{

@@ -45,6 +45,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAlias":                            schema_obot_platform_obot_apiclient_types_DefaultModelAlias(ref),
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasList":                        schema_obot_platform_obot_apiclient_types_DefaultModelAliasList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DefaultModelAliasManifest":                    schema_obot_platform_obot_apiclient_types_DefaultModelAliasManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeploymentCondition":                          schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiver":                                schema_obot_platform_obot_apiclient_types_EmailReceiver(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverList":                            schema_obot_platform_obot_apiclient_types_EmailReceiverList(ref),
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest":                        schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref),
@@ -218,6 +219,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasList":       schema_storage_apis_obotobotai_v1_DefaultModelAliasList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasSpec":       schema_storage_apis_obotobotai_v1_DefaultModelAliasSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DefaultModelAliasStatus":     schema_storage_apis_obotobotai_v1_DefaultModelAliasStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition":         schema_storage_apis_obotobotai_v1_DeploymentCondition(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiver":               schema_storage_apis_obotobotai_v1_EmailReceiver(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiverList":           schema_storage_apis_obotobotai_v1_EmailReceiverList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmailReceiverSpec":           schema_storage_apis_obotobotai_v1_EmailReceiverSpec(ref),
@@ -1859,6 +1861,63 @@ func schema_obot_platform_obot_apiclient_types_DefaultModelAliasManifest(ref com
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_DeploymentCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of deployment condition.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status of the condition, one of True, False, Unknown.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The reason for the condition's last transition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A human readable message indicating details about the transition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Last time the condition transitioned from one status to another.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastUpdateTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Last time the condition was updated.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"type", "status", "lastTransitionTime", "lastUpdateTime"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_EmailReceiver(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3315,12 +3374,54 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:      "int32",
 						},
 					},
+					"deploymentStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeploymentStatus indicates the overall status of the MCP server deployment (Ready, Progressing, Failed).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"deploymentAvailableReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeploymentAvailableReplicas is the number of available replicas in the deployment.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deploymentReadyReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeploymentReadyReplicas is the number of ready replicas in the deployment.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deploymentReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeploymentReplicas is the desired number of replicas in the deployment.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deploymentConditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeploymentConditions contains key deployment conditions that indicate deployment health.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.DeploymentCondition"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"Metadata", "manifest", "userID", "configured", "catalogEntryID"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+			"github.com/obot-platform/obot/apiclient/types.DeploymentCondition", "github.com/obot-platform/obot/apiclient/types.MCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Metadata"},
 	}
 }
 
@@ -9866,6 +9967,63 @@ func schema_storage_apis_obotobotai_v1_DefaultModelAliasStatus(ref common.Refere
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_DeploymentCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of deployment condition.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Last time the condition transitioned from one status to another.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastUpdateTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Last time the condition was updated.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status of the condition, one of True, False, Unknown.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The reason for the condition's last transition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A human readable message indicating details about the transition.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "status"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_EmailReceiver(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -11604,9 +11762,53 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 							Format:      "int32",
 						},
 					},
+					"deploymentStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeploymentStatus indicates the overall status of the MCP server deployment (Ready, Progressing, Failed).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"deploymentAvailableReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeploymentAvailableReplicas is the number of available replicas in the deployment.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deploymentReadyReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeploymentReadyReplicas is the number of ready replicas in the deployment.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deploymentReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeploymentReplicas is the desired number of replicas in the deployment.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"deploymentConditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeploymentConditions contains key deployment conditions that indicate deployment health.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.DeploymentCondition"},
 	}
 }
 

@@ -28,7 +28,7 @@ func Run(ctx context.Context, c services.Config) error {
 	go func() {
 		ctrl, err := controller.New(svcs)
 		if err != nil {
-			log.Fatalf("Failed to start controller: %v", err)
+			log.Fatalf("Failed to create controller: %v", err)
 		}
 		if err = ctrl.PreStart(ctx); err != nil {
 			log.Fatalf("Failed to start controller: %v", err)

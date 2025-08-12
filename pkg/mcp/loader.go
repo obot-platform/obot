@@ -8,8 +8,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -27,8 +25,6 @@ import (
 	ktypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -68,18 +64,14 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseURL string, opts Options) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseURL string, opts Options, localK8sConfig *rest.Config) (*SessionManager, error) {
 	var (
 		client    kclient.WithWatch
 		clientset kubernetes.Interface
 	)
-	if opts.MCPBaseImage != "" {
-		config, err := buildConfig()
-		if err != nil {
-			return nil, err
-		}
-
-		client, err = kclient.NewWithWatch(config, kclient.Options{})
+	if localK8sConfig != nil {
+		var err error
+		client, err = kclient.NewWithWatch(localK8sConfig, kclient.Options{})
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +84,7 @@ func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseU
 			log.Warnf("failed to create MCP namespace, namespace must exist for MCP deployments to work: %v", err)
 		}
 
-		clientset, err = kubernetes.NewForConfig(config)
+		clientset, err = kubernetes.NewForConfig(localK8sConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -108,6 +100,11 @@ func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseU
 		mcpNamespace:      opts.MCPNamespace,
 		allowLocalhostMCP: !opts.DisallowLocalhostMCP,
 	}, nil
+}
+
+// GetMCPNamespace returns the MCP namespace used by this session manager
+func (sm *SessionManager) GetMCPNamespace() string {
+	return sm.mcpNamespace
 }
 
 // Close does nothing with the deployments and services. It just closes the local session.
@@ -291,9 +288,9 @@ func (sm *SessionManager) Load(_ context.Context, t types.Tool) ([]types.Tool, e
 	return nil, fmt.Errorf("MCP servers must be loaded in Obot: %s", t.Name)
 }
 
-func (sm *SessionManager) ensureDeployment(ctx context.Context, id string, server ServerConfig, serverName string) (ServerConfig, error) {
+func (sm *SessionManager) ensureDeployment(ctx context.Context, id string, server ServerConfig, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
 	if server.Runtime == otypes.RuntimeRemote && server.URL == "" {
-		return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", serverName)
+		return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", mcpServerDisplayName)
 	}
 
 	if server.Runtime == otypes.RuntimeRemote || !sm.KubernetesEnabled() {
@@ -327,9 +324,9 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, id string, serve
 	)
 	switch server.Runtime {
 	case otypes.RuntimeNPX, otypes.RuntimeUVX:
-		objs, err = sm.k8sObjectsForUVXOrNPX(id, server, serverName)
+		objs, err = sm.k8sObjectsForUVXOrNPX(id, server, mcpServerDisplayName, mcpServerName)
 	case otypes.RuntimeContainerized:
-		objs, err = sm.k8sObjectsForContainerized(id, server, serverName)
+		objs, err = sm.k8sObjectsForContainerized(id, server, mcpServerName)
 	default:
 		return ServerConfig{}, fmt.Errorf("unsupported MCP runtime: %s", server.Runtime)
 	}
@@ -353,8 +350,8 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, id string, serve
 	return ServerConfig{URL: fullURL, Scope: podName, AllowedTools: server.AllowedTools}, nil
 }
 
-func (sm *SessionManager) transformServerConfig(ctx context.Context, mcpServerName string, serverConfig ServerConfig) (ServerConfig, error) {
-	return sm.ensureDeployment(ctx, deploymentID(serverConfig), serverConfig, mcpServerName)
+func (sm *SessionManager) transformServerConfig(ctx context.Context, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig) (ServerConfig, error) {
+	return sm.ensureDeployment(ctx, deploymentID(serverConfig), serverConfig, mcpServerDisplayName, mcpServerName)
 }
 
 func deploymentID(server ServerConfig) string {
@@ -541,18 +538,4 @@ type nanobotConfigMCPServer struct {
 	Command string            `json:"command,omitempty"`
 	Args    []string          `json:"args,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
-}
-
-func buildConfig() (*rest.Config, error) {
-	cfg, err := rest.InClusterConfig()
-	if err == nil {
-		return cfg, nil
-	}
-
-	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
-	if k := os.Getenv("KUBECONFIG"); k != "" {
-		kubeconfig = k
-	}
-
-	return clientcmd.BuildConfigFromFlags("", kubeconfig)
 }
