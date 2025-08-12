@@ -297,6 +297,11 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, id string, serve
 	}
 
 	if server.Runtime == otypes.RuntimeRemote || !sm.KubernetesEnabled() {
+		if server.Runtime == otypes.RuntimeContainerized {
+			// The containerized runtime is not supported when Kubernetes is disabled.
+			return ServerConfig{}, fmt.Errorf("containerized MCP servers are not supported when running Obot outside of Kubernetes")
+		}
+
 		if !sm.allowLocalhostMCP && server.URL != "" {
 			// Ensure the URL is not a localhost URL.
 			u, err := url.Parse(server.URL)
