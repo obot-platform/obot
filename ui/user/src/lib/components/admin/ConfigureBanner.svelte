@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { onMount } from 'svelte';
 
@@ -53,7 +54,7 @@
 						Provider.
 					</p>
 				{/if}
-				{#if !isAuthProviderConfigured}
+				{#if !isAuthProviderConfigured && version.current.authEnabled}
 					<p class="text-sm font-light">
 						<b class="font-semibold">Auth Provider:</b> To support multiple users, configure an Auth
 						Provider.
@@ -68,7 +69,7 @@
 							Configure Model Provider
 						</a>
 					{/if}
-					{#if !isAuthProviderConfigured}
+					{#if !isAuthProviderConfigured && version.current.authEnabled}
 						<a
 							href="/admin/auth-providers"
 							class="button grow bg-yellow-500 text-center text-sm text-black hover:bg-yellow-500/70"
