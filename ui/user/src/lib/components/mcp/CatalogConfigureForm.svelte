@@ -157,7 +157,7 @@
 			<div class="my-4 flex flex-col gap-4">
 				<div class="flex flex-col gap-1">
 					<span class="flex items-center gap-2">
-						<label for="name"> Server Name </label>
+						<label for="name"> Server Alias </label>
 						<span class="text-gray-400 dark:text-gray-600">(optional)</span>
 						<InfoTooltip
 							text="Uses server name as default. Duplicate instances default to a number increment added at the end of name."
