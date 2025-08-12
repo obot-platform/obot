@@ -103,6 +103,9 @@
 				messages: [],
 				inProgress: false
 			};
+
+			layout.input = '';
+			input?.setValue('');
 		}
 
 		scrollSmooth = false;
@@ -588,6 +591,7 @@
 						await tick();
 						scrollControls?.stickToBottom();
 						await thread?.invoke(i);
+						onInputChange?.('');
 						isNew = false;
 					}}
 					onArrowKeys={(direction) => {
