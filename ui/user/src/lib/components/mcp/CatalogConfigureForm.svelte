@@ -30,6 +30,7 @@
 		loading?: boolean;
 		error?: string;
 		serverId?: string;
+		isNew?: boolean;
 	}
 	let {
 		form = $bindable(),
@@ -41,14 +42,20 @@
 		submitText = 'Save',
 		loading,
 		error,
-		serverId
+		serverId,
+		isNew
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let highlightedFields = $state<Set<string>>(new Set());
 	let showConfirmClose = $state(false);
+	let initialFormJson = $state<string>('');
 
 	export function open() {
 		configDialog?.open();
+		if (!isNew) {
+			// store initial form data as jsonified string for comparison when not new
+			initialFormJson = JSON.stringify(form);
+		}
 	}
 
 	function clearHighlights() {
@@ -96,6 +103,7 @@
 
 	export function close() {
 		clearHighlights();
+		initialFormJson = '';
 		configDialog?.close();
 	}
 
@@ -109,6 +117,11 @@
 
 		return hasEnvOrHeaderFilled || hasHostnameAndUrl;
 	}
+
+	function hasFormChanged() {
+		if (!initialFormJson) return false;
+		return JSON.stringify(form) !== initialFormJson;
+	}
 </script>
 
 <ResponsiveDialog
@@ -118,7 +131,7 @@
 		clearHighlights();
 	}}
 	onClickOutside={() => {
-		if (hasFieldFilledOut(form)) {
+		if ((isNew && hasFieldFilledOut(form)) || (!isNew && hasFormChanged())) {
 			showConfirmClose = true;
 		} else {
 			configDialog?.close();
@@ -155,16 +168,18 @@
 			}}
 		>
 			<div class="my-4 flex flex-col gap-4">
-				<div class="flex flex-col gap-1">
-					<span class="flex items-center gap-2">
-						<label for="name"> Server Alias </label>
-						<span class="text-gray-400 dark:text-gray-600">(optional)</span>
-						<InfoTooltip
-							text="Uses server name as default. Duplicate instances default to a number increment added at the end of name."
-						/>
-					</span>
-					<input type="text" id="name" bind:value={form.name} class="text-input-filled" />
-				</div>
+				{#if isNew}
+					<div class="flex flex-col gap-1">
+						<span class="flex items-center gap-2">
+							<label for="name"> Server Alias </label>
+							<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+							<InfoTooltip
+								text="Uses server name as default. Duplicate instances default to a number increment added at the end of name."
+							/>
+						</span>
+						<input type="text" id="name" bind:value={form.name} class="text-input-filled" />
+					</div>
+				{/if}
 				{#if form.envs && form.envs.length > 0}
 					{#each form.envs as env, i (env.key)}
 						{@const highlightRequired = highlightedFields.has(env.key) && !env.value}

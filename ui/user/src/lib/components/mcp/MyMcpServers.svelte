@@ -567,6 +567,7 @@
 	onSave={handleConfigureForm}
 	submitText={selectedEntryOrServer && 'server' in selectedEntryOrServer ? 'Update' : 'Launch'}
 	loading={saving}
+	isNew={selectedEntryOrServer && 'isCatalogEntry' in selectedEntryOrServer}
 />
 
 <CatalogEditAliasForm bind:this={editAliasDialog} {editingServer} {onUpdateConfigure} />
