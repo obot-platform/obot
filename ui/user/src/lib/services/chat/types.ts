@@ -142,6 +142,7 @@ export interface Version {
 	dockerSupported?: boolean;
 	sessionStore?: string;
 	obot?: string;
+	authEnabled?: boolean;
 }
 
 export interface Profile {

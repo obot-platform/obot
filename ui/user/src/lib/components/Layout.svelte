@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { columnResize } from '$lib/actions/resize';
-	import { profile, responsive } from '$lib/stores';
+	import { profile, responsive, version } from '$lib/stores';
 	import { initLayout, getLayout } from '$lib/context/layout.svelte';
 	import type { Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -27,6 +27,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
+	import InfoTooltip from './InfoTooltip.svelte';
 
 	interface Props {
 		classes?: {
@@ -120,11 +121,16 @@
 						href: '/admin/auth-providers',
 						icon: LockKeyhole,
 						label: 'Auth Providers',
+						disabled: !version.current.authEnabled,
 						collapsible: false
 					}
 				]
 			: []
 	);
+
+	const tooltips = {
+		'/admin/auth-providers': 'Enable authentication to access this page.'
+	};
 
 	afterNavigate(() => {
 		pathname = window.location.pathname;
@@ -160,20 +166,25 @@
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link (link.href)}
 							<div class="flex">
-								{#if link.disabled}
-									<div class="sidebar-link disabled">
-										<link.icon class="size-5" />
-										{link.label}
-									</div>
-								{:else}
-									<a
-										href={link.href}
-										class={twMerge('sidebar-link', link.href === pathname && 'bg-surface2')}
-									>
-										<link.icon class="size-5" />
-										{link.label}
-									</a>
-								{/if}
+								<div class="flex items-center">
+									{#if link.disabled}
+										<div class="sidebar-link disabled">
+											<link.icon class="size-5" />
+											{link.label}
+										</div>
+									{:else}
+										<a
+											href={link.href}
+											class={twMerge('sidebar-link', link.href === pathname && 'bg-surface2')}
+										>
+											<link.icon class="size-5" />
+											{link.label}
+										</a>
+									{/if}
+									{#if tooltips[link.href as keyof typeof tooltips]}
+										<InfoTooltip text={tooltips[link.href as keyof typeof tooltips]} />
+									{/if}
+								</div>
 								{#if link.collapsible}
 									<button
 										class="px-2"
