@@ -5,7 +5,6 @@
 	import type { UsageStatsFilters, AuditLogUsageStats, OrgUser } from '$lib/services/admin/types';
 	import { X } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
-	import { selectedCompletion } from '@codemirror/autocomplete';
 
 	interface Props {
 		usageStats?: AuditLogUsageStats;
