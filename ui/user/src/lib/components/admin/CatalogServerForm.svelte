@@ -14,7 +14,7 @@
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import { onMount, type Snippet } from 'svelte';
-	import MarkdownInput from './MarkdownInput.svelte';
+	import MarkdownInput from '../MarkdownInput.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 	import { twMerge } from 'tailwind-merge';
 

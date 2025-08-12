@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/actions/textarea.js';
-	import MarkdownInput from '$lib/components/admin/MarkdownInput.svelte';
+	import MarkdownInput from '$lib/components/MarkdownInput.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';

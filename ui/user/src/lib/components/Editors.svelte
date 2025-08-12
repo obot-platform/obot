@@ -5,7 +5,7 @@
 	import { ChatService, EditorService, type InvokeInput, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { isTextFile } from '$lib/utils';
-	import { Copy, Download } from 'lucide-svelte';
+	import { Copy, Download, SquareChartGantt, SquareCode } from 'lucide-svelte';
 	import { X } from 'lucide-svelte/icons';
 
 	interface Props {
@@ -14,6 +14,7 @@
 	}
 
 	let { project, currentThreadID }: Props = $props();
+	let mdMode = $state<'wysiwyg' | 'raw'>('wysiwyg');
 	let saveTimeout: ReturnType<typeof setTimeout>;
 	const layout = getLayout();
 
@@ -70,9 +71,27 @@
 <div class="relative flex h-full w-full flex-col">
 	{#if layout.items.length > 1 || !layout.items[0]?.generic}
 		{@const selected = layout.items.find((item) => item.selected)}
+		{@const isMdFile = selected?.name.toLowerCase().endsWith('.md')}
 		<div class="file-tabs relative flex items-center justify-between gap-2 p-2">
-			<h4 class="px-2 text-base font-semibold text-gray-400 dark:text-gray-600">
+			<h4
+				class="flex items-center gap-1 px-2 text-base font-semibold text-gray-400 dark:text-gray-600"
+			>
 				{selected?.name}
+				{#if isMdFile}
+					<button
+						class="icon-button"
+						onclick={() => {
+							mdMode = mdMode === 'wysiwyg' ? 'raw' : 'wysiwyg';
+						}}
+						use:tooltip={mdMode === 'wysiwyg' ? 'Edit as raw markdown' : 'Use WYSIWYG editor'}
+					>
+						{#if mdMode === 'wysiwyg'}
+							<SquareCode class="size-5" />
+						{:else}
+							<SquareChartGantt class="size-5" />
+						{/if}
+					</button>
+				{/if}
 			</h4>
 			<div class="flex items-center gap-2">
 				{#if copyable}
@@ -119,7 +138,7 @@
 	{/if}
 
 	<div class="default-scrollbar-thin relative flex grow flex-col overflow-y-auto">
-		<FileEditors {onFileChanged} {onInvoke} bind:items={layout.items} />
+		<FileEditors {onFileChanged} {onInvoke} bind:items={layout.items} {mdMode} />
 	</div>
 </div>
 

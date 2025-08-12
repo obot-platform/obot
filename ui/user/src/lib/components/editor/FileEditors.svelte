@@ -1,20 +1,21 @@
 <script lang="ts">
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import type { InvokeInput } from '$lib/services';
-	import Milkdown from '$lib/components/editor/Milkdown.svelte';
 	import Pdf from '$lib/components/editor/Pdf.svelte';
 	import { isImage } from '$lib/image';
 	import Image from '$lib/components/editor/Image.svelte';
 	import Codemirror from '$lib/components/editor/Codemirror.svelte';
+	import MarkdownFile from './MarkdownFile.svelte';
 
 	interface Props {
 		onFileChanged: (name: string, contents: string) => void;
 		onInvoke?: (invoke: InvokeInput) => void;
 		items: EditorItem[];
+		mdMode?: 'raw' | 'wysiwyg';
 	}
 
 	let height = $state<number>();
-	let { onFileChanged, onInvoke, items = $bindable() }: Props = $props();
+	let { onFileChanged, onInvoke, items = $bindable(), mdMode = 'wysiwyg' }: Props = $props();
 </script>
 
 {#each items as file (file.name)}
@@ -33,7 +34,7 @@
 			bind:clientHeight={height}
 		>
 			{#if file.name.toLowerCase().endsWith('.md')}
-				<Milkdown {file} {onFileChanged} {onInvoke} {items} class="p-5 pt-0" />
+				<MarkdownFile {file} {onFileChanged} mode={mdMode} {onInvoke} {items} />
 			{:else if isImage(file.name)}
 				<Image {file} />
 			{:else if [...(file?.file?.contents ?? '')].some((char) => char.charCodeAt(0) === 0)}

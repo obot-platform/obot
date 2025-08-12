@@ -12,7 +12,8 @@
 		drawSelection,
 		dropCursor,
 		keymap,
-		placeholder as cmPlaceholder
+		placeholder as cmPlaceholder,
+		EditorView
 	} from '@codemirror/view';
 	import {
 		foldGutter,
@@ -40,11 +41,22 @@
 	interface Props {
 		value?: string;
 		class?: string;
+		classes?: {
+			input?: string;
+		};
 		disabled?: boolean;
 		placeholder?: string;
+		disablePreview?: boolean;
 	}
 
-	let { value = $bindable(''), class: klass, disabled, placeholder }: Props = $props();
+	let {
+		value = $bindable(''),
+		class: klass,
+		classes,
+		disabled,
+		placeholder,
+		disablePreview
+	}: Props = $props();
 
 	let lastSetValue = '';
 	let focused = $state(false);
@@ -56,6 +68,8 @@
 
 	// CodeMirror basic setup
 	const basicSetup = (() => [
+		// Enable line wrapping
+		EditorView.lineWrapping,
 		lineNumbers(),
 		highlightActiveLineGutter(),
 		highlightSpecialChars(),
@@ -171,40 +185,42 @@
 <div
 	class={twMerge(
 		'text-input-filled border-surface3 flex flex-col gap-0 overflow-hidden border p-0 transition-colors dark:bg-black',
-		focused && !disabled && 'ring-2 ring-blue-500 outline-none',
+		focused && !disabled && !disablePreview && 'ring-2 ring-blue-500 outline-none',
 		disabled && 'disabled opacity-50',
 		klass
 	)}
 >
-	<div
-		class="dark:border-surface3 dark:bg-surface2 flex items-center border-b text-sm font-light text-gray-500"
-	>
-		<button
-			class={twMerge(
-				'px-4 py-2',
-				!showPreview &&
-					'dark:border-surface3 relative z-10 translate-y-[1px] border-r bg-white font-medium text-black dark:bg-black dark:text-white'
-			)}
-			onclick={() => {
-				showPreview = false;
-				// Focus the editor after it becomes visible
-				setTimeout(() => {
-					if (cmView && !disabled) {
-						cmView.focus();
-					}
-				}, 0);
-			}}>Write</button
+	{#if !disablePreview}
+		<div
+			class="dark:border-surface3 dark:bg-surface2 flex items-center border-b text-sm font-light text-gray-500"
 		>
-		<button
-			class={twMerge(
-				'px-4 py-2',
-				showPreview &&
-					'dark:border-surface3 relative z-10 translate-y-[1px] border-x bg-white font-medium text-black dark:bg-black dark:text-white'
-			)}
-			onclick={() => (showPreview = true)}>Preview</button
-		>
-	</div>
-	{#if showPreview}
+			<button
+				class={twMerge(
+					'px-4 py-2',
+					!showPreview &&
+						'dark:border-surface3 relative z-10 translate-y-[1px] border-r bg-white font-medium text-black dark:bg-black dark:text-white'
+				)}
+				onclick={() => {
+					showPreview = false;
+					// Focus the editor after it becomes visible
+					setTimeout(() => {
+						if (cmView && !disabled) {
+							cmView.focus();
+						}
+					}, 0);
+				}}>Write</button
+			>
+			<button
+				class={twMerge(
+					'px-4 py-2',
+					showPreview &&
+						'dark:border-surface3 relative z-10 translate-y-[1px] border-x bg-white font-medium text-black dark:bg-black dark:text-white'
+				)}
+				onclick={() => (showPreview = true)}>Preview</button
+			>
+		</div>
+	{/if}
+	{#if !disablePreview && showPreview}
 		<div
 			class="milkdown-content default-scrollbar-thin h-48 overflow-y-auto bg-white p-4 dark:bg-black"
 		>
@@ -212,7 +228,10 @@
 		</div>
 	{:else}
 		<div
-			class="default-scrollbar-thin h-48 max-h-49 overflow-y-auto bg-white p-4 dark:bg-black"
+			class={twMerge(
+				'default-scrollbar-thin h-48 max-h-49 overflow-y-auto bg-white p-4 dark:bg-black ',
+				classes?.input
+			)}
 			use:cmEditor
 			onfocusin={() => (focused = true)}
 			onfocusout={() => (focused = false)}
