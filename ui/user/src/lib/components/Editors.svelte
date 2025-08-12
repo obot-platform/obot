@@ -4,7 +4,8 @@
 	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, EditorService, type InvokeInput, type Project } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
-	import { Download } from 'lucide-svelte';
+	import { isTextFile } from '$lib/utils';
+	import { Copy, Download } from 'lucide-svelte';
 	import { X } from 'lucide-svelte/icons';
 
 	interface Props {
@@ -25,6 +26,15 @@
 		}
 
 		return !!selected?.file;
+	});
+
+	let copyable = $derived.by(() => {
+		const selected = layout.items.find((item) => item.selected);
+
+		// Check if file is a text type that can be copied
+		if (selected?.name && isTextFile(selected.name)) {
+			return true;
+		}
 	});
 
 	const debouncedSave = (item: EditorItem) => {
@@ -59,16 +69,29 @@
 
 <div class="relative flex h-full w-full flex-col">
 	{#if layout.items.length > 1 || !layout.items[0]?.generic}
+		{@const selected = layout.items.find((item) => item.selected)}
 		<div class="file-tabs relative flex items-center justify-between gap-2 p-2">
 			<h4 class="px-2 text-base font-semibold text-gray-400 dark:text-gray-600">
-				{layout.items.find((item) => item.selected)?.name}
+				{selected?.name}
 			</h4>
 			<div class="flex items-center gap-2">
+				{#if copyable}
+					<button
+						class="icon-button"
+						onclick={() => {
+							if (selected?.file?.contents) {
+								navigator.clipboard.writeText(selected.file.contents);
+							}
+						}}
+						use:tooltip={'Copy File Contents'}
+					>
+						<Copy class="h-5 w-5" />
+					</button>
+				{/if}
 				{#if downloadable}
 					<button
 						class="icon-button"
 						onclick={() => {
-							const selected = layout.items.find((item) => item.selected);
 							if (selected) {
 								EditorService.download(layout.items, project, selected.name, {
 									taskID: selected.file?.taskID,

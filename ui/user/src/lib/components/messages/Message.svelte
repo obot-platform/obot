@@ -18,6 +18,7 @@
 	import MemoriesDialog from '$lib/components/MemoriesDialog.svelte';
 	import { linear } from 'svelte/easing';
 	import { twMerge } from 'tailwind-merge';
+	import { isTextFile } from '$lib/utils';
 
 	interface Props {
 		msg: Message;
@@ -229,9 +230,9 @@
 		}
 	}
 
-	async function copyContentToClipboard() {
+	async function copyContentToClipboard(textContent?: string) {
 		try {
-			await navigator.clipboard.writeText(content);
+			await navigator.clipboard.writeText(textContent ?? content);
 		} catch (err) {
 			console.error('Failed to copy message:', err);
 		}
@@ -397,6 +398,19 @@
 				></div>
 			</div>
 		</button>
+		{#if msg.file.content && isTextFile(msg.file.filename)}
+			<div class="flex gap-2">
+				<div>
+					<button
+						use:tooltip={'Copy file contents to clipboard'}
+						class="icon-button-small"
+						onclick={() => copyContentToClipboard(msg.file?.content)}
+					>
+						<Copy class="h-4 w-4" />
+					</button>
+				</div>
+			</div>
+		{/if}
 	{/if}
 {/snippet}
 
