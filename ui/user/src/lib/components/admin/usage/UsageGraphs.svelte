@@ -26,6 +26,7 @@
 		users: OrgUser[];
 		filters?: UsageStatsFilters;
 		sort?: { sortBy: string; sortOrder: 'asc' | 'desc' };
+		serverNames?: string[];
 	}
 
 	let {
@@ -34,7 +35,8 @@
 		mcpServerDisplayName,
 		filters,
 		sort = { sortBy: 'created_at', sortOrder: 'desc' },
-		users
+		users,
+		serverNames
 	}: Props = $props();
 
 	let listUsageStats = $state<Promise<AuditLogUsageStats>>();
@@ -348,13 +350,33 @@
 	</div>
 {:then stats}
 	{#if !hasData(filteredGraphConfigs)}
-		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<ChartBarDecreasing class="size-24 text-gray-200 dark:text-gray-900" />
-			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No usage stats</h4>
-			<p class="w-sm text-sm font-light text-gray-400 dark:text-gray-600">
-				Currently, there are no usage stats for the range or selected filters. Try modifying your
-				search criteria or try again later.
-			</p>
+		<div class="flex flex-col gap-8">
+			<div class="flex items-center justify-between gap-4">
+				<div class="flex-1">
+					<StatBar startTime={filters?.startTime ?? ''} endTime={filters?.endTime ?? ''} />
+				</div>
+				{#if !(mcpId || mcpCatalogEntryId || mcpServerDisplayName)}
+					<button
+						class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
+						onclick={() => {
+							showFilters = true;
+							rightSidebar?.show();
+						}}
+					>
+						<Funnel class="size-4" />
+						Filters
+					</button>
+				{/if}
+			</div>
+
+			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+				<ChartBarDecreasing class="size-24 text-gray-200 dark:text-gray-900" />
+				<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No usage stats</h4>
+				<p class="w-sm text-sm font-light text-gray-400 dark:text-gray-600">
+					Currently, there are no usage stats for the range or selected filters. Try modifying your
+					search criteria or try again later.
+				</p>
+			</div>
 		</div>
 	{:else}
 		<div class="flex flex-col gap-8">
@@ -437,17 +459,23 @@
 					</div>
 				{/each}
 			</div>
-
-			<dialog
-				bind:this={rightSidebar}
-				use:clickOutside={[handleRightSidebarClose, true]}
-				use:dialogAnimation={{ type: 'drawer' }}
-				class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-dvh w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
-			>
-				{#if showFilters}
-					<UsageFilters usageStats={stats} {users} onClose={handleRightSidebarClose} {filters} />
-				{/if}
-			</dialog>
 		</div>
 	{/if}
+
+	<dialog
+		bind:this={rightSidebar}
+		use:clickOutside={[handleRightSidebarClose, true]}
+		use:dialogAnimation={{ type: 'drawer' }}
+		class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-screen w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
+	>
+		{#if showFilters}
+			<UsageFilters
+				usageStats={stats}
+				{users}
+				onClose={handleRightSidebarClose}
+				{filters}
+				{serverNames}
+			/>
+		{/if}
+	</dialog>
 {/await}

@@ -3,7 +3,7 @@
 	import { afterNavigate, goto } from '$app/navigation';
 	import Calendar, { type DateRange } from '$lib/components/Calendar.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { PAGE_TRANSITION_DURATION, DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { type OrgUser, type UsageStatsFilters, AdminService } from '$lib/services';
 	import UsageGraphs from '$lib/components/admin/usage/UsageGraphs.svelte';
 
@@ -14,6 +14,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let users = $state<OrgUser[]>([]);
+	let serverNames = $state<string[]>([]);
 	let currentFilters = $state<UsageStatsFilters>({});
 
 	let timeRange = $derived(
@@ -33,6 +34,26 @@
 
 		AdminService.listUsers().then((userData) => {
 			users = userData;
+		});
+
+		Promise.all([
+			AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID),
+			AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID)
+		]).then(([entries, servers]) => {
+			const names = new Set<string>();
+			for (const entry of entries ?? []) {
+				if (!entry.deleted && entry.manifest?.name) {
+					names.add(entry.manifest.name);
+				}
+			}
+			for (const server of servers ?? []) {
+				if (!server.deleted && server.manifest?.name) {
+					names.add(server.manifest.name);
+				}
+			}
+			serverNames = Array.from(names).sort((a, b) =>
+				a.toLowerCase().localeCompare(b.toLowerCase())
+			);
 		});
 	});
 
@@ -192,6 +213,7 @@
 				startTime: timeRange.startTime,
 				endTime: timeRange.endTime
 			}}
+			{serverNames}
 		/>
 	</div>
 {/snippet}

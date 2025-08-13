@@ -11,6 +11,7 @@
 		users: OrgUser[];
 		onClose: () => void;
 		filters?: UsageStatsFilters;
+		serverNames?: string[];
 	}
 
 	type FilterSet = {
@@ -29,7 +30,8 @@
 	function generateFilters(
 		stats?: AuditLogUsageStats,
 		users: OrgUser[] = [],
-		filters?: UsageStatsFilters
+		filters?: UsageStatsFilters,
+		serverNamesFromCatalog?: string[]
 	) {
 		const filterSets: FilterSet[] = [
 			{
@@ -48,35 +50,28 @@
 			}
 		];
 
-		// Collect all unique users and servers from the usage stats
-		const userIds = new Set<string>();
 		const serverNames = new Set<string>();
+		if (serverNamesFromCatalog && serverNamesFromCatalog.length > 0) {
+			for (const name of serverNamesFromCatalog) {
+				if (name) serverNames.add(name);
+			}
+		}
 
 		if (stats?.items) {
 			for (const item of stats.items) {
-				if (item.mcpServerDisplayName) {
+				if (!serverNamesFromCatalog?.length && item.mcpServerDisplayName) {
 					serverNames.add(item.mcpServerDisplayName);
-				}
-
-				// Extract user IDs from tool calls
-				for (const toolCall of item.toolCalls ?? []) {
-					for (const callItem of toolCall.items ?? []) {
-						if (callItem.userID) {
-							userIds.add(callItem.userID);
-						}
-					}
 				}
 			}
 		}
 
-		// Populate user filter values
-		for (const userId of userIds) {
-			const user = users.find((u) => u.id === userId);
+		// Populate user filter values from provided users list
+		for (const user of users) {
 			const displayName = user?.displayName || 'Unknown';
 			const email = user?.email;
-			filterSets[0].values[userId] = {
+			filterSets[0].values[user.id] = {
 				label: email ? `${displayName} (${email})` : displayName,
-				id: userId
+				id: user.id
 			};
 		}
 
@@ -91,7 +86,7 @@
 		return filterSets;
 	}
 
-	let { usageStats, users, onClose, filters }: Props = $props();
+	let { usageStats, users, onClose, filters, serverNames }: Props = $props();
 
 	let localFilters = $state({
 		userIds: filters?.userIds?.join(',') ?? '',
@@ -99,20 +94,25 @@
 	});
 
 	let filterInputs = $derived(
-		generateFilters(usageStats, users, {
-			userIds: localFilters.userIds
-				? localFilters.userIds
-						.split(',')
-						.map((s) => s.trim())
-						.filter(Boolean)
-				: undefined,
-			mcpServerDisplayNames: localFilters.mcpServerDisplayNames
-				? localFilters.mcpServerDisplayNames
-						.split(',')
-						.map((s) => s.trim())
-						.filter(Boolean)
-				: undefined
-		})
+		generateFilters(
+			usageStats,
+			users,
+			{
+				userIds: localFilters.userIds
+					? localFilters.userIds
+							.split(',')
+							.map((s) => s.trim())
+							.filter(Boolean)
+					: undefined,
+				mcpServerDisplayNames: localFilters.mcpServerDisplayNames
+					? localFilters.mcpServerDisplayNames
+							.split(',')
+							.map((s) => s.trim())
+							.filter(Boolean)
+					: undefined
+			},
+			serverNames
+		)
 	);
 
 	function handleApplyFilters() {
@@ -176,7 +176,9 @@
 		class="default-scrollbar-thin flex h-[calc(100%-60px)] flex-col gap-4 overflow-y-auto p-4 pt-0"
 	>
 		{#each filterInputs as filterInput, _index (filterInput.property)}
-			{@const options = Object.values(filterInput.values)}
+			{@const options = Object.values(filterInput.values).sort((a, b) =>
+				a.label.toLowerCase().localeCompare(b.label.toLowerCase())
+			)}
 			{#if options.length > 0}
 				<div class="mb-2 flex flex-col gap-1">
 					<label
