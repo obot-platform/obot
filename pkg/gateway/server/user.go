@@ -47,9 +47,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {
-	query := types.NewUserQuery(apiContext.URL.Query())
-
-	users, err := apiContext.GatewayClient.Users(apiContext.Context(), query)
+	users, err := apiContext.GatewayClient.Users(apiContext.Context(), types.NewUserQuery(apiContext.URL.Query()))
 	if err != nil {
 		return fmt.Errorf("failed to get users: %v", err)
 	}
