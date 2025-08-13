@@ -189,7 +189,11 @@
 			.filter((item) => !selectedCategory || item.server?.categories?.includes(selectedCategory))
 	]);
 	let userServerConfigureMap = $derived(
-		new Set(userConfiguredServers.map((server) => server.catalogEntryID))
+		new Set(
+			userConfiguredServers
+				.filter((server) => !server.deleted)
+				.map((server) => server.catalogEntryID)
+		)
 	);
 	let filteredConnectedServers = $derived(
 		connectedServers
