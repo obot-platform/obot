@@ -14,16 +14,9 @@
 
 	let { file: refFile, onFileChanged, mode = 'wysiwyg', onInvoke, items }: Props = $props();
 	// updating of the actual file.file.contents is handled during invoke of chat
-	// so have to keep a local state of the contents to share between the two variations
-	let contents = $state(refFile?.file?.contents ?? '');
-	let filename = $state(refFile?.name ?? '');
-
-	$effect(() => {
-		if (refFile) {
-			contents = refFile.file?.contents ?? '';
-			filename = refFile.name ?? '';
-		}
-	});
+	// so have to keep a reference of the contents to share between the two variations
+	let contents = $derived(refFile?.file?.contents ?? '');
+	let filename = $derived(refFile?.name ?? '');
 
 	$effect(() => {
 		if (contents && contents !== refFile?.file?.contents && refFile.name === filename) {
@@ -37,19 +30,7 @@
 </script>
 
 {#if mode === 'wysiwyg' && refFile?.file}
-	<Milkdown
-		file={{
-			...refFile,
-			file: {
-				...refFile.file,
-				contents
-			}
-		}}
-		onFileChanged={handleFileChange}
-		{onInvoke}
-		{items}
-		class="p-5 pt-0"
-	/>
+	<Milkdown file={refFile} onFileChanged={handleFileChange} {onInvoke} {items} class="p-5 pt-0" />
 {:else}
 	<MarkdownInput
 		bind:value={contents}
