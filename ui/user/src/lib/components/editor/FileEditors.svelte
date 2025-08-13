@@ -40,13 +40,7 @@
 			{:else if [...(file?.file?.contents ?? '')].some((char) => char.charCodeAt(0) === 0)}
 				{@render unsupportedFile()}
 			{:else}
-				<Codemirror
-					{file}
-					{onFileChanged}
-					{onInvoke}
-					{items}
-					class="m-0 overflow-hidden rounded-b-2xl"
-				/>
+				<Codemirror {file} {onFileChanged} {onInvoke} {items} class="m-0 rounded-b-2xl" />
 			{/if}
 		</div>
 	{/if}

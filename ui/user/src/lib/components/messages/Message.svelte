@@ -86,6 +86,15 @@
 	let showToolInputDetails = $state(false);
 	let showToolOutputDetails = $state(false);
 
+	// For file content, we want to animate the content as it's written
+	let fileCursor = new Tween(0);
+	let prevFileContent = $state('');
+	let animatedFileContent = $derived(
+		msg.file?.content && !msg.done
+			? msg.file.content.slice(0, fileCursor.current)
+			: msg.file?.content || ''
+	);
+
 	// Check if this is an Memory tool message
 	let isMemoryTool = $derived(
 		msg.sourceName === 'Create Memory' ||
@@ -103,6 +112,17 @@
 
 		animating = true;
 		cursor.set(content.length, { duration: 500 }).then(() => (animating = false));
+	});
+
+	$effect(() => {
+		if (msg.file?.content && !msg.done) {
+			if (!msg.file.content.startsWith(prevFileContent)) {
+				fileCursor.set(0, { duration: 0 });
+			}
+			prevFileContent = msg.file.content;
+
+			fileCursor.set(msg.file.content.length, { duration: 300 });
+		}
 	});
 
 	$effect(() => {
@@ -378,24 +398,36 @@
 {/snippet}
 
 {#snippet files()}
-	{#if msg.file?.filename}
+	{#if msg.file}
 		<button
-			class="my-2 flex max-w-[750px] cursor-pointer flex-col overflow-x-auto rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg dark:bg-black dark:text-gray-50"
+			class={twMerge(
+				'my-2 flex w-[750px] cursor-pointer flex-col rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg dark:bg-black dark:text-gray-50',
+				!msg.file?.filename && 'cursor-wait'
+			)}
+			disabled={!msg.file?.filename}
 			onclick={fileLoad}
 		>
 			<div class="text-md flex justify-between gap-2 px-5 pt-4">
 				<div class="flex items-center gap-2 truncate">
-					<FileText class="min-w-fit" />
-					<span use:overflowToolTip>{msg.file.filename}</span>
+					<FileText class="size-4" />
+					{#if msg.file?.filename}
+						<span use:overflowToolTip>{msg.file.filename}</span>
+					{:else}
+						<span class="text-gray-400 dark:text-gray-600">...</span>
+					{/if}
 				</div>
 			</div>
 			<div class="relative">
 				<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
-					{msg.file.content.split('\n').splice(0, 6).join('\n')}
+					{#if msg.file?.content}
+						{animatedFileContent}
+					{/if}
 				</div>
-				<div
-					class="absolute bottom-0 z-20 h-24 w-full rounded-3xl bg-linear-to-b from-transparent to-white dark:to-black"
-				></div>
+				{#if !msg.done}
+					<div
+						class="absolute bottom-0 z-20 h-24 w-full rounded-3xl bg-linear-to-b from-transparent to-white dark:to-black"
+					></div>
+				{/if}
 			</div>
 		</button>
 		{#if msg.file.content && isTextFile(msg.file.filename)}

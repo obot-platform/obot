@@ -63,8 +63,6 @@
 		} else if (entry && 'isCatalogEntry' in entry && catalogId) {
 			listEntryServers = AdminService.listMCPServersForEntry(catalogId, entry.id);
 		}
-
-		console.log('type: ', type);
 	});
 
 	async function handleMultiUpdate() {

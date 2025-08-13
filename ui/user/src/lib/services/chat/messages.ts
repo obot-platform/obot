@@ -146,7 +146,7 @@ function reformatWriteMessage(
 	msg.sourceName = msg.done ? 'Wrote to Workspace' : 'Writing to Workspace';
 	try {
 		const obj = getFilenameAndContent(msg);
-		if (obj.filename) {
+		if (obj) {
 			msg.file = {
 				filename: obj.filename,
 				content: ''
