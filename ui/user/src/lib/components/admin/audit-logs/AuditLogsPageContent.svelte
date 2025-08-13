@@ -294,14 +294,13 @@
 
 	function getUserDisplayName(id: string): string {
 		const user = users.get(id);
-		let display = (
+		let display =
 			user?.displayName ??
 			user?.originalUsername ??
 			user?.originalEmail ??
 			user?.username ??
 			user?.email ??
-			'Unknown User'
-		);
+			'Unknown User';
 
 		if (user?.deletedAt) {
 			display += ' (Deleted)';
