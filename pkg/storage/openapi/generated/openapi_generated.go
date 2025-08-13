@@ -8552,6 +8552,23 @@ func schema_obot_platform_obot_apiclient_types_User(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"deletedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"originalEmail": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"originalUsername": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "lastActiveDay"},
 			},
