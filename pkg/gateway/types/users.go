@@ -41,7 +41,7 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 		return nil
 	}
 
-	return &types2.User{
+	user := &types2.User{
 		Metadata: types2.Metadata{
 			ID:      fmt.Sprint(u.ID),
 			Created: *types2.NewTime(u.CreatedAt),
@@ -58,7 +58,15 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 		Internal:                   u.Internal,
 		DailyPromptTokensLimit:     u.DailyPromptTokensLimit,
 		DailyCompletionTokensLimit: u.DailyCompletionTokensLimit,
+		OriginalEmail:              u.OriginalEmail,
+		OriginalUsername:           u.OriginalUsername,
 	}
+
+	if u.DeletedAt != nil {
+		user.DeletedAt = *types2.NewTime(*u.DeletedAt)
+	}
+
+	return user
 }
 
 type UserQuery struct {
@@ -75,9 +83,10 @@ func NewUserQuery(u url.Values) UserQuery {
 	}
 
 	return UserQuery{
-		Username: u.Get("username"),
-		Email:    u.Get("email"),
-		Role:     types2.Role(role),
+		Username:       u.Get("username"),
+		Email:          u.Get("email"),
+		Role:           types2.Role(role),
+		IncludeDeleted: u.Get("includeDeleted") == "true",
 	}
 }
 

@@ -144,11 +144,6 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, er
 			return err
 		}
 
-		// Still delete associated identities as they're not needed for soft-deleted users
-		if err := tx.Where("user_id = ?", existingUser.ID).Delete(new(types.Identity)).Error; err != nil {
-			return err
-		}
-
 		return nil
 	}); err != nil {
 		return nil, err
@@ -363,6 +358,16 @@ func (c *Client) encryptUser(ctx context.Context, user *types.User) error {
 	} else {
 		user.DisplayName = base64.StdEncoding.EncodeToString(b)
 	}
+	if b, err = transformer.TransformToStorage(ctx, []byte(user.OriginalEmail), dataCtx); err != nil {
+		errs = append(errs, err)
+	} else {
+		user.OriginalEmail = base64.StdEncoding.EncodeToString(b)
+	}
+	if b, err = transformer.TransformToStorage(ctx, []byte(user.OriginalUsername), dataCtx); err != nil {
+		errs = append(errs, err)
+	} else {
+		user.OriginalUsername = base64.StdEncoding.EncodeToString(b)
+	}
 
 	user.Encrypted = true
 
@@ -431,6 +436,30 @@ func (c *Client) decryptUser(ctx context.Context, user *types.User) error {
 			errs = append(errs, err)
 		} else {
 			user.DisplayName = string(out)
+		}
+	} else {
+		errs = append(errs, err)
+	}
+
+	decoded = make([]byte, base64.StdEncoding.DecodedLen(len(user.OriginalEmail)))
+	n, err = base64.StdEncoding.Decode(decoded, []byte(user.OriginalEmail))
+	if err == nil {
+		if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			user.OriginalEmail = string(out)
+		}
+	} else {
+		errs = append(errs, err)
+	}
+
+	decoded = make([]byte, base64.StdEncoding.DecodedLen(len(user.OriginalUsername)))
+	n, err = base64.StdEncoding.Decode(decoded, []byte(user.OriginalUsername))
+	if err == nil {
+		if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			user.OriginalUsername = string(out)
 		}
 	} else {
 		errs = append(errs, err)

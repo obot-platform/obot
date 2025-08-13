@@ -114,6 +114,12 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		}
 	}
 
+	for _, identity := range identities {
+		if err := u.gatewayClient.RemoveIdentity(req.Ctx, &identity); err != nil {
+			return err
+		}
+	}
+
 	if err = deleteThreadAuthorizationsForUser(req.Ctx, req.Client, strconv.FormatUint(uint64(userDelete.Spec.UserID), 10)); err != nil {
 		return fmt.Errorf("failed to delete thread authorizations for user %d: %w", userDelete.Spec.UserID, err)
 	}

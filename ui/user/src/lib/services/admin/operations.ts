@@ -295,6 +295,11 @@ export async function listUsers(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> 
 	return response.items ?? [];
 }
 
+export async function listUsersIncludeDeleted(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> {
+	const response = (await doGet('/users?includeDeleted=true', opts)) as ItemsResponse<OrgUser>;
+	return response.items ?? [];
+}
+
 export async function getUser(
 	userID: string,
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }

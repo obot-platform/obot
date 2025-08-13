@@ -115,6 +115,9 @@ export interface OrgUser {
 	id: string;
 	lastActiveDay?: string;
 	displayName?: string;
+	deletedAt?: string;
+	originalEmail?: string;
+	originalUsername?: string;
 }
 
 export interface OrgGroup {

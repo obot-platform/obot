@@ -286,10 +286,35 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	return user, nil
 }
 
-// RemoveIdentity deletes an identity and the associated user from the database.
-// The identity and user are deleted using UserID if set, otherwise ProviderUsername.
+// RemoveIdentity deletes an identity from the database.
+// The identity is deleted using UserID if set, otherwise ProviderUsername.
 // The method is idempotent and ignores not-found errors, returning only unexpected errors.
 func (c *Client) RemoveIdentity(ctx context.Context, id *types.Identity) error {
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var identityQuery *gorm.DB
+
+		// Build queries based on UserID or ProviderUsername
+		if id.UserID != 0 {
+			// Use UserID if set
+			identityQuery = tx.Where("user_id = ?", id.UserID)
+		} else {
+			// Fall back to ProviderUsername
+			identityQuery = tx.Where("hashed_provider_user_id = ?", id.HashedProviderUserID)
+		}
+
+		// Attempt to delete the identity
+		if err := identityQuery.Delete(&types.Identity{}).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+
+		return nil
+	})
+}
+
+// RemoveIdentityAndUser deletes an identity and the associated user from the database.
+// The identity and user are deleted using UserID if set, otherwise ProviderUsername.
+// The method is idempotent and ignores not-found errors, returning only unexpected errors.
+func (c *Client) RemoveIdentityAndUser(ctx context.Context, id *types.Identity) error {
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var identityQuery, userQuery *gorm.DB
 

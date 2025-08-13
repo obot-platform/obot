@@ -540,7 +540,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Clean up "nobody" user from previous "Authentication Disabled" runs.
 		// This reduces the chance that someone could authenticate as "nobody" and get admin access once authentication
 		// is enabled.
-		if err := gatewayClient.RemoveIdentity(ctx, &types.Identity{
+		if err := gatewayClient.RemoveIdentityAndUser(ctx, &types.Identity{
 			ProviderUsername:     "nobody",
 			ProviderUserID:       "nobody",
 			HashedProviderUserID: hash.String("nobody"),

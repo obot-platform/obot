@@ -221,7 +221,7 @@
 	});
 
 	afterNavigate(() => {
-		AdminService.listUsers().then((userData) => {
+		AdminService.listUsersIncludeDeleted().then((userData) => {
 			for (const user of userData) {
 				users.set(user.id, user);
 			}
@@ -294,7 +294,20 @@
 
 	function getUserDisplayName(id: string): string {
 		const user = users.get(id);
-		return user?.displayName ?? user?.username ?? user?.email ?? 'Unknown User';
+		let display = (
+			user?.displayName ??
+			user?.originalUsername ??
+			user?.originalEmail ??
+			user?.username ??
+			user?.email ??
+			'Unknown User'
+		);
+
+		if (user?.deletedAt) {
+			display += ' (Deleted)';
+		}
+
+		return display;
 	}
 
 	function getFilterDisplayLabel(key: keyof AuditLogURLFilters) {

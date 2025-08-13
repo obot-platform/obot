@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
@@ -12,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/proxy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
@@ -45,7 +47,9 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {
-	users, err := apiContext.GatewayClient.Users(apiContext.Context(), types.NewUserQuery(apiContext.URL.Query()))
+	query := types.NewUserQuery(apiContext.URL.Query())
+
+	users, err := apiContext.GatewayClient.Users(apiContext.Context(), query)
 	if err != nil {
 		return fmt.Errorf("failed to get users: %v", err)
 	}
@@ -203,6 +207,16 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	}); err != nil {
 		return fmt.Errorf("failed to start deletion of user owned objects: %v", err)
 	}
+
+	// Tell the browser to remove the access token cookie, so that the user does not immediately attempt to authenticate again.
+	http.SetCookie(apiContext.ResponseWriter, &http.Cookie{
+		Name:     proxy.ObotAccessTokenCookie,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   strings.HasPrefix(s.uiURL, "https://"),
+	})
 
 	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.IsExplicitAdmin(existingUser.Email), ""))
 }
