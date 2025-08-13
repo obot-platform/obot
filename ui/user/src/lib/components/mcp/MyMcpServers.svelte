@@ -269,7 +269,7 @@
 			launchProgress = 80;
 		}, 10000);
 
-		const url = configureForm?.url || entry.manifest.remoteConfig?.fixedURL;
+		const url = (configureForm?.url || entry.manifest.remoteConfig?.fixedURL)?.trim();
 		const serverName = entry.manifest.name || '';
 
 		// Generate unique alias if there's a naming conflict
@@ -408,7 +408,7 @@
 					await ChatService.updateSingleOrRemoteMcpServer(selectedEntryOrServer.server.id, {
 						...selectedEntryOrServer.parent.manifest,
 						remoteConfig: {
-							url: configureForm.url
+							url: configureForm.url.trim()
 						}
 					});
 				}
