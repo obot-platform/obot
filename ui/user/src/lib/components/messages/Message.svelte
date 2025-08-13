@@ -86,6 +86,9 @@
 	let showToolInputDetails = $state(false);
 	let showToolOutputDetails = $state(false);
 
+	let showCopied = $state(false);
+	let copiedTimeout = $state<ReturnType<typeof setTimeout>>();
+
 	// For file content, we want to animate the content as it's written
 	let fileCursor = new Tween(0);
 	let prevFileContent = $state('');
@@ -251,8 +254,17 @@
 	}
 
 	async function copyContentToClipboard(textContent?: string) {
+		if (copiedTimeout) {
+			clearTimeout(copiedTimeout);
+		}
+
 		try {
 			await navigator.clipboard.writeText(textContent ?? content);
+			showCopied = true;
+
+			copiedTimeout = setTimeout(() => {
+				showCopied = false;
+			}, 750);
 		} catch (err) {
 			console.error('Failed to copy message:', err);
 		}
@@ -764,7 +776,7 @@
 					<div class={twMerge('mt-2 -ml-1 flex gap-2', classes?.messageActions)}>
 						<div>
 							<button
-								use:tooltip={'Copy message to clipboard'}
+								use:tooltip={showCopied ? 'Copied!' : 'Copy message to clipboard'}
 								class="icon-button-small"
 								onclick={() => copyContentToClipboard()}
 							>
