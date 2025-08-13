@@ -610,15 +610,17 @@
 				>
 					<div class="flex w-full items-center justify-between">
 						<div class="flex items-center">
-							<div in:fade>
-								<Files
-									thread
-									{project}
-									bind:currentThreadID={id}
-									helperText="Files"
-									classes={{ list: 'max-h-[60vh] space-y-4 overflow-y-auto pt-2 pb-6 text-sm' }}
-								/>
-							</div>
+							{#key id}
+								<div in:fade>
+									<Files
+										thread
+										{project}
+										bind:currentThreadID={id}
+										helperText="Files"
+										classes={{ list: 'max-h-[60vh] space-y-4 overflow-y-auto pt-2 pb-6 text-sm' }}
+									/>
+								</div>
+							{/key}
 						</div>
 						{#if projectModelProvider && projectModel}
 							<ThreadModelSelector
