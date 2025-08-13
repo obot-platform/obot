@@ -41,7 +41,7 @@ func (c *Client) ActiveUsersByDate(ctx context.Context, start, end time.Time) ([
 			Pluck("user_id", &ids).Error; err != nil {
 			return err
 		}
-		return tx.Where("id IN (?) AND NOT internal", ids).Find(&users).Error
+		return tx.Where("id IN (?) AND NOT internal AND deleted_at IS NULL", ids).Find(&users).Error
 	}); err != nil {
 		return nil, err
 	}

@@ -30,6 +30,10 @@ type User struct {
 	DailyPromptTokensLimit     int       `json:"dailyPromptTokensLimit"`
 	DailyCompletionTokensLimit int       `json:"dailyCompletionTokensLimit"`
 	Encrypted                  bool      `json:"encrypted"`
+	// Soft delete fields
+	DeletedAt        *time.Time `json:"deletedAt,omitempty"`
+	OriginalEmail    string     `json:"-"`
+	OriginalUsername string     `json:"-"`
 }
 
 func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User {
@@ -58,9 +62,10 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 }
 
 type UserQuery struct {
-	Username string
-	Email    string
-	Role     types2.Role
+	Username       string
+	Email          string
+	Role           types2.Role
+	IncludeDeleted bool
 }
 
 func NewUserQuery(u url.Values) UserQuery {
@@ -85,6 +90,11 @@ func (q UserQuery) Scope(db *gorm.DB) *gorm.DB {
 	}
 	if q.Role != 0 {
 		db = db.Where("role = ?", q.Role)
+	}
+
+	// Filter out soft-deleted users by default
+	if !q.IncludeDeleted {
+		db = db.Where("deleted_at IS NULL")
 	}
 
 	return db.Order("id")

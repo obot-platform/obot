@@ -37,7 +37,7 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 
 		// First, get any potential users that match the search term.
 
-		users, err := c.Users(ctx, types.UserQuery{})
+		users, err := c.UsersIncludeDeleted(ctx, types.UserQuery{})
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to get users: %w", err)
 		}
