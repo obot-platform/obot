@@ -21,6 +21,7 @@
 	import { slide } from 'svelte/transition';
 	import { responsive } from '$lib/stores';
 	import { parseErrorContent } from '$lib/errors';
+	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import Search from '../Search.svelte';
 
 	interface Props {
@@ -356,9 +357,12 @@
 							</div>
 						</div>
 						{#if expandedDescriptions[tool.id] || allDescriptionsEnabled}
-							<p in:slide={{ axis: 'y' }} class="text-sm font-light text-gray-500">
-								{tool.description}
-							</p>
+							<div
+								in:slide={{ axis: 'y' }}
+								class="milkdown-content max-w-none text-sm font-light text-gray-500"
+							>
+								{@html toHTMLFromMarkdownWithNewTabLinks(tool.description || '')}
+							</div>
 							{#if Object.keys(tool.params ?? {}).length > 0}
 								{#if expandedParams[tool.id] || allParamsEnabled}
 									<div
