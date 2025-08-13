@@ -62,10 +62,14 @@
 		highlightedFields = new Set();
 	}
 
+	function hasUrl(url?: string) {
+		return url?.trim().length ?? 0 > 0;
+	}
+
 	function missingRequiredFields(form: LaunchFormData) {
 		if (!form) return false;
 
-		if (form.hostname && !form.url) {
+		if (form.hostname && !hasUrl(form.url)) {
 			return true;
 		}
 
@@ -113,7 +117,7 @@
 		const hasEnvOrHeaderFilled = [...(form.envs ?? []), ...(form.headers ?? [])].some(
 			(field) => field.value
 		);
-		const hasHostnameAndUrl = form.hostname && form.url;
+		const hasHostnameAndUrl = form.hostname && hasUrl(form.url);
 
 		return hasEnvOrHeaderFilled || hasHostnameAndUrl;
 	}
