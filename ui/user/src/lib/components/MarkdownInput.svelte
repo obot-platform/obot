@@ -222,14 +222,14 @@
 	{/if}
 	{#if !disablePreview && showPreview}
 		<div
-			class="milkdown-content default-scrollbar-thin h-48 overflow-y-auto bg-white p-4 dark:bg-black"
+			class="milkdown-content default-scrollbar-thin max-h-[650px] min-h-48 overflow-y-auto bg-white p-4 dark:bg-black"
 		>
 			{@html toHTMLFromMarkdownWithNewTabLinks(value)}
 		</div>
 	{:else}
 		<div
 			class={twMerge(
-				'default-scrollbar-thin h-48 max-h-49 overflow-y-auto bg-white p-4 dark:bg-black ',
+				'default-scrollbar-thin max-h-[650px] min-h-48 overflow-y-auto bg-white p-4 dark:bg-black ',
 				classes?.input
 			)}
 			use:cmEditor
