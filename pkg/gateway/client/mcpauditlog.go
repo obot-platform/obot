@@ -85,7 +85,7 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 		db = db.Where("call_type IN (?)", opts.CallType)
 	}
 	if len(opts.CallIdentifier) > 0 {
-		db = db.Where("call_identifier IN (?)", opts.CallType)
+		db = db.Where("call_identifier IN (?)", opts.CallIdentifier)
 	}
 	if len(opts.SessionID) > 0 {
 		db = db.Where("session_id IN (?)", opts.SessionID)
