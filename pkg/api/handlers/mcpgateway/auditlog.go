@@ -1,6 +1,7 @@
 package mcpgateway
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -190,6 +191,9 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 			}
 		}
 	}
+
+	// Ensure final options are lexicographically sorted after merging defaults
+	sort.Strings(options)
 
 	return req.Write(map[string]any{
 		"options": options,
