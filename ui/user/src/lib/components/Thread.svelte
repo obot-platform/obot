@@ -178,6 +178,11 @@
 			onItemsChanged: (items) => {
 				layout.items = items;
 			},
+			onEditingFile: (filename, content) => {
+				if (layout.fileEditorOpen && content && layout.projectEditorContent !== content) {
+					layout.projectEditorContent = content;
+				}
+			},
 			onMemoryCall: () => {
 				layout.sidebarMemoryUpdateAvailable = true;
 			}
@@ -323,6 +328,10 @@
 
 	let projectModelProvider = $derived(project.defaultModelProvider ?? projectDefaultModelProvider);
 	let projectModel = $derived(project.defaultModel ?? projectDefaultModel);
+	let openedEditorFile = $derived(
+		layout.fileEditorOpen ? layout.items.find((item) => item.selected) : undefined
+	);
+	let lastMessageWithFile = $derived(messages.messages.findLastIndex((msg) => msg.file));
 
 	$effect(() => {
 		if (!project.defaultModelProvider || !project.defaultModel) {
@@ -554,6 +563,7 @@
 							imagePreviewSrc = imgSrc;
 							imagePreviewDialog?.showModal();
 						}}
+						compactFilePreview={!!openedEditorFile || i !== lastMessageWithFile}
 					/>
 				{/each}
 			{/if}

@@ -17,10 +17,11 @@
 	let mdMode = $state<'wysiwyg' | 'raw'>('wysiwyg');
 	let saveTimeout: ReturnType<typeof setTimeout>;
 	const layout = getLayout();
+	let selected = $derived.by(() => {
+		return layout.items.find((item) => item.selected);
+	});
 
 	let downloadable = $derived.by(() => {
-		const selected = layout.items.find((item) => item.selected);
-
 		// embedded pdf viewer has it's own download button
 		if (selected?.name.toLowerCase().endsWith('.pdf')) {
 			return false;
@@ -35,6 +36,16 @@
 		// Check if file is a text type that can be copied
 		if (selected?.name && isTextFile(selected.name)) {
 			return true;
+		}
+	});
+
+	$effect(() => {
+		if (
+			layout.projectEditorContent &&
+			selected?.file?.contents &&
+			selected.file.contents === layout.projectEditorContent
+		) {
+			layout.projectEditorContent = undefined;
 		}
 	});
 
@@ -138,7 +149,13 @@
 	{/if}
 
 	<div class="default-scrollbar-thin relative flex grow flex-col overflow-y-auto">
-		<FileEditors {onFileChanged} {onInvoke} bind:items={layout.items} {mdMode} />
+		<FileEditors
+			{onFileChanged}
+			{onInvoke}
+			bind:items={layout.items}
+			{mdMode}
+			overrideContent={layout.projectEditorContent}
+		/>
 	</div>
 </div>
 
