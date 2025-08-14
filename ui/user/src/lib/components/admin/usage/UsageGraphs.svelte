@@ -355,18 +355,20 @@
 				<div class="flex-1">
 					<StatBar startTime={filters?.startTime ?? ''} endTime={filters?.endTime ?? ''} />
 				</div>
-				{#if !(mcpId || mcpCatalogEntryId || mcpServerDisplayName)}
-					<button
-						class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
-						onclick={() => {
-							showFilters = true;
-							rightSidebar?.show();
-						}}
-					>
-						<Funnel class="size-4" />
-						Filters
-					</button>
-				{/if}
+				<div class="flex items-center gap-2">
+					{#if !(mcpId || mcpCatalogEntryId || mcpServerDisplayName)}
+						<button
+							class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
+							onclick={() => {
+								showFilters = true;
+								rightSidebar?.show();
+							}}
+						>
+							<Funnel class="size-4" />
+							Filters
+						</button>
+					{/if}
+				</div>
 			</div>
 
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
@@ -385,18 +387,20 @@
 				<div class="flex-1">
 					<StatBar startTime={filters?.startTime ?? ''} endTime={filters?.endTime ?? ''} />
 				</div>
-				{#if !(mcpId || mcpCatalogEntryId || mcpServerDisplayName)}
-					<button
-						class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
-						onclick={() => {
-							showFilters = true;
-							rightSidebar?.show();
-						}}
-					>
-						<Funnel class="size-4" />
-						Filters
-					</button>
-				{/if}
+				<div class="flex items-center gap-2">
+					{#if !(mcpId || mcpCatalogEntryId || mcpServerDisplayName)}
+						<button
+							class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
+							onclick={() => {
+								showFilters = true;
+								rightSidebar?.show();
+							}}
+						>
+							<Funnel class="size-4" />
+							Filters
+						</button>
+					{/if}
+				</div>
 			</div>
 
 			<div class="grid grid-cols-1 gap-8 lg:grid-cols-2">

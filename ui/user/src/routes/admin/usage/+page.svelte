@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { afterNavigate, goto } from '$app/navigation';
-	import Calendar, { type DateRange } from '$lib/components/Calendar.svelte';
+	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION, DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { type OrgUser, type UsageStatsFilters, AdminService } from '$lib/services';
 	import UsageGraphs from '$lib/components/admin/usage/UsageGraphs.svelte';
-
-	import { formatTimeRange, getTimeRangeShorthand } from '$lib/time';
+	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import { X } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 
@@ -219,27 +218,11 @@
 {/snippet}
 
 {#snippet datetimeRangeSelector()}
-	<div class="flex items-center">
-		<div
-			class="dark:border-surface3 dark:bg-surface1 flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-l-lg border border-r-0 border-transparent bg-white px-2 text-sm shadow-sm"
-		>
-			<span class="bg-surface3 rounded-md px-3 py-1 text-xs">
-				{getTimeRangeShorthand(timeRange.startTime, timeRange.endTime)}
-			</span>
-			{formatTimeRange(timeRange.startTime, timeRange.endTime)}
-		</div>
-		<Calendar
-			compact
-			class="dark:border-surface3 hover:bg-surface1 dark:hover:bg-surface3 dark:bg-surface1 flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-none rounded-r-lg border border-transparent bg-white px-4 text-sm shadow-sm"
-			start={new Date(timeRange.startTime)}
-			end={timeRange.endTime ? new Date(timeRange.endTime) : null}
-			initialValue={{
-				start: new Date(timeRange.startTime),
-				end: timeRange.endTime ? new Date(timeRange.endTime) : null
-			}}
-			onChange={handleDateChange}
-		/>
-	</div>
+	<AuditLogCalendar
+		start={new Date(timeRange.startTime)}
+		end={timeRange.endTime ? new Date(timeRange.endTime) : null}
+		onChange={handleDateChange}
+	/>
 {/snippet}
 
 <svelte:head>
