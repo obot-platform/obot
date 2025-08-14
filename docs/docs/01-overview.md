@@ -11,23 +11,17 @@ Obot is an open-source MCP Gateway and AI platform that can be deployed in the c
 
 To quickly try a live demo of the Obot MCP Gateway and chat experience, visit [https://chat.obot.ai](https://chat.obot.ai).
 
-To install Obot yourself, you’ll need access to a Kubernetes cluster. Once that’s ready, run:
+To run Obot yourself, you’ll need to setup Docker with something like [Docker Desktop](https://docs.docker.com/get-started/introduction/get-docker-desktop/). Once that’s ready, run:
 ```bash
-helm repo add obot https://charts.obot.ai
-helm install obot obot/obot \
-  --set config.OPENAI_API_KEY="<API KEY>"
+docker run -d --name obot -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock -e OPENAI_API_KEY=<API KEY> ghcr.io/obot-platform/obot:latest
 ```
+
+Then open your browser to [http://localhost:8080](http://localhost:8080) to access the Obot UI.
+
 :::tip
 You need to replace `<API KEY>` with your [OpenAI API Key](https://platform.openai.com/api-keys).
 
 Setting this is optional, but you'll need to setup a model provider from the Admin UI before using chat.
-:::
-
-:::tip
-If you’re running on a simple local cluster (e.g., Kubernetes on Docker Desktop), you can port-forward to access Obot at http://localhost:8080:
-```
-kubectl port-forward svc/obot-obot 8080:80
-```
 :::
 
 For more installation methods, see our [Installation Guide](/installation/general).

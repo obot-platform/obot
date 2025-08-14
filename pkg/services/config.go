@@ -160,7 +160,8 @@ type Services struct {
 	OAuthServerConfig OAuthAuthorizationServerConfig
 
 	// Local Kubernetes configuration for deployment monitoring
-	LocalK8sConfig *rest.Config
+	LocalK8sConfig     *rest.Config
+	MCPServerNamespace string
 }
 
 const (
@@ -355,7 +356,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// Build local Kubernetes config for deployment monitoring (optional)
 	var localK8sConfig *rest.Config
-	if config.MCPBaseImage != "" {
+	if config.MCPRuntimeBackend == "kubernetes" {
 		localK8sConfig, err = buildLocalK8sConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local Kubernetes config: %w", err)
@@ -678,6 +679,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AccessControlRuleHelper: acrHelper,
 		WebhookHelper:           mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer()),
 		LocalK8sConfig:          localK8sConfig,
+		MCPServerNamespace:      config.MCPNamespace,
 	}, nil
 }
 

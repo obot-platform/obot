@@ -27,7 +27,8 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_AUDIT_LOGS_STORE_S3ENDPOINT` | If config.OBOT_SERVER_AUDIT_LOGS_MODE is 's3' and you are not using AWS S3, this needs to be set to the S3 api endpoint of your provider. |
 | `OBOT_SERVER_AUDIT_LOGS_COMPRESS_FILE` | Controls whether or not to compress audit log files |
 | `OBOT_SERVER_AUDIT_LOGS_USE_PATH_STYLE` | Whether to use path style for S3 |
-| `OBOT_SERVER_MCPBASE_IMAGE` | Deploy MCP servers in the kubernetes cluster using this base image. |
+| `OBOT_SERVER_MCPBASE_IMAGE` | Deploy MCP servers in the kubernetes cluster or using docker with this base image. |
+| `OBOT_SERVER_MCPRUNTIME_BACKEND` | The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker. |
 | `OBOT_SERVER_MCPCLUSTER_DOMAIN` | The cluster domain to use for MCP services. Defaults to cluster.local. Only matters if `OBOT_SERVER_MCPBASE_IMAGE` is set. |
 `OBOT_SERVER_DISALLOW_LOCALHOST_MCP` | disallow MCP servers that try to connect to localhost. Defaults to false. |
 

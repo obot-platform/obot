@@ -104,7 +104,7 @@ func (c *Controller) createLocalK8sRouter() (*router.Router, error) {
 	localRouter, err := nah.NewRouter("obot-local-k8s", &nah.Options{
 		RESTConfig:     c.services.LocalK8sConfig,
 		Scheme:         localScheme,
-		Namespace:      c.services.MCPLoader.GetMCPNamespace(),
+		Namespace:      c.services.MCPServerNamespace,
 		ElectionConfig: nil, // No leader election for local router
 		HealthzPort:    -1,  // Disable healthz port
 	})
@@ -121,6 +121,6 @@ func (c *Controller) setupLocalK8sRoutes() {
 		return
 	}
 
-	deploymentHandler := deployment.New(c.services.MCPLoader.GetMCPNamespace(), c.services.Router.Backend())
+	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend())
 	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 }
