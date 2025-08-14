@@ -63,7 +63,7 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 	}
 
 	if u.DeletedAt != nil {
-		user.DeletedAt = *types2.NewTime(*u.DeletedAt)
+		user.DeletedAt = types2.NewTime(*u.DeletedAt)
 	}
 
 	return user

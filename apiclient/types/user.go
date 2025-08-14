@@ -28,7 +28,7 @@ type User struct {
 	DailyPromptTokensLimit     int    `json:"dailyPromptTokensLimit,omitempty"`
 	DailyCompletionTokensLimit int    `json:"dailyCompletionTokensLimit,omitempty"`
 	DisplayName                string `json:"displayName,omitempty"`
-	DeletedAt                  Time   `json:"deletedAt,omitempty"`
+	DeletedAt                  *Time  `json:"deletedAt,omitempty"`
 	OriginalEmail              string `json:"originalEmail,omitempty"`
 	OriginalUsername           string `json:"originalUsername,omitempty"`
 }

@@ -96,7 +96,11 @@ func (c *Client) UsersIncludeDeleted(ctx context.Context, query types.UserQuery)
 }
 
 func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, error) {
-	existingUser := new(types.User)
+	var (
+		existingUser = new(types.User)
+		responseUser = types.User{}
+	)
+
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("id = ?", userID).First(existingUser).Error; err != nil {
 			return err
@@ -134,6 +138,11 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, er
 		existingUser.HashedEmail = hash.String(existingUser.Email)
 		existingUser.HashedUsername = hash.String(existingUser.Username)
 
+		// Copy the existing user before we encrypt it so that we can return the right values in the response.
+		responseUser = *existingUser
+		responseUser.Email = responseUser.OriginalEmail
+		responseUser.Username = responseUser.OriginalUsername
+
 		// Encrypt the modified user
 		if err := c.encryptUser(ctx, existingUser); err != nil {
 			return fmt.Errorf("failed to encrypt user: %w", err)
@@ -149,10 +158,6 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, er
 		return nil, err
 	}
 
-	// Return the user with original values for the response (before encryption)
-	responseUser := *existingUser
-	responseUser.Email = responseUser.OriginalEmail
-	responseUser.Username = responseUser.OriginalUsername
 	return &responseUser, nil
 }
 
