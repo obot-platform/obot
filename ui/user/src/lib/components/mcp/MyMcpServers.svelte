@@ -107,10 +107,9 @@
 
 	let serverInstancesMap = $derived(
 		new Map(
-			userServerInstances.map((instance) => [
-				(instance.mcpServerID ?? instance.mcpCatalogID) as string,
-				instance
-			])
+			userServerInstances
+				.filter((instance) => !instance.deleted)
+				.map((instance) => [(instance.mcpServerID ?? instance.mcpCatalogID) as string, instance])
 		)
 	);
 
