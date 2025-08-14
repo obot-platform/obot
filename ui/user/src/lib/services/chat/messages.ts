@@ -7,6 +7,7 @@ type AdditionalOptions = {
 	taskID?: string;
 	runID?: string;
 	onItemsChanged?: (items: EditorItem[]) => void;
+	onEditingFile?: (filename: string, content: string) => void;
 	onMemoryCall?: () => void;
 };
 
@@ -144,6 +145,7 @@ function reformatWriteMessage(
 	msg.icon = 'Pencil';
 	msg.done = !last || msg.toolCall !== undefined;
 	msg.sourceName = msg.done ? 'Wrote to Workspace' : 'Writing to Workspace';
+
 	try {
 		const obj = getFilenameAndContent(msg);
 		if (obj) {
@@ -154,6 +156,10 @@ function reformatWriteMessage(
 			msg.file.filename = obj.filename;
 			if (obj.content) {
 				msg.file.content = obj.content;
+			}
+
+			if (last) {
+				opts.onEditingFile?.(obj.filename, obj.content);
 			}
 		}
 		msg.message = [];

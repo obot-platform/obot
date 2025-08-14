@@ -12,10 +12,18 @@
 		onInvoke?: (invoke: InvokeInput) => void;
 		items: EditorItem[];
 		mdMode?: 'raw' | 'wysiwyg';
+		disabled?: boolean;
+		overrideContent?: string;
 	}
 
 	let height = $state<number>();
-	let { onFileChanged, onInvoke, items = $bindable(), mdMode = 'wysiwyg' }: Props = $props();
+	let {
+		onFileChanged,
+		onInvoke,
+		items = $bindable(),
+		mdMode = 'wysiwyg',
+		overrideContent
+	}: Props = $props();
 </script>
 
 {#each items as file (file.name)}
@@ -34,7 +42,15 @@
 			bind:clientHeight={height}
 		>
 			{#if file.name.toLowerCase().endsWith('.md')}
-				<MarkdownFile {file} {onFileChanged} mode={mdMode} {onInvoke} {items} />
+				<MarkdownFile
+					{file}
+					{onFileChanged}
+					mode={mdMode}
+					{onInvoke}
+					{items}
+					disabled={!!overrideContent}
+					{overrideContent}
+				/>
 			{:else if isImage(file.name)}
 				<Image {file} />
 			{:else if [...(file?.file?.contents ?? '')].some((char) => char.charCodeAt(0) === 0)}

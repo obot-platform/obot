@@ -43,6 +43,7 @@ export interface Layout {
 	newChatMode?: boolean;
 	deleting?: boolean;
 	input?: string;
+	projectEditorContent?: string;
 }
 
 export function isSomethingSelected(layout: Layout) {

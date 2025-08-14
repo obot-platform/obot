@@ -5,7 +5,6 @@
 	import '@milkdown/crepe/theme/common/style.css';
 	import '@milkdown/crepe/theme/frame.css';
 	import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
-	import { replaceAll } from '@milkdown/utils';
 	import type { InvokeInput } from '$lib/services';
 	import type { EditorState } from '@milkdown/prose/state';
 	import type { EditorView } from '@milkdown/prose/view';
@@ -19,16 +18,28 @@
 	import { toggleStrongCommand, toggleEmphasisCommand } from '@milkdown/kit/preset/commonmark';
 	import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
+	import { replaceAll } from '@milkdown/utils';
+	import { debounce } from 'es-toolkit';
 
 	interface Props {
 		file: EditorItem;
+		contents?: string;
 		onInvoke?: (invoke: InvokeInput) => void | Promise<void>;
 		onFileChanged?: (name: string, contents: string) => void;
 		items: EditorItem[];
 		class?: string;
+		overrideContent?: string;
 	}
 
-	let { file, onFileChanged, onInvoke, items, class: klass }: Props = $props();
+	let {
+		file,
+		contents,
+		onFileChanged,
+		onInvoke,
+		items,
+		class: klass,
+		overrideContent
+	}: Props = $props();
 
 	let ttDiv: HTMLDivElement | undefined = $state();
 	let provider: TooltipProvider | undefined = $derived.by(() => {
@@ -48,33 +59,34 @@
 	let ttImprove = $state(false);
 	const tooltip = tooltipFactory('assistant-tooltip');
 	let input: ReturnType<typeof Input> | undefined = $state();
-	let lastSetValue = '';
 	let focused = $state(false);
 	let crepe: Crepe | undefined = $state();
 	let editorCtx: Ctx;
 	let editorView: EditorView | undefined = $state();
-
-	$effect(() => {
-		if (file?.file?.contents) {
-			setValue(file?.file?.contents);
-		}
-		if (!focused && !ttImprove) {
-			// hide()
-		}
-	});
-
-	async function setValue(value: string) {
-		if (lastSetValue === value || !crepe) {
-			return;
-		}
-
-		crepe.editor.action(replaceAll(value));
-		lastSetValue = value;
-	}
+	let isEditing = $state(false);
+	let lastSetValue = $state(contents ?? '');
 
 	function hide() {
 		ttVisible = false;
 		ttImprove = false;
+	}
+
+	$effect(() => {
+		if (!isEditing && overrideContent) {
+			setValue(overrideContent, true);
+		}
+
+		if (!isEditing && !overrideContent && contents) {
+			setValue(contents);
+		}
+	});
+
+	async function setValue(value: string, isTemporary: boolean = false) {
+		if (!crepe) return;
+		crepe.editor.action(replaceAll(value));
+		if (!isTemporary && value !== lastSetValue) {
+			lastSetValue = value;
+		}
 	}
 
 	async function onSubmit(input: InvokeInput) {
@@ -106,6 +118,13 @@
 		});
 	}
 
+	const debouncedOnFileChanged = debounce((changedContents: string) => {
+		isEditing = false;
+		if (onFileChanged && lastSetValue !== changedContents) {
+			onFileChanged(file.name, changedContents);
+		}
+	}, 500);
+
 	async function onBold() {
 		editorCtx?.get(commandsCtx)?.call(toggleStrongCommand.key);
 	}
@@ -130,11 +149,11 @@
 	}
 
 	function editor(node: HTMLElement) {
-		lastSetValue = file.file?.contents ?? '';
+		const value = (contents || file?.file?.contents) ?? '';
 
 		crepe = new Crepe({
 			root: node,
-			defaultValue: file.file?.contents,
+			defaultValue: value,
 			features: {
 				[Crepe.Feature.Toolbar]: false
 			}
@@ -146,13 +165,14 @@
 
 				const listener = ctx.get(listenerCtx);
 				listener.markdownUpdated((_ctx, markdown, prevMarkdown) => {
-					if (markdown === prevMarkdown || markdown === lastSetValue) {
+					if (overrideContent || focused) return;
+
+					isEditing = true;
+					if (markdown === prevMarkdown) {
 						return;
 					}
 
-					if (onFileChanged) {
-						onFileChanged(file.name, markdown);
-					}
+					debouncedOnFileChanged(markdown);
 				});
 
 				ctx.set(tooltip.key, {
@@ -173,7 +193,6 @@
 			destroy: () => {
 				crepe?.destroy();
 				crepe = undefined;
-				lastSetValue = '';
 				ttDiv = undefined;
 			}
 		};

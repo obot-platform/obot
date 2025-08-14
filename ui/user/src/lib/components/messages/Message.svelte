@@ -43,6 +43,7 @@
 			root?: string;
 			prompt?: string;
 		};
+		compactFilePreview?: boolean;
 	}
 
 	let {
@@ -56,7 +57,8 @@
 		disableMessageToEditor,
 		noMemoryTool,
 		clearable = false,
-		classes
+		classes,
+		compactFilePreview
 	}: Props = $props();
 
 	let content = $derived(
@@ -93,7 +95,7 @@
 	let fileCursor = new Tween(0);
 	let prevFileContent = $state('');
 	let animatedFileContent = $derived(
-		msg.file?.content && !msg.done
+		msg.file?.content && !msg.done && !compactFilePreview
 			? msg.file.content.slice(0, fileCursor.current)
 			: msg.file?.content || ''
 	);
@@ -118,7 +120,7 @@
 	});
 
 	$effect(() => {
-		if (msg.file?.content && !msg.done) {
+		if (msg.file?.content && !msg.done && !compactFilePreview) {
 			if (!msg.file.content.startsWith(prevFileContent)) {
 				fileCursor.set(0, { duration: 0 });
 			}
@@ -413,8 +415,9 @@
 	{#if msg.file}
 		<button
 			class={twMerge(
-				'my-2 flex w-[750px] cursor-pointer flex-col rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg dark:bg-black dark:text-gray-50',
-				!msg.file?.filename && 'cursor-wait'
+				'w-[750px]cursor-pointer my-2 flex max-w-full flex-col rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg dark:bg-black dark:text-gray-50',
+				!msg.file?.filename && 'cursor-wait',
+				compactFilePreview ? 'w-md pb-4' : 'w-md md:w-[750px]'
 			)}
 			disabled={!msg.file?.filename}
 			onclick={fileLoad}
@@ -429,18 +432,20 @@
 					{/if}
 				</div>
 			</div>
-			<div class="relative">
-				<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
-					{#if msg.file?.content}
-						{animatedFileContent}
+			{#if !compactFilePreview}
+				<div class="relative" transition:slide={{ axis: 'y', duration: 50 }}>
+					<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+						{#if msg.file?.content}
+							{animatedFileContent}
+						{/if}
+					</div>
+					{#if !msg.done}
+						<div
+							class="absolute bottom-0 z-20 h-24 w-full rounded-3xl bg-linear-to-b from-transparent to-white dark:to-black"
+						></div>
 					{/if}
 				</div>
-				{#if !msg.done}
-					<div
-						class="absolute bottom-0 z-20 h-24 w-full rounded-3xl bg-linear-to-b from-transparent to-white dark:to-black"
-					></div>
-				{/if}
-			</div>
+			{/if}
 		</button>
 		{#if msg.file.content && isTextFile(msg.file.filename)}
 			<div class="flex gap-2">
