@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -11,6 +10,7 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
@@ -21,14 +21,10 @@ import (
 type MCPCatalogHandler struct {
 	defaultCatalogPath string
 	serverURL          string
-	sessionManager     SessionManager
+	sessionManager     *mcp.SessionManager
 }
 
-type SessionManager interface {
-	GenerateToolPreviews(ctx context.Context, catalogEntryManifest types.MCPServerCatalogEntryManifest, userURL string, configEnv map[string]string) ([]types.MCPServerTool, error)
-}
-
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager SessionManager) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		defaultCatalogPath: defaultCatalogPath,
 		serverURL:          serverURL,
