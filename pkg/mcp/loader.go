@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -506,6 +507,89 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string,
 		case <-time.After(time.Second):
 		}
 	}
+}
+
+// LaunchTemporaryInstance creates a temporary MCP server from a catalog entry, lists its tools,
+// then shuts it down and returns the tool preview data.
+func (sm *SessionManager) LaunchTemporaryInstance(ctx context.Context, catalogEntryManifest otypes.MCPServerCatalogEntryManifest, userURL string, configEnv map[string]string) ([]otypes.MCPServerTool, error) {
+	// Convert catalog entry to server manifest
+	serverManifest, err := otypes.MapCatalogEntryToServer(catalogEntryManifest, userURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert catalog entry to server config: %w", err)
+	}
+
+	// Create temporary MCPServer object to use existing conversion logic
+	tempName := "temp-preview-" + hash.Digest(serverManifest)[:8]
+	tempMCPServer := &v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: tempName,
+		},
+		Spec: v1.MCPServerSpec{
+			Manifest: serverManifest,
+		},
+	}
+
+	// Use existing ServerToServerConfig function
+	serverConfig, missingFields, err := ServerToServerConfig(*tempMCPServer, "temp", configEnv)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create server config: %w", err)
+	}
+
+	if len(missingFields) > 0 {
+		return nil, fmt.Errorf("missing required configuration fields: %v", missingFields)
+	}
+
+	// Create MCP client and list tools
+	client, err := sm.ClientForServer(ctx, "system", serverManifest.Name, tempName, serverConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create MCP client: %w", err)
+	}
+
+	// Ensure cleanup happens regardless of success or failure
+	defer func() {
+		if cleanupErr := sm.ShutdownServer(ctx, serverConfig); cleanupErr != nil {
+			fmt.Printf("failed to cleanup temporary instance %s: %v\n", tempName, cleanupErr) // TODO: use log package
+		}
+	}()
+
+	tools, err := client.ListTools(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tools: %w", err)
+	}
+
+	// Convert to MCPServerTool format
+	var toolPreviews []otypes.MCPServerTool
+	for _, tool := range tools.Tools {
+		toolPreview := otypes.MCPServerTool{
+			ID:          tool.Name,
+			Name:        tool.Name,
+			Description: tool.Description,
+			Params:      make(map[string]string),
+			Enabled:     true,
+		}
+
+		// Extract parameter information from the tool's input schema
+		if tool.InputSchema != nil {
+			var schema map[string]interface{}
+			if err := json.Unmarshal(tool.InputSchema, &schema); err == nil {
+				if properties, ok := schema["properties"].(map[string]interface{}); ok {
+					for paramName, paramData := range properties {
+						if paramMap, ok := paramData.(map[string]interface{}); ok {
+							if desc, ok := paramMap["description"].(string); ok {
+								toolPreview.Params[paramName] = desc
+							} else if paramType, ok := paramMap["type"].(string); ok {
+								toolPreview.Params[paramName] = paramType
+							}
+						}
+					}
+				}
+			}
+		}
+
+		toolPreviews = append(toolPreviews, toolPreview)
+	}
+
+	return toolPreviews, nil
 }
 
 func constructNanobotYAML(name, command string, args []string, env map[string]string) (string, error) {

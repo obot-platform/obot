@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -20,12 +21,18 @@ import (
 type MCPCatalogHandler struct {
 	defaultCatalogPath string
 	serverURL          string
+	sessionManager     SessionManager
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string) *MCPCatalogHandler {
+type SessionManager interface {
+	LaunchTemporaryInstance(ctx context.Context, catalogEntryManifest types.MCPServerCatalogEntryManifest, userURL string, configEnv map[string]string) ([]types.MCPServerTool, error)
+}
+
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager SessionManager) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		defaultCatalogPath: defaultCatalogPath,
 		serverURL:          serverURL,
+		sessionManager:     sessionManager,
 	}
 }
 
@@ -311,6 +318,56 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
+}
+
+// LaunchTemporaryInstance launches a temporary instance of an MCP server from a catalog entry
+// to generate tool preview data, then cleans up the instance.
+func (h *MCPCatalogHandler) LaunchTemporaryInstance(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	entryName := req.PathValue("entry_id")
+
+	// Check if user is admin
+	if !req.UserIsAdmin() {
+		return types.NewErrForbidden("only admins can launch temporary instances")
+	}
+
+	// Get the catalog entry
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return fmt.Errorf("failed to get catalog entry: %w", err)
+	}
+
+	if entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	}
+
+	if !entry.Spec.Editable {
+		return types.NewErrBadRequest("entry is not editable")
+	}
+
+	// Read configuration from request body
+	var configRequest struct {
+		Config map[string]string `json:"config"`
+		URL    string            `json:"url"`
+	}
+	if err := req.Read(&configRequest); err != nil {
+		return fmt.Errorf("failed to read configuration: %w", err)
+	}
+
+	// Launch temporary instance and get tools
+	toolPreviews, err := h.sessionManager.LaunchTemporaryInstance(req.Context(), entry.Spec.Manifest, configRequest.URL, configRequest.Config)
+	if err != nil {
+		return fmt.Errorf("failed to launch temporary instance: %w", err)
+	}
+
+	// Update the catalog entry with the tool preview
+	entry.Spec.Manifest.ToolPreview = toolPreviews
+	if err := req.Update(&entry); err != nil {
+		return fmt.Errorf("failed to update catalog entry: %w", err)
+	}
+
+	// Return the updated catalog entry
+	return req.Write(convertMCPServerCatalogEntry(entry))
 }
 
 func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {
