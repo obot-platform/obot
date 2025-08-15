@@ -13,7 +13,6 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let users = $state<OrgUser[]>([]);
-	let serverNames = $state<string[]>([]);
 	let currentFilters = $state<UsageStatsFilters>({});
 
 	let timeRange = $derived(
@@ -50,9 +49,6 @@
 					names.add(server.manifest.name);
 				}
 			}
-			serverNames = Array.from(names).sort((a, b) =>
-				a.toLowerCase().localeCompare(b.toLowerCase())
-			);
 		});
 	});
 
@@ -212,7 +208,6 @@
 				startTime: timeRange.startTime,
 				endTime: timeRange.endTime
 			}}
-			{serverNames}
 		/>
 	</div>
 {/snippet}

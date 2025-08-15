@@ -1,167 +1,154 @@
-<script lang="ts">
-	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
-	import Select from '$lib/components/Select.svelte';
-	import type { UsageStatsFilters, AuditLogUsageStats, OrgUser } from '$lib/services/admin/types';
-	import { X } from 'lucide-svelte';
-	import { slide } from 'svelte/transition';
+<script module lang="ts">
+	export type FilterKey = Exclude<
+		keyof AuditLogURLFilters,
+		'query' | 'offset' | 'limit' | 'start_time' | 'end_time'
+	>;
 
-	interface Props {
-		usageStats?: AuditLogUsageStats;
-		users: OrgUser[];
-		onClose: () => void;
-		filters?: UsageStatsFilters;
-		serverNames?: string[];
-	}
-
-	type FilterSet = {
+	export type FilterInput = {
 		label: string;
-		property: string;
-		values: Record<string, FilterValue>;
-		selected: string;
-		multiple?: boolean;
+		property: FilterKey;
+		selected?: string | number | null;
+		default?: string | number | null;
+		options: { id: string; label: string }[];
+		readonly disabled: boolean;
 	};
 
-	type FilterValue = {
+	export type FilterOption = {
 		label: string;
 		id: string;
 	};
+</script>
 
-	function generateFilters(
-		stats?: AuditLogUsageStats,
-		users: OrgUser[] = [],
-		filters?: UsageStatsFilters,
-		serverNamesFromCatalog?: string[]
-	) {
-		const filterSets: FilterSet[] = [
-			{
-				label: 'Users',
-				property: 'userIds',
-				values: {},
-				selected: filters?.userIds?.join(',') ?? '',
-				multiple: true
-			},
-			{
-				label: 'MCP Servers',
-				property: 'mcpServerDisplayNames',
-				values: {},
-				selected: filters?.mcpServerDisplayNames?.join(',') ?? '',
-				multiple: true
+<script lang="ts">
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
+	import type { AuditLogURLFilters } from '$lib/services/admin/types';
+	import { X } from 'lucide-svelte';
+	import AuditFilter from '../audit-logs/AuditFilter.svelte';
+	import { AdminService } from '$lib/services';
+	import { untrack } from 'svelte';
+
+	interface Props {
+		filters?: AuditLogURLFilters;
+		isFilterDisabled?: (key: keyof AuditLogURLFilters) => boolean;
+		// Used to filter server ids when selecting a multi instance server
+		filterOptions?: (option: string, filterId?: keyof AuditLogURLFilters) => boolean;
+		onClose: () => void;
+		getUserDisplayName: (userId: string) => string;
+		getFilterDisplayLabel?: (key: keyof AuditLogURLFilters) => string;
+		getDefaultValue?: <T extends keyof AuditLogURLFilters>(filter: T) => AuditLogURLFilters[T];
+	}
+
+	let {
+		filters: externFilters,
+		isFilterDisabled,
+		getUserDisplayName,
+		getFilterDisplayLabel,
+		getDefaultValue,
+		filterOptions,
+		onClose
+	}: Props = $props();
+
+	const url = new URL(page.url);
+
+	let filters = $derived({ ...(externFilters ?? {}) });
+
+	const filterKeys: FilterKey[] = $state(['user_id', 'mcp_server_display_name']);
+
+	type FilterOptions = Record<FilterKey, FilterOption[]>;
+	let filtersOptions: FilterOptions = $state({} as FilterOptions);
+
+	type FilterInputs = Record<FilterKey, FilterInput>;
+	let filterInputs = $derived(
+		filterKeys.reduce((acc, filterId) => {
+			acc[filterId] = {
+				property: filterId,
+				label: getFilterDisplayLabel?.(filterId) ?? filterId.replace(/_(\w)/, ' $1'),
+				get selected() {
+					return filters?.[filterId];
+				},
+				set selected(v) {
+					filters[filterId] = v;
+					// Force Component to react
+					filters = { ...filters };
+				},
+				get default() {
+					return getDefaultValue?.(filterId);
+				},
+				get options() {
+					return filtersOptions[filterId];
+				},
+				get disabled() {
+					return isFilterDisabled?.(filterId) ?? false;
+				}
+			};
+			return acc;
+		}, {} as FilterInputs)
+	);
+
+	const filterInputsAsArray = $derived(Object.values(filterInputs));
+
+	$effect(() => {
+		const processLog = async (filterId: keyof AuditLogURLFilters) => {
+			const response = await AdminService.listAuditLogFilterOptions(filterId);
+
+			if (filterId === 'user_id') {
+				return (
+					response?.options
+						?.filter((d) => filterOptions?.(d, filterId) ?? true)
+						?.map((d) => ({
+							id: d,
+							label: getUserDisplayName?.(d) ?? d
+						})) ?? []
+				);
 			}
-		];
 
-		const serverNames = new Set<string>();
-		if (serverNamesFromCatalog && serverNamesFromCatalog.length > 0) {
-			for (const name of serverNamesFromCatalog) {
-				if (name) serverNames.add(name);
-			}
-		}
+			return (
+				response?.options
+					?.filter((d) => filterOptions?.(d, filterId) ?? true)
+					?.map((d) => ({
+						id: d,
+						label: d
+					})) ?? []
+			);
+		};
 
-		if (stats?.items) {
-			for (const item of stats.items) {
-				if (!serverNamesFromCatalog?.length && item.mcpServerDisplayName) {
-					serverNames.add(item.mcpServerDisplayName);
+		filterKeys.forEach((id) => {
+			processLog(id).then((options) => {
+				untrack(() => {
+					filtersOptions[id] = options;
+				});
+			});
+		});
+	});
+
+	async function handleApplyFilters() {
+		for (const filterInput of filterInputsAsArray) {
+			if (filterInput.selected) {
+				url.searchParams.set(
+					filterInput.property,
+					encodeURIComponent(filterInput.selected.toString())
+				);
+			} else {
+				if (filterInput.selected === null) {
+					// Clear the search param
+					url.searchParams.delete(filterInput.property);
+				} else {
+					// Override default values
+					url.searchParams.set(filterInput.property, '');
 				}
 			}
 		}
 
-		// Populate user filter values from provided users list
-		for (const user of users) {
-			const displayName = user?.displayName || 'Unknown';
-			const email = user?.email;
-			filterSets[0].values[user.id] = {
-				label: email ? `${displayName} (${email})` : displayName,
-				id: user.id
-			};
-		}
+		await goto(url, { noScroll: true });
 
-		// Populate server filter values
-		for (const serverName of serverNames) {
-			filterSets[1].values[serverName] = {
-				label: serverName,
-				id: serverName
-			};
-		}
-
-		return filterSets;
-	}
-
-	let { usageStats, users, onClose, filters, serverNames }: Props = $props();
-
-	let localFilters = $state({
-		userIds: filters?.userIds?.join(',') ?? '',
-		mcpServerDisplayNames: filters?.mcpServerDisplayNames?.join(',') ?? ''
-	});
-
-	let filterInputs = $derived(
-		generateFilters(
-			usageStats,
-			users,
-			{
-				userIds: localFilters.userIds
-					? localFilters.userIds
-							.split(',')
-							.map((s) => s.trim())
-							.filter(Boolean)
-					: undefined,
-				mcpServerDisplayNames: localFilters.mcpServerDisplayNames
-					? localFilters.mcpServerDisplayNames
-							.split(',')
-							.map((s) => s.trim())
-							.filter(Boolean)
-					: undefined
-			},
-			serverNames
-		)
-	);
-
-	function handleApplyFilters() {
-		const url = new URL(page.url);
-
-		// Clear existing query parameters
-		url.search = '';
-
-		// Preserve existing date and other filters
-		if (typeof window !== 'undefined') {
-			const currentUrl = new URL(window.location.href);
-			const startTime = currentUrl.searchParams.get('startTime');
-			const endTime = currentUrl.searchParams.get('endTime');
-
-			if (startTime) url.searchParams.set('startTime', startTime);
-			if (endTime) url.searchParams.set('endTime', endTime);
-		}
-
-		if (localFilters.userIds) {
-			url.searchParams.set('userIds', localFilters.userIds);
-		}
-		if (localFilters.mcpServerDisplayNames) {
-			url.searchParams.set('mcpServerDisplayNames', localFilters.mcpServerDisplayNames);
-		}
-
-		goto(url.toString());
-		onClose();
+		onClose?.();
 	}
 
 	function handleClearAllFilters() {
-		// Clear all local filters
-		localFilters.userIds = '';
-		localFilters.mcpServerDisplayNames = '';
-
-		const url = new URL(page.url);
-		url.search = '';
-
-		// Preserve existing date filters
-		if (typeof window !== 'undefined') {
-			const currentUrl = new URL(window.location.href);
-			const startTime = currentUrl.searchParams.get('startTime');
-			const endTime = currentUrl.searchParams.get('endTime');
-
-			if (startTime) url.searchParams.set('startTime', startTime);
-			if (endTime) url.searchParams.set('endTime', endTime);
-		}
-
-		goto(url.toString());
-		onClose();
+		filterInputsAsArray.forEach((filterInput) => {
+			filterInput.selected = '';
+		});
 	}
 </script>
 
@@ -175,95 +162,31 @@
 	<div
 		class="default-scrollbar-thin flex h-[calc(100%-60px)] flex-col gap-4 overflow-y-auto p-4 pt-0"
 	>
-		{#each filterInputs as filterInput, _index (filterInput.property)}
-			{@const options = Object.values(filterInput.values).sort((a, b) =>
-				a.label.toLowerCase().localeCompare(b.label.toLowerCase())
-			)}
-			{#if options.length > 0}
-				<div class="mb-2 flex flex-col gap-1">
-					<label
-						for={filterInput.property}
-						class="text-md flex items-center justify-between gap-2 font-light"
-					>
-						By {filterInput.label}
-
-						{#if filterInput.selected && filterInput.selected.length > 0}
-							<button
-								class="text-xs opacity-50 hover:opacity-80 active:opacity-100"
-								onclick={() => {
-									localFilters[filterInput.property as keyof typeof localFilters] = '';
-								}}
-								in:slide={{ duration: 100, axis: 'x' }}
-								out:slide={{ duration: 100, axis: 'x' }}
-							>
-								{filterInput.selected.split(',').length === 1 ? 'Clear' : 'Clear All'}
-							</button>
-						{/if}
-					</label>
-					<Select
-						class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
-						classes={{
-							root: 'w-full',
-							clear: 'hover:bg-surface3 bg-transparent'
-						}}
-						{options}
-						selected={filterInput.selected}
-						multiple={filterInput.multiple ?? false}
-						onSelect={(option) => {
-							if (filterInput.multiple) {
-								const currentValues = filterInput.selected
-									? filterInput.selected.split(',').map((s) => s.trim())
-									: [];
-								const optionId = option.id.toString();
-								let newValues;
-								if (currentValues.includes(optionId)) {
-									newValues = currentValues.filter((id) => id !== optionId);
-								} else {
-									newValues = [...currentValues, optionId];
-								}
-
-								if (filterInput.property === 'userIds') {
-									localFilters.userIds = newValues.join(',');
-								} else if (filterInput.property === 'mcpServerDisplayNames') {
-									localFilters.mcpServerDisplayNames = newValues.join(',');
-								}
-							} else {
-								const newValue = option.id.toString();
-								if (filterInput.property === 'userIds') {
-									localFilters.userIds = newValue;
-								} else if (filterInput.property === 'mcpServerDisplayNames') {
-									localFilters.mcpServerDisplayNames = newValue;
-								}
-							}
-						}}
-						onClear={(option, value) => {
-							if (option === undefined) {
-								if (filterInput.property === 'userIds') {
-									localFilters.userIds = '';
-								} else if (filterInput.property === 'mcpServerDisplayNames') {
-									localFilters.mcpServerDisplayNames = '';
-								}
-							} else {
-								if (filterInput.property === 'userIds') {
-									localFilters.userIds = value?.toString() ?? '';
-								} else if (filterInput.property === 'mcpServerDisplayNames') {
-									localFilters.mcpServerDisplayNames = value?.toString() ?? '';
-								}
-							}
-						}}
-						position="top"
-					/>
-				</div>
-			{/if}
+		{#each filterInputsAsArray as filterInput, index (filterInput.property)}
+			<AuditFilter
+				filter={filterInput}
+				onSelect={(_, value) => {
+					filterInput.selected = value ?? '';
+				}}
+				onClearAll={() => {
+					// This code section is called only when user click clear all
+					// single clear value is handled inside the component
+					const key = filterInputsAsArray[index].property;
+					filterInputs[key].selected = '';
+				}}
+				onReset={() => {
+					filterInput.selected = null;
+				}}
+			/>
 		{/each}
 		<div class="mt-auto flex flex-col gap-2">
 			<button
-				class="button-primary text-md w-full rounded-lg px-4 py-2"
-				onclick={handleApplyFilters}>Apply Filters</button
+				class="button-secondary text-md w-full rounded-lg px-4 py-2"
+				onclick={handleClearAllFilters}>Clear All</button
 			>
 			<button
-				class="button-secondary text-md w-full rounded-lg px-4 py-2"
-				onclick={handleClearAllFilters}>Clear All Filters</button
+				class="button-primary text-md w-full rounded-lg px-4 py-2"
+				onclick={handleApplyFilters}>Apply Filters</button
 			>
 		</div>
 	</div>
