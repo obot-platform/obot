@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -22,13 +24,15 @@ type MCPCatalogHandler struct {
 	defaultCatalogPath string
 	serverURL          string
 	sessionManager     *mcp.SessionManager
+	oauthChecker       MCPOAuthChecker
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		defaultCatalogPath: defaultCatalogPath,
 		serverURL:          serverURL,
 		sessionManager:     sessionManager,
+		oauthChecker:       oauthChecker,
 	}
 }
 
@@ -350,8 +354,47 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		return fmt.Errorf("failed to read configuration: %w", err)
 	}
 
+	// Convert catalog entry to server manifest
+	serverManifest, err := types.MapCatalogEntryToServer(entry.Spec.Manifest, configRequest.URL)
+	if err != nil {
+		return fmt.Errorf("failed to convert catalog entry to server config: %w", err)
+	}
+
+	// Create temporary MCPServer object to use existing conversion logic
+	tempName := "temp-preview-" + hash.Digest(serverManifest)[:8]
+	tempMCPServer := v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: tempName,
+		},
+		Spec: v1.MCPServerSpec{
+			Manifest: serverManifest,
+		},
+	}
+
+	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, "temp", configRequest.Config)
+	if err != nil {
+		return fmt.Errorf("failed to create server config: %w", err)
+	}
+
+	if len(missingFields) > 0 {
+		return fmt.Errorf("missing required configuration fields: %v", missingFields)
+	}
+
+	if serverConfig.Runtime == types.RuntimeRemote {
+		oauthURL, err := h.oauthChecker.CheckForMCPAuth(req.Context(), tempMCPServer, serverConfig, strconv.FormatUint(uint64(req.UserID()), 10), tempName, "")
+		if err != nil {
+			return fmt.Errorf("failed to check for MCP auth: %w", err)
+		}
+
+		if oauthURL != "" {
+			return req.Write(map[string]string{"oauthURL": oauthURL})
+		}
+
+		log.Infof("no oauthURL found for %s", tempName)
+	}
+
 	// Launch temporary instance and get tools
-	toolPreviews, err := h.sessionManager.GenerateToolPreviews(req.Context(), entry.Spec.Manifest, configRequest.URL, configRequest.Config)
+	toolPreviews, err := h.sessionManager.GenerateToolPreviews(req.Context(), tempMCPServer, serverConfig)
 	if err != nil {
 		return fmt.Errorf("failed to launch temporary instance: %w", err)
 	}

@@ -511,36 +511,9 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string,
 
 // GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,
 // then shuts it down and returns the tool preview data.
-func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, catalogEntryManifest otypes.MCPServerCatalogEntryManifest, userURL string, configEnv map[string]string) ([]otypes.MCPServerTool, error) {
-	// Convert catalog entry to server manifest
-	serverManifest, err := otypes.MapCatalogEntryToServer(catalogEntryManifest, userURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert catalog entry to server config: %w", err)
-	}
-
-	// Create temporary MCPServer object to use existing conversion logic
-	tempName := "temp-preview-" + hash.Digest(serverManifest)[:8]
-	tempMCPServer := &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: tempName,
-		},
-		Spec: v1.MCPServerSpec{
-			Manifest: serverManifest,
-		},
-	}
-
-	// Use existing ServerToServerConfig function
-	serverConfig, missingFields, err := ServerToServerConfig(*tempMCPServer, "temp", configEnv)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create server config: %w", err)
-	}
-
-	if len(missingFields) > 0 {
-		return nil, fmt.Errorf("missing required configuration fields: %v", missingFields)
-	}
-
+func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServer v1.MCPServer, serverConfig ServerConfig) ([]otypes.MCPServerTool, error) {
 	// Create MCP client and list tools
-	client, err := sm.ClientForServer(ctx, "system", serverManifest.Name, tempName, serverConfig)
+	client, err := sm.ClientForServer(ctx, "system", tempMCPServer.Spec.Manifest.Name, tempMCPServer.Name, serverConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MCP client: %w", err)
 	}
@@ -548,7 +521,7 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, catalogEntry
 	// Ensure cleanup happens regardless of success or failure
 	defer func() {
 		if cleanupErr := sm.ShutdownServer(ctx, serverConfig); cleanupErr != nil {
-			log.Errorf("failed to clean up temporary instance %s: %v", tempName, cleanupErr)
+			log.Errorf("failed to clean up temporary instance %s: %v", tempMCPServer.Name, cleanupErr)
 		}
 	}()
 
