@@ -27,7 +27,6 @@
 	import { afterNavigate } from '$app/navigation';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
-	import InfoTooltip from './InfoTooltip.svelte';
 
 	interface Props {
 		classes?: {
@@ -128,10 +127,6 @@
 			: []
 	);
 
-	const tooltips = {
-		'/admin/auth-providers': 'Enable authentication to access this page.'
-	};
-
 	afterNavigate(() => {
 		pathname = window.location.pathname;
 	});
@@ -180,9 +175,6 @@
 											<link.icon class="size-5" />
 											{link.label}
 										</a>
-									{/if}
-									{#if tooltips[link.href as keyof typeof tooltips]}
-										<InfoTooltip text={tooltips[link.href as keyof typeof tooltips]} />
 									{/if}
 								</div>
 								{#if link.collapsible}
