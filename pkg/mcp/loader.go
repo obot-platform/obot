@@ -548,7 +548,7 @@ func (sm *SessionManager) LaunchTemporaryInstance(ctx context.Context, catalogEn
 	// Ensure cleanup happens regardless of success or failure
 	defer func() {
 		if cleanupErr := sm.ShutdownServer(ctx, serverConfig); cleanupErr != nil {
-			fmt.Printf("failed to cleanup temporary instance %s: %v\n", tempName, cleanupErr) // TODO: use log package
+			log.Errorf("failed to clean up temporary instance %s: %v", tempName, cleanupErr)
 		}
 	}()
 
