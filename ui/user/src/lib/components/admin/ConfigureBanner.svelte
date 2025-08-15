@@ -21,9 +21,11 @@
 	);
 
 	const isAuthProviderConfigured = $derived(
-		typeof authProviderConfigured === 'boolean'
-			? authProviderConfigured
-			: storeData.authProviderConfigured
+		version.current.authEnabled
+			? typeof authProviderConfigured === 'boolean'
+				? authProviderConfigured
+				: storeData.authProviderConfigured
+			: true
 	);
 
 	const loading = $derived(storeData.loading);
@@ -54,7 +56,7 @@
 						Provider.
 					</p>
 				{/if}
-				{#if !isAuthProviderConfigured && version.current.authEnabled}
+				{#if !isAuthProviderConfigured}
 					<p class="text-sm font-light">
 						<b class="font-semibold">Auth Provider:</b> To support multiple users, configure an Auth
 						Provider.
@@ -69,7 +71,7 @@
 							Configure Model Provider
 						</a>
 					{/if}
-					{#if !isAuthProviderConfigured && version.current.authEnabled}
+					{#if !isAuthProviderConfigured}
 						<a
 							href="/admin/auth-providers"
 							class="button grow bg-yellow-500 text-center text-sm text-black hover:bg-yellow-500/70"
