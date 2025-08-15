@@ -1,15 +1,19 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
@@ -20,12 +24,18 @@ import (
 type MCPCatalogHandler struct {
 	defaultCatalogPath string
 	serverURL          string
+	sessionManager     *mcp.SessionManager
+	oauthChecker       MCPOAuthChecker
+	gatewayClient      *gclient.Client
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		defaultCatalogPath: defaultCatalogPath,
 		serverURL:          serverURL,
+		sessionManager:     sessionManager,
+		oauthChecker:       oauthChecker,
+		gatewayClient:      gatewayClient,
 	}
 }
 
@@ -311,6 +321,149 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
+}
+
+// GenerateToolPreviews launches a temporary instance of an MCP server from a catalog entry
+// to generate tool preview data, then cleans up the instance.
+func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	entryName := req.PathValue("entry_id")
+
+	// Get the catalog entry
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return fmt.Errorf("failed to get catalog entry: %w", err)
+	}
+
+	if entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	}
+
+	if !entry.Spec.Editable {
+		return types.NewErrBadRequest("entry is not editable")
+	}
+
+	// Read configuration from request body
+	var configRequest struct {
+		Config map[string]string `json:"config"`
+		URL    string            `json:"url"`
+	}
+	if err := req.Read(&configRequest); err != nil {
+		return types.NewErrBadRequest("failed to read configuration: %v", err)
+	}
+
+	server, serverConfig, err := tempServerAndConfig(entry, configRequest.Config, configRequest.URL)
+	if err != nil {
+		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
+	}
+
+	if serverConfig.Runtime == types.RuntimeRemote {
+		oauthURL, err := h.oauthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, "system", server.Name, "")
+		if err != nil {
+			return fmt.Errorf("failed to check for MCP auth: %w", err)
+		}
+
+		if oauthURL != "" {
+			return types.NewErrBadRequest("MCP server requires OAuth authentication")
+		}
+
+		defer func() {
+			_ = h.gatewayClient.DeleteMCPOAuthToken(context.Background(), "system", server.Name)
+		}()
+	}
+
+	// Launch temporary instance and get tools
+	toolPreviews, err := h.sessionManager.GenerateToolPreviews(req.Context(), server, serverConfig)
+	if err != nil {
+		return fmt.Errorf("failed to launch temporary instance: %w", err)
+	}
+
+	// Update the catalog entry with the tool preview
+	entry.Spec.Manifest.ToolPreview = toolPreviews
+	if err := req.Update(&entry); err != nil {
+		return fmt.Errorf("failed to update catalog entry: %w", err)
+	}
+
+	// Return the updated catalog entry
+	return req.Write(convertMCPServerCatalogEntry(entry))
+}
+
+func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	entryName := req.PathValue("entry_id")
+
+	// Get the catalog entry
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return fmt.Errorf("failed to get catalog entry: %w", err)
+	}
+
+	if entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	}
+
+	if !entry.Spec.Editable {
+		return types.NewErrBadRequest("entry is not editable")
+	}
+
+	if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
+		return types.NewErrBadRequest("only catalog entries with a remote runtime can have their OAuth URL generated")
+	}
+
+	// Read configuration from request body
+	var configRequest struct {
+		Config map[string]string `json:"config"`
+		URL    string            `json:"url"`
+	}
+	if err := req.Read(&configRequest); err != nil {
+		return types.NewErrBadRequest("failed to read configuration: %v", err)
+	}
+
+	server, serverConfig, err := tempServerAndConfig(entry, configRequest.Config, configRequest.URL)
+	if err != nil {
+		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
+	}
+
+	oauthURL, err := h.oauthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, "system", server.Name, "")
+	if err != nil {
+		return types.NewErrBadRequest("failed to check for MCP auth: %v", err)
+	}
+
+	if oauthURL != "" {
+		return req.Write(map[string]string{"oauthURL": oauthURL})
+	}
+
+	return nil
+}
+
+func tempServerAndConfig(entry v1.MCPServerCatalogEntry, config map[string]string, url string) (v1.MCPServer, mcp.ServerConfig, error) {
+	// Convert catalog entry to server manifest
+	serverManifest, err := types.MapCatalogEntryToServer(entry.Spec.Manifest, url)
+	if err != nil {
+		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to convert catalog entry to server config: %w", err)
+	}
+
+	// Create temporary MCPServer object to use existing conversion logic
+	tempName := "temp-preview-" + hash.Digest(serverManifest)[:32]
+	tempMCPServer := v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: tempName,
+		},
+		Spec: v1.MCPServerSpec{
+			Manifest: serverManifest,
+		},
+	}
+
+	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, "temp", config)
+	if err != nil {
+		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create server config: %w", err)
+	}
+
+	if len(missingFields) > 0 {
+		return v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("missing required configuration fields: %v", missingFields)
+	}
+
+	return tempMCPServer, serverConfig, nil
 }
 
 func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {
