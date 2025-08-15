@@ -28,14 +28,6 @@
 	let contents = $derived(refFile?.file?.contents ?? '');
 	let filename = $derived(refFile?.name ?? '');
 
-	// Create a reactive variable that forces re-rendering when mode changes
-	let currentMode = $state(mode);
-
-	// Ensure currentMode updates when mode prop changes
-	$effect(() => {
-		currentMode = mode;
-	});
-
 	$effect(() => {
 		if (contents && contents !== refFile?.file?.contents && refFile.name === filename) {
 			onFileChanged(filename, contents);
