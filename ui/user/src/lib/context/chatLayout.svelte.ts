@@ -1,4 +1,4 @@
-import type { Project, ProjectMCP, ProjectTemplate, Task, TaskRun, Thread } from '$lib/services';
+import type { ProjectMCP, ProjectTemplate, Task, TaskRun, Thread } from '$lib/services';
 import type { EditorItem } from '$lib/services/editor/index.svelte';
 import { responsive } from '$lib/stores';
 import { getContext, hasContext, setContext } from 'svelte';
@@ -39,7 +39,6 @@ export interface Layout {
 	mcpServer?: ProjectMCP;
 	chatbotMcpEdit?: boolean;
 	sidebarMemoryUpdateAvailable?: boolean;
-	projectToConfigure?: Project;
 	newChatMode?: boolean;
 	deleting?: boolean;
 	input?: string;
@@ -47,16 +46,16 @@ export interface Layout {
 }
 
 export function isSomethingSelected(layout: Layout) {
-	return (
-		layout.editTaskID ||
-		layout.displayTaskRun ||
-		layout.editProjectMcp ||
-		layout.mcpServer ||
-		layout.projectToConfigure
-	);
+	return layout.editTaskID || layout.displayTaskRun || layout.editProjectMcp || layout.mcpServer;
 }
 
 export function closeAll(layout: Layout) {
+	if (layout.sidebarConfig === 'project-configuration') {
+		// remove edit from url
+		const url = new URL(window.location.href);
+		url.searchParams.delete('edit');
+		window.history.replaceState({}, '', url.toString());
+	}
 	layout.editTaskID = undefined;
 	layout.displayTaskRun = undefined;
 	layout.sidebarConfig = undefined;
@@ -64,7 +63,6 @@ export function closeAll(layout: Layout) {
 	layout.template = undefined;
 	layout.mcpServer = undefined;
 	layout.chatbotMcpEdit = undefined;
-	layout.projectToConfigure = undefined;
 }
 
 export function openTask(layout: Layout, taskID?: string) {
@@ -117,15 +115,6 @@ export function closeSidebarConfig(layout: Layout) {
 	layout.template = undefined;
 	layout.mcpServer = undefined;
 	layout.chatbotMcpEdit = undefined;
-	layout.projectToConfigure = undefined;
-}
-export function openConfigureProject(layout: Layout, project: Project) {
-	closeAll(layout);
-	layout.sidebarConfig = 'project-configuration';
-	layout.projectToConfigure = project;
-	if (responsive.isMobile) {
-		layout.sidebarOpen = false;
-	}
 }
 
 export function initLayout(layout: Layout) {

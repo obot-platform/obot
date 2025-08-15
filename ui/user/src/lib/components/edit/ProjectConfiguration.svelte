@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { closeAll, closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
+	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project } from '$lib/services';
 	import { LoaderCircle, X } from 'lucide-svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
@@ -13,10 +13,9 @@
 
 	interface Props {
 		project: Project;
-		isOnProject?: boolean;
 	}
 
-	let { project, isOnProject }: Props = $props();
+	let { project = $bindable() }: Props = $props();
 	let modifiedProject = $state(project);
 	let confirmDelete = $state(false);
 	let deleting = $state(false);
@@ -25,30 +24,24 @@
 
 	async function handleDeleteProject() {
 		deleting = true;
-		if (isOnProject) {
-			// signal current project is being deleted
-			layout.deleting = true;
-		}
+		// on current project so signal being deleted
+		layout.deleting = true;
 
 		await ChatService.deleteProject(project.assistantID, project.id);
 		confirmDelete = false;
 
-		if (isOnProject) {
-			const projects = await ChatService.listProjects();
-			deleting = false;
-			if (projects.items.length > 0) {
-				goto(`/o/${projects.items[0].id}`);
-			} else {
-				goto('/');
-			}
+		const projects = await ChatService.listProjects();
+		deleting = false;
+		if (projects.items.length > 0) {
+			goto(`/o/${projects.items[0].id}`);
 		} else {
-			closeAll(layout);
+			goto('/');
 		}
 	}
 
 	async function handleUpdate() {
 		saving = true;
-		await ChatService.updateProject(modifiedProject);
+		project = await ChatService.updateProject(modifiedProject);
 		saving = false;
 		closeAll(layout);
 	}
@@ -61,7 +54,7 @@
 		<div class="mb-4 flex items-center gap-2">
 			<h1 class="text-2xl font-semibold capitalize">Project Configuration</h1>
 			<div class="flex grow justify-end">
-				<button class="icon-button" onclick={() => closeSidebarConfig(layout)}>
+				<button class="icon-button" onclick={() => closeAll(layout)}>
 					<X class="size-6" />
 				</button>
 			</div>

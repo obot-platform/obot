@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { replaceState } from '$app/navigation';
-	import { navigating } from '$app/state';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import EditMode from '$lib/components/EditMode.svelte';
-	import { initLayout } from '$lib/context/chatLayout.svelte';
+	import { getLayout, initLayout } from '$lib/context/chatLayout.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
 	import { browser } from '$app/environment';
 	import { profile, responsive } from '$lib/stores';
@@ -21,7 +20,10 @@
 
 	initToolReferences(data.toolReferences ?? []);
 	initProjectMCPs(data.mcps ?? []);
-	initialLayout();
+	initLayout({
+		items: [],
+		sidebarOpen: !responsive.isMobile
+	});
 	initHelperMode();
 
 	// Initialize project tools immediately
@@ -43,12 +45,6 @@
 	$effect(() => {
 		if (data.mcps) {
 			initProjectMCPs(data.mcps);
-		}
-	});
-
-	$effect(() => {
-		if (navigating) {
-			initialLayout();
 		}
 	});
 
@@ -84,13 +80,12 @@
 		}
 	});
 
-	function initialLayout() {
-		initLayout({
-			sidebarOpen: (!qIsSet('edit') && !responsive.isMobile) || qIsSet('sidebar'),
-			projectEditorOpen: qIsSet('edit'),
-			items: []
-		});
-	}
+	const layout = getLayout();
+	afterNavigate(() => {
+		layout.sidebarOpen = !responsive.isMobile;
+		layout.sidebarConfig = qIsSet('edit') ? 'project-configuration' : undefined;
+		layout.items = [];
+	});
 </script>
 
 <svelte:head>
