@@ -1,10 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -25,14 +26,16 @@ type MCPCatalogHandler struct {
 	serverURL          string
 	sessionManager     *mcp.SessionManager
 	oauthChecker       MCPOAuthChecker
+	gatewayClient      *gclient.Client
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		defaultCatalogPath: defaultCatalogPath,
 		serverURL:          serverURL,
 		sessionManager:     sessionManager,
 		oauthChecker:       oauthChecker,
+		gatewayClient:      gatewayClient,
 	}
 }
 
@@ -381,7 +384,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	}
 
 	if serverConfig.Runtime == types.RuntimeRemote {
-		oauthURL, err := h.oauthChecker.CheckForMCPAuth(req.Context(), tempMCPServer, serverConfig, strconv.FormatUint(uint64(req.UserID()), 10), tempName, "")
+		oauthURL, err := h.oauthChecker.CheckForMCPAuth(req.Context(), tempMCPServer, serverConfig, "system", tempName, "")
 		if err != nil {
 			return fmt.Errorf("failed to check for MCP auth: %w", err)
 		}
@@ -390,7 +393,11 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 			return req.Write(map[string]string{"oauthURL": oauthURL})
 		}
 
-		log.Infof("no oauthURL found for %s", tempName)
+		defer func() {
+			if err := h.gatewayClient.DeleteMCPOAuthToken(context.Background(), "system", tempName); err != nil {
+				log.Errorf("failed to delete MCP auth token: %v", err)
+			}
+		}()
 	}
 
 	// Launch temporary instance and get tools
