@@ -2,7 +2,7 @@
 	import type { InvokeInput } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import Milkdown from './Milkdown.svelte';
-	import RawMarkdownEditor from './RawMarkdownEditor.svelte';
+	import RawEditor from './RawEditor.svelte';
 
 	interface Props {
 		file: EditorItem;
@@ -53,7 +53,7 @@
 			class="p-5 pt-0"
 		/>
 	{:else}
-		<RawMarkdownEditor
+		<RawEditor
 			bind:value={contents}
 			{disabled}
 			disablePreview

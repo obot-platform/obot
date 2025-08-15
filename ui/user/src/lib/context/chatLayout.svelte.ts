@@ -42,7 +42,10 @@ export interface Layout {
 	newChatMode?: boolean;
 	deleting?: boolean;
 	input?: string;
-	projectEditorContent?: string;
+	liveProjectEditing?: {
+		filename: string;
+		content: string;
+	};
 }
 
 export function isSomethingSelected(layout: Layout) {
