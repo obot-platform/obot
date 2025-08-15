@@ -21,7 +21,7 @@
 	let { currentThreadID = $bindable(), project, editor }: Props = $props();
 
 	let input = $state<HTMLInputElement>();
-	let editMode = $state(false);
+	let editMode = $state<string | null>(null);
 	let name = $state('');
 	let isOpen = $state(false);
 	let layout = getLayout();
@@ -34,10 +34,10 @@
 	}
 
 	function setCurrentThread(id: string) {
+		closeAll(layout);
 		lastSeenThreadID = id;
 		currentThreadID = id;
 		layout.items = [];
-		closeAll(layout);
 	}
 
 	function loadMore() {
@@ -47,14 +47,14 @@
 	async function startEditName() {
 		const thread = layout.threads?.find(isCurrentThread);
 		name = thread?.name ?? '';
-		editMode = true;
+		editMode = thread?.id ?? null;
 		tick().then(() => input?.focus());
 	}
 
 	async function saveName() {
 		let thread = layout.threads?.find(isCurrentThread);
 		if (!thread) {
-			editMode = false;
+			editMode = null;
 			return;
 		}
 
@@ -65,10 +65,11 @@
 				layout.threads![i] = thread;
 			}
 		});
-		editMode = false;
+		editMode = null;
 	}
 
 	export async function createThread() {
+		editMode = null;
 		const thread = await ChatService.createThread(project.assistantID, project.id);
 		const found = layout.threads?.find((t) => t.id === thread.id);
 		if (!found) {
@@ -96,16 +97,12 @@
 	}
 
 	function selectThread(id: string) {
-		if (editMode) {
-			return;
-		}
-
 		if (responsive.isMobile) {
 			layout.sidebarOpen = false;
 		}
 
 		layout.newChatMode = false;
-		closeAll(layout);
+		editMode = null;
 		setCurrentThread(id);
 		focusChat();
 	}
@@ -256,14 +253,14 @@
 				class:bg-surface2={isCurrentThread(thread)}
 				class="group hover:bg-surface3 flex min-h-9 items-center gap-3 rounded-md font-light"
 			>
-				{#if editMode && isCurrentThread(thread)}
+				{#if editMode === thread.id}
 					<input
 						bind:value={name}
 						bind:this={input}
 						onkeyup={(e) => {
 							switch (e.key) {
 								case 'Escape':
-									editMode = false;
+									editMode = null;
 									break;
 								case 'Enter':
 									saveName();
@@ -284,8 +281,8 @@
 						{thread.name || 'New Chat'}
 					</button>
 				{/if}
-				{#if isCurrentThread(thread) && editMode}
-					<button class="list-button-primary" onclick={() => (editMode = false)}>
+				{#if editMode === thread.id}
+					<button class="list-button-primary" onclick={() => (editMode = null)}>
 						<CircleX class="h-4 w-4" />
 					</button>
 					<button class="list-button-primary" onclick={saveName}>
