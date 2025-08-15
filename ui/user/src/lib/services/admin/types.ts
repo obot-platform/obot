@@ -364,6 +364,7 @@ export type AuditLogURLFilters = {
 	mcp_server_catalog_entry_name?: string | null;
 	mcp_server_display_name?: string | null;
 	mcp_id?: string | null;
+	call_identifier?: string | null;
 	client_name?: string | null;
 	client_version?: string | null;
 	client_ip?: string | null;

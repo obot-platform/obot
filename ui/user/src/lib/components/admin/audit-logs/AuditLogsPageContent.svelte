@@ -81,6 +81,7 @@
 		'mcp_server_display_name',
 		'mcp_server_catalog_entry_name',
 		'call_type',
+		'call_identifier',
 		'client_name',
 		'client_version',
 		'client_ip',
@@ -320,6 +321,7 @@
 		if (key === 'session_id') return 'Session ID';
 		if (key === 'response_status') return 'Response Status';
 		if (key === 'client_ip') return 'Client IP';
+		if (key === 'call_identifier') return 'Identifier';
 
 		return key.replace(/_(\w)/g, ' $1');
 	}
