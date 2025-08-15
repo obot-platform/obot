@@ -61,6 +61,18 @@
 		transform: (stats?: AuditLogUsageStats) => Array<Record<string, any>>;
 	};
 
+	function userDisplayName(user?: OrgUser): string {
+		if (!user) {
+			return 'Unknown';
+		}
+
+		let display = user.originalEmail || user.email || user.id || 'Unknown';
+		if (user.deletedAt) {
+			display += ' (Deleted)';
+		}
+		return display;
+	}
+
 	const graphConfigs: GraphConfig[] = [
 		{
 			id: 'most-frequent-tool-calls',
@@ -256,11 +268,11 @@
 			tooltip: 'calls',
 			formatTooltipText: (data) => {
 				const user = users.find((u) => u.id === data.userId);
-				return `${data.callCount} calls • ${user ? user.email || user.id : String(data.userId)}`;
+				return `${data.callCount} calls • ${userDisplayName(user)}`;
 			},
 			formatXLabel: (userId) => {
 				const user = users.find((u) => u.id === userId);
-				return user ? user.displayName || user.email || user.id : String(userId);
+				return userDisplayName(user);
 			},
 			transform: (stats) => {
 				const userCounts = new Map<string, number>();

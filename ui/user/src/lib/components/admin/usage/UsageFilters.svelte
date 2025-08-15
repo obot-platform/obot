@@ -68,9 +68,14 @@
 		// Populate user filter values from provided users list
 		for (const user of users) {
 			const displayName = user?.displayName || 'Unknown';
-			const email = user?.email;
+			const email = user?.originalEmail || user?.email;
+			let label = email ? `${displayName} (${email})` : displayName;
+			if (user.deletedAt) {
+				label += ' (Deleted)';
+			}
+
 			filterSets[0].values[user.id] = {
-				label: email ? `${displayName} (${email})` : displayName,
+				label,
 				id: user.id
 			};
 		}

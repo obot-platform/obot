@@ -82,7 +82,7 @@
 	});
 
 	onMount(() => {
-		AdminService.listUsers().then((data) => {
+		AdminService.listUsersIncludeDeleted().then((data) => {
 			users = data;
 		});
 

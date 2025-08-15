@@ -31,7 +31,7 @@
 	afterNavigate(() => {
 		currentFilters = compileSortAndFilters();
 
-		AdminService.listUsers().then((userData) => {
+		AdminService.listUsersIncludeDeleted().then((userData) => {
 			users = userData;
 		});
 
@@ -108,7 +108,7 @@
 				.map((userId) => {
 					const user = users.find((u) => u.id === userId);
 					const displayName = user?.displayName || 'Unknown';
-					const email = user?.email;
+					const email = user?.originalEmail || user?.email;
 					return email ? `${displayName} (${email})` : displayName;
 				})
 				.join(', ');
