@@ -26,10 +26,13 @@
 		}))
 	);
 
+	type TableItem = (typeof tableData)[0];
+	type TableField = 'name' | 'email' | 'role' | 'lastActive';
+
 	let updateRoleDialog = $state<HTMLDialogElement>();
-	let updatingRole = $state<(typeof tableData)[0]>();
-	let deletingUser = $state<(typeof tableData)[0]>();
-	let confirmHandoffToUser = $state<(typeof tableData)[0]>();
+	let updatingRole = $state<TableItem>();
+	let deletingUser = $state<TableItem>();
+	let confirmHandoffToUser = $state<TableItem>();
 	let loading = $state(false);
 
 	function closeUpdateRoleDialog() {
@@ -45,6 +48,31 @@
 		}
 		loading = false;
 		closeUpdateRoleDialog();
+	}
+
+	function getColumnContent(user: TableItem, property: TableField) {
+		switch (property) {
+			case 'name':
+				return getUserDisplayName(user);
+			default:
+				return user[property];
+		}
+	}
+
+	function getUserDisplayName(user: TableItem): string {
+		let display =
+			user?.displayName ??
+			user?.originalUsername ??
+			user?.originalEmail ??
+			user?.username ??
+			user?.email ??
+			'Unknown User';
+
+		if (user?.deletedAt) {
+			display += ' (Deleted)';
+		}
+
+		return display;
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -72,7 +100,7 @@
 				<h2 class="mb-2 text-lg font-semibold">Users</h2>
 				<Table
 					data={tableData}
-					fields={['email', 'role', 'lastActive']}
+					fields={['name', 'email', 'role', 'lastActive']}
 					headers={[{ title: 'Last Active', property: 'lastActive' }]}
 				>
 					{#snippet onRenderColumn(property, d)}
@@ -89,6 +117,7 @@
 							</div>
 						{:else}
 							{d[property as keyof typeof d]}
+							{getColumnContent(d, property as TableField)}
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}
