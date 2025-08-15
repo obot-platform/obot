@@ -28,6 +28,14 @@
 	let contents = $derived(refFile?.file?.contents ?? '');
 	let filename = $derived(refFile?.name ?? '');
 
+	// Create a reactive variable that forces re-rendering when mode changes
+	let currentMode = $state(mode);
+
+	// Ensure currentMode updates when mode prop changes
+	$effect(() => {
+		currentMode = mode;
+	});
+
 	$effect(() => {
 		if (contents && contents !== refFile?.file?.contents && refFile.name === filename) {
 			onFileChanged(filename, contents);
@@ -41,26 +49,28 @@
 	}
 </script>
 
-{#if mode === 'wysiwyg'}
-	<Milkdown
-		file={refFile}
-		{contents}
-		onFileChanged={handleFileChange}
-		{overrideContent}
-		{onInvoke}
-		{items}
-		class="p-5 pt-0"
-	/>
-{:else}
-	<RawMarkdownEditor
-		bind:value={contents}
-		{disabled}
-		disablePreview
-		class="border-surface3 h-full grow rounded-none border-0 bg-inherit shadow-none"
-		classes={{
-			input: 'bg-gray-50 h-full max-h-full pb-8 grid'
-		}}
-		typewriterOnAutonomous
-		{overrideContent}
-	/>
-{/if}
+{#key mode}
+	{#if mode === 'wysiwyg'}
+		<Milkdown
+			file={refFile}
+			{contents}
+			onFileChanged={handleFileChange}
+			{overrideContent}
+			{onInvoke}
+			{items}
+			class="p-5 pt-0"
+		/>
+	{:else}
+		<RawMarkdownEditor
+			bind:value={contents}
+			{disabled}
+			disablePreview
+			class="border-surface3 h-full grow rounded-none border-0 bg-inherit shadow-none"
+			classes={{
+				input: 'bg-gray-50 h-full max-h-full pb-8 grid'
+			}}
+			typewriterOnAutonomous
+			{overrideContent}
+		/>
+	{/if}
+{/key}
