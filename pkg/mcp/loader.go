@@ -509,9 +509,9 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string,
 	}
 }
 
-// LaunchTemporaryInstance creates a temporary MCP server from a catalog entry, lists its tools,
+// GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,
 // then shuts it down and returns the tool preview data.
-func (sm *SessionManager) LaunchTemporaryInstance(ctx context.Context, catalogEntryManifest otypes.MCPServerCatalogEntryManifest, userURL string, configEnv map[string]string) ([]otypes.MCPServerTool, error) {
+func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, catalogEntryManifest otypes.MCPServerCatalogEntryManifest, userURL string, configEnv map[string]string) ([]otypes.MCPServerTool, error) {
 	// Convert catalog entry to server manifest
 	serverManifest, err := otypes.MapCatalogEntryToServer(catalogEntryManifest, userURL)
 	if err != nil {
@@ -557,39 +557,7 @@ func (sm *SessionManager) LaunchTemporaryInstance(ctx context.Context, catalogEn
 		return nil, fmt.Errorf("failed to list tools: %w", err)
 	}
 
-	// Convert to MCPServerTool format
-	var toolPreviews []otypes.MCPServerTool
-	for _, tool := range tools.Tools {
-		toolPreview := otypes.MCPServerTool{
-			ID:          tool.Name,
-			Name:        tool.Name,
-			Description: tool.Description,
-			Params:      make(map[string]string),
-			Enabled:     true,
-		}
-
-		// Extract parameter information from the tool's input schema
-		if tool.InputSchema != nil {
-			var schema map[string]interface{}
-			if err := json.Unmarshal(tool.InputSchema, &schema); err == nil {
-				if properties, ok := schema["properties"].(map[string]interface{}); ok {
-					for paramName, paramData := range properties {
-						if paramMap, ok := paramData.(map[string]interface{}); ok {
-							if desc, ok := paramMap["description"].(string); ok {
-								toolPreview.Params[paramName] = desc
-							} else if paramType, ok := paramMap["type"].(string); ok {
-								toolPreview.Params[paramName] = paramType
-							}
-						}
-					}
-				}
-			}
-		}
-
-		toolPreviews = append(toolPreviews, toolPreview)
-	}
-
-	return toolPreviews, nil
+	return ConvertTools(tools.Tools, []string{"*"}, nil)
 }
 
 func constructNanobotYAML(name, command string, args []string, env map[string]string) (string, error) {

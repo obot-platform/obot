@@ -25,7 +25,7 @@ type MCPCatalogHandler struct {
 }
 
 type SessionManager interface {
-	LaunchTemporaryInstance(ctx context.Context, catalogEntryManifest types.MCPServerCatalogEntryManifest, userURL string, configEnv map[string]string) ([]types.MCPServerTool, error)
+	GenerateToolPreviews(ctx context.Context, catalogEntryManifest types.MCPServerCatalogEntryManifest, userURL string, configEnv map[string]string) ([]types.MCPServerTool, error)
 }
 
 func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager SessionManager) *MCPCatalogHandler {
@@ -320,9 +320,9 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 	return req.Write(types.MCPServerList{Items: items})
 }
 
-// LaunchTemporaryInstance launches a temporary instance of an MCP server from a catalog entry
+// GenerateToolPreviews launches a temporary instance of an MCP server from a catalog entry
 // to generate tool preview data, then cleans up the instance.
-func (h *MCPCatalogHandler) LaunchTemporaryInstance(req api.Context) error {
+func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
 	entryName := req.PathValue("entry_id")
 
@@ -355,7 +355,7 @@ func (h *MCPCatalogHandler) LaunchTemporaryInstance(req api.Context) error {
 	}
 
 	// Launch temporary instance and get tools
-	toolPreviews, err := h.sessionManager.LaunchTemporaryInstance(req.Context(), entry.Spec.Manifest, configRequest.URL, configRequest.Config)
+	toolPreviews, err := h.sessionManager.GenerateToolPreviews(req.Context(), entry.Spec.Manifest, configRequest.URL, configRequest.Config)
 	if err != nil {
 		return fmt.Errorf("failed to launch temporary instance: %w", err)
 	}

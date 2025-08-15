@@ -3,7 +3,6 @@ package handlers
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,7 +13,6 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -1110,7 +1108,6 @@ func (m *MCPHandler) Reveal(req api.Context) error {
 }
 
 func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, userID string, server v1.MCPServer, serverConfig mcp.ServerConfig, allowedTools []string) ([]types.MCPServerTool, error) {
-	allTools := allowedTools == nil || slices.Contains(allowedTools, "*")
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
@@ -1128,40 +1125,7 @@ func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, 
 		return nil, err
 	}
 
-	tools := make([]types.MCPServerTool, 0, len(gTools))
-	for _, t := range gTools {
-		mcpTool := types.MCPServerTool{
-			ID:          t.Name,
-			Name:        t.Name,
-			Description: t.Description,
-			Enabled:     allTools && !slices.Contains(server.Spec.UnsupportedTools, t.Name) || slices.Contains(allowedTools, t.Name),
-			Unsupported: slices.Contains(server.Spec.UnsupportedTools, t.Name),
-		}
-
-		if len(t.InputSchema) > 0 {
-			var schema jsonschema.Schema
-
-			schemaData, err := json.Marshal(t.InputSchema)
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal input schema for tool %s: %w", t.Name, err)
-			}
-
-			if err = json.Unmarshal(schemaData, &schema); err != nil {
-				return nil, fmt.Errorf("failed to unmarshal tool input schema: %w", err)
-			}
-
-			mcpTool.Params = make(map[string]string, len(schema.Properties))
-			for name, param := range schema.Properties {
-				if param != nil {
-					mcpTool.Params[name] = param.Description
-				}
-			}
-		}
-
-		tools = append(tools, mcpTool)
-	}
-
-	return tools, nil
+	return mcp.ConvertTools(gTools, allowedTools, server.Spec.UnsupportedTools)
 }
 
 func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer, scope string, credEnv map[string]string) error {
