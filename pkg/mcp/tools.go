@@ -8,7 +8,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 	"github.com/nanobot-ai/nanobot/pkg/mcp"
-	"github.com/obot-platform/obot/apiclient/types"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
@@ -32,7 +31,7 @@ func ConvertTools(tools []mcp.Tool, allowedTools, unsupportedTools []string) ([]
 
 	convertedTools := make([]otypes.MCPServerTool, 0, len(tools))
 	for _, t := range tools {
-		mcpTool := types.MCPServerTool{
+		mcpTool := otypes.MCPServerTool{
 			ID:          t.Name,
 			Name:        t.Name,
 			Description: t.Description,
