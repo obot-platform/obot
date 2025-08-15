@@ -103,6 +103,7 @@ function getFilenameAndContent(msg: Message) {
 	}
 	let testContent = content;
 	let partial = false;
+	let partialFilename = '';
 	let obj = undefined;
 	while (testContent) {
 		try {
@@ -123,16 +124,19 @@ function getFilenameAndContent(msg: Message) {
 		const contentFirst = entries.length > 0 && entries[0][0] === 'content';
 		if (contentFirst && partial) {
 			// The filename might be incomplete, so remove it
+			partialFilename = obj.filename;
 			obj.filename = '';
 		}
 		return {
 			filename: obj.filename,
-			content: obj.content
+			content: obj.content,
+			partialFilename
 		};
 	}
 	return {
 		filename: '',
-		content: ''
+		content: '',
+		partialFilename
 	};
 }
 
@@ -159,7 +163,7 @@ function reformatWriteMessage(
 			}
 
 			if (last) {
-				opts.onEditingFile?.(obj.filename, obj.content);
+				opts.onEditingFile?.(obj.partialFilename || obj.filename, obj.content);
 			}
 		}
 		msg.message = [];

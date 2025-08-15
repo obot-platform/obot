@@ -91,15 +91,6 @@
 	let showCopied = $state(false);
 	let copiedTimeout = $state<ReturnType<typeof setTimeout>>();
 
-	// For file content, we want to animate the content as it's written
-	let fileCursor = new Tween(0);
-	let prevFileContent = $state('');
-	let animatedFileContent = $derived(
-		msg.file?.content && !msg.done && !compactFilePreview
-			? msg.file.content.slice(0, fileCursor.current)
-			: msg.file?.content || ''
-	);
-
 	// Check if this is an Memory tool message
 	let isMemoryTool = $derived(
 		msg.sourceName === 'Create Memory' ||
@@ -117,17 +108,6 @@
 
 		animating = true;
 		cursor.set(content.length, { duration: 500 }).then(() => (animating = false));
-	});
-
-	$effect(() => {
-		if (msg.file?.content && !msg.done && !compactFilePreview) {
-			if (!msg.file.content.startsWith(prevFileContent)) {
-				fileCursor.set(0, { duration: 0 });
-			}
-			prevFileContent = msg.file.content;
-
-			fileCursor.set(msg.file.content.length, { duration: 300 });
-		}
 	});
 
 	$effect(() => {
@@ -436,14 +416,12 @@
 				<div class="relative" transition:slide={{ axis: 'y', duration: 50 }}>
 					<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
 						{#if msg.file?.content}
-							{animatedFileContent}
+							{msg.file.content.split('\n').splice(0, 6).join('\n')}
 						{/if}
 					</div>
-					{#if !msg.done}
-						<div
-							class="absolute bottom-0 z-20 h-24 w-full rounded-3xl bg-linear-to-b from-transparent to-white dark:to-black"
-						></div>
-					{/if}
+					<div
+						class="absolute bottom-0 z-20 h-24 w-full rounded-3xl bg-linear-to-b from-transparent to-white dark:to-black"
+					></div>
 				</div>
 			{/if}
 		</button>

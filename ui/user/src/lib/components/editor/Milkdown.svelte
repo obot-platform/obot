@@ -72,6 +72,8 @@
 	}
 
 	$effect(() => {
+		if (!crepe?.editor) return;
+
 		if (!isEditing && overrideContent) {
 			setValue(overrideContent, true);
 		}
@@ -82,10 +84,15 @@
 	});
 
 	async function setValue(value: string, isTemporary: boolean = false) {
-		if (!crepe) return;
-		crepe.editor.action(replaceAll(value));
-		if (!isTemporary && value !== lastSetValue) {
-			lastSetValue = value;
+		if (!crepe || !crepe.editor) return;
+
+		try {
+			crepe.editor.action(replaceAll(value));
+			if (!isTemporary && value !== lastSetValue) {
+				lastSetValue = value;
+			}
+		} catch (error) {
+			console.warn('Failed to set value in Milkdown editor:', error);
 		}
 	}
 

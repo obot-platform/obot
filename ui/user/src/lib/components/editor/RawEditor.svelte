@@ -36,6 +36,7 @@
 	import { EditorView as CMEditorView } from '@codemirror/view';
 	import { githubLight, githubDark } from '@uiw/codemirror-theme-github';
 	import { darkMode } from '$lib/stores';
+	import { onDestroy } from 'svelte';
 
 	interface Props {
 		value?: string;
@@ -59,7 +60,7 @@
 		placeholder,
 		disablePreview,
 		typewriterOnAutonomous = false,
-		typewriterSpeed = 10,
+		typewriterSpeed = 0,
 		overrideContent
 	}: Props = $props();
 
@@ -124,6 +125,13 @@
 		}
 	});
 
+	onDestroy(() => {
+		if (currentAnimation) {
+			currentAnimation.abort();
+			currentAnimation = null;
+		}
+	});
+
 	async function animateTemporaryValue(changedValue: string) {
 		if (currentAnimation) {
 			currentAnimation.abort();
@@ -172,11 +180,13 @@
 					currentContent += changedValue[i];
 
 					// Update the entire document with the new content
-					cmView.dispatch(
-						cmView.state.update({
-							changes: { from: 0, to: cmView.state.doc.length, insert: currentContent }
-						})
-					);
+					if (cmView) {
+						cmView.dispatch(
+							cmView.state.update({
+								changes: { from: 0, to: cmView.state.doc.length, insert: currentContent }
+							})
+						);
+					}
 				}
 			}
 		}

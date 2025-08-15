@@ -17,9 +17,8 @@
 	let mdMode = $state<'wysiwyg' | 'raw'>('wysiwyg');
 	let saveTimeout: ReturnType<typeof setTimeout>;
 	const layout = getLayout();
-	let selected = $derived.by(() => {
-		return layout.items.find((item) => item.selected);
-	});
+	let selected = $derived(layout.items.find((item) => item.selected));
+	let isMdFile = $derived(selected?.name.toLowerCase().endsWith('.md'));
 
 	let downloadable = $derived.by(() => {
 		// embedded pdf viewer has it's own download button
@@ -41,11 +40,13 @@
 
 	$effect(() => {
 		if (
-			layout.projectEditorContent &&
+			layout.liveProjectEditing &&
+			selected?.name === layout.liveProjectEditing.filename &&
 			selected?.file?.contents &&
-			selected.file.contents === layout.projectEditorContent
+			selected.file.contents === layout.liveProjectEditing.content
 		) {
-			layout.projectEditorContent = undefined;
+			// clear now that selected file matches with live editing
+			layout.liveProjectEditing = undefined;
 		}
 	});
 
@@ -80,30 +81,9 @@
 </script>
 
 <div class="relative flex h-full w-full flex-col">
-	{#if layout.items.length > 1 || !layout.items[0]?.generic}
-		{@const selected = layout.items.find((item) => item.selected)}
-		{@const isMdFile = selected?.name.toLowerCase().endsWith('.md')}
-		<div class="file-tabs relative flex items-center justify-between gap-2 p-2">
-			<h4
-				class="flex items-center gap-1 px-2 text-base font-semibold text-gray-400 dark:text-gray-600"
-			>
-				{selected?.name}
-				{#if isMdFile}
-					<button
-						class="icon-button"
-						onclick={() => {
-							mdMode = mdMode === 'wysiwyg' ? 'raw' : 'wysiwyg';
-						}}
-						use:tooltip={mdMode === 'wysiwyg' ? 'Edit as raw markdown' : 'Use WYSIWYG editor'}
-					>
-						{#if mdMode === 'wysiwyg'}
-							<SquareCode class="size-5" />
-						{:else}
-							<SquareChartGantt class="size-5" />
-						{/if}
-					</button>
-				{/if}
-			</h4>
+	<div class="file-tabs relative flex items-center justify-between gap-2 p-2">
+		{#if selected && !layout.liveProjectEditing}
+			{@render fileHeader(selected?.name)}
 			<div class="flex items-center gap-2">
 				{#if copyable}
 					<button
@@ -139,14 +119,17 @@
 					class="icon-button"
 					onclick={() => {
 						layout.fileEditorOpen = false;
+						layout.liveProjectEditing = undefined;
 					}}
 					use:tooltip={'Close Editor'}
 				>
 					<X class="h-5 w-5" />
 				</button>
 			</div>
-		</div>
-	{/if}
+		{:else if layout.liveProjectEditing}
+			{@render fileHeader(layout.liveProjectEditing.filename)}
+		{/if}
+	</div>
 
 	<div class="default-scrollbar-thin relative flex grow flex-col overflow-y-auto">
 		<FileEditors
@@ -154,10 +137,31 @@
 			{onInvoke}
 			bind:items={layout.items}
 			{mdMode}
-			overrideContent={layout.projectEditorContent}
+			liveEditing={layout.liveProjectEditing}
 		/>
 	</div>
 </div>
+
+{#snippet fileHeader(name?: string)}
+	<h4 class="flex items-center gap-1 px-2 text-base font-semibold text-gray-400 dark:text-gray-600">
+		{name}
+		{#if isMdFile}
+			<button
+				class="icon-button"
+				onclick={() => {
+					mdMode = mdMode === 'wysiwyg' ? 'raw' : 'wysiwyg';
+				}}
+				use:tooltip={mdMode === 'wysiwyg' ? 'Edit as raw markdown' : 'Use WYSIWYG editor'}
+			>
+				{#if mdMode === 'wysiwyg'}
+					<SquareCode class="size-5" />
+				{:else}
+					<SquareChartGantt class="size-5" />
+				{/if}
+			</button>
+		{/if}
+	</h4>
+{/snippet}
 
 <style lang="postcss">
 </style>

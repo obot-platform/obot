@@ -179,9 +179,13 @@
 				layout.items = items;
 			},
 			onEditingFile: (filename, content) => {
-				if (layout.fileEditorOpen && content && layout.projectEditorContent !== content) {
-					layout.projectEditorContent = content;
+				if (!layout.fileEditorOpen) {
+					layout.fileEditorOpen = true;
 				}
+				layout.liveProjectEditing = {
+					filename,
+					content
+				};
 			},
 			onMemoryCall: () => {
 				layout.sidebarMemoryUpdateAvailable = true;
@@ -328,9 +332,6 @@
 
 	let projectModelProvider = $derived(project.defaultModelProvider ?? projectDefaultModelProvider);
 	let projectModel = $derived(project.defaultModel ?? projectDefaultModel);
-	let openedEditorFile = $derived(
-		layout.fileEditorOpen ? layout.items.find((item) => item.selected) : undefined
-	);
 	let lastMessageWithFile = $derived(messages.messages.findLastIndex((msg) => msg.file));
 
 	$effect(() => {
@@ -563,7 +564,7 @@
 							imagePreviewSrc = imgSrc;
 							imagePreviewDialog?.showModal();
 						}}
-						compactFilePreview={!!openedEditorFile || i !== lastMessageWithFile}
+						compactFilePreview={!!layout.fileEditorOpen || i !== lastMessageWithFile}
 					/>
 				{/each}
 			{/if}
