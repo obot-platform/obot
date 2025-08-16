@@ -7,6 +7,7 @@ type AdditionalOptions = {
 	taskID?: string;
 	runID?: string;
 	onItemsChanged?: (items: EditorItem[]) => void;
+	onEditingFile?: (filename: string, content: string) => void;
 	onMemoryCall?: () => void;
 };
 
@@ -102,6 +103,7 @@ function getFilenameAndContent(msg: Message) {
 	}
 	let testContent = content;
 	let partial = false;
+	let partialFilename = '';
 	let obj = undefined;
 	while (testContent) {
 		try {
@@ -122,16 +124,19 @@ function getFilenameAndContent(msg: Message) {
 		const contentFirst = entries.length > 0 && entries[0][0] === 'content';
 		if (contentFirst && partial) {
 			// The filename might be incomplete, so remove it
+			partialFilename = obj.filename;
 			obj.filename = '';
 		}
 		return {
 			filename: obj.filename,
-			content: obj.content
+			content: obj.content,
+			partialFilename
 		};
 	}
 	return {
 		filename: '',
-		content: ''
+		content: '',
+		partialFilename
 	};
 }
 
@@ -144,6 +149,7 @@ function reformatWriteMessage(
 	msg.icon = 'Pencil';
 	msg.done = !last || msg.toolCall !== undefined;
 	msg.sourceName = msg.done ? 'Wrote to Workspace' : 'Writing to Workspace';
+
 	try {
 		const obj = getFilenameAndContent(msg);
 		if (obj) {
@@ -154,6 +160,10 @@ function reformatWriteMessage(
 			msg.file.filename = obj.filename;
 			if (obj.content) {
 				msg.file.content = obj.content;
+			}
+
+			if (last) {
+				opts.onEditingFile?.(obj.partialFilename || obj.filename, obj.content);
 			}
 		}
 		msg.message = [];

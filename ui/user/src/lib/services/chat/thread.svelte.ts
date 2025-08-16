@@ -31,6 +31,7 @@ export class Thread {
 	};
 	readonly #items: EditorItem[] = [];
 	readonly #onItemsChanged?: (items: EditorItem[]) => void;
+	readonly #onEditingFile?: (filename: string, content: string) => void;
 	readonly #onMemoryCall?: () => void;
 	readonly #follow?: boolean;
 	constructor(
@@ -49,6 +50,7 @@ export class Thread {
 			// Return true to reconnect, false to close
 			onClose?: () => boolean;
 			onItemsChanged?: (items: EditorItem[]) => void;
+			onEditingFile?: (filename: string, content: string) => void;
 			items?: EditorItem[];
 			follow?: boolean;
 			onMemoryCall?: () => void;
@@ -68,6 +70,9 @@ export class Thread {
 		}
 		if (opts?.onItemsChanged) {
 			this.#onItemsChanged = opts.onItemsChanged;
+		}
+		if (opts?.onEditingFile) {
+			this.#onEditingFile = opts.onEditingFile;
 		}
 		if (opts?.onMemoryCall) {
 			this.#onMemoryCall = opts.onMemoryCall;
@@ -191,7 +196,8 @@ export class Thread {
 					taskID: this.#task?.id,
 					runID: this.runID,
 					threadID: this.threadID,
-					onItemsChanged: this.#onItemsChanged
+					onItemsChanged: this.#onItemsChanged,
+					onEditingFile: this.#onEditingFile
 				})
 			);
 		}
@@ -206,6 +212,7 @@ export class Thread {
 					runID: this.runID,
 					threadID: this.threadID,
 					onItemsChanged: this.#onItemsChanged,
+					onEditingFile: this.#onEditingFile,
 					onMemoryCall: afterReplay ? this.#onMemoryCall : undefined
 				})
 			);

@@ -27,14 +27,9 @@
 	in:fade
 >
 	{#if layout.sidebarConfig === 'project-configuration'}
-		{#if layout.projectToConfigure}
-			{#key layout.projectToConfigure.id}
-				<ProjectConfiguration
-					project={layout.projectToConfigure}
-					isOnProject={layout.projectToConfigure.id === project.id}
-				/>
-			{/key}
-		{/if}
+		{#key project.id}
+			<ProjectConfiguration bind:project />
+		{/key}
 	{:else if layout.sidebarConfig === 'slack'}
 		<Slack {project} />
 	{:else if layout.sidebarConfig === 'invitations'}

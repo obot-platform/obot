@@ -7,7 +7,7 @@
 	import { goto } from '$app/navigation';
 	import Confirm from '../Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { closeAll, getLayout, openConfigureProject } from '$lib/context/chatLayout.svelte';
+	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import PageLoading from '../PageLoading.svelte';
 
 	interface Props {
@@ -148,7 +148,7 @@
 		<button
 			class="icon-button flex-shrink-0 opacity-0 group-hover:opacity-100 hover:text-blue-500"
 			onclick={() => {
-				openConfigureProject(layout, p);
+				goto(`/o/${p.id}?edit=true`);
 			}}
 			use:tooltip={'Configure Project'}
 		>
