@@ -1535,13 +1535,13 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 }
 
 func (m *MCPHandler) GetServerDetails(req api.Context) error {
-	if !m.mcpSessionManager.KubernetesEnabled() {
-		return types.NewErrNotFound("Kubernetes is not enabled")
-	}
-
 	server, serverConfig, err := serverForAction(req)
 	if err != nil {
 		return err
+	}
+
+	if serverConfig.Runtime == types.RuntimeRemote {
+		return types.NewErrBadRequest("cannot get details for remote MCP server")
 	}
 
 	mcpServerDisplayName := server.Spec.Manifest.Name
@@ -1551,23 +1551,29 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 
 	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), mcpServerDisplayName, server.Name, serverConfig)
 	if err != nil {
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrNotFound(nse.Error())
+		}
 		return err
 	}
 
 	return req.Write(details)
 }
 
-func (m *MCPHandler) RestartK8sDeployment(req api.Context) error {
-	if !m.mcpSessionManager.KubernetesEnabled() {
-		return types.NewErrNotFound("Kubernetes is not enabled")
-	}
-
+func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 	_, serverConfig, err := serverForAction(req)
 	if err != nil {
 		return err
 	}
 
-	if err := m.mcpSessionManager.RestartK8sDeployment(req.Context(), serverConfig); err != nil {
+	if serverConfig.Runtime == types.RuntimeRemote {
+		return types.NewErrBadRequest("cannot restart deployment for remote MCP server")
+	}
+
+	if err := m.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrNotFound(nse.Error())
+		}
 		return err
 	}
 
@@ -1576,20 +1582,27 @@ func (m *MCPHandler) RestartK8sDeployment(req api.Context) error {
 }
 
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
-	if !m.mcpSessionManager.KubernetesEnabled() {
-		return types.NewErrNotFound("Kubernetes is not enabled")
-	}
-
-	_, serverConfig, err := serverForAction(req)
+	server, serverConfig, err := serverForAction(req)
 	if err != nil {
 		return err
 	}
 
-	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig)
-	if err != nil {
-		return err
+	if serverConfig.Runtime == types.RuntimeRemote {
+		return types.NewErrBadRequest("cannot stream logs for remote MCP server")
 	}
 
+	mcpServerDisplayName := server.Spec.Manifest.Name
+	if mcpServerDisplayName == "" {
+		mcpServerDisplayName = server.Name
+	}
+
+	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), mcpServerDisplayName, server.Name, serverConfig)
+	if err != nil {
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrNotFound(nse.Error())
+		}
+		return err
+	}
 	defer logs.Close()
 
 	// Set up Server-Sent Events headers
