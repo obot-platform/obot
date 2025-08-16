@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -506,6 +507,30 @@ func (sm *SessionManager) updatedMCPPodName(ctx context.Context, url, id string,
 		case <-time.After(time.Second):
 		}
 	}
+}
+
+// GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,
+// then shuts it down and returns the tool preview data.
+func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServer v1.MCPServer, serverConfig ServerConfig) ([]otypes.MCPServerTool, error) {
+	// Create MCP client and list tools
+	client, err := sm.ClientForServer(ctx, "system", tempMCPServer.Spec.Manifest.Name, tempMCPServer.Name, serverConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create MCP client: %w", err)
+	}
+
+	// Ensure cleanup happens regardless of success or failure
+	defer func() {
+		if cleanupErr := sm.ShutdownServer(ctx, serverConfig); cleanupErr != nil {
+			log.Errorf("failed to clean up temporary instance %s: %v", tempMCPServer.Name, cleanupErr)
+		}
+	}()
+
+	tools, err := client.ListTools(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tools: %w", err)
+	}
+
+	return ConvertTools(tools.Tools, []string{"*"}, nil)
 }
 
 func constructNanobotYAML(name, command string, args []string, env map[string]string) (string, error) {
