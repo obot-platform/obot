@@ -318,7 +318,7 @@ func TestConfigurationHasDrifted(t *testing.T) {
 				},
 			},
 			expectedDrift: true,
-			expectedError: true,
+			expectedError: false,
 		},
 		{
 			name: "no drift - different env order (order doesn't matter)",
@@ -391,7 +391,7 @@ func TestConfigurationHasDrifted(t *testing.T) {
 				},
 			},
 			expectedDrift: true,
-			expectedError: true,
+			expectedError: false,
 		},
 		{
 			name: "drift - missing runtime config",
@@ -513,49 +513,42 @@ func TestRuntimeSpecificDriftFunctions(t *testing.T) {
 			entryConfig    *types.RemoteCatalogConfig
 			serverNeedsURL bool
 			expectedDrift  bool
-			expectedError  bool
 		}{
 			{
 				name:          "both nil",
 				serverConfig:  nil,
 				entryConfig:   nil,
 				expectedDrift: false,
-				expectedError: false,
 			},
 			{
 				name:          "fixed URL match",
 				serverConfig:  &types.RemoteRuntimeConfig{URL: "https://api.example.com"},
 				entryConfig:   &types.RemoteCatalogConfig{FixedURL: "https://api.example.com"},
 				expectedDrift: false,
-				expectedError: false,
 			},
 			{
 				name:          "fixed URL mismatch",
 				serverConfig:  &types.RemoteRuntimeConfig{URL: "https://api.example.com"},
 				entryConfig:   &types.RemoteCatalogConfig{FixedURL: "https://api.different.com"},
 				expectedDrift: true,
-				expectedError: false,
 			},
 			{
 				name:          "hostname match",
 				serverConfig:  &types.RemoteRuntimeConfig{URL: "https://api.example.com:8080/path"},
 				entryConfig:   &types.RemoteCatalogConfig{Hostname: "api.example.com"},
 				expectedDrift: false,
-				expectedError: false,
 			},
 			{
 				name:          "hostname mismatch",
 				serverConfig:  &types.RemoteRuntimeConfig{URL: "https://api.example.com"},
 				entryConfig:   &types.RemoteCatalogConfig{Hostname: "api2.example.com"},
 				expectedDrift: true,
-				expectedError: true,
 			},
 			{
 				name:           "hostname match, needsURL",
 				serverConfig:   &types.RemoteRuntimeConfig{URL: "https://api.example.com"},
 				entryConfig:    &types.RemoteCatalogConfig{Hostname: "api2.example.com"},
 				expectedDrift:  false,
-				expectedError:  false,
 				serverNeedsURL: true,
 			},
 			{
@@ -563,24 +556,12 @@ func TestRuntimeSpecificDriftFunctions(t *testing.T) {
 				serverConfig:  &types.RemoteRuntimeConfig{URL: "://invalid"},
 				entryConfig:   &types.RemoteCatalogConfig{Hostname: "api.example.com"},
 				expectedDrift: true,
-				expectedError: true,
 			},
 		}
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				result, err := remoteConfigHasDrifted(tt.serverNeedsURL, tt.serverConfig, tt.entryConfig)
-
-				if tt.expectedError {
-					if err == nil {
-						t.Errorf("Expected error but got none")
-					}
-				} else {
-					if err != nil {
-						t.Errorf("Unexpected error: %v", err)
-					}
-				}
-
+				result := remoteConfigHasDrifted(tt.serverNeedsURL, tt.serverConfig, tt.entryConfig)
 				if result != tt.expectedDrift {
 					t.Errorf("Expected drift=%v, got drift=%v", tt.expectedDrift, result)
 				}
