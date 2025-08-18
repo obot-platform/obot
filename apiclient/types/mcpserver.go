@@ -205,6 +205,11 @@ type ProjectMCPServer struct {
 	Description string `json:"description"`
 	Icon        string `json:"icon"`
 	UserID      string `json:"userID"`
+
+	// The following status fields are always copied from the MCPServer that this points to.
+	Configured  bool `json:"configured"`
+	NeedsURL    bool `json:"needsURL"`
+	NeedsUpdate bool `json:"needsUpdate"`
 }
 
 type ProjectMCPServerList List[ProjectMCPServer]

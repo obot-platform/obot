@@ -40,7 +40,7 @@ func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontro
 	}
 }
 
-func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.MCPServer) types.ProjectMCPServer {
+func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.MCPServer, cred map[string]string, serverURL string) types.ProjectMCPServer {
 	pmcp := types.ProjectMCPServer{
 		Metadata:                 MetadataFrom(projectServer),
 		ProjectMCPServerManifest: projectServer.Spec.Manifest,
@@ -50,6 +50,16 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 		UserID:                   projectServer.Spec.UserID,
 	}
 	pmcp.Alias = mcpServer.Spec.Alias
+
+	if cred != nil && mcpServer.Spec.SharedWithinMCPCatalogName == "" {
+		// For non-shared servers, grab more status information from the MCP server.
+		// We don't show this for shared servers, because the user can't do anything about it
+		// if something is wrong with one of those; only the admin can.
+		convertedServer := convertMCPServer(*mcpServer, cred, serverURL)
+		pmcp.Configured = convertedServer.Configured
+		pmcp.NeedsURL = convertedServer.NeedsURL
+		pmcp.NeedsUpdate = convertedServer.NeedsUpdate
+	}
 
 	return pmcp
 }
@@ -87,13 +97,22 @@ func (p *ProjectMCPHandler) ListServer(req api.Context) error {
 		return nil
 	}
 
-	credCtxs := make([]string, 0, len(servers.Items))
-
+	var (
+		mcpServers = make(map[string]v1.MCPServer)
+		credCtxs   = make([]string, 0, len(servers.Items))
+	)
 	for _, server := range servers.Items {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", project.Name, server.Name))
-		if project.IsSharedProject() {
-			// Add default credentials shared by the agent for this MCP server if available.
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
+		mcpServer, err := getMCPServerForProjectServer(req.Context(), req.Storage, server)
+		if err != nil {
+			return err
+		}
+
+		if mcpServer != nil {
+			mcpServers[server.Name] = *mcpServer
+
+			if mcpServer.Spec.SharedWithinMCPCatalogName == "" {
+				credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name))
+			}
 		}
 	}
 
@@ -115,18 +134,16 @@ func (p *ProjectMCPHandler) ListServer(req api.Context) error {
 		}
 	}
 
-	var (
-		mcpServer *v1.MCPServer
+	var items = make([]types.ProjectMCPServer, 0, len(servers.Items))
 
-		items = make([]types.ProjectMCPServer, 0, len(servers.Items))
-	)
 	for _, server := range servers.Items {
-		mcpServer, err = getMCPServerForProjectServer(req.Context(), req.Storage, server)
-		if err != nil {
-			return err
+		mcpServer, ok := mcpServers[server.Name]
+		if !ok {
+			continue
 		}
+		cred := credMap[mcpServer.Name]
 
-		items = append(items, convertProjectMCPServer(&server, mcpServer))
+		items = append(items, convertProjectMCPServer(&server, &mcpServer, cred, p.serverURL))
 	}
 
 	return req.Write(types.ProjectMCPServerList{Items: items})
@@ -171,11 +188,21 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 		}
 	}
 
+	var cred map[string]string
+	if mcpServer.Spec.SharedWithinMCPCatalogName == "" {
+		gptscriptCred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)}, mcpServer.Name)
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential: %w", err)
+		}
+
+		cred = gptscriptCred.Env
+	}
+
 	if err = req.Create(&projectServer); err != nil {
 		return err
 	}
 
-	return req.WriteCreated(convertProjectMCPServer(&projectServer, mcpServer))
+	return req.WriteCreated(convertProjectMCPServer(&projectServer, mcpServer, cred, p.serverURL))
 }
 
 func (p *ProjectMCPHandler) GetServer(req api.Context) error {
@@ -189,7 +216,17 @@ func (p *ProjectMCPHandler) GetServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertProjectMCPServer(&projectServer, mcpServer))
+	var cred map[string]string
+	if mcpServer.Spec.SharedWithinMCPCatalogName == "" {
+		gptscriptCred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)}, mcpServer.Name)
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential: %w", err)
+		}
+
+		cred = gptscriptCred.Env
+	}
+
+	return req.Write(convertProjectMCPServer(&projectServer, mcpServer, cred, p.serverURL))
 }
 
 func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
@@ -203,11 +240,21 @@ func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
 		return err
 	}
 
+	var cred map[string]string
+	if mcpServer.Spec.SharedWithinMCPCatalogName == "" {
+		gptscriptCred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)}, mcpServer.Name)
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential: %w", err)
+		}
+
+		cred = gptscriptCred.Env
+	}
+
 	if err = req.Delete(&projectServer); err != nil {
 		return err
 	}
 
-	return req.Write(convertProjectMCPServer(&projectServer, mcpServer))
+	return req.Write(convertProjectMCPServer(&projectServer, mcpServer, cred, p.serverURL))
 }
 
 func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
