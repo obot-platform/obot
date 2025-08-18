@@ -111,9 +111,9 @@ func (c *DiscordController) closeSession(workflowName string) {
 }
 
 func (c *DiscordController) triggerWorkflow(req router.Request, workflow *v1.Workflow, thread v1.Thread, m *discordgo.MessageCreate) {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"type": "discord",
-		"event": map[string]interface{}{
+		"event": map[string]any{
 			"content":    m.Content,
 			"channelID":  m.ChannelID,
 			"messageID":  m.ID,

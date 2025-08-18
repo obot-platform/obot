@@ -300,7 +300,7 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 	})
 }
 
-func (c *Client) fetchUserProfile(ctx context.Context, authProviderURL, accessToken string) (map[string]interface{}, error) {
+func (c *Client) fetchUserProfile(ctx context.Context, authProviderURL, accessToken string) (map[string]any, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, authProviderURL+"/obot-get-user-info", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -318,7 +318,7 @@ func (c *Client) fetchUserProfile(ctx context.Context, authProviderURL, accessTo
 		return nil, fmt.Errorf("failed to fetch profile icon URL: %s", resp.Status)
 	}
 
-	var body map[string]interface{}
+	var body map[string]any
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}

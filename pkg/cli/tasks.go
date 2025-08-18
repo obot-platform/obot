@@ -31,7 +31,7 @@ func (l *Tasks) Customize(cmd *cobra.Command) {
 }
 
 func (l *Tasks) Run(cmd *cobra.Command, args []string) error {
-	debugPrint := func(format string, args ...interface{}) {
+	debugPrint := func(format string, args ...any) {
 		if l.root.Debug {
 			fmt.Fprintf(cmd.OutOrStdout(), format+"\n", args...)
 		}

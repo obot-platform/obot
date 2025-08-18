@@ -22,7 +22,7 @@ func NewErrHTTP(code int, message string) *ErrHTTP {
 	}
 }
 
-func NewErrBadRequest(message string, args ...interface{}) *ErrHTTP {
+func NewErrBadRequest(message string, args ...any) *ErrHTTP {
 	return NewErrHTTP(http.StatusBadRequest, fmt.Sprintf(message, args...))
 }
 

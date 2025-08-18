@@ -59,7 +59,7 @@ var _ = Describe("Project API", Ordered, func() {
 		It("should return 200 OK when Slack config is valid", func() {
 			Expect(createdID).NotTo(BeEmpty())
 
-			slackReceiver, err := client.ConfigureProjectSlack(createdID, map[string]interface{}{
+			slackReceiver, err := client.ConfigureProjectSlack(createdID, map[string]any{
 				"appId":         "foo",
 				"clientId":      "foo",
 				"clientSecret":  "foo",

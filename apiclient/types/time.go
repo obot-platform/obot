@@ -54,7 +54,7 @@ func (t Time) MarshalJSON() ([]byte, error) {
 }
 
 // ToUnstructured implement value.UnstructuredConverter to make k8s happy? Dunno if I really need this.
-func (t Time) ToUnstructured() interface{} {
+func (t Time) ToUnstructured() any {
 	if t.Time.IsZero() {
 		return nil
 	}

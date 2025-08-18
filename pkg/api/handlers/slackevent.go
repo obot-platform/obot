@@ -162,7 +162,7 @@ func (h *SlackEventHandler) HandleEvent(req api.Context) error {
 		}
 
 		var payload = &strings.Builder{}
-		if err := json.NewEncoder(payload).Encode(map[string]interface{}{
+		if err := json.NewEncoder(payload).Encode(map[string]any{
 			"type":  "slack",
 			"event": json.RawMessage(body),
 		}); err != nil {

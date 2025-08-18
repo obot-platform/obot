@@ -256,7 +256,7 @@ func (c *Client) GetProjectTask(projectID, taskID string) (*apiclient.Task, erro
 	return &task, nil
 }
 
-func (c *Client) ConfigureProjectSlack(projectID string, payload map[string]interface{}) (*apiclient.SlackReceiver, error) {
+func (c *Client) ConfigureProjectSlack(projectID string, payload map[string]any) (*apiclient.SlackReceiver, error) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -314,7 +314,7 @@ func (c *Client) GetModels() ([]apiclient.Model, error) {
 }
 
 func (c *Client) SetUpDefaultModelAlias(modelID, usage string) error {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"model_id": modelID,
 		"usage":    usage,
 	}
