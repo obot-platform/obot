@@ -270,23 +270,25 @@
 <ResponsiveDialog bind:this={connectDialog} animate="slide">
 	{#snippet titleContent()}
 		{#if connectToServer}
-			{@const alias = connectToServer.server?.alias ?? ''}
+			{@const nameToShow =
+				connectToServer.server?.alias || connectToServer.server?.manifest.name || ''}
 			{@const icon = connectToServer.server?.manifest.icon ?? ''}
 
 			<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
 				{#if icon}
-					<img src={icon} alt={alias} class="size-8" />
+					<img src={icon} alt={nameToShow} class="size-8" />
 				{:else}
 					<Server class="size-8" />
 				{/if}
 			</div>
-			{alias}
+			{nameToShow}
 		{/if}
 	{/snippet}
 
 	{#if connectToServer}
 		{@const url = connectToServer.connectURL}
-		{@const alias = connectToServer.server?.alias ?? ''}
+		{@const nameToShow =
+			connectToServer.server?.alias || connectToServer.server?.manifest.name || ''}
 		<div class="flex items-center gap-4">
 			<div class="mb-4 flex grow flex-col gap-1">
 				<label for="connectURL" class="font-light">Connection URL</label>
@@ -313,8 +315,8 @@
 			</div>
 		</div>
 
-		{#if url && alias}
-			<HowToConnect servers={[{ url, name: alias }]} />
+		{#if url}
+			<HowToConnect servers={[{ url, name: nameToShow }]} />
 		{/if}
 	{/if}
 </ResponsiveDialog>
