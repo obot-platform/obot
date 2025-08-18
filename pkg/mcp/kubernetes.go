@@ -568,52 +568,46 @@ func (k *kubernetesBackend) k8sObjectsForContainerized(id string, server ServerC
 func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig) (string, error) {
 	// Wait for the deployment to be updated.
 	_, err := wait.For(ctx, k.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}}, func(dep *appsv1.Deployment) (bool, error) {
-		return dep.Status.Replicas == 1 && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1, nil
-	})
+		return dep.Generation == dep.Status.ObservedGeneration && dep.Status.Replicas == 1 && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1, nil
+	}, wait.Option{Timeout: 30 * time.Second})
 	if err != nil {
-		return "", fmt.Errorf("failed to wait for MCP server to be ready: %w", err)
+		return "", ErrHealthCheckTimeout
 	}
 
 	if err = ensureServerReady(ctx, url, server); err != nil {
 		return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
 	}
 
-	// Not get the pod name that is currently running, waiting for there to only be one pod.
+	// Now get the pod name that is currently running, waiting for there to only be one running pod.
 	var (
 		pods            corev1.PodList
 		runningPodCount int
 		podName         string
 	)
-	for {
-		if err = k.client.List(ctx, &pods, &kclient.ListOptions{
-			Namespace: k.mcpNamespace,
-			LabelSelector: labels.SelectorFromSet(map[string]string{
-				"app": id,
-			}),
-		}); err != nil {
-			return "", fmt.Errorf("failed to list MCP pods: %w", err)
-		}
+	if err = k.client.List(ctx, &pods, &kclient.ListOptions{
+		Namespace: k.mcpNamespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			"app": id,
+		}),
+	}); err != nil {
+		return "", fmt.Errorf("failed to list MCP pods: %w", err)
+	}
 
-		runningPodCount = 0
-		for _, p := range pods.Items {
-			if p.Status.Phase == corev1.PodRunning {
-				podName = p.Name
-				runningPodCount++
-			}
-		}
-		if runningPodCount == 1 {
-			return podName, nil
-		}
-
-		select {
-		case <-ctx.Done():
-			return "", fmt.Errorf("timed out waiting for MCP server to be ready")
-		case <-time.After(time.Second):
+	runningPodCount = 0
+	for _, p := range pods.Items {
+		if p.Status.Phase == corev1.PodRunning {
+			podName = p.Name
+			runningPodCount++
 		}
 	}
+	if runningPodCount == 1 {
+		return podName, nil
+	}
+
+	return "", ErrHealthCheckTimeout
 }
 
-func (k *kubernetesBackend) restartServer(ctx context.Context, id string, _ ServerConfig) error {
+func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error {
 	var deployment appsv1.Deployment
 	if err := k.client.Get(ctx, kclient.ObjectKey{Name: id, Namespace: k.mcpNamespace}, &deployment); err != nil {
 		return fmt.Errorf("failed to get deployment %s: %w", id, err)

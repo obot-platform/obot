@@ -232,7 +232,7 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 		return nil
 	}
 
-	return sm.backend.restartServer(ctx, deploymentID(server), server)
+	return sm.backend.restartServer(ctx, deploymentID(server))
 }
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, id string, server ServerConfig, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {

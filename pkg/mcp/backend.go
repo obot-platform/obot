@@ -3,6 +3,7 @@ package mcp
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,7 +18,7 @@ type backend interface {
 	transformConfig(ctx context.Context, id string, serverConfig ServerConfig) (*ServerConfig, error)
 	streamServerLogs(ctx context.Context, id string) (io.ReadCloser, error)
 	getServerDetails(ctx context.Context, id string) (types.MCPServerDetails, error)
-	restartServer(ctx context.Context, id string, serverConfig ServerConfig) error
+	restartServer(ctx context.Context, id string) error
 	shutdownServer(ctx context.Context, id string) error
 }
 
@@ -28,6 +29,11 @@ type ErrNotSupportedByBackend struct {
 func (e *ErrNotSupportedByBackend) Error() string {
 	return fmt.Sprintf("feature %s is not supported by %s backend", e.Feature, e.Backend)
 }
+
+var (
+	ErrHealthCheckTimeout = errors.New("timed out waiting for MCP server to be ready")
+	ErrHealthCheckFailed  = errors.New("MCP server is not healthy")
+)
 
 func ensureServerReady(ctx context.Context, url string, server ServerConfig) error {
 	// Ensure we can actually hit the service URL.
@@ -45,18 +51,24 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 			resp, err := client.Get(url)
 			if err == nil {
 				resp.Body.Close()
-				if resp.StatusCode == 200 {
-					break
+				switch resp.StatusCode {
+				case http.StatusOK:
+					return nil
+				case http.StatusServiceUnavailable:
+					// The image will return a http.StatusTooEarly until it has finished trying to list tools.
+					// If listing tools fails, it will return http.StatusServiceUnavailable.
+					return ErrHealthCheckFailed
 				}
 			}
 
 			select {
 			case <-ctx.Done():
-				return fmt.Errorf("timed out waiting for MCP server to be ready")
+				return ErrHealthCheckTimeout
 			case <-time.After(100 * time.Millisecond):
 			}
 		}
 	}
+
 	if server.ContainerPath != "" {
 		// Try making a standard POST call to this MCP server to see if it responds.
 		url = fmt.Sprintf("%s/%s", strings.TrimSuffix(url, "/"), strings.TrimPrefix(server.ContainerPath, "/"))
@@ -65,7 +77,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting for containerized MCP server to be ready")
+			return ErrHealthCheckTimeout
 		case <-time.After(100 * time.Millisecond):
 		}
 

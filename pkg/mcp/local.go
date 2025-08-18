@@ -35,7 +35,7 @@ func (*localBackend) getServerDetails(context.Context, string) (types.MCPServerD
 	return types.MCPServerDetails{}, &ErrNotSupportedByBackend{Feature: "server details", Backend: "local"}
 }
 
-func (*localBackend) restartServer(context.Context, string, ServerConfig) error {
+func (*localBackend) restartServer(context.Context, string) error {
 	return &ErrNotSupportedByBackend{Feature: "restarting server", Backend: "local"}
 }
 
