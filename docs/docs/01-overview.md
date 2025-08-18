@@ -22,6 +22,10 @@ Then open your browser to [http://localhost:8080](http://localhost:8080) to acce
 You need to replace `<API KEY>` with your [OpenAI API Key](https://platform.openai.com/api-keys).
 
 Setting this is optional, but you'll need to setup a model provider from the Admin UI before using chat.
+
+You can also set `ANTHROPIC_API_KEY` here as well, setting the value to your [Anthropic API Key](https://console.anthropic.com/settings/keys).
+
+Setting both is also supported, but OpenAI models will be set as the defaults.
 :::
 
 For more installation methods, see our [Installation Guide](/installation/general).

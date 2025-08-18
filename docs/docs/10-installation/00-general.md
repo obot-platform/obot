@@ -84,9 +84,12 @@ config:
 
   # Point this to your postgres database
   OBOT_SERVER_DSN: postgres://<user>:<pass>@<host>/<db>
-  
+
   OBOT_SERVER_HOSTNAME: <your obot hostname>
+  # Setting these is optional, but you'll need to setup a model provider from the Admin UI before using chat.
+  # You can set either, neither or both.
   OPENAI_API_KEY: <openai api key>
+  ANTHROPIC_API_KEY: <anthropic api key>
 ```
 
 

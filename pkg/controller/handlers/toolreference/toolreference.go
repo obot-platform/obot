@@ -239,12 +239,33 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 }
 
 func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c client.Client) error {
-	if os.Getenv("OPENAI_API_KEY") == "" {
+	return h.ensureModelProviderCredAndDefaults(ctx, c, map[types.DefaultModelAliasType]string{
+		types.DefaultModelAliasTypeLLM:             "gpt-4.1",
+		types.DefaultModelAliasTypeLLMMini:         "gpt-4.1-mini",
+		types.DefaultModelAliasTypeVision:          "gpt-4.1",
+		types.DefaultModelAliasTypeImageGeneration: "dall-e-3",
+		types.DefaultModelAliasTypeTextEmbedding:   "text-embedding-3-large",
+	}, "openai-model-provider", "OPENAI_API_KEY")
+}
+
+func (h *Handler) EnsureAnthropicCredentialAndDefaults(ctx context.Context, c client.Client) error {
+	return h.ensureModelProviderCredAndDefaults(ctx, c, map[types.DefaultModelAliasType]string{
+		types.DefaultModelAliasTypeLLM:     "claude-sonnet-4-20250514",
+		types.DefaultModelAliasTypeLLMMini: "claude-3-5-haiku-20241022",
+		types.DefaultModelAliasTypeVision:  "claude-sonnet-4-20250514",
+	}, "anthropic-model-provider", "ANTHROPIC_API_KEY")
+}
+
+func (h *Handler) ensureModelProviderCredAndDefaults(ctx context.Context, c client.Client, defaultModelAliasMapping map[types.DefaultModelAliasType]string, modelProviderName, envVarName string) error {
+	apiKey := os.Getenv(envVarName)
+	if apiKey == "" {
 		return nil
 	}
 
-	// If the openai-model-provider exists and the OPENAI_API_KEY environment variable is set, then ensure the credential exists.
-	var openAIModelProvider v1.ToolReference
+	credentialEnvVarName := fmt.Sprintf("OBOT_%s_API_KEY", strings.ToUpper(strings.ReplaceAll(modelProviderName, "-", "_")))
+
+	// If the model provider exists and the environment variable is set, then ensure the credential exists.
+	var modelProviderRef v1.ToolReference
 	for {
 		select {
 		case <-time.After(2 * time.Second):
@@ -252,50 +273,41 @@ func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c cl
 			return ctx.Err()
 		}
 
-		if err := c.Get(ctx, client.ObjectKey{Namespace: system.DefaultNamespace, Name: "openai-model-provider"}, &openAIModelProvider); err == nil {
+		if err := c.Get(ctx, client.ObjectKey{Namespace: system.DefaultNamespace, Name: modelProviderName}, &modelProviderRef); err == nil {
 			break
 		}
 	}
 
-	if cred, err := h.gptClient.RevealCredential(ctx, []string{string(openAIModelProvider.UID), system.GenericModelProviderCredentialContext}, "openai-model-provider"); err != nil {
+	if cred, err := h.gptClient.RevealCredential(ctx, []string{string(modelProviderRef.UID), system.GenericModelProviderCredentialContext}, modelProviderName); err != nil {
 		if !errors.As(err, &gptscript.ErrNotFound{}) {
 			return fmt.Errorf("failed to check OpenAI credential: %w", err)
 		}
 
 		// The credential doesn't exist, so create it.
 		if err = h.gptClient.CreateCredential(ctx, gptscript.Credential{
-			Context:  string(openAIModelProvider.UID),
-			ToolName: "openai-model-provider",
+			Context:  string(modelProviderRef.UID),
+			ToolName: modelProviderName,
 			Type:     gptscript.CredentialTypeModelProvider,
 			Env: map[string]string{
-				"OBOT_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
+				credentialEnvVarName: apiKey,
 			},
 		}); err != nil {
 			return err
 		}
-	} else if cred.Env["OBOT_OPENAI_MODEL_PROVIDER_API_KEY"] != os.Getenv("OPENAI_API_KEY") {
+	} else if cred.Env[credentialEnvVarName] != apiKey {
 		// If the credential exists, but has a different value, then update it.
 		// The only way to update it is to delete the existing credential and recreate it.
-		if err = h.gptClient.DeleteCredential(ctx, string(openAIModelProvider.UID), "openai-model-provider"); err != nil {
+		if err = h.gptClient.DeleteCredential(ctx, string(modelProviderRef.UID), modelProviderName); err != nil {
 			return fmt.Errorf("failed to delete credential: %w", err)
 		}
 		return h.gptClient.CreateCredential(ctx, gptscript.Credential{
-			Context:  string(openAIModelProvider.UID),
-			ToolName: "openai-model-provider",
+			Context:  string(modelProviderRef.UID),
+			ToolName: modelProviderName,
 			Type:     gptscript.CredentialTypeModelProvider,
 			Env: map[string]string{
-				"OBOT_OPENAI_MODEL_PROVIDER_API_KEY": os.Getenv("OPENAI_API_KEY"),
+				credentialEnvVarName: apiKey,
 			},
 		})
-	}
-
-	// Since the user is setting up the OpenAI model provider with an environment variable, we should set the default model aliases to something reasonable.
-	openAIDefaultModelAliasMapping := map[types.DefaultModelAliasType]string{
-		types.DefaultModelAliasTypeLLM:             "gpt-4.1",
-		types.DefaultModelAliasTypeLLMMini:         "gpt-4.1-mini",
-		types.DefaultModelAliasTypeVision:          "gpt-4.1",
-		types.DefaultModelAliasTypeImageGeneration: "dall-e-3",
-		types.DefaultModelAliasTypeTextEmbedding:   "text-embedding-3-large",
 	}
 
 	var modelAliases v1.DefaultModelAliasList
@@ -308,27 +320,27 @@ func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c cl
 			continue
 		}
 
-		alias.Spec.Manifest.Model = modelName(openAIModelProvider.Name, openAIDefaultModelAliasMapping[types.DefaultModelAliasType(alias.Spec.Manifest.Alias)])
+		alias.Spec.Manifest.Model = modelName(modelProviderRef.Name, defaultModelAliasMapping[types.DefaultModelAliasType(alias.Spec.Manifest.Alias)])
 		if err := c.Update(ctx, &alias); err != nil {
-			return fmt.Errorf("failed to update model alias %q: %w", alias.Name, err)
+			return fmt.Errorf("failed to update model alias %q for model provider %q: %w", alias.Name, modelProviderName, err)
 		}
 	}
 
 	// Lastly, ensure that the models are populated from the model provider
-	if err := c.Get(ctx, client.ObjectKey{Namespace: openAIModelProvider.Namespace, Name: openAIModelProvider.Name}, &openAIModelProvider); err != nil {
+	if err := c.Get(ctx, client.ObjectKey{Namespace: modelProviderRef.Namespace, Name: modelProviderRef.Name}, &modelProviderRef); err != nil {
 		return nil
 	}
 
-	if openAIModelProvider.Annotations[v1.ModelProviderSyncAnnotation] != "" {
-		delete(openAIModelProvider.Annotations, v1.ModelProviderSyncAnnotation)
+	if modelProviderRef.Annotations[v1.ModelProviderSyncAnnotation] != "" {
+		delete(modelProviderRef.Annotations, v1.ModelProviderSyncAnnotation)
 	} else {
-		if openAIModelProvider.Annotations == nil {
-			openAIModelProvider.Annotations = make(map[string]string)
+		if modelProviderRef.Annotations == nil {
+			modelProviderRef.Annotations = make(map[string]string, 1)
 		}
-		openAIModelProvider.Annotations[v1.ModelProviderSyncAnnotation] = "true"
+		modelProviderRef.Annotations[v1.ModelProviderSyncAnnotation] = "true"
 	}
 
-	return c.Update(ctx, &openAIModelProvider)
+	return c.Update(ctx, &modelProviderRef)
 }
 
 func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) error {

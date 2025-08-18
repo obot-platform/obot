@@ -96,6 +96,8 @@ config:
   OBOT_SERVER_RETENTION_POLICY_HOURS: ""
   # config.OPENAI_API_KEY -- An OpenAI API Key used to configure access to OpenAI models, which are the default in Obot.
   OPENAI_API_KEY: ""
+  # config.ANTHROPIC_API_KEY -- An Anthropic API Key used to configure access to Anthropic models, which can be used as the default in Obot.
+  ANTHROPIC_API_KEY: ""
 
   # config.OBOT_SERVER_OTEL_BASE_EXPORT_ENDPOINT -- The base export endpoint for OpenTelemetry
   OBOT_SERVER_OTEL_BASE_EXPORT_ENDPOINT: ""
