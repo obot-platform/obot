@@ -407,7 +407,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	}
 
 	if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
-		return types.NewErrBadRequest("only catalog entries with a remote runtime can have their OAuth URL generated")
+		return req.Write(map[string]string{"oauthURL": ""})
 	}
 
 	// Read configuration from request body
@@ -429,11 +429,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 		return types.NewErrBadRequest("failed to check for MCP auth: %v", err)
 	}
 
-	if oauthURL != "" {
-		return req.Write(map[string]string{"oauthURL": oauthURL})
-	}
-
-	return nil
+	return req.Write(map[string]string{"oauthURL": oauthURL})
 }
 
 func tempServerAndConfig(entry v1.MCPServerCatalogEntry, config map[string]string, url string) (v1.MCPServer, mcp.ServerConfig, error) {
