@@ -164,11 +164,53 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 	return logs, total, db.Find(&logs).Error
 }
 
-func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, exclude ...any) ([]string, error) {
+func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, opts MCPAuditLogOptions, exclude ...any) ([]string, error) {
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Distinct(option)
+
+	// Apply the same filters as GetMCPAuditLogs (excluding sorting, limit, offset)
+	if len(opts.UserID) > 0 {
+		db = db.Where("user_id IN (?)", opts.UserID)
+	}
+	if len(opts.MCPID) > 0 {
+		db = db.Where("mcp_id IN (?)", opts.MCPID)
+	}
+	if len(opts.MCPServerDisplayName) > 0 {
+		db = db.Where("mcp_server_display_name IN (?)", opts.MCPServerDisplayName)
+	}
+	if len(opts.MCPServerCatalogEntryName) > 0 {
+		db = db.Where("mcp_server_catalog_entry_name IN (?)", opts.MCPServerCatalogEntryName)
+	}
+	if len(opts.CallType) > 0 {
+		db = db.Where("call_type IN (?)", opts.CallType)
+	}
+	if len(opts.CallIdentifier) > 0 {
+		db = db.Where("call_identifier IN (?)", opts.CallIdentifier)
+	}
+	if len(opts.SessionID) > 0 {
+		db = db.Where("session_id IN (?)", opts.SessionID)
+	}
+	if len(opts.ClientName) > 0 {
+		db = db.Where("client_name IN (?)", opts.ClientName)
+	}
+	if len(opts.ClientVersion) > 0 {
+		db = db.Where("client_version IN (?)", opts.ClientVersion)
+	}
+	if len(opts.ResponseStatus) > 0 {
+		db = db.Where("response_status IN (?)", opts.ResponseStatus)
+	}
+	if len(opts.ClientIP) > 0 {
+		db = db.Where("client_ip IN (?)", opts.ClientIP)
+	}
+	if !opts.StartTime.IsZero() {
+		db = db.Where("created_at >= ?", opts.StartTime.Local())
+	}
+	if !opts.EndTime.IsZero() {
+		db = db.Where("created_at < ?", opts.EndTime.Local())
+	}
+
 	var result []string
 	if len(exclude) != 0 {
-		db.Where(option+" NOT IN ?", exclude)
+		db = db.Where(option+" NOT IN ?", exclude)
 	}
 	return result, db.Select(option).Scan(&result).Error
 }

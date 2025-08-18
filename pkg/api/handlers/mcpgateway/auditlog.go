@@ -169,12 +169,41 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 		return types.NewErrBadRequest("missing option")
 	}
 
+	query := req.URL.Query()
+	// Parse field filters (same as ListAuditLogs, excluding sorting)
+	opts := gateway.MCPAuditLogOptions{
+		UserID:                    parseMultiValueParam(query, "user_id"),
+		MCPID:                     parseMultiValueParam(query, "mcp_id"),
+		MCPServerDisplayName:      parseMultiValueParam(query, "mcp_server_display_name"),
+		MCPServerCatalogEntryName: parseMultiValueParam(query, "mcp_server_catalog_entry_name"),
+		CallType:                  parseMultiValueParam(query, "call_type"),
+		CallIdentifier:            parseMultiValueParam(query, "call_identifier"),
+		SessionID:                 parseMultiValueParam(query, "session_id"),
+		ClientName:                parseMultiValueParam(query, "client_name"),
+		ClientVersion:             parseMultiValueParam(query, "client_version"),
+		ResponseStatus:            parseMultiValueParam(query, "response_status"),
+		ClientIP:                  parseMultiValueParam(query, "client_ip"),
+	}
+
+	// Parse time range
+	if startTime := query.Get("start_time"); startTime != "" {
+		if t, err := time.Parse(time.RFC3339, startTime); err == nil {
+			opts.StartTime = t
+		}
+	}
+
+	if endTime := query.Get("end_time"); endTime != "" {
+		if t, err := time.Parse(time.RFC3339, endTime); err == nil {
+			opts.EndTime = t
+		}
+	}
+
 	exclude, ok := filterOptions[filter]
 	if !ok {
 		return types.NewErrBadRequest("invalid option: %s", filter)
 	}
 
-	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter, exclude)
+	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter, opts, exclude)
 	if err != nil {
 		return err
 	}
