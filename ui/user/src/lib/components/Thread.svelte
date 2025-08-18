@@ -33,6 +33,7 @@
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { browser } from '$app/environment';
 
 	interface Props {
 		id?: string;
@@ -569,7 +570,9 @@
 			<div class="w-full max-w-[1000px]">
 				{#if centerInput && assistant?.introductionMessage}
 					<div class="milkdown-content mb-5 max-w-full px-5" in:fade>
-						{@html toHTMLFromMarkdown(assistant?.introductionMessage)}
+						{#if browser}
+							{@html toHTMLFromMarkdown(assistant?.introductionMessage)}
+						{/if}
 					</div>
 				{/if}
 				<Input

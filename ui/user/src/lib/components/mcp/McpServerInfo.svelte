@@ -6,6 +6,7 @@
 	import { responsive } from '$lib/stores';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { browser } from '$app/environment';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -123,7 +124,7 @@
 	<div
 		class="dark:bg-surface1 dark:border-surface3 flex h-fit w-full flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
 	>
-		{#if description}
+		{#if description && browser}
 			<div class="milkdown-content">
 				{@html toHTMLFromMarkdownWithNewTabLinks(description)}
 			</div>

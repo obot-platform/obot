@@ -23,6 +23,7 @@
 	import { parseErrorContent } from '$lib/errors';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import Search from '../Search.svelte';
+	import { browser } from '$app/environment';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -357,12 +358,14 @@
 							</div>
 						</div>
 						{#if expandedDescriptions[tool.id] || allDescriptionsEnabled}
-							<div
-								in:slide={{ axis: 'y' }}
-								class="milkdown-content max-w-none text-sm font-light text-gray-500"
-							>
-								{@html toHTMLFromMarkdownWithNewTabLinks(tool.description || '')}
-							</div>
+							{#if browser}
+								<div
+									in:slide={{ axis: 'y' }}
+									class="milkdown-content max-w-none text-sm font-light text-gray-500"
+								>
+									{@html toHTMLFromMarkdownWithNewTabLinks(tool.description || '')}
+								</div>
+							{/if}
 							{#if Object.keys(tool.params ?? {}).length > 0}
 								{#if expandedParams[tool.id] || allParamsEnabled}
 									<div
