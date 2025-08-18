@@ -48,6 +48,11 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 		Description:              mcpServer.Spec.Manifest.Description,
 		Icon:                     mcpServer.Spec.Manifest.Icon,
 		UserID:                   projectServer.Spec.UserID,
+
+		// Default values to show to the user for shared servers:
+		Configured:  true,
+		NeedsURL:    false,
+		NeedsUpdate: false,
 	}
 	pmcp.Alias = mcpServer.Spec.Alias
 

@@ -54,26 +54,16 @@ func configurationHasDrifted(needsURL bool, serverManifest types.MCPServerManife
 	}
 
 	// Check runtime-specific configurations
-	var (
-		drifted bool
-		err     error
-	)
+	var drifted bool
 	switch serverManifest.Runtime {
 	case types.RuntimeUVX:
 		drifted = uvxConfigHasDrifted(serverManifest.UVXConfig, entryManifest.UVXConfig)
-
 	case types.RuntimeNPX:
 		drifted = npxConfigHasDrifted(serverManifest.NPXConfig, entryManifest.NPXConfig)
-
 	case types.RuntimeContainerized:
 		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig)
-
 	case types.RuntimeRemote:
-		drifted, err = remoteConfigHasDrifted(needsURL, serverManifest.RemoteConfig, entryManifest.RemoteConfig)
-		if err != nil {
-			return drifted, err
-		}
-
+		drifted = remoteConfigHasDrifted(needsURL, serverManifest.RemoteConfig, entryManifest.RemoteConfig)
 	default:
 		return false, fmt.Errorf("unknown runtime type: %s", serverManifest.Runtime)
 	}
@@ -130,19 +120,19 @@ func containerizedConfigHasDrifted(serverConfig, entryConfig *types.Containerize
 }
 
 // remoteConfigHasDrifted checks if remote configuration has drifted
-func remoteConfigHasDrifted(needsURL bool, serverConfig *types.RemoteRuntimeConfig, entryConfig *types.RemoteCatalogConfig) (bool, error) {
+func remoteConfigHasDrifted(needsURL bool, serverConfig *types.RemoteRuntimeConfig, entryConfig *types.RemoteCatalogConfig) bool {
 	if serverConfig == nil && entryConfig == nil {
-		return false, nil
+		return false
 	}
 	if serverConfig == nil || entryConfig == nil {
-		return true, nil
+		return true
 	}
 
 	// For remote runtime, we need to check if the server URL matches what the catalog entry expects
 	if entryConfig.FixedURL != "" {
 		// If catalog entry has a fixed URL, server URL should match exactly
 		if serverConfig.URL != entryConfig.FixedURL {
-			return true, nil
+			return true
 		}
 	}
 
@@ -153,12 +143,12 @@ func remoteConfigHasDrifted(needsURL bool, serverConfig *types.RemoteRuntimeConf
 		// If catalog entry has a hostname constraint, check if server URL uses that hostname
 		if err := types.ValidateURLHostname(serverConfig.URL, entryConfig.Hostname); err != nil {
 			// Hostname failed to validate, so we consider it drifted
-			return true, err
+			return true
 		}
 	}
 
 	// Check if headers have drifted
-	return !utils.SlicesEqualIgnoreOrder(serverConfig.Headers, entryConfig.Headers), nil
+	return !utils.SlicesEqualIgnoreOrder(serverConfig.Headers, entryConfig.Headers)
 }
 
 // EnsureMCPServerInstanceUserCount ensures that mcp server instance user count for multi-user MCP servers is up to date.
