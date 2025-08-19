@@ -381,6 +381,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		Thread:         thread,
 		WorkflowStepID: opt.WorkflowStepID,
 		UserID:         opt.UserUID,
+		UserIsAdmin:    opt.UserIsAdmin,
 	})
 	if err != nil {
 		return nil, err
