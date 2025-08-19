@@ -7,8 +7,10 @@ import { redirect } from '@sveltejs/kit';
 export const load: PageLoad = async ({ fetch }) => {
 	let authProviders: AuthProvider[] = [];
 	let profile;
+	let version;
 
 	try {
+		version = await ChatService.getVersion({ fetch });
 		profile = await getProfile({ fetch });
 	} catch (_err) {
 		authProviders = await ChatService.listAuthProviders({ fetch });
@@ -17,7 +19,9 @@ export const load: PageLoad = async ({ fetch }) => {
 	if (profile?.role === Role.ADMIN) {
 		throw redirect(
 			307,
-			profile.username === BOOTSTRAP_USER_ID ? '/admin/auth-providers' : '/admin/mcp-servers'
+			profile.username === BOOTSTRAP_USER_ID && version?.authEnabled
+				? '/admin/auth-providers'
+				: '/admin/mcp-servers'
 		);
 	}
 

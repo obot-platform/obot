@@ -63,8 +63,8 @@ export async function deleteProfile() {
 	return doDelete(`/me`);
 }
 
-export async function getVersion(): Promise<Version> {
-	return (await doGet('/version')) as Version;
+export async function getVersion(opts?: { fetch?: Fetcher }): Promise<Version> {
+	return (await doGet('/version', opts)) as Version;
 }
 
 export async function getAssistant(id: string, opts?: { fetch?: Fetcher }): Promise<Assistant> {
