@@ -33,39 +33,35 @@
 </script>
 
 {#if selected}
-	<div class="h-full w-full" in:fade>
-		{#if selected.name.toLowerCase().endsWith('.pdf')}
-			<div class="default-scrollbar-thin h-full flex-1" bind:clientHeight={height}>
-				<Pdf file={selected} {height} />
-			</div>
-		{:else}
-			<div class="default-scrollbar-thin h-full flex-1" bind:clientHeight={height}>
-				{#if selected.name.toLowerCase().endsWith('.md')}
-					<MarkdownFile
-						file={selected}
-						{onFileChanged}
-						mode={mdMode}
-						{onInvoke}
-						{items}
-						disabled={!!liveEditing}
-						overrideContent={liveEditing?.content}
-					/>
-				{:else if isImage(selected.name)}
-					<Image file={selected} />
-				{:else if [...(selected?.file?.contents ?? '')].some((char) => char.charCodeAt(0) === 0)}
-					{@render unsupportedFile()}
-				{:else}
-					<Codemirror
-						file={selected}
-						{onFileChanged}
-						{onInvoke}
-						{items}
-						class="m-0 rounded-b-2xl"
-					/>
-				{/if}
-			</div>
-		{/if}
-	</div>
+	{#key selected.name}
+		<div class="h-full w-full" in:fade>
+			{#if selected.name.toLowerCase().endsWith('.pdf')}
+				<div class="default-scrollbar-thin h-full flex-1" bind:clientHeight={height}>
+					<Pdf file={selected} {height} />
+				</div>
+			{:else}
+				<div class="default-scrollbar-thin h-full flex-1" bind:clientHeight={height}>
+					{#if selected.name.toLowerCase().endsWith('.md')}
+						<MarkdownFile
+							file={selected}
+							{onFileChanged}
+							mode={mdMode}
+							{onInvoke}
+							{items}
+							disabled={!!liveEditing}
+							overrideContent={liveEditing?.content}
+						/>
+					{:else if isImage(selected.name)}
+						<Image file={selected} />
+					{:else if [...(selected?.file?.contents ?? '')].some((char) => char.charCodeAt(0) === 0)}
+						{@render unsupportedFile()}
+					{:else}
+						<Codemirror file={selected} {onFileChanged} {onInvoke} {items} class="m-0 pl-2" />
+					{/if}
+				</div>
+			{/if}
+		</div>
+	{/key}
 {:else if liveEditing}
 	<RawEditor
 		value=""
