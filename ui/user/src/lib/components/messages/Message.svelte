@@ -91,6 +91,15 @@
 	let showCopied = $state(false);
 	let copiedTimeout = $state<ReturnType<typeof setTimeout>>();
 
+	// For file content, we want to animate the content as it's written
+	let fileCursor = new Tween(0);
+	let prevFileContent = $state('');
+	let animatedFileContent = $derived(
+		msg.file?.content && !msg.done
+			? msg.file.content.slice(0, fileCursor.current)
+			: msg.file?.content || ''
+	);
+
 	// Check if this is an Memory tool message
 	let isMemoryTool = $derived(
 		msg.sourceName === 'Create Memory' ||
@@ -108,6 +117,16 @@
 
 		animating = true;
 		cursor.set(content.length, { duration: 500 }).then(() => (animating = false));
+	});
+
+	$effect(() => {
+		if (msg.file?.content && !msg.done) {
+			if (!msg.file.content.startsWith(prevFileContent)) {
+				fileCursor.set(0, { duration: 0 });
+			}
+			prevFileContent = msg.file.content;
+			fileCursor.set(msg.file.content.length, { duration: 300 });
+		}
 	});
 
 	$effect(() => {
@@ -395,9 +414,8 @@
 	{#if msg.file}
 		<button
 			class={twMerge(
-				'my-2 flex w-[750px] max-w-full cursor-pointer flex-col rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg dark:bg-black dark:text-gray-50',
-				!msg.file?.filename && !msg.aborted && !msg.done && 'cursor-wait',
-				compactFilePreview ? 'w-md pb-4' : 'w-md md:w-[750px]'
+				'my-2 flex w-[750px] w-md max-w-full cursor-pointer flex-col rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg md:w-[750px] dark:bg-black dark:text-gray-50',
+				!msg.file?.filename && !msg.aborted && !msg.done && 'cursor-wait'
 			)}
 			disabled={!msg.file?.filename}
 			onclick={fileLoad}
@@ -412,18 +430,22 @@
 					{/if}
 				</div>
 			</div>
-			{#if !compactFilePreview}
-				<div class="relative" transition:slide={{ axis: 'y', duration: 50 }}>
+			<div class="relative" transition:slide={{ axis: 'y', duration: 50 }}>
+				{#if compactFilePreview}
 					<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
-						{#if msg.file?.content}
-							{msg.file.content.split('\n').splice(0, 6).join('\n')}
-						{/if}
+						{msg.file.content.split('\n').splice(0, 6).join('\n')}
 					</div>
+				{:else}
+					<div class="font-body text-md p-5 whitespace-pre-wrap text-gray-700 dark:text-gray-300">
+						{animatedFileContent}
+					</div>
+				{/if}
+				{#if !msg.done || compactFilePreview}
 					<div
 						class="absolute bottom-0 z-20 h-24 w-full rounded-3xl bg-linear-to-b from-transparent to-white dark:to-black"
 					></div>
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</button>
 		{#if msg.file.content && isTextFile(msg.file.filename)}
 			<div class="flex gap-2">

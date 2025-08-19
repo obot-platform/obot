@@ -38,18 +38,6 @@
 		}
 	});
 
-	$effect(() => {
-		if (
-			layout.liveProjectEditing &&
-			selected?.name === layout.liveProjectEditing.filename &&
-			selected?.file?.contents &&
-			selected.file.contents === layout.liveProjectEditing.content
-		) {
-			// clear now that selected file matches with live editing
-			layout.liveProjectEditing = undefined;
-		}
-	});
-
 	const debouncedSave = (item: EditorItem) => {
 		// Clear previous timeout
 		if (saveTimeout) clearTimeout(saveTimeout);
@@ -82,7 +70,7 @@
 
 <div class="relative flex h-full w-full flex-col">
 	<div class="file-tabs relative flex items-center justify-between gap-2 p-2">
-		{#if selected && !layout.liveProjectEditing}
+		{#if selected}
 			{@render fileHeader(selected?.name)}
 			<div class="flex items-center gap-2">
 				{#if copyable}
@@ -119,26 +107,17 @@
 					class="icon-button"
 					onclick={() => {
 						layout.fileEditorOpen = false;
-						layout.liveProjectEditing = undefined;
 					}}
 					use:tooltip={'Close Editor'}
 				>
 					<X class="h-5 w-5" />
 				</button>
 			</div>
-		{:else if layout.liveProjectEditing}
-			{@render fileHeader(layout.liveProjectEditing.filename)}
 		{/if}
 	</div>
 
 	<div class="default-scrollbar-thin relative flex grow flex-col overflow-y-auto">
-		<FileEditors
-			{onFileChanged}
-			{onInvoke}
-			bind:items={layout.items}
-			{mdMode}
-			liveEditing={layout.liveProjectEditing}
-		/>
+		<FileEditors {onFileChanged} {onInvoke} bind:items={layout.items} {mdMode} />
 	</div>
 </div>
 

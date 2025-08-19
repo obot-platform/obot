@@ -6,7 +6,6 @@
 	import Image from '$lib/components/editor/Image.svelte';
 	import Codemirror from '$lib/components/editor/Codemirror.svelte';
 	import MarkdownFile from './MarkdownFile.svelte';
-	import RawEditor from './RawEditor.svelte';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
@@ -15,20 +14,10 @@
 		items: EditorItem[];
 		mdMode?: 'raw' | 'wysiwyg';
 		disabled?: boolean;
-		liveEditing?: {
-			filename: string;
-			content: string;
-		};
 	}
 
 	let height = $state<number>();
-	let {
-		onFileChanged,
-		onInvoke,
-		items = $bindable(),
-		mdMode = 'wysiwyg',
-		liveEditing
-	}: Props = $props();
+	let { onFileChanged, onInvoke, items = $bindable(), mdMode = 'wysiwyg' }: Props = $props();
 	let selected = $derived(items.find((item) => item.selected));
 </script>
 
@@ -42,15 +31,7 @@
 			{:else}
 				<div class="default-scrollbar-thin h-full flex-1" bind:clientHeight={height}>
 					{#if selected.name.toLowerCase().endsWith('.md')}
-						<MarkdownFile
-							file={selected}
-							{onFileChanged}
-							mode={mdMode}
-							{onInvoke}
-							{items}
-							disabled={!!liveEditing}
-							overrideContent={liveEditing?.content}
-						/>
+						<MarkdownFile file={selected} {onFileChanged} mode={mdMode} {onInvoke} {items} />
 					{:else if isImage(selected.name)}
 						<Image file={selected} />
 					{:else if [...(selected?.file?.contents ?? '')].some((char) => char.charCodeAt(0) === 0)}
@@ -62,18 +43,6 @@
 			{/if}
 		</div>
 	{/key}
-{:else if liveEditing}
-	<RawEditor
-		value=""
-		disabled
-		disablePreview
-		class="border-surface3 h-full grow rounded-none border-0 bg-inherit shadow-none"
-		classes={{
-			input: 'bg-gray-50 h-full max-h-full pb-8 grid'
-		}}
-		typewriterOnAutonomous
-		overrideContent={liveEditing.content}
-	/>
 {/if}
 
 {#snippet unsupportedFile()}
