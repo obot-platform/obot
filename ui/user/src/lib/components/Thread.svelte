@@ -66,6 +66,7 @@
 	let showLoadOlderButton = $state(false);
 	let input = $state<ReturnType<typeof Input>>();
 	let savingNewProject = $state(false);
+	let pauseLiveFileEditChanges = $state(false);
 
 	let promptDialogRef = $state<ReturnType<typeof McpPrompts>>();
 	let promptPending = $state(false);
@@ -179,6 +180,7 @@
 				layout.items = items;
 			},
 			onEditingFile: (filename, content) => {
+				if (pauseLiveFileEditChanges) return;
 				if (!layout.fileEditorOpen) {
 					layout.fileEditorOpen = true;
 				}
@@ -592,6 +594,11 @@
 					readonly={messages.inProgress}
 					pending={thread?.pending || promptPending}
 					onAbort={async () => {
+						pauseLiveFileEditChanges = true;
+						if (layout.fileEditorOpen) {
+							layout.fileEditorOpen = false;
+							layout.liveProjectEditing = undefined;
+						}
 						await thread?.abort();
 					}}
 					onSubmit={async (i) => {
@@ -600,6 +607,7 @@
 							return;
 						}
 
+						pauseLiveFileEditChanges = false;
 						await ensureThread();
 						scrollSmooth = false;
 						await tick();

@@ -395,8 +395,8 @@
 	{#if msg.file}
 		<button
 			class={twMerge(
-				'w-[750px]cursor-pointer my-2 flex max-w-full flex-col rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg dark:bg-black dark:text-gray-50',
-				!msg.file?.filename && 'cursor-wait',
+				'my-2 flex w-[750px] max-w-full cursor-pointer flex-col rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg dark:bg-black dark:text-gray-50',
+				!msg.file?.filename && !msg.aborted && !msg.done && 'cursor-wait',
 				compactFilePreview ? 'w-md pb-4' : 'w-md md:w-[750px]'
 			)}
 			disabled={!msg.file?.filename}

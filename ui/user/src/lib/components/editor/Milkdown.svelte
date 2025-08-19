@@ -20,6 +20,7 @@
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 	import { replaceAll } from '@milkdown/utils';
 	import { debounce } from 'es-toolkit';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		file: EditorItem;
@@ -207,7 +208,7 @@
 </script>
 
 <div
-	class={klass}
+	class={twMerge(klass, overrideContent ? 'pointer-events-none' : '')}
 	use:editor
 	onfocusin={() => (focused = true)}
 	onfocusout={() => (focused = false)}
