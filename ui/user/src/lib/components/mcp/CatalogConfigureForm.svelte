@@ -203,6 +203,15 @@
 									name={env.name}
 									bind:value={form.envs[i].value}
 								/>
+							{:else if env.file}
+								<textarea
+									id={env.key}
+									bind:value={form.envs[i].value}
+									class={twMerge(
+										'text-input-filled h-32 resize-y whitespace-pre-wrap',
+										highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+									)}
+								></textarea>
 							{:else}
 								<input
 									type="text"
