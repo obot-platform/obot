@@ -6,7 +6,7 @@ import (
 	"io"
 	"maps"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 	"time"
 
@@ -325,11 +325,41 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		createdVolumes = append(createdVolumes, fileVolumeName)
 	}
 
+	if len(fileEnvVars) > 0 {
+		if server.Command != "" {
+			server.Command = expandEnvVars(server.Command, fileEnvVars, nil)
+		}
+		if server.ContainerImage != "" {
+			server.ContainerImage = expandEnvVars(server.ContainerImage, fileEnvVars, nil)
+		}
+
+		if len(server.Args) > 0 {
+			// Copy the args to a new slice, expanding environment variables as needed.
+			// We need a copy here so we don't modify the original server.Args slice.
+			args := make([]string, len(server.Args))
+			for i, arg := range server.Args {
+				args[i] = expandEnvVars(arg, fileEnvVars, nil)
+			}
+
+			server.Args = args
+		}
+	}
+
 	defer func() {
 		if retErr != nil {
+			del := func(volumeName string) error {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+
+				if err := d.client.VolumeRemove(ctx, volumeName, true); err != nil && !cerrdefs.IsNotFound(err) {
+					return err
+				}
+				return nil
+			}
+
 			// Clean up volumes on error
 			for _, volumeName := range createdVolumes {
-				if err := d.client.VolumeRemove(ctx, volumeName, true); err != nil {
+				if err := del(volumeName); err != nil {
 					log.Warnf("Failed to remove volume %s after error: %v", volumeName, err)
 				}
 			}
@@ -425,6 +455,8 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 
 	defer func() {
 		if retErr != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 			// Clean up container on error
 			if rmErr := d.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}); rmErr != nil {
 				log.Warnf("Failed to remove container %s after error: %v", resp.ID, rmErr)
@@ -558,10 +590,10 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	for _, file := range files {
 		// Generate unique filename for container
 		filename := fmt.Sprintf("%s-%s", containerID[:12], hash.Digest(file)[:8])
-		containerPath := filepath.Join("/files", filename)
+		containerPath := path.Join("/files", filename)
 
 		// Add to script
-		script.WriteString(fmt.Sprintf("cat > '%s' << 'EOF'\n%sEOF\n", containerPath, file.Data))
+		script.WriteString(fmt.Sprintf("cat > '%s' << 'EOF'\n%s\nEOF\n", containerPath, file.Data))
 
 		// Set environment variable if specified
 		if file.EnvKey != "" {
@@ -691,7 +723,7 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 	}
 
 	// Create script to write nanobot config
-	script := fmt.Sprintf("cat > /run/nanobot.yaml << 'EOF'\n%sEOF\n", nanobotYAML)
+	script := fmt.Sprintf("cat > /run/nanobot.yaml << 'EOF'\n%s\nEOF\n", nanobotYAML)
 
 	// Create and run init container
 	initConfig := &container.Config{

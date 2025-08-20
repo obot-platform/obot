@@ -229,6 +229,7 @@ func (k *kubernetesBackend) k8sObjectsForUVXOrNPX(id string, server ServerConfig
 
 	objs := make([]kclient.Object, 0, 5)
 
+	fileMapping := make(map[string]string, len(server.Env))
 	secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+2)
 	secretVolumeStringData := make(map[string]string, len(server.Files))
 	nanobotFileStringData := make(map[string]string, 1)
@@ -238,7 +239,26 @@ func (k *kubernetesBackend) k8sObjectsForUVXOrNPX(id string, server ServerConfig
 		secretVolumeStringData[filename] = file.Data
 		if file.EnvKey != "" {
 			secretStringData[file.EnvKey] = filename
+			fileMapping[file.EnvKey] = "/files/" + filename
 		}
+	}
+
+	if server.Command != "" {
+		server.Command = expandEnvVars(server.Command, fileMapping, nil)
+	}
+	if server.ContainerImage != "" {
+		server.ContainerImage = expandEnvVars(server.ContainerImage, fileMapping, nil)
+	}
+
+	if len(server.Args) > 0 {
+		// Copy the args to a new slice, expanding environment variables as needed.
+		// We need a copy here so we don't modify the original server.Args slice.
+		args := make([]string, len(server.Args))
+		for i, arg := range server.Args {
+			args[i] = expandEnvVars(arg, fileMapping, nil)
+		}
+
+		server.Args = args
 	}
 
 	objs = append(objs, &corev1.Secret{
@@ -427,6 +447,7 @@ func (k *kubernetesBackend) k8sObjectsForContainerized(id string, server ServerC
 
 	objs := make([]kclient.Object, 0, 4)
 
+	fileMapping := make(map[string]string, len(server.Env))
 	secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+2)
 	secretVolumeStringData := make(map[string]string, len(server.Files))
 
@@ -435,7 +456,24 @@ func (k *kubernetesBackend) k8sObjectsForContainerized(id string, server ServerC
 		secretVolumeStringData[filename] = file.Data
 		if file.EnvKey != "" {
 			secretStringData[file.EnvKey] = filename
+			fileMapping[file.EnvKey] = "/files/" + filename
 		}
+	}
+
+	if server.Command != "" {
+		server.Command = expandEnvVars(server.Command, fileMapping, nil)
+	}
+	if server.ContainerImage != "" {
+		server.ContainerImage = expandEnvVars(server.ContainerImage, fileMapping, nil)
+	}
+
+	if len(server.Args) > 0 {
+		args := make([]string, len(server.Args))
+		for i, arg := range server.Args {
+			args[i] = expandEnvVars(arg, fileMapping, nil)
+		}
+
+		server.Args = args
 	}
 
 	objs = append(objs, &corev1.Secret{
