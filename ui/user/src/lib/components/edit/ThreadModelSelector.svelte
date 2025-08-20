@@ -61,6 +61,12 @@
 			defaultModel === threadModel
 	);
 
+	$effect(() => {
+		if (threadId) {
+			fetchThreadDetails();
+		}
+	});
+
 	// Function to fetch thread details including model
 	async function fetchThreadDetails() {
 		if (!threadId) return;
@@ -199,23 +205,6 @@
 		return () => {
 			window.removeEventListener('click', handleClickOutside);
 		};
-	});
-
-	$effect(() => {
-		if (threadId) {
-			fetchThreadDetails().then(() => {
-				if (threadType && threadModel && threadModelProvider && !threadType.model) {
-					// Make sure that the thread model is available on the project, and replace it with default if not.
-					if (
-						!project.models ||
-						!project.models[threadModelProvider] ||
-						!project.models[threadModelProvider].includes(threadModel)
-					) {
-						setThreadModel('', '');
-					}
-				}
-			});
-		}
 	});
 
 	let modelProvidersMap = new SvelteMap<string, ModelProvider>();
@@ -383,7 +372,10 @@
 													isModelSelected &&
 														'text-blue bg-blue/10 hover:bg-blue/15 active:bg-blue/20'
 												)}
-												onclick={() => setThreadModel(model.id, '')}
+												onclick={() => {
+													console.log('model', model);
+													setThreadModel(model.id, '');
+												}}
 												tabindex="0"
 												data-provider={providerId}
 												data-model={modelId}

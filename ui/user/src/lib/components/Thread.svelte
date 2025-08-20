@@ -158,7 +158,7 @@
 			await constructThread();
 		}
 		if (!id) {
-			const body = params?.model && params?.modelProvider ? { ...params } : {};
+			const body = params?.model ? { ...params } : {};
 			id = (await ChatService.createThread(project.assistantID, project.id, body)).id;
 			await constructThread();
 		}

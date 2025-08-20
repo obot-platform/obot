@@ -553,13 +553,18 @@ func (h *ProjectsHandler) CreateProjectThread(req api.Context) error {
 				allowedByProject = slices.Contains(projectModels, bodyContents.Model)
 			}
 
+			// if bodyContents.ModelProvider is empty it means that it is set at global level so allowedByProject should be true
+			if bodyContents.ModelProvider != "" {
+				allowedByProject = true
+			}
+
 			if !allowedByAssistant && !allowedByProject {
-				return types.NewErrBadRequest("model %q is not allowed for assistant or project", bodyContents.Model)
+				return types.NewErrBadRequest("model %q is not allowed for assistant and project", bodyContents.Model)
 			}
 		}
 
-		thread.Spec.DefaultModel = bodyContents.Model
-		thread.Spec.DefaultModelProvider = bodyContents.ModelProvider
+		thread.Spec.Manifest.Model = bodyContents.Model
+		thread.Spec.Manifest.ModelProvider = bodyContents.ModelProvider
 	}
 
 	if err := req.Create(&thread); err != nil {
