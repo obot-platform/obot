@@ -238,6 +238,9 @@ func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
 			if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 				return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
 			}
+			if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+				return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+			}
 			return fmt.Errorf("failed to launch MCP server: %w", err)
 		}
 	}
@@ -345,6 +348,9 @@ func (p *ProjectMCPHandler) GetTools(req api.Context) error {
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
 		}
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
 		return err
 	}
 
@@ -372,6 +378,9 @@ func (p *ProjectMCPHandler) GetTools(req api.Context) error {
 		return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
 	}
 	if err != nil {
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
 		}
@@ -424,6 +433,9 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
 		}
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
 		return err
 	}
 
@@ -443,6 +455,9 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 		return fmt.Errorf("failed to render tools: %w", err)
 	}
@@ -511,6 +526,9 @@ func (p *ProjectMCPHandler) GetResources(req api.Context) error {
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
 		}
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
 		return err
 	}
 
@@ -528,6 +546,9 @@ func (p *ProjectMCPHandler) GetResources(req api.Context) error {
 		}
 		if strings.HasSuffix(strings.ToLower(err.Error()), "method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
+		}
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 
 		var are nmcp.AuthRequiredErr
@@ -578,6 +599,9 @@ func (p *ProjectMCPHandler) ReadResource(req api.Context) error {
 		}
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 		return err
 	}

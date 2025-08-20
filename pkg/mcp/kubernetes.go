@@ -46,19 +46,14 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 }
 
 func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, id, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
-	// Generate the Kubernetes deployment objects.
-	var (
-		objs []kclient.Object
-		err  error
-	)
 	switch server.Runtime {
-	case types.RuntimeNPX, types.RuntimeUVX:
-		objs, err = k.k8sObjectsForUVXOrNPX(id, server, mcpServerDisplayName, mcpServerName)
-	case types.RuntimeContainerized:
-		objs, err = k.k8sObjectsForContainerized(id, server, mcpServerName)
+	case types.RuntimeNPX, types.RuntimeUVX, types.RuntimeContainerized:
 	default:
 		return ServerConfig{}, fmt.Errorf("unsupported MCP runtime: %s", server.Runtime)
 	}
+
+	// Generate the Kubernetes deployment objects.
+	objs, err := k.k8sObjects(id, server, mcpServerDisplayName, mcpServerName)
 	if err != nil {
 		return ServerConfig{}, fmt.Errorf("failed to generate kubernetes objects for server %s: %w", id, err)
 	}
@@ -216,23 +211,23 @@ func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error
 	return nil
 }
 
-func (k *kubernetesBackend) k8sObjectsForUVXOrNPX(id string, server ServerConfig, serverDisplayName, serverName string) ([]kclient.Object, error) {
-	if server.Runtime != types.RuntimeUVX && server.Runtime != types.RuntimeNPX {
-		return nil, fmt.Errorf("invalid runtime: %s", server.Runtime)
-	}
+func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDisplayName, serverName string) ([]kclient.Object, error) {
+	var (
+		command []string
+		objs    = make([]kclient.Object, 0, 5)
+		image   = k.baseImage
+		args    = []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "/run/nanobot.yaml"}
+		port    = 8099
 
-	args := []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "/run/nanobot.yaml"}
-	annotations := map[string]string{
-		"mcp-server-name":  serverName,
-		"mcp-server-scope": server.Scope,
-	}
+		annotations = map[string]string{
+			"mcp-server-name":  serverName,
+			"mcp-server-scope": server.Scope,
+		}
 
-	objs := make([]kclient.Object, 0, 5)
-
-	fileMapping := make(map[string]string, len(server.Env))
-	secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+2)
-	secretVolumeStringData := make(map[string]string, len(server.Files))
-	nanobotFileStringData := make(map[string]string, 1)
+		fileMapping            = make(map[string]string, len(server.Env))
+		secretStringData       = make(map[string]string, len(server.Env)+len(server.Headers)+2)
+		secretVolumeStringData = make(map[string]string, len(server.Files))
+	)
 
 	for _, file := range server.Files {
 		filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
@@ -241,24 +236,6 @@ func (k *kubernetesBackend) k8sObjectsForUVXOrNPX(id string, server ServerConfig
 			secretStringData[file.EnvKey] = filename
 			fileMapping[file.EnvKey] = "/files/" + filename
 		}
-	}
-
-	if server.Command != "" {
-		server.Command = expandEnvVars(server.Command, fileMapping, nil)
-	}
-	if server.ContainerImage != "" {
-		server.ContainerImage = expandEnvVars(server.ContainerImage, fileMapping, nil)
-	}
-
-	if len(server.Args) > 0 {
-		// Copy the args to a new slice, expanding environment variables as needed.
-		// We need a copy here so we don't modify the original server.Args slice.
-		args := make([]string, len(server.Args))
-		for i, arg := range server.Args {
-			args[i] = expandEnvVars(arg, fileMapping, nil)
-		}
-
-		server.Args = args
 	}
 
 	objs = append(objs, &corev1.Secret{
@@ -283,20 +260,41 @@ func (k *kubernetesBackend) k8sObjectsForUVXOrNPX(id string, server ServerConfig
 		}
 	}
 
-	var err error
-	nanobotFileStringData["nanobot.yaml"], err = constructNanobotYAML(serverDisplayName, server.Command, server.Args, secretStringData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
+	if len(server.Args) > 0 {
+		// Copy the args to avoid modifying the original slice.
+		args := make([]string, len(server.Args))
+		for i, arg := range server.Args {
+			args[i] = expandEnvVars(arg, fileMapping, nil)
+		}
+
+		server.Args = args
 	}
 
-	objs = append(objs, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(id, "run"),
-			Namespace:   k.mcpNamespace,
-			Annotations: annotations,
-		},
-		StringData: nanobotFileStringData,
-	})
+	if server.Runtime == types.RuntimeContainerized {
+		if server.Command != "" {
+			command = []string{expandEnvVars(server.Command, fileMapping, nil)}
+		}
+
+		image = expandEnvVars(server.ContainerImage, fileMapping, nil)
+		args = server.Args
+		port = server.ContainerPort
+	} else {
+		nanobotFileString, err := constructNanobotYAML(serverDisplayName, server.Command, server.Args, secretStringData)
+		if err != nil {
+			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
+		}
+
+		objs = append(objs, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name.SafeConcatName(id, "run"),
+				Namespace:   k.mcpNamespace,
+				Annotations: annotations,
+			},
+			StringData: map[string]string{
+				"nanobot.yaml": nanobotFileString,
+			},
+		})
+	}
 
 	annotations["obot-revision"] = hash.Digest(hash.Digest(secretStringData) + hash.Digest(secretVolumeStringData))
 
@@ -361,11 +359,11 @@ func (k *kubernetesBackend) k8sObjectsForUVXOrNPX(id string, server ServerConfig
 					},
 					Containers: []corev1.Container{{
 						Name:            "mcp",
-						Image:           k.baseImage,
+						Image:           image,
 						ImagePullPolicy: corev1.PullAlways,
 						Ports: []corev1.ContainerPort{{
 							Name:          "http",
-							ContainerPort: defaultContainerPort,
+							ContainerPort: int32(port),
 						}},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
@@ -378,198 +376,8 @@ func (k *kubernetesBackend) k8sObjectsForUVXOrNPX(id string, server ServerConfig
 							RunAsUser:                &[]int64{1000}[0],
 							RunAsGroup:               &[]int64{1000}[0],
 						},
-						ReadinessProbe: &corev1.Probe{
-							ProbeHandler: corev1.ProbeHandler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Path: "/healthz",
-									Port: intstr.FromString("http"),
-								},
-							},
-						},
-						Args: args,
-						EnvFrom: []corev1.EnvFromSource{{
-							SecretRef: &corev1.SecretEnvSource{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: name.SafeConcatName(id, "config"),
-								},
-							},
-						}},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      "files",
-								MountPath: "/files",
-							},
-							{
-								Name:      "run-file",
-								MountPath: "/run",
-							},
-						},
-					}},
-				},
-			},
-		},
-	}
-	objs = append(objs, dep)
-
-	objs = append(objs, &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        id,
-			Namespace:   k.mcpNamespace,
-			Annotations: annotations,
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       80,
-					TargetPort: intstr.FromString("http"),
-				},
-			},
-			Selector: map[string]string{
-				"app": id,
-			},
-			Type: corev1.ServiceTypeClusterIP,
-		},
-	})
-
-	return objs, nil
-}
-
-func (k *kubernetesBackend) k8sObjectsForContainerized(id string, server ServerConfig, serverName string) ([]kclient.Object, error) {
-	if server.Runtime != types.RuntimeContainerized {
-		return nil, fmt.Errorf("invalid runtime: %s", server.Runtime)
-	}
-
-	annotations := map[string]string{
-		"mcp-server-name":  serverName,
-		"mcp-server-scope": server.Scope,
-	}
-
-	objs := make([]kclient.Object, 0, 4)
-
-	fileMapping := make(map[string]string, len(server.Env))
-	secretStringData := make(map[string]string, len(server.Env)+len(server.Headers)+2)
-	secretVolumeStringData := make(map[string]string, len(server.Files))
-
-	for _, file := range server.Files {
-		filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
-		secretVolumeStringData[filename] = file.Data
-		if file.EnvKey != "" {
-			secretStringData[file.EnvKey] = filename
-			fileMapping[file.EnvKey] = "/files/" + filename
-		}
-	}
-
-	if server.Command != "" {
-		server.Command = expandEnvVars(server.Command, fileMapping, nil)
-	}
-	if server.ContainerImage != "" {
-		server.ContainerImage = expandEnvVars(server.ContainerImage, fileMapping, nil)
-	}
-
-	if len(server.Args) > 0 {
-		args := make([]string, len(server.Args))
-		for i, arg := range server.Args {
-			args[i] = expandEnvVars(arg, fileMapping, nil)
-		}
-
-		server.Args = args
-	}
-
-	objs = append(objs, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(id, "files"),
-			Namespace:   k.mcpNamespace,
-			Annotations: annotations,
-		},
-		StringData: secretVolumeStringData,
-	})
-
-	for _, env := range server.Env {
-		k, v, ok := strings.Cut(env, "=")
-		if ok {
-			secretStringData[k] = v
-		}
-	}
-	for _, header := range server.Headers {
-		k, v, ok := strings.Cut(header, "=")
-		if ok {
-			secretStringData[k] = v
-		}
-	}
-
-	annotations["obot-revision"] = hash.Digest(hash.Digest(secretStringData) + hash.Digest(secretVolumeStringData))
-
-	objs = append(objs, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(id, "config"),
-			Namespace:   k.mcpNamespace,
-			Annotations: annotations,
-		},
-		StringData: secretStringData,
-	})
-
-	var command []string
-	if server.Command != "" {
-		command = []string{server.Command}
-	}
-
-	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        id,
-			Namespace:   k.mcpNamespace,
-			Annotations: annotations,
-			Labels: map[string]string{
-				"app":             id,
-				"mcp-server-name": serverName,
-			},
-		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": id,
-				},
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: annotations,
-					Labels: map[string]string{
-						"app":             id,
-						"mcp-server-name": serverName,
-					},
-				},
-				Spec: corev1.PodSpec{
-					Volumes: []corev1.Volume{
-						{
-							Name: "files",
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(id, "files"),
-								},
-							},
-						},
-					},
-					Containers: []corev1.Container{{
-						Name:            "mcp",
-						Image:           server.ContainerImage,
-						ImagePullPolicy: corev1.PullAlways,
-						Ports: []corev1.ContainerPort{{
-							Name:          "http",
-							ContainerPort: int32(server.ContainerPort),
-						}},
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("400Mi"),
-							},
-						},
-						SecurityContext: &corev1.SecurityContext{
-							AllowPrivilegeEscalation: &[]bool{false}[0],
-							RunAsNonRoot:             &[]bool{true}[0],
-							RunAsUser:                &[]int64{1000}[0],
-							RunAsGroup:               &[]int64{1000}[0],
-						},
-						Args:    server.Args,
 						Command: command,
+						Args:    args,
 						EnvFrom: []corev1.EnvFromSource{{
 							SecretRef: &corev1.SecretEnvSource{
 								LocalObjectReference: corev1.LocalObjectReference{
@@ -587,6 +395,23 @@ func (k *kubernetesBackend) k8sObjectsForContainerized(id string, server ServerC
 				},
 			},
 		},
+	}
+
+	if server.Runtime != types.RuntimeContainerized {
+		dep.Spec.Template.Spec.Containers[0].VolumeMounts = append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      "run-file",
+			MountPath: "/run",
+			ReadOnly:  true,
+		})
+
+		dep.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/healthz",
+					Port: intstr.FromString("http"),
+				},
+			},
+		}
 	}
 	objs = append(objs, dep)
 
