@@ -566,7 +566,9 @@
 	bind:form={configureForm}
 	{error}
 	icon={selectedManifest?.icon}
-	name={selectedManifest?.name}
+	name={selectedEntryOrServer && 'server' in selectedEntryOrServer
+		? selectedEntryOrServer.server?.alias || selectedManifest?.name
+		: selectedManifest?.name}
 	onSave={handleConfigureForm}
 	submitText={selectedEntryOrServer && 'server' in selectedEntryOrServer ? 'Update' : 'Launch'}
 	loading={saving}
