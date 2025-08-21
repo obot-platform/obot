@@ -7,10 +7,12 @@
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { browser } from '$app/environment';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
 		descriptionPlaceholder?: string;
+		preContent?: Snippet;
 	}
 
 	type EntryDetail = {
@@ -109,7 +111,7 @@
 		return details.filter((d) => d);
 	}
 
-	let { entry, descriptionPlaceholder = 'No description available' }: Props = $props();
+	let { entry, descriptionPlaceholder = 'No description available', preContent }: Props = $props();
 	let details = $derived(convertEntryDetails(entry));
 	let description = $derived(
 		('manifest' in entry
@@ -119,6 +121,10 @@
 				: '') ?? ''
 	);
 </script>
+
+{#if preContent}
+	{@render preContent()}
+{/if}
 
 <div class="flex w-full flex-col gap-4 md:flex-row">
 	<div

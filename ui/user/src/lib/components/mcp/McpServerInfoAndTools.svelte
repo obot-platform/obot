@@ -3,6 +3,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import McpServerInfo from './McpServerInfo.svelte';
 	import McpServerTools from './McpServerTools.svelte';
+	import McpOauth from './McpOauth.svelte';
 
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -59,7 +60,13 @@
 				<McpServerInfo
 					{entry}
 					descriptionPlaceholder="Add a description for this MCP server in the Configuration tab"
-				/>
+				>
+					{#snippet preContent()}
+						{#if project}
+							<McpOauth {entry} {onAuthenticate} {project} />
+						{/if}
+					{/snippet}
+				</McpServerInfo>
 			</div>
 		{:else if selected === 'tools' && entry}
 			<McpServerTools {entry} {catalogId} {onAuthenticate} {project} {onProjectToolsUpdate} />

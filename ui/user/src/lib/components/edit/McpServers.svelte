@@ -114,7 +114,7 @@
 										? 'Configuration Required'
 										: 'Authentication Required'}
 								>
-									<TriangleAlert class="size-4" stroke="currentColor" fill="none" color="orange" />
+									<TriangleAlert class="size-3" stroke="currentColor" fill="none" color="orange" />
 								</span>
 							{/if}
 						</p>

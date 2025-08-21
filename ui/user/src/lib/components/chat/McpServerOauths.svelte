@@ -3,6 +3,7 @@
 	import { Server, X } from 'lucide-svelte';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { onMount } from 'svelte';
+	import { getLayout } from '$lib/context/chatLayout.svelte';
 
 	interface Props {
 		assistantId: string;
@@ -17,9 +18,13 @@
 		projectMcps.items.filter((mcp) => !mcp.authenticated && mcp.oauthURL)
 	);
 	let dialogs = $state<HTMLDialogElement[]>([]);
+	const layout = getLayout();
+	const isInMcp = $derived(
+		layout.sidebarConfig === 'mcp-server-tools' || layout.sidebarConfig === 'mcp-server'
+	);
 
 	$effect(() => {
-		if (mcpServersThatRequireOauth.length > 0) {
+		if (mcpServersThatRequireOauth.length > 0 && !isInMcp) {
 			currentIndex = 0;
 			dialogs[currentIndex]?.showModal();
 		}
@@ -27,6 +32,7 @@
 
 	onMount(() => {
 		const handleVisibilityChange = () => {
+			if (isInMcp) return;
 			if (document.visibilityState === 'visible') {
 				checkMcpOauths();
 			}
