@@ -164,15 +164,10 @@ func (s *Server) changeUserInternalStatus(apiContext api.Context, internal bool)
 
 func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	userID := apiContext.PathValue("user_id")
-	if userID == "" {
+	isDeleteMe := userID == ""
+	if isDeleteMe {
 		// This is the "delete me" API
 		userID = apiContext.User.GetUID()
-		defer func() {
-			if err == nil {
-				// If everything was successful, remove the cookie so the user isn't authenticated again.
-				apiContext.ResponseWriter.Header().Set("Set-Cookie", "")
-			}
-		}()
 	}
 
 	existingUser, err := apiContext.GatewayClient.UserByID(apiContext.Context(), userID)
@@ -206,15 +201,18 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		return fmt.Errorf("failed to start deletion of user owned objects: %v", err)
 	}
 
-	// Tell the browser to remove the access token cookie, so that the user does not immediately attempt to authenticate again.
-	http.SetCookie(apiContext.ResponseWriter, &http.Cookie{
-		Name:     proxy.ObotAccessTokenCookie,
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   strings.HasPrefix(s.uiURL, "https://"),
-	})
+	// Only clear the cookie if this is a "delete me" operation
+	if isDeleteMe {
+		// Tell the browser to remove the access token cookie, so that the user does not immediately attempt to authenticate again.
+		http.SetCookie(apiContext.ResponseWriter, &http.Cookie{
+			Name:     proxy.ObotAccessTokenCookie,
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   strings.HasPrefix(s.uiURL, "https://"),
+		})
+	}
 
 	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.IsExplicitAdmin(existingUser.Email), ""))
 }
