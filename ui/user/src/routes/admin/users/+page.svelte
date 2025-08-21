@@ -20,14 +20,13 @@
 	const tableData = $derived(
 		users.map((user) => ({
 			...user,
+			name: getUserDisplayName(user),
 			role: user.role === Role.ADMIN ? 'Admin' : 'User',
-			roleId: user.role,
-			lastActive: user.lastActiveDay ? formatTimeAgo(user.lastActiveDay, 'day').relativeTime : '-'
+			roleId: user.role
 		}))
 	);
 
 	type TableItem = (typeof tableData)[0];
-	type TableField = 'name' | 'email' | 'role' | 'lastActive';
 
 	let updateRoleDialog = $state<HTMLDialogElement>();
 	let updatingRole = $state<TableItem>();
@@ -50,16 +49,7 @@
 		closeUpdateRoleDialog();
 	}
 
-	function getColumnContent(user: TableItem, property: TableField) {
-		switch (property) {
-			case 'name':
-				return getUserDisplayName(user);
-			default:
-				return user[property];
-		}
-	}
-
-	function getUserDisplayName(user: TableItem): string {
+	function getUserDisplayName(user: OrgUser): string {
 		let display =
 			user?.displayName ??
 			user?.originalUsername ??
@@ -100,9 +90,9 @@
 				<h2 class="mb-2 text-lg font-semibold">Users</h2>
 				<Table
 					data={tableData}
-					fields={['name', 'email', 'role', 'lastActive']}
-					sortable={['name', 'email', 'role', 'lastActive']}
-					headers={[{ title: 'Last Active', property: 'lastActive' }]}
+					fields={['name', 'email', 'role', 'lastActiveDay']}
+					sortable={['name', 'email', 'role', 'lastActiveDay']}
+					headers={[{ title: 'Last Active', property: 'lastActiveDay' }]}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'role'}
@@ -116,9 +106,10 @@
 									</div>
 								{/if}
 							</div>
+						{:else if property === 'lastActiveDay'}
+							{d.lastActiveDay ? formatTimeAgo(d.lastActiveDay, 'day').relativeTime : '-'}
 						{:else}
 							{d[property as keyof typeof d]}
-							{getColumnContent(d, property as TableField)}
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}
