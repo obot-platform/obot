@@ -125,9 +125,10 @@
 		}, 10000);
 
 		const projects = await ChatService.listProjects();
-		const name = [connectedServer.server?.manifest.name ?? '', connectedServer.server.id].join(
-			' - '
-		);
+		const name = [
+			connectedServer.server?.alias || connectedServer.server?.manifest.name || '',
+			connectedServer.server.id
+		].join(' - ');
 		const match = projects.items.find((project) => project.name === name);
 
 		let project = match;
