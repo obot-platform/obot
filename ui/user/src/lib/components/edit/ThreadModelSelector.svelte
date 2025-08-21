@@ -373,7 +373,6 @@
 														'text-blue bg-blue/10 hover:bg-blue/15 active:bg-blue/20'
 												)}
 												onclick={() => {
-													console.log('model', model);
 													setThreadModel(model.id, '');
 												}}
 												tabindex="0"
