@@ -58,9 +58,11 @@
 	}
 
 	function shouldShowWarning(mcp: (typeof projectMCPs.items)[0]) {
-		if (typeof mcp.authenticated === 'boolean' && !mcp.authenticated) {
-			return true;
+		if (typeof mcp.authenticated === 'boolean') {
+			return !mcp.authenticated;
 		}
+
+		return !!mcp.oauthURL;
 	}
 
 	async function handleRemoveMcp() {
