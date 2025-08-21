@@ -672,7 +672,7 @@
 						class="button-primary"
 						onclick={() => {
 							configureForm = undefined;
-							if ('isCatalogEntry' in item && hasEditableConfiguration(item)) {
+							if ('isCatalogEntry' in item) {
 								initConfigureForm(item);
 								configDialog?.open();
 							} else {
