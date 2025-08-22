@@ -466,6 +466,7 @@
 					page = 0;
 				}}
 				placeholder="Search by name..."
+				value={search}
 			/>
 
 			{#if filteredConnectedServers.length > 0}
