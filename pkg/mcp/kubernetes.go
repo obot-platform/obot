@@ -17,6 +17,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -346,6 +347,11 @@ func (k *kubernetesBackend) k8sObjectsForUVXOrNPX(id string, server ServerConfig
 							Name:          "http",
 							ContainerPort: 8099,
 						}},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("400Mi"),
+							},
+						},
 						SecurityContext: &corev1.SecurityContext{
 							AllowPrivilegeEscalation: &[]bool{false}[0],
 							RunAsNonRoot:             &[]bool{true}[0],
@@ -513,6 +519,11 @@ func (k *kubernetesBackend) k8sObjectsForContainerized(id string, server ServerC
 							Name:          "http",
 							ContainerPort: int32(server.ContainerPort),
 						}},
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceMemory: resource.MustParse("400Mi"),
+							},
+						},
 						SecurityContext: &corev1.SecurityContext{
 							AllowPrivilegeEscalation: &[]bool{false}[0],
 							RunAsNonRoot:             &[]bool{true}[0],
