@@ -97,7 +97,7 @@
 					<AlertCircle class="size-6 text-red-500" />
 					<p class="flex flex-col text-sm font-light">
 						<span class="font-semibold">Error Details:</span>
-						<span>
+						<span class="break-all">
 							{error}
 						</span>
 					</p>
