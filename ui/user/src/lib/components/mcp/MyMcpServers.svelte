@@ -408,12 +408,10 @@
 					selectedEntryOrServer.parent.manifest.runtime === 'remote' &&
 					configureForm.url
 				) {
-					await ChatService.updateSingleOrRemoteMcpServer(selectedEntryOrServer.server.id, {
-						...selectedEntryOrServer.parent.manifest,
-						remoteConfig: {
-							url: configureForm.url.trim()
-						}
-					});
+					await ChatService.updateRemoteMcpServerUrl(
+						selectedEntryOrServer.server.id,
+						configureForm.url.trim()
+					);
 				}
 
 				const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);

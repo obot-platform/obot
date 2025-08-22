@@ -12,7 +12,6 @@ import {
 	type KnowledgeFiles,
 	type MCP,
 	type MCPCatalogServer,
-	type MCPServer,
 	type McpServerGeneratedPrompt,
 	type MCPServerInstance,
 	type MCPServerPrompt,
@@ -1425,12 +1424,8 @@ export async function createSingleOrRemoteMcpServer(server: {
 	return response;
 }
 
-export async function updateSingleOrRemoteMcpServer(
-	id: string,
-	server: MCPServer
-): Promise<MCPCatalogServer> {
-	const response = (await doPut(`/mcp-servers/${id}`, server)) as MCPCatalogServer;
-	return response;
+export async function updateRemoteMcpServerUrl(id: string, url: string): Promise<void> {
+	await doPost(`/mcp-servers/${id}/update-url`, { url });
 }
 
 export async function updateSingleOrRemoteMcpServerAlias(id: string, alias: string): Promise<void> {
