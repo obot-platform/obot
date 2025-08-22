@@ -26,11 +26,14 @@ var (
 	}
 )
 
-func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, string, string, []string, error) {
+func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, string, string, string, []string, error) {
+	// Extract the id, hashed token value, and optional hashed session id from the bearer token.
+	// Bearer tokens are either in the format <id>:<hashed_token> or <id>:<access_token>:<hashed_session_id>.
 	id, token, _ := strings.Cut(token, ":")
-	u := new(types.User)
+	token, hashedSessionID, _ := strings.Cut(token, ":")
 
 	var (
+		u               = new(types.User)
 		namespace, name string
 		groupIDs        []string
 	)
@@ -61,10 +64,10 @@ func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, 
 
 		return nil
 	}); err != nil {
-		return nil, "", "", nil, err
+		return nil, "", "", "", nil, err
 	}
 
-	return u, namespace, name, groupIDs, c.decryptUser(ctx, u)
+	return u, namespace, name, hashedSessionID, groupIDs, c.decryptUser(ctx, u)
 }
 
 func (c *Client) Users(ctx context.Context, query types.UserQuery) ([]types.User, error) {
