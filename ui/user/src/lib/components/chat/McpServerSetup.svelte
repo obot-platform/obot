@@ -54,12 +54,14 @@
 		}))
 	);
 
-	let categories = $derived([
-		...new Set([
-			...convertedEntries.flatMap((item) => item.categories),
-			...convertedServers.flatMap((item) => item.categories)
-		])
-	]);
+	let categories = $derived(
+		[
+			...new Set([
+				...convertedEntries.flatMap((item) => item.categories),
+				...convertedServers.flatMap((item) => item.categories)
+			])
+		].sort((a, b) => a.localeCompare(b))
+	);
 
 	function closeCatalogDialog() {
 		catalogDialog?.close();
