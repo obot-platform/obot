@@ -203,19 +203,20 @@
 		type FilterFunction = [string | undefined | null, (array: ProjectThread[]) => ProjectThread[]];
 
 		const queryFilterFunction = (array: ProjectThread[]) => {
+			const lowercasedQuery = query.toLowerCase();
 			return array.filter((thread) => {
 				const user = userMap.get(thread.userID || '');
 				return (
-					thread.name?.toLowerCase().includes(query) ||
-					thread.id.toLowerCase().includes(query) ||
-					thread.userID?.toLowerCase().includes(query) ||
-					thread.projectID?.toLowerCase().includes(query) ||
-					user?.displayName?.toLowerCase().includes(query) ||
-					user?.email?.toLowerCase().includes(query) ||
+					thread.name?.toLowerCase().includes(lowercasedQuery) ||
+					thread.id.toLowerCase().includes(lowercasedQuery) ||
+					thread.userID?.toLowerCase().includes(lowercasedQuery) ||
+					thread.projectID?.toLowerCase().includes(lowercasedQuery) ||
+					user?.displayName?.toLowerCase().includes(lowercasedQuery) ||
+					user?.email?.toLowerCase().includes(lowercasedQuery) ||
 					projectMap
 						.get(thread.projectID || '')
 						?.toLowerCase()
-						.includes(query)
+						.includes(lowercasedQuery)
 				);
 			});
 		};
