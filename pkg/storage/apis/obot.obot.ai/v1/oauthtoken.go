@@ -22,6 +22,7 @@ func (in *OAuthToken) DeleteRefs() []Ref {
 type OAuthTokenSpec struct {
 	ClientID              string `json:"clientID"`
 	UserID                uint   `json:"userID"`
+	HashedSessionID       string `json:"hashedSessionID"`
 	AuthProviderName      string `json:"authProviderName"`
 	AuthProviderNamespace string `json:"authProviderNamespace"`
 }

@@ -12798,6 +12798,13 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 							Format:  "",
 						},
 					},
+					"hashedSessionID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
 							Default: 0,
@@ -12820,7 +12827,7 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "codeChallengeMethod", "grantType", "hashedAuthCode", "userID", "authProviderNamespace", "authProviderName"},
+				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "codeChallengeMethod", "grantType", "hashedAuthCode", "hashedSessionID", "userID", "authProviderNamespace", "authProviderName"},
 			},
 		},
 	}
@@ -13140,6 +13147,13 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref common.ReferenceCallba
 							Format:  "int32",
 						},
 					},
+					"hashedSessionID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"authProviderName": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -13155,7 +13169,7 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"clientID", "userID", "authProviderName", "authProviderNamespace"},
+				Required: []string{"clientID", "userID", "hashedSessionID", "authProviderName", "authProviderNamespace"},
 			},
 		},
 	}

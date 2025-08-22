@@ -52,6 +52,7 @@ type OAuthAuthRequestSpec struct {
 	CodeChallengeMethod   string `json:"codeChallengeMethod"`
 	GrantType             string `json:"grantType"`
 	HashedAuthCode        string `json:"hashedAuthCode"`
+	HashedSessionID       string `json:"hashedSessionID"`
 	UserID                uint   `json:"userID"`
 	AuthProviderNamespace string `json:"authProviderNamespace"`
 	AuthProviderName      string `json:"authProviderName"`

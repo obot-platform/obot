@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
+	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
@@ -130,11 +131,11 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		}
 
 		if !s.authorizer.Authorize(req, user) {
-			if _, err := req.Cookie("obot_access_token"); err == nil && req.URL.Path == "/api/me" {
+			if _, err := req.Cookie(auth.ObotAccessTokenCookie); err == nil && req.URL.Path == "/api/me" {
 				// Tell the browser to delete the obot_access_token cookie.
 				// If the user tried to access this path and was unauthorized, then something is wrong with their token.
 				http.SetCookie(rw, &http.Cookie{
-					Name:   "obot_access_token",
+					Name:   auth.ObotAccessTokenCookie,
 					Value:  "",
 					Path:   "/",
 					MaxAge: -1,

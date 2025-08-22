@@ -359,18 +359,8 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		u.Extra["set-cookies"] = ss.SetCookies
 	}
 
-	// Put the access token on the context so that the profile icon and group info can be fetched.
-	// TODO(njhale): This needs to be stored in the database instead of the context so that we can use it to fetch a fresh
-	// list of the user's auth groups during token auth when the cached groups expire.
-	// Why? Right now, token auth only hits the cached groups and never updates them.
-	// This is bad because if there are upstream changes to the user's groups -- e.g. the user is removed from a github team --
-	// we won't kick them out of the ACR group until they hit the UI again, so connected external mcp clients would stay connected.
-	// Alternatively, the caching could happen on the auth provider's side. The key to this approach
-	// would be mapping Obot Identities/AuthTokens to tokens cached on the auth provider's side, but that feels insecure.
+	// Put the access token and provider URL on the context so that the profile icon and group info can be fetched.
 	*req = *req.WithContext(accesstoken.ContextWithAccessToken(req.Context(), ss.AccessToken))
-
-	// TODO(njhale): we can't rely on this being set when AuthToken requests are authenticated.
-	// I think we'll need to call the manager's URLForAuthProvider() and plumb it through to the pkg/gateway/client somehow.
 	*req = *req.WithContext(auth.ContextWithProviderURL(req.Context(), p.url))
 
 	return &authenticator.Response{

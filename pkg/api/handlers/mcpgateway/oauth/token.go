@@ -24,6 +24,8 @@ import (
 
 var log = logger.Package()
 
+const tokenExpiration = 10 * time.Minute
+
 func (h *handler) token(req api.Context) error {
 	if err := req.ParseForm(); err != nil {
 		return err
@@ -164,7 +166,29 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		}
 	}
 
-	tkn, accessToken, err := req.GatewayClient.NewAuthTokenWithExpiration(req.Context(), oauthAuthRequest.Spec.AuthProviderNamespace, oauthAuthRequest.Spec.AuthProviderName, oauthAuthRequest.Spec.UserID, time.Hour)
+	// If a hashed session ID was provided, ensure the session cookie exists for this provider
+	if oauthAuthRequest.Spec.HashedSessionID != "" {
+		if _, err := req.GatewayClient.GetSessionCookie(
+			req.Context(),
+			oauthAuthRequest.Spec.HashedSessionID,
+			oauthAuthRequest.Spec.AuthProviderNamespace,
+			oauthAuthRequest.Spec.AuthProviderName,
+		); err != nil {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "invalid session",
+			})
+		}
+	}
+
+	tkn, accessToken, err := req.GatewayClient.NewAuthTokenWithExpiration(
+		req.Context(),
+		oauthAuthRequest.Spec.AuthProviderNamespace,
+		oauthAuthRequest.Spec.AuthProviderName,
+		oauthAuthRequest.Spec.UserID,
+		oauthAuthRequest.Spec.HashedSessionID,
+		tokenExpiration,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
@@ -179,6 +203,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		Spec: v1.OAuthTokenSpec{
 			ClientID:              oauthClient.Name,
 			UserID:                tkn.UserID,
+			HashedSessionID:       oauthAuthRequest.Spec.HashedSessionID,
 			AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
 			AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
 		},
@@ -216,7 +241,29 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		return fmt.Errorf("failed to refresh oauth token: %w", err)
 	}
 
-	tkn, accessToken, err := req.GatewayClient.NewAuthTokenWithExpiration(req.Context(), oauthToken.Spec.AuthProviderNamespace, oauthToken.Spec.AuthProviderName, oauthToken.Spec.UserID, time.Hour)
+	// If a hashed session ID was provided, ensure the session cookie exists for this provider
+	if oauthToken.Spec.HashedSessionID != "" {
+		if _, err := req.GatewayClient.GetSessionCookie(
+			req.Context(),
+			oauthToken.Spec.HashedSessionID,
+			oauthToken.Spec.AuthProviderNamespace,
+			oauthToken.Spec.AuthProviderName,
+		); err != nil {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "invalid session",
+			})
+		}
+	}
+
+	tkn, accessToken, err := req.GatewayClient.NewAuthTokenWithExpiration(
+		req.Context(),
+		oauthToken.Spec.AuthProviderNamespace,
+		oauthToken.Spec.AuthProviderName,
+		oauthToken.Spec.UserID,
+		oauthToken.Spec.HashedSessionID,
+		tokenExpiration,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
@@ -231,6 +278,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		Spec: v1.OAuthTokenSpec{
 			ClientID:              oauthClient.Name,
 			UserID:                tkn.UserID,
+			HashedSessionID:       oauthToken.Spec.HashedSessionID,
 			AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
 			AuthProviderName:      oauthToken.Spec.AuthProviderName,
 		},

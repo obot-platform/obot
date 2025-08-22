@@ -592,7 +592,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	}
 
 	// Obot OAuth
-	oauth.SetupHandlers(oauthChecker, services.TokenServer, services.OAuthServerConfig, services.ServerURL, mux)
+	oauth.SetupHandlers(services.GatewayClient, oauthChecker, services.TokenServer, services.OAuthServerConfig, services.ServerURL, mux)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)
