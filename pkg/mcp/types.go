@@ -44,28 +44,31 @@ type File struct {
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
 // expandEnvVars replaces ${VAR} patterns with values from credEnv
-func expandEnvVars(text string, credEnv map[string]string) string {
+func expandEnvVars(text string, credEnv map[string]string, fileEnvVars map[string]struct{}) string {
 	if credEnv == nil {
 		return text
 	}
 
 	return envVarRegex.ReplaceAllStringFunc(text, func(match string) string {
 		varName := match[2 : len(match)-1] // Remove ${ and }
-		if val, ok := credEnv[varName]; ok {
-			return val
+		if _, isFileVar := fileEnvVars[varName]; !isFileVar {
+			// If it's a file variable, then don't expand here.
+			if val, ok := credEnv[varName]; ok {
+				return val
+			}
 		}
 		return match // Return original if not found
 	})
 }
 
-func legacyServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]string, allowedTools ...string) (ServerConfig, []string, error) {
+func legacyServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]string, fileEnvVars map[string]struct{}, allowedTools ...string) (ServerConfig, []string, error) {
 	// Expand environment variables in command, args, and URL
-	command := expandEnvVars(mcpServer.Spec.Manifest.Command, credEnv)
-	url := expandEnvVars(mcpServer.Spec.Manifest.URL, credEnv)
+	command := expandEnvVars(mcpServer.Spec.Manifest.Command, credEnv, fileEnvVars)
+	url := expandEnvVars(mcpServer.Spec.Manifest.URL, credEnv, fileEnvVars)
 
 	args := make([]string, len(mcpServer.Spec.Manifest.Args))
 	for i, arg := range mcpServer.Spec.Manifest.Args {
-		args[i] = expandEnvVars(arg, credEnv)
+		args[i] = expandEnvVars(arg, credEnv, fileEnvVars)
 	}
 
 	serverConfig := ServerConfig{
@@ -111,8 +114,14 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv ma
 }
 
 func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]string, allowedTools ...string) (ServerConfig, []string, error) {
+	fileEnvVars := make(map[string]struct{})
+	for _, file := range mcpServer.Spec.Manifest.Env {
+		if file.File {
+			fileEnvVars[file.Key] = struct{}{}
+		}
+	}
 	if string(mcpServer.Spec.Manifest.Runtime) == "" {
-		return legacyServerToServerConfig(mcpServer, scope, credEnv, allowedTools...)
+		return legacyServerToServerConfig(mcpServer, scope, credEnv, fileEnvVars, allowedTools...)
 	}
 
 	serverConfig := ServerConfig{
@@ -130,12 +139,12 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 		if mcpServer.Spec.Manifest.UVXConfig != nil {
 			serverConfig.Command = "uvx"
 			if mcpServer.Spec.Manifest.UVXConfig.Command != "" {
-				serverConfig.Args = []string{"--from", mcpServer.Spec.Manifest.UVXConfig.Package, expandEnvVars(mcpServer.Spec.Manifest.UVXConfig.Command, credEnv)}
+				serverConfig.Args = []string{"--from", mcpServer.Spec.Manifest.UVXConfig.Package, expandEnvVars(mcpServer.Spec.Manifest.UVXConfig.Command, credEnv, fileEnvVars)}
 			} else {
 				serverConfig.Args = []string{mcpServer.Spec.Manifest.UVXConfig.Package}
 			}
 			for _, arg := range mcpServer.Spec.Manifest.UVXConfig.Args {
-				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv))
+				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
 			}
 		} else {
 			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires uvx config", mcpServer.Spec.Manifest.Runtime)
@@ -145,20 +154,20 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 			serverConfig.Command = "npx"
 			serverConfig.Args = []string{mcpServer.Spec.Manifest.NPXConfig.Package}
 			for _, arg := range mcpServer.Spec.Manifest.NPXConfig.Args {
-				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv))
+				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
 			}
 		} else {
 			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires npx config", mcpServer.Spec.Manifest.Runtime)
 		}
 	case types.RuntimeContainerized:
 		if mcpServer.Spec.Manifest.ContainerizedConfig != nil {
-			serverConfig.ContainerImage = expandEnvVars(mcpServer.Spec.Manifest.ContainerizedConfig.Image, credEnv)
+			serverConfig.ContainerImage = expandEnvVars(mcpServer.Spec.Manifest.ContainerizedConfig.Image, credEnv, fileEnvVars)
 			serverConfig.ContainerPort = mcpServer.Spec.Manifest.ContainerizedConfig.Port
 			serverConfig.ContainerPath = mcpServer.Spec.Manifest.ContainerizedConfig.Path
-			serverConfig.Command = expandEnvVars(mcpServer.Spec.Manifest.ContainerizedConfig.Command, credEnv)
+			serverConfig.Command = expandEnvVars(mcpServer.Spec.Manifest.ContainerizedConfig.Command, credEnv, fileEnvVars)
 			serverConfig.Args = make([]string, 0, len(mcpServer.Spec.Manifest.ContainerizedConfig.Args))
 			for _, arg := range mcpServer.Spec.Manifest.ContainerizedConfig.Args {
-				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv))
+				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
 			}
 		} else {
 			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires containerized config", mcpServer.Spec.Manifest.Runtime)

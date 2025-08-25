@@ -232,7 +232,8 @@
 								name: '',
 								value: '',
 								required: false,
-								sensitive: false
+								sensitive: false,
+								file: false
 							})}
 					>
 						<Plus class="size-4" />

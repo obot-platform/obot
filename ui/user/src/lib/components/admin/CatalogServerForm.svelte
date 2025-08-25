@@ -734,6 +734,10 @@
 									/>
 									<span class="text-sm">Required</span>
 								</label>
+								<label class="flex items-center gap-2">
+									<input type="checkbox" bind:checked={formData.env[i].file} disabled={readonly} />
+									<span class="text-sm">File</span>
+								</label>
 							</div>
 						</div>
 					{:else}
@@ -797,7 +801,8 @@
 							name: '',
 							value: '',
 							required: false,
-							sensitive: false
+							sensitive: false,
+							file: false
 						})}
 				>
 					<Plus class="size-4" />
