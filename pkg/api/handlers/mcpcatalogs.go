@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -460,6 +461,42 @@ func tempServerAndConfig(entry v1.MCPServerCatalogEntry, config map[string]strin
 	}
 
 	return tempMCPServer, serverConfig, nil
+}
+
+// ListCategoriesForCatalog returns all unique categories from entries in a catalog
+func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+
+	var list v1.MCPServerCatalogEntryList
+	if err := req.List(&list, client.MatchingFields{
+		"spec.mcpCatalogName": catalogName,
+	}); err != nil {
+		return fmt.Errorf("failed to list entries: %w", err)
+	}
+
+	// Collect unique categories
+	categoriesSet := make(map[string]struct{})
+	for _, entry := range list.Items {
+		if categories, exists := entry.Spec.Manifest.Metadata["categories"]; exists && categories != "" {
+			// Handle both comma-separated and single categories
+			categoryList := strings.Split(categories, ",")
+			for _, category := range categoryList {
+				trimmed := strings.TrimSpace(category)
+				if trimmed != "" {
+					categoriesSet[trimmed] = struct{}{}
+				}
+			}
+		}
+	}
+
+	// Convert to sorted slice
+	categories := make([]string, 0, len(categoriesSet))
+	for category := range categoriesSet {
+		categories = append(categories, category)
+	}
+	sort.Strings(categories)
+
+	return req.Write(categories)
 }
 
 func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {
