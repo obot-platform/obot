@@ -103,15 +103,20 @@
 		// Create new AbortController for this request
 		abortController = new AbortController();
 		loading = true;
-		// Make a best effort attempt to load tools, prompts, and resources concurrently
-		let toolCall = project
-			? ChatService.listProjectMCPServerTools(project.assistantID, project.id, entry.id, {
-					signal: abortController.signal
-				})
-			: ChatService.listMcpCatalogServerTools(entry.id, { signal: abortController.signal });
-		tools = await toolCall;
-		selected = tools.filter((t) => t.enabled).map((t) => t.id);
-		loading = false;
+		try {
+			// Make a best effort attempt to load tools, prompts, and resources concurrently
+			let toolCall = project
+				? ChatService.listProjectMCPServerTools(project.assistantID, project.id, entry.id, {
+						signal: abortController.signal
+					})
+				: ChatService.listMcpCatalogServerTools(entry.id, { signal: abortController.signal });
+			tools = await toolCall;
+			selected = tools.filter((t) => t.enabled).map((t) => t.id);
+		} catch (err) {
+			console.error(err);
+		} finally {
+			loading = false;
+		}
 	}
 
 	$effect(() => {
@@ -137,6 +142,11 @@
 			onProjectToolsUpdate?.(selected);
 		}
 	}
+
+	async function handleAuthenticate() {
+		await loadTools();
+		onAuthenticate?.();
+	}
 </script>
 
 <div class="flex w-full flex-col gap-4">
@@ -153,7 +163,7 @@
 			</div>
 		{:else}
 			{#key entry.id}
-				<McpOauth {entry} {onAuthenticate} bind:error {project} />
+				<McpOauth {entry} onAuthenticate={handleAuthenticate} bind:error {project} />
 			{/key}
 		{/if}
 		{#if error}
