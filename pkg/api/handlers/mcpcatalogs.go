@@ -477,7 +477,7 @@ func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
 	// Collect unique categories
 	categoriesSet := make(map[string]struct{})
 	for _, entry := range list.Items {
-		if categories, exists := entry.Spec.Manifest.Metadata["categories"]; exists && categories != "" {
+		if categories := entry.Spec.Manifest.Metadata["categories"]; categories != "" {
 			// Handle both comma-separated and single categories
 			categoryList := strings.Split(categories, ",")
 			for _, category := range categoryList {
