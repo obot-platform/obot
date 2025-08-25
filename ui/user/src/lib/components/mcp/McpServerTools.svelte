@@ -15,6 +15,7 @@
 	import Search from '../Search.svelte';
 	import { browser } from '$app/environment';
 	import McpOauth from './McpOauth.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -22,9 +23,10 @@
 		onAuthenticate?: () => void;
 		onProjectToolsUpdate?: (selected: string[]) => void;
 		project?: Project;
+		noToolsContent?: Snippet;
 	}
 
-	let { entry, onAuthenticate, onProjectToolsUpdate, project }: Props = $props();
+	let { entry, onAuthenticate, onProjectToolsUpdate, project, noToolsContent }: Props = $props();
 	let search = $state('');
 	let tools = $state<MCPServerTool[]>([]);
 	let previewTools = $derived(getToolPreview(entry));
@@ -309,6 +311,8 @@
 						{/if}
 					</div>
 				{/each}
+			{:else if noToolsContent}
+				{@render noToolsContent()}
 			{:else}
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 					<Wrench class="size-24 text-gray-200 dark:text-gray-900" />

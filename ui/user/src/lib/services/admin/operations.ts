@@ -292,6 +292,43 @@ export async function deconfigureMCPCatalogServer(
 	await doPost(`/mcp-catalogs/${catalogID}/servers/${serverID}/deconfigure`, {}, opts);
 }
 
+export async function generateMcpCatalogEntryToolPreviews(
+	catalogID: string,
+	entryID: string,
+	body?: {
+		config?: Record<string, string>;
+		url?: string;
+	},
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews`, body ?? {}, {
+		...opts,
+		dontLogErrors: true
+	});
+}
+
+export async function getMcpCatalogToolPreviewsOauth(
+	catalogID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<string> {
+	try {
+		const response = (await doPost(
+			`/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews/oauth-url`,
+			{},
+			{
+				...opts,
+				dontLogErrors: true
+			}
+		)) as {
+			oauthURL: string;
+		};
+		return response.oauthURL;
+	} catch (_err) {
+		return '';
+	}
+}
+
 export async function listUsers(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> {
 	const response = (await doGet('/users', opts)) as ItemsResponse<OrgUser>;
 	return response.items ?? [];
