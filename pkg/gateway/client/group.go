@@ -175,7 +175,7 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 
 	var toUpsert []types.Group
 	for _, group := range identity.AuthProviderGroups {
-		if existing, ok := existingGroups[group.ID]; ok && (existing.Name != group.Name || existing.IconURL != group.IconURL) {
+		if existing, ok := existingGroups[group.ID]; ok && existing.Name == group.Name && existing.IconURL == group.IconURL {
 			// The group already exists and is up to date, skip
 			continue
 		}
