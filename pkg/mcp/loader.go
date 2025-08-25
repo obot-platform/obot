@@ -132,7 +132,7 @@ func (sm *SessionManager) Close() error {
 		value.(*sync.Map).Range(func(clientScope, session any) bool {
 			if s, ok := session.(*Client); ok && s.Client != nil {
 				log.Infof("closing MCP session %s, %s", id, clientScope)
-				s.Session.Close()
+				s.Session.Close(false)
 				s.Session.Wait()
 			}
 			return true
@@ -185,7 +185,7 @@ func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
 	}
 
 	if s, ok := sess.(*Client); ok && s.Client != nil {
-		s.Session.Close()
+		s.Close(false)
 		s.Session.Wait()
 	}
 }
@@ -218,7 +218,7 @@ func (sm *SessionManager) closeClients(id string) {
 
 	clientSessions.Range(func(_, session any) bool {
 		if s, ok := session.(*Client); ok && s.Client != nil {
-			s.Session.Close()
+			s.Close(true)
 			s.Session.Wait()
 		}
 		return true

@@ -25,13 +25,13 @@ require (
 	github.com/gptscript-ai/cmd v0.0.0-20250530150401-bc71fddf8070
 	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250714170123-17ad44ae8c54
-	github.com/gptscript-ai/gptscript v0.9.6-0.20250819204044-3898d6c241ac
+	github.com/gptscript-ai/gptscript v0.9.6-0.20250825144853-9d5e31590cb6
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
 	github.com/moby/moby/api v1.52.0-alpha.1
 	github.com/moby/moby/client v0.1.0-alpha.0
 	github.com/modelcontextprotocol/go-sdk v0.2.0
-	github.com/nanobot-ai/nanobot v0.0.6-0.20250818130049-3d17ae3b4afa
+	github.com/nanobot-ai/nanobot v0.0.6-0.20250825141756-f61b8b0f41f8
 	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
 	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2

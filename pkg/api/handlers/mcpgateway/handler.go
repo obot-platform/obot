@@ -86,7 +86,7 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 				}
 
 				if found {
-					session.Close()
+					session.Close(true)
 				}
 			}
 		}

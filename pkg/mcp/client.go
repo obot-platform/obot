@@ -118,7 +118,7 @@ func (sm *SessionManager) loadSession(server ServerConfig, clientScope, mcpServe
 
 	res, ok := clientSessions.LoadOrStore(clientScope, result)
 	if ok {
-		c.Session.Close()
+		c.Session.Close(true)
 		return res.(*Client), nil
 	}
 
