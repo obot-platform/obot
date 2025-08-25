@@ -8,8 +8,9 @@
 		type ProjectMCP
 	} from '$lib/services';
 	import { parseErrorContent } from '$lib/errors';
-	import { Info, RefreshCcw } from 'lucide-svelte';
+	import { Info, LoaderCircle, RefreshCcw } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+	import { AllSelection } from '@milkdown/prose/state';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -26,6 +27,14 @@
 	let loading = $state(false);
 	// Create AbortController for cancelling API calls
 	let abortController = $state<AbortController | null>(null);
+	let initializedListener = $state(false);
+
+	const handleVisibilityChange = () => {
+		if (!showRefresh || loading) return;
+		if (document.visibilityState === 'visible') {
+			loadOauthURL();
+		}
+	};
 
 	async function loadOauthURL() {
 		// Cancel any existing requests
@@ -38,7 +47,6 @@
 
 		loading = true;
 		oauthURL = '';
-		showRefresh = false;
 		error = '';
 
 		try {
@@ -73,11 +81,26 @@
 			}
 		} finally {
 			loading = false;
+
+			if (!oauthURL && showRefresh) {
+				onAuthenticate?.();
+				showRefresh = false;
+			}
+
+			if (oauthURL && !initializedListener) {
+				document.addEventListener('visibilitychange', handleVisibilityChange);
+			} else if (!oauthURL) {
+				document.removeEventListener('visibilitychange', handleVisibilityChange);
+			}
 		}
 	}
 
 	onMount(() => {
 		loadOauthURL();
+
+		return () => {
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		};
 	});
 </script>
 
@@ -91,17 +114,11 @@
 				<p>For detailed information about this MCP server, server authentication is required.</p>
 			{/if}
 		</div>
-		{#if showRefresh}
-			<button
-				class="button-primary flex items-center justify-center gap-1 text-center text-sm"
-				onclick={async () => {
-					await loadOauthURL();
-					onAuthenticate?.();
-				}}
-				disabled={loading}
-			>
-				<RefreshCcw class="size-4 text-white" /> Reload
-			</button>
+		{#if showRefresh && loading}
+			<div class="flex items-center gap-2 text-sm font-light">
+				<LoaderCircle class="size-4 animate-spin" />
+				Authenticating...
+			</div>
 		{:else}
 			<a
 				target="_blank"
