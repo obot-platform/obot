@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { type Project } from '$lib/services';
-	import { SidebarClose } from 'lucide-svelte';
+	import { Settings, SidebarClose } from 'lucide-svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import Tasks from '$lib/components/edit/Tasks.svelte';
 	import McpServers from '$lib/components/edit/McpServers.svelte';
@@ -11,6 +11,7 @@
 	import { scrollFocus } from '$lib/actions/scrollFocus.svelte';
 	import Projects from '../navbar/Projects.svelte';
 	import BetaLogo from '../navbar/BetaLogo.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		project: Project;
@@ -49,7 +50,14 @@
 		</div>
 	</div>
 
-	<div class="flex items-center justify-end px-3 py-2">
+	<div class="flex w-full items-center justify-between gap-2 px-2 py-2">
+		<button
+			class="icon-button"
+			onclick={() => (layout.sidebarConfig = 'project-configuration')}
+			use:tooltip={'Configure Project'}
+		>
+			<Settings class="size-6 text-gray-500" />
+		</button>
 		{#if !responsive.isMobile}
 			{@render closeSidebar()}
 		{/if}
