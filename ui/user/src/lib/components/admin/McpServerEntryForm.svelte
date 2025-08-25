@@ -12,7 +12,8 @@
 		ListFilter,
 		LoaderCircle,
 		Trash2,
-		Users
+		Users,
+		Wrench
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { goto } from '$app/navigation';
@@ -25,6 +26,8 @@
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
 	import { openUrl } from '$lib/utils';
+	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 
 	type MCPType = 'single' | 'multi' | 'remote';
 
@@ -73,6 +76,14 @@
 	let showLeftChevron = $state(false);
 	let showRightChevron = $state(false);
 	let scrollContainer = $state<HTMLDivElement>();
+
+	let oauthDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let oauthURL = $state<string>();
+
+	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
+	let configureForm = $state<LaunchFormData>();
+	let saving = $state(false);
+	let error = $state<string>();
 
 	$effect(() => {
 		if (selected === 'access-control') {
@@ -145,6 +156,62 @@
 			const url = new URL(window.location.href);
 			url.searchParams.set('view', newSelection);
 			goto(url.toString(), { replaceState: true });
+		}
+	}
+
+	function handleInitTemporaryInstance() {
+		if (!entry) return;
+
+		const hostname =
+			entry?.manifest?.remoteConfig &&
+			'hostname' in entry.manifest.remoteConfig &&
+			entry.manifest.remoteConfig.hostname;
+
+		configureForm = {
+			name: '',
+			envs: entry.manifest?.env?.map((env) => ({
+				...env,
+				value: ''
+			})),
+			headers: entry.manifest?.remoteConfig?.headers?.map((header) => ({
+				...header,
+				value: ''
+			})),
+			...(hostname ? { hostname, url: '' } : {})
+		};
+
+		configDialog?.open();
+	}
+
+	async function handleLaunchTemporaryInstance() {
+		if (!entry || !catalogId) return;
+
+		saving = true;
+		const body = {
+			url: configureForm?.url,
+			config: [...(configureForm?.headers ?? []), ...(configureForm?.envs ?? [])].reduce<
+				Record<string, string>
+			>((acc, curr) => {
+				acc[curr.key] = curr.value;
+				return acc;
+			}, {})
+		};
+
+		try {
+			await AdminService.generateMcpCatalogEntryToolPreviews(catalogId, entry.id, body);
+			configDialog?.close();
+
+			const oauthResponse = await AdminService.getMcpCatalogToolPreviewsOauth(catalogId, entry.id);
+			if (oauthURL) {
+				oauthURL = oauthResponse;
+				oauthDialog?.open();
+			} else {
+				window.location.reload();
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'An unknown error occurred';
+		} finally {
+			saving = false;
 		}
 	}
 </script>
@@ -231,7 +298,31 @@
 			{@render configurationView()}
 		{:else if selected === 'tools' && entry}
 			<div class="pb-8">
-				<McpServerTools {entry} {catalogId} />
+				<McpServerTools {entry} {catalogId}>
+					{#snippet noToolsContent()}
+						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+							<Wrench class="size-24 text-gray-200 dark:text-gray-900" />
+							{#if !entry}
+								<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No tools</h4>
+								<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+									Looks like this MCP server doesn't have any tools available.
+								</p>
+							{:else}
+								<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No tools</h4>
+								<button
+									class="button-primary flex items-center gap-1 text-sm"
+									onclick={handleInitTemporaryInstance}
+								>
+									Launch Temporary Instance
+								</button>
+								<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+									Click above to set up a temporary instance that will populate capabilities and
+									tools. Otherwise, tools will populate when the user first launches this server.
+								</p>
+							{/if}
+						</div>
+					{/snippet}
+				</McpServerTools>
 			</div>
 		{:else if selected === 'access-control'}
 			{@render accessControlView()}
@@ -504,3 +595,19 @@
 	}}
 	oncancel={() => (deleteResourceFromRule = undefined)}
 />
+
+<CatalogConfigureForm
+	bind:this={configDialog}
+	bind:form={configureForm}
+	{error}
+	icon={entry?.manifest?.icon}
+	name={entry?.manifest?.name}
+	onSave={handleLaunchTemporaryInstance}
+	submitText="Launch"
+	loading={saving}
+	isNew={false}
+/>
+
+<ResponsiveDialog bind:this={oauthDialog} title="OAuthentication Required" class="w-md">
+	<a href={oauthURL} target="_blank" class="button-primary">Authenticate</a>
+</ResponsiveDialog>
