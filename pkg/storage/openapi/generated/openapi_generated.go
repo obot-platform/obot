@@ -6039,8 +6039,30 @@ func schema_obot_platform_obot_apiclient_types_ProjectMCPServer(ref common.Refer
 							Format:  "",
 						},
 					},
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The following status fields are always copied from the MCPServer that this points to.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"needsURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"Metadata", "ProjectMCPServerManifest", "name", "description", "icon", "userID"},
+				Required: []string{"Metadata", "ProjectMCPServerManifest", "name", "description", "icon", "userID", "configured", "needsURL", "needsUpdate"},
 			},
 		},
 		Dependencies: []string{
