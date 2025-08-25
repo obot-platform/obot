@@ -51,8 +51,8 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 		if existing.State == "running" {
 			// Return existing config
 			containerPort := server.ContainerPort
-			if server.Runtime != otypes.RuntimeContainerized {
-				containerPort = 8099
+			if containerPort == 0 {
+				containerPort = defaultContainerPort
 			}
 			return d.buildServerConfig(server, existing, containerPort)
 		}
@@ -75,11 +75,8 @@ func (d *dockerBackend) transformConfig(ctx context.Context, id string, serverCo
 	}
 
 	containerPort := serverConfig.ContainerPort
-	if !d.containerEnv {
-		containerPort, err = d.getHostPort(existing, serverConfig.ContainerPort)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get host port: %w", err)
-		}
+	if containerPort == 0 {
+		containerPort = defaultContainerPort
 	}
 
 	transformed, err := d.buildServerConfig(serverConfig, existing, containerPort)
@@ -344,7 +341,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	case otypes.RuntimeUVX, otypes.RuntimeNPX:
 		// Use base image with nanobot
 		image = d.baseImage
-		containerPort = 8099 // nanobot port
+		containerPort = defaultContainerPort
 
 		// Prepare nanobot configuration
 		nanobotVolumeName, err := d.prepareNanobotConfig(ctx, server, displayName, fileEnvVars, containerName)
@@ -360,7 +357,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		createdVolumes = append(createdVolumes, nanobotVolumeName)
 
 		// Use nanobot command
-		cmd = []string{"run", "--listen-address", ":8099", "/run/nanobot.yaml"}
+		cmd = []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "/run/nanobot.yaml"}
 
 		// Set nanobot environment variables
 		env = []string{"NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true"}

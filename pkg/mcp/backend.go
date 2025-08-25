@@ -13,6 +13,8 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
+const defaultContainerPort = 8099
+
 type backend interface {
 	ensureServerDeployment(ctx context.Context, server ServerConfig, id, mcpServerDisplayName, mcpServerName string) (ServerConfig, error)
 	transformConfig(ctx context.Context, id string, serverConfig ServerConfig) (*ServerConfig, error)

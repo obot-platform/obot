@@ -221,7 +221,7 @@ func (k *kubernetesBackend) k8sObjectsForUVXOrNPX(id string, server ServerConfig
 		return nil, fmt.Errorf("invalid runtime: %s", server.Runtime)
 	}
 
-	args := []string{"run", "--listen-address", ":8099", "/run/nanobot.yaml"}
+	args := []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "/run/nanobot.yaml"}
 	annotations := map[string]string{
 		"mcp-server-name":  serverName,
 		"mcp-server-scope": server.Scope,
@@ -345,7 +345,7 @@ func (k *kubernetesBackend) k8sObjectsForUVXOrNPX(id string, server ServerConfig
 						ImagePullPolicy: corev1.PullAlways,
 						Ports: []corev1.ContainerPort{{
 							Name:          "http",
-							ContainerPort: 8099,
+							ContainerPort: defaultContainerPort,
 						}},
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
