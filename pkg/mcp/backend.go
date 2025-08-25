@@ -39,7 +39,7 @@ var (
 
 func ensureServerReady(ctx context.Context, url string, server ServerConfig) error {
 	// Ensure we can actually hit the service URL.
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 	client := &http.Client{
 		Timeout: time.Second,

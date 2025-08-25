@@ -580,7 +580,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 	// Wait for the deployment to be updated.
 	_, err := wait.For(ctx, k.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}}, func(dep *appsv1.Deployment) (bool, error) {
 		return dep.Generation == dep.Status.ObservedGeneration && dep.Status.Replicas == 1 && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1, nil
-	}, wait.Option{Timeout: 30 * time.Second})
+	}, wait.Option{Timeout: time.Minute})
 	if err != nil {
 		return "", ErrHealthCheckTimeout
 	}

@@ -1153,7 +1153,7 @@ func (m *MCPHandler) Reveal(req api.Context) error {
 }
 
 func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, userID string, server v1.MCPServer, serverConfig mcp.ServerConfig, allowedTools []string) ([]types.MCPServerTool, error) {
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
 	gTools, err := mcpSessionManager.ListTools(ctx, userID, server, serverConfig)
