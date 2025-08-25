@@ -38,7 +38,7 @@
 	let allToolsEnabled = $derived(selected[0] === '*' || selected.length === tools.length);
 	let expandedDescriptions = $state<Record<string, boolean>>({});
 	let expandedParams = $state<Record<string, boolean>>({});
-	let allDescriptionsEnabled = $state(true);
+	let allDescriptionsEnabled = $state(false);
 	let allParamsEnabled = $state(false);
 	let abortController = $state<AbortController | null>(null);
 
