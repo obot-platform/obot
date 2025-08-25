@@ -30,7 +30,7 @@
 		Users,
 		X
 	} from 'lucide-svelte';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, setContext } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
@@ -38,6 +38,7 @@
 	import BackLink from '$lib/components/admin/BackLink.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import { formatTimeAgo } from '$lib/time';
+	import { CONTEXT_KEY_MCP_SERVERS_CATEGORIES } from '$lib/context/admin/keys';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 	let search = $state('');
@@ -141,9 +142,26 @@
 	let totalCount = $derived(
 		mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length
 	);
+
 	let tableData = $derived(
 		convertEntriesAndServersToTableData(mcpServerAndEntries.entries, mcpServerAndEntries.servers)
 	);
+
+	const categories = $derived(
+		new Set(
+			tableData
+				.map((item) => item.data.manifest.metadata?.categories?.split(','))
+				.flat()
+				.filter(Boolean)
+				.map((category) => category?.trim()) as string[]
+		)
+	);
+
+	setContext(CONTEXT_KEY_MCP_SERVERS_CATEGORIES, {
+		get current() {
+			return [...categories];
+		}
+	});
 
 	let filteredTableData = $derived(
 		tableData
@@ -610,7 +628,7 @@
 <ResponsiveDialog title="Select Server Type" class="md:w-lg" bind:this={selectServerTypeDialog}>
 	<div class="my-4 flex flex-col gap-4">
 		<button
-			class="group dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
+			class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
 			onclick={() => selectServerType('single')}
 		>
 			<User
@@ -626,7 +644,7 @@
 			</div>
 		</button>
 		<button
-			class="group dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
+			class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
 			onclick={() => selectServerType('multi')}
 		>
 			<Users
@@ -642,7 +660,7 @@
 			</div>
 		</button>
 		<button
-			class="group dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
+			class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
 			onclick={() => selectServerType('remote')}
 		>
 			<Container
