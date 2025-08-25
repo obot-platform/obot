@@ -122,6 +122,7 @@ func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServe
 		CatalogName: entry.Spec.MCPCatalogName,
 		SourceURL:   entry.Spec.SourceURL,
 		UserCount:   entry.Status.UserCount,
+		LastUpdated: v1.NewTime(entry.Status.LastUpdated),
 	}
 }
 

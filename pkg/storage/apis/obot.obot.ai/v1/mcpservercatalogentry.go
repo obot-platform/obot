@@ -62,6 +62,10 @@ type MCPServerCatalogEntrySpec struct {
 type MCPServerCatalogEntryStatus struct {
 	// UserCount contains the current number of users with an MCP server created from this catalog entry.
 	UserCount int `json:"userCount,omitempty"`
+	// LastUpdated is the timestamp when this catalog entry was last updated.
+	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
+	// ManifestHash is a SHA256 hash of the catalog entry configuration used to detect changes.
+	ManifestHash string `json:"manifestHash,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

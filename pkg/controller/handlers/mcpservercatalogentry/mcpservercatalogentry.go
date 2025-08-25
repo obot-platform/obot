@@ -1,11 +1,15 @@
 package mcpservercatalogentry
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 
 	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -44,6 +48,40 @@ func DeleteEntriesWithoutRuntime(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 	if string(entry.Spec.Manifest.Runtime) == "" {
 		return req.Client.Delete(req.Ctx, entry)
+	}
+
+	return nil
+}
+
+// computeManifestHash computes a consistent SHA256 hash of the catalog entry manifest
+func computeManifestHash(entry *v1.MCPServerCatalogEntry) (string, error) {
+	// Marshal to JSON for consistent serialization
+	data, err := json.Marshal(entry.Spec.Manifest)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal manifest for hashing: %w", err)
+	}
+
+	// Compute SHA256 hash
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:]), nil
+}
+
+// UpdateManifestHashAndLastUpdated updates the manifest hash and last updated timestamp when configuration changes
+func UpdateManifestHashAndLastUpdated(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+
+	// Compute current config hash
+	currentHash, err := computeManifestHash(entry)
+	if err != nil {
+		return fmt.Errorf("failed to compute config hash: %w", err)
+	}
+
+	// Only update if hash has changed
+	if entry.Status.ManifestHash != currentHash {
+		now := metav1.Now()
+		entry.Status.ManifestHash = currentHash
+		entry.Status.LastUpdated = &now
+		return req.Client.Status().Update(req.Ctx, entry)
 	}
 
 	return nil

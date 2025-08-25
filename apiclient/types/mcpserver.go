@@ -59,6 +59,7 @@ type MCPServerCatalogEntry struct {
 	CatalogName string                        `json:"catalogName,omitempty"`
 	SourceURL   string                        `json:"sourceURL,omitempty"`
 	UserCount   int                           `json:"userCount,omitempty"`
+	LastUpdated *Time                         `json:"lastUpdated,omitempty"`
 }
 
 type MCPServerCatalogEntryManifest struct {
