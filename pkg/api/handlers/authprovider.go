@@ -5,20 +5,25 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -126,6 +131,60 @@ func (ap *AuthProviderHandler) listAuthProviders(req api.Context) ([]types.AuthP
 	return resp, nil
 }
 
+type authProviderValidationErr struct {
+	Err any `json:"error"`
+}
+
+func (ve authProviderValidationErr) Error() string {
+	return fmt.Sprintf("auth-provider credentials validation failed: {\"error\": \"%s\"}", ve.Err)
+}
+
+func (ap *AuthProviderHandler) validate(req api.Context, ref v1.ToolReference, envVars map[string]string) error {
+	log.Debugf("Validating auth provider %q", ref.Name)
+	thread := &v1.Thread{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: fmt.Sprintf("%s-%s-validate", system.ThreadPrefix, ref.Name),
+			Namespace:    ref.Namespace,
+		},
+		Spec: v1.ThreadSpec{
+			SystemTask: true,
+			Ephemeral:  true,
+		},
+	}
+
+	if err := req.Create(thread); err != nil {
+		return fmt.Errorf("failed to create thread: %w", err)
+	}
+
+	envs := make([]string, 0, len(envVars))
+	for key, val := range envVars {
+		envs = append(envs, key+"="+val)
+	}
+
+	task, err := ap.dispatcher.Invoker.SystemTask(req.Context(), thread, "validate from "+ref.Spec.Reference, "", invoke.SystemTaskOptions{Env: envs})
+	if err != nil {
+		return fmt.Errorf("failed to create task: %w", err)
+	}
+	defer task.Close()
+
+	res, err := task.Result(req.Context())
+	if err != nil {
+		if strings.Contains(err.Error(), "tool not found: validate from "+ref.Spec.Reference) {
+			log.Debugf("Auth provider %q does not provide a validate tool. Looking for 'validate from %s'", ref.Name, ref.Spec.Reference)
+			return nil
+		}
+
+		return types.NewErrHTTP(http.StatusUnprocessableEntity, strings.Trim(err.Error(), "\"'"))
+	}
+
+	var validationErr authProviderValidationErr
+	if json.Unmarshal([]byte(res.Output), &validationErr) == nil && validationErr.Err != nil {
+		return types.NewErrHTTP(http.StatusUnprocessableEntity, res.Output)
+	}
+
+	return nil
+}
+
 func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	var ref v1.ToolReference
 	if err := req.Get(&ref, req.PathValue("id")); err != nil {
@@ -146,6 +205,10 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return err
 	}
 	envVars[providers.CookieSecretEnvVar] = cookieSecret
+
+	if err := ap.validate(req, ref, envVars); err != nil {
+		return err
+	}
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
 	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{string(ref.UID), system.GenericAuthProviderCredentialContext}, ref.Name)

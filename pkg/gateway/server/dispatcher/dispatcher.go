@@ -24,7 +24,7 @@ import (
 )
 
 type Dispatcher struct {
-	invoker                     *invoke.Invoker
+	Invoker                     *invoke.Invoker
 	gptscript                   *gptscript.GPTScript
 	client                      kclient.Client
 	gatewayClient               *client.Client
@@ -41,7 +41,7 @@ type Dispatcher struct {
 
 func New(ctx context.Context, invoker *invoke.Invoker, c kclient.Client, gClient *gptscript.GPTScript, gatewayClient *client.Client, postgresDSN string) *Dispatcher {
 	d := &Dispatcher{
-		invoker:                     invoker,
+		Invoker:                     invoker,
 		gptscript:                   gClient,
 		client:                      c,
 		gatewayClient:               gatewayClient,
@@ -148,7 +148,7 @@ func (d *Dispatcher) startProvider(ctx context.Context, providerType types.ToolR
 		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	task, err := d.invoker.SystemTask(ctx, thread, providerName, "", invoke.SystemTaskOptions{
+	task, err := d.Invoker.SystemTask(ctx, thread, providerName, "", invoke.SystemTaskOptions{
 		CredentialContextIDs: []string{string(providerToolRef.UID), providerTypeToGenericCredContext[providerType]},
 		Env:                  extraEnv,
 	})
