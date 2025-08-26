@@ -33,7 +33,7 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *jwt.
 			// If the MCP server needs OAuth, ignore it and let the chat continue.
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to create MCP client for server %s: %w", mcpServerDisplayName, err)
+		return nil, err
 	}
 
 	tools, err := client.ListTools(ctx)
@@ -43,7 +43,7 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *jwt.
 			// If the MCP server needs OAuth, ignore it and let the chat continue.
 			return nil, nil
 		}
-		return nil, fmt.Errorf("failed to list tools for MCP server %s: %w", mcpServerDisplayName, err)
+		return nil, err
 	}
 
 	allToolsAllowed := allowedTools == nil || slices.Contains(allowedTools, "*")

@@ -71,7 +71,7 @@ func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, client
 
 	session, err := sm.loadSession(config, clientScope, mcpServerDisplayName, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create MCP client: %w", err)
+		return nil, err
 	}
 
 	return session, nil

@@ -169,7 +169,7 @@ func Agent(ctx context.Context, tokenService *jwt.TokenService, mcpSessionManage
 
 			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, tokenService, projectMCPServer, opts.UserID, mcpDisplayName, serverURL, opts.UserIsAdmin, allowedTools)
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, fmt.Errorf("failed to populate tools for MCP server %q: %w", mcpDisplayName, err)
 			}
 
 			mainTool.Tools = slices.Grow(mainTool.Tools, len(toolDefs))

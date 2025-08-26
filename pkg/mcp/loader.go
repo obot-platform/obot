@@ -283,7 +283,7 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServe
 	// Create MCP client and list tools
 	client, err := sm.ClientForServer(ctx, "system", tempMCPServer.Spec.Manifest.Name, tempMCPServer.Name, serverConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create MCP client: %w", err)
+		return nil, err
 	}
 
 	// Ensure cleanup happens regardless of success or failure
