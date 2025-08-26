@@ -8,7 +8,7 @@
 	} from '$lib/constants';
 	import { fade } from 'svelte/transition';
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
-	import type { AuthProvider } from '$lib/services/admin/types.js';
+	import type { AuthProvider, ValidationError } from '$lib/services/admin/types.js';
 	import { AdminService } from '$lib/services/index.js';
 	import { AlertTriangle, Info } from 'lucide-svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
@@ -52,7 +52,7 @@
 	let atLeastOneConfigured = $derived(authProviders.some((provider) => provider.configured));
 
 	let loading = $state(false);
-	let configureError = $state<string>();
+	let configureError = $state<ValidationError | string>();
 
 	let confirmDeconfigureAuthProvider = $state<AuthProvider>();
 
@@ -68,15 +68,21 @@
 				adminConfigStore.updateAuthProviders(authProviders);
 				providerConfigure?.close();
 			} catch (err: unknown) {
-				if (err instanceof Error) {
-					const errorMessageMatch = err.message.match(/{"error":\s*"(.*?)"}/);
-					if (errorMessageMatch) {
-						const errorMessage = JSON.parse(errorMessageMatch[0]).error;
-						configureError = errorMessage;
+				try {
+					if (err instanceof Error) {
+						// Extract JSON from error message (handles format: "422 /path: {json}")
+						const jsonMatch = err.message.match(/{\s*"error".*}/);
+						if (jsonMatch) {
+							const parsedError = JSON.parse(jsonMatch[0]) as ValidationError;
+							configureError = parsedError;
+							return;
+						}
 					}
-				} else {
-					configureError = 'Failed to configure auth provider';
+				} catch {
+					// Any parsing failure falls through to default error
 				}
+
+				configureError = 'Failed to configure auth provider';
 			} finally {
 				loading = false;
 			}

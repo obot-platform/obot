@@ -445,3 +445,15 @@ export interface MCPFilter extends MCPFilterManifest {
 	type: string;
 	hasSecret: boolean;
 }
+
+// Field validation error types
+export interface FieldError {
+	envVar: string;
+	message: string;
+	value: string;
+	sensitive: boolean;
+}
+
+export interface ValidationError {
+	error: FieldError[] | string;
+}
