@@ -8,9 +8,8 @@
 		type ProjectMCP
 	} from '$lib/services';
 	import { parseErrorContent } from '$lib/errors';
-	import { Info, LoaderCircle, RefreshCcw } from 'lucide-svelte';
+	import { Info, LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { AllSelection } from '@milkdown/prose/state';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
