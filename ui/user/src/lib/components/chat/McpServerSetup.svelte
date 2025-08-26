@@ -184,6 +184,7 @@
 										class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
 										class:!border-blue-500={!selectedCategory}
 										onclick={() => {
+											myMcpServers?.reset();
 											selectedCategory = undefined;
 										}}
 									>
@@ -196,6 +197,7 @@
 											class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
 											class:!border-blue-500={category === selectedCategory}
 											onclick={() => {
+												myMcpServers?.reset();
 												selectedCategory = category;
 											}}
 										>
