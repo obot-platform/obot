@@ -6,7 +6,7 @@
 		type ProjectThread,
 		type Project,
 		type OrgUser,
-		type Task
+		type ProjectTask
 	} from '$lib/services';
 	import { Eye, LoaderCircle, MessageCircle, Funnel } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -24,9 +24,9 @@
 
 	type SupportedFilter = 'username' | 'email' | 'project' | 'query';
 
-	let tasks = $state<Task[]>([]);
+	let tasks = $state<ProjectTask[]>([]);
 	let threads = $state<ProjectThread[]>([]);
-	let filteredTasks = $state<Task[]>([]);
+	let filteredTasks = $state<ProjectTask[]>([]);
 	let projects = $state<Project[]>([]);
 	let users = $state<OrgUser[]>([]);
 	let projectMap = $derived(new Map(projects.map((p) => [p.id, p])));
@@ -214,12 +214,12 @@
 		}
 	}
 
-	function applyFilters(data: Task[] = tasks, filters: typeof pageFilters = pageFilters) {
+	function applyFilters(data: ProjectTask[] = tasks, filters: typeof pageFilters = pageFilters) {
 		let filtered = [...data];
 
-		type FilterFunction = [string | undefined | null, (array: Task[]) => Task[]];
+		type FilterFunction = [string | undefined | null, (array: ProjectTask[]) => ProjectTask[]];
 
-		const queryFilterFunction = (array: Task[]) => {
+		const queryFilterFunction = (array: ProjectTask[]) => {
 			const lowercasedQuery = query.toLowerCase();
 			return array.filter((task) => {
 				const project = projectMap.get(task.projectID || '');
@@ -236,7 +236,7 @@
 			});
 		};
 
-		const usernameFilterFunction = (array: Task[]) => {
+		const usernameFilterFunction = (array: ProjectTask[]) => {
 			return array.filter((task) => {
 				const project = projectMap.get(task.projectID || '');
 				const user = userMap.get(project?.userID || '');
@@ -246,7 +246,7 @@
 			});
 		};
 
-		const emailFilterFunction = (array: Task[]) => {
+		const emailFilterFunction = (array: ProjectTask[]) => {
 			return array.filter((task) => {
 				const project = projectMap.get(task.projectID || '');
 				const user = userMap.get(project?.userID || '');
@@ -254,7 +254,7 @@
 			});
 		};
 
-		const projectFilterFunction = (array: Task[]) => {
+		const projectFilterFunction = (array: ProjectTask[]) => {
 			return array.filter((task) => {
 				const project = projectMap.get(task.projectID || '');
 				return (filters?.project ?? '')?.toLowerCase().includes(project?.id?.toLowerCase() || '');
@@ -274,7 +274,7 @@
 			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
 	}
 
-	function handleViewTask(task: Task) {
+	function handleViewTask(task: ProjectTask) {
 		goto(`/admin/tasks/${task.id}`);
 	}
 
@@ -396,6 +396,15 @@
 								<span class="text-sm text-gray-600 dark:text-gray-400">
 									{formatTimeAgo(task.created).relativeTime}
 								</span>
+							{:else if property === 'runs'}
+								<a
+									onclick={(e) => e.stopPropagation()}
+									href={`/admin/task-runs?task=${task.id}`}
+									class="text-sm font-semibold text-blue-500 hover:underline"
+								>
+									{taskRunsCount[task.id] || 0}
+									{taskRunsCount[task.id] === 1 ? 'Run' : 'Runs'}
+								</a>
 							{:else}
 								{task[property as keyof typeof task]}
 							{/if}

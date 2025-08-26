@@ -279,9 +279,7 @@
 
 		const taskFilterFunction = (array: ProjectThread[]) => {
 			return array.filter((thread) => {
-				return (filters?.task ?? '')
-					?.toLowerCase()
-					.includes(taskMap.get(thread.taskID || '')?.name?.toLowerCase() || '');
+				return (filters?.task ?? '')?.toLowerCase().includes(thread.taskID?.toLowerCase() || '');
 			});
 		};
 

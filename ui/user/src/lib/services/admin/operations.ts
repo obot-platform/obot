@@ -1,7 +1,6 @@
 import type {
 	ModelProvider,
 	Project,
-	Task,
 	MCPCatalogServer,
 	MCPServerInstance,
 	Model
@@ -31,7 +30,8 @@ import type {
 	K8sServerDetail,
 	BaseAgent,
 	MCPFilter,
-	MCPFilterManifest
+	MCPFilterManifest,
+	ProjectTask
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -347,9 +347,14 @@ export async function getProject(projectID: string, opts?: { fetch?: Fetcher }):
 	return response;
 }
 
-export async function listTasks(opts?: { fetch?: Fetcher }): Promise<Task[]> {
-	const response = (await doGet('/tasks', opts)) as ItemsResponse<Task>;
+export async function listTasks(opts?: { fetch?: Fetcher }): Promise<ProjectTask[]> {
+	const response = (await doGet('/tasks', opts)) as ItemsResponse<ProjectTask>;
 	return response.items ?? [];
+}
+
+export async function getTask(taskID: string, opts?: { fetch?: Fetcher }): Promise<ProjectTask> {
+	const response = (await doGet(`/tasks/${taskID}`, opts)) as ProjectTask;
+	return response;
 }
 
 export async function listModelProviders(opts?: { fetch?: Fetcher }): Promise<ModelProvider[]> {

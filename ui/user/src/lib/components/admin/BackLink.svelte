@@ -36,6 +36,14 @@
 			return [{ href: '/admin/chat-threads', label: 'Chat Threads' }];
 		}
 
+		if (type === 'tasks') {
+			return [{ href: '/admin/tasks', label: 'Tasks' }];
+		}
+
+		if (type === 'task-runs') {
+			return [{ href: '/admin/task-runs', label: 'Task Runs' }];
+		}
+
 		return [];
 	}
 

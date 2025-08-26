@@ -29,11 +29,19 @@
 		onChanged?: (task: Task) => void | Promise<void>;
 		onDelete?: () => void | Promise<void>;
 		runID?: string;
+		readonly?: boolean;
 	}
 
-	let { task = $bindable(), onChanged, project, onDelete, runID: inputRunID }: Props = $props();
+	let {
+		task = $bindable(),
+		onChanged,
+		project,
+		onDelete,
+		runID: inputRunID,
+		readonly
+	}: Props = $props();
 
-	const readOnly = !!inputRunID;
+	const readOnly = !!inputRunID || readonly;
 	let runID = $state(inputRunID);
 	let thread: Thread | undefined = $state<Thread>();
 	let lastStepId: string | undefined = $state(undefined);

@@ -415,7 +415,6 @@ export interface TaskStep {
 
 export interface Task {
 	id: string;
-	created: string;
 	name?: string;
 	description?: string;
 	steps: TaskStep[];
