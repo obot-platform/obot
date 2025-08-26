@@ -11,6 +11,8 @@
 		ChartBarDecreasing,
 		ChevronDown,
 		ChevronUp,
+		CircuitBoard,
+		Cpu,
 		Funnel,
 		GlobeLock,
 		LockKeyhole,
@@ -99,6 +101,20 @@
 						collapsible: false
 					},
 					{
+						href: '/admin/tasks',
+						icon: Cpu,
+						label: 'Tasks',
+						disabled: isBootStrapUser,
+						items: [
+							{
+								href: '/admin/task-runs',
+								icon: CircuitBoard,
+								label: 'Task Runs',
+								disabled: isBootStrapUser
+							}
+						]
+					},
+					{
 						href: '/admin/chat-configuration',
 						icon: Settings,
 						label: 'Chat Configuration',
@@ -166,7 +182,7 @@
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link (link.href)}
 							<div class="flex">
-								<div class="flex items-center">
+								<div class="flex w-full items-center">
 									{#if link.disabled}
 										<div class="sidebar-link disabled">
 											<link.icon class="size-5" />

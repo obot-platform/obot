@@ -1,7 +1,13 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/Table.svelte';
-	import { AdminService, type ProjectThread, type Project, type OrgUser } from '$lib/services';
+	import {
+		AdminService,
+		type ProjectThread,
+		type Project,
+		type OrgUser,
+		type Task
+	} from '$lib/services';
 	import { Eye, LoaderCircle, MessageCircle, Funnel } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -16,20 +22,28 @@
 	import type { FilterOptionsEndpoint } from '$lib/components/admin/filters-drawer/types';
 	import { debounce } from 'es-toolkit';
 
-	type SupportedFilter = 'username' | 'email' | 'project' | 'query';
+	type SupportedFilter = 'username' | 'email' | 'project' | 'query' | 'task';
 
 	let threads = $state<ProjectThread[]>([]);
 	let filteredThreads = $state<ProjectThread[]>([]);
 	let projects = $state<Project[]>([]);
 	let users = $state<OrgUser[]>([]);
+	let tasks = $state<Task[]>([]);
+
 	let projectMap = $derived(new Map(projects.map((p) => [p.id, p.name])));
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
+	let taskMap = $derived(new Map(tasks.map((t) => [t.id, t])));
 
 	let rightSidebar = $state<HTMLDialogElement>();
 
 	let showFilters = $state(false);
 
-	const supportedFilters: Exclude<SupportedFilter, 'query'>[] = ['username', 'email', 'project'];
+	const supportedFilters: Exclude<SupportedFilter, 'query'>[] = [
+		'username',
+		'email',
+		'project',
+		'task'
+	];
 
 	const searchParamsAsArray: [SupportedFilter, string | undefined | null][] = $derived(
 		supportedFilters.map((d) => {
@@ -73,30 +87,36 @@
 	});
 
 	const options = $derived.by(() => {
-		const usernames = new Set<string>();
-		const emails = new Set<string>();
-		const projects = new Set<string>();
+		const usernameOptions = new Set<string>();
+		const emailOptions = new Set<string>();
+		const projectOptions = new Set<string>();
+		const taskOptions = new Set<string>();
 
 		threads.forEach((thread) => {
 			const user = userMap.get(thread.userID || '');
 
 			if (user?.displayName) {
-				usernames.add(user.displayName);
+				usernameOptions.add(user.displayName);
 			}
 
 			if (user?.email) {
-				emails.add(user.email);
+				emailOptions.add(user.email);
 			}
 
 			if (thread.projectID) {
-				projects.add(thread.projectID);
+				projectOptions.add(thread.projectID);
+			}
+
+			if (thread.taskID) {
+				taskOptions.add(thread.taskID);
 			}
 		});
 
 		return {
-			username: { options: Array.from(usernames).sort() },
-			email: { options: Array.from(emails).sort() },
-			project: { options: Array.from(projects).sort() }
+			username: { options: Array.from(usernameOptions).sort() },
+			email: { options: Array.from(emailOptions).sort() },
+			project: { options: Array.from(projectOptions).sort() },
+			tasks: { options: Array.from(taskOptions).sort() }
 		};
 	});
 
@@ -107,7 +127,8 @@
 				...thread,
 				projectName: projectMap.get(thread.projectID || '') || thread.projectID,
 				userName: userMap.get(thread.userID || '')?.displayName || '-',
-				userEmail: userMap.get(thread.userID || '')?.email || '-'
+				userEmail: userMap.get(thread.userID || '')?.email || '-',
+				task: taskMap.get(thread.taskID || '')?.name || '-'
 			};
 		})
 	);
@@ -139,6 +160,7 @@
 		if (key === 'email') return 'Email';
 		if (key === 'project') return 'Project';
 		if (key === 'username') return 'User Name';
+		if (key === 'task') return 'Task';
 
 		return key.replace(/_(\w)/g, ' $1');
 	}
@@ -166,28 +188,34 @@
 				return [];
 			});
 
+			const tasksPromise = AdminService.listTasks().catch((err) => {
+				console.error('Failed to load tasks:', err);
+				return [];
+			});
+
 			// Add timeout to prevent hanging
 			const timeoutPromise = new Promise<never>((_, reject) => {
 				setTimeout(() => reject(new Error('Request timeout')), 10000);
 			});
 
-			const [threadsData, projectsData, usersData] = await Promise.race([
-				Promise.all([threadsPromise, projectsPromise, usersPromise]),
+			const [threadsData, projectsData, usersData, tasksData] = await Promise.race([
+				Promise.all([threadsPromise, projectsPromise, usersPromise, tasksPromise]),
 				timeoutPromise
 			]);
 
 			// threads = threadsData;
 			projects = projectsData;
 			users = usersData;
-			// Filter out task & task runs
-			threads = threadsData.filter((thread) => !thread.taskID && !thread.taskRunID);
+			// Filter to only include task runs
+			threads = threadsData.filter((thread) => !!thread.taskRunID);
+			tasks = tasksData;
 		} catch (error) {
 			console.error('Failed to load data:', error);
 			// Set empty arrays as fallback
 			threads = [];
 			projects = [];
 			users = [];
-			// filteredThreads = [];
+			tasks = [];
 		} finally {
 			loading = false;
 		}
@@ -213,6 +241,10 @@
 					thread.projectID?.toLowerCase().includes(lowercasedQuery) ||
 					user?.displayName?.toLowerCase().includes(lowercasedQuery) ||
 					user?.email?.toLowerCase().includes(lowercasedQuery) ||
+					taskMap
+						.get(thread.taskID || '')
+						?.name?.toLowerCase()
+						.includes(lowercasedQuery) ||
 					projectMap
 						.get(thread.projectID || '')
 						?.toLowerCase()
@@ -245,11 +277,20 @@
 			});
 		};
 
+		const taskFilterFunction = (array: ProjectThread[]) => {
+			return array.filter((thread) => {
+				return (filters?.task ?? '')
+					?.toLowerCase()
+					.includes(taskMap.get(thread.taskID || '')?.name?.toLowerCase() || '');
+			});
+		};
+
 		const filterFns: FilterFunction[] = [
 			[pageFilters.query, queryFilterFunction],
 			[filters.username, usernameFilterFunction],
 			[filters.email, emailFilterFunction],
-			[filters.project, projectFilterFunction]
+			[filters.project, projectFilterFunction],
+			[filters.task, taskFilterFunction]
 		].filter((d) => !!d[0]) as FilterFunction[];
 
 		// sort by most recent
@@ -260,11 +301,7 @@
 
 	function handleViewThread(thread: ProjectThread) {
 		// Navigate to thread view
-		goto(`/admin/chat-threads/${thread.id}`);
-	}
-
-	function formatThreadName(thread: ProjectThread) {
-		return thread.name || 'Unnamed Thread';
+		goto(`/admin/task-runs/${thread.id}`);
 	}
 
 	function handleRightSidebarClose() {
@@ -282,6 +319,8 @@
 				return options.email;
 			case 'project':
 				return options.project;
+			case 'task':
+				return options.tasks;
 			default:
 				return [];
 		}
@@ -295,7 +334,7 @@
 		out:fly={{ x: -100, duration: 300 }}
 	>
 		<div class="flex flex-col gap-8 pb-8">
-			<h1 class="text-2xl font-semibold">Chat Threads</h1>
+			<h1 class="text-2xl font-semibold">Task Runs</h1>
 
 			<div class="flex flex-col gap-2">
 				<div class="flex items-center gap-4">
@@ -326,29 +365,25 @@
 						<MessageCircle class="size-24 text-gray-200 dark:text-gray-700" />
 						<h3 class="mt-4 text-lg font-semibold text-gray-400 dark:text-gray-600">
 							{#if query}
-								No threads found
+								No task runs found
 							{:else}
-								No threads available
+								No task runs available
 							{/if}
 						</h3>
 						<p class="mt-2 text-sm font-light text-gray-400 dark:text-gray-600">
 							{#if query}
 								Try adjusting your search terms.
 							{:else}
-								Threads will appear here once they are created.
+								Task runs will appear here once they are created.
 							{/if}
 						</p>
 					</div>
 				{:else}
 					<Table
 						data={tableData}
-						fields={['name', 'userName', 'userEmail', 'projectName', 'created']}
+						fields={['name', 'userName', 'userEmail', 'task', 'projectName', 'created']}
 						onSelectRow={handleViewThread}
 						headers={[
-							{
-								title: 'Name',
-								property: 'name'
-							},
 							{
 								title: 'User Name',
 								property: 'userName'
@@ -360,10 +395,6 @@
 							{
 								title: 'Project',
 								property: 'projectName'
-							},
-							{
-								title: 'Created',
-								property: 'created'
 							}
 						]}
 						headerClasses={[
@@ -372,7 +403,7 @@
 								class: 'w-4/12 min-w-sm'
 							}
 						]}
-						sortable={['name', 'userName', 'userEmail', 'projectName', 'created']}
+						sortable={['name', 'userName', 'userEmail', 'projectName', 'created', 'task']}
 					>
 						{#snippet actions(thread)}
 							<button
@@ -388,7 +419,7 @@
 						{/snippet}
 						{#snippet onRenderColumn(property, thread)}
 							{#if property === 'name'}
-								<span>{formatThreadName(thread)}</span>
+								<span>{thread.name || 'Unnamed Task Run'}</span>
 							{:else if property === 'created'}
 								<span class="text-sm text-gray-600 dark:text-gray-400">
 									{formatTimeAgo(thread.created).relativeTime}
@@ -422,5 +453,5 @@
 </dialog>
 
 <svelte:head>
-	<title>Obot | Admin - Chat Threads</title>
+	<title>Obot | Admin - Task Runs</title>
 </svelte:head>
