@@ -95,7 +95,7 @@ func New(ctx context.Context, options Options) (Logger, error) {
 		buffer:      make([]byte, 0, options.AuditLogsMaxFileSize*2),
 	}
 
-	go l.startPersistenceLoop(ctx, time.Duration(options.AuditLogsMaxFlushInterval)*time.Second)
+	go l.runPersistenceLoop(ctx, time.Duration(options.AuditLogsMaxFlushInterval)*time.Second)
 	return l, nil
 }
 
@@ -123,7 +123,7 @@ func (l *persistentLogger) Close() error {
 	return l.persist()
 }
 
-func (l *persistentLogger) startPersistenceLoop(ctx context.Context, flushInterval time.Duration) {
+func (l *persistentLogger) runPersistenceLoop(ctx context.Context, flushInterval time.Duration) {
 	ticker := time.NewTicker(flushInterval)
 	defer ticker.Stop()
 
@@ -169,10 +169,10 @@ func (l *persistentLogger) persist() error {
 
 type noOpLogger struct{}
 
-func (l *noOpLogger) LogEntry(_ LogEntry) error {
+func (*noOpLogger) LogEntry(LogEntry) error {
 	return nil
 }
 
-func (l *noOpLogger) Close() error {
+func (*noOpLogger) Close() error {
 	return nil
 }

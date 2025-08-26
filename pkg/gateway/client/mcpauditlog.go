@@ -12,9 +12,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// InsertMCPAuditLog inserts a new MCP audit log entry
-func (c *Client) InsertMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {
-	return c.db.WithContext(ctx).Create(log).Error
+func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLog) error {
+	return c.db.WithContext(ctx).CreateInBatches(logs, 100).Error
 }
 
 func (c *Client) UpdateMCPAuditLogByRequestID(ctx context.Context, log *types.MCPAuditLog) error {

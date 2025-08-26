@@ -103,6 +103,8 @@ func Run(ctx context.Context, c services.Config) error {
 		log.Infof("Shutting down MCP servers")
 		// Shutdown all MCP servers
 		svcs.MCPLoader.Close()
+
+		svcs.GatewayClient.Close()
 	})
 
 	if err = s.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {

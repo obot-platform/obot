@@ -98,7 +98,7 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 			}
 		}
 
-		insertAuditLog(c.gatewayClient, auditLog)
+		c.gatewayClient.LogMCPAuditEntry(*auditLog)
 	}()
 
 	var webhooks []mcp.Webhook

@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/obot-platform/nah/pkg/log"
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"

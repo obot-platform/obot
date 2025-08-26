@@ -40,10 +40,10 @@ type Handler struct {
 	tokenService      *jwt.TokenService
 	mcpSessionManager *mcp.SessionManager
 	webhookHelper     *mcp.WebhookHelper
+	tokenStore        mcp.GlobalTokenStore
+	pendingRequests   *nmcp.PendingRequests
 	mcpSessionCache   sync.Map
 	sessionCache      sync.Map
-	pendingRequests   *nmcp.PendingRequests
-	tokenStore        mcp.GlobalTokenStore
 	baseURL           string
 }
 
@@ -55,8 +55,8 @@ func NewHandler(tokenService *jwt.TokenService, storageClient kclient.Client, mc
 		tokenService:      tokenService,
 		mcpSessionManager: mcpSessionManager,
 		webhookHelper:     webhookHelper,
-		pendingRequests:   &nmcp.PendingRequests{},
 		tokenStore:        globalTokenStore,
+		pendingRequests:   &nmcp.PendingRequests{},
 		baseURL:           baseURL,
 	}
 }
@@ -183,7 +183,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 					fmt.Sprintf(`Bearer error="invalid_token", error_description="The access token is invalid or expired. Please re-authenticate and try again.", resource_metadata="%s/.well-known/oauth-protected-resource%s"`, h.baseURL, m.req.URL.Path),
 				)
 				http.Error(m.resp, fmt.Sprintf("Unauthorized: %v", oauthErr), http.StatusUnauthorized)
-				insertAuditLog(h.gatewayClient, auditLog)
+				h.gatewayClient.LogMCPAuditEntry(*auditLog)
 				return
 			}
 
@@ -205,7 +205,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			}
 		}
 
-		insertAuditLog(h.gatewayClient, auditLog)
+		h.gatewayClient.LogMCPAuditEntry(*auditLog)
 	}()
 
 	var webhooks []mcp.Webhook
@@ -392,20 +392,6 @@ func captureHeaders(headers http.Header) json.RawMessage {
 		return data
 	}
 	return nil
-}
-
-func insertAuditLog(gatewayClient *gateway.Client, auditLog *gatewaytypes.MCPAuditLog) {
-	// Insert audit log asynchronously to avoid blocking the response
-	go func() {
-		// Use a background context with timeout to avoid blocking
-		auditCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		if err := gatewayClient.InsertMCPAuditLog(auditCtx, auditLog); err != nil {
-			// Log the error but don't fail the request
-			log.Errorf("Failed to insert MCP audit log: %v", err)
-		}
-	}()
 }
 
 func fireWebhooks(ctx context.Context, webhooks []mcp.Webhook, msg nmcp.Message, auditLog *gatewaytypes.MCPAuditLog, webhookType, userID, mcpID string) error {
