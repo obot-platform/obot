@@ -4,9 +4,9 @@ metadata:
   name: acr1-everything
   namespace: default
 spec:
+  mcpCatalogID: default
   manifest:
     displayName: Everything
-    mcpCatalogID: default
     resources:
       - id: '*'
         type: selector

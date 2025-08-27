@@ -36,8 +36,8 @@ func (*AccessControlRuleHandler) List(req api.Context) error {
 
 	items := make([]types.AccessControlRule, 0, len(list.Items))
 	for _, item := range list.Items {
-		// Filter by catalog ID - support both new scoped rules and legacy rules
-		if item.Spec.Manifest.MCPCatalogID == catalogID || (item.Spec.Manifest.MCPCatalogID == "" && catalogID == system.DefaultCatalog) {
+		// Filter by catalog ID
+		if item.Spec.MCPCatalogID == catalogID {
 			items = append(items, convertAccessControlRule(item))
 		}
 	}
@@ -66,7 +66,7 @@ func (*AccessControlRuleHandler) Get(req api.Context) error {
 	}
 
 	// Verify rule belongs to the requested catalog
-	if rule.Spec.Manifest.MCPCatalogID != catalogID && !(rule.Spec.Manifest.MCPCatalogID == "" && catalogID == system.DefaultCatalog) {
+	if rule.Spec.MCPCatalogID != catalogID {
 		return types.NewErrBadRequest("access control rule does not belong to catalog %s", catalogID)
 	}
 
@@ -74,7 +74,7 @@ func (*AccessControlRuleHandler) Get(req api.Context) error {
 }
 
 // Create creates a new access control rule (admin only).
-func (*AccessControlRuleHandler) Create(req api.Context) error {
+func (h *AccessControlRuleHandler) Create(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	if catalogID == "" {
 		return types.NewErrBadRequest("catalog_id is required")
@@ -91,16 +91,14 @@ func (*AccessControlRuleHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("failed to read access control rule manifest: %v", err)
 	}
 
-	// Set the catalog ID from the path
-	manifest.MCPCatalogID = catalogID
-
 	rule := v1.AccessControlRule{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.AccessControlRulePrefix,
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.AccessControlRuleSpec{
-			Manifest: manifest,
+			MCPCatalogID: catalogID,
+			Manifest:     manifest,
 		},
 	}
 
@@ -109,8 +107,8 @@ func (*AccessControlRuleHandler) Create(req api.Context) error {
 	}
 
 	// Validate that referenced resources exist in the same catalog
-	if err := (*AccessControlRuleHandler)(nil).validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
-		return err
+	if err := h.validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
+		return types.NewErrBadRequest(err.Error())
 	}
 
 	if err := req.Create(&rule); err != nil {
@@ -121,7 +119,7 @@ func (*AccessControlRuleHandler) Create(req api.Context) error {
 }
 
 // Update updates an existing access control rule (admin only).
-func (*AccessControlRuleHandler) Update(req api.Context) error {
+func (h *AccessControlRuleHandler) Update(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	if catalogID == "" {
 		return types.NewErrBadRequest("catalog_id is required")
@@ -135,33 +133,28 @@ func (*AccessControlRuleHandler) Update(req api.Context) error {
 
 	var manifest types.AccessControlRuleManifest
 	if err := req.Read(&manifest); err != nil {
-		return fmt.Errorf("failed to read access control rule manifest: %w", err)
+		return types.NewErrBadRequest("failed to read access control rule manifest: %w", err)
 	}
-
-	// Set the catalog ID from the path
-	manifest.MCPCatalogID = catalogID
-
-	var existing v1.AccessControlRule
-	if err := req.Get(&existing, req.PathValue("access_control_rule_id")); err != nil {
-		return fmt.Errorf("failed to get access control rule: %w", err)
-	}
-
-	// Verify rule belongs to the requested catalog
-	if existing.Spec.Manifest.MCPCatalogID != catalogID && !(existing.Spec.Manifest.MCPCatalogID == "" && catalogID == system.DefaultCatalog) {
-		return types.NewErrBadRequest("access control rule does not belong to catalog %s", catalogID)
-	}
-
-	existing.Spec.Manifest = manifest
 
 	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid access control rule manifest: %v", err)
 	}
 
-	// Validate that referenced resources exist in the same catalog
-	if err := (*AccessControlRuleHandler)(nil).validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
-		return err
+	var existing v1.AccessControlRule
+	if err := req.Get(&existing, req.PathValue("access_control_rule_id")); err != nil {
+		return types.NewErrBadRequest("failed to get access control rule: %w", err)
 	}
 
+	// Verify rule belongs to the requested catalog
+	if existing.Spec.MCPCatalogID != catalogID {
+		return types.NewErrBadRequest("access control rule does not belong to catalog %s", catalogID)
+	}
+
+	if err := h.validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
+		return types.NewErrBadRequest(err.Error())
+	}
+
+	existing.Spec.Manifest = manifest
 	if err := req.Update(&existing); err != nil {
 		return fmt.Errorf("failed to update access control rule: %w", err)
 	}
@@ -184,7 +177,7 @@ func (*AccessControlRuleHandler) Delete(req api.Context) error {
 	}
 
 	// Verify rule belongs to the requested catalog
-	if rule.Spec.Manifest.MCPCatalogID != catalogID && !(rule.Spec.Manifest.MCPCatalogID == "" && catalogID == system.DefaultCatalog) {
+	if rule.Spec.MCPCatalogID != catalogID {
 		return types.NewErrBadRequest("access control rule does not belong to catalog %s", catalogID)
 	}
 
@@ -201,36 +194,23 @@ func (*AccessControlRuleHandler) validateResourcesInCatalog(req api.Context, res
 	for _, resource := range resources {
 		switch resource.Type {
 		case types.ResourceTypeMCPServerCatalogEntry:
-			if resource.ID != "*" {
-				var entry v1.MCPServerCatalogEntry
-				if err := req.Get(&entry, resource.ID); err != nil {
-					return types.NewErrBadRequest("MCPServerCatalogEntry %s not found: %v", resource.ID, err)
-				}
-				if entry.Spec.MCPCatalogName != catalogID {
-					return types.NewErrBadRequest("MCPServerCatalogEntry %s does not belong to catalog %s", resource.ID, catalogID)
-				}
+			var entry v1.MCPServerCatalogEntry
+			if err := req.Get(&entry, resource.ID); err != nil {
+				return types.NewErrBadRequest("MCPServerCatalogEntry %s not found: %v", resource.ID, err)
+			}
+
+			if entry.Spec.MCPCatalogName != catalogID {
+				return types.NewErrBadRequest("MCPServerCatalogEntry %s does not belong to catalog %s", resource.ID, catalogID)
 			}
 		case types.ResourceTypeMCPServer:
-			if resource.ID != "*" {
-				var server v1.MCPServer
-				if err := req.Get(&server, resource.ID); err != nil {
-					return types.NewErrBadRequest("MCPServer %s not found: %v", resource.ID, err)
-				}
-				// Check if server is shared within this catalog or is a regular server that came from a catalog entry
-				if server.Spec.SharedWithinMCPCatalogName != "" {
-					if server.Spec.SharedWithinMCPCatalogName != catalogID {
-						return types.NewErrBadRequest("MCPServer %s does not belong to catalog %s", resource.ID, catalogID)
-					}
-				} else if server.Spec.MCPServerCatalogEntryName != "" {
-					// Verify the catalog entry belongs to the catalog
-					var entry v1.MCPServerCatalogEntry
-					if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
-						return types.NewErrBadRequest("MCPServerCatalogEntry %s not found for server %s: %v", server.Spec.MCPServerCatalogEntryName, resource.ID, err)
-					}
-					if entry.Spec.MCPCatalogName != catalogID {
-						return types.NewErrBadRequest("MCPServer %s belongs to catalog entry in catalog %s, not %s", resource.ID, entry.Spec.MCPCatalogName, catalogID)
-					}
-				}
+			var server v1.MCPServer
+			if err := req.Get(&server, resource.ID); err != nil {
+				return types.NewErrBadRequest("MCPServer %s not found: %v", resource.ID, err)
+			}
+
+			// Check if server is shared within this catalog
+			if server.Spec.SharedWithinMCPCatalogName != catalogID {
+				return types.NewErrBadRequest("MCPServer %s does not belong to catalog %s", resource.ID, catalogID)
 			}
 		case types.ResourceTypeSelector:
 			// Selector resources are allowed across all catalogs

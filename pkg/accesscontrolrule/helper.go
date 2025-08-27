@@ -102,8 +102,8 @@ func (h *Helper) GetAccessControlRulesForMCPServerInCatalog(namespace, serverNam
 
 	result := make([]v1.AccessControlRule, 0, len(rules))
 	for _, rule := range rules {
-		// Include rules that match the catalog ID, or legacy rules without catalog ID (default to default catalog)
-		if rule.Spec.Manifest.MCPCatalogID == catalogID || (rule.Spec.Manifest.MCPCatalogID == "" && catalogID == system.DefaultCatalog) {
+		// Include rules that match the catalog ID
+		if rule.Spec.MCPCatalogID == catalogID {
 			result = append(result, rule)
 		}
 	}
@@ -120,8 +120,8 @@ func (h *Helper) GetAccessControlRulesForMCPServerCatalogEntryInCatalog(namespac
 
 	result := make([]v1.AccessControlRule, 0, len(rules))
 	for _, rule := range rules {
-		// Include rules that match the catalog ID, or legacy rules without catalog ID (default to default catalog)
-		if rule.Spec.Manifest.MCPCatalogID == catalogID || (rule.Spec.Manifest.MCPCatalogID == "" && catalogID == system.DefaultCatalog) {
+		// Include rules that match the catalog ID
+		if rule.Spec.MCPCatalogID == catalogID {
 			result = append(result, rule)
 		}
 	}
@@ -138,8 +138,8 @@ func (h *Helper) GetAccessControlRulesForSelectorInCatalog(namespace, selector, 
 
 	result := make([]v1.AccessControlRule, 0, len(rules))
 	for _, rule := range rules {
-		// Include rules that match the catalog ID, or legacy rules without catalog ID (default to default catalog)
-		if rule.Spec.Manifest.MCPCatalogID == catalogID || (rule.Spec.Manifest.MCPCatalogID == "" && catalogID == system.DefaultCatalog) {
+		// Include rules that match the catalog ID
+		if rule.Spec.MCPCatalogID == catalogID {
 			result = append(result, rule)
 		}
 	}
@@ -147,7 +147,7 @@ func (h *Helper) GetAccessControlRulesForSelectorInCatalog(namespace, selector, 
 	return result, nil
 }
 
-// UserHasAccessToMCPServer checks if a user has access to a specific MCP server through AccessControlRules
+// UserHasAccessToMCPServerInCatalog checks if a user has access to a specific MCP server through AccessControlRules
 // This method now requires the catalog ID to ensure proper scoping
 func (h *Helper) UserHasAccessToMCPServerInCatalog(user kuser.Info, serverName, catalogID string) (bool, error) {
 	// See if there is a selector that this user is included on in the specified catalog.

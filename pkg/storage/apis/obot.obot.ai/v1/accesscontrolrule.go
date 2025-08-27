@@ -15,14 +15,15 @@ type AccessControlRule struct {
 }
 
 type AccessControlRuleSpec struct {
-	Manifest types.AccessControlRuleManifest `json:"manifest"`
+	MCPCatalogID string                          `json:"mcpCatalogId,omitempty"`
+	Manifest     types.AccessControlRuleManifest `json:"manifest"`
 }
 
 func (in *AccessControlRule) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
 		{"Display Name", "Spec.Manifest.DisplayName"},
-		{"Catalog", "Spec.Manifest.MCPCatalogID"},
+		{"Catalog", "Spec.MCPCatalogID"},
 		{"Subjects", "{{len .Spec.Manifest.Subjects}}"},
 		{"Resources", "{{len .Spec.Manifest.Resources}}"},
 	}

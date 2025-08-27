@@ -370,7 +370,7 @@ func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Resp
 			}
 			continue
 		}
-		
+
 		hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(user, server.Spec.MCPServerCatalogEntryName, catalogEntry.Spec.MCPCatalogName)
 		if err != nil {
 			return fmt.Errorf("failed to check if user %s has access to catalog entry %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, err)
@@ -430,29 +430,13 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstances(req router.Request, _ rou
 			}
 			continue
 		}
-		
-		// Determine the catalog ID for the server
-		var catalogID string
+
+		var hasAccess bool
 		if mcpServer.Spec.SharedWithinMCPCatalogName != "" {
-			catalogID = mcpServer.Spec.SharedWithinMCPCatalogName
-		} else if mcpServer.Spec.MCPServerCatalogEntryName != "" {
-			var catalogEntry v1.MCPServerCatalogEntry
-			if err := req.Get(&catalogEntry, system.DefaultNamespace, mcpServer.Spec.MCPServerCatalogEntryName); err != nil {
-				log.Infof("Deleting MCPServerInstance %q because its server's catalog entry no longer exists", instance.Name)
-				if err := req.Delete(&instance); err != nil {
-					return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
-				}
-				continue
+			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerInCatalog(user, instance.Spec.MCPServerName, mcpServer.Spec.SharedWithinMCPCatalogName)
+			if err != nil {
+				return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 			}
-			catalogID = catalogEntry.Spec.MCPCatalogName
-		} else {
-			// Default catalog for servers without catalog association
-			catalogID = system.DefaultCatalog
-		}
-		
-		hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServerInCatalog(user, instance.Spec.MCPServerName, catalogID)
-		if err != nil {
-			return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 		}
 
 		if !hasAccess {
