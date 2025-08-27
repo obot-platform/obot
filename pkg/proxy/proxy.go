@@ -36,7 +36,7 @@ const (
 
 type InvalidSessionErr struct{}
 
-func (e InvalidSessionErr) Error() string {
+func (InvalidSessionErr) Error() string {
 	return "invalid session"
 }
 
