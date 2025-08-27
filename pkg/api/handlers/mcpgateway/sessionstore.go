@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -68,8 +69,13 @@ func (h *Handler) Load(req *http.Request, sessionID string) (*nmcp.ServerSession
 
 	// If the session hasn't been updated in the last hour, update it.
 	if time.Since(mcpSess.Status.LastUsedTime.Time) > time.Hour {
-		mcpSess.Status.LastUsedTime = metav1.Now()
-		if err = h.storageClient.Status().Update(req.Context(), mcpSess); err != nil {
+		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			if err := h.storageClient.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSess); err != nil {
+				return err
+			}
+			mcpSess.Status.LastUsedTime = metav1.Now()
+			return h.storageClient.Status().Update(req.Context(), mcpSess)
+		}); err != nil {
 			return nil, false, err
 		}
 	}

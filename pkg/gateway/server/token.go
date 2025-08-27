@@ -168,15 +168,13 @@ func (s *Server) verifyState(ctx context.Context, state string) (*types.TokenReq
 // It will also delete tokens that are older than 2 minutes that have not been retrieved.
 // Finally, tokens that are older than the expiration duration and deleted.
 func (s *Server) autoCleanupTokens(ctx context.Context) {
-	db := s.db.WithContext(ctx)
-	cleanupTick := 5 * time.Second
+	cleanupTick := 30 * time.Second
 	timer := time.NewTimer(cleanupTick)
+	defer timer.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
-			if !timer.Stop() {
-				<-timer.C
-			}
 			return
 		case <-timer.C:
 		}
@@ -185,7 +183,7 @@ func (s *Server) autoCleanupTokens(ctx context.Context) {
 			errs []error
 			now  = time.Now()
 		)
-		if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			errs = append(errs, tx.Where("created_at < ?", now.Add(-2*time.Minute)).Where("token_retrieved = ?", false).Delete(new(types.TokenRequest)).Error)
 			errs = append(errs, tx.Where("token_retrieved = ?", true).Where("updated_at < ?", time.Now().Add(-cleanupTick)).Delete(new(types.TokenRequest)).Error)
 			errs = append(errs, tx.Where("expires_at < ?", now).Delete(new(types.AuthToken)).Error)

@@ -116,6 +116,12 @@ type messageContext struct {
 }
 
 func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
+	if h.pendingRequests.Notify(msg) {
+		// This is a response to a pending request.
+		// We don't forward it to the client, just return.
+		return
+	}
+
 	m, ok := messageContextFromContext(ctx)
 	if !ok {
 		log.Errorf("Failed to get message context from context: %v", ctx)
@@ -126,7 +132,8 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		return
 	}
 
-	auditLog := &gatewaytypes.MCPAuditLog{
+	auditLog := gatewaytypes.MCPAuditLog{
+		CreatedAt:                 time.Now(),
 		UserID:                    m.userID,
 		MCPID:                     m.mcpID,
 		MCPServerDisplayName:      m.mcpServer.Spec.Manifest.Name,
@@ -143,15 +150,6 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 	if msg.ID != nil {
 		auditLog.RequestID = fmt.Sprintf("%v", msg.ID)
 	}
-
-	if h.pendingRequests.Notify(msg) {
-		// This is a response to a pending request.
-		// We don't forward it to the client, just return.
-		return
-	}
-
-	// Capture audit log information
-	auditLog.CreatedAt = time.Now()
 
 	// Capture request body if available
 	if msg.Params != nil {
@@ -183,7 +181,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 					fmt.Sprintf(`Bearer error="invalid_token", error_description="The access token is invalid or expired. Please re-authenticate and try again.", resource_metadata="%s/.well-known/oauth-protected-resource%s"`, h.baseURL, m.req.URL.Path),
 				)
 				http.Error(m.resp, fmt.Sprintf("Unauthorized: %v", oauthErr), http.StatusUnauthorized)
-				h.gatewayClient.LogMCPAuditEntry(*auditLog)
+				h.gatewayClient.LogMCPAuditEntry(auditLog)
 				return
 			}
 
@@ -205,17 +203,17 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			}
 		}
 
-		h.gatewayClient.LogMCPAuditEntry(*auditLog)
+		h.gatewayClient.LogMCPAuditEntry(auditLog)
 	}()
 
 	var webhooks []mcp.Webhook
-	webhooks, err = h.webhookHelper.GetWebhooksForMCPServer(ctx, h.gptClient, m.mcpServer.Namespace, m.mcpServer.Name, m.mcpServer.Spec.MCPServerCatalogEntryName, msg.Method, auditLog.CallIdentifier)
+	webhooks, err = h.webhookHelper.GetWebhooksForMCPServer(ctx, h.gptClient, m.mcpServer.Namespace, m.mcpServer.Name, m.mcpServer.Spec.MCPServerCatalogEntryName, auditLog.CallType, auditLog.CallIdentifier)
 	if err != nil {
 		log.Errorf("Failed to get webhooks for server %s: %v", m.mcpServer.Name, err)
 		return
 	}
 
-	if err = fireWebhooks(ctx, webhooks, msg, auditLog, "request", m.userID, m.mcpID); err != nil {
+	if err = fireWebhooks(ctx, webhooks, msg, &auditLog, "request", m.userID, m.mcpID); err != nil {
 		log.Errorf("Failed to fire webhooks for server %s: %v", m.mcpServer.Name, err)
 		auditLog.ResponseStatus = http.StatusFailedDependency
 		return
@@ -249,8 +247,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 	case "ping":
 		result = nmcp.PingResult{}
 	case "initialize":
-		sessionID := msg.Session.ID()
-		go func() {
+		go func(sessionID string) {
 			msg.Session.Wait()
 
 			if err := h.mcpSessionManager.CloseClient(context.Background(), m.serverConfig, sessionID); err != nil {
@@ -267,7 +264,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			if _, _, err = h.LoadAndDelete(req, sessionID); err != nil {
 				log.Errorf("Failed to delete session %s: %v", sessionID, err)
 			}
-		}()
+		}(msg.Session.ID())
 
 		if client.Session.InitializeResult.ServerInfo.Name != "" || client.Session.InitializeResult.ServerInfo.Version != "" {
 			if err = msg.Reply(ctx, client.Session.InitializeResult); err != nil {
@@ -324,7 +321,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 	msg.Result = b
 
-	if err = fireWebhooks(ctx, webhooks, msg, auditLog, "response", m.userID, m.mcpID); err != nil {
+	if err = fireWebhooks(ctx, webhooks, msg, &auditLog, "response", m.userID, m.mcpID); err != nil {
 		log.Errorf("Failed to fire webhooks for server %s: %v", m.mcpServer.Name, err)
 		auditLog.ResponseStatus = http.StatusFailedDependency
 		return

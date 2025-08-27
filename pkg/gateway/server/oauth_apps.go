@@ -42,7 +42,10 @@ var logger = loggerPackage.Package()
 // more than five minutes ago.
 func (s *Server) oAuthCleanup(ctx context.Context) {
 	logger := kcontext.GetLogger(ctx)
-	t := time.NewTicker(5 * time.Second)
+	cleanupTick := 30 * time.Second
+	t := time.NewTimer(cleanupTick)
+	defer t.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -76,6 +79,8 @@ func (s *Server) oAuthCleanup(ctx context.Context) {
 				}
 			}
 		}
+
+		t.Reset(cleanupTick)
 	}
 }
 

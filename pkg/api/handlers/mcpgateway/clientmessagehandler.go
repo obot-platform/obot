@@ -47,15 +47,20 @@ type clientMessageHandler struct {
 }
 
 func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) error {
-	startTime := time.Now()
-	auditLog := &gatewaytypes.MCPAuditLog{
+	if msg.Method == "" {
+		// This is supposed to be a response to a request, but requester canceled the request.
+		// Return an error indicating that the request was canceled.
+		return fmt.Errorf("method is empty for message, the requester likely canceled and is no longer waiting for a response")
+	}
+
+	auditLog := gatewaytypes.MCPAuditLog{
 		UserID:                    c.session.userID,
 		MCPID:                     c.session.mcpID,
 		MCPServerDisplayName:      c.session.serverDisplayName,
 		MCPServerCatalogEntryName: c.session.serverCatalogEntryName,
 		ClientName:                c.session.session.InitializeRequest.ClientInfo.Name,
 		ClientVersion:             c.session.session.InitializeRequest.ClientInfo.Version,
-		CreatedAt:                 startTime,
+		CreatedAt:                 time.Now(),
 		CallType:                  msg.Method,
 		CallIdentifier:            extractCallIdentifier(msg),
 	}
@@ -81,7 +86,7 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 		}
 
 		// Complete audit log
-		auditLog.ProcessingTimeMs = time.Since(startTime).Milliseconds()
+		auditLog.ProcessingTimeMs = time.Since(auditLog.CreatedAt).Milliseconds()
 
 		if err != nil {
 			auditLog.Error = err.Error()
@@ -98,18 +103,18 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 			}
 		}
 
-		c.gatewayClient.LogMCPAuditEntry(*auditLog)
+		c.gatewayClient.LogMCPAuditEntry(auditLog)
 	}()
 
 	var webhooks []mcp.Webhook
-	webhooks, err = c.webhookHelper.GetWebhooksForMCPServer(ctx, c.gptClient, c.session.serverNamespace, c.session.serverName, c.session.serverCatalogEntryName, msg.Method, auditLog.CallIdentifier)
+	webhooks, err = c.webhookHelper.GetWebhooksForMCPServer(ctx, c.gptClient, c.session.serverNamespace, c.session.serverName, c.session.serverCatalogEntryName, auditLog.CallType, auditLog.CallIdentifier)
 	if err != nil {
 		msg.SendError(ctx, err)
 		auditLog.ResponseStatus = http.StatusInternalServerError
 		return fmt.Errorf("failed to get webhooks: %w", err)
 	}
 
-	if err = fireWebhooks(ctx, webhooks, msg, auditLog, "request", c.session.userID, c.session.mcpID); err != nil {
+	if err = fireWebhooks(ctx, webhooks, msg, &auditLog, "request", c.session.userID, c.session.mcpID); err != nil {
 		msg.SendError(ctx, err)
 		auditLog.ResponseStatus = http.StatusFailedDependency
 		return fmt.Errorf("failed to fire webhooks: %w", err)
@@ -153,7 +158,7 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 			return fmt.Errorf("message returned with error: %w", err)
 		}
 
-		if err = fireWebhooks(ctx, webhooks, m, auditLog, "response", c.session.userID, c.session.mcpID); err != nil {
+		if err = fireWebhooks(ctx, webhooks, m, &auditLog, "response", c.session.userID, c.session.mcpID); err != nil {
 			msg.SendError(ctx, err)
 			auditLog.ResponseStatus = http.StatusFailedDependency
 			return fmt.Errorf("failed to fire webhooks: %w", err)
