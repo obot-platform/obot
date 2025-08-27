@@ -108,7 +108,7 @@ func (h *AccessControlRuleHandler) Create(req api.Context) error {
 
 	// Validate that referenced resources exist in the same catalog
 	if err := h.validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
-		return types.NewErrBadRequest(err.Error())
+		return types.NewErrBadRequest("%s", err.Error())
 	}
 
 	if err := req.Create(&rule); err != nil {
@@ -133,7 +133,7 @@ func (h *AccessControlRuleHandler) Update(req api.Context) error {
 
 	var manifest types.AccessControlRuleManifest
 	if err := req.Read(&manifest); err != nil {
-		return types.NewErrBadRequest("failed to read access control rule manifest: %w", err)
+		return types.NewErrBadRequest("failed to read access control rule manifest: %v", err)
 	}
 
 	if err := manifest.Validate(); err != nil {
@@ -142,7 +142,7 @@ func (h *AccessControlRuleHandler) Update(req api.Context) error {
 
 	var existing v1.AccessControlRule
 	if err := req.Get(&existing, req.PathValue("access_control_rule_id")); err != nil {
-		return types.NewErrBadRequest("failed to get access control rule: %w", err)
+		return types.NewErrBadRequest("failed to get access control rule: %v", err)
 	}
 
 	// Verify rule belongs to the requested catalog
@@ -151,7 +151,7 @@ func (h *AccessControlRuleHandler) Update(req api.Context) error {
 	}
 
 	if err := h.validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
-		return types.NewErrBadRequest(err.Error())
+		return types.NewErrBadRequest("%s", err.Error())
 	}
 
 	existing.Spec.Manifest = manifest
