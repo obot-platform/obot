@@ -461,12 +461,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/reveal", mcp.Reveal)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/instances", serverInstances.AdminListServerInstancesForServerInCatalog)
 
-	// Access Control Rules (admin only)
-	mux.HandleFunc("GET /api/access-control-rules", accessControlRules.List)
-	mux.HandleFunc("GET /api/access-control-rules/{access_control_rule_id}", accessControlRules.Get)
-	mux.HandleFunc("POST /api/access-control-rules", accessControlRules.Create)
-	mux.HandleFunc("PUT /api/access-control-rules/{access_control_rule_id}", accessControlRules.Update)
-	mux.HandleFunc("DELETE /api/access-control-rules/{access_control_rule_id}", accessControlRules.Delete)
+	// Access Control Rules (admin only, scoped to catalogs)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/access-control-rules", accessControlRules.List)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/access-control-rules/{access_control_rule_id}", accessControlRules.Get)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/access-control-rules", accessControlRules.Create)
+	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/access-control-rules/{access_control_rule_id}", accessControlRules.Update)
+	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/access-control-rules/{access_control_rule_id}", accessControlRules.Delete)
 
 	// MCP Webhook Validations (admin only)
 	mux.HandleFunc("GET /api/mcp-webhook-validations", mcpWebhookValidations.List)

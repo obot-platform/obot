@@ -249,6 +249,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, mcpserverinstance.RemoveOAuthToken)
 
 	// AccessControlRule
+	root.Type(&v1.AccessControlRule{}).HandlerFunc(accesscontrolrule.MigrateToDefaultCatalog)
 	root.Type(&v1.AccessControlRule{}).HandlerFunc(accesscontrolrule.PruneDeletedResources)
 
 	// ProjectInvitations

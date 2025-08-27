@@ -6,6 +6,7 @@ metadata:
 spec:
   manifest:
     displayName: Everything
+    mcpCatalogID: default
     resources:
       - id: '*'
         type: selector

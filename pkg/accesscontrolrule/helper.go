@@ -91,10 +91,67 @@ func (h *Helper) GetAccessControlRulesForSelector(namespace, selector string) ([
 	return result, nil
 }
 
+// Catalog-scoped lookup methods
+
+// GetAccessControlRulesForMCPServerInCatalog returns all AccessControlRules that contain the specified MCP server name within a catalog
+func (h *Helper) GetAccessControlRulesForMCPServerInCatalog(namespace, serverName, catalogID string) ([]v1.AccessControlRule, error) {
+	rules, err := h.GetAccessControlRulesForMCPServer(namespace, serverName)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]v1.AccessControlRule, 0, len(rules))
+	for _, rule := range rules {
+		// Include rules that match the catalog ID, or legacy rules without catalog ID (default to default catalog)
+		if rule.Spec.Manifest.MCPCatalogID == catalogID || (rule.Spec.Manifest.MCPCatalogID == "" && catalogID == system.DefaultCatalog) {
+			result = append(result, rule)
+		}
+	}
+
+	return result, nil
+}
+
+// GetAccessControlRulesForMCPServerCatalogEntryInCatalog returns all AccessControlRules that contain the specified catalog entry name within a catalog
+func (h *Helper) GetAccessControlRulesForMCPServerCatalogEntryInCatalog(namespace, entryName, catalogID string) ([]v1.AccessControlRule, error) {
+	rules, err := h.GetAccessControlRulesForMCPServerCatalogEntry(namespace, entryName)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]v1.AccessControlRule, 0, len(rules))
+	for _, rule := range rules {
+		// Include rules that match the catalog ID, or legacy rules without catalog ID (default to default catalog)
+		if rule.Spec.Manifest.MCPCatalogID == catalogID || (rule.Spec.Manifest.MCPCatalogID == "" && catalogID == system.DefaultCatalog) {
+			result = append(result, rule)
+		}
+	}
+
+	return result, nil
+}
+
+// GetAccessControlRulesForSelectorInCatalog returns all AccessControlRules that contain the specified selector within a catalog
+func (h *Helper) GetAccessControlRulesForSelectorInCatalog(namespace, selector, catalogID string) ([]v1.AccessControlRule, error) {
+	rules, err := h.GetAccessControlRulesForSelector(namespace, selector)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]v1.AccessControlRule, 0, len(rules))
+	for _, rule := range rules {
+		// Include rules that match the catalog ID, or legacy rules without catalog ID (default to default catalog)
+		if rule.Spec.Manifest.MCPCatalogID == catalogID || (rule.Spec.Manifest.MCPCatalogID == "" && catalogID == system.DefaultCatalog) {
+			result = append(result, rule)
+		}
+	}
+
+	return result, nil
+}
+
 // UserHasAccessToMCPServer checks if a user has access to a specific MCP server through AccessControlRules
-func (h *Helper) UserHasAccessToMCPServer(user kuser.Info, serverName string) (bool, error) {
-	// See if there is a selector that this user is included on.
-	selectorRules, err := h.GetAccessControlRulesForSelector(system.DefaultNamespace, "*")
+// This method now requires the catalog ID to ensure proper scoping
+func (h *Helper) UserHasAccessToMCPServerInCatalog(user kuser.Info, serverName, catalogID string) (bool, error) {
+	// See if there is a selector that this user is included on in the specified catalog.
+	selectorRules, err := h.GetAccessControlRulesForSelectorInCatalog(system.DefaultNamespace, "*", catalogID)
 	if err != nil {
 		return false, err
 	}
@@ -122,8 +179,8 @@ func (h *Helper) UserHasAccessToMCPServer(user kuser.Info, serverName string) (b
 		}
 	}
 
-	// Now see if there is a rule that includes this specific server.
-	rules, err := h.GetAccessControlRulesForMCPServer(system.DefaultNamespace, serverName)
+	// Now see if there is a rule that includes this specific server in the catalog.
+	rules, err := h.GetAccessControlRulesForMCPServerInCatalog(system.DefaultNamespace, serverName, catalogID)
 	if err != nil {
 		return false, err
 	}
@@ -150,10 +207,16 @@ func (h *Helper) UserHasAccessToMCPServer(user kuser.Info, serverName string) (b
 	return false, nil
 }
 
-// UserHasAccessToMCPServerCatalogEntry checks if a user has access to a specific catalog entry through AccessControlRules
-func (h *Helper) UserHasAccessToMCPServerCatalogEntry(user kuser.Info, entryName string) (bool, error) {
-	// See if there is a selector that this user is included on.
-	selectorRules, err := h.GetAccessControlRulesForSelector(system.DefaultNamespace, "*")
+// UserHasAccessToMCPServer provides backward compatibility, defaulting to the default catalog
+func (h *Helper) UserHasAccessToMCPServer(user kuser.Info, serverName string) (bool, error) {
+	return h.UserHasAccessToMCPServerInCatalog(user, serverName, system.DefaultCatalog)
+}
+
+// UserHasAccessToMCPServerCatalogEntryInCatalog checks if a user has access to a specific catalog entry through AccessControlRules
+// This method now requires the catalog ID to ensure proper scoping
+func (h *Helper) UserHasAccessToMCPServerCatalogEntryInCatalog(user kuser.Info, entryName, catalogID string) (bool, error) {
+	// See if there is a selector that this user is included on in the specified catalog.
+	selectorRules, err := h.GetAccessControlRulesForSelectorInCatalog(system.DefaultNamespace, "*", catalogID)
 	if err != nil {
 		return false, err
 	}
@@ -182,7 +245,7 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntry(user kuser.Info, entryName
 	}
 
 	// Now see if there is a rule that includes this specific catalog entry.
-	rules, err := h.GetAccessControlRulesForMCPServerCatalogEntry(system.DefaultNamespace, entryName)
+	rules, err := h.GetAccessControlRulesForMCPServerCatalogEntryInCatalog(system.DefaultNamespace, entryName, catalogID)
 	if err != nil {
 		return false, err
 	}
@@ -207,6 +270,11 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntry(user kuser.Info, entryName
 	}
 
 	return false, nil
+}
+
+// UserHasAccessToMCPServerCatalogEntry provides backward compatibility, defaulting to the default catalog
+func (h *Helper) UserHasAccessToMCPServerCatalogEntry(user kuser.Info, entryName string) (bool, error) {
+	return h.UserHasAccessToMCPServerCatalogEntryInCatalog(user, entryName, system.DefaultCatalog)
 }
 
 func authGroupSet(user kuser.Info) map[string]struct{} {

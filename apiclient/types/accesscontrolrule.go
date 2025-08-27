@@ -8,12 +8,15 @@ type AccessControlRule struct {
 }
 
 type AccessControlRuleManifest struct {
-	DisplayName string     `json:"displayName,omitempty"`
-	Subjects    []Subject  `json:"subjects,omitempty"`
-	Resources   []Resource `json:"resources,omitempty"`
+	DisplayName  string     `json:"displayName,omitempty"`
+	MCPCatalogID string     `json:"mcpCatalogID,omitempty"`
+	Subjects     []Subject  `json:"subjects,omitempty"`
+	Resources    []Resource `json:"resources,omitempty"`
 }
 
 func (a AccessControlRuleManifest) Validate() error {
+	// Allow empty MCPCatalogID for backward compatibility during migration
+	// TODO: Make MCPCatalogID required after migration is complete
 	for _, resource := range a.Resources {
 		if err := resource.Validate(); err != nil {
 			return fmt.Errorf("invalid resource: %v", err)
