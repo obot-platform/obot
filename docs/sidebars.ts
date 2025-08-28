@@ -27,6 +27,9 @@ const sidebars = {
       label: "Admin Interface",
       items: [
         "concepts/admin/overview",
+        "concepts/admin/mcp-servers",
+        "concepts/admin/mcp-server-catalogs",
+        "concepts/admin/access-control",
       ],
     },
     {
