@@ -31,6 +31,7 @@
 		error?: string;
 		serverId?: string;
 		isNew?: boolean;
+		showAlias?: boolean;
 	}
 	let {
 		form = $bindable(),
@@ -43,7 +44,8 @@
 		loading,
 		error,
 		serverId,
-		isNew
+		isNew,
+		showAlias
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let highlightedFields = $state<Set<string>>(new Set());
@@ -172,7 +174,7 @@
 			}}
 		>
 			<div class="my-4 flex flex-col gap-4">
-				{#if isNew}
+				{#if showAlias}
 					<div class="flex flex-col gap-1">
 						<span class="flex items-center gap-2">
 							<label for="name"> Server Alias </label>

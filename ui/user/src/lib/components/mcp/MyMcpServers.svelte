@@ -572,6 +572,9 @@
 	submitText={selectedEntryOrServer && 'server' in selectedEntryOrServer ? 'Update' : 'Launch'}
 	loading={saving}
 	isNew={selectedEntryOrServer && 'isCatalogEntry' in selectedEntryOrServer}
+	showAlias={selectedEntryOrServer &&
+		'isCatalogEntry' in selectedEntryOrServer &&
+		userServerConfigureMap.has(selectedEntryOrServer.id)}
 />
 
 <CatalogEditAliasForm bind:this={editAliasDialog} {editingServer} {onUpdateConfigure} />
@@ -672,8 +675,12 @@
 						onclick={() => {
 							configureForm = undefined;
 							if ('isCatalogEntry' in item) {
-								initConfigureForm(item);
-								configDialog?.open();
+								if (hasEditableConfiguration(item) || userServerConfigureMap.has(item.id)) {
+									initConfigureForm(item);
+									configDialog?.open();
+								} else {
+									handleLaunch();
+								}
 							} else {
 								handleLaunch();
 							}
