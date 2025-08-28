@@ -538,7 +538,7 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRule(ref common.Refe
 							Format: "",
 						},
 					},
-					"mcp_catalog_id": {
+					"mcpCatalogID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
 							Type:    []string{"string"},
@@ -578,7 +578,7 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRule(ref common.Refe
 						},
 					},
 				},
-				Required: []string{"mcp_catalog_id"},
+				Required: []string{"mcpCatalogID"},
 			},
 		},
 		Dependencies: []string{
