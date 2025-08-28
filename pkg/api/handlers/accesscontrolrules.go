@@ -224,6 +224,7 @@ func (*AccessControlRuleHandler) validateResourcesInCatalog(req api.Context, res
 func convertAccessControlRule(rule v1.AccessControlRule) types.AccessControlRule {
 	return types.AccessControlRule{
 		Metadata:                  MetadataFrom(&rule),
+		MCPCatalogID:              rule.Spec.MCPCatalogID,
 		AccessControlRuleManifest: rule.Spec.Manifest,
 	}
 }

@@ -4,7 +4,7 @@ import "fmt"
 
 type AccessControlRule struct {
 	Metadata                  `json:",inline"`
-	MCPCatalogID              string `json:"mcp_catalog_id"`
+	MCPCatalogID              string `json:"mcpCatalogID"`
 	AccessControlRuleManifest `json:",inline"`
 }
 
