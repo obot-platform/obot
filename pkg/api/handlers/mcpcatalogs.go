@@ -20,7 +20,6 @@ import (
 	"github.com/obot-platform/obot/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MCPCatalogHandler struct {
@@ -29,7 +28,6 @@ type MCPCatalogHandler struct {
 	sessionManager     *mcp.SessionManager
 	oauthChecker       MCPOAuthChecker
 	gatewayClient      *gclient.Client
-	storageClient      kclient.Client
 }
 
 func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client) *MCPCatalogHandler {
