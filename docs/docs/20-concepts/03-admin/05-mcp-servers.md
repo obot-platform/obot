@@ -43,13 +43,15 @@ Multi-User servers will still require the user to authenticate to the Obot Gatew
 
 ### Remote server
 
-MCP Servers that are HTTP Streaming compatible should be configured this way. These servers can be provided by trusted 3rd party vendors and must conform to the OAUTH specs. Remote servers also work for MCP servers deployed through existing CI/CD pipeline within the organization.
+MCP Servers that are HTTP Streaming compatible should be configured this way. These servers can be provided by trusted 3rd party vendors. Remote servers also work for MCP servers deployed through existing CI/CD pipeline within the organization.
 
 Choose this type when:
 
 - You have MCP services deployed through traditional application deployment mechanisms
 - External partners provide MCP endpoints and you just want to integrate
 - You are building MCP servers through existing CI/CD workflows or SaaS services
+
+Remote MCP servers that conform to the MCP spec authentication schema will work out of the box. Servers that do not conform to the spec may not work within the Gateway. Please open a GitHub issue if you run into issues with remote servers.
 
 ## Adding a server
 
