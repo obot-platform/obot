@@ -32,14 +32,13 @@ type MCPCatalogHandler struct {
 	storageClient      kclient.Client
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, storageClient kclient.Client) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		defaultCatalogPath: defaultCatalogPath,
 		serverURL:          serverURL,
 		sessionManager:     sessionManager,
 		oauthChecker:       oauthChecker,
 		gatewayClient:      gatewayClient,
-		storageClient:      storageClient,
 	}
 }
 
@@ -390,7 +389,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 
 	now := metav1.Now()
 	entry.Status.ToolPreviewsLastGenerated = &now
-	if err := h.storageClient.Status().Update(req.Context(), &entry); err != nil {
+	if err := req.Storage.Status().Update(req.Context(), &entry); err != nil {
 		return fmt.Errorf("failed to update catalog entry: %w", err)
 	}
 
