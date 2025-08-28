@@ -75,11 +75,78 @@ Single-user and multi-user servers require runtime environment configuration. Re
 
 Select the appropriate runtime environment based on your server's requirements:
 
-- **npx**: For Node.js-based packages
-- **uvx**: For Python-based packages  
-- **Containerized**: For Docker-based deployments
+### NPX: Node/Typescript Based MCP Servers
 
-Specify the command, package name, and any required arguments. The configuration should mirror the standard execution method used outside of Obot.
+If you found an MCP server like Firecrawl and want to add it to your Obot Gateway you would do the following.
+
+From the README.md:
+
+```json
+{
+  "mcpServers": {
+    "firecrawl-mcp": {
+      "command": "npx",
+      "args": ["-y", "firecrawl-mcp"],
+      "env": {
+        "FIRECRAWL_API_KEY": "YOUR-API-KEY"
+      }
+    }
+  }
+}
+```
+
+In Obot Gateway
+
+- You would select NPX from the drop down.
+- Then put `firecrawl-mcp` in the package text box.
+
+For single-user setup, you would add User supplied configuration
+
+- Name: Firecrawl API Key
+- Description: The api key for Firecrawl
+- Key: FIRECRAWL_API_KEY
+
+In this case you would select `required` and `sensitive` options as well.
+
+For multi-user setup, you would follow the same steps but would be configuring this to **SHARE** a common API key with ALL users.
+
+### UVX: For Python-based packages  
+
+If you found an MCP server like Duckduckgo and want it added to the Obot Gateway you would do the following.
+
+From the README.md:
+
+```json
+{
+    "mcpServers": {
+        "ddg-search": {
+            "command": "uvx",
+            "args": ["duckduckgo-mcp-server"]
+        }
+    }
+}
+```
+
+In the Gateway you would:
+
+- Select UVX from the drop down
+- In the package field put in `duckduckgo-mcp-server`
+
+If environment variables need to be configured, you would use the user or multi-user configuration to supply or prompt for the values.
+
+### Containerized: For Docker-based deployments
+
+If you want to provide a container to run your MCP server because you are running a non-TypeScript or Python MCP server you must configure it to run as either Streaming HTTP or SSE.
+
+You will need to select the container option from the drop down. Then provide the following bits of info:
+
+- Image: The uri of the OCI image. (ex. docker.elastic.co/mcp/elasticsearch)
+- Port: port the MCP server will be listening on inside the container.
+- Path: the URI path. (typically /MCP or /SSE)
+- Command: primary command to execute
+- Arguments: arguments to pass to the command.
+
+You can also provide configuration through environment variables by filling in the configurations.
 
 ## Configuration parameters
 
