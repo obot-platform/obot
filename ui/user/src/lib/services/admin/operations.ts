@@ -1,3 +1,4 @@
+import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 import type {
 	ModelProvider,
 	Project,
@@ -33,7 +34,6 @@ import type {
 	MCPFilter,
 	MCPFilterManifest
 } from './types';
-import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 
 type ItemsResponse<T> = { items: T[] | null };
 export type PaginatedResponse<T> = {
@@ -455,7 +455,10 @@ export async function updateDefaultModelAlias(
 export async function listAccessControlRules(opts?: {
 	fetch?: Fetcher;
 }): Promise<AccessControlRule[]> {
-	const response = (await doGet(`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/access-control-rules`, opts)) as ItemsResponse<AccessControlRule>;
+	const response = (await doGet(
+		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/access-control-rules`,
+		opts
+	)) as ItemsResponse<AccessControlRule>;
 	return response.items ?? [];
 }
 
@@ -463,14 +466,20 @@ export async function getAccessControlRule(
 	id: string,
 	opts?: { fetch?: Fetcher }
 ): Promise<AccessControlRule> {
-	const response = (await doGet(`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/access-control-rules/${id}`, opts)) as AccessControlRule;
+	const response = (await doGet(
+		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/access-control-rules/${id}`,
+		opts
+	)) as AccessControlRule;
 	return response;
 }
 
 export async function createAccessControlRule(
 	rule: AccessControlRuleManifest
 ): Promise<AccessControlRule> {
-	const response = (await doPost(`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/access-control-rules`, rule)) as AccessControlRule;
+	const response = (await doPost(
+		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/access-control-rules`,
+		rule
+	)) as AccessControlRule;
 	return response;
 }
 
@@ -478,7 +487,10 @@ export async function updateAccessControlRule(
 	id: string,
 	rule: AccessControlRuleManifest
 ): Promise<AccessControlRule> {
-	return (await doPut(`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/access-control-rules/${id}`, rule)) as AccessControlRule;
+	return (await doPut(
+		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/access-control-rules/${id}`,
+		rule
+	)) as AccessControlRule;
 }
 
 export async function deleteAccessControlRule(id: string): Promise<void> {
