@@ -34,11 +34,7 @@ const (
 	ObotAuthProviderQueryParam = "obot-auth-provider"
 )
 
-type InvalidSessionErr struct{}
-
-func (InvalidSessionErr) Error() string {
-	return "invalid session"
-}
+var ErrInvalidSession = errors.New("invalid session")
 
 type cacheObject struct {
 	provider  string
@@ -126,7 +122,7 @@ func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Respon
 		}
 
 		// No provider was found that recognized the user.
-		return nil, false, InvalidSessionErr{}
+		return nil, false, ErrInvalidSession
 	}
 
 	proxy, err := pm.createProxy(req.Context(), cached.provider)

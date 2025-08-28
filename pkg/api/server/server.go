@@ -85,8 +85,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		if err != nil {
 			http.Error(rw, err.Error(), http.StatusUnauthorized)
 
-			var ise proxy.InvalidSessionErr
-			if errors.As(err, &ise) {
+			if errors.Is(err, proxy.ErrInvalidSession) {
 				// The session is invalid, so tell the browser to delete the cookie so that it won't try it again.
 				http.SetCookie(rw, &http.Cookie{
 					Name:   proxy.ObotAccessTokenCookie,
