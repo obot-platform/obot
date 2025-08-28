@@ -3,6 +3,7 @@
 		id?: string;
 		disabled?: boolean;
 		options: T[];
+		query?: string;
 		selected?: string | number;
 		multiple?: boolean;
 		onSelect: (option: T, value?: string | number) => void;
@@ -14,8 +15,10 @@
 			buttonContent?: string;
 		};
 		position?: 'top' | 'bottom';
+		placeholder?: string;
 		onClear?: (option?: T, value?: string | number) => void;
 		buttonStartContent?: Snippet;
+		onKeyDown?: (event: KeyboardEvent, params?: { query?: string; results?: T[] }) => void;
 	}
 </script>
 
@@ -34,12 +37,15 @@
 		options,
 		onSelect,
 		selected = $bindable(),
+		query = $bindable(),
 		multiple = false,
 		class: klass,
 		classes,
 		position = 'bottom',
+		placeholder,
 		onClear,
-		buttonStartContent
+		buttonStartContent,
+		onKeyDown
 	}: SelectProps<T> = $props();
 
 	const selectedValues = $derived.by(() => {
@@ -63,17 +69,17 @@
 		return [selected].filter(Boolean) as (string | number)[];
 	});
 
-	let search = $state('');
 	let input = $state<HTMLInputElement>();
 	let optionHighlightIndex = $state(0);
 	let popoverPlacement = $state<{ x: number; y: number }>();
 
 	let availableOptions = $derived(
-		options.filter((option) => option.label.toLowerCase().includes(search.toLowerCase()))
+		options.filter((option) => option.label.toLowerCase().includes(query?.toLowerCase() ?? ''))
 	);
 
 	let selectedOptions = $derived(
 		selectedValues
+			.filter(Boolean)
 			.map((selectedValue) => options.find((option) => option.id === selectedValue))
 			.filter(Boolean) as T[]
 	);
@@ -98,7 +104,7 @@
 		}
 
 		optionHighlightIndex = 0;
-		search = (e.target as HTMLInputElement).value;
+		query = (e.target as HTMLInputElement).value;
 	}
 
 	function handleSelect(option: T) {
@@ -119,8 +125,8 @@
 			}
 		}
 
-		search = '';
-		onSelect(option, selected);
+		query = '';
+		onSelect?.(option, selected);
 		popover?.close();
 	}
 </script>
@@ -200,10 +206,17 @@
 			{#if multiple}
 				<input
 					class="grow bg-inherit focus:ring-0 focus:outline-none"
+					{placeholder}
 					bind:this={input}
-					bind:value={search}
+					bind:value={query}
 					oninput={onInput}
 					onkeydown={(e) => {
+						onKeyDown?.(e, { query: query, results: availableOptions });
+
+						if (e.defaultPrevented) {
+							return;
+						}
+
 						if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && popover?.open) {
 							e.preventDefault();
 							e.stopPropagation();
@@ -215,7 +228,7 @@
 							}
 						}
 
-						if (e.key === 'Backspace' && selectedValues.length > 0 && search.length === 0) {
+						if (e.key === 'Backspace' && selectedValues.length > 0 && (query ?? '')?.length === 0) {
 							selected = selectedValues.slice(0, -1).join(',');
 						}
 

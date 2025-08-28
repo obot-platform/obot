@@ -13,10 +13,11 @@
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
-	import { onMount, type Snippet } from 'svelte';
+	import { onMount, tick, type Snippet } from 'svelte';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import CategorySelectInput from './CategorySelectInput.svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -56,6 +57,19 @@
 	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
 	let showRequired = $state<Record<string, boolean>>({});
 	let loading = $state(false);
+
+	let formData = $state<RuntimeFormData>(convertToFormData(entry));
+
+	let remoteCategories = $state<string[]>([]);
+
+	let categories = $derived([...remoteCategories, ...(formData?.categories ?? [])]);
+
+	onMount(() => {
+		if (!catalogId) return;
+		AdminService.listCatalogCategories(catalogId).then((res) => {
+			remoteCategories = res;
+		});
+	});
 
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
@@ -166,7 +180,6 @@
 			return formData;
 		}
 	}
-	let formData = $state<RuntimeFormData>(convertToFormData(entry));
 
 	async function revealCatalogServer(catalogId: string, entryId: string) {
 		try {
@@ -597,34 +610,27 @@
 
 		<div class="flex flex-col gap-1">
 			<span class="text-sm font-light capitalize">Categories</span>
-			{#each formData.categories as _category, index (index)}
-				<div class="flex w-full items-center gap-2">
-					<div class="flex grow items-center gap-2">
-						<input
-							type="text"
-							id={`category-${index}`}
-							bind:value={formData.categories[index]}
-							class="text-input-filled dark:bg-black"
-							disabled={readonly}
-						/>
-					</div>
-					{#if !readonly}
-						<button class="icon-button" onclick={() => formData.categories.splice(index, 1)}>
-							<Trash2 class="size-4" />
-						</button>
-					{/if}
-				</div>
-			{/each}
-			{#if !readonly}
-				<div class="mt-3 flex justify-end">
-					<button
-						class="button flex items-center gap-1 text-xs"
-						onclick={() => formData.categories.push('')}
-					>
-						<Plus class="size-4" /> Category
-					</button>
-				</div>
-			{/if}
+			<CategorySelectInput
+				categories={formData.categories.join(',')}
+				options={categories.map((d) => ({ label: d, id: d }))}
+				{readonly}
+				onCreate={async (category) => {
+					await tick();
+
+					formData.categories = [category, ...formData.categories].filter(Boolean);
+				}}
+				onUpdate={async (categories) => {
+					formData.categories = [
+						// Avoid duplicates
+						...new Set(
+							categories
+								.split(',')
+								.map((c) => c.trim())
+								.filter(Boolean)
+						)
+					];
+				}}
+			/>
 		</div>
 	</div>
 </div>
