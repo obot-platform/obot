@@ -38,6 +38,7 @@
 	import BackLink from '$lib/components/admin/BackLink.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import { formatTimeAgo } from '$lib/time';
+	import { openUrl } from '$lib/utils';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 	let search = $state('');
@@ -295,12 +296,12 @@
 				<Table
 					data={filteredTableData}
 					fields={['name', 'type', 'users', 'source', 'created']}
-					onSelectRow={(d) => {
-						if (d.type === 'single' || d.type === 'remote') {
-							goto(`/admin/mcp-servers/c/${d.id}`);
-						} else {
-							goto(`/admin/mcp-servers/s/${d.id}`);
-						}
+					onSelectRow={(d, isCtrlClick) => {
+						const url =
+							d.type === 'single' || d.type === 'remote'
+								? `/admin/mcp-servers/c/${d.id}`
+								: `/admin/mcp-servers/s/${d.id}`;
+						openUrl(url, isCtrlClick);
 					}}
 					sortable={['name', 'type', 'users', 'source', 'created']}
 					noDataMessage="No catalog servers added."

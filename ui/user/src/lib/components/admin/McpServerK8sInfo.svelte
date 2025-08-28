@@ -8,7 +8,6 @@
 	import Confirm from '../Confirm.svelte';
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { goto } from '$app/navigation';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -305,20 +304,9 @@
 
 		{#snippet actions(d)}
 			{@const mcpId = d.mcpInstanceId ? d.mcpInstanceId : mcpServerId || mcpServerInstanceId}
-			<button
-				class="button-text px-1"
-				onclick={(e) => {
-					e.stopPropagation();
-
-					if (!mcpId) return;
-					const id = mcpId.split('-').at(-1);
-
-					if (!id) return;
-					goto(`/admin/mcp-servers/s/${encodeURIComponent(id)}?view=audit-logs&userId=${d.id}`);
-				}}
-			>
-				View Audit Logs
-			</button>
+			{@const id = mcpId?.split('-').at(-1)}
+			{@const url = `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`}
+			<a href={url} class="button-text"> View Audit Logs </a>
 		{/snippet}
 	</Table>
 </div>

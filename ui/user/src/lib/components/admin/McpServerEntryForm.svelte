@@ -24,6 +24,7 @@
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
+	import { openUrl } from '$lib/utils';
 
 	type MCPType = 'single' | 'multi' | 'remote';
 
@@ -287,12 +288,12 @@
 					{ title: 'Rule', property: 'displayName' },
 					{ title: 'Accessible To', property: 'resources' }
 				]}
-				onSelectRow={(d) => {
+				onSelectRow={(d, isCtrlClick) => {
 					if (!entry) return;
 					setLastVisitedMcpServer();
-					goto(
-						`/admin/access-control/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry.id}`)}`
-					);
+
+					const url = `/admin/access-control/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry.id}`)}`;
+					openUrl(url, isCtrlClick);
 				}}
 			>
 				{#snippet onRenderColumn(property, d)}
@@ -426,9 +427,10 @@
 						{ title: 'Webhook URL', property: 'url' },
 						{ title: 'Selectors', property: 'selectors' }
 					]}
-					onSelectRow={(d) => {
+					onSelectRow={(d, isCtrlClick) => {
 						setLastVisitedMcpServer();
-						goto(`/admin/filters/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry?.id}`)}`);
+						const url = `/admin/filters/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry?.id}`)}`;
+						openUrl(url, isCtrlClick);
 					}}
 				>
 					{#snippet onRenderColumn(property, d)}

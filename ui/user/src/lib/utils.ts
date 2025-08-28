@@ -1,3 +1,5 @@
+import { goto } from '$app/navigation';
+
 // Simple delay function
 export function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
@@ -170,4 +172,12 @@ export function isTextFile(filename: string): boolean {
 
 	// Check all text file categories
 	return Object.values(TEXT_FILE_EXTENSIONS).some((category) => category.includes(extension));
+}
+
+export function openUrl(url: string, isCtrlClick: boolean) {
+	if (isCtrlClick) {
+		window.open(url, '_blank');
+	} else {
+		goto(url);
+	}
 }

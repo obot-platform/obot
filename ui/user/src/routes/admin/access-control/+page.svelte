@@ -16,6 +16,7 @@
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService } from '$lib/services/index.js';
+	import { openUrl } from '$lib/utils.js';
 
 	let { data } = $props();
 	const { accessControlRules: initialRules } = data;
@@ -35,10 +36,6 @@
 			showCreateRule = true;
 		}
 	});
-
-	function handleNavigation(url: string) {
-		goto(url, { replaceState: false });
-	}
 
 	async function navigateToCreated(rule: AccessControlRule) {
 		showCreateRule = false;
@@ -94,8 +91,9 @@
 					<Table
 						data={accessControlRules}
 						fields={['displayName', 'servers']}
-						onSelectRow={(d) => {
-							handleNavigation(`/admin/access-control/${d.id}`);
+						onSelectRow={(d, isCtrlClick) => {
+							const url = `/admin/access-control/${d.id}`;
+							openUrl(url, isCtrlClick);
 						}}
 						headers={[
 							{

@@ -12,7 +12,7 @@
 		headerClasses?: { property: string; class: string }[];
 		fields: string[];
 		data: T[];
-		onSelectRow?: (row: T) => void;
+		onSelectRow?: (row: T, isCtrlClick: boolean) => void;
 		onRenderColumn?: Snippet<[string, T]>;
 		setRowClasses?: (row: T) => string;
 		noDataMessage?: string;
@@ -183,7 +183,11 @@
 			onSelectRow && ' hover:bg-surface1 dark:hover:bg-surface3 cursor-pointer',
 			setRowClasses?.(d)
 		)}
-		onclick={() => onSelectRow?.(d)}
+		onclick={(e) => {
+			const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+			const isCtrlClick = isTouchDevice ? false : e.metaKey || e.ctrlKey;
+			onSelectRow?.(d, isCtrlClick);
+		}}
 	>
 		{#each fields as fieldName (fieldName)}
 			<td class="overflow-hidden text-sm font-light">

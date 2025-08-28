@@ -28,12 +28,11 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Table from '../Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
-	import { goto } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Confirm from '../Confirm.svelte';
 	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
-	import { page } from '$app/state';
+	import { openUrl } from '$lib/utils';
 
 	interface Props {
 		catalogId?: string;
@@ -179,9 +178,10 @@
 					{ title: 'URL', property: 'url' }
 				]}
 				onSelectRow={type === 'single'
-					? (d) => {
+					? (d, isCtrlClick) => {
 							setLastVisitedMcpServer();
-							goto(`/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`);
+							const url = `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`;
+							openUrl(url, isCtrlClick);
 						}
 					: undefined}
 			>
@@ -225,22 +225,9 @@
 				{/snippet}
 
 				{#snippet actions(d)}
+					{@const url = `/admin/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}`}
 					<div class="flex items-center gap-1">
-						<button
-							class="button-text px-1"
-							onclick={(e) => {
-								e.stopPropagation();
-
-								const url = new URL(`/admin/mcp-servers/c/${entry?.id}`, page.url.origin);
-
-								url.searchParams.set('view', 'audit-logs');
-								url.searchParams.set('mcp_id', d.id);
-
-								goto(url);
-							}}
-						>
-							View Audit Logs
-						</button>
+						<a class="button-text" href={url}> View Audit Logs </a>
 
 						{#if d.needsUpdate}
 							<DotDotDot class="icon-button hover:dark:bg-black/50">

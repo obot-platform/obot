@@ -4,7 +4,6 @@
 	import Table from '$lib/components/Table.svelte';
 	import { BookOpenText, ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { goto } from '$app/navigation';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { onMount } from 'svelte';
@@ -14,6 +13,7 @@
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService, type MCPFilter } from '$lib/services/index.js';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
+	import { openUrl } from '$lib/utils';
 
 	initMcpServerAndEntries();
 
@@ -36,10 +36,6 @@
 			showCreateFilter = true;
 		}
 	});
-
-	function handleNavigation(url: string) {
-		goto(url, { replaceState: false });
-	}
 
 	async function navigateAfterCreated() {
 		showCreateFilter = false;
@@ -92,8 +88,9 @@
 					<Table
 						data={filters}
 						fields={['name', 'url', 'selectors']}
-						onSelectRow={(d) => {
-							handleNavigation(`/admin/filters/${d.id}`);
+						onSelectRow={(d, isCtrlClick) => {
+							const url = `/admin/filters/${d.id}`;
+							openUrl(url, isCtrlClick);
 						}}
 						headers={[
 							{

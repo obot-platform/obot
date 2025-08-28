@@ -5,7 +5,7 @@
 	import { Eye, LoaderCircle, MessageCircle, Funnel } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$app/navigation';
+	import { replaceState } from '$app/navigation';
 	import { formatTimeAgo } from '$lib/time';
 	import Search from '$lib/components/Search.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
@@ -15,6 +15,7 @@
 	import { getUserDisplayName } from '$lib/components/admin/filters-drawer/utils';
 	import type { FilterOptionsEndpoint } from '$lib/components/admin/filters-drawer/types';
 	import { debounce } from 'es-toolkit';
+	import { openUrl } from '$lib/utils';
 
 	type SupportedFilter = 'username' | 'email' | 'project' | 'query';
 
@@ -258,11 +259,6 @@
 			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
 	}
 
-	function handleViewThread(thread: ProjectThread) {
-		// Navigate to thread view
-		goto(`/admin/chat-threads/${thread.id}`);
-	}
-
 	function formatThreadName(thread: ProjectThread) {
 		return thread.name || 'Unnamed Thread';
 	}
@@ -343,7 +339,10 @@
 					<Table
 						data={tableData}
 						fields={['name', 'userName', 'userEmail', 'projectName', 'created']}
-						onSelectRow={handleViewThread}
+						onSelectRow={(d, isCtrlClick) => {
+							const url = `/admin/chat-threads/${d.id}`;
+							openUrl(url, isCtrlClick);
+						}}
 						headers={[
 							{
 								title: 'Name',
@@ -374,15 +373,8 @@
 						]}
 						sortable={['name', 'userName', 'userEmail', 'projectName', 'created']}
 					>
-						{#snippet actions(thread)}
-							<button
-								class="icon-button hover:text-blue-500"
-								onclick={(e) => {
-									e.stopPropagation();
-									handleViewThread(thread);
-								}}
-								title="View Thread"
-							>
+						{#snippet actions()}
+							<button class="icon-button hover:text-blue-500" title="View Thread">
 								<Eye class="size-4" />
 							</button>
 						{/snippet}
