@@ -116,13 +116,14 @@ func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServe
 	addExtractedEnvVarsToCatalogEntry(&entry)
 
 	return types.MCPServerCatalogEntry{
-		Metadata:    MetadataFrom(&entry),
-		Manifest:    entry.Spec.Manifest,
-		Editable:    entry.Spec.Editable,
-		CatalogName: entry.Spec.MCPCatalogName,
-		SourceURL:   entry.Spec.SourceURL,
-		UserCount:   entry.Status.UserCount,
-		LastUpdated: v1.NewTime(entry.Status.LastUpdated),
+		Metadata:                  MetadataFrom(&entry),
+		Manifest:                  entry.Spec.Manifest,
+		Editable:                  entry.Spec.Editable,
+		CatalogName:               entry.Spec.MCPCatalogName,
+		SourceURL:                 entry.Spec.SourceURL,
+		UserCount:                 entry.Status.UserCount,
+		LastUpdated:               v1.NewTime(entry.Status.LastUpdated),
+		ToolPreviewsLastGenerated: v1.NewTime(entry.Status.ToolPreviewsLastGenerated),
 	}
 }
 

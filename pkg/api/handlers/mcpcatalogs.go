@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MCPCatalogHandler struct {
@@ -28,15 +29,17 @@ type MCPCatalogHandler struct {
 	sessionManager     *mcp.SessionManager
 	oauthChecker       MCPOAuthChecker
 	gatewayClient      *gclient.Client
+	storageClient      kclient.Client
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, storageClient kclient.Client) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		defaultCatalogPath: defaultCatalogPath,
 		serverURL:          serverURL,
 		sessionManager:     sessionManager,
 		oauthChecker:       oauthChecker,
 		gatewayClient:      gatewayClient,
+		storageClient:      storageClient,
 	}
 }
 
@@ -382,6 +385,12 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	// Update the catalog entry with the tool preview
 	entry.Spec.Manifest.ToolPreview = toolPreviews
 	if err := req.Update(&entry); err != nil {
+		return fmt.Errorf("failed to update catalog entry: %w", err)
+	}
+
+	now := metav1.Now()
+	entry.Status.ToolPreviewsLastGenerated = &now
+	if err := h.storageClient.Status().Update(req.Context(), &entry); err != nil {
 		return fmt.Errorf("failed to update catalog entry: %w", err)
 	}
 

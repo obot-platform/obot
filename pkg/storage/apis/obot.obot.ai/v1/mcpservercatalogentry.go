@@ -64,6 +64,8 @@ type MCPServerCatalogEntryStatus struct {
 	UserCount int `json:"userCount,omitempty"`
 	// LastUpdated is the timestamp when this catalog entry was last updated.
 	LastUpdated *metav1.Time `json:"lastUpdated,omitempty"`
+	// ToolPreviewsLastGenerated is the timestamp when the tool previews were last generated for this catalog entry.
+	ToolPreviewsLastGenerated *metav1.Time `json:"toolPreviewsLastGenerated,omitempty"`
 	// ManifestHash is a SHA256 hash of the catalog entry configuration used to detect changes.
 	ManifestHash string `json:"manifestHash,omitempty"`
 }

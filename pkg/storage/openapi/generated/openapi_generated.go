@@ -3472,6 +3472,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
+					"toolPreviewsLastGenerated": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
 				},
 				Required: []string{"Metadata", "manifest"},
 			},
@@ -11523,6 +11528,12 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref common.Re
 					"lastUpdated": {
 						SchemaProps: spec.SchemaProps{
 							Description: "LastUpdated is the timestamp when this catalog entry was last updated.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"toolPreviewsLastGenerated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolPreviewsLastGenerated is the timestamp when the tool previews were last generated for this catalog entry.",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},

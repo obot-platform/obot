@@ -54,12 +54,13 @@ type RemoteCatalogConfig struct {
 
 type MCPServerCatalogEntry struct {
 	Metadata
-	Manifest    MCPServerCatalogEntryManifest `json:"manifest"`
-	Editable    bool                          `json:"editable,omitempty"`
-	CatalogName string                        `json:"catalogName,omitempty"`
-	SourceURL   string                        `json:"sourceURL,omitempty"`
-	UserCount   int                           `json:"userCount,omitempty"`
-	LastUpdated *Time                         `json:"lastUpdated,omitempty"`
+	Manifest                  MCPServerCatalogEntryManifest `json:"manifest"`
+	Editable                  bool                          `json:"editable,omitempty"`
+	CatalogName               string                        `json:"catalogName,omitempty"`
+	SourceURL                 string                        `json:"sourceURL,omitempty"`
+	UserCount                 int                           `json:"userCount,omitempty"`
+	LastUpdated               *Time                         `json:"lastUpdated,omitempty"`
+	ToolPreviewsLastGenerated *Time                         `json:"toolPreviewsLastGenerated,omitempty"`
 }
 
 type MCPServerCatalogEntryManifest struct {
