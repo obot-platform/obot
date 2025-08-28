@@ -11,10 +11,13 @@
 		ChartBarDecreasing,
 		ChevronDown,
 		ChevronUp,
+		CircuitBoard,
+		Cpu,
 		Funnel,
 		GlobeLock,
 		LockKeyhole,
 		MessageCircle,
+		MessageCircleMore,
 		Server,
 		Settings,
 		SidebarClose,
@@ -82,28 +85,15 @@
 								icon: Funnel,
 								label: 'Filters',
 								disabled: isBootStrapUser
+							},
+							{
+								href: '/admin/access-control',
+								icon: GlobeLock,
+								label: 'Access Control',
+								disabled: isBootStrapUser,
+								collapsible: false
 							}
 						]
-					},
-					{
-						href: '/admin/access-control',
-						icon: GlobeLock,
-						label: 'Access Control',
-						disabled: isBootStrapUser,
-						collapsible: false
-					},
-					{
-						href: '/admin/chat-threads',
-						icon: MessageCircle,
-						label: 'Chat Threads',
-						collapsible: false
-					},
-					{
-						href: '/admin/chat-configuration',
-						icon: Settings,
-						label: 'Chat Configuration',
-						disabled: isBootStrapUser,
-						collapsible: false
 					},
 					{
 						href: '/admin/users',
@@ -112,17 +102,49 @@
 						collapsible: false
 					},
 					{
-						href: '/admin/model-providers',
-						icon: Boxes,
-						label: 'Model Providers',
-						collapsible: false
-					},
-					{
 						href: '/admin/auth-providers',
 						icon: LockKeyhole,
 						label: 'Auth Providers',
 						disabled: !version.current.authEnabled,
 						collapsible: false
+					},
+					{
+						icon: MessageCircle,
+						label: 'Obot Chat',
+						disabled: isBootStrapUser,
+						items: [
+							{
+								href: '/admin/chat-threads',
+								icon: MessageCircleMore,
+								label: 'Chat Threads',
+								collapsible: false
+							},
+							{
+								href: '/admin/tasks',
+								icon: Cpu,
+								label: 'Tasks',
+								disabled: isBootStrapUser
+							},
+							{
+								href: '/admin/task-runs',
+								icon: CircuitBoard,
+								label: 'Task Runs',
+								disabled: isBootStrapUser
+							},
+							{
+								href: '/admin/chat-configuration',
+								icon: Settings,
+								label: 'Chat Configuration',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								href: '/admin/model-providers',
+								icon: Boxes,
+								label: 'Model Providers',
+								collapsible: false
+							}
+						]
 					}
 				]
 			: []
@@ -166,7 +188,7 @@
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link (link.href)}
 							<div class="flex">
-								<div class="flex items-center">
+								<div class="flex w-full items-center">
 									{#if link.disabled}
 										<div class="sidebar-link disabled">
 											<link.icon class="size-5" />
@@ -175,7 +197,11 @@
 									{:else}
 										<a
 											href={link.href}
-											class={twMerge('sidebar-link', link.href === pathname && 'bg-surface2')}
+											class={twMerge(
+												'sidebar-link',
+												link.href && link.href === pathname && 'bg-surface2',
+												!link.href && 'no-link'
+											)}
 										>
 											<link.icon class="size-5" />
 											{link.label}
@@ -198,7 +224,7 @@
 									</button>
 								{/if}
 							</div>
-							{#if !collapsed[link.href]}
+							{#if !collapsed[link.href || '']}
 								<div in:slide={{ axis: 'y' }}>
 									{#if onRenderSubContent}
 										{@render onRenderSubContent(link.label)}
@@ -318,6 +344,12 @@
 		&.disabled {
 			opacity: 0.5;
 			cursor: not-allowed;
+			&:hover {
+				background-color: transparent;
+			}
+		}
+
+		&.no-link {
 			&:hover {
 				background-color: transparent;
 			}

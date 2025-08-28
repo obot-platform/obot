@@ -4,7 +4,8 @@ import {
 	type Runtime,
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
-	type ContainerizedRuntimeConfig
+	type ContainerizedRuntimeConfig,
+	type Task
 } from '../chat/types';
 
 export interface MCPCatalogManifest {
@@ -184,7 +185,14 @@ interface BaseThread {
 }
 
 export type ProjectThread = BaseThread &
-	({ assistantID: string; taskID?: never } | { assistantID?: never; taskID: string });
+	(
+		| { assistantID: string; taskID?: never; taskRunID?: never }
+		| { assistantID?: never; taskID: string; taskRunID?: string }
+	);
+
+export type ProjectTask = Task & {
+	created: string;
+};
 
 export const ModelUsage = {
 	LLM: 'llm',
