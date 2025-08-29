@@ -45,8 +45,20 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}
 
 	groups := resp.User.GetGroups()
-	if gatewayUser.Role == types2.RoleAdmin && !slices.Contains(groups, authz.AdminGroup) {
-		groups = append(groups, authz.AdminGroup)
+	// Map user roles to authorization groups
+	switch gatewayUser.Role {
+	case types2.RoleAdmin:
+		if !slices.Contains(groups, authz.AdminGroup) {
+			groups = append(groups, authz.AdminGroup)
+		}
+	case types2.RolePowerUserPlus:
+		if !slices.Contains(groups, authz.PowerUserPlusGroup) {
+			groups = append(groups, authz.PowerUserPlusGroup)
+		}
+	case types2.RolePowerUser:
+		if !slices.Contains(groups, authz.PowerUserGroup) {
+			groups = append(groups, authz.PowerUserGroup)
+		}
 	}
 
 	extra := resp.User.GetExtra()
