@@ -243,26 +243,27 @@
 					>
 						{#snippet connectedServerCardAction(d: ConnectedServer)}
 							{@const requiresUpdate = requiresUserUpdate(d)}
-							<button
-								disabled={requiresUpdate}
-								class={twMerge(
-									'icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500',
-									requiresUpdate &&
-										'hover:text-initial cursor-not-allowed opacity-50 hover:bg-transparent dark:hover:bg-transparent'
-								)}
-								onclick={() => {
-									if (requiresUpdate) return;
-									setupProjectMcp(d);
-								}}
-								use:tooltip={{
-									text: 'Add To Chat',
-									disablePortal: true,
-									placement: 'top-end',
-									classes: ['w-26.5']
-								}}
-							>
-								<Import class="size-4" />
-							</button>
+							{#if !requiresUpdate}
+								<button
+									class={twMerge(
+										'icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500',
+										requiresUpdate &&
+											'hover:text-initial cursor-not-allowed opacity-50 hover:bg-transparent dark:hover:bg-transparent'
+									)}
+									onclick={() => {
+										if (requiresUpdate) return;
+										setupProjectMcp(d);
+									}}
+									use:tooltip={{
+										text: 'Add To Chat',
+										disablePortal: true,
+										placement: 'top-end',
+										classes: ['w-26.5']
+									}}
+								>
+									<Import class="size-4" />
+								</button>
+							{/if}
 						{/snippet}
 					</MyMcpServers>
 				</div>
