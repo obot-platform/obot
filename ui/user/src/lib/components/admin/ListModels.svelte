@@ -106,6 +106,8 @@
 									}
 								}}
 							/>
+						{:else if field === 'name'}
+							{columnData.displayName ? columnData.displayName : columnData.name}
 						{:else}
 							{columnData[field as keyof typeof columnData]}
 						{/if}

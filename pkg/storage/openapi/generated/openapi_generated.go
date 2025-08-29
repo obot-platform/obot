@@ -4760,6 +4760,12 @@ func schema_obot_platform_obot_apiclient_types_ModelManifest(ref common.Referenc
 							Format: "",
 						},
 					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"targetModel": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

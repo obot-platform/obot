@@ -55,7 +55,7 @@
 	// throws an exception.
 	async function waitForProviderReady(providerId: string) {
 		const startTime = Date.now();
-		const timeout = 10000; // 10 seconds
+		const timeout = 30000; // 30 seconds
 
 		while (Date.now() - startTime < timeout) {
 			const provider = await AdminService.getModelProvider(providerId);

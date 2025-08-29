@@ -718,6 +718,7 @@ export interface Model {
 	modelProvider: string;
 	modelProviderName: string;
 	name: string;
+	displayName: string;
 	targetModel: string;
 	usage: string;
 	icon?: string;

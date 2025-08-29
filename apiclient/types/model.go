@@ -8,6 +8,7 @@ type Model struct {
 
 type ModelManifest struct {
 	Name          string     `json:"name,omitempty"`
+	DisplayName   string     `json:"displayName,omitempty"`
 	TargetModel   string     `json:"targetModel,omitempty"`
 	ModelProvider string     `json:"modelProvider,omitempty"`
 	Alias         string     `json:"alias,omitempty"`

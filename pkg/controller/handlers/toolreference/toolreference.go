@@ -421,6 +421,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:          model.ID,
+					DisplayName:   model.Metadata["displayName"],
 					TargetModel:   model.ID,
 					ModelProvider: toolRef.Name,
 					Active:        true,
