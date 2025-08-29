@@ -15,6 +15,7 @@
 	import Search from '../Search.svelte';
 	import { browser } from '$app/environment';
 	import McpOauth from './McpOauth.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -22,9 +23,10 @@
 		onAuthenticate?: () => void;
 		onProjectToolsUpdate?: (selected: string[]) => void;
 		project?: Project;
+		noToolsContent?: Snippet;
 	}
 
-	let { entry, onAuthenticate, onProjectToolsUpdate, project }: Props = $props();
+	let { entry, onAuthenticate, onProjectToolsUpdate, project, noToolsContent }: Props = $props();
 	let search = $state('');
 	let tools = $state<MCPServerTool[]>([]);
 	let previewTools = $derived(getToolPreview(entry));
@@ -36,7 +38,7 @@
 	let allToolsEnabled = $derived(selected[0] === '*' || selected.length === tools.length);
 	let expandedDescriptions = $state<Record<string, boolean>>({});
 	let expandedParams = $state<Record<string, boolean>>({});
-	let allDescriptionsEnabled = $state(true);
+	let allDescriptionsEnabled = $state(false);
 	let allParamsEnabled = $state(false);
 	let abortController = $state<AbortController | null>(null);
 
@@ -101,15 +103,20 @@
 		// Create new AbortController for this request
 		abortController = new AbortController();
 		loading = true;
-		// Make a best effort attempt to load tools, prompts, and resources concurrently
-		let toolCall = project
-			? ChatService.listProjectMCPServerTools(project.assistantID, project.id, entry.id, {
-					signal: abortController.signal
-				})
-			: ChatService.listMcpCatalogServerTools(entry.id, { signal: abortController.signal });
-		tools = await toolCall;
-		selected = tools.filter((t) => t.enabled).map((t) => t.id);
-		loading = false;
+		try {
+			// Make a best effort attempt to load tools, prompts, and resources concurrently
+			let toolCall = project
+				? ChatService.listProjectMCPServerTools(project.assistantID, project.id, entry.id, {
+						signal: abortController.signal
+					})
+				: ChatService.listMcpCatalogServerTools(entry.id, { signal: abortController.signal });
+			tools = await toolCall;
+			selected = tools.filter((t) => t.enabled).map((t) => t.id);
+		} catch (err) {
+			console.error(err);
+		} finally {
+			loading = false;
+		}
 	}
 
 	$effect(() => {
@@ -135,6 +142,11 @@
 			onProjectToolsUpdate?.(selected);
 		}
 	}
+
+	async function handleAuthenticate() {
+		await loadTools();
+		onAuthenticate?.();
+	}
 </script>
 
 <div class="flex w-full flex-col gap-4">
@@ -151,7 +163,7 @@
 			</div>
 		{:else}
 			{#key entry.id}
-				<McpOauth {entry} {onAuthenticate} bind:error {project} />
+				<McpOauth {entry} onAuthenticate={handleAuthenticate} bind:error {project} />
 			{/key}
 		{/if}
 		{#if error}
@@ -309,6 +321,8 @@
 						{/if}
 					</div>
 				{/each}
+			{:else if noToolsContent}
+				{@render noToolsContent()}
 			{:else}
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 					<Wrench class="size-24 text-gray-200 dark:text-gray-900" />
