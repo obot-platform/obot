@@ -108,7 +108,7 @@ func (h *AccessControlRuleHandler) Create(req api.Context) error {
 
 	// Validate that referenced resources exist in the same catalog
 	if err := h.validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
-		return types.NewErrBadRequest("%s", err.Error())
+		return err
 	}
 
 	if err := req.Create(&rule); err != nil {
@@ -151,7 +151,7 @@ func (h *AccessControlRuleHandler) Update(req api.Context) error {
 	}
 
 	if err := h.validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
-		return types.NewErrBadRequest("%s", err.Error())
+		return err
 	}
 
 	existing.Spec.Manifest = manifest
