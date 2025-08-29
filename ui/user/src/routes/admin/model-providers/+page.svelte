@@ -29,6 +29,17 @@
 	let configureError = $state<string>();
 	let loading = $state(false);
 	let atLeastOneConfigured = $derived(modelProviders.some((provider) => provider.configured));
+	let hasAnthropicAwsBedrockConfigured = $derived(
+		!!modelProviders.find((provider) => provider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK)
+			?.configured
+	);
+	let modelProvidersToShow = $derived(
+		hasAnthropicAwsBedrockConfigured
+			? modelProviders
+			: modelProviders.filter(
+					(provider) => provider.id !== CommonModelProviderIds.ANTHROPIC_BEDROCK
+				)
+	);
 
 	initModels([]);
 	const adminModels = getAdminModels();
@@ -47,7 +58,7 @@
 		);
 	}
 
-	let sortedModelProviders = $derived(sortModelProviders(modelProviders));
+	let sortedModelProviders = $derived(sortModelProviders(modelProvidersToShow));
 
 	// waitForProviderReady blocks until the models of the model provider with the given providerID
 	// are back populated.
@@ -141,6 +152,7 @@
 			{#each sortedModelProviders as modelProvider (modelProvider.id)}
 				<ProviderCard
 					provider={modelProvider}
+					deprecated={modelProvider.id === CommonModelProviderIds.ANTHROPIC_BEDROCK}
 					recommended={RecommendedModelProviders.includes(modelProvider.id)}
 					onConfigure={async () => {
 						configuringModelProvider = modelProvider;

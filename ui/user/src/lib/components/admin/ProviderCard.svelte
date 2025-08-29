@@ -5,6 +5,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import type { BaseProvider } from '$lib/services/admin/types';
 	import type { Snippet } from 'svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		recommended?: boolean;
@@ -12,9 +13,17 @@
 		onConfigure: () => void;
 		onDeconfigure: () => void;
 		configuredActions?: Snippet<[BaseProvider]>;
+		deprecated?: boolean;
 	}
 
-	const { recommended, provider, onConfigure, onDeconfigure, configuredActions }: Props = $props();
+	const {
+		recommended,
+		provider,
+		onConfigure,
+		onDeconfigure,
+		configuredActions,
+		deprecated
+	}: Props = $props();
 </script>
 
 <div
@@ -57,6 +66,17 @@
 	<h4 class="text-center text-lg font-semibold">{provider.name}</h4>
 	<div class="border-surface2 rounded-md border px-2 py-1">
 		<span class="flex items-center gap-2 text-xs font-light">
+			{#if deprecated}
+				<div
+					class="rounded-md bg-yellow-500 px-2 py-1 text-[10px] font-medium"
+					use:tooltip={{
+						classes: ['w-fit'],
+						text: 'Deprecated – use Amazon Bedrock instead.'
+					}}
+				>
+					Deprecated
+				</div>
+			{/if}
 			{#if provider.configured}
 				<CircleCheck class="size-4 text-green-500" /> Configured
 			{:else}
