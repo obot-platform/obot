@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { BaseProvider } from '$lib/services/admin/types';
+	import type { BaseProvider, ValidationError } from '$lib/services/admin/types';
 	import { darkMode, profile } from '$lib/stores';
 	import { AlertCircle, LoaderCircle } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -11,7 +11,7 @@
 		provider?: BaseProvider;
 		onConfigure: (form: Record<string, string>) => Promise<void>;
 		note?: Snippet;
-		error?: string;
+		error?: ValidationError | string;
 		values?: Record<string, string>;
 		loading?: boolean;
 	}
@@ -20,6 +20,22 @@
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let form = $state<Record<string, string>>({});
 	let showRequired = $state(false);
+
+	// Helper function to get field error by parameter name
+	function getFieldError(parameterName: string): string | undefined {
+		// Check if error is a ValidationError object with FieldError array
+		if (!error || typeof error === 'string' || !error.error || !Array.isArray(error.error))
+			return undefined;
+
+		// Find matching field error by envVar
+		const fieldError = error.error.find((err) => err.envVar === parameterName);
+		return fieldError?.message;
+	}
+
+	// Helper to get the general error message
+	function getGeneralError(): string | undefined {
+		return typeof error === 'string' ? error : undefined;
+	}
 
 	function onOpen() {
 		if (provider) {
@@ -95,14 +111,14 @@
 				value={profile.current.email}
 				class="hidden"
 			/>
-			{#if error}
+			{#if getGeneralError()}
 				<div class="notification-error flex items-center gap-2">
 					<AlertCircle class="size-6 text-red-500" />
 					<p class="flex flex-col text-sm font-light">
 						<span class="font-semibold">An error occurred!</span>
 						<span>
 							Your configuration could not be saved because it failed validation: <b
-								class="font-semibold">{error}</b
+								class="font-semibold">{getGeneralError()}</b
 							>
 						</span>
 					</p>
@@ -117,14 +133,16 @@
 					<ul class="flex flex-col gap-4">
 						{#each requiredConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
-								{@const error = !form[parameter.name].length && showRequired}
+								{@const fieldError = getFieldError(parameter.name)}
+								{@const requiredError = !form[parameter.name].length && showRequired}
+								{@const hasError = fieldError || requiredError}
 								<li class="flex flex-col gap-1">
-									<label for={parameter.name} class:text-red-500={error}
+									<label for={parameter.name} class:text-red-500={hasError}
 										>{parameter.friendlyName}</label
 									>
 									{#if parameter.sensitive}
 										<SensitiveInput
-											{error}
+											error={!!hasError}
 											name={parameter.name}
 											bind:value={form[parameter.name]}
 										/>
@@ -133,9 +151,12 @@
 											type="text"
 											id={parameter.name}
 											class="text-input-filled"
-											class:error
+											class:error={hasError}
 											bind:value={form[parameter.name]}
 										/>
+									{/if}
+									{#if fieldError}
+										<span class="text-sm text-red-500">{fieldError}</span>
 									{/if}
 								</li>
 							{/if}
@@ -149,14 +170,21 @@
 					<ul class="flex flex-col gap-4">
 						{#each optionalConfigurationParameters as parameter (parameter.name)}
 							{#if parameter.name in form}
+								{@const fieldError = getFieldError(parameter.name)}
 								<li class="flex flex-col gap-1">
-									<label for={parameter.name}>{parameter.friendlyName}</label>
+									<label for={parameter.name} class:text-red-500={fieldError}
+										>{parameter.friendlyName}</label
+									>
 									<input
 										type="text"
 										id={parameter.name}
 										bind:value={form[parameter.name]}
 										class="text-input-filled"
+										class:error={fieldError}
 									/>
+									{#if fieldError}
+										<span class="text-sm text-red-500">{fieldError}</span>
+									{/if}
 								</li>
 							{/if}
 						{/each}
