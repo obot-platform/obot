@@ -14,8 +14,6 @@ import (
 
 const (
 	AdminGroup           = "admin"
-	PowerUserGroup       = "power-user"
-	PowerUserPlusGroup   = "power-user-plus"
 	AuthenticatedGroup   = "authenticated"
 	MetricsGroup         = "metrics"
 	UnauthenticatedGroup = "unauthenticated"
@@ -73,84 +71,6 @@ var staticRules = map[string][]string{
 		"POST /oauth/token/{mcp_id}",
 		"POST /oauth/token",
 		"GET /oauth/callback/{oauth_request_id}",
-	},
-
-	PowerUserPlusGroup: {
-		// PowerUserPlus has all PowerUser permissions plus ACR management
-		"/api/oauth/redirect/{namespace}/{name}",
-		"/api/assistants",
-		"GET /api/me",
-		"DELETE /api/me",
-		"POST /api/llm-proxy/",
-		"POST /api/prompt",
-		"GET /api/models",
-		"GET /api/model-providers",
-		"GET /api/version",
-		"POST /api/image/generate",
-		"POST /api/image/upload",
-		"POST /api/logout-all",
-
-		// Project invitations
-		"GET /api/projectinvitations/{code}",
-		"POST /api/projectinvitations/{code}",
-		"DELETE /api/projectinvitations/{code}",
-
-		// MCP catalog access
-		"GET /api/all-mcp-catalogs/entries",
-		"GET /api/all-mcp-catalogs/entries/{entry_id}",
-		"GET /api/all-mcp-catalogs/servers",
-		"GET /api/all-mcp-catalogs/servers/{mcp_server_id}",
-
-		// PowerUserWorkspace management
-		"GET /api/workspaces",
-		"GET /api/workspaces/{id}",
-		"GET /api/workspaces/{id}/mcp-servers",
-		"POST /api/workspaces/{id}/mcp-servers",
-		"PUT /api/workspaces/{id}/mcp-servers/{mcp_server_id}",
-		"DELETE /api/workspaces/{id}/mcp-servers/{mcp_server_id}",
-		"GET /api/workspaces/{id}/mcp-server-catalog-entries",
-		"POST /api/workspaces/{id}/mcp-server-catalog-entries",
-		"PUT /api/workspaces/{id}/mcp-server-catalog-entries/{entry_id}",
-		"DELETE /api/workspaces/{id}/mcp-server-catalog-entries/{entry_id}",
-		"GET /api/workspaces/{id}/access-control-rules",
-		"POST /api/workspaces/{id}/access-control-rules",
-		"PUT /api/workspaces/{id}/access-control-rules/{rule_id}",
-		"DELETE /api/workspaces/{id}/access-control-rules/{rule_id}",
-	},
-
-	PowerUserGroup: {
-		// PowerUser has authenticated permissions plus workspace MCP management (but no ACRs)
-		"/api/oauth/redirect/{namespace}/{name}",
-		"/api/assistants",
-		"GET /api/me",
-		"DELETE /api/me",
-		"POST /api/llm-proxy/",
-		"POST /api/prompt",
-		"GET /api/models",
-		"GET /api/model-providers",
-		"GET /api/version",
-		"POST /api/image/generate",
-		"POST /api/image/upload",
-		"POST /api/logout-all",
-
-		// Project invitations
-		"GET /api/projectinvitations/{code}",
-		"POST /api/projectinvitations/{code}",
-		"DELETE /api/projectinvitations/{code}",
-
-		// MCP catalog access
-		"GET /api/all-mcp-catalogs/entries",
-		"GET /api/all-mcp-catalogs/entries/{entry_id}",
-		"GET /api/all-mcp-catalogs/servers",
-		"GET /api/all-mcp-catalogs/servers/{mcp_server_id}",
-
-		// PowerUserWorkspace management (limited - no ACRs, no multi-user MCPServers)
-		"GET /api/workspaces",
-		"GET /api/workspaces/{id}",
-		"GET /api/workspaces/{id}/mcp-server-catalog-entries",
-		"POST /api/workspaces/{id}/mcp-server-catalog-entries",
-		"PUT /api/workspaces/{id}/mcp-server-catalog-entries/{entry_id}",
-		"DELETE /api/workspaces/{id}/mcp-server-catalog-entries/{entry_id}",
 	},
 
 	AuthenticatedGroup: {

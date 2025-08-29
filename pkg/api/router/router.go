@@ -580,16 +580,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Prompt
 	mux.HandleFunc("POST /api/prompt", prompt.Prompt)
 
-	// PowerUserWorkspaces
-	mux.HandleFunc("GET /api/workspaces", handlers.ListPowerUserWorkspaces)
-	mux.HandleFunc("GET /api/workspaces/{id}", handlers.GetPowerUserWorkspace)
-	mux.HandleFunc("GET /api/workspaces/{id}/mcp-servers", handlers.ListWorkspaceMCPServers)
-	mux.HandleFunc("POST /api/workspaces/{id}/mcp-servers", handlers.CreateWorkspaceMCPServer)
-	mux.HandleFunc("GET /api/workspaces/{id}/mcp-server-catalog-entries", handlers.ListWorkspaceMCPServerCatalogEntries)
-	mux.HandleFunc("POST /api/workspaces/{id}/mcp-server-catalog-entries", handlers.CreateWorkspaceMCPServerCatalogEntry)
-	mux.HandleFunc("GET /api/workspaces/{id}/access-control-rules", handlers.ListWorkspaceAccessControlRules)
-	mux.HandleFunc("POST /api/workspaces/{id}/access-control-rules", handlers.CreateWorkspaceAccessControlRule)
-
 	// Catch all 404 for API
 	mux.HTTPHandle("/api/", http.NotFoundHandler())
 

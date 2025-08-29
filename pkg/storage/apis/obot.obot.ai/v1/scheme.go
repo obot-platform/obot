@@ -101,8 +101,6 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&MCPSessionList{},
 		&MCPWebhookValidation{},
 		&MCPWebhookValidationList{},
-		&PowerUserWorkspace{},
-		&PowerUserWorkspaceList{},
 	); err != nil {
 		return err
 	}

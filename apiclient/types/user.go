@@ -4,10 +4,6 @@ const (
 	RoleUnknown Role = iota
 	RoleAdmin
 
-	// Power User roles - intermediate roles between Admin and Basic
-	RolePowerUser     Role = 6
-	RolePowerUserPlus Role = 7
-
 	// RoleBasic is the default role. Leaving a little space for future roles.
 	RoleBasic Role = 10
 )
@@ -15,7 +11,7 @@ const (
 type Role int
 
 func (u Role) HasRole(role Role) bool {
-	return u != RoleUnknown && u <= role
+	return u != RoleUnknown && role >= u
 }
 
 type User struct {
