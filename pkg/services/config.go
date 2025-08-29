@@ -100,8 +100,8 @@ type Config struct {
 	// Sendgrid webhook
 	SendgridWebhookUsername           string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword           string `usage:"The password for the sendgrid webhook to authenticate with"`
-	MCPAuditLogPersistIntervalMinutes int    `usage:"The interval in minutes to persist MCP audit logs to the database" default:"1"`
-	MCPAuditLogsPersistBatchSize      int    `usage:"The number of MCP audit logs to persist in a single batch" default:"10000"`
+	MCPAuditLogPersistIntervalSeconds int    `usage:"The interval in seconds to persist MCP audit logs to the database" default:"5"`
+	MCPAuditLogsPersistBatchSize      int    `usage:"The number of MCP audit logs to persist in a single batch" default:"1000"`
 
 	GeminiConfig
 	GatewayConfig
@@ -353,7 +353,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
-	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalMinutes)*time.Minute, config.MCPAuditLogsPersistBatchSize)
+	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)
