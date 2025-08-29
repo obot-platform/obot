@@ -1,9 +1,18 @@
 <script lang="ts">
-	import type { MCPCatalogEntry, MCPCatalogServer, Project, ProjectMCP } from '$lib/services';
+	import {
+		ChatService,
+		type MCPCatalogEntry,
+		type MCPCatalogServer,
+		type Project,
+		type ProjectMCP
+	} from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
 	import McpServerInfo from './McpServerInfo.svelte';
 	import McpServerTools from './McpServerTools.svelte';
 	import McpOauth from './McpOauth.svelte';
+	import { AlertTriangle } from 'lucide-svelte';
+	import CatalogConfigureForm, { type LaunchFormData } from './CatalogConfigureForm.svelte';
+	import { convertEnvHeadersToRecord } from '$lib/services/chat/mcp';
 
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -13,6 +22,8 @@
 		project?: Project;
 		view?: 'overview' | 'tools';
 		onProjectToolsUpdate?: (selected: string[]) => void;
+		onUpdate?: () => void;
+		onEditConfiguration?: () => void;
 	}
 
 	let {
@@ -22,10 +33,11 @@
 		onAuthenticate,
 		project,
 		view = 'overview',
-		onProjectToolsUpdate
+		onProjectToolsUpdate,
+		onUpdate,
+		onEditConfiguration
 	}: Props = $props();
 	let selected = $state<string>(view);
-
 	const tabs = [
 		{ label: 'Overview', view: 'overview' },
 		{ label: 'Tools', view: 'tools' }
@@ -34,6 +46,60 @@
 	$effect(() => {
 		selected = view;
 	});
+
+	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
+	let configureForm = $state<LaunchFormData>();
+	let error = $state<string>();
+	let saving = $state(false);
+	let configuringServer = $state<MCPCatalogServer>();
+
+	async function handleInitConfigureForm() {
+		if (!entry) return;
+		if ('mcpID' in entry) {
+			const response = await ChatService.getSingleOrRemoteMcpServer(entry.mcpID);
+
+			let values: Record<string, string>;
+			try {
+				values = await ChatService.revealSingleOrRemoteMcpServer(response.id);
+			} catch (error) {
+				if (error instanceof Error && !error.message.includes('404')) {
+					console.error('Failed to reveal user server values due to unexpected error', error);
+				}
+				values = {};
+			}
+			configuringServer = response;
+			configureForm = {
+				envs: response.manifest.env?.map((env) => ({
+					...env,
+					value: values[env.key] ?? ''
+				})),
+				headers: response.manifest.remoteConfig?.headers?.map((header) => ({
+					...header,
+					value: values[header.key] ?? ''
+				})),
+				url: response.manifest.remoteConfig?.url
+			};
+			configDialog?.open();
+		}
+	}
+
+	async function handleConfigureFormUpdate() {
+		if (!configuringServer || !configureForm) return;
+		try {
+			if (configuringServer.manifest.runtime === 'remote' && configureForm.url) {
+				await ChatService.updateRemoteMcpServerUrl(configuringServer.id, configureForm.url.trim());
+			}
+
+			const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
+			await ChatService.configureSingleOrRemoteMcpServer(configuringServer.id, secretValues);
+
+			configDialog?.close();
+			onUpdate?.();
+		} catch (error) {
+			console.error('Error during configuration:', error);
+			configDialog?.close();
+		}
+	}
 </script>
 
 <div class="flex h-full w-full flex-col gap-4">
@@ -65,8 +131,37 @@
 					descriptionPlaceholder="Add a description for this MCP server in the Configuration tab"
 				>
 					{#snippet preContent()}
-						{#if project}
-							<McpOauth {entry} {onAuthenticate} {project} />
+						{#if 'configured' in entry && typeof entry.configured === 'boolean' && entry.configured === false}
+							<div class="notification-alert mb-4 flex gap-2">
+								<div class="flex grow flex-col gap-2">
+									<div class="flex items-center gap-2">
+										<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+										<p class="my-0.5 flex flex-col text-sm font-semibold">Update Required</p>
+									</div>
+									<span class="text-sm font-light break-all">
+										Due to a recent update in the server, an update on this connector's
+										configuration is required to continue using this server.
+									</span>
+								</div>
+								<div class="flex flex-shrink-0 items-center">
+									<button
+										class="button-primary text-sm"
+										onclick={() => {
+											if (onEditConfiguration) {
+												onEditConfiguration();
+											} else {
+												handleInitConfigureForm();
+											}
+										}}
+									>
+										Edit Configuration
+									</button>
+								</div>
+							</div>
+						{:else if project}
+							<div class="mb-4 w-full">
+								<McpOauth {entry} {onAuthenticate} {project} />
+							</div>
 						{/if}
 					{/snippet}
 				</McpServerInfo>
@@ -76,3 +171,14 @@
 		{/if}
 	</div>
 </div>
+
+<CatalogConfigureForm
+	bind:this={configDialog}
+	bind:form={configureForm}
+	{error}
+	icon={configuringServer?.manifest.icon}
+	name={configuringServer?.alias || configuringServer?.manifest.name}
+	onSave={handleConfigureFormUpdate}
+	submitText="Update"
+	loading={saving}
+/>

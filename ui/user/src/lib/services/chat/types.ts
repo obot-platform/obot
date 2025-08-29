@@ -396,6 +396,9 @@ export interface ProjectMCP {
 	name?: string;
 	description?: string;
 	icon?: string;
+	configured?: boolean;
+	needsUpdate?: boolean;
+	needsURL?: boolean;
 }
 
 export interface Credential {

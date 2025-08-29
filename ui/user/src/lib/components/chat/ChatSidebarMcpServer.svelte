@@ -27,6 +27,11 @@
 		showDeleteConfirm = false;
 		closeSidebarConfig(layout);
 	}
+
+	async function refreshProjectMcps() {
+		closeAll(layout);
+		projectMcps.items = await ChatService.listProjectMCPs(project.assistantID, project.id);
+	}
 </script>
 
 <div class="flex h-fit w-full justify-center bg-gray-50 dark:bg-black">
@@ -74,6 +79,7 @@
 			onProjectToolsUpdate={() => {
 				closeAll(layout);
 			}}
+			onUpdate={refreshProjectMcps}
 			{project}
 		/>
 	</div>

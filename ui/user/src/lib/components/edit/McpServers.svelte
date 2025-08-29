@@ -58,6 +58,14 @@
 	}
 
 	function shouldShowWarning(mcp: (typeof projectMCPs.items)[0]) {
+		if (mcp.needsURL) {
+			return true;
+		}
+
+		if (typeof mcp.configured === 'boolean' && mcp.configured === false) {
+			return true;
+		}
+
 		if (typeof mcp.authenticated === 'boolean') {
 			return !mcp.authenticated;
 		}
@@ -111,7 +119,7 @@
 							{mcpServer.alias || mcpServer.name || DEFAULT_CUSTOM_SERVER_NAME}
 							{#if shouldShowWarning(mcpServer)}
 								<span
-									class="ml-1"
+									class="ml-2"
 									use:tooltip={mcpServer.authenticated
 										? 'Configuration Required'
 										: 'Authentication Required'}

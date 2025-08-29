@@ -420,6 +420,14 @@
 					secretValues
 				);
 
+				const updatedServer = await ChatService.getSingleOrRemoteMcpServer(
+					selectedEntryOrServer.server.id
+				);
+				selectedEntryOrServer = {
+					...selectedEntryOrServer,
+					server: updatedServer
+				} as ConnectedServer;
+
 				configDialog?.close();
 				onUpdateConfigure?.();
 			} else {
@@ -440,6 +448,36 @@
 		selectedEntryOrServer = item;
 		await tick();
 		document.getElementsByTagName('main')[0].scrollTo({ top: 0, behavior: 'instant' });
+	}
+
+	async function handleEditConfiguration(connectedServer: ConnectedServer) {
+		if (!connectedServer?.server) {
+			console.error('No user configured server for this entry found');
+			return;
+		}
+		let values: Record<string, string>;
+		try {
+			values = await ChatService.revealSingleOrRemoteMcpServer(connectedServer.server.id);
+		} catch (error) {
+			if (error instanceof Error && !error.message.includes('404')) {
+				console.error('Failed to reveal user server values due to unexpected error', error);
+			}
+			values = {};
+		}
+		selectedEntryOrServer = connectedServer;
+		configureForm = {
+			envs: connectedServer.server.manifest.env?.map((env) => ({
+				...env,
+				value: values[env.key] ?? ''
+			})),
+			headers: connectedServer.server.manifest.remoteConfig?.headers?.map((header) => ({
+				...header,
+				value: values[header.key] ?? ''
+			})),
+			url: connectedServer.server.manifest.remoteConfig?.url,
+			hostname: connectedServer.parent?.manifest.remoteConfig?.hostname
+		};
+		configDialog?.open();
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -733,6 +771,11 @@
 				parent={selectedEntryOrServer && 'parent' in selectedEntryOrServer
 					? selectedEntryOrServer.parent
 					: undefined}
+				onEditConfiguration={() => {
+					if (selectedEntryOrServer && 'parent' in selectedEntryOrServer) {
+						handleEditConfiguration(selectedEntryOrServer);
+					}
+				}}
 			/>
 		{/if}
 	</div>
@@ -747,35 +790,7 @@
 				'menu-button',
 				requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
 			)}
-			onclick={async () => {
-				if (!connectedServer?.server) {
-					console.error('No user configured server for this entry found');
-					return;
-				}
-				let values: Record<string, string>;
-				try {
-					values = await ChatService.revealSingleOrRemoteMcpServer(connectedServer.server.id);
-				} catch (error) {
-					if (error instanceof Error && !error.message.includes('404')) {
-						console.error('Failed to reveal user server values due to unexpected error', error);
-					}
-					values = {};
-				}
-				selectedEntryOrServer = connectedServer;
-				configureForm = {
-					envs: connectedServer.server.manifest.env?.map((env) => ({
-						...env,
-						value: values[env.key] ?? ''
-					})),
-					headers: connectedServer.server.manifest.remoteConfig?.headers?.map((header) => ({
-						...header,
-						value: values[header.key] ?? ''
-					})),
-					url: connectedServer.server.manifest.remoteConfig?.url,
-					hostname: connectedServer.parent?.manifest.remoteConfig?.hostname
-				};
-				configDialog?.open();
-			}}
+			onclick={() => handleEditConfiguration(connectedServer)}
 		>
 			Edit Configuration
 		</button>
