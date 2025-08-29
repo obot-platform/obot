@@ -35,6 +35,8 @@ func (in *MCPServerCatalogEntry) Get(field string) string {
 	switch field {
 	case "spec.mcpCatalogName":
 		return in.Spec.MCPCatalogName
+	case "spec.powerUserWorkspaceID":
+		return in.Spec.PowerUserWorkspaceID
 	}
 	return ""
 }
@@ -42,12 +44,14 @@ func (in *MCPServerCatalogEntry) Get(field string) string {
 func (in *MCPServerCatalogEntry) FieldNames() []string {
 	return []string{
 		"spec.mcpCatalogName",
+		"spec.powerUserWorkspaceID",
 	}
 }
 
 func (in *MCPServerCatalogEntry) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogName},
+		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 	}
 }
 
@@ -57,6 +61,8 @@ type MCPServerCatalogEntrySpec struct {
 	MCPCatalogName   string                              `json:"mcpCatalogName,omitempty"`
 	Editable         bool                                `json:"editable,omitempty"`
 	SourceURL        string                              `json:"sourceURL,omitempty"`
+	// PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this catalog entry, if there is one.
+	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
 }
 
 type MCPServerCatalogEntryStatus struct {

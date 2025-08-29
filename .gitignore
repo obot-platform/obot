@@ -57,3 +57,5 @@ catalog.json
 
 # Ignore zed files
 .zed/
+
+CLAUDE.md

@@ -33,33 +33,45 @@ func (h *Handler) PruneDeletedResources(req router.Request, _ router.Response) e
 	)
 
 	// Default to default catalog for ACRs that have not yet been migrated
-	if catalogID == "" {
+	if catalogID == "" && acr.Spec.PowerUserWorkspaceID == "" {
 		catalogID = system.DefaultCatalog
 	}
 
-	// Loop through each resource and make sure that it exists in the catalog.
-	// We shouldn't ever have a situation where the resource has somehow "moved" to a different catalog,
+	// Loop through each resource and make sure that it exists in the catalog or workspace.
+	// We shouldn't ever have a situation where the resource has somehow "moved" to a different catalog or workspace,
 	// but we'll check anyway.
 	for _, resource := range acr.Spec.Manifest.Resources {
 		switch resource.Type {
 		case types.ResourceTypeMCPServerCatalogEntry:
 			if err := req.Get(&mcpservercatalogentry, req.Namespace, resource.ID); err == nil {
-				// Check if entry belongs to the same catalog
-				if mcpservercatalogentry.Spec.MCPCatalogName == catalogID {
+				// Check if entry belongs to the same catalog or workspace
+				var match bool
+				if acr.Spec.PowerUserWorkspaceID != "" {
+					match = mcpservercatalogentry.Spec.PowerUserWorkspaceID == acr.Spec.PowerUserWorkspaceID
+				} else {
+					match = mcpservercatalogentry.Spec.MCPCatalogName == catalogID
+				}
+				if match {
 					newResources = append(newResources, resource)
 				}
-				// If entry belongs to different catalog, remove it from the rule
+				// If entry belongs to different catalog or workspace, remove it from the rule
 			} else if !errors.IsNotFound(err) {
 				return fmt.Errorf("failed to get MCPServerCatalogEntry %s: %w", resource.ID, err)
 			}
 			// If entry not found, remove it from the rule
 		case types.ResourceTypeMCPServer:
 			if err := req.Get(&mcpserver, req.Namespace, resource.ID); err == nil {
-				// Check if server belongs to the same catalog
-				if mcpserver.Spec.SharedWithinMCPCatalogName == catalogID {
+				// Check if server belongs to the same catalog and workspace (if workspace-scoped)
+				var match bool
+				if acr.Spec.PowerUserWorkspaceID != "" {
+					match = mcpserver.Spec.PowerUserWorkspaceID == acr.Spec.PowerUserWorkspaceID
+				} else {
+					match = mcpserver.Spec.SharedWithinMCPCatalogName == catalogID
+				}
+				if match {
 					newResources = append(newResources, resource)
 				}
-				// If server belongs to different catalog, remove it from the rule
+				// If server belongs to different catalog or workspace, remove it from the rule
 			} else if !errors.IsNotFound(err) {
 				return fmt.Errorf("failed to get MCPServer %s: %w", resource.ID, err)
 			}

@@ -134,14 +134,22 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 	return req.Write(convertMCPCatalog(catalog))
 }
 
-// ListEntriesForCatalog lists all entries for a catalog.
-func (h *MCPCatalogHandler) ListEntriesForCatalog(req api.Context) error {
+// ListEntries lists all entries for a catalog or workspace.
+func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+
+	var fieldSelector client.MatchingFields
+	if catalogName != "" {
+		fieldSelector = client.MatchingFields{"spec.mcpCatalogName": catalogName}
+	} else if workspaceID != "" {
+		fieldSelector = client.MatchingFields{"spec.powerUserWorkspaceID": workspaceID}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
 
 	var list v1.MCPServerCatalogEntryList
-	if err := req.List(&list, client.MatchingFields{
-		"spec.mcpCatalogName": catalogName,
-	}); err != nil {
+	if err := req.List(&list, fieldSelector); err != nil {
 		return fmt.Errorf("failed to list entries: %w", err)
 	}
 
@@ -153,9 +161,10 @@ func (h *MCPCatalogHandler) ListEntriesForCatalog(req api.Context) error {
 	return req.Write(types.MCPServerCatalogEntryList{Items: items})
 }
 
-// GetEntry returns a specific entry from a catalog.
+// GetEntry returns a specific entry from a catalog or workspace.
 func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
 	entryName := req.PathValue("entry_id")
 
 	var entry v1.MCPServerCatalogEntry
@@ -163,20 +172,34 @@ func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
 		return fmt.Errorf("failed to get entry: %w", err)
 	}
 
-	if entry.Spec.MCPCatalogName != catalogName {
+	// Verify entry belongs to the requested scope
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
 		return types.NewErrBadRequest("entry does not belong to catalog")
+	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrBadRequest("entry does not belong to workspace")
 	}
 
 	return req.Write(convertMCPServerCatalogEntry(entry))
 }
 
-// CreateEntry creates a new entry for a catalog.
+// CreateEntry creates a new entry for a catalog or workspace.
 func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
 
-	var catalog v1.MCPCatalog
-	if err := req.Get(&catalog, catalogName); err != nil {
-		return fmt.Errorf("failed to get catalog: %w", err)
+	// Verify the scope exists
+	if catalogName != "" {
+		var catalog v1.MCPCatalog
+		if err := req.Get(&catalog, catalogName); err != nil {
+			return fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		var workspace v1.PowerUserWorkspace
+		if err := req.Get(&workspace, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
 	}
 
 	var manifest types.MCPServerCatalogEntryManifest
@@ -192,15 +215,22 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 
 	entry := v1.MCPServerCatalogEntry{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: name.SafeHashConcatName(catalogName, cleanName),
-			Namespace:    req.Namespace(),
+			Namespace: req.Namespace(),
 		},
 		Spec: v1.MCPServerCatalogEntrySpec{
-			MCPCatalogName: catalogName,
-			Editable:       true,
-			Manifest:       manifest,
+			Editable: true,
+			Manifest: manifest,
 			// TODO(g-linville): add support for unsupportedTools field?
 		},
+	}
+
+	// Set scope-specific fields
+	if catalogName != "" {
+		entry.GenerateName = name.SafeHashConcatName(catalogName, cleanName)
+		entry.Spec.MCPCatalogName = catalogName
+	} else {
+		entry.GenerateName = name.SafeHashConcatName(workspaceID, cleanName)
+		entry.Spec.PowerUserWorkspaceID = workspaceID
 	}
 
 	if err := req.Create(&entry); err != nil {
@@ -212,11 +242,22 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 
 func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
 	entryName := req.PathValue("entry_id")
 
-	var catalog v1.MCPCatalog
-	if err := req.Get(&catalog, catalogName); err != nil {
-		return fmt.Errorf("failed to get catalog: %w", err)
+	// Verify the scope exists
+	if catalogName != "" {
+		var catalog v1.MCPCatalog
+		if err := req.Get(&catalog, catalogName); err != nil {
+			return fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		var workspace v1.PowerUserWorkspace
+		if err := req.Get(&workspace, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
 	}
 
 	var entry v1.MCPServerCatalogEntry
@@ -224,8 +265,11 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 		return fmt.Errorf("failed to get entry: %w", err)
 	}
 
-	if entry.Spec.MCPCatalogName != catalogName {
+	// Verify entry belongs to the requested scope
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
 		return types.NewErrBadRequest("entry does not belong to catalog")
+	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrBadRequest("entry does not belong to workspace")
 	}
 
 	if !entry.Spec.Editable {
@@ -256,11 +300,22 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 
 func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
 	entryName := req.PathValue("entry_id")
 
-	var catalog v1.MCPCatalog
-	if err := req.Get(&catalog, catalogName); err != nil {
-		return fmt.Errorf("failed to get catalog: %w", err)
+	// Verify the scope exists
+	if catalogName != "" {
+		var catalog v1.MCPCatalog
+		if err := req.Get(&catalog, catalogName); err != nil {
+			return fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		var workspace v1.PowerUserWorkspace
+		if err := req.Get(&workspace, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
 	}
 
 	var entry v1.MCPServerCatalogEntry
@@ -268,8 +323,11 @@ func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 		return fmt.Errorf("failed to get entry: %w", err)
 	}
 
-	if entry.Spec.MCPCatalogName != catalogName {
+	// Verify entry belongs to the requested scope
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
 		return types.NewErrBadRequest("entry does not belong to catalog")
+	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrBadRequest("entry does not belong to workspace")
 	}
 
 	if !entry.Spec.Editable {
@@ -332,6 +390,7 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 // to generate tool preview data, then cleans up the instance.
 func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
 	entryName := req.PathValue("entry_id")
 
 	// Get the catalog entry
@@ -340,8 +399,11 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		return fmt.Errorf("failed to get catalog entry: %w", err)
 	}
 
-	if entry.Spec.MCPCatalogName != catalogName {
+	// Verify entry belongs to the requested scope
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
 		return types.NewErrBadRequest("entry does not belong to catalog")
+	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrBadRequest("entry does not belong to workspace")
 	}
 
 	if !entry.Spec.Editable {
@@ -401,6 +463,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 
 func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
 	entryName := req.PathValue("entry_id")
 
 	// Get the catalog entry
@@ -409,8 +472,11 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 		return fmt.Errorf("failed to get catalog entry: %w", err)
 	}
 
-	if entry.Spec.MCPCatalogName != catalogName {
+	// Verify entry belongs to the requested scope
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
 		return types.NewErrBadRequest("entry does not belong to catalog")
+	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrBadRequest("entry does not belong to workspace")
 	}
 
 	if !entry.Spec.Editable {

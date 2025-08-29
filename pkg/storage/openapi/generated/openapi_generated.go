@@ -118,6 +118,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                      schema_obot_platform_obot_apiclient_types_OnEmail(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnWebhook":                                    schema_obot_platform_obot_apiclient_types_OnWebhook(ref),
 		"github.com/obot-platform/obot/apiclient/types.OneDriveConfig":                               schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace":                           schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref),
+		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspaceList":                       schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Progress":                                     schema_obot_platform_obot_apiclient_types_Progress(ref),
 		"github.com/obot-platform/obot/apiclient/types.Project":                                      schema_obot_platform_obot_apiclient_types_Project(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectCapabilities":                          schema_obot_platform_obot_apiclient_types_ProjectCapabilities(ref),
@@ -188,6 +190,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig":                             schema_obot_platform_obot_apiclient_types_UVXRuntimeConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.User":                                         schema_obot_platform_obot_apiclient_types_User(ref),
 		"github.com/obot-platform/obot/apiclient/types.UserList":                                     schema_obot_platform_obot_apiclient_types_UserList(ref),
+		"github.com/obot-platform/obot/apiclient/types.UserRoleChange":                               schema_obot_platform_obot_apiclient_types_UserRoleChange(ref),
+		"github.com/obot-platform/obot/apiclient/types.UserRoleChangeList":                           schema_obot_platform_obot_apiclient_types_UserRoleChangeList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Webhook":                                      schema_obot_platform_obot_apiclient_types_Webhook(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebhookList":                                  schema_obot_platform_obot_apiclient_types_WebhookList(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebhookManifest":                              schema_obot_platform_obot_apiclient_types_WebhookManifest(ref),
@@ -294,6 +298,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenList":              schema_storage_apis_obotobotai_v1_OAuthTokenList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenSpec":              schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.OAuthTokenStatus":            schema_storage_apis_obotobotai_v1_OAuthTokenStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspace":          schema_storage_apis_obotobotai_v1_PowerUserWorkspace(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceList":      schema_storage_apis_obotobotai_v1_PowerUserWorkspaceList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceSpec":      schema_storage_apis_obotobotai_v1_PowerUserWorkspaceSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceStatus":    schema_storage_apis_obotobotai_v1_PowerUserWorkspaceStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitation":           schema_storage_apis_obotobotai_v1_ProjectInvitation(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationList":       schema_storage_apis_obotobotai_v1_ProjectInvitationList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ProjectInvitationSpec":       schema_storage_apis_obotobotai_v1_ProjectInvitationSpec(ref),
@@ -343,6 +351,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDelete":                  schema_storage_apis_obotobotai_v1_UserDelete(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDeleteList":              schema_storage_apis_obotobotai_v1_UserDeleteList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDeleteSpec":              schema_storage_apis_obotobotai_v1_UserDeleteSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChange":              schema_storage_apis_obotobotai_v1_UserRoleChange(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChangeList":          schema_storage_apis_obotobotai_v1_UserRoleChangeList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChangeSpec":          schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Webhook":                     schema_storage_apis_obotobotai_v1_Webhook(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WebhookList":                 schema_storage_apis_obotobotai_v1_WebhookList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.WebhookSpec":                 schema_storage_apis_obotobotai_v1_WebhookSpec(ref),
@@ -543,6 +554,18 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRule(ref common.Refe
 							Default: "",
 							Type:    []string{"string"},
 							Format:  "",
+						},
+					},
+					"powerUserWorkspaceID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"generated": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 					"displayName": {
@@ -3342,6 +3365,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:  "",
 						},
 					},
+					"powerUserWorkspaceID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"sharedWithinCatalogName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -3425,7 +3455,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"Metadata", "manifest", "userID", "configured", "catalogEntryID"},
+				Required: []string{"Metadata", "manifest", "userID", "configured", "catalogEntryID", "powerUserWorkspaceID"},
 			},
 		},
 		Dependencies: []string{
@@ -3807,6 +3837,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref common.Refe
 					"mcpServerCatalogEntryID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MCPServerCatalogEntryID is the ID of the MCP server catalog entry that the server that this instance points to is based on, if there is one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"powerUserWorkspaceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PowerUserWorkspaceID is the ID of the PowerUserWorkspace that the server that this instance points to is owned by, if there is one.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -5640,6 +5677,73 @@ func schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref common.Referen
 				},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"role": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"resourceCount": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+				Required: []string{"Metadata"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace"},
 	}
 }
 
@@ -8768,6 +8872,73 @@ func schema_obot_platform_obot_apiclient_types_UserList(ref common.ReferenceCall
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_UserRoleChange(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"oldRole": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"newRole": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+				Required: []string{"Metadata"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_UserRoleChangeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.UserRoleChange"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.UserRoleChange"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_Webhook(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -9385,6 +9556,20 @@ func schema_storage_apis_obotobotai_v1_AccessControlRuleSpec(ref common.Referenc
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.AccessControlRuleManifest"),
+						},
+					},
+					"powerUserWorkspaceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this access control rule, if there is one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"generated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Generated indicates that this access control rule was automatically generated by the system and should not be modified by users.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
@@ -11539,6 +11724,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref common.Refe
 							Format: "",
 						},
 					},
+					"powerUserWorkspaceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this catalog entry, if there is one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -11709,6 +11901,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"powerUserWorkspaceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PowerUserWorkspaceID is the name of the PowerUserWorkspace that the server that this instance points to is owned by, if there is one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -11835,6 +12034,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 					"previousURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PreviousURL contains the URL of the server before it was updated to match the catalog entry.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"powerUserWorkspaceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this MCP server, if there is one.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -13246,6 +13452,145 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenStatus(ref common.ReferenceCall
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_PowerUserWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspaceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_PowerUserWorkspaceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspace"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.PowerUserWorkspace", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_PowerUserWorkspaceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserID is the ID of the user who owns this workspace",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"role": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Role is the role of the user (Admin, PowerUser, or PowerUserPlus)",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_PowerUserWorkspaceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resourceCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceCount tracks the number of resources owned by this workspace",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -15609,6 +15954,130 @@ func schema_storage_apis_obotobotai_v1_UserDeleteSpec(ref common.ReferenceCallba
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_UserRoleChange(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChangeSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChangeSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_UserRoleChangeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChange"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserRoleChange", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"oldRole": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"newRole": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int32",

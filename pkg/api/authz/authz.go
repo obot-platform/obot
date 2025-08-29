@@ -14,6 +14,8 @@ import (
 
 const (
 	AdminGroup           = "admin"
+	PowerUserPlusGroup   = "power-user-plus"
+	PowerUserGroup       = "power-user"
 	AuthenticatedGroup   = "authenticated"
 	MetricsGroup         = "metrics"
 	UnauthenticatedGroup = "unauthenticated"
@@ -97,10 +99,10 @@ var staticRules = map[string][]string{
 
 		// Allow authenticated users to read servers and entries from MCP catalogs.
 		// The authz logic is handled in the routes themselves, for now.
-		"GET /api/all-mcp-catalogs/entries",
-		"GET /api/all-mcp-catalogs/entries/{entry_id}",
-		"GET /api/all-mcp-catalogs/servers",
-		"GET /api/all-mcp-catalogs/servers/{mcp_server_id}",
+		"GET /api/all-mcps/entries",
+		"GET /api/all-mcps/entries/{entry_id}",
+		"GET /api/all-mcps/servers",
+		"GET /api/all-mcps/servers/{mcp_server_id}",
 	},
 
 	MetricsGroup: {

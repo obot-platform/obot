@@ -899,7 +899,7 @@ export async function updateMemory(
 
 export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCPCatalogEntry[]> {
 	const response = (await doGet(
-		'/all-mcp-catalogs/entries',
+		'/all-mcps/entries',
 		opts
 	)) as ItemsResponse<MCPCatalogEntry>;
 	return (
@@ -913,13 +913,13 @@ export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCPCatalogEn
 }
 
 export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MCP> {
-	return (await doGet(`/all-mcp-catalogs/entries/${id}`, opts)) as MCP;
+	return (await doGet(`/all-mcps/entries/${id}`, opts)) as MCP;
 }
 
 export async function listMCPCatalogServers(opts?: {
 	fetch?: Fetcher;
 }): Promise<MCPCatalogServer[]> {
-	const response = (await doGet('/all-mcp-catalogs/servers', opts)) as {
+	const response = (await doGet('/all-mcps/servers', opts)) as {
 		items: MCPCatalogServer[] | null;
 	};
 	return response.items ?? [];
@@ -929,7 +929,7 @@ export async function getMcpCatalogServer(
 	id: string,
 	opts?: { fetch?: Fetcher }
 ): Promise<MCPCatalogServer> {
-	return (await doGet(`/all-mcp-catalogs/servers/${id}`, opts)) as MCPCatalogServer;
+	return (await doGet(`/all-mcps/servers/${id}`, opts)) as MCPCatalogServer;
 }
 
 export async function listMcpCatalogServerTools(
@@ -937,7 +937,7 @@ export async function listMcpCatalogServerTools(
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<MCPServerTool[]> {
 	try {
-		return (await doGet(`/all-mcp-catalogs/servers/${id}/tools`, {
+		return (await doGet(`/all-mcps/servers/${id}/tools`, {
 			...opts,
 			dontLogErrors: true
 		})) as MCPServerTool[];
@@ -954,7 +954,7 @@ export async function listMcpCatalogServerPrompts(
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<MCPServerPrompt[]> {
 	try {
-		return (await doGet(`/all-mcp-catalogs/servers/${id}/prompts`, {
+		return (await doGet(`/all-mcps/servers/${id}/prompts`, {
 			...opts,
 			dontLogErrors: true
 		})) as MCPServerPrompt[];
@@ -971,7 +971,7 @@ export async function listMcpCatalogServerResources(
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<McpServerResource[]> {
 	try {
-		return (await doGet(`/all-mcp-catalogs/servers/${id}/resources`, {
+		return (await doGet(`/all-mcps/servers/${id}/resources`, {
 			...opts,
 			dontLogErrors: true
 		})) as McpServerResource[];

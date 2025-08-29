@@ -3,6 +3,8 @@ package types
 const (
 	RoleUnknown Role = iota
 	RoleAdmin
+	RolePowerUserPlus
+	RolePowerUser
 
 	// RoleBasic is the default role. Leaving a little space for future roles.
 	RoleBasic Role = 10

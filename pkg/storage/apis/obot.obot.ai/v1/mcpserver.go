@@ -39,6 +39,8 @@ func (in *MCPServer) Get(field string) (value string) {
 		return in.Spec.MCPServerCatalogEntryName
 	case "spec.sharedWithinMCPCatalogName":
 		return in.Spec.SharedWithinMCPCatalogName
+	case "spec.powerUserWorkspaceID":
+		return in.Spec.PowerUserWorkspaceID
 	}
 	return ""
 }
@@ -49,6 +51,7 @@ func (in *MCPServer) FieldNames() []string {
 		"spec.userID",
 		"spec.mcpServerCatalogEntryName",
 		"spec.sharedWithinMCPCatalogName",
+		"spec.powerUserWorkspaceID",
 	}
 }
 
@@ -57,6 +60,7 @@ func (in *MCPServer) DeleteRefs() []Ref {
 		{ObjType: &Thread{}, Name: in.Spec.ThreadName},
 		{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName},
 		{ObjType: &MCPCatalog{}, Name: in.Spec.SharedWithinMCPCatalogName},
+		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 	}
 }
 
@@ -79,6 +83,8 @@ type MCPServerSpec struct {
 	NeedsURL bool `json:"needsURL,omitempty"`
 	// PreviousURL contains the URL of the server before it was updated to match the catalog entry.
 	PreviousURL string `json:"previousURL,omitempty"`
+	// PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this MCP server, if there is one.
+	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
 }
 
 type MCPServerStatus struct {

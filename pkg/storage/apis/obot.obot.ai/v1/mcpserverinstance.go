@@ -35,6 +35,8 @@ func (in *MCPServerInstance) Get(field string) (value string) {
 		return in.Spec.MCPCatalogName
 	case "spec.mcpServerCatalogEntryName":
 		return in.Spec.MCPServerCatalogEntryName
+	case "spec.powerUserWorkspaceID":
+		return in.Spec.PowerUserWorkspaceID
 	}
 	return ""
 }
@@ -45,12 +47,14 @@ func (in *MCPServerInstance) FieldNames() []string {
 		"spec.mcpServerName",
 		"spec.mcpCatalogName",
 		"spec.mcpServerCatalogEntryName",
+		"spec.powerUserWorkspaceID",
 	}
 }
 
 func (in *MCPServerInstance) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: &MCPServer{}, Name: in.Spec.MCPServerName},
+		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 	}
 }
 
@@ -63,6 +67,8 @@ type MCPServerInstanceSpec struct {
 	MCPCatalogName string `json:"mcpCatalogName,omitempty"`
 	// MCPServerCatalogEntryName is the name of the MCP server catalog entry that the server that this instance points to is based on, if there is one.
 	MCPServerCatalogEntryName string `json:"mcpServerCatalogEntryName,omitempty"`
+	// PowerUserWorkspaceID is the name of the PowerUserWorkspace that the server that this instance points to is owned by, if there is one.
+	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
