@@ -275,6 +275,30 @@ func (r *Context) UserIsAuthenticated() bool {
 	return slices.Contains(r.User.GetGroups(), authz.AuthenticatedGroup)
 }
 
+func (r *Context) UserIsPowerUser() bool {
+	user, err := r.GatewayClient.UserByID(r.Context(), r.User.GetUID())
+	if err != nil {
+		return false
+	}
+	return user.Role == types.RolePowerUser
+}
+
+func (r *Context) UserIsPowerUserPlus() bool {
+	user, err := r.GatewayClient.UserByID(r.Context(), r.User.GetUID())
+	if err != nil {
+		return false
+	}
+	return user.Role == types.RolePowerUserPlus
+}
+
+func (r *Context) UserHasElevatedRole() bool {
+	user, err := r.GatewayClient.UserByID(r.Context(), r.User.GetUID())
+	if err != nil {
+		return false
+	}
+	return user.Role == types.RoleAdmin || user.Role == types.RolePowerUserPlus || user.Role == types.RolePowerUser
+}
+
 func (r *Context) UserID() uint {
 	userID, err := strconv.ParseUint(r.User.GetUID(), 10, 64)
 	if err != nil {

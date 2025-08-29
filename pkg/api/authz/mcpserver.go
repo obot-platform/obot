@@ -25,6 +25,20 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 		return true, nil
 	}
 
+	// If the MCP server belongs to a PowerUserWorkspace, check if user owns that workspace
+	if mcpServer.Spec.PowerUserWorkspaceName != "" {
+		var workspace v1.PowerUserWorkspace
+		if err := a.get(req.Context(), router.Key(system.DefaultNamespace, mcpServer.Spec.PowerUserWorkspaceName), &workspace); err != nil {
+			return false, err
+		}
+
+		// If user owns the workspace, they can access the server
+		if workspace.Spec.UserID == u.GetUID() {
+			resources.Authorizated.MCPServer = &mcpServer
+			return true, nil
+		}
+	}
+
 	// If this MCP server is shared within the default catalog,
 	// and an ACR allows the user to access it, then authorization is granted.
 	if mcpServer.Spec.SharedWithinMCPCatalogName != "" {

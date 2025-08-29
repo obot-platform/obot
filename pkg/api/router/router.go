@@ -58,6 +58,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mcpGateway := mcpgateway.NewHandler(services.TokenServer, services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
+	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler()
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -421,6 +422,35 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/prompts/{prompt_name}", mcp.GetPrompt)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/update-url", mcp.UpdateURL)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/trigger-update", mcp.TriggerUpdate)
+
+	// PowerUser Workspaces
+	mux.HandleFunc("GET /api/workspaces", powerUserWorkspaces.List)
+	mux.HandleFunc("GET /api/workspaces/{workspace_id}", powerUserWorkspaces.Get)
+	mux.HandleFunc("POST /api/workspaces", powerUserWorkspaces.Create)
+	mux.HandleFunc("DELETE /api/workspaces/{workspace_id}", powerUserWorkspaces.Delete)
+
+	// Workspace-scoped MCP Servers
+	mux.HandleFunc("GET /api/workspaces/{workspace_id}/mcp-servers", mcp.ListServer)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/mcp-servers", mcp.CreateServer)
+	mux.HandleFunc("GET /api/workspaces/{workspace_id}/mcp-servers/{mcp_server_id}", mcp.GetServer)
+	mux.HandleFunc("PUT /api/workspaces/{workspace_id}/mcp-servers/{mcp_server_id}", mcp.AdminOnlyUpdateServer)
+	mux.HandleFunc("DELETE /api/workspaces/{workspace_id}/mcp-servers/{mcp_server_id}", mcp.DeleteServer)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/mcp-servers/{mcp_server_id}/configure", mcp.ConfigureServer)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/mcp-servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
+
+	// Workspace-scoped MCP Catalog Entries
+	mux.HandleFunc("GET /api/workspaces/{workspace_id}/mcp-catalog-entries", mcpCatalogs.ListEntriesForCatalog)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/mcp-catalog-entries", mcpCatalogs.CreateEntry)
+	mux.HandleFunc("GET /api/workspaces/{workspace_id}/mcp-catalog-entries/{entry_id}", mcpCatalogs.GetEntry)
+	mux.HandleFunc("PUT /api/workspaces/{workspace_id}/mcp-catalog-entries/{entry_id}", mcpCatalogs.UpdateEntry)
+	mux.HandleFunc("DELETE /api/workspaces/{workspace_id}/mcp-catalog-entries/{entry_id}", mcpCatalogs.DeleteEntry)
+
+	// Workspace-scoped Access Control Rules (PowerUserPlus+ only)
+	mux.HandleFunc("GET /api/workspaces/{workspace_id}/access-control-rules", accessControlRules.List)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/access-control-rules", accessControlRules.Create)
+	mux.HandleFunc("GET /api/workspaces/{workspace_id}/access-control-rules/{acr_id}", accessControlRules.Get)
+	mux.HandleFunc("PUT /api/workspaces/{workspace_id}/access-control-rules/{acr_id}", accessControlRules.Update)
+	mux.HandleFunc("DELETE /api/workspaces/{workspace_id}/access-control-rules/{acr_id}", accessControlRules.Delete)
 
 	// MCPServerInstances
 	mux.HandleFunc("GET /api/mcp-server-instances", serverInstances.ListServerInstances)
