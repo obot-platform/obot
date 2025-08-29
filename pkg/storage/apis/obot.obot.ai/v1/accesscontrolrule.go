@@ -15,7 +15,7 @@ type AccessControlRule struct {
 }
 
 type AccessControlRuleSpec struct {
-	MCPCatalogID string                          `json:"mcpCatalogId,omitempty"`
+	MCPCatalogID string                          `json:"mcpCatalogID,omitempty"`
 	Manifest     types.AccessControlRuleManifest `json:"manifest"`
 }
 
