@@ -35,6 +35,8 @@ func (in *MCPServerCatalogEntry) Get(field string) string {
 	switch field {
 	case "spec.mcpCatalogName":
 		return in.Spec.MCPCatalogName
+	case "spec.powerUserWorkspaceName":
+		return in.Spec.PowerUserWorkspaceName
 	}
 	return ""
 }
@@ -42,21 +44,24 @@ func (in *MCPServerCatalogEntry) Get(field string) string {
 func (in *MCPServerCatalogEntry) FieldNames() []string {
 	return []string{
 		"spec.mcpCatalogName",
+		"spec.powerUserWorkspaceName",
 	}
 }
 
 func (in *MCPServerCatalogEntry) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogName},
+		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceName},
 	}
 }
 
 type MCPServerCatalogEntrySpec struct {
-	Manifest         types.MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
-	UnsupportedTools []string                            `json:"unsupportedTools,omitempty"`
-	MCPCatalogName   string                              `json:"mcpCatalogName,omitempty"`
-	Editable         bool                                `json:"editable,omitempty"`
-	SourceURL        string                              `json:"sourceURL,omitempty"`
+	Manifest               types.MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
+	UnsupportedTools       []string                            `json:"unsupportedTools,omitempty"`
+	MCPCatalogName         string                              `json:"mcpCatalogName,omitempty"`
+	Editable               bool                                `json:"editable,omitempty"`
+	SourceURL              string                              `json:"sourceURL,omitempty"`
+	PowerUserWorkspaceName string                              `json:"powerUserWorkspaceName,omitempty"`
 }
 
 type MCPServerCatalogEntryStatus struct {

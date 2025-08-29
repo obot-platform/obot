@@ -129,6 +129,12 @@ func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServe
 
 func (m *MCPHandler) ListServer(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+
+	// Handle workspace-scoped listing
+	if workspaceID != "" {
+		return m.listServersInWorkspace(req, workspaceID)
+	}
 
 	var fieldSelector kclient.MatchingFields
 	if catalogID != "" {
@@ -209,6 +215,58 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
+		items = append(items, convertMCPServer(server, credMap[server.Name], m.serverURL))
+	}
+
+	return req.Write(types.MCPServerList{Items: items})
+}
+
+func (m *MCPHandler) listServersInWorkspace(req api.Context, workspaceID string) error {
+	// Validate workspace access
+	var workspace v1.PowerUserWorkspace
+	if err := req.Get(&workspace, workspaceID); err != nil {
+		return types.NewErrNotFound("workspace not found")
+	}
+
+	// Check if user owns the workspace or is admin
+	if workspace.Spec.UserID != req.User.GetUID() && !req.UserIsAdmin() {
+		return types.NewErrForbidden("access denied to workspace")
+	}
+
+	// List servers in the workspace
+	var servers v1.MCPServerList
+	if err := req.List(&servers, kclient.MatchingFields{
+		"spec.powerUserWorkspaceName": workspaceID,
+	}); err != nil {
+		return err
+	}
+
+	// Get credentials for each server
+	credCtxs := make([]string, 0, len(servers.Items))
+	for _, server := range servers.Items {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", workspaceID, server.Name))
+	}
+
+	creds, err := req.GPTClient.ListCredentials(req.Context(), credCtxs...)
+	if err != nil {
+		return fmt.Errorf("failed to list credentials: %w", err)
+	}
+
+	credMap := make(map[string]map[string]string, len(creds))
+	for _, cred := range creds {
+		if _, ok := credMap[cred.ToolName]; !ok {
+			c, err := req.GPTClient.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
+			if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+				return fmt.Errorf("failed to find credential: %w", err)
+			}
+			credMap[cred.ToolName] = c.Env
+		}
+	}
+
+	items := make([]types.MCPServer, 0, len(servers.Items))
+	for _, server := range servers.Items {
+		// Add extracted env vars to the server definition
+		addExtractedEnvVars(&server)
 		items = append(items, convertMCPServer(server, credMap[server.Name], m.serverURL))
 	}
 
@@ -884,6 +942,12 @@ func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.M
 
 func (m *MCPHandler) CreateServer(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+
+	// Handle workspace-scoped creation
+	if workspaceID != "" {
+		return m.createServerInWorkspace(req, workspaceID)
+	}
 
 	var input types.MCPServer
 	if err := req.Read(&input); err != nil {
@@ -967,6 +1031,126 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	} else {
 		cred, err = req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name)}, server.Name)
 	}
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
+	}
+
+	return req.WriteCreated(convertMCPServer(server, cred.Env, m.serverURL))
+}
+
+func (m *MCPHandler) createServerInWorkspace(req api.Context, workspaceID string) error {
+	// Validate workspace access and permissions
+	var workspace v1.PowerUserWorkspace
+	if err := req.Get(&workspace, workspaceID); err != nil {
+		return types.NewErrNotFound("workspace not found")
+	}
+
+	// Check if user owns the workspace or is admin
+	if workspace.Spec.UserID != req.User.GetUID() && !req.UserIsAdmin() {
+		return types.NewErrForbidden("access denied to workspace")
+	}
+
+	// Check if user has required role for workspace operations
+	if !req.UserIsAdmin() {
+		user, err := req.GatewayClient.UserByID(req.Context(), req.User.GetUID())
+		if err != nil {
+			return fmt.Errorf("failed to get user: %w", err)
+		}
+		if user.Role != types.RoleAdmin && user.Role != types.RolePowerUserPlus && user.Role != types.RolePowerUser {
+			return types.NewErrForbidden("insufficient privileges for workspace operations")
+		}
+	}
+
+	var input types.MCPServer
+	if err := req.Read(&input); err != nil {
+		return err
+	}
+
+	if input.MCPServerManifest.RemoteConfig != nil && !strings.HasPrefix(input.MCPServerManifest.RemoteConfig.URL, "http") {
+		input.MCPServerManifest.RemoteConfig.URL = "https://" + input.MCPServerManifest.RemoteConfig.URL
+	}
+
+	server := v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.MCPServerPrefix,
+			Namespace:    req.Namespace(),
+			Finalizers:   []string{v1.MCPServerFinalizer},
+		},
+		Spec: v1.MCPServerSpec{
+			Alias:                  input.Alias,
+			MCPServerCatalogEntryName: input.CatalogEntryID,
+			UserID:                req.User.GetUID(),
+			PowerUserWorkspaceName: workspaceID,
+		},
+	}
+
+	// Handle catalog entry-based creation
+	if input.CatalogEntryID != "" {
+		var catalogEntry v1.MCPServerCatalogEntry
+		if err := req.Get(&catalogEntry, input.CatalogEntryID); err != nil {
+			return err
+		}
+
+		// Check if catalog entry is workspace-scoped or global
+		if catalogEntry.Spec.PowerUserWorkspaceName != "" {
+			// Workspace-scoped catalog entry - must belong to same workspace
+			if catalogEntry.Spec.PowerUserWorkspaceName != workspaceID {
+				return types.NewErrForbidden("catalog entry not accessible from this workspace")
+			}
+		} else {
+			// Global catalog entry - check ACR access
+			if !req.UserIsAdmin() {
+				hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntry(req.User, input.CatalogEntryID)
+				if err != nil {
+					return err
+				}
+				if !hasAccess {
+					return types.NewErrForbidden("user does not have access to MCP server catalog entry")
+				}
+			}
+		}
+
+		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin() || req.UserHasElevatedRole(), catalogEntry.Spec.Manifest, input.MCPServerManifest)
+		if err != nil {
+			return err
+		}
+
+		server.Spec.Manifest = manifest
+		server.Spec.UnsupportedTools = catalogEntry.Spec.UnsupportedTools
+
+		// Check if this is a multi-user server creation
+		if manifest.RemoteConfig != nil {
+			// Only PowerUserPlus and Admins can create multi-user servers
+			user, err := req.GatewayClient.UserByID(req.Context(), req.User.GetUID())
+			if err != nil {
+				return fmt.Errorf("failed to get user: %w", err)
+			}
+			if user.Role != types.RoleAdmin && user.Role != types.RolePowerUserPlus {
+				return types.NewErrForbidden("insufficient privileges for multi-user MCP server creation")
+			}
+			server.Spec.SharedWithinMCPCatalogName = workspaceID // Use workspace as catalog for scoping
+		}
+	} else if req.UserIsAdmin() || req.UserHasElevatedRole() {
+		// Elevated users can create servers with custom manifests in workspaces
+		server.Spec.Manifest = input.MCPServerManifest
+	} else {
+		return types.NewErrBadRequest("catalogEntryID is required")
+	}
+
+	if err := validation.ValidateServerManifest(server.Spec.Manifest); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+
+	// Add extracted env vars to the server definition
+	addExtractedEnvVars(&server)
+
+	if err := req.Create(&server); err != nil {
+		return err
+	}
+
+	// Handle credentials for workspace-scoped server
+	credCtx := fmt.Sprintf("%s-%s", workspaceID, server.Name)
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}

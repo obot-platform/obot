@@ -124,6 +124,11 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to delete thread authorizations for user %d: %w", userDelete.Spec.UserID, err)
 	}
 
+	// Delete PowerUserWorkspaces owned by this user
+	if err = deletePowerUserWorkspacesForUser(req.Ctx, req.Client, strconv.FormatUint(uint64(userDelete.Spec.UserID), 10)); err != nil {
+		return fmt.Errorf("failed to delete power user workspaces for user %d: %w", userDelete.Spec.UserID, err)
+	}
+
 	// If everything is cleaned up successfully, then delete this object because we don't need it.
 	return req.Delete(userDelete)
 }
@@ -138,6 +143,23 @@ func deleteThreadAuthorizationsForUser(ctx context.Context, storageClient kclien
 
 	for _, membership := range memberships.Items {
 		if err := storageClient.Delete(ctx, &membership); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func deletePowerUserWorkspacesForUser(ctx context.Context, storageClient kclient.Client, userID string) error {
+	var workspaces v1.PowerUserWorkspaceList
+	if err := storageClient.List(ctx, &workspaces, kclient.MatchingFields{
+		"spec.userID": userID,
+	}); err != nil {
+		return err
+	}
+
+	for _, workspace := range workspaces.Items {
+		if err := storageClient.Delete(ctx, &workspace); err != nil {
 			return err
 		}
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpsession"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
+	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projectinvitation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
 	"github.com/obot-platform/obot/pkg/controller/handlers/retention"
@@ -73,6 +74,7 @@ func (c *Controller) setupRoutes() {
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New()
+	powerUserWorkspace := poweruserworkspace.New(c.services.GatewayClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -278,6 +280,13 @@ func (c *Controller) setupRoutes() {
 	// Project-based MCP Servers
 	root.Type(&v1.ProjectMCPServer{}).FinalizeFunc(v1.ProjectMCPServerFinalizer, credentialCleanup.ShutdownProjectMCP)
 	root.Type(&v1.ProjectMCPServer{}).HandlerFunc(cleanup.Cleanup)
+
+	// PowerUserWorkspace
+	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(powerUserWorkspace.EnsureWorkspaceForUser)
+	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(powerUserWorkspace.CleanupOnRoleDemotion)
+	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(powerUserWorkspace.ValidateOwnership)
+	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(powerUserWorkspace.UpdateResourceCount)
+	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(cleanup.Cleanup)
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog

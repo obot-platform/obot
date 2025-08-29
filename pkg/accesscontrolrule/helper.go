@@ -285,3 +285,88 @@ func authGroupSet(user kuser.Info) map[string]struct{} {
 	}
 	return set
 }
+
+// Workspace-specific access control methods
+
+// UserHasAccessToWorkspaceResource checks if a user has access to a resource within a PowerUserWorkspace
+func (h *Helper) UserHasAccessToWorkspaceResource(user kuser.Info, workspaceID string, resourceType, resourceName string) (bool, error) {
+	// Check if there are workspace-scoped ACRs that grant access
+	rules, err := h.GetAccessControlRulesForWorkspace(system.DefaultNamespace, workspaceID)
+	if err != nil {
+		return false, err
+	}
+
+	var (
+		userID = user.GetUID()
+		groups = authGroupSet(user)
+	)
+
+	for _, rule := range rules {
+		// Check if the rule includes the resource
+		hasResource := false
+		for _, resource := range rule.Spec.Manifest.Resources {
+			if (resource.Type == types.ResourceType(resourceType) && resource.ID == resourceName) ||
+				(resource.Type == types.ResourceTypeSelector && resource.ID == "*") {
+				hasResource = true
+				break
+			}
+		}
+
+		if !hasResource {
+			continue
+		}
+
+		// Check if the user is included in the subjects
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			switch subject.Type {
+			case types.SubjectTypeUser:
+				if subject.ID == userID {
+					return true, nil
+				}
+			case types.SubjectTypeGroup:
+				if _, ok := groups[subject.ID]; ok {
+					return true, nil
+				}
+			case types.SubjectTypeSelector:
+				if subject.ID == "*" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}
+
+// GetAccessControlRulesForWorkspace returns all AccessControlRules scoped to a specific workspace
+func (h *Helper) GetAccessControlRulesForWorkspace(namespace, workspaceID string) ([]v1.AccessControlRule, error) {
+	// Get all ACRs and filter by workspace
+	var allRules v1.AccessControlRuleList
+	// Note: This would need to be implemented with proper indexing for performance
+	// For now, we'll implement a basic version that can be optimized later
+
+	// This is a placeholder - in a real implementation, we'd need to add indexing
+	// for PowerUserWorkspaceName field in the services/config.go file
+	result := make([]v1.AccessControlRule, 0)
+
+	// TODO: Add proper indexing for workspace-scoped ACRs in services/config.go
+	// Similar to how user-ids, server-names, etc. are indexed
+
+	return result, nil
+}
+
+// UserCanCreateInWorkspace checks if a user can create resources in a workspace
+func (h *Helper) UserCanCreateInWorkspace(user kuser.Info, workspaceID string) (bool, error) {
+	// This would typically check if the user owns the workspace
+	// For now, return false as this needs workspace ownership verification
+	// which should be handled by the PowerUserWorkspace authorization
+	return false, nil
+}
+
+// UserCanManageWorkspaceACRs checks if a user can manage Access Control Rules in a workspace
+func (h *Helper) UserCanManageWorkspaceACRs(user kuser.Info, workspaceID string) (bool, error) {
+	// This should check if the user has PowerUserPlus role and owns the workspace
+	// For now, return false as this needs role verification which should be handled
+	// by the PowerUserWorkspace authorization
+	return false, nil
+}
