@@ -496,13 +496,6 @@
 >
 	<div
 		class={twMerge(
-			'top-fade-bar pointer-events-none',
-			layout.fileEditorOpen ? 'left-5' : 'left-1/2 -translate-x-1/2'
-		)}
-		style="width: {fadeBarWidth}px"
-	></div>
-	<div
-		class={twMerge(
 			'bottom-fade-bar pointer-events-none',
 			layout.fileEditorOpen ? 'left-5' : 'left-1/2 -translate-x-1/2'
 		)}
