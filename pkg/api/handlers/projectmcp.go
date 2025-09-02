@@ -56,7 +56,7 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 	}
 	pmcp.Alias = mcpServer.Spec.Alias
 
-	if cred != nil && mcpServer.Spec.MCPCatalogID == "" {
+	if mcpServer.Spec.MCPCatalogID == "" {
 		// For single-user servers, grab more status information from the MCP server.
 		// We don't show this for shared servers, because the user can't do anything about it
 		// if something is wrong with one of those; only the admin can.

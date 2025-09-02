@@ -210,6 +210,10 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	items := make([]types.MCPServer, 0, len(servers.Items))
 
 	for _, server := range servers.Items {
+		if server.Annotations[v1.HideMCPServerAnnotation] == "true" {
+			continue
+		}
+
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 

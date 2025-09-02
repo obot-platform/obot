@@ -10,6 +10,7 @@
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { autoHeight } from '$lib/actions/textarea';
+	import { poll } from '$lib/utils';
 
 	interface Props {
 		project: Project;
@@ -20,7 +21,34 @@
 	let confirmDelete = $state(false);
 	let deleting = $state(false);
 	let saving = $state(false);
+	let upgradeLoading = $state(false);
 	const layout = getLayout();
+
+	let showUpgradeBanner = $derived(
+		!!project?.sourceProjectID &&
+			project.sourceProjectID.trim() !== '' &&
+			project?.templateUpgradeAvailable === true
+	);
+
+	async function upgradeFromTemplate() {
+		upgradeLoading = true;
+		try {
+			await ChatService.projectUpgradeFromTemplate(project.assistantID, project.id);
+			// Poll until the upgrade completes
+			await poll(
+				async () => {
+					project = await ChatService.getProject(project.id);
+					if (project?.templateUpgradeInProgress === true) return false;
+					return project?.templateUpgradeAvailable === false;
+				},
+				{ interval: 500, maxTimeout: 30000 }
+			);
+		} catch (error) {
+			console.error('Failed to upgrade project from template:', error);
+		} finally {
+			upgradeLoading = false;
+		}
+	}
 
 	async function handleDeleteProject() {
 		deleting = true;
@@ -53,6 +81,26 @@
 	<div class="mx-auto min-h-full w-full px-4 py-4 md:max-w-[1200px] md:px-8">
 		<div class="mb-4 flex items-center gap-2">
 			<h1 class="text-2xl font-semibold capitalize">Project Configuration</h1>
+			{#if showUpgradeBanner}
+				<div
+					class="ml-auto rounded-md border border-amber-300 bg-amber-50 px-3 py-1 text-xs text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200"
+				>
+					<div class="flex items-center gap-2">
+						<span>Project snapshot update available</span>
+						<button
+							class="button-primary px-2 py-1 text-[10px]"
+							onclick={upgradeFromTemplate}
+							disabled={upgradeLoading}
+						>
+							{#if upgradeLoading}
+								<LoaderCircle class="size-3 animate-spin" />
+							{:else}
+								Upgrade
+							{/if}
+						</button>
+					</div>
+				</div>
+			{/if}
 			<div class="flex grow justify-end">
 				<button class="icon-button" onclick={() => closeAll(layout)}>
 					<X class="size-6" />
