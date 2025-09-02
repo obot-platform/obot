@@ -229,14 +229,14 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/memories/{memory_id}", memories.DeleteMemories)
 
 	// Project Templates
-	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/templates", templates.CreateProjectTemplate)
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/templates", templates.ListProjectTemplates)
-	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}", templates.GetProjectTemplate)
-	mux.HandleFunc("PUT /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}", templates.UpdateProjectTemplate)
-	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}", templates.DeleteProjectTemplate)
-	mux.HandleFunc("GET /api/templates", templates.ListTemplates)
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/template", templates.CreateProjectTemplate)
+	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/template", templates.GetProjectTemplate)
+	mux.HandleFunc("DELETE /api/assistants/{assistant_id}/projects/{project_id}/template", templates.DeleteProjectTemplate)
 	mux.HandleFunc("GET /api/templates/{template_public_id}", templates.GetTemplate)
 	mux.HandleFunc("POST /api/templates/{template_public_id}", templates.CopyTemplate)
+
+	// Project upgrade from template
+	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/template-upgrade", projects.TemplateUpgrade)
 
 	// Project model providers
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/model-providers", modelProviders.List)

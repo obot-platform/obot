@@ -108,11 +108,9 @@ var apiResources = []string{
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/files/{file...}",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/files/{file...}",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/tasks/{task_id}/runs/{run_id}/steps/{step_id}/run",
-	"PUT    /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}",
-	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/templates/{template_id}",
-	"POST   /api/assistants/{assistant_id}/projects/{project_id}/templates",
-	"GET    /api/assistants/{assistant_id}/projects/{project_id}/templates",
+	"POST   /api/assistants/{assistant_id}/projects/{project_id}/template",
+	"GET    /api/assistants/{assistant_id}/projects/{project_id}/template",
+	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/template",
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/threads",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/threads",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}",
@@ -149,6 +147,7 @@ var apiResources = []string{
 	"GET    /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/local-authenticate",
 	"DELETE /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/local-deauthenticate",
 	"POST   /api/assistants/{assistant_id}/projects/{project_id}/tools/{tool_id}/test",
+	"POST   /api/assistants/{assistant_id}/projects/{project_id}/template-upgrade",
 	"GET    /api/mcp-server-instances",
 	"GET    /api/mcp-server-instances/{mcp_server_instance_id}",
 	"POST   /api/mcp-server-instances",
@@ -265,6 +264,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		MCPID:                  vars("mcp_id"), // this will be either a server ID or a server instance ID
 		PendingAuthorizationID: vars("pending_authorization_id"),
 		ThreadShareID:          vars("share_public_id"),
+		TemplateID:             vars("template_public_id"), // for /api/templates/{template_public_id} routes
 		ToolID:                 vars("tool_id"),
 	}
 

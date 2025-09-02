@@ -247,6 +247,44 @@ func (h *ProjectsHandler) GetProject(req api.Context) error {
 	return req.Write(convertProject(&thread, nil))
 }
 
+func (h *ProjectsHandler) TemplateUpgrade(req api.Context) error {
+	var (
+		projectID = strings.Replace(req.PathValue("project_id"), system.ProjectPrefix, system.ThreadPrefix, 1)
+		thread    v1.Thread
+	)
+
+	if err := req.Get(&thread, projectID); err != nil {
+		return err
+	}
+
+	if thread.Spec.SourceThreadName == "" || !thread.Spec.Project {
+		return types.NewErrBadRequest("project was not created from a template")
+	}
+
+	// Get the source thread to verify it's a template
+	var source v1.Thread
+	if err := req.Get(&source, thread.Spec.SourceThreadName); err != nil {
+		return err
+	}
+
+	// Verify the source is actually a template
+	if !source.Spec.Template {
+		return types.NewErrBadRequest("source project is not a template")
+	}
+
+	if thread.Annotations == nil {
+		thread.Annotations = map[string]string{}
+	}
+	// Trigger project refresh in controller to re-copy tools and MCP servers
+	thread.Annotations["obot.obot.ai/copy-source"] = "true"
+
+	if err := req.Update(&thread); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (h *ProjectsHandler) ListProjects(req api.Context) error {
 	var (
 		assistantID = req.PathValue("assistant_id")

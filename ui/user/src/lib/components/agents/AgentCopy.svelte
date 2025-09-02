@@ -64,7 +64,7 @@
 			<div class="mb-6 flex flex-col items-center text-center">
 				<AssistantIcon project={template.projectSnapshot} class="size-24" />
 				<h3 class="text-xl font-medium">
-					{template.name || template.projectSnapshot.name || 'Unnamed Project'}
+					{template.projectSnapshot.name || 'Unnamed Project'}
 				</h3>
 				{#if template.created}
 					<div class="mt-1 text-xs text-gray-500">
@@ -109,21 +109,17 @@
 			{/if}
 
 			<div class="mt-2 flex flex-col gap-4 border-t border-gray-100 pt-4 dark:border-gray-700">
-				{#if !template.featured}
-					<p class="text-center text-xs text-gray-400">
-						This project template was published by a third-party user and may include prompts or
-						tools not reviewed or verified by our team. It could interact with external systems,
-						access additional data sources, or behave in unexpected ways. By continuing, you
-						acknowledge that you understand the risks and choose to proceed at your own discretion.
-					</p>
-				{/if}
+				<p class="text-center text-xs text-gray-400">
+					This project template was published by a user and may include prompts or tools not
+					reviewed or verified by our team. It could interact with external systems, access
+					additional data sources, or behave in unexpected ways. By continuing, you acknowledge that
+					you understand the risks and choose to proceed at your own discretion.
+				</p>
 				<div class="flex flex-col items-center gap-3">
 					{#if onBack}
 						<button onclick={onBack} class="button w-full max-w-xs"> Go Back </button>
 					{/if}
-					<button onclick={copyAgent} class="button-primary w-full max-w-xs">
-						{!template.featured ? 'Accept and Copy Project' : 'Copy Project'}
-					</button>
+					<button onclick={copyAgent} class="button-primary w-full max-w-xs"> Copy Project </button>
 				</div>
 			</div>
 		</div>

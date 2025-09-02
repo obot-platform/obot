@@ -7,10 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/create"
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -316,6 +319,88 @@ func (t *Handler) SetCreated(req router.Request, _ router.Response) error {
 	return req.Client.Update(req.Ctx, thread)
 }
 
+// EnsureTemplateThreadShare ensures a public ThreadShare exists for template threads
+func (t *Handler) EnsureTemplateThreadShare(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+	if !thread.Spec.Template {
+		return nil
+	}
+	// Create the share if it doesn't exist
+	var share v1.ThreadShare
+	if err := req.Client.Get(req.Ctx, router.Key(thread.Namespace, thread.Name), &share); err == nil {
+		return nil
+	} else if !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	publicID := strings.ReplaceAll(uuid.New().String(), "-", "")
+	share = v1.ThreadShare{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      thread.Name,
+			Namespace: thread.Namespace,
+		},
+		Spec: v1.ThreadShareSpec{
+			UserID:            thread.Spec.UserID,
+			ProjectThreadName: thread.Name,
+			Template:          true,
+			Featured:          false,
+			Manifest:          types.ProjectShareManifest{Public: true},
+			PublicID:          publicID,
+		},
+	}
+	return req.Client.Create(req.Ctx, &share)
+}
+
+// RefreshTemplate watches for an annotation to refresh template or project snapshots.
+// If present, it deletes per-thread resources and resets copy status so existing
+// copy handlers repopulate from SourceThreadName.
+func (t *Handler) RefreshTemplate(req router.Request, _ router.Response) error {
+	thread := req.Object.(*v1.Thread)
+
+	// Only process template threads or project threads (but not template project threads)
+	if !thread.Spec.Template && (!thread.Spec.Project || thread.Spec.Template) {
+		return nil
+	}
+
+	refreshAnnotation := "obot.obot.ai/copy-source"
+	if thread.Annotations[refreshAnnotation] != "true" {
+		return nil
+	}
+
+	// Delete Tools owned by this thread
+	var toolList v1.ToolList
+	if err := req.Client.List(req.Ctx, &toolList, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
+		"spec.threadName": thread.Name,
+	}); err != nil {
+		return err
+	}
+	for _, tool := range toolList.Items {
+		_ = req.Client.Delete(req.Ctx, &tool)
+	}
+
+	// Delete ProjectMCPServers owned by this thread
+	var pmsList v1.ProjectMCPServerList
+	if err := req.Client.List(req.Ctx, &pmsList, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
+		"spec.threadName": thread.Name,
+	}); err != nil {
+		return err
+	}
+	for _, pms := range pmsList.Items {
+		_ = req.Client.Delete(req.Ctx, &pms)
+	}
+
+	// Reset copy status flags
+	thread.Status.CopiedTools = false
+	thread.Status.CopiedTasks = false
+	if err := req.Client.Status().Update(req.Ctx, thread); err != nil {
+		return err
+	}
+
+	// Remove annotation and update the thread to trigger another reconcile
+	delete(thread.Annotations, refreshAnnotation)
+	return req.Client.Update(req.Ctx, thread)
+}
+
 func (t *Handler) CleanupEphemeralThreads(req router.Request, _ router.Response) error {
 	thread := req.Object.(*v1.Thread)
 	if !thread.Spec.Ephemeral ||
@@ -462,26 +547,118 @@ func (t *Handler) CopyToolsFromSource(req router.Request, _ router.Response) err
 		}
 	}
 
-	var mcpList v1.MCPServerList
-	if err := req.Client.List(req.Ctx, &mcpList, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
+	var projectMcpList v1.ProjectMCPServerList
+	if err := req.Client.List(req.Ctx, &projectMcpList, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
 		"spec.threadName": thread.Spec.SourceThreadName,
 	}); err != nil {
 		return err
 	}
 
-	for _, mcp := range mcpList.Items {
-		newMCP := v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:       name.SafeHashConcatName(mcp.Name, thread.Name),
-				Namespace:  thread.Namespace,
-				Finalizers: []string{v1.MCPServerFinalizer},
-			},
-			Spec: mcp.Spec,
-		}
-		newMCP.Spec.ThreadName = thread.Name
-		newMCP.Spec.UserID = thread.Spec.UserID
+	for _, projectMcp := range projectMcpList.Items {
+		// Determine the per-user target MCP backend to point to in the new project
+		targetMCPID := projectMcp.Spec.Manifest.MCPID
 
-		if err := create.IfNotExists(req.Ctx, req.Client, &newMCP); err != nil {
+		// Case 1: Source points to an MCPServerInstance -> create a new per-user instance pointing to the same server
+		if system.IsMCPServerInstanceID(projectMcp.Spec.Manifest.MCPID) {
+			var srcInst v1.MCPServerInstance
+			if err := req.Client.Get(req.Ctx, router.Key(thread.Namespace, projectMcp.Spec.Manifest.MCPID), &srcInst); err != nil {
+				return err
+			}
+
+			newInstName := fmt.Sprintf("%s-%s-%s", system.MCPServerInstancePrefix, thread.Spec.UserID, srcInst.Spec.MCPServerName)
+			newInst := v1.MCPServerInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:       newInstName,
+					Namespace:  thread.Namespace,
+					Finalizers: []string{v1.MCPServerInstanceFinalizer},
+				},
+				Spec: v1.MCPServerInstanceSpec{
+					UserID:                    thread.Spec.UserID,
+					MCPServerName:             srcInst.Spec.MCPServerName,
+					MCPCatalogName:            srcInst.Spec.MCPCatalogName,
+					MCPServerCatalogEntryName: srcInst.Spec.MCPServerCatalogEntryName,
+				},
+			}
+			if err := create.IfNotExists(req.Ctx, req.Client, &newInst); err != nil {
+				return err
+			}
+			targetMCPID = newInst.Name
+		} else if system.IsMCPServerID(projectMcp.Spec.Manifest.MCPID) {
+			// Case 2: Source points directly to an MCPServer
+			var srcServer v1.MCPServer
+			if err := req.Client.Get(req.Ctx, router.Key(thread.Namespace, projectMcp.Spec.Manifest.MCPID), &srcServer); err != nil {
+				return err
+			}
+
+			if srcServer.Spec.SharedWithinMCPCatalogName != "" {
+				// Shared (multi-user) server -> create a per-user instance pointing to it
+				newInstName := fmt.Sprintf("%s-%s-%s", system.MCPServerInstancePrefix, thread.Spec.UserID, srcServer.Name)
+				newInst := v1.MCPServerInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       newInstName,
+						Namespace:  thread.Namespace,
+						Finalizers: []string{v1.MCPServerInstanceFinalizer},
+					},
+					Spec: v1.MCPServerInstanceSpec{
+						UserID:                    thread.Spec.UserID,
+						MCPServerName:             srcServer.Name,
+						MCPCatalogName:            srcServer.Spec.SharedWithinMCPCatalogName,
+						MCPServerCatalogEntryName: srcServer.Spec.MCPServerCatalogEntryName,
+					},
+				}
+				if err := create.IfNotExists(req.Ctx, req.Client, &newInst); err != nil {
+					return err
+				}
+				targetMCPID = newInst.Name
+			} else {
+				// Single-user server
+				if srcServer.Spec.UserID == thread.Spec.UserID {
+					// Already owned by this user; reuse it
+					targetMCPID = srcServer.Name
+				} else {
+					// Clone a new per-user MCPServer by copying the manifest
+					newServerName := name.SafeHashConcatName(system.MCPServerPrefix, thread.Spec.UserID, srcServer.Name)
+					newServer := v1.MCPServer{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:       newServerName,
+							Namespace:  thread.Namespace,
+							Finalizers: []string{v1.MCPServerFinalizer},
+						},
+						Spec: v1.MCPServerSpec{
+							Manifest:                   srcServer.Spec.Manifest,
+							UnsupportedTools:           srcServer.Spec.UnsupportedTools,
+							ThreadName:                 "",
+							Alias:                      srcServer.Spec.Alias,
+							UserID:                     thread.Spec.UserID,
+							SharedWithinMCPCatalogName: "",
+							MCPServerCatalogEntryName:  srcServer.Spec.MCPServerCatalogEntryName,
+						},
+					}
+					if err := create.IfNotExists(req.Ctx, req.Client, &newServer); err != nil {
+						return err
+					}
+					targetMCPID = newServer.Name
+				}
+			}
+		}
+
+		// Create the project-scoped mapping pointing to the new per-user backend
+		newManifest := projectMcp.Spec.Manifest
+		newManifest.MCPID = targetMCPID
+
+		newProjectMCP := v1.ProjectMCPServer{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.ProjectMCPServerPrefix,
+				Namespace:    thread.Namespace,
+				Finalizers:   []string{v1.ProjectMCPServerFinalizer},
+			},
+			Spec: v1.ProjectMCPServerSpec{
+				Manifest:   newManifest,
+				ThreadName: thread.Name,
+				UserID:     thread.Spec.UserID,
+			},
+		}
+		if err := create.IfNotExists(req.Ctx, req.Client, &newProjectMCP); err != nil {
 			return err
 		}
 	}

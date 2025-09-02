@@ -48,10 +48,8 @@
 		<Webhook {project} />
 	{:else if layout.sidebarConfig === 'email'}
 		<Email {project} />
-	{:else if layout.sidebarConfig === 'template' && layout.template}
-		{#key layout.template.id}
-			<TemplateConfig bind:template={layout.template} />
-		{/key}
+	{:else if layout.sidebarConfig === 'template'}
+		<TemplateConfig assistantID={project.assistantID} projectID={project.id} />
 	{:else if layout.sidebarConfig === 'model-providers'}
 		<ModelProviders bind:project />
 	{:else}

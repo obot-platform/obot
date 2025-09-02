@@ -35,7 +35,6 @@ export interface Layout {
 		| 'project-configuration';
 
 	editProjectMcp?: ProjectMCP;
-	template?: ProjectTemplate;
 	mcpServer?: ProjectMCP;
 	chatbotMcpEdit?: boolean;
 	sidebarMemoryUpdateAvailable?: boolean;
@@ -63,7 +62,6 @@ export function closeAll(layout: Layout) {
 	layout.displayTaskRun = undefined;
 	layout.sidebarConfig = undefined;
 	layout.editProjectMcp = undefined;
-	layout.template = undefined;
 	layout.mcpServer = undefined;
 	layout.chatbotMcpEdit = undefined;
 }
@@ -76,12 +74,6 @@ export function openTask(layout: Layout, taskID?: string) {
 export function openTaskRun(layout: Layout, taskRun?: TaskRun) {
 	closeAll(layout);
 	layout.displayTaskRun = taskRun;
-}
-
-export function openTemplate(layout: Layout, template: ProjectTemplate) {
-	closeAll(layout);
-	layout.sidebarConfig = 'template';
-	layout.template = template;
 }
 
 export function openSidebarConfig(layout: Layout, config: Layout['sidebarConfig']) {
@@ -115,7 +107,6 @@ export function openMCPServer(layout: Layout, mcpServer: ProjectMCP) {
 export function closeSidebarConfig(layout: Layout) {
 	layout.sidebarConfig = undefined;
 	layout.editProjectMcp = undefined;
-	layout.template = undefined;
 	layout.mcpServer = undefined;
 	layout.chatbotMcpEdit = undefined;
 }
