@@ -512,9 +512,12 @@
 			savedEntry = entryResponse;
 
 			const existingRules = await AdminService.listAccessControlRules();
-			const hasEverythingRule = existingRules.some((rule) => rule.id === 'acr1-everything');
+			const hasEverythingEveryoneRule = existingRules.some(
+				(rule) =>
+					rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
+			);
 
-			if (!entry && !hasEverythingRule) {
+			if (!entry && !hasEverythingEveryoneRule) {
 				await selectRulesDialog?.open();
 				loading = false;
 			} else {
