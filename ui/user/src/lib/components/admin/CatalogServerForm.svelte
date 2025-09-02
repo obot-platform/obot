@@ -18,6 +18,7 @@
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import CategorySelectInput from './CategorySelectInput.svelte';
+	import Select from '../Select.svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -688,19 +689,52 @@
 		<h4 class="text-sm font-semibold">
 			{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
 		</h4>
-		<p class="text-xs font-light text-gray-400 dark:text-gray-600">
-			{type === 'single' ? 'User supplied config' : 'Config'} values will be available as environment
-			variables in the MCP server and can be referenced in the runtime configuration using the syntax
-			$KEY_NAME.
-		</p>
 
 		{#if formData.env}
 			{#each formData.env as _, i (i)}
+				{@const keyLabel = !!formData.env[i].file ? 'File Location' : 'Key'}
+				{@const keyPlaceholder = !!formData.env[i].file
+					? 'e.g. /path/to/file'
+					: 'e.g. CUSTOM_API_KEY'}
 				<div
 					class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
 				>
-					{#if type === 'single'}
-						<div class="flex w-full flex-col gap-4">
+					<div class="flex w-full flex-col gap-4">
+						<div class="flex w-full flex-col gap-1">
+							<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
+							<Select
+								class="bg-surface1 dark:border-surface3 dark:bg-surface1 border border-transparent shadow-inner"
+								classes={{
+									root: 'flex grow'
+								}}
+								options={[
+									{ label: 'Environment Variable', id: 'environment_variable_type' },
+									{ label: 'File', id: 'file_type' }
+								]}
+								selected={!!formData.env[i].file ? 'file_type' : 'environment_variable_type'}
+								onSelect={(option) => {
+									if (option.id === 'file_type') {
+										formData.env[i].file = true;
+									} else {
+										formData.env[i].file = false;
+									}
+								}}
+								id={`env-type-${i}`}
+							/>
+						</div>
+
+						<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+							{#if formData.env[i].file}
+								The user-supplied value will be written to a file at the specified location. The
+								environment variable will be set to the file path.
+							{:else}
+								{type === 'single' ? 'User supplied config' : 'Config'} values will be available as environment
+								variables in the MCP server and can be referenced in the runtime configuration using
+								the syntax $KEY_NAME.
+							{/if}
+						</p>
+
+						{#if type === 'single'}
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
 								<input
@@ -720,24 +754,26 @@
 								/>
 							</div>
 							<div class="flex w-full flex-col gap-1">
-								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
+								<label for={`env-key-${i}`} class="text-sm font-light">{keyLabel}</label>
 								<input
 									id={`env-key-${i}`}
 									class="text-input-filled w-full"
 									bind:value={formData.env[i].key}
-									placeholder="e.g. CUSTOM_API_KEY"
+									placeholder={keyPlaceholder}
 									disabled={readonly}
 								/>
 							</div>
 							<div class="flex gap-8">
-								<label class="flex items-center gap-2">
-									<input
-										type="checkbox"
-										bind:checked={formData.env[i].sensitive}
-										disabled={readonly}
-									/>
-									<span class="text-sm">Sensitive</span>
-								</label>
+								{#if !formData.env[i].file}
+									<label class="flex items-center gap-2">
+										<input
+											type="checkbox"
+											bind:checked={formData.env[i].sensitive}
+											disabled={readonly}
+										/>
+										<span class="text-sm">Sensitive</span>
+									</label>
+								{/if}
 								<label class="flex items-center gap-2">
 									<input
 										type="checkbox"
@@ -746,21 +782,15 @@
 									/>
 									<span class="text-sm">Required</span>
 								</label>
-								<label class="flex items-center gap-2">
-									<input type="checkbox" bind:checked={formData.env[i].file} disabled={readonly} />
-									<span class="text-sm">File</span>
-								</label>
 							</div>
-						</div>
-					{:else}
-						<div class="flex w-full flex-col gap-4">
+						{:else}
 							<div class="flex w-full flex-col gap-1">
-								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
+								<label for={`env-key-${i}`} class="text-sm font-light">{keyLabel}</label>
 								<input
 									id={`env-key-${i}`}
 									class="text-input-filled w-full"
 									bind:value={formData.env[i].key}
-									placeholder="e.g. CUSTOM_API_KEY"
+									placeholder={keyPlaceholder}
 									disabled={readonly}
 								/>
 							</div>
@@ -785,22 +815,20 @@
 									/>
 								{/if}
 							</div>
-							<div class="flex w-full gap-4">
-								<label class="flex items-center gap-2">
-									<input
-										type="checkbox"
-										bind:checked={formData.env[i].sensitive}
-										disabled={readonly}
-									/>
-									<span class="text-sm">Sensitive</span>
-								</label>
-								<label class="flex items-center gap-2">
-									<input type="checkbox" bind:checked={formData.env[i].file} disabled={readonly} />
-									<span class="text-sm">File</span>
-								</label>
-							</div>
-						</div>
-					{/if}
+							{#if !formData.env[i].file}
+								<div class="flex w-full gap-4">
+									<label class="flex items-center gap-2">
+										<input
+											type="checkbox"
+											bind:checked={formData.env[i].sensitive}
+											disabled={readonly}
+										/>
+										<span class="text-sm">Sensitive</span>
+									</label>
+								</div>
+							{/if}
+						{/if}
+					</div>
 
 					{#if !readonly}
 						<button
