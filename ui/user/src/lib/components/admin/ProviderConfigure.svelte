@@ -122,6 +122,9 @@
 									<label for={parameter.name} class:text-red-500={error}
 										>{parameter.friendlyName}</label
 									>
+									{#if parameter.description}
+										<span class="text-gray text-xs">{parameter.description}</span>
+									{/if}
 									{#if parameter.sensitive}
 										<SensitiveInput
 											{error}
