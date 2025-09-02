@@ -48,6 +48,7 @@ export const CommonModelProviderIds = {
 	ANTHROPIC: 'anthropic-model-provider',
 	OPENAI: 'openai-model-provider',
 	AZURE_OPENAI: 'azure-openai-model-provider',
+	AMAZON_BEDROCK: 'amazon-bedrock-model-provider',
 	ANTHROPIC_BEDROCK: 'anthropic-bedrock-model-provider',
 	XAI: 'xai-model-provider',
 	DEEPSEEK: 'deepseek-model-provider',

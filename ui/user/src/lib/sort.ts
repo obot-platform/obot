@@ -63,6 +63,7 @@ export const sortModelProviders = (modelProviders: ModelProvider[]) => {
 			CommonModelProviderIds.OPENAI,
 			CommonModelProviderIds.AZURE_OPENAI,
 			CommonModelProviderIds.ANTHROPIC,
+			CommonModelProviderIds.AMAZON_BEDROCK,
 			CommonModelProviderIds.ANTHROPIC_BEDROCK,
 			CommonModelProviderIds.XAI,
 			CommonModelProviderIds.OLLAMA,
