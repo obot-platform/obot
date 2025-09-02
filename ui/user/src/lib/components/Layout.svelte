@@ -96,19 +96,6 @@
 						]
 					},
 					{
-						href: '/admin/users',
-						icon: Users,
-						label: 'Users',
-						collapsible: false
-					},
-					{
-						href: '/admin/auth-providers',
-						icon: LockKeyhole,
-						label: 'Auth Providers',
-						disabled: !version.current.authEnabled,
-						collapsible: false
-					},
-					{
 						icon: MessageCircle,
 						label: 'Obot Chat',
 						disabled: isBootStrapUser,
@@ -145,6 +132,19 @@
 								collapsible: false
 							}
 						]
+					},
+					{
+						href: '/admin/users',
+						icon: Users,
+						label: 'Users',
+						collapsible: false
+					},
+					{
+						href: '/admin/auth-providers',
+						icon: LockKeyhole,
+						label: 'Auth Providers',
+						disabled: !version.current.authEnabled,
+						collapsible: false
 					}
 				]
 			: []
