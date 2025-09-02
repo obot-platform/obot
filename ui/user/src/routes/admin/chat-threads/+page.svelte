@@ -372,6 +372,7 @@
 							}
 						]}
 						sortable={['name', 'userName', 'userEmail', 'projectName', 'created']}
+						initSort={{ property: 'created', order: 'desc' }}
 					>
 						{#snippet actions()}
 							<button class="icon-button hover:text-blue-500" title="View Thread">

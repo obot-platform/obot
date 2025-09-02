@@ -18,6 +18,7 @@
 		noDataMessage?: string;
 		pageSize?: number;
 		sortable?: string[];
+		initSort?: { property: string; order: 'asc' | 'desc' };
 	}
 
 	const {
@@ -32,7 +33,8 @@
 		pageSize,
 		noDataMessage = 'No data',
 		setRowClasses,
-		sortable
+		sortable,
+		initSort
 	}: Props<T> = $props();
 
 	let page = $state(0);
@@ -40,7 +42,7 @@
 
 	let sortableFields = $derived(new Set(sortable));
 	let sortedBy = $state<{ property: string; order: 'asc' | 'desc' } | undefined>(
-		sortable?.[0] ? { property: sortable[0], order: 'asc' } : undefined
+		initSort ? initSort : sortable?.[0] ? { property: sortable[0], order: 'asc' } : undefined
 	);
 	let sortedData = $state<T[]>([]);
 
