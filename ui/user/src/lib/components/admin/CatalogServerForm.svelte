@@ -511,7 +511,10 @@
 			const entryResponse = await handleFns[type]?.(catalogId);
 			savedEntry = entryResponse;
 
-			if (!entry) {
+			const existingRules = await AdminService.listAccessControlRules();
+			const hasEverythingRule = existingRules.some((rule) => rule.id === 'acr1-everything');
+
+			if (!entry && !hasEverythingRule) {
 				await selectRulesDialog?.open();
 				loading = false;
 			} else {
