@@ -747,6 +747,8 @@ export interface MCPCatalogServer {
 	manifest: MCPServer;
 	needsUpdate?: boolean;
 	needsURL?: boolean;
+	toolPreviewsLastGenerated?: string;
+	lastUpdated?: string;
 }
 
 export interface MCPServerInstance {

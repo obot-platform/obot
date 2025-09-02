@@ -180,7 +180,7 @@
 	</div>
 
 	<div class="flex w-full flex-col gap-2">
-		<div class="mb-2 flex w-full flex-col justify-between gap-4">
+		<div class="mb-2 flex w-full flex-col gap-4">
 			<div class="flex flex-wrap items-center justify-end gap-2 md:flex-shrink-0">
 				<Toggle
 					checked={allDescriptionsEnabled}

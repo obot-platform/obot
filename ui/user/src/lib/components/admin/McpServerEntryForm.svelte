@@ -85,6 +85,16 @@
 	let saving = $state(false);
 	let error = $state<string>();
 
+	let showRegenerateToolsButton = $derived(
+		entry &&
+			entry.manifest?.toolPreview &&
+			'toolPreviewsLastGenerated' in entry &&
+			'lastUpdated' in entry &&
+			entry.toolPreviewsLastGenerated &&
+			entry.lastUpdated &&
+			new Date(entry.toolPreviewsLastGenerated) < new Date(entry.lastUpdated)
+	);
+
 	$effect(() => {
 		if (selected === 'access-control') {
 			listAccessControlRules = AdminService.listAccessControlRules();
@@ -298,6 +308,11 @@
 			{@render configurationView()}
 		{:else if selected === 'tools' && entry}
 			<div class="pb-8">
+				{#if showRegenerateToolsButton}
+					<button class="button-primary mb-4 text-sm" onclick={handleInitTemporaryInstance}>
+						Regenerate Tools & Capabilities
+					</button>
+				{/if}
 				<McpServerTools {entry} {catalogId}>
 					{#snippet noToolsContent()}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
