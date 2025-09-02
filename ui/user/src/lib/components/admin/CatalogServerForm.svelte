@@ -760,16 +760,26 @@
 							</div>
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
-								<input
-									id={`env-value-${i}`}
-									class="text-input-filled w-full"
-									bind:value={formData.env[i].value}
-									placeholder="e.g. 123abcdef456"
-									disabled={readonly}
-									type={formData.env[i].sensitive ? 'password' : 'text'}
-								/>
+								{#if formData.env[i].file}
+									<textarea
+										id={`env-value-${i}`}
+										class="text-input-filled min-h-24 w-full resize-y"
+										bind:value={formData.env[i].value}
+										disabled={readonly}
+										rows={formData.env[i].value.split('\n').length + 1}
+									></textarea>
+								{:else}
+									<input
+										id={`env-value-${i}`}
+										class="text-input-filled w-full"
+										bind:value={formData.env[i].value}
+										placeholder="e.g. 123abcdef456"
+										disabled={readonly}
+										type={formData.env[i].sensitive ? 'password' : 'text'}
+									/>
+								{/if}
 							</div>
-							<div>
+							<div class="flex w-full gap-4">
 								<label class="flex items-center gap-2">
 									<input
 										type="checkbox"
@@ -777,6 +787,10 @@
 										disabled={readonly}
 									/>
 									<span class="text-sm">Sensitive</span>
+								</label>
+								<label class="flex items-center gap-2">
+									<input type="checkbox" bind:checked={formData.env[i].file} disabled={readonly} />
+									<span class="text-sm">File</span>
 								</label>
 							</div>
 						</div>
