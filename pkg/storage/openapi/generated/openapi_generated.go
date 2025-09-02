@@ -137,7 +137,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ProjectShareManifest":                         schema_obot_platform_obot_apiclient_types_ProjectShareManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectTemplate":                              schema_obot_platform_obot_apiclient_types_ProjectTemplate(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectTemplateList":                          schema_obot_platform_obot_apiclient_types_ProjectTemplateList(ref),
-		"github.com/obot-platform/obot/apiclient/types.ProjectTemplateManifest":                      schema_obot_platform_obot_apiclient_types_ProjectTemplateManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.Prompt":                                       schema_obot_platform_obot_apiclient_types_Prompt(ref),
 		"github.com/obot-platform/obot/apiclient/types.PromptResponse":                               schema_obot_platform_obot_apiclient_types_PromptResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":               schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
@@ -3452,6 +3451,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							},
 						},
 					},
+					"template": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Template indicates whether this MCP server is a template server. Template servers are hidden from user views and are used for creating project instances.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "manifest", "userID", "configured", "catalogEntryID", "powerUserWorkspaceID"},
 			},
@@ -5930,12 +5936,35 @@ func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallb
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.WorkflowNamesFromIntegration"),
 						},
 					},
+					"templateUpgradeAvailable": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"templateUpgradeInProgress": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"templateLastUpgraded": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"templatePublicID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "ProjectManifest", "editor"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectManifest", "github.com/obot-platform/obot/apiclient/types.WorkflowNamesFromIntegration"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectManifest", "github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.WorkflowNamesFromIntegration"},
 	}
 }
 
@@ -6494,16 +6523,27 @@ func schema_obot_platform_obot_apiclient_types_ProjectTemplate(ref common.Refere
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
 						},
 					},
-					"ProjectTemplateManifest": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ProjectTemplateManifest"),
-						},
-					},
 					"projectSnapshot": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ThreadManifest"),
+						},
+					},
+					"projectSnapshotLastUpgraded": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"projectSnapshotStale": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"projectSnapshotUpgradeInProgress": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 					"mcpServers": {
@@ -6545,11 +6585,11 @@ func schema_obot_platform_obot_apiclient_types_ProjectTemplate(ref common.Refere
 						},
 					},
 				},
-				Required: []string{"Metadata", "ProjectTemplateManifest"},
+				Required: []string{"Metadata"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ProjectTemplateManifest", "github.com/obot-platform/obot/apiclient/types.ThreadManifest"},
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ThreadManifest", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -6578,36 +6618,6 @@ func schema_obot_platform_obot_apiclient_types_ProjectTemplateList(ref common.Re
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.ProjectTemplate"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_ProjectTemplateManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"name": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"public": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"featured": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
 	}
 }
 
@@ -11833,6 +11843,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"template": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Template indicates whether this MCP server instance is a template instance. Template instances are hidden from user views and are used for creating copyable MCP server instances.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -11974,6 +11991,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 						SchemaProps: spec.SchemaProps{
 							Description: "PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this MCP server, if there is one.",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"template": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Template indicates whether this MCP server is a template server. Template servers are hidden from user views and are used for creating project instances.",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
@@ -15112,13 +15136,6 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 							Format:      "",
 						},
 					},
-					"template": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Template determines whether this thread is a project template, an immutable point-in-time snapshot of another project thread",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Env is the environment variable keys that expected to be set in the credential that matches the thread.Name",
@@ -15255,6 +15272,27 @@ func schema_storage_apis_obotobotai_v1_ThreadSpec(ref common.ReferenceCallback) 
 							Format:      "",
 						},
 					},
+					"template": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Template determines whether this thread is a project template.\n\nWhen this field is true, the thread represents a snapshot of the source thread.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"targetConfigRevision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TargetConfigRevision is the target revision of the source thread to upgrade this thread to.\n\nThis field tracks the latest revision of the source thread when UpgradeApproved is set. It's compared with the last element in ConfigRevisions (i.e. the latest revision of this thread) to determine when an upgrade has finished. It is managed entirely by controllers and should never be directly exposed in user-facing APIs.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"upgradeApproved": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpgradeApproved indicates whether the user has approved an upgrade from the source thread.\n\nWhen this field is true, and an upgrade is available, the thread and its associated resources will be updated to match the latest revision of the source thread.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -15360,6 +15398,48 @@ func schema_storage_apis_obotobotai_v1_ThreadStatus(ref common.ReferenceCallback
 							Description: "WorkflowNamesFromIntegration is the workflow names created from external integration, like slack, discord..",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.WorkflowNamesFromIntegration"),
+						},
+					},
+					"configRevisions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ConfigRevisions is a list of revisions of the thread's configuration. Each revision is a digest of the thread's configuration at a given point in time and is used to determine if the thread's configuration has diverged from the source thread's configuration.\n\nA given revision is computed by creating a stable hash of the thread's: - introduction message - starter messages - tools - tasks - knowledge files - model provider - model - prompt - allowed MCP tools - project MCP servers\n\nRevisions are sorted by creation time in ascending order, with the most recent revision at the end.\n\nFor template threads (i.e. \"project snapshots\"), this ConfigRevisions will contain the sequence of revisions taken after each successful update from the source thread.\n\nFor project threads that own a template or are created from a template, ConfigRevisions will contain a single element representing the latest digest of the thread's configuration.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"upgradeAvailable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpgradeAvailable is a flag to indicate if an upgrade is available from the source thread.\n\nAn upgrade is considered available if the source thread's configuration has changed since it was copied into this thread AND the thread's configuration has not changed since it was copied.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"upgradeInProgress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpgradeInProgress indicates if an upgrade from the source thread is in progress.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"upgradePublicID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpgradePublicID is the public ID of the template that this thread was copied from if any.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastUpgraded": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastUpgraded is a timestamp corresponding to the last time the thread was last successfully upgraded from the source thread.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
 				},

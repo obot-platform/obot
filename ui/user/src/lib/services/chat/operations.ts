@@ -34,8 +34,6 @@ import {
 	type ProjectShare,
 	type ProjectShareList,
 	type ProjectTemplate,
-	type ProjectTemplateList,
-	type ProjectTemplateManifest,
 	type SlackConfig,
 	type SlackReceiver,
 	type Task,
@@ -1243,64 +1241,29 @@ export async function createProjectTemplate(
 	projectID: string
 ): Promise<ProjectTemplate> {
 	return (await doPost(
-		`/assistants/${assistantID}/projects/${projectID}/templates`,
+		`/assistants/${assistantID}/projects/${projectID}/template`,
 		{}
 	)) as ProjectTemplate;
 }
 
-export async function getProjectTemplate(
-	assistantID: string,
-	projectID: string,
-	templateID: string
-): Promise<ProjectTemplate> {
-	return (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/templates/${templateID}`
-	)) as ProjectTemplate;
-}
-
-export async function listProjectTemplates(
+export async function getProjectTemplateForProject(
 	assistantID: string,
 	projectID: string
-): Promise<ProjectTemplateList> {
-	const list = (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/templates`
-	)) as ProjectTemplateList;
-	if (!list.items) {
-		list.items = [];
-	}
-	return list;
+): Promise<ProjectTemplate | null> {
+	return (await doGet(`/assistants/${assistantID}/projects/${projectID}/template`, {
+		dontLogErrors: true
+	})) as ProjectTemplate;
 }
 
-export async function updateProjectTemplate(
+export async function deleteProjectTemplate(assistantID: string, projectID: string) {
+	return doDelete(`/assistants/${assistantID}/projects/${projectID}/template`);
+}
+
+export async function projectUpgradeFromTemplate(
 	assistantID: string,
-	projectID: string,
-	templateID: string,
-	template: ProjectTemplateManifest
-): Promise<ProjectTemplate> {
-	return (await doPut(
-		`/assistants/${assistantID}/projects/${projectID}/templates/${templateID}`,
-		template
-	)) as ProjectTemplate;
-}
-
-export async function deleteProjectTemplate(
-	assistantID: string,
-	projectID: string,
-	templateID: string
-) {
-	return doDelete(`/assistants/${assistantID}/projects/${projectID}/templates/${templateID}`);
-}
-
-export async function listTemplates(opts?: {
-	all?: boolean;
-	fetch?: Fetcher;
-}): Promise<ProjectTemplateList> {
-	const queryParams = opts?.all ? '?all=true' : '';
-	const list = (await doGet(`/templates${queryParams}`, opts)) as ProjectTemplateList;
-	if (!list.items) {
-		list.items = [];
-	}
-	return list;
+	projectID: string
+): Promise<void> {
+	await doPost(`/assistants/${assistantID}/projects/${projectID}/upgrade-from-template`, {});
 }
 
 export async function getTemplate(
@@ -1448,8 +1411,11 @@ export async function deconfigureSingleOrRemoteMcpServer(id: string): Promise<vo
 	await doPost(`/mcp-servers/${id}/deconfigure`, {});
 }
 
-export async function revealSingleOrRemoteMcpServer(id: string): Promise<Record<string, string>> {
-	return doPost(`/mcp-servers/${id}/reveal`, {}) as Promise<Record<string, string>>;
+export async function revealSingleOrRemoteMcpServer(
+	id: string,
+	opts?: { dontLogErrors?: boolean }
+): Promise<Record<string, string>> {
+	return doPost(`/mcp-servers/${id}/reveal`, {}, opts) as Promise<Record<string, string>>;
 }
 
 export async function listSingleOrRemoteMcpServerTools(id: string): Promise<MCPServerTool[]> {

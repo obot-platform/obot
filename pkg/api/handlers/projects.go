@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"slices"
 	"strings"
 
@@ -247,6 +248,60 @@ func (h *ProjectsHandler) GetProject(req api.Context) error {
 	return req.Write(convertProject(&thread, nil))
 }
 
+// UpgradeFromTemplate upgrades a project to the latest snapshot of a project if the snapshot has changed since
+// the project was created or the last time the project was upgraded.
+func (h *ProjectsHandler) UpgradeFromTemplate(req api.Context) error {
+	var (
+		projectID = strings.Replace(req.PathValue("project_id"), system.ProjectPrefix, system.ThreadPrefix, 1)
+		thread    v1.Thread
+	)
+
+	if err := req.Get(&thread, projectID); err != nil {
+		return err
+	}
+
+	if thread.Spec.SourceThreadName == "" || !thread.Spec.Project {
+		return types.NewErrBadRequest("project was not created from a template")
+	}
+
+	if thread.Status.UpgradeInProgress {
+		return types.NewErrHTTP(http.StatusTooEarly, "project upgrade already in progress")
+	}
+
+	if !thread.Status.UpgradeAvailable {
+		// Project is ineligable for an upgrade due to one of the following reasons:
+		// - the project is already at the latest revision of the project snapshot
+		// - the user has manually modified the project
+		return types.NewErrBadRequest("project not eligible for an upgrade")
+	}
+
+	if thread.Spec.UpgradeApproved {
+		// Project is already approved for an upgrade, nothing to do
+		return nil
+	}
+
+	// Get the source thread to verify it's a template
+	var source v1.Thread
+	if err := req.Get(&source, thread.Spec.SourceThreadName); err != nil {
+		return err
+	}
+
+	// Verify the source is actually a template
+	if !source.Spec.Template {
+		return types.NewErrBadRequest("source project is not a template")
+	}
+
+	// Ensure the template isn't currently being upgraded from its own source project
+	if source.Status.UpgradeInProgress {
+		return types.NewErrHTTP(http.StatusTooEarly, "the project snapshot is currently being upgraded")
+	}
+
+	// Project has diverged from the snapshot, upgrade to the latest snapshot by setting the upgrade flag
+	thread.Spec.UpgradeApproved = true
+
+	return req.Update(&thread)
+}
+
 func (h *ProjectsHandler) ListProjects(req api.Context) error {
 	var (
 		assistantID = req.PathValue("assistant_id")
@@ -469,6 +524,13 @@ func convertProject(thread *v1.Thread, parentThread *v1.Thread) types.Project {
 		Editor:                       thread.IsEditor(),
 		UserID:                       thread.Spec.UserID,
 		WorkflowNamesFromIntegration: thread.Status.WorkflowNamesFromIntegration,
+		TemplateUpgradeAvailable:     (thread.Status.UpgradeAvailable && !thread.Spec.UpgradeApproved),
+		TemplateUpgradeInProgress:    thread.Status.UpgradeInProgress,
+		TemplatePublicID:             thread.Status.UpgradePublicID,
+	}
+
+	if !thread.Status.LastUpgraded.Time.IsZero() {
+		p.TemplateLastUpgraded = types.NewTime(thread.Status.LastUpgraded.Time)
 	}
 
 	// Include tools from parent project

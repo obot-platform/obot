@@ -18,7 +18,7 @@
 	import SidebarConfig from './chat/ChatSidebarConfig.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-	import McpServerOauths from './chat/McpServerOauths.svelte';
+	import McpServerRequirements from './chat/McpServerRequirements.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 
 	interface Props {
@@ -226,7 +226,7 @@
 	</div>
 </div>
 
-<McpServerOauths assistantId={assistant?.id || ''} projectId={project.id} />
+<McpServerRequirements assistantId={assistant?.id || ''} projectId={project.id} />
 
 {#snippet openSidebar()}
 	<button class="icon-button" onclick={() => (layout.sidebarOpen = true)}>

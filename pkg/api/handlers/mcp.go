@@ -210,6 +210,10 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	items := make([]types.MCPServer, 0, len(servers.Items))
 
 	for _, server := range servers.Items {
+		if server.Spec.Template {
+			continue
+		}
+
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
@@ -1726,6 +1730,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		DeploymentReadyReplicas:     server.Status.DeploymentReadyReplicas,
 		DeploymentReplicas:          server.Status.DeploymentReplicas,
 		DeploymentConditions:        conditions,
+		Template:                    server.Spec.Template,
 	}
 }
 

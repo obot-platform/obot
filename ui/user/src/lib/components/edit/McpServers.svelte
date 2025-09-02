@@ -58,7 +58,7 @@
 	}
 
 	function shouldShowWarning(mcp: (typeof projectMCPs.items)[0]) {
-		if (mcp.needsURL) {
+		if (mcp.needsURL || mcp.needsUpdate) {
 			return true;
 		}
 
@@ -71,6 +71,16 @@
 		}
 
 		return !!mcp.oauthURL;
+	}
+
+	function warningTooltip(mcp: (typeof projectMCPs.items)[0]) {
+		if (mcp.needsURL || mcp.needsUpdate) return 'Configuration Required';
+		if (typeof mcp.configured === 'boolean' && mcp.configured === false)
+			return 'Configuration Required';
+		if (typeof mcp.authenticated === 'boolean' && mcp.authenticated === false)
+			return 'Authentication Required';
+		if (mcp.oauthURL) return 'Authentication Required';
+		return 'Configuration Required';
 	}
 
 	async function handleRemoveMcp() {
@@ -118,12 +128,7 @@
 						>
 							{mcpServer.alias || mcpServer.name || DEFAULT_CUSTOM_SERVER_NAME}
 							{#if shouldShowWarning(mcpServer)}
-								<span
-									class="ml-2"
-									use:tooltip={mcpServer.authenticated
-										? 'Configuration Required'
-										: 'Authentication Required'}
-								>
+								<span class="ml-1" use:tooltip={warningTooltip(mcpServer)}>
 									<TriangleAlert class="size-3" stroke="currentColor" fill="none" color="orange" />
 								</span>
 							{/if}
