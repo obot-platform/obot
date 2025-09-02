@@ -280,6 +280,9 @@ func (v RemoteValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEn
 
 func (v RemoteValidator) validateRemoteConfig(config types.RemoteRuntimeConfig) error {
 	if strings.TrimSpace(config.URL) == "" {
+		if config.IsTemplate {
+			return nil
+		}
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeRemote,
 			Field:   "url",
@@ -309,23 +312,36 @@ func (v RemoteValidator) validateRemoteConfig(config types.RemoteRuntimeConfig) 
 }
 
 func (v RemoteValidator) validateRemoteCatalogConfig(config types.RemoteCatalogConfig) error {
-	// Either FixedURL or Hostname must be provided, but not both
+	// Either FixedURL, Hostname, or URLTemplate must be provided, but only one
 	hasFixedURL := strings.TrimSpace(config.FixedURL) != ""
 	hasHostname := strings.TrimSpace(config.Hostname) != ""
+	hasURLTemplate := strings.TrimSpace(config.URLTemplate) != ""
 
-	if !hasFixedURL && !hasHostname {
+	if !hasFixedURL && !hasHostname && !hasURLTemplate {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeRemote,
 			Field:   "remoteConfig",
-			Message: "either fixedURL or hostname must be provided",
+			Message: "either fixedURL, hostname, or urlTemplate must be provided",
 		}
 	}
 
-	if hasFixedURL && hasHostname {
+	// Count how many fields are set
+	fieldCount := 0
+	if hasFixedURL {
+		fieldCount++
+	}
+	if hasHostname {
+		fieldCount++
+	}
+	if hasURLTemplate {
+		fieldCount++
+	}
+
+	if fieldCount > 1 {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeRemote,
 			Field:   "remoteConfig",
-			Message: "cannot specify both fixedURL and hostname",
+			Message: "cannot specify multiple URL configuration methods (fixedURL, hostname, or urlTemplate)",
 		}
 	}
 

@@ -6757,9 +6757,16 @@ func schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref common.Re
 							Format: "",
 						},
 					},
-					"hostname": {
+					"urlTemplate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Fixed URL for all instances",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL template for user URLs",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -6814,8 +6821,16 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 							},
 						},
 					},
+					"isTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"url"},
+				Required: []string{"url", "isTemplate"},
 			},
 		},
 		Dependencies: []string{

@@ -688,7 +688,6 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
-
 		var are nmcp.AuthRequiredErr
 		if errors.As(err, &are) {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
@@ -1094,6 +1093,42 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return err
 	}
 
+	// Check if this server is from a catalog and has a URL template that needs to be processed
+	if mcpServer.Spec.MCPServerCatalogEntryName != "" {
+		var catalogEntry v1.MCPServerCatalogEntry
+		if err := req.Get(&catalogEntry, mcpServer.Spec.MCPServerCatalogEntryName); err != nil {
+			return fmt.Errorf("failed to get catalog entry %s: %w", mcpServer.Spec.MCPServerCatalogEntryName, err)
+		}
+
+		// Check if the catalog entry has a URL template for remote runtime
+		// Templates use ${VARIABLE_NAME} syntax for variable substitution
+		// Example: "https://${DATABRICKS_WORKSPACE_URL}/api/2.0/mcp/genie/${DATABRICKS_GENIE_SPACE_ID}"
+		if catalogEntry.Spec.Manifest.Runtime == types.RuntimeRemote &&
+			catalogEntry.Spec.Manifest.RemoteConfig != nil &&
+			catalogEntry.Spec.Manifest.RemoteConfig.URLTemplate != "" {
+			// Apply the URL template with environment variables
+			finalURL, err := applyURLTemplate(catalogEntry.Spec.Manifest.RemoteConfig.URLTemplate, envVars)
+			if err != nil {
+				return fmt.Errorf("failed to apply URL template: %w", err)
+			}
+
+			// Update the server's remote config URL with the processed template
+			if mcpServer.Spec.Manifest.RemoteConfig == nil {
+				mcpServer.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{}
+			}
+			mcpServer.Spec.Manifest.RemoteConfig.URL = finalURL
+
+			if err := validation.ValidateServerManifest(mcpServer.Spec.Manifest); err != nil {
+				return types.NewErrBadRequest("validation failed: %v", err)
+			}
+
+			// Save the updated server
+			if err := req.Update(&mcpServer); err != nil {
+				return fmt.Errorf("failed to update server with processed URL: %w", err)
+			}
+		}
+	}
+
 	var credCtx, scope string
 	if catalogID != "" {
 		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
@@ -1124,6 +1159,20 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	}
 
 	return req.Write(convertMCPServer(mcpServer, envVars, m.serverURL))
+}
+
+// applyURLTemplate applies a URL template with environment variables
+// The template uses ${VARIABLE_NAME} syntax for variable substitution
+func applyURLTemplate(templateStr string, envVars map[string]string) (string, error) {
+	result := templateStr
+
+	// Replace all ${VARIABLE_NAME} patterns with actual values
+	for key, value := range envVars {
+		placeholder := fmt.Sprintf("${%s}", key)
+		result = strings.ReplaceAll(result, placeholder, value)
+	}
+
+	return result, nil
 }
 
 func (m *MCPHandler) DeconfigureServer(req api.Context) error {

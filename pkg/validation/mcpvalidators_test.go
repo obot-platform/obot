@@ -135,36 +135,132 @@ func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 			expectError: false,
 		},
 
+		// Valid cases - URLTemplate only
+		{
+			name: "valid urlTemplate with single variable",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "https://${API_HOST}/mcp/endpoint",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid urlTemplate with multiple variables",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "https://${DATABRICKS_WORKSPACE_URL}/api/2.0/mcp/genie/${DATABRICKS_GENIE_SPACE_ID}",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid urlTemplate with path and query",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "https://${API_HOST}/api/${VERSION}/endpoint?token=${API_TOKEN}&user=${USER_ID}",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid urlTemplate with port",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "https://${API_HOST}:${PORT}/mcp",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid urlTemplate with complex path",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "https://${REGION}.${SERVICE}.${PROVIDER}.com/${VERSION}/${RESOURCE}/${ID}",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid urlTemplate with special characters in variables",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "https://${API_HOST}/api/${USER_NAME}/profile",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid urlTemplate with underscore in variables",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "https://${API_HOST}/api/${USER_ID}/data",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid urlTemplate with numbers in variables",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "https://${API_HOST}/api/v${VERSION}/endpoint",
+			},
+			expectError: false,
+		},
+
+		// Valid cases - URLTemplate with Headers
+		{
+			name: "valid urlTemplate with headers",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "https://${API_HOST}/mcp",
+				Headers: []types.MCPHeader{
+					{Name: "Authorization", Key: "Bearer token"},
+					{Name: "X-API-Key", Key: "secret"},
+				},
+			},
+			expectError: false,
+		},
+
+		// Valid cases - URLTemplate with mixed configurations
+		{
+			name: "valid urlTemplate with http scheme",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "http://${API_HOST}/mcp",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid urlTemplate with IP address variable",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "https://${SERVER_IP}:${PORT}/mcp",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid urlTemplate with subdomain variables",
+			config: types.RemoteCatalogConfig{
+				URLTemplate: "https://${ENV}.${SERVICE}.${DOMAIN}.com/mcp",
+			},
+			expectError: false,
+		},
+
 		// Error cases - missing both
 		{
 			name:        "empty config",
 			config:      types.RemoteCatalogConfig{},
 			expectError: true,
 			errorField:  "remoteConfig",
-			errorMsg:    "either fixedURL or hostname must be provided",
+			errorMsg:    "either fixedURL, hostname, or urlTemplate must be provided",
 		},
 		{
-			name: "both fields empty strings",
+			name: "all fields empty strings",
 			config: types.RemoteCatalogConfig{
-				FixedURL: "",
-				Hostname: "",
+				FixedURL:    "",
+				Hostname:    "",
+				URLTemplate: "",
 			},
 			expectError: true,
 			errorField:  "remoteConfig",
-			errorMsg:    "either fixedURL or hostname must be provided",
+			errorMsg:    "either fixedURL, hostname, or urlTemplate must be provided",
 		},
 		{
-			name: "both fields whitespace only",
+			name: "all fields whitespace only",
 			config: types.RemoteCatalogConfig{
-				FixedURL: "   ",
-				Hostname: "\t\n",
+				FixedURL:    "   ",
+				Hostname:    "\t\n",
+				URLTemplate: "  ",
 			},
 			expectError: true,
 			errorField:  "remoteConfig",
-			errorMsg:    "either fixedURL or hostname must be provided",
+			errorMsg:    "either fixedURL, hostname, or urlTemplate must be provided",
 		},
 
-		// Error cases - both provided
+		// Error cases - multiple fields provided
 		{
 			name: "both fixedURL and hostname provided",
 			config: types.RemoteCatalogConfig{
@@ -173,17 +269,81 @@ func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 			},
 			expectError: true,
 			errorField:  "remoteConfig",
-			errorMsg:    "cannot specify both fixedURL and hostname",
+			errorMsg:    "cannot specify multiple URL configuration methods",
 		},
 		{
-			name: "both fixedURL and hostname provided with whitespace",
+			name: "both fixedURL and urlTemplate provided",
+			config: types.RemoteCatalogConfig{
+				FixedURL:    "https://api.example.com/mcp",
+				URLTemplate: "https://${API_HOST}/mcp",
+			},
+			expectError: true,
+			errorField:  "remoteConfig",
+			errorMsg:    "cannot specify multiple URL configuration methods",
+		},
+		{
+			name: "both hostname and urlTemplate provided",
+			config: types.RemoteCatalogConfig{
+				Hostname:    "example.com",
+				URLTemplate: "https://${API_HOST}/mcp",
+			},
+			expectError: true,
+			errorField:  "remoteConfig",
+			errorMsg:    "cannot specify multiple URL configuration methods",
+		},
+		{
+			name: "all three fields provided",
+			config: types.RemoteCatalogConfig{
+				FixedURL:    "https://api.example.com/mcp",
+				Hostname:    "example.com",
+				URLTemplate: "https://${API_HOST}/mcp",
+			},
+			expectError: true,
+			errorField:  "remoteConfig",
+			errorMsg:    "cannot specify multiple URL configuration methods",
+		},
+
+		// Additional test cases for comprehensive coverage
+		{
+			name: "fixedURL and hostname with whitespace",
 			config: types.RemoteCatalogConfig{
 				FixedURL: " https://api.example.com/mcp ",
 				Hostname: " example.com ",
 			},
 			expectError: true,
 			errorField:  "remoteConfig",
-			errorMsg:    "cannot specify both fixedURL and hostname",
+			errorMsg:    "cannot specify multiple URL configuration methods",
+		},
+		{
+			name: "fixedURL and urlTemplate with whitespace",
+			config: types.RemoteCatalogConfig{
+				FixedURL:    " https://api.example.com/mcp ",
+				URLTemplate: " https://${API_HOST}/mcp ",
+			},
+			expectError: true,
+			errorField:  "remoteConfig",
+			errorMsg:    "cannot specify multiple URL configuration methods",
+		},
+		{
+			name: "hostname and urlTemplate with whitespace",
+			config: types.RemoteCatalogConfig{
+				Hostname:    " example.com ",
+				URLTemplate: " https://${API_HOST}/mcp ",
+			},
+			expectError: true,
+			errorField:  "remoteConfig",
+			errorMsg:    "cannot specify multiple URL configuration methods",
+		},
+		{
+			name: "all three fields with whitespace",
+			config: types.RemoteCatalogConfig{
+				FixedURL:    " https://api.example.com/mcp ",
+				Hostname:    " example.com ",
+				URLTemplate: " https://${API_HOST}/mcp ",
+			},
+			expectError: true,
+			errorField:  "remoteConfig",
+			errorMsg:    "cannot specify multiple URL configuration methods",
 		},
 
 		// Error cases - invalid FixedURL
