@@ -72,6 +72,18 @@
 		ttImprove = false;
 	}
 
+	$effect(() => {
+		if (!crepe?.editor) return;
+
+		if (!isEditing && overrideContent) {
+			setValue(overrideContent, true);
+		}
+
+		if (!isEditing && !overrideContent && contents) {
+			setValue(contents);
+		}
+	});
+
 	async function setValue(value: string, isTemporary: boolean = false) {
 		if (!crepe || !crepe.editor) return;
 
@@ -163,7 +175,7 @@
 				const listener = ctx.get(listenerCtx);
 				listener.markdownUpdated((_ctx, markdown, prevMarkdown) => {
 					isEditing = true;
-					if (overrideContent) return;
+					if (overrideContent || !focused) return;
 
 					if (markdown === prevMarkdown) {
 						return;
