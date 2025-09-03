@@ -128,7 +128,6 @@
 
 	const debouncedOnFileChanged = debounce((changedContents: string) => {
 		isEditing = false;
-		console.log(lastSetValue, changedContents);
 		if (onFileChanged && lastSetValue !== changedContents) {
 			onFileChanged(file.name, changedContents);
 		}
