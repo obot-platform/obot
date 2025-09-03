@@ -30,6 +30,7 @@ type VersionHandler struct {
 	supportDocker    bool
 	authEnabled      bool
 	sessionStore     SessionStore
+	enterprise       bool
 }
 
 func NewVersionHandler(emailDomain, postgresDSN string, supportDocker, authEnabled bool) *VersionHandler {
@@ -39,6 +40,7 @@ func NewVersionHandler(emailDomain, postgresDSN string, supportDocker, authEnabl
 		supportDocker:    supportDocker,
 		authEnabled:      authEnabled,
 		sessionStore:     sessionStoreFromPostgresDSN(postgresDSN),
+		enterprise:       os.Getenv("OBOT_ENTERPRISE") == "true",
 	}
 }
 
@@ -50,8 +52,7 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values := make(map[string]any)
 	versions := os.Getenv("OBOT_SERVER_VERSIONS")
 	if versions != "" {
-		pairs := strings.Split(versions, ",")
-		for _, pair := range pairs {
+		for pair := range strings.SplitSeq(versions, ",") {
 			if pair == "" {
 				continue
 			}
@@ -70,6 +71,8 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["dockerSupported"] = v.supportDocker
 	values["authEnabled"] = v.authEnabled
 	values["sessionStore"] = v.sessionStore
+	values["enterprise"] = v.enterprise
+
 	return values
 }
 

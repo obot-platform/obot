@@ -30,12 +30,20 @@ GPTSCRIPT_TOOL_REMAP="${remap_entries%,}"
 OBOT_SERVER_VERSIONS="${server_versions%,}"
 OBOT_SERVER_TOOL_REGISTRIES="${tool_registries%,}"
 
+# Check if enterprise tools are enabled
+if [[ "$OBOT_SERVER_TOOL_REGISTRIES" == *"github.com/obot-platform/enterprise-tools"* ]]; then
+  OBOT_ENTERPRISE=true
+else
+  OBOT_ENTERPRISE=false
+fi
+
 cat <<EOF >/obot-tools/.envrc.tools
 export GPTSCRIPT_SYSTEM_TOOLS_DIR=/obot-tools/
 export TOOLS_VENV_BIN=/obot-tools/venv/bin
 export GPTSCRIPT_TOOL_REMAP="${GPTSCRIPT_TOOL_REMAP}"
 export OBOT_SERVER_TOOL_REGISTRIES="${OBOT_SERVER_TOOL_REGISTRIES}"
 export OBOT_SERVER_VERSIONS="${OBOT_SERVER_VERSIONS}"
+export OBOT_ENTERPRISE="${OBOT_ENTERPRISE}"
 EOF
 
 rm -f /obot-tools/.envrc.tools.*
