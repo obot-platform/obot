@@ -209,7 +209,7 @@
 						</div>
 					</div>
 				{/if}
-				<div class="relative w-full overflow-hidden pt-8 pb-0 pl-8">
+				<div class="relative w-full pt-8 pb-0 pl-8">
 					<MyMcpServers
 						bind:this={myMcpServers}
 						{userServerInstances}
