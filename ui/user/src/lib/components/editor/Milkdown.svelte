@@ -72,18 +72,6 @@
 		ttImprove = false;
 	}
 
-	$effect(() => {
-		if (!crepe?.editor) return;
-
-		if (!isEditing && overrideContent) {
-			setValue(overrideContent, true);
-		}
-
-		if (!isEditing && !overrideContent && contents) {
-			setValue(contents);
-		}
-	});
-
 	async function setValue(value: string, isTemporary: boolean = false) {
 		if (!crepe || !crepe.editor) return;
 
@@ -128,6 +116,7 @@
 
 	const debouncedOnFileChanged = debounce((changedContents: string) => {
 		isEditing = false;
+		console.log(lastSetValue, changedContents);
 		if (onFileChanged && lastSetValue !== changedContents) {
 			onFileChanged(file.name, changedContents);
 		}
@@ -173,13 +162,12 @@
 
 				const listener = ctx.get(listenerCtx);
 				listener.markdownUpdated((_ctx, markdown, prevMarkdown) => {
-					if (overrideContent || focused) return;
-
 					isEditing = true;
+					if (overrideContent) return;
+
 					if (markdown === prevMarkdown) {
 						return;
 					}
-
 					debouncedOnFileChanged(markdown);
 				});
 
