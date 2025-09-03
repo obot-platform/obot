@@ -302,13 +302,12 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 
 func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, containerName, displayName string) (retConfig ServerConfig, retErr error) {
 	var (
-		volumeMounts   []mount.Mount
-		entrypoint     []string
-		cmd            []string
-		env            []string
-		containerPort  int
-		image          string
-		createdVolumes []string
+		volumeMounts  []mount.Mount
+		entrypoint    []string
+		cmd           []string
+		env           []string
+		containerPort int
+		image         string
 	)
 
 	// Prepare file volumes and environment variables
@@ -322,7 +321,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			Source: fileVolumeName,
 			Target: "/files",
 		})
-		createdVolumes = append(createdVolumes, fileVolumeName)
 	}
 
 	if len(fileEnvVars) > 0 {
@@ -345,27 +343,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		}
 	}
 
-	defer func() {
-		if retErr != nil {
-			del := func(volumeName string) error {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-
-				if err := d.client.VolumeRemove(ctx, volumeName, true); err != nil && !cerrdefs.IsNotFound(err) {
-					return err
-				}
-				return nil
-			}
-
-			// Clean up volumes on error
-			for _, volumeName := range createdVolumes {
-				if err := del(volumeName); err != nil {
-					log.Warnf("Failed to remove volume %s after error: %v", volumeName, err)
-				}
-			}
-		}
-	}()
-
 	// Configure based on runtime
 	switch server.Runtime {
 	case otypes.RuntimeUVX, otypes.RuntimeNPX:
@@ -384,7 +361,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			Source: nanobotVolumeName,
 			Target: "/run",
 		})
-		createdVolumes = append(createdVolumes, nanobotVolumeName)
 
 		// Use nanobot command
 		cmd = []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "/run/nanobot.yaml"}
@@ -452,17 +428,6 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	if err != nil {
 		return retConfig, fmt.Errorf("failed to create container: %w", err)
 	}
-
-	defer func() {
-		if retErr != nil {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			// Clean up container on error
-			if rmErr := d.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}); rmErr != nil {
-				log.Warnf("Failed to remove container %s after error: %v", resp.ID, rmErr)
-			}
-		}
-	}()
 
 	// Start container
 	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
@@ -563,22 +528,23 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 		return "", nil, nil
 	}
 
+	volumeName := containerID + "-files"
+
 	// Create anonymous volume
-	volumeResp, err := d.client.VolumeCreate(ctx, volume.CreateOptions{
+	_, err := d.client.VolumeCreate(ctx, volume.CreateOptions{
 		Labels: map[string]string{
 			"mcp.server.id": containerID,
 			"mcp.purpose":   "files",
 		},
+		Name: volumeName,
 	})
-	if err != nil {
+	if err != nil && !cerrdefs.IsAlreadyExists(err) {
 		return "", nil, fmt.Errorf("failed to create volume: %w", err)
 	}
 
 	// Create init container to populate the volume
 	initImage := "alpine:latest"
 	if err := d.ensureImageExists(ctx, initImage); err != nil {
-		// Best effort cleanup
-		_ = d.client.VolumeRemove(ctx, volumeResp.Name, true)
 		return "", nil, fmt.Errorf("failed to ensure init image exists: %w", err)
 	}
 
@@ -586,10 +552,10 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	var script strings.Builder
 	script.WriteString("#!/bin/sh\nset -e\n")
 
-	envVars := make(map[string]string)
+	envVars := make(map[string]string, len(files))
 	for _, file := range files {
 		// Generate unique filename for container
-		filename := fmt.Sprintf("%s-%s", containerID[:12], hash.Digest(file)[:8])
+		filename := fmt.Sprintf("%s-%s", containerID[:12], hash.Digest(file)[:24])
 		containerPath := path.Join("/files", filename)
 
 		// Add to script
@@ -613,48 +579,57 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeVolume,
-				Source: volumeResp.Name,
+				Source: volumeName,
 				Target: "/files",
 			},
 		},
 		AutoRemove: true,
 	}
 
+	var initContainerID string
 	initContainerName := fmt.Sprintf("%s-init", containerID)
 	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, &network.NetworkingConfig{}, nil, initContainerName)
-	if err != nil {
-		// Best effort cleanup
-		_ = d.client.VolumeRemove(ctx, volumeResp.Name, true)
-		return "", nil, fmt.Errorf("failed to create init container: %w", err)
-	}
+	if cerrdefs.IsAlreadyExists(err) {
+		// Init container already exists, get its containerID
+		resp, err := d.client.ContainerList(ctx, container.ListOptions{
+			All: true,
+			Filters: filters.NewArgs(
+				filters.Arg("name", initContainerName),
+			),
+		})
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to inspect nanobot init container: %w", err)
+		}
+		if len(resp) == 0 {
+			return "", nil, fmt.Errorf("failed to find existing nanobot init container")
+		}
 
-	// Start and wait for init container to complete
-	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		// Best effort cleanup
-		_ = d.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
-		_ = d.client.VolumeRemove(ctx, volumeResp.Name, true)
-		return "", nil, fmt.Errorf("failed to start init container: %w", err)
+		initContainerID = resp[0].ID
+	} else if err != nil {
+		return "", nil, fmt.Errorf("failed to create init container: %w", err)
+	} else {
+		initContainerID = resp.ID
+		// Start and wait for init container to complete
+		if err := d.client.ContainerStart(ctx, initContainerID, container.StartOptions{}); err != nil {
+			return "", nil, fmt.Errorf("failed to start init container: %w", err)
+		}
 	}
 
 	// Wait for init container to complete
-	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	statusCh, errCh := d.client.ContainerWait(ctx, initContainerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
 		// It's OK if the container is already gone.
 		if err != nil && !cerrdefs.IsNotFound(err) {
-			// Best effort cleanup
-			_ = d.client.VolumeRemove(ctx, volumeResp.Name, true)
 			return "", nil, fmt.Errorf("error waiting for init container: %w", err)
 		}
 	case status := <-statusCh:
 		if status.StatusCode != 0 {
-			// Best effort cleanup
-			_ = d.client.VolumeRemove(ctx, volumeResp.Name, true)
 			return "", nil, fmt.Errorf("init container failed with exit code %d", status.StatusCode)
 		}
 	}
 
-	return volumeResp.Name, envVars, nil
+	return volumeName, envVars, nil
 }
 
 func (d *dockerBackend) ensureImageExists(ctx context.Context, imageName string) error {
@@ -703,22 +678,22 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 		return "", fmt.Errorf("failed to construct nanobot YAML: %w", err)
 	}
 
+	volumeName := containerID + "-nanobot-config"
 	// Create volume for nanobot config
-	volumeResp, err := d.client.VolumeCreate(ctx, volume.CreateOptions{
+	_, err = d.client.VolumeCreate(ctx, volume.CreateOptions{
 		Labels: map[string]string{
 			"mcp.server.id": containerID,
 			"mcp.purpose":   "nanobot-config",
 		},
+		Name: volumeName,
 	})
-	if err != nil {
+	if err != nil && !cerrdefs.IsAlreadyExists(err) {
 		return "", fmt.Errorf("failed to create nanobot config volume: %w", err)
 	}
 
 	// Create init container to populate the volume with nanobot config
 	initImage := "alpine:latest"
-	if err := d.ensureImageExists(ctx, initImage); err != nil {
-		// Best effort cleanup
-		_ = d.client.VolumeRemove(ctx, volumeResp.Name, true)
+	if err = d.ensureImageExists(ctx, initImage); err != nil {
 		return "", fmt.Errorf("failed to ensure init image exists: %w", err)
 	}
 
@@ -736,45 +711,54 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 		Mounts: []mount.Mount{
 			{
 				Type:   mount.TypeVolume,
-				Source: volumeResp.Name,
+				Source: volumeName,
 				Target: "/run",
 			},
 		},
 		AutoRemove: true,
 	}
 
+	var initContainerID string
 	initContainerName := fmt.Sprintf("%s-nanobot-init", containerID)
 	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, &network.NetworkingConfig{}, nil, initContainerName)
-	if err != nil {
-		// Best effort cleanup
-		_ = d.client.VolumeRemove(ctx, volumeResp.Name, true)
-		return "", fmt.Errorf("failed to create nanobot init container: %w", err)
-	}
+	if cerrdefs.IsAlreadyExists(err) {
+		// Container already exists, so get its ID
+		resp, err := d.client.ContainerList(ctx, container.ListOptions{
+			All: true,
+			Filters: filters.NewArgs(
+				filters.Arg("name", initContainerName),
+			),
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to inspect nanobot init container: %w", err)
+		}
+		if len(resp) == 0 {
+			return "", fmt.Errorf("failed to find existing nanobot init container")
+		}
 
-	// Start and wait for init container to complete
-	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		// Best effort cleanup
-		_ = d.client.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
-		_ = d.client.VolumeRemove(ctx, volumeResp.Name, true)
-		return "", fmt.Errorf("failed to start nanobot init container: %w", err)
+		initContainerID = resp[0].ID
+	} else if err != nil {
+		return "", fmt.Errorf("failed to create nanobot init container: %w", err)
+	} else {
+		initContainerID = resp.ID
+		// Start and wait for init container to complete
+		if err := d.client.ContainerStart(ctx, initContainerID, container.StartOptions{}); err != nil {
+			return "", fmt.Errorf("failed to start init container: %w", err)
+		}
 	}
 
 	// Wait for init container to complete
-	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	statusCh, errCh := d.client.ContainerWait(ctx, initContainerID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
 		if err != nil && !cerrdefs.IsNotFound(err) {
-			// Best effort cleanup
-			_ = d.client.VolumeRemove(ctx, volumeResp.Name, true)
 			return "", fmt.Errorf("error waiting for nanobot init container: %w", err)
 		}
 	case status := <-statusCh:
 		if status.StatusCode != 0 {
-			// Best effort cleanup
-			_ = d.client.VolumeRemove(ctx, volumeResp.Name, true)
 			return "", fmt.Errorf("nanobot init container failed with exit code %d", status.StatusCode)
 		}
 	}
 
-	return volumeResp.Name, nil
+	return volumeName, nil
 }
