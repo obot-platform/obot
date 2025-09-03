@@ -241,6 +241,10 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
+	// Copy the tool previews over so that they don't get wiped out when updating the manifest
+	manifest.ToolPreview = entry.Spec.Manifest.ToolPreview
+
+	// Update the manifest
 	entry.Spec.Manifest = manifest
 
 	if err := req.Update(&entry); err != nil {
