@@ -3,19 +3,19 @@ package oauth
 import (
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/gateway/client"
-	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/services"
 )
 
 type handler struct {
 	gatewayClient *client.Client
 	oauthChecker  *MCPOAuthHandlerFactory
-	tokenService  *jwt.TokenService
+	tokenService  *persistent.TokenService
 	oauthConfig   services.OAuthAuthorizationServerConfig
 	baseURL       string
 }
 
-func SetupHandlers(gatewayClient *client.Client, oauthChecker *MCPOAuthHandlerFactory, tokenService *jwt.TokenService, oauthConfig services.OAuthAuthorizationServerConfig, baseURL string, mux *server.Server) {
+func SetupHandlers(gatewayClient *client.Client, oauthChecker *MCPOAuthHandlerFactory, tokenService *persistent.TokenService, oauthConfig services.OAuthAuthorizationServerConfig, baseURL string, mux *server.Server) {
 	h := &handler{
 		gatewayClient: gatewayClient,
 		tokenService:  tokenService,
@@ -41,4 +41,7 @@ func SetupHandlers(gatewayClient *client.Client, oauthChecker *MCPOAuthHandlerFa
 	mux.HandleFunc("GET /oauth/authorize", h.authorize)
 	mux.HandleFunc("GET /oauth/callback/{oauth_auth_request}", h.callback)
 	mux.HandleFunc("POST /oauth/token", h.token)
+
+	mux.HandleFunc("GET /oauth/jwks.json", h.tokenService.ServeJWKS)
+	mux.HandleFunc("POST /oauth/replace-jwks", h.tokenService.ReplaceJWK)
 }

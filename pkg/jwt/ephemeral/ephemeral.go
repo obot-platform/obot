@@ -1,4 +1,4 @@
-package jwt
+package ephemeral
 
 import (
 	"net/http"
@@ -69,7 +69,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}, true, nil
 }
 
-func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
+func (*TokenService) DecodeToken(token string) (*TokenContext, error) {
 	tk, err := jwt.Parse(token, func(*jwt.Token) (any, error) {
 		return []byte(secret), nil
 	})
@@ -105,7 +105,7 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 	return context, nil
 }
 
-func (t *TokenService) NewToken(context TokenContext) (string, error) {
+func (*TokenService) NewToken(context TokenContext) (string, error) {
 	claims := jwt.MapClaims{
 		"Namespace":         context.Namespace,
 		"RunID":             context.RunID,

@@ -13,7 +13,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gz"
-	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -49,7 +49,7 @@ func stringAppend(first string, second ...string) string {
 	return strings.Join(append([]string{first}, second...), "\n\n")
 }
 
-func Agent(ctx context.Context, tokenService *jwt.TokenService, mcpSessionManager *mcp.SessionManager, db kclient.Client, agent *v1.Agent, serverURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
+func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSessionManager *mcp.SessionManager, db kclient.Client, agent *v1.Agent, serverURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
 	defer func() {
 		sort.Strings(extraEnv)
 	}()

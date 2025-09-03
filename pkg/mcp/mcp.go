@@ -12,11 +12,11 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
-	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *jwt.TokenService, projectMCPServer v1.ProjectMCPServer, userID, mcpServerDisplayName, serverURL string, userIsAdmin bool, allowedTools []string) ([]gptscript.ToolDef, error) {
+func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *ephemeral.TokenService, projectMCPServer v1.ProjectMCPServer, userID, mcpServerDisplayName, serverURL string, userIsAdmin bool, allowedTools []string) ([]gptscript.ToolDef, error) {
 	if mcpServerDisplayName == "" {
 		mcpServerDisplayName = projectMCPServer.Name
 	}

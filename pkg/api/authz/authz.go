@@ -71,6 +71,7 @@ var staticRules = map[string][]string{
 		"POST /oauth/token/{mcp_id}",
 		"POST /oauth/token",
 		"GET /oauth/callback/{oauth_request_id}",
+		"GET /oauth/jwks.json",
 	},
 
 	AuthenticatedGroup: {

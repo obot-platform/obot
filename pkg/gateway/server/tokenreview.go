@@ -43,45 +43,10 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 	}
 
 	if hashedSessionID != "" {
-		// Grab the access token from the session cookie and ask the auth provider for the IdP's access token.
-		sessionCookie, err := g.gatewayClient.GetSessionCookie(req.Context(), hashedSessionID, namespace, name)
+		err := HandleHashedSessionID(req, g.gatewayClient, g.dispatcher, hashedSessionID, namespace, name)
 		if err != nil {
 			return nil, false, err
 		}
-
-		providerURL, err := g.dispatcher.URLForAuthProvider(req.Context(), namespace, name)
-		if err != nil {
-			return nil, false, err
-		}
-
-		// Get the session state from the auth provider,
-		ss, err := g.getSessionState(req, providerURL.String(), sessionCookie.Cookie)
-		if err != nil {
-			// On failure, delete the session cookie (which also deletes tokens for the session).
-			if err := g.gatewayClient.DeleteSessionCookie(req.Context(), hashedSessionID, namespace, name); err != nil {
-				log.Errorf(req.Context(), "failed to delete session cookie: %v", err)
-			}
-			return nil, false, err
-		}
-
-		// Check if the auth provider refreshed the session cookie.
-		var newCookie string
-		for _, setCookie := range ss.SetCookies {
-			if _, newCookie, _ = strings.Cut(setCookie, cookiePrefix); setCookie != "" {
-				break
-			}
-		}
-
-		if newCookie != "" && newCookie != sessionCookie.Cookie {
-			// Provider refreshed the session cookie, update the cached cookie.
-			sessionCookie.Cookie = newCookie
-			if err := g.gatewayClient.EnsureSessionCookie(req.Context(), *sessionCookie); err != nil {
-				return nil, false, err
-			}
-		}
-
-		*req = *req.WithContext(accesstoken.ContextWithAccessToken(req.Context(), ss.AccessToken))
-		*req = *req.WithContext(auth.ContextWithProviderURL(req.Context(), providerURL.String()))
 	}
 
 	return &authenticator.Response{
@@ -98,7 +63,50 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 	}, true, nil
 }
 
-func (g *gatewayTokenReview) getSessionState(req *http.Request, authProviderURL, cookie string) (*auth.SerializableState, error) {
+func HandleHashedSessionID(req *http.Request, gatewayClient *client.Client, dispatcher *dispatcher.Dispatcher, hashedSessionID, namespace, name string) error {
+	// Grab the access token from the session cookie and ask the auth provider for the IdP's access token.
+	sessionCookie, err := gatewayClient.GetSessionCookie(req.Context(), hashedSessionID, namespace, name)
+	if err != nil {
+		return err
+	}
+
+	providerURL, err := dispatcher.URLForAuthProvider(req.Context(), namespace, name)
+	if err != nil {
+		return err
+	}
+
+	// Get the session state from the auth provider,
+	ss, err := getSessionState(req, providerURL.String(), sessionCookie.Cookie)
+	if err != nil {
+		// On failure, delete the session cookie (which also deletes tokens for the session).
+		if err := gatewayClient.DeleteSessionCookie(req.Context(), hashedSessionID, namespace, name); err != nil {
+			log.Errorf(req.Context(), "failed to delete session cookie: %v", err)
+		}
+		return err
+	}
+
+	// Check if the auth provider refreshed the session cookie.
+	var newCookie string
+	for _, setCookie := range ss.SetCookies {
+		if _, newCookie, _ = strings.Cut(setCookie, cookiePrefix); setCookie != "" {
+			break
+		}
+	}
+
+	if newCookie != "" && newCookie != sessionCookie.Cookie {
+		// Provider refreshed the session cookie, update the cached cookie.
+		sessionCookie.Cookie = newCookie
+		if err := gatewayClient.EnsureSessionCookie(req.Context(), *sessionCookie); err != nil {
+			return err
+		}
+	}
+
+	*req = *req.WithContext(accesstoken.ContextWithAccessToken(req.Context(), ss.AccessToken))
+	*req = *req.WithContext(auth.ContextWithProviderURL(req.Context(), providerURL.String()))
+	return nil
+}
+
+func getSessionState(req *http.Request, authProviderURL, cookie string) (*auth.SerializableState, error) {
 	// Clone the header to avoid modifying the original request
 	header := req.Header.Clone()
 

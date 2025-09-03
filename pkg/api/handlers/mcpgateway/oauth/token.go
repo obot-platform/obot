@@ -14,6 +14,8 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"golang.org/x/crypto/bcrypt"
@@ -181,14 +183,34 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		}
 	}
 
-	tkn, accessToken, err := req.GatewayClient.NewAuthTokenWithExpiration(
-		req.Context(),
-		oauthAuthRequest.Spec.AuthProviderNamespace,
-		oauthAuthRequest.Spec.AuthProviderName,
-		oauthAuthRequest.Spec.UserID,
-		oauthAuthRequest.Spec.HashedSessionID,
-		tokenExpiration,
-	)
+	userID := fmt.Sprintf("%d", oauthAuthRequest.Spec.UserID)
+	user, err := req.GatewayClient.UserByID(req.Context(), userID)
+	if err != nil {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "invalid user",
+		})
+	}
+
+	groups := []string{authz.AuthenticatedGroup}
+	if user.Role.HasRole(types.RoleAdmin) {
+		groups = append(groups, authz.AdminGroup)
+	}
+
+	now := time.Now()
+	tknCtx := persistent.TokenContext{
+		IssuedAt:              now,
+		NotBefore:             now,
+		ExpiresAt:             now.Add(tokenExpiration),
+		UserID:                userID,
+		UserName:              user.Username,
+		UserEmail:             user.Email,
+		UserGroups:            groups,
+		AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
+		AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
+		HashedSessionID:       oauthAuthRequest.Spec.HashedSessionID,
+	}
+	tkn, err := h.tokenService.NewToken(tknCtx)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
@@ -202,7 +224,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		},
 		Spec: v1.OAuthTokenSpec{
 			ClientID:              oauthClient.Name,
-			UserID:                tkn.UserID,
+			UserID:                oauthAuthRequest.Spec.UserID,
 			HashedSessionID:       oauthAuthRequest.Spec.HashedSessionID,
 			AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
 			AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
@@ -214,9 +236,9 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	}
 
 	return req.Write(types.OAuthToken{
-		AccessToken:  accessToken,
+		AccessToken:  tkn,
 		TokenType:    "bearer",
-		ExpiresIn:    int(time.Until(tkn.ExpiresAt).Milliseconds() / 1000),
+		ExpiresIn:    int(time.Until(tknCtx.ExpiresAt).Milliseconds() / 1000),
 		RefreshToken: refreshToken,
 	})
 }
@@ -256,14 +278,34 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		}
 	}
 
-	tkn, accessToken, err := req.GatewayClient.NewAuthTokenWithExpiration(
-		req.Context(),
-		oauthToken.Spec.AuthProviderNamespace,
-		oauthToken.Spec.AuthProviderName,
-		oauthToken.Spec.UserID,
-		oauthToken.Spec.HashedSessionID,
-		tokenExpiration,
-	)
+	userID := fmt.Sprintf("%d", oauthToken.Spec.UserID)
+	user, err := req.GatewayClient.UserByID(req.Context(), userID)
+	if err != nil {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "invalid user",
+		})
+	}
+
+	groups := []string{authz.AuthenticatedGroup}
+	if user.Role.HasRole(types.RoleAdmin) {
+		groups = append(groups, authz.AdminGroup)
+	}
+
+	now := time.Now()
+	tknCtx := persistent.TokenContext{
+		IssuedAt:              now,
+		NotBefore:             now,
+		ExpiresAt:             now.Add(tokenExpiration),
+		UserID:                userID,
+		UserName:              user.Username,
+		UserEmail:             user.Email,
+		UserGroups:            groups,
+		AuthProviderName:      oauthToken.Spec.AuthProviderName,
+		AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
+		HashedSessionID:       oauthToken.Spec.HashedSessionID,
+	}
+	tkn, err := h.tokenService.NewToken(tknCtx)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
@@ -277,7 +319,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		},
 		Spec: v1.OAuthTokenSpec{
 			ClientID:              oauthClient.Name,
-			UserID:                tkn.UserID,
+			UserID:                oauthToken.Spec.UserID,
 			HashedSessionID:       oauthToken.Spec.HashedSessionID,
 			AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
 			AuthProviderName:      oauthToken.Spec.AuthProviderName,
@@ -289,9 +331,9 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 	}
 
 	return req.Write(types.OAuthToken{
-		AccessToken:  accessToken,
+		AccessToken:  tkn,
 		TokenType:    "bearer",
-		ExpiresIn:    int(time.Until(tkn.ExpiresAt).Milliseconds() / 1000),
+		ExpiresIn:    int(time.Until(tknCtx.ExpiresAt).Milliseconds() / 1000),
 		RefreshToken: refreshToken,
 	})
 }

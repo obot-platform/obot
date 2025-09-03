@@ -5,7 +5,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
-	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 )
 
 type Options struct {
@@ -20,13 +20,13 @@ type Options struct {
 type Server struct {
 	db                                 *db.DB
 	baseURL, uiURL                     string
-	tokenService                       *jwt.TokenService
+	tokenService                       *ephemeral.TokenService
 	dispatcher                         *dispatcher.Dispatcher
 	dailyUserTokenPromptTokenLimit     int
 	dailyUserTokenCompletionTokenLimit int
 }
 
-func New(ctx context.Context, db *db.DB, tokenService *jwt.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, opts Options) (*Server, error) {
+func New(ctx context.Context, db *db.DB, tokenService *ephemeral.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, opts Options) (*Server, error) {
 	s := &Server{
 		db:                                 db,
 		baseURL:                            opts.Hostname,

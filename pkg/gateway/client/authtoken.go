@@ -17,17 +17,10 @@ const (
 	expirationDur     = 7 * 24 * time.Hour
 )
 
-func (c *Client) newAuthToken(
-	ctx context.Context,
-	authProviderNamespace, authProviderName string,
-	userID uint,
-	expiresIn time.Duration,
-	tr *types.TokenRequest,
-	hashedSessionID string,
-) (*types.AuthToken, string, error) {
+func (c *Client) NewAuthToken(ctx context.Context, authProviderNamespace, authProviderName string, userID uint, tr *types.TokenRequest) (*types.AuthToken, error) {
 	randBytes := make([]byte, tokenIDLength+randomTokenLength)
 	if _, err := rand.Read(randBytes); err != nil {
-		return nil, "", fmt.Errorf("could not generate token id: %w", err)
+		return nil, fmt.Errorf("could not generate token id: %w", err)
 	}
 
 	id := randBytes[:tokenIDLength]
@@ -37,16 +30,14 @@ func (c *Client) newAuthToken(
 		ID: fmt.Sprintf("%x", id),
 		// Hash the token again for long-term storage
 		HashedToken:           hash.String(fmt.Sprintf("%x", token)),
-		HashedSessionID:       hashedSessionID,
-		ExpiresAt:             time.Now().Add(expiresIn),
+		ExpiresAt:             time.Now().Add(expirationDur),
 		AuthProviderNamespace: authProviderNamespace,
 		AuthProviderName:      authProviderName,
 	}
 
-	t := publicToken(id, token)
-	return tkn, t, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	return tkn, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if tr != nil {
-			tr.Token = t
+			tr.Token = publicToken(id, token)
 			tr.ExpiresAt = tkn.ExpiresAt
 
 			if err := tx.Updates(tr).Error; err != nil {
@@ -58,21 +49,6 @@ func (c *Client) newAuthToken(
 
 		return tx.Create(tkn).Error
 	})
-}
-
-func (c *Client) NewAuthToken(ctx context.Context, authProviderNamespace, authProviderName string, userID uint, tr *types.TokenRequest) (*types.AuthToken, error) {
-	tkn, _, err := c.newAuthToken(ctx, authProviderNamespace, authProviderName, userID, expirationDur, tr, "")
-	return tkn, err
-}
-
-func (c *Client) NewAuthTokenWithExpiration(
-	ctx context.Context,
-	authProviderNamespace, authProviderName string,
-	userID uint,
-	hashedSessionID string,
-	expiresIn time.Duration,
-) (*types.AuthToken, string, error) {
-	return c.newAuthToken(ctx, authProviderNamespace, authProviderName, userID, expiresIn, nil, hashedSessionID)
 }
 
 func publicToken(id, token []byte) string {

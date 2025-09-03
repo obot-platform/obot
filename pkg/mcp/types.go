@@ -7,7 +7,7 @@ import (
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authz"
-	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -217,8 +217,8 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 	return serverConfig, missingRequiredNames, nil
 }
 
-func ProjectServerToConfig(tokenService *jwt.TokenService, projectMCPServer v1.ProjectMCPServer, baseURL, userID string, userIsAdmin bool, allowedTools ...string) (ServerConfig, error) {
-	tokenContext := jwt.TokenContext{
+func ProjectServerToConfig(tokenService *ephemeral.TokenService, projectMCPServer v1.ProjectMCPServer, baseURL, userID string, userIsAdmin bool, allowedTools ...string) (ServerConfig, error) {
+	tokenContext := ephemeral.TokenContext{
 		UserID: userID,
 	}
 	if userIsAdmin {

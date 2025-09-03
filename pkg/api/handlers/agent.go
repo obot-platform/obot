@@ -17,7 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/creds"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/invoke"
-	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -30,14 +30,14 @@ import (
 )
 
 type AgentHandler struct {
-	tokenService      *jwt.TokenService
+	tokenService      *ephemeral.TokenService
 	mcpSessionManager *mcp.SessionManager
 	invoker           *invoke.Invoker
 	dispatcher        *dispatcher.Dispatcher
 	serverURL         string
 }
 
-func NewAgentHandler(tokenService *jwt.TokenService, dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, serverURL string) *AgentHandler {
+func NewAgentHandler(tokenService *ephemeral.TokenService, dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, serverURL string) *AgentHandler {
 	return &AgentHandler{
 		serverURL:         serverURL,
 		invoker:           invoker,

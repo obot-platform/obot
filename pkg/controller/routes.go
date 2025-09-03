@@ -60,7 +60,7 @@ func (c *Controller) setupRoutes() {
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
 	toolInfo := toolinfo.New(c.services.GPTClient)
 	threads := threads.NewHandler(c.services.GPTClient, c.services.Invoker)
-	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient, c.services.MCPLoader, c.services.GatewayClient, c.services.TokenServer, c.services.ServerURL)
+	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient, c.services.MCPLoader, c.services.GatewayClient, c.services.EphemeralTokenServer, c.services.ServerURL)
 	projects := projects.NewHandler()
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)

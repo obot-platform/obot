@@ -13,7 +13,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -26,11 +26,11 @@ type ProjectMCPHandler struct {
 	mcpSessionManager *mcp.SessionManager
 	mcpOAuthChecker   MCPOAuthChecker
 	acrHelper         *accesscontrolrule.Helper
-	tokenService      *jwt.TokenService
+	tokenService      *ephemeral.TokenService
 	serverURL         string
 }
 
-func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, tokenService *jwt.TokenService, mcpOAuthChecker MCPOAuthChecker, serverURL string) *ProjectMCPHandler {
+func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, tokenService *ephemeral.TokenService, mcpOAuthChecker MCPOAuthChecker, serverURL string) *ProjectMCPHandler {
 	return &ProjectMCPHandler{
 		mcpSessionManager: mcpLoader,
 		mcpOAuthChecker:   mcpOAuthChecker,

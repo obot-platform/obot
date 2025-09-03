@@ -23,7 +23,7 @@ import (
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/gz"
 	"github.com/obot-platform/obot/pkg/hash"
-	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	"github.com/obot-platform/obot/pkg/render"
@@ -51,14 +51,14 @@ type Invoker struct {
 	gptClient         *gptscript.GPTScript
 	uncached          kclient.WithWatch
 	gatewayClient     *client.Client
-	tokenService      *jwt.TokenService
+	tokenService      *ephemeral.TokenService
 	mcpSessionManager *mcp.SessionManager
 	events            *events.Emitter
 	serverURL         string
 	serverPort        int
 }
 
-func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, mcpSessionManager *mcp.SessionManager, serverURL string, serverPort int, tokenService *jwt.TokenService, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, mcpSessionManager *mcp.SessionManager, serverURL string, serverPort int, tokenService *ephemeral.TokenService, events *events.Emitter) *Invoker {
 	return &Invoker{
 		uncached:          c,
 		gptClient:         gptClient,
@@ -648,7 +648,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		return fmt.Errorf("failed to get root project: %w", err)
 	}
 
-	token, err := i.tokenService.NewToken(jwt.TokenContext{
+	token, err := i.tokenService.NewToken(ephemeral.TokenContext{
 		Namespace:         run.Namespace,
 		RunID:             run.Name,
 		ThreadID:          thread.Name,

@@ -29,4 +29,6 @@ const (
 	GenericFileScannerProviderCredentialContext = "file-scanner-provider"
 
 	MCPWebhookValidationCredentialContext = "mcp-webhook-context"
+
+	JWKCredentialContext = "jwk"
 )

@@ -9,7 +9,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	"github.com/obot-platform/obot/pkg/jwt"
+	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -21,11 +21,11 @@ type Credentials struct {
 	gClient           *gptscript.GPTScript
 	gatewayClient     *gateway.Client
 	mcpSessionManager *mcp.SessionManager
-	tokenService      *jwt.TokenService
+	tokenService      *ephemeral.TokenService
 	serverURL         string
 }
 
-func NewCredentials(gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, tokenService *jwt.TokenService, serverURL string) *Credentials {
+func NewCredentials(gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, tokenService *ephemeral.TokenService, serverURL string) *Credentials {
 	return &Credentials{
 		gClient:           gClient,
 		gatewayClient:     gatewayClient,

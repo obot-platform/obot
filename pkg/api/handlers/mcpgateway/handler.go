@@ -22,7 +22,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/jwt"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -37,7 +36,6 @@ type Handler struct {
 	storageClient     kclient.Client
 	gatewayClient     *gateway.Client
 	gptClient         *gptscript.GPTScript
-	tokenService      *jwt.TokenService
 	mcpSessionManager *mcp.SessionManager
 	webhookHelper     *mcp.WebhookHelper
 	tokenStore        mcp.GlobalTokenStore
@@ -47,12 +45,11 @@ type Handler struct {
 	baseURL           string
 }
 
-func NewHandler(tokenService *jwt.TokenService, storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, globalTokenStore mcp.GlobalTokenStore, gatewayClient *gateway.Client, gptClient *gptscript.GPTScript, baseURL string) *Handler {
+func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, globalTokenStore mcp.GlobalTokenStore, gatewayClient *gateway.Client, gptClient *gptscript.GPTScript, baseURL string) *Handler {
 	return &Handler{
 		storageClient:     storageClient,
 		gatewayClient:     gatewayClient,
 		gptClient:         gptClient,
-		tokenService:      tokenService,
 		mcpSessionManager: mcpSessionManager,
 		webhookHelper:     webhookHelper,
 		tokenStore:        globalTokenStore,

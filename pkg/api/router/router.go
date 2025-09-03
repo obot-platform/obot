@@ -1,7 +1,6 @@
 package router
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
@@ -20,7 +19,7 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient, services.MCPOAuthTokenStorage)
 
-	agents := handlers.NewAgentHandler(services.TokenServer, services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.ServerURL)
+	agents := handlers.NewAgentHandler(services.EphemeralTokenServer, services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.ServerURL)
 	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.Invoker, services.Events, services.Router.Backend())
 	tools := handlers.NewToolHandler(services.Invoker)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events)
@@ -53,9 +52,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	images := handlers.NewImageHandler(services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler()
 	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
-	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.TokenServer, oauthChecker, services.ServerURL)
+	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.EphemeralTokenServer, oauthChecker, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
-	mcpGateway := mcpgateway.NewHandler(services.TokenServer, services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)
+	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 
@@ -587,12 +586,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("/oauth2/", services.ProxyManager.HandlerFunc)
 
 	// Well-known
-	if err := wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, mux); err != nil {
-		return nil, fmt.Errorf("failed to setup well-known handlers: %w", err)
-	}
+	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, mux)
 
 	// Obot OAuth
-	oauth.SetupHandlers(services.GatewayClient, oauthChecker, services.TokenServer, services.OAuthServerConfig, services.ServerURL, mux)
+	oauth.SetupHandlers(services.GatewayClient, oauthChecker, services.PersistentTokenServer, services.OAuthServerConfig, services.ServerURL, mux)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)
