@@ -18,26 +18,34 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 type TokenService struct {
-	lock       sync.RWMutex
-	privateKey ed25519.PrivateKey
-	jwks       json.RawMessage
-	serverURL  string
+	lock          sync.RWMutex
+	privateKey    ed25519.PrivateKey
+	jwks          json.RawMessage
+	gatewayClient *client.Client
+	dispatcher    *dispatcher.Dispatcher
+	serverURL     string
 }
 
-func NewTokenService(ctx context.Context, serverURL string, gptClient *gptscript.GPTScript) (*TokenService, error) {
+func NewTokenService(ctx context.Context, serverURL string, gatewayClient *client.Client, dispatcher *dispatcher.Dispatcher, gptClient *gptscript.GPTScript) (*TokenService, error) {
 	key, err := ensureJWK(ctx, gptClient)
 	if err != nil {
 		return nil, err
 	}
 
-	t := &TokenService{serverURL: serverURL}
+	t := &TokenService{
+		gatewayClient: gatewayClient,
+		dispatcher:    dispatcher,
+		serverURL:     serverURL,
+	}
 
 	if err = t.replaceKey(ctx, key); err != nil {
 		return nil, err
@@ -48,7 +56,7 @@ func NewTokenService(ctx context.Context, serverURL string, gptClient *gptscript
 
 func (t *TokenService) ReplaceJWK(req api.Context) error {
 	// Create a key.
-	_, configuredKey, err := ed25519.GenerateKey(nil)
+	_, newKey, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		return fmt.Errorf("failed to generate key: %w", err)
 	}
@@ -58,13 +66,13 @@ func (t *TokenService) ReplaceJWK(req api.Context) error {
 		ToolName: system.JWKCredentialContext,
 		Type:     gptscript.CredentialTypeTool,
 		Env: map[string]string{
-			keyEnvVar: base64.StdEncoding.EncodeToString(configuredKey),
+			keyEnvVar: base64.StdEncoding.EncodeToString(newKey),
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	if err := t.replaceKey(req.Context(), configuredKey); err != nil {
+	if err := t.replaceKey(req.Context(), newKey); err != nil {
 		return fmt.Errorf("failed to replace key: %w", err)
 	}
 
@@ -86,13 +94,17 @@ type TokenContext struct {
 
 func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
 	token := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+	if token == "" {
+		return nil, false, nil
+	}
+
 	tokenContext, err := t.decodeToken(token)
 	if err != nil {
 		return nil, false, nil
 	}
 
 	if tokenContext.HashedSessionID != "" {
-		if err = server.HandleHashedSessionID(req, nil, nil, tokenContext.HashedSessionID, tokenContext.AuthProviderNamespace, tokenContext.AuthProviderName); err != nil {
+		if err = server.HandleHashedSessionID(req, t.gatewayClient, t.dispatcher, tokenContext.HashedSessionID, tokenContext.AuthProviderNamespace, tokenContext.AuthProviderName); err != nil {
 			return nil, false, err
 		}
 	}

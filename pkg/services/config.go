@@ -523,11 +523,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		postgresDSN = config.DSN
 	}
 
-	persistentTokenServer, err := persistent.NewTokenService(ctx, config.Hostname, gptscriptClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
-	}
-
 	var (
 		ephemeralTokenServer = &ephemeral.TokenService{}
 		events               = events.NewEmitter(storageClient, gatewayClient)
@@ -545,6 +540,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 		proxyManager *proxy.Manager
 	)
+
+	persistentTokenServer, err := persistent.NewTokenService(ctx, config.Hostname, gatewayClient, providerDispatcher, gptscriptClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
+	}
 
 	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, gptscriptClient, config.EnableAuthentication, config.ForceEnableBootstrap)
 	if err != nil {
