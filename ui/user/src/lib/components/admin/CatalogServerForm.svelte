@@ -692,8 +692,8 @@
 
 		{#if formData.env}
 			{#each formData.env as _, i (i)}
-				{@const keyLabel = !!formData.env[i].file ? 'File Location' : 'Key'}
-				{@const keyPlaceholder = !!formData.env[i].file
+				{@const keyLabel = formData.env[i].file ? 'File Location' : 'Key'}
+				{@const keyPlaceholder = formData.env[i].file
 					? 'e.g. /path/to/file'
 					: 'e.g. CUSTOM_API_KEY'}
 				<div
@@ -711,7 +711,7 @@
 									{ label: 'Environment Variable', id: 'environment_variable_type' },
 									{ label: 'File', id: 'file_type' }
 								]}
-								selected={!!formData.env[i].file ? 'file_type' : 'environment_variable_type'}
+								selected={formData.env[i].file ? 'file_type' : 'environment_variable_type'}
 								onSelect={(option) => {
 									if (option.id === 'file_type') {
 										formData.env[i].file = true;
