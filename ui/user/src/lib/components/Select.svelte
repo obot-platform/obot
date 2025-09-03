@@ -117,12 +117,8 @@
 			} else {
 				selected = [key, ...selectedValues].join(',');
 			}
-		} else {
-			if (isSelected) {
-				selected = '';
-			} else {
-				selected = key;
-			}
+		} else if (!isSelected) {
+			selected = key;
 		}
 
 		query = '';
