@@ -56,6 +56,11 @@ func (c *Controller) PreStart(ctx context.Context) error {
 	if err := data.Data(ctx, c.services.StorageClient, c.services.AgentsDir); err != nil {
 		return fmt.Errorf("failed to apply data: %w", err)
 	}
+
+	if err := addCatalogIDToAccessControlRules(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to add catalog ID to access control rules: %w", err)
+	}
+
 	return nil
 }
 
