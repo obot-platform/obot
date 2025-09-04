@@ -721,8 +721,8 @@
 
 						<p class="text-xs font-light text-gray-400 dark:text-gray-600">
 							{#if formData.env[i].file}
-								The user-supplied value will be written to a file at the specified location. The
-								environment variable will be set to the file path.
+								The user-supplied value will be written to a file. Its contents will be available as
+								an environment variable that will be set to the specified $KEY_NAME.
 							{:else}
 								{type === 'single' ? 'User supplied config' : 'Config'} values will be available as environment
 								variables in the MCP server and can be referenced in the runtime configuration using
