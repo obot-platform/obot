@@ -24,7 +24,6 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -60,23 +59,12 @@ func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionMana
 
 func (h *Handler) StreamableHTTP(req api.Context) error {
 	sessionID := req.Request.Header.Get("Mcp-Session-Id")
-	mcpID := req.PathValue("mcp_id")
 
-	var (
-		mcpServer       v1.MCPServer
-		mcpServerConfig mcp.ServerConfig
-		err             error
-	)
-	if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
-		mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, mcpID)
-	} else {
-		mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, mcpID)
-	}
+	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, req.PathValue("mcp_id"))
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the MCP server is not found, remove the session.
 			if sessionID != "" {
-				// We don't need to supply a handler here because the server is not using this session.
 				session, found, err := h.LoadAndDelete(req.Request, sessionID)
 				if err != nil {
 					return fmt.Errorf("failed to get mcp server config: %w", err)
@@ -87,6 +75,7 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 				}
 			}
 		}
+
 		return fmt.Errorf("failed to get mcp server config: %w", err)
 	}
 

@@ -59,7 +59,7 @@ func (s *Server) llmProxy(req api.Context) error {
 			if err != nil {
 				return err
 			} else if !remainingUsage.UnlimitedPromptTokens && remainingUsage.PromptTokens <= 0 || !remainingUsage.UnlimitedCompletionTokens && remainingUsage.CompletionTokens <= 0 {
-				return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (prompt tokens: %d, completion tokens: %d)", remainingUsage.PromptTokens, remainingUsage.CompletionTokens))
+				return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (prompt tokens remaining: %d, completion tokens remaining: %d)", remainingUsage.PromptTokens, remainingUsage.CompletionTokens))
 			}
 		}
 

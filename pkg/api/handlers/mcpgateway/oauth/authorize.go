@@ -16,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/pkg/auth"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
-	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -157,11 +156,11 @@ func (h *handler) authorize(req api.Context) error {
 			unsupported []string
 			scopes      = make(map[string]struct{})
 		)
-		for _, s := range strings.Split(scope, " ") {
+		for s := range strings.SplitSeq(scope, " ") {
 			scopes[s] = struct{}{}
 		}
 
-		for _, s := range strings.Split(oauthClient.Spec.Manifest.Scope, " ") {
+		for s := range strings.SplitSeq(oauthClient.Spec.Manifest.Scope, " ") {
 			if _, ok := scopes[s]; !ok {
 				unsupported = append(unsupported, s)
 			}
@@ -296,16 +295,7 @@ func (h *handler) callback(req api.Context) error {
 
 	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
 		// Check whether the MCP server needs authentication.
-		var (
-			mcpServer       v1.MCPServer
-			mcpServerConfig mcp.ServerConfig
-			err             error
-		)
-		if strings.HasPrefix(mcpID, system.MCPServerInstancePrefix) {
-			mcpServer, mcpServerConfig, err = handlers.ServerFromMCPServerInstance(req, mcpID)
-		} else {
-			mcpServer, mcpServerConfig, err = handlers.ServerForActionWithID(req, mcpID)
-		}
+		_, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID)
 		if err != nil {
 			return err
 		}

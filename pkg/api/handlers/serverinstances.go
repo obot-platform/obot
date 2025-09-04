@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -11,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,7 +47,12 @@ func (h *ServerInstancesHandler) ListServerInstances(req api.Context) error {
 
 	convertedInstances := make([]types.MCPServerInstance, 0, len(instances.Items))
 	for _, instance := range instances.Items {
-		convertedInstances = append(convertedInstances, convertMCPServerInstance(instance, h.serverURL))
+		slug, err := slugForMCPServerInstance(req.Context(), req.Storage, instance, req.User.GetUID())
+		if err != nil {
+			return fmt.Errorf("failed to determine slug for instance %s: %w", instance.Name, err)
+		}
+
+		convertedInstances = append(convertedInstances, convertMCPServerInstance(instance, h.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerInstanceList{
@@ -58,7 +66,12 @@ func (h *ServerInstancesHandler) GetServerInstance(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServerInstance(instance, h.serverURL))
+	slug, err := slugForMCPServerInstance(req.Context(), req.Storage, instance, req.User.GetUID())
+	if err != nil {
+		return fmt.Errorf("failed to determine slug: %v", err)
+	}
+
+	return req.Write(convertMCPServerInstance(instance, h.serverURL, slug))
 }
 
 func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
@@ -129,7 +142,12 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 		return fmt.Errorf("failed to create MCP server instance: %v", err)
 	}
 
-	return req.WriteCreated(convertMCPServerInstance(instance, h.serverURL))
+	slug, err := slugForMCPServerInstance(req.Context(), req.Storage, instance, req.User.GetUID())
+	if err != nil {
+		return fmt.Errorf("failed to determine slug: %v", err)
+	}
+
+	return req.WriteCreated(convertMCPServerInstance(instance, h.serverURL, slug))
 }
 
 func (h *ServerInstancesHandler) DeleteServerInstance(req api.Context) error {
@@ -155,7 +173,7 @@ func (h *ServerInstancesHandler) ClearOAuthCredentials(req api.Context) error {
 	return nil
 }
 
-func convertMCPServerInstance(instance v1.MCPServerInstance, serverURL string) types.MCPServerInstance {
+func convertMCPServerInstance(instance v1.MCPServerInstance, serverURL, slug string) types.MCPServerInstance {
 	return types.MCPServerInstance{
 		Metadata:                MetadataFrom(&instance),
 		UserID:                  instance.Spec.UserID,
@@ -163,7 +181,7 @@ func convertMCPServerInstance(instance v1.MCPServerInstance, serverURL string) t
 		MCPCatalogID:            instance.Spec.MCPCatalogName,
 		MCPServerCatalogEntryID: instance.Spec.MCPServerCatalogEntryName,
 		PowerUserWorkspaceID:    instance.Spec.PowerUserWorkspaceID,
-		ConnectURL:              fmt.Sprintf("%s/mcp-connect/%s", serverURL, instance.Name),
+		ConnectURL:              fmt.Sprintf("%s/mcp-connect/%s", serverURL, slug),
 	}
 }
 
@@ -195,10 +213,37 @@ func (h *ServerInstancesHandler) ListServerInstancesForServer(req api.Context) e
 
 	convertedInstances := make([]types.MCPServerInstance, 0, len(instances.Items))
 	for _, instance := range instances.Items {
-		convertedInstances = append(convertedInstances, convertMCPServerInstance(instance, h.serverURL))
+		slug, err := slugForMCPServerInstance(req.Context(), req.Storage, instance, req.User.GetUID())
+		if err != nil {
+			return fmt.Errorf("failed to determine slug for instance %s: %w", instance.Name, err)
+		}
+		convertedInstances = append(convertedInstances, convertMCPServerInstance(instance, h.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerInstanceList{
 		Items: convertedInstances,
 	})
+}
+
+func slugForMCPServerInstance(ctx context.Context, client kclient.Client, instance v1.MCPServerInstance, userID string) (string, error) {
+	var instancesWithEntryName v1.MCPServerInstanceList
+	if err := client.List(ctx, &instancesWithEntryName, &kclient.ListOptions{
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.mcpServerName": instance.Spec.MCPServerName,
+			"spec.userID":        userID,
+		}),
+	}); err != nil {
+		return "", fmt.Errorf("failed to find MCP server catalog entry for server: %w", err)
+	}
+
+	slices.SortFunc(instancesWithEntryName.Items, func(a, b v1.MCPServerInstance) int {
+		return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
+	})
+
+	slug := instance.Spec.MCPServerName
+	if instancesWithEntryName.Items[0].Name != instance.Name {
+		slug = instance.Name
+	}
+
+	return slug, nil
 }

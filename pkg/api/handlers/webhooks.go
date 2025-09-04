@@ -292,7 +292,7 @@ func (a *WebhookHandler) Execute(req api.Context) error {
 func validateSecretHeader(secret string, body []byte, values []string) error {
 	h := hmac.New(sha256.New, []byte(secret))
 	for _, v := range values {
-		for _, val := range strings.Split(v, ",") {
+		for val := range strings.SplitSeq(v, ",") {
 			_, val, _ = strings.Cut(val, "=")
 			b, err := hex.DecodeString(strings.TrimSpace(val))
 			if err != nil {

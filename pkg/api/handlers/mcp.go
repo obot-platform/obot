@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -160,20 +161,6 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		fieldSelector = kclient.MatchingFields{
 			"spec.powerUserWorkspaceID": workspaceID,
 		}
-	} else if req.PathValue("project_id") != "" {
-		t, err := getThreadForScope(req)
-		if err != nil {
-			return err
-		}
-
-		topMost, err := projects.GetRoot(req.Context(), req.Storage, t)
-		if err != nil {
-			return err
-		}
-
-		fieldSelector = kclient.MatchingFields{
-			"spec.threadName": topMost.Name,
-		}
 	} else {
 		// List servers scoped to the user.
 		fieldSelector = kclient.MatchingFields{
@@ -195,19 +182,6 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	} else if workspaceID != "" {
 		for _, server := range servers.Items {
 			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", workspaceID, server.Name))
-		}
-	} else if req.PathValue("project_id") != "" {
-		project, err := getProjectThread(req)
-		if err != nil {
-			return err
-		}
-
-		for _, server := range servers.Items {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", project.Name, server.Name))
-			if project.IsSharedProject() {
-				// Add default credentials shared by the agent for this MCP server if available.
-				credCtxs = append(credCtxs, fmt.Sprintf("%s-%s-shared", server.Spec.ThreadName, server.Name))
-			}
 		}
 	} else {
 		for _, server := range servers.Items {
@@ -234,11 +208,17 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	}
 
 	items := make([]types.MCPServer, 0, len(servers.Items))
+
 	for _, server := range servers.Items {
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
-		items = append(items, convertMCPServer(server, credMap[server.Name], m.serverURL))
+		slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
+		if err != nil {
+			return fmt.Errorf("failed to determine slug: %w", err)
+		}
+
+		items = append(items, convertMCPServer(server, credMap[server.Name], m.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -293,7 +273,12 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(server, cred.Env, m.serverURL))
+	slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to generate slug: %w", err)
+	}
+
+	return req.Write(convertMCPServer(server, cred.Env, m.serverURL, slug))
 }
 
 func (m *MCPHandler) DeleteServer(req api.Context) error {
@@ -318,27 +303,16 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
-	if req.PathValue("project_id") != "" {
-		project, err := getProjectThread(req)
-		if err != nil {
-			return err
-		}
-
-		// Ensure that the MCP server is in the same project as the request before deleting it.
-		// This prevents chatbot users from deleting MCP servers from the agent.
-		// This is necessary because in order to enable MCP servers to be shared across projects,
-		// the standard authz middleware allows access to all MCP server endpoints from any "child" project
-		// of the one the MCP server belongs to.
-		if project.Name != server.Spec.ThreadName {
-			return types.NewErrForbidden("cannot delete MCP server from this project")
-		}
+	slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
 	if err := req.Delete(&server); err != nil {
 		return err
 	}
 
-	return req.Write(convertMCPServer(server, nil, m.serverURL))
+	return req.Write(convertMCPServer(server, nil, m.serverURL, slug))
 }
 
 func (m *MCPHandler) LaunchServer(req api.Context) error {
@@ -742,15 +716,137 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 	})
 }
 
-func ServerFromMCPServerInstance(req api.Context, instanceID string) (v1.MCPServer, mcp.ServerConfig, error) {
-	var (
-		server   v1.MCPServer
-		instance v1.MCPServerInstance
-	)
-	if err := req.Get(&instance, instanceID); err != nil {
-		return server, mcp.ServerConfig{}, err
-	}
+func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPServer, mcp.ServerConfig, error) {
+	switch {
+	case system.IsMCPServerInstanceID(id):
+		server, config, err := serverFromMCPServerInstanceID(req, id)
+		return id, server, config, err
+	case system.IsMCPServerID(id):
+		var server v1.MCPServer
+		if err := req.Get(&server, id); err != nil {
+			return "", server, mcp.ServerConfig{}, err
+		}
 
+		if server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != "" {
+			// This is a multi-user MCP server, and user is trying to connect to it.
+			// List the MCP server instances, sort by creation time, and take the first one.
+			var instances v1.MCPServerInstanceList
+			if err := req.List(&instances, &kclient.ListOptions{
+				FieldSelector: fields.SelectorFromSet(map[string]string{
+					"spec.mcpServerName": id,
+					"spec.userID":        req.User.GetUID(),
+				}),
+			}); err != nil {
+				return "", server, mcp.ServerConfig{}, err
+			}
+			if len(instances.Items) == 0 {
+				// If none exist, then create one for the user.
+				instance := v1.MCPServerInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: system.MCPServerInstancePrefix,
+						Namespace:    server.Namespace,
+					},
+					Spec: v1.MCPServerInstanceSpec{
+						MCPServerName:             id,
+						MCPCatalogName:            server.Spec.MCPCatalogID,
+						MCPServerCatalogEntryName: server.Spec.MCPServerCatalogEntryName,
+						PowerUserWorkspaceID:      server.Spec.PowerUserWorkspaceID,
+						UserID:                    req.User.GetUID(),
+					},
+				}
+				if err := req.Create(&instance); err != nil {
+					return "", server, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an instance of MCP server %s", id)
+				}
+
+				instances.Items = append(instances.Items, instance)
+			}
+
+			slices.SortFunc(instances.Items, func(a, b v1.MCPServerInstance) int {
+				return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
+			})
+
+			instance := instances.Items[0]
+			server, config, err := serverFromMCPServerInstance(req, instance)
+			return instance.Name, server, config, err
+		}
+
+		serverConfig, err := serverConfigForAction(req, server)
+		return id, server, serverConfig, err
+	default:
+		// In this case, id refers to a catalog entry.
+		// List the MCP servers for the user and take the first one.
+		var servers v1.MCPServerList
+		if err := req.List(&servers, &kclient.ListOptions{
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.mcpServerCatalogEntryName": id,
+				"spec.userID":                    req.User.GetUID(),
+			}),
+		}); err != nil {
+			return "", v1.MCPServer{}, mcp.ServerConfig{}, err
+		}
+		if len(servers.Items) == 0 {
+			// If the user has not configured an MCP server for the catalog entry, and the catalog entry does not have any required configuration, then create an server for the user.
+			var entry v1.MCPServerCatalogEntry
+			if err := req.Get(&entry, id); err != nil {
+				return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+			}
+
+			for _, env := range entry.Spec.Manifest.Env {
+				if env.Required {
+					return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+				}
+			}
+
+			if entry.Spec.Manifest.Runtime == types.RuntimeRemote {
+				if entry.Spec.Manifest.RemoteConfig.FixedURL != "" {
+					return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+				}
+
+				for _, h := range entry.Spec.Manifest.RemoteConfig.Headers {
+					if h.Required {
+						return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+					}
+				}
+			}
+
+			// Convert the catalog entry manifest to a server manifest. Treat the user as non-admin always.
+			manifest, err := serverManifestFromCatalogEntryManifest(false, entry.Spec.Manifest, types.MCPServerManifest{})
+			if err != nil {
+				return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+			}
+
+			// Create a new MCP server for the user.
+			server := v1.MCPServer{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: system.MCPServerPrefix,
+					Namespace:    req.Namespace(),
+				},
+				Spec: v1.MCPServerSpec{
+					Manifest:                  manifest,
+					UnsupportedTools:          entry.Spec.UnsupportedTools,
+					MCPServerCatalogEntryName: id,
+					UserID:                    req.User.GetUID(),
+				},
+			}
+			if err := req.Create(&server); err != nil {
+				return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+			}
+
+			servers.Items = append(servers.Items, server)
+		}
+
+		slices.SortFunc(servers.Items, func(a, b v1.MCPServer) int {
+			return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
+		})
+
+		server := servers.Items[0]
+		serverConfig, err := serverConfigForAction(req, server)
+		return server.Name, server, serverConfig, err
+	}
+}
+
+func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance) (v1.MCPServer, mcp.ServerConfig, error) {
+	var server v1.MCPServer
 	if err := req.Get(&server, instance.Spec.MCPServerName); err != nil {
 		return server, mcp.ServerConfig{}, err
 	}
@@ -790,14 +886,29 @@ func ServerFromMCPServerInstance(req api.Context, instanceID string) (v1.MCPServ
 	return server, serverConfig, nil
 }
 
-func ServerForActionWithID(req api.Context, id string) (v1.MCPServer, mcp.ServerConfig, error) {
+// TODO: make this unexported
+func serverFromMCPServerInstanceID(req api.Context, instanceID string) (v1.MCPServer, mcp.ServerConfig, error) {
+	var instance v1.MCPServerInstance
+	if err := req.Get(&instance, instanceID); err != nil {
+		return v1.MCPServer{}, mcp.ServerConfig{}, err
+	}
+
+	return serverFromMCPServerInstance(req, instance)
+}
+
+func ServerForAction(req api.Context, id string) (v1.MCPServer, mcp.ServerConfig, error) {
 	var server v1.MCPServer
 	if err := req.Get(&server, id); err != nil {
 		return server, mcp.ServerConfig{}, err
 	}
 
+	serverConfig, err := serverConfigForAction(req, server)
+	return server, serverConfig, err
+}
+
+func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConfig, error) {
 	if server.Spec.NeedsURL {
-		return server, mcp.ServerConfig{}, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
+		return mcp.ServerConfig{}, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
 	}
 
 	var (
@@ -816,7 +927,7 @@ func ServerForActionWithID(req api.Context, id string) (v1.MCPServer, mcp.Server
 		if req.PathValue("project_id") != "" {
 			project, err := getProjectThread(req)
 			if err != nil {
-				return server, mcp.ServerConfig{}, err
+				return mcp.ServerConfig{}, err
 			}
 
 			if project.IsSharedProject() {
@@ -835,23 +946,23 @@ func ServerForActionWithID(req api.Context, id string) (v1.MCPServer, mcp.Server
 
 	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return server, mcp.ServerConfig{}, fmt.Errorf("failed to find credential: %w", err)
+		return mcp.ServerConfig{}, fmt.Errorf("failed to find credential: %w", err)
 	}
 
 	serverConfig, missingConfig, err := mcp.ServerToServerConfig(server, scope, cred.Env)
 	if err != nil {
-		return server, mcp.ServerConfig{}, err
+		return mcp.ServerConfig{}, err
 	}
 
 	if len(missingConfig) > 0 {
-		return server, mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
+		return mcp.ServerConfig{}, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
 	}
 
-	return server, serverConfig, nil
+	return serverConfig, nil
 }
 
 func serverForAction(req api.Context) (v1.MCPServer, mcp.ServerConfig, error) {
-	return ServerForActionWithID(req, req.PathValue("mcp_server_id"))
+	return ServerForAction(req, req.PathValue("mcp_server_id"))
 }
 
 func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
@@ -1036,7 +1147,12 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	return req.WriteCreated(convertMCPServer(server, cred.Env, m.serverURL))
+	slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to generate slug: %w", err)
+	}
+
+	return req.WriteCreated(convertMCPServer(server, cred.Env, m.serverURL, slug))
 }
 
 // UpdateServer updates the manifest of an MCPServer.
@@ -1108,7 +1224,12 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(existing, cred.Env, m.serverURL))
+	slug, err := slugForMCPServer(req.Context(), req.Storage, existing, req.User.GetUID(), catalogID, workspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to generate slug: %w", err)
+	}
+
+	return req.Write(convertMCPServer(existing, cred.Env, m.serverURL, slug))
 }
 
 func (m *MCPHandler) UpdateServerAlias(req api.Context) error {
@@ -1237,7 +1358,12 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, envVars, m.serverURL))
+	slug, err := slugForMCPServer(req.Context(), req.Storage, mcpServer, req.User.GetUID(), catalogID, workspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to generate slug: %w", err)
+	}
+
+	return req.Write(convertMCPServer(mcpServer, envVars, m.serverURL, slug))
 }
 
 // applyURLTemplate applies a URL template with environment variables
@@ -1289,7 +1415,12 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL))
+	slug, err := slugForMCPServer(req.Context(), req.Storage, mcpServer, req.User.GetUID(), catalogID, workspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to generate slug: %w", err)
+	}
+
+	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL, slug))
 }
 
 func (m *MCPHandler) Reveal(req api.Context) error {
@@ -1504,7 +1635,7 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 }
 
-func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL string) types.MCPServer {
+func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL, slug string) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
 
 	// Check for missing required env vars
@@ -1532,10 +1663,10 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 	}
 
 	var connectURL string
-	// Only non-shared servers get a connect URL.
-	// Shared servers have connect URLs on the MCPServerInstances instead.
+	// Only single-user servers get a connect URL.
+	// Multi-user servers have connect URLs on the MCPServerInstances instead.
 	if server.Spec.MCPCatalogID == "" {
-		connectURL = fmt.Sprintf("%s/mcp-connect/%s", serverURL, server.Name)
+		connectURL = fmt.Sprintf("%s/mcp-connect/%s", serverURL, slug)
 	}
 
 	conditions := make([]types.DeploymentCondition, 0, len(server.Status.DeploymentConditions))
@@ -1560,7 +1691,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 		MCPServerManifest:           server.Spec.Manifest,
 		CatalogEntryID:              server.Spec.MCPServerCatalogEntryName,
 		PowerUserWorkspaceID:        server.Spec.PowerUserWorkspaceID,
-		SharedWithinCatalogName:     server.Spec.MCPCatalogID,
+		MCPCatalogID:                server.Spec.MCPCatalogID,
 		ConnectURL:                  connectURL,
 		NeedsUpdate:                 server.Status.NeedsUpdate,
 		NeedsURL:                    server.Spec.NeedsURL,
@@ -1574,8 +1705,35 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 	}
 }
 
+func slugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPServer, userID, catalogID, workspaceID string) (string, error) {
+	var shouldHaveUnique bool
+	if workspaceID == "" && catalogID == "" && server.Spec.MCPServerCatalogEntryName != "" {
+		var serversWithEntryName v1.MCPServerList
+		if err := client.List(ctx, &serversWithEntryName, &kclient.ListOptions{
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.mcpServerCatalogEntryName": server.Spec.MCPServerCatalogEntryName,
+				"spec.userID":                    userID,
+			}),
+		}); err != nil {
+			return "", fmt.Errorf("failed to find MCP server catalog entry for server: %w", err)
+		}
+
+		slices.SortFunc(serversWithEntryName.Items, func(a, b v1.MCPServer) int {
+			return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
+		})
+
+		shouldHaveUnique = len(serversWithEntryName.Items) != 0 && serversWithEntryName.Items[0].Name != server.Name
+	}
+
+	slug := server.Spec.MCPServerCatalogEntryName
+	if shouldHaveUnique || server.Spec.MCPServerCatalogEntryName == "" {
+		slug = server.Name
+	}
+
+	return slug, nil
+}
+
 func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
-	// Query all MCPServers (both catalog and workspace-scoped)
 	var list v1.MCPServerList
 	if err := req.List(&list, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return err
@@ -1652,20 +1810,24 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 		catalogEntryMap[entry.Name] = entry
 	}
 
-	var mcpServers []types.MCPServer
+	mcpServers := make([]types.MCPServer, 0, len(allowedServers))
+
+	var slug string
 	for _, server := range allowedServers {
 		addExtractedEnvVars(&server)
 		// Enrich with tool preview data if catalog entry exists
 		if server.Spec.MCPServerCatalogEntryName != "" {
-			if entry, exists := catalogEntryMap[server.Spec.MCPServerCatalogEntryName]; exists {
-				// Add tool preview from catalog entry to server manifest
-				if entry.Spec.Manifest.ToolPreview != nil {
-					server.Spec.Manifest.ToolPreview = entry.Spec.Manifest.ToolPreview
-				}
-			}
+			entry := catalogEntryMap[server.Spec.MCPServerCatalogEntryName]
+			// Add tool preview from catalog entry to server manifest
+			server.Spec.Manifest.ToolPreview = entry.Spec.Manifest.ToolPreview
 		}
 
-		mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name], m.serverURL))
+		slug, err = slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), system.DefaultCatalog, server.Spec.PowerUserWorkspaceID)
+		if err != nil {
+			return fmt.Errorf("failed to generate slug: %w", err)
+		}
+
+		mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name], m.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{Items: mcpServers})
@@ -1733,7 +1895,12 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		// Don't fail if catalog entry is missing, just continue without preview
 	}
 
-	return req.Write(convertMCPServer(server, cred.Env, m.serverURL))
+	slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), system.DefaultCatalog, server.Spec.PowerUserWorkspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to generate slug: %w", err)
+	}
+
+	return req.Write(convertMCPServer(server, cred.Env, m.serverURL, slug))
 }
 
 func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
@@ -1974,7 +2141,12 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to update server: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL))
+	slug, err := slugForMCPServer(req.Context(), req.Storage, mcpServer, req.User.GetUID(), "", "")
+	if err != nil {
+		return fmt.Errorf("failed to generate slug: %w", err)
+	}
+
+	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL, slug))
 }
 
 func (m *MCPHandler) TriggerUpdate(req api.Context) error {

@@ -58,14 +58,10 @@
 						signal: abortController.signal
 					}
 				);
-			} else if ('sharedWithinCatalogName' in entry) {
-				oauthURL = await AdminService.getMCPCatalogServerOAuthURL(
-					entry.sharedWithinCatalogName,
-					entry.id,
-					{
-						signal: abortController.signal
-					}
-				);
+			} else if ('mcpCatalogID' in entry) {
+				oauthURL = await AdminService.getMCPCatalogServerOAuthURL(entry.mcpCatalogID, entry.id, {
+					signal: abortController.signal
+				});
 			} else {
 				oauthURL = await ChatService.getMcpServerOauthURL(entry.id, {
 					signal: abortController.signal

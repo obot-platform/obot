@@ -40,7 +40,7 @@ func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontro
 	}
 }
 
-func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.MCPServer, cred map[string]string, serverURL string) types.ProjectMCPServer {
+func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.MCPServer, cred map[string]string) types.ProjectMCPServer {
 	pmcp := types.ProjectMCPServer{
 		Metadata:                 MetadataFrom(projectServer),
 		ProjectMCPServerManifest: projectServer.Spec.Manifest,
@@ -57,10 +57,11 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 	pmcp.Alias = mcpServer.Spec.Alias
 
 	if cred != nil && mcpServer.Spec.MCPCatalogID == "" {
-		// For non-shared servers, grab more status information from the MCP server.
+		// For single-user servers, grab more status information from the MCP server.
 		// We don't show this for shared servers, because the user can't do anything about it
 		// if something is wrong with one of those; only the admin can.
-		convertedServer := convertMCPServer(*mcpServer, cred, serverURL)
+		// We don't care about the connect URL here, so passing empty string for both URL an slug.
+		convertedServer := convertMCPServer(*mcpServer, cred, "", "")
 		pmcp.Configured = convertedServer.Configured
 		pmcp.NeedsURL = convertedServer.NeedsURL
 		pmcp.NeedsUpdate = convertedServer.NeedsUpdate
@@ -148,7 +149,7 @@ func (p *ProjectMCPHandler) ListServer(req api.Context) error {
 		}
 		cred := credMap[mcpServer.Name]
 
-		items = append(items, convertProjectMCPServer(&server, &mcpServer, cred, p.serverURL))
+		items = append(items, convertProjectMCPServer(&server, &mcpServer, cred))
 	}
 
 	return req.Write(types.ProjectMCPServerList{Items: items})
@@ -216,7 +217,7 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 		return err
 	}
 
-	return req.WriteCreated(convertProjectMCPServer(&projectServer, mcpServer, cred, p.serverURL))
+	return req.WriteCreated(convertProjectMCPServer(&projectServer, mcpServer, cred))
 }
 
 func (p *ProjectMCPHandler) GetServer(req api.Context) error {
@@ -240,7 +241,7 @@ func (p *ProjectMCPHandler) GetServer(req api.Context) error {
 		cred = gptscriptCred.Env
 	}
 
-	return req.Write(convertProjectMCPServer(&projectServer, mcpServer, cred, p.serverURL))
+	return req.Write(convertProjectMCPServer(&projectServer, mcpServer, cred))
 }
 
 func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
@@ -268,7 +269,7 @@ func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertProjectMCPServer(&projectServer, mcpServer, cred, p.serverURL))
+	return req.Write(convertProjectMCPServer(&projectServer, mcpServer, cred))
 }
 
 func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
@@ -278,15 +279,7 @@ func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
 		return err
 	}
 
-	var (
-		server       v1.MCPServer
-		serverConfig mcp.ServerConfig
-	)
-	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
-		server, serverConfig, err = ServerFromMCPServerInstance(req, projectServer.Spec.Manifest.MCPID)
-	} else {
-		server, serverConfig, err = ServerForActionWithID(req, projectServer.Spec.Manifest.MCPID)
-	}
+	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID)
 	if err != nil {
 		return err
 	}
@@ -316,15 +309,7 @@ func (p *ProjectMCPHandler) CheckOAuth(req api.Context) error {
 		return err
 	}
 
-	var (
-		server       v1.MCPServer
-		serverConfig mcp.ServerConfig
-	)
-	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
-		server, serverConfig, err = ServerFromMCPServerInstance(req, projectServer.Spec.Manifest.MCPID)
-	} else {
-		server, serverConfig, err = ServerForActionWithID(req, projectServer.Spec.Manifest.MCPID)
-	}
+	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID)
 	if err != nil {
 		return err
 	}
@@ -349,15 +334,7 @@ func (p *ProjectMCPHandler) GetOAuthURL(req api.Context) error {
 		return err
 	}
 
-	var (
-		server       v1.MCPServer
-		serverConfig mcp.ServerConfig
-	)
-	if system.IsMCPServerInstanceID(projectServer.Spec.Manifest.MCPID) {
-		server, serverConfig, err = ServerFromMCPServerInstance(req, projectServer.Spec.Manifest.MCPID)
-	} else {
-		server, serverConfig, err = ServerForActionWithID(req, projectServer.Spec.Manifest.MCPID)
-	}
+	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID)
 	if err != nil {
 		return err
 	}

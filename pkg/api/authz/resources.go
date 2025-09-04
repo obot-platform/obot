@@ -256,7 +256,7 @@ type Resources struct {
 	MCPServerID         string
 	MCPServerInstanceID string
 	ProjectMCPServerID  string
-	// MCPID is the ID of either an MCPServer or an MCPServerInstance. It is used for interaction with the MCP gateway.
+	// MCPID can be the ID of an MCPServer, an MCPServerInstance, or MCPServerCatalogEntry. It is used for interaction with the MCP gateway.
 	MCPID                  string
 	RunID                  string
 	WorkflowID             string

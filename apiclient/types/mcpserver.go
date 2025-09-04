@@ -131,16 +131,16 @@ type MCPServer struct {
 	MCPServerManifest MCPServerManifest `json:"manifest"`
 
 	// Alias is a user-defined alias for the MCP server.
-	// This may only be set for single user and remote MCP servers (i.e. where `SharedWithinCatalogName` is "").
-	Alias                   string   `json:"alias,omitempty"`
-	UserID                  string   `json:"userID"`
-	Configured              bool     `json:"configured"`
-	MissingRequiredEnvVars  []string `json:"missingRequiredEnvVars,omitempty"`
-	MissingRequiredHeaders  []string `json:"missingRequiredHeader,omitempty"`
-	CatalogEntryID          string   `json:"catalogEntryID"`
-	PowerUserWorkspaceID    string   `json:"powerUserWorkspaceID"`
-	SharedWithinCatalogName string   `json:"sharedWithinCatalogName,omitempty"`
-	ConnectURL              string   `json:"connectURL,omitempty"`
+	// This may only be set for single user and remote MCP servers (i.e. where `MCPCatalogID` is "").
+	Alias                  string   `json:"alias,omitempty"`
+	UserID                 string   `json:"userID"`
+	Configured             bool     `json:"configured"`
+	MissingRequiredEnvVars []string `json:"missingRequiredEnvVars,omitempty"`
+	MissingRequiredHeaders []string `json:"missingRequiredHeader,omitempty"`
+	CatalogEntryID         string   `json:"catalogEntryID"`
+	PowerUserWorkspaceID   string   `json:"powerUserWorkspaceID"`
+	MCPCatalogID           string   `json:"mcpCatalogID,omitempty"`
+	ConnectURL             string   `json:"connectURL,omitempty"`
 
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
