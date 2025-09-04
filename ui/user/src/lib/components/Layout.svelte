@@ -31,6 +31,7 @@
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
+	import { getVersion } from '$lib/services';
 
 	interface Props {
 		classes?: {
@@ -179,7 +180,7 @@
 				bind:this={nav}
 			>
 				<div class="flex h-16 flex-shrink-0 items-center px-2">
-					<BetaLogo />
+					<BetaLogo enterprise />
 				</div>
 
 				<div

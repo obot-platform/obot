@@ -143,6 +143,7 @@ export interface Version {
 	sessionStore?: string;
 	obot?: string;
 	authEnabled?: boolean;
+	enterprise?: boolean;
 }
 
 export interface Profile {
