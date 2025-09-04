@@ -692,10 +692,6 @@
 
 		{#if formData.env}
 			{#each formData.env as _, i (i)}
-				{@const keyLabel = formData.env[i].file ? 'File Location' : 'Key'}
-				{@const keyPlaceholder = formData.env[i].file
-					? 'e.g. /path/to/file'
-					: 'e.g. CUSTOM_API_KEY'}
 				<div
 					class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
 				>
@@ -754,12 +750,12 @@
 								/>
 							</div>
 							<div class="flex w-full flex-col gap-1">
-								<label for={`env-key-${i}`} class="text-sm font-light">{keyLabel}</label>
+								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 								<input
 									id={`env-key-${i}`}
 									class="text-input-filled w-full"
 									bind:value={formData.env[i].key}
-									placeholder={keyPlaceholder}
+									placeholder="e.g. CUSTOM_API_KEY"
 									disabled={readonly}
 								/>
 							</div>
@@ -785,12 +781,12 @@
 							</div>
 						{:else}
 							<div class="flex w-full flex-col gap-1">
-								<label for={`env-key-${i}`} class="text-sm font-light">{keyLabel}</label>
+								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 								<input
 									id={`env-key-${i}`}
 									class="text-input-filled w-full"
 									bind:value={formData.env[i].key}
-									placeholder={keyPlaceholder}
+									placeholder="e.g. CUSTOM_API_KEY"
 									disabled={readonly}
 								/>
 							</div>
