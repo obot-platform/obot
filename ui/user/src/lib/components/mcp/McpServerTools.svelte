@@ -36,10 +36,10 @@
 
 	let selected = $state<string[]>([]);
 	let allToolsEnabled = $derived(selected[0] === '*' || selected.length === tools.length);
-	let expandedDescriptions = $state<Record<string, boolean>>({});
-	let expandedParams = $state<Record<string, boolean>>({});
-	let allDescriptionsEnabled = $state(false);
-	let allParamsEnabled = $state(false);
+	let expanded = $state<Record<string, boolean>>({});
+	let descriptionsEnabled = $state(false);
+	let paramsEnabled = $state(false);
+	let showAllEnabled = $state(false);
 	let abortController = $state<AbortController | null>(null);
 
 	// Determine if we have "real" tools or should show previews
@@ -72,25 +72,25 @@
 		return [];
 	}
 
-	function handleToggleDescription(toolId: string) {
-		if (allDescriptionsEnabled) {
-			allDescriptionsEnabled = false;
+	function handleToggleDescription(toolId: string, show: boolean) {
+		if (showAllEnabled && !show) {
+			showAllEnabled = false;
 			for (const { id: refToolId } of displayTools) {
 				if (toolId !== refToolId) {
-					expandedDescriptions[refToolId] = true;
+					expanded[refToolId] = true;
 				}
 			}
-			expandedDescriptions[toolId] = false;
-		} else {
-			expandedDescriptions[toolId] = !expandedDescriptions[toolId];
 		}
 
-		const expandedDescriptionValues = Object.values(expandedDescriptions);
-		if (
-			expandedDescriptionValues.length === displayTools.length &&
-			expandedDescriptionValues.every((v) => v)
-		) {
-			allDescriptionsEnabled = true;
+		if (show && !descriptionsEnabled && !paramsEnabled) {
+			descriptionsEnabled = true;
+			paramsEnabled = true;
+		}
+
+		expanded[toolId] = show;
+		const expandedValues = Object.values(expanded);
+		if (expandedValues.length === displayTools.length && expandedValues.every((v) => v)) {
+			showAllEnabled = true;
 		}
 	}
 
@@ -183,12 +183,19 @@
 		<div class="mb-2 flex w-full flex-col gap-4">
 			<div class="flex flex-wrap items-center justify-end gap-2 md:flex-shrink-0">
 				<Toggle
-					checked={allDescriptionsEnabled}
+					checked={showAllEnabled}
 					onChange={(checked) => {
-						allDescriptionsEnabled = checked;
-						expandedDescriptions = {};
+						showAllEnabled = checked;
+						if (showAllEnabled && !descriptionsEnabled && !paramsEnabled) {
+							descriptionsEnabled = true;
+							paramsEnabled = true;
+						}
+
+						if (!checked) {
+							expanded = {};
+						}
 					}}
-					label="All Descriptions"
+					label="Show All"
 					labelInline
 					classes={{
 						label: 'text-sm gap-2'
@@ -200,12 +207,37 @@
 				{/if}
 
 				<Toggle
-					checked={allParamsEnabled}
+					checked={descriptionsEnabled}
 					onChange={(checked) => {
-						allParamsEnabled = checked;
-						expandedParams = {};
+						descriptionsEnabled = checked;
+
+						if (!checked && !paramsEnabled && showAllEnabled) {
+							showAllEnabled = false;
+							expanded = {};
+						}
 					}}
-					label="All Parameters"
+					label="Show Descriptions"
+					labelInline
+					classes={{
+						label: 'text-sm gap-2'
+					}}
+				/>
+
+				{#if !responsive.isMobile}
+					<div class="bg-surface3 mx-2 h-5 w-0.5"></div>
+				{/if}
+
+				<Toggle
+					checked={paramsEnabled}
+					onChange={(checked) => {
+						paramsEnabled = checked;
+
+						if (!checked && !descriptionsEnabled && showAllEnabled) {
+							showAllEnabled = false;
+							expanded = {};
+						}
+					}}
+					label="Show Parameters"
 					labelInline
 					classes={{
 						label: 'text-sm gap-2'
@@ -244,9 +276,10 @@
 				</div>
 			{:else if displayTools.length > 0}
 				{#each displayTools as tool (tool.name)}
+					{@const hasContentDisplayed = showAllEnabled || expanded[tool.id]}
 					<div
 						class="border-surface2 dark:bg-surface1 dark:border-surface3 flex flex-col gap-2 rounded-md border bg-white p-3 shadow-sm"
-						class:pb-2={!expandedDescriptions[tool.id] && !allDescriptionsEnabled}
+						class:pb-2={hasContentDisplayed}
 					>
 						<div class="flex items-center justify-between gap-2">
 							<p class="text-md font-semibold">
@@ -260,9 +293,9 @@
 							<div class="flex flex-shrink-0 items-center gap-2">
 								<button
 									class="icon-button h-fit min-h-auto w-fit min-w-auto flex-shrink-0 p-1"
-									onclick={() => handleToggleDescription(tool.id)}
+									onclick={() => handleToggleDescription(tool.id, !hasContentDisplayed)}
 								>
-									{#if expandedDescriptions[tool.id]}
+									{#if hasContentDisplayed}
 										<ChevronUp class="size-4" />
 									{:else}
 										<ChevronDown class="size-4" />
@@ -286,8 +319,8 @@
 								{/if}
 							</div>
 						</div>
-						{#if expandedDescriptions[tool.id] || allDescriptionsEnabled}
-							{#if browser}
+						{#if hasContentDisplayed}
+							{#if browser && descriptionsEnabled}
 								<div
 									in:slide={{ axis: 'y' }}
 									class="milkdown-content max-w-none text-sm font-light text-gray-500"
@@ -296,7 +329,7 @@
 								</div>
 							{/if}
 							{#if Object.keys(tool.params ?? {}).length > 0}
-								{#if expandedParams[tool.id] || allParamsEnabled}
+								{#if paramsEnabled}
 									<div
 										class="from-surface2 dark:from-surface3 flex w-full flex-shrink-0 bg-linear-to-r to-transparent px-4 py-2 text-xs font-semibold text-gray-500 md:w-sm"
 									>
