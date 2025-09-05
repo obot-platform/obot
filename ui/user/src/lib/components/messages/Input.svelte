@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { type InvokeInput } from '$lib/services';
-	import { autoHeight } from '$lib/actions/textarea.js';
-	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
 	import { onMount, type Snippet, tick } from 'svelte';
+	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
+
+	import { type InvokeInput } from '$lib/services';
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
-	import { twMerge } from 'tailwind-merge';
+
+	import PlaintextEditor from './PlaintextEditor.svelte';
 
 	interface Props {
 		id?: string;
@@ -41,17 +42,19 @@
 	}: Props = $props();
 
 	let value = $state(initialValue || '');
-	let chat: HTMLTextAreaElement | undefined = $state<HTMLTextAreaElement>();
+	let chat: HTMLDivElement | undefined = $state<HTMLDivElement>();
+	let editor: PlaintextEditor | undefined = $state();
+
+	// Public method to focus the editor
+	export function focus() {
+		return editor?.focus();
+	}
 
 	$effect(() => {
 		if (!initialValue || (initialValue && initialValue !== value)) {
 			onInputChange?.(value);
 		}
 	});
-
-	export function focus() {
-		chat?.focus();
-	}
 
 	export function getValue() {
 		return value;
@@ -109,6 +112,7 @@
 		if (readonly || pending) {
 			return;
 		}
+
 		await submit();
 	}
 
@@ -142,38 +146,55 @@
 	</button>
 {/snippet}
 
-<div class="w-full px-5" {id}>
-	<label for="chat" class="sr-only">Your messages</label>
-	<div
-		class="bg-surface1 focus-within:ring-blue relative flex flex-col items-center rounded-2xl focus-within:shadow-md focus-within:ring-1"
-	>
-		<div class="relative flex h-fit w-full items-center gap-4 p-2">
-			{#if inputPopover}
-				{@render inputPopover(value)}
-			{/if}
-			<textarea
-				use:autoHeight
-				id="chat"
-				rows="1"
-				bind:value
-				onkeydown={onKey}
-				bind:this={chat}
-				onfocus={onFocus}
-				class={twMerge(
-					'bg-surface1 text-md grow resize-none rounded-xl border-none p-3 pr-20 outline-hidden'
-				)}
-				{placeholder}
-			></textarea>
-			{#if !children}
-				{@render submitButton()}
+<div
+	class=" focus-within:ring-blue bg-surface1 mt-4 flex h-fit max-h-[80svh] overflow-hidden rounded-2xl focus-within:shadow-md focus-within:ring-1"
+>
+	<!-- <div class="max-h-full min-h-full w-full flex-1 overflow-y-auto"></div> -->
+
+	<div class="flex min-h-full w-full flex-col" {id}>
+		<label for="chat" class="sr-only">Your messages</label>
+		<div class="chat-grid relative flex flex-1 flex-col items-center overflow-hidden">
+			<div class="flex h-full items-end overflow-hidden">
+				<div class="scrollable relative flex max-h-full w-full flex-1 gap-4 overflow-y-auto p-2">
+					{#if inputPopover}
+						{@render inputPopover(value)}
+					{/if}
+
+					<PlaintextEditor
+						bind:this={editor}
+						bind:value
+						{placeholder}
+						onfocus={onFocus}
+						onkeydown={onKey}
+					></PlaintextEditor>
+
+					{#if !children}
+						{@render submitButton()}
+					{/if}
+				</div>
+			</div>
+
+			{#if children}
+				<div class="chat-footer pointer-events-none z-1 flex w-full justify-between px-2 pb-2">
+					<div class="pointer-events-auto flex flex-1">
+						{@render children?.()}
+						<div class="grow"></div>
+						{@render submitButton()}
+					</div>
+				</div>
 			{/if}
 		</div>
-		{#if children}
-			<div class="flex w-full justify-between p-2 pt-0">
-				{@render children?.()}
-				<div class="grow"></div>
-				{@render submitButton()}
-			</div>
-		{/if}
 	</div>
 </div>
+
+<style>
+	.chat-grid {
+		display: grid;
+		grid-template-columns: 1fr;
+		grid-template-rows: 1fr auto;
+	}
+
+	.chat-footer {
+		background: linear-gradient(to bottom, rgb(0 0 0 / 0), var(--surface1) 40%);
+	}
+</style>
