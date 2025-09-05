@@ -6,6 +6,7 @@
 	import CatalogServerForm from './CatalogServerForm.svelte';
 	import Table from '../Table.svelte';
 	import {
+		AlertCircle,
 		ChevronLeft,
 		ChevronRight,
 		GlobeLock,
@@ -84,6 +85,7 @@
 	let configureForm = $state<LaunchFormData>();
 	let saving = $state(false);
 	let error = $state<string>();
+	let showButtonInlineError = $state(false);
 
 	let showRegenerateToolsButton = $derived(
 		entry &&
@@ -115,6 +117,7 @@
 		return () => {
 			scrollContainer?.removeEventListener('scroll', checkScrollPosition);
 			window.removeEventListener('resize', checkScrollPosition);
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
 	});
 
@@ -169,6 +172,64 @@
 		}
 	}
 
+	function compileTemporaryInstanceBody() {
+		return {
+			url: configureForm?.url,
+			config: [...(configureForm?.headers ?? []), ...(configureForm?.envs ?? [])].reduce<
+				Record<string, string>
+			>((acc, curr) => {
+				acc[curr.key] = curr.value;
+				return acc;
+			}, {})
+		};
+	}
+
+	async function handleVisibilityChange() {
+		if (!entry || !catalogId) return;
+		document.removeEventListener('visibilitychange', handleVisibilityChange);
+		handleLaunchTemporaryInstance();
+	}
+
+	function handleTemporaryInstanceOauth(oauthUrlToUse: string) {
+		if (!oauthUrlToUse) return;
+		oauthURL = oauthUrlToUse;
+		oauthDialog?.open();
+
+		// add visibility change listener
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+	}
+
+	async function handleLaunchTemporaryInstance(showInlineError = false) {
+		if (!entry || !catalogId) return;
+
+		error = undefined;
+		showButtonInlineError = false;
+		saving = true;
+		const body = compileTemporaryInstanceBody();
+		try {
+			await AdminService.generateMcpCatalogEntryToolPreviews(catalogId, entry.id, body);
+			window.location.reload();
+		} catch (err) {
+			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+			if (errMessage.includes('MCP server requires OAuth authentication')) {
+				const oauthResponse = await AdminService.getMcpCatalogToolPreviewsOauth(
+					catalogId,
+					entry.id,
+					body
+				);
+				if (oauthResponse) {
+					configDialog?.close();
+					handleTemporaryInstanceOauth(oauthResponse);
+				}
+			} else {
+				error = err instanceof Error ? err.message : 'An unknown error occurred';
+				showButtonInlineError = showInlineError;
+			}
+
+			saving = false;
+		}
+	}
+
 	function handleInitTemporaryInstance() {
 		if (!entry) return;
 
@@ -190,38 +251,14 @@
 			...(hostname ? { hostname, url: '' } : {})
 		};
 
-		configDialog?.open();
-	}
-
-	async function handleLaunchTemporaryInstance() {
-		if (!entry || !catalogId) return;
-
-		saving = true;
-		const body = {
-			url: configureForm?.url,
-			config: [...(configureForm?.headers ?? []), ...(configureForm?.envs ?? [])].reduce<
-				Record<string, string>
-			>((acc, curr) => {
-				acc[curr.key] = curr.value;
-				return acc;
-			}, {})
-		};
-
-		try {
-			await AdminService.generateMcpCatalogEntryToolPreviews(catalogId, entry.id, body);
-			configDialog?.close();
-
-			const oauthResponse = await AdminService.getMcpCatalogToolPreviewsOauth(catalogId, entry.id);
-			if (oauthURL) {
-				oauthURL = oauthResponse;
-				oauthDialog?.open();
-			} else {
-				window.location.reload();
-			}
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'An unknown error occurred';
-		} finally {
-			saving = false;
+		const needsEnvValue = configureForm.envs?.some((env) => !env.value);
+		const needsHeaderValue = configureForm.headers?.some((header) => !header.value);
+		const hasConfigFields =
+			type !== 'multi' && (needsEnvValue || needsHeaderValue || configureForm.hostname);
+		if (hasConfigFields) {
+			configDialog?.open();
+		} else {
+			handleLaunchTemporaryInstance(true);
 		}
 	}
 </script>
@@ -327,15 +364,27 @@
 								<button
 									class="button-primary flex items-center gap-1 text-sm"
 									onclick={handleInitTemporaryInstance}
+									disabled={saving}
 								>
-									Launch Temporary Instance
+									{#if saving}
+										<LoaderCircle class="size-4 animate-spin" />
+									{:else}
+										Launch Temporary Instance
+									{/if}
 								</button>
-								<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-									Click above to set up a temporary instance that will populate capabilities and
-									tools. Otherwise, tools will populate when the user first launches this server.
-								</p>
+								{#if !error}
+									<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+										Click above to set up a temporary instance that will populate capabilities and
+										tools. Otherwise, tools will populate when the user first launches this server.
+									</p>
+								{/if}
 							{/if}
 						</div>
+						{#if error && showButtonInlineError}
+							<div class="mt-4 w-full">
+								{@render errorSnippet()}
+							</div>
+						{/if}
 					{/snippet}
 				</McpServerTools>
 			</div>
@@ -624,5 +673,26 @@
 />
 
 <ResponsiveDialog bind:this={oauthDialog} title="OAuthentication Required" class="w-md">
-	<a href={oauthURL} target="_blank" class="button-primary">Authenticate</a>
+	{#if error}
+		{@render errorSnippet()}
+	{/if}
+	{#if saving}
+		<div class="flex w-full justify-center">
+			<LoaderCircle class="size-6 animate-spin" />
+		</div>
+	{:else}
+		<a href={oauthURL} target="_blank" class="button-primary text-center">Authenticate</a>
+	{/if}
 </ResponsiveDialog>
+
+{#snippet errorSnippet()}
+	<div class="notification-error flex items-center gap-2">
+		<AlertCircle class="size-6 flex-shrink-0 text-red-500" />
+		<p class="flex flex-col text-left text-sm font-light">
+			<span class="font-semibold">Error with launching temporary instance:</span>
+			<span>
+				{error}
+			</span>
+		</p>
+	</div>
+{/snippet}

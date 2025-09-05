@@ -160,7 +160,7 @@
 	{/snippet}
 	{#if error}
 		<div class="notification-error flex items-center gap-2">
-			<AlertCircle class="size-6 text-red-500" />
+			<AlertCircle class="size-6 flex-shrink-0 text-red-500" />
 			<p class="flex flex-col text-sm font-light">
 				<span class="font-semibold">Error:</span>
 				<span>

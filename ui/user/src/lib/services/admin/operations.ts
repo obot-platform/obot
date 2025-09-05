@@ -310,12 +310,16 @@ export async function generateMcpCatalogEntryToolPreviews(
 export async function getMcpCatalogToolPreviewsOauth(
 	catalogID: string,
 	entryID: string,
+	body?: {
+		config?: Record<string, string>;
+		url?: string;
+	},
 	opts?: { fetch?: Fetcher }
 ): Promise<string> {
 	try {
 		const response = (await doPost(
 			`/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews/oauth-url`,
-			{},
+			body ?? {},
 			{
 				...opts,
 				dontLogErrors: true
