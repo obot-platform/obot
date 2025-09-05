@@ -47,7 +47,7 @@
 				<Server class="bg-surface1 size-10 rounded-md p-1 dark:bg-gray-600" />
 			{/if}
 			<h1 class="text-2xl font-semibold capitalize">
-				{mcpServer.name}
+				{mcpServer.alias || mcpServer.name}
 			</h1>
 			<div class="flex grow justify-end gap-2">
 				<button
