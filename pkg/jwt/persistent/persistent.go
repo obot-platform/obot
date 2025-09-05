@@ -80,6 +80,7 @@ func (t *TokenService) ReplaceJWK(req api.Context) error {
 }
 
 type TokenContext struct {
+	Audience              string
 	IssuedAt              time.Time
 	NotBefore             time.Time
 	ExpiresAt             time.Time
@@ -87,6 +88,7 @@ type TokenContext struct {
 	UserName              string
 	UserEmail             string
 	UserGroups            []string
+	Picture               string
 	AuthProviderName      string
 	AuthProviderNamespace string
 	HashedSessionID       string
@@ -129,7 +131,7 @@ func (t *TokenService) decodeToken(token string) (*TokenContext, error) {
 		t.lock.RLock()
 		defer t.lock.RUnlock()
 		return t.privateKey.Public(), nil
-	}, jwt.WithIssuer(t.serverURL), jwt.WithAudience(t.serverURL))
+	}, jwt.WithIssuer(t.serverURL))
 	if err != nil {
 		return nil, err
 	}
@@ -138,35 +140,68 @@ func (t *TokenService) decodeToken(token string) (*TokenContext, error) {
 		return nil, err
 	}
 
-	groups := strings.Split(claims["UserGroups"].(string), ",")
-	groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
+	var groups []string
+	if userGroups, ok := claims["UserGroups"].(string); ok {
+		groups = strings.Split(userGroups, ",")
+		groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
+	}
+
+	var issuedAt, notBefore, expiresAt time.Time
+	if iat, ok := claims["iat"].(float64); ok {
+		issuedAt = time.Unix(int64(iat), 0)
+	}
+	if nbf, ok := claims["nbf"].(float64); ok {
+		notBefore = time.Unix(int64(nbf), 0)
+	}
+	if exp, ok := claims["exp"].(float64); ok {
+		expiresAt = time.Unix(int64(exp), 0)
+	}
+
+	getStringClaim := func(keys ...string) string {
+		for _, key := range keys {
+			if val, ok := claims[key].(string); ok {
+				return val
+			}
+		}
+		return ""
+	}
 
 	return &TokenContext{
-		UserID:                claims["UserID"].(string),
-		UserName:              claims["UserName"].(string),
-		UserEmail:             claims["UserEmail"].(string),
+		IssuedAt:              issuedAt,
+		NotBefore:             notBefore,
+		ExpiresAt:             expiresAt,
 		UserGroups:            groups,
-		AuthProviderName:      claims["AuthProviderName"].(string),
-		AuthProviderNamespace: claims["AuthProviderNamespace"].(string),
-		HashedSessionID:       claims["HashedSessionID"].(string),
+		Audience:              getStringClaim("aud"),
+		UserID:                getStringClaim("sub"),
+		Picture:               getStringClaim("picture"),
+		AuthProviderName:      getStringClaim("AuthProviderName"),
+		AuthProviderNamespace: getStringClaim("AuthProviderNamespace"),
+		HashedSessionID:       getStringClaim("HashedSessionID"),
+		// These two fields were the latter names and changed the former.
+		// This makes this backwards compatible with older tokens.
+		UserName:  getStringClaim("name", "UserName"),
+		UserEmail: getStringClaim("email", "UserEmail"),
 	}, nil
 }
 
 func (t *TokenService) NewToken(context TokenContext) (string, error) {
 	claims := jwt.MapClaims{
 		"iss":                   t.serverURL,
-		"aud":                   t.serverURL,
+		"aud":                   context.Audience,
 		"exp":                   context.ExpiresAt.Unix(),
 		"nbf":                   context.NotBefore.Unix(),
 		"iat":                   context.IssuedAt.Unix(),
 		"sub":                   context.UserID,
-		"UserID":                context.UserID,
-		"UserName":              context.UserName,
-		"UserEmail":             context.UserEmail,
+		"name":                  context.UserName,
+		"email":                 context.UserEmail,
+		"picture":               context.Picture,
 		"UserGroups":            strings.Join(context.UserGroups, ","),
 		"AuthProviderName":      context.AuthProviderName,
 		"AuthProviderNamespace": context.AuthProviderNamespace,
 		"HashedSessionID":       context.HashedSessionID,
+	}
+	if claims["aud"] == "" {
+		claims["aud"] = t.serverURL
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)

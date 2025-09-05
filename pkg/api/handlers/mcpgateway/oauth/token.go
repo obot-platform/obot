@@ -199,12 +199,14 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
+		Audience:              oauthAuthRequest.Spec.Resource,
 		IssuedAt:              now,
 		NotBefore:             now,
 		ExpiresAt:             now.Add(tokenExpiration),
 		UserID:                userID,
 		UserName:              user.Username,
 		UserEmail:             user.Email,
+		Picture:               user.IconURL,
 		UserGroups:            groups,
 		AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
@@ -224,6 +226,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		},
 		Spec: v1.OAuthTokenSpec{
 			ClientID:              oauthClient.Name,
+			Resource:              oauthAuthRequest.Spec.Resource,
 			UserID:                oauthAuthRequest.Spec.UserID,
 			HashedSessionID:       oauthAuthRequest.Spec.HashedSessionID,
 			AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
@@ -294,12 +297,14 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
+		Audience:              oauthToken.Spec.Resource,
 		IssuedAt:              now,
 		NotBefore:             now,
 		ExpiresAt:             now.Add(tokenExpiration),
 		UserID:                userID,
 		UserName:              user.Username,
 		UserEmail:             user.Email,
+		Picture:               user.IconURL,
 		UserGroups:            groups,
 		AuthProviderName:      oauthToken.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
@@ -318,6 +323,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 			Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))),
 		},
 		Spec: v1.OAuthTokenSpec{
+			Resource:              oauthToken.Spec.Resource,
 			ClientID:              oauthClient.Name,
 			UserID:                oauthToken.Spec.UserID,
 			HashedSessionID:       oauthToken.Spec.HashedSessionID,
