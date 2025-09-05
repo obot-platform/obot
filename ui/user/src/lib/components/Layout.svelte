@@ -3,7 +3,7 @@
 	import { columnResize } from '$lib/actions/resize';
 	import { profile, responsive, version } from '$lib/stores';
 	import { initLayout, getLayout } from '$lib/context/layout.svelte';
-	import type { Snippet } from 'svelte';
+	import type { Component, Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import {
 		Boxes,
@@ -31,6 +31,7 @@
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
+	import { Render } from './ui/render';
 
 	interface Props {
 		classes?: {
@@ -42,6 +43,7 @@
 		onRenderSubContent?: Snippet<[string]>;
 		hideSidebar?: boolean;
 		whiteBackground?: boolean;
+		main?: { component: Component; props?: Record<string, unknown> };
 	}
 
 	const {
@@ -50,7 +52,8 @@
 		showUserLinks,
 		onRenderSubContent,
 		hideSidebar,
-		whiteBackground
+		whiteBackground,
+		main
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
@@ -285,11 +288,14 @@
 			{/if}
 		{/if}
 
-		<main
+		<Render
 			class={twMerge(
 				'default-scrollbar-thin relative flex h-svh w-full grow flex-col overflow-y-auto',
 				whiteBackground ? 'bg-white dark:bg-black' : 'bg-surface1 dark:bg-black'
 			)}
+			component={main?.component}
+			as="main"
+			{...main?.props}
 		>
 			<Navbar class="dark:bg-gray-990 sticky top-0 left-0 z-30 w-full">
 				{#snippet leftContent()}
@@ -298,14 +304,18 @@
 					{/if}
 				{/snippet}
 			</Navbar>
+
 			<div
 				class={twMerge(
-					'flex h-full flex-col items-center justify-center p-4 md:px-8',
+					'flex flex-1 flex-col items-center justify-center p-4 md:px-8',
 					classes?.container
 				)}
 			>
 				<div
-					class={twMerge('h-full w-full max-w-(--breakpoint-xl)', classes?.childrenContainer ?? '')}
+					class={twMerge(
+						'flex h-full w-full max-w-(--breakpoint-xl) flex-col',
+						classes?.childrenContainer ?? ''
+					)}
 				>
 					{#if pathname.includes('/admin') && !excludeConfigureBanner.includes(pathname)}
 						<ConfigureBanner />
@@ -313,8 +323,9 @@
 					{@render children()}
 				</div>
 			</div>
-		</main>
+		</Render>
 	</div>
+
 	{#if !layout.sidebarOpen && !hideSidebar}
 		<div class="absolute bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
 			<button

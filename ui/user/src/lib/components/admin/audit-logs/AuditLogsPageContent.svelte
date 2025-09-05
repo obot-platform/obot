@@ -27,6 +27,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import { getUserDisplayName } from '../filters-drawer/utils';
+	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 
 	interface Props {
 		mcpId?: string | null;
@@ -55,18 +56,10 @@
 
 	const remoteAuditLogs = $derived(auditLogsResponse?.items ?? []);
 
+	$effect(() => setVirtualPageData(remoteAuditLogs));
+
 	const isReachedMax = $derived(pageIndex >= numberOfPages - 1);
 	const isReachedMin = $derived(pageIndex <= 0);
-
-	let fragmentIndex = $state(0);
-	const fragmentLimit = $state(1000);
-	const numberOfFragments = $derived(Math.ceil(remoteAuditLogs.length / fragmentLimit));
-	const fragmentSliceStart = $derived(0);
-	const fragmentSliceEnd = $derived(
-		Math.min(remoteAuditLogs.length, (fragmentIndex + 1) * fragmentLimit)
-	);
-
-	const fragmentedAuditLogs = $derived(remoteAuditLogs.slice(fragmentSliceStart, fragmentSliceEnd));
 
 	const users = new SvelteMap<string, OrgUser>();
 
@@ -273,7 +266,6 @@
 			// Reset page and page fragment indexes when the total results are less than the current page offset
 			if (!res || pageOffset > (res?.total ?? 0)) {
 				pageIndexLocal.current = 0;
-				fragmentIndex = 0;
 			}
 			showLoadingSpinner = false;
 		});
@@ -301,8 +293,6 @@
 	async function nextPage() {
 		if (isReachedMax) return;
 
-		//Reset fragment index
-		fragmentIndex = 0;
 		pageIndexLocal.current = Math.min(numberOfPages, pageIndex + 1);
 
 		fetchAuditLogs({ ...allFilters });
@@ -311,8 +301,6 @@
 	async function prevPage() {
 		if (isReachedMin) return;
 
-		//Reset fragment index
-		fragmentIndex = 0;
 		pageIndexLocal.current = Math.max(0, pageIndex - 1);
 
 		fetchAuditLogs({ ...allFilters });
@@ -391,7 +379,7 @@
 
 {#if showLoadingSpinner}
 	<div
-		class="absolute inset-0 z-10 flex items-center justify-center"
+		class="absolute inset-0 z-20 flex items-center justify-center"
 		in:fade={{ duration: 100 }}
 		out:fade|global={{ duration: 300, delay: 500 }}
 	>
@@ -489,17 +477,7 @@
 	</div>
 
 	<AuditLogsTable
-		data={fragmentedAuditLogs}
-		currentFragmentIndex={fragmentIndex}
-		getFragmentIndex={(rowIndex: number) => Math.floor(rowIndex / fragmentLimit)}
-		getFragmentRowIndex={(rowIndex: number) => {
-			const fragIndex = Math.floor(rowIndex / fragmentLimit);
-
-			return rowIndex - fragIndex * fragmentLimit;
-		}}
-		onLoadNextFragment={(rowFragmentIndex: number) => {
-			fragmentIndex = Math.min(numberOfFragments - 1, rowFragmentIndex + 1);
-		}}
+		data={remoteAuditLogs}
 		onSelectRow={(d: typeof selectedAuditLog) => {
 			selectedAuditLog = d;
 			showFilters = false;

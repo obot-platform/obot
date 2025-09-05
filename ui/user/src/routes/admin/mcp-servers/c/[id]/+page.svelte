@@ -1,10 +1,13 @@
 <script lang="ts">
-	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
+	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
+	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import Layout from '$lib/components/Layout.svelte';
 	import BackLink from '$lib/components/admin/BackLink.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
@@ -12,8 +15,13 @@
 	let catalogEntry = $state(initialCatalogEntry);
 </script>
 
-<Layout>
-	<div class="mt-6 flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
+<Layout
+	main={{
+		component: VirtualPageViewport as unknown as Component,
+		props: { class: '', as: 'main', itemHeight: 56, overscan: 5, disabled: true }
+	}}
+>
+	<div class="flex h-full flex-col gap-6 pt-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if catalogEntry}
 			{@const currentLabel = catalogEntry?.manifest?.name ?? 'MCP Server'}
 			<BackLink fromURL="mcp-servers" {currentLabel} />
