@@ -761,16 +761,14 @@
 								/>
 							</div>
 							<div class="flex gap-8">
-								{#if !formData.env[i].file}
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											bind:checked={formData.env[i].sensitive}
-											disabled={readonly}
-										/>
-										<span class="text-sm">Sensitive</span>
-									</label>
-								{/if}
+								<label class="flex items-center gap-2">
+									<input
+										type="checkbox"
+										bind:checked={formData.env[i].sensitive}
+										disabled={readonly}
+									/>
+									<span class="text-sm">Sensitive</span>
+								</label>
 								<label class="flex items-center gap-2">
 									<input
 										type="checkbox"
@@ -812,18 +810,16 @@
 									/>
 								{/if}
 							</div>
-							{#if !formData.env[i].file}
-								<div class="flex w-full gap-4">
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											bind:checked={formData.env[i].sensitive}
-											disabled={readonly}
-										/>
-										<span class="text-sm">Sensitive</span>
-									</label>
-								</div>
-							{/if}
+							<div class="flex w-full gap-4">
+								<label class="flex items-center gap-2">
+									<input
+										type="checkbox"
+										bind:checked={formData.env[i].sensitive}
+										disabled={readonly}
+									/>
+									<span class="text-sm">Sensitive</span>
+								</label>
+							</div>
 						{/if}
 					</div>
 

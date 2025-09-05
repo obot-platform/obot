@@ -8,10 +8,35 @@
 		value?: string;
 		error?: boolean;
 		oninput?: () => void;
+		textarea?: boolean;
 	}
 
-	let { name, value = $bindable(''), error, oninput }: Props = $props();
+	let { name, value = $bindable(''), error, oninput, textarea }: Props = $props();
 	let showSensitive = $state(false);
+	let textareaElement = $state<HTMLTextAreaElement>();
+	let isEditing = $state(false);
+
+	function getMaskedValue(text: string): string {
+		return text.replace(/[^\n\r]/g, '•');
+	}
+
+	function handleTextareaFocus() {
+		if (!showSensitive) {
+			isEditing = true;
+		}
+	}
+
+	function handleTextareaBlur() {
+		if (!showSensitive) {
+			isEditing = false;
+		}
+	}
+
+	function handleTextareaInput(event: Event) {
+		const input = event.target as HTMLInputElement | HTMLTextAreaElement;
+		value = input.value;
+		oninput?.();
+	}
 
 	function handleInput(event: Event) {
 		const input = event.target as HTMLInputElement;
@@ -26,20 +51,38 @@
 </script>
 
 <div class="relative flex grow items-center">
-	<input
-		data-1p-ignore
-		id={name}
-		{name}
-		class={twMerge(
-			'text-input-filled w-full pr-10',
-			error && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-		)}
-		class:text-red-500={error}
-		{value}
-		type={showSensitive ? 'text' : 'password'}
-		oninput={handleInput}
-		autocomplete="new-password"
-	/>
+	{#if textarea}
+		<textarea
+			bind:this={textareaElement}
+			data-1p-ignore
+			id={name}
+			{name}
+			class={twMerge(
+				'text-input-filled w-full pr-10',
+				error && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+			)}
+			class:text-red-500={error}
+			value={showSensitive || isEditing ? value : getMaskedValue(value || '')}
+			onfocus={handleTextareaFocus}
+			onblur={handleTextareaBlur}
+			oninput={handleTextareaInput}
+		></textarea>
+	{:else}
+		<input
+			data-1p-ignore
+			id={name}
+			{name}
+			class={twMerge(
+				'text-input-filled w-full pr-10',
+				error && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+			)}
+			class:text-red-500={error}
+			{value}
+			type={showSensitive ? 'text' : 'password'}
+			oninput={handleInput}
+			autocomplete="new-password"
+		/>
+	{/if}
 
 	<button
 		class="absolute top-1/2 right-4 z-10 -translate-y-1/2 cursor-pointer"
