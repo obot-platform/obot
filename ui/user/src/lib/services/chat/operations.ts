@@ -34,8 +34,6 @@ import {
 	type ProjectShare,
 	type ProjectShareList,
 	type ProjectTemplate,
-	type ProjectTemplateList,
-	type ProjectTemplateManifest,
 	type SlackConfig,
 	type SlackReceiver,
 	type Task,
@@ -1243,64 +1241,27 @@ export async function createProjectTemplate(
 	projectID: string
 ): Promise<ProjectTemplate> {
 	return (await doPost(
-		`/assistants/${assistantID}/projects/${projectID}/templates`,
+		`/assistants/${assistantID}/projects/${projectID}/template`,
 		{}
 	)) as ProjectTemplate;
 }
 
-export async function getProjectTemplate(
-	assistantID: string,
-	projectID: string,
-	templateID: string
-): Promise<ProjectTemplate> {
-	return (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/templates/${templateID}`
-	)) as ProjectTemplate;
-}
-
-export async function listProjectTemplates(
+export async function getProjectTemplateForProject(
 	assistantID: string,
 	projectID: string
-): Promise<ProjectTemplateList> {
-	const list = (await doGet(
-		`/assistants/${assistantID}/projects/${projectID}/templates`
-	)) as ProjectTemplateList;
-	if (!list.items) {
-		list.items = [];
+): Promise<ProjectTemplate | null> {
+	try {
+		return (await doGet(`/assistants/${assistantID}/projects/${projectID}/template`, {
+			dontLogErrors: true
+		})) as ProjectTemplate;
+	} catch (error) {
+		// Template doesn't exist for this project
+		return null;
 	}
-	return list;
 }
 
-export async function updateProjectTemplate(
-	assistantID: string,
-	projectID: string,
-	templateID: string,
-	template: ProjectTemplateManifest
-): Promise<ProjectTemplate> {
-	return (await doPut(
-		`/assistants/${assistantID}/projects/${projectID}/templates/${templateID}`,
-		template
-	)) as ProjectTemplate;
-}
-
-export async function deleteProjectTemplate(
-	assistantID: string,
-	projectID: string,
-	templateID: string
-) {
-	return doDelete(`/assistants/${assistantID}/projects/${projectID}/templates/${templateID}`);
-}
-
-export async function listTemplates(opts?: {
-	all?: boolean;
-	fetch?: Fetcher;
-}): Promise<ProjectTemplateList> {
-	const queryParams = opts?.all ? '?all=true' : '';
-	const list = (await doGet(`/templates${queryParams}`, opts)) as ProjectTemplateList;
-	if (!list.items) {
-		list.items = [];
-	}
-	return list;
+export async function deleteProjectTemplate(assistantID: string, projectID: string) {
+	return doDelete(`/assistants/${assistantID}/projects/${projectID}/template`);
 }
 
 export async function getTemplate(

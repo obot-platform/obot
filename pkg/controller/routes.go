@@ -98,9 +98,11 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.Thread{}).HandlerFunc(projects.CleanupChatbots)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyTasksFromSource)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.CopyToolsFromSource)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.RefreshTemplate)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SlackCapability)
 	root.Type(&v1.Thread{}).HandlerFunc(taskHandler.HandleTaskCreationForCapabilities)
+	root.Type(&v1.Thread{}).HandlerFunc(threads.EnsureTemplateThreadShare)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.RemoveOldFinalizers)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
 

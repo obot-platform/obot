@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { type Project } from '$lib/services';
-	import { Settings, SidebarClose } from 'lucide-svelte';
-	import { getLayout } from '$lib/context/chatLayout.svelte';
+	import { Settings, SidebarClose, FilePlus2 } from 'lucide-svelte';
+	import { getLayout, openSidebarConfig } from '$lib/context/chatLayout.svelte';
 	import Tasks from '$lib/components/edit/Tasks.svelte';
 	import McpServers from '$lib/components/edit/McpServers.svelte';
+	// Templates sidebar removed; moved to bottom icon action
 
 	import Threads from '$lib/components/chat/sidebar/Threads.svelte';
 
@@ -27,6 +28,10 @@
 		onCreateProject
 	}: Props = $props();
 	const layout = getLayout();
+
+	async function openTemplatePanel() {
+		openSidebarConfig(layout, 'template');
+	}
 </script>
 
 <div class="border-surface2 dark:bg-gray-990 relative flex size-full flex-col border-r bg-white">
@@ -51,13 +56,20 @@
 	</div>
 
 	<div class="flex w-full items-center justify-between gap-2 px-2 py-2">
-		<button
-			class="icon-button"
-			onclick={() => (layout.sidebarConfig = 'project-configuration')}
-			use:tooltip={'Configure Project'}
-		>
-			<Settings class="size-6 text-gray-500" />
-		</button>
+		<div class="flex items-center gap-1">
+			<button
+				class="icon-button"
+				onclick={() => (layout.sidebarConfig = 'project-configuration')}
+				use:tooltip={'Configure Project'}
+			>
+				<Settings class="size-6 text-gray-500" />
+			</button>
+			{#if !shared}
+				<button class="icon-button" onclick={openTemplatePanel} use:tooltip={'Templates'}>
+					<FilePlus2 class="size-6 text-gray-500" />
+				</button>
+			{/if}
+		</div>
 		{#if !responsive.isMobile}
 			{@render closeSidebar()}
 		{/if}
