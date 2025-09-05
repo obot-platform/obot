@@ -177,12 +177,42 @@ func (h *handler) authorize(req api.Context) error {
 		}
 	}
 
+	mcpID := req.PathValue("mcp_id")
+	if mcpID != "" {
+		mcpID = "/" + mcpID
+	}
+
+	resource := req.FormValue("resource")
+	if resource != "" {
+		u, err := url.Parse(resource)
+		if err != nil {
+			redirectWithAuthorizeError(req, redirectURI, Error{
+				Code:        ErrInvalidRequest,
+				Description: fmt.Sprintf("invalid resource URL: %s", resource),
+				State:       state,
+			})
+			return nil
+		}
+
+		if mcpID == "" {
+			mcpID = strings.TrimPrefix(u.Path, "/mcp-connect")
+		} else if !strings.HasSuffix(mcpID, mcpID) {
+			redirectWithAuthorizeError(req, redirectURI, Error{
+				Code:        ErrInvalidRequest,
+				Description: fmt.Sprintf("resource doesn't match mcp_id: %s", mcpID),
+				State:       state,
+			})
+			return nil
+		}
+	}
+
 	oauthAppAuthRequest := v1.OAuthAuthRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.OAuthAppPrefix,
 			Namespace:    oauthClient.Namespace,
 		},
 		Spec: v1.OAuthAuthRequestSpec{
+			Resource:            resource,
 			State:               state,
 			ClientID:            oauthClient.Name,
 			RedirectURI:         redirectURI,
@@ -200,11 +230,6 @@ func (h *handler) authorize(req api.Context) error {
 		})
 
 		return nil
-	}
-
-	mcpID := req.PathValue("mcp_id")
-	if mcpID != "" {
-		mcpID = "/" + mcpID
 	}
 
 	// We need to authenticate the user.
