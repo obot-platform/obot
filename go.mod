@@ -33,7 +33,7 @@ require (
 	github.com/moby/moby/client v0.1.0-alpha.0
 	github.com/modelcontextprotocol/go-sdk v0.2.0
 	github.com/nanobot-ai/nanobot v0.0.6-0.20250825204755-11aad54ea37c
-	github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20
+	github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83
 	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2
 	github.com/obot-platform/obot/apiclient v0.0.0-00010101000000-000000000000

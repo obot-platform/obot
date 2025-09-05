@@ -549,8 +549,8 @@ github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 h1:G7ERwszslrBzRxj//J
 github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037/go.mod h1:2bpvgLBZEtENV5scfDFEtB/5+1M4hkQhDQrccEJ/qGw=
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 h1:bQx3WeLcUWy+RletIKwUIt4x3t8n2SxavmoclizMb8c=
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
-github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20 h1:fESfGLFRnkdVhlAj2O7gsMSzq1htH6QLhG+BlcFr/ZQ=
-github.com/obot-platform/kinm v0.0.0-20250328185534-d9c9de49cc20/go.mod h1:uIt/q4bSrRWxjnX9wGn9i+LfBvN04g0b/c4h5imPCOI=
+github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83 h1:f38gPMZxtqsvmusPBUgU8ZNmGsEU/lw4qpCruiStmu8=
+github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83/go.mod h1:uIt/q4bSrRWxjnX9wGn9i+LfBvN04g0b/c4h5imPCOI=
 github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317 h1:yUEiybfv/VpPf4Ct73cIBIDi++V0x5vzFH79pAXWgL0=
 github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317/go.mod h1:AUP8EhWbz+tBQn1QMYcBY8EPFN8LFNZvKhOxpt4hafA=
 github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2 h1:jiyBM/TYxU6UNVS9ff8Y8n55DOKDYohKkIZjfHpjfTY=
