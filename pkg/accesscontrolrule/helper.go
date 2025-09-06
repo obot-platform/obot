@@ -207,11 +207,6 @@ func (h *Helper) UserHasAccessToMCPServerInCatalog(user kuser.Info, serverName, 
 	return false, nil
 }
 
-// UserHasAccessToMCPServer provides backward compatibility, defaulting to the default catalog
-func (h *Helper) UserHasAccessToMCPServer(user kuser.Info, serverName string) (bool, error) {
-	return h.UserHasAccessToMCPServerInCatalog(user, serverName, system.DefaultCatalog)
-}
-
 // UserHasAccessToMCPServerCatalogEntryInCatalog checks if a user has access to a specific catalog entry through AccessControlRules
 // This method now requires the catalog ID to ensure proper scoping
 func (h *Helper) UserHasAccessToMCPServerCatalogEntryInCatalog(user kuser.Info, entryName, catalogID string) (bool, error) {

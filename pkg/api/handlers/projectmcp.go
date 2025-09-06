@@ -184,7 +184,16 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 	}
 
 	if !req.UserIsAdmin() && mcpServer.Spec.UserID != req.User.GetUID() {
-		hasAccess, err := p.acrHelper.UserHasAccessToMCPServer(req.User, mcpServer.Name)
+		var (
+			hasAccess bool
+			err       error
+		)
+		if mcpServer.Spec.SharedWithinMCPCatalogName != "" {
+			hasAccess, err = p.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, mcpServer.Name, mcpServer.Spec.SharedWithinMCPCatalogName)
+		} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
+			hasAccess, err = p.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, mcpServer.Name, mcpServer.Spec.PowerUserWorkspaceID)
+		}
+
 		if err != nil {
 			return err
 		}
