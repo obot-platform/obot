@@ -1,27 +1,22 @@
 package accesscontrolrule
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"k8s.io/apimachinery/pkg/fields"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Helper struct {
 	acrIndexer gocache.Indexer
-	client     kclient.Client
 }
 
-func NewAccessControlRuleHelper(acrIndexer gocache.Indexer, client kclient.Client) *Helper {
+func NewAccessControlRuleHelper(acrIndexer gocache.Indexer) *Helper {
 	return &Helper{
 		acrIndexer: acrIndexer,
-		client:     client,
 	}
 }
 
@@ -283,24 +278,6 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntry(user kuser.Info, entryName
 }
 
 // Workspace-scoped lookup methods
-
-// GetAccessControlRulesForWorkspace returns all AccessControlRules that belong to the specified workspace
-func (h *Helper) GetAccessControlRulesForWorkspace(namespace, workspaceID string) ([]v1.AccessControlRule, error) {
-	if h.client == nil {
-		return nil, fmt.Errorf("client not set on helper")
-	}
-
-	var list v1.AccessControlRuleList
-	err := h.client.List(context.Background(), &list, &kclient.ListOptions{
-		Namespace:     namespace,
-		FieldSelector: fields.SelectorFromSet(map[string]string{"spec.powerUserWorkspaceID": workspaceID}),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list access control rules for workspace: %w", err)
-	}
-
-	return list.Items, nil
-}
 
 // GetAccessControlRulesForMCPServerInWorkspace returns all AccessControlRules that contain the specified MCP server name within a workspace
 func (h *Helper) GetAccessControlRulesForMCPServerInWorkspace(namespace, serverName, workspaceID string) ([]v1.AccessControlRule, error) {
