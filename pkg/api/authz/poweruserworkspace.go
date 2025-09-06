@@ -17,10 +17,6 @@ func (a *Authorizer) checkPowerUserWorkspace(req *http.Request, resources *Resou
 		return true, nil
 	}
 
-	if slices.Contains(user.GetGroups(), AdminGroup) {
-		return true, nil
-	}
-
 	isPowerUser := slices.Contains(user.GetGroups(), PowerUserGroup)
 	isPowerUserPlus := slices.Contains(user.GetGroups(), PowerUserPlusGroup)
 
@@ -29,7 +25,7 @@ func (a *Authorizer) checkPowerUserWorkspace(req *http.Request, resources *Resou
 	}
 
 	// Validate role-based access to workspace endpoints
-	if !a.validateWorkspaceRoleAccess(req, isPowerUserPlus, user.GetUID()) {
+	if !a.validateWorkspaceRoleAccess(req.URL.Path, isPowerUserPlus, user.GetUID()) {
 		return false, nil
 	}
 
@@ -49,9 +45,7 @@ func (a *Authorizer) checkPowerUserWorkspace(req *http.Request, resources *Resou
 	return workspace.Spec.UserID == user.GetUID(), nil
 }
 
-func (a *Authorizer) validateWorkspaceRoleAccess(req *http.Request, isPowerUserPlus bool, userID string) bool {
-	path := req.URL.Path
-
+func (a *Authorizer) validateWorkspaceRoleAccess(path string, isPowerUserPlus bool, userID string) bool {
 	// PowerUser and PowerUserPlus can access workspace info
 	if strings.HasSuffix(path, fmt.Sprintf("/workspaces/%s-%s", system.PowerUserWorkspacePrefix, userID)) ||
 		strings.Contains(path, "/workspaces/") && strings.Contains(path, "/entries") {
