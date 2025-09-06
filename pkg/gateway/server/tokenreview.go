@@ -58,6 +58,7 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 				"auth_provider_namespace": {namespace},
 				"auth_provider_name":      {name},
 				"auth_provider_groups":    groupIDs,
+				"obot:userID":             {strconv.FormatUint(uint64(u.ID), 10)},
 			},
 		},
 	}, true, nil

@@ -119,6 +119,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 				"email":                   {tokenContext.UserEmail},
 				"auth_provider_name":      {tokenContext.AuthProviderName},
 				"auth_provider_namespace": {tokenContext.AuthProviderNamespace},
+				"obot:userID":             {tokenContext.UserID},
 			},
 		},
 	}, true, nil
