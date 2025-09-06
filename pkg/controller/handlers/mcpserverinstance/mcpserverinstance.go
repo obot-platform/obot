@@ -28,8 +28,8 @@ func (h *Handler) MigrationDeleteSingleUserInstances(req router.Request, _ route
 		return err
 	}
 
-	if server.Spec.SharedWithinMCPCatalogName == "" {
-		// This server is unshared, so it should not have any server instances.
+	if server.Spec.SharedWithinMCPCatalogName == "" && server.Spec.PowerUserWorkspaceID == "" {
+		// This server is unshared (neither catalog-shared nor workspace-scoped), so it should not have any server instances.
 		// Delete this instance.
 		return req.Delete(instance)
 	}

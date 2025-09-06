@@ -207,11 +207,6 @@ func (h *Helper) UserHasAccessToMCPServerInCatalog(user kuser.Info, serverName, 
 	return false, nil
 }
 
-// UserHasAccessToMCPServer provides backward compatibility, defaulting to the default catalog
-func (h *Helper) UserHasAccessToMCPServer(user kuser.Info, serverName string) (bool, error) {
-	return h.UserHasAccessToMCPServerInCatalog(user, serverName, system.DefaultCatalog)
-}
-
 // UserHasAccessToMCPServerCatalogEntryInCatalog checks if a user has access to a specific catalog entry through AccessControlRules
 // This method now requires the catalog ID to ensure proper scoping
 func (h *Helper) UserHasAccessToMCPServerCatalogEntryInCatalog(user kuser.Info, entryName, catalogID string) (bool, error) {
@@ -275,6 +270,177 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInCatalog(user kuser.Info, 
 // UserHasAccessToMCPServerCatalogEntry provides backward compatibility, defaulting to the default catalog
 func (h *Helper) UserHasAccessToMCPServerCatalogEntry(user kuser.Info, entryName string) (bool, error) {
 	return h.UserHasAccessToMCPServerCatalogEntryInCatalog(user, entryName, system.DefaultCatalog)
+}
+
+// Workspace-scoped lookup methods
+
+// GetAccessControlRulesForMCPServerInWorkspace returns all AccessControlRules that contain the specified MCP server name within a workspace
+func (h *Helper) GetAccessControlRulesForMCPServerInWorkspace(namespace, serverName, workspaceID string) ([]v1.AccessControlRule, error) {
+	rules, err := h.GetAccessControlRulesForMCPServer(namespace, serverName)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]v1.AccessControlRule, 0, len(rules))
+	for _, rule := range rules {
+		if rule.Spec.PowerUserWorkspaceID == workspaceID {
+			result = append(result, rule)
+		}
+	}
+
+	return result, nil
+}
+
+// GetAccessControlRulesForMCPServerCatalogEntryInWorkspace returns all AccessControlRules that contain the specified catalog entry name within a workspace
+func (h *Helper) GetAccessControlRulesForMCPServerCatalogEntryInWorkspace(namespace, entryName, workspaceID string) ([]v1.AccessControlRule, error) {
+	rules, err := h.GetAccessControlRulesForMCPServerCatalogEntry(namespace, entryName)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]v1.AccessControlRule, 0, len(rules))
+	for _, rule := range rules {
+		if rule.Spec.PowerUserWorkspaceID == workspaceID {
+			result = append(result, rule)
+		}
+	}
+
+	return result, nil
+}
+
+// GetAccessControlRulesForSelectorInWorkspace returns all AccessControlRules that contain the specified selector within a workspace
+func (h *Helper) GetAccessControlRulesForSelectorInWorkspace(namespace, selector, workspaceID string) ([]v1.AccessControlRule, error) {
+	rules, err := h.GetAccessControlRulesForSelector(namespace, selector)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]v1.AccessControlRule, 0, len(rules))
+	for _, rule := range rules {
+		if rule.Spec.PowerUserWorkspaceID == workspaceID {
+			result = append(result, rule)
+		}
+	}
+
+	return result, nil
+}
+
+// UserHasAccessToMCPServerInWorkspace checks if a user has access to a specific MCP server through workspace-scoped AccessControlRules
+func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName, workspaceID string) (bool, error) {
+	// See if there is a selector that this user is included on in the specified workspace.
+	selectorRules, err := h.GetAccessControlRulesForSelectorInWorkspace(system.DefaultNamespace, "*", workspaceID)
+	if err != nil {
+		return false, err
+	}
+
+	var (
+		userID = user.GetUID()
+		groups = authGroupSet(user)
+	)
+	for _, rule := range selectorRules {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			switch subject.Type {
+			case types.SubjectTypeUser:
+				if subject.ID == userID {
+					return true, nil
+				}
+			case types.SubjectTypeGroup:
+				if _, ok := groups[subject.ID]; ok {
+					return true, nil
+				}
+			case types.SubjectTypeSelector:
+				if subject.ID == "*" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	// Now see if there is a rule that includes this specific server in the workspace.
+	rules, err := h.GetAccessControlRulesForMCPServerInWorkspace(system.DefaultNamespace, serverName, workspaceID)
+	if err != nil {
+		return false, err
+	}
+
+	for _, rule := range rules {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			switch subject.Type {
+			case types.SubjectTypeUser:
+				if subject.ID == userID {
+					return true, nil
+				}
+			case types.SubjectTypeGroup:
+				if _, ok := groups[subject.ID]; ok {
+					return true, nil
+				}
+			case types.SubjectTypeSelector:
+				if subject.ID == "*" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
+}
+
+// UserHasAccessToMCPServerCatalogEntryInWorkspace checks if a user has access to a specific catalog entry through workspace-scoped AccessControlRules
+func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(user kuser.Info, entryName, workspaceID string) (bool, error) {
+	// See if there is a selector that this user is included on in the specified workspace.
+	selectorRules, err := h.GetAccessControlRulesForSelectorInWorkspace(system.DefaultNamespace, "*", workspaceID)
+	if err != nil {
+		return false, err
+	}
+
+	var (
+		userID = user.GetUID()
+		groups = authGroupSet(user)
+	)
+	for _, rule := range selectorRules {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			switch subject.Type {
+			case types.SubjectTypeUser:
+				if subject.ID == userID {
+					return true, nil
+				}
+			case types.SubjectTypeGroup:
+				if _, ok := groups[subject.ID]; ok {
+					return true, nil
+				}
+			case types.SubjectTypeSelector:
+				if subject.ID == "*" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	// Now see if there is a rule that includes this specific catalog entry.
+	rules, err := h.GetAccessControlRulesForMCPServerCatalogEntryInWorkspace(system.DefaultNamespace, entryName, workspaceID)
+	if err != nil {
+		return false, err
+	}
+
+	for _, rule := range rules {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			switch subject.Type {
+			case types.SubjectTypeUser:
+				if subject.ID == userID {
+					return true, nil
+				}
+			case types.SubjectTypeGroup:
+				if _, ok := groups[subject.ID]; ok {
+					return true, nil
+				}
+			case types.SubjectTypeSelector:
+				if subject.ID == "*" {
+					return true, nil
+				}
+			}
+		}
+	}
+
+	return false, nil
 }
 
 func authGroupSet(user kuser.Info) map[string]struct{} {

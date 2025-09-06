@@ -10,6 +10,8 @@ type MCPServerInstance struct {
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`
 	// MCPServerCatalogEntryID is the ID of the MCP server catalog entry that the server that this instance points to is based on, if there is one.
 	MCPServerCatalogEntryID string `json:"mcpServerCatalogEntryID,omitempty"`
+	// PowerUserWorkspaceID is the ID of the PowerUserWorkspace that the server that this instance points to is owned by, if there is one.
+	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
 	// ConnectURL is the URL to connect to the MCP server.
 	ConnectURL string `json:"connectURL,omitempty"`
 }

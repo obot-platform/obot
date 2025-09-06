@@ -5,6 +5,8 @@ import "fmt"
 type AccessControlRule struct {
 	Metadata                  `json:",inline"`
 	MCPCatalogID              string `json:"mcpCatalogID"`
+	PowerUserWorkspaceID      string `json:"powerUserWorkspaceID,omitempty"`
+	Generated                 bool   `json:"generated,omitempty"`
 	AccessControlRuleManifest `json:",inline"`
 }
 

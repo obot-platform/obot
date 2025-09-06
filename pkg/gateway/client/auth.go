@@ -48,6 +48,12 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	if gatewayUser.Role == types2.RoleAdmin && !slices.Contains(groups, authz.AdminGroup) {
 		groups = append(groups, authz.AdminGroup)
 	}
+	if gatewayUser.Role == types2.RolePowerUserPlus && !slices.Contains(groups, authz.PowerUserPlusGroup) {
+		groups = append(groups, authz.PowerUserPlusGroup)
+	}
+	if gatewayUser.Role.HasRole(types2.RolePowerUser) && !slices.Contains(groups, authz.PowerUserGroup) {
+		groups = append(groups, authz.PowerUserGroup)
+	}
 
 	extra := resp.User.GetExtra()
 	extra["auth_provider_groups"] = identity.GetAuthProviderGroupIDs()

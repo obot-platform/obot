@@ -79,11 +79,17 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 
 	if !req.UserIsAdmin() {
 		// Make sure the non-admin user is allowed to create an instance for this server.
-		if server.Spec.SharedWithinMCPCatalogName != system.DefaultCatalog {
-			return types.NewErrNotFound("MCP server not found")
+		var (
+			hasAccess bool
+			err       error
+		)
+
+		if server.Spec.SharedWithinMCPCatalogName != "" {
+			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.SharedWithinMCPCatalogName)
+		} else if server.Spec.PowerUserWorkspaceID != "" {
+			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
 		}
 
-		hasAccess, err := h.acrHelper.UserHasAccessToMCPServer(req.User, server.Name)
 		if err != nil {
 			return err
 		}
@@ -112,6 +118,7 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 			MCPServerName:             input.MCPServerID,
 			MCPCatalogName:            server.Spec.SharedWithinMCPCatalogName,
 			MCPServerCatalogEntryName: entryName,
+			PowerUserWorkspaceID:      server.Spec.PowerUserWorkspaceID,
 		},
 	}
 
@@ -155,15 +162,33 @@ func convertMCPServerInstance(instance v1.MCPServerInstance, serverURL string) t
 		MCPServerID:             instance.Spec.MCPServerName,
 		MCPCatalogID:            instance.Spec.MCPCatalogName,
 		MCPServerCatalogEntryID: instance.Spec.MCPServerCatalogEntryName,
+		PowerUserWorkspaceID:    instance.Spec.PowerUserWorkspaceID,
 		ConnectURL:              fmt.Sprintf("%s/mcp-connect/%s", serverURL, instance.Name),
 	}
 }
 
-func (h *ServerInstancesHandler) AdminListServerInstancesForServerInCatalog(req api.Context) error {
+func (h *ServerInstancesHandler) ListServerInstancesForServer(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+	serverID := req.PathValue("mcp_server_id")
+
+	// First, verify the server exists and belongs to the correct scope
+	var server v1.MCPServer
+	if err := req.Get(&server, serverID); err != nil {
+		return err
+	}
+
+	// Verify server belongs to the requested scope
+	if catalogID != "" && server.Spec.SharedWithinMCPCatalogName != catalogID {
+		return types.NewErrNotFound("MCP server not found")
+	} else if workspaceID != "" && server.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrNotFound("MCP server not found")
+	}
+
+	// List instances for this specific server
 	var instances v1.MCPServerInstanceList
 	if err := req.List(&instances, kclient.MatchingFields{
-		"spec.mcpServerName":  req.PathValue("mcp_server_id"),
-		"spec.mcpCatalogName": req.PathValue("catalog_id"),
+		"spec.mcpServerName": serverID,
 	}); err != nil {
 		return err
 	}

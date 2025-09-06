@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
+	"github.com/obot-platform/nah/pkg/name"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -18,9 +19,44 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var pkgLog = mvl.Package()
+
+func (s *Server) ensureAdminWorkspace(apiContext api.Context, user *types.User) error {
+	userIDStr := strconv.Itoa(int(user.ID))
+
+	// Check if admin already has a PowerUserWorkspace
+	var existingWorkspaces v1.PowerUserWorkspaceList
+	if err := apiContext.List(&existingWorkspaces, &kclient.ListOptions{
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.userID": userIDStr,
+		}),
+	}); err != nil {
+		return err
+	}
+
+	// If workspace already exists, nothing to do
+	if len(existingWorkspaces.Items) > 0 {
+		return nil
+	}
+
+	// Create PowerUserWorkspace directly for the admin
+	workspace := &v1.PowerUserWorkspace{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: apiContext.Namespace(),
+			Name:      name.SafeConcatName(system.PowerUserWorkspacePrefix, userIDStr),
+		},
+		Spec: v1.PowerUserWorkspaceSpec{
+			UserID: userIDStr,
+			Role:   user.Role,
+		},
+	}
+
+	return apiContext.Create(workspace)
+}
 
 func (s *Server) getCurrentUser(apiContext api.Context) error {
 	user, err := apiContext.GatewayClient.User(apiContext.Context(), apiContext.User.GetName())
@@ -29,6 +65,13 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusUnauthorized, "unauthorized")
 	} else if err != nil {
 		return err
+	}
+
+	// Check if this is an admin user who needs a PowerUserWorkspace created
+	if user.Role.HasRole(types2.RoleAdmin) {
+		if err := s.ensureAdminWorkspace(apiContext, user); err != nil {
+			pkgLog.Warnf("failed to ensure admin workspace for user %s: %v", user.Username, err)
+		}
 	}
 
 	name, namespace := apiContext.AuthProviderNameAndNamespace()
@@ -120,6 +163,14 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		}
 	}
 
+	originalUser, err := apiContext.GatewayClient.UserByID(apiContext.Context(), userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types2.NewErrHTTP(http.StatusNotFound, "user not found")
+		}
+		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get original user: %v", err))
+	}
+
 	status := http.StatusInternalServerError
 	existingUser, err := apiContext.GatewayClient.UpdateUser(apiContext.Context(), apiContext.UserIsAdmin(), user, userID)
 	if err != nil {
@@ -133,6 +184,22 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			status = http.StatusConflict
 		}
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to update user: %v", err))
+	}
+
+	if originalUser.Role != existingUser.Role {
+		if err = apiContext.Create(&v1.UserRoleChange{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.UserRoleChangePrefix,
+				Namespace:    apiContext.Namespace(),
+			},
+			Spec: v1.UserRoleChangeSpec{
+				UserID:  existingUser.ID,
+				OldRole: originalUser.Role,
+				NewRole: existingUser.Role,
+			},
+		}); err != nil {
+			return fmt.Errorf("failed to create user role change event: %v", err)
+		}
 	}
 
 	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.IsExplicitAdmin(existingUser.Email), ""))

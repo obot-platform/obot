@@ -16,7 +16,7 @@ func addCatalogIDToAccessControlRules(ctx context.Context, client kclient.Client
 
 	// Iterate over each AccessControlRule and add CatalogID
 	for _, acRule := range acRules.Items {
-		if acRule.Spec.MCPCatalogID == "" {
+		if acRule.Spec.MCPCatalogID == "" && acRule.Spec.PowerUserWorkspaceID == "" {
 			acRule.Spec.MCPCatalogID = system.DefaultCatalog
 			if err := client.Update(ctx, &acRule); err != nil {
 				return err

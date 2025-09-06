@@ -9,11 +9,11 @@ import (
 )
 
 var apiResources = []string{
-	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/tools",
-	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/resources",
-	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/resources/{resource_uri}",
-	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/prompts",
-	"GET    /api/all-mcp-catalogs/servers/{mcpserver_id}/prompts/{prompt_name}",
+	"GET    /api/all-mcps/servers/{mcpserver_id}/tools",
+	"GET    /api/all-mcps/servers/{mcpserver_id}/resources",
+	"GET    /api/all-mcps/servers/{mcpserver_id}/resources/{resource_uri}",
+	"GET    /api/all-mcps/servers/{mcpserver_id}/prompts",
+	"GET    /api/all-mcps/servers/{mcpserver_id}/prompts/{prompt_name}",
 	"GET    /oauth/callback/{oauth_request_id}/{mcp_id}",
 	"GET    /oauth/mcp/callback",
 	"GET    /mcp-connect/{mcp_id}",
@@ -217,6 +217,33 @@ var apiResources = []string{
 	"GET    /api/users/{user_id}/token-usage",
 	"GET    /api/users/{user_id}/total-token-usage",
 	"GET    /api/users/{user_id}/remaining-token-usage",
+	"GET    /api/workspaces",
+	"GET    /api/workspaces/{workspace_id}",
+	"GET    /api/workspaces/{workspace_id}/servers",
+	"POST   /api/workspaces/{workspace_id}/servers",
+	"DELETE /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
+	"GET    /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
+	"PUT    /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
+	"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/launch",
+	"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/check-oauth",
+	"GET    /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-url",
+	"DELETE /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth",
+	"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/configure",
+	"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/deconfigure",
+	"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/reveal",
+	"GET    /api/workspaces/{workspace_id}/servers/{mcp_server_id}/instances",
+	"GET    /api/workspaces/{workspace_id}/entries",
+	"POST   /api/workspaces/{workspace_id}/entries",
+	"DELETE /api/workspaces/{workspace_id}/entries/{entry_id}",
+	"GET    /api/workspaces/{workspace_id}/entries/{entry_id}",
+	"PUT    /api/workspaces/{workspace_id}/entries/{entry_id}",
+	"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews",
+	"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews/oauth-url",
+	"GET    /api/workspaces/{workspace_id}/access-control-rules",
+	"POST   /api/workspaces/{workspace_id}/access-control-rules",
+	"DELETE /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
+	"GET    /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
+	"PUT    /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
 }
 
 type Resources struct {
@@ -235,6 +262,7 @@ type Resources struct {
 	WorkflowID             string
 	PendingAuthorizationID string
 	ToolID                 string
+	WorkspaceID            string
 	Authorizated           ResourcesAuthorized
 }
 
@@ -266,10 +294,15 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		PendingAuthorizationID: vars("pending_authorization_id"),
 		ThreadShareID:          vars("share_public_id"),
 		ToolID:                 vars("tool_id"),
+		WorkspaceID:            vars("workspace_id"),
 	}
 
 	if !a.checkUser(user, vars("user_id")) {
 		return false, nil
+	}
+
+	if ok, err := a.checkPowerUserWorkspace(req, &resources, user); !ok || err != nil {
+		return false, err
 	}
 
 	if ok, err := a.checkAssistant(req, &resources, user); !ok || err != nil {

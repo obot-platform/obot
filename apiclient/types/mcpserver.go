@@ -138,6 +138,7 @@ type MCPServer struct {
 	MissingRequiredEnvVars  []string `json:"missingRequiredEnvVars,omitempty"`
 	MissingRequiredHeaders  []string `json:"missingRequiredHeader,omitempty"`
 	CatalogEntryID          string   `json:"catalogEntryID"`
+	PowerUserWorkspaceID    string   `json:"powerUserWorkspaceID"`
 	SharedWithinCatalogName string   `json:"sharedWithinCatalogName,omitempty"`
 	ConnectURL              string   `json:"connectURL,omitempty"`
 

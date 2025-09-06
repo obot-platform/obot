@@ -339,8 +339,25 @@ func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Resp
 	// Iterate through each MCPServer and make sure it is still allowed to exist.
 	for _, server := range mcpServers.Items {
 		if server.Spec.ThreadName != "" || server.Spec.SharedWithinMCPCatalogName != "" {
-			// For project-scoped servers and multi-user servers created by the admin, we don't need to check them.
+			// For legacy project-scoped servers and multi-user servers created by the admin, we don't need to check them.
 			continue
+		}
+
+		if server.Spec.PowerUserWorkspaceID != "" {
+			// For multi-user servers in a PowerUserWorkspace, make sure that the user on that workspace is a PowerUserPlus, and not a normal PowerUser
+			var workspace v1.PowerUserWorkspace
+			if err := req.Get(&workspace, req.Namespace, server.Spec.PowerUserWorkspaceID); err != nil {
+				return fmt.Errorf("failed to get power user workspace %s: %w", server.Spec.PowerUserWorkspaceID, err)
+			}
+
+			if workspace.Spec.Role != types.RoleAdmin && workspace.Spec.Role != types.RolePowerUserPlus {
+				log.Infof("Deleting multi-user MCP server %q because its owner is no longer a PowerUserPlus", server.Name)
+				if err := req.Delete(&server); err != nil {
+					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
+				}
+			}
+
+			return nil
 		}
 
 		user, err := h.getUserInfoForAccessControl(req.Ctx, server.Spec.UserID)
@@ -443,6 +460,11 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstances(req router.Request, _ rou
 		var hasAccess bool
 		if mcpServer.Spec.SharedWithinMCPCatalogName != "" {
 			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerInCatalog(user, instance.Spec.MCPServerName, mcpServer.Spec.SharedWithinMCPCatalogName)
+			if err != nil {
+				return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
+			}
+		} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
+			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerInWorkspace(user, instance.Spec.MCPServerName, mcpServer.Spec.PowerUserWorkspaceID)
 			if err != nil {
 				return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 			}

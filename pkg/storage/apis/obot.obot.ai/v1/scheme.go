@@ -87,6 +87,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&SlackReceiverList{},
 		&UserDelete{},
 		&UserDeleteList{},
+		&UserRoleChange{},
+		&UserRoleChangeList{},
 		&MCPCatalog{},
 		&MCPCatalogList{},
 		&OAuthClient{},
@@ -101,6 +103,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&MCPSessionList{},
 		&MCPWebhookValidation{},
 		&MCPWebhookValidationList{},
+		&PowerUserWorkspace{},
+		&PowerUserWorkspaceList{},
 	); err != nil {
 		return err
 	}

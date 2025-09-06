@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpsession"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
+	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projectinvitation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
 	"github.com/obot-platform/obot/pkg/controller/handlers/retention"
@@ -73,6 +74,7 @@ func (c *Controller) setupRoutes() {
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New()
+	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -249,6 +251,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, mcpserverinstance.RemoveOAuthToken)
 
 	// AccessControlRule
+	root.Type(&v1.AccessControlRule{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.AccessControlRule{}).HandlerFunc(accesscontrolrule.PruneDeletedResources)
 
 	// ProjectInvitations
@@ -273,6 +276,12 @@ func (c *Controller) setupRoutes() {
 
 	// MCP Webhook Validations
 	root.Type(&v1.MCPWebhookValidation{}).HandlerFunc(mcpWebhookValidations.CleanupResources)
+
+	// UserRoleChange
+	root.Type(&v1.UserRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleRoleChange)
+
+	// PowerUserWorkspace
+	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(powerUserWorkspaceHandler.CreateACR)
 
 	// Project-based MCP Servers
 	root.Type(&v1.ProjectMCPServer{}).FinalizeFunc(v1.ProjectMCPServerFinalizer, credentialCleanup.ShutdownProjectMCP)
