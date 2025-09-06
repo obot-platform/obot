@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/obot-platform/nah/pkg/name"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -47,7 +48,7 @@ func (a *Authorizer) checkPowerUserWorkspace(req *http.Request, resources *Resou
 
 func (a *Authorizer) validateWorkspaceRoleAccess(path string, isPowerUserPlus bool, userID string) bool {
 	// PowerUser and PowerUserPlus can access workspace info
-	if strings.HasSuffix(path, fmt.Sprintf("/workspaces/%s-%s", system.PowerUserWorkspacePrefix, userID)) ||
+	if strings.HasSuffix(path, fmt.Sprintf("/workspaces/%s", name.SafeConcatName(system.PowerUserWorkspacePrefix, userID))) ||
 		strings.Contains(path, "/workspaces/") && strings.Contains(path, "/entries") {
 		// Both PowerUser and PowerUserPlus can access catalog entries
 		return true
