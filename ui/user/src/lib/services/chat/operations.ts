@@ -898,10 +898,7 @@ export async function updateMemory(
 }
 
 export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCPCatalogEntry[]> {
-	const response = (await doGet(
-		'/all-mcps/entries',
-		opts
-	)) as ItemsResponse<MCPCatalogEntry>;
+	const response = (await doGet('/all-mcps/entries', opts)) as ItemsResponse<MCPCatalogEntry>;
 	return (
 		response.items?.map((item) => {
 			return {
