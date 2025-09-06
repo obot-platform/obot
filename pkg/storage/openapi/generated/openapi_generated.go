@@ -5704,12 +5704,6 @@ func schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref common.Ref
 							Format: "int32",
 						},
 					},
-					"resourceCount": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
 				},
 				Required: []string{"Metadata"},
 			},
@@ -13582,15 +13576,6 @@ func schema_storage_apis_obotobotai_v1_PowerUserWorkspaceStatus(ref common.Refer
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"resourceCount": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ResourceCount tracks the number of resources owned by this workspace",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-				},
 			},
 		},
 	}

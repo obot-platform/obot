@@ -52,8 +52,6 @@ type PowerUserWorkspaceSpec struct {
 }
 
 type PowerUserWorkspaceStatus struct {
-	// ResourceCount tracks the number of resources owned by this workspace
-	ResourceCount int `json:"resourceCount,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
