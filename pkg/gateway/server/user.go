@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
-	"github.com/obot-platform/nah/pkg/name"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -19,44 +18,9 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var pkgLog = mvl.Package()
-
-func (s *Server) ensureAdminWorkspace(apiContext api.Context, user *types.User) error {
-	userIDStr := strconv.Itoa(int(user.ID))
-
-	// Check if admin already has a PowerUserWorkspace
-	var existingWorkspaces v1.PowerUserWorkspaceList
-	if err := apiContext.List(&existingWorkspaces, &kclient.ListOptions{
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.userID": userIDStr,
-		}),
-	}); err != nil {
-		return err
-	}
-
-	// If workspace already exists, nothing to do
-	if len(existingWorkspaces.Items) > 0 {
-		return nil
-	}
-
-	// Create PowerUserWorkspace directly for the admin
-	workspace := &v1.PowerUserWorkspace{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: apiContext.Namespace(),
-			Name:      name.SafeConcatName(system.PowerUserWorkspacePrefix, userIDStr),
-		},
-		Spec: v1.PowerUserWorkspaceSpec{
-			UserID: userIDStr,
-			Role:   user.Role,
-		},
-	}
-
-	return apiContext.Create(workspace)
-}
 
 func (s *Server) getCurrentUser(apiContext api.Context) error {
 	user, err := apiContext.GatewayClient.User(apiContext.Context(), apiContext.User.GetName())
