@@ -338,7 +338,7 @@ func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Resp
 
 	// Iterate through each MCPServer and make sure it is still allowed to exist.
 	for _, server := range mcpServers.Items {
-		if server.Spec.ThreadName != "" || server.Spec.SharedWithinMCPCatalogName != "" {
+		if server.Spec.ThreadName != "" || server.Spec.MCPCatalogID != "" {
 			// For legacy project-scoped servers and multi-user servers created by the admin, we don't need to check them.
 			continue
 		}
@@ -458,8 +458,8 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstances(req router.Request, _ rou
 		}
 
 		var hasAccess bool
-		if mcpServer.Spec.SharedWithinMCPCatalogName != "" {
-			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerInCatalog(user, instance.Spec.MCPServerName, mcpServer.Spec.SharedWithinMCPCatalogName)
+		if mcpServer.Spec.MCPCatalogID != "" {
+			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerInCatalog(user, instance.Spec.MCPServerName, mcpServer.Spec.MCPCatalogID)
 			if err != nil {
 				return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 			}

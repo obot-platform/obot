@@ -25,7 +25,7 @@ func (a *Authorizer) checkPowerUserWorkspace(req *http.Request, resources *Resou
 	}
 
 	// Validate role-based access to workspace endpoints
-	if !a.validateWorkspaceRoleAccess(req.URL.Path, isPowerUserPlus, user.GetUID()) {
+	if !a.validateWorkspaceRoleAccess(req.URL.Path, isPowerUserPlus) {
 		return false, nil
 	}
 
@@ -55,7 +55,7 @@ var powerUserPlusRequiredPatterns = []*regexp.Regexp{
 	regexp.MustCompile(`/workspaces/[^/]+/access-control-rules`), // Access control rules management
 }
 
-func (a *Authorizer) validateWorkspaceRoleAccess(path string, isPowerUserPlus bool, userID string) bool {
+func (a *Authorizer) validateWorkspaceRoleAccess(path string, isPowerUserPlus bool) bool {
 	// Check patterns that require PowerUserPlus
 	for _, pattern := range powerUserPlusRequiredPatterns {
 		if pattern.MatchString(path) {

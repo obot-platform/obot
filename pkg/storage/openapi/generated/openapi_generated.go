@@ -11935,9 +11935,9 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
-					"sharedWithinMCPCatalogName": {
+					"mcpCatalogID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "SharedWithinMCPCatalogName contains the name of the MCPCatalog inside of which this server was directly created by the admin, if there is one.",
+							Description: "MCPCatalogID contains the name of the MCPCatalog inside of which this server was directly created by the admin, if there is one.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

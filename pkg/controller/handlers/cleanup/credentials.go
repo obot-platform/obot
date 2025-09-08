@@ -164,9 +164,9 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, resp router.Respo
 	}
 
 	var credCtx, scope string
-	if mcpServer.Spec.SharedWithinMCPCatalogName != "" {
-		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.SharedWithinMCPCatalogName, mcpServer.Name)
-		scope = mcpServer.Spec.SharedWithinMCPCatalogName
+	if mcpServer.Spec.MCPCatalogID != "" {
+		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.MCPCatalogID, mcpServer.Name)
+		scope = mcpServer.Spec.MCPCatalogID
 	} else {
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)
 		scope = mcpServer.Spec.UserID

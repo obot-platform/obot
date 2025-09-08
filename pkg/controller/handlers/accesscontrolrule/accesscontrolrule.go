@@ -66,7 +66,7 @@ func (h *Handler) PruneDeletedResources(req router.Request, _ router.Response) e
 				if acr.Spec.PowerUserWorkspaceID != "" {
 					match = mcpserver.Spec.PowerUserWorkspaceID == acr.Spec.PowerUserWorkspaceID
 				} else {
-					match = mcpserver.Spec.SharedWithinMCPCatalogName == catalogID
+					match = mcpserver.Spec.MCPCatalogID == catalogID
 				}
 				if match {
 					newResources = append(newResources, resource)

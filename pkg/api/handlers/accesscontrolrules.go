@@ -289,7 +289,7 @@ func (*AccessControlRuleHandler) validateResourcesInCatalog(req api.Context, res
 			}
 
 			// Check if server is shared within this catalog
-			if server.Spec.SharedWithinMCPCatalogName != catalogID {
+			if server.Spec.MCPCatalogID != catalogID {
 				return types.NewErrBadRequest("MCPServer %s does not belong to catalog %s", resource.ID, catalogID)
 			}
 		case types.ResourceTypeSelector:

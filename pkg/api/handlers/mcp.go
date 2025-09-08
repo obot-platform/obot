@@ -154,7 +154,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	var fieldSelector kclient.MatchingFields
 	if catalogID != "" {
 		fieldSelector = kclient.MatchingFields{
-			"spec.sharedWithinMCPCatalogName": catalogID,
+			"spec.mcpCatalogID": catalogID,
 		}
 	} else if workspaceID != "" {
 		fieldSelector = kclient.MatchingFields{
@@ -259,7 +259,7 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
 	// For servers that are in workspaces, this checks to make sure that a workspaceID was provided and that it matches.
 	// For servers that are not in catalogs or workspaces, this checks to make sure that no catalogID or workspaceID was provided.
-	if server.Spec.SharedWithinMCPCatalogName != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
+	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -311,7 +311,7 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
 	// For servers that are in workspaces, this checks to make sure that a workspaceID was provided and that it matches.
 	// For servers that are not in catalogs or workspaces, this checks to make sure that no catalogID or workspaceID was provided.
-	if server.Spec.SharedWithinMCPCatalogName != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
+	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -353,7 +353,7 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
 	// For servers that are in workspaces, this checks to make sure that a workspaceID was provided and that it matches.
 	// For servers that are not in catalogs or workspaces, this checks to make sure that no catalogID or workspaceID was provided.
-	if server.Spec.SharedWithinMCPCatalogName != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
+	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -387,7 +387,7 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
 	// For servers that are in workspaces, this checks to make sure that a workspaceID was provided and that it matches.
 	// For servers that are not in catalogs or workspaces, this checks to make sure that no catalogID or workspaceID was provided.
-	if server.Spec.SharedWithinMCPCatalogName != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
+	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -416,7 +416,7 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
 	// For servers that are in workspaces, this checks to make sure that a workspaceID was provided and that it matches.
 	// For servers that are not in catalogs or workspaces, this checks to make sure that no catalogID or workspaceID was provided.
-	if server.Spec.SharedWithinMCPCatalogName != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
+	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -762,9 +762,9 @@ func ServerFromMCPServerInstance(req api.Context, instanceID string) (v1.MCPServ
 	addExtractedEnvVars(&server)
 
 	var credCtx, scope string
-	if server.Spec.SharedWithinMCPCatalogName != "" {
-		credCtx = fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name)
-		scope = server.Spec.SharedWithinMCPCatalogName
+	if server.Spec.MCPCatalogID != "" {
+		credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
+		scope = server.Spec.MCPCatalogID
 	} else if server.Spec.PowerUserWorkspaceID != "" {
 		credCtx = fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
 		scope = server.Spec.PowerUserWorkspaceID
@@ -804,9 +804,9 @@ func ServerForActionWithID(req api.Context, id string) (v1.MCPServer, mcp.Server
 		credCtxs []string
 		scope    string
 	)
-	if server.Spec.SharedWithinMCPCatalogName != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name))
-		scope = server.Spec.SharedWithinMCPCatalogName
+	if server.Spec.MCPCatalogID != "" {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
+		scope = server.Spec.MCPCatalogID
 	} else if server.Spec.PowerUserWorkspaceID != "" {
 		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
 		scope = server.Spec.PowerUserWorkspaceID
@@ -960,7 +960,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return err
 		}
 
-		server.Spec.SharedWithinMCPCatalogName = catalogID
+		server.Spec.MCPCatalogID = catalogID
 	} else if workspaceID != "" {
 		var workspace v1.PowerUserWorkspace
 		if err := req.Get(&workspace, workspaceID); err != nil {
@@ -1058,7 +1058,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
 	// For servers that are in workspaces, this checks to make sure that a workspaceID was provided and that it matches.
 	// For servers that are not in catalogs or workspaces, this checks to make sure that no catalogID or workspaceID was provided.
-	if existing.Spec.SharedWithinMCPCatalogName != catalogID || existing.Spec.PowerUserWorkspaceID != workspaceID {
+	if existing.Spec.MCPCatalogID != catalogID || existing.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -1121,7 +1121,7 @@ func (m *MCPHandler) UpdateServerAlias(req api.Context) error {
 		return err
 	}
 
-	if server.Spec.SharedWithinMCPCatalogName != "" {
+	if server.Spec.MCPCatalogID != "" {
 		return types.NewErrBadRequest("cannot update alias for a multi-user MCP server")
 	}
 
@@ -1157,7 +1157,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
 	// For servers that are in workspaces, this checks to make sure that a workspaceID was provided and that it matches.
 	// For servers that are not in catalogs or workspaces, this checks to make sure that no catalogID or workspaceID was provided.
-	if mcpServer.Spec.SharedWithinMCPCatalogName != catalogID || mcpServer.Spec.PowerUserWorkspaceID != workspaceID {
+	if mcpServer.Spec.MCPCatalogID != catalogID || mcpServer.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -1266,7 +1266,7 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
 	// For servers that are in workspaces, this checks to make sure that a workspaceID was provided and that it matches.
 	// For servers that are not in catalogs or workspaces, this checks to make sure that no catalogID or workspaceID was provided.
-	if mcpServer.Spec.SharedWithinMCPCatalogName != catalogID || mcpServer.Spec.PowerUserWorkspaceID != workspaceID {
+	if mcpServer.Spec.MCPCatalogID != catalogID || mcpServer.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -1304,7 +1304,7 @@ func (m *MCPHandler) Reveal(req api.Context) error {
 	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
 	// For servers that are in workspaces, this checks to make sure that a workspaceID was provided and that it matches.
 	// For servers that are not in catalogs or workspaces, this checks to make sure that no catalogID or workspaceID was provided.
-	if mcpServer.Spec.SharedWithinMCPCatalogName != catalogID || mcpServer.Spec.PowerUserWorkspaceID != workspaceID {
+	if mcpServer.Spec.MCPCatalogID != catalogID || mcpServer.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -1534,7 +1534,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 	var connectURL string
 	// Only non-shared servers get a connect URL.
 	// Shared servers have connect URLs on the MCPServerInstances instead.
-	if server.Spec.SharedWithinMCPCatalogName == "" {
+	if server.Spec.MCPCatalogID == "" {
 		connectURL = fmt.Sprintf("%s/mcp-connect/%s", serverURL, server.Name)
 	}
 
@@ -1560,7 +1560,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL 
 		MCPServerManifest:           server.Spec.Manifest,
 		CatalogEntryID:              server.Spec.MCPServerCatalogEntryName,
 		PowerUserWorkspaceID:        server.Spec.PowerUserWorkspaceID,
-		SharedWithinCatalogName:     server.Spec.SharedWithinMCPCatalogName,
+		SharedWithinCatalogName:     server.Spec.MCPCatalogID,
 		ConnectURL:                  connectURL,
 		NeedsUpdate:                 server.Status.NeedsUpdate,
 		NeedsURL:                    server.Spec.NeedsURL,
@@ -1585,7 +1585,7 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 	if req.UserIsAdmin() {
 		// Admins can see all servers from both default catalog and all workspaces
 		for _, server := range list.Items {
-			if server.Spec.SharedWithinMCPCatalogName == system.DefaultCatalog || server.Spec.PowerUserWorkspaceID != "" {
+			if server.Spec.MCPCatalogID == system.DefaultCatalog || server.Spec.PowerUserWorkspaceID != "" {
 				allowedServers = append(allowedServers, server)
 			}
 		}
@@ -1597,9 +1597,9 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 				hasAccess bool
 			)
 
-			if server.Spec.SharedWithinMCPCatalogName != "" {
+			if server.Spec.MCPCatalogID != "" {
 				// Check default catalog servers
-				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.SharedWithinMCPCatalogName)
+				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
 			} else if server.Spec.PowerUserWorkspaceID != "" {
 				// Check workspace-scoped servers
 				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
@@ -1615,8 +1615,8 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 
 	var credCtxs []string
 	for _, server := range allowedServers {
-		if server.Spec.SharedWithinMCPCatalogName != "" {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name))
+		if server.Spec.MCPCatalogID != "" {
+			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
 		} else if server.Spec.PowerUserWorkspaceID != "" {
 			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
 		}
@@ -1682,7 +1682,7 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 	}
 
 	// Check if server is from default catalog or workspace
-	if server.Spec.SharedWithinMCPCatalogName != system.DefaultCatalog && server.Spec.PowerUserWorkspaceID == "" {
+	if server.Spec.MCPCatalogID != system.DefaultCatalog && server.Spec.PowerUserWorkspaceID == "" {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
@@ -1693,8 +1693,8 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 			err       error
 		)
 
-		if server.Spec.SharedWithinMCPCatalogName != "" {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.SharedWithinMCPCatalogName)
+		if server.Spec.MCPCatalogID != "" {
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
 		} else if server.Spec.PowerUserWorkspaceID != "" {
 			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
 		}
@@ -1708,8 +1708,8 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 
 	// Get credential context based on server scoping
 	var credCtxs []string
-	if server.Spec.SharedWithinMCPCatalogName != "" {
-		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.SharedWithinMCPCatalogName, server.Name)}
+	if server.Spec.MCPCatalogID != "" {
+		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}
 	} else if server.Spec.PowerUserWorkspaceID != "" {
 		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}
 	}
@@ -1748,7 +1748,7 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 	// For servers that are in catalogs, this checks to make sure that a catalogID was provided and that it matches.
 	// For servers that are in workspaces, this checks to make sure that a workspaceID was provided and that it matches.
 	// For servers that are not in catalogs or workspaces, this checks to make sure that no catalogID or workspaceID was provided.
-	if server.Spec.SharedWithinMCPCatalogName != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
+	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
 	if err := req.GatewayClient.DeleteMCPOAuthToken(req.Context(), req.User.GetUID(), server.Name); err != nil {
@@ -1909,7 +1909,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to get server: %w", err)
 	}
 
-	if mcpServer.Spec.SharedWithinMCPCatalogName != "" {
+	if mcpServer.Spec.MCPCatalogID != "" {
 		return types.NewErrBadRequest("cannot update the URL for a multi-user MCP server; use the UpdateServer endpoint instead")
 	}
 
@@ -1983,7 +1983,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		return err
 	}
 
-	if server.Spec.SharedWithinMCPCatalogName != "" {
+	if server.Spec.MCPCatalogID != "" {
 		return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server; use the UpdateServer endpoint instead")
 	}
 

@@ -27,8 +27,8 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 
 	// If this MCP server is shared within the default catalog,
 	// and an ACR allows the user to access it, then authorization is granted.
-	if mcpServer.Spec.SharedWithinMCPCatalogName != "" {
-		if mcpServer.Spec.SharedWithinMCPCatalogName == system.DefaultCatalog {
+	if mcpServer.Spec.MCPCatalogID != "" {
+		if mcpServer.Spec.MCPCatalogID == system.DefaultCatalog {
 			// Check AccessControlRule authorization for this specific MCP server
 			hasAccess, err := a.acrHelper.UserHasAccessToMCPServerInCatalog(u, mcpServer.Name, system.DefaultCatalog)
 			if err != nil {

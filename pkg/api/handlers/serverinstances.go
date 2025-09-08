@@ -84,8 +84,8 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 			err       error
 		)
 
-		if server.Spec.SharedWithinMCPCatalogName != "" {
-			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.SharedWithinMCPCatalogName)
+		if server.Spec.MCPCatalogID != "" {
+			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
 		} else if server.Spec.PowerUserWorkspaceID != "" {
 			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
 		}
@@ -116,7 +116,7 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 		Spec: v1.MCPServerInstanceSpec{
 			UserID:                    req.User.GetUID(),
 			MCPServerName:             input.MCPServerID,
-			MCPCatalogName:            server.Spec.SharedWithinMCPCatalogName,
+			MCPCatalogName:            server.Spec.MCPCatalogID,
 			MCPServerCatalogEntryName: entryName,
 			PowerUserWorkspaceID:      server.Spec.PowerUserWorkspaceID,
 		},
@@ -179,7 +179,7 @@ func (h *ServerInstancesHandler) ListServerInstancesForServer(req api.Context) e
 	}
 
 	// Verify server belongs to the requested scope
-	if catalogID != "" && server.Spec.SharedWithinMCPCatalogName != catalogID {
+	if catalogID != "" && server.Spec.MCPCatalogID != catalogID {
 		return types.NewErrNotFound("MCP server not found")
 	} else if workspaceID != "" && server.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
