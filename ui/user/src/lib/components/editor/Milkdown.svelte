@@ -7,6 +7,7 @@
 	import { listener, listenerCtx } from '@milkdown/kit/plugin/listener';
 	import type { InvokeInput } from '$lib/services';
 	import type { EditorState } from '@milkdown/prose/state';
+	import { TextSelection } from '@milkdown/prose/state';
 	import type { EditorView } from '@milkdown/prose/view';
 	import { CircleHelp, MessageSquareText } from 'lucide-svelte/icons';
 	import { tick } from 'svelte';
@@ -79,17 +80,37 @@
 			setValue(overrideContent, true);
 		}
 
-		if (!isEditing && !overrideContent && contents) {
+		if (!isEditing && !overrideContent && contents && !focused) {
 			setValue(contents);
 		}
 	});
 
 	async function setValue(value: string, isTemporary: boolean = false) {
-		if (!crepe || !crepe.editor) return;
+		if (!crepe || !crepe.editor || value === lastSetValue) return;
 
 		try {
+			const currentSelection = editorView?.state.selection;
+			const cursorPosition = currentSelection?.from || 0;
+			const wasEditing = isEditing;
+
 			crepe.editor.action(replaceAll(value));
-			if (!isTemporary && value !== lastSetValue) {
+
+			if (currentSelection && !isTemporary) {
+				if (editorView) {
+					const newDocLength = editorView.state.doc.content.size;
+					const safePosition = Math.min(cursorPosition, newDocLength);
+
+					if (!wasEditing) {
+						editorView.dispatch(
+							editorView.state.tr.setSelection(
+								TextSelection.near(editorView.state.doc.resolve(safePosition))
+							)
+						);
+					}
+				}
+			}
+
+			if (!isTemporary) {
 				lastSetValue = value;
 			}
 		} catch (error) {
@@ -127,10 +148,10 @@
 	}
 
 	const debouncedOnFileChanged = debounce((changedContents: string) => {
-		isEditing = false;
 		if (onFileChanged && lastSetValue !== changedContents) {
 			onFileChanged(file.name, changedContents);
 		}
+		isEditing = false;
 	}, 500);
 
 	async function onBold() {
@@ -173,12 +194,13 @@
 
 				const listener = ctx.get(listenerCtx);
 				listener.markdownUpdated((_ctx, markdown, prevMarkdown) => {
-					isEditing = true;
 					if (overrideContent || !focused) return;
 
 					if (markdown === prevMarkdown) {
 						return;
 					}
+
+					isEditing = true;
 					debouncedOnFileChanged(markdown);
 				});
 
