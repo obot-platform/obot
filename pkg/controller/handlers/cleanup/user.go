@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -122,6 +123,23 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 
 	if err = deleteThreadAuthorizationsForUser(req.Ctx, req.Client, strconv.FormatUint(uint64(userDelete.Spec.UserID), 10)); err != nil {
 		return fmt.Errorf("failed to delete thread authorizations for user %d: %w", userDelete.Spec.UserID, err)
+	}
+
+	// Delete the user's PowerUserWorkspace if it exists
+	var workspaces v1.PowerUserWorkspaceList
+	if err := req.List(&workspaces, &kclient.ListOptions{
+		Namespace: system.DefaultNamespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.userID": strconv.FormatUint(uint64(userDelete.Spec.UserID), 10),
+		}),
+	}); err != nil {
+		return err
+	}
+
+	for _, workspace := range workspaces.Items {
+		if err := kclient.IgnoreNotFound(req.Delete(&workspace)); err != nil {
+			return err
+		}
 	}
 
 	// If everything is cleaned up successfully, then delete this object because we don't need it.
