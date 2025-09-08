@@ -7,6 +7,7 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -33,9 +34,9 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}
 
 	identity := &types.Identity{
-		Email:                 firstValue(resp.User.GetExtra(), "email"),
-		AuthProviderName:      firstValue(resp.User.GetExtra(), "auth_provider_name"),
-		AuthProviderNamespace: firstValue(resp.User.GetExtra(), "auth_provider_namespace"),
+		Email:                 auth.FirstExtraValue(resp.User.GetExtra(), "email"),
+		AuthProviderName:      auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_name"),
+		AuthProviderNamespace: auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_namespace"),
 		ProviderUsername:      resp.User.GetName(),
 		ProviderUserID:        resp.User.GetUID(),
 	}

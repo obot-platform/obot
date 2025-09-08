@@ -12,6 +12,7 @@ type AuthToken struct {
 	UserID                uint      `json:"-" gorm:"index"`
 	AuthProviderNamespace string    `json:"-" gorm:"index"`
 	AuthProviderName      string    `json:"-" gorm:"index"`
+	AuthProviderUserID    string    `json:"-"`
 	HashedToken           string    `json:"-" gorm:"index:idx_id_hashed_token"`
 	HashedSessionID       string    `json:"-" gorm:"index"`
 	CreatedAt             time.Time `json:"createdAt"`

@@ -26,14 +26,14 @@ var (
 	}
 )
 
-func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, string, string, string, []string, error) {
+func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, string, string, string, string, []string, error) {
 	// Extract the id and hashed token value from the bearer token.
 	id, token, _ := strings.Cut(token, ":")
 
 	var (
-		u                                = new(types.User)
-		namespace, name, hashedSessionID string
-		groupIDs                         []string
+		u                                                = new(types.User)
+		namespace, name, providerUserID, hashedSessionID string
+		groupIDs                                         []string
 	)
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		tkn := new(types.AuthToken)
@@ -43,6 +43,7 @@ func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, 
 
 		namespace = tkn.AuthProviderNamespace
 		name = tkn.AuthProviderName
+		providerUserID = tkn.AuthProviderUserID
 		hashedSessionID = tkn.HashedSessionID
 
 		// Get the user
@@ -63,10 +64,10 @@ func (c *Client) UserFromToken(ctx context.Context, token string) (*types.User, 
 
 		return nil
 	}); err != nil {
-		return nil, "", "", "", nil, err
+		return nil, "", "", "", "", nil, err
 	}
 
-	return u, namespace, name, hashedSessionID, groupIDs, c.decryptUser(ctx, u)
+	return u, namespace, name, providerUserID, hashedSessionID, groupIDs, c.decryptUser(ctx, u)
 }
 
 func (c *Client) Users(ctx context.Context, query types.UserQuery) ([]types.User, error) {

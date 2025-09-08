@@ -210,6 +210,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		UserGroups:            groups,
 		AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
+		AuthProviderUserID:    oauthAuthRequest.Spec.AuthProviderUserID,
 		HashedSessionID:       oauthAuthRequest.Spec.HashedSessionID,
 	}
 	tkn, err := h.tokenService.NewToken(tknCtx)
@@ -231,6 +232,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 			HashedSessionID:       oauthAuthRequest.Spec.HashedSessionID,
 			AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
 			AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
+			AuthProviderUserID:    oauthAuthRequest.Spec.AuthProviderUserID,
 		},
 	}
 
@@ -308,6 +310,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		UserGroups:            groups,
 		AuthProviderName:      oauthToken.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
+		AuthProviderUserID:    oauthToken.Spec.AuthProviderUserID,
 		HashedSessionID:       oauthToken.Spec.HashedSessionID,
 	}
 	tkn, err := h.tokenService.NewToken(tknCtx)
@@ -329,6 +332,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 			HashedSessionID:       oauthToken.Spec.HashedSessionID,
 			AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
 			AuthProviderName:      oauthToken.Spec.AuthProviderName,
+			AuthProviderUserID:    oauthToken.Spec.AuthProviderUserID,
 		},
 	}
 

@@ -75,7 +75,14 @@ func (s *Server) redirect(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid state: %v", err))
 	}
 
-	if _, err = apiContext.GatewayClient.NewAuthToken(apiContext.Context(), namespace, name, apiContext.UserID(), tr); err != nil {
+	if _, err = apiContext.GatewayClient.NewAuthToken(
+		apiContext.Context(),
+		namespace,
+		name,
+		apiContext.AuthProviderUserID(),
+		apiContext.UserID(),
+		tr,
+	); err != nil {
 		return s.errorToken(apiContext.Context(), tr, http.StatusInternalServerError, err)
 	}
 

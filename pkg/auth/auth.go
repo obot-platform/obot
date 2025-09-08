@@ -112,3 +112,12 @@ func GetSessionInfoFromRequest(req *http.Request) (sessionID, sessionCookie stri
 	sessionCookie = cookie.Value
 	return
 }
+
+// FirstExtraValue returns the first value for the given key in the extra map.
+func FirstExtraValue(extra map[string][]string, key string) string {
+	values := extra[key]
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
