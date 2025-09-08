@@ -282,6 +282,7 @@ func (h *handler) callback(req api.Context) error {
 	code := strings.ToLower(rand.Text() + rand.Text())
 	oauthAppAuthRequest.Spec.HashedAuthCode = fmt.Sprintf("%x", sha256.Sum256([]byte(code)))
 	oauthAppAuthRequest.Spec.UserID = req.UserID()
+	oauthAppAuthRequest.Spec.AuthProviderUserID = auth.FirstExtraValue(req.User.GetExtra(), "auth_provider_user_id")
 	oauthAppAuthRequest.Spec.AuthProviderNamespace = authProviderNamespace
 	oauthAppAuthRequest.Spec.AuthProviderName = authProviderName
 	oauthAppAuthRequest.Spec.HashedSessionID = hashedSessionID

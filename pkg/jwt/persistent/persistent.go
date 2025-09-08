@@ -91,6 +91,7 @@ type TokenContext struct {
 	Picture               string
 	AuthProviderName      string
 	AuthProviderNamespace string
+	AuthProviderUserID    string
 	HashedSessionID       string
 }
 
@@ -114,7 +115,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	groups := append([]string{authz.AuthenticatedGroup}, tokenContext.UserGroups...)
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
-			UID:    tokenContext.UserID,
+			UID:    tokenContext.AuthProviderUserID,
 			Name:   tokenContext.UserName,
 			Groups: groups,
 			Extra: map[string][]string{
@@ -176,6 +177,7 @@ func (t *TokenService) decodeToken(token string) (*TokenContext, error) {
 		Picture:               getStringClaim("picture"),
 		AuthProviderName:      getStringClaim("AuthProviderName"),
 		AuthProviderNamespace: getStringClaim("AuthProviderNamespace"),
+		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
 		HashedSessionID:       getStringClaim("HashedSessionID"),
 		// These two fields were the latter names and changed the former.
 		// This makes this backwards compatible with older tokens.
@@ -198,6 +200,7 @@ func (t *TokenService) NewToken(context TokenContext) (string, error) {
 		"UserGroups":            strings.Join(context.UserGroups, ","),
 		"AuthProviderName":      context.AuthProviderName,
 		"AuthProviderNamespace": context.AuthProviderNamespace,
+		"AuthProviderUserID":    context.AuthProviderUserID,
 		"HashedSessionID":       context.HashedSessionID,
 	}
 	if claims["aud"] == "" {

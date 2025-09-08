@@ -54,11 +54,3 @@ func (c *Client) IsExplicitAdmin(email string) bool {
 	_, ok := c.adminEmails[email]
 	return ok
 }
-
-func firstValue(m map[string][]string, key string) string {
-	values := m[key]
-	if len(values) == 0 {
-		return ""
-	}
-	return values[0]
-}

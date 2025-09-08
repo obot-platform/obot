@@ -353,6 +353,7 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 			"email":                   {ss.Email},
 			"auth_provider_name":      {p.name},
 			"auth_provider_namespace": {p.namespace},
+			"auth_provider_user_id":   {ss.User},
 		},
 	}
 

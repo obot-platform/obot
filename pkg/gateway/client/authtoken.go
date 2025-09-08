@@ -17,7 +17,14 @@ const (
 	expirationDur     = 7 * 24 * time.Hour
 )
 
-func (c *Client) NewAuthToken(ctx context.Context, authProviderNamespace, authProviderName string, userID uint, tr *types.TokenRequest) (*types.AuthToken, error) {
+func (c *Client) NewAuthToken(
+	ctx context.Context,
+	authProviderNamespace,
+	authProviderName string,
+	authProviderUserID string,
+	userID uint,
+	tr *types.TokenRequest,
+) (*types.AuthToken, error) {
 	randBytes := make([]byte, tokenIDLength+randomTokenLength)
 	if _, err := rand.Read(randBytes); err != nil {
 		return nil, fmt.Errorf("could not generate token id: %w", err)
@@ -33,6 +40,7 @@ func (c *Client) NewAuthToken(ctx context.Context, authProviderNamespace, authPr
 		ExpiresAt:             time.Now().Add(expirationDur),
 		AuthProviderNamespace: authProviderNamespace,
 		AuthProviderName:      authProviderName,
+		AuthProviderUserID:    authProviderUserID,
 	}
 
 	return tkn, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

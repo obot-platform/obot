@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/nanobot-ai/nanobot/pkg/log"
@@ -37,7 +36,7 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 		return nil, false, nil
 	}
 
-	u, namespace, name, hashedSessionID, groupIDs, err := g.gatewayClient.UserFromToken(req.Context(), bearer)
+	u, namespace, name, providerUserID, hashedSessionID, groupIDs, err := g.gatewayClient.UserFromToken(req.Context(), bearer)
 	if err != nil {
 		return nil, false, err
 	}
@@ -52,7 +51,7 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			Name: u.Username,
-			UID:  strconv.FormatUint(uint64(u.ID), 10),
+			UID:  providerUserID,
 			Extra: map[string][]string{
 				"email":                   {u.Email},
 				"auth_provider_namespace": {namespace},

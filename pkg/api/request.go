@@ -12,6 +12,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/system"
@@ -283,19 +284,13 @@ func (r *Context) UserID() uint {
 	return uint(userID)
 }
 
+func (r *Context) AuthProviderUserID() string {
+	return auth.FirstExtraValue(r.User.GetExtra(), "auth_provider_user_id")
+}
+
 func (r *Context) AuthProviderNameAndNamespace() (string, string) {
-	extraName := r.User.GetExtra()["auth_provider_name"]
-	extraNamespace := r.User.GetExtra()["auth_provider_namespace"]
-
-	var name, namespace string
-	if len(extraName) > 0 {
-		name = extraName[0]
-	}
-	if len(extraNamespace) > 0 {
-		namespace = extraNamespace[0]
-	}
-
-	return name, namespace
+	return auth.FirstExtraValue(r.User.GetExtra(), "auth_provider_name"),
+		auth.FirstExtraValue(r.User.GetExtra(), "auth_provider_namespace")
 }
 
 func (r *Context) UserTimezone() string {
