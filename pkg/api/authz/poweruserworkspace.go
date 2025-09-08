@@ -1,12 +1,10 @@
 package authz
 
 import (
-	"fmt"
 	"net/http"
+	"regexp"
 	"slices"
-	"strings"
 
-	"github.com/obot-platform/nah/pkg/name"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -51,19 +49,19 @@ func (a *Authorizer) checkPowerUserWorkspace(req *http.Request, resources *Resou
 	return workspace.Spec.UserID == user.GetUID(), nil
 }
 
+// Workspace access patterns that require PowerUserPlus privileges, and not PowerUser
+var powerUserPlusRequiredPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`/workspaces/[^/]+/servers`),              // MCP servers management
+	regexp.MustCompile(`/workspaces/[^/]+/access-control-rules`), // Access control rules management
+}
+
 func (a *Authorizer) validateWorkspaceRoleAccess(path string, isPowerUserPlus bool, userID string) bool {
-	// PowerUser and PowerUserPlus can access workspace info
-	if strings.HasSuffix(path, fmt.Sprintf("/workspaces/%s", name.SafeConcatName(system.PowerUserWorkspacePrefix, userID))) ||
-		strings.Contains(path, "/workspaces/") && strings.Contains(path, "/entries") {
-		// Both PowerUser and PowerUserPlus can access catalog entries
-		return true
+	// Check patterns that require PowerUserPlus
+	for _, pattern := range powerUserPlusRequiredPatterns {
+		if pattern.MatchString(path) {
+			return isPowerUserPlus
+		}
 	}
 
-	// Only PowerUserPlus can access MCP servers and access control rules
-	if strings.Contains(path, "/workspaces/") &&
-		(strings.Contains(path, "/servers") || strings.Contains(path, "/access-control-rules")) {
-		return isPowerUserPlus
-	}
-
-	return false
+	return true
 }
