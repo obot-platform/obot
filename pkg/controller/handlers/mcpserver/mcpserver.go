@@ -203,6 +203,7 @@ func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router
 
 	if server.Spec.SharedWithinMCPCatalogName != "" && server.Spec.MCPCatalogID == "" {
 		server.Spec.MCPCatalogID = server.Spec.SharedWithinMCPCatalogName
+		server.Spec.SharedWithinMCPCatalogName = ""
 		return req.Client.Update(req.Ctx, server)
 	}
 
