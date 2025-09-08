@@ -67,13 +67,6 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		return err
 	}
 
-	// Check if this is an admin user who needs a PowerUserWorkspace created
-	if user.Role.HasRole(types2.RoleAdmin) {
-		if err := s.ensureAdminWorkspace(apiContext, user); err != nil {
-			pkgLog.Warnf("failed to ensure admin workspace for user %s: %v", user.Username, err)
-		}
-	}
-
 	name, namespace := apiContext.AuthProviderNameAndNamespace()
 
 	if name != "" && namespace != "" {

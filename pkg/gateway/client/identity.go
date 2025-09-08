@@ -194,6 +194,11 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			// Copy the auto-generated values back to the user object.
 			user.ID = u.ID
 			user.CreatedAt = u.CreatedAt
+
+			// Call callback for new privileged users
+			if c.onNewPrivilegedUser != nil && user.Role.HasRole(types2.RolePowerUser) {
+				c.onNewPrivilegedUser(ctx, user)
+			}
 		} else if err != nil {
 			return nil, err
 		} else {

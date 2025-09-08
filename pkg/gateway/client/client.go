@@ -19,19 +19,22 @@ type Client struct {
 	auditLock        sync.Mutex
 	auditBuffer      []types.MCPAuditLog
 	kickAuditPersist chan struct{}
+	// Callback function called when new privileged users are created
+	onNewPrivilegedUser func(ctx context.Context, user *types.User)
 }
 
-func New(ctx context.Context, db *db.DB, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int) *Client {
+func New(ctx context.Context, db *db.DB, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int, onNewPrivilegedUser func(ctx context.Context, user *types.User)) *Client {
 	adminEmailsSet := make(map[string]struct{}, len(adminEmails))
 	for _, email := range adminEmails {
 		adminEmailsSet[email] = struct{}{}
 	}
 	c := &Client{
-		db:               db,
-		encryptionConfig: encryptionConfig,
-		adminEmails:      adminEmailsSet,
-		auditBuffer:      make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
-		kickAuditPersist: make(chan struct{}),
+		db:                  db,
+		encryptionConfig:    encryptionConfig,
+		adminEmails:         adminEmailsSet,
+		auditBuffer:         make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
+		kickAuditPersist:    make(chan struct{}),
+		onNewPrivilegedUser: onNewPrivilegedUser,
 	}
 
 	go c.runPersistenceLoop(ctx, auditLogPersistenceInterval)

@@ -8,10 +8,12 @@ import (
 	"github.com/obot-platform/nah"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/controller/data"
+	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/services"
+	"github.com/obot-platform/obot/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -21,11 +23,12 @@ import (
 )
 
 type Controller struct {
-	router            *router.Router
-	localK8sRouter    *router.Router
-	services          *services.Services
-	toolRefHandler    *toolreference.Handler
-	mcpCatalogHandler *mcpcatalog.Handler
+	router                *router.Router
+	localK8sRouter        *router.Router
+	services              *services.Services
+	toolRefHandler        *toolreference.Handler
+	mcpCatalogHandler     *mcpcatalog.Handler
+	adminWorkspaceHandler *adminworkspace.Handler
 }
 
 func New(services *services.Services) (*Controller, error) {
@@ -59,6 +62,11 @@ func (c *Controller) PreStart(ctx context.Context) error {
 
 	if err := addCatalogIDToAccessControlRules(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to add catalog ID to access control rules: %w", err)
+	}
+
+	// Ensure PowerUserWorkspaces exist for all admin users on startup
+	if err := c.adminWorkspaceHandler.EnsureAllAdminWorkspaces(ctx, c.services.StorageClient, system.DefaultNamespace); err != nil {
+		return fmt.Errorf("failed to ensure admin workspaces: %w", err)
 	}
 
 	return nil

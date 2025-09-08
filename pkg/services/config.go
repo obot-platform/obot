@@ -355,7 +355,25 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
-	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize)
+	// Create callback for new privileged user workspace creation
+	onNewPrivilegedUser := func(ctx context.Context, user *types.User) {
+		// Create a UserRoleChange event to trigger PowerUserWorkspace creation
+		if err := storageClient.Create(ctx, &v1.UserRoleChange{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.UserRoleChangePrefix,
+				Namespace:    system.DefaultNamespace,
+			},
+			Spec: v1.UserRoleChangeSpec{
+				UserID:  user.ID,
+				OldRole: apiclienttypes.RoleBasic, // New users start as basic
+				NewRole: user.Role,
+			},
+		}); err != nil {
+			slog.Error("failed to create user role change event for new privileged user", "userID", user.ID, "role", user.Role, "error", err)
+		}
+	}
+
+	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize, onNewPrivilegedUser)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)

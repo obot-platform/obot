@@ -4,6 +4,7 @@ import (
 	"github.com/obot-platform/nah/pkg/handlers"
 	"github.com/obot-platform/obot/pkg/controller/generationed"
 	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/agents"
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
@@ -75,6 +76,7 @@ func (c *Controller) setupRoutes() {
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New()
 	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
+	adminWorkspaceHandler := adminworkspace.New(c.services.GatewayClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -289,4 +291,5 @@ func (c *Controller) setupRoutes() {
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog
+	c.adminWorkspaceHandler = adminWorkspaceHandler
 }
