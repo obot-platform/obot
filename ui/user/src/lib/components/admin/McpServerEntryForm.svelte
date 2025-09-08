@@ -369,13 +369,19 @@
 									{#if saving}
 										<LoaderCircle class="size-4 animate-spin" />
 									{:else}
-										Launch Temporary Instance
+										Populate Tool Preview
 									{/if}
 								</button>
 								{#if !error}
 									<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-										Click above to set up a temporary instance that will populate capabilities and
-										tools. Otherwise, tools will populate when the user first launches this server.
+										{#if type === 'remote'}
+											Click above to connect to the remote MCP server to populate capabilities and
+											tools.
+										{:else}
+											Click above to set up a temporary instance that will populate capabilities and
+											tools. Otherwise, tools will populate when the user first launches this
+											server.
+										{/if}
 									</p>
 								{/if}
 							{/if}
