@@ -11935,6 +11935,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"sharedWithinMCPCatalogName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SharedWithinMCPCatalogName is a deprecated field. It is renamed to MCPCatalogID.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"mcpCatalogID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MCPCatalogID contains the name of the MCPCatalog inside of which this server was directly created by the admin, if there is one.",
