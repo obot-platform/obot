@@ -197,3 +197,14 @@ func (h *Handler) DeleteServersWithoutRuntime(req router.Request, _ router.Respo
 
 	return nil
 }
+
+func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+
+	if server.Spec.SharedWithinMCPCatalogName != "" && server.Spec.MCPCatalogID == "" {
+		server.Spec.MCPCatalogID = server.Spec.SharedWithinMCPCatalogName
+		return req.Client.Update(req.Ctx, server)
+	}
+
+	return nil
+}

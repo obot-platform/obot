@@ -75,6 +75,8 @@ type MCPServerSpec struct {
 	Alias string `json:"alias,omitempty"`
 	// UserID is the user that created this server.
 	UserID string `json:"userID,omitempty"`
+	// SharedWithinMCPCatalogName is a deprecated field. It is renamed to MCPCatalogID.
+	SharedWithinMCPCatalogName string `json:"sharedWithinMCPCatalogName,omitempty"`
 	// MCPCatalogID contains the name of the MCPCatalog inside of which this server was directly created by the admin, if there is one.
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`
 	// MCPServerCatalogEntryName contains the name of the MCPServerCatalogEntry from which this MCP server was created, if there is one.
