@@ -139,6 +139,19 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
+	// Verify the scope exists
+	if catalogName != "" {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+			return fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
+
 	var fieldSelector client.MatchingFields
 	if catalogName != "" {
 		fieldSelector = client.MatchingFields{"spec.mcpCatalogName": catalogName}
@@ -167,6 +180,19 @@ func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
 	workspaceID := req.PathValue("workspace_id")
 	entryName := req.PathValue("entry_id")
 
+	// Verify the scope exists
+	if catalogName != "" {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+			return fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
+
 	var entry v1.MCPServerCatalogEntry
 	if err := req.Get(&entry, entryName); err != nil {
 		return fmt.Errorf("failed to get entry: %w", err)
@@ -189,13 +215,11 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 
 	// Verify the scope exists
 	if catalogName != "" {
-		var catalog v1.MCPCatalog
-		if err := req.Get(&catalog, catalogName); err != nil {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
 			return fmt.Errorf("failed to get catalog: %w", err)
 		}
 	} else if workspaceID != "" {
-		var workspace v1.PowerUserWorkspace
-		if err := req.Get(&workspace, workspaceID); err != nil {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
 			return fmt.Errorf("failed to get workspace: %w", err)
 		}
 	} else {
@@ -247,13 +271,11 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 
 	// Verify the scope exists
 	if catalogName != "" {
-		var catalog v1.MCPCatalog
-		if err := req.Get(&catalog, catalogName); err != nil {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
 			return fmt.Errorf("failed to get catalog: %w", err)
 		}
 	} else if workspaceID != "" {
-		var workspace v1.PowerUserWorkspace
-		if err := req.Get(&workspace, workspaceID); err != nil {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
 			return fmt.Errorf("failed to get workspace: %w", err)
 		}
 	} else {
@@ -305,13 +327,11 @@ func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 
 	// Verify the scope exists
 	if catalogName != "" {
-		var catalog v1.MCPCatalog
-		if err := req.Get(&catalog, catalogName); err != nil {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
 			return fmt.Errorf("failed to get catalog: %w", err)
 		}
 	} else if workspaceID != "" {
-		var workspace v1.PowerUserWorkspace
-		if err := req.Get(&workspace, workspaceID); err != nil {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
 			return fmt.Errorf("failed to get workspace: %w", err)
 		}
 	} else {
@@ -393,6 +413,19 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	workspaceID := req.PathValue("workspace_id")
 	entryName := req.PathValue("entry_id")
 
+	// Verify the scope exists
+	if catalogName != "" {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+			return fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
+
 	// Get the catalog entry
 	var entry v1.MCPServerCatalogEntry
 	if err := req.Get(&entry, entryName); err != nil {
@@ -465,6 +498,19 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	catalogName := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 	entryName := req.PathValue("entry_id")
+
+	// Verify the scope exists
+	if catalogName != "" {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+			return fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
 
 	// Get the catalog entry
 	var entry v1.MCPServerCatalogEntry

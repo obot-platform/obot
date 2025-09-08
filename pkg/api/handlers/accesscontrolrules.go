@@ -126,15 +126,10 @@ func (h *AccessControlRuleHandler) Create(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.AccessControlRuleSpec{
-			Manifest: manifest,
+			Manifest:             manifest,
+			MCPCatalogID:         catalogID,
+			PowerUserWorkspaceID: workspaceID,
 		},
-	}
-
-	// Set scope-specific fields
-	if catalogID != "" {
-		rule.Spec.MCPCatalogID = catalogID
-	} else {
-		rule.Spec.PowerUserWorkspaceID = workspaceID
 	}
 
 	if err := manifest.Validate(); err != nil {
@@ -235,6 +230,17 @@ func (*AccessControlRuleHandler) Delete(req api.Context) error {
 	// Must have either catalog_id or workspace_id
 	if catalogID == "" && workspaceID == "" {
 		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
+
+	// Verify that the scope exists
+	if catalogID != "" {
+		if err := req.Get(&v1.MCPCatalog{}, catalogID); err != nil {
+			return types.NewErrBadRequest("catalog not found: %v", err)
+		}
+	} else {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+			return types.NewErrBadRequest("workspace not found: %v", err)
+		}
 	}
 
 	// Get the rule first to verify it belongs to the correct scope

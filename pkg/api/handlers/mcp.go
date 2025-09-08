@@ -76,7 +76,6 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 		} else if entry.Spec.PowerUserWorkspaceID != "" {
 			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
 		}
-
 		if err != nil {
 			return err
 		}
@@ -109,24 +108,23 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	// For non-admin users, check access via AccessControlRules across all sources
 	var entries []types.MCPServerCatalogEntry
 	for _, entry := range list.Items {
+		var (
+			err       error
+			hasAccess bool
+		)
+
 		// Check default catalog entries
 		if entry.Spec.MCPCatalogName != "" {
-			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
-			if err != nil {
-				return err
-			}
-			if hasAccess {
-				entries = append(entries, convertMCPServerCatalogEntry(entry))
-			}
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
 		} else if entry.Spec.PowerUserWorkspaceID != "" {
 			// Check workspace-scoped entries
-			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
-			if err != nil {
-				return err
-			}
-			if hasAccess {
-				entries = append(entries, convertMCPServerCatalogEntry(entry))
-			}
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
+		}
+		if err != nil {
+			return err
+		}
+		if hasAccess {
+			entries = append(entries, convertMCPServerCatalogEntry(entry))
 		}
 	}
 
@@ -973,20 +971,28 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	}
 
 	if input.CatalogEntryID != "" {
-		if !req.UserIsAdmin() {
-			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntry(req.User, input.CatalogEntryID)
-			if err != nil {
-				return err
-			}
-
-			if !hasAccess {
-				return types.NewErrForbidden("user does not have access to MCP server catalog entry")
-			}
-		}
-
 		var catalogEntry v1.MCPServerCatalogEntry
 		if err := req.Get(&catalogEntry, input.CatalogEntryID); err != nil {
 			return err
+		}
+
+		if !req.UserIsAdmin() {
+			var (
+				err       error
+				hasAccess bool
+			)
+
+			if catalogEntry.Spec.MCPCatalogName != "" {
+				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, catalogEntry.Name, catalogEntry.Spec.MCPCatalogName)
+			} else if catalogEntry.Spec.PowerUserWorkspaceID != "" {
+				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, catalogEntry.Name, catalogEntry.Spec.PowerUserWorkspaceID)
+			}
+			if err != nil {
+				return err
+			}
+			if !hasAccess {
+				return types.NewErrForbidden("user does not have access to MCP server catalog entry")
+			}
 		}
 
 		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.Manifest, input.MCPServerManifest)
@@ -1586,24 +1592,23 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 	} else {
 		// For non-admin users, check access via AccessControlRules across all sources
 		for _, server := range list.Items {
-			// Check default catalog servers
+			var (
+				err       error
+				hasAccess bool
+			)
+
 			if server.Spec.SharedWithinMCPCatalogName != "" {
-				hasAccess, err := m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.SharedWithinMCPCatalogName)
-				if err != nil {
-					return err
-				}
-				if hasAccess {
-					allowedServers = append(allowedServers, server)
-				}
+				// Check default catalog servers
+				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.SharedWithinMCPCatalogName)
 			} else if server.Spec.PowerUserWorkspaceID != "" {
 				// Check workspace-scoped servers
-				hasAccess, err := m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
-				if err != nil {
-					return err
-				}
-				if hasAccess {
-					allowedServers = append(allowedServers, server)
-				}
+				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
+			}
+			if err != nil {
+				return err
+			}
+			if hasAccess {
+				allowedServers = append(allowedServers, server)
 			}
 		}
 	}
@@ -1693,7 +1698,6 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		} else if server.Spec.PowerUserWorkspaceID != "" {
 			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
 		}
-
 		if err != nil {
 			return err
 		}

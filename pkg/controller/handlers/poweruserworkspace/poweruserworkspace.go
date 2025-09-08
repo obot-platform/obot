@@ -12,6 +12,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,9 +54,7 @@ func (h *Handler) HandleRoleChange(req router.Request, _ router.Response) error 
 
 		// If demoting to PowerUser from PowerUserPlus or Admin, clean up workspace resources.
 		// PowerUsers are not allowed to manage Access Control Rules or multi-user MCPServers.
-		if roleChange.Spec.NewRole == types.RolePowerUser &&
-			(roleChange.Spec.OldRole == types.RolePowerUserPlus ||
-				roleChange.Spec.OldRole == types.RoleAdmin) {
+		if roleChange.Spec.NewRole == types.RolePowerUser && roleChange.Spec.OldRole.HasRole(types.RolePowerUserPlus) {
 			if err := h.cleanupWorkspaceForDemotionToPowerUser(req.Ctx, req.Client, req.Namespace, userIDStr); err != nil {
 				return err
 			}
@@ -77,7 +76,7 @@ func (h *Handler) CreateACR(req router.Request, _ router.Response) error {
 }
 
 func (h *Handler) isPrivilegedRole(role types.Role) bool {
-	return role.HasRole(types.RolePowerUser) || role.HasRole(types.RolePowerUserPlus) || role.HasRole(types.RoleAdmin)
+	return role.HasRole(types.RolePowerUser)
 }
 
 func (h *Handler) ensureWorkspaceForUser(ctx context.Context, client kclient.Client, namespace string, user gatewaytypes.User) error {
@@ -89,12 +88,8 @@ func (h *Handler) ensureWorkspaceForUser(ctx context.Context, client kclient.Cli
 		FieldSelector: fields.SelectorFromSet(map[string]string{
 			"spec.userID": userIDStr,
 		}),
-	}); err != nil {
+	}); err != nil || len(existingWorkspaces.Items) > 0 {
 		return err
-	}
-
-	if len(existingWorkspaces.Items) > 0 {
-		return nil
 	}
 
 	workspace := &v1.PowerUserWorkspace{
@@ -123,7 +118,7 @@ func (h *Handler) deleteWorkspaceForUser(ctx context.Context, client kclient.Cli
 	}
 
 	for _, workspace := range workspaces.Items {
-		if err := client.Delete(ctx, &workspace); err != nil {
+		if err := client.Delete(ctx, &workspace); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -166,45 +161,41 @@ func (h *Handler) cleanupWorkspaceForDemotionToPowerUser(ctx context.Context, cl
 		return err
 	}
 
-	if len(workspaces.Items) == 0 {
-		return nil // No workspace to clean up
-	}
+	for _, workspace := range workspaces.Items {
+		// Delete non-generated AccessControlRules in this workspace
+		var acrs v1.AccessControlRuleList
+		if err := client.List(ctx, &acrs, &kclient.ListOptions{
+			Namespace: namespace,
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.powerUserWorkspaceID": workspace.Name,
+			}),
+		}); err != nil {
+			return err
+		}
 
-	workspaceName := workspaces.Items[0].Name
-
-	// Delete non-generated AccessControlRules in this workspace
-	var acrs v1.AccessControlRuleList
-	if err := client.List(ctx, &acrs, &kclient.ListOptions{
-		Namespace: namespace,
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.powerUserWorkspaceID": workspaceName,
-		}),
-	}); err != nil {
-		return err
-	}
-
-	for _, acr := range acrs.Items {
-		if !acr.Spec.Generated {
-			if err := client.Delete(ctx, &acr); err != nil {
-				return err
+		for _, acr := range acrs.Items {
+			if !acr.Spec.Generated {
+				if err := client.Delete(ctx, &acr); err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	// Delete all MCPServers in this workspace
-	var servers v1.MCPServerList
-	if err := client.List(ctx, &servers, &kclient.ListOptions{
-		Namespace: namespace,
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.powerUserWorkspaceID": workspaceName,
-		}),
-	}); err != nil {
-		return err
-	}
-
-	for _, server := range servers.Items {
-		if err := client.Delete(ctx, &server); err != nil {
+		// Delete all MCPServers in this workspace
+		var servers v1.MCPServerList
+		if err := client.List(ctx, &servers, &kclient.ListOptions{
+			Namespace: namespace,
+			FieldSelector: fields.SelectorFromSet(map[string]string{
+				"spec.powerUserWorkspaceID": workspace.Name,
+			}),
+		}); err != nil {
 			return err
+		}
+
+		for _, server := range servers.Items {
+			if err := client.Delete(ctx, &server); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -257,5 +248,5 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 		},
 	}
 
-	return create.OrGet(ctx, client, defaultACR)
+	return client.Create(ctx, defaultACR)
 }

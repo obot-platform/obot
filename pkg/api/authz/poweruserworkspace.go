@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -35,10 +36,14 @@ func (a *Authorizer) checkPowerUserWorkspace(req *http.Request, resources *Resou
 		Namespace: system.DefaultNamespace,
 		Name:      resources.WorkspaceID,
 	}, &workspace); err != nil {
-		if err := a.uncached.Get(req.Context(), kclient.ObjectKey{
-			Namespace: system.DefaultNamespace,
-			Name:      resources.WorkspaceID,
-		}, &workspace); err != nil {
+		if errors.IsNotFound(err) {
+			if err := a.uncached.Get(req.Context(), kclient.ObjectKey{
+				Namespace: system.DefaultNamespace,
+				Name:      resources.WorkspaceID,
+			}, &workspace); err != nil {
+				return false, err
+			}
+		} else {
 			return false, err
 		}
 	}

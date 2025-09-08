@@ -190,8 +190,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig":                             schema_obot_platform_obot_apiclient_types_UVXRuntimeConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.User":                                         schema_obot_platform_obot_apiclient_types_User(ref),
 		"github.com/obot-platform/obot/apiclient/types.UserList":                                     schema_obot_platform_obot_apiclient_types_UserList(ref),
-		"github.com/obot-platform/obot/apiclient/types.UserRoleChange":                               schema_obot_platform_obot_apiclient_types_UserRoleChange(ref),
-		"github.com/obot-platform/obot/apiclient/types.UserRoleChangeList":                           schema_obot_platform_obot_apiclient_types_UserRoleChangeList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Webhook":                                      schema_obot_platform_obot_apiclient_types_Webhook(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebhookList":                                  schema_obot_platform_obot_apiclient_types_WebhookList(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebhookManifest":                              schema_obot_platform_obot_apiclient_types_WebhookManifest(ref),
@@ -8863,73 +8861,6 @@ func schema_obot_platform_obot_apiclient_types_UserList(ref common.ReferenceCall
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.User"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_UserRoleChange(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"Metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
-						},
-					},
-					"userID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-					"oldRole": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-					"newRole": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-				},
-				Required: []string{"Metadata"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_UserRoleChangeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.UserRoleChange"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.UserRoleChange"},
 	}
 }
 

@@ -350,7 +350,7 @@ func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Resp
 				return fmt.Errorf("failed to get power user workspace %s: %w", server.Spec.PowerUserWorkspaceID, err)
 			}
 
-			if workspace.Spec.Role != types.RoleAdmin && workspace.Spec.Role != types.RolePowerUserPlus {
+			if !workspace.Spec.Role.HasRole(types.RolePowerUserPlus) {
 				log.Infof("Deleting multi-user MCP server %q because its owner is no longer a PowerUserPlus", server.Name)
 				if err := req.Delete(&server); err != nil {
 					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
