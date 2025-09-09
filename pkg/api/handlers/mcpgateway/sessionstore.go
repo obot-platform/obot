@@ -14,7 +14,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -69,14 +68,17 @@ func (h *Handler) Load(req *http.Request, sessionID string) (*nmcp.ServerSession
 
 	// If the session hasn't been updated in the last hour, update it.
 	if time.Since(mcpSess.Status.LastUsedTime.Time) > time.Hour {
-		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-			if err := h.storageClient.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSess); err != nil {
-				return fmt.Errorf("failed to get session %s: %w", sessionID, err)
-			}
-			mcpSess.Status.LastUsedTime = metav1.Now()
-			return h.storageClient.Status().Update(req.Context(), mcpSess)
-		}); err != nil {
-			return nil, false, fmt.Errorf("failed to update session %s status access time: %w", sessionID, err)
+		// Get the latest version of the session from storage.
+		s := new(v1.MCPSession)
+		if err := h.storageClient.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, s); err != nil {
+			return nil, false, fmt.Errorf("failed to get session %s: %w", sessionID, err)
+		}
+
+		s.Status.LastUsedTime = metav1.Now()
+		if err := h.storageClient.Status().Update(req.Context(), s); err == nil {
+			// Best effort update of session status access time.
+			// If there are multiple concurrent requests, there may be conflicts.
+			h.mcpSessionCache.Store(sessionID, s)
 		}
 	}
 
@@ -94,7 +96,11 @@ func (h *Handler) LoadAndDelete(req *http.Request, sessionID string) (*nmcp.Serv
 	if ok {
 		mcpSess = mcpSession.(*v1.MCPSession)
 		sess = session.(*nmcp.ServerSession)
-	} else {
+	}
+
+	// There is a strange issue where the mcpSess's name goes empty.
+	// It was likely a race condition that has since been fixed, but it is straightforward to protect against here.
+	if !ok || mcpSess == nil || mcpSess.Name == "" {
 		mcpSess = new(v1.MCPSession)
 		err := h.storageClient.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSess)
 		if err != nil {
