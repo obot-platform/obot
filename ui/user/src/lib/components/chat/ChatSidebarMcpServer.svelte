@@ -65,7 +65,6 @@
 		<McpServerInfoAndTools
 			{view}
 			entry={mcpServer}
-			catalogId={DEFAULT_MCP_CATALOG_ID}
 			onAuthenticate={async () => {
 				const updatedMcps = await validateOauthProjectMcps(
 					project.assistantID,

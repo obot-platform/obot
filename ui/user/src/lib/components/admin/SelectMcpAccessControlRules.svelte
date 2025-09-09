@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		AdminService,
+		ChatService,
 		type AccessControlRule,
 		type AccessControlRuleResource,
 		type MCPCatalogEntry,
@@ -17,9 +18,11 @@
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		onSubmit?: () => void;
+		entity?: 'workspace' | 'catalog';
+		id?: string;
 	}
 
-	let { entry, onSubmit }: Props = $props();
+	let { entry, onSubmit, entity = 'catalog', id }: Props = $props();
 
 	let users = $state<OrgUser[]>([]);
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -30,7 +33,10 @@
 	let savingRules = $state(false);
 
 	export async function open() {
-		accessControlRules = await AdminService.listAccessControlRules();
+		accessControlRules =
+			entity === 'workspace' && id
+				? await ChatService.listWorkspaceAccessControlRules(id)
+				: await AdminService.listAccessControlRules();
 		users = await AdminService.listUsers();
 		dialog?.open();
 	}
@@ -52,13 +58,23 @@
 			const mappedRule = mappedRules.get(rule);
 			if (!mappedRule) continue;
 
-			await AdminService.updateAccessControlRule(rule, {
-				...mappedRule,
-				resources: [
-					...(mappedRule.resources ?? []),
-					{ id: entry.id, type }
-				] as AccessControlRuleResource[]
-			});
+			if (entity === 'workspace' && id) {
+				await ChatService.updateWorkspaceAccessControlRule(id, rule, {
+					...mappedRule,
+					resources: [
+						...(mappedRule.resources ?? []),
+						{ id: entry.id, type }
+					] as AccessControlRuleResource[]
+				});
+			} else {
+				await AdminService.updateAccessControlRule(rule, {
+					...mappedRule,
+					resources: [
+						...(mappedRule.resources ?? []),
+						{ id: entry.id, type }
+					] as AccessControlRuleResource[]
+				});
+			}
 		}
 
 		savingRules = false;

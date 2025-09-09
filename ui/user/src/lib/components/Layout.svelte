@@ -33,6 +33,16 @@
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
 	import { Render } from './ui/render';
+	import { Role } from '$lib/services';
+
+	type NavLink = {
+		href: string;
+		icon: Component;
+		label: string;
+		disabled: boolean;
+		collapsible: boolean;
+		items?: NavLink[];
+	};
 
 	interface Props {
 		classes?: {
@@ -45,12 +55,14 @@
 		hideSidebar?: boolean;
 		whiteBackground?: boolean;
 		main?: { component: Component; props?: Record<string, unknown> };
+		navLinks?: NavLink[];
 	}
 
 	const {
 		classes,
 		children,
 		showUserLinks,
+		navLinks: overrideNavLinks,
 		onRenderSubContent,
 		hideSidebar,
 		whiteBackground,
@@ -163,7 +175,26 @@
 						collapsible: false
 					}
 				]
-			: []
+			: (overrideNavLinks ?? [
+					{
+						href: '/mcp-publisher',
+						icon: Server,
+						label: 'MCP Servers',
+						disabled: false,
+						collapsible: false
+					},
+					...(profile.current?.role === Role.POWERUSER_PLUS || profile.current?.role === Role.ADMIN
+						? [
+								{
+									href: '/mcp-publisher/access-control',
+									icon: GlobeLock,
+									label: 'Access Control',
+									disabled: false,
+									collapsible: false
+								}
+							]
+						: [])
+				])
 	);
 
 	const tooltips = {

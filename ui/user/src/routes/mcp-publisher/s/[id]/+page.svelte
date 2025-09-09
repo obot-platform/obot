@@ -2,7 +2,7 @@
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
-	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
@@ -11,7 +11,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { mcpServer: initialMcpServer } = data;
+	let { mcpServer: initialMcpServer, workspaceId } = data;
 	let mcpServer = $state(initialMcpServer);
 </script>
 
@@ -20,24 +20,28 @@
 		component: VirtualPageViewport as unknown as Component,
 		props: { class: '', as: 'main', itemHeight: 56, overscan: 5, disabled: true }
 	}}
+	showUserLinks
 >
 	<div class="mt-6 flex h-full flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServer}
 			{@const currentLabel = mcpServer?.manifest?.name ?? 'MCP Server'}
-			<BackLink fromURL="mcp-servers" {currentLabel} />
+			<BackLink fromURL="mcp-publisher" {currentLabel} />
 		{/if}
 
-		<McpServerEntryForm
-			entry={mcpServer}
-			type="multi"
-			id={DEFAULT_MCP_CATALOG_ID}
-			onCancel={() => {
-				goto('/admin/mcp-servers');
-			}}
-			onSubmit={async () => {
-				goto('/admin/mcp-servers');
-			}}
-		/>
+		{#if workspaceId && mcpServer}
+			<McpServerEntryForm
+				entry={mcpServer}
+				type="multi"
+				id={workspaceId}
+				entity="workspace"
+				onCancel={() => {
+					goto('/mcp-publisher');
+				}}
+				onSubmit={async () => {
+					goto('/mcp-publisher');
+				}}
+			/>
+		{/if}
 	</div>
 </Layout>
 
