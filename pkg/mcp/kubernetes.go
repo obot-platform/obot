@@ -224,7 +224,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 			"mcp-server-scope": server.Scope,
 		}
 
-		fileMapping            = make(map[string]string, len(server.Env))
+		fileMapping            = make(map[string]string, len(server.Files))
 		secretStringData       = make(map[string]string, len(server.Env)+len(server.Headers)+2)
 		secretVolumeStringData = make(map[string]string, len(server.Files))
 	)
@@ -233,7 +233,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 		filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
 		secretVolumeStringData[filename] = file.Data
 		if file.EnvKey != "" {
-			secretStringData[file.EnvKey] = filename
+			secretStringData[file.EnvKey] = "/files/" + filename
 			fileMapping[file.EnvKey] = "/files/" + filename
 		}
 	}
