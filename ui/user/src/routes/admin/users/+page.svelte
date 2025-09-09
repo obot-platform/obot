@@ -6,6 +6,7 @@
 	import Select from '$lib/components/Select.svelte';
 	import Table from '$lib/components/Table.svelte';
 	import { BOOTSTRAP_USER_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { userRoleOptions } from '$lib/services/admin/constants.js';
 	import { Role, type OrgUser } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
@@ -21,7 +22,7 @@
 		users.map((user) => ({
 			...user,
 			name: getUserDisplayName(user),
-			role: user.role === Role.ADMIN ? 'Admin' : 'User',
+			role: userRoleOptions.find((role) => role.id === user.role)?.label ?? 'Unknown',
 			roleId: user.role
 		}))
 	);
@@ -155,7 +156,7 @@
 	oncancel={() => (deletingUser = undefined)}
 />
 
-<dialog bind:this={updateRoleDialog} class="w-full max-w-md overflow-visible p-4">
+<dialog bind:this={updateRoleDialog} class="w-full max-w-xl overflow-visible p-4">
 	{#if updatingRole}
 		<h3 class="default-dialog-title">
 			Update User Role
@@ -163,19 +164,26 @@
 				<X class="size-5" />
 			</button>
 		</h3>
-		<div class="my-4 flex flex-col gap-2 text-sm text-gray-500">
-			<p><b>Admin</b>: Admins can manage all aspects of the platform.</p>
-			<p>
-				<b>Users</b>: Users are restricted to only interracting with projects that were shared with
-				them. They cannot access the Admin UI.
-			</p>
+		<div class="my-4 flex flex-col gap-4 text-sm font-light text-gray-500">
+			{#each userRoleOptions as role}
+				<div class="flex gap-4">
+					<p class="w-28 flex-shrink-0 font-semibold">{role.label}</p>
+					{#if role.id === Role.ADMIN}
+						<p>Admins can manage all aspects of the platform.</p>
+					{:else}
+						<p>{role.description}</p>
+					{/if}
+				</div>
+			{/each}
 		</div>
 		<div>
 			<Select
 				class="bg-surface1 shadow-inner"
 				options={[
 					{ label: 'Admin', id: Role.ADMIN },
-					{ label: 'User', id: Role.USER }
+					{ label: 'User', id: Role.USER },
+					{ label: 'Power User', id: Role.POWERUSER },
+					{ label: 'Power User Plus', id: Role.POWERUSER_PLUS }
 				]}
 				selected={updatingRole.roleId}
 				onSelect={(option) => {

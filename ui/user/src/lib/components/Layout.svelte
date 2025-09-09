@@ -22,6 +22,7 @@
 		Settings,
 		SidebarClose,
 		SidebarOpen,
+		UserCog,
 		Users
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
@@ -68,6 +69,7 @@
 						icon: Server,
 						label: 'MCP Servers',
 						disabled: isBootStrapUser,
+						collapsible: true,
 						items: [
 							{
 								href: '/admin/audit-logs',
@@ -102,6 +104,7 @@
 						icon: MessageCircle,
 						label: 'Obot Chat',
 						disabled: isBootStrapUser,
+						collapsible: true,
 						items: [
 							{
 								href: '/admin/chat-threads',
@@ -140,7 +143,17 @@
 						href: '/admin/users',
 						icon: Users,
 						label: 'Users',
-						collapsible: false
+						collapsible: false,
+						disabled: false,
+						items: [
+							{
+								href: '/admin/user-configuration',
+								icon: UserCog,
+								label: 'User Configuration',
+								collapsible: false,
+								disabled: false
+							}
+						]
 					},
 					{
 						href: '/admin/auth-providers',
@@ -217,9 +230,9 @@
 								{#if link.collapsible}
 									<button
 										class="px-2"
-										onclick={() => (collapsed[link.href] = !collapsed[link.href])}
+										onclick={() => (collapsed[link.label] = !collapsed[link.label])}
 									>
-										{#if collapsed[link.href]}
+										{#if collapsed[link.label]}
 											<ChevronUp class="size-5" />
 										{:else}
 											<ChevronDown class="size-5" />
@@ -227,7 +240,7 @@
 									</button>
 								{/if}
 							</div>
-							{#if !collapsed[link.href || '']}
+							{#if !collapsed[link.label || '']}
 								<div in:slide={{ axis: 'y' }}>
 									{#if onRenderSubContent}
 										{@render onRenderSubContent(link.label)}
