@@ -5,10 +5,12 @@
 	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { stripMarkdownToText } from '$lib/markdown';
+	import { getPoweruserWorkspace } from '$lib/context/poweruserWorkspace.svelte';
 
 	interface Props {
 		onAdd: (mcpCatalogEntryIds: string[], mcpServerIds: string[], otherSelectors: string[]) => void;
 		exclude?: string[];
+		entity?: 'workspace' | 'catalog';
 	}
 
 	type SearchItem = {
@@ -19,12 +21,13 @@
 		type: 'mcpcatalogentry' | 'mcpserver' | 'all';
 	};
 
-	let { onAdd, exclude }: Props = $props();
+	let { onAdd, exclude, entity = 'catalog' }: Props = $props();
 	let addMcpServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let search = $state('');
 	let selected = $state<SearchItem[]>([]);
 	let selectedMap = $derived(new Set(selected.map((i) => i.id)));
-	const mcpServerAndEntries = getAdminMcpServerAndEntries();
+	const mcpServerAndEntries =
+		entity === 'workspace' ? getPoweruserWorkspace() : getAdminMcpServerAndEntries();
 
 	let loading = $state(false);
 	let allData: SearchItem[] = $derived(

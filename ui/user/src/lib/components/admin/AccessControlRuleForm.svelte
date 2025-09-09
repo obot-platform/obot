@@ -1,8 +1,11 @@
 <script lang="ts">
-	import { PAGE_TRANSITION_DURATION, ADMIN_SESSION_STORAGE } from '$lib/constants';
-	import { AdminService } from '$lib/services';
 	import {
-		Role,
+		PAGE_TRANSITION_DURATION,
+		ADMIN_SESSION_STORAGE,
+		DEFAULT_MCP_CATALOG_ID
+	} from '$lib/constants';
+	import { AdminService, ChatService } from '$lib/services';
+	import {
 		type AccessControlRule,
 		type AccessControlRuleManifest,
 		type AccessControlRuleResource,
@@ -20,19 +23,25 @@
 	import { goto } from '$app/navigation';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import { getUserRoleLabel } from '$lib/utils';
+	import { getPoweruserWorkspace } from '$lib/context/poweruserWorkspace.svelte';
 
 	interface Props {
 		topContent?: Snippet;
 		accessControlRule?: AccessControlRule;
 		onCreate?: (accessControlRule: AccessControlRule) => void;
 		onUpdate?: (accessControlRule: AccessControlRule) => void;
+		entity?: 'workspace' | 'catalog';
+		id?: string | null;
 	}
 
 	let {
 		topContent,
 		accessControlRule: initialAccessControlRule,
 		onCreate,
-		onUpdate
+		onUpdate,
+		id = DEFAULT_MCP_CATALOG_ID,
+		entity = 'catalog'
 	}: Props = $props();
 	const duration = PAGE_TRANSITION_DURATION;
 	let accessControlRule = $state(
@@ -54,7 +63,8 @@
 
 	let deletingRule = $state(false);
 
-	const adminMcpServerAndEntries = getAdminMcpServerAndEntries();
+	const adminMcpServerAndEntries =
+		entity === 'workspace' ? getPoweruserWorkspace() : getAdminMcpServerAndEntries();
 	let mcpServersMap = $derived(new Map(adminMcpServerAndEntries.servers.map((i) => [i.id, i])));
 	let mcpEntriesMap = $derived(new Map(adminMcpServerAndEntries.entries.map((i) => [i.id, i])));
 	let mcpServersTableData = $derived.by(() => {
@@ -65,6 +75,7 @@
 	});
 
 	onMount(async () => {
+		// TODO: does power user have access to list users and groups?
 		loadingUsersAndGroups = Promise.all([AdminService.listUsers(), AdminService.listGroups()]).then(
 			([users, groups]) => ({ users, groups })
 		);
@@ -126,7 +137,7 @@
 						return {
 							id: subject.id,
 							displayName: user.email ?? user.username,
-							role: user.role === Role.ADMIN ? 'Admin' : 'User',
+							role: getUserRoleLabel(user.role),
 							type: 'User'
 						};
 					}
@@ -344,8 +355,12 @@
 					class="button-primary text-sm disabled:opacity-75"
 					disabled={!validate(accessControlRule) || saving}
 					onclick={async () => {
+						if (!id) return;
 						saving = true;
-						const response = await AdminService.createAccessControlRule(accessControlRule);
+						const response =
+							entity === 'workspace'
+								? await ChatService.createWorkspaceAccessControlRule(id, accessControlRule)
+								: await AdminService.createAccessControlRule(accessControlRule);
 						accessControlRule = response;
 						if (redirect) {
 							goto(redirect);
@@ -366,9 +381,12 @@
 					class="button text-sm"
 					disabled={saving}
 					onclick={async () => {
-						if (!accessControlRule.id) return;
+						if (!accessControlRule.id || !id) return;
 						saving = true;
-						accessControlRule = await AdminService.getAccessControlRule(accessControlRule.id);
+						accessControlRule =
+							entity === 'workspace'
+								? await ChatService.getWorkspaceAccessControlRule(id, accessControlRule.id)
+								: await AdminService.getAccessControlRule(accessControlRule.id);
 						saving = false;
 					}}
 				>
@@ -378,12 +396,19 @@
 					class="button-primary text-sm disabled:opacity-75"
 					disabled={!validate(accessControlRule) || saving}
 					onclick={async () => {
-						if (!accessControlRule.id) return;
+						if (!accessControlRule.id || !id) return;
 						saving = true;
-						const response = await AdminService.updateAccessControlRule(
-							accessControlRule.id,
-							accessControlRule
-						);
+						const response =
+							entity === 'workspace'
+								? await ChatService.updateWorkspaceAccessControlRule(
+										id,
+										accessControlRule.id,
+										accessControlRule
+									)
+								: await AdminService.updateAccessControlRule(
+										accessControlRule.id,
+										accessControlRule
+									);
 						accessControlRule = response;
 						onUpdate?.(response);
 						saving = false;
@@ -442,15 +467,18 @@
 			...otherSelectors.map((id) => ({ type: 'selector' as const, id }))
 		];
 	}}
+	{entity}
 />
 
 <Confirm
 	msg="Are you sure you want to delete this rule?"
 	show={deletingRule}
 	onsuccess={async () => {
-		if (!accessControlRule.id) return;
+		if (!accessControlRule.id || !id) return;
 		saving = true;
-		await AdminService.deleteAccessControlRule(accessControlRule.id);
+		await (entity === 'workspace'
+			? ChatService.deleteWorkspaceAccessControlRule(id, accessControlRule.id)
+			: AdminService.deleteAccessControlRule(accessControlRule.id));
 		goto('/admin/access-control');
 	}}
 	oncancel={() => (deletingRule = false)}

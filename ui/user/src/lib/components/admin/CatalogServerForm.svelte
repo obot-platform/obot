@@ -3,7 +3,8 @@
 		type MCPCatalogEntry,
 		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
-		type MCPCatalogServerManifest
+		type MCPCatalogServerManifest,
+		Role
 	} from '$lib/services/admin/types';
 	import type { Runtime } from '$lib/services/chat/types';
 	import { Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
@@ -12,16 +13,18 @@
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
-	import { AdminService, type MCPCatalogServer } from '$lib/services';
+	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import { onMount, tick, type Snippet } from 'svelte';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import CategorySelectInput from './CategorySelectInput.svelte';
 	import Select from '../Select.svelte';
+	import { profile } from '$lib/stores';
 
 	interface Props {
-		catalogId?: string;
+		id?: string;
+		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		type?: 'single' | 'multi' | 'remote';
 		readonly?: boolean;
@@ -43,7 +46,8 @@
 	}
 
 	let {
-		catalogId,
+		id,
+		entity = 'catalog',
 		entry,
 		readonly,
 		type: newType = 'single',
@@ -64,10 +68,14 @@
 	let remoteCategories = $state<string[]>([]);
 
 	let categories = $derived([...remoteCategories, ...(formData?.categories ?? [])]);
+	const isAtLeastPowerUserPlus = $derived(
+		profile.current?.role === Role.POWERUSER_PLUS || profile.current?.role === Role.ADMIN
+	);
 
 	onMount(() => {
-		if (!catalogId) return;
-		AdminService.listCatalogCategories(catalogId).then((res) => {
+		if (!id || entity === 'workspace') return;
+		// TODO: do we have categories for workspace catalog?
+		AdminService.listCatalogCategories(id).then((res) => {
 			remoteCategories = res;
 		});
 	});
@@ -182,9 +190,13 @@
 		}
 	}
 
-	async function revealCatalogServer(catalogId: string, entryId: string) {
+	async function revealCatalogServer(id: string, entryId: string, entity: 'workspace' | 'catalog') {
 		try {
-			const response = await AdminService.revealMcpCatalogServer(catalogId, entryId);
+			const revealFn =
+				entity === 'workspace'
+					? ChatService.revealWorkspaceMCPCatalogServer
+					: AdminService.revealMcpCatalogServer;
+			const response = await revealFn(id, entryId);
 
 			// Update environment variables with revealed values
 			if (formData.env) {
@@ -313,8 +325,8 @@
 	}
 
 	onMount(() => {
-		if ((type === 'multi' || type === 'remote') && entry && catalogId) {
-			revealCatalogServer(catalogId, entry.id);
+		if ((type === 'multi' || type === 'remote') && entry && id) {
+			revealCatalogServer(id, entry.id, entity);
 		}
 	});
 
@@ -444,32 +456,44 @@
 		return serverManifest;
 	}
 
-	async function handleEntrySubmit(catalogId: string) {
+	async function handleEntrySubmit(id: string) {
 		const manifest = convertToEntryManifest(formData);
 
 		let response: MCPCatalogEntry;
 		if (entry) {
-			response = await AdminService.updateMCPCatalogEntry(catalogId, entry.id, manifest);
+			const updateEntryFn =
+				entity === 'workspace'
+					? ChatService.updateWorkspaceMCPCatalogEntry
+					: AdminService.updateMCPCatalogEntry;
+			response = await updateEntryFn(id, entry.id, manifest);
 		} else {
-			response = await AdminService.createMCPCatalogEntry(catalogId, manifest);
+			const createEntryFn =
+				entity === 'workspace'
+					? ChatService.createWorkspaceMCPCatalogEntry
+					: AdminService.createMCPCatalogEntry;
+			response = await createEntryFn(id, manifest);
 		}
 
 		// TODO: header fixed values
 		return response;
 	}
 
-	async function handleServerSubmit(catalogId: string) {
+	async function handleServerSubmit(id: string) {
 		const serverManifest = convertToServerManifest(formData);
 
 		let response: MCPCatalogServer;
 		if (entry) {
-			response = await AdminService.updateMCPCatalogServer(
-				catalogId,
-				entry.id,
-				serverManifest.manifest
-			);
+			const updateServerFn =
+				entity === 'workspace'
+					? ChatService.updateWorkspaceMCPCatalogServer
+					: AdminService.updateMCPCatalogServer;
+			response = await AdminService.updateMCPCatalogServer(id, entry.id, serverManifest.manifest);
 		} else {
-			response = await AdminService.createMCPCatalogServer(catalogId, serverManifest);
+			const createServerFn =
+				entity === 'workspace'
+					? ChatService.createWorkspaceMCPCatalogServer
+					: AdminService.createMCPCatalogServer;
+			response = await createServerFn(id, serverManifest);
 		}
 
 		let configValues: Record<string, string> = {};
@@ -499,14 +523,18 @@
 
 		// Configure the server with the collected values if any exist
 		if (Object.keys(configValues).length > 0) {
-			await AdminService.configureMCPCatalogServer(catalogId, response.id, configValues);
+			const configureFn =
+				entity === 'workspace'
+					? ChatService.configureWorkspaceMCPCatalogServer
+					: AdminService.configureMCPCatalogServer;
+			await configureFn(id, response.id, configValues);
 		}
 
 		return response;
 	}
 
 	async function handleSubmit() {
-		if (!catalogId) return;
+		if (!id) return;
 
 		showRequired = {}; // reset
 		const missingRequiredFields = validateForm();
@@ -522,18 +550,22 @@
 				multi: handleServerSubmit,
 				remote: handleEntrySubmit
 			};
-			const entryResponse = await handleFns[type]?.(catalogId);
+			const entryResponse = await handleFns[type]?.(id);
 			savedEntry = entryResponse;
+			if (isAtLeastPowerUserPlus) {
+				const existingRules = await AdminService.listAccessControlRules();
+				const hasEverythingEveryoneRule = existingRules.some(
+					(rule) =>
+						rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
+				);
 
-			const existingRules = await AdminService.listAccessControlRules();
-			const hasEverythingEveryoneRule = existingRules.some(
-				(rule) =>
-					rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
-			);
-
-			if (!entry && !hasEverythingEveryoneRule) {
-				await selectRulesDialog?.open();
-				loading = false;
+				if (!entry && !hasEverythingEveryoneRule) {
+					await selectRulesDialog?.open();
+					loading = false;
+				} else {
+					loading = false;
+					onSubmit?.(entryResponse.id, type);
+				}
 			} else {
 				loading = false;
 				onSubmit?.(entryResponse.id, type);
@@ -890,4 +922,6 @@
 			onSubmit?.(savedEntry.id, type);
 		}
 	}}
+	{entity}
+	{id}
 />

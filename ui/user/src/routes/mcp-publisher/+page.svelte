@@ -1,34 +1,23 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Table from '$lib/components/Table.svelte';
-	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import {
-		fetchMcpServerAndEntries,
-		getAdminMcpServerAndEntries,
-		initMcpServerAndEntries
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import { AdminService, type MCPCatalogServer } from '$lib/services';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { ChatService, Role, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalog, MCPCatalogEntry } from '$lib/services/admin/types';
 	import {
 		AlertTriangle,
 		Container,
 		Eye,
-		Info,
 		LoaderCircle,
 		Plus,
-		RefreshCcw,
 		Server,
 		Trash2,
-		TriangleAlert,
 		User,
-		Users,
-		X
+		Users
 	} from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
@@ -39,37 +28,40 @@
 	import Search from '$lib/components/Search.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl } from '$lib/utils';
+	import {
+		fetchMcpServerAndEntries,
+		getPoweruserWorkspace,
+		initMcpServerAndEntries
+	} from '$lib/context/poweruserWorkspace.svelte';
+	import { profile } from '$lib/stores/index.js';
 
-	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
+	let { data } = $props();
 	let search = $state('');
+	let workspaceId = $derived(data.workspace?.id);
 
 	initMcpServerAndEntries();
-	const mcpServerAndEntries = getAdminMcpServerAndEntries();
+	const mcpServerAndEntries = getPoweruserWorkspace();
 
 	onMount(async () => {
-		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries, (entries, servers) => {
-			const serverId = new URL(window.location.href).searchParams.get('id');
-			if (serverId) {
-				const foundEntry = entries.find((e) => e.id === serverId);
-				const foundServer = servers.find((s) => s.id === serverId);
-				const found = foundEntry || foundServer;
-
-				if (found && selectedEntryServer?.id !== found.id) {
-					selectedEntryServer = found;
-					showServerForm = true;
-				} else if (!found && selectedEntryServer) {
+		if (workspaceId) {
+			await fetchMcpServerAndEntries(workspaceId, mcpServerAndEntries, (entries, servers) => {
+				const serverId = new URL(window.location.href).searchParams.get('id');
+				if (serverId) {
+					const foundEntry = entries.find((e) => e.id === serverId);
+					const foundServer = servers.find((s) => s.id === serverId);
+					const found = foundEntry || foundServer;
+					if (found && selectedEntryServer?.id !== found.id) {
+						selectedEntryServer = found;
+						showServerForm = true;
+					} else if (!found && selectedEntryServer) {
+						selectedEntryServer = undefined;
+						showServerForm = false;
+					}
+				} else {
 					selectedEntryServer = undefined;
 					showServerForm = false;
 				}
-			} else {
-				selectedEntryServer = undefined;
-				showServerForm = false;
-			}
-		});
-		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
-
-		if (defaultCatalog?.isSyncing) {
-			pollTillSyncComplete();
+			});
 		}
 	});
 
@@ -168,64 +160,20 @@
 	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
-	let deletingSource = $state<string>();
-	let saving = $state(false);
-	let syncing = $state(false);
-	let sourceError = $state<string>();
-	let syncInterval = $state<ReturnType<typeof setInterval>>();
 
 	function selectServerType(type: 'single' | 'multi' | 'remote', updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
 		showServerForm = true;
 		if (updateUrl) {
-			goto(`/admin/mcp-servers?new=${type}`, { replaceState: false });
+			goto(`/mcp-publisher?new=${type}`, { replaceState: false });
 		}
 	}
-
-	function closeSourceDialog() {
-		editingSource = undefined;
-		sourceError = undefined;
-		sourceDialog?.close();
-	}
-
-	function pollTillSyncComplete() {
-		if (syncInterval) {
-			clearInterval(syncInterval);
-		}
-
-		syncInterval = setInterval(async () => {
-			defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
-			if (defaultCatalog && !defaultCatalog.isSyncing) {
-				if (syncInterval) {
-					clearInterval(syncInterval);
-				}
-				fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
-				syncing = false;
-			}
-		}, 5000);
-	}
-
-	async function sync() {
-		syncing = true;
-		await AdminService.refreshMCPCatalog(defaultCatalogId);
-		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
-		if (defaultCatalog?.isSyncing) {
-			pollTillSyncComplete();
-		}
-	}
-
-	onDestroy(() => {
-		if (syncInterval) {
-			clearInterval(syncInterval);
-		}
-	});
 
 	const duration = PAGE_TRANSITION_DURATION;
-	const OFFICIAL_MCP_CATALOG_LINK = 'https://github.com/obot-platform/mcp-catalog';
 </script>
 
-<Layout>
+<Layout showUserLinks>
 	<div class="flex flex-col gap-8 pt-4 pb-8" in:fade>
 		{#if showServerForm}
 			{@render configureEntryScreen()}
@@ -242,32 +190,13 @@
 		out:fly={{ x: -100, duration }}
 	>
 		<div class="flex flex-col items-center justify-start md:flex-row md:justify-between">
-			<h1 class="flex w-full items-center gap-2 text-2xl font-semibold">
-				MCP Servers
-				<button class="button-small flex items-center gap-1 text-xs font-normal" onclick={sync}>
-					{#if syncing}
-						<LoaderCircle class="size-4 animate-spin" /> Syncing...
-					{:else}
-						<RefreshCcw class="size-4" />
-						Sync
-					{/if}
-				</button>
-			</h1>
+			<h1 class="flex w-full items-center gap-2 text-2xl font-semibold">MCP Servers</h1>
 			{#if totalCount > 0}
 				<div class="mt-4 w-full flex-shrink-0 md:mt-0 md:w-fit">
 					{@render addServerButton()}
 				</div>
 			{/if}
 		</div>
-
-		{#if defaultCatalog?.isSyncing}
-			<div class="notification-info p-3 text-sm font-light">
-				<div class="flex items-center gap-3">
-					<Info class="size-6" />
-					<div>The catalog is currently syncing with your configured Git repositories.</div>
-				</div>
-			</div>
-		{/if}
 
 		<div class="flex flex-col gap-2">
 			<Search
@@ -300,8 +229,8 @@
 					onSelectRow={(d, isCtrlClick) => {
 						const url =
 							d.type === 'single' || d.type === 'remote'
-								? `/admin/mcp-servers/c/${d.id}`
-								: `/admin/mcp-servers/s/${d.id}`;
+								? `/mcp-publisher/c/${d.id}`
+								: `/mcp-publisher/s/${d.id}`;
 						openUrl(url, isCtrlClick);
 					}}
 					sortable={['name', 'type', 'users', 'source', 'created']}
@@ -326,11 +255,7 @@
 						{:else if property === 'type'}
 							{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
 						{:else if property === 'source'}
-							{d.source === 'manual'
-								? 'Web Console'
-								: d.source === OFFICIAL_MCP_CATALOG_LINK
-									? 'Official'
-									: d.source}
+							{d.source === 'manual' ? 'Web Console' : d.source}
 						{:else if property === 'created'}
 							{formatTimeAgo(d.created).relativeTime}
 						{:else}
@@ -361,65 +286,6 @@
 				</Table>
 			{/if}
 		</div>
-
-		{#if defaultCatalog?.sourceURLs && defaultCatalog.sourceURLs.length > 0 && defaultCatalog.id}
-			<div class="flex flex-col gap-2" in:slide={{ axis: 'y', duration }}>
-				<h2 class="mb-2 text-lg font-semibold">Git Source URLs</h2>
-
-				<Table
-					data={defaultCatalog?.sourceURLs?.map((url, index) => ({ id: index, url })) ?? []}
-					fields={['url']}
-					headers={[
-						{
-							property: 'url',
-							title: 'URL'
-						}
-					]}
-					noDataMessage="No Git Source URLs added."
-					setRowClasses={(d) => {
-						if (defaultCatalog?.syncErrors?.[d.url]) {
-							return 'bg-yellow-500/10';
-						}
-						return '';
-					}}
-				>
-					{#snippet actions(d)}
-						<button
-							class="icon-button hover:text-red-500"
-							onclick={() => {
-								deletingSource = d.url;
-							}}
-						>
-							<Trash2 class="size-4" />
-						</button>
-					{/snippet}
-					{#snippet onRenderColumn(property, d)}
-						{#if property === 'url'}
-							<div class="flex items-center gap-2">
-								<p>{d.url}</p>
-								{#if defaultCatalog?.syncErrors?.[d.url]}
-									<button
-										onclick={() => {
-											syncError = {
-												url: d.url,
-												error: defaultCatalog?.syncErrors?.[d.url] ?? ''
-											};
-											syncErrorDialog?.open();
-										}}
-										use:tooltip={{
-											text: 'An issue occurred. Click to see more details.',
-											classes: ['break-words']
-										}}
-									>
-										<TriangleAlert class="size-4 text-yellow-500" />
-									</button>
-								{/if}
-							</div>
-						{/if}
-					{/snippet}
-				</Table>
-			</div>
-		{/if}
 	</div>
 {/snippet}
 
@@ -431,19 +297,20 @@
 				? 'Multi-User'
 				: 'Remote'}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
-		<BackLink fromURL="mcp-servers" currentLabel={`Create ${currentLabelType} Server`} />
+		<BackLink fromURL="mcp-publisher" currentLabel={`Create ${currentLabelType} Server`} />
 		<McpServerEntryForm
 			type={selectedServerType}
-			id={defaultCatalogId}
+			id={workspaceId}
+			entity="workspace"
 			onCancel={() => {
 				selectedEntryServer = undefined;
 				showServerForm = false;
 			}}
 			onSubmit={async (id, type) => {
 				if (type === 'single' || type === 'remote') {
-					goto(`/admin/mcp-servers/c/${id}`);
+					goto(`/mcp-publisher/c/${id}`);
 				} else {
-					goto(`/admin/mcp-servers/s/${id}`);
+					goto(`/mcp-publisher/s/${id}`);
 				}
 			}}
 		/>
@@ -451,125 +318,26 @@
 {/snippet}
 
 {#snippet addServerButton()}
-	<DotDotDot class="button-primary w-full text-sm md:w-fit" placement="bottom">
-		{#snippet icon()}
-			<span class="flex items-center justify-center gap-1">
-				<Plus class="size-4" /> Add MCP Server
-			</span>
-		{/snippet}
-		<div class="default-dialog flex min-w-max flex-col p-2">
-			<button
-				class="menu-button"
-				onclick={() => {
-					selectServerTypeDialog?.open();
-				}}
-			>
-				Add server
-			</button>
-			<button
-				class="menu-button"
-				onclick={() => {
-					editingSource = {
-						index: -1,
-						value: ''
-					};
-					sourceDialog?.showModal();
-				}}
-			>
-				Add server(s) from Git
-			</button>
-		</div>
-	</DotDotDot>
+	<button
+		class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
+		onclick={() => {
+			selectServerTypeDialog?.open();
+		}}
+	>
+		<Plus class="size-4" /> Add MCP Server
+	</button>
 {/snippet}
-
-<dialog
-	bind:this={sourceDialog}
-	use:clickOutside={() => closeSourceDialog()}
-	class="w-full max-w-md p-4"
->
-	{#if editingSource}
-		<h3 class="default-dialog-title">
-			{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
-			<button onclick={() => closeSourceDialog()} class="icon-button">
-				<X class="size-5" />
-			</button>
-		</h3>
-
-		<div class="my-4 flex flex-col gap-1">
-			<label for="catalog-source-name" class="flex-1 text-sm font-light capitalize"
-				>Source URL
-			</label>
-			<input id="catalog-source-name" bind:value={editingSource.value} class="text-input-filled" />
-		</div>
-
-		{#if sourceError}
-			<div class="mb-4 flex flex-col gap-2 text-red-500 dark:text-red-400">
-				<div class="flex items-center gap-2">
-					<AlertTriangle class="size-6 flex-shrink-0 self-start" />
-					<p class="my-0.5 flex flex-col text-sm font-semibold">Error adding source URL:</p>
-				</div>
-				<span class="font-sm font-light break-all">{sourceError}</span>
-			</div>
-		{/if}
-
-		<div class="flex w-full justify-end gap-2">
-			<button class="button" disabled={saving} onclick={() => closeSourceDialog()}>Cancel</button>
-			<button
-				class="button-primary"
-				disabled={saving}
-				onclick={async () => {
-					if (!editingSource || !defaultCatalog) {
-						return;
-					}
-
-					saving = true;
-					sourceError = undefined;
-
-					try {
-						const updatingCatalog = { ...defaultCatalog };
-
-						if (editingSource.index === -1) {
-							updatingCatalog.sourceURLs = [
-								...(updatingCatalog.sourceURLs ?? []),
-								editingSource.value
-							];
-						} else {
-							updatingCatalog.sourceURLs[editingSource.index] = editingSource.value;
-						}
-
-						const response = await AdminService.updateMCPCatalog(
-							defaultCatalogId,
-							updatingCatalog,
-							{
-								dontLogErrors: true
-							}
-						);
-						defaultCatalog = response;
-						await sync();
-						closeSourceDialog();
-					} catch (error) {
-						sourceError = error instanceof Error ? error.message : 'An unexpected error occurred';
-					} finally {
-						saving = false;
-					}
-				}}
-			>
-				Add
-			</button>
-		</div>
-	{/if}
-</dialog>
 
 <Confirm
 	msg="Are you sure you want to delete this server?"
 	show={Boolean(deletingEntry)}
 	onsuccess={async () => {
-		if (!deletingEntry) {
+		if (!deletingEntry || !workspaceId) {
 			return;
 		}
 
-		await AdminService.deleteMCPCatalogEntry(defaultCatalogId, deletingEntry.id);
-		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
+		await ChatService.deleteWorkspaceMCPCatalogEntry(workspaceId, deletingEntry.id);
+		await fetchMcpServerAndEntries(workspaceId, mcpServerAndEntries);
 		deletingEntry = undefined;
 	}}
 	oncancel={() => (deletingEntry = undefined)}
@@ -579,34 +347,15 @@
 	msg="Are you sure you want to delete this server?"
 	show={Boolean(deletingServer)}
 	onsuccess={async () => {
-		if (!deletingServer) {
+		if (!deletingServer || !workspaceId) {
 			return;
 		}
 
-		await AdminService.deleteMCPCatalogServer(defaultCatalogId, deletingServer.id);
-		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
+		await ChatService.deleteWorkspaceMCPCatalogEntry(workspaceId, deletingServer.id);
+		await fetchMcpServerAndEntries(workspaceId, mcpServerAndEntries);
 		deletingServer = undefined;
 	}}
 	oncancel={() => (deletingServer = undefined)}
-/>
-
-<Confirm
-	msg="Are you sure you want to delete this Git Source URL?"
-	show={Boolean(deletingSource)}
-	onsuccess={async () => {
-		if (!deletingSource || !defaultCatalog) {
-			return;
-		}
-
-		const response = await AdminService.updateMCPCatalog(defaultCatalogId, {
-			...defaultCatalog,
-			sourceURLs: defaultCatalog.sourceURLs?.filter((url) => url !== deletingSource)
-		});
-		await sync();
-		defaultCatalog = response;
-		deletingSource = undefined;
-	}}
-	oncancel={() => (deletingSource = undefined)}
 />
 
 <ResponsiveDialog title="Select Server Type" class="md:w-lg" bind:this={selectServerTypeDialog}>
@@ -627,22 +376,24 @@
 				</span>
 			</div>
 		</button>
-		<button
-			class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
-			onclick={() => selectServerType('multi')}
-		>
-			<Users
-				class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
-			/>
-			<div>
-				<p class="mb-1 text-sm font-semibold">Multi-User Server</p>
-				<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
-					This option is appropriate for servers designed to handle multiple user connections, such
-					as most Streamable HTTP servers. When you create this server, a running instance will be
-					deployed and any user with access to this catlog will be able to connect to it.
-				</span>
-			</div>
-		</button>
+		{#if profile.current?.role === Role.POWERUSER_PLUS || profile.current?.role === Role.ADMIN}
+			<button
+				class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
+				onclick={() => selectServerType('multi')}
+			>
+				<Users
+					class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
+				/>
+				<div>
+					<p class="mb-1 text-sm font-semibold">Multi-User Server</p>
+					<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
+						This option is appropriate for servers designed to handle multiple user connections,
+						such as most Streamable HTTP servers. When you create this server, a running instance
+						will be deployed and any user with access to this catlog will be able to connect to it.
+					</span>
+				</div>
+			</button>
+		{/if}
 		<button
 			class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
 			onclick={() => selectServerType('remote')}
@@ -677,5 +428,5 @@
 </ResponsiveDialog>
 
 <svelte:head>
-	<title>Obot | MCP Servers</title>
+	<title>Obot | MCP Publisher</title>
 </svelte:head>

@@ -12,12 +12,13 @@
 		BadgeInfo,
 		X,
 		Server,
-		MessageCircle
+		MessageCircle,
+		ServerCog
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { AdminService, ChatService, EditorService } from '$lib/services';
+	import { AdminService, ChatService, EditorService, Role } from '$lib/services';
 	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 	import { afterNavigate, goto } from '$app/navigation';
 	import PageLoading from '../PageLoading.svelte';
@@ -25,6 +26,7 @@
 	let versionDialog = $state<HTMLDialogElement>();
 	let showChatLink = $state(false);
 	let showMyMcpServersLink = $state(false);
+	let showMcpPublisherLink = $state(false);
 	let inAdminRoute = $state(false);
 	let loadingChat = $state(false);
 
@@ -56,6 +58,7 @@
 		inAdminRoute = window.location.pathname.includes('/admin');
 		showChatLink = routesToShowChatLink.includes(window.location.pathname) || inAdminRoute;
 		showMyMcpServersLink = window.location.pathname !== '/mcp-servers';
+		showMcpPublisherLink = window.location.pathname !== '/mcp-publisher';
 	});
 
 	function navigateTo(path: string, asNewTab?: boolean) {
@@ -120,7 +123,7 @@
 	{/snippet}
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
-			{#if profile.current.role === 1 && !inAdminRoute}
+			{#if profile.current.role === Role.ADMIN && !inAdminRoute}
 				<button
 					onclick={(event) => {
 						const asNewTab = event?.ctrlKey || event?.metaKey;
@@ -195,6 +198,14 @@
 				</button>
 			{/if}
 		</div>
+		{#if (profile.current.role === Role.POWERUSER || profile.current.role === Role.POWERUSER_PLUS || profile.current.role === Role.ADMIN) && showMcpPublisherLink}
+			<div class="flex flex-col gap-2 px-2 py-2">
+				<a href="/mcp-publisher" rel="external" class="link">
+					<ServerCog class="size-4" /> MCP Publisher
+				</a>
+			</div>
+		{/if}
+
 		{#if version.current.obot}
 			<div class="flex justify-end p-2 text-xs text-gray-500">
 				<div class="flex gap-2">

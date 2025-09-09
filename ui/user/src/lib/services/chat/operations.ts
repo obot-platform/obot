@@ -1,4 +1,11 @@
-import type { AuthProvider, MCPCatalogEntry } from '../admin/types';
+import type {
+	AccessControlRule,
+	AccessControlRuleManifest,
+	AuthProvider,
+	MCPCatalogEntry,
+	MCPCatalogEntryServerManifest,
+	MCPCatalogServerManifest
+} from '../admin/types';
 import { baseURL, doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
 import {
 	type Assistant,
@@ -44,7 +51,8 @@ import {
 	type Thread,
 	type ThreadList,
 	type ToolReferenceList,
-	type Version
+	type Version,
+	type Workspace
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -1630,5 +1638,321 @@ export async function validateSingleOrRemoteMcpServerLaunched(mcpServerId: strin
 		}
 
 		throw err;
+	}
+}
+
+export async function listWorkspaces(opts?: { fetch?: Fetcher }): Promise<Workspace[]> {
+	const response = (await doGet('/workspaces', opts)) as ItemsResponse<Workspace>;
+	return response.items ?? [];
+}
+
+export async function listWorkspaceMCPCatalogEntries(
+	workspaceID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogEntry[]> {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/entries`,
+		opts
+	)) as ItemsResponse<MCPCatalogEntry>;
+	return (
+		response.items?.map((item) => {
+			return {
+				...item,
+				isCatalogEntry: true
+			};
+		}) ?? []
+	);
+}
+
+export async function getWorkspaceMCPCatalogEntry(
+	workspaceID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogEntry> {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/entries/${entryID}`,
+		opts
+	)) as MCPCatalogEntry;
+	return {
+		...response,
+		isCatalogEntry: true
+	};
+}
+
+export async function listWorkspaceMCPCatalogServers(
+	workspaceID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer[]> {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/servers`,
+		opts
+	)) as ItemsResponse<MCPCatalogServer>;
+	return response.items ?? [];
+}
+
+export async function getWorkspaceMCPCatalogServer(
+	workspaceID: string,
+	serverID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer> {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/servers/${serverID}`,
+		opts
+	)) as MCPCatalogServer;
+	return response;
+}
+
+export async function generateWorkspaceMCPCatalogEntryToolPreviews(
+	workspaceID: string,
+	entryID: string,
+	body?: {
+		config?: Record<string, string>;
+		url?: string;
+	},
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/workspaces/${workspaceID}/entries/${entryID}/generate-tool-previews`, body ?? {}, {
+		...opts,
+		dontLogErrors: true
+	});
+}
+
+export async function getWorkspaceMCPCatalogEntryToolPreviewsOauth(
+	workspaceID: string,
+	entryID: string,
+	body?: {
+		config?: Record<string, string>;
+		url?: string;
+	},
+	opts?: { fetch?: Fetcher }
+): Promise<string> {
+	try {
+		const response = (await doPost(
+			`/workspaces/${workspaceID}/entries/${entryID}/generate-tool-previews/oauth-url`,
+			body ?? {},
+			{
+				...opts,
+				dontLogErrors: true
+			}
+		)) as {
+			oauthURL: string;
+		};
+		return response.oauthURL;
+	} catch (_err) {
+		return '';
+	}
+}
+
+export async function deleteWorkspaceMCPCatalogServer(
+	workspaceID: string,
+	serverID: string
+): Promise<void> {
+	await doDelete(`/workspaces/${workspaceID}/servers/${serverID}`);
+}
+
+export async function deleteWorkspaceMCPCatalogEntry(
+	workspaceID: string,
+	entryID: string
+): Promise<void> {
+	await doDelete(`/workspaces/${workspaceID}/entries/${entryID}`);
+}
+
+export async function listWorkspaceMCPServersForEntry(
+	workspaceID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer[]> {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers`,
+		opts
+	)) as ItemsResponse<MCPCatalogServer>;
+	return response.items ?? [];
+}
+
+export async function listWorkspaceMcpCatalogServerInstances(
+	workspaceID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/servers/${mcpServerId}/instances`,
+		opts
+	)) as ItemsResponse<MCPServerInstance>;
+	return response.items ?? [];
+}
+
+export async function revealWorkspaceMCPCatalogServer(
+	workspaceID: string,
+	serverID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<Record<string, string>> {
+	const response = (await doPost(
+		`/workspaces/${workspaceID}/servers/${serverID}/reveal`,
+		{},
+		{
+			...opts,
+			dontLogErrors: true
+		}
+	)) as Record<string, string>;
+	return response;
+}
+
+export async function updateWorkspaceMCPCatalogEntry(
+	workspaceID: string,
+	entryID: string,
+	entry: MCPCatalogEntryServerManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogEntry> {
+	const response = (await doPut(
+		`/workspaces/${workspaceID}/entries/${entryID}`,
+		entry,
+		opts
+	)) as MCPCatalogEntry;
+	return {
+		...response,
+		isCatalogEntry: true
+	};
+}
+
+export async function createWorkspaceMCPCatalogEntry(
+	workspaceID: string,
+	entry: MCPCatalogEntryServerManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogEntry> {
+	const response = (await doPost(
+		`/workspaces/${workspaceID}/entries`,
+		entry,
+		opts
+	)) as MCPCatalogEntry;
+	return {
+		...response,
+		isCatalogEntry: true
+	};
+}
+
+export async function updateWorkspaceMCPCatalogServer(
+	workspaceID: string,
+	serverID: string,
+	server: MCPCatalogServerManifest['manifest'],
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer> {
+	const response = (await doPut(
+		`/workspaces/${workspaceID}/servers/${serverID}`,
+		server,
+		opts
+	)) as MCPCatalogServer;
+	return response;
+}
+
+export async function createWorkspaceMCPCatalogServer(
+	workspaceID: string,
+	server: MCPCatalogServerManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer> {
+	const response = (await doPost(
+		`/workspaces/${workspaceID}/servers`,
+		server,
+		opts
+	)) as MCPCatalogServer;
+	return response;
+}
+
+export async function configureWorkspaceMCPCatalogServer(
+	workspaceID: string,
+	serverID: string,
+	envs: Record<string, string>,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer> {
+	const response = (await doPost(
+		`/workspaces/${workspaceID}/servers/${serverID}/configure`,
+		envs,
+		opts
+	)) as MCPCatalogServer;
+	return response;
+}
+
+export async function listWorkspaceAccessControlRules(
+	workspaceID: string,
+	opts?: {
+		fetch?: Fetcher;
+	}
+): Promise<AccessControlRule[]> {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/access-control-rules`,
+		opts
+	)) as ItemsResponse<AccessControlRule>;
+	return response.items ?? [];
+}
+
+export async function getWorkspaceAccessControlRule(
+	workspaceID: string,
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<AccessControlRule> {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/access-control-rules/${id}`,
+		opts
+	)) as AccessControlRule;
+	return response;
+}
+
+export async function createWorkspaceAccessControlRule(
+	workspaceID: string,
+	rule: AccessControlRuleManifest
+): Promise<AccessControlRule> {
+	const response = (await doPost(
+		`/workspaces/${workspaceID}/access-control-rules`,
+		rule
+	)) as AccessControlRule;
+	return response;
+}
+
+export async function updateWorkspaceAccessControlRule(
+	workspaceID: string,
+	id: string,
+	rule: AccessControlRuleManifest
+): Promise<AccessControlRule> {
+	return (await doPut(
+		`/workspaces/${workspaceID}/access-control-rules/${id}`,
+		rule
+	)) as AccessControlRule;
+}
+
+export async function deleteWorkspaceAccessControlRule(
+	workspaceID: string,
+	id: string
+): Promise<void> {
+	await doDelete(`/workspaces/${workspaceID}/access-control-rules/${id}`);
+}
+
+export async function fetchWorkspaceIDForProfile(
+	profileID?: string,
+	opts?: { fetch?: Fetcher }
+): Promise<string> {
+	const currentProfileID = profileID ? profileID : (await getProfile(opts)).id;
+	const workspaces = await listWorkspaces(opts);
+	const workspaceID = workspaces.find((w) => w.userID === currentProfileID)?.id ?? null;
+	if (!workspaceID) {
+		throw new Error('404 Workspace not found.');
+	}
+	return workspaceID;
+}
+
+// 412 means oauth is needed
+export async function getWorkspaceMcpServerOauthURL(
+	workspaceID: string,
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<string> {
+	try {
+		const response = (await doGet(`/workspaces/${workspaceID}/servers/${id}/oauth-url`, {
+			dontLogErrors: true,
+			signal: opts?.signal
+		})) as {
+			oauthURL: string;
+		};
+		return response.oauthURL;
+	} catch (_err) {
+		return '';
 	}
 }

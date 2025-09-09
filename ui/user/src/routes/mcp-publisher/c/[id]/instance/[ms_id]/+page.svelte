@@ -9,7 +9,7 @@
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	let { catalogEntry, mcpServerId } = data;
+	let { workspaceId, catalogEntry, mcpServerId } = data;
 	const duration = PAGE_TRANSITION_DURATION;
 	let connectedUsers = $state<OrgUser[]>([]);
 
