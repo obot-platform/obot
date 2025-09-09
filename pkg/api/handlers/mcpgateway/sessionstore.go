@@ -64,19 +64,19 @@ func (h *Handler) Store(req *http.Request, sessionID string, sess *nmcp.ServerSe
 func (h *Handler) Load(req *http.Request, sessionID string) (*nmcp.ServerSession, bool, error) {
 	mcpSess, sess, err := h.get(req.Context(), sessionID)
 	if err != nil {
-		return nil, false, err
+		return nil, false, fmt.Errorf("failed to get session %s from cache: %w", sessionID, err)
 	}
 
 	// If the session hasn't been updated in the last hour, update it.
 	if time.Since(mcpSess.Status.LastUsedTime.Time) > time.Hour {
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			if err := h.storageClient.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSess); err != nil {
-				return err
+				return fmt.Errorf("failed to get session %s: %w", sessionID, err)
 			}
 			mcpSess.Status.LastUsedTime = metav1.Now()
 			return h.storageClient.Status().Update(req.Context(), mcpSess)
 		}); err != nil {
-			return nil, false, err
+			return nil, false, fmt.Errorf("failed to update session %s status access time: %w", sessionID, err)
 		}
 	}
 
