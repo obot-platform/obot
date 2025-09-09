@@ -31,11 +31,13 @@ func NewUserCleanup(gatewayClient *gclient.Client, acrHelper *accesscontrolrule.
 
 func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	userDelete := req.Object.(*v1.UserDelete)
+	userID := strconv.FormatUint(uint64(userDelete.Spec.UserID), 10)
+
 	var threads v1.ThreadList
 	if err := req.List(&threads, &kclient.ListOptions{
 		Namespace: req.Namespace,
 		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.userUID": strconv.FormatUint(uint64(userDelete.Spec.UserID), 10),
+			"spec.userUID": userID,
 		}),
 	}); err != nil {
 		return err
@@ -53,7 +55,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	if err := req.List(&servers, &kclient.ListOptions{
 		Namespace: req.Namespace,
 		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.userID": strconv.FormatUint(uint64(userDelete.Spec.UserID), 10),
+			"spec.userID": userID,
 		}),
 	}); err != nil {
 		return err
@@ -71,7 +73,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	if err := req.List(&instances, &kclient.ListOptions{
 		Namespace: req.Namespace,
 		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.userID": strconv.FormatUint(uint64(userDelete.Spec.UserID), 10),
+			"spec.userID": userID,
 		}),
 	}); err != nil {
 		return err
@@ -84,14 +86,14 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 
 	// Find the AccessControlRules that the user is on, and update them to remove the user.
-	acrs, err := u.acrHelper.GetAccessControlRulesForUser(req.Namespace, strconv.FormatUint(uint64(userDelete.Spec.UserID), 10))
+	acrs, err := u.acrHelper.GetAccessControlRulesForUser(req.Namespace, userID)
 	if err != nil {
 		return err
 	}
 	for _, acr := range acrs {
 		newSubjects := slices.Collect(func(yield func(types.Subject) bool) {
 			for _, subject := range acr.Spec.Manifest.Subjects {
-				if subject.ID != strconv.FormatUint(uint64(userDelete.Spec.UserID), 10) {
+				if subject.ID != userID {
 					if !yield(subject) {
 						return
 					}
@@ -121,7 +123,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		}
 	}
 
-	if err = deleteThreadAuthorizationsForUser(req.Ctx, req.Client, strconv.FormatUint(uint64(userDelete.Spec.UserID), 10)); err != nil {
+	if err = deleteThreadAuthorizationsForUser(req.Ctx, req.Client, userID); err != nil {
 		return fmt.Errorf("failed to delete thread authorizations for user %d: %w", userDelete.Spec.UserID, err)
 	}
 
@@ -130,7 +132,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	if err := req.List(&workspaces, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,
 		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.userID": strconv.FormatUint(uint64(userDelete.Spec.UserID), 10),
+			"spec.userID": userID,
 		}),
 	}); err != nil {
 		return err
