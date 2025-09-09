@@ -35,13 +35,14 @@
 	import { openUrl } from '$lib/utils';
 
 	interface Props {
-		catalogId?: string;
+		id?: string;
+		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		users?: OrgUser[];
 		type?: 'single' | 'multi' | 'remote';
 	}
 
-	let { catalogId, entry, users = [], type }: Props = $props();
+	let { id, entity = 'catalog', entry, users = [], type }: Props = $props();
 
 	let listServerInstances = $state<Promise<MCPServerInstance[]>>();
 	let listEntryServers = $state<Promise<MCPCatalogServer[]>>();
@@ -58,15 +59,24 @@
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 
 	onMount(() => {
-		if (entry && !('isCatalogEntry' in entry) && catalogId) {
-			listServerInstances = AdminService.listMcpCatalogServerInstances(catalogId, entry.id);
-		} else if (entry && 'isCatalogEntry' in entry && catalogId) {
-			listEntryServers = AdminService.listMCPServersForEntry(catalogId, entry.id);
+		if (entry && !('isCatalogEntry' in entry) && id) {
+			if (entity === 'workspace') {
+				listServerInstances = ChatService.listWorkspaceMcpCatalogServerInstances(id, entry.id);
+			} else {
+				listServerInstances = AdminService.listMcpCatalogServerInstances(id, entry.id);
+			}
+		} else if (entry && 'isCatalogEntry' in entry && id) {
+			if (entity === 'workspace') {
+				listEntryServers = ChatService.listWorkspaceMCPServersForEntry(id, entry.id);
+			} else {
+				listEntryServers = AdminService.listMCPServersForEntry(id, entry.id);
+			}
+		} else {
 		}
 	});
 
 	async function handleMultiUpdate() {
-		if (!catalogId || !entry) return;
+		if (!id || !entry) return;
 		for (const id of Object.keys(selected)) {
 			updating[id] = { inProgress: true, error: '' };
 			try {
@@ -82,17 +92,23 @@
 			}
 		}
 
-		listEntryServers = AdminService.listMCPServersForEntry(catalogId, entry.id);
+		listEntryServers =
+			entity === 'workspace'
+				? ChatService.listWorkspaceMCPServersForEntry(id, entry.id)
+				: AdminService.listMCPServersForEntry(id, entry.id);
 		selected = {};
 	}
 
 	async function updateServer(server?: MCPCatalogServer) {
-		if (!catalogId || !entry || !server) return;
+		if (!id || !entry || !server) return;
 
 		updating[server.id] = { inProgress: true, error: '' };
 		try {
 			await ChatService.triggerMcpServerUpdate(server.id);
-			listEntryServers = AdminService.listMCPServersForEntry(catalogId, entry.id);
+			listEntryServers =
+				entity === 'workspace'
+					? ChatService.listWorkspaceMCPServersForEntry(id, entry.id)
+					: AdminService.listMCPServersForEntry(id, entry.id);
 		} catch (err) {
 			updating[server.id] = {
 				inProgress: false,

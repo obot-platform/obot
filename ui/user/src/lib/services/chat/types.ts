@@ -754,3 +754,11 @@ export interface MCPServerInstance {
 	mcpCatalogID?: string;
 	connectURL?: string;
 }
+
+export type Workspace = {
+	id: string;
+	userID: string;
+	created: string;
+	role: number;
+	type: string;
+};

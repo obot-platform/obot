@@ -17,7 +17,6 @@
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
 		parent?: Props['entry'];
-		catalogId?: string;
 		onAuthenticate?: () => void;
 		project?: Project;
 		view?: 'overview' | 'tools';
@@ -29,7 +28,6 @@
 	let {
 		entry,
 		parent,
-		catalogId,
 		onAuthenticate,
 		project,
 		view = 'overview',
@@ -169,7 +167,7 @@
 				</McpServerInfo>
 			</div>
 		{:else if selected === 'tools' && entry}
-			<McpServerTools {entry} {catalogId} {onAuthenticate} {project} {onProjectToolsUpdate} />
+			<McpServerTools {entry} {onAuthenticate} {project} {onProjectToolsUpdate} />
 		{/if}
 	</div>
 </div>
