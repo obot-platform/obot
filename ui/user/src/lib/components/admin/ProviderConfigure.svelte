@@ -154,6 +154,7 @@
 							{#if parameter.name in form}
 								<li class="flex flex-col gap-1">
 									<label for={parameter.name}>{parameter.friendlyName}</label>
+									<span class="text-gray text-xs">{parameter.description}</span>
 									<input
 										type="text"
 										id={parameter.name}
