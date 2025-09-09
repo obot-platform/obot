@@ -130,7 +130,9 @@ export interface OrgGroup {
 
 export const Role = {
 	ADMIN: 1,
-	USER: 10
+	USER: 10,
+	POWERUSER: 20,
+	POWERUSER_PLUS: 30
 };
 
 export interface ProviderParameter {
