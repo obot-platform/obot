@@ -74,7 +74,7 @@ func determineCredentialNames(prg *gptscript.Program, tool gptscript.Tool, credT
 		}
 	}
 
-	for _, n := range strings.Split(tool.MetaData["noUserAuth"], ",") {
+	for n := range strings.SplitSeq(tool.MetaData["noUserAuth"], ",") {
 		if n != "" {
 			noAuth[n] = struct{}{}
 		}

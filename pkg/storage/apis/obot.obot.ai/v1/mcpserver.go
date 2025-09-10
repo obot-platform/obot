@@ -65,13 +65,13 @@ func (in *MCPServer) DeleteRefs() []Ref {
 }
 
 type MCPServerSpec struct {
-	Manifest types.MCPServerManifest `json:"manifest,omitempty"`
+	Manifest types.MCPServerManifest `json:"manifest"`
 	// List of tool names that are known to not work well in Obot.
 	UnsupportedTools []string `json:"unsupportedTools,omitempty"`
 	// ThreadName is the project or thread that owns this server, if there is one.
 	ThreadName string `json:"threadName,omitempty"`
 	// Alias is a user-defined alias for the MCP server.
-	// This may only be set for single user and remote MCP servers (i.e. where `SharedWithinCatalogName` is "").
+	// This may only be set for single user and remote MCP servers (i.e. where `MCPCatalogID` is "").
 	Alias string `json:"alias,omitempty"`
 	// UserID is the user that created this server.
 	UserID string `json:"userID,omitempty"`

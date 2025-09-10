@@ -44,7 +44,7 @@
 
 	// Determine if we have "real" tools or should show previews
 	let hasConnectedServer = $derived(
-		'sharedWithinCatalogName' in entry || 'connectURL' in entry || 'mcpID' in entry
+		'mcpCatalogID' in entry || 'connectURL' in entry || 'mcpID' in entry
 	);
 	let showRealTools = $derived(hasConnectedServer && tools.length > 0);
 	let showPreviewTools = $derived(

@@ -742,7 +742,7 @@ export interface MCPCatalogServer {
 	catalogEntryID: string;
 	missingRequiredEnvVars: string[];
 	missingRequiredHeaders: string[];
-	sharedWithinCatalogName: string;
+	mcpCatalogID: string;
 	created: string;
 	deleted?: string;
 	updated: string;

@@ -400,7 +400,12 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
 
-		items = append(items, convertMCPServer(server, cred.Env, h.serverURL))
+		slug, err := slugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
+		if err != nil {
+			return fmt.Errorf("failed to generate slug: %w", err)
+		}
+
+		items = append(items, convertMCPServer(server, cred.Env, h.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})

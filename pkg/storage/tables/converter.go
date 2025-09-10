@@ -57,7 +57,7 @@ func (c Converter) ConvertToTable(_ context.Context, object runtime.Object, _ ru
 			cells []any
 		)
 
-		for _, cell := range strings.Split(out.String(), "\t") {
+		for cell := range strings.SplitSeq(out.String(), "\t") {
 			cells = append(cells, strings.TrimSpace(cell))
 		}
 

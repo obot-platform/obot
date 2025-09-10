@@ -21,7 +21,7 @@ func stripComments(buf []byte) []byte {
 		result = bytes.Buffer{}
 		start  = true
 	)
-	for _, line := range strings.Split(string(buf), "\n") {
+	for line := range strings.SplitSeq(string(buf), "\n") {
 		if start {
 			if strings.HasPrefix(line, "# ") {
 				continue
@@ -36,7 +36,7 @@ func stripComments(buf []byte) []byte {
 
 func commentError(err error, buf []byte) []byte {
 	var header bytes.Buffer
-	for _, line := range strings.Split(strings.ReplaceAll(err.Error(), "\r", ""), "\n") {
+	for line := range strings.SplitSeq(strings.ReplaceAll(err.Error(), "\r", ""), "\n") {
 		header.WriteString("# ")
 		header.WriteString(line)
 		header.WriteString("\n")
