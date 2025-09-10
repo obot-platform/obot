@@ -19,6 +19,7 @@
 		MessageCircle,
 		MessageCircleMore,
 		Server,
+		ServerCog,
 		Settings,
 		SidebarClose,
 		SidebarOpen,
@@ -162,6 +163,13 @@
 								href: '/admin/user-configuration',
 								icon: UserCog,
 								label: 'User Configuration',
+								collapsible: false,
+								disabled: false
+							},
+							{
+								href: '/admin/user-mcp-servers',
+								icon: ServerCog,
+								label: 'User Published MCP Servers',
 								collapsible: false,
 								disabled: false
 							}

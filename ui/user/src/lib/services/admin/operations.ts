@@ -32,7 +32,9 @@ import type {
 	BaseAgent,
 	MCPFilter,
 	MCPFilterManifest,
-	ProjectTask
+	ProjectTask,
+	WorkspaceCatalogEntry,
+	WorkspaceCatalogServer
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -740,4 +742,20 @@ export async function removeSecret(id: string) {
 export async function listCatalogCategories(catalogId: string, opts?: { fetch?: Fetcher }) {
 	const response = (await doGet(`/mcp-catalogs/${catalogId}/categories`, opts)) as string[];
 	return response;
+}
+
+export async function listAllUserWorkspaceMCPServers(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		`/workspaces/entries`,
+		opts
+	)) as ItemsResponse<WorkspaceCatalogServer>;
+	return response.items ?? [];
+}
+
+export async function listAllUserWorkspaceCatalogEntries(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		`/workspaces/servers`,
+		opts
+	)) as ItemsResponse<WorkspaceCatalogEntry>;
+	return response.items ?? [];
 }

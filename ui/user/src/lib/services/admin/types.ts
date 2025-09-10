@@ -5,7 +5,9 @@ import {
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
 	type ContainerizedRuntimeConfig,
-	type Task
+	type Task,
+	type MCPCatalogServer,
+	type Workspace
 } from '../chat/types';
 
 export interface MCPCatalogManifest {
@@ -456,3 +458,11 @@ export interface MCPFilter extends MCPFilterManifest {
 	type: string;
 	hasSecret: boolean;
 }
+
+export type WorkspaceCatalogEntry = MCPCatalogEntry & {
+	workspace: Workspace;
+};
+
+export type WorkspaceCatalogServer = MCPCatalogServer & {
+	workspace: Workspace;
+};

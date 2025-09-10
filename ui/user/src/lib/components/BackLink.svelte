@@ -44,6 +44,10 @@
 			return [{ href: '/admin/task-runs', label: 'Task Runs' }];
 		}
 
+		if (type === 'user-mcp-servers') {
+			return [{ href: '/admin/user-mcp-servers', label: 'User Published MCP Servers' }];
+		}
+
 		if (type === 'mcp-publisher') {
 			if (id === 'access-control') {
 				return [{ href: `/mcp-publisher/access-control`, label: 'Access Control' }];
