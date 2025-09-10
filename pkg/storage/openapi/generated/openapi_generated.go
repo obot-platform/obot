@@ -188,6 +188,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ToolReferenceManifest":                        schema_obot_platform_obot_apiclient_types_ToolReferenceManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig":                             schema_obot_platform_obot_apiclient_types_UVXRuntimeConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.User":                                         schema_obot_platform_obot_apiclient_types_User(ref),
+		"github.com/obot-platform/obot/apiclient/types.UserDefaultRoleSetting":                       schema_obot_platform_obot_apiclient_types_UserDefaultRoleSetting(ref),
 		"github.com/obot-platform/obot/apiclient/types.UserList":                                     schema_obot_platform_obot_apiclient_types_UserList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Webhook":                                      schema_obot_platform_obot_apiclient_types_Webhook(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebhookList":                                  schema_obot_platform_obot_apiclient_types_WebhookList(ref),
@@ -345,6 +346,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolShortDescription":        schema_storage_apis_obotobotai_v1_ToolShortDescription(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolSpec":                    schema_storage_apis_obotobotai_v1_ToolSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ToolStatus":                  schema_storage_apis_obotobotai_v1_ToolStatus(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSetting":      schema_storage_apis_obotobotai_v1_UserDefaultRoleSetting(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSettingList":  schema_storage_apis_obotobotai_v1_UserDefaultRoleSettingList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSettingSpec":  schema_storage_apis_obotobotai_v1_UserDefaultRoleSettingSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDelete":                  schema_storage_apis_obotobotai_v1_UserDelete(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDeleteList":              schema_storage_apis_obotobotai_v1_UserDeleteList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDeleteSpec":              schema_storage_apis_obotobotai_v1_UserDeleteSpec(ref),
@@ -8846,6 +8850,26 @@ func schema_obot_platform_obot_apiclient_types_User(ref common.ReferenceCallback
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_UserDefaultRoleSetting(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"role": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"role"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_UserList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -15880,6 +15904,113 @@ func schema_storage_apis_obotobotai_v1_ToolStatus(ref common.ReferenceCallback) 
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_UserDefaultRoleSetting(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSettingSpec"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSettingSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_UserDefaultRoleSettingList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSetting"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.UserDefaultRoleSetting", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_UserDefaultRoleSettingSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"role": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Role is the default role for new users",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
 			},
 		},
 	}

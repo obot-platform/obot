@@ -164,7 +164,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	}
 
 	if user.Role == types2.RoleUnknown {
-		user.Role = types2.RoleBasic
+		user.Role = c.defaultRole
 	}
 
 	var checkForExistingUser bool
@@ -196,8 +196,9 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			user.CreatedAt = u.CreatedAt
 
 			// Call callback for new privileged users
-			if c.onNewPrivilegedUser != nil && user.Role.HasRole(types2.RolePowerUser) {
-				c.onNewPrivilegedUser(ctx, user)
+			if c.onNewPrivilegedUser != nil && (user.Role.HasRole(types2.RolePowerUser) || user.Role.HasRole(types2.RolePowerUserPlus)) {
+				// we have to use a goroutine here otherwise the current request seems to be blocking it
+				go c.onNewPrivilegedUser(ctx, user)
 			}
 		} else if err != nil {
 			return nil, err

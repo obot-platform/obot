@@ -19,8 +19,9 @@ const (
 	KnowledgeCredID         = "knowledge"
 	TaskInvoke              = "task-invoke"
 
-	DefaultNamespace = "default"
-	DefaultCatalog   = "default"
+	DefaultNamespace       = "default"
+	DefaultCatalog         = "default"
+	DefaultRoleSettingName = "user-default-role-setting"
 
 	ModelProviderCredential = "sys.model.provider.credential"
 
