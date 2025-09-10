@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
@@ -19,11 +20,12 @@ type Client struct {
 	auditLock        sync.Mutex
 	auditBuffer      []types.MCPAuditLog
 	kickAuditPersist chan struct{}
+	defaultRole      types2.Role
 	// Callback function called when new privileged users are created
 	onNewPrivilegedUser func(ctx context.Context, user *types.User)
 }
 
-func New(ctx context.Context, db *db.DB, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int, onNewPrivilegedUser func(ctx context.Context, user *types.User)) *Client {
+func New(ctx context.Context, db *db.DB, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int, onNewPrivilegedUser func(ctx context.Context, user *types.User), defaultRole types2.Role) *Client {
 	adminEmailsSet := make(map[string]struct{}, len(adminEmails))
 	for _, email := range adminEmails {
 		adminEmailsSet[email] = struct{}{}
@@ -35,6 +37,7 @@ func New(ctx context.Context, db *db.DB, encryptionConfig *encryptionconfig.Encr
 		auditBuffer:         make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:    make(chan struct{}),
 		onNewPrivilegedUser: onNewPrivilegedUser,
+		defaultRole:         defaultRole,
 	}
 
 	go c.runPersistenceLoop(ctx, auditLogPersistenceInterval)

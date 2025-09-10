@@ -53,6 +53,7 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	coordinationv1 "k8s.io/api/coordination/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
@@ -60,6 +61,7 @@ import (
 	gocache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Setup nah logging
 	_ "github.com/obot-platform/nah/pkg/logrus"
@@ -355,6 +357,24 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
+	var defaultRoleSetting v1.UserDefaultRoleSetting
+	if err := storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultRoleSettingName}, &defaultRoleSetting); apierrors.IsNotFound(err) {
+		defaultRoleSetting = v1.UserDefaultRoleSetting{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      system.DefaultRoleSettingName,
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.UserDefaultRoleSettingSpec{
+				Role: apiclienttypes.RoleBasic,
+			},
+		}
+		if err := storageClient.Create(ctx, &defaultRoleSetting); err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		return nil, err
+	}
+
 	// Create callback for new privileged user workspace creation
 	onNewPrivilegedUser := func(ctx context.Context, user *types.User) {
 		// Create a UserRoleChange event to trigger PowerUserWorkspace creation
@@ -366,14 +386,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			Spec: v1.UserRoleChangeSpec{
 				UserID:  user.ID,
 				OldRole: apiclienttypes.RoleBasic, // New users start as basic
-				NewRole: user.Role,
+				NewRole: defaultRoleSetting.Spec.Role,
 			},
 		}); err != nil {
 			slog.Error("failed to create user role change event for new privileged user", "userID", user.ID, "role", user.Role, "error", err)
 		}
 	}
 
-	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize, onNewPrivilegedUser)
+	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize, onNewPrivilegedUser, defaultRoleSetting.Spec.Role)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)
