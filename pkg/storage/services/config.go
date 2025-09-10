@@ -1,8 +1,11 @@
 package services
 
 import (
+	"log/slog"
+
 	"github.com/obot-platform/kinm/pkg/db"
 	"github.com/obot-platform/nah/pkg/randomtoken"
+	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/storage/authn"
 	"github.com/obot-platform/obot/pkg/storage/authz"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
@@ -30,10 +33,15 @@ func New(config Config) (_ *Services, err error) {
 		}
 	}
 
+	// Sanitize DSN for logging (remove credentials)
+	sanitizedDSN := logutil.SanitizeDSN(config.DSN)
+	slog.Debug("Creating database factory", "dsn", sanitizedDSN)
 	dbClient, err := db.NewFactory(scheme.Scheme, config.DSN)
 	if err != nil {
+		slog.Error("Failed to create database factory", "dsn", sanitizedDSN, "error", err)
 		return nil, err
 	}
+	slog.Debug("Database factory created successfully", "dsn", sanitizedDSN)
 
 	services := &Services{
 		DB:    dbClient,
