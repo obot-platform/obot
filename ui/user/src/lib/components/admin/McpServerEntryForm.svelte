@@ -66,6 +66,7 @@
 						// { label: 'Usage', view: 'usage' },
 						// { label: 'Audit Logs', view: 'audit-logs' },
 						...(isAtLeastPowerUserPlus ? [{ label: 'Access Control', view: 'access-control' }] : [])
+						// TODO: enable when we have workspace server instances
 						// { label: 'Server Details', view: 'server-instances' }
 					]
 				: [

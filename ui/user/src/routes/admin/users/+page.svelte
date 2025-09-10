@@ -165,7 +165,7 @@
 			</button>
 		</h3>
 		<div class="my-4 flex flex-col gap-4 text-sm font-light text-gray-500">
-			{#each userRoleOptions as role}
+			{#each userRoleOptions as role (role.id)}
 				<div class="flex gap-4">
 					<p class="w-28 flex-shrink-0 font-semibold">{role.label}</p>
 					{#if role.id === Role.ADMIN}
@@ -181,7 +181,7 @@
 				class="bg-surface1 shadow-inner"
 				options={[
 					{ label: 'Admin', id: Role.ADMIN },
-					{ label: 'User', id: Role.USER },
+					{ label: 'Basic User', id: Role.USER },
 					{ label: 'Power User', id: Role.POWERUSER },
 					{ label: 'Power User Plus', id: Role.POWERUSER_PLUS }
 				]}

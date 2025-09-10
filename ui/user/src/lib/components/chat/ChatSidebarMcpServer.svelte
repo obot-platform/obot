@@ -2,7 +2,6 @@
 	import { closeAll, closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
 	import { Server, Trash2, X } from 'lucide-svelte';
-	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import McpServerInfoAndTools from '../mcp/McpServerInfoAndTools.svelte';
 	import Confirm from '../Confirm.svelte';

@@ -39,7 +39,7 @@
 						</p>
 
 						<div class="mt-4 flex flex-col gap-4">
-							{#each userRoleOptions as role}
+							{#each userRoleOptions as role (role.id)}
 								<label class="flex items-center gap-4" for={`role-${role.id}`}>
 									<input
 										type="radio"
