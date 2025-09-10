@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { debounce } from 'es-toolkit';
 	import { AdminService } from '$lib/services';
-	import { Role, type OrgGroup, type OrgUser } from '$lib/services/admin/types';
+	import { type OrgGroup, type OrgUser } from '$lib/services/admin/types';
 	import { Check, LoaderCircle, User, Users } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Search from '../Search.svelte';

@@ -487,7 +487,7 @@
 				entity === 'workspace'
 					? ChatService.updateWorkspaceMCPCatalogServer
 					: AdminService.updateMCPCatalogServer;
-			response = await AdminService.updateMCPCatalogServer(id, entry.id, serverManifest.manifest);
+			response = await updateServerFn(id, entry.id, serverManifest.manifest);
 		} else {
 			const createServerFn =
 				entity === 'workspace'
