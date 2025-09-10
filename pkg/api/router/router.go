@@ -58,6 +58,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
+	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler(services.StorageClient)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -537,6 +538,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/resources/{resource_uri}", projectMCP.ReadResource)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/prompts", projectMCP.GetPrompts)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/prompts/{prompt_name}", projectMCP.GetPrompt)
+
+	// User Default Role Settings
+	mux.HandleFunc("GET /api/user-default-role-settings", userDefaultRoleSettings.Get)
+	mux.HandleFunc("POST /api/user-default-role-settings", userDefaultRoleSettings.Set)
 
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
