@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -177,10 +178,6 @@ func (h *handler) authorize(req api.Context) error {
 	}
 
 	mcpID := req.PathValue("mcp_id")
-	if mcpID != "" {
-		mcpID = "/" + mcpID
-	}
-
 	resource := req.FormValue("resource")
 	if resource != "" {
 		u, err := url.Parse(resource)
@@ -194,8 +191,8 @@ func (h *handler) authorize(req api.Context) error {
 		}
 
 		if mcpID == "" {
-			mcpID = strings.TrimPrefix(u.Path, "/mcp-connect")
-		} else if !strings.HasSuffix(mcpID, mcpID) {
+			mcpID = strings.TrimPrefix(u.Path, "/mcp-connect/")
+		} else if !strings.HasSuffix(u.Path, "/"+mcpID) {
 			redirectWithAuthorizeError(req, redirectURI, Error{
 				Code:        ErrInvalidRequest,
 				Description: fmt.Sprintf("resource doesn't match mcp_id: %s", mcpID),
@@ -203,6 +200,28 @@ func (h *handler) authorize(req api.Context) error {
 			})
 			return nil
 		}
+	}
+
+	if mcpID != "" {
+		id, err := handlers.MCPIDFromConnectURL(req, mcpID)
+		if err != nil {
+			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
+				redirectWithAuthorizeError(req, redirectURI, Error{
+					Code:        ErrInvalidRequest,
+					Description: errHTTP.Message,
+					State:       state,
+				})
+			} else {
+				redirectWithAuthorizeError(req, redirectURI, Error{
+					Code:        ErrServerError,
+					Description: fmt.Sprintf("failed to get MCP ID from connect URL: %v", err),
+					State:       state,
+				})
+			}
+			return nil
+		}
+
+		mcpID = "/" + id
 	}
 
 	oauthAppAuthRequest := v1.OAuthAuthRequest{
