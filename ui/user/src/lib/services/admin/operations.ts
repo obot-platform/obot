@@ -744,18 +744,18 @@ export async function listCatalogCategories(catalogId: string, opts?: { fetch?: 
 	return response;
 }
 
-export async function listAllUserWorkspaceMCPServers(opts?: { fetch?: Fetcher }) {
+export async function listAllUserWorkspaceCatalogEntries(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet(
 		`/workspaces/entries`,
 		opts
-	)) as ItemsResponse<WorkspaceCatalogServer>;
+	)) as ItemsResponse<WorkspaceCatalogEntry>;
 	return response.items ?? [];
 }
 
-export async function listAllUserWorkspaceCatalogEntries(opts?: { fetch?: Fetcher }) {
+export async function listAllUserWorkspaceMCPServers(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet(
 		`/workspaces/servers`,
 		opts
-	)) as ItemsResponse<WorkspaceCatalogEntry>;
+	)) as ItemsResponse<WorkspaceCatalogServer>;
 	return response.items ?? [];
 }
