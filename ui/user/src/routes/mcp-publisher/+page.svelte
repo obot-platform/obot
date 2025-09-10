@@ -7,7 +7,7 @@
 	import Table from '$lib/components/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ChatService, Role, type MCPCatalogServer } from '$lib/services';
-	import type { MCPCatalog, MCPCatalogEntry } from '$lib/services/admin/types';
+	import type { MCPCatalogEntry } from '$lib/services/admin/types';
 	import {
 		AlertTriangle,
 		Container,
@@ -19,8 +19,8 @@
 		User,
 		Users
 	} from 'lucide-svelte';
-	import { onDestroy, onMount } from 'svelte';
-	import { fade, fly, slide } from 'svelte/transition';
+	import { onMount } from 'svelte';
+	import { fade, fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
@@ -147,9 +147,6 @@
 			})
 	);
 
-	let defaultCatalog = $state<MCPCatalog>();
-	let editingSource = $state<{ index: number; value: string }>();
-	let sourceDialog = $state<HTMLDialogElement>();
 	let selectServerTypeDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectedServerType = $state<'single' | 'multi' | 'remote'>();
 	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();

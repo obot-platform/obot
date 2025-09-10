@@ -71,7 +71,6 @@
 			} else {
 				listEntryServers = AdminService.listMCPServersForEntry(id, entry.id);
 			}
-		} else {
 		}
 	});
 
