@@ -7,13 +7,11 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	const { id, wid } = params;
 
 	let mcpServer;
-	console.log(wid, id);
 	try {
 		mcpServer = await ChatService.getWorkspaceMCPCatalogServer(wid, id, {
 			fetch
 		});
 	} catch (err) {
-		console.log(err);
 		handleRouteError(err, `/mcp-publisher/s/${id}`, profile.current);
 	}
 

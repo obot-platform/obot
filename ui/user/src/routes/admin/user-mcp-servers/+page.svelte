@@ -2,9 +2,8 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { AdminService, type MCPCatalogServer } from '$lib/services';
+	import { AdminService } from '$lib/services';
 	import type {
-		MCPCatalogEntry,
 		OrgUser,
 		WorkspaceCatalogEntry,
 		WorkspaceCatalogServer
@@ -27,7 +26,7 @@
 		return entries
 			.filter((entry) => !entry.deleted)
 			.map((entry) => {
-				const owner = usersMap.get(entry.workspace.userID);
+				const owner = usersMap.get(entry.workspaceUserID);
 				return {
 					id: entry.id,
 					name: entry.manifest?.name ?? '',
@@ -39,7 +38,7 @@
 					type: entry.manifest.runtime === 'remote' ? 'remote' : 'single',
 					created: entry.created,
 					owner: owner?.displayName ?? owner?.email ?? owner?.username ?? 'Unknown',
-					workspaceId: entry.workspace.id
+					workspaceId: entry.workspaceID
 				};
 			});
 	}
@@ -55,7 +54,7 @@
 		return servers
 			.filter((server) => !server.catalogEntryID && !server.deleted)
 			.map((server) => {
-				const owner = usersMap.get(server.workspace.userID);
+				const owner = usersMap.get(server.workspaceUserID);
 				return {
 					id: server.id,
 					name: server.manifest.name ?? '',
@@ -67,7 +66,7 @@
 					editable: true,
 					created: server.created,
 					owner: owner?.displayName ?? owner?.email ?? owner?.username ?? 'Unknown',
-					workspaceId: server.workspace.id
+					workspaceId: server.workspaceID
 				};
 			});
 	}
@@ -106,7 +105,6 @@
 	);
 
 	const duration = PAGE_TRANSITION_DURATION;
-	console.log(data);
 </script>
 
 <Layout>
