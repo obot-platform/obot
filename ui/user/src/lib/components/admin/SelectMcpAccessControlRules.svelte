@@ -47,7 +47,7 @@
 		const mappedRules = new Map<string, AccessControlRule>(
 			accessControlRules.map((rule) => [rule.id, rule])
 		);
-		const type = 'manifest' in entry ? 'mcpServer' : 'mcpServerCatalogEntry';
+		const type = 'isCatalogEntry' in entry ? 'mcpServerCatalogEntry' : 'mcpServer';
 		for (const rule of selectedRules) {
 			const mappedRule = mappedRules.get(rule);
 			if (!mappedRule) continue;
