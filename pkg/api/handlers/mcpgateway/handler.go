@@ -38,7 +38,7 @@ type Handler struct {
 	mcpSessionManager *mcp.SessionManager
 	webhookHelper     *mcp.WebhookHelper
 	tokenStore        mcp.GlobalTokenStore
-	pendingRequests   *nmcp.PendingRequests
+	pendingRequests   sync.Map
 	mcpSessionCache   sync.Map
 	sessionCache      sync.Map
 	baseURL           string
@@ -52,7 +52,6 @@ func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionMana
 		mcpSessionManager: mcpSessionManager,
 		webhookHelper:     webhookHelper,
 		tokenStore:        globalTokenStore,
-		pendingRequests:   &nmcp.PendingRequests{},
 		baseURL:           baseURL,
 	}
 }
@@ -65,7 +64,7 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 		if apierrors.IsNotFound(err) {
 			// If the MCP server is not found, remove the session.
 			if sessionID != "" {
-				session, found, err := h.LoadAndDelete(req.Request, sessionID)
+				session, found, err := h.LoadAndDelete(req.Context(), h, sessionID)
 				if err != nil {
 					return fmt.Errorf("failed to get mcp server config: %w", err)
 				}
@@ -102,7 +101,7 @@ type messageContext struct {
 }
 
 func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
-	if h.pendingRequests.Notify(msg) {
+	if h.pendingRequestsForSession(msg.Session.ID()).Notify(msg) {
 		// This is a response to a pending request.
 		// We don't forward it to the client, just return.
 		return
@@ -240,19 +239,18 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 				log.Errorf("Failed to shutdown server %s: %v", m.mcpServer.Name, err)
 			}
 
-			req, err := http.NewRequest(http.MethodDelete, "", nil)
-			if err != nil {
-				log.Errorf("Failed to create request to delete session %s: %v", sessionID, err)
-				return
-			}
-			req.Header.Set("Mcp-Session-Id", sessionID)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
 
-			if _, _, err = h.LoadAndDelete(req, sessionID); err != nil {
+			if _, _, err = h.LoadAndDelete(ctx, h, sessionID); err != nil {
 				log.Errorf("Failed to delete session %s: %v", sessionID, err)
 			}
 		}(msg.Session.ID())
 
-		if client.Session.InitializeResult.ServerInfo.Name != "" || client.Session.InitializeResult.ServerInfo.Version != "" {
+		if client.Session.InitializeResult.ServerInfo != (nmcp.ServerInfo{}) ||
+			client.Session.InitializeResult.Capabilities.Tools != nil ||
+			client.Session.InitializeResult.Capabilities.Prompts != nil ||
+			client.Session.InitializeResult.Capabilities.Resources != nil {
 			if err = msg.Reply(ctx, client.Session.InitializeResult); err != nil {
 				log.Errorf("Failed to reply to server %s: %v", m.mcpServer.Name, err)
 				msg.SendError(ctx, &nmcp.RPCError{

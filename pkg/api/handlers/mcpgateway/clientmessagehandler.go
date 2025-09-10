@@ -24,7 +24,7 @@ func (h *Handler) asClientOption(session *nmcp.Session, userID, mcpID, mcpServer
 			webhookHelper:   h.webhookHelper,
 			gptClient:       h.gptClient,
 			gatewayClient:   h.gatewayClient,
-			pendingRequests: h.pendingRequests,
+			pendingRequests: h.pendingRequestsForSession(session.ID()),
 			session: &gatewaySession{
 				session:                session,
 				userID:                 userID,

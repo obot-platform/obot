@@ -21,7 +21,7 @@ func (*Handler) ExtractID(req *http.Request) string {
 	return req.Header.Get("Mcp-Session-Id")
 }
 
-func (h *Handler) Store(req *http.Request, sessionID string, sess *nmcp.ServerSession) error {
+func (h *Handler) Store(ctx context.Context, sessionID string, sess *nmcp.ServerSession) error {
 	var state nmcp.SessionState
 	if sessionState, err := sess.GetSession().State(); err != nil {
 		return fmt.Errorf("failed to get session state: %w", err)
@@ -34,7 +34,7 @@ func (h *Handler) Store(req *http.Request, sessionID string, sess *nmcp.ServerSe
 		return fmt.Errorf("failed to encode session state: %w", err)
 	}
 
-	mcpSess, _, err := h.get(req.Context(), sessionID)
+	mcpSess, _, err := h.get(ctx, h, sessionID)
 	if apierrors.IsNotFound(err) {
 		mcpSess = &v1.MCPSession{
 			ObjectMeta: metav1.ObjectMeta{
@@ -49,7 +49,7 @@ func (h *Handler) Store(req *http.Request, sessionID string, sess *nmcp.ServerSe
 
 	if !bytes.Equal(mcpSess.Spec.State, b) {
 		mcpSess.Spec.State = b
-		if err = create.OrUpdate(req.Context(), h.storageClient, mcpSess); err != nil {
+		if err = create.OrUpdate(ctx, h.storageClient, mcpSess); err != nil {
 			return err
 		}
 	}
@@ -60,8 +60,8 @@ func (h *Handler) Store(req *http.Request, sessionID string, sess *nmcp.ServerSe
 	return nil
 }
 
-func (h *Handler) Load(req *http.Request, sessionID string) (*nmcp.ServerSession, bool, error) {
-	mcpSess, sess, err := h.get(req.Context(), sessionID)
+func (h *Handler) Acquire(ctx context.Context, server nmcp.MessageHandler, sessionID string) (*nmcp.ServerSession, bool, error) {
+	mcpSess, sess, err := h.get(ctx, server, sessionID)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get session %s from cache: %w", sessionID, err)
 	}
@@ -70,12 +70,12 @@ func (h *Handler) Load(req *http.Request, sessionID string) (*nmcp.ServerSession
 	if time.Since(mcpSess.Status.LastUsedTime.Time) > time.Hour {
 		// Get the latest version of the session from storage.
 		s := new(v1.MCPSession)
-		if err := h.storageClient.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, s); err != nil {
+		if err := h.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, s); err != nil {
 			return nil, false, fmt.Errorf("failed to get session %s: %w", sessionID, err)
 		}
 
 		s.Status.LastUsedTime = metav1.Now()
-		if err := h.storageClient.Status().Update(req.Context(), s); err == nil {
+		if err := h.storageClient.Status().Update(ctx, s); err == nil {
 			// Best effort update of session status access time.
 			// If there are multiple concurrent requests, there may be conflicts.
 			h.mcpSessionCache.Store(sessionID, s)
@@ -85,7 +85,9 @@ func (h *Handler) Load(req *http.Request, sessionID string) (*nmcp.ServerSession
 	return sess, true, nil
 }
 
-func (h *Handler) LoadAndDelete(req *http.Request, sessionID string) (*nmcp.ServerSession, bool, error) {
+func (*Handler) Release(*nmcp.ServerSession) {}
+
+func (h *Handler) LoadAndDelete(ctx context.Context, server nmcp.MessageHandler, sessionID string) (*nmcp.ServerSession, bool, error) {
 	mcpSession, ok := h.mcpSessionCache.LoadAndDelete(sessionID)
 	session, _ := h.sessionCache.LoadAndDelete(sessionID)
 
@@ -102,7 +104,7 @@ func (h *Handler) LoadAndDelete(req *http.Request, sessionID string) (*nmcp.Serv
 	// It was likely a race condition that has since been fixed, but it is straightforward to protect against here.
 	if !ok || mcpSess == nil || mcpSess.Name == "" {
 		mcpSess = new(v1.MCPSession)
-		err := h.storageClient.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSess)
+		err := h.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSess)
 		if err != nil {
 			return nil, false, err
 		}
@@ -112,16 +114,18 @@ func (h *Handler) LoadAndDelete(req *http.Request, sessionID string) (*nmcp.Serv
 			return nil, false, fmt.Errorf("failed to decode session state: %w", err)
 		}
 
-		sess, err = nmcp.NewExistingServerSession(req.Context(), sessionState, h)
+		sess, err = nmcp.NewExistingServerSession(ctx, sessionState, server)
 		if err != nil {
 			return nil, false, err
 		}
 	}
 
-	return sess, ok, kclient.IgnoreNotFound(h.storageClient.Delete(req.Context(), mcpSess))
+	h.dropPendingRequests(sessionID)
+
+	return sess, ok, kclient.IgnoreNotFound(h.storageClient.Delete(ctx, mcpSess))
 }
 
-func (h *Handler) get(ctx context.Context, sessionID string) (*v1.MCPSession, *nmcp.ServerSession, error) {
+func (h *Handler) get(ctx context.Context, messageHandler nmcp.MessageHandler, sessionID string) (*v1.MCPSession, *nmcp.ServerSession, error) {
 	var (
 		sess    *nmcp.ServerSession
 		mcpSess *v1.MCPSession
@@ -143,7 +147,7 @@ func (h *Handler) get(ctx context.Context, sessionID string) (*v1.MCPSession, *n
 			return nil, nil, fmt.Errorf("failed to decode session state: %w", err)
 		}
 
-		sess, err = nmcp.NewExistingServerSession(ctx, sessionState, h)
+		sess, err = nmcp.NewExistingServerSession(ctx, sessionState, messageHandler)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -153,4 +157,13 @@ func (h *Handler) get(ctx context.Context, sessionID string) (*v1.MCPSession, *n
 	}
 
 	return mcpSess, sess, nil
+}
+
+func (h *Handler) pendingRequestsForSession(sessionID string) *nmcp.PendingRequests {
+	obj, _ := h.pendingRequests.LoadOrStore(sessionID, &nmcp.PendingRequests{})
+	return obj.(*nmcp.PendingRequests)
+}
+
+func (h *Handler) dropPendingRequests(sessionID string) {
+	h.pendingRequests.Delete(sessionID)
 }
