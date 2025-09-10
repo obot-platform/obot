@@ -297,10 +297,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.ToolRegistries = []string{"github.com/obot-platform/tools"}
 	}
 
+	slog.Info("Connecting to database", "dsn", config.DSN)
 	storageClient, restConfig, dbAccess, err := storage.Start(ctx, config.Config)
 	if err != nil {
+		slog.Error("Failed to connect to database", "dsn", config.DSN, "error", err)
 		return nil, err
 	}
+	slog.Info("Successfully connected to database", "dsn", config.DSN)
 
 	var electionConfig *leader.ElectionConfig
 	if config.ElectionFile != "" {
@@ -310,15 +313,20 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	// For now, always auto-migrate.
+	slog.Info("Initializing gateway database connection")
 	gatewayDB, err := db.New(dbAccess.DB, dbAccess.SQLDB, true)
 	if err != nil {
+		slog.Error("Failed to initialize gateway database", "error", err)
 		return nil, err
 	}
 	// Important: the database needs to be auto-migrated before we create the cred store, so that
 	// the gptscript_credentials table is available.
+	slog.Info("Running database migrations")
 	if err := gatewayDB.AutoMigrate(); err != nil {
+		slog.Error("Failed to run database migrations", "error", err)
 		return nil, err
 	}
+	slog.Info("Database migrations completed successfully")
 
 	encryptionConfig, encryptionConfigFile, err := encryption.Init(ctx, encryption.Options(config.EncryptionConfig))
 	if err != nil {

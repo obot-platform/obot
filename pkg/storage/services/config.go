@@ -1,6 +1,8 @@
 package services
 
 import (
+	"log/slog"
+
 	"github.com/obot-platform/kinm/pkg/db"
 	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/obot/pkg/storage/authn"
@@ -30,10 +32,13 @@ func New(config Config) (_ *Services, err error) {
 		}
 	}
 
+	slog.Debug("Creating database factory", "dsn", config.DSN)
 	dbClient, err := db.NewFactory(scheme.Scheme, config.DSN)
 	if err != nil {
+		slog.Error("Failed to create database factory", "dsn", config.DSN, "error", err)
 		return nil, err
 	}
+	slog.Debug("Database factory created successfully", "dsn", config.DSN)
 
 	services := &Services{
 		DB:    dbClient,
