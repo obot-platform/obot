@@ -721,17 +721,24 @@
 
 						<p class="text-xs font-light text-gray-400 dark:text-gray-600">
 							{#if formData.env[i].file}
-								The {type === 'single' ? 'user supplied' : 'specified'} value will be written to a file.
-								Its contents will be available as an environment variable that will be set to the specified
-								$KEY_NAME.
+								The value {type === 'single' ? 'the user supplies' : 'you provide'} will be written to
+								a file. An environment variable will be created using the name you specify in the Key
+								field and its value will be the path to that file. This environment variable will be
+								set inside your MCP server and you can reference it in the arguments section above using
+								the syntax ${'{KEY_NAME}'}.
 							{:else}
-								{type === 'single' ? 'User supplied config' : 'Config'} values will be available as environment
-								variables in the MCP server and can be referenced in the runtime configuration using
-								the syntax $KEY_NAME.
+								{type === 'single' ? 'The value the user supplies' : 'The value you provide'} will be
+								set as an environment variable using the name you specify in the Key field. This environment
+								variable will be set inside your MCP server and you can reference it in the arguments
+								section above using the syntax ${'{KEY_NAME}'}.
 							{/if}
 						</p>
 
 						{#if type === 'single'}
+							<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+								The Name and Description fields will be displayed to the user when configuring this
+								server. The Key field will not.
+							</p>
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
 								<input
