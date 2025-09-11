@@ -206,6 +206,7 @@
 									error={highlightRequired}
 									name={env.name}
 									bind:value={form.envs[i].value}
+									textarea={env.file}
 								/>
 							{:else if env.file}
 								<textarea
