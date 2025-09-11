@@ -716,15 +716,15 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 	})
 }
 
-func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPServer, mcp.ServerConfig, error) {
+func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer, v1.MCPServerInstance, error) {
 	switch {
 	case system.IsMCPServerInstanceID(id):
-		server, config, err := serverFromMCPServerInstanceID(req, id)
-		return id, server, config, err
+		var instance v1.MCPServerInstance
+		return v1.MCPServer{}, instance, req.Get(&instance, id)
 	case system.IsMCPServerID(id):
 		var server v1.MCPServer
 		if err := req.Get(&server, id); err != nil {
-			return "", server, mcp.ServerConfig{}, err
+			return v1.MCPServer{}, v1.MCPServerInstance{}, err
 		}
 
 		if server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != "" {
@@ -737,7 +737,7 @@ func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPSer
 					"spec.userID":        req.User.GetUID(),
 				}),
 			}); err != nil {
-				return "", server, mcp.ServerConfig{}, err
+				return v1.MCPServer{}, v1.MCPServerInstance{}, err
 			}
 			if len(instances.Items) == 0 {
 				// If none exist, then create one for the user.
@@ -755,7 +755,7 @@ func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPSer
 					},
 				}
 				if err := req.Create(&instance); err != nil {
-					return "", server, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an instance of MCP server %s", id)
+					return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an instance of MCP server %s", id)
 				}
 
 				instances.Items = append(instances.Items, instance)
@@ -765,15 +765,17 @@ func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPSer
 				return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
 			})
 
-			instance := instances.Items[0]
-			server, config, err := serverFromMCPServerInstance(req, instance)
-			return instance.Name, server, config, err
+			return v1.MCPServer{}, instances.Items[0], nil
 		}
 
-		serverConfig, err := serverConfigForAction(req, server)
-		return id, server, serverConfig, err
+		return server, v1.MCPServerInstance{}, nil
 	default:
 		// In this case, id refers to a catalog entry.
+		// Get the catalog entry to make sure it's valid
+		if err := req.Get(&v1.MCPServerCatalogEntry{}, id); err != nil {
+			return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("catalog entry %s not found", id)
+		}
+
 		// List the MCP servers for the user and take the first one.
 		var servers v1.MCPServerList
 		if err := req.List(&servers, &kclient.ListOptions{
@@ -782,29 +784,29 @@ func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPSer
 				"spec.userID":                    req.User.GetUID(),
 			}),
 		}); err != nil {
-			return "", v1.MCPServer{}, mcp.ServerConfig{}, err
+			return v1.MCPServer{}, v1.MCPServerInstance{}, err
 		}
 		if len(servers.Items) == 0 {
 			// If the user has not configured an MCP server for the catalog entry, and the catalog entry does not have any required configuration, then create an server for the user.
 			var entry v1.MCPServerCatalogEntry
 			if err := req.Get(&entry, id); err != nil {
-				return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 			}
 
 			for _, env := range entry.Spec.Manifest.Env {
 				if env.Required {
-					return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+					return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 				}
 			}
 
 			if entry.Spec.Manifest.Runtime == types.RuntimeRemote {
-				if entry.Spec.Manifest.RemoteConfig.FixedURL != "" {
-					return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+				if entry.Spec.Manifest.RemoteConfig.FixedURL == "" {
+					return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 				}
 
 				for _, h := range entry.Spec.Manifest.RemoteConfig.Headers {
 					if h.Required {
-						return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+						return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 					}
 				}
 			}
@@ -812,7 +814,7 @@ func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPSer
 			// Convert the catalog entry manifest to a server manifest. Treat the user as non-admin always.
 			manifest, err := serverManifestFromCatalogEntryManifest(false, entry.Spec.Manifest, types.MCPServerManifest{})
 			if err != nil {
-				return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 			}
 
 			// Create a new MCP server for the user.
@@ -829,7 +831,7 @@ func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPSer
 				},
 			}
 			if err := req.Create(&server); err != nil {
-				return "", v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
+				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 			}
 
 			servers.Items = append(servers.Items, server)
@@ -839,9 +841,41 @@ func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPSer
 			return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
 		})
 
-		server := servers.Items[0]
-		serverConfig, err := serverConfigForAction(req, server)
-		return server.Name, server, serverConfig, err
+		return servers.Items[0], v1.MCPServerInstance{}, nil
+	}
+}
+
+func MCPIDFromConnectURL(req api.Context, id string) (string, error) {
+	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id)
+	if err != nil {
+		return "", err
+	}
+
+	switch {
+	case instance.Name != "":
+		return instance.Name, nil
+	case server.Name != "":
+		return server.Name, nil
+	default:
+		return "", fmt.Errorf("unknown MCP server ID %s", id)
+	}
+}
+
+func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPServer, mcp.ServerConfig, error) {
+	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id)
+	if err != nil {
+		return "", v1.MCPServer{}, mcp.ServerConfig{}, err
+	}
+
+	switch {
+	case instance.Name != "":
+		server, config, err := serverFromMCPServerInstance(req, instance)
+		return instance.Name, server, config, err
+	case server.Name != "":
+		config, err := serverConfigForAction(req, server)
+		return server.Name, server, config, err
+	default:
+		return "", v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("unknown MCP server ID %s", id)
 	}
 }
 
@@ -884,16 +918,6 @@ func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance)
 	}
 
 	return server, serverConfig, nil
-}
-
-// TODO: make this unexported
-func serverFromMCPServerInstanceID(req api.Context, instanceID string) (v1.MCPServer, mcp.ServerConfig, error) {
-	var instance v1.MCPServerInstance
-	if err := req.Get(&instance, instanceID); err != nil {
-		return v1.MCPServer{}, mcp.ServerConfig{}, err
-	}
-
-	return serverFromMCPServerInstance(req, instance)
 }
 
 func ServerForAction(req api.Context, id string) (v1.MCPServer, mcp.ServerConfig, error) {

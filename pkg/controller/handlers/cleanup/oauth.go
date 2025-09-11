@@ -9,7 +9,7 @@ import (
 
 func OAuthClients(req router.Request, resp router.Response) error {
 	o := req.Object.(*v1.OAuthClient)
-	if until := time.Until(o.Spec.RegistrationTokenExpiresAt.Time); until < 0 {
+	if until := time.Until(o.Spec.RegistrationTokenExpiresAt.Time); until <= 0 {
 		// Expired. Delete it.
 		return req.Delete(o)
 	} else if until < 10*time.Hour {
