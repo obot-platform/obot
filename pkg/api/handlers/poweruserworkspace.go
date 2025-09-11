@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -71,13 +70,13 @@ func (*PowerUserWorkspaceHandler) ListAllEntries(req api.Context) error {
 
 	catalogEntries := make([]types.MCPServerCatalogEntry, 0)
 	for _, item := range list.Items {
-		fieldSelector := client.MatchingFields{"spec.powerUserWorkspaceID": item.Name}
+		fieldSelector := kclient.MatchingFields{"spec.powerUserWorkspaceID": item.Name}
 		var list2 v1.MCPServerCatalogEntryList
 		if err := req.List(&list2, fieldSelector); err != nil {
 			return fmt.Errorf("failed to list entries: %w", err)
 		}
 		for _, entry := range list2.Items {
-			catalogEntries = append(catalogEntries, convertMCPServerCatalogEntry(entry))
+			catalogEntries = append(catalogEntries, convertMCPServerCatalogEntryWithWorkspace(entry, item.Name, item.Spec.UserID))
 		}
 	}
 
@@ -94,7 +93,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 
 	servers := make([]types.MCPServer, 0)
 	for _, item := range list.Items {
-		fieldSelector := client.MatchingFields{"spec.powerUserWorkspaceID": item.Name}
+		fieldSelector := kclient.MatchingFields{"spec.powerUserWorkspaceID": item.Name}
 		var serverList v1.MCPServerList
 		if err := req.List(&serverList, fieldSelector); err != nil {
 			return fmt.Errorf("failed to list servers: %w", err)

@@ -26,7 +26,7 @@
 		return entries
 			.filter((entry) => !entry.deleted)
 			.map((entry) => {
-				const owner = usersMap.get(entry.workspaceUserID);
+				const owner = usersMap.get(entry.powerUserID);
 				return {
 					id: entry.id,
 					name: entry.manifest?.name ?? '',
@@ -38,7 +38,7 @@
 					type: entry.manifest.runtime === 'remote' ? 'remote' : 'single',
 					created: entry.created,
 					owner: owner?.displayName ?? owner?.email ?? owner?.username ?? 'Unknown',
-					workspaceId: entry.workspaceID
+					workspaceId: entry.powerUserWorkspaceID
 				};
 			});
 	}
@@ -54,7 +54,7 @@
 		return servers
 			.filter((server) => !server.catalogEntryID && !server.deleted)
 			.map((server) => {
-				const owner = usersMap.get(server.workspaceUserID);
+				const owner = usersMap.get(server.userID);
 				return {
 					id: server.id,
 					name: server.manifest.name ?? '',
@@ -66,7 +66,7 @@
 					editable: true,
 					created: server.created,
 					owner: owner?.displayName ?? owner?.email ?? owner?.username ?? 'Unknown',
-					workspaceId: server.workspaceID
+					workspaceId: server.powerUserWorkspaceID
 				};
 			});
 	}
@@ -150,7 +150,7 @@
 								: `/admin/user-mcp-servers/${d.workspaceId}/s/${d.id}`;
 						openUrl(url, isCtrlClick);
 					}}
-					sortable={['name', 'type', 'users', 'source', 'created']}
+					sortable={['name', 'type', 'users', 'source', 'created', 'owner']}
 					noDataMessage="No catalog servers added."
 				>
 					{#snippet onRenderColumn(property, d)}

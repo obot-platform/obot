@@ -133,7 +133,7 @@ export const Role = {
 	ADMIN: 1,
 	USER: 10,
 	POWERUSER_PLUS: 2,
-	POWERUSER: 3,
+	POWERUSER: 3
 };
 
 export interface ProviderParameter {
@@ -459,11 +459,11 @@ export interface MCPFilter extends MCPFilterManifest {
 }
 
 export type WorkspaceCatalogEntry = MCPCatalogEntry & {
-	workspaceID: string;
-	workspaceUserID: string;
+	// entry created by a power user will have userID
+	powerUserID: string;
+	powerUserWorkspaceID: string;
 };
 
 export type WorkspaceCatalogServer = MCPCatalogServer & {
-	workspaceID: string;
-	workspaceUserID: string;
+	powerUserWorkspaceID: string;
 };
