@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -21,6 +22,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var dnsLabelRegex = regexp.MustCompile("[^a-z0-9-]+")
 
 type MCPCatalogHandler struct {
 	defaultCatalogPath string
@@ -235,7 +238,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
-	cleanName := strings.ToLower(strings.ReplaceAll(manifest.Name, " ", "-"))
+	cleanName := normalizeMCPCatalogEntryName(manifest.Name)
 
 	entry := v1.MCPServerCatalogEntry{
 		ObjectMeta: metav1.ObjectMeta{
@@ -637,4 +640,24 @@ func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {
 		SyncErrors: catalog.Status.SyncErrors,
 		IsSyncing:  catalog.Status.IsSyncing,
 	}
+}
+
+func normalizeMCPCatalogEntryName(name string) string {
+	// lowercase
+	name = strings.ToLower(name)
+	// replace invalid chars with '-'
+	name = dnsLabelRegex.ReplaceAllString(name, "-")
+	// collapse multiple consecutive '-' into single '-'
+	for strings.Contains(name, "--") {
+		name = strings.ReplaceAll(name, "--", "-")
+	}
+	// trim leading/trailing '-'
+	name = strings.Trim(name, "-")
+	// max length 63
+	if len(name) > 63 {
+		name = name[:63]
+		// ensure we don't end with '-' after truncation
+		name = strings.TrimRight(name, "-")
+	}
+	return name
 }
