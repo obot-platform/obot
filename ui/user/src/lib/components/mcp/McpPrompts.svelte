@@ -264,7 +264,7 @@
 {:else if variant === 'popover'}
 	<div
 		bind:this={ref}
-		class="default-dialog absolute top-0 left-0 w-full -translate-y-full py-2"
+		class="default-dialog absolute bottom-full left-0 z-10 w-full -translate-y-1 py-2"
 		use:clickOutside={handleClickOutside}
 		onmouseenter={() => (isHovering = true)}
 		onmouseleave={() => (isHovering = false)}
