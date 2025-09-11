@@ -37,9 +37,7 @@
 	let selected = $state<string[]>([]);
 	let allToolsEnabled = $derived(selected[0] === '*' || selected.length === tools.length);
 	let expanded = $state<Record<string, boolean>>({});
-	let descriptionsEnabled = $state(false);
-	let paramsEnabled = $state(false);
-	let showAllEnabled = $state(false);
+	let allDescriptionsEnabled = $state(false);
 	let abortController = $state<AbortController | null>(null);
 
 	// Determine if we have "real" tools or should show previews
@@ -73,8 +71,8 @@
 	}
 
 	function handleToggleDescription(toolId: string, show: boolean) {
-		if (showAllEnabled && !show) {
-			showAllEnabled = false;
+		if (allDescriptionsEnabled && !show) {
+			allDescriptionsEnabled = false;
 			for (const { id: refToolId } of displayTools) {
 				if (toolId !== refToolId) {
 					expanded[refToolId] = true;
@@ -82,15 +80,10 @@
 			}
 		}
 
-		if (show && !descriptionsEnabled && !paramsEnabled) {
-			descriptionsEnabled = true;
-			paramsEnabled = true;
-		}
-
 		expanded[toolId] = show;
 		const expandedValues = Object.values(expanded);
 		if (expandedValues.length === displayTools.length && expandedValues.every((v) => v)) {
-			showAllEnabled = true;
+			allDescriptionsEnabled = true;
 		}
 	}
 
@@ -183,61 +176,12 @@
 		<div class="mb-2 flex w-full flex-col gap-4">
 			<div class="flex flex-wrap items-center justify-end gap-2 md:flex-shrink-0">
 				<Toggle
-					checked={showAllEnabled}
+					checked={allDescriptionsEnabled}
 					onChange={(checked) => {
-						showAllEnabled = checked;
-						if (showAllEnabled && !descriptionsEnabled && !paramsEnabled) {
-							descriptionsEnabled = true;
-							paramsEnabled = true;
-						}
-
-						if (!checked) {
-							expanded = {};
-						}
+						allDescriptionsEnabled = checked;
+						expanded = {};
 					}}
-					label="Show All"
-					labelInline
-					classes={{
-						label: 'text-sm gap-2'
-					}}
-				/>
-
-				{#if !responsive.isMobile}
-					<div class="bg-surface3 mx-2 h-5 w-0.5"></div>
-				{/if}
-
-				<Toggle
-					checked={descriptionsEnabled}
-					onChange={(checked) => {
-						descriptionsEnabled = checked;
-
-						if (!checked && !paramsEnabled && showAllEnabled) {
-							showAllEnabled = false;
-							expanded = {};
-						}
-					}}
-					label="Show Descriptions"
-					labelInline
-					classes={{
-						label: 'text-sm gap-2'
-					}}
-				/>
-
-				{#if !responsive.isMobile}
-					<div class="bg-surface3 mx-2 h-5 w-0.5"></div>
-				{/if}
-
-				<Toggle
-					checked={paramsEnabled}
-					onChange={(checked) => {
-						paramsEnabled = checked;
-
-						if (!checked && !descriptionsEnabled && showAllEnabled) {
-							showAllEnabled = false;
-							expanded = {};
-						}
-					}}
-					label="Show Parameters"
+					label="Show All Descriptions"
 					labelInline
 					classes={{
 						label: 'text-sm gap-2'
@@ -276,7 +220,7 @@
 				</div>
 			{:else if displayTools.length > 0}
 				{#each displayTools as tool (tool.name)}
-					{@const hasContentDisplayed = showAllEnabled || expanded[tool.id]}
+					{@const hasContentDisplayed = allDescriptionsEnabled || expanded[tool.id]}
 					<div
 						class="border-surface2 dark:bg-surface1 dark:border-surface3 flex flex-col gap-2 rounded-md border bg-white p-3 shadow-sm"
 						class:pb-2={hasContentDisplayed}
@@ -320,7 +264,7 @@
 							</div>
 						</div>
 						{#if hasContentDisplayed}
-							{#if browser && descriptionsEnabled}
+							{#if browser}
 								<div
 									in:slide={{ axis: 'y' }}
 									class="milkdown-content max-w-none text-sm font-light text-gray-500"
@@ -329,27 +273,25 @@
 								</div>
 							{/if}
 							{#if Object.keys(tool.params ?? {}).length > 0}
-								{#if paramsEnabled}
-									<div
-										class="from-surface2 dark:from-surface3 flex w-full flex-shrink-0 bg-linear-to-r to-transparent px-4 py-2 text-xs font-semibold text-gray-500 md:w-sm"
-									>
-										Parameters
+								<div
+									class="from-surface2 dark:from-surface3 flex w-full flex-shrink-0 bg-linear-to-r to-transparent px-4 py-2 text-xs font-semibold text-gray-500 md:w-sm"
+								>
+									Parameters
+								</div>
+								<div class="flex flex-col px-4 text-xs" in:slide={{ axis: 'y' }}>
+									<div class="flex flex-col gap-2">
+										{#each Object.keys(tool.params ?? {}) as paramKey (paramKey)}
+											<div class="flex flex-col items-center gap-2 md:flex-row">
+												<p class="self-start font-semibold text-gray-500 md:min-w-xs">
+													{paramKey}
+												</p>
+												<p class="self-start font-light text-gray-500">
+													{tool.params?.[paramKey]}
+												</p>
+											</div>
+										{/each}
 									</div>
-									<div class="flex flex-col px-4 text-xs" in:slide={{ axis: 'y' }}>
-										<div class="flex flex-col gap-2">
-											{#each Object.keys(tool.params ?? {}) as paramKey (paramKey)}
-												<div class="flex flex-col items-center gap-2 md:flex-row">
-													<p class="self-start font-semibold text-gray-500 md:min-w-xs">
-														{paramKey}
-													</p>
-													<p class="self-start font-light text-gray-500">
-														{tool.params?.[paramKey]}
-													</p>
-												</div>
-											{/each}
-										</div>
-									</div>
-								{/if}
+								</div>
 							{/if}
 						{/if}
 					</div>
