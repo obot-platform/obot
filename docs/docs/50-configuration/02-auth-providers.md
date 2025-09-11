@@ -16,7 +16,7 @@ In order for authentication to be enabled, the Obot server must be run with `--e
 When launching Obot for the first time, the server will print a randomly generated bootstrap token to the console.
 
 :::info
-When installing via Helm, this token is saved inside a kubernetes secret.
+When installing via Helm, this token is saved inside a kubernetes secret `<helm install name>-config`.
 :::
 
 This token can be used to authenticate as an admin user in the UI.
@@ -58,9 +58,29 @@ You can:
 
 ## Available Auth Providers
 
-Obot currently supports the following authentication providers (using OAuth2):
+Obot currently supports the following authentication providers (using OAuth2). Before getting started you will need to follow the instructions in the auth provider for setting up a new app. You can get the callback URL from the Obot Admin -> Auth Providers -> \<Auth Provider> -> Configure page. The configuration form will also have fields for the data required.
 
-- **GitHub**
-- **Google**
+### GitHub
 
-The code for these providers is available in the [Obot tools repo](https://github.com/obot-platform/tools).
+You will need to create an OAuth App in GitHub following these [instructions](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app).
+
+You can view the source code for GitHub provider in this [repo](https://github.com/obot-platform/tools).
+
+### Google
+
+Follow the instructions [here](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) to create the OAUTH app for Obot.
+
+You can view the source code for Google provider in this [repo](https://github.com/obot-platform/tools).
+
+### Entra (Enterprise Only)
+
+Within the Microsoft Entra admin center, go to App registrations, and create a new single tenant web registration for your Obot gateway. You can find detail in the [Microsoft docs](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app).
+
+You will need the following permissions:
+
+- `User.read`
+- `Group.Read.All` *requires an org admin to approve to permission. When group support becomes available in Obot*
+
+### Okta (Enterprise Only)
+
+Create an OAuTH app in Okta following these [instructions](https://developer.okta.com/docs/guides/implement-oauth-for-okta/main/#create-an-oauth-2-0-app-in-okta).

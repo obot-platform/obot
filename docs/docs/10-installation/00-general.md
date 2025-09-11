@@ -43,12 +43,13 @@ If you would like to install Obot on a Kubernetes cluster, you can use the Helm 
 
 ### Reference Production Deployment
 
-For a production-grade deployment of Obot, we should have the following infrastructure:
+For a production-grade deployment of Obot, the following infrastructure should be available:
+
 - A Postgres database
 - An S3-compatible bucket for workspace storage
 - A Cloud KMS provider for encrypting sensitive/secret information
 
-The helm chart has mostly sane production default settings, but you will need to configure the database, workspace provider, and encryption provider.
+The helm chart has mostly sane production default settings, but you will need to configure the database, workspace provider, and encryption provider in your values.yaml file.
 
 ```yaml
 # Enable ingress or use a service of type loadbalancer to expose Obot
