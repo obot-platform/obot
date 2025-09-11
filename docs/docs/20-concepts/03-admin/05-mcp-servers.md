@@ -110,7 +110,7 @@ In this case you would select `required` and `sensitive` options as well.
 
 For multi-user setup, you would follow the same steps but would be configuring this to **SHARE** a common API key with ALL users.
 
-### UVX: For Python-based packages  
+### UVX: For Python-based packages
 
 If you found an MCP server like Duckduckgo and want it added to the Obot Gateway you would do the following.
 
@@ -147,6 +147,49 @@ You will need to select the container option from the drop down. Then provide th
 - Arguments: arguments to pass to the command.
 
 You can also provide configuration through environment variables by filling in the configurations.
+
+### Nanobot: For specialized STDIO deployments
+
+The Nanobot runtime provides a specialized containerized environment optimized for MCP server deployments. This runtime is ideal for STDIO servers, where neither npx nor uvx runtimes suffice.
+
+A few examples of when the Nanobot runtime is useful include:
+
+- When your application needs some runtime dependencies that you can build into the image.
+- When your NPM or Python package is not published or is published to a private registry, you can build the image yourself and publish it.
+- When you have an STDIO MCP server that is written in a language that is not supported by the other runtimes (like Rust, Go, or Zig, for example).
+
+Note that the `nanobot` binary must be included in the container image. You can install a prebuilt binary from the [GitHub releases page](https://github.com/nanobot-ai/nanobot/releases) or build it from source. An example Dockerfile for a building nanobot from source might be:
+
+```dockerfile
+FROM cgr.dev/chainguard/wolfi-base AS bin
+
+RUN apk add --no-cache gcc=14.2.0-r13 go make git
+
+ARG NANOBOT_REPO=https://github.com/nanobot-ai/nanobot.git
+ARG NANOBOT_BRANCH=main
+
+RUN git clone ${NANOBOT_REPO}
+
+WORKDIR /nanobot
+
+RUN git fetch origin && git checkout origin/${NANOBOT_BRANCH}
+
+RUN --mount=type=cache,target=/root/go/pkg/mod make build
+
+FROM cgr.dev/chainguard/wolfi-base:latest
+
+COPY --from=bin /nanobot/bin/nanobot /usr/local/bin/
+
+...
+```
+
+When configuring a Nanobot runtime, you need to specify:
+
+- **Image**: The container image URI (e.g., `docker.io/myorg/nanobot-server:latest`)
+- **Command**: The primary command to launch the MCP server (e.g., `my-custom-server`)
+- **Arguments**: Optional command-line arguments to pass to the command
+
+The Nanobot runtime handles starting the STDIO server and proxies requests via an HTTP transport to the STDIO server. Configuration parameters can be passed through environment variables using the standard configuration section.
 
 ## Configuration parameters
 
