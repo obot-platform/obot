@@ -133,6 +133,10 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 }
 
 func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
+	return convertMCPServerCatalogEntryWithWorkspace(entry, "", "")
+}
+
+func convertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID string) types.MCPServerCatalogEntry {
 	// Add extracted env vars directly to the entry
 	addExtractedEnvVarsToCatalogEntry(&entry)
 
@@ -145,6 +149,8 @@ func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServe
 		UserCount:                 entry.Status.UserCount,
 		LastUpdated:               v1.NewTime(entry.Status.LastUpdated),
 		ToolPreviewsLastGenerated: v1.NewTime(entry.Status.ToolPreviewsLastGenerated),
+		PowerUserWorkspaceID:      powerUserWorkspaceID,
+		PowerUserID:               powerUserID,
 	}
 }
 

@@ -63,6 +63,8 @@ type MCPServerCatalogEntry struct {
 	UserCount                 int                           `json:"userCount,omitempty"`
 	LastUpdated               *Time                         `json:"lastUpdated,omitempty"`
 	ToolPreviewsLastGenerated *Time                         `json:"toolPreviewsLastGenerated,omitempty"`
+	PowerUserWorkspaceID      string                        `json:"powerUserWorkspaceID,omitempty"`
+	PowerUserID               string                        `json:"powerUserID,omitempty"`
 }
 
 type MCPServerCatalogEntryManifest struct {

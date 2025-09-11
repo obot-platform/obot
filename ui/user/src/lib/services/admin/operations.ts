@@ -746,7 +746,7 @@ export async function listCatalogCategories(catalogId: string, opts?: { fetch?: 
 
 export async function listAllUserWorkspaceCatalogEntries(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet(
-		`/workspaces/entries`,
+		`/workspaces/all-entries`,
 		opts
 	)) as ItemsResponse<WorkspaceCatalogEntry>;
 	return response.items ?? [];
@@ -754,7 +754,7 @@ export async function listAllUserWorkspaceCatalogEntries(opts?: { fetch?: Fetche
 
 export async function listAllUserWorkspaceMCPServers(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet(
-		`/workspaces/servers`,
+		`/workspaces/all-servers`,
 		opts
 	)) as ItemsResponse<WorkspaceCatalogServer>;
 	return response.items ?? [];

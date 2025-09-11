@@ -123,8 +123,11 @@
 
 	$effect(() => {
 		if (selected === 'access-control') {
-			listAccessControlRules = AdminService.listAccessControlRules();
-		} else if (selected === 'filters') {
+			listAccessControlRules =
+				entity === 'workspace' && id
+					? ChatService.listWorkspaceAccessControlRules(id)
+					: AdminService.listAccessControlRules();
+		} else if (selected === 'filters' && entity !== 'workspace') {
 			listFilters = AdminService.listMCPFilters();
 		}
 	});
@@ -441,7 +444,9 @@
 		{:else if selected === 'server-instances'}
 			<McpServerInstances {id} {entity} {entry} {users} {type} />
 		{:else if selected === 'filters'}
-			{@render filtersView()}
+			{#if entity !== 'workspace'}
+				{@render filtersView()}
+			{/if}
 		{/if}
 	</div>
 </div>
@@ -488,13 +493,18 @@
 					{ title: 'Rule', property: 'displayName' },
 					{ title: 'Accessible To', property: 'resources' }
 				]}
-				onSelectRow={(d, isCtrlClick) => {
-					if (!entry) return;
-					setLastVisitedMcpServer();
+				onSelectRow={entity !== 'workspace' || (entity === 'workspace' && !readonly)
+					? (d, isCtrlClick) => {
+							if (!entry) return;
+							setLastVisitedMcpServer();
 
-					const url = `/admin/access-control/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry.id}`)}`;
-					openUrl(url, isCtrlClick);
-				}}
+							const url =
+								entity === 'workspace'
+									? `/mcp-publisher/access-control/${d.id}?from=${encodeURIComponent(`mcp-publisher/${entry.id}`)}`
+									: `/admin/access-control/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry.id}`)}`;
+							openUrl(url, isCtrlClick);
+						}
+					: undefined}
 			>
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'resources'}
@@ -704,14 +714,24 @@
 		if (!deleteResourceFromRule) {
 			return;
 		}
-		await AdminService.updateAccessControlRule(deleteResourceFromRule.rule.id, {
-			...deleteResourceFromRule.rule,
-			resources: deleteResourceFromRule.rule.resources?.filter(
-				(r) => r.id !== deleteResourceFromRule!.resourceId
-			)
-		});
 
-		listAccessControlRules = AdminService.listAccessControlRules();
+		const updateAccessControlRuleFn =
+			entity === 'workspace' && id
+				? ChatService.updateWorkspaceAccessControlRule(
+						id,
+						deleteResourceFromRule.rule.id,
+						deleteResourceFromRule.rule
+					)
+				: AdminService.updateAccessControlRule(
+						deleteResourceFromRule.rule.id,
+						deleteResourceFromRule.rule
+					);
+		await updateAccessControlRuleFn;
+
+		listAccessControlRules =
+			entity === 'workspace' && id
+				? ChatService.listWorkspaceAccessControlRules(id)
+				: AdminService.listAccessControlRules();
 		deleteResourceFromRule = undefined;
 	}}
 	oncancel={() => (deleteResourceFromRule = undefined)}
