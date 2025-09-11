@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: obot-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: obot
+      POSTGRES_PASSWORD: obot
+      POSTGRES_DB: obot
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U obot -d obot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    command: >
+      postgres 
+      -c log_statement=all 
+      -c log_destination=stderr 
+      -c logging_collector=on
+      -c max_connections=100
+      -c shared_buffers=256MB
+
+  obot:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: obot-app-dev
+    restart: unless-stopped
+    environment:
+      OBOT_SERVER_DSN: "postgresql://obot:obot@postgres:5432/obot"
+      OBOT_SERVER_HTTP_LISTEN_PORT: 8080
+      OBOT_SERVER_DEV_MODE: "true"
+      OBOT_CONTAINER_ENV: "true"
+      OBOT_SERVER_GATEWAY_DEBUG: "true"
+      # Enable debug logging
+      OBOT_LOG_LEVEL: debug
+    ports:
+      - "8080:8080"
+    volumes:
+      - obot_dev_data:/data
+      - ./agents:/agents:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  # Optional: Add pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: obot-pgadmin-dev
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@obot.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "8081:80"
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  obot_dev_data:
+    driver: local
+  pgadmin_dev_data:
+    driver: local
