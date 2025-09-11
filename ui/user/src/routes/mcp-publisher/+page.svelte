@@ -3,22 +3,11 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Table from '$lib/components/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { ChatService, Role, type MCPCatalogServer } from '$lib/services';
+	import { ChatService, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
-	import {
-		AlertTriangle,
-		Container,
-		Eye,
-		LoaderCircle,
-		Plus,
-		Server,
-		Trash2,
-		User,
-		Users
-	} from 'lucide-svelte';
+	import { Eye, LoaderCircle, Plus, Server, Trash2 } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
@@ -33,7 +22,8 @@
 		getPoweruserWorkspace,
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte';
-	import { profile } from '$lib/stores/index.js';
+	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
+	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp.js';
 
 	let { data } = $props();
 	let search = $state('');
@@ -78,59 +68,6 @@
 		}
 	});
 
-	function convertEntriesToTableData(entries: MCPCatalogEntry[] | undefined) {
-		if (!entries) {
-			return [];
-		}
-
-		return entries
-			.filter((entry) => !entry.deleted)
-			.map((entry) => {
-				return {
-					id: entry.id,
-					name: entry.manifest?.name ?? '',
-					icon: entry.manifest?.icon,
-					source: entry.sourceURL || 'manual',
-					data: entry,
-					users: entry.userCount ?? 0,
-					editable: !entry.sourceURL,
-					type: entry.manifest.runtime === 'remote' ? 'remote' : 'single',
-					created: entry.created
-				};
-			});
-	}
-
-	function convertServersToTableData(servers: MCPCatalogServer[] | undefined) {
-		if (!servers) {
-			return [];
-		}
-
-		return servers
-			.filter((server) => !server.catalogEntryID && !server.deleted)
-			.map((server) => {
-				return {
-					id: server.id,
-					name: server.manifest.name ?? '',
-					icon: server.manifest.icon,
-					source: 'manual',
-					type: 'multi',
-					data: server,
-					users: server.mcpServerInstanceUserCount ?? 0,
-					editable: true,
-					created: server.created
-				};
-			});
-	}
-
-	function convertEntriesAndServersToTableData(
-		entries: MCPCatalogEntry[],
-		servers: MCPCatalogServer[]
-	) {
-		const entriesTableData = convertEntriesToTableData(entries);
-		const serversTableData = convertServersToTableData(servers);
-		return [...entriesTableData, ...serversTableData];
-	}
-
 	let totalCount = $derived(
 		mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length
 	);
@@ -147,12 +84,9 @@
 			})
 	);
 
-	let selectServerTypeDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let selectedServerType = $state<'single' | 'multi' | 'remote'>();
 	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
-
-	let syncError = $state<{ url: string; error: string }>();
-	let syncErrorDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
@@ -355,74 +289,7 @@
 	oncancel={() => (deletingServer = undefined)}
 />
 
-<ResponsiveDialog title="Select Server Type" class="md:w-lg" bind:this={selectServerTypeDialog}>
-	<div class="my-4 flex flex-col gap-4">
-		<button
-			class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
-			onclick={() => selectServerType('single')}
-		>
-			<User
-				class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
-			/>
-			<div>
-				<p class="mb-1 text-sm font-semibold">Single User Server</p>
-				<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
-					This option is appropriate for servers that require individualized configuration or were
-					not designed for multi-user access, such as most studio MCP servers. When a user selects
-					this server, a private instance will be created for them.
-				</span>
-			</div>
-		</button>
-		{#if profile.current?.role === Role.POWERUSER_PLUS || profile.current?.role === Role.ADMIN}
-			<button
-				class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
-				onclick={() => selectServerType('multi')}
-			>
-				<Users
-					class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
-				/>
-				<div>
-					<p class="mb-1 text-sm font-semibold">Multi-User Server</p>
-					<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
-						This option is appropriate for servers designed to handle multiple user connections,
-						such as most Streamable HTTP servers. When you create this server, a running instance
-						will be deployed and any user with access to this catlog will be able to connect to it.
-					</span>
-				</div>
-			</button>
-		{/if}
-		<button
-			class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
-			onclick={() => selectServerType('remote')}
-		>
-			<Container
-				class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
-			/>
-			<div>
-				<p class="mb-1 text-sm font-semibold">Remote Server</p>
-				<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
-					This option is appropriate for allowing users to connect to MCP servers that are already
-					elsewhere. When a user selects this server, their connection to the remote MCP server will
-					go through the Obot gateway.
-				</span>
-			</div>
-		</button>
-	</div>
-</ResponsiveDialog>
-
-<ResponsiveDialog title="Git Source URL Sync" bind:this={syncErrorDialog} class="md:w-2xl">
-	<div class="mb-4 flex flex-col gap-4">
-		<div class="notification-alert flex flex-col gap-2">
-			<div class="flex items-center gap-2">
-				<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
-				<p class="my-0.5 flex flex-col text-sm font-semibold">
-					An issue occurred fetching this source URL:
-				</p>
-			</div>
-			<span class="text-sm font-light break-all">{syncError?.error}</span>
-		</div>
-	</div>
-</ResponsiveDialog>
+<SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />
 
 <svelte:head>
 	<title>Obot | MCP Publisher</title>

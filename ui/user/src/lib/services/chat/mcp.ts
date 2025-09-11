@@ -89,3 +89,56 @@ export function requiresUserUpdate(mcpServer?: ConnectedServer) {
 		? mcpServer.server?.configured === false
 		: false;
 }
+
+function convertEntriesToTableData(entries: MCPCatalogEntry[] | undefined) {
+	if (!entries) {
+		return [];
+	}
+
+	return entries
+		.filter((entry) => !entry.deleted)
+		.map((entry) => {
+			return {
+				id: entry.id,
+				name: entry.manifest?.name ?? '',
+				icon: entry.manifest?.icon,
+				source: entry.sourceURL || 'manual',
+				data: entry,
+				users: entry.userCount ?? 0,
+				editable: !entry.sourceURL,
+				type: entry.manifest.runtime === 'remote' ? 'remote' : 'single',
+				created: entry.created
+			};
+		});
+}
+
+function convertServersToTableData(servers: MCPCatalogServer[] | undefined) {
+	if (!servers) {
+		return [];
+	}
+
+	return servers
+		.filter((server) => !server.catalogEntryID && !server.deleted)
+		.map((server) => {
+			return {
+				id: server.id,
+				name: server.manifest.name ?? '',
+				icon: server.manifest.icon,
+				source: 'manual',
+				type: 'multi',
+				data: server,
+				users: server.mcpServerInstanceUserCount ?? 0,
+				editable: true,
+				created: server.created
+			};
+		});
+}
+
+export function convertEntriesAndServersToTableData(
+	entries: MCPCatalogEntry[],
+	servers: MCPCatalogServer[]
+) {
+	const entriesTableData = convertEntriesToTableData(entries);
+	const serversTableData = convertServersToTableData(servers);
+	return [...entriesTableData, ...serversTableData];
+}
