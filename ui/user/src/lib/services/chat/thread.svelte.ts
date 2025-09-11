@@ -150,7 +150,25 @@ export class Thread {
 	async invoke(input: InvokeInput | string) {
 		this.pending = true;
 		if (this.threadID) {
-			await ChatInvoke(this.#project.assistantID, this.#project.id, this.threadID, input);
+			const response = await ChatInvoke(
+				this.#project.assistantID,
+				this.#project.id,
+				this.threadID,
+				input
+			);
+			if (response?.message) {
+				// Create a synthetic Progress object to display the message as a system message in the chat
+				const systemProgress: Progress = {
+					time: new Date().toISOString(),
+					content: '',
+					error: response.message,
+					threadID: this.threadID,
+					runID: 'system-message' + response.runID,
+					runComplete: true
+				};
+				// Add it to the progress list to be displayed as a regular message
+				this.#onProgress(systemProgress);
+			}
 		}
 	}
 

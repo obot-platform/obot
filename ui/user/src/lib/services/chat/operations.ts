@@ -319,9 +319,12 @@ export async function invoke(
 	projectID: string,
 	threadID: string,
 	msg: string | InvokeInput
-) {
+): Promise<{ message?: string; runID: string }> {
 	msg = cleanInvokeInput(msg);
-	await doPost(`/assistants/${assistantID}/projects/${projectID}/threads/${threadID}/invoke`, msg);
+	return (await doPost(
+		`/assistants/${assistantID}/projects/${projectID}/threads/${threadID}/invoke`,
+		msg
+	)) as { message?: string; runID: string };
 }
 
 export async function abort(

@@ -76,6 +76,7 @@ type Response struct {
 	Thread            *v1.Thread
 	WorkflowExecution *v1.WorkflowExecution
 	Events            <-chan types.Progress
+	Message           string
 
 	uncached      kclient.WithWatch
 	gatewayClient *client.Client
@@ -193,6 +194,7 @@ type Options struct {
 	CredentialContextIDs  []string
 	UserUID               string
 	UserIsAdmin           bool
+	IgnoreMCPErrors       bool
 	GenerateName          string
 	ExtraEnv              []string
 }
@@ -377,11 +379,12 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		}
 	}
 
-	tools, extraEnv, err := render.Agent(ctx, i.tokenService, i.mcpSessionManager, c, agent, i.serverURL, render.AgentOptions{
-		Thread:         thread,
-		WorkflowStepID: opt.WorkflowStepID,
-		UserID:         opt.UserUID,
-		UserIsAdmin:    opt.UserIsAdmin,
+	renderedAgent, err := render.Agent(ctx, i.tokenService, i.mcpSessionManager, c, agent, i.serverURL, render.AgentOptions{
+		Thread:          thread,
+		WorkflowStepID:  opt.WorkflowStepID,
+		UserID:          opt.UserUID,
+		UserIsAdmin:     opt.UserIsAdmin,
+		IgnoreMCPErrors: opt.IgnoreMCPErrors,
 	})
 	if err != nil {
 		return nil, err
@@ -396,11 +399,11 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		}
 	}
 
-	return i.createRun(ctx, c, thread, tools, input, runOptions{
+	resp, err := i.createRun(ctx, c, thread, renderedAgent.Tools, input, runOptions{
 		Synchronous:           opt.Synchronous,
 		WorkflowName:          opt.WorkflowName,
 		AgentName:             agent.Name,
-		Env:                   append(extraEnv, opt.ExtraEnv...),
+		Env:                   append(renderedAgent.Env, opt.ExtraEnv...),
 		CredentialContextIDs:  credContextIDs,
 		WorkflowStepName:      opt.WorkflowStepName,
 		WorkflowStepID:        opt.WorkflowStepID,
@@ -410,6 +413,15 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		GenerateName:          opt.GenerateName,
 		UserID:                opt.UserUID,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(renderedAgent.MCPErrors) > 0 {
+		resp.Message = fmt.Sprintf("Your chat message was sent successfully. However, there were errors listing tools for some of the MCP servers:\n\n%s", strings.Join(renderedAgent.MCPErrors, "\n"))
+	}
+
+	return resp, nil
 }
 
 func unAbortThread(ctx context.Context, c kclient.Client, thread *v1.Thread) error {

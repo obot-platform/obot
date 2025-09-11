@@ -819,7 +819,7 @@ func (a *AgentHandler) Script(req api.Context) error {
 		}
 	}
 
-	tools, extraEnv, err := render.Agent(req.Context(), a.tokenService, a.mcpSessionManager, req.Storage, &agent, a.serverURL, render.AgentOptions{
+	renderedAgent, err := render.Agent(req.Context(), a.tokenService, a.mcpSessionManager, req.Storage, &agent, a.serverURL, render.AgentOptions{
 		Thread:      thread,
 		UserID:      req.User.GetUID(),
 		UserIsAdmin: req.UserIsAdmin(),
@@ -828,10 +828,10 @@ func (a *AgentHandler) Script(req api.Context) error {
 		return err
 	}
 
-	nodes := gptscript.ToolDefsToNodes(tools)
+	nodes := gptscript.ToolDefsToNodes(renderedAgent.Tools)
 	nodes = append(nodes, gptscript.Node{
 		TextNode: &gptscript.TextNode{
-			Text: "!obot-extra-env\n" + strings.Join(extraEnv, "\n"),
+			Text: "!obot-extra-env\n" + strings.Join(renderedAgent.Env, "\n"),
 		},
 	})
 

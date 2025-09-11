@@ -435,6 +435,7 @@ function newErrorMessage(progress: Progress): Message {
 		icon: errorIcon,
 		sourceName: 'Assistant',
 		message: [message],
+		done: progress.runID?.startsWith('system-message'),
 		ignore: ignore
 	};
 }
