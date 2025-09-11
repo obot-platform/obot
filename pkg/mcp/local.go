@@ -20,8 +20,8 @@ func newLocalBackend() backend {
 
 func (*localBackend) ensureServerDeployment(_ context.Context, server ServerConfig, id, _, _ string) (ServerConfig, error) {
 	if server.Runtime == types.RuntimeContainerized {
-		// The containerized runtime is not supported when running servers locally.
-		return ServerConfig{}, &ErrNotSupportedByBackend{Feature: "containerized runtime", Backend: "local"}
+		// Neither the containerized nor the nanobot runtime is supported when running servers locally.
+		return ServerConfig{}, &ErrNotSupportedByBackend{Feature: string(server.Runtime) + " runtime", Backend: "local"}
 	}
 
 	return transformFileEnvVars(server, id)

@@ -263,7 +263,7 @@ export interface ToolReferenceList {
 	items: ToolReference[];
 }
 
-export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote';
+export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'nanobot';
 
 export interface UVXRuntimeConfig {
 	package: string;
@@ -293,6 +293,12 @@ export interface RemoteCatalogConfig {
 	fixedURL?: string;
 	hostname?: string;
 	headers?: MCPSubField[];
+}
+
+export interface NanobotRuntimeConfig {
+	image: string;
+	command: string;
+	args?: string[];
 }
 
 export interface MCPSubField {
@@ -326,6 +332,7 @@ export interface MCPServer {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteRuntimeConfig;
+	nanobotConfig?: NanobotRuntimeConfig;
 }
 
 export interface MCPServerTool {

@@ -172,6 +172,17 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 		} else {
 			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires containerized config", mcpServer.Spec.Manifest.Runtime)
 		}
+	case types.RuntimeNanobot:
+		if mcpServer.Spec.Manifest.NanobotConfig != nil {
+			serverConfig.ContainerImage = expandEnvVars(mcpServer.Spec.Manifest.NanobotConfig.Image, credEnv, fileEnvVars)
+			serverConfig.Command = expandEnvVars(mcpServer.Spec.Manifest.NanobotConfig.Command, credEnv, fileEnvVars)
+			serverConfig.Args = make([]string, 0, len(mcpServer.Spec.Manifest.NanobotConfig.Args))
+			for _, arg := range mcpServer.Spec.Manifest.NanobotConfig.Args {
+				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
+			}
+		} else {
+			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires nanobot config", mcpServer.Spec.Manifest.Runtime)
+		}
 	case types.RuntimeRemote:
 		if mcpServer.Spec.Manifest.RemoteConfig != nil {
 			serverConfig.URL = mcpServer.Spec.Manifest.RemoteConfig.URL

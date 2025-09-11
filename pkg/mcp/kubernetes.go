@@ -47,7 +47,7 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 
 func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, id, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
 	switch server.Runtime {
-	case types.RuntimeNPX, types.RuntimeUVX, types.RuntimeContainerized:
+	case types.RuntimeNPX, types.RuntimeUVX, types.RuntimeContainerized, types.RuntimeNanobot:
 	default:
 		return ServerConfig{}, fmt.Errorf("unsupported MCP runtime: %s", server.Runtime)
 	}
@@ -217,7 +217,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 		objs    = make([]kclient.Object, 0, 5)
 		image   = k.baseImage
 		args    = []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "/run/nanobot.yaml"}
-		port    = 8099
+		port    = defaultContainerPort
 
 		annotations = map[string]string{
 			"mcp-server-name":  serverName,
@@ -279,6 +279,10 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 		args = server.Args
 		port = server.ContainerPort
 	} else {
+		if server.Runtime == types.RuntimeNanobot {
+			image = expandEnvVars(server.ContainerImage, fileMapping, nil)
+		}
+
 		nanobotFileString, err := constructNanobotYAML(serverDisplayName, server.Command, server.Args, secretStringData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)

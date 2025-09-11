@@ -1587,6 +1587,13 @@ func addExtractedEnvVars(server *v1.MCPServer) {
 		if server.Spec.Manifest.RemoteConfig != nil {
 			toExtract = []string{server.Spec.Manifest.RemoteConfig.URL}
 		}
+	case types.RuntimeNanobot:
+		if server.Spec.Manifest.NanobotConfig != nil {
+			toExtract = []string{server.Spec.Manifest.NanobotConfig.Command}
+			if len(server.Spec.Manifest.NanobotConfig.Args) > 0 {
+				toExtract = append(toExtract, server.Spec.Manifest.NanobotConfig.Args...)
+			}
+		}
 	}
 
 	for _, v := range toExtract {
@@ -1634,6 +1641,13 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 			toExtract = append(toExtract, entry.Spec.Manifest.ContainerizedConfig.Command)
 			if len(entry.Spec.Manifest.ContainerizedConfig.Args) > 0 {
 				toExtract = append(toExtract, entry.Spec.Manifest.ContainerizedConfig.Args...)
+			}
+		}
+	case types.RuntimeNanobot:
+		if entry.Spec.Manifest.NanobotConfig != nil {
+			toExtract = append(toExtract, entry.Spec.Manifest.NanobotConfig.Command)
+			if len(entry.Spec.Manifest.NanobotConfig.Args) > 0 {
+				toExtract = append(toExtract, entry.Spec.Manifest.NanobotConfig.Args...)
 			}
 		}
 	case types.RuntimeRemote:

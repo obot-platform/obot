@@ -104,6 +104,48 @@ func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
 	}
 }
 
+func TestMapCatalogEntryToServer_Nanobot(t *testing.T) {
+	catalogEntry := MCPServerCatalogEntryManifest{
+		Name:        "Test Nanobot Server",
+		Description: "Test nanobot server description",
+		Runtime:     RuntimeNanobot,
+		NanobotConfig: &NanobotRuntimeConfig{
+			Image:   "test/mcp-server:latest",
+			Command: "start",
+			Args:    []string{"arg1", "arg2"},
+		},
+	}
+
+	result, err := MapCatalogEntryToServer(catalogEntry, "")
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if result.Runtime != RuntimeNanobot {
+		t.Errorf("Expected runtime %s, got %s", RuntimeNanobot, result.Runtime)
+	}
+
+	if result.NanobotConfig == nil {
+		t.Fatal("Expected NanobotConfig to be populated")
+	}
+
+	if result.NanobotConfig.Image != "test/mcp-server:latest" {
+		t.Errorf("Expected image 'test/mcp-server:latest', got '%s'", result.NanobotConfig.Image)
+	}
+
+	if result.NanobotConfig.Command != "start" {
+		t.Errorf("Expected command 'start', got '%s'", result.NanobotConfig.Command)
+	}
+
+	if result.NanobotConfig.Args == nil || len(result.NanobotConfig.Args) != 2 {
+		t.Errorf("Expected args ['arg1', 'arg2'], got '%v'", result.NanobotConfig.Args)
+	}
+
+	if result.NanobotConfig.Args[0] != "arg1" || result.NanobotConfig.Args[1] != "arg2" {
+		t.Errorf("Expected args ['arg1', 'arg2'], got '%v'", result.NanobotConfig.Args)
+	}
+}
+
 func TestMapCatalogEntryToServer_RemoteFixedURL(t *testing.T) {
 	catalogEntry := MCPServerCatalogEntryManifest{
 		Name:        "Test Remote Server",
