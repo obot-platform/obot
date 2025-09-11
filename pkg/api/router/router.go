@@ -32,7 +32,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	models := handlers.NewModelHandler()
 	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPLoader, oauthChecker, services.GatewayClient)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
-	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler()
+	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL)
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.Invoker)
@@ -472,6 +472,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Power User Workspaces (read-only)
 	mux.HandleFunc("GET /api/workspaces", powerUserWorkspaces.List)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}", powerUserWorkspaces.Get)
+
+	mux.HandleFunc("GET /api/workspaces/all-entries", powerUserWorkspaces.ListAllEntries)
+	mux.HandleFunc("GET /api/workspaces/all-servers", powerUserWorkspaces.ListAllServers)
 
 	// Workspace-scoped Access Control Rules (PowerUserPlus only)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/access-control-rules", accessControlRules.List)
