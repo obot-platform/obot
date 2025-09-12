@@ -33,15 +33,17 @@ type kubernetesBackend struct {
 	baseImage        string
 	mcpNamespace     string
 	mcpClusterDomain string
+	imagePullSecrets []string
 }
 
-func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, baseImage, mcpNamespace, mcpClusterDomain string) backend {
+func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, baseImage, mcpNamespace, mcpClusterDomain string, imagePullSecrets []string) backend {
 	return &kubernetesBackend{
 		clientset:        clientset,
 		client:           client,
 		baseImage:        baseImage,
 		mcpNamespace:     mcpNamespace,
 		mcpClusterDomain: mcpClusterDomain,
+		imagePullSecrets: imagePullSecrets,
 	}
 }
 
@@ -413,6 +415,13 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 			},
 		}
 	}
+
+	if len(k.imagePullSecrets) > 0 {
+		for _, secret := range k.imagePullSecrets {
+			dep.Spec.Template.Spec.ImagePullSecrets = append(dep.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: secret})
+		}
+	}
+
 	objs = append(objs, dep)
 
 	objs = append(objs, &corev1.Service{

@@ -75,3 +75,14 @@ Set name of namespace to use for mcp servers
 {{ .Release.Name }}-mcp
 {{- end -}}
 {{- end -}}
+
+{{/*
+Generate comma-separated list of MCP image pull secret names
+*/}}
+{{- define "obot.config.mcpImagePullSecrets" -}}
+{{- $secrets := list -}}
+{{- range .Values.mcpImagePullSecrets -}}
+{{- $secrets = append $secrets .name -}}
+{{- end -}}
+{{- join "," $secrets -}}
+{{- end -}}

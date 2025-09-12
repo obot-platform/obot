@@ -23,11 +23,12 @@ import (
 var log = logger.Package()
 
 type Options struct {
-	MCPBaseImage         string `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images-phat:main"`
-	MCPNamespace         string `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
-	MCPClusterDomain     string `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
-	DisallowLocalhostMCP bool   `usage:"Allow MCP containers to run on localhost"`
-	MCPRuntimeBackend    string `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
+	MCPBaseImage         string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images-phat:main"`
+	MCPNamespace         string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
+	MCPClusterDomain     string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
+	DisallowLocalhostMCP bool     `usage:"Allow MCP containers to run on localhost"`
+	MCPRuntimeBackend    string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
+	MCPImagePullSecrets  []string `usage:"The name of the image pull secret to use for pulling MCP images"`
 }
 
 type SessionManager struct {
@@ -89,7 +90,7 @@ func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseU
 			return nil, err
 		}
 
-		backend = newKubernetesBackend(clientset, client, opts.MCPBaseImage, opts.MCPNamespace, opts.MCPClusterDomain)
+		backend = newKubernetesBackend(clientset, client, opts.MCPBaseImage, opts.MCPNamespace, opts.MCPClusterDomain, opts.MCPImagePullSecrets)
 	case "local":
 		backend = newLocalBackend()
 	default:
