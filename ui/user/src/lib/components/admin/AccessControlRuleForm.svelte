@@ -75,7 +75,6 @@
 	});
 
 	onMount(async () => {
-		// TODO: does power user have access to list users and groups?
 		loadingUsersAndGroups = Promise.all([AdminService.listUsers(), AdminService.listGroups()]).then(
 			([users, groups]) => ({ users, groups })
 		);
@@ -102,7 +101,10 @@
 						...(accessControlRule.resources ?? []),
 						{ id: entry.id, type: 'mcpServerCatalogEntry' }
 					];
-					redirect = `/admin/mcp-servers/c/${entry.id}`;
+					redirect =
+						entity === 'workspace'
+							? `/mcp-publisher/mcp-servers/c/${entry.id}`
+							: `/admin/mcp-servers/c/${entry.id}`;
 				} else {
 					const server = mcpServersMap.get(initialAdditionId);
 					if (server) {
@@ -110,7 +112,10 @@
 							...(accessControlRule.resources ?? []),
 							{ id: server.id, type: 'mcpServer' }
 						];
-						redirect = `/admin/mcp-servers/s/${server.id}`;
+						redirect =
+							entity === 'workspace'
+								? `/mcp-publisher/mcp-servers/s/${server.id}`
+								: `/admin/mcp-servers/s/${server.id}`;
 					}
 				}
 			}

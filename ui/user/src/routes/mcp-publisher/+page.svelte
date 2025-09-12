@@ -282,7 +282,7 @@
 			return;
 		}
 
-		await ChatService.deleteWorkspaceMCPCatalogEntry(workspaceId, deletingServer.id);
+		await ChatService.deleteWorkspaceMCPCatalogServer(workspaceId, deletingServer.id);
 		await fetchMcpServerAndEntries(workspaceId, mcpServerAndEntries);
 		deletingServer = undefined;
 	}}

@@ -553,7 +553,10 @@
 			const entryResponse = await handleFns[type]?.(id);
 			savedEntry = entryResponse;
 			if (isAtLeastPowerUserPlus) {
-				const existingRules = await AdminService.listAccessControlRules();
+				const existingRules =
+					entity === 'workspace'
+						? await ChatService.listWorkspaceAccessControlRules(id)
+						: await AdminService.listAccessControlRules();
 				const hasEverythingEveryoneRule = existingRules.some(
 					(rule) =>
 						rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')

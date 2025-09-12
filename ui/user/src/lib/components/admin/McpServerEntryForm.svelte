@@ -700,7 +700,7 @@
 					: AdminService.deleteMCPCatalogEntry;
 			await deleteCatalogEntryFn(id, entry.id);
 		}
-		goto('/admin/mcp-servers');
+		goto(entity === 'workspace' ? '/mcp-publisher/mcp-servers' : '/admin/mcp-servers');
 	}}
 	oncancel={() => (deleteServer = false)}
 />
