@@ -7,6 +7,7 @@ resources:
       - users.obot.obot.ai
       - identities.obot.obot.ai
       - mcpoauthtokens.obot.obot.ai
+      - mcpauditlogs.obot.obot.ai
     providers:
       - kms:
           apiVersion: v2
