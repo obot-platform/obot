@@ -190,6 +190,29 @@ type ThreadStatus struct {
 	Created             bool   `json:"created,omitempty"`
 	// WorkflowNamesFromIntegration is the workflow names created from external integration, like slack, discord..
 	WorkflowNamesFromIntegration types.WorkflowNamesFromIntegration `json:"workflowNamesFromIntegration,omitempty"`
+
+	// ThreadConfigHash is the hash of the current configuration for the thread.
+	// This is used to determine if the thread's configuration has diverged from the source thread.
+	// It is computed by hashing the thread's:
+	// - introduction message
+	// - starter messages
+	// - tool set
+	// - tasks
+	// - knowledge files
+	// - model provider
+	// - model
+	// - prompt
+	// - allowed MCP tools
+	// - project MCP servers
+	ThreadConfigHash string `json:"threadConfigHash,omitempty"`
+
+	// SourceThreadUpgradeAvailable is a flag to indicate if an upgrade is available from the source thread.
+	// An upgrade is considered available if the source thread's configuration has changed since it was copied
+	// into this thread AND the thread's configuration has not changed since it was copied.
+	SourceThreadUpgradeAvailable bool `json:"sourceThreadUpgradeAvailable,omitempty"`
+
+	// UpgradeInProgress indicates if an upgrade from the source thread is in progress.
+	UpgradeInProgress bool `json:"upgradeInProgress,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

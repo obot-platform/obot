@@ -28,6 +28,10 @@ const (
 	AuthProviderSyncAnnotation        = "obot.ai/auth-provider-sync"
 	FileScannerProviderSyncAnnotation = "obot.ai/file-scanner-provider-sync"
 	MCPCatalogSyncAnnotation          = "obot.ai/mcp-catalog-sync"
+
+	ThreadUpgradeApprovedAnnotation   = "obot.ai/thread-upgrade-approved"
+	ProjectSnapshotRevisionAnnotation = "obot.ai/project-snapshot-revision"
+	HideMCPServerAnnotation           = "obot.ai/hide-mcp-server"
 )
 
 var (

@@ -16,6 +16,7 @@ func (a *Authorizer) checkTemplate(req *http.Request, resources *Resources) (boo
 	var templateShareList v1.ThreadShareList
 	err := a.cache.List(req.Context(), &templateShareList, kclient.InNamespace(system.DefaultNamespace), kclient.MatchingFields{
 		"spec.publicID": resources.TemplateID,
+		"spec.template": "true",
 	})
 
 	return len(templateShareList.Items) > 0, err

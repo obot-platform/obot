@@ -14,7 +14,6 @@
 	import { createProjectMcp, parseCategories, requiresUserUpdate } from '$lib/services/chat/mcp';
 	import MyMcpServers, { type ConnectedServer } from '../mcp/MyMcpServers.svelte';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
-	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		project: Project;
@@ -245,13 +244,8 @@
 							{@const requiresUpdate = requiresUserUpdate(d)}
 							{#if !requiresUpdate}
 								<button
-									class={twMerge(
-										'icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500',
-										requiresUpdate &&
-											'hover:text-initial cursor-not-allowed opacity-50 hover:bg-transparent dark:hover:bg-transparent'
-									)}
+									class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
 									onclick={() => {
-										if (requiresUpdate) return;
 										setupProjectMcp(d);
 									}}
 									use:tooltip={{
