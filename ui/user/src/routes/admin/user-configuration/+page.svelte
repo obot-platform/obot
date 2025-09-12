@@ -5,16 +5,30 @@
 	import { LoaderCircle } from 'lucide-svelte';
 	import { Role } from '$lib/services/admin/types';
 	import { userRoleOptions } from '$lib/services/admin/constants';
+	import { AdminService } from '$lib/services';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
+	let { data } = $props();
 	let showSaved = $state(false);
-	let baseDefaultRole = $state(Role.USER);
-	let prevBaseDefaultRole = $state(Role.USER);
+	let baseDefaultRole = $state(data.defaultUsersRole ?? Role.USER);
+	let prevBaseDefaultRole = $state(data.defaultUsersRole ?? Role.USER);
 	let saving = $state(false);
+	let timeout = $state<ReturnType<typeof setTimeout>>();
 
-	function handleSave() {
+	async function handleSave() {
+		if (timeout) {
+			clearTimeout(timeout);
+		}
+
 		saving = true;
+		await AdminService.updateDefaultUsersRoleSettings(baseDefaultRole);
+		prevBaseDefaultRole = baseDefaultRole;
+		saving = false;
+		showSaved = true;
+		timeout = setTimeout(() => {
+			showSaved = false;
+		}, 3000);
 	}
 </script>
 
