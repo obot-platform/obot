@@ -164,7 +164,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	}
 
 	if user.Role == types2.RoleUnknown {
-		user.Role = c.defaultRole
+		user.Role = *c.defaultRole
 	}
 
 	var checkForExistingUser bool

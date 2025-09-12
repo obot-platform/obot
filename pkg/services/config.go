@@ -375,9 +375,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
+	defaultRole := &defaultRoleSetting.Spec.Role
+
 	// Create callback for new privileged user workspace creation
 	onNewPrivilegedUser := func(ctx context.Context, user *types.User) {
-		// Create a UserRoleChange event to trigger PowerUserWorkspace creation
+		fmt.Println("onNewPrivilegedUser", *defaultRole)
 		if err := storageClient.Create(ctx, &v1.UserRoleChange{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: system.UserRoleChangePrefix,
@@ -386,14 +388,39 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			Spec: v1.UserRoleChangeSpec{
 				UserID:  user.ID,
 				OldRole: apiclienttypes.RoleBasic, // New users start as basic
-				NewRole: defaultRoleSetting.Spec.Role,
+				NewRole: *defaultRole,
 			},
 		}); err != nil {
 			slog.Error("failed to create user role change event for new privileged user", "userID", user.ID, "role", user.Role, "error", err)
 		}
 	}
 
-	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize, onNewPrivilegedUser, defaultRoleSetting.Spec.Role)
+	go func() {
+		for {
+			w, err := storageClient.Watch(ctx, &v1.UserDefaultRoleSettingList{}, &kclient.ListOptions{
+				Namespace: system.DefaultNamespace,
+			})
+			if err != nil {
+				slog.Error("failed to watch default role setting", "error", err)
+				time.Sleep(time.Second * 1)
+				continue
+			}
+			defer func() {
+				w.Stop()
+				//nolint:revive
+				for range w.ResultChan() {
+				}
+			}()
+
+			for event := range w.ResultChan() {
+				if roleSetting, ok := event.Object.(*v1.UserDefaultRoleSetting); ok {
+					*defaultRole = roleSetting.Spec.Role
+				}
+			}
+		}
+	}()
+
+	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize, onNewPrivilegedUser, defaultRole)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)
