@@ -15,6 +15,7 @@ const (
 	RuntimeNPX           Runtime = "npx"
 	RuntimeContainerized Runtime = "containerized"
 	RuntimeRemote        Runtime = "remote"
+	RuntimeNanobot       Runtime = "nanobot"
 )
 
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
@@ -37,6 +38,13 @@ type ContainerizedRuntimeConfig struct {
 	Args    []string `json:"args,omitempty"`    // Optional: Container arguments
 	Port    int      `json:"port"`              // Required: Container port
 	Path    string   `json:"path"`              // Required: HTTP path for MCP endpoint
+}
+
+// NanobotRuntimeConfig represents configuration for nanobot runtime (an image that has nanobot in it)
+type NanobotRuntimeConfig struct {
+	Image   string   `json:"image"`             // Required: Nanobot agent ID
+	Command string   `json:"command,omitempty"` // Optional: Override agent command
+	Args    []string `json:"args,omitempty"`    // Optional: Agent arguments
 }
 
 // RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)
@@ -81,6 +89,7 @@ type MCPServerCatalogEntryManifest struct {
 	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
+	NanobotConfig       *NanobotRuntimeConfig       `json:"nanobotConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
 }
@@ -116,6 +125,7 @@ type MCPServerManifest struct {
 	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
+	NanobotConfig       *NanobotRuntimeConfig       `json:"nanobotConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
 
@@ -254,11 +264,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 				Message: "UVX configuration is required for UVX runtime",
 			}
 		}
-		serverManifest.UVXConfig = &UVXRuntimeConfig{
-			Package: catalogEntry.UVXConfig.Package,
-			Command: catalogEntry.UVXConfig.Command,
-			Args:    catalogEntry.UVXConfig.Args,
-		}
+		serverManifest.UVXConfig = catalogEntry.UVXConfig
 
 	case RuntimeNPX:
 		if catalogEntry.NPXConfig == nil {
@@ -268,10 +274,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 				Message: "NPX configuration is required for NPX runtime",
 			}
 		}
-		serverManifest.NPXConfig = &NPXRuntimeConfig{
-			Package: catalogEntry.NPXConfig.Package,
-			Args:    catalogEntry.NPXConfig.Args,
-		}
+		serverManifest.NPXConfig = catalogEntry.NPXConfig
 
 	case RuntimeContainerized:
 		if catalogEntry.ContainerizedConfig == nil {
@@ -281,13 +284,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 				Message: "containerized configuration is required for containerized runtime",
 			}
 		}
-		serverManifest.ContainerizedConfig = &ContainerizedRuntimeConfig{
-			Image:   catalogEntry.ContainerizedConfig.Image,
-			Command: catalogEntry.ContainerizedConfig.Command,
-			Args:    catalogEntry.ContainerizedConfig.Args,
-			Port:    catalogEntry.ContainerizedConfig.Port,
-			Path:    catalogEntry.ContainerizedConfig.Path,
-		}
+		serverManifest.ContainerizedConfig = catalogEntry.ContainerizedConfig
 
 	case RuntimeRemote:
 		if catalogEntry.RemoteConfig == nil {
@@ -329,6 +326,16 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		// Copy headers from catalog entry
 		remoteConfig.Headers = catalogEntry.RemoteConfig.Headers
 		serverManifest.RemoteConfig = remoteConfig
+
+	case RuntimeNanobot:
+		if catalogEntry.NanobotConfig == nil {
+			return serverManifest, RuntimeValidationError{
+				Runtime: RuntimeRemote,
+				Field:   "nanobotConfig",
+				Message: "nanobot configuration is required for nanobot runtime",
+			}
+		}
+		serverManifest.NanobotConfig = catalogEntry.NanobotConfig
 
 	default:
 		return serverManifest, RuntimeValidationError{

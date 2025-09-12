@@ -12,6 +12,7 @@
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
+	import NanobotRuntimeForm from '../mcp/NanobotRuntimeForm.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import { onMount, tick, type Snippet } from 'svelte';
 	import MarkdownInput from '../MarkdownInput.svelte';
@@ -86,7 +87,8 @@
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
-				remoteServerConfig: undefined
+				remoteServerConfig: undefined,
+				nanobotConfig: undefined
 			};
 		}
 
@@ -106,7 +108,8 @@
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
-				remoteServerConfig: undefined
+				remoteServerConfig: undefined,
+				nanobotConfig: undefined
 			};
 
 			// Initialize the appropriate runtime config based on the runtime type
@@ -134,6 +137,13 @@
 							}
 						: { url: '', headers: [] };
 					break;
+				case 'nanobot':
+					formData.nanobotConfig = manifest.nanobotConfig || {
+						image: '',
+						command: '',
+						args: []
+					};
+					break;
 			}
 
 			return formData;
@@ -153,7 +163,8 @@
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
-				remoteServerConfig: undefined
+				remoteServerConfig: undefined,
+				nanobotConfig: undefined
 			};
 
 			// Initialize the appropriate runtime config based on the runtime type
@@ -175,6 +186,13 @@
 					break;
 				case 'remote':
 					formData.remoteConfig = manifest.remoteConfig || { fixedURL: '', headers: [] };
+					break;
+				case 'nanobot':
+					formData.nanobotConfig = manifest.nanobotConfig || {
+						image: '',
+						command: '',
+						args: []
+					};
 					break;
 			}
 
@@ -231,6 +249,7 @@
 		formData.containerizedConfig = undefined;
 		formData.remoteConfig = undefined;
 		formData.remoteServerConfig = undefined;
+		formData.nanobotConfig = undefined;
 
 		// Initialize the appropriate config based on the new runtime
 		switch (newRuntime) {
@@ -252,6 +271,13 @@
 			case 'remote':
 				// For remote servers (catalog entries), use remoteConfig
 				formData.remoteConfig = { fixedURL: '', headers: [] };
+				break;
+			case 'nanobot':
+				formData.nanobotConfig = {
+					image: '',
+					command: '',
+					args: []
+				};
 				break;
 		}
 	}
@@ -285,6 +311,14 @@
 				}
 				if ((formData.containerizedConfig?.port ?? 0) <= 0) {
 					missingFields.port = true;
+				}
+				break;
+			case 'nanobot':
+				if (!formData.nanobotConfig?.image?.trim()) {
+					missingFields.image = true;
+				}
+				if (!formData.nanobotConfig?.command?.trim()) {
+					missingFields.command = true;
 				}
 				break;
 			case 'remote':
@@ -381,6 +415,15 @@
 					};
 				}
 				break;
+			case 'nanobot':
+				if (baseData.nanobotConfig) {
+					manifest.nanobotConfig = {
+						image: baseData.nanobotConfig.image,
+						command: baseData.nanobotConfig.command,
+						args: baseData.nanobotConfig.args?.filter((arg) => arg.trim()) || []
+					};
+				}
+				break;
 		}
 
 		return manifest;
@@ -436,6 +479,15 @@
 					serverManifest.manifest.remoteConfig = {
 						url: baseData.remoteServerConfig.url,
 						headers: baseData.remoteServerConfig.headers || []
+					};
+				}
+				break;
+			case 'nanobot':
+				if (baseData.nanobotConfig) {
+					serverManifest.manifest.nanobotConfig = {
+						image: baseData.nanobotConfig.image,
+						command: baseData.nanobotConfig.command,
+						args: baseData.nanobotConfig.args?.filter((arg) => arg.trim()) || []
 					};
 				}
 				break;
@@ -675,6 +727,13 @@
 {:else if formData.runtime === 'remote' && formData.remoteConfig}
 	<RemoteRuntimeForm
 		bind:config={formData.remoteConfig}
+		{readonly}
+		{showRequired}
+		onFieldChange={updateRequired}
+	/>
+{:else if formData.runtime === 'nanobot' && formData.nanobotConfig}
+	<NanobotRuntimeForm
+		bind:config={formData.nanobotConfig}
 		{readonly}
 		{showRequired}
 		onFieldChange={updateRequired}

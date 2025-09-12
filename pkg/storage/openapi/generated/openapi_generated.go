@@ -107,6 +107,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ModelProviderStatus":                          schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelStatus":                                  schema_obot_platform_obot_apiclient_types_ModelStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig":                             schema_obot_platform_obot_apiclient_types_NPXRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.NanobotRuntimeConfig":                         schema_obot_platform_obot_apiclient_types_NanobotRuntimeConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.NotionConfig":                                 schema_obot_platform_obot_apiclient_types_NotionConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthApp":                                     schema_obot_platform_obot_apiclient_types_OAuthApp(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthAppList":                                 schema_obot_platform_obot_apiclient_types_OAuthAppList(ref),
@@ -3640,6 +3641,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig"),
 						},
 					},
+					"nanobotConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.NanobotRuntimeConfig"),
+						},
+					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -3658,7 +3664,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.NanobotRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -4002,6 +4008,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig"),
 						},
 					},
+					"nanobotConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.NanobotRuntimeConfig"),
+						},
+					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -4060,7 +4071,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.NanobotRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -5037,6 +5048,49 @@ func schema_obot_platform_obot_apiclient_types_NPXRuntimeConfig(ref common.Refer
 					},
 				},
 				Required: []string{"package"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_NanobotRuntimeConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NanobotRuntimeConfig represents configuration for nanobot runtime (an image that has nanobot in it)",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"command": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required: Nanobot agent ID",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"args": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: Override agent command",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"image"},
 			},
 		},
 	}

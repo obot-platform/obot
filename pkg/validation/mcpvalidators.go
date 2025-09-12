@@ -381,6 +381,80 @@ func (v RemoteValidator) validateRemoteCatalogConfig(config types.RemoteCatalogC
 	return nil
 }
 
+// NanobotValidator implements RuntimeValidator for containerized runtime
+type NanobotValidator struct{}
+
+func (v NanobotValidator) ValidateConfig(manifest types.MCPServerManifest) error {
+	if manifest.Runtime != types.RuntimeNanobot {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "runtime",
+			Message: "expected nanobot runtime",
+		}
+	}
+
+	if manifest.NanobotConfig == nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeNanobot,
+			Field:   "nanobotConfig",
+			Message: "nanobot configuration is required",
+		}
+	}
+
+	return v.validateNanobotConfig(manifest.NanobotConfig)
+}
+
+func (v NanobotValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error {
+	if manifest.Runtime != types.RuntimeNanobot {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "runtime",
+			Message: "expected nanobot runtime",
+		}
+	}
+
+	if manifest.NanobotConfig == nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeNanobot,
+			Field:   "nanobotConfig",
+			Message: "nanobot configuration is required",
+		}
+	}
+
+	return v.validateNanobotConfig(manifest.NanobotConfig)
+}
+
+func (v NanobotValidator) validateNanobotConfig(config *types.NanobotRuntimeConfig) error {
+	if strings.TrimSpace(config.Image) == "" {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeContainerized,
+			Field:   "image",
+			Message: "image field cannot be empty",
+		}
+	}
+
+	if strings.TrimSpace(config.Command) == "" {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeContainerized,
+			Field:   "command",
+			Message: "command field cannot be empty",
+		}
+	}
+
+	// Validate args format if provided
+	for i, arg := range config.Args {
+		if strings.TrimSpace(arg) == "" {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeContainerized,
+				Field:   "args[" + strconv.Itoa(i) + "]",
+				Message: "argument cannot be empty",
+			}
+		}
+	}
+
+	return nil
+}
+
 // getRuntimeValidators returns a map of all available runtime validators
 func getRuntimeValidators() RuntimeValidators {
 	return RuntimeValidators{
@@ -388,6 +462,7 @@ func getRuntimeValidators() RuntimeValidators {
 		types.RuntimeNPX:           NPXValidator{},
 		types.RuntimeContainerized: ContainerizedValidator{},
 		types.RuntimeRemote:        RemoteValidator{},
+		types.RuntimeNanobot:       NanobotValidator{},
 	}
 }
 

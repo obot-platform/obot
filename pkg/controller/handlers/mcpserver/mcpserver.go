@@ -62,6 +62,8 @@ func configurationHasDrifted(needsURL bool, serverManifest types.MCPServerManife
 		drifted = npxConfigHasDrifted(serverManifest.NPXConfig, entryManifest.NPXConfig)
 	case types.RuntimeContainerized:
 		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig)
+	case types.RuntimeNanobot:
+		drifted = nanobotConfigHasDrifted(serverManifest.NanobotConfig, entryManifest.NanobotConfig)
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(needsURL, serverManifest.RemoteConfig, entryManifest.RemoteConfig)
 	default:
@@ -116,6 +118,20 @@ func containerizedConfigHasDrifted(serverConfig, entryConfig *types.Containerize
 		serverConfig.Command != entryConfig.Command ||
 		serverConfig.Port != entryConfig.Port ||
 		serverConfig.Path != entryConfig.Path ||
+		!slices.Equal(serverConfig.Args, entryConfig.Args)
+}
+
+// nanobotConfigHasDrifted checks if nanobot configuration has drifted
+func nanobotConfigHasDrifted(serverConfig, entryConfig *types.NanobotRuntimeConfig) bool {
+	if serverConfig == nil && entryConfig == nil {
+		return false
+	}
+	if serverConfig == nil || entryConfig == nil {
+		return true
+	}
+
+	return serverConfig.Image != entryConfig.Image ||
+		serverConfig.Command != entryConfig.Command ||
 		!slices.Equal(serverConfig.Args, entryConfig.Args)
 }
 

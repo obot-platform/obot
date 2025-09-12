@@ -5,6 +5,7 @@ import {
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
 	type ContainerizedRuntimeConfig,
+	type NanobotRuntimeConfig,
 	type Task
 } from '../chat/types';
 
@@ -52,6 +53,7 @@ export interface MCPCatalogEntryServerManifest {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin;
+	nanobotConfig?: NanobotRuntimeConfig;
 }
 
 export interface MCPCatalogEntry {
@@ -98,6 +100,7 @@ export interface RuntimeFormData {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin; // For catalog entries
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
+	nanobotConfig?: NanobotRuntimeConfig;
 }
 
 export interface MCPCatalogServerManifest {

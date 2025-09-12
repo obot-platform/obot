@@ -19,7 +19,8 @@
 		return [
 			{ id: 'npx', label: 'NPX' },
 			{ id: 'uvx', label: 'UVX' },
-			{ id: 'containerized', label: 'Containerized' }
+			{ id: 'containerized', label: 'Containerized' },
+			{ id: 'nanobot', label: 'Nanobot' }
 		];
 	});
 

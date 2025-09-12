@@ -345,9 +345,13 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 
 	// Configure based on runtime
 	switch server.Runtime {
-	case otypes.RuntimeUVX, otypes.RuntimeNPX:
-		// Use base image with nanobot
-		image = d.baseImage
+	case otypes.RuntimeUVX, otypes.RuntimeNPX, otypes.RuntimeNanobot:
+		if server.Runtime == otypes.RuntimeNanobot {
+			image = server.ContainerImage
+		} else {
+			// Use base image with nanobot
+			image = d.baseImage
+		}
 		containerPort = defaultContainerPort
 
 		// Prepare nanobot configuration
