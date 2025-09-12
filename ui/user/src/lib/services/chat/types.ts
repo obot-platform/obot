@@ -100,6 +100,8 @@ export interface Message {
 	promptId?: string;
 	contentID?: string;
 	citations?: CitationSource[];
+	// Optional notice to show beside a user's sent message as a tooltip
+	userNotice?: string;
 }
 
 export interface InvokeInput {

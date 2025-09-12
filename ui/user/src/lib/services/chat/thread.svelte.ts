@@ -15,6 +15,8 @@ export class Thread {
 	pending: boolean = $state(false);
 	threadID?: string;
 	closed: boolean = false;
+	// Map runID -> caution/notice message to show on the user's sent message
+	#userNotices: Map<string, string> = new Map();
 
 	readonly #onError: ((error: Error) => void) | undefined;
 	#es: EventSource;
@@ -157,17 +159,23 @@ export class Thread {
 				input
 			);
 			if (response?.message) {
-				// Create a synthetic Progress object to display the message as a system message in the chat
-				const systemProgress: Progress = {
-					time: new Date().toISOString(),
-					content: '',
-					error: response.message,
-					threadID: this.threadID,
-					runID: 'system-message' + response.runID,
-					runComplete: true
-				};
-				// Add it to the progress list to be displayed as a regular message
-				this.#onProgress(systemProgress);
+				// Attach the notice to the user's sent message for this run
+				this.#userNotices.set(response.runID, response.message);
+				// If we're actively displaying messages, trigger a refresh so the icon appears promptly
+				if (this.replayComplete) {
+					this.onMessages(
+						buildMessagesFromProgress(this.#items, this.#progresses, {
+							taskID: this.#task?.id,
+							runID: this.runID,
+							threadID: this.threadID,
+							onItemsChanged: this.#onItemsChanged,
+							onEditingFile: this.#onEditingFile,
+							onMemoryCall: undefined,
+							userNotices: this.#userNotices
+						})
+					);
+					this.#handleSteps();
+				}
 			}
 		}
 	}
@@ -215,7 +223,8 @@ export class Thread {
 					runID: this.runID,
 					threadID: this.threadID,
 					onItemsChanged: this.#onItemsChanged,
-					onEditingFile: this.#onEditingFile
+					onEditingFile: this.#onEditingFile,
+					userNotices: this.#userNotices
 				})
 			);
 		}
@@ -231,7 +240,8 @@ export class Thread {
 					threadID: this.threadID,
 					onItemsChanged: this.#onItemsChanged,
 					onEditingFile: this.#onEditingFile,
-					onMemoryCall: afterReplay ? this.#onMemoryCall : undefined
+					onMemoryCall: afterReplay ? this.#onMemoryCall : undefined,
+					userNotices: this.#userNotices
 				})
 			);
 			this.#handleSteps();

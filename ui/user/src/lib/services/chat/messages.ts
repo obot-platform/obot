@@ -9,6 +9,8 @@ type AdditionalOptions = {
 	onItemsChanged?: (items: EditorItem[]) => void;
 	onEditingFile?: (filename: string, content: string) => void;
 	onMemoryCall?: () => void;
+	// Map of runID -> notice text to decorate the user's sent message with a tooltip
+	userNotices?: Map<string, string>;
 };
 
 const errorIcon = 'Error';
@@ -193,6 +195,11 @@ export function buildMessagesFromProgress(
 			return;
 		} else if (item.sent) {
 			reformatInputMessage(item);
+		}
+
+		// Attach any user notice to the user's sent message for display as a tooltip icon
+		if (item.sent && opts.userNotices && opts.userNotices.has(item.runID)) {
+			item.userNotice = opts.userNotices.get(item.runID);
 		}
 
 		// For all but last message
