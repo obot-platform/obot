@@ -759,3 +759,12 @@ export async function listAllUserWorkspaceMCPServers(opts?: { fetch?: Fetcher })
 	)) as ItemsResponse<WorkspaceCatalogServer>;
 	return response.items ?? [];
 }
+
+export async function updateDefaultUsersRoleSettings(role: number, opts?: { fetch?: Fetcher }) {
+	await doPost('/user-default-role-settings', { role }, opts);
+}
+
+export async function getDefaultUsersRoleSettings(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/user-default-role-settings', opts)) as { role: number };
+	return response.role;
+}

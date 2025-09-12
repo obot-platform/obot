@@ -28,6 +28,11 @@
 	let showCreateRule = $state(false);
 	let ruleToDelete = $state<AccessControlRule>();
 
+	$effect(() => {
+		console.log('accessControlRules', accessControlRules);
+		console.log(mcpServersAndEntries.entries, mcpServersAndEntries.servers);
+	});
+
 	onMount(() => {
 		const url = new URL(window.location.href);
 		const queryParams = new URLSearchParams(url.search);
