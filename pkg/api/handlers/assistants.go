@@ -91,9 +91,10 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 	}
 
 	resp, err := a.invoker.Thread(req.Context(), a.cachedClient, &thread, string(input), invoke.Options{
-		GenerateName: system.ChatRunPrefix,
-		UserUID:      req.User.GetUID(),
-		UserIsAdmin:  req.UserIsAdmin(),
+		GenerateName:    system.ChatRunPrefix,
+		UserUID:         req.User.GetUID(),
+		UserIsAdmin:     req.UserIsAdmin(),
+		IgnoreMCPErrors: true,
 	})
 	if err != nil {
 		return err
@@ -104,6 +105,7 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 	return req.WriteCreated(map[string]string{
 		"threadID": resp.Thread.Name,
 		"runID":    resp.Run.Name,
+		"message":  resp.Message,
 	})
 }
 

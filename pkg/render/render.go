@@ -33,10 +33,17 @@ var DefaultAgentParams = []string{
 }
 
 type AgentOptions struct {
-	Thread         *v1.Thread
-	WorkflowStepID string
-	UserID         string
-	UserIsAdmin    bool
+	Thread          *v1.Thread
+	WorkflowStepID  string
+	UserID          string
+	UserIsAdmin     bool
+	IgnoreMCPErrors bool
+}
+
+type RenderedAgent struct {
+	Tools     []gptscript.ToolDef
+	Env       []string
+	MCPErrors []string
 }
 
 func stringAppend(first string, second ...string) string {
@@ -49,10 +56,14 @@ func stringAppend(first string, second ...string) string {
 	return strings.Join(append([]string{first}, second...), "\n\n")
 }
 
-func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSessionManager *mcp.SessionManager, db kclient.Client, agent *v1.Agent, serverURL string, opts AgentOptions) (_ []gptscript.ToolDef, extraEnv []string, _ error) {
+func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSessionManager *mcp.SessionManager, db kclient.Client, agent *v1.Agent, serverURL string, opts AgentOptions) (RenderedAgent, error) {
+	var renderedAgent RenderedAgent
 	defer func() {
-		sort.Strings(extraEnv)
+		sort.Strings(renderedAgent.Env)
 	}()
+
+	// Start with a spot for the main tool
+	renderedAgent.Tools = []gptscript.ToolDef{{}}
 
 	mainTool := gptscript.ToolDef{
 		Name:         agent.Spec.Manifest.Name,
@@ -66,21 +77,21 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 		Credentials:  agent.Spec.Manifest.Credentials,
 	}
 
-	extraEnv = append(extraEnv, agent.Spec.Env...)
+	renderedAgent.Env = append(renderedAgent.Env, agent.Spec.Env...)
 
 	for _, env := range agent.Spec.Manifest.Env {
 		if env.Name == "" || env.Existing {
 			continue
 		}
 		if !ValidEnv.MatchString(env.Name) {
-			return nil, nil, fmt.Errorf("invalid env var %s, must match %s", env.Name, ValidEnv.String())
+			return renderedAgent, fmt.Errorf("invalid env var %s, must match %s", env.Name, ValidEnv.String())
 		}
 		if env.Value == "" {
 			mainTool.Credentials = append(mainTool.Credentials,
 				fmt.Sprintf(`github.com/gptscript-ai/credential as %s with "%s" as message and "%s" as env and %s as field`,
 					env.Name, env.Description, env.Name, env.Name))
 		} else {
-			extraEnv = append(extraEnv, fmt.Sprintf("%s=%s", env.Name, env.Value))
+			renderedAgent.Env = append(renderedAgent.Env, fmt.Sprintf("%s=%s", env.Name, env.Value))
 		}
 	}
 
@@ -91,7 +102,7 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 				return thread.Status.Created, nil
 			})
 			if err != nil {
-				return nil, nil, err
+				return renderedAgent, err
 			}
 			opts.Thread = thread
 		}
@@ -105,7 +116,7 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 			return []string{thread.Spec.Manifest.Prompt}
 		})
 		if err != nil {
-			return nil, nil, err
+			return renderedAgent, err
 		}
 		mainTool.Instructions = stringAppend(mainTool.Instructions, prompts...)
 	}
@@ -114,30 +125,26 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 		mainTool.Instructions = v1.DefaultAgentPrompt
 	}
 
-	var otherTools []gptscript.ToolDef
-
-	extraEnv, added, err := configureKnowledgeEnvs(ctx, db, agent, opts.Thread, extraEnv)
+	added, err := configureKnowledgeEnvs(ctx, db, agent, opts.Thread, &renderedAgent.Env)
 	if err != nil {
-		return nil, nil, err
+		return renderedAgent, err
 	}
 
 	if opts.Thread != nil {
 		topMost, err := projects.GetRoot(ctx, db, opts.Thread)
 		if err != nil {
-			return nil, nil, err
+			return renderedAgent, err
 		}
 
 		allowedToolsPerMCP := maps.Clone(topMost.Spec.Manifest.AllowedMCPTools)
-		for key, val := range opts.Thread.Spec.Manifest.AllowedMCPTools {
-			// Copy the thread allowed tools over the project allowed tools.
-			allowedToolsPerMCP[key] = val
-		}
+		// Copy the thread allowed tools over the project allowed tools.
+		maps.Copy(allowedToolsPerMCP, opts.Thread.Spec.Manifest.AllowedMCPTools)
 
 		var projectMCPServers v1.ProjectMCPServerList
 		if err = db.List(ctx, &projectMCPServers, kclient.InNamespace(topMost.Namespace), kclient.MatchingFields{
 			"spec.threadName": topMost.Name,
 		}); err != nil {
-			return nil, nil, err
+			return renderedAgent, err
 		}
 
 		var (
@@ -152,7 +159,7 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 
 			if system.IsMCPServerInstanceID(projectMCPServer.Spec.Manifest.MCPID) {
 				if err = db.Get(ctx, kclient.ObjectKey{Namespace: projectMCPServer.Namespace, Name: projectMCPServer.Spec.Manifest.MCPID}, &mcpServerInstance); err != nil {
-					return nil, nil, err
+					return renderedAgent, err
 				}
 				mcpServerID = mcpServerInstance.Spec.MCPServerName
 			} else {
@@ -160,7 +167,7 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 			}
 
 			if err = db.Get(ctx, kclient.ObjectKey{Namespace: projectMCPServer.Namespace, Name: mcpServerID}, &mcpServer); err != nil {
-				return nil, nil, err
+				return renderedAgent, err
 			}
 			mcpDisplayName = mcpServer.Spec.Manifest.Name
 			if mcpServer.Spec.Alias != "" {
@@ -169,14 +176,19 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 
 			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, tokenService, projectMCPServer, opts.UserID, mcpDisplayName, serverURL, opts.UserIsAdmin, allowedTools)
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to populate tools for MCP server %q: %w", mcpDisplayName, err)
+				if !opts.IgnoreMCPErrors {
+					return renderedAgent, fmt.Errorf("failed to populate tools for MCP server %q: %w", mcpDisplayName, err)
+				}
+				// We are collecting these errors and returning them to the caller.
+				// They shouldn't block progress of chat.
+				renderedAgent.MCPErrors = append(renderedAgent.MCPErrors, err.Error())
 			}
 
 			mainTool.Tools = slices.Grow(mainTool.Tools, len(toolDefs))
-			otherTools = slices.Grow(otherTools, len(toolDefs))
+			renderedAgent.Tools = slices.Grow(renderedAgent.Tools, len(toolDefs))
 			for _, toolDef := range toolDefs {
 				mainTool.Tools = append(mainTool.Tools, toolDef.Name)
-				otherTools = append(otherTools, toolDef)
+				renderedAgent.Tools = append(renderedAgent.Tools, toolDef)
 			}
 		}
 
@@ -184,13 +196,13 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 			return thread.Spec.Manifest.Tools
 		})
 		if err != nil {
-			return nil, nil, err
+			return renderedAgent, err
 		}
 
 		if strings.HasSuffix(opts.WorkflowStepID, "{loopdata}") {
 			name, err := ResolveToolReference(ctx, db, types.ToolReferenceTypeSystem, agent.Namespace, loopDataToolName)
 			if err != nil {
-				return nil, nil, err
+				return renderedAgent, err
 			}
 			if name != "" {
 				mainTool.Tools = append(mainTool.Tools, name)
@@ -206,14 +218,14 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 			}
 			name, tools, err := tool(ctx, db, agent.Namespace, t)
 			if err != nil {
-				return nil, nil, err
+				return renderedAgent, err
 			}
 
 			// Only add the tool here if it wasn't already added above via the MCP server.
 			// The MCP server logic covers enabling/disabling tools, so it takes precedence.
 			if name != "" && !slices.Contains(mainTool.Tools, name) {
 				mainTool.Tools = append(mainTool.Tools, name)
-				otherTools = append(otherTools, tools...)
+				renderedAgent.Tools = append(renderedAgent.Tools, tools...)
 			}
 		}
 
@@ -221,23 +233,23 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 		if err = db.List(ctx, &customTools, kclient.InNamespace(topMost.Namespace), kclient.MatchingFields{
 			"spec.threadName": topMost.Name,
 		}); err != nil {
-			return nil, nil, err
+			return renderedAgent, err
 		}
 
 		for _, customTool := range customTools.Items {
 			toolDefs, err := CustomTool(ctx, db, customTool)
 			if err != nil {
-				return nil, nil, err
+				return renderedAgent, err
 			}
 			for _, toolDef := range toolDefs {
 				mainTool.Tools = append(mainTool.Tools, toolDef.Name)
-				otherTools = append(otherTools, toolDef)
+				renderedAgent.Tools = append(renderedAgent.Tools, toolDef)
 			}
 		}
 
 		credTool, err := ResolveToolReference(ctx, db, types.ToolReferenceTypeSystem, opts.Thread.Namespace, system.ExistingCredTool)
 		if err != nil {
-			return nil, nil, err
+			return renderedAgent, err
 		}
 
 		mainTool.Credentials = append(mainTool.Credentials, credTool+" as "+opts.Thread.Name)
@@ -246,7 +258,7 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 			return len(parentThread.Spec.Env) > 0, nil
 		})
 		if err != nil {
-			return nil, nil, err
+			return renderedAgent, err
 		}
 
 		var threadEnvs []string
@@ -254,7 +266,7 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 			if threadEnv.Existing && threadEnv.Name != "" {
 				threadEnvs = append(threadEnvs, threadEnv.Name)
 			} else if threadEnv.Value != "" {
-				extraEnv = append(extraEnv, fmt.Sprintf("%s=%s", threadEnv.Name, threadEnv.Value))
+				renderedAgent.Env = append(renderedAgent.Env, fmt.Sprintf("%s=%s", threadEnv.Name, threadEnv.Value))
 			}
 		}
 
@@ -265,15 +277,15 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 		}
 
 		if len(threadEnvs) > 0 {
-			extraEnv = append(extraEnv, fmt.Sprintf("OBOT_THREAD_ENVS=%s", strings.Join(threadEnvs, ",")))
+			renderedAgent.Env = append(renderedAgent.Env, fmt.Sprintf("OBOT_THREAD_ENVS=%s", strings.Join(threadEnvs, ",")))
 		}
 
 		if opts.Thread.Status.SharedWorkspaceName != "" {
 			var workspace v1.Workspace
 			if err := db.Get(ctx, router.Key(opts.Thread.Namespace, opts.Thread.Status.SharedWorkspaceName), &workspace); err != nil {
-				return nil, nil, err
+				return renderedAgent, err
 			}
-			extraEnv = append(extraEnv, fmt.Sprintf("PROJECT_WORKSPACE_ID=%s", workspace.Status.WorkspaceID))
+			renderedAgent.Env = append(renderedAgent.Env, fmt.Sprintf("PROJECT_WORKSPACE_ID=%s", workspace.Status.WorkspaceID))
 		}
 	}
 
@@ -283,18 +295,17 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 		}
 		name, tools, err := tool(ctx, db, agent.Namespace, t)
 		if err != nil {
-			return nil, nil, err
+			return renderedAgent, err
 		}
 		if name != "" {
 			mainTool.Tools = append(mainTool.Tools, name)
 		}
 
-		otherTools = append(otherTools, tools...)
+		renderedAgent.Tools = append(renderedAgent.Tools, tools...)
 	}
 
-	mainTool, otherTools, err = addTasks(ctx, db, opts.Thread, mainTool, otherTools)
-	if err != nil {
-		return nil, nil, err
+	if err = addTasks(ctx, db, opts.Thread, &mainTool, &renderedAgent.Tools); err != nil {
+		return renderedAgent, err
 	}
 
 	if opts.Thread != nil {
@@ -304,25 +315,25 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 			}
 			name, err := ResolveToolReference(ctx, db, "", agent.Namespace, tool)
 			if err != nil {
-				return nil, nil, err
+				return renderedAgent, err
 			}
 			mainTool.Tools = append(mainTool.Tools, name)
 		}
 	}
 
-	extraEnv, err = setWebSiteKnowledge(ctx, db, &mainTool, agent, opts.Thread, extraEnv)
-	if err != nil {
-		return nil, nil, err
+	if err = setWebSiteKnowledge(ctx, db, &mainTool, agent, opts.Thread, &renderedAgent.Env); err != nil {
+		return renderedAgent, err
 	}
 
 	oauthEnv, err := OAuthAppEnv(ctx, db, agent.Spec.Manifest.OAuthApps, opts.Thread, agent.Namespace, serverURL)
 	if err != nil {
-		return nil, nil, err
+		return renderedAgent, err
 	}
 
-	extraEnv = append(extraEnv, oauthEnv...)
+	renderedAgent.Env = append(renderedAgent.Env, oauthEnv...)
 
-	return append([]gptscript.ToolDef{mainTool}, otherTools...), extraEnv, nil
+	renderedAgent.Tools[0] = mainTool
+	return renderedAgent, nil
 }
 
 func mergeWebsiteKnowledge(websiteKnowledge ...*types.WebsiteKnowledge) (result types.WebsiteKnowledge) {
@@ -341,12 +352,12 @@ func mergeWebsiteKnowledge(websiteKnowledge ...*types.WebsiteKnowledge) (result 
 	return result
 }
 
-func setWebSiteKnowledge(ctx context.Context, db kclient.Client, mainTool *gptscript.ToolDef, agent *v1.Agent, thread *v1.Thread, extraEnv []string) ([]string, error) {
+func setWebSiteKnowledge(ctx context.Context, db kclient.Client, mainTool *gptscript.ToolDef, agent *v1.Agent, thread *v1.Thread, extraEnv *[]string) error {
 	threadWithWebsiteKnowledge, err := projects.GetFirst(ctx, db, thread, func(parentThread *v1.Thread) (bool, error) {
 		return parentThread.Spec.Manifest.WebsiteKnowledge != nil, nil
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var threadScoped *types.WebsiteKnowledge
@@ -356,27 +367,27 @@ func setWebSiteKnowledge(ctx context.Context, db kclient.Client, mainTool *gptsc
 
 	websiteKnowledge := mergeWebsiteKnowledge(agent.Spec.Manifest.WebsiteKnowledge, threadScoped)
 	if websiteKnowledge.SiteTool == "" {
-		return extraEnv, nil
+		return nil
 	}
 
 	if len(websiteKnowledge.Sites) == 0 {
 		toRemove, _, err := tool(ctx, db, agent.Namespace, websiteKnowledge.SiteTool)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		mainTool.Tools = slices.DeleteFunc(mainTool.Tools, func(tool string) bool {
 			return tool == toRemove
 		})
-		return extraEnv, nil
+		return nil
 	}
 
 	data, err := json.Marshal(websiteKnowledge)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	extraEnv = append(extraEnv, fmt.Sprintf("OBOT_WEBSITE_KNOWLEDGE=%s", string(data)))
-	return extraEnv, nil
+	*extraEnv = append(*extraEnv, fmt.Sprintf("OBOT_WEBSITE_KNOWLEDGE=%s", string(data)))
+	return nil
 }
 
 func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string, thread *v1.Thread, namespace, serverURL string) (extraEnv []string, _ error) {
@@ -428,7 +439,7 @@ func OAuthAppEnv(ctx context.Context, db kclient.Client, oauthAppNames []string,
 }
 
 // configureKnowledgeEnvs configures environment variables based on knowledge sets associated with an agent and an optional thread.
-func configureKnowledgeEnvs(ctx context.Context, db kclient.Client, agent *v1.Agent, thread *v1.Thread, extraEnv []string) ([]string, bool, error) {
+func configureKnowledgeEnvs(ctx context.Context, db kclient.Client, agent *v1.Agent, thread *v1.Thread, extraEnv *[]string) (bool, error) {
 	var knowledgeSetNames []string
 	knowledgeSetNames = append(knowledgeSetNames, agent.Status.KnowledgeSetNames...)
 	if thread != nil {
@@ -436,19 +447,19 @@ func configureKnowledgeEnvs(ctx context.Context, db kclient.Client, agent *v1.Ag
 	}
 
 	if len(knowledgeSetNames) == 0 {
-		return extraEnv, false, nil
+		return false, nil
 	}
 
 	if thread != nil {
 		var knowledgeSummary v1.KnowledgeSummary
 		if err := db.Get(ctx, kclient.ObjectKeyFromObject(thread), &knowledgeSummary); kclient.IgnoreNotFound(err) != nil {
-			return nil, false, err
+			return false, err
 		} else if err == nil && len(knowledgeSummary.Spec.Summary) > 0 {
 			var content string
 			if err := gz.Decompress(&content, knowledgeSummary.Spec.Summary); err != nil {
-				return nil, false, err
+				return false, err
 			}
-			extraEnv = append(extraEnv, fmt.Sprintf("KNOWLEDGE_SUMMARY=%s", content))
+			*extraEnv = append(*extraEnv, fmt.Sprintf("KNOWLEDGE_SUMMARY=%s", content))
 		}
 	}
 
@@ -459,7 +470,7 @@ func configureKnowledgeEnvs(ctx context.Context, db kclient.Client, agent *v1.Ag
 		if err := db.Get(ctx, kclient.ObjectKey{Namespace: agent.Namespace, Name: knowledgeSetName}, &ks); apierror.IsNotFound(err) {
 			continue
 		} else if err != nil {
-			return nil, false, err
+			return false, err
 		}
 
 		if !ks.Status.HasContent {
@@ -482,17 +493,17 @@ func configureKnowledgeEnvs(ctx context.Context, db kclient.Client, agent *v1.Ag
 		knowledgeDataDescriptions = append(knowledgeDataDescriptions, dataDescription)
 	}
 	if len(knowledgeDatasets) > 0 {
-		extraEnv = append(extraEnv, fmt.Sprintf("KNOW_DATASETS=%s", strings.Join(knowledgeDatasets, ",")))
-		extraEnv = append(extraEnv, fmt.Sprintf("KNOW_DATA_DESCRIPTIONS=%s", strings.Join(knowledgeDataDescriptions, ",")))
-		return extraEnv, true, nil
+		*extraEnv = append(*extraEnv, fmt.Sprintf("KNOW_DATASETS=%s", strings.Join(knowledgeDatasets, ",")))
+		*extraEnv = append(*extraEnv, fmt.Sprintf("KNOW_DATA_DESCRIPTIONS=%s", strings.Join(knowledgeDataDescriptions, ",")))
+		return true, nil
 	}
 
-	return extraEnv, false, nil
+	return false, nil
 }
 
-func addTasks(ctx context.Context, db kclient.Client, thread *v1.Thread, mainTool gptscript.ToolDef, otherTools []gptscript.ToolDef) (_ gptscript.ToolDef, _ []gptscript.ToolDef, _ error) {
+func addTasks(ctx context.Context, db kclient.Client, thread *v1.Thread, mainTool *gptscript.ToolDef, otherTools *[]gptscript.ToolDef) error {
 	if thread == nil || thread.Spec.ParentThreadName == "" {
-		return mainTool, otherTools, nil
+		return nil
 	}
 
 	var (
@@ -503,7 +514,7 @@ func addTasks(ctx context.Context, db kclient.Client, thread *v1.Thread, mainToo
 		"spec.threadName": thread.Spec.ParentThreadName,
 	})
 	if err != nil {
-		return mainTool, nil, err
+		return err
 	}
 
 	added := map[string]struct{}{}
@@ -517,7 +528,7 @@ func addTasks(ctx context.Context, db kclient.Client, thread *v1.Thread, mainToo
 		if taskInvoke == "" {
 			taskInvoke, err = ResolveToolReference(ctx, db, types.ToolReferenceTypeSystem, thread.Namespace, system.TaskInvoke)
 			if err != nil {
-				return mainTool, nil, err
+				return err
 			}
 		}
 		wfTool := manifestToTool(wf.Spec.Manifest, taskInvoke, wf.Name)
@@ -525,11 +536,11 @@ func addTasks(ctx context.Context, db kclient.Client, thread *v1.Thread, mainToo
 			wfTool.Name = fmt.Sprintf("%s %d", wfTool.Name, i+1)
 		}
 		mainTool.Tools = append(mainTool.Tools, wfTool.Name)
-		otherTools = append(otherTools, wfTool)
+		*otherTools = append(*otherTools, wfTool)
 		added[wfTool.Name] = struct{}{}
 	}
 
-	return mainTool, otherTools, nil
+	return nil
 }
 
 func manifestToTool(manifest types.WorkflowManifest, taskInvoke, id string) gptscript.ToolDef {

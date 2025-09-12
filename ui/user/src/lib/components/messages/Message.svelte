@@ -1,6 +1,16 @@
 <script lang="ts">
 	import MessageIcon from '$lib/components/messages/MessageIcon.svelte';
-	import { FileText, Copy, Edit, Info, X, Brain, FileSymlink, Download } from 'lucide-svelte/icons';
+	import {
+		FileText,
+		Copy,
+		Edit,
+		Info,
+		X,
+		Brain,
+		FileSymlink,
+		Download,
+		TriangleAlert
+	} from 'lucide-svelte/icons';
 	import { Tween } from 'svelte/motion';
 	import { ChatService, type Message, type Project } from '$lib/services';
 	import highlight from 'highlight.js';
@@ -329,6 +339,11 @@
 		<div
 			class="mt-1 flex items-center justify-end gap-2 self-end text-xs whitespace-nowrap text-gray-500"
 		>
+			{#if msg.userNotice}
+				<span class="inline-flex cursor-help" use:tooltip={msg.userNotice}>
+					<TriangleAlert class="size-3 text-yellow-500" />
+				</span>
+			{/if}
 			<span>{formatTime(msg.time)}</span>
 			{#if msg.username}
 				<span class="text-gray-400">•</span>

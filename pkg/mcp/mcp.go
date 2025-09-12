@@ -28,22 +28,12 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *ephe
 
 	client, err := sm.ClientForServer(ctx, userID, mcpServerDisplayName, projectMCPServer.Name, serverConfig)
 	if err != nil {
-		var uae nmcp.AuthRequiredErr
-		if errors.As(err, &uae) {
-			// If the MCP server needs OAuth, ignore it and let the chat continue.
-			return nil, nil
-		}
-		return nil, err
+		return nil, determineError(err, mcpServerDisplayName)
 	}
 
 	tools, err := client.ListTools(ctx)
 	if err != nil {
-		var uae nmcp.AuthRequiredErr
-		if errors.As(err, &uae) {
-			// If the MCP server needs OAuth, ignore it and let the chat continue.
-			return nil, nil
-		}
-		return nil, err
+		return nil, determineError(err, mcpServerDisplayName)
 	}
 
 	allToolsAllowed := allowedTools == nil || slices.Contains(allowedTools, "*")
@@ -121,4 +111,37 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *ephe
 
 	toolDefs[0] = main
 	return toolDefs, nil
+}
+
+// determineError determines the error message to return based on the error type.
+// This is a slightly more performant version of calling errors.Is or errors.As a bunch of times
+// because this version will go through the unwrap tree once.
+func determineError(err error, mcpServerDisplayName string) error {
+	_, err = findSpecialError(err, mcpServerDisplayName)
+	return err
+}
+
+func findSpecialError(err error, mcpServerDisplayName string) (bool, error) {
+	for unwrappedErr := err; unwrappedErr != nil; unwrappedErr = errors.Unwrap(unwrappedErr) {
+		switch {
+		case unwrappedErr == nmcp.ErrNoResult || unwrappedErr == nmcp.ErrNoResponse || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()):
+			return true, fmt.Errorf("no response from MCP server %s, this is likely due to a configuration error", mcpServerDisplayName)
+		case unwrappedErr == ErrHealthCheckFailed || unwrappedErr == ErrHealthCheckTimeout:
+			return true, fmt.Errorf("MCP server %s is unhealthy", mcpServerDisplayName)
+		default:
+			switch e := unwrappedErr.(type) {
+			case nmcp.AuthRequiredErr:
+				return true, fmt.Errorf("MCP server %s requires OAuth", mcpServerDisplayName)
+			case interface{ Unwrap() []error }:
+				for _, err := range e.Unwrap() {
+					if found, err := findSpecialError(err, mcpServerDisplayName); found {
+						return true, err
+					}
+				}
+			}
+		}
+	}
+
+	// If no specific error was found, return the original error
+	return false, err
 }

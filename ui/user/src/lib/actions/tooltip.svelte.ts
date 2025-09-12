@@ -15,7 +15,8 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 	});
 
 	const p = document.createElement('p');
-	const defaultClasses = ['max-w-64', 'break-all'];
+	// Use word-boundary wrapping and preserve newlines to avoid awkward breaks
+	const defaultClasses = ['max-w-64', 'break-words', 'whitespace-pre-wrap'];
 	p.classList.add(
 		'hidden',
 		'tooltip',

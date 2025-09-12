@@ -15,6 +15,8 @@ export class Thread {
 	pending: boolean = $state(false);
 	threadID?: string;
 	closed: boolean = false;
+	// Map runID -> caution/notice message to show on the user's sent message
+	#userNotices: Map<string, string> = new Map();
 
 	readonly #onError: ((error: Error) => void) | undefined;
 	#es: EventSource;
@@ -150,7 +152,31 @@ export class Thread {
 	async invoke(input: InvokeInput | string) {
 		this.pending = true;
 		if (this.threadID) {
-			await ChatInvoke(this.#project.assistantID, this.#project.id, this.threadID, input);
+			const response = await ChatInvoke(
+				this.#project.assistantID,
+				this.#project.id,
+				this.threadID,
+				input
+			);
+			if (response?.message) {
+				// Attach the notice to the user's sent message for this run
+				this.#userNotices.set(response.runID, response.message);
+				// If we're actively displaying messages, trigger a refresh so the icon appears promptly
+				if (this.replayComplete) {
+					this.onMessages(
+						buildMessagesFromProgress(this.#items, this.#progresses, {
+							taskID: this.#task?.id,
+							runID: this.runID,
+							threadID: this.threadID,
+							onItemsChanged: this.#onItemsChanged,
+							onEditingFile: this.#onEditingFile,
+							onMemoryCall: undefined,
+							userNotices: this.#userNotices
+						})
+					);
+					this.#handleSteps();
+				}
+			}
 		}
 	}
 
@@ -197,7 +223,8 @@ export class Thread {
 					runID: this.runID,
 					threadID: this.threadID,
 					onItemsChanged: this.#onItemsChanged,
-					onEditingFile: this.#onEditingFile
+					onEditingFile: this.#onEditingFile,
+					userNotices: this.#userNotices
 				})
 			);
 		}
@@ -213,7 +240,8 @@ export class Thread {
 					threadID: this.threadID,
 					onItemsChanged: this.#onItemsChanged,
 					onEditingFile: this.#onEditingFile,
-					onMemoryCall: afterReplay ? this.#onMemoryCall : undefined
+					onMemoryCall: afterReplay ? this.#onMemoryCall : undefined,
+					userNotices: this.#userNotices
 				})
 			);
 			this.#handleSteps();
