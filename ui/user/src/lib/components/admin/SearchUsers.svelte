@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { debounce } from 'es-toolkit';
 	import { AdminService } from '$lib/services';
-	import { Role, type OrgGroup, type OrgUser } from '$lib/services/admin/types';
+	import { type OrgGroup, type OrgUser } from '$lib/services/admin/types';
 	import { Check, LoaderCircle, User, Users } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Search from '../Search.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { getUserRoleLabel } from '$lib/utils';
 
 	interface Props {
 		onAdd: (users: OrgUser[], groups: OrgGroup[]) => void;
@@ -148,7 +149,7 @@
 							{#if 'email' in item}
 								<p>{item.email}</p>
 								<p class="font-light text-gray-400 dark:text-gray-600">
-									{item.role === Role.ADMIN ? 'Admin' : 'User'}
+									{getUserRoleLabel(item.role)}
 								</p>
 							{:else}
 								<p>{item.name}</p>

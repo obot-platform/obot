@@ -5,7 +5,8 @@ import {
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
 	type ContainerizedRuntimeConfig,
-	type Task
+	type Task,
+	type MCPCatalogServer
 } from '../chat/types';
 
 export interface MCPCatalogManifest {
@@ -130,7 +131,9 @@ export interface OrgGroup {
 
 export const Role = {
 	ADMIN: 1,
-	USER: 10
+	USER: 10,
+	POWERUSER_PLUS: 2,
+	POWERUSER: 3
 };
 
 export interface ProviderParameter {
@@ -454,3 +457,13 @@ export interface MCPFilter extends MCPFilterManifest {
 	type: string;
 	hasSecret: boolean;
 }
+
+export type WorkspaceCatalogEntry = MCPCatalogEntry & {
+	// entry created by a power user will have userID
+	powerUserID: string;
+	powerUserWorkspaceID: string;
+};
+
+export type WorkspaceCatalogServer = MCPCatalogServer & {
+	powerUserWorkspaceID: string;
+};

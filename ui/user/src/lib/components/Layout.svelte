@@ -19,9 +19,11 @@
 		MessageCircle,
 		MessageCircleMore,
 		Server,
+		ServerCog,
 		Settings,
 		SidebarClose,
 		SidebarOpen,
+		UserCog,
 		Users
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
@@ -32,6 +34,16 @@
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
 	import { Render } from './ui/render';
+	import { Role } from '$lib/services';
+
+	type NavLink = {
+		href: string;
+		icon: Component;
+		label: string;
+		disabled: boolean;
+		collapsible: boolean;
+		items?: NavLink[];
+	};
 
 	interface Props {
 		classes?: {
@@ -44,12 +56,14 @@
 		hideSidebar?: boolean;
 		whiteBackground?: boolean;
 		main?: { component: Component; props?: Record<string, unknown> };
+		navLinks?: NavLink[];
 	}
 
 	const {
 		classes,
 		children,
 		showUserLinks,
+		navLinks: overrideNavLinks,
 		onRenderSubContent,
 		hideSidebar,
 		whiteBackground,
@@ -68,6 +82,7 @@
 						icon: Server,
 						label: 'MCP Servers',
 						disabled: isBootStrapUser,
+						collapsible: true,
 						items: [
 							{
 								href: '/admin/audit-logs',
@@ -102,6 +117,7 @@
 						icon: MessageCircle,
 						label: 'Obot Chat',
 						disabled: isBootStrapUser,
+						collapsible: true,
 						items: [
 							{
 								href: '/admin/chat-threads',
@@ -140,7 +156,24 @@
 						href: '/admin/users',
 						icon: Users,
 						label: 'Users',
-						collapsible: false
+						collapsible: false,
+						disabled: false,
+						items: [
+							{
+								href: '/admin/user-configuration',
+								icon: UserCog,
+								label: 'User Configuration',
+								collapsible: false,
+								disabled: false
+							},
+							{
+								href: '/admin/user-mcp-servers',
+								icon: ServerCog,
+								label: 'User Published MCP Servers',
+								collapsible: false,
+								disabled: false
+							}
+						]
 					},
 					{
 						href: '/admin/auth-providers',
@@ -150,7 +183,26 @@
 						collapsible: false
 					}
 				]
-			: []
+			: (overrideNavLinks ?? [
+					{
+						href: '/mcp-publisher',
+						icon: Server,
+						label: 'MCP Servers',
+						disabled: false,
+						collapsible: false
+					},
+					...(profile.current?.role === Role.POWERUSER_PLUS || profile.current?.role === Role.ADMIN
+						? [
+								{
+									href: '/mcp-publisher/access-control',
+									icon: GlobeLock,
+									label: 'Access Control',
+									disabled: false,
+									collapsible: false
+								}
+							]
+						: [])
+				])
 	);
 
 	const tooltips = {
@@ -217,9 +269,9 @@
 								{#if link.collapsible}
 									<button
 										class="px-2"
-										onclick={() => (collapsed[link.href] = !collapsed[link.href])}
+										onclick={() => (collapsed[link.label] = !collapsed[link.label])}
 									>
-										{#if collapsed[link.href]}
+										{#if collapsed[link.label]}
 											<ChevronUp class="size-5" />
 										{:else}
 											<ChevronDown class="size-5" />
@@ -227,7 +279,7 @@
 									</button>
 								{/if}
 							</div>
-							{#if !collapsed[link.href || '']}
+							{#if !collapsed[link.label || '']}
 								<div in:slide={{ axis: 'y' }}>
 									{#if onRenderSubContent}
 										{@render onRenderSubContent(link.label)}

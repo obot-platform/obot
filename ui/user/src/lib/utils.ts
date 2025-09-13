@@ -1,4 +1,5 @@
 import { goto } from '$app/navigation';
+import { Role } from './services';
 
 // Simple delay function
 export function delay(ms: number): Promise<void> {
@@ -181,3 +182,11 @@ export function openUrl(url: string, isCtrlClick: boolean) {
 		goto(url);
 	}
 }
+
+export const getUserRoleLabel = (role: number) => {
+	if (role === Role.ADMIN) return 'Admin';
+	if (role === Role.POWERUSER) return 'Power User';
+	if (role === Role.POWERUSER_PLUS) return 'Power User Plus';
+	if (role === Role.USER) return 'User';
+	return 'Unknown';
+};

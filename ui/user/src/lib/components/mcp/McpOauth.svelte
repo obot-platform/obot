@@ -17,9 +17,11 @@
 		error?: string;
 		project?: Project;
 		text?: string;
+		entity?: 'workspace' | 'catalog';
+		id?: string;
 	}
 
-	let { onAuthenticate, error = $bindable(), project, entry, text }: Props = $props();
+	let { onAuthenticate, error = $bindable(), project, entry, text, entity, id }: Props = $props();
 
 	let oauthURL = $state<string>('');
 	let showRefresh = $state(false);
@@ -60,6 +62,10 @@
 				);
 			} else if ('mcpCatalogID' in entry) {
 				oauthURL = await AdminService.getMCPCatalogServerOAuthURL(entry.mcpCatalogID, entry.id, {
+					signal: abortController.signal
+				});
+			} else if (entity === 'workspace' && id) {
+				oauthURL = await ChatService.getWorkspaceMcpServerOauthURL(id, entry.id, {
 					signal: abortController.signal
 				});
 			} else {

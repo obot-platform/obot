@@ -32,7 +32,9 @@ import type {
 	BaseAgent,
 	MCPFilter,
 	MCPFilterManifest,
-	ProjectTask
+	ProjectTask,
+	WorkspaceCatalogEntry,
+	WorkspaceCatalogServer
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -740,4 +742,29 @@ export async function removeSecret(id: string) {
 export async function listCatalogCategories(catalogId: string, opts?: { fetch?: Fetcher }) {
 	const response = (await doGet(`/mcp-catalogs/${catalogId}/categories`, opts)) as string[];
 	return response;
+}
+
+export async function listAllUserWorkspaceCatalogEntries(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		`/workspaces/all-entries`,
+		opts
+	)) as ItemsResponse<WorkspaceCatalogEntry>;
+	return response.items ?? [];
+}
+
+export async function listAllUserWorkspaceMCPServers(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		`/workspaces/all-servers`,
+		opts
+	)) as ItemsResponse<WorkspaceCatalogServer>;
+	return response.items ?? [];
+}
+
+export async function updateDefaultUsersRoleSettings(role: number, opts?: { fetch?: Fetcher }) {
+	await doPost('/user-default-role-settings', { role }, opts);
+}
+
+export async function getDefaultUsersRoleSettings(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/user-default-role-settings', opts)) as { role: number };
+	return response.role;
 }

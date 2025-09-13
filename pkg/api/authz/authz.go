@@ -105,6 +105,43 @@ var staticRules = map[string][]string{
 		"GET /api/all-mcps/servers/{mcp_server_id}",
 	},
 
+	PowerUserPlusGroup: {
+		// Access Control Rules
+		"GET /api/workspaces/{workspace_id}/access-control-rules",
+		"GET /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
+		"POST /api/workspaces/{workspace_id}/access-control-rules",
+		"PUT /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
+		"DELETE /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
+
+		// Workspace-scoped MCP Server Catalog Entries
+		"GET /api/workspaces/{workspace_id}/entries",
+		"GET /api/workspaces/{workspace_id}/entries/{entry_id}",
+		"POST /api/workspaces/{workspace_id}/entries",
+		"PUT /api/workspaces/{workspace_id}/entries/{entry_id}",
+		"DELETE /api/workspaces/{workspace_id}/entries/{entry_id}",
+		"POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews",
+		"POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews/oauth-url",
+
+		// Workspace-scoped MCP Servers
+		"GET /api/workspaces/{workspace_id}/servers",
+		"GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
+		"POST /api/workspaces/{workspace_id}/servers",
+		"PUT /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
+		"DELETE /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
+		"POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/launch",
+		"POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/check-oauth",
+		"GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-url",
+		"DELETE /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth",
+		"POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/configure",
+		"POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/deconfigure",
+		"POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/reveal",
+		"GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/instances",
+
+		"GET /api/users",
+		"GET /api/users/{user_id}",
+		"GET /api/groups",
+	},
+
 	MetricsGroup: {
 		"/debug/metrics",
 	},
