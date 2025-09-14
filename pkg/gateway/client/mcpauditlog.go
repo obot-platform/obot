@@ -2,6 +2,9 @@ package client
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"strconv"
@@ -10,14 +13,19 @@ import (
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/storage/value"
+)
+
+var (
+	mcpAuditLogGroupResource = schema.GroupResource{
+		Group:    "obot.obot.ai",
+		Resource: "mcpauditlogs",
+	}
 )
 
 func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLog) error {
 	return c.db.WithContext(ctx).CreateInBatches(logs, 100).Error
-}
-
-func (c *Client) UpdateMCPAuditLogByRequestID(ctx context.Context, log *types.MCPAuditLog) error {
-	return c.db.WithContext(ctx).Where("request_id = ?", log.RequestID).Updates(log).Error
 }
 
 // GetMCPAuditLogs retrieves MCP audit logs with optional filters
@@ -160,7 +168,19 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 		db = db.Order("created_at DESC")
 	}
 
-	return logs, total, db.Find(&logs).Error
+	err := db.Find(&logs).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Decrypt the logs after fetching
+	for i := range logs {
+		if err := c.decryptMCPAuditLog(ctx, &logs[i]); err != nil {
+			return nil, 0, fmt.Errorf("failed to decrypt MCP audit log: %w", err)
+		}
+	}
+
+	return logs, total, nil
 }
 
 func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, opts MCPAuditLogOptions, exclude ...any) ([]string, error) {
@@ -374,4 +394,141 @@ type MCPUsageStatsOptions struct {
 	MCPServerCatalogEntryNames []string
 	StartTime                  time.Time
 	EndTime                    time.Time
+}
+
+func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {
+	if c.encryptionConfig == nil {
+		return nil
+	}
+
+	transformer := c.encryptionConfig.Transformers[mcpAuditLogGroupResource]
+	if transformer == nil {
+		return nil
+	}
+
+	var (
+		b    []byte
+		err  error
+		errs []error
+
+		dataCtx = mcpAuditLogDataCtx(log)
+	)
+
+	if len(log.RequestBody) > 0 {
+		if b, err = transformer.TransformToStorage(ctx, log.RequestBody, dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.RequestBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+		}
+	}
+
+	if len(log.ResponseBody) > 0 {
+		if b, err = transformer.TransformToStorage(ctx, log.ResponseBody, dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.ResponseBody = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+		}
+	}
+
+	if len(log.RequestHeaders) > 0 {
+		if b, err = transformer.TransformToStorage(ctx, log.RequestHeaders, dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.RequestHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+		}
+	}
+
+	if len(log.ResponseHeaders) > 0 {
+		if b, err = transformer.TransformToStorage(ctx, log.ResponseHeaders, dataCtx); err != nil {
+			errs = append(errs, err)
+		} else {
+			log.ResponseHeaders = json.RawMessage(base64.StdEncoding.EncodeToString(b))
+		}
+	}
+
+	log.Encrypted = true
+
+	return errors.Join(errs...)
+}
+
+func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {
+	if !log.Encrypted || c.encryptionConfig == nil {
+		return nil
+	}
+
+	transformer := c.encryptionConfig.Transformers[mcpAuditLogGroupResource]
+	if transformer == nil {
+		return nil
+	}
+
+	var (
+		out, decoded []byte
+		n            int
+		err          error
+		errs         []error
+
+		dataCtx = mcpAuditLogDataCtx(log)
+	)
+
+	if len(log.RequestBody) > 0 {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.RequestBody)))
+		n, err = base64.StdEncoding.Decode(decoded, log.RequestBody)
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.RequestBody = json.RawMessage(out)
+			}
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(log.ResponseBody) > 0 {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.ResponseBody)))
+		n, err = base64.StdEncoding.Decode(decoded, log.ResponseBody)
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.ResponseBody = json.RawMessage(out)
+			}
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(log.RequestHeaders) > 0 {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.RequestHeaders)))
+		n, err = base64.StdEncoding.Decode(decoded, log.RequestHeaders)
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.RequestHeaders = json.RawMessage(out)
+			}
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(log.ResponseHeaders) > 0 {
+		decoded = make([]byte, base64.StdEncoding.DecodedLen(len(log.ResponseHeaders)))
+		n, err = base64.StdEncoding.Decode(decoded, log.ResponseHeaders)
+		if err == nil {
+			if out, _, err = transformer.TransformFromStorage(ctx, decoded[:n], dataCtx); err != nil {
+				errs = append(errs, err)
+			} else {
+				log.ResponseHeaders = json.RawMessage(out)
+			}
+		} else {
+			errs = append(errs, err)
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func mcpAuditLogDataCtx(log *types.MCPAuditLog) value.Context {
+	return value.DefaultContext(fmt.Sprintf("%s/%s/%s", mcpAuditLogGroupResource.String(), log.MCPID, log.UserID))
 }

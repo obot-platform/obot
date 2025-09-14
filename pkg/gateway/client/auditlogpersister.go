@@ -11,6 +11,14 @@ import (
 var log = logger.Package()
 
 func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
+	// Encrypt the audit entry before adding to buffer
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := c.encryptMCPAuditLog(ctx, &entry); err != nil {
+		log.Errorf("Failed to encrypt MCP audit log: %v", err)
+	}
+
 	c.auditLock.Lock()
 	defer c.auditLock.Unlock()
 

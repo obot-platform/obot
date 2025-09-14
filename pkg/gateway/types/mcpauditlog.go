@@ -35,6 +35,7 @@ type MCPAuditLog struct {
 	UserAgent       string          `json:"userAgent,omitempty"`
 	RequestHeaders  json.RawMessage `json:"requestHeaders,omitempty"`
 	ResponseHeaders json.RawMessage `json:"responseHeaders,omitempty"`
+	Encrypted       bool            `json:"encrypted"`
 }
 
 type MCPWebhookStatus struct {
