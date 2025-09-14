@@ -172,6 +172,17 @@ serviceAccount:
   # If not set and create is true, a name is generated using the fullname template
   name: ""
 
+# mcpImagePullSecrets -- Configuration for creating image pull secrets for MCP containers.
+# Each entry should contain registry credentials that will be used to create Kubernetes secrets.
+mcpImagePullSecrets: []
+# Example:
+# mcpImagePullSecrets:
+#   - name: "my-registry-secret"
+#     registry: "my-registry.com"
+#     username: "myuser"
+#     password: "mypassword"
+#     email: "myemail@example.com"
+
 mcpNamespace:
   # mcpNamespace.name -- The namespace in which to deploy the MCP servers. Will only be created if config.OBOT_SERVER_MCPBASE_IMAGE image is set. Defaults to {{ .Release.Name }}-mcp
   name: ""
