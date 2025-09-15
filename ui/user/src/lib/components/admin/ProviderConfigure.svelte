@@ -6,6 +6,7 @@
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import type { Snippet } from 'svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 
 	interface Props {
 		provider?: BaseProvider;
@@ -55,6 +56,13 @@
 		}
 		onConfigure(form);
 	}
+
+	const multipValuesInputs = new Set([
+		'OBOT_GITHUB_AUTH_PROVIDER_ALLOW_USERS',
+		'OBOT_GITHUB_AUTH_PROVIDER_TEAMS',
+		'OBOT_GITHUB_AUTH_PROVIDER_REPO',
+		'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
+	]);
 </script>
 
 <ResponsiveDialog
@@ -131,13 +139,20 @@
 											name={parameter.name}
 											bind:value={form[parameter.name]}
 										/>
+									{:else if multipValuesInputs.has(parameter.name)}
+										<MultiValueInput
+											bind:value={form[parameter.name]}
+											id={parameter.name}
+											class="text-input-filled"
+											placeholder={`Hit "Enter" to insert`.toString()}
+										/>
 									{:else}
 										<input
 											type="text"
 											id={parameter.name}
-											class="text-input-filled"
-											class:error
 											bind:value={form[parameter.name]}
+											class:error
+											class="text-input-filled"
 										/>
 									{/if}
 								</li>
@@ -155,12 +170,21 @@
 								<li class="flex flex-col gap-1">
 									<label for={parameter.name}>{parameter.friendlyName}</label>
 									<span class="text-gray text-xs">{parameter.description}</span>
-									<input
-										type="text"
-										id={parameter.name}
-										bind:value={form[parameter.name]}
-										class="text-input-filled"
-									/>
+									{#if multipValuesInputs.has(parameter.name)}
+										<MultiValueInput
+											bind:value={form[parameter.name]}
+											id={parameter.name}
+											class="text-input-filled"
+											placeholder={`Hit "Enter" to insert`.toString()}
+										/>
+									{:else}
+										<input
+											type="text"
+											id={parameter.name}
+											bind:value={form[parameter.name]}
+											class="text-input-filled"
+										/>
+									{/if}
 								</li>
 							{/if}
 						{/each}
@@ -169,7 +193,7 @@
 			{/if}
 		</form>
 		<div class="mt-4 flex justify-end gap-2 p-4 pt-0">
-			<button class="button-primary" onclick={() => configure()} disabled={loading}>
+			<button class="button-primary" type="button" onclick={() => configure()} disabled={loading}>
 				{#if loading}
 					<LoaderCircle class="size-4 animate-spin" />
 				{:else}
