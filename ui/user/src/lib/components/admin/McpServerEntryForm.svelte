@@ -400,7 +400,7 @@
 								<p class="text-sm font-light text-gray-400 dark:text-gray-600">
 									Looks like this MCP server doesn't have any tools available.
 								</p>
-							{:else}
+							{:else if !readonly}
 								<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No tools</h4>
 								<button
 									class="button-primary flex items-center gap-1 text-sm"

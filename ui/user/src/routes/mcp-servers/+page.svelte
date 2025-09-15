@@ -93,6 +93,9 @@
 				servers = serversResult;
 				userServerInstances = serverInstances;
 			}
+			userConfiguredServers = userConfiguredServers.filter(
+				(server) => !server.deleted && !server.powerUserWorkspaceID
+			);
 		} catch (error) {
 			console.error('Failed to load data:', error);
 		} finally {
