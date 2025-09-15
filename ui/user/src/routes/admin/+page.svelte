@@ -93,14 +93,13 @@
 							class="border-surface3 relative flex -translate-y-4 flex-col items-center gap-4 rounded-xl border-2 px-4 pt-6 pb-4"
 						>
 							{#each authProviders as authProvider (authProvider.id)}
-								<a
-									rel="external"
-									href="/oauth2/start?rd={encodeURIComponent(
-										'/admin'
-									)}&obot-auth-provider={authProvider.namespace}/{authProvider.id}"
+								<button
 									class="group bg-surface1 hover:bg-surface2 dark:bg-surface1 dark:hover:bg-surface3 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold"
 									onclick={(e) => {
-										console.log(`post-auth redirect ${e.target}`);
+										localStorage.setItem('preAuthRedirect', window.location.href);
+										window.location.href = `/oauth2/start?rd=${encodeURIComponent(
+											'/admin'
+										)}&obot-auth-provider=${authProvider.namespace}/${authProvider.id}`;
 									}}
 								>
 									{#if authProvider.icon}
@@ -113,7 +112,7 @@
 											>Continue with {authProvider.name}</span
 										>
 									{/if}
-								</a>
+								</button>
 							{/each}
 
 							{#if !showBootstrapLogin && bootstrapStatus?.enabled}

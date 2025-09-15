@@ -56,14 +56,13 @@
 					class="dark:border-surface3 dark:bg-gray-930 flex w-sm flex-col gap-4 rounded-xl border border-transparent bg-white p-4 shadow-sm"
 				>
 					{#each authProviders as provider (provider.id)}
-						<a
-							rel="external"
-							href="/oauth2/start?rd={encodeURIComponent(
-								overrideRedirect !== null ? overrideRedirect : rd
-							)}&obot-auth-provider={provider.namespace}/{provider.id}"
+						<button
 							class="group bg-surface2 hover:bg-surface3 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold transition-colors duration-200"
 							onclick={(e) => {
-								console.log(`post-auth redirect ${e.target}`);
+								localStorage.setItem('preAuthRedirect', window.location.href);
+								window.location.href = `/oauth2/start?rd=${encodeURIComponent(
+									overrideRedirect !== null ? overrideRedirect : rd
+								)}&obot-auth-provider=${provider.namespace}/${provider.id}`;
 							}}
 						>
 							{#if provider.icon}
@@ -74,7 +73,7 @@
 								/>
 								<span class="text-center text-sm font-light">Continue with {provider.name}</span>
 							{/if}
-						</a>
+						</button>
 					{/each}
 					{#if authProviders.length === 0}
 						<p>
