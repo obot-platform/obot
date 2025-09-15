@@ -95,7 +95,7 @@
 							{#each authProviders as authProvider (authProvider.id)}
 								<button
 									class="group bg-surface1 hover:bg-surface2 dark:bg-surface1 dark:hover:bg-surface3 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold"
-									onclick={(e) => {
+									onclick={() => {
 										localStorage.setItem('preAuthRedirect', window.location.href);
 										window.location.href = `/oauth2/start?rd=${encodeURIComponent(
 											'/admin'
