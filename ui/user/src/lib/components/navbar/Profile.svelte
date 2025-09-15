@@ -179,6 +179,11 @@
 					Chat
 				</button>
 			{/if}
+			{#if (profile.current.role === Role.POWERUSER || profile.current.role === Role.POWERUSER_PLUS || profile.current.role === Role.ADMIN) && showMcpPublisherLink}
+				<a href="/mcp-publisher" rel="external" class="link">
+					<ServerCog class="size-4" /> MCP Publisher
+				</a>
+			{/if}
 			{#if responsive.isMobile}
 				<a href="https://docs.obot.ai" rel="external" target="_blank" class="link"
 					><Book class="size-4" />Docs</a
@@ -198,13 +203,6 @@
 				</button>
 			{/if}
 		</div>
-		{#if (profile.current.role === Role.POWERUSER || profile.current.role === Role.POWERUSER_PLUS || profile.current.role === Role.ADMIN) && showMcpPublisherLink}
-			<div class="flex flex-col gap-2 px-2 py-2">
-				<a href="/mcp-publisher" rel="external" class="link">
-					<ServerCog class="size-4" /> MCP Publisher
-				</a>
-			</div>
-		{/if}
 
 		{#if version.current.obot}
 			<div class="flex justify-end p-2 text-xs text-gray-500">
