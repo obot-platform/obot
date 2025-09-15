@@ -227,14 +227,16 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 		}
 
 		fileMapping            = make(map[string]string, len(server.Files))
-		secretStringData       = make(map[string]string, len(server.Env)+len(server.Headers)+2)
+		secretStringData       = make(map[string]string, len(server.Env)+len(server.Headers)+3)
 		secretVolumeStringData = make(map[string]string, len(server.Files))
+		metaEnv                = make([]string, 0, len(server.Env)+len(server.Headers)+len(server.Files))
 	)
 
 	for _, file := range server.Files {
 		filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
 		secretVolumeStringData[filename] = file.Data
 		if file.EnvKey != "" {
+			metaEnv = append(metaEnv, file.EnvKey)
 			secretStringData[file.EnvKey] = "/files/" + filename
 			fileMapping[file.EnvKey] = "/files/" + filename
 		}
@@ -252,12 +254,14 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 	for _, env := range server.Env {
 		k, v, ok := strings.Cut(env, "=")
 		if ok {
+			metaEnv = append(metaEnv, k)
 			secretStringData[k] = v
 		}
 	}
 	for _, header := range server.Headers {
 		k, v, ok := strings.Cut(header, "=")
 		if ok {
+			metaEnv = append(metaEnv, k)
 			secretStringData[k] = v
 		}
 	}
@@ -299,6 +303,9 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 	}
 
 	annotations["obot-revision"] = hash.Digest(hash.Digest(secretStringData) + hash.Digest(secretVolumeStringData))
+
+	// Set this environment variable for our nanobot image to read
+	secretStringData["NANOBOT_META_ENV"] = strings.Join(metaEnv, ",")
 
 	// Set an environment variable to indicate that the MCP server is running in Kubernetes.
 	// This is something that our special images read and react to.
