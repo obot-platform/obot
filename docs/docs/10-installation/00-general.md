@@ -1,9 +1,7 @@
 ---
-title: General
+title: Overview
 slug: /installation/general
 ---
-
-# Overview
 
 ## Obot Architecture
 
@@ -17,9 +15,11 @@ Obot stores its data under the `/data` path. If you are not using an external Po
 
 ### Production Considerations
 
-For a production setup you will want to use an external Postgres database and configure encryption for your Obot data.
+A production setup will need to be deployed on to a Kubernetes cluster. You will need an external to Obot deployment Postgres database and encryption keys to store Obot data.
 
 ## System requirements
+
+Kubernetes cluster
 
 ### Minimum
 

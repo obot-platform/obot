@@ -11,12 +11,15 @@ Obot is an open-source MCP Gateway and AI platform that can be deployed in the c
 
 To quickly try a live demo of the Obot MCP Gateway and chat experience, visit [https://chat.obot.ai](https://chat.obot.ai).
 
-To run Obot yourself, you’ll need to setup Docker with something like [Docker Desktop](https://docs.docker.com/get-started/introduction/get-docker-desktop/). Once that’s ready, run:
+You can use Docker to quickly spin up the Obot MCP Gateway server locally to try out the full capabilities. Using something like [Docker Desktop](https://docs.docker.com/get-started/introduction/get-docker-desktop/). Once that’s ready, run:
+
 ```bash
 docker run -d --name obot -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.sock -e OPENAI_API_KEY=<API KEY> ghcr.io/obot-platform/obot:latest
 ```
 
 Then open your browser to [http://localhost:8080](http://localhost:8080) to access the Obot UI.
+
+> **Note:** The Docker command above is intended for local testing and evaluation only. For production deployments, we recommend running Obot on Kubernetes. See our [Installation Guide](/installation/general) for detailed production setup instructions.
 
 :::tip
 You need to replace `<API KEY>` with your [OpenAI API Key](https://platform.openai.com/api-keys).
@@ -28,12 +31,14 @@ You can also set `ANTHROPIC_API_KEY` here as well, setting the value to your [An
 Setting both is also supported, but OpenAI models will be set as the defaults.
 :::
 
-For more installation methods, see our [Installation Guide](/installation/general).
+
 
 ## The Three Parts of Obot
+
 The platform consists of three main components that work together to deliver a comprehensive AI solution.
 
 ### 🔌 MCP Gateway
+
 The **MCP Gateway** is where users discover and connect to MCP servers using any MCP client. It provides:
 
 - **Server Discovery** – Browse a catalog of MCP servers tailored to your role and permissions
@@ -43,6 +48,7 @@ The **MCP Gateway** is where users discover and connect to MCP servers using any
 - **OAuth 2.1 Authentication** – Securely authenticate with external services
 
 ### 🗣️ Chat
+
 The **Chat Interface** is where users interact with AI through natural, conversational chat. It’s the primary way to ask questions, get answers, and work with connected tools and data. Key features include:
 
 - **Chat Threads** – Keep discussions organized and maintain context over time
@@ -52,6 +58,7 @@ The **Chat Interface** is where users interact with AI through natural, conversa
 - **Project-Based Customization** – Tailor AI's behavior to meet your needs with custom instructions, knowledge, and MCP servers at the project level
 
 ### ⚙️ Admin
+
 The **Admin Interface** provides comprehensive platform management tools for administrators:
 
 - **Catalog Management** – Create and update MCP server entries using GitOps or the admin portal
@@ -81,9 +88,9 @@ These three components create a powerful, integrated AI platform:
 
 ## Next Steps
 
-For detailed installation instructions, please refer to our [Installation Guide](/installation/general).
+## Next Steps
 
-To understand each component in depth:
+- [Installation Guide](/installation/general)
 - [Chat Interface Concepts](/concepts/chat/overview)
 - [MCP Gateway Concepts](/concepts/mcp-gateway/overview)
 - [Admin Interface Concepts](/concepts/admin/overview)

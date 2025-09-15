@@ -103,7 +103,6 @@ Data is stored in a Postgres Database. In production, this should be hosted and 
 
 Obot chat uses an S3 Bucket to store workspace data, like PDFs, text files, etc.
 
-
 ### Encryption
 
 Obot Gateway uses cloud KMS systems to encrypt data at rest. 
