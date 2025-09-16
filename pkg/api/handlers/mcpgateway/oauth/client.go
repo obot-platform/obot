@@ -138,6 +138,7 @@ func ensureTokenAndSecret(oauthClient *v1.OAuthClient) (string, string, error) {
 	var (
 		clientSecret, registrationToken string
 		err                             error
+		now                             = time.Now()
 	)
 	if oauthClient.Spec.ClientSecretIssuedAt.IsZero() || oauthClient.Spec.ClientSecretExpiresAt.Sub(oauthClient.Spec.ClientSecretIssuedAt.Time)/2 > time.Until(oauthClient.Spec.ClientSecretExpiresAt.Time) {
 		// If the client secret is half-way through its lifetime, then update it.
@@ -147,8 +148,8 @@ func ensureTokenAndSecret(oauthClient *v1.OAuthClient) (string, string, error) {
 			return "", "", err
 		}
 
-		oauthClient.Spec.ClientSecretIssuedAt = metav1.NewTime(time.Now())
-		oauthClient.Spec.ClientSecretExpiresAt = metav1.NewTime(time.Now().Add(time.Hour + 15*time.Minute))
+		oauthClient.Spec.ClientSecretIssuedAt = metav1.NewTime(now)
+		oauthClient.Spec.ClientSecretExpiresAt = metav1.NewTime(now.Add(7 * 24 * time.Hour))
 	}
 	if oauthClient.Spec.RegistrationTokenExpiresAt.IsZero() || oauthClient.Spec.RegistrationTokenExpiresAt.Sub(oauthClient.Spec.RegistrationTokenIssuedAt.Time)/2 > time.Until(oauthClient.Spec.RegistrationTokenExpiresAt.Time) {
 		// If the registration token is half-way through its lifetime, then update it.
@@ -158,8 +159,8 @@ func ensureTokenAndSecret(oauthClient *v1.OAuthClient) (string, string, error) {
 			return "", "", err
 		}
 
-		oauthClient.Spec.RegistrationTokenIssuedAt = metav1.NewTime(time.Now())
-		oauthClient.Spec.RegistrationTokenExpiresAt = metav1.NewTime(time.Now().Add(7 * 24 * time.Hour))
+		oauthClient.Spec.RegistrationTokenIssuedAt = metav1.NewTime(now)
+		oauthClient.Spec.RegistrationTokenExpiresAt = metav1.NewTime(now.Add(7 * 24 * time.Hour))
 	}
 
 	return clientSecret, registrationToken, nil
