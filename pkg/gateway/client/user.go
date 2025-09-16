@@ -276,7 +276,7 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		return fmt.Errorf("failed to decrypt identity: %w", err)
 	}
 
-	if user.IconURL == identity.IconURL && time.Until(identity.IconLastChecked) > -7*24*time.Hour && user.DisplayName != "" {
+	if user.IconURL == identity.IconURL && time.Since(identity.IconLastChecked) < 7*24*time.Hour && user.DisplayName != "" {
 		// Icon was checked less than 7 days ago, and the user is still using the same auth provider and DisplayName is already set
 		return nil
 	}
