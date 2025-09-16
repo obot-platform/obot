@@ -23,7 +23,7 @@ import (
 var log = logger.Package()
 
 type Options struct {
-	MCPBaseImage         string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images-phat:main"`
+	MCPBaseImage         string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/phat:main"`
 	MCPNamespace         string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain     string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
 	DisallowLocalhostMCP bool     `usage:"Allow MCP containers to run on localhost"`
