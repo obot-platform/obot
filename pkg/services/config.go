@@ -377,7 +377,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	defaultRole := &defaultRoleSetting.Spec.Role
-	lock := sync.RWMutex{}
+	lock := &sync.RWMutex{}
 
 	// Create callback for new privileged user workspace creation
 	onNewPrivilegedUser := func(ctx context.Context, user *types.User) {
@@ -424,7 +424,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 	}()
 
-	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize, onNewPrivilegedUser, defaultRole)
+	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize, onNewPrivilegedUser, defaultRole, lock)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)
