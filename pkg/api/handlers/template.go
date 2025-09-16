@@ -101,10 +101,6 @@ func (h *TemplateHandler) DeleteProjectTemplate(req api.Context) error {
 		return err
 	}
 
-	if len(templateThreadList.Items) < 1 {
-		return types.NewErrNotFound("template not found for project %s", projectID)
-	}
-
 	var templateThread *v1.Thread
 	for _, thread := range templateThreadList.Items {
 		if thread.Spec.Template {
@@ -174,10 +170,6 @@ func (h *TemplateHandler) GetProjectTemplate(req api.Context) error {
 		"spec.sourceThreadName": projectThreadName,
 	}); err != nil {
 		return err
-	}
-
-	if len(templateThreadList.Items) < 1 {
-		return types.NewErrNotFound("template not found for project %s", projectID)
 	}
 
 	var templateThread *v1.Thread

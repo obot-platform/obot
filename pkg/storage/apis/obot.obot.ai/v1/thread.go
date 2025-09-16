@@ -48,17 +48,13 @@ func (in *Thread) Has(field string) (exists bool) {
 
 // SetLatestConfigRevision sets the latest config revision for the thread and returns true if the
 // operation has changed the revision history.
-func (in *Thread) SetLatestConfigRevision(revision string) (changed bool) {
+func (in *Thread) SetLatestConfigRevision(revision string) bool {
 	if len(in.Status.ConfigRevisions) == 0 {
 		// No revision history, initialize the revision history
 		in.Status.ConfigRevisions = []string{revision}
 		return true
 	}
 
-	var (
-		revisionCount = len(in.Status.ConfigRevisions)
-		latest        = in.Status.ConfigRevisions[revisionCount-1]
-	)
 	if in.Spec.Template {
 		// Add the new revision to the end of the history (marking it as the latest revision)
 		// Then deduplicate the history so that the latest revisions are kept and order is preserved
@@ -79,7 +75,11 @@ func (in *Thread) SetLatestConfigRevision(revision string) (changed bool) {
 	// Non-template thread, if the revision differs from the latest revision or there's more than one
 	// revision in the history, replace it with the latest revision.
 	// For non-template threads, we only want to keep the latest revision in the history.
-	if latest != revision || len(in.Status.ConfigRevisions) > 1 {
+	var (
+		revisionCount = len(in.Status.ConfigRevisions)
+		latest        = in.Status.ConfigRevisions[revisionCount-1]
+	)
+	if latest != revision || revisionCount > 1 {
 		in.Status.ConfigRevisions = []string{revision}
 		return true
 	}
@@ -91,18 +91,19 @@ func (in *Thread) SetLatestConfigRevision(revision string) (changed bool) {
 // The revisions are deduplicated by keeping the latest revision and removing duplicates.
 // The order of the revisions is preserved.
 func dedupeRevisions(revisions []string) []string {
-	var (
-		visited = make(map[string]struct{}, len(revisions))
-		deduped = make([]string, 0, len(revisions))
-	)
-	for i := len(revisions) - 1; i >= 0; i-- {
-		revision := revisions[i]
-		if _, ok := visited[revision]; !ok {
+	// First pass: find the last index of each revision
+	lastIndex := make(map[string]int, len(revisions))
+	for i, revision := range revisions {
+		lastIndex[revision] = i
+	}
+
+	// Second pass: build result keeping only items at their last index
+	deduped := make([]string, 0, len(revisions))
+	for i, revision := range revisions {
+		if lastIndex[revision] == i {
 			deduped = append(deduped, revision)
-			visited[revision] = struct{}{}
 		}
 	}
-	slices.Reverse(deduped)
 
 	return deduped
 }
@@ -157,7 +158,7 @@ func (in *Thread) Get(field string) string {
 }
 
 func (in *Thread) FieldNames() []string {
-	return []string{"spec.userUID", "spec.project", "spec.template", "spec.parentThreadName", "spec.sourceThreadName"}
+	return []string{"spec.userUID", "spec.project", "spec.template", "spec.agentName", "spec.parentThreadName", "spec.sourceThreadName"}
 }
 
 func (in *Thread) GetColumns() [][]string {

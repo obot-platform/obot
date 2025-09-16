@@ -292,7 +292,6 @@ func newProjectThreadConfig(
 		// Normalize MCP ID to catalog entry name
 		mcpID := projectMCPID
 		if spec, ok := mcpServerSpecs[mcpID]; ok {
-			// TOOD(njhale): Do we need to worry about the catalog this belongs to?
 			mcpID = strings.Join([]string{spec.MCPCatalogID, spec.MCPServerCatalogEntryName}, "/")
 		}
 

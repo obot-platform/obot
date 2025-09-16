@@ -44,7 +44,7 @@ func convertTemplateThread(thread v1.Thread, share *v1.ThreadShare) types.Projec
 
 	// Populate LastUpdated from status field
 	if !thread.Status.LastUpgraded.IsZero() {
-		template.ProjectSnapshotLastUpgraded = *types.NewTime(thread.Status.LastUpgraded.Time)
+		template.ProjectSnapshotLastUpgraded = types.NewTime(thread.Status.LastUpgraded.Time)
 	}
 
 	if share != nil {

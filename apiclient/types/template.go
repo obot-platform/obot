@@ -3,7 +3,7 @@ package types
 type ProjectTemplate struct {
 	Metadata
 	ProjectSnapshot                  ThreadManifest `json:"projectSnapshot,omitempty"`
-	ProjectSnapshotLastUpgraded      Time           `json:"projectSnapshotLastUpgraded,omitempty"`
+	ProjectSnapshotLastUpgraded      *Time          `json:"projectSnapshotLastUpgraded,omitempty"`
 	ProjectSnapshotStale             bool           `json:"projectSnapshotStale,omitempty"`
 	ProjectSnapshotUpgradeInProgress bool           `json:"projectSnapshotUpgradeInProgress,omitempty"`
 	MCPServers                       []string       `json:"mcpServers,omitempty"`

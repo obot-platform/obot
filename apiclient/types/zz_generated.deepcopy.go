@@ -2799,7 +2799,10 @@ func (in *ProjectTemplate) DeepCopyInto(out *ProjectTemplate) {
 	*out = *in
 	in.Metadata.DeepCopyInto(&out.Metadata)
 	in.ProjectSnapshot.DeepCopyInto(&out.ProjectSnapshot)
-	in.ProjectSnapshotLastUpgraded.DeepCopyInto(&out.ProjectSnapshotLastUpgraded)
+	if in.ProjectSnapshotLastUpgraded != nil {
+		in, out := &in.ProjectSnapshotLastUpgraded, &out.ProjectSnapshotLastUpgraded
+		*out = (*in).DeepCopy()
+	}
 	if in.MCPServers != nil {
 		in, out := &in.MCPServers, &out.MCPServers
 		*out = make([]string, len(*in))

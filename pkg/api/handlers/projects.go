@@ -529,7 +529,7 @@ func convertProject(thread *v1.Thread, parentThread *v1.Thread) types.Project {
 		TemplatePublicID:             thread.Status.UpgradePublicID,
 	}
 
-	if !thread.Status.LastUpgraded.Time.IsZero() {
+	if !thread.Status.LastUpgraded.IsZero() {
 		p.TemplateLastUpgraded = types.NewTime(thread.Status.LastUpgraded.Time)
 	}
 
