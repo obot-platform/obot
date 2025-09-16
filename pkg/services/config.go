@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -376,10 +377,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	defaultRole := &defaultRoleSetting.Spec.Role
+	lock := sync.RWMutex{}
 
 	// Create callback for new privileged user workspace creation
 	onNewPrivilegedUser := func(ctx context.Context, user *types.User) {
-		fmt.Println("onNewPrivilegedUser", *defaultRole)
+		lock.RLock()
+		defer lock.RUnlock()
 		if err := storageClient.Create(ctx, &v1.UserRoleChange{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: system.UserRoleChangePrefix,
@@ -405,17 +408,18 @@ func New(ctx context.Context, config Config) (*Services, error) {
 				time.Sleep(time.Second * 1)
 				continue
 			}
-			defer func() {
-				w.Stop()
-				//nolint:revive
-				for range w.ResultChan() {
-				}
-			}()
 
 			for event := range w.ResultChan() {
 				if roleSetting, ok := event.Object.(*v1.UserDefaultRoleSetting); ok {
+					lock.Lock()
 					*defaultRole = roleSetting.Spec.Role
+					lock.Unlock()
 				}
+			}
+
+			w.Stop()
+			//nolint:revive
+			for range w.ResultChan() {
 			}
 		}
 	}()

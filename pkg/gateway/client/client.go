@@ -23,9 +23,10 @@ type Client struct {
 	// Callback function called when new privileged users are created
 	onNewPrivilegedUser func(ctx context.Context, user *types.User)
 	defaultRole         *types2.Role
+	lock                *sync.RWMutex
 }
 
-func New(ctx context.Context, db *db.DB, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int, onNewPrivilegedUser func(ctx context.Context, user *types.User), defaultRole *types2.Role) *Client {
+func New(ctx context.Context, db *db.DB, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int, onNewPrivilegedUser func(ctx context.Context, user *types.User), defaultRole *types2.Role, lock *sync.RWMutex) *Client {
 	adminEmailsSet := make(map[string]struct{}, len(adminEmails))
 	for _, email := range adminEmails {
 		adminEmailsSet[email] = struct{}{}
@@ -38,6 +39,7 @@ func New(ctx context.Context, db *db.DB, encryptionConfig *encryptionconfig.Encr
 		kickAuditPersist:    make(chan struct{}),
 		onNewPrivilegedUser: onNewPrivilegedUser,
 		defaultRole:         defaultRole,
+		lock:                lock,
 	}
 
 	go c.runPersistenceLoop(ctx, auditLogPersistenceInterval)
