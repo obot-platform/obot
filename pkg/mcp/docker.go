@@ -384,11 +384,20 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		cmd = server.Args
 
 		// Use server's environment variables plus file env vars
-		env = append(env, server.Env...)
+		metaEnvVar := make([]string, 0, len(server.Env)+len(fileEnvVars))
+		for _, val := range server.Env {
+			k, _, ok := strings.Cut(val, "=")
+			if ok {
+				metaEnvVar = append(metaEnvVar, k)
+			}
+			env = append(env, val)
+		}
 		for k, v := range fileEnvVars {
 			env = append(env, fmt.Sprintf("%s=%s", k, v))
+			metaEnvVar = append(metaEnvVar, k)
 		}
 
+		env = append(env, fmt.Sprintf("NANOBOT_META_ENV=%s", strings.Join(metaEnvVar, ",")))
 	default:
 		return retConfig, fmt.Errorf("unsupported runtime: %s", server.Runtime)
 	}

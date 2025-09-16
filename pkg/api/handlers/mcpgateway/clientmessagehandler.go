@@ -131,7 +131,7 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 			// No clients are reading these messages. Return and drop the audit log.
 			dropAuditLog = true
 
-			return msg.Reply(ctx, nmcp.Notification{})
+			return nil
 		}
 		msg.SendError(ctx, err)
 		return fmt.Errorf("failed to send message: %w", err)
