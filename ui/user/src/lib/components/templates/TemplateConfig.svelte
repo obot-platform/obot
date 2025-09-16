@@ -82,7 +82,9 @@
 			knowledgeFiles = knowledgeResponse.items || [];
 			loading = false;
 		} catch (error) {
-			console.error('Failed to load resources:', error);
+			if (error instanceof Error && !error.message.includes('404')) {
+				console.error('Failed to load resources:', error);
+			}
 			loading = false;
 		}
 	}

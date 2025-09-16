@@ -60,7 +60,9 @@
 
 			let values: Record<string, string>;
 			try {
-				values = await ChatService.revealSingleOrRemoteMcpServer(response.id);
+				values = await ChatService.revealSingleOrRemoteMcpServer(response.id, {
+					dontLogErrors: true
+				});
 			} catch (error) {
 				if (error instanceof Error && !error.message.includes('404')) {
 					console.error('Failed to reveal user server values due to unexpected error', error);

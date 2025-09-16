@@ -129,7 +129,9 @@
 		try {
 			values = await ChatService.revealSingleOrRemoteMcpServer(server.id, { dontLogErrors: true });
 		} catch (error) {
-			console.error('Failed to reveal user server values:', error);
+			if (error instanceof Error && !error.message.includes('404')) {
+				console.error('Failed to reveal user server values:', error);
+			}
 			values = {};
 		}
 
