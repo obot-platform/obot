@@ -85,6 +85,7 @@
 	{/if}
 
 	<button
+		type="button"
 		class="absolute top-1/2 right-4 z-10 -translate-y-1/2 cursor-pointer"
 		class:text-red-500={error}
 		onclick={toggleVisibility}
