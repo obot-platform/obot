@@ -373,7 +373,7 @@ func (p *ProjectMCPHandler) GetTools(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
@@ -458,7 +458,7 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
@@ -551,7 +551,7 @@ func (p *ProjectMCPHandler) GetResources(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
@@ -625,7 +625,7 @@ func (p *ProjectMCPHandler) ReadResource(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
@@ -696,7 +696,7 @@ func (p *ProjectMCPHandler) GetPrompts(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
@@ -764,7 +764,7 @@ func (p *ProjectMCPHandler) GetPrompt(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID(), req.UserIsAdmin())
+	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}

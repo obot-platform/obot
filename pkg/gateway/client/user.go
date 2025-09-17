@@ -135,11 +135,13 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, er
 			return fmt.Errorf("failed to decrypt user: %w", err)
 		}
 
-		if existingUser.Role.HasRole(types2.RoleAdmin) {
+		if existingUser.Role.HasRole(types2.RoleAdmin) || existingUser.Role.HasRole(types2.RoleOwner) {
 			var adminCount int64
 			// We filter out empty email users here, because that is the bootstrap user.
 			// Also exclude already soft-deleted users from the count.
-			if err := tx.Model(new(types.User)).Where("role = ? and hashed_email != '' and deleted_at IS NULL", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
+			if err := tx.Model(new(types.User)).Where("role IN ? AND hashed_email != '' AND deleted_at IS NULL",
+				[]types2.Role{types2.RoleOwner, types2.RoleAdmin, types2.RoleOwner | types2.RoleAuditor, types2.RoleAdmin | types2.RoleAuditor},
+			).Count(&adminCount).Error; err != nil {
 				return err
 			}
 
@@ -190,7 +192,7 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, er
 	return &responseUser, nil
 }
 
-func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updatedUser *types.User, userID string) (*types.User, error) {
+func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, updatedUser *types.User, userID string) (*types.User, error) {
 	existingUser := new(types.User)
 	return existingUser, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("id = ?", userID).First(existingUser).Error; err != nil {
@@ -218,26 +220,31 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserIsAdmin bool, updated
 		}
 
 		// Only admins can change user roles.
-		if actingUserIsAdmin {
-			if updatedUser.Role > 0 && existingUser.Role.HasRole(types2.RoleAdmin) && !updatedUser.Role.HasRole(types2.RoleAdmin) {
-				// If this user has been explicitly marked as an admin, then don't allow changing the role.
-				if c.IsExplicitAdmin(existingUser.Email) {
-					return &ExplicitAdminError{email: existingUser.Email}
-				}
-				// If the role is being changed from admin to non-admin, then ensure that this isn't the last admin.
-				// We filter out empty email users here, because that is the bootstrap user.
-				// Also exclude soft-deleted users from the count.
-				var adminCount int64
-				if err := tx.Model(new(types.User)).Where("role = ? and hashed_email != '' and deleted_at IS NULL", types2.RoleAdmin).Count(&adminCount).Error; err != nil {
-					return err
+		if actingUserCanChangeRole {
+			if updatedUser.Role > 0 {
+				if existingUser.Role.HasRole(types2.RoleAdmin) && !updatedUser.Role.HasRole(types2.RoleAdmin) ||
+					existingUser.Role.HasRole(types2.RoleOwner) && !updatedUser.Role.HasRole(types2.RoleOwner) {
+					// If this user has been explicitly marked as an admin, then don't allow changing the role.
+					if c.HasExplicitRole(existingUser.Email) != types2.RoleUnknown {
+						return &ExplicitRoleError{email: existingUser.Email}
+					}
+					// If the role is being changed from owner/admin to not, then ensure that this isn't the last owner/admin.
+					// We filter out empty email users here, because that is the bootstrap user.
+					// Also exclude soft-deleted users from the count.
+					var adminCount int64
+					if err := tx.Model(new(types.User)).Where("role IN ? AND hashed_email != '' AND deleted_at IS NULL",
+						[]types2.Role{types2.RoleOwner, types2.RoleAdmin, types2.RoleOwner | types2.RoleAuditor, types2.RoleAdmin | types2.RoleAuditor},
+					).Count(&adminCount).Error; err != nil {
+						return err
+					}
+
+					if adminCount <= 1 {
+						return new(LastAdminError)
+					}
 				}
 
-				if adminCount <= 1 {
-					return new(LastAdminError)
-				}
+				existingUser.Role = updatedUser.Role
 			}
-
-			existingUser.Role = updatedUser.Role
 		}
 
 		// Copy the user object that is returned to the caller so they don't get the encrypted values

@@ -11,8 +11,8 @@
 
 	let { data } = $props();
 	let showSaved = $state(false);
-	let baseDefaultRole = $state(data.defaultUsersRole ?? Role.USER);
-	let prevBaseDefaultRole = $state(data.defaultUsersRole ?? Role.USER);
+	let baseDefaultRole = $state(data.defaultUsersRole ?? Role.BASIC);
+	let prevBaseDefaultRole = $state(data.defaultUsersRole ?? Role.BASIC);
 	let saving = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
 

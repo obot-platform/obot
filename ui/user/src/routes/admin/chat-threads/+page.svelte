@@ -15,7 +15,9 @@
 	import { getUserDisplayName } from '$lib/utils';
 	import type { FilterOptionsEndpoint } from '$lib/components/admin/filters-drawer/types';
 	import { debounce } from 'es-toolkit';
+	import { Group } from '$lib/services/admin/types';
 	import { openUrl } from '$lib/utils';
+	import { profile } from '$lib/stores';
 
 	type SupportedFilter = 'username' | 'email' | 'project' | 'query';
 
@@ -340,6 +342,7 @@
 						data={tableData}
 						fields={['name', 'userName', 'userEmail', 'projectName', 'created']}
 						onSelectRow={(d, isCtrlClick) => {
+							if (!profile.current.groups.includes(Group.AUDITOR)) return;
 							const url = `/admin/chat-threads/${d.id}`;
 							openUrl(url, isCtrlClick);
 						}}

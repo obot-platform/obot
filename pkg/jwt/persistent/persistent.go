@@ -16,8 +16,8 @@ import (
 	"github.com/MicahParks/jwkset"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -112,7 +112,10 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		}
 	}
 
-	groups := append([]string{authz.AuthenticatedGroup}, tokenContext.UserGroups...)
+	groups := tokenContext.UserGroups
+	if !slices.Contains(groups, types.GroupAuthenticated) {
+		groups = append(groups, types.GroupAuthenticated)
+	}
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			UID:    tokenContext.AuthProviderUserID,

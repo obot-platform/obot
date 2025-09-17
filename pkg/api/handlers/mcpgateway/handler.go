@@ -252,20 +252,20 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 	case "ping":
 		result = nmcp.PingResult{}
 	case "initialize":
-		go func(sessionID string) {
-			msg.Session.Wait()
-
-			if err := h.mcpSessionManager.CloseClient(context.Background(), m.serverConfig, sessionID); err != nil {
-				log.Errorf("Failed to shutdown server %s: %v", m.mcpServer.Name, err)
-			}
+		go func(session *nmcp.Session) {
+			session.Wait()
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			if _, _, err = h.LoadAndDelete(ctx, h, sessionID); err != nil {
-				log.Errorf("Failed to delete session %s: %v", sessionID, err)
+			if err := h.mcpSessionManager.CloseClient(ctx, m.serverConfig, session.ID()); err != nil {
+				log.Errorf("Failed to shutdown server %s: %v", m.mcpServer.Name, err)
 			}
-		}(msg.Session.ID())
+
+			if _, _, err = h.LoadAndDelete(ctx, h, session.ID()); err != nil {
+				log.Errorf("Failed to delete session %s: %v", session.ID(), err)
+			}
+		}(msg.Session)
 
 		if client.Session.InitializeResult.ServerInfo != (nmcp.ServerInfo{}) ||
 			client.Session.InitializeResult.Capabilities.Tools != nil ||

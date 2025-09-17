@@ -21,6 +21,8 @@
 	import { getUserDisplayName } from '$lib/utils';
 	import type { FilterOptionsEndpoint } from '$lib/components/admin/filters-drawer/types';
 	import { debounce } from 'es-toolkit';
+	import { Group } from '$lib/services/admin/types';
+	import { profile } from '$lib/stores';
 
 	type SupportedFilter = 'username' | 'email' | 'project' | 'query' | 'task';
 
@@ -298,6 +300,7 @@
 	}
 
 	function handleViewThread(thread: ProjectThread) {
+		if (!profile.current.groups.includes(Group.AUDITOR)) return;
 		// Navigate to thread view
 		goto(`/admin/task-runs/${thread.id}`);
 	}

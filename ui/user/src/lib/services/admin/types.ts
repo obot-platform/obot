@@ -113,8 +113,9 @@ export interface OrgUser {
 	created: string;
 	username: string;
 	email: string;
-	explicitAdmin: boolean;
+	explicitRole: boolean;
 	role: number;
+	groups: string[];
 	iconURL: string;
 	id: string;
 	lastActiveDay?: string;
@@ -131,10 +132,21 @@ export interface OrgGroup {
 }
 
 export const Role = {
-	ADMIN: 1,
-	USER: 10,
-	POWERUSER_PLUS: 2,
-	POWERUSER: 3
+	BASIC: 2,
+	OWNER: 4,
+	ADMIN: 8,
+	AUDITOR: 16,
+	POWERUSER: 32,
+	POWERUSER_PLUS: 64
+};
+
+export const Group = {
+	OWNER: 'owner',
+	ADMIN: 'admin',
+	POWERUSER_PLUS: 'power-user-plus',
+	POWERUSER: 'power-user',
+	USER: 'user',
+	AUDITOR: 'auditor'
 };
 
 export interface ProviderParameter {

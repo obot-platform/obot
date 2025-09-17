@@ -50,15 +50,11 @@ func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]type
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
 func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string) (*types.User, error) {
-	var role types2.Role
-	if _, ok := c.adminEmails[id.Email]; ok {
-		role = types2.RoleAdmin
-	}
-
-	return c.EnsureIdentityWithRole(ctx, id, timezone, role)
+	return c.EnsureIdentityWithRole(ctx, id, timezone, c.emailsWithExplictRoles[id.Email])
 }
 
-// EnsureIdentityWithRole ensures the given identity exists in the database with the given role, and returns the user associated with it.
+// EnsureIdentityWithRole ensures the given identity exists in the database with the at least the given role, and returns the user associated with it.
+// If the user already exists with a superset of the given role, it will not be updated.
 func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity, timezone string, role types2.Role) (*types.User, error) {
 	var (
 		user    *types.User
@@ -231,13 +227,13 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 
 			// We're using an existing user. See if there are any fields that need to be updated.
 			var userChanged bool
-			if user.Role == types2.RoleUnknown && role != types2.RoleUnknown {
-				user.Role = role
+			if !user.Role.HasRole(role) {
+				user.Role = user.Role.SwitchBaseRole(role)
 				userChanged = true
 			}
 
-			if c.IsExplicitAdmin(user.Email) && user.Role != types2.RoleAdmin {
-				user.Role = types2.RoleAdmin
+			if r := c.HasExplicitRole(user.Email); !user.Role.HasRole(r) {
+				user.Role = user.Role.SwitchBaseRole(r)
 				userChanged = true
 			}
 

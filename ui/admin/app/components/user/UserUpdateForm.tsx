@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 
 import { BootstrapUsername } from "~/lib/model/auth";
 import {
-	ExplicitAdminDescription,
+	ExplicitRoleDescription,
 	Role,
 	User,
 	roleFromString,
@@ -36,9 +36,10 @@ import { useAuthStatus } from "~/hooks/auth/useAuthStatus";
 import { useAsync } from "~/hooks/useAsync";
 
 const descriptions = {
+	[Role.Owner]: "Owners can manage all aspects of the platform.",
 	[Role.Admin]: "Admins can manage all aspects of the platform.",
-	[Role.User]:
-		"Users are restricted to only interracting with agents shared with them. They cannot access the Admin UI",
+	[Role.Basic]:
+		"Users are restricted to only interacting with agents shared with them. They cannot access the Admin UI",
 };
 
 export function UserUpdateForm({
@@ -95,8 +96,8 @@ export function UserUpdateForm({
 		}
 	});
 
-	const roleDescription = user.explicitAdmin
-		? ExplicitAdminDescription
+	const roleDescription = user.explicitRole
+		? ExplicitRoleDescription
 		: descriptions[currentRole];
 
 	return (
@@ -118,7 +119,7 @@ export function UserUpdateForm({
 							<Select
 								onValueChange={(value) => field.onChange(roleFromString(value))}
 								value={field.value.toString()}
-								disabled={user.explicitAdmin}
+								disabled={user.explicitRole}
 							>
 								<SelectTrigger className={className}>
 									<SelectValue placeholder="Select Role" />
