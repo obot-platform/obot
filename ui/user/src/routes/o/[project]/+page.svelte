@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { afterNavigate, replaceState } from '$app/navigation';
-	import EditMode from '$lib/components/EditMode.svelte';
+	import Obot from '$lib/components/Obot.svelte';
 	import { getLayout, initLayout } from '$lib/context/chatLayout.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
 	import { browser } from '$app/environment';
@@ -97,7 +97,15 @@
 <div class="h-svh">
 	{#if project}
 		{#key project.id}
-			<EditMode bind:project bind:currentThreadID assistant={data.assistant} />
+			<div class="bg-surface1 flex size-full flex-col">
+				<div class="flex grow overflow-auto">
+					<div class="contents h-full grow border-r-0">
+						<div class="size-full overflow-clip rounded-none transition-all">
+							<Obot bind:project bind:currentThreadID assistant={data.assistant} />
+						</div>
+					</div>
+				</div>
+			</div>
 		{/key}
 	{/if}
 </div>
