@@ -186,6 +186,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		// Copy the user so that we don't have to decrypt unless the user already exists.
 		u := *user
 		if err := userQuery.First(&u).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			u.Role = role
 			if err = c.encryptUser(ctx, &u); err != nil {
 				return nil, fmt.Errorf("failed to encrypt user: %w", err)
 			}
@@ -196,6 +197,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			// Copy the auto-generated values back to the user object.
 			user.ID = u.ID
 			user.CreatedAt = u.CreatedAt
+			user.Role = u.Role
 
 			// Call callback for new privileged users
 			if c.onNewPrivilegedUser != nil && (user.Role.HasRole(types2.RolePowerUser) || user.Role.HasRole(types2.RolePowerUserPlus)) {
