@@ -14,7 +14,7 @@
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
-	import type { MCPCatalog, MCPCatalogEntry } from '$lib/services/admin/types';
+	import type { MCPCatalog, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import {
 		AlertTriangle,
 		Eye,
@@ -44,8 +44,10 @@
 
 	initMcpServerAndEntries();
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
+	let users = $state<OrgUser[]>([]);
 
 	onMount(async () => {
+		users = await AdminService.listUsersIncludeDeleted();
 		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries, (entries, servers) => {
 			const serverId = new URL(window.location.href).searchParams.get('id');
 			if (serverId) {
@@ -89,13 +91,22 @@
 		mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length
 	);
 
+	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 	let tableData = $derived(
-		convertEntriesAndServersToTableData(mcpServerAndEntries.entries, mcpServerAndEntries.servers)
+		convertEntriesAndServersToTableData(
+			mcpServerAndEntries.entries,
+			mcpServerAndEntries.servers,
+			usersMap
+		)
 	);
 
 	let filteredTableData = $derived(
 		tableData
-			.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()))
+			.filter(
+				(d) =>
+					d.name.toLowerCase().includes(search.toLowerCase()) ||
+					d.registry.toLowerCase().includes(search.toLowerCase())
+			)
 			.sort((a, b) => {
 				return a.name.localeCompare(b.name);
 			})
@@ -168,7 +179,6 @@
 	});
 
 	const duration = PAGE_TRANSITION_DURATION;
-	const OFFICIAL_MCP_CATALOG_LINK = 'https://github.com/obot-platform/mcp-catalog';
 </script>
 
 <Layout>
@@ -242,15 +252,21 @@
 			{:else}
 				<Table
 					data={filteredTableData}
-					fields={['name', 'type', 'users', 'source', 'created']}
+					fields={['name', 'type', 'users', 'created', 'registry']}
 					onSelectRow={(d, isCtrlClick) => {
-						const url =
-							d.type === 'single' || d.type === 'remote'
-								? `/admin/mcp-servers/c/${d.id}`
+						let url = '';
+						if (d.type === 'single' || d.type === 'remote') {
+							url = d.data.powerUserWorkspaceID
+								? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/c/${d.id}`
+								: `/admin/mcp-servers/c/${d.id}`;
+						} else {
+							url = d.data.powerUserWorkspaceID
+								? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/s/${d.id}`
 								: `/admin/mcp-servers/s/${d.id}`;
+						}
 						openUrl(url, isCtrlClick);
 					}}
-					sortable={['name', 'type', 'users', 'source', 'created']}
+					sortable={['name', 'type', 'users', 'created', 'registry']}
 					noDataMessage="No catalog servers added."
 				>
 					{#snippet onRenderColumn(property, d)}
@@ -271,12 +287,6 @@
 							</div>
 						{:else if property === 'type'}
 							{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
-						{:else if property === 'source'}
-							{d.source === 'manual'
-								? 'Web Console'
-								: d.source === OFFICIAL_MCP_CATALOG_LINK
-									? 'Official'
-									: d.source}
 						{:else if property === 'created'}
 							{formatTimeAgo(d.created).relativeTime}
 						{:else}
@@ -310,7 +320,7 @@
 
 		{#if defaultCatalog?.sourceURLs && defaultCatalog.sourceURLs.length > 0 && defaultCatalog.id}
 			<div class="flex flex-col gap-2" in:slide={{ axis: 'y', duration }}>
-				<h2 class="mb-2 text-lg font-semibold">Git Source URLs</h2>
+				<h2 class="mb-2 text-lg font-semibold">Global Registry Git Source URLs</h2>
 
 				<Table
 					data={defaultCatalog?.sourceURLs?.map((url, index) => ({ id: index, url })) ?? []}

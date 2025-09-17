@@ -1,10 +1,12 @@
 import type { ConnectedServer } from '$lib/components/mcp/MyMcpServers.svelte';
+import { getUserDisplayName } from '$lib/utils';
 import {
 	ChatService,
 	type MCPCatalogEntry,
 	type MCPCatalogServer,
 	type MCPServer,
 	type MCPSubField,
+	type OrgUser,
 	type Project
 } from '..';
 
@@ -90,7 +92,10 @@ export function requiresUserUpdate(mcpServer?: ConnectedServer) {
 		: false;
 }
 
-function convertEntriesToTableData(entries: MCPCatalogEntry[] | undefined) {
+function convertEntriesToTableData(
+	entries: MCPCatalogEntry[] | undefined,
+	usersMap?: Map<string, OrgUser>
+) {
 	if (!entries) {
 		return [];
 	}
@@ -102,17 +107,23 @@ function convertEntriesToTableData(entries: MCPCatalogEntry[] | undefined) {
 				id: entry.id,
 				name: entry.manifest?.name ?? '',
 				icon: entry.manifest?.icon,
-				source: entry.sourceURL || 'manual',
 				data: entry,
 				users: entry.userCount ?? 0,
 				editable: !entry.sourceURL,
 				type: entry.manifest.runtime === 'remote' ? 'remote' : 'single',
-				created: entry.created
+				created: entry.created,
+				registry:
+					usersMap && entry.powerUserID
+						? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
+						: 'Global Registry'
 			};
 		});
 }
 
-function convertServersToTableData(servers: MCPCatalogServer[] | undefined) {
+function convertServersToTableData(
+	servers: MCPCatalogServer[] | undefined,
+	usersMap?: Map<string, OrgUser>
+) {
 	if (!servers) {
 		return [];
 	}
@@ -129,16 +140,21 @@ function convertServersToTableData(servers: MCPCatalogServer[] | undefined) {
 				data: server,
 				users: server.mcpServerInstanceUserCount ?? 0,
 				editable: true,
-				created: server.created
+				created: server.created,
+				registry:
+					usersMap && server.userID
+						? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
+						: 'Global Registry'
 			};
 		});
 }
 
 export function convertEntriesAndServersToTableData(
 	entries: MCPCatalogEntry[],
-	servers: MCPCatalogServer[]
+	servers: MCPCatalogServer[],
+	usersMap?: Map<string, OrgUser>
 ) {
-	const entriesTableData = convertEntriesToTableData(entries);
-	const serversTableData = convertServersToTableData(servers);
+	const entriesTableData = convertEntriesToTableData(entries, usersMap);
+	const serversTableData = convertServersToTableData(servers, usersMap);
 	return [...entriesTableData, ...serversTableData];
 }

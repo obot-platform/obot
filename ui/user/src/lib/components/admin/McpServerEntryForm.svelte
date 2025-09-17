@@ -32,7 +32,7 @@
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
-	import { openUrl } from '$lib/utils';
+	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
@@ -85,6 +85,17 @@
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
 	let listFilters = $state<Promise<MCPFilter[]>>();
 	let users = $state<OrgUser[]>([]);
+	let registry = $derived.by(() => {
+		if (!entry) return undefined;
+		console.log('entry', entry, entity, users);
+		const usersMap = new Map(users.map((user) => [user.id, user]));
+		const ownerUserId = 'isCatalogEntry' in entry ? entry.powerUserID : entry.userID;
+		const ownerDisplayName = ownerUserId && getUserDisplayName(usersMap, ownerUserId);
+		const isMe = ownerUserId === profile.current?.id;
+		return entity === 'workspace'
+			? `${isMe ? 'My' : ownerDisplayName || 'Unknown'}'s Registry`
+			: 'Global Registry';
+	});
 
 	let deleteServer = $state(false);
 	let deleteResourceFromRule = $state<{
@@ -325,6 +336,11 @@
 				<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
 					{type === 'single' ? 'Single User' : type === 'multi' ? 'Multi-User' : 'Remote'}
 				</div>
+				{#if registry}
+					<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
+						{registry}
+					</div>
+				{/if}
 			</div>
 			{#if !readonly}
 				<button

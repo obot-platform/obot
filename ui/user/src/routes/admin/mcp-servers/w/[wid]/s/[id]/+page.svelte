@@ -6,6 +6,7 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import { goto } from '$app/navigation';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -23,7 +24,7 @@
 	<div class="mt-6 flex h-full flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServer}
 			{@const currentLabel = mcpServer?.manifest?.name ?? 'MCP Server'}
-			<BackLink fromURL="user-mcp-servers" {currentLabel} />
+			<BackLink fromURL="mcp-servers" {currentLabel} />
 		{/if}
 
 		{#if workspaceId && mcpServer}
@@ -32,7 +33,12 @@
 				type="multi"
 				id={workspaceId}
 				entity="workspace"
-				readonly
+				onCancel={() => {
+					goto('/admin/mcp-servers');
+				}}
+				onSubmit={async () => {
+					goto('/admin/mcp-servers');
+				}}
 			/>
 		{/if}
 	</div>

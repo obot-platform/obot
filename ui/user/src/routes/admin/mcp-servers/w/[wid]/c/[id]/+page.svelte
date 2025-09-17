@@ -6,6 +6,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import { goto } from '$app/navigation';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -23,7 +24,7 @@
 	<div class="flex h-full flex-col gap-6 pt-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if catalogEntry}
 			{@const currentLabel = catalogEntry?.manifest?.name ?? 'MCP Server'}
-			<BackLink fromURL="user-mcp-servers" {currentLabel} />
+			<BackLink fromURL="mcp-servers" {currentLabel} />
 		{/if}
 
 		{#if workspaceId && catalogEntry}
@@ -32,7 +33,12 @@
 				type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
 				id={workspaceId}
 				entity="workspace"
-				readonly
+				onCancel={() => {
+					goto('/admin/mcp-servers');
+				}}
+				onSubmit={async () => {
+					goto('/admin/mcp-servers');
+				}}
 			/>
 		{/if}
 	</div>

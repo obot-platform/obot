@@ -32,9 +32,7 @@ import type {
 	BaseAgent,
 	MCPFilter,
 	MCPFilterManifest,
-	ProjectTask,
-	WorkspaceCatalogEntry,
-	WorkspaceCatalogServer
+	ProjectTask
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -745,18 +743,22 @@ export async function listCatalogCategories(catalogId: string, opts?: { fetch?: 
 }
 
 export async function listAllUserWorkspaceCatalogEntries(opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(
-		`/workspaces/all-entries`,
-		opts
-	)) as ItemsResponse<WorkspaceCatalogEntry>;
-	return response.items ?? [];
+	const response = (await doGet(`/workspaces/all-entries`, opts)) as ItemsResponse<MCPCatalogEntry>;
+	return (
+		response.items?.map((item) => {
+			return {
+				...item,
+				isCatalogEntry: true
+			};
+		}) ?? []
+	);
 }
 
 export async function listAllUserWorkspaceMCPServers(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet(
 		`/workspaces/all-servers`,
 		opts
-	)) as ItemsResponse<WorkspaceCatalogServer>;
+	)) as ItemsResponse<MCPCatalogServer>;
 	return response.items ?? [];
 }
 

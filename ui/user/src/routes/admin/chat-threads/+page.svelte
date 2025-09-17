@@ -12,7 +12,7 @@
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { page } from '$app/state';
 	import FiltersDrawer from '$lib/components/admin/filters-drawer/FiltersDrawer.svelte';
-	import { getUserDisplayName } from '$lib/components/admin/filters-drawer/utils';
+	import { getUserDisplayName } from '$lib/utils';
 	import type { FilterOptionsEndpoint } from '$lib/components/admin/filters-drawer/types';
 	import { debounce } from 'es-toolkit';
 	import { openUrl } from '$lib/utils';

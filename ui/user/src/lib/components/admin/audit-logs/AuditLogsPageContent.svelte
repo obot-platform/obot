@@ -26,7 +26,7 @@
 	import { localState } from '$lib/runes/localState.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
-	import { getUserDisplayName } from '../filters-drawer/utils';
+	import { getUserDisplayName } from '$lib/utils';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 
 	interface Props {
