@@ -563,6 +563,12 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRule(ref common.Refe
 							Format: "",
 						},
 					},
+					"powerUserID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"generated": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
