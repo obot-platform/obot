@@ -54,7 +54,7 @@
 	}
 
 	afterNavigate(() => {
-		const routesToShowChatLink = ['/mcp-servers', '/profile'];
+		const routesToShowChatLink = ['/mcp-servers', '/profile', '/mcp-publisher'];
 		inAdminRoute = window.location.pathname.includes('/admin');
 		showChatLink = routesToShowChatLink.includes(window.location.pathname) || inAdminRoute;
 		showMyMcpServersLink = window.location.pathname !== '/mcp-servers';

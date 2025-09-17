@@ -23,7 +23,6 @@
 	import { goto } from '$app/navigation';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import { getUserRoleLabel } from '$lib/utils';
 	import { getPoweruserWorkspace } from '$lib/context/poweruserWorkspace.svelte';
 
 	interface Props {
@@ -142,7 +141,6 @@
 						return {
 							id: subject.id,
 							displayName: user.email ?? user.username,
-							role: getUserRoleLabel(user.role),
 							type: 'User'
 						};
 					}
@@ -156,7 +154,6 @@
 						return {
 							id: subject.id,
 							displayName: group.name,
-							role: 'User',
 							type: 'Group'
 						};
 					}
@@ -164,7 +161,6 @@
 					return {
 						id: subject.id,
 						displayName: subject.id === '*' ? 'Everyone' : subject.id,
-						role: 'User',
 						type: 'Group'
 					};
 				})
@@ -286,7 +282,7 @@
 				)}
 				<Table
 					data={tableData}
-					fields={['displayName', 'type', 'role']}
+					fields={['displayName', 'type']}
 					headers={[{ property: 'displayName', title: 'Name' }]}
 					noDataMessage="No users or groups added."
 				>
