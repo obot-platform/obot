@@ -762,6 +762,14 @@ export async function listAllUserWorkspaceMCPServers(opts?: { fetch?: Fetcher })
 	return response.items ?? [];
 }
 
+export async function listAllUserWorkspaceAccessControlRules(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		`/workspaces/all-access-control-rules`,
+		opts
+	)) as ItemsResponse<AccessControlRule>;
+	return response.items ?? [];
+}
+
 export async function updateDefaultUsersRoleSettings(role: number, opts?: { fetch?: Fetcher }) {
 	await doPost('/user-default-role-settings', { role }, opts);
 }

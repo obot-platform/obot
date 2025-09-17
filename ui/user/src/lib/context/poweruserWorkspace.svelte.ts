@@ -12,7 +12,7 @@ export interface PoweruserWorkspaceContext {
 
 export function getPoweruserWorkspace() {
 	if (!hasContext(Key)) {
-		throw new Error('Admin MCP server and entries not initialized');
+		throw new Error('Workspace MCP server and entries not initialized');
 	}
 	return getContext<PoweruserWorkspaceContext>(Key);
 }

@@ -2,7 +2,8 @@
 	import {
 		PAGE_TRANSITION_DURATION,
 		ADMIN_SESSION_STORAGE,
-		DEFAULT_MCP_CATALOG_ID
+		DEFAULT_MCP_CATALOG_ID,
+		ADMIN_ALL_OPTION
 	} from '$lib/constants';
 	import { AdminService, ChatService } from '$lib/services';
 	import {
@@ -22,8 +23,8 @@
 	import Confirm from '../Confirm.svelte';
 	import { goto } from '$app/navigation';
 	import SearchMcpServers from './SearchMcpServers.svelte';
-	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import { getPoweruserWorkspace } from '$lib/context/poweruserWorkspace.svelte';
+	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import type { PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
 
 	interface Props {
 		topContent?: Snippet;
@@ -32,6 +33,8 @@
 		onUpdate?: (accessControlRule: AccessControlRule) => void;
 		entity?: 'workspace' | 'catalog';
 		id?: string | null;
+		mcpEntriesContextFn: () => AdminMcpServerAndEntriesContext | PoweruserWorkspaceContext;
+		all?: { label: string; description: string };
 	}
 
 	let {
@@ -39,6 +42,8 @@
 		accessControlRule: initialAccessControlRule,
 		onCreate,
 		onUpdate,
+		mcpEntriesContextFn,
+		all = ADMIN_ALL_OPTION,
 		id = DEFAULT_MCP_CATALOG_ID,
 		entity = 'catalog'
 	}: Props = $props();
@@ -62,10 +67,13 @@
 
 	let deletingRule = $state(false);
 
-	const adminMcpServerAndEntries =
-		entity === 'workspace' ? getPoweruserWorkspace() : getAdminMcpServerAndEntries();
-	let mcpServersMap = $derived(new Map(adminMcpServerAndEntries.servers.map((i) => [i.id, i])));
-	let mcpEntriesMap = $derived(new Map(adminMcpServerAndEntries.entries.map((i) => [i.id, i])));
+	const mcpServerAndEntries = mcpEntriesContextFn?.() ?? {
+		entries: [],
+		servers: [],
+		loading: false
+	};
+	let mcpServersMap = $derived(new Map(mcpServerAndEntries.servers.map((i) => [i.id, i])));
+	let mcpEntriesMap = $derived(new Map(mcpServerAndEntries.entries.map((i) => [i.id, i])));
 	let mcpServersTableData = $derived.by(() => {
 		if (mcpServersMap && mcpEntriesMap) {
 			return convertMcpServersToTableData(accessControlRule.resources ?? []);
@@ -85,7 +93,7 @@
 		);
 		if (
 			initialAdditionId &&
-			!adminMcpServerAndEntries.loading &&
+			!mcpServerAndEntries.loading &&
 			(mcpServersMap.size > 0 || mcpEntriesMap.size > 0)
 		) {
 			// Check if this resource is already added to prevent duplicates
@@ -190,7 +198,7 @@
 
 			return {
 				id: resource.id,
-				name: resource.id === '*' ? 'Everything' : resource.id,
+				name: resource.id === '*' ? all.label : resource.id,
 				type: 'selector'
 			};
 		});
@@ -468,7 +476,8 @@
 			...otherSelectors.map((id) => ({ type: 'selector' as const, id }))
 		];
 	}}
-	{entity}
+	{mcpEntriesContextFn}
+	{all}
 />
 
 <Confirm

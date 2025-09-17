@@ -19,7 +19,6 @@
 		MessageCircle,
 		MessageCircleMore,
 		Server,
-		ServerCog,
 		Settings,
 		SidebarClose,
 		SidebarOpen,

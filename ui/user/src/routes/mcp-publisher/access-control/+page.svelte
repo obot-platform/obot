@@ -7,7 +7,7 @@
 	import { goto } from '$app/navigation';
 	import { type AccessControlRule } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import { onMount } from 'svelte';
 	import { ChatService } from '$lib/services/index.js';
@@ -152,7 +152,13 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<AccessControlRuleForm onCreate={navigateToCreated} entity="workspace" id={workspaceId}>
+		<AccessControlRuleForm
+			onCreate={navigateToCreated}
+			entity="workspace"
+			id={workspaceId}
+			mcpEntriesContextFn={getPoweruserWorkspace}
+			all={MCP_PUBLISHER_ALL_OPTION}
+		>
 			{#snippet topContent()}
 				<button
 					onclick={() => (showCreateRule = false)}

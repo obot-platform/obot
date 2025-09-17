@@ -3,22 +3,22 @@
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { browser } from '$app/environment';
 	import {
 		fetchMcpServerAndEntries,
-		getPoweruserWorkspace,
+		getAdminMcpServerAndEntries,
 		initMcpServerAndEntries
-	} from '$lib/context/poweruserWorkspace.svelte.js';
+	} from '$lib/context/admin/mcpServerAndEntries.svelte.js';
 
 	let { data } = $props();
 	const { accessControlRule: initialRule, workspaceId } = data;
 	let accessControlRule = $state(initialRule);
 	const duration = PAGE_TRANSITION_DURATION;
 
-	const defaultRoute = '/mcp-publisher/access-control';
+	const defaultRoute = `/admin/access-control`;
 	let fromURL = $state(defaultRoute);
 
 	onMount(() => {
@@ -31,23 +31,21 @@
 	initMcpServerAndEntries();
 
 	onMount(async () => {
-		if (workspaceId) {
-			fetchMcpServerAndEntries(workspaceId);
-		}
+		const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
+		fetchMcpServerAndEntries(defaultCatalogId);
 	});
 </script>
 
-<Layout showUserLinks>
+<Layout>
 	<div class="my-4 h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
 		<AccessControlRuleForm
 			{accessControlRule}
 			onUpdate={() => {
-				goto('/mcp-publisher/access-control');
+				goto('/admin/access-control');
 			}}
 			entity="workspace"
 			id={workspaceId}
-			mcpEntriesContextFn={getPoweruserWorkspace}
-			all={MCP_PUBLISHER_ALL_OPTION}
+			mcpEntriesContextFn={getAdminMcpServerAndEntries}
 		>
 			{#snippet topContent()}
 				<BackLink

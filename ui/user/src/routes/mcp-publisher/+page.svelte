@@ -185,8 +185,6 @@
 							</div>
 						{:else if property === 'type'}
 							{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
-						{:else if property === 'source'}
-							{d.source === 'manual' ? 'Web Console' : d.source}
 						{:else if property === 'created'}
 							{formatTimeAgo(d.created).relativeTime}
 						{:else}

@@ -271,6 +271,8 @@ export interface AccessControlRule extends Omit<AccessControlRuleManifest, 'id'>
 	deleted?: string;
 	links?: Record<string, string>;
 	metadata?: Record<string, string>;
+	powerUserID?: string;
+	powerUserWorkspaceID?: string;
 }
 
 export interface BootstrapStatus {

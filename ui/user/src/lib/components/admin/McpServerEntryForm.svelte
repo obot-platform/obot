@@ -87,13 +87,12 @@
 	let users = $state<OrgUser[]>([]);
 	let registry = $derived.by(() => {
 		if (!entry) return undefined;
-		console.log('entry', entry, entity, users);
 		const usersMap = new Map(users.map((user) => [user.id, user]));
 		const ownerUserId = 'isCatalogEntry' in entry ? entry.powerUserID : entry.userID;
 		const ownerDisplayName = ownerUserId && getUserDisplayName(usersMap, ownerUserId);
 		const isMe = ownerUserId === profile.current?.id;
 		return entity === 'workspace'
-			? `${isMe ? 'My' : ownerDisplayName || 'Unknown'}'s Registry`
+			? `${isMe ? 'My' : `${ownerDisplayName || 'Unknown'}'s`} Registry`
 			: 'Global Registry';
 	});
 
@@ -139,6 +138,7 @@
 					? ChatService.listWorkspaceAccessControlRules(id)
 					: AdminService.listAccessControlRules();
 		} else if (selected === 'filters' && entity !== 'workspace') {
+			// add filters back in for workspace once supported for workspace
 			listFilters = AdminService.listMCPFilters();
 		}
 	});
@@ -188,7 +188,7 @@
 		const name = entry.manifest.name;
 		sessionStorage.setItem(
 			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
-			JSON.stringify({ id: entry.id, name, type })
+			JSON.stringify({ id: entry.id, name, type, entity, entityId: id })
 		);
 	}
 
@@ -509,24 +509,30 @@
 					{ title: 'Rule', property: 'displayName' },
 					{ title: 'Accessible To', property: 'resources' }
 				]}
-				onSelectRow={entity !== 'workspace' || (entity === 'workspace' && !readonly)
-					? (d, isCtrlClick) => {
-							if (!entry) return;
-							setLastVisitedMcpServer();
+				onSelectRow={(d, isCtrlClick) => {
+					if (!entry) return;
+					setLastVisitedMcpServer();
 
-							const url =
-								entity === 'workspace'
-									? `/mcp-publisher/access-control/${d.id}?from=${encodeURIComponent(`mcp-publisher/${entry.id}`)}`
-									: `/admin/access-control/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry.id}`)}`;
-							openUrl(url, isCtrlClick);
-						}
-					: undefined}
+					const isAdminRoute = window.location.pathname.includes('/admin/');
+
+					let url = '';
+					const from =
+						entity === 'workspace' && !isAdminRoute
+							? encodeURIComponent(`mcp-publisher/${entry.id}`)
+							: encodeURIComponent(`mcp-servers/${entry.id}`);
+					if (entity === 'workspace') {
+						url = !isAdminRoute
+							? `/mcp-publisher/access-control/${d.id}?from=${from}`
+							: `/admin/access-control/w/${id}/r/${d.id}?from=${from}`;
+					} else {
+						url = `/admin/access-control/${d.id}?from=${from}`;
+					}
+					openUrl(url, isCtrlClick);
+				}}
 			>
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'resources'}
-						{@const referencedResource = d.resources?.find(
-							(r) => r.id === entry?.id || r.id === '*'
-						)}
+						{@const hasEveryone = d.subjects?.find((s) => s.id === '*')}
 						{@const { totalUsers, totalGroups } = d.subjects?.reduce(
 							(acc, s) => {
 								if (s.type === 'user') {
@@ -538,7 +544,7 @@
 							},
 							{ totalUsers: 0, totalGroups: 0 }
 						) ?? { totalUsers: 0, totalGroups: 0 }}
-						{#if referencedResource?.id === '*'}
+						{#if hasEveryone}
 							Everyone
 						{:else}
 							{@const userCount = `${totalUsers} user${totalUsers === 1 ? '' : 's'}`}

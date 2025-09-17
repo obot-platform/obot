@@ -5,7 +5,7 @@
 	import { BookOpenText, ChevronLeft, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
-	import { type AccessControlRule } from '$lib/services/admin/types';
+	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
@@ -16,7 +16,7 @@
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService } from '$lib/services/index.js';
-	import { openUrl } from '$lib/utils.js';
+	import { getUserDisplayName, openUrl } from '$lib/utils.js';
 
 	let { data } = $props();
 	const { accessControlRules: initialRules } = data;
@@ -28,6 +28,18 @@
 	let accessControlRules = $state(initialRules);
 	let showCreateRule = $state(false);
 	let ruleToDelete = $state<AccessControlRule>();
+
+	let users = $state<OrgUser[]>([]);
+	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
+	let tableData = $derived(
+		accessControlRules.map((rule) => {
+			const owner = rule.powerUserID ? getUserDisplayName(usersMap, rule.powerUserID) : undefined;
+			return {
+				...rule,
+				registry: owner ? `${owner || 'Unknown'}'s Registry` : 'Global Registry'
+			};
+		})
+	);
 
 	onMount(() => {
 		const url = new URL(window.location.href);
@@ -49,6 +61,7 @@
 
 	onMount(async () => {
 		fetchMcpServerAndEntries(defaultCatalogId);
+		users = await AdminService.listUsersIncludeDeleted();
 	});
 </script>
 
@@ -89,10 +102,12 @@
 					</div>
 				{:else}
 					<Table
-						data={accessControlRules}
-						fields={['displayName', 'servers']}
+						data={tableData}
+						fields={['displayName', 'servers', 'registry']}
 						onSelectRow={(d, isCtrlClick) => {
-							const url = `/admin/access-control/${d.id}`;
+							const url = d.powerUserWorkspaceID
+								? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
+								: `/admin/access-control/${d.id}`;
 							openUrl(url, isCtrlClick);
 						}}
 						headers={[
@@ -101,6 +116,7 @@
 								property: 'displayName'
 							}
 						]}
+						sortable={['displayName', 'servers', 'registry']}
 					>
 						{#snippet actions(d)}
 							<button
@@ -151,7 +167,10 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<AccessControlRuleForm onCreate={navigateToCreated}>
+		<AccessControlRuleForm
+			onCreate={navigateToCreated}
+			mcpEntriesContextFn={getAdminMcpServerAndEntries}
+		>
 			{#snippet topContent()}
 				<button
 					onclick={() => (showCreateRule = false)}

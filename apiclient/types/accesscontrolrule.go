@@ -6,6 +6,7 @@ type AccessControlRule struct {
 	Metadata                  `json:",inline"`
 	MCPCatalogID              string `json:"mcpCatalogID"`
 	PowerUserWorkspaceID      string `json:"powerUserWorkspaceID,omitempty"`
+	PowerUserID               string `json:"powerUserID,omitempty"`
 	Generated                 bool   `json:"generated,omitempty"`
 	AccessControlRuleManifest `json:",inline"`
 }

@@ -2,15 +2,17 @@
 	import { Check, LoaderCircle, Server } from 'lucide-svelte';
 	import Search from '../Search.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import { type AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { stripMarkdownToText } from '$lib/markdown';
-	import { getPoweruserWorkspace } from '$lib/context/poweruserWorkspace.svelte';
+	import { type PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
+	import { ADMIN_ALL_OPTION } from '$lib/constants';
 
 	interface Props {
 		onAdd: (mcpCatalogEntryIds: string[], mcpServerIds: string[], otherSelectors: string[]) => void;
 		exclude?: string[];
-		entity?: 'workspace' | 'catalog';
+		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext | PoweruserWorkspaceContext;
+		all?: { label: string; description: string };
 	}
 
 	type SearchItem = {
@@ -21,21 +23,25 @@
 		type: 'mcpcatalogentry' | 'mcpserver' | 'all';
 	};
 
-	let { onAdd, exclude, entity = 'catalog' }: Props = $props();
+	let { onAdd, exclude, mcpEntriesContextFn, all = ADMIN_ALL_OPTION }: Props = $props();
 	let addMcpServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let search = $state('');
 	let selected = $state<SearchItem[]>([]);
 	let selectedMap = $derived(new Set(selected.map((i) => i.id)));
-	const mcpServerAndEntries =
-		entity === 'workspace' ? getPoweruserWorkspace() : getAdminMcpServerAndEntries();
+
+	const mcpServerAndEntries = mcpEntriesContextFn?.() ?? {
+		entries: [],
+		servers: [],
+		loading: false
+	};
 
 	let loading = $state(false);
 	let allData: SearchItem[] = $derived(
 		[
 			{
 				icon: undefined,
-				name: 'Everything',
-				description: 'All MCP servers and catalog entries',
+				name: all.label,
+				description: all.description,
 				id: '*',
 				type: 'all' as const
 			},

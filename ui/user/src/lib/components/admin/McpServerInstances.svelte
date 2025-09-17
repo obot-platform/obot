@@ -123,7 +123,7 @@
 		const name = entry.manifest?.name;
 		sessionStorage.setItem(
 			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
-			JSON.stringify({ id: entry.id, name, type })
+			JSON.stringify({ id: entry.id, name, type, entity, entityId: id })
 		);
 	}
 </script>

@@ -76,3 +76,13 @@ export const ADMIN_SESSION_STORAGE = {
 	ACCESS_CONTROL_RULE_CREATION: 'access-control-rule-creation',
 	LAST_VISITED_MCP_SERVER: 'last-visited-mcp-server'
 } as const;
+
+export const ADMIN_ALL_OPTION = {
+	label: 'All Servers in Global Registry',
+	description: 'Include all MCP servers in the global registry'
+};
+
+export const MCP_PUBLISHER_ALL_OPTION = {
+	label: 'All Servers in My Registry',
+	description: 'Include all MCP servers I have created in my registry'
+};
