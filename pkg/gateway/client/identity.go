@@ -213,9 +213,15 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			*user = u
 
 			// We're using an existing user. See if there are any fields that need to be updated.
+			// For an existing user, we should never update the role unless the user 's role is unknown, or it is a explict admin.
 			var userChanged bool
-			if role != types2.RoleUnknown && user.Role != role {
+			if user.Role == types2.RoleUnknown {
 				user.Role = role
+				userChanged = true
+			}
+
+			if c.IsExplicitAdmin(user.Email) && user.Role != types2.RoleAdmin {
+				user.Role = types2.RoleAdmin
 				userChanged = true
 			}
 
