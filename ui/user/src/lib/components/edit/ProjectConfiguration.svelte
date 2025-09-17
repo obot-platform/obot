@@ -11,8 +11,10 @@
 	import Confirm from '../Confirm.svelte';
 	import { autoHeight } from '$lib/actions/textarea';
 	import { poll } from '$lib/utils';
+	import { onMount } from 'svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
+	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 
 	interface Props {
 		project: Project;
@@ -24,6 +26,9 @@
 	let deleting = $state(false);
 	let saving = $state(false);
 	let upgradeLoading = $state(false);
+
+	const projectTools = getProjectTools();
+	const projectMCPs = getProjectMCPs();
 	const layout = getLayout();
 
 	let showUpgradeButton = $derived(
@@ -45,6 +50,14 @@
 				},
 				{ interval: 500, maxTimeout: 30000 }
 			);
+
+			// The upgrade was successful
+			// Refresh the sidebar mcp servers, tasks, and config form data
+			// Knowledge files are refreshed when the project changes because we're using
+			// bind:project={modifiedProject} in the ProjectConfigurationKnowledge component below
+			modifiedProject = project;
+			layout.tasks = (await ChatService.listTasks(project.assistantID, project.id)).items;
+			projectMCPs.items = await ChatService.listProjectMCPs(project.assistantID, project.id);
 		} catch (error) {
 			console.error('Failed to upgrade project from template:', error);
 		} finally {
@@ -76,7 +89,10 @@
 		closeAll(layout);
 	}
 
-	const projectTools = getProjectTools();
+	onMount(async () => {
+		// Get the latest project data so that we know if an upgrade is available
+		project = await ChatService.getProject(project.id);
+	});
 </script>
 
 <div class="min-h-full w-full flex-col bg-gray-50 dark:bg-black">
@@ -189,7 +205,7 @@
 				</div>
 			</div>
 
-			<ProjectConfigurationKnowledge project={modifiedProject} />
+			<ProjectConfigurationKnowledge bind:project={modifiedProject} />
 
 			{#if hasTool(projectTools.tools, 'memory')}
 				<Memories {project} />
