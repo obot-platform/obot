@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -30,7 +29,7 @@ func (n *NoAuth) AuthenticateRequest(req *http.Request) (*authenticator.Response
 			ProviderUserID:   "nobody",
 		},
 		req.Header.Get("X-Obot-User-Timezone"),
-		types2.RoleAdmin,
+		types2.RoleOwner|types2.RoleAuditor,
 	)
 	if err != nil {
 		return nil, false, err
@@ -40,7 +39,7 @@ func (n *NoAuth) AuthenticateRequest(req *http.Request) (*authenticator.Response
 		User: &user.DefaultInfo{
 			Name:   "nobody",
 			UID:    fmt.Sprintf("%d", gatewayUser.ID),
-			Groups: []string{authz.AdminGroup, authz.AuthenticatedGroup},
+			Groups: gatewayUser.Role.Groups(),
 		},
 	}, true, nil
 }

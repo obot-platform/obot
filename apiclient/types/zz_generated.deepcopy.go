@@ -3863,6 +3863,11 @@ func (in *UVXRuntimeConfig) DeepCopy() *UVXRuntimeConfig {
 func (in *User) DeepCopyInto(out *User) {
 	*out = *in
 	in.Metadata.DeepCopyInto(&out.Metadata)
+	if in.Groups != nil {
+		in, out := &in.Groups, &out.Groups
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	in.LastActiveDay.DeepCopyInto(&out.LastActiveDay)
 	if in.DeletedAt != nil {
 		in, out := &in.DeletedAt, &out.DeletedAt

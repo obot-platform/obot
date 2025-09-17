@@ -32,8 +32,7 @@ func parseMultiValueParam(queryValues map[string][]string, key string) []string 
 			continue
 		}
 		// Split by comma to support comma-separated values
-		parts := strings.Split(value, ",")
-		for _, part := range parts {
+		for part := range strings.SplitSeq(value, ",") {
 			part = strings.TrimSpace(part)
 			if part != "" {
 				result = append(result, part)
@@ -53,6 +52,7 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 
 	// Parse query parameters with support for multiple values
 	opts := gateway.MCPAuditLogOptions{
+		WithRequestAndResponse: req.UserIsAuditor(),
 		// Default limit is 100.
 		Limit: 100,
 		// Any of these filters that can be passed via query parameter need to be available in the "filter options" API.

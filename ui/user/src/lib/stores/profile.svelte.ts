@@ -4,9 +4,12 @@ import { type Profile } from '$lib/services/chat/types';
 
 const store = $state({
 	current: {
+		id: '',
+		username: '',
 		email: '',
 		iconURL: '',
-		role: 0
+		role: 0,
+		groups: []
 	} as Profile
 });
 
@@ -23,6 +26,7 @@ async function init() {
 				email: '',
 				iconURL: '',
 				role: 0,
+				groups: [],
 				unauthorized: true,
 				username: ''
 			};

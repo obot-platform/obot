@@ -37,6 +37,10 @@ func (db *DB) AutoMigrate() (err error) {
 		}
 	}()
 
+	if err = tx.AutoMigrate(&types.Migration{}); err != nil {
+		return fmt.Errorf("failed to migrate migration table: %w", err)
+	}
+
 	// Only run PostgreSQL-specific migrations if using PostgreSQL
 	if db.gormDB.Name() == "postgres" {
 		if err = addAuthProviderNameAndNamespace(tx); err != nil {
@@ -50,6 +54,10 @@ func (db *DB) AutoMigrate() (err error) {
 
 	if err = dropMCPOAuthTokensTableForUserIDPrimaryKey(tx); err != nil {
 		return fmt.Errorf("failed to drop mcp_server_instance table: %w", err)
+	}
+
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "auditor_user_role", migrateUserRoles); err != nil {
+		return fmt.Errorf("failed to migrate user roles: %w", err)
 	}
 
 	if err = migrateMCPAuditLogClientInfo(tx); err != nil {

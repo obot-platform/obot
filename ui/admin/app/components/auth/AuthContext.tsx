@@ -17,7 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const { data: me, isLoading } = useSWR(
 		UserService.getMe.key(),
 		() => UserService.getMe(),
-		{ fallbackData: { role: Role.User } as User }
+		{ fallbackData: { role: Role.Basic } as User }
 	);
 
 	const isSignedIn = !!me.username && me.username !== AuthDisabledUsername;

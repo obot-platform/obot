@@ -106,20 +106,22 @@
 				{/if}
 			</div>
 
-			<p class="my-2 text-base font-semibold">Request Headers</p>
+			{#if auditLog.requestHeaders}
+				<p class="my-2 text-base font-semibold">Request Headers</p>
 
-			<div
-				class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
-			>
-				<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
-				<div class="flex flex-col gap-1">
-					{#each Object.entries(auditLog.requestHeaders ?? {}) as [key, value] (key)}
-						<p>
-							<span class="font-medium">{key}</span>: {value}
-						</p>
-					{/each}
+				<div
+					class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
+				>
+					<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
+					<div class="flex flex-col gap-1">
+						{#each Object.entries(auditLog.requestHeaders ?? {}) as [key, value] (key)}
+							<p>
+								<span class="font-medium">{key}</span>: {value}
+							</p>
+						{/each}
+					</div>
 				</div>
-			</div>
+			{/if}
 
 			{#if Object.keys(auditLog.requestBody ?? {}).length > 0}
 				{@const body = JSON.stringify(auditLog.requestBody, null, 2)}
@@ -152,20 +154,22 @@
 					</p>
 				{/if}
 			</div>
-			<p class="mt-4 mb-2 text-base font-semibold">Response Headers</p>
 
-			<div
-				class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
-			>
-				<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
-				<div class="flex flex-col gap-1">
-					{#each Object.entries(auditLog.responseHeaders ?? {}) as [key, value] (key)}
-						<p>
-							<span class="font-medium">{key}</span>: {value}
-						</p>
-					{/each}
+			{#if auditLog.responseHeaders}
+				<p class="mt-4 mb-2 text-base font-semibold">Response Headers</p>
+				<div
+					class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
+				>
+					<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
+					<div class="flex flex-col gap-1">
+						{#each Object.entries(auditLog.responseHeaders ?? {}) as [key, value] (key)}
+							<p>
+								<span class="font-medium">{key}</span>: {value}
+							</p>
+						{/each}
+					</div>
 				</div>
-			</div>
+			{/if}
 
 			{#if auditLog.error}
 				<div class="mt-4 flex flex-col">

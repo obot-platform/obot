@@ -36,7 +36,6 @@ type AgentOptions struct {
 	Thread          *v1.Thread
 	WorkflowStepID  string
 	UserID          string
-	UserIsAdmin     bool
 	IgnoreMCPErrors bool
 }
 
@@ -174,7 +173,7 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 				mcpDisplayName = mcpServer.Spec.Alias
 			}
 
-			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, tokenService, projectMCPServer, opts.UserID, mcpDisplayName, serverURL, opts.UserIsAdmin, allowedTools)
+			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, tokenService, projectMCPServer, opts.UserID, mcpDisplayName, serverURL, allowedTools)
 			if err != nil {
 				if !opts.IgnoreMCPErrors {
 					return renderedAgent, fmt.Errorf("failed to populate tools for MCP server %q: %w", mcpDisplayName, err)

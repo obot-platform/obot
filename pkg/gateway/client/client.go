@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
@@ -14,27 +15,30 @@ import (
 )
 
 type Client struct {
-	db               *db.DB
-	encryptionConfig *encryptionconfig.EncryptionConfiguration
-	adminEmails      map[string]struct{}
-	auditLock        sync.Mutex
-	auditBuffer      []types.MCPAuditLog
-	kickAuditPersist chan struct{}
-	storageClient    kclient.Client
+	db                     *db.DB
+	encryptionConfig       *encryptionconfig.EncryptionConfiguration
+	emailsWithExplictRoles map[string]types2.Role
+	auditLock              sync.Mutex
+	auditBuffer            []types.MCPAuditLog
+	kickAuditPersist       chan struct{}
+	storageClient          kclient.Client
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int) *Client {
-	adminEmailsSet := make(map[string]struct{}, len(adminEmails))
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int) *Client {
+	adminEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
+	for _, email := range ownerEmails {
+		adminEmailsSet[email] = types2.RoleOwner
+	}
 	for _, email := range adminEmails {
-		adminEmailsSet[email] = struct{}{}
+		adminEmailsSet[email] = types2.RoleAdmin
 	}
 	c := &Client{
-		db:               db,
-		encryptionConfig: encryptionConfig,
-		adminEmails:      adminEmailsSet,
-		auditBuffer:      make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
-		kickAuditPersist: make(chan struct{}),
-		storageClient:    storageClient,
+		db:                     db,
+		encryptionConfig:       encryptionConfig,
+		emailsWithExplictRoles: adminEmailsSet,
+		auditBuffer:            make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
+		kickAuditPersist:       make(chan struct{}),
+		storageClient:          storageClient,
 	}
 
 	go c.runPersistenceLoop(ctx, auditLogPersistenceInterval)
@@ -50,7 +54,6 @@ func (c *Client) Close() error {
 	return errors.Join(append(errs, c.db.Close())...)
 }
 
-func (c *Client) IsExplicitAdmin(email string) bool {
-	_, ok := c.adminEmails[email]
-	return ok
+func (c *Client) HasExplicitRole(email string) types2.Role {
+	return c.emailsWithExplictRoles[email]
 }

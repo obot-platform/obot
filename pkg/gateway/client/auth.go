@@ -3,10 +3,7 @@ package client
 import (
 	"fmt"
 	"net/http"
-	"slices"
 
-	types2 "github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -45,17 +42,6 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, err
 	}
 
-	groups := resp.User.GetGroups()
-	if gatewayUser.Role == types2.RoleAdmin && !slices.Contains(groups, authz.AdminGroup) {
-		groups = append(groups, authz.AdminGroup)
-	}
-	if gatewayUser.Role == types2.RolePowerUserPlus && !slices.Contains(groups, authz.PowerUserPlusGroup) {
-		groups = append(groups, authz.PowerUserPlusGroup)
-	}
-	if gatewayUser.Role.HasRole(types2.RolePowerUser) && !slices.Contains(groups, authz.PowerUserGroup) {
-		groups = append(groups, authz.PowerUserGroup)
-	}
-
 	extra := resp.User.GetExtra()
 	extra["auth_provider_groups"] = identity.GetAuthProviderGroupIDs()
 
@@ -63,7 +49,7 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		Name:   gatewayUser.Username,
 		UID:    fmt.Sprintf("%d", gatewayUser.ID),
 		Extra:  extra,
-		Groups: append(groups, authz.AuthenticatedGroup),
+		Groups: append(resp.User.GetGroups(), gatewayUser.Role.Groups()...),
 	}
 	return resp, true, nil
 }

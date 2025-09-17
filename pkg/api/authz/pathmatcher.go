@@ -17,6 +17,10 @@ func newPathMatcher(paths ...string) *pathMatcher {
 type GetVar func(string) string
 
 func (p *pathMatcher) Match(req *http.Request) (GetVar, bool) {
+	if p == nil {
+		return nil, false
+	}
+
 	r := req.Clone(req.Context())
 	_, pattern := p.m.Handler(r)
 	if pattern == "" {

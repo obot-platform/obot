@@ -14,7 +14,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
@@ -192,11 +191,6 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		})
 	}
 
-	groups := []string{authz.AuthenticatedGroup}
-	if user.Role.HasRole(types.RoleAdmin) {
-		groups = append(groups, authz.AdminGroup)
-	}
-
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
 		Audience:              oauthAuthRequest.Spec.Resource,
@@ -207,7 +201,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		UserName:              user.Username,
 		UserEmail:             user.Email,
 		Picture:               user.IconURL,
-		UserGroups:            groups,
+		UserGroups:            user.Role.Groups(),
 		AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
 		AuthProviderUserID:    oauthAuthRequest.Spec.AuthProviderUserID,
@@ -292,11 +286,6 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		})
 	}
 
-	groups := []string{authz.AuthenticatedGroup}
-	if user.Role.HasRole(types.RoleAdmin) {
-		groups = append(groups, authz.AdminGroup)
-	}
-
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
 		Audience:              oauthToken.Spec.Resource,
@@ -307,7 +296,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		UserName:              user.Username,
 		UserEmail:             user.Email,
 		Picture:               user.IconURL,
-		UserGroups:            groups,
+		UserGroups:            user.Role.Groups(),
 		AuthProviderName:      oauthToken.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
 		AuthProviderUserID:    oauthToken.Spec.AuthProviderUserID,

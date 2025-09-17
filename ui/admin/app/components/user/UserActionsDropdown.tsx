@@ -43,13 +43,13 @@ export function UserActionsDropdown({ user }: { user: User }) {
 				<DropdownMenuContent side="top" align="end">
 					<DropdownMenuItem
 						onClick={() => setEditOpen(true)}
-						disabled={user.explicitAdmin}
+						disabled={user.explicitRole}
 					>
 						Update Role
 					</DropdownMenuItem>
 					<DropdownMenuItem
 						onClick={() => setDeleteOpen(true)}
-						disabled={user.explicitAdmin}
+						disabled={user.explicitRole}
 					>
 						Delete User
 					</DropdownMenuItem>

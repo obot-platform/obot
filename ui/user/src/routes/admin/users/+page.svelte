@@ -7,12 +7,13 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { BOOTSTRAP_USER_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { userRoleOptions } from '$lib/services/admin/constants.js';
-	import { Role, type OrgUser } from '$lib/services/admin/types';
+	import { Group, Role, type OrgUser } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
 	import { formatTimeAgo } from '$lib/time.js';
 	import { Handshake, LoaderCircle, ShieldAlert, Trash2, X } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
+	import { getUserRoleLabel } from '$lib/utils';
 
 	let { data } = $props();
 	const { users: initialUsers } = data;
@@ -22,7 +23,7 @@
 		users.map((user) => ({
 			...user,
 			name: getUserDisplayName(user),
-			role: userRoleOptions.find((role) => role.id === user.role)?.label ?? 'Unknown',
+			role: getUserRoleLabel(user.role),
 			roleId: user.role
 		}))
 	);
@@ -34,6 +35,17 @@
 	let deletingUser = $state<TableItem>();
 	let confirmHandoffToUser = $state<TableItem>();
 	let loading = $state(false);
+	let roleOptions = $state([
+		{ label: 'Owner', id: Role.OWNER },
+		{ label: 'Admin', id: Role.ADMIN },
+		{ label: 'Power User', id: Role.POWERUSER },
+		{ label: 'Power User+', id: Role.POWERUSER_PLUS },
+		{ label: 'Basic', id: Role.BASIC }
+	]);
+
+	if (!profile.current.groups.includes(Group.OWNER)) {
+		roleOptions.splice(0, 1);
+	}
 
 	function closeUpdateRoleDialog() {
 		updateRoleDialog?.close();
@@ -99,9 +111,9 @@
 						{#if property === 'role'}
 							<div class="flex items-center gap-1">
 								{d.role}
-								{#if d.explicitAdmin}
+								{#if d.explicitRole}
 									<div
-										use:tooltip={'This user is explicitly set as an admin at the system level and their role cannot be changed.'}
+										use:tooltip={"This user's role explicitly set at the system level and cannot be changed."}
 									>
 										<ShieldAlert class="size-5" />
 									</div>
@@ -118,7 +130,9 @@
 							<div class="default-dialog flex min-w-max flex-col p-2">
 								<button
 									class="menu-button"
-									disabled={d.explicitAdmin}
+									disabled={d.explicitRole ||
+										(d.groups.includes(Group.OWNER) &&
+											!profile.current.groups.includes(Group.OWNER))}
 									onclick={() => {
 										updatingRole = d;
 										updateRoleDialog?.showModal();
@@ -128,7 +142,9 @@
 								</button>
 								<button
 									class="menu-button text-red-500"
-									disabled={d.explicitAdmin}
+									disabled={d.explicitRole ||
+										(d.groups.includes(Group.OWNER) &&
+											!profile.current.groups.includes(Group.OWNER))}
 									onclick={() => (deletingUser = d)}
 								>
 									Delete User
@@ -179,13 +195,8 @@
 		<div>
 			<Select
 				class="bg-surface1 shadow-inner"
-				options={[
-					{ label: 'Admin', id: Role.ADMIN },
-					{ label: 'Basic User', id: Role.USER },
-					{ label: 'Power User', id: Role.POWERUSER },
-					{ label: 'Power User Plus', id: Role.POWERUSER_PLUS }
-				]}
-				selected={updatingRole.roleId}
+				options={roleOptions}
+				selected={updatingRole.roleId & Role.OWNER & Role.ADMIN & Role.BASIC}
 				onSelect={(option) => {
 					if (updatingRole) {
 						updatingRole.roleId = option.id as number;
@@ -201,7 +212,7 @@
 					if (!updatingRole) return;
 					if (
 						profile.current.username === BOOTSTRAP_USER_ID &&
-						updatingRole.roleId === Role.ADMIN
+						(updatingRole.roleId === Role.ADMIN || updatingRole.roleId === Role.OWNER)
 					) {
 						updateRoleDialog?.close();
 						confirmHandoffToUser = updatingRole;
@@ -227,7 +238,7 @@
 	{loading}
 	onsuccess={async () => {
 		if (!confirmHandoffToUser) return;
-		await updateUserRole(confirmHandoffToUser.id, Role.ADMIN, false);
+		await updateUserRole(confirmHandoffToUser.id, confirmHandoffToUser.roleId, false);
 		await AdminService.bootstrapLogout();
 		window.location.href = '/oauth2/sign_out?rd=/admin';
 		confirmHandoffToUser = undefined;
@@ -243,9 +254,9 @@
 	{#snippet note()}
 		<div class="mt-4 mb-8 flex flex-col gap-4">
 			<p>
-				Once you've established your first admin user, the bootstrap user currently being used will
-				be disabled. Upon completing this action, you'll be logged out and asked to log in using
-				your auth provider.
+				Once you've established your first admin or owner user, the bootstrap user currently being
+				used will be disabled. Upon completing this action, you'll be logged out and asked to log in
+				using your auth provider.
 			</p>
 			<p>Are you sure you want to continue?</p>
 		</div>

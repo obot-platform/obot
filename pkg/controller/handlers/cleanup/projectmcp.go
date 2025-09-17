@@ -11,7 +11,7 @@ import (
 func (c *Credentials) ShutdownProjectMCP(req router.Request, _ router.Response) error {
 	projectServer := req.Object.(*v1.ProjectMCPServer)
 
-	config, err := mcp.ProjectServerToConfig(c.tokenService, *projectServer, c.serverURL, projectServer.Spec.UserID, false)
+	config, err := mcp.ProjectServerToConfig(c.tokenService, *projectServer, c.serverURL, projectServer.Spec.UserID)
 	if err != nil {
 		return fmt.Errorf("failed to convert project server to config: %w", err)
 	}

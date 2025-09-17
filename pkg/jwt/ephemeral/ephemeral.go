@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/obot-platform/nah/pkg/randomtoken"
-	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/apiclient/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -49,7 +49,10 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
-	groups := append([]string{authz.AuthenticatedGroup}, tokenContext.UserGroups...)
+	groups := tokenContext.UserGroups
+	if !slices.Contains(groups, types.GroupAuthenticated) {
+		groups = append(groups, types.GroupAuthenticated)
+	}
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			UID:    tokenContext.UserID,

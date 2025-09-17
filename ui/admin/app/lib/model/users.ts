@@ -7,18 +7,23 @@ export type User = EntityMeta & {
 	role: Role;
 	iconURL: string;
 	timezone: string;
-	explicitAdmin: boolean;
+	explicitRole: boolean;
 	currentAuthProvider?: CommonAuthProviderId;
 	lastActiveDay?: string; // date
 };
 
 export const Role = {
-	Admin: 1,
-	User: 10,
+	Basic: 2,
+	Owner: 4,
+	Admin: 8,
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 
-const RoleLabels = { [Role.Admin]: "Admin", [Role.User]: "User" };
+const RoleLabels = {
+	[Role.Owner]: "Owner",
+	[Role.Admin]: "Admin",
+	[Role.Basic]: "User",
+};
 
 export const roleLabel = (role: Role) => RoleLabels[role] || "Unknown";
 export const roleFromString = (role: string) => {
@@ -30,8 +35,8 @@ export const roleFromString = (role: string) => {
 	return r;
 };
 
-export const ExplicitAdminDescription =
-	"This user is explicitly set as an admin at the system level and their role cannot be changed.";
+export const ExplicitRoleDescription =
+	"This user's role is explicitly set at the system level and cannot be changed.";
 
 export function getUserDisplayName(user?: User) {
 	if (user?.currentAuthProvider === CommonAuthProviderIds.GITHUB) {

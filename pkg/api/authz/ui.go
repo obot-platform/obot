@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -50,12 +51,14 @@ func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
 	}
 
 	// For /admin/ subroutes (but not /admin/ itself), only allow admin users
-	if strings.HasPrefix(req.URL.Path, "/admin/") && req.URL.Path != "/admin/" {
-		return slices.Contains(user.GetGroups(), AdminGroup)
+	if rest, ok := strings.CutPrefix(req.URL.Path, "/admin/"); ok && rest != "" {
+		return slices.ContainsFunc(user.GetGroups(), func(group string) bool {
+			return group == types.GroupAdmin || group == types.GroupOwner
+		})
 	}
 
 	if strings.HasPrefix(req.URL.Path, "/mcp-publisher/") {
-		return slices.Contains(user.GetGroups(), PowerUserGroup)
+		return slices.Contains(user.GetGroups(), types.GroupPowerUser)
 	}
 
 	// Matches and is not API

@@ -94,6 +94,7 @@ type Config struct {
 	EnableAuthentication       bool     `usage:"Enable authentication" default:"false"`
 	ForceEnableBootstrap       bool     `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
 	AuthAdminEmails            []string `usage:"Emails of admin users"`
+	AuthOwnerEmails            []string `usage:"Emails of owner users"`
 	AgentsDir                  string   `usage:"The directory to auto load agents on start (default $XDG_CONFIG_HOME/.obot/agents)"`
 	StaticDir                  string   `usage:"The directory to serve static files from"`
 	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
@@ -355,7 +356,15 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
-	gatewayClient := client.New(ctx, gatewayDB, storageClient, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize)
+	gatewayClient := client.New(
+		ctx,
+		gatewayDB,
+		storageClient,
+		encryptionConfig,
+		config.AuthOwnerEmails,
+		config.AuthAdminEmails,
+		time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second,
+		config.MCPAuditLogsPersistBatchSize)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)

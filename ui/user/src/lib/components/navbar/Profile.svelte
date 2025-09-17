@@ -2,6 +2,7 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile, responsive, darkMode } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
+	import { Group } from '$lib/services/admin/types';
 	import {
 		Book,
 		LayoutDashboard,
@@ -102,7 +103,7 @@
 						{profile.current.displayName || 'Anonymous'}
 					</span>
 					<span class="text-sm text-gray-500">
-						{profile.current.role === 1 ? 'Admin' : 'User'}
+						{profile.current.groups.includes(Group.ADMIN) ? 'Admin' : 'User'}
 					</span>
 				</div>
 			</div>
@@ -123,7 +124,7 @@
 	{/snippet}
 	{#snippet body()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
-			{#if profile.current.role === Role.ADMIN && !inAdminRoute}
+			{#if profile.current.groups.includes(Group.ADMIN) && !inAdminRoute}
 				<button
 					onclick={(event) => {
 						const asNewTab = event?.ctrlKey || event?.metaKey;
