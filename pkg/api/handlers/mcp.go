@@ -877,6 +877,13 @@ func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPSer
 		return "", v1.MCPServer{}, mcp.ServerConfig{}, err
 	}
 
+	var mcpServerEntry v1.MCPServerCatalogEntry
+	if err := req.Get(&mcpServerEntry, server.Spec.MCPServerCatalogEntryName); err != nil {
+		return "", v1.MCPServer{}, mcp.ServerConfig{}, err
+	}
+
+	server.Spec.MCPCatalogID = mcpServerEntry.Spec.MCPCatalogName
+
 	switch {
 	case instance.Name != "":
 		server, config, err := serverFromMCPServerInstance(req, instance)

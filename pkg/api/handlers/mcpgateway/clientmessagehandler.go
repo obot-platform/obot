@@ -16,7 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 )
 
-func (h *Handler) asClientOption(session *nmcp.Session, userID, mcpID, mcpServerNamespace, mcpServerName, serverDisplayName, serverCatalogEntryName string) nmcp.ClientOption {
+func (h *Handler) asClientOption(session *nmcp.Session, userID, mcpID, mcpServerNamespace, mcpServerName, serverDisplayName, serverCatalogEntryName, serverCatalogName string) nmcp.ClientOption {
 	return nmcp.ClientOption{
 		ClientName:   "Obot MCP Gateway",
 		TokenStorage: h.tokenStore.ForUserAndMCP(userID, mcpID),
@@ -33,6 +33,7 @@ func (h *Handler) asClientOption(session *nmcp.Session, userID, mcpID, mcpServer
 				serverName:             mcpServerName,
 				serverDisplayName:      serverDisplayName,
 				serverCatalogEntryName: serverCatalogEntryName,
+				serverCatalogName:      serverCatalogName,
 			},
 		}).onMessage,
 	}
@@ -107,7 +108,7 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 	}()
 
 	var webhooks []mcp.Webhook
-	webhooks, err = c.webhookHelper.GetWebhooksForMCPServer(ctx, c.gptClient, c.session.serverNamespace, c.session.serverName, c.session.serverCatalogEntryName, auditLog.CallType, auditLog.CallIdentifier)
+	webhooks, err = c.webhookHelper.GetWebhooksForMCPServer(ctx, c.gptClient, c.session.serverNamespace, c.session.serverName, c.session.serverCatalogEntryName, c.session.serverCatalogName, auditLog.CallType, auditLog.CallIdentifier)
 	if err != nil {
 		msg.SendError(ctx, err)
 		auditLog.ResponseStatus = http.StatusInternalServerError
@@ -181,4 +182,5 @@ type gatewaySession struct {
 	serverName             string
 	serverDisplayName      string
 	serverCatalogEntryName string
+	serverCatalogName      string
 }

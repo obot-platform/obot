@@ -22,6 +22,7 @@ func (h *Handler) CleanupResources(req router.Request, _ router.Response) error 
 	var (
 		mcpServer    v1.MCPServer
 		catalogEntry v1.MCPServerCatalogEntry
+		mcpCatalog   v1.MCPCatalog
 		err          error
 	)
 	for _, resource := range webhookValidation.Spec.Manifest.Resources {
@@ -39,6 +40,12 @@ func (h *Handler) CleanupResources(req router.Request, _ router.Response) error 
 				newResources = append(newResources, resource)
 			} else if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to get mcp server catalog entry %s: %w", resource.ID, err)
+			}
+		case types.ResourceTypeMcpCatalog:
+			if err = req.Get(&mcpCatalog, req.Namespace, resource.ID); err == nil {
+				newResources = append(newResources, resource)
+			} else if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to get mcp catalog %s: %w", resource.ID, err)
 			}
 		}
 	}

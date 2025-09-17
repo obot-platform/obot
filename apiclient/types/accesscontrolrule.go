@@ -67,7 +67,7 @@ type Resource struct {
 
 func (r Resource) Validate() error {
 	switch r.Type {
-	case ResourceTypeMCPServerCatalogEntry, ResourceTypeMCPServer:
+	case ResourceTypeMCPServerCatalogEntry, ResourceTypeMCPServer, ResourceTypeMcpCatalog:
 		if r.ID == "" {
 			return fmt.Errorf("resource ID is required")
 		}
@@ -87,6 +87,7 @@ type ResourceType string
 const (
 	ResourceTypeMCPServerCatalogEntry ResourceType = "mcpServerCatalogEntry"
 	ResourceTypeMCPServer             ResourceType = "mcpServer"
+	ResourceTypeMcpCatalog            ResourceType = "mcpCatalog"
 	ResourceTypeSelector              ResourceType = "selector"
 )
 

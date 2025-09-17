@@ -442,7 +442,7 @@ export interface MCPFilterManifest {
 }
 
 export interface MCPFilterResource {
-	type: 'mcpServerCatalogEntry' | 'mcpServer' | 'selector';
+	type: 'mcpServerCatalogEntry' | 'mcpServer' | 'selector' | 'mcpCatalog';
 	id: string;
 }
 

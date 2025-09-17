@@ -197,11 +197,6 @@ func (h *AccessControlRuleHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("access control rule does not belong to workspace %s", workspaceID)
 	}
 
-	// Prevent updating generated access control rules
-	if existing.Spec.Generated {
-		return types.NewErrBadRequest("cannot update system-generated access control rule")
-	}
-
 	// Validate that referenced resources exist in the same scope
 	if catalogID != "" {
 		if err := h.validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
@@ -254,11 +249,6 @@ func (*AccessControlRuleHandler) Delete(req api.Context) error {
 		return types.NewErrBadRequest("access control rule does not belong to catalog %s", catalogID)
 	} else if workspaceID != "" && rule.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrBadRequest("access control rule does not belong to workspace %s", workspaceID)
-	}
-
-	// Prevent deleting generated access control rules
-	if rule.Spec.Generated {
-		return types.NewErrBadRequest("cannot delete system-generated access control rule")
 	}
 
 	return req.Delete(&v1.AccessControlRule{

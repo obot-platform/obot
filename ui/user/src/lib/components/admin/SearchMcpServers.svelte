@@ -13,6 +13,7 @@
 		exclude?: string[];
 		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext | PoweruserWorkspaceContext;
 		all?: { label: string; description: string };
+		type: 'acr' | 'filter';
 	}
 
 	type SearchItem = {
@@ -20,10 +21,10 @@
 		name: string;
 		description: string | undefined;
 		id: string;
-		type: 'mcpcatalogentry' | 'mcpserver' | 'all';
+		type: 'mcpcatalogentry' | 'mcpserver' | 'all' | 'mcpCatalog';
 	};
 
-	let { onAdd, exclude, mcpEntriesContextFn, all = ADMIN_ALL_OPTION }: Props = $props();
+	let { onAdd, exclude, mcpEntriesContextFn, all = ADMIN_ALL_OPTION, type }: Props = $props();
 	let addMcpServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let search = $state('');
 	let selected = $state<SearchItem[]>([]);
@@ -42,7 +43,7 @@
 				icon: undefined,
 				name: all.label,
 				description: all.description,
-				id: '*',
+				id: type === 'acr' ? '*' : 'default',
 				type: 'all' as const
 			},
 			...mcpServerAndEntries.entries.map((entry) => ({

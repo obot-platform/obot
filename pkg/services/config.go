@@ -580,6 +580,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			}
 			return results, nil
 		},
+		"catalog-names": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMcpCatalog {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
 	}); err != nil {
 		return nil, err
 	}

@@ -44,7 +44,7 @@
 				}
 			: {
 					name: '',
-					resources: [{ id: '*', type: 'selector' }],
+					resources: [{ id: 'default', type: 'mcpCatalog' }],
 					url: '',
 					secret: '',
 					selectors: []
@@ -95,7 +95,12 @@
 
 			return {
 				id: resource.id,
-				name: resource.id === '*' ? 'Everything' : resource.id,
+				name:
+					resource.id === '*' && resource.type === 'selector'
+						? 'Everything'
+						: resource.id === 'default' && resource.type === 'mcpCatalog'
+							? 'All Entries in Global Registry'
+							: resource.id,
 				type: resource.type
 			};
 		});
@@ -470,6 +475,7 @@
 <SearchMcpServers
 	bind:this={addMcpServerDialog}
 	exclude={filter.resources.map((r) => r.id)}
+	type="filter"
 	onAdd={async (mcpCatalogEntryIds, mcpServerIds, otherSelectors) => {
 		const catalogEntryResources = mcpCatalogEntryIds.map((id) => ({
 			id,
@@ -482,9 +488,9 @@
 			type: 'mcpServer' as const
 		}));
 		const selectorResources = otherSelectors.map((id) => ({
-			name: id === '*' ? 'Everything' : id,
+			name: id === '*' ? 'Everything' : id === 'default' ? 'All Entries in Global Registry' : id,
 			id,
-			type: 'selector' as const
+			type: id === '*' ? ('selector' as const) : ('mcpCatalog' as const)
 		}));
 		filter.resources = [
 			...filter.resources,
