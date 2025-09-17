@@ -1,5 +1,4 @@
 set -e
 mkdir -p /opt/google/chrome
-apk update
-apk add chromium
+apk add --no-cache chromium
 ln -sf /usr/bin/chromium-browser /opt/google/chrome/chrome
