@@ -47,6 +47,11 @@ func (h *ServerInstancesHandler) ListServerInstances(req api.Context) error {
 
 	convertedInstances := make([]types.MCPServerInstance, 0, len(instances.Items))
 	for _, instance := range instances.Items {
+		if instance.Spec.Template {
+			// Hide template instances from user list view
+			continue
+		}
+
 		slug, err := slugForMCPServerInstance(req.Context(), req.Storage, instance, req.User.GetUID())
 		if err != nil {
 			return fmt.Errorf("failed to determine slug for instance %s: %w", instance.Name, err)

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project } from '$lib/services';
-	import { LoaderCircle, X } from 'lucide-svelte';
+	import { LoaderCircle, X, AlertCircle } from 'lucide-svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import Memories from '$lib/components/edit/Memories.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
@@ -10,6 +10,9 @@
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { autoHeight } from '$lib/actions/textarea';
+	import { poll } from '$lib/utils';
+	import CopyButton from '$lib/components/CopyButton.svelte';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 
 	interface Props {
 		project: Project;
@@ -20,7 +23,34 @@
 	let confirmDelete = $state(false);
 	let deleting = $state(false);
 	let saving = $state(false);
+	let upgradeLoading = $state(false);
 	const layout = getLayout();
+
+	let showUpgradeButton = $derived(
+		!!project?.sourceProjectID &&
+			project.sourceProjectID.trim() !== '' &&
+			project?.templateUpgradeAvailable
+	);
+
+	async function upgradeFromTemplate() {
+		upgradeLoading = true;
+		const lastUpgraded = project.templateLastUpgraded;
+		try {
+			await ChatService.projectUpgradeFromTemplate(project.assistantID, project.id);
+			// Poll until the upgrade completes
+			await poll(
+				async () => {
+					project = await ChatService.getProject(project.id);
+					return project?.templateLastUpgraded !== lastUpgraded;
+				},
+				{ interval: 500, maxTimeout: 30000 }
+			);
+		} catch (error) {
+			console.error('Failed to upgrade project from template:', error);
+		} finally {
+			upgradeLoading = false;
+		}
+	}
 
 	async function handleDeleteProject() {
 		deleting = true;
@@ -60,6 +90,66 @@
 			</div>
 		</div>
 		<div class="flex flex-col gap-6">
+			{#if project.sourceProjectID}
+				<div class="flex flex-col gap-2">
+					<div class="flex items-center gap-2">
+						<h2 class="text-xl font-semibold">Shared Project Info</h2>
+						<InfoTooltip
+							text="This project was created by copying a shared project"
+							class="size-4"
+							classes={{ icon: 'size-4' }}
+						/>
+					</div>
+					<div
+						class="dark:bg-surface1 dark:border-surface3 flex h-fit w-full flex-col gap-4 rounded-lg border border-transparent bg-white p-6 shadow-sm"
+					>
+						<div class="flex flex-col gap-4">
+							{#if project.templatePublicID}
+								{@const shareUrl = `${window.location.origin}/t/${project.templatePublicID}`}
+								<div class="flex flex-col gap-2">
+									<p class="font-semibold">Public Share URL</p>
+									<div class="flex flex-wrap items-center gap-2 text-sm">
+										<CopyButton text={shareUrl} />
+										<span class="line-clamp-1 text-xs break-all text-gray-500">{shareUrl}</span>
+									</div>
+								</div>
+							{/if}
+
+							{#if project.templateLastUpgraded}
+								<div class="flex flex-col gap-2">
+									<p class="font-semibold">Last Upgraded</p>
+									<div class="flex items-center gap-2 text-sm">
+										<span>{new Date(project.templateLastUpgraded).toLocaleString()}</span>
+										{#if showUpgradeButton}
+											<button
+												class="button-primary px-2 py-1 text-[10px]"
+												onclick={upgradeFromTemplate}
+												disabled={upgradeLoading}
+											>
+												{#if upgradeLoading}
+													<LoaderCircle class="size-3 animate-spin" />
+												{:else}
+													Upgrade
+												{/if}
+											</button>
+										{/if}
+									</div>
+								</div>
+							{/if}
+
+							<p class="mt-1 flex items-start gap-1 text-xs text-gray-500">
+								<AlertCircle class="mt-0.5 size-3 text-amber-600 dark:text-amber-400" />
+								<span
+									>Changing fields such as name, description, instructions, MCP servers, tasks, or
+									knowledge will make this project ineligible to receive updates from the shared
+									project snapshot author!</span
+								>
+							</p>
+						</div>
+					</div>
+				</div>
+			{/if}
+
 			<div
 				class="dark:bg-surface1 dark:border-surface3 flex h-fit w-full flex-col gap-4 rounded-lg border border-transparent bg-white p-6 shadow-sm"
 			>

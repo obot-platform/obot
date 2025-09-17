@@ -35,5 +35,5 @@
 </div>
 
 <svelte:head>
-	<title>Copy Project Template | Obot</title>
+	<title>Copy Project Snapshot | Obot</title>
 </svelte:head>

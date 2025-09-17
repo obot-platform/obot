@@ -9,6 +9,10 @@ type Project struct {
 	SourceProjectID              string                       `json:"sourceProjectID,omitempty"`
 	UserID                       string                       `json:"userID,omitempty"`
 	WorkflowNamesFromIntegration WorkflowNamesFromIntegration `json:"workflowNamesFromIntegration,omitempty"`
+	TemplateUpgradeAvailable     bool                         `json:"templateUpgradeAvailable,omitempty"`
+	TemplateUpgradeInProgress    bool                         `json:"templateUpgradeInProgress,omitempty"`
+	TemplateLastUpgraded         *Time                        `json:"templateLastUpgraded,omitempty"`
+	TemplatePublicID             string                       `json:"templatePublicID,omitempty"`
 }
 
 type WorkflowNamesFromIntegration struct {

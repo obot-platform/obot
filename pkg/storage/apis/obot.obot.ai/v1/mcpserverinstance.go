@@ -69,6 +69,10 @@ type MCPServerInstanceSpec struct {
 	MCPServerCatalogEntryName string `json:"mcpServerCatalogEntryName,omitempty"`
 	// PowerUserWorkspaceID is the name of the PowerUserWorkspace that the server that this instance points to is owned by, if there is one.
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
+
+	// Template indicates whether this MCP server instance is a template instance.
+	// Template instances are hidden from user views and are used for creating copyable MCP server instances.
+	Template bool `json:"template,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

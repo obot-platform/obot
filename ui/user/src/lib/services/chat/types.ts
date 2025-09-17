@@ -512,6 +512,10 @@ export interface Project {
 	models?: Record<string, string[]>;
 	userID: string;
 	workflowNamesFromIntegration?: WorkflowNamesFromIntegration;
+	templateUpgradeAvailable?: boolean;
+	templateUpgradeInProgress?: boolean;
+	templateLastUpgraded?: string;
+	templatePublicID?: string;
 }
 
 export interface CreateProjectForm {
@@ -641,37 +645,19 @@ export interface ThreadManifest {
 	sharedTasks?: string[];
 }
 
-export interface ProjectTemplateManifest {
-	name?: string;
-	public?: boolean;
-	featured?: boolean;
-}
-
 export interface ProjectTemplate {
-	// Metadata fields
 	id: string;
 	created: string;
 	deleted?: string;
-
-	// ThreadManifest fields
 	projectSnapshot: ThreadManifest;
-
-	name: string;
-
-	// ProjectTemplateManifest fields
-	public?: boolean;
-	featured?: boolean;
-
-	// Explicit fields from ProjectTemplate struct
 	mcpServers: string[];
 	assistantID: string;
 	projectID: string;
 	publicID?: string;
 	ready?: boolean;
-}
-
-export interface ProjectTemplateList {
-	items: ProjectTemplate[];
+	lastUpdated?: string;
+	projectSnapshotStale?: boolean;
+	projectSnapshotUpgradeInProgress?: boolean;
 }
 
 export interface ModelProvider {

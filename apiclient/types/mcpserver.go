@@ -169,6 +169,10 @@ type MCPServer struct {
 
 	// DeploymentConditions contains key deployment conditions that indicate deployment health.
 	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
+
+	// Template indicates whether this MCP server is a template server.
+	// Template servers are hidden from user views and are used for creating project instances.
+	Template bool `json:"template,omitempty"`
 }
 
 type DeploymentCondition struct {

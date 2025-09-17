@@ -87,6 +87,9 @@ type MCPServerSpec struct {
 	PreviousURL string `json:"previousURL,omitempty"`
 	// PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this MCP server, if there is one.
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
+	// Template indicates whether this MCP server is a template server.
+	// Template servers are hidden from user views and are used for creating project instances.
+	Template bool `json:"template,omitempty"`
 }
 
 type MCPServerStatus struct {
