@@ -210,10 +210,10 @@ export function getUserDisplayName(
 	// Create an array of potential primary display values in order of preference
 	const primaryValues = [
 		user?.displayName,
-		user?.originalUsername,
 		user?.originalEmail,
-		user?.username,
+		user?.originalUsername,
 		user?.email,
+		user?.username,
 		'Unknown User'
 	].filter(Boolean);
 

@@ -32,13 +32,15 @@
 	let users = $state<OrgUser[]>([]);
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 	let tableData = $derived(
-		accessControlRules.map((rule) => {
-			const owner = rule.powerUserID ? getUserDisplayName(usersMap, rule.powerUserID) : undefined;
-			return {
-				...rule,
-				registry: owner ? `${owner || 'Unknown'}'s Registry` : 'Global Registry'
-			};
-		})
+		accessControlRules
+			.filter((rule) => (rule.powerUserID ? usersMap.has(rule.powerUserID) : true))
+			.map((rule) => {
+				const owner = rule.powerUserID ? getUserDisplayName(usersMap, rule.powerUserID) : undefined;
+				return {
+					...rule,
+					registry: owner ? `${owner || 'Unknown'}'s Registry` : 'Global Registry'
+				};
+			})
 	);
 
 	onMount(() => {

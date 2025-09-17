@@ -25,6 +25,7 @@
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import type { PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
+	import { getUserDisplayName } from '$lib/utils';
 
 	interface Props {
 		topContent?: Snippet;
@@ -141,14 +142,9 @@
 			subjects
 				.map((subject) => {
 					if (subject.type === 'user') {
-						const user = userMap.get(subject.id);
-						if (!user) {
-							return undefined;
-						}
-
 						return {
 							id: subject.id,
-							displayName: user.email ?? user.username,
+							displayName: getUserDisplayName(userMap, subject.id),
 							type: 'User'
 						};
 					}
