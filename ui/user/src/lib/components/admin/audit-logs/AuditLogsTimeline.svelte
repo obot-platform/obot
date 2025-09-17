@@ -130,14 +130,16 @@
 
 	const boundaries = $derived.by(() => {
 		const [frame, step] = timeFrame;
+
 		if (frame === 'minute') {
 			if (step === 1) {
 				return [startOfMinute, endOfMinute];
 			}
 
+			// When step is > 1, add extra step to the end boundary to ensure the last items are rendered
 			return [
 				(d: Date) => set(d, { minutes: Math.floor(d.getMinutes() / step) * step, seconds: 0 }),
-				(d: Date) => set(d, { minutes: Math.ceil(d.getMinutes() / step) * step, seconds: 0 })
+				(d: Date) => set(d, { minutes: Math.ceil(d.getMinutes() / step) * step + step, seconds: 0 })
 			];
 		}
 
@@ -147,10 +149,11 @@
 			}
 
 			// make the start boundary to start of day to ensure days are rendered correctly in ticks
+			// When step is > 1, add extra step to the end boundary to ensure the last items are rendered
 			return [
 				startOfDay,
 				(d: Date) =>
-					set(d, { hours: Math.ceil(d.getHours() / step) * step, minutes: 0, seconds: 0 })
+					set(d, { hours: Math.ceil(d.getHours() / step) * step + step, minutes: 0, seconds: 0 })
 			];
 		}
 
