@@ -78,11 +78,11 @@ export const ADMIN_SESSION_STORAGE = {
 } as const;
 
 export const ADMIN_ALL_OPTION = {
-	label: 'All Servers in Global Registry',
+	label: 'Everything in Global Registry',
 	description: 'Include all MCP servers in the global registry'
 };
 
 export const MCP_PUBLISHER_ALL_OPTION = {
-	label: 'All Servers in My Registry',
+	label: 'Everything in My Registry',
 	description: 'Include all MCP servers I have created in my registry'
 };

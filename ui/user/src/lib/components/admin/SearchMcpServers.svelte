@@ -7,6 +7,9 @@
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { type PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
 	import { ADMIN_ALL_OPTION } from '$lib/constants';
+	import { getUserDisplayName } from '$lib/utils';
+	import { AdminService, type OrgUser } from '$lib/services';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		onAdd: (mcpCatalogEntryIds: string[], mcpServerIds: string[], otherSelectors: string[]) => void;
@@ -22,13 +25,16 @@
 		description: string | undefined;
 		id: string;
 		type: 'mcpcatalogentry' | 'mcpserver' | 'all' | 'mcpCatalog';
+		registry?: string;
 	};
 
 	let { onAdd, exclude, mcpEntriesContextFn, all = ADMIN_ALL_OPTION, type }: Props = $props();
 	let addMcpServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let users = $state<OrgUser[]>([]);
 	let search = $state('');
 	let selected = $state<SearchItem[]>([]);
 	let selectedMap = $derived(new Set(selected.map((i) => i.id)));
+	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	const mcpServerAndEntries = mcpEntriesContextFn?.() ?? {
 		entries: [],
@@ -44,21 +50,26 @@
 				name: all.label,
 				description: all.description,
 				id: type === 'acr' ? '*' : 'default',
-				type: 'all' as const
+				type: 'all' as const,
+				registry: ''
 			},
 			...mcpServerAndEntries.entries.map((entry) => ({
 				icon: entry.manifest?.icon,
 				name: entry.manifest?.name || '',
 				description: entry.manifest?.description,
 				id: entry.id,
-				type: 'mcpcatalogentry' as const
+				type: 'mcpcatalogentry' as const,
+				registry: entry.powerUserID
+					? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
+					: ''
 			})),
 			...mcpServerAndEntries.servers.map((server) => ({
 				icon: server.manifest.icon,
 				name: server.manifest.name || '',
 				description: server.manifest.description,
 				id: server.id,
-				type: 'mcpserver' as const
+				type: 'mcpserver' as const,
+				registry: server.userID ? `${getUserDisplayName(usersMap, server.userID)}'s Registry` : ''
 			}))
 		].filter((item) => !exclude?.includes(item.id))
 	);
@@ -95,6 +106,10 @@
 		onAdd(mcpCatalogEntryIds, mcpServerIds, otherSelectors);
 		addMcpServerDialog?.close();
 	}
+
+	onMount(async () => {
+		users = await AdminService.listUsersIncludeDeleted();
+	});
 </script>
 
 <ResponsiveDialog
@@ -150,7 +165,14 @@
 									/>
 								{/if}
 								<div class="flex min-w-0 grow flex-col">
-									<p class="truncate">{item.name}</p>
+									<div class="flex items-center gap-2">
+										<p class="truncate">{item.name}</p>
+										{#if item.registry}
+											<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-[10px]">
+												{item.registry}
+											</div>
+										{/if}
+									</div>
 									<span class="line-clamp-2 text-xs text-gray-500">
 										{@html stripMarkdownToText(item.description ?? '')}
 									</span>

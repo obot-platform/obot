@@ -62,7 +62,8 @@
 
 	let saving = $state<boolean | undefined>();
 	let redirect = $state('');
-	let loadingUsersAndGroups = $state<Promise<{ users: OrgUser[]; groups: OrgGroup[] }>>();
+	let usersAndGroups = $state<{ users: OrgUser[]; groups: OrgGroup[] }>();
+	let loadingUsersAndGroups = $state(false);
 
 	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
 	let addMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
@@ -74,6 +75,7 @@
 		servers: [],
 		loading: false
 	};
+	let usersMap = $derived(new Map(usersAndGroups?.users.map((user) => [user.id, user]) ?? []));
 	let mcpServersMap = $derived(new Map(mcpServerAndEntries.servers.map((i) => [i.id, i])));
 	let mcpEntriesMap = $derived(new Map(mcpServerAndEntries.entries.map((i) => [i.id, i])));
 	let mcpServersTableData = $derived.by(() => {
@@ -84,9 +86,12 @@
 	});
 
 	onMount(async () => {
-		loadingUsersAndGroups = Promise.all([AdminService.listUsers(), AdminService.listGroups()]).then(
-			([users, groups]) => ({ users, groups })
-		);
+		loadingUsersAndGroups = true;
+		usersAndGroups = {
+			users: await AdminService.listUsers(),
+			groups: await AdminService.listGroups()
+		};
+		loadingUsersAndGroups = false;
 	});
 
 	$effect(() => {
@@ -174,6 +179,10 @@
 	}
 
 	function convertMcpServersToTableData(resources: AccessControlRuleResource[]) {
+		const owner = initialAccessControlRule?.powerUserID
+			? getUserDisplayName(usersMap, initialAccessControlRule.powerUserID)
+			: undefined;
+		const isMe = initialAccessControlRule?.powerUserID === profile.current?.id;
 		return resources.map((resource) => {
 			if (resource.type === 'mcpServerCatalogEntry') {
 				const entry = mcpEntriesMap.get(resource.id);
@@ -193,9 +202,15 @@
 				};
 			}
 
+			const allLabel = owner
+				? isMe
+					? 'Everything In My Registry'
+					: `Everything In ${owner}'s Registry`
+				: all.label;
+
 			return {
 				id: resource.id,
-				name: resource.id === '*' ? all.label : resource.id,
+				name: resource.id === '*' ? allLabel : resource.id,
 				type: 'selector'
 			};
 		});
@@ -223,12 +238,12 @@
 					<h1 class="flex items-center gap-4 text-2xl font-semibold">
 						{accessControlRule.displayName}
 					</h1>
-					{#await loadingUsersAndGroups then data}
+					{#if !loadingUsersAndGroups}
 						{#if initialAccessControlRule}
 							{@const registry = getRegistryLabel(
 								initialAccessControlRule.powerUserID,
 								profile.current?.id,
-								data?.users
+								usersAndGroups?.users
 							)}
 							{#if registry}
 								<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
@@ -236,7 +251,7 @@
 								</div>
 							{/if}
 						{/if}
-					{/await}
+					{/if}
 				</div>
 				<button
 					class="button-destructive flex items-center gap-1 text-xs font-normal"
@@ -275,11 +290,11 @@
 			<div class="mb-2 flex items-center justify-between">
 				<h2 class="text-lg font-semibold">User & Groups</h2>
 				<div class="relative flex items-center gap-4">
-					{#await loadingUsersAndGroups}
+					{#if loadingUsersAndGroups}
 						<button class="button-primary flex items-center gap-1 text-sm" disabled>
 							<Plus class="size-4" /> Add User/Group
 						</button>
-					{:then _data}
+					{:else}
 						<button
 							class="button-primary flex items-center gap-1 text-sm"
 							onclick={() => {
@@ -288,18 +303,18 @@
 						>
 							<Plus class="size-4" /> Add User/Group
 						</button>
-					{/await}
+					{/if}
 				</div>
 			</div>
-			{#await loadingUsersAndGroups}
+			{#if loadingUsersAndGroups}
 				<div class="my-2 flex items-center justify-center">
 					<LoaderCircle class="size-6 animate-spin" />
 				</div>
-			{:then data}
+			{:else}
 				{@const tableData = convertSubjectsToTableData(
 					accessControlRule.subjects ?? [],
-					data?.users ?? [],
-					data?.groups ?? []
+					usersAndGroups?.users ?? [],
+					usersAndGroups?.groups ?? []
 				)}
 				<Table
 					data={tableData}
@@ -321,7 +336,7 @@
 						</button>
 					{/snippet}
 				</Table>
-			{/await}
+			{/if}
 		</div>
 
 		<div class="flex flex-col gap-2">

@@ -31,14 +31,21 @@
 
 	let users = $state<OrgUser[]>([]);
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
-	let tableData = $derived(
-		accessControlRules
-			.filter((rule) => (rule.powerUserID ? usersMap.has(rule.powerUserID) : true))
+
+	let validAccessControlRules = $derived(
+		accessControlRules.filter((rule) => (rule.powerUserID ? usersMap.has(rule.powerUserID) : true))
+	);
+	let globalAccessControlRules = $derived(
+		validAccessControlRules.filter((rule) => !rule.powerUserID)
+	);
+	let userAccessControlRules = $derived(
+		validAccessControlRules
+			.filter((rule) => rule.powerUserID)
 			.map((rule) => {
 				const owner = rule.powerUserID ? getUserDisplayName(usersMap, rule.powerUserID) : undefined;
 				return {
 					...rule,
-					registry: owner ? `${owner || 'Unknown'}'s Registry` : 'Global Registry'
+					owner: owner || 'Unknown'
 				};
 			})
 	);
@@ -103,51 +110,103 @@
 						{@render addRuleButton()}
 					</div>
 				{:else}
-					<Table
-						data={tableData}
-						fields={['displayName', 'servers', 'registry']}
-						onSelectRow={(d, isCtrlClick) => {
-							const url = d.powerUserWorkspaceID
-								? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
-								: `/admin/access-control/${d.id}`;
-							openUrl(url, isCtrlClick);
-						}}
-						headers={[
-							{
-								title: 'Name',
-								property: 'displayName'
-							}
-						]}
-						sortable={['displayName', 'servers', 'registry']}
-					>
-						{#snippet actions(d)}
-							<button
-								class="icon-button hover:text-red-500"
-								onclick={(e) => {
-									e.stopPropagation();
-									ruleToDelete = d;
-								}}
-								use:tooltip={'Delete Rule'}
-							>
-								<Trash2 class="size-4" />
-							</button>
-						{/snippet}
-						{#snippet onRenderColumn(property, d)}
-							{#if property === 'servers'}
-								{@const hasEverything = d.resources?.find((r) => r.id === '*')}
-								{@const count = hasEverything
-									? totalServers
-									: ((d.resources &&
-											d.resources.filter(
-												(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
-											).length) ??
-										0)}
-								{count ? count : '-'}
-							{:else}
-								{d[property as keyof typeof d]}
-							{/if}
-						{/snippet}
-					</Table>
+					<div class="flex flex-col gap-2">
+						<h2 class="text-xl font-semibold">Global Access Control Rules</h2>
+						<Table
+							data={globalAccessControlRules}
+							fields={['displayName', 'servers']}
+							onSelectRow={(d, isCtrlClick) => {
+								const url = d.powerUserWorkspaceID
+									? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
+									: `/admin/access-control/${d.id}`;
+								openUrl(url, isCtrlClick);
+							}}
+							headers={[
+								{
+									title: 'Name',
+									property: 'displayName'
+								}
+							]}
+							sortable={['displayName', 'servers']}
+						>
+							{#snippet actions(d)}
+								<button
+									class="icon-button hover:text-red-500"
+									onclick={(e) => {
+										e.stopPropagation();
+										ruleToDelete = d;
+									}}
+									use:tooltip={'Delete Rule'}
+								>
+									<Trash2 class="size-4" />
+								</button>
+							{/snippet}
+							{#snippet onRenderColumn(property, d)}
+								{#if property === 'servers'}
+									{@const hasEverything = d.resources?.find((r) => r.id === '*')}
+									{@const count = hasEverything
+										? totalServers
+										: ((d.resources &&
+												d.resources.filter(
+													(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
+												).length) ??
+											0)}
+									{count ? count : '-'}
+								{:else}
+									{d[property as keyof typeof d]}
+								{/if}
+							{/snippet}
+						</Table>
+					</div>
+
+					<div class="flex flex-col gap-2">
+						<h2 class="text-xl font-semibold">User Created Access Control Rules</h2>
+						<Table
+							data={userAccessControlRules}
+							fields={['displayName', 'servers', 'owner']}
+							onSelectRow={(d, isCtrlClick) => {
+								const url = d.powerUserWorkspaceID
+									? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
+									: `/admin/access-control/${d.id}`;
+								openUrl(url, isCtrlClick);
+							}}
+							headers={[
+								{
+									title: 'Name',
+									property: 'displayName'
+								}
+							]}
+							sortable={['displayName', 'servers', 'owner']}
+						>
+							{#snippet actions(d)}
+								<button
+									class="icon-button hover:text-red-500"
+									onclick={(e) => {
+										e.stopPropagation();
+										ruleToDelete = d;
+									}}
+									use:tooltip={'Delete Rule'}
+								>
+									<Trash2 class="size-4" />
+								</button>
+							{/snippet}
+							{#snippet onRenderColumn(property, d)}
+								{#if property === 'servers'}
+									{@const hasEverything = d.resources?.find((r) => r.id === '*')}
+									{@const count = hasEverything
+										? totalServers
+										: ((d.resources &&
+												d.resources.filter(
+													(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
+												).length) ??
+											0)}
+									{count ? count : '-'}
+								{:else}
+									{d[property as keyof typeof d]}
+								{/if}
+							{/snippet}
+						</Table>
+					</div>
 				{/if}
 			</div>
 		{/if}

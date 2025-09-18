@@ -36,11 +36,12 @@
 	import { Role } from '$lib/services';
 
 	type NavLink = {
-		href: string;
-		icon: Component;
+		id: string;
+		href?: string;
+		icon: Component | (new (...args: any[]) => any);
 		label: string;
-		disabled: boolean;
-		collapsible: boolean;
+		disabled?: boolean;
+		collapsible?: boolean;
 		items?: NavLink[];
 	};
 
@@ -73,17 +74,25 @@
 	let pathname = $state('');
 
 	let isBootStrapUser = $derived(profile.current.username === BOOTSTRAP_USER_ID);
-	let navLinks = $derived(
+	let navLinks = $derived<NavLink[]>(
 		profile.current.isAdmin?.() && !showUserLinks
 			? [
 					{
-						href: '/admin/mcp-servers',
+						id: 'mcp-server-management',
 						icon: Server,
-						label: 'MCP Servers',
-						disabled: isBootStrapUser,
+						label: 'MCP Server Management',
 						collapsible: true,
 						items: [
 							{
+								id: 'mcp-servers',
+								icon: Server,
+								href: '/admin/mcp-servers',
+								label: 'MCP Servers',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'audit-logs',
 								href: '/admin/audit-logs',
 								icon: Captions,
 								label: 'Audit Logs',
@@ -91,6 +100,7 @@
 								collapsible: false
 							},
 							{
+								id: 'usage',
 								href: '/admin/usage',
 								icon: ChartBarDecreasing,
 								label: 'Usage',
@@ -98,12 +108,14 @@
 								collapsible: false
 							},
 							{
+								id: 'filters',
 								href: '/admin/filters',
 								icon: Funnel,
 								label: 'Filters',
 								disabled: isBootStrapUser
 							},
 							{
+								id: 'access-control',
 								href: '/admin/access-control',
 								icon: GlobeLock,
 								label: 'Access Control',
@@ -113,30 +125,35 @@
 						]
 					},
 					{
+						id: 'obot-chat',
 						icon: MessageCircle,
 						label: 'Obot Chat',
 						disabled: isBootStrapUser,
 						collapsible: true,
 						items: [
 							{
+								id: 'chat-threads',
 								href: '/admin/chat-threads',
 								icon: MessageCircleMore,
 								label: 'Chat Threads',
 								collapsible: false
 							},
 							{
+								id: 'tasks',
 								href: '/admin/tasks',
 								icon: Cpu,
 								label: 'Tasks',
 								disabled: isBootStrapUser
 							},
 							{
+								id: 'task-runs',
 								href: '/admin/task-runs',
 								icon: CircuitBoard,
 								label: 'Task Runs',
 								disabled: isBootStrapUser
 							},
 							{
+								id: 'chat-configuration',
 								href: '/admin/chat-configuration',
 								icon: Settings,
 								label: 'Chat Configuration',
@@ -144,6 +161,7 @@
 								collapsible: false
 							},
 							{
+								id: 'model-providers',
 								href: '/admin/model-providers',
 								icon: Boxes,
 								label: 'Model Providers',
@@ -152,31 +170,42 @@
 						]
 					},
 					{
-						href: '/admin/users',
+						id: 'user-management',
 						icon: Users,
-						label: 'Users',
-						collapsible: false,
+						label: 'User Management',
 						disabled: false,
+						collapsible: true,
 						items: [
 							{
-								href: '/admin/user-configuration',
-								icon: UserCog,
-								label: 'User Configuration',
+								id: 'users',
+								href: '/admin/users',
+								icon: Users,
+								label: 'Users',
 								collapsible: false,
 								disabled: false
+							},
+							{
+								id: 'user-roles',
+								href: '/admin/user-roles',
+								icon: UserCog,
+								label: 'User Roles',
+								collapsible: false,
+								disabled: false
+							},
+							{
+								id: 'auth-providers',
+								href: '/admin/auth-providers',
+								icon: LockKeyhole,
+								label: 'Auth Providers',
+								disabled: !version.current.authEnabled,
+								collapsible: false
 							}
 						]
-					},
-					{
-						href: '/admin/auth-providers',
-						icon: LockKeyhole,
-						label: 'Auth Providers',
-						disabled: !version.current.authEnabled,
-						collapsible: false
 					}
 				]
 			: (overrideNavLinks ?? [
 					{
+						id: 'mcp-publisher',
 						href: '/mcp-publisher',
 						icon: Server,
 						label: 'MCP Servers',
@@ -186,6 +215,7 @@
 					...(profile.current?.role === Role.POWERUSER_PLUS || profile.current?.role === Role.ADMIN
 						? [
 								{
+									id: 'access-control',
 									href: '/mcp-publisher/access-control',
 									icon: GlobeLock,
 									label: 'Access Control',
@@ -221,7 +251,7 @@
 	<div class="relative flex w-full grow">
 		{#if layout.sidebarOpen && !hideSidebar}
 			<div
-				class="dark:bg-gray-990 flex max-h-dvh w-dvh min-w-dvw flex-shrink-0 flex-col bg-white md:w-1/6 md:max-w-xl md:min-w-[250px]"
+				class="dark:bg-gray-990 flex max-h-dvh w-dvh min-w-dvw flex-shrink-0 flex-col bg-white md:w-1/6 md:max-w-xl md:min-w-[300px]"
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
@@ -233,7 +263,7 @@
 					class="text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 pl-2 font-medium"
 				>
 					<div class="flex flex-col gap-1">
-						{#each navLinks as link (link.href)}
+						{#each navLinks as link (link.id)}
 							<div class="flex">
 								<div class="flex w-full items-center">
 									{#if link.disabled}
