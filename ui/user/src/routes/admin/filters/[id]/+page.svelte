@@ -6,6 +6,7 @@
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import {
 		fetchMcpServerAndEntries,
+		getAdminMcpServerAndEntries,
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte.js';
 	import { onMount } from 'svelte';
@@ -41,6 +42,7 @@
 			onUpdate={() => {
 				goto('/admin/filters');
 			}}
+			mcpEntriesContextFn={getAdminMcpServerAndEntries}
 		>
 			{#snippet topContent()}
 				<BackLink currentLabel={filter?.name ?? 'Filter'} {fromURL} />
