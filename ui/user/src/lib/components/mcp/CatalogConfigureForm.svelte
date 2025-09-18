@@ -43,7 +43,6 @@
 		submitText = 'Save',
 		loading,
 		error,
-		serverId,
 		isNew,
 		showAlias
 	}: Props = $props();
@@ -155,7 +154,7 @@
 					<Server class="size-8" />
 				{/if}
 			</div>
-			{`${name} ${serverId ? `| ${serverId}` : ''}`}
+			{name}
 		</div>
 	{/snippet}
 	{#if error}
