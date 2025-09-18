@@ -601,7 +601,10 @@ export async function createProject(
 	return (await doPost(`/assistants/${assistantID}/projects`, { ...fields }, { fetch })) as Project;
 }
 
-export async function getProject(id: string, opts?: { fetch?: Fetcher }): Promise<Project> {
+export async function getProject(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<Project> {
 	return (await doGet(`/projects/${id}`, opts)) as Project;
 }
 export async function getProjectDefaultModel(

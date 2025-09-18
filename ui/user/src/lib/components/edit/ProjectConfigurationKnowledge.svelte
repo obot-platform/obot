@@ -19,7 +19,7 @@
 	}
 
 	const projectTools = getProjectTools();
-	let { project, currentThreadID = $bindable(), assistant }: Props = $props();
+	let { project = $bindable(), currentThreadID = $bindable(), assistant }: Props = $props();
 	let knowledgeFiles = $state<KnowledgeFileType[]>([]);
 	let hasKnowledgeCapability = $derived(
 		!!(hasTool(projectTools.tools, 'knowledge') || assistant?.websiteKnowledge?.siteTool)
