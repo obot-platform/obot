@@ -38,7 +38,7 @@
 	type NavLink = {
 		id: string;
 		href?: string;
-		icon: Component | (new (...args: any[]) => any);
+		icon: Component | typeof Server;
 		label: string;
 		disabled?: boolean;
 		collapsible?: boolean;
