@@ -32,7 +32,7 @@
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
-	import { getRegistryLabel, getUserDisplayName, openUrl } from '$lib/utils';
+	import { getRegistryLabel, openUrl } from '$lib/utils';
 	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
