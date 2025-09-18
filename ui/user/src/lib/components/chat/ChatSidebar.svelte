@@ -7,7 +7,7 @@
 	import McpServers from '$lib/components/edit/McpServers.svelte';
 	import Threads from '$lib/components/chat/sidebar/Threads.svelte';
 	import { responsive } from '$lib/stores';
-	import { onMount, onDestroy } from 'svelte';
+	import { onDestroy } from 'svelte';
 	import { scrollFocus } from '$lib/actions/scrollFocus.svelte';
 	import Projects from '../navbar/Projects.svelte';
 	import BetaLogo from '../navbar/BetaLogo.svelte';
