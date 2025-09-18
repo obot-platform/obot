@@ -76,7 +76,17 @@ func (t *Handler) UpgradeThread(req router.Request, _ router.Response) error {
 
 	var source v1.Thread
 	if err := req.Client.Get(req.Ctx, router.Key(thread.Namespace, thread.Spec.SourceThreadName), &source); err != nil {
-		return err
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+
+		// If the source thread isn't found, we can't upgrade.
+		// Unapprove in-progress upgrades and unset target revision.
+		if thread.Spec.UpgradeApproved || thread.Spec.TargetConfigRevision != "" {
+			thread.Spec.UpgradeApproved = false
+			thread.Spec.TargetConfigRevision = ""
+			return req.Client.Update(req.Ctx, thread)
+		}
 	}
 
 	if source.Status.UpgradeInProgress {
