@@ -127,7 +127,7 @@
 					{
 						id: 'obot-chat',
 						icon: MessageCircle,
-						label: 'Obot Chat',
+						label: 'Chat Management',
 						disabled: isBootStrapUser,
 						collapsible: true,
 						items: [
