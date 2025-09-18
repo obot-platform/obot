@@ -38,7 +38,7 @@
 		in:fade={{ duration }}
 		out:fade={{ duration }}
 	>
-		<h1 class="text-2xl font-semibold">User Configuration</h1>
+		<h1 class="text-2xl font-semibold">User Roles</h1>
 
 		<div
 			class="dark:bg-surface1 dark:border-surface3 flex h-fit w-full flex-col gap-4 rounded-lg border border-transparent bg-white p-6 shadow-sm"
@@ -108,5 +108,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | User Configuration</title>
+	<title>Obot | User Roles</title>
 </svelte:head>
