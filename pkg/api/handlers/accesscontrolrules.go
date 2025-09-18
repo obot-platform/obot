@@ -327,7 +327,6 @@ func convertAccessControlRule(rule v1.AccessControlRule) types.AccessControlRule
 		Metadata:                  MetadataFrom(&rule),
 		MCPCatalogID:              rule.Spec.MCPCatalogID,
 		PowerUserWorkspaceID:      rule.Spec.PowerUserWorkspaceID,
-		PowerUserID:               "", // Not available in this context
 		Generated:                 rule.Spec.Generated,
 		AccessControlRuleManifest: rule.Spec.Manifest,
 	}
