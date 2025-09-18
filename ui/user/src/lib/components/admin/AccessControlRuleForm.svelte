@@ -25,7 +25,8 @@
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import type { PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getRegistryLabel, getUserDisplayName } from '$lib/utils';
+	import { profile } from '$lib/stores';
 
 	interface Props {
 		topContent?: Snippet;
@@ -218,9 +219,25 @@
 		{/if}
 		{#if accessControlRule.id}
 			<div class="flex w-full items-center justify-between gap-4">
-				<h1 class="flex items-center gap-4 text-2xl font-semibold">
-					{accessControlRule.displayName}
-				</h1>
+				<div class="flex items-center gap-2">
+					<h1 class="flex items-center gap-4 text-2xl font-semibold">
+						{accessControlRule.displayName}
+					</h1>
+					{#await loadingUsersAndGroups then data}
+						{#if initialAccessControlRule}
+							{@const registry = getRegistryLabel(
+								initialAccessControlRule.powerUserID,
+								profile.current?.id,
+								data?.users
+							)}
+							{#if registry}
+								<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
+									{registry}
+								</div>
+							{/if}
+						{/if}
+					{/await}
+				</div>
 				<button
 					class="button-destructive flex items-center gap-1 text-xs font-normal"
 					use:tooltip={'Delete Catalog'}

@@ -32,7 +32,7 @@
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
-	import { getUserDisplayName, openUrl } from '$lib/utils';
+	import { getRegistryLabel, getUserDisplayName, openUrl } from '$lib/utils';
 	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
@@ -87,13 +87,8 @@
 	let users = $state<OrgUser[]>([]);
 	let registry = $derived.by(() => {
 		if (!entry) return undefined;
-		const usersMap = new Map(users.map((user) => [user.id, user]));
 		const ownerUserId = 'isCatalogEntry' in entry ? entry.powerUserID : entry.userID;
-		const ownerDisplayName = ownerUserId && getUserDisplayName(usersMap, ownerUserId);
-		const isMe = ownerUserId === profile.current?.id;
-		return entity === 'workspace'
-			? `${isMe ? 'My' : `${ownerDisplayName || 'Unknown'}'s`} Registry`
-			: 'Global Registry';
+		return getRegistryLabel(ownerUserId, profile.current?.id, users);
 	});
 
 	let deleteServer = $state(false);
