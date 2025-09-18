@@ -7,6 +7,7 @@
 	export interface SelectProps {
 		id?: string;
 		value?: string;
+		labels?: Record<string, string>;
 		disabled?: boolean;
 		class?: string;
 		classes?: {
@@ -19,7 +20,7 @@
 </script>
 
 <script lang="ts">
-	import { Plus, X } from 'lucide-svelte';
+	import { X } from 'lucide-svelte';
 	import { flip } from 'svelte/animate';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -28,6 +29,7 @@
 		id,
 		disabled,
 		value = $bindable(''),
+		labels,
 		class: klass,
 		classes,
 		placeholder,
@@ -45,18 +47,6 @@
 
 	let input = $state<HTMLInputElement>();
 	let text = $state('');
-
-	const actions = $derived.by(() => {
-		const array = [];
-
-		array.push(addButton);
-
-		if (values.length || text.length) {
-			array.push(clearButton);
-		}
-
-		return array;
-	});
 </script>
 
 <div
@@ -80,7 +70,7 @@
 					animate:flip={{ duration: 100 }}
 				>
 					<div class="flex flex-1 break-all">
-						{v ?? ''}
+						{labels?.[v] ?? v ?? ''}
 					</div>
 
 					<div class="flex h-[22.5px] items-center place-self-start">
@@ -151,58 +141,28 @@
 		}}
 	/>
 
-	{#each actions as snp (snp)}
-		<div animate:flip={{ duration: 100 }}>
-			{@render snp()}
-		</div>
-	{/each}
+	{#if values.length || text.length}
+		<button
+			transition:fade={{ duration: 100 }}
+			class={twMerge(
+				'bg-surface3/50 hover:bg-surface3/70 active:bg-surface3/80 rounded-sm p-0.5 transition-colors duration-300',
+				classes?.clearButton
+			)}
+			type="button"
+			onclick={(ev) => {
+				onclear?.(ev, '');
+
+				if (ev.defaultPrevented) return;
+
+				if (text.length) {
+					text = '';
+					return;
+				}
+
+				value = '';
+			}}
+		>
+			<X class="size-4" />
+		</button>
+	{/if}
 </div>
-
-{#snippet addButton()}
-	<button
-		class={twMerge(
-			'bg-surface3/50 hover:bg-surface3/70 active:bg-surface3/80 rounded-sm p-1 transition-colors duration-300',
-			classes?.clearButton
-		)}
-		type="button"
-		onclick={(ev) => {
-			onclear?.(ev, '');
-
-			if (ev.defaultPrevented) return;
-
-			const trimmedText = text?.trim();
-
-			if (!trimmedText) return;
-
-			value = [...values, trimmedText].join(',');
-
-			text = '';
-		}}
-	>
-		<Plus class="size-4" />
-	</button>
-{/snippet}
-
-{#snippet clearButton()}
-	<button
-		class={twMerge(
-			'bg-surface3/50 hover:bg-surface3/70 active:bg-surface3/80 rounded-sm p-1 transition-colors duration-300',
-			classes?.clearButton
-		)}
-		type="button"
-		onclick={(ev) => {
-			onclear?.(ev, '');
-
-			if (ev.defaultPrevented) return;
-
-			if (text.length) {
-				text = '';
-				return;
-			}
-
-			value = '';
-		}}
-	>
-		<X class="size-4" />
-	</button>
-{/snippet}
