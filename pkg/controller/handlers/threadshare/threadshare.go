@@ -12,7 +12,9 @@ func CopyProjectInfo(req router.Request, _ router.Response) error {
 
 	var project v1.Thread
 	if err := req.Get(&project, share.Namespace, share.Spec.ProjectThreadName); err != nil {
-		return err
+		// Ignore not found to prevent requeue when the project thread doesn't exist anymore.
+		// This will allow the ThreadShare to be cleaned up by the cleanup handler.
+		return kclient.IgnoreNotFound(err)
 	}
 
 	var mcpServerList v1.MCPServerList
