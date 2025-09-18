@@ -164,7 +164,9 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	}
 
 	if user.Role == types2.RoleUnknown {
-		user.Role = types2.RoleBasic
+		c.lock.RLock()
+		role = *c.defaultRole
+		c.lock.RUnlock()
 	}
 
 	var checkForExistingUser bool
@@ -184,6 +186,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		// Copy the user so that we don't have to decrypt unless the user already exists.
 		u := *user
 		if err := userQuery.First(&u).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			u.Role = role
 			if err = c.encryptUser(ctx, &u); err != nil {
 				return nil, fmt.Errorf("failed to encrypt user: %w", err)
 			}
@@ -194,10 +197,12 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			// Copy the auto-generated values back to the user object.
 			user.ID = u.ID
 			user.CreatedAt = u.CreatedAt
+			user.Role = u.Role
 
 			// Call callback for new privileged users
-			if c.onNewPrivilegedUser != nil && user.Role.HasRole(types2.RolePowerUser) {
-				c.onNewPrivilegedUser(ctx, user)
+			if c.onNewPrivilegedUser != nil && (user.Role.HasRole(types2.RolePowerUser) || user.Role.HasRole(types2.RolePowerUserPlus)) {
+				// we have to use a goroutine here otherwise the current request seems to be blocking it
+				go c.onNewPrivilegedUser(ctx, user)
 			}
 		} else if err != nil {
 			return nil, err
@@ -210,9 +215,15 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			*user = u
 
 			// We're using an existing user. See if there are any fields that need to be updated.
+			// For an existing user, we should never update the role unless the user 's role is unknown, or it is a explict admin.
 			var userChanged bool
-			if role != types2.RoleUnknown && user.Role != role {
+			if user.Role == types2.RoleUnknown {
 				user.Role = role
+				userChanged = true
+			}
+
+			if c.IsExplicitAdmin(user.Email) && user.Role != types2.RoleAdmin {
+				user.Role = types2.RoleAdmin
 				userChanged = true
 			}
 

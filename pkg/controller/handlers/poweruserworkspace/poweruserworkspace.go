@@ -234,8 +234,8 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 				DisplayName: "Default Access Rule",
 				Subjects: []types.Subject{
 					{
-						Type: types.SubjectTypeUser,
-						ID:   workspace.Spec.UserID,
+						Type: types.SubjectTypeSelector,
+						ID:   "*",
 					},
 				},
 				Resources: []types.Resource{

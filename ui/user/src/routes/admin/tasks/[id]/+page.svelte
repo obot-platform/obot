@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import BackLink from '$lib/components/admin/BackLink.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import { initLayout } from '$lib/context/chatLayout.svelte';

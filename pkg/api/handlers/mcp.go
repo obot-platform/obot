@@ -133,6 +133,10 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 }
 
 func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
+	return convertMCPServerCatalogEntryWithWorkspace(entry, "", "")
+}
+
+func convertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID string) types.MCPServerCatalogEntry {
 	// Add extracted env vars directly to the entry
 	addExtractedEnvVarsToCatalogEntry(&entry)
 
@@ -145,6 +149,8 @@ func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServe
 		UserCount:                 entry.Status.UserCount,
 		LastUpdated:               v1.NewTime(entry.Status.LastUpdated),
 		ToolPreviewsLastGenerated: v1.NewTime(entry.Status.ToolPreviewsLastGenerated),
+		PowerUserWorkspaceID:      powerUserWorkspaceID,
+		PowerUserID:               powerUserID,
 	}
 }
 
@@ -870,6 +876,13 @@ func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPSer
 	if err != nil {
 		return "", v1.MCPServer{}, mcp.ServerConfig{}, err
 	}
+
+	var mcpServerEntry v1.MCPServerCatalogEntry
+	if err := req.Get(&mcpServerEntry, server.Spec.MCPServerCatalogEntryName); err != nil {
+		return "", v1.MCPServer{}, mcp.ServerConfig{}, err
+	}
+
+	server.Spec.MCPCatalogID = mcpServerEntry.Spec.MCPCatalogName
 
 	switch {
 	case instance.Name != "":

@@ -208,6 +208,15 @@ func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
 		return types.NewErrBadRequest("entry does not belong to workspace")
 	}
 
+	// For workspace entries, include powerUserId in the response
+	if workspaceID != "" {
+		var workspace v1.PowerUserWorkspace
+		if err := req.Get(&workspace, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace for powerUserId: %w", err)
+		}
+		return req.Write(convertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, workspace.Spec.UserID))
+	}
+
 	return req.Write(convertMCPServerCatalogEntry(entry))
 }
 

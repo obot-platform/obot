@@ -741,3 +741,40 @@ export async function listCatalogCategories(catalogId: string, opts?: { fetch?: 
 	const response = (await doGet(`/mcp-catalogs/${catalogId}/categories`, opts)) as string[];
 	return response;
 }
+
+export async function listAllUserWorkspaceCatalogEntries(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(`/workspaces/all-entries`, opts)) as ItemsResponse<MCPCatalogEntry>;
+	return (
+		response.items?.map((item) => {
+			return {
+				...item,
+				isCatalogEntry: true
+			};
+		}) ?? []
+	);
+}
+
+export async function listAllUserWorkspaceMCPServers(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		`/workspaces/all-servers`,
+		opts
+	)) as ItemsResponse<MCPCatalogServer>;
+	return response.items ?? [];
+}
+
+export async function listAllUserWorkspaceAccessControlRules(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		`/workspaces/all-access-control-rules`,
+		opts
+	)) as ItemsResponse<AccessControlRule>;
+	return response.items ?? [];
+}
+
+export async function updateDefaultUsersRoleSettings(role: number, opts?: { fetch?: Fetcher }) {
+	await doPost('/user-default-role-settings', { role }, opts);
+}
+
+export async function getDefaultUsersRoleSettings(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/user-default-role-settings', opts)) as { role: number };
+	return response.role;
+}

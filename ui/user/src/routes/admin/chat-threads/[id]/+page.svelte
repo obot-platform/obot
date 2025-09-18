@@ -11,7 +11,7 @@
 	import type { Project } from '$lib/services/chat/types';
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import type { Messages } from '$lib/services/chat/types';
-	import BackLink from '$lib/components/admin/BackLink.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
 
 	const threadId = $page.params.id;
 

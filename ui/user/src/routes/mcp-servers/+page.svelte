@@ -93,6 +93,9 @@
 				servers = serversResult;
 				userServerInstances = serverInstances;
 			}
+			userConfiguredServers = userConfiguredServers.filter(
+				(server) => !server.deleted && !server.powerUserWorkspaceID
+			);
 		} catch (error) {
 			console.error('Failed to load data:', error);
 		} finally {
@@ -169,7 +172,7 @@
 	}
 </script>
 
-<Layout showUserLinks hideSidebar classes={{ container: 'pb-0' }}>
+<Layout showUserLinks navLinks={[]} hideSidebar classes={{ container: 'pb-0' }}>
 	<div class="flex h-full w-full">
 		{#if !responsive.isMobile}
 			<ul class="flex min-h-0 w-xs flex-shrink-0 grow flex-col p-4">

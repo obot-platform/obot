@@ -5,7 +5,7 @@
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import BackLink from '$lib/components/admin/BackLink.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -30,7 +30,7 @@
 		<McpServerEntryForm
 			entry={mcpServer}
 			type="multi"
-			catalogId={DEFAULT_MCP_CATALOG_ID}
+			id={DEFAULT_MCP_CATALOG_ID}
 			onCancel={() => {
 				goto('/admin/mcp-servers');
 			}}

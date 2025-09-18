@@ -198,7 +198,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 	}()
 
 	var webhooks []mcp.Webhook
-	webhooks, err = h.webhookHelper.GetWebhooksForMCPServer(ctx, h.gptClient, m.mcpServer.Namespace, m.mcpServer.Name, m.mcpServer.Spec.MCPServerCatalogEntryName, auditLog.CallType, auditLog.CallIdentifier)
+	webhooks, err = h.webhookHelper.GetWebhooksForMCPServer(ctx, h.gptClient, m.mcpServer.Namespace, m.mcpServer.Name, m.mcpServer.Spec.MCPServerCatalogEntryName, m.mcpServer.Spec.MCPCatalogID, auditLog.CallType, auditLog.CallIdentifier)
 	if err != nil {
 		log.Errorf("Failed to get webhooks for server %s: %v", m.mcpServer.Name, err)
 		return
@@ -223,6 +223,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			m.mcpServer.Name,
 			m.mcpServer.Spec.Manifest.Name,
 			m.mcpServer.Spec.MCPServerCatalogEntryName,
+			m.mcpServer.Spec.MCPCatalogID,
 		),
 	)
 	if err != nil {

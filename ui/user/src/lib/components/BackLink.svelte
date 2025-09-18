@@ -13,10 +13,10 @@
 
 	function convertToHistory(href: string) {
 		const pathParts = href.split('/').filter(Boolean);
-		// Find the admin section part (skip admin/v2/)
+		// Find the admin section part (skip admin/)
 		const adminIndex = pathParts.findIndex((part) => part === 'admin');
-		const adminPath = adminIndex >= 0 ? pathParts.slice(adminIndex + 1) : pathParts;
-		const [type, id] = adminPath;
+		const path = adminIndex >= 0 ? pathParts.slice(adminIndex + 1) : pathParts;
+		const [type, id] = path;
 		if (type === 'mcp-servers') {
 			return [
 				{ href: '/admin/mcp-servers', label: 'MCP Servers' },
@@ -44,6 +44,13 @@
 			return [{ href: '/admin/task-runs', label: 'Task Runs' }];
 		}
 
+		if (type === 'mcp-publisher') {
+			if (id === 'access-control') {
+				return [{ href: `/mcp-publisher/access-control`, label: 'Access Control' }];
+			}
+			return [{ href: '/mcp-publisher', label: 'MCP Servers' }];
+		}
+
 		return [];
 	}
 
@@ -57,6 +64,15 @@
 		const stringified = sessionStorage.getItem(ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER);
 		const json = JSON.parse(stringified ?? '{}');
 		const label = id === json.id ? json.name : 'Unknown';
+
+		if (json.entity === 'workspace') {
+			const href =
+				json.type === 'single' || json.type === 'remote'
+					? `/admin/mcp-servers/w/${json.entityId}/c/${id}`
+					: `/admin/mcp-servers/w/${json.entityId}/s/${id}`;
+			return { href, label };
+		}
+
 		const href =
 			json.type === 'single' || json.type === 'remote'
 				? `/admin/mcp-servers/c/${id}`

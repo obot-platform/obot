@@ -8,7 +8,10 @@ export const load: PageLoad = async ({ fetch }) => {
 	let accessControlRules: AccessControlRule[] = [];
 
 	try {
-		accessControlRules = await AdminService.listAccessControlRules({ fetch });
+		const adminAccessControlRules = await AdminService.listAccessControlRules({ fetch });
+		const userWorkspacesAccessControlRules =
+			await AdminService.listAllUserWorkspaceAccessControlRules({ fetch });
+		accessControlRules = [...adminAccessControlRules, ...userWorkspacesAccessControlRules];
 	} catch (err) {
 		handleRouteError(err, '/admin/access-control', profile.current);
 	}

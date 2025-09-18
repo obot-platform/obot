@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/adrg/xdg"
@@ -53,6 +54,7 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	coordinationv1 "k8s.io/api/coordination/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
@@ -60,6 +62,7 @@ import (
 	gocache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	// Setup nah logging
 	_ "github.com/obot-platform/nah/pkg/logrus"
@@ -355,9 +358,31 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.UIHostname = "https://" + config.UIHostname
 	}
 
+	var defaultRoleSetting v1.UserDefaultRoleSetting
+	if err := storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultRoleSettingName}, &defaultRoleSetting); apierrors.IsNotFound(err) {
+		defaultRoleSetting = v1.UserDefaultRoleSetting{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      system.DefaultRoleSettingName,
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.UserDefaultRoleSettingSpec{
+				Role: apiclienttypes.RoleBasic,
+			},
+		}
+		if err := storageClient.Create(ctx, &defaultRoleSetting); err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		return nil, err
+	}
+
+	defaultRole := &defaultRoleSetting.Spec.Role
+	lock := &sync.RWMutex{}
+
 	// Create callback for new privileged user workspace creation
 	onNewPrivilegedUser := func(ctx context.Context, user *types.User) {
-		// Create a UserRoleChange event to trigger PowerUserWorkspace creation
+		lock.RLock()
+		defer lock.RUnlock()
 		if err := storageClient.Create(ctx, &v1.UserRoleChange{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: system.UserRoleChangePrefix,
@@ -366,14 +391,40 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			Spec: v1.UserRoleChangeSpec{
 				UserID:  user.ID,
 				OldRole: apiclienttypes.RoleBasic, // New users start as basic
-				NewRole: user.Role,
+				NewRole: *defaultRole,
 			},
 		}); err != nil {
 			slog.Error("failed to create user role change event for new privileged user", "userID", user.ID, "role", user.Role, "error", err)
 		}
 	}
 
-	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize, onNewPrivilegedUser)
+	go func() {
+		for {
+			w, err := storageClient.Watch(ctx, &v1.UserDefaultRoleSettingList{}, &kclient.ListOptions{
+				Namespace: system.DefaultNamespace,
+			})
+			if err != nil {
+				slog.Error("failed to watch default role setting", "error", err)
+				time.Sleep(time.Second * 1)
+				continue
+			}
+
+			for event := range w.ResultChan() {
+				if roleSetting, ok := event.Object.(*v1.UserDefaultRoleSetting); ok {
+					lock.Lock()
+					*defaultRole = roleSetting.Spec.Role
+					lock.Unlock()
+				}
+			}
+
+			w.Stop()
+			//nolint:revive
+			for range w.ResultChan() {
+			}
+		}
+	}()
+
+	gatewayClient := client.New(ctx, gatewayDB, encryptionConfig, config.AuthAdminEmails, time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second, config.MCPAuditLogsPersistBatchSize, onNewPrivilegedUser, defaultRole, lock)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)
@@ -524,6 +575,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			var results []string
 			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
 				if resource.Type == apiclienttypes.ResourceTypeMCPServerCatalogEntry {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		"catalog-names": func(obj any) ([]string, error) {
+			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+			var results []string
+			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.ResourceTypeMcpCatalog {
 					results = append(results, resource.ID)
 				}
 			}

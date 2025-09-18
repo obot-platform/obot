@@ -1,8 +1,12 @@
 <script lang="ts">
-	import { PAGE_TRANSITION_DURATION, ADMIN_SESSION_STORAGE } from '$lib/constants';
-	import { AdminService } from '$lib/services';
 	import {
-		Role,
+		PAGE_TRANSITION_DURATION,
+		ADMIN_SESSION_STORAGE,
+		DEFAULT_MCP_CATALOG_ID,
+		ADMIN_ALL_OPTION
+	} from '$lib/constants';
+	import { AdminService, ChatService } from '$lib/services';
+	import {
 		type AccessControlRule,
 		type AccessControlRuleManifest,
 		type AccessControlRuleResource,
@@ -19,20 +23,31 @@
 	import Confirm from '../Confirm.svelte';
 	import { goto } from '$app/navigation';
 	import SearchMcpServers from './SearchMcpServers.svelte';
-	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import type { PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
+	import { getRegistryLabel, getUserDisplayName } from '$lib/utils';
+	import { profile } from '$lib/stores';
 
 	interface Props {
 		topContent?: Snippet;
 		accessControlRule?: AccessControlRule;
 		onCreate?: (accessControlRule: AccessControlRule) => void;
 		onUpdate?: (accessControlRule: AccessControlRule) => void;
+		entity?: 'workspace' | 'catalog';
+		id?: string | null;
+		mcpEntriesContextFn: () => AdminMcpServerAndEntriesContext | PoweruserWorkspaceContext;
+		all?: { label: string; description: string };
 	}
 
 	let {
 		topContent,
 		accessControlRule: initialAccessControlRule,
 		onCreate,
-		onUpdate
+		onUpdate,
+		mcpEntriesContextFn,
+		all = ADMIN_ALL_OPTION,
+		id = DEFAULT_MCP_CATALOG_ID,
+		entity = 'catalog'
 	}: Props = $props();
 	const duration = PAGE_TRANSITION_DURATION;
 	let accessControlRule = $state(
@@ -47,16 +62,22 @@
 
 	let saving = $state<boolean | undefined>();
 	let redirect = $state('');
-	let loadingUsersAndGroups = $state<Promise<{ users: OrgUser[]; groups: OrgGroup[] }>>();
+	let usersAndGroups = $state<{ users: OrgUser[]; groups: OrgGroup[] }>();
+	let loadingUsersAndGroups = $state(false);
 
 	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
 	let addMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
 
 	let deletingRule = $state(false);
 
-	const adminMcpServerAndEntries = getAdminMcpServerAndEntries();
-	let mcpServersMap = $derived(new Map(adminMcpServerAndEntries.servers.map((i) => [i.id, i])));
-	let mcpEntriesMap = $derived(new Map(adminMcpServerAndEntries.entries.map((i) => [i.id, i])));
+	const mcpServerAndEntries = mcpEntriesContextFn?.() ?? {
+		entries: [],
+		servers: [],
+		loading: false
+	};
+	let usersMap = $derived(new Map(usersAndGroups?.users.map((user) => [user.id, user]) ?? []));
+	let mcpServersMap = $derived(new Map(mcpServerAndEntries.servers.map((i) => [i.id, i])));
+	let mcpEntriesMap = $derived(new Map(mcpServerAndEntries.entries.map((i) => [i.id, i])));
 	let mcpServersTableData = $derived.by(() => {
 		if (mcpServersMap && mcpEntriesMap) {
 			return convertMcpServersToTableData(accessControlRule.resources ?? []);
@@ -65,9 +86,12 @@
 	});
 
 	onMount(async () => {
-		loadingUsersAndGroups = Promise.all([AdminService.listUsers(), AdminService.listGroups()]).then(
-			([users, groups]) => ({ users, groups })
-		);
+		loadingUsersAndGroups = true;
+		usersAndGroups = {
+			users: await AdminService.listUsers(),
+			groups: await AdminService.listGroups()
+		};
+		loadingUsersAndGroups = false;
 	});
 
 	$effect(() => {
@@ -76,7 +100,7 @@
 		);
 		if (
 			initialAdditionId &&
-			!adminMcpServerAndEntries.loading &&
+			!mcpServerAndEntries.loading &&
 			(mcpServersMap.size > 0 || mcpEntriesMap.size > 0)
 		) {
 			// Check if this resource is already added to prevent duplicates
@@ -91,7 +115,10 @@
 						...(accessControlRule.resources ?? []),
 						{ id: entry.id, type: 'mcpServerCatalogEntry' }
 					];
-					redirect = `/admin/mcp-servers/c/${entry.id}`;
+					redirect =
+						entity === 'workspace'
+							? `/mcp-publisher/mcp-servers/c/${entry.id}`
+							: `/admin/mcp-servers/c/${entry.id}`;
 				} else {
 					const server = mcpServersMap.get(initialAdditionId);
 					if (server) {
@@ -99,7 +126,10 @@
 							...(accessControlRule.resources ?? []),
 							{ id: server.id, type: 'mcpServer' }
 						];
-						redirect = `/admin/mcp-servers/s/${server.id}`;
+						redirect =
+							entity === 'workspace'
+								? `/mcp-publisher/mcp-servers/s/${server.id}`
+								: `/admin/mcp-servers/s/${server.id}`;
 					}
 				}
 			}
@@ -118,15 +148,9 @@
 			subjects
 				.map((subject) => {
 					if (subject.type === 'user') {
-						const user = userMap.get(subject.id);
-						if (!user) {
-							return undefined;
-						}
-
 						return {
 							id: subject.id,
-							displayName: user.email ?? user.username,
-							role: user.role === Role.ADMIN ? 'Admin' : 'User',
+							displayName: getUserDisplayName(userMap, subject.id),
 							type: 'User'
 						};
 					}
@@ -140,7 +164,6 @@
 						return {
 							id: subject.id,
 							displayName: group.name,
-							role: 'User',
 							type: 'Group'
 						};
 					}
@@ -148,7 +171,6 @@
 					return {
 						id: subject.id,
 						displayName: subject.id === '*' ? 'Everyone' : subject.id,
-						role: 'User',
 						type: 'Group'
 					};
 				})
@@ -157,6 +179,10 @@
 	}
 
 	function convertMcpServersToTableData(resources: AccessControlRuleResource[]) {
+		const owner = initialAccessControlRule?.powerUserID
+			? getUserDisplayName(usersMap, initialAccessControlRule.powerUserID)
+			: undefined;
+		const isMe = initialAccessControlRule?.powerUserID === profile.current?.id;
 		return resources.map((resource) => {
 			if (resource.type === 'mcpServerCatalogEntry') {
 				const entry = mcpEntriesMap.get(resource.id);
@@ -176,9 +202,15 @@
 				};
 			}
 
+			const allLabel = owner
+				? isMe
+					? 'Everything In My Registry'
+					: `Everything In ${owner}'s Registry`
+				: all.label;
+
 			return {
 				id: resource.id,
-				name: resource.id === '*' ? 'Everything' : resource.id,
+				name: resource.id === '*' ? allLabel : resource.id,
 				type: 'selector'
 			};
 		});
@@ -202,9 +234,25 @@
 		{/if}
 		{#if accessControlRule.id}
 			<div class="flex w-full items-center justify-between gap-4">
-				<h1 class="flex items-center gap-4 text-2xl font-semibold">
-					{accessControlRule.displayName}
-				</h1>
+				<div class="flex items-center gap-2">
+					<h1 class="flex items-center gap-4 text-2xl font-semibold">
+						{accessControlRule.displayName}
+					</h1>
+					{#if !loadingUsersAndGroups}
+						{#if initialAccessControlRule}
+							{@const registry = getRegistryLabel(
+								initialAccessControlRule.powerUserID,
+								profile.current?.id,
+								usersAndGroups?.users
+							)}
+							{#if registry}
+								<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
+									{registry}
+								</div>
+							{/if}
+						{/if}
+					{/if}
+				</div>
 				<button
 					class="button-destructive flex items-center gap-1 text-xs font-normal"
 					use:tooltip={'Delete Catalog'}
@@ -242,11 +290,11 @@
 			<div class="mb-2 flex items-center justify-between">
 				<h2 class="text-lg font-semibold">User & Groups</h2>
 				<div class="relative flex items-center gap-4">
-					{#await loadingUsersAndGroups}
+					{#if loadingUsersAndGroups}
 						<button class="button-primary flex items-center gap-1 text-sm" disabled>
 							<Plus class="size-4" /> Add User/Group
 						</button>
-					{:then _data}
+					{:else}
 						<button
 							class="button-primary flex items-center gap-1 text-sm"
 							onclick={() => {
@@ -255,22 +303,22 @@
 						>
 							<Plus class="size-4" /> Add User/Group
 						</button>
-					{/await}
+					{/if}
 				</div>
 			</div>
-			{#await loadingUsersAndGroups}
+			{#if loadingUsersAndGroups}
 				<div class="my-2 flex items-center justify-center">
 					<LoaderCircle class="size-6 animate-spin" />
 				</div>
-			{:then data}
+			{:else}
 				{@const tableData = convertSubjectsToTableData(
 					accessControlRule.subjects ?? [],
-					data?.users ?? [],
-					data?.groups ?? []
+					usersAndGroups?.users ?? [],
+					usersAndGroups?.groups ?? []
 				)}
 				<Table
 					data={tableData}
-					fields={['displayName', 'type', 'role']}
+					fields={['displayName', 'type']}
 					headers={[{ property: 'displayName', title: 'Name' }]}
 					noDataMessage="No users or groups added."
 				>
@@ -288,7 +336,7 @@
 						</button>
 					{/snippet}
 				</Table>
-			{/await}
+			{/if}
 		</div>
 
 		<div class="flex flex-col gap-2">
@@ -344,8 +392,12 @@
 					class="button-primary text-sm disabled:opacity-75"
 					disabled={!validate(accessControlRule) || saving}
 					onclick={async () => {
+						if (!id) return;
 						saving = true;
-						const response = await AdminService.createAccessControlRule(accessControlRule);
+						const response =
+							entity === 'workspace'
+								? await ChatService.createWorkspaceAccessControlRule(id, accessControlRule)
+								: await AdminService.createAccessControlRule(accessControlRule);
 						accessControlRule = response;
 						if (redirect) {
 							goto(redirect);
@@ -366,9 +418,12 @@
 					class="button text-sm"
 					disabled={saving}
 					onclick={async () => {
-						if (!accessControlRule.id) return;
+						if (!accessControlRule.id || !id) return;
 						saving = true;
-						accessControlRule = await AdminService.getAccessControlRule(accessControlRule.id);
+						accessControlRule =
+							entity === 'workspace'
+								? await ChatService.getWorkspaceAccessControlRule(id, accessControlRule.id)
+								: await AdminService.getAccessControlRule(accessControlRule.id);
 						saving = false;
 					}}
 				>
@@ -378,12 +433,19 @@
 					class="button-primary text-sm disabled:opacity-75"
 					disabled={!validate(accessControlRule) || saving}
 					onclick={async () => {
-						if (!accessControlRule.id) return;
+						if (!accessControlRule.id || !id) return;
 						saving = true;
-						const response = await AdminService.updateAccessControlRule(
-							accessControlRule.id,
-							accessControlRule
-						);
+						const response =
+							entity === 'workspace'
+								? await ChatService.updateWorkspaceAccessControlRule(
+										id,
+										accessControlRule.id,
+										accessControlRule
+									)
+								: await AdminService.updateAccessControlRule(
+										accessControlRule.id,
+										accessControlRule
+									);
 						accessControlRule = response;
 						onUpdate?.(response);
 						saving = false;
@@ -427,6 +489,7 @@
 
 <SearchMcpServers
 	bind:this={addMcpServerDialog}
+	type="acr"
 	exclude={accessControlRule.resources?.map((resource) => resource.id) ?? []}
 	onAdd={async (mcpCatalogEntryIds, mcpServerIds, otherSelectors) => {
 		const existingResourceIds = new Set(
@@ -442,15 +505,19 @@
 			...otherSelectors.map((id) => ({ type: 'selector' as const, id }))
 		];
 	}}
+	{mcpEntriesContextFn}
+	{all}
 />
 
 <Confirm
 	msg="Are you sure you want to delete this rule?"
 	show={deletingRule}
 	onsuccess={async () => {
-		if (!accessControlRule.id) return;
+		if (!accessControlRule.id || !id) return;
 		saving = true;
-		await AdminService.deleteAccessControlRule(accessControlRule.id);
+		await (entity === 'workspace'
+			? ChatService.deleteWorkspaceAccessControlRule(id, accessControlRule.id)
+			: AdminService.deleteAccessControlRule(accessControlRule.id));
 		goto('/admin/access-control');
 	}}
 	oncancel={() => (deletingRule = false)}

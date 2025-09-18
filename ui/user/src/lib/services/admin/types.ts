@@ -62,7 +62,9 @@ export interface MCPCatalogEntry {
 	sourceURL?: string;
 	userCount?: number;
 	type: string;
-	isCatalogEntry: true;
+	powerUserID?: string;
+	powerUserWorkspaceID?: string;
+	isCatalogEntry: boolean;
 }
 
 export interface MCPCatalogEntryFieldManifest {
@@ -130,7 +132,9 @@ export interface OrgGroup {
 
 export const Role = {
 	ADMIN: 1,
-	USER: 10
+	USER: 10,
+	POWERUSER_PLUS: 2,
+	POWERUSER: 3
 };
 
 export interface ProviderParameter {
@@ -267,6 +271,8 @@ export interface AccessControlRule extends Omit<AccessControlRuleManifest, 'id'>
 	deleted?: string;
 	links?: Record<string, string>;
 	metadata?: Record<string, string>;
+	powerUserID?: string;
+	powerUserWorkspaceID?: string;
 }
 
 export interface BootstrapStatus {
@@ -436,7 +442,7 @@ export interface MCPFilterManifest {
 }
 
 export interface MCPFilterResource {
-	type: 'mcpServerCatalogEntry' | 'mcpServer' | 'selector';
+	type: 'mcpServerCatalogEntry' | 'mcpServer' | 'selector' | 'mcpCatalog';
 	id: string;
 }
 

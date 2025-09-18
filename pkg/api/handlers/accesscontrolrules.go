@@ -26,15 +26,18 @@ func (*AccessControlRuleHandler) List(req api.Context) error {
 		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
 	}
 
-	// Verify the scope exists
+	// Verify the scope exists and get powerUserID if workspace-scoped
+	var powerUserID string
 	if catalogID != "" {
 		if err := req.Get(&v1.MCPCatalog{}, catalogID); err != nil {
 			return types.NewErrBadRequest("catalog not found: %v", err)
 		}
 	} else {
-		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+		var workspace v1.PowerUserWorkspace
+		if err := req.Get(&workspace, workspaceID); err != nil {
 			return types.NewErrBadRequest("workspace not found: %v", err)
 		}
+		powerUserID = workspace.Spec.UserID
 	}
 
 	var list v1.AccessControlRuleList
@@ -48,7 +51,7 @@ func (*AccessControlRuleHandler) List(req api.Context) error {
 		if catalogID != "" && item.Spec.MCPCatalogID == catalogID {
 			items = append(items, convertAccessControlRule(item))
 		} else if workspaceID != "" && item.Spec.PowerUserWorkspaceID == workspaceID {
-			items = append(items, convertAccessControlRule(item))
+			items = append(items, convertAccessControlRuleWithPowerUserID(item, powerUserID))
 		}
 	}
 
@@ -91,7 +94,17 @@ func (*AccessControlRuleHandler) Get(req api.Context) error {
 		return types.NewErrBadRequest("access control rule does not belong to workspace %s", workspaceID)
 	}
 
-	return req.Write(convertAccessControlRule(rule))
+	// If this is a workspace-scoped rule, fetch the workspace to get the powerUserID
+	var powerUserID string
+	if workspaceID != "" {
+		var workspace v1.PowerUserWorkspace
+		if err := req.Get(&workspace, workspaceID); err != nil {
+			return fmt.Errorf("failed to get power user workspace: %w", err)
+		}
+		powerUserID = workspace.Spec.UserID
+	}
+
+	return req.Write(convertAccessControlRuleWithPowerUserID(rule, powerUserID))
 }
 
 // Create creates a new access control rule for a catalog or workspace.
@@ -151,6 +164,19 @@ func (h *AccessControlRuleHandler) Create(req api.Context) error {
 		return fmt.Errorf("failed to create access control rule: %w", err)
 	}
 
+	// If this is a workspace-scoped rule, get the powerUserID for the response
+	var powerUserID string
+	if workspaceID != "" {
+		var workspace v1.PowerUserWorkspace
+		if err := req.Get(&workspace, workspaceID); err != nil {
+			return fmt.Errorf("failed to get power user workspace: %w", err)
+		}
+		powerUserID = workspace.Spec.UserID
+	}
+
+	if workspaceID != "" {
+		return req.Write(convertAccessControlRuleWithPowerUserID(rule, powerUserID))
+	}
 	return req.Write(convertAccessControlRule(rule))
 }
 
@@ -197,11 +223,6 @@ func (h *AccessControlRuleHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("access control rule does not belong to workspace %s", workspaceID)
 	}
 
-	// Prevent updating generated access control rules
-	if existing.Spec.Generated {
-		return types.NewErrBadRequest("cannot update system-generated access control rule")
-	}
-
 	// Validate that referenced resources exist in the same scope
 	if catalogID != "" {
 		if err := h.validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
@@ -218,6 +239,19 @@ func (h *AccessControlRuleHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to update access control rule: %w", err)
 	}
 
+	// If this is a workspace-scoped rule, get the powerUserID for the response
+	var powerUserID string
+	if workspaceID != "" {
+		var workspace v1.PowerUserWorkspace
+		if err := req.Get(&workspace, workspaceID); err != nil {
+			return fmt.Errorf("failed to get power user workspace: %w", err)
+		}
+		powerUserID = workspace.Spec.UserID
+	}
+
+	if workspaceID != "" {
+		return req.Write(convertAccessControlRuleWithPowerUserID(existing, powerUserID))
+	}
 	return req.Write(convertAccessControlRule(existing))
 }
 
@@ -254,11 +288,6 @@ func (*AccessControlRuleHandler) Delete(req api.Context) error {
 		return types.NewErrBadRequest("access control rule does not belong to catalog %s", catalogID)
 	} else if workspaceID != "" && rule.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrBadRequest("access control rule does not belong to workspace %s", workspaceID)
-	}
-
-	// Prevent deleting generated access control rules
-	if rule.Spec.Generated {
-		return types.NewErrBadRequest("cannot delete system-generated access control rule")
 	}
 
 	return req.Delete(&v1.AccessControlRule{
@@ -337,6 +366,17 @@ func convertAccessControlRule(rule v1.AccessControlRule) types.AccessControlRule
 		Metadata:                  MetadataFrom(&rule),
 		MCPCatalogID:              rule.Spec.MCPCatalogID,
 		PowerUserWorkspaceID:      rule.Spec.PowerUserWorkspaceID,
+		Generated:                 rule.Spec.Generated,
+		AccessControlRuleManifest: rule.Spec.Manifest,
+	}
+}
+
+func convertAccessControlRuleWithPowerUserID(rule v1.AccessControlRule, powerUserID string) types.AccessControlRule {
+	return types.AccessControlRule{
+		Metadata:                  MetadataFrom(&rule),
+		MCPCatalogID:              rule.Spec.MCPCatalogID,
+		PowerUserWorkspaceID:      rule.Spec.PowerUserWorkspaceID,
+		PowerUserID:               powerUserID,
 		Generated:                 rule.Spec.Generated,
 		AccessControlRuleManifest: rule.Spec.Manifest,
 	}

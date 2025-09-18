@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { AdminService, type MCPFilter, type MCPCatalogServer } from '$lib/services';
+	import {
+		AdminService,
+		type MCPFilter,
+		type MCPCatalogServer,
+		ChatService,
+		Role
+	} from '$lib/services';
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { twMerge } from 'tailwind-merge';
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
@@ -26,15 +32,17 @@
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
-	import { openUrl } from '$lib/utils';
+	import { getRegistryLabel, openUrl } from '$lib/utils';
 	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
+	import { profile } from '$lib/stores';
 
 	type MCPType = 'single' | 'multi' | 'remote';
 
 	interface Props {
-		catalogId?: string;
+		id?: string;
+		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		type?: MCPType;
 		readonly?: boolean;
@@ -42,26 +50,46 @@
 		onSubmit?: (id: string, type: MCPType) => void;
 	}
 
-	let { entry, catalogId, type, readonly, onCancel, onSubmit }: Props = $props();
+	let { entry, id, entity = 'catalog', type, readonly, onCancel, onSubmit }: Props = $props();
+	let isAtLeastPowerUserPlus = $derived(
+		profile.current?.role === Role.POWERUSER_PLUS || profile.current?.role === Role.ADMIN
+	);
 
 	const tabs = $derived(
 		entry
-			? [
-					{ label: 'Overview', view: 'overview' },
-					{ label: 'Tools', view: 'tools' },
-					{ label: 'Configuration', view: 'configuration' },
-					{ label: 'Usage', view: 'usage' },
-					{ label: 'Audit Logs', view: 'audit-logs' },
-					{ label: 'Access Control', view: 'access-control' },
-					{ label: 'Server Details', view: 'server-instances' },
-					{ label: 'Filters', view: 'filters' }
-				]
+			? entity === 'workspace'
+				? [
+						{ label: 'Overview', view: 'overview' },
+						{ label: 'Tools', view: 'tools' },
+						{ label: 'Configuration', view: 'configuration' },
+						// TODO: support workspace usage and audit logs
+						// { label: 'Usage', view: 'usage' },
+						// { label: 'Audit Logs', view: 'audit-logs' },
+						...(isAtLeastPowerUserPlus ? [{ label: 'Access Control', view: 'access-control' }] : [])
+						// TODO: enable when we have workspace server instances
+						// { label: 'Server Details', view: 'server-instances' }
+					]
+				: [
+						{ label: 'Overview', view: 'overview' },
+						{ label: 'Tools', view: 'tools' },
+						{ label: 'Configuration', view: 'configuration' },
+						{ label: 'Usage', view: 'usage' },
+						{ label: 'Audit Logs', view: 'audit-logs' },
+						{ label: 'Access Control', view: 'access-control' },
+						{ label: 'Server Details', view: 'server-instances' },
+						{ label: 'Filters', view: 'filters' }
+					]
 			: []
 	);
 
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
 	let listFilters = $state<Promise<MCPFilter[]>>();
 	let users = $state<OrgUser[]>([]);
+	let registry = $derived.by(() => {
+		if (!entry) return undefined;
+		const ownerUserId = 'isCatalogEntry' in entry ? entry.powerUserID : entry.userID;
+		return getRegistryLabel(ownerUserId, profile.current?.id, users);
+	});
 
 	let deleteServer = $state(false);
 	let deleteResourceFromRule = $state<{
@@ -100,8 +128,12 @@
 
 	$effect(() => {
 		if (selected === 'access-control') {
-			listAccessControlRules = AdminService.listAccessControlRules();
-		} else if (selected === 'filters') {
+			listAccessControlRules =
+				entity === 'workspace' && id
+					? ChatService.listWorkspaceAccessControlRules(id)
+					: AdminService.listAccessControlRules();
+		} else if (selected === 'filters' && entity !== 'workspace') {
+			// add filters back in for workspace once supported for workspace
 			listFilters = AdminService.listMCPFilters();
 		}
 	});
@@ -115,9 +147,11 @@
 	});
 
 	onMount(() => {
-		AdminService.listUsersIncludeDeleted().then((data) => {
-			users = data;
-		});
+		if (profile.current?.role === Role.ADMIN) {
+			AdminService.listUsersIncludeDeleted().then((data) => {
+				users = data;
+			});
+		}
 
 		checkScrollPosition();
 		scrollContainer?.addEventListener('scroll', checkScrollPosition);
@@ -149,7 +183,7 @@
 		const name = entry.manifest.name;
 		sessionStorage.setItem(
 			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
-			JSON.stringify({ id: entry.id, name, type })
+			JSON.stringify({ id: entry.id, name, type, entity, entityId: id })
 		);
 	}
 
@@ -194,7 +228,7 @@
 	}
 
 	async function handleVisibilityChange() {
-		if (!entry || !catalogId) return;
+		if (!entry || !id) return;
 		document.removeEventListener('visibilitychange', handleVisibilityChange);
 		handleLaunchTemporaryInstance();
 	}
@@ -209,23 +243,27 @@
 	}
 
 	async function handleLaunchTemporaryInstance(showInlineError = false) {
-		if (!entry || !catalogId) return;
+		if (!entry || !id) return;
 
 		error = undefined;
 		showButtonInlineError = false;
 		saving = true;
 		const body = compileTemporaryInstanceBody();
 		try {
-			await AdminService.generateMcpCatalogEntryToolPreviews(catalogId, entry.id, body);
+			const generateToolsFn =
+				entity === 'workspace'
+					? ChatService.generateWorkspaceMCPCatalogEntryToolPreviews
+					: AdminService.generateMcpCatalogEntryToolPreviews;
+			await generateToolsFn(id, entry.id, body);
 			window.location.reload();
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
 			if (errMessage.includes('MCP server requires OAuth authentication')) {
-				const oauthResponse = await AdminService.getMcpCatalogToolPreviewsOauth(
-					catalogId,
-					entry.id,
-					body
-				);
+				const getOauthFn =
+					entity === 'workspace'
+						? ChatService.getWorkspaceMCPCatalogEntryToolPreviewsOauth
+						: AdminService.getMcpCatalogToolPreviewsOauth;
+				const oauthResponse = await getOauthFn(id, entry.id, body);
 				if (oauthResponse) {
 					configDialog?.close();
 					handleTemporaryInstanceOauth(oauthResponse);
@@ -293,6 +331,11 @@
 				<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
 					{type === 'single' ? 'Single User' : type === 'multi' ? 'Multi-User' : 'Remote'}
 				</div>
+				{#if registry}
+					<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
+						{registry}
+					</div>
+				{/if}
 			</div>
 			{#if !readonly}
 				<button
@@ -359,7 +402,7 @@
 						Regenerate Tools & Capabilities
 					</button>
 				{/if}
-				<McpServerTools {entry} {catalogId}>
+				<McpServerTools {entry}>
 					{#snippet noToolsContent()}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 							<Wrench class="size-24 text-gray-200 dark:text-gray-900" />
@@ -368,7 +411,7 @@
 								<p class="text-sm font-light text-gray-400 dark:text-gray-600">
 									Looks like this MCP server doesn't have any tools available.
 								</p>
-							{:else}
+							{:else if !readonly}
 								<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No tools</h4>
 								<button
 									class="button-primary flex items-center gap-1 text-sm"
@@ -410,9 +453,11 @@
 		{:else if selected === 'audit-logs'}
 			{@render auditLogsView()}
 		{:else if selected === 'server-instances'}
-			<McpServerInstances {catalogId} {entry} {users} {type} />
+			<McpServerInstances {id} {entity} {entry} {users} {type} />
 		{:else if selected === 'filters'}
-			{@render filtersView()}
+			{#if entity !== 'workspace'}
+				{@render filtersView()}
+			{/if}
 		{/if}
 	</div>
 </div>
@@ -423,7 +468,8 @@
 			{entry}
 			{type}
 			{readonly}
-			{catalogId}
+			{id}
+			{entity}
 			{onCancel}
 			{onSubmit}
 			hideTitle={Boolean(entry)}
@@ -462,15 +508,26 @@
 					if (!entry) return;
 					setLastVisitedMcpServer();
 
-					const url = `/admin/access-control/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry.id}`)}`;
+					const isAdminRoute = window.location.pathname.includes('/admin/');
+
+					let url = '';
+					const from =
+						entity === 'workspace' && !isAdminRoute
+							? encodeURIComponent(`mcp-publisher/${entry.id}`)
+							: encodeURIComponent(`mcp-servers/${entry.id}`);
+					if (entity === 'workspace') {
+						url = !isAdminRoute
+							? `/mcp-publisher/access-control/${d.id}?from=${from}`
+							: `/admin/access-control/w/${id}/r/${d.id}?from=${from}`;
+					} else {
+						url = `/admin/access-control/${d.id}?from=${from}`;
+					}
 					openUrl(url, isCtrlClick);
 				}}
 			>
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'resources'}
-						{@const referencedResource = d.resources?.find(
-							(r) => r.id === entry?.id || r.id === '*'
-						)}
+						{@const hasEveryone = d.subjects?.find((s) => s.id === '*')}
 						{@const { totalUsers, totalGroups } = d.subjects?.reduce(
 							(acc, s) => {
 								if (s.type === 'user') {
@@ -482,7 +539,7 @@
 							},
 							{ totalUsers: 0, totalGroups: 0 }
 						) ?? { totalUsers: 0, totalGroups: 0 }}
-						{#if referencedResource?.id === '*'}
+						{#if hasEveryone}
 							Everyone
 						{:else}
 							{@const userCount = `${totalUsers} user${totalUsers === 1 ? '' : 's'}`}
@@ -547,35 +604,39 @@
 
 		<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
 			<!-- temporary filter mcp server by name and catalog entry id-->
-			<AuditLogsPageContent
-				mcpId={isMultiUserServer ? entryId : null}
-				mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
-				{mcpServerDisplayName}
-				{catalogId}
-			>
-				{#snippet emptyContent()}
-					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<Users class="size-24 text-gray-200 dark:text-gray-900" />
-						<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-							No recent audit logs
-						</h4>
-						<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-							This server has not had any active usage in the last 7 days.
-						</p>
-						{#if entryId || mcpCatalogEntryId}
-							{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
+			<!-- TODO: support auditLogsPageContent for workspace entity -->
+
+			{#if entity === 'catalog' && id}
+				<AuditLogsPageContent
+					mcpId={isMultiUserServer ? entryId : null}
+					mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
+					{mcpServerDisplayName}
+					catalogId={id}
+				>
+					{#snippet emptyContent()}
+						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+							<Users class="size-24 text-gray-200 dark:text-gray-900" />
+							<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
+								No recent audit logs
+							</h4>
 							<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-								See more usage details in the server's <a
-									href={`/admin/audit-logs?${param}`}
-									class="text-link"
-								>
-									Audit Logs
-								</a>.
+								This server has not had any active usage in the last 7 days.
 							</p>
-						{/if}
-					</div>
-				{/snippet}
-			</AuditLogsPageContent>
+							{#if entryId || mcpCatalogEntryId}
+								{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
+								<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+									See more usage details in the server's <a
+										href={`/admin/audit-logs?${param}`}
+										class="text-link"
+									>
+										Audit Logs
+									</a>.
+								</p>
+							{/if}
+						</div>
+					{/snippet}
+				</AuditLogsPageContent>
+			{/if}
 		</div>
 	{/if}
 {/snippet}
@@ -642,13 +703,21 @@
 	msg="Are you sure you want to delete this server?"
 	show={deleteServer}
 	onsuccess={async () => {
-		if (!catalogId || !entry) return;
+		if (!id || !entry) return;
 		if (!('isCatalogEntry' in entry)) {
-			await AdminService.deleteMCPCatalogServer(catalogId, entry.id);
+			const deleteServerFn =
+				entity === 'workspace'
+					? ChatService.deleteWorkspaceMCPCatalogServer
+					: AdminService.deleteMCPCatalogServer;
+			await deleteServerFn(id, entry.id);
 		} else {
-			await AdminService.deleteMCPCatalogEntry(catalogId, entry.id);
+			const deleteCatalogEntryFn =
+				entity === 'workspace'
+					? ChatService.deleteWorkspaceMCPCatalogEntry
+					: AdminService.deleteMCPCatalogEntry;
+			await deleteCatalogEntryFn(id, entry.id);
 		}
-		goto('/admin/mcp-servers');
+		goto(entity === 'workspace' ? '/mcp-publisher/mcp-servers' : '/admin/mcp-servers');
 	}}
 	oncancel={() => (deleteServer = false)}
 />
@@ -662,14 +731,24 @@
 		if (!deleteResourceFromRule) {
 			return;
 		}
-		await AdminService.updateAccessControlRule(deleteResourceFromRule.rule.id, {
-			...deleteResourceFromRule.rule,
-			resources: deleteResourceFromRule.rule.resources?.filter(
-				(r) => r.id !== deleteResourceFromRule!.resourceId
-			)
-		});
 
-		listAccessControlRules = AdminService.listAccessControlRules();
+		const updateAccessControlRuleFn =
+			entity === 'workspace' && id
+				? ChatService.updateWorkspaceAccessControlRule(
+						id,
+						deleteResourceFromRule.rule.id,
+						deleteResourceFromRule.rule
+					)
+				: AdminService.updateAccessControlRule(
+						deleteResourceFromRule.rule.id,
+						deleteResourceFromRule.rule
+					);
+		await updateAccessControlRuleFn;
+
+		listAccessControlRules =
+			entity === 'workspace' && id
+				? ChatService.listWorkspaceAccessControlRules(id)
+				: AdminService.listAccessControlRules();
 		deleteResourceFromRule = undefined;
 	}}
 	oncancel={() => (deleteResourceFromRule = undefined)}

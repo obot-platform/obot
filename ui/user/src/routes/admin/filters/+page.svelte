@@ -9,6 +9,7 @@
 	import { onMount } from 'svelte';
 	import {
 		fetchMcpServerAndEntries,
+		getAdminMcpServerAndEntries,
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService, type MCPFilter } from '$lib/services/index.js';
@@ -153,7 +154,7 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<FilterForm onCreate={navigateAfterCreated}>
+		<FilterForm onCreate={navigateAfterCreated} mcpEntriesContextFn={getAdminMcpServerAndEntries}>
 			{#snippet topContent()}
 				<button
 					onclick={() => (showCreateFilter = false)}

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
-	import BackLink from '$lib/components/admin/BackLink.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import {
 		fetchMcpServerAndEntries,
+		getAdminMcpServerAndEntries,
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte.js';
 	import { onMount } from 'svelte';
@@ -41,6 +42,7 @@
 			onUpdate={() => {
 				goto('/admin/access-control');
 			}}
+			mcpEntriesContextFn={getAdminMcpServerAndEntries}
 		>
 			{#snippet topContent()}
 				<BackLink

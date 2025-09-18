@@ -15,7 +15,7 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import { afterNavigate, goto } from '$app/navigation';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
-	import { getUserDisplayName } from '../filters-drawer/utils';
+	import { getUserDisplayName } from '$lib/utils';
 	import type { SupportedStateFilter } from './types';
 	import { fade, slide } from 'svelte/transition';
 	import { flip } from 'svelte/animate';

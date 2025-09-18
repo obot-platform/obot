@@ -19,7 +19,6 @@
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
-		catalogId?: string;
 		onAuthenticate?: () => void;
 		onProjectToolsUpdate?: (selected: string[]) => void;
 		project?: Project;

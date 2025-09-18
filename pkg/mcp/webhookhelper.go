@@ -26,7 +26,7 @@ type Webhook struct {
 	URL, Secret string
 }
 
-func (wh *WebhookHelper) GetWebhooksForMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, mcpServerNamespace, mcpServerName, mcpServerCatalogEntryName, method, identifier string) ([]Webhook, error) {
+func (wh *WebhookHelper) GetWebhooksForMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, mcpServerNamespace, mcpServerName, mcpServerCatalogEntryName, mcpServerCatalogName, method, identifier string) ([]Webhook, error) {
 	var result []Webhook
 	webhookSeen := make(map[string]struct{})
 
@@ -47,6 +47,13 @@ func (wh *WebhookHelper) GetWebhooksForMCPServer(ctx context.Context, gptClient 
 	objs, err = wh.indexer.ByIndex("selectors", "*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from selector index: %w", err)
+	}
+
+	result = appendWebhooks(ctx, gptClient, mcpServerNamespace, method, identifier, objs, webhookSeen, result)
+
+	objs, err = wh.indexer.ByIndex("catalog-names", mcpServerCatalogName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get webhooks from catalog index: %w", err)
 	}
 
 	result = appendWebhooks(ctx, gptClient, mcpServerNamespace, method, identifier, objs, webhookSeen, result)

@@ -32,7 +32,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	models := handlers.NewModelHandler()
 	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPLoader, oauthChecker, services.GatewayClient)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
-	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler()
+	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL)
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.Invoker)
@@ -58,6 +58,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
+	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler(services.StorageClient)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -472,6 +473,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/workspaces", powerUserWorkspaces.List)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}", powerUserWorkspaces.Get)
 
+	mux.HandleFunc("GET /api/workspaces/all-entries", powerUserWorkspaces.ListAllEntries)
+	mux.HandleFunc("GET /api/workspaces/all-servers", powerUserWorkspaces.ListAllServers)
+	mux.HandleFunc("GET /api/workspaces/all-access-control-rules", powerUserWorkspaces.ListAllAccessControlRules)
+
 	// Workspace-scoped Access Control Rules (PowerUserPlus only)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/access-control-rules", accessControlRules.List)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}", accessControlRules.Get)
@@ -488,7 +493,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews", mcpCatalogs.GenerateToolPreviews)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateToolPreviewsOAuthURL)
 
-	// Workspace-scoped MCP Servers (PowerUserPlus and higher only)
+	// Workspace-scoped MCP Servers (PowerUser and higher only)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers", mcp.ListServer)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}", mcp.GetServer)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers", mcp.CreateServer)
@@ -537,6 +542,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/resources/{resource_uri}", projectMCP.ReadResource)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/prompts", projectMCP.GetPrompts)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/prompts/{prompt_name}", projectMCP.GetPrompt)
+
+	// User Default Role Settings
+	mux.HandleFunc("GET /api/user-default-role-settings", userDefaultRoleSettings.Get)
+	mux.HandleFunc("POST /api/user-default-role-settings", userDefaultRoleSettings.Set)
 
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)

@@ -35,8 +35,12 @@ export async function fetchMcpServerAndEntries(
 ) {
 	const context = mcpServerAndEntries || getAdminMcpServerAndEntries();
 	context.loading = true;
-	const entries = await AdminService.listMCPCatalogEntries(catalogId);
-	const servers = await AdminService.listMCPCatalogServers(catalogId);
+	const adminEntries = await AdminService.listMCPCatalogEntries(catalogId);
+	const adminServers = await AdminService.listMCPCatalogServers(catalogId);
+	const workspaceEntries = await AdminService.listAllUserWorkspaceCatalogEntries();
+	const workspaceServers = await AdminService.listAllUserWorkspaceMCPServers();
+	const entries = [...adminEntries, ...workspaceEntries];
+	const servers = [...adminServers, ...workspaceServers];
 	context.entries = entries;
 	context.servers = servers;
 	context.loading = false;

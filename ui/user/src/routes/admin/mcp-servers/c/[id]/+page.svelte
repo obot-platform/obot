@@ -5,7 +5,7 @@
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Layout from '$lib/components/Layout.svelte';
-	import BackLink from '$lib/components/admin/BackLink.svelte';
+	import BackLink from '$lib/components/BackLink.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -31,7 +31,7 @@
 			entry={catalogEntry}
 			type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
 			readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
-			catalogId={DEFAULT_MCP_CATALOG_ID}
+			id={DEFAULT_MCP_CATALOG_ID}
 			onCancel={() => {
 				goto('/admin/mcp-servers');
 			}}

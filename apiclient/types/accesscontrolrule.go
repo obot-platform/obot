@@ -6,6 +6,7 @@ type AccessControlRule struct {
 	Metadata                  `json:",inline"`
 	MCPCatalogID              string `json:"mcpCatalogID"`
 	PowerUserWorkspaceID      string `json:"powerUserWorkspaceID,omitempty"`
+	PowerUserID               string `json:"powerUserID,omitempty"`
 	Generated                 bool   `json:"generated,omitempty"`
 	AccessControlRuleManifest `json:",inline"`
 }
@@ -66,7 +67,7 @@ type Resource struct {
 
 func (r Resource) Validate() error {
 	switch r.Type {
-	case ResourceTypeMCPServerCatalogEntry, ResourceTypeMCPServer:
+	case ResourceTypeMCPServerCatalogEntry, ResourceTypeMCPServer, ResourceTypeMcpCatalog:
 		if r.ID == "" {
 			return fmt.Errorf("resource ID is required")
 		}
@@ -86,6 +87,7 @@ type ResourceType string
 const (
 	ResourceTypeMCPServerCatalogEntry ResourceType = "mcpServerCatalogEntry"
 	ResourceTypeMCPServer             ResourceType = "mcpServer"
+	ResourceTypeMcpCatalog            ResourceType = "mcpCatalog"
 	ResourceTypeSelector              ResourceType = "selector"
 )
 

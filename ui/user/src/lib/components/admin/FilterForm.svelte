@@ -8,7 +8,10 @@
 	import Confirm from '../Confirm.svelte';
 	import { goto } from '$app/navigation';
 	import SearchMcpServers from './SearchMcpServers.svelte';
-	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import {
+		getAdminMcpServerAndEntries,
+		type AdminMcpServerAndEntriesContext
+	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -23,9 +26,16 @@
 		filter?: MCPFilter;
 		onCreate?: (filter?: MCPFilter) => void;
 		onUpdate?: (filter?: MCPFilter) => void;
+		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
 	}
 
-	let { topContent, filter: initialFilter, onCreate, onUpdate }: Props = $props();
+	let {
+		topContent,
+		filter: initialFilter,
+		onCreate,
+		onUpdate,
+		mcpEntriesContextFn
+	}: Props = $props();
 	const duration = PAGE_TRANSITION_DURATION;
 	let filter = $state<{
 		name: string;
@@ -44,7 +54,7 @@
 				}
 			: {
 					name: '',
-					resources: [{ id: '*', type: 'selector' }],
+					resources: [{ id: 'default', type: 'mcpCatalog' }],
 					url: '',
 					secret: '',
 					selectors: []
@@ -95,7 +105,12 @@
 
 			return {
 				id: resource.id,
-				name: resource.id === '*' ? 'Everything' : resource.id,
+				name:
+					resource.id === '*' && resource.type === 'selector'
+						? 'Everything'
+						: resource.id === 'default' && resource.type === 'mcpCatalog'
+							? 'All Entries in Global Registry'
+							: resource.id,
 				type: resource.type
 			};
 		});
@@ -470,6 +485,7 @@
 <SearchMcpServers
 	bind:this={addMcpServerDialog}
 	exclude={filter.resources.map((r) => r.id)}
+	type="filter"
 	onAdd={async (mcpCatalogEntryIds, mcpServerIds, otherSelectors) => {
 		const catalogEntryResources = mcpCatalogEntryIds.map((id) => ({
 			id,
@@ -482,9 +498,9 @@
 			type: 'mcpServer' as const
 		}));
 		const selectorResources = otherSelectors.map((id) => ({
-			name: id === '*' ? 'Everything' : id,
+			name: id === '*' ? 'Everything' : id === 'default' ? 'All Entries in Global Registry' : id,
 			id,
-			type: 'selector' as const
+			type: id === '*' ? ('selector' as const) : ('mcpCatalog' as const)
 		}));
 		filter.resources = [
 			...filter.resources,
@@ -493,6 +509,7 @@
 			...selectorResources
 		];
 	}}
+	{mcpEntriesContextFn}
 />
 
 <Confirm

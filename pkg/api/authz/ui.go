@@ -26,6 +26,8 @@ var uiResources = []string{
 	"GET /i/{code}",
 	"GET /user/images/",
 	"GET /api/image/{id}",
+	"GET /mcp-publisher",
+	"GET /mcp-publisher/",
 }
 
 func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
@@ -50,6 +52,10 @@ func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
 	// For /admin/ subroutes (but not /admin/ itself), only allow admin users
 	if strings.HasPrefix(req.URL.Path, "/admin/") && req.URL.Path != "/admin/" {
 		return slices.Contains(user.GetGroups(), AdminGroup)
+	}
+
+	if strings.HasPrefix(req.URL.Path, "/mcp-publisher/") {
+		return slices.Contains(user.GetGroups(), PowerUserGroup)
 	}
 
 	// Matches and is not API
