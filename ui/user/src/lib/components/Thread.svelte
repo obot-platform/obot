@@ -506,7 +506,7 @@
 			in:fade|global
 			bind:this={messagesDiv}
 			class={twMerge(
-				'flex w-full flex-col justify-start gap-8 p-5 transition-all',
+				'flex w-full flex-1 flex-col justify-start gap-8 p-5 transition-all',
 				!centerInput ? 'grow' : 'h-0 overflow-hidden'
 			)}
 			class:justify-center={!thread}
@@ -556,10 +556,11 @@
 				<!-- Vertical Spacer -->
 			</div>
 		</div>
+
 		<div
 			class={twMerge(
-				'sticky z-30 flex justify-center bg-white pb-2 transition-transform  duration-300 dark:bg-black',
-				centerInput ? 'top-1/2 -translate-y-[calc(50%+32px)]' : 'top-auto bottom-0'
+				'sticky z-30 flex w-full justify-center bg-white pb-2 transition-transform duration-300 dark:bg-black',
+				centerInput ? 'absolute top-1/2 -translate-y-[50%]' : 'bottom-0 -translate-y-[0%]'
 			)}
 		>
 			<div class="w-full max-w-[1000px]">
@@ -579,18 +580,31 @@
 						await thread?.abort();
 					}}
 					onSubmit={async (i) => {
-						if (input?.getValue()?.startsWith('/') && promptDialogRef?.hasPromptHighlighted()) {
-							promptDialogRef?.triggerSelectPrompt();
-							return;
-						}
+						const v = input?.getValue() ?? '';
 
-						await ensureThread();
-						scrollSmooth = false;
-						await tick();
-						scrollControls?.stickToBottom();
-						await thread?.invoke(i);
-						onInputChange?.('');
-						isNew = false;
+						try {
+							// Clear the input immediately to improve responsiveness
+							tick().then(() => {
+								input?.setValue('');
+							});
+
+							if (v?.startsWith('/') && promptDialogRef?.hasPromptHighlighted()) {
+								promptDialogRef?.triggerSelectPrompt();
+								return;
+							}
+
+							await ensureThread();
+							scrollSmooth = false;
+							await tick();
+							scrollControls?.stickToBottom();
+							await thread?.invoke(i);
+							onInputChange?.('');
+							isNew = false;
+						} catch (_) {
+							// If there's an error, restore the input value
+							input?.setValue(v);
+							console.error(_);
+						}
 					}}
 					onArrowKeys={(direction) => {
 						if (direction === 'up' && globalPromptIndex > 0) {

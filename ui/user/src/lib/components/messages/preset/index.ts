@@ -1,0 +1,1 @@
+export { plaintext } from './plaintext';
