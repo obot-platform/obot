@@ -493,7 +493,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews", mcpCatalogs.GenerateToolPreviews)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateToolPreviewsOAuthURL)
 
-	// Workspace-scoped MCP Servers (PowerUser and higher only)
+	// Workspace-scoped MCP Servers (PowerUserPlus and higher only)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers", mcp.ListServer)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}", mcp.GetServer)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers", mcp.CreateServer)
