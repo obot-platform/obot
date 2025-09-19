@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
+
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -267,6 +268,10 @@ func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
 
 	if err = req.Delete(&projectServer); err != nil {
 		return err
+	}
+
+	if err := kickThread(req.Context(), req.Storage, req.Namespace(), projectServer.Spec.ThreadName); err != nil {
+		log.Warnf("failed to kick thread %s after project MCP server %s was deleted: %v", projectServer.Spec.ThreadName, projectServer.Name, err)
 	}
 
 	return req.Write(convertProjectMCPServer(&projectServer, mcpServer, cred))
