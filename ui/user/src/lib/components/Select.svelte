@@ -19,6 +19,7 @@
 		onClear?: (option?: T, value?: string | number) => void;
 		buttonStartContent?: Snippet;
 		onKeyDown?: (event: KeyboardEvent, params?: { query?: string; results?: T[] }) => void;
+		searchable?: boolean;
 	}
 </script>
 
@@ -45,7 +46,8 @@
 		placeholder,
 		onClear,
 		buttonStartContent,
-		onKeyDown
+		onKeyDown,
+		searchable
 	}: SelectProps<T> = $props();
 
 	const selectedValues = $derived.by(() => {
@@ -200,51 +202,18 @@
 			{/if}
 
 			{#if multiple}
-				<input
-					class="grow bg-inherit focus:ring-0 focus:outline-none"
-					{placeholder}
-					bind:this={input}
-					bind:value={query}
-					oninput={onInput}
-					onkeydown={(e) => {
-						onKeyDown?.(e, { query: query, results: availableOptions });
-
-						if (e.defaultPrevented) {
-							return;
-						}
-
-						if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && popover?.open) {
-							e.preventDefault();
-							e.stopPropagation();
-
-							if (e.key === 'ArrowDown' && optionHighlightIndex !== availableOptions.length - 1) {
-								optionHighlightIndex++;
-							} else if (e.key === 'ArrowUp' && optionHighlightIndex !== 0) {
-								optionHighlightIndex--;
-							}
-						}
-
-						if (e.key === 'Backspace' && selectedValues.length > 0 && (query ?? '')?.length === 0) {
-							selected = selectedValues.slice(0, -1).join(',');
-						}
-
-						if (e.key === 'Enter') {
-							e.preventDefault();
-							e.stopPropagation();
-							const option = availableOptions[optionHighlightIndex];
-							if (option) {
-								handleSelect(option);
-							}
-						}
-					}}
-				/>
+				{@render searchInput()}
 			{:else}
 				{#if buttonStartContent}
 					{@render buttonStartContent()}
 				{/if}
-				<div class="w-full items-center gap-2 truncate">
-					{selectedOptions[0]?.label ?? ''}
-				</div>
+				{#if !searchable}
+					<div class="w-full items-center gap-2 truncate">
+						{selectedOptions[0]?.label ?? ''}
+					</div>
+				{:else}
+					{@render searchInput()}
+				{/if}
 			{/if}
 
 			<ChevronDown class="ml-auto size-5 flex-shrink-0 self-start" />
@@ -308,3 +277,49 @@
 		{/if}
 	</dialog>
 </div>
+
+{#snippet searchInput()}
+	<input
+		class="grow bg-inherit focus:ring-0 focus:outline-none"
+		{placeholder}
+		bind:this={input}
+		bind:value={query}
+		oninput={onInput}
+		onkeydown={(e) => {
+			onKeyDown?.(e, { query: query, results: availableOptions });
+
+			if (e.defaultPrevented) {
+				return;
+			}
+
+			if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && popover?.open) {
+				e.preventDefault();
+				e.stopPropagation();
+
+				if (e.key === 'ArrowDown' && optionHighlightIndex !== availableOptions.length - 1) {
+					optionHighlightIndex++;
+				} else if (e.key === 'ArrowUp' && optionHighlightIndex !== 0) {
+					optionHighlightIndex--;
+				}
+			}
+
+			if (
+				multiple &&
+				e.key === 'Backspace' &&
+				selectedValues.length > 0 &&
+				(query ?? '')?.length === 0
+			) {
+				selected = selectedValues.slice(0, -1).join(',');
+			}
+
+			if (e.key === 'Enter') {
+				e.preventDefault();
+				e.stopPropagation();
+				const option = availableOptions[optionHighlightIndex];
+				if (option) {
+					handleSelect(option);
+				}
+			}
+		}}
+	/>
+{/snippet}

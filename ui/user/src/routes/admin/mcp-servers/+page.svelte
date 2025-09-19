@@ -6,7 +6,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import Table from '$lib/components/Table.svelte';
+	import Table from '$lib/components/table/Table.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		fetchMcpServerAndEntries,
@@ -253,6 +253,7 @@
 				<Table
 					data={filteredTableData}
 					fields={['name', 'type', 'users', 'created', 'registry']}
+					filterable={['name', 'type', 'registry']}
 					onSelectRow={(d, isCtrlClick) => {
 						let url = '';
 						if (d.type === 'single' || d.type === 'remote') {

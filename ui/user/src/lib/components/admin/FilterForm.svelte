@@ -4,7 +4,7 @@
 	import { type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Table from '../Table.svelte';
+	import Table from '../table/Table.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { goto } from '$app/navigation';
 	import SearchMcpServers from './SearchMcpServers.svelte';
