@@ -36,7 +36,7 @@ export async function fetchMcpServerAndEntries(
 	const context = mcpServerAndEntries || getPoweruserWorkspace();
 	context.loading = true;
 	const entries = await ChatService.listWorkspaceMCPCatalogEntries(workspaceID);
-	const servers = await ChatService.listWorkspaceMCPCatalogServers(workspaceID);
+	const servers = await ChatService.listMCPCatalogServers();
 	context.entries = entries;
 	context.servers = servers;
 	context.loading = false;
