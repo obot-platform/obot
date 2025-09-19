@@ -1,7 +1,9 @@
 package mcpcatalog
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,7 +24,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -92,9 +94,9 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
-			continue
+		} else {
+			delete(mcpCatalog.Status.SyncErrors, sourceURL)
 		}
-		delete(mcpCatalog.Status.SyncErrors, sourceURL)
 
 		toAdd = append(toAdd, objs...)
 	}
@@ -118,15 +120,16 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	// TODO(g-linville): make this configurable.
 	resp.RetryAfter(time.Hour)
 
-	// Don't run apply if there are sync errors
-	if len(mcpCatalog.Status.SyncErrors) > 0 {
-		return nil
-	}
-
 	// I know we don't want to do apply anymore. But we were doing it before in a different place.
 	// Now we're doing it here. It's not important enough to change right now.
-	return apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).
-		WithPruneTypes(&v1.MCPServerCatalogEntry{}).Apply(req.Ctx, mcpCatalog, toAdd...)
+	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name))
+
+	// Don't run prune if there are sync errors
+	if len(mcpCatalog.Status.SyncErrors) > 0 {
+		app.WithNoPrune()
+	}
+
+	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
 }
 
 func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object, error) {
@@ -167,7 +170,7 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 		}
 
 		if fileInfo.IsDir() {
-			entries, err = h.readMCPCatalogDirectory(sourceURL)
+			entries, err = readMCPCatalogDirectory(sourceURL)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
@@ -184,7 +187,7 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 	}
 
 	objs := make([]client.Object, 0, len(entries))
-
+	var errs []error
 	for _, entry := range entries {
 		if entry.Metadata["categories"] == "Official" {
 			delete(entry.Metadata, "categories") // This shouldn't happen, but do this just in case.
@@ -239,42 +242,155 @@ func (h *Handler) readMCPCatalog(catalogName, sourceURL string) ([]client.Object
 		}
 
 		if err := validation.ValidateCatalogEntryManifest(entry); err != nil {
-			return nil, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err)
+			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
+			continue
 		}
 		catalogEntry.Spec.Manifest = entry
 
 		objs = append(objs, &catalogEntry)
 	}
 
-	return objs, nil
+	return objs, errors.Join(errs...)
 }
 
-func (h *Handler) readMCPCatalogDirectory(catalog string) ([]types.MCPServerCatalogEntryManifest, error) {
-	files, err := os.ReadDir(catalog)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read catalog directory %s: %w", catalog, err)
+func readMCPCatalogDirectory(catalog string) ([]types.MCPServerCatalogEntryManifest, error) {
+	var (
+		catalogPatterns       = []string{"*.json", "*.yaml", "*.yml"} // Default to all JSON and YAML files
+		ignorePatterns        []string
+		usingObotCatalogsFile bool
+	)
+
+	// First try to get .obotcatalogs file
+	obotCatalogsPath := filepath.Join(catalog, ".obotcatalogs")
+	if content, err := os.ReadFile(obotCatalogsPath); err == nil {
+		usingObotCatalogsFile = true
+		scanner := bufio.NewScanner(strings.NewReader(string(content)))
+		var patterns []string
+		for scanner.Scan() {
+			line := scanner.Text()
+			line = strings.TrimSpace(line)
+			if line != "" && !strings.HasPrefix(line, "#") {
+				patterns = append(patterns, line)
+			}
+		}
+		if scanner.Err() != nil && scanner.Err() != io.EOF {
+			log.Warnf("Failed to read .obotcatalogs file: %v", scanner.Err())
+		} else if len(patterns) > 0 {
+			catalogPatterns = patterns
+		}
 	}
 
-	var entries []types.MCPServerCatalogEntryManifest
-	for _, file := range files {
-		if file.IsDir() {
-			nestedEntries, err := h.readMCPCatalogDirectory(filepath.Join(catalog, file.Name()))
-			if err != nil {
-				return nil, fmt.Errorf("failed to read nested catalog directory %s: %w", file.Name(), err)
+	obotIgnoreCatalogsPath := filepath.Join(catalog, ".ignoreobotcatalogs")
+	if content, err := os.ReadFile(obotIgnoreCatalogsPath); err == nil {
+		scanner := bufio.NewScanner(strings.NewReader(string(content)))
+		var patterns []string
+		for scanner.Scan() {
+			line := scanner.Text()
+			line = strings.TrimSpace(line)
+			if line != "" && !strings.HasPrefix(line, "#") {
+				patterns = append(patterns, line)
 			}
-			entries = append(entries, nestedEntries...)
-		} else if strings.HasSuffix(file.Name(), ".json") || strings.HasSuffix(file.Name(), ".yaml") || strings.HasSuffix(file.Name(), ".yml") {
-			contents, err := os.ReadFile(filepath.Join(catalog, file.Name()))
-			if err != nil {
-				return nil, fmt.Errorf("failed to read catalog file %s: %w", file.Name(), err)
-			}
-
-			var entry types.MCPServerCatalogEntryManifest
-			if err = yaml.Unmarshal(contents, &entry); err != nil {
-				return nil, fmt.Errorf("failed to decode catalog file %s: %w", file.Name(), err)
-			}
-			entries = append(entries, entry)
 		}
+		if scanner.Err() != nil && scanner.Err() != io.EOF {
+			log.Warnf("Failed to read .ignoreobotcatalogs file: %v", scanner.Err())
+		} else if len(patterns) > 0 {
+			ignorePatterns = patterns
+		}
+	}
+
+	// Walk through the cloned repository to find matching files
+	var (
+		entries   []types.MCPServerCatalogEntryManifest
+		fileCount int
+	)
+	const maxFiles = 1000 // Limit the number of files processed to prevent resource exhaustion
+
+	err := filepath.WalkDir(catalog, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Get relative path from repository root
+		relPath, err := filepath.Rel(catalog, path)
+		if err != nil {
+			return err
+		}
+
+		// Skip the .git directory specifically
+		if d.IsDir() && (relPath == ".git" || strings.HasPrefix(relPath, ".git/")) {
+			return filepath.SkipDir
+		}
+
+		// Skip directories (but continue walking into them)
+		if d.IsDir() {
+			for _, pattern := range ignorePatterns {
+				if matched, _ := filepath.Match(pattern, relPath); matched {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
+
+		// Check file count limit
+		fileCount++
+		if fileCount > maxFiles {
+			return fmt.Errorf("too many files to process (limit: %d)", maxFiles)
+		}
+
+		// Check if file matches any pattern
+		var matches bool
+		for _, pattern := range catalogPatterns {
+			if matched, _ := filepath.Match(pattern, filepath.Base(relPath)); matched {
+				matches = true
+				break
+			}
+		}
+		if !matches {
+			return nil
+		}
+
+		// Check if file matches any ignore pattern
+		for _, pattern := range ignorePatterns {
+			if matched, _ := filepath.Match(pattern, relPath); matched {
+				return nil
+			}
+		}
+
+		// Security check: ensure the file is safe to read
+		if err := isPathSafe(path, catalog); err != nil {
+			log.Warnf("Skipping unsafe file %s: %v", relPath, err)
+			return nil
+		}
+
+		// Read file contents
+		content, err := os.ReadFile(path)
+		if err != nil {
+			log.Warnf("Failed to read contents of %s: %v", relPath, err)
+			return nil
+		}
+
+		// Try to unmarshal as array first
+		var fileEntries []types.MCPServerCatalogEntryManifest
+		if err := yaml.Unmarshal(content, &fileEntries); err != nil {
+			// If that fails, try single object with YAML
+			var entry types.MCPServerCatalogEntryManifest
+			if err := yaml.Unmarshal(content, &entry); err != nil {
+				if usingObotCatalogsFile {
+					log.Warnf("Failed to parse %s as catalog entry: %v", relPath, err)
+				} else {
+					log.Debugf("Failed to parse %s as catalog entry: %v", relPath, err)
+				}
+				return nil
+			}
+			fileEntries = []types.MCPServerCatalogEntryManifest{entry}
+		}
+
+		entries = append(entries, fileEntries...)
+		return nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk repository files: %w", err)
 	}
 
 	return entries, nil
@@ -382,7 +498,7 @@ func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Resp
 		// Get the catalog ID for the server's catalog entry to check access properly
 		var catalogEntry v1.MCPServerCatalogEntry
 		if err := req.Get(&catalogEntry, system.DefaultNamespace, server.Spec.MCPServerCatalogEntryName); err != nil {
-			if errors.IsNotFound(err) {
+			if apierrors.IsNotFound(err) {
 				log.Infof("Deleting MCP server %q because its catalog entry no longer exists", server.Name)
 				if err := req.Delete(&server); err != nil {
 					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
@@ -446,7 +562,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstances(req router.Request, _ rou
 		// Get the MCP server to determine which catalog it belongs to
 		var mcpServer v1.MCPServer
 		if err := req.Get(&mcpServer, system.DefaultNamespace, instance.Spec.MCPServerName); err != nil {
-			if errors.IsNotFound(err) {
+			if apierrors.IsNotFound(err) {
 				log.Infof("Deleting MCPServerInstance %q because its MCP server no longer exists", instance.Name)
 				if err := req.Delete(&instance); err != nil {
 					return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
