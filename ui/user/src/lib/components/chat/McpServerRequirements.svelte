@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { Server, X } from 'lucide-svelte';
 	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
@@ -89,9 +89,10 @@
 		maybeOpenDialogs();
 	});
 
-	function maybeOpenDialogs() {
+	async function maybeOpenDialogs() {
 		if (oauthQueue.length > 0) {
 			oauthIndex = 0;
+			await tick();
 			oauthDialogs[oauthIndex]?.showModal();
 			return;
 		}
@@ -101,8 +102,17 @@
 		}
 	}
 
-	function nextOauth() {
-		oauthDialogs[oauthIndex]?.close();
+	async function nextOauth() {
+		// Close the current dialog first
+		const currentDialog = oauthDialogs[oauthIndex];
+		if (currentDialog) {
+			currentDialog.close();
+		}
+
+		// Wait for the close operation to complete
+		await tick();
+
+		// Move to next dialog if available
 		if (oauthIndex < oauthQueue.length - 1) {
 			oauthIndex = oauthIndex + 1;
 			oauthDialogs[oauthIndex]?.showModal();
@@ -180,32 +190,34 @@
 </script>
 
 {#each oauthQueue as mcpServer, i (mcpServer.id)}
-	<dialog bind:this={oauthDialogs[i]} class="flex w-full flex-col gap-4 p-4 md:w-sm">
-		<div class="absolute top-2 right-2">
-			<button class="icon-button" onclick={nextOauth}>
-				<X class="size-4" />
-			</button>
-		</div>
-		<div class="flex items-center gap-2">
-			<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-				{#if mcpServer.icon}
-					<img src={mcpServer.icon} alt={mcpServer.name} class="size-6" />
-				{:else}
-					<Server class="size-6" />
-				{/if}
+	<dialog bind:this={oauthDialogs[i]} class="p-4 md:w-sm">
+		<div class="flex w-full flex-col gap-4">
+			<div class="absolute top-2 right-2">
+				<button class="icon-button" onclick={nextOauth}>
+					<X class="size-4" />
+				</button>
 			</div>
-			<h3 class="text-lg leading-5.5 font-semibold">{mcpServer.name}</h3>
+			<div class="flex items-center gap-2">
+				<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					{#if mcpServer.icon}
+						<img src={mcpServer.icon} alt={mcpServer.name} class="size-6" />
+					{:else}
+						<Server class="size-6" />
+					{/if}
+				</div>
+				<h3 class="text-lg leading-5.5 font-semibold">{mcpServer.name}</h3>
+			</div>
+			<p>In order to use {mcpServer.name}, authentication with the MCP server is required.</p>
+			<p>Click the link below to authenticate.</p>
+			<a
+				href={mcpServer.oauthURL}
+				target="_blank"
+				class="button-primary text-center text-sm outline-none"
+				onclick={nextOauth}
+			>
+				Authenticate
+			</a>
 		</div>
-		<p>In order to use {mcpServer.name}, authentication with the MCP server is required.</p>
-		<p>Click the link below to authenticate.</p>
-		<a
-			href={mcpServer.oauthURL}
-			target="_blank"
-			class="button-primary text-center text-sm outline-none"
-			onclick={nextOauth}
-		>
-			Authenticate
-		</a>
 	</dialog>
 {/each}
 
