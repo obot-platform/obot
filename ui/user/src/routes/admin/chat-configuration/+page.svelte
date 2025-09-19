@@ -6,7 +6,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import Table from '$lib/components/Table.svelte';
+	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte.js';
 	import { AdminService, ModelUsage, type Model, type ModelProvider } from '$lib/services';

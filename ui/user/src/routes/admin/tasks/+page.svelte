@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/Table.svelte';
+	import Table from '$lib/components/table/Table.svelte';
 	import {
 		AdminService,
 		type ProjectThread,

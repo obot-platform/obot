@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/Table.svelte';
+	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type ProjectThread, type Project, type OrgUser } from '$lib/services';
 	import { Eye, LoaderCircle, MessageCircle, Funnel } from 'lucide-svelte';
 	import { onMount } from 'svelte';

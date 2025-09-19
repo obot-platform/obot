@@ -4,7 +4,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import Table from '$lib/components/Table.svelte';
+	import Table from '$lib/components/table/Table.svelte';
 	import { BOOTSTRAP_USER_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { userRoleOptions } from '$lib/services/admin/constants.js';
 	import { Role, type OrgUser } from '$lib/services/admin/types';

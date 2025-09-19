@@ -4,7 +4,7 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { AlertTriangle, Info, LoaderCircle, RotateCcw, RefreshCw } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
-	import Table from '../Table.svelte';
+	import Table from '../table/Table.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';

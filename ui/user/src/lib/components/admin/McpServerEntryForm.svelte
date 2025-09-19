@@ -10,7 +10,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import CatalogServerForm from './CatalogServerForm.svelte';
-	import Table from '../Table.svelte';
+	import Table from '../table/Table.svelte';
 	import {
 		AlertCircle,
 		ChevronLeft,
@@ -60,6 +60,7 @@
 			? entity === 'workspace'
 				? [
 						{ label: 'Overview', view: 'overview' },
+						// { label: 'Server Details', view: 'server-instances' }
 						{ label: 'Tools', view: 'tools' },
 						{ label: 'Configuration', view: 'configuration' },
 						// TODO: support workspace usage and audit logs
@@ -67,16 +68,15 @@
 						// { label: 'Audit Logs', view: 'audit-logs' },
 						...(isAtLeastPowerUserPlus ? [{ label: 'Access Control', view: 'access-control' }] : [])
 						// TODO: enable when we have workspace server instances
-						// { label: 'Server Details', view: 'server-instances' }
 					]
 				: [
 						{ label: 'Overview', view: 'overview' },
+						{ label: 'Server Details', view: 'server-instances' },
 						{ label: 'Tools', view: 'tools' },
 						{ label: 'Configuration', view: 'configuration' },
 						{ label: 'Usage', view: 'usage' },
 						{ label: 'Audit Logs', view: 'audit-logs' },
 						{ label: 'Access Control', view: 'access-control' },
-						{ label: 'Server Details', view: 'server-instances' },
 						{ label: 'Filters', view: 'filters' }
 					]
 			: []

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/Table.svelte';
+	import Table from '$lib/components/table/Table.svelte';
 	import { BookOpenText, ChevronLeft, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
