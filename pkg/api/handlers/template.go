@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -223,4 +224,21 @@ func (h *TemplateHandler) GetTemplate(req api.Context) error {
 	}
 
 	return req.Write(convertTemplateThread(templateThread, &templateShareList.Items[0]))
+}
+
+// getTemplateSet returns a set of template thread names for all templates
+func getTemplateSet(ctx context.Context, c kclient.Client) (map[string]struct{}, error) {
+	var templateThreadList v1.ThreadList
+	if err := c.List(ctx, &templateThreadList, kclient.MatchingFields{
+		"spec.template": "true",
+	}); err != nil {
+		return nil, err
+	}
+
+	templateSet := make(map[string]struct{}, len(templateThreadList.Items))
+	for _, thread := range templateThreadList.Items {
+		templateSet[thread.Name] = struct{}{}
+	}
+
+	return templateSet, nil
 }

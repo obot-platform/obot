@@ -914,13 +914,24 @@ func (t *TaskHandler) ListFromScope(req api.Context) error {
 }
 
 func (t *TaskHandler) list(req api.Context, thread *v1.Thread) error {
-	selector := kclient.MatchingFields{}
+	var (
+		selector    = kclient.MatchingFields{}
+		templateSet map[string]struct{}
+		err         error
+	)
 
 	if thread != nil && thread.Name != "" {
 		if !thread.Spec.Project && thread.Spec.ParentThreadName != "" {
 			selector["spec.threadName"] = thread.Spec.ParentThreadName
 		} else {
 			selector["spec.threadName"] = thread.Name
+		}
+	} else {
+		// We're listing all tasks in the system, get the set of template thread names so we can
+		// omit template tasks from the results
+		templateSet, err = getTemplateSet(req.Context(), req.Storage)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -962,9 +973,11 @@ func (t *TaskHandler) list(req api.Context, thread *v1.Thread) error {
 	taskList := types.TaskList{Items: make([]types.Task, 0, len(workflows.Items))}
 
 	for _, workflow := range workflows.Items {
-		if !workflow.DeletionTimestamp.IsZero() {
+		if _, isTemplate := templateSet[workflow.Spec.ThreadName]; isTemplate ||
+			!workflow.DeletionTimestamp.IsZero() {
 			continue
 		}
+
 		taskList.Items = append(taskList.Items, convertTask(workflow, &triggers{
 			CronJob: cronMap[name.SafeHashConcatName(system.CronJobPrefix, workflow.Name)],
 			Webhook: webhookMap[name.SafeHashConcatName(system.WebhookPrefix, workflow.Name)],
