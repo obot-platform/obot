@@ -197,8 +197,21 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		h.gatewayClient.LogMCPAuditEntry(auditLog)
 	}()
 
+	catalogName := m.mcpServer.Spec.MCPCatalogID
+	if catalogName == "" {
+		catalogName = m.mcpServer.Spec.PowerUserWorkspaceID
+	}
+	if catalogName == "" && m.mcpServer.Spec.MCPServerCatalogEntryName != "" {
+		var entry v1.MCPServerCatalogEntry
+		if err := h.storageClient.Get(ctx, kclient.ObjectKey{Namespace: m.mcpServer.Namespace, Name: m.mcpServer.Spec.MCPServerCatalogEntryName}, &entry); err != nil {
+			log.Errorf("Failed to get catalog for server %s: %v", m.mcpServer.Name, err)
+			return
+		}
+		catalogName = entry.Spec.MCPCatalogName
+	}
+
 	var webhooks []mcp.Webhook
-	webhooks, err = h.webhookHelper.GetWebhooksForMCPServer(ctx, h.gptClient, m.mcpServer.Namespace, m.mcpServer.Name, m.mcpServer.Spec.MCPServerCatalogEntryName, m.mcpServer.Spec.MCPCatalogID, auditLog.CallType, auditLog.CallIdentifier)
+	webhooks, err = h.webhookHelper.GetWebhooksForMCPServer(ctx, h.gptClient, m.mcpServer.Namespace, m.mcpServer.Name, m.mcpServer.Spec.MCPServerCatalogEntryName, catalogName, auditLog.CallType, auditLog.CallIdentifier)
 	if err != nil {
 		log.Errorf("Failed to get webhooks for server %s: %v", m.mcpServer.Name, err)
 		return
@@ -223,7 +236,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			m.mcpServer.Name,
 			m.mcpServer.Spec.Manifest.Name,
 			m.mcpServer.Spec.MCPServerCatalogEntryName,
-			m.mcpServer.Spec.MCPCatalogID,
+			catalogName,
 		),
 	)
 	if err != nil {
