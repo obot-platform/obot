@@ -75,6 +75,10 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path == "/admin/" {
 		// we have to redirect to /admin instead of serving the index.html file because ending slash will laod a different route for js files
 		http.Redirect(w, r, "/admin", http.StatusFound)
+	} else if r.URL.Path == "/mcp-publisher/" {
+		http.Redirect(w, r, "/mcp-publisher", http.StatusFound)
+	} else if r.URL.Path == "/mcp-publisher" {
+		http.ServeFileFS(w, r, embedded, "user/build/mcp-publisher.html")
 	} else if _, err := fs.Stat(embedded, userPath); err == nil {
 		http.ServeFileFS(w, r, embedded, userPath)
 	} else if _, err := fs.Stat(embedded, adminPath); err == nil {
