@@ -400,6 +400,11 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 
 	var items []types.MCPServer
 	for _, server := range list.Items {
+		if server.Spec.Template {
+			// Hide template servers
+			continue
+		}
+
 		var credCtx string
 		if server.Spec.MCPCatalogID != "" {
 			credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)

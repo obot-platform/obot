@@ -1967,6 +1967,10 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		return err
 	}
 
+	if server.Spec.Template {
+		return types.NewErrNotFound("MCP server not found")
+	}
+
 	if serverConfig.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("cannot get details for remote MCP server")
 	}
