@@ -134,7 +134,9 @@
 				class:pl-12={!layout.sidebarOpen && !responsive.isMobile && !layout.sidebarConfig}
 			>
 				{#if !responsive.isMobile || (responsive.isMobile && !layout.fileEditorOpen)}
-					{#if layout.editTaskID && layout.tasks}
+					{#if layout.sidebarConfig}
+						<SidebarConfig bind:project bind:currentThreadID {assistant} />
+					{:else if layout.editTaskID && layout.tasks}
 						{#each layout.tasks as task, i (task.id)}
 							{#if task.id === layout.editTaskID}
 								{#key layout.editTaskID}
@@ -160,8 +162,6 @@
 								runID={layout.displayTaskRun.id}
 							/>
 						{/key}
-					{:else if layout.sidebarConfig}
-						<SidebarConfig bind:project bind:currentThreadID {assistant} />
 					{:else}
 						<Thread
 							bind:id={currentThreadID}
