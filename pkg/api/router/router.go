@@ -58,7 +58,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
-	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler(services.StorageClient)
+	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
