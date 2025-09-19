@@ -11,9 +11,13 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -56,13 +60,36 @@ func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezon
 
 // EnsureIdentityWithRole ensures the given identity exists in the database with the given role, and returns the user associated with it.
 func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity, timezone string, role types2.Role) (*types.User, error) {
-	var user *types.User
-	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	var (
+		user    *types.User
+		created bool
+	)
+	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
-		user, err = c.ensureIdentity(ctx, tx, id, timezone, role)
+		user, created, err = c.ensureIdentity(ctx, tx, id, timezone, role)
 		return err
-	}); err != nil {
+	})
+	if err != nil {
 		return nil, err
+	}
+
+	if created {
+		if user.Role == types2.RoleUnknown {
+			user.Role, err = c.getDefaultRole(ctx)
+			if err != nil {
+				return nil, err
+			}
+
+			if user, err = c.UpdateUser(ctx, true, user, fmt.Sprintf("%d", user.ID)); err != nil {
+				return nil, err
+			}
+		}
+
+		if user.Role.HasRole(types2.RolePowerUser) {
+			if err = c.ensureNewPrivilegedUser(ctx, user); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return user, nil
@@ -99,7 +126,7 @@ func (c *Client) EncryptIdentities(ctx context.Context, force bool) error {
 }
 
 // ensureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
-func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role) (*types.User, error) {
+func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role) (*types.User, bool, error) {
 	verified := slices.Contains(verifiedAuthProviders, fmt.Sprintf("%s/%s", id.AuthProviderNamespace, id.AuthProviderName))
 
 	email := id.Email
@@ -124,33 +151,33 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		if err = tx.First(migratedIdentity).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 			// The identity does not exist, so create it.
 			if err = c.encryptIdentity(ctx, id); err != nil {
-				return nil, fmt.Errorf("failed to encrypt identity: %w", err)
+				return nil, false, fmt.Errorf("failed to encrypt identity: %w", err)
 			}
 			if err = tx.Create(id).Error; err != nil {
-				return nil, err
+				return nil, false, err
 			}
 		} else if err != nil {
-			return nil, err
+			return nil, false, err
 		} else {
 			if err = c.encryptIdentity(ctx, id); err != nil {
-				return nil, fmt.Errorf("failed to encrypt identity: %w", err)
+				return nil, false, fmt.Errorf("failed to encrypt identity: %w", err)
 			}
 
 			// The migrated identity exists. We need to update it with the right provider_user_id.
 			if err = tx.Model(&migratedIdentity).Where("hashed_provider_user_id = ?", migratedIdentity.HashedProviderUserID).Updates(map[string]any{"provider_user_id": id.ProviderUserID, "hashed_provider_user_id": id.HashedProviderUserID}).Error; err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			// Now we should be able to load the identity.
 			if err = tx.First(id).Error; err != nil {
-				return nil, err
+				return nil, false, err
 			}
 		}
 	} else if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err := c.decryptIdentity(ctx, id); err != nil {
-		return nil, fmt.Errorf("failed to decrypt identity: %w", err)
+		return nil, false, fmt.Errorf("failed to decrypt identity: %w", err)
 	}
 
 	user := &types.User{
@@ -163,13 +190,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		Role:           role,
 	}
 
-	if user.Role == types2.RoleUnknown {
-		c.lock.RLock()
-		role = *c.defaultRole
-		c.lock.RUnlock()
-	}
-
-	var checkForExistingUser bool
+	var created, checkForExistingUser bool
 	userQuery := tx
 	if user.ID != 0 {
 		// Check for an existing user with this exact ID.
@@ -186,38 +207,31 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		// Copy the user so that we don't have to decrypt unless the user already exists.
 		u := *user
 		if err := userQuery.First(&u).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-			u.Role = role
+			created = true
 			if err = c.encryptUser(ctx, &u); err != nil {
-				return nil, fmt.Errorf("failed to encrypt user: %w", err)
+				return nil, false, fmt.Errorf("failed to encrypt user: %w", err)
 			}
 			if err = tx.Create(&u).Error; err != nil {
-				return nil, err
+				return nil, false, err
 			}
 
 			// Copy the auto-generated values back to the user object.
 			user.ID = u.ID
 			user.CreatedAt = u.CreatedAt
 			user.Role = u.Role
-
-			// Call callback for new privileged users
-			if c.onNewPrivilegedUser != nil && (user.Role.HasRole(types2.RolePowerUser) || user.Role.HasRole(types2.RolePowerUserPlus)) {
-				// we have to use a goroutine here otherwise the current request seems to be blocking it
-				go c.onNewPrivilegedUser(ctx, user)
-			}
 		} else if err != nil {
-			return nil, err
+			return nil, false, err
 		} else {
 			if err = c.decryptUser(ctx, &u); err != nil {
-				return nil, fmt.Errorf("failed to decrypt user: %w", err)
+				return nil, false, fmt.Errorf("failed to decrypt user: %w", err)
 			}
 
 			// Copy the decrypted existing user back.
 			*user = u
 
 			// We're using an existing user. See if there are any fields that need to be updated.
-			// For an existing user, we should never update the role unless the user 's role is unknown, or it is a explict admin.
 			var userChanged bool
-			if user.Role == types2.RoleUnknown {
+			if user.Role == types2.RoleUnknown && role != types2.RoleUnknown {
 				user.Role = role
 				userChanged = true
 			}
@@ -258,10 +272,10 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 				// Copy user so we don't have to decrypt
 				u = *user
 				if err := c.encryptUser(ctx, &u); err != nil {
-					return nil, fmt.Errorf("failed to encrypt user: %w", err)
+					return nil, false, fmt.Errorf("failed to encrypt user: %w", err)
 				}
 				if err = tx.Updates(u).Error; err != nil {
-					return nil, err
+					return nil, false, err
 				}
 			}
 		}
@@ -269,10 +283,10 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		// Copy the user so we don't have to decrypt
 		u := *user
 		if err := c.encryptUser(ctx, &u); err != nil {
-			return nil, fmt.Errorf("failed to encrypt user: %w", err)
+			return nil, false, fmt.Errorf("failed to encrypt user: %w", err)
 		}
 		if err := tx.Create(&u).Error; err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		// Copy the values that were created instead of decrypting the whole object.
@@ -289,23 +303,23 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		id.HashedProviderUserID = hash.String(id.ProviderUserID)
 
 		if err := c.encryptAndUpdateIdentity(ctx, tx, *id); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
 
 	// Ensure groups and group memberships are up to date
 	groupsLastChecked := id.AuthProviderGroupsLastChecked
 	if err := c.ensureGroups(ctx, tx, id); err != nil {
-		return nil, fmt.Errorf("failed to update groups for identity: %w", err)
+		return nil, false, fmt.Errorf("failed to update groups for identity: %w", err)
 	}
 	if !groupsLastChecked.Equal(id.AuthProviderGroupsLastChecked) {
 		// Groups were updated, so we should update the last checked time on the identity.
 		if err := c.encryptAndUpdateIdentity(ctx, tx, *id); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 	}
 
-	return user, nil
+	return user, created, nil
 }
 
 // encryptAndUpdateIdentity encrypts the identity and updates it in the database.
@@ -377,6 +391,38 @@ func (c *Client) RemoveIdentityAndUser(ctx context.Context, id *types.Identity) 
 
 		return nil
 	})
+}
+
+func (c *Client) ensureNewPrivilegedUser(ctx context.Context, user *types.User) error {
+	var defaultRole v1.UserDefaultRoleSetting
+	if err := c.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultRoleSettingName}, &defaultRole); err != nil {
+		return fmt.Errorf("failed to get default role setting: %w", err)
+	}
+
+	if err := c.storageClient.Create(ctx, &v1.UserRoleChange{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.UserRoleChangePrefix,
+			Namespace:    system.DefaultNamespace,
+		},
+		Spec: v1.UserRoleChangeSpec{
+			UserID:  user.ID,
+			OldRole: types2.RoleBasic, // New users start as basic
+			NewRole: defaultRole.Spec.Role,
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to create user role change event for new privileged user %d: %w", user.ID, err)
+	}
+
+	return nil
+}
+
+func (c *Client) getDefaultRole(ctx context.Context) (types2.Role, error) {
+	var defaultRole v1.UserDefaultRoleSetting
+	if err := c.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultRoleSettingName}, &defaultRole); err != nil {
+		return types2.RoleBasic, fmt.Errorf("failed to get default role setting: %w", err)
+	}
+
+	return defaultRole.Spec.Role, nil
 }
 
 func (c *Client) encryptIdentity(ctx context.Context, identity *types.Identity) error {
