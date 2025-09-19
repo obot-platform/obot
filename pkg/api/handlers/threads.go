@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -15,6 +16,8 @@ import (
 	threadmodel "github.com/obot-platform/obot/pkg/thread"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const DefaultMaxUserThreadTools = 100
@@ -342,5 +345,28 @@ func (a *ThreadHandler) GetDefaultModelForThread(req api.Context) error {
 	return req.Write(map[string]string{
 		"model":         model,
 		"modelProvider": modelProvider,
+	})
+}
+
+func kickThread(ctx context.Context, c kclient.Client, namespace string, name string) error {
+	var (
+		thread v1.Thread
+		key    = kclient.ObjectKey{Namespace: namespace, Name: name}
+	)
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := c.Get(ctx, key, &thread); err != nil {
+			return kclient.IgnoreNotFound(err)
+		}
+
+		if thread.Annotations[v1.ThreadSyncAnnotation] != "" {
+			delete(thread.Annotations, v1.ThreadSyncAnnotation)
+		} else {
+			if thread.Annotations == nil {
+				thread.Annotations = make(map[string]string)
+			}
+			thread.Annotations[v1.ThreadSyncAnnotation] = "true"
+		}
+
+		return kclient.IgnoreNotFound(c.Update(ctx, &thread))
 	})
 }

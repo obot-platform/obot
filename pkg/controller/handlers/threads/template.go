@@ -1,12 +1,14 @@
 package threads
 
 import (
+	"cmp"
 	"context"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/hash"
+	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -124,6 +126,7 @@ func (t *Handler) UpgradeThread(req router.Request, _ router.Response) error {
 	thread.Status.SharedKnowledgeSetName = ""
 	thread.Status.KnowledgeSetNames = nil
 	thread.Status.UpgradeInProgress = true
+
 	if err := req.Client.Status().Update(req.Ctx, thread); err != nil {
 		return err
 	}
@@ -134,7 +137,29 @@ func (t *Handler) UpgradeThread(req router.Request, _ router.Response) error {
 	thread.Spec.Manifest = source.Spec.Manifest
 	thread.Spec.TargetConfigRevision = sourceRevision
 	thread.Spec.UpgradeApproved = false
-	return req.Client.Update(req.Ctx, thread)
+
+	return req.Client.Update(req.Ctx, remapCopiedAllowedMCPTools(thread))
+}
+
+// remapCopiedAllowedMCPTools remaps the keys of a source ThreadManifest's allowedMCPTools map to match the names
+// of a copied thread's ProjectMCPServers.
+func remapCopiedAllowedMCPTools(copiedThread *v1.Thread) *v1.Thread {
+	if copiedThread.Spec.SourceThreadName == "" {
+		return copiedThread
+	}
+
+	var (
+		allowedMCPTools = copiedThread.Spec.Manifest.AllowedMCPTools
+		remapped        = make(map[string][]string, len(allowedMCPTools))
+	)
+	for pmsName, toolNames := range allowedMCPTools {
+		// Copied ProjectMCPServers names are always constructed by concatenating the source MCP
+		// server name with the copied thread name.
+		remapped[name.SafeHashConcatName(pmsName, copiedThread.Name)] = toolNames
+	}
+	copiedThread.Spec.Manifest.AllowedMCPTools = remapped
+
+	return copiedThread
 }
 
 // EnsurePublicID ensures that the thread has a public ID if it's a project thread that was copied from a template.
@@ -174,7 +199,7 @@ func (t *Handler) EnsureLatestConfigRevision(req router.Request, _ router.Respon
 	}
 
 	// Fetch all resources required to get the config revision for the thread
-	tasks, knowledgeFiles, projectMCPs, mcpServers, mcpServerInstances, err := t.fetchThreadResources(req.Ctx, req.Client, thread)
+	tasks, knowledgeFiles, projectMCPServers, mcpServers, mcpServerInstances, err := t.fetchThreadResources(req.Ctx, req.Client, thread)
 	if err != nil {
 		return err
 	}
@@ -184,7 +209,7 @@ func (t *Handler) EnsureLatestConfigRevision(req router.Request, _ router.Respon
 		thread.Spec.Manifest,
 		tasks,
 		knowledgeFiles,
-		projectMCPs,
+		projectMCPServers,
 		mcpServers,
 		mcpServerInstances,
 	)
@@ -219,8 +244,8 @@ func (*Handler) fetchThreadResources(ctx context.Context, c kclient.Client, thre
 	}
 
 	// Fetch project MCP servers
-	var projectMCPs v1.ProjectMCPServerList
-	if err := c.List(ctx, &projectMCPs, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
+	var projectMCPServers v1.ProjectMCPServerList
+	if err := c.List(ctx, &projectMCPServers, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
 		"spec.threadName": thread.Name,
 	}); err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -242,7 +267,7 @@ func (*Handler) fetchThreadResources(ctx context.Context, c kclient.Client, thre
 		return nil, nil, nil, nil, nil, err
 	}
 
-	return tasks.Items, knowledgeFiles.Items, projectMCPs.Items, mcpServers.Items, mcpServerInstances.Items, nil
+	return tasks.Items, knowledgeFiles.Items, projectMCPServers.Items, mcpServers.Items, mcpServerInstances.Items, nil
 }
 
 // newProjectThreadConfig returns a resource that can be used to compute a thread config revision.
@@ -250,71 +275,25 @@ func newProjectThreadConfig(
 	manifest types.ThreadManifest,
 	tasks []v1.Workflow,
 	knowledgeFiles []v1.KnowledgeFile,
-	projectMCPs []v1.ProjectMCPServer,
+	projectMCPServers []v1.ProjectMCPServer,
 	mcpServers []v1.MCPServer,
 	mcpServerInstances []v1.MCPServerInstance,
-) projectThreadConfig {
-	config := projectThreadConfig{
+) projectConfig {
+	config := projectConfig{
 		Intro:         manifest.IntroductionMessage,
 		Prompt:        manifest.Prompt,
 		ModelProvider: manifest.ModelProvider,
 		Model:         manifest.Model,
-	}
-
-	// Add sorted starter messages and tools
-	config.Starters = make([]string, len(manifest.StarterMessages))
-	copy(config.Starters, manifest.StarterMessages)
-	slices.Sort(config.Starters)
-
-	config.Tools = make([]string, len(manifest.Tools))
-	copy(config.Tools, manifest.Tools)
-	slices.Sort(config.Tools)
-
-	mcpServerSpecs := make(map[string]v1.MCPServerSpec, len(mcpServers))
-	for _, mcpServer := range mcpServers {
-		spec := v1.MCPServerSpec{
-			Manifest:                  mcpServer.Spec.Manifest,
-			UnsupportedTools:          mcpServer.Spec.UnsupportedTools,
-			Alias:                     mcpServer.Spec.Alias,
-			PowerUserWorkspaceID:      mcpServer.Spec.PowerUserWorkspaceID,
-			MCPCatalogID:              mcpServer.Spec.MCPCatalogID,
-			MCPServerCatalogEntryName: mcpServer.Spec.MCPServerCatalogEntryName,
-		}
-		slices.Sort(spec.UnsupportedTools)
-
-		mcpServerSpecs[mcpServer.Name] = spec
-	}
-
-	mcpServerInstancesSpecs := make(map[string]v1.MCPServerInstanceSpec, len(mcpServerInstances))
-	for _, mcpServerInstance := range mcpServerInstances {
-		spec := v1.MCPServerInstanceSpec{
-			MCPServerName:             mcpServerInstance.Spec.MCPServerName,
-			MCPCatalogName:            mcpServerInstance.Spec.MCPCatalogName,
-			MCPServerCatalogEntryName: mcpServerInstance.Spec.MCPServerCatalogEntryName,
-			PowerUserWorkspaceID:      mcpServerInstance.Spec.PowerUserWorkspaceID,
-		}
-		mcpServerInstancesSpecs[mcpServerInstance.Name] = spec
-	}
-
-	// Build allowed MCP tools data with normalized MCP IDs
-	config.AllowedMCPTools = make(map[string][]string, len(manifest.AllowedMCPTools))
-	for projectMCPID, toolNames := range manifest.AllowedMCPTools {
-		// Normalize MCP ID to catalog entry name
-		mcpID := projectMCPID
-		if spec, ok := mcpServerSpecs[mcpID]; ok {
-			mcpID = strings.Join([]string{spec.MCPCatalogID, spec.MCPServerCatalogEntryName}, "/")
-		}
-
-		// Sort tool names for deterministic ordering
-		tools := make([]string, len(toolNames))
-		copy(tools, toolNames)
-		slices.Sort(tools)
-
-		config.AllowedMCPTools[mcpID] = tools
+		Starters:      sortedCopy(manifest.StarterMessages),
+		Tools:         sortedCopy(manifest.Tools),
 	}
 
 	config.TaskDigests = make([]string, 0, len(tasks))
 	for _, task := range tasks {
+		if !task.DeletionTimestamp.IsZero() {
+			continue
+		}
+
 		manifest := task.Spec.Manifest
 		// Clear the alias, this is a unique randomly generated value that will differ between
 		// a copied task and the original.
@@ -326,48 +305,94 @@ func newProjectThreadConfig(
 	// Build knowledge data
 	config.KnowledgeFileDigests = make([]string, 0, len(knowledgeFiles))
 	for _, f := range knowledgeFiles {
+		if !f.DeletionTimestamp.IsZero() {
+			continue
+		}
+
 		config.KnowledgeFileDigests = append(config.KnowledgeFileDigests, hash.ID(f.Spec.FileName, f.Spec.Checksum))
 	}
 	// Sort for deterministic ordering
 	slices.Sort(config.KnowledgeFileDigests)
 
-	// Build project MCP servers data
-	config.ProjectMCPDigests = make([]string, 0, len(projectMCPs))
-	for _, pms := range projectMCPs {
-		var (
-			specHash string
-			mcpID    = pms.Spec.Manifest.MCPID
-		)
-		if spec, ok := mcpServerSpecs[mcpID]; ok {
-			specHash = hash.Digest(spec)
-		} else if spec, ok := mcpServerInstancesSpecs[mcpID]; ok {
-			specHash = hash.Digest(spec)
-		}
-
-		if specHash == "" {
-			// Skip missing specs, this will result in a hash mismatch
+	mcpServerSpecs := make(map[string]v1.MCPServerSpec, len(mcpServers))
+	for _, mcpServer := range mcpServers {
+		if !mcpServer.DeletionTimestamp.IsZero() {
 			continue
 		}
 
-		config.ProjectMCPDigests = append(config.ProjectMCPDigests, specHash)
+		mcpServerSpecs[mcpServer.Name] = v1.MCPServerSpec{
+			Manifest:                  mcpServer.Spec.Manifest,
+			UnsupportedTools:          mcpServer.Spec.UnsupportedTools,
+			Alias:                     mcpServer.Spec.Alias,
+			PowerUserWorkspaceID:      mcpServer.Spec.PowerUserWorkspaceID,
+			MCPCatalogID:              mcpServer.Spec.MCPCatalogID,
+			MCPServerCatalogEntryName: mcpServer.Spec.MCPServerCatalogEntryName,
+		}
 	}
-	slices.Sort(config.ProjectMCPDigests)
+
+	mcpServerInstanceSpecs := make(map[string]v1.MCPServerInstanceSpec, len(mcpServerInstances))
+	for _, mcpServerInstance := range mcpServerInstances {
+		if !mcpServerInstance.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		mcpServerInstanceSpecs[mcpServerInstance.Name] = v1.MCPServerInstanceSpec{
+			MCPServerName:             mcpServerInstance.Spec.MCPServerName,
+			MCPCatalogName:            mcpServerInstance.Spec.MCPCatalogName,
+			MCPServerCatalogEntryName: mcpServerInstance.Spec.MCPServerCatalogEntryName,
+			PowerUserWorkspaceID:      mcpServerInstance.Spec.PowerUserWorkspaceID,
+		}
+	}
+
+	config.ProjectMCPConfig = make([]projectMCPConfig, 0, len(projectMCPServers))
+	for _, projectMCPServer := range projectMCPServers {
+		if !projectMCPServer.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		var (
+			projectMCPConfig projectMCPConfig
+			mcpID            = projectMCPServer.Spec.Manifest.MCPID
+		)
+		if spec, ok := mcpServerSpecs[mcpID]; ok {
+			projectMCPConfig.SpecDigest = hash.Digest(spec)
+		} else if spec, ok := mcpServerInstanceSpecs[mcpID]; ok {
+			projectMCPConfig.SpecDigest = hash.Digest(spec)
+		}
+
+		if projectMCPConfig.SpecDigest == "" {
+			// We couldn't find a spec digest for the referenced MCP server.
+			// Don't include it in the digest.
+			continue
+		}
+
+		if allowedMCPTools, ok := manifest.AllowedMCPTools[projectMCPServer.Name]; ok {
+			projectMCPConfig.AllowedTools = sortedCopy(allowedMCPTools)
+		}
+
+		config.ProjectMCPConfig = append(config.ProjectMCPConfig, projectMCPConfig)
+	}
+	slices.SortFunc(config.ProjectMCPConfig, func(a, b projectMCPConfig) int {
+		return strings.Compare(a.SpecDigest, b.SpecDigest)
+	})
 
 	return config
 }
 
-// projectThreadConfig represents a project thread's configuration and is used to compute a revision
+// projectMCPConfig represents the configuration of a project MCP server.
+type projectMCPConfig struct {
+	SpecDigest   string   `json:"specDigest"`
+	AllowedTools []string `json:"allowedTools"`
+}
+
+// projectConfig represents a project thread's configuration and is used to compute a revision
 // that can be used to determine if a thread has diverged from its source thread.
-type projectThreadConfig struct {
-	// Manifest data
+type projectConfig struct {
 	Intro         string   `json:"intro"`
 	Starters      []string `json:"starters"`
 	Prompt        string   `json:"prompt"`
 	ModelProvider string   `json:"modelProvider"`
 	Model         string   `json:"model"`
-
-	// AllowedMCPTools contains a map of normalized project MCP server IDs to a map of sorted tool names.
-	AllowedMCPTools map[string][]string `json:"allowedMCPTools"`
 
 	// Tools is the set of tool names in the project manifest
 	Tools []string `json:"tools"`
@@ -380,13 +405,21 @@ type projectThreadConfig struct {
 	KnowledgeFileDigests []string `json:"knowledgeFileDigests"`
 
 	// Project MCP servers (sorted by catalog entry name)
-	ProjectMCPDigests []string `json:"projectMCPDigests"`
+	ProjectMCPConfig []projectMCPConfig `json:"projectMCPConfig"`
 }
 
 // Revision returns a revision string created by taking the digest of the projectThreadConfig.
 //
 // Revision strings produced by this method are deterministic and can be used to check for
 // relevant differences between a thread and its source thread.
-func (c projectThreadConfig) Revision() string {
-	return hash.Digest(c)
+func (p projectConfig) Revision() string {
+	return hash.Digest(p)
+}
+
+// sortedCopy returns a sorted copy of the given slice.
+func sortedCopy[T cmp.Ordered](in []T) []T {
+	out := make([]T, len(in))
+	copy(out, in)
+	slices.Sort(out)
+	return out
 }

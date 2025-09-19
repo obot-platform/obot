@@ -28,6 +28,7 @@ const (
 	AuthProviderSyncAnnotation        = "obot.ai/auth-provider-sync"
 	FileScannerProviderSyncAnnotation = "obot.ai/file-scanner-provider-sync"
 	MCPCatalogSyncAnnotation          = "obot.ai/mcp-catalog-sync"
+	ThreadSyncAnnotation              = "obot.ai/thread-sync"
 )
 
 var (

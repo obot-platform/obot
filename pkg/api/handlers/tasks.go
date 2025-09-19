@@ -386,10 +386,7 @@ func convertTaskRun(workflow *v1.Workflow, wfe *v1.WorkflowExecution) types.Task
 func (t *TaskHandler) Delete(req api.Context) error {
 	var workflow v1.Workflow
 	if err := req.Get(&workflow, req.PathValue("id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return err
+		return kclient.IgnoreNotFound(err)
 	}
 
 	return req.Delete(&workflow)
@@ -398,13 +395,20 @@ func (t *TaskHandler) Delete(req api.Context) error {
 func (t *TaskHandler) DeleteFromScope(req api.Context) error {
 	workflow, _, err := t.getTask(req)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
+		return kclient.IgnoreNotFound(err)
+	}
+
+	if err := req.Delete(workflow); err != nil {
 		return err
 	}
 
-	return req.Delete(workflow)
+	if workflow.Spec.ThreadName != "" {
+		if err := kickThread(req.Context(), req.Storage, req.Namespace(), workflow.Spec.ThreadName); err != nil {
+			log.Warnf("failed to kick thread %s after task %s was deleted: %v", workflow.Spec.ThreadName, workflow.Name, err)
+		}
+	}
+
+	return nil
 }
 
 func (t *TaskHandler) Update(req api.Context) error {
