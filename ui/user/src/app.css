@@ -933,3 +933,8 @@ html {
 	--surface3: var(--color-gray-200);
 	--on-surface3: var(--color-black);
 }
+
+.scrollable {
+	scrollbar-color: var(--color-surface3) #f1f1f100;
+	scrollbar-width: auto;
+}

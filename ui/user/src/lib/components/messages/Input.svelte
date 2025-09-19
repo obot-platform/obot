@@ -152,13 +152,18 @@
 	{/if}
 
 	<div
-		class=" focus-within:ring-blue bg-surface1 mt-4 flex h-fit max-h-[80svh] overflow-hidden rounded-2xl focus-within:shadow-md focus-within:ring-1"
+		class=" focus-within:ring-blue bg-surface1 mt-4 flex h-fit max-h-[80svh] rounded-2xl focus-within:shadow-md focus-within:ring-1"
 	>
 		<div class="flex min-h-full w-full flex-col" {id}>
 			<label for="chat" class="sr-only">Your messages</label>
-			<div class="chat-grid relative flex flex-1 flex-col items-center overflow-hidden">
-				<div class="flex h-full items-end overflow-hidden">
-					<div class="scrollable relative flex max-h-full w-full flex-1 gap-4 overflow-y-auto p-2">
+			<div class="chat-grid relative flex flex-1 flex-col items-center">
+				<div
+					class="flex h-full flex-1 items-end overflow-hidden pr-1"
+					style="max-height: calc(80svh - 48px);"
+				>
+					<div
+						class="scrollable relative flex max-h-full w-full flex-1 scroll-m-10 scroll-pb-20 gap-4 overflow-y-auto p-2"
+					>
 						<PlaintextEditor
 							bind:this={editor}
 							bind:value
@@ -174,7 +179,9 @@
 				</div>
 
 				{#if children}
-					<div class="chat-footer pointer-events-none z-1 flex w-full justify-between px-2 pb-2">
+					<div
+						class="chat-footer pointer-events-none z-1 flex w-full justify-between rounded-b-2xl px-2 pb-2"
+					>
 						<div class="pointer-events-auto flex flex-1">
 							{@render children?.()}
 							<div class="grow"></div>
