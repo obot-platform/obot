@@ -13609,6 +13609,14 @@ func schema_storage_apis_obotobotai_v1_PowerUserWorkspaceStatus(ref common.Refer
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"defaultAccessControlRuleGenerated": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}

@@ -52,6 +52,7 @@ type PowerUserWorkspaceSpec struct {
 }
 
 type PowerUserWorkspaceStatus struct {
+	DefaultAccessControlRuleGenerated bool `json:"defaultAccessControlRuleGenerated,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
