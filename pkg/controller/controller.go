@@ -7,14 +7,18 @@ import (
 
 	"github.com/obot-platform/nah"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/data"
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
 	"github.com/obot-platform/obot/pkg/services"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -58,6 +62,10 @@ func New(services *services.Services) (*Controller, error) {
 func (c *Controller) PreStart(ctx context.Context) error {
 	if err := data.Data(ctx, c.services.StorageClient, c.services.AgentsDir); err != nil {
 		return fmt.Errorf("failed to apply data: %w", err)
+	}
+
+	if err := ensureDefaultUserRoleSetting(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to ensure default user role setting: %w", err)
 	}
 
 	if err := addCatalogIDToAccessControlRules(ctx, c.services.StorageClient); err != nil {
@@ -107,6 +115,27 @@ func (c *Controller) Start(ctx context.Context) error {
 		}
 	}
 
+	return nil
+}
+
+func ensureDefaultUserRoleSetting(ctx context.Context, client kclient.Client) error {
+	var defaultRoleSetting v1.UserDefaultRoleSetting
+	if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultRoleSettingName}, &defaultRoleSetting); apierrors.IsNotFound(err) {
+		defaultRoleSetting = v1.UserDefaultRoleSetting{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      system.DefaultRoleSettingName,
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.UserDefaultRoleSettingSpec{
+				Role: types.RoleBasic,
+			},
+		}
+		if err := client.Create(ctx, &defaultRoleSetting); err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
 	return nil
 }
 

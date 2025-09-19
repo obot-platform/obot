@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Client struct {
@@ -20,26 +20,21 @@ type Client struct {
 	auditLock        sync.Mutex
 	auditBuffer      []types.MCPAuditLog
 	kickAuditPersist chan struct{}
-	// Callback function called when new privileged users are created
-	onNewPrivilegedUser func(ctx context.Context, user *types.User)
-	defaultRole         *types2.Role
-	lock                *sync.RWMutex
+	storageClient    kclient.Client
 }
 
-func New(ctx context.Context, db *db.DB, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int, onNewPrivilegedUser func(ctx context.Context, user *types.User), defaultRole *types2.Role, lock *sync.RWMutex) *Client {
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int) *Client {
 	adminEmailsSet := make(map[string]struct{}, len(adminEmails))
 	for _, email := range adminEmails {
 		adminEmailsSet[email] = struct{}{}
 	}
 	c := &Client{
-		db:                  db,
-		encryptionConfig:    encryptionConfig,
-		adminEmails:         adminEmailsSet,
-		auditBuffer:         make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
-		kickAuditPersist:    make(chan struct{}),
-		onNewPrivilegedUser: onNewPrivilegedUser,
-		defaultRole:         defaultRole,
-		lock:                lock,
+		db:               db,
+		encryptionConfig: encryptionConfig,
+		adminEmails:      adminEmailsSet,
+		auditBuffer:      make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
+		kickAuditPersist: make(chan struct{}),
+		storageClient:    storageClient,
 	}
 
 	go c.runPersistenceLoop(ctx, auditLogPersistenceInterval)
