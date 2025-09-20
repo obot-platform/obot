@@ -7,6 +7,7 @@
 	import { success } from '$lib/stores/success';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
+	import { userRoleOptions } from '$lib/services/admin/constants';
 
 	let toDelete = $state(false);
 	let toRevoke = $state(false);
@@ -73,7 +74,9 @@
 					<hr />
 					<div class="flex flex-row py-3">
 						<div class="w-1/2 max-w-[150px]">Role:</div>
-						<div class="w-1/2 break-words">{profile.current.role === 1 ? 'Admin' : 'User'}</div>
+						<div class="w-1/2 break-words">
+							{userRoleOptions.find((role) => role.id === profile.current.role)?.label ?? 'Unknown'}
+						</div>
 					</div>
 					<hr />
 					<div class="mt-2 flex flex-col gap-4 py-3">
