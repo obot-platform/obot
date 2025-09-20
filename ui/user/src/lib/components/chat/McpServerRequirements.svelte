@@ -6,6 +6,7 @@
 	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { convertEnvHeadersToRecord } from '$lib/services/chat/mcp';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		assistantId: string;
@@ -35,6 +36,7 @@
 			.filter((s) => s.needsURL || s.needsUpdate || s.configured === false)
 	);
 
+	let closed = new SvelteSet<string>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configIndex = $state(0);
 	let configureForm = $state<LaunchFormData>();
@@ -43,6 +45,8 @@
 	let configName = $state<string>('');
 	let configIcon = $state<string>('');
 	let configServerId = $state<string>('');
+
+	let ready = $state(false);
 
 	async function refreshUserServers() {
 		try {
@@ -65,44 +69,47 @@
 	}
 
 	onMount(() => {
-		const handleVisibilityChange = () => {
+		const handleVisibilityChange = async () => {
 			if (isInMcp) return;
 			if (document.visibilityState === 'visible') {
-				checkOauths();
-				refreshUserServers();
+				ready = false;
+				await checkOauths();
+				await refreshUserServers();
+				ready = true;
 			}
 		};
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 		return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
 	});
 
-	$effect(() => {
-		if (isInMcp) return;
-		(async () => {
-			await refreshUserServers();
-			maybeOpenDialogs();
-		})();
+	onMount(async () => {
+		ready = false;
+		await checkOauths();
+		await refreshUserServers();
+		ready = true;
+		maybeOpenDialogs();
 	});
 
 	$effect(() => {
-		if (isInMcp) return;
+		if (isInMcp || !ready) return;
 		maybeOpenDialogs();
 	});
 
 	async function maybeOpenDialogs() {
+		await tick();
+
 		if (oauthQueue.length > 0) {
-			oauthIndex = 0;
-			await tick();
+			oauthIndex = oauthQueue.findIndex((m) => !closed.has(m.id));
 			oauthDialogs[oauthIndex]?.showModal();
 			return;
 		}
 
 		if (configQueue.length > 0) {
-			openConfigAt(0);
+			openConfigAt(configQueue.findIndex((s) => !closed.has(s.id)));
 		}
 	}
 
-	async function nextOauth() {
+	async function next() {
 		// Close the current dialog first
 		const currentDialog = oauthDialogs[oauthIndex];
 		if (currentDialog) {
@@ -113,9 +120,18 @@
 		await tick();
 
 		// Move to next dialog if available
-		if (oauthIndex < oauthQueue.length - 1) {
-			oauthIndex = oauthIndex + 1;
+		const nextOauthIndex = oauthQueue.findIndex(
+			(m, index) => !closed.has(m.id) && index > oauthIndex
+		);
+		if (nextOauthIndex < oauthQueue.length - 1 && nextOauthIndex !== -1) {
+			oauthIndex = nextOauthIndex;
 			oauthDialogs[oauthIndex]?.showModal();
+			return;
+		}
+
+		const nextConfigIndex = configQueue.findIndex((s) => !closed.has(s.id));
+		if (nextConfigIndex !== -1) {
+			openConfigAt(nextConfigIndex);
 		}
 	}
 
@@ -178,8 +194,11 @@
 			} catch {
 				// ignore refresh errors
 			}
-			if (configIndex < configQueue.length - 1) {
-				await openConfigAt(configIndex + 1);
+			const nextConfigIndex = configQueue.findIndex(
+				(s, index) => !closed.has(s.id) && index > configIndex
+			);
+			if (nextConfigIndex !== -1) {
+				await openConfigAt(nextConfigIndex);
 			}
 		} catch (error) {
 			configError = error instanceof Error ? error.message : 'Unknown error';
@@ -193,7 +212,13 @@
 	<dialog bind:this={oauthDialogs[i]} class="p-4 md:w-sm">
 		<div class="flex w-full flex-col gap-4">
 			<div class="absolute top-2 right-2">
-				<button class="icon-button" onclick={nextOauth}>
+				<button
+					class="icon-button"
+					onclick={() => {
+						closed.add(mcpServer.id);
+						next();
+					}}
+				>
 					<X class="size-4" />
 				</button>
 			</div>
@@ -213,7 +238,7 @@
 				href={mcpServer.oauthURL}
 				target="_blank"
 				class="button-primary text-center text-sm outline-none"
-				onclick={nextOauth}
+				onclick={next}
 			>
 				Authenticate
 			</a>
@@ -221,16 +246,27 @@
 	</dialog>
 {/each}
 
-{#if oauthQueue.length === 0 && configQueue.length > 0}
-	<CatalogConfigureForm
-		bind:this={configDialog}
-		bind:form={configureForm}
-		name={configName}
-		icon={configIcon}
-		serverId={configServerId}
-		submitText="Update"
-		loading={configuring}
-		error={configError}
-		onSave={handleSaveConfig}
-	/>
-{/if}
+<CatalogConfigureForm
+	bind:this={configDialog}
+	bind:form={configureForm}
+	disableOutsideClick
+	name={configName}
+	icon={configIcon}
+	serverId={configServerId}
+	submitText="Update"
+	loading={configuring}
+	error={configError}
+	onSave={handleSaveConfig}
+	onClose={async () => {
+		closed.add(configServerId);
+		// wait 300ms
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		const nextConfigIndex = configQueue.findIndex(
+			(s, index) => !closed.has(s.id) && index > configIndex
+		);
+		if (nextConfigIndex !== -1) {
+			await tick();
+			await openConfigAt(nextConfigIndex);
+		}
+	}}
+/>

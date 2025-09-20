@@ -32,10 +32,12 @@
 		serverId?: string;
 		isNew?: boolean;
 		showAlias?: boolean;
+		disableOutsideClick?: boolean;
 	}
 	let {
 		form = $bindable(),
 		onCancel,
+		onClose,
 		onSave,
 		name,
 		icon,
@@ -44,7 +46,8 @@
 		loading,
 		error,
 		isNew,
-		showAlias
+		showAlias,
+		disableOutsideClick
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let highlightedFields = $state<Set<string>>(new Set());
@@ -135,9 +138,10 @@
 	animate="slide"
 	onClose={() => {
 		clearHighlights();
+		onClose?.();
 	}}
 	onClickOutside={() => {
-		if (resizing) return;
+		if (resizing || disableOutsideClick) return;
 		if ((isNew && hasFieldFilledOut(form)) || (!isNew && hasFormChanged())) {
 			showConfirmClose = true;
 		} else {
