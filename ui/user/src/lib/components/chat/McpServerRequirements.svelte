@@ -92,7 +92,9 @@
 
 	$effect(() => {
 		if (isInMcp || !ready) return;
-		maybeOpenDialogs();
+		if (oauthQueue.length > 0 || configQueue.length > 0) {
+			maybeOpenDialogs();
+		}
 	});
 
 	async function maybeOpenDialogs() {
