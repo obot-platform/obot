@@ -71,7 +71,6 @@ func (h *Handler) CreateACR(req router.Request, _ router.Response) error {
 	if err := h.createDefaultAccessControlRule(req.Ctx, req.Client, req.Namespace, workspace); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -203,7 +202,10 @@ func (h *Handler) cleanupWorkspaceForDemotionToPowerUser(ctx context.Context, cl
 }
 
 func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kclient.Client, namespace string, workspace *v1.PowerUserWorkspace) error {
-	// Check if the default ACR already exists
+	if workspace.Status.DefaultAccessControlRuleGenerated {
+		return nil
+	}
+
 	var existingACRs v1.AccessControlRuleList
 	if err := client.List(ctx, &existingACRs, &kclient.ListOptions{
 		Namespace: namespace,
@@ -214,11 +216,21 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 		return err
 	}
 
-	// Check if a generated ACR already exists for this workspace
 	for _, acr := range existingACRs.Items {
 		if acr.Spec.Generated {
-			return nil // Already exists
+			return nil
 		}
+	}
+
+	// for power user, generate rules that only give the current user access
+	// for power user plus, generate rules that give all users access
+	subject := types.Subject{
+		Type: types.SubjectTypeUser,
+		ID:   workspace.Spec.UserID,
+	}
+	if workspace.Spec.Role.HasRole(types.RolePowerUserPlus) {
+		subject.Type = types.SubjectTypeSelector
+		subject.ID = "*"
 	}
 
 	// Create the default access control rule
@@ -233,10 +245,7 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 			Manifest: types.AccessControlRuleManifest{
 				DisplayName: "Default Access Rule",
 				Subjects: []types.Subject{
-					{
-						Type: types.SubjectTypeSelector,
-						ID:   "*",
-					},
+					subject,
 				},
 				Resources: []types.Resource{
 					{
@@ -248,5 +257,14 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 		},
 	}
 
-	return client.Create(ctx, defaultACR)
+	if err := client.Create(ctx, defaultACR); err != nil {
+		return err
+	}
+
+	workspace.Status.DefaultAccessControlRuleGenerated = true
+	if err := client.Status().Update(ctx, workspace); err != nil {
+		return err
+	}
+
+	return nil
 }
