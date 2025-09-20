@@ -32,10 +32,13 @@
 		serverId?: string;
 		isNew?: boolean;
 		showAlias?: boolean;
+		disableOutsideClick?: boolean;
+		animate?: 'slide' | 'fade' | null;
 	}
 	let {
 		form = $bindable(),
 		onCancel,
+		onClose,
 		onSave,
 		name,
 		icon,
@@ -44,7 +47,9 @@
 		loading,
 		error,
 		isNew,
-		showAlias
+		showAlias,
+		disableOutsideClick,
+		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let highlightedFields = $state<Set<string>>(new Set());
@@ -132,12 +137,13 @@
 
 <ResponsiveDialog
 	bind:this={configDialog}
-	animate="slide"
+	{animate}
 	onClose={() => {
 		clearHighlights();
+		onClose?.();
 	}}
 	onClickOutside={() => {
-		if (resizing) return;
+		if (resizing || disableOutsideClick) return;
 		if ((isNew && hasFieldFilledOut(form)) || (!isNew && hasFormChanged())) {
 			showConfirmClose = true;
 		} else {

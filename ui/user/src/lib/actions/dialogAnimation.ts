@@ -3,7 +3,7 @@ import type { Action } from 'svelte/action';
 type AnimationType = 'slide' | 'fade' | 'drawer';
 
 interface DialogAnimationParams {
-	type?: AnimationType;
+	type?: AnimationType | null;
 }
 
 // for <dialog> elements

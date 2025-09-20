@@ -23,7 +23,7 @@
 		titleContent?: Snippet;
 		title?: string;
 		children: Snippet;
-		animate?: 'slide' | 'fade';
+		animate?: 'slide' | 'fade' | null;
 	}
 
 	let {

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { Server, X } from 'lucide-svelte';
 	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { convertEnvHeadersToRecord } from '$lib/services/chat/mcp';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		assistantId: string;
@@ -22,7 +23,7 @@
 
 	let oauthDialogs = $state<HTMLDialogElement[]>([]);
 	let oauthIndex = $state(0);
-	let oauthQueue = $derived(projectMcps.items.filter((m) => !m.authenticated && m.oauthURL));
+	let oauthQueue = $derived(projectMcps.items.filter((m) => m.oauthURL));
 
 	let userServers = $state<MCPCatalogServer[]>([]);
 	let entries = $state<MCPCatalogEntry[]>([]);
@@ -35,6 +36,7 @@
 			.filter((s) => s.needsURL || s.needsUpdate || s.configured === false)
 	);
 
+	let closed = new SvelteSet<string>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configIndex = $state(0);
 	let configureForm = $state<LaunchFormData>();
@@ -43,6 +45,8 @@
 	let configName = $state<string>('');
 	let configIcon = $state<string>('');
 	let configServerId = $state<string>('');
+
+	let ready = $state(false);
 
 	async function refreshUserServers() {
 		try {
@@ -65,47 +69,80 @@
 	}
 
 	onMount(() => {
-		const handleVisibilityChange = () => {
+		const handleVisibilityChange = async () => {
 			if (isInMcp) return;
 			if (document.visibilityState === 'visible') {
-				checkOauths();
-				refreshUserServers();
+				ready = false;
+				await checkOauths();
+				await refreshUserServers();
+				ready = true;
 			}
 		};
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 		return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
 	});
 
-	$effect(() => {
-		if (isInMcp) return;
-		(async () => {
-			await refreshUserServers();
-			maybeOpenDialogs();
-		})();
-	});
-
-	$effect(() => {
-		if (isInMcp) return;
+	onMount(async () => {
+		ready = false;
+		await checkOauths();
+		await refreshUserServers();
+		ready = true;
 		maybeOpenDialogs();
 	});
 
-	function maybeOpenDialogs() {
+	$effect(() => {
+		if (isInMcp || !ready) return;
+		if (oauthQueue.length > 0 || configQueue.length > 0) {
+			maybeOpenDialogs();
+		}
+	});
+
+	$effect(() => {
+		const needsServerRefresh = projectMcps.items.some(
+			(m) => !m.configured && !userServersById.get(m.mcpID)
+		);
+		if (needsServerRefresh) {
+			refreshUserServers();
+		}
+	});
+
+	async function maybeOpenDialogs() {
 		if (oauthQueue.length > 0) {
-			oauthIndex = 0;
+			const firstOauthIndex = oauthQueue.findIndex((m) => !closed.has(m.id));
+			if (firstOauthIndex !== -1) {
+				oauthIndex = firstOauthIndex;
+				oauthDialogs[oauthIndex]?.showModal();
+				return;
+			}
+		}
+
+		if (configQueue.length > 0) {
+			const firstConfigIndex = configQueue.findIndex((s) => !closed.has(s.id));
+			if (firstConfigIndex !== -1) {
+				openConfigAt(firstConfigIndex);
+			}
+		}
+	}
+
+	async function next() {
+		// Close the current dialog first
+		const currentDialog = oauthDialogs[oauthIndex];
+		if (currentDialog) {
+			currentDialog.close();
+		}
+		// Move to next dialog if available
+		const nextOauthIndex = oauthQueue.findIndex(
+			(m, index) => !closed.has(m.id) && index > oauthIndex
+		);
+		if (nextOauthIndex < oauthQueue.length && nextOauthIndex !== -1) {
+			oauthIndex = nextOauthIndex;
 			oauthDialogs[oauthIndex]?.showModal();
 			return;
 		}
 
-		if (configQueue.length > 0) {
-			openConfigAt(0);
-		}
-	}
-
-	function nextOauth() {
-		oauthDialogs[oauthIndex]?.close();
-		if (oauthIndex < oauthQueue.length - 1) {
-			oauthIndex = oauthIndex + 1;
-			oauthDialogs[oauthIndex]?.showModal();
+		const nextConfigIndex = configQueue.findIndex((s) => !closed.has(s.id));
+		if (nextConfigIndex !== -1) {
+			openConfigAt(nextConfigIndex);
 		}
 	}
 
@@ -168,8 +205,11 @@
 			} catch {
 				// ignore refresh errors
 			}
-			if (configIndex < configQueue.length - 1) {
-				await openConfigAt(configIndex + 1);
+			const nextConfigIndex = configQueue.findIndex(
+				(s, index) => !closed.has(s.id) && index > configIndex
+			);
+			if (nextConfigIndex !== -1) {
+				await openConfigAt(nextConfigIndex);
 			}
 		} catch (error) {
 			configError = error instanceof Error ? error.message : 'Unknown error';
@@ -180,45 +220,63 @@
 </script>
 
 {#each oauthQueue as mcpServer, i (mcpServer.id)}
-	<dialog bind:this={oauthDialogs[i]} class="flex w-full flex-col gap-4 p-4 md:w-sm">
-		<div class="absolute top-2 right-2">
-			<button class="icon-button" onclick={nextOauth}>
-				<X class="size-4" />
-			</button>
-		</div>
-		<div class="flex items-center gap-2">
-			<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-				{#if mcpServer.icon}
-					<img src={mcpServer.icon} alt={mcpServer.name} class="size-6" />
-				{:else}
-					<Server class="size-6" />
-				{/if}
+	<dialog bind:this={oauthDialogs[i]} class="p-4 md:w-sm">
+		<div class="flex w-full flex-col gap-4">
+			<div class="absolute top-2 right-2">
+				<button
+					class="icon-button"
+					onclick={() => {
+						closed.add(mcpServer.id);
+						next();
+					}}
+				>
+					<X class="size-4" />
+				</button>
 			</div>
-			<h3 class="text-lg leading-5.5 font-semibold">{mcpServer.name}</h3>
+			<div class="flex items-center gap-2">
+				<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					{#if mcpServer.icon}
+						<img src={mcpServer.icon} alt={mcpServer.name} class="size-6" />
+					{:else}
+						<Server class="size-6" />
+					{/if}
+				</div>
+				<h3 class="text-lg leading-5.5 font-semibold">{mcpServer.name}</h3>
+			</div>
+			<p>In order to use {mcpServer.name}, authentication with the MCP server is required.</p>
+			<p>Click the link below to authenticate.</p>
+			<a
+				href={mcpServer.oauthURL}
+				target="_blank"
+				class="button-primary text-center text-sm outline-none"
+				onclick={next}
+			>
+				Authenticate
+			</a>
 		</div>
-		<p>In order to use {mcpServer.name}, authentication with the MCP server is required.</p>
-		<p>Click the link below to authenticate.</p>
-		<a
-			href={mcpServer.oauthURL}
-			target="_blank"
-			class="button-primary text-center text-sm outline-none"
-			onclick={nextOauth}
-		>
-			Authenticate
-		</a>
 	</dialog>
 {/each}
 
-{#if oauthQueue.length === 0 && configQueue.length > 0}
-	<CatalogConfigureForm
-		bind:this={configDialog}
-		bind:form={configureForm}
-		name={configName}
-		icon={configIcon}
-		serverId={configServerId}
-		submitText="Update"
-		loading={configuring}
-		error={configError}
-		onSave={handleSaveConfig}
-	/>
-{/if}
+<CatalogConfigureForm
+	bind:this={configDialog}
+	bind:form={configureForm}
+	animate={null}
+	disableOutsideClick
+	name={configName}
+	icon={configIcon}
+	serverId={configServerId}
+	submitText="Update"
+	loading={configuring}
+	error={configError}
+	onSave={handleSaveConfig}
+	onClose={async () => {
+		closed.add(configServerId);
+		await tick();
+		const nextConfigIndex = configQueue.findIndex(
+			(s, index) => !closed.has(s.id) && index > configIndex
+		);
+		if (nextConfigIndex !== -1) {
+			await openConfigAt(nextConfigIndex);
+		}
+	}}
+/>
