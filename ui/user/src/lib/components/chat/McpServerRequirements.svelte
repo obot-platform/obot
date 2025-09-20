@@ -259,7 +259,7 @@
 	onSave={handleSaveConfig}
 	onClose={async () => {
 		closed.add(configServerId);
-		// wait 300ms
+		// wait 300ms -- the close animation length of the dialog
 		await new Promise((resolve) => setTimeout(resolve, 300));
 		const nextConfigIndex = configQueue.findIndex(
 			(s, index) => !closed.has(s.id) && index > configIndex
