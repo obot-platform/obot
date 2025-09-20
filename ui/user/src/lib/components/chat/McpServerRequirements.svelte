@@ -2,7 +2,7 @@
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { onMount, tick } from 'svelte';
-	import { Server, Ticket, X } from 'lucide-svelte';
+	import { Server, X } from 'lucide-svelte';
 	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { convertEnvHeadersToRecord } from '$lib/services/chat/mcp';
@@ -23,7 +23,7 @@
 
 	let oauthDialogs = $state<HTMLDialogElement[]>([]);
 	let oauthIndex = $state(0);
-	let oauthQueue = $derived(projectMcps.items.filter((m) => !m.authenticated && m.oauthURL));
+	let oauthQueue = $derived(projectMcps.items.filter((m) => m.oauthURL));
 
 	let userServers = $state<MCPCatalogServer[]>([]);
 	let entries = $state<MCPCatalogEntry[]>([]);
@@ -97,15 +97,30 @@
 		}
 	});
 
+	$effect(() => {
+		const needsServerRefresh = projectMcps.items.some(
+			(m) => !m.configured && !userServersById.get(m.mcpID)
+		);
+		if (needsServerRefresh) {
+			refreshUserServers();
+		}
+	});
+
 	async function maybeOpenDialogs() {
 		if (oauthQueue.length > 0) {
-			oauthIndex = oauthQueue.findIndex((m) => !closed.has(m.id));
-			oauthDialogs[oauthIndex]?.showModal();
-			return;
+			const firstOauthIndex = oauthQueue.findIndex((m) => !closed.has(m.id));
+			if (firstOauthIndex !== -1) {
+				oauthIndex = firstOauthIndex;
+				oauthDialogs[oauthIndex]?.showModal();
+				return;
+			}
 		}
 
 		if (configQueue.length > 0) {
-			openConfigAt(configQueue.findIndex((s) => !closed.has(s.id)));
+			const firstConfigIndex = configQueue.findIndex((s) => !closed.has(s.id));
+			if (firstConfigIndex !== -1) {
+				openConfigAt(firstConfigIndex);
+			}
 		}
 	}
 
@@ -181,7 +196,6 @@
 			const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
 			await ChatService.configureSingleOrRemoteMcpServer(server.id, secretValues);
 			configDialog?.close();
-			ready = false;
 			await refreshUserServers();
 			// Refresh project MCPs to clear warnings in the sidebar
 			try {
@@ -191,7 +205,6 @@
 			} catch {
 				// ignore refresh errors
 			}
-			ready = true;
 			const nextConfigIndex = configQueue.findIndex(
 				(s, index) => !closed.has(s.id) && index > configIndex
 			);
