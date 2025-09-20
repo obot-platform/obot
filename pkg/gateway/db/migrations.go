@@ -1,8 +1,10 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"gorm.io/gorm"
@@ -156,4 +158,54 @@ func migrateMCPAuditLogClientInfo(tx *gorm.DB) error {
 	}
 
 	return nil
+}
+
+func migrateUserRoles(tx *gorm.DB) error {
+	migrator := tx.Migrator()
+	if migrator.HasTable(&types.User{}) && migrator.HasColumn(&types.User{}, "role") {
+		var users []types.User
+		if err := tx.Find(&users).Error; err != nil {
+			return err
+		}
+		for _, user := range users {
+			if user.HashedUsername == "333c04dd151a2a6831c039cb9a651df29198be8a04e16ce861d4b6a34a11c954" ||
+				user.HashedUsername == "6382b3cc881412b77bfcaeed026001c00d9e3025e66c20f6e7e92f079851462a" {
+				// These represent the bootstrap and nobody (authentication is turned off) users, respectively.
+				// Their roles will be updated the next time they log in.
+				continue
+			}
+
+			switch user.Role {
+			case 1:
+				user.Role = types2.RoleAdmin
+			case 2:
+				user.Role = types2.RolePowerUser
+			case 3:
+				user.Role = types2.RolePowerUserPlus
+			case 10:
+				user.Role = types2.RoleBasic
+			}
+			if err := tx.Save(&user).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func migrateIfEntryNotFoundInMigrationsTable(tx *gorm.DB, name string, f func(*gorm.DB) error) error {
+	var migration types.Migration
+	if err := tx.Where("name = ?", name).First(&migration).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	// Entry not found, so migrate the data.
+
+	if err := f(tx); err != nil {
+		return err
+	}
+
+	// Update the migration table to mark the migration as complete.
+	return tx.Model(&types.Migration{}).Create(&types.Migration{Name: name}).Error
 }

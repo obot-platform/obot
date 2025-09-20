@@ -12,7 +12,6 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -163,7 +162,7 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 			ProviderUserID:   "bootstrap",
 		},
 		req.Header.Get("X-Obot-User-Timezone"),
-		types2.RoleAdmin,
+		types2.RoleOwner,
 	)
 	if err != nil {
 		return nil, false, err
@@ -173,7 +172,7 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 		User: &user.DefaultInfo{
 			Name:   "bootstrap",
 			UID:    fmt.Sprintf("%d", gatewayUser.ID),
-			Groups: []string{authz.AdminGroup, authz.AuthenticatedGroup},
+			Groups: []string{types2.GroupOwner, types2.GroupAdmin, types2.GroupAuthenticated},
 		},
 	}, true, nil
 }
@@ -248,7 +247,7 @@ func (b *Bootstrap) bootstrapEnabled(ctx context.Context) (bool, error) {
 	}
 
 	adminUsers, err := b.gatewayClient.Users(ctx, types.UserQuery{
-		Role: types2.RoleAdmin,
+		Role: types2.RoleOwner,
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to get admin users: %w", err)

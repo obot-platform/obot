@@ -175,8 +175,17 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 
 	// Decrypt the logs after fetching
 	for i := range logs {
-		if err := c.decryptMCPAuditLog(ctx, &logs[i]); err != nil {
-			return nil, 0, fmt.Errorf("failed to decrypt MCP audit log: %w", err)
+		if !opts.WithRequestAndResponse {
+			// These are the only fields that are encrypted right now.
+			// So, just blank them out and skip decryption.
+			logs[i].RequestBody = nil
+			logs[i].ResponseBody = nil
+			logs[i].RequestHeaders = nil
+			logs[i].ResponseHeaders = nil
+		} else {
+			if err := c.decryptMCPAuditLog(ctx, &logs[i]); err != nil {
+				return nil, 0, fmt.Errorf("failed to decrypt MCP audit log: %w", err)
+			}
 		}
 	}
 
@@ -364,6 +373,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 // MCPAuditLogOptions represents options for querying MCP audit logs
 type MCPAuditLogOptions struct {
+	WithRequestAndResponse    bool
 	UserID                    []string
 	MCPID                     []string
 	MCPServerDisplayName      []string
