@@ -117,15 +117,11 @@
 		if (currentDialog) {
 			currentDialog.close();
 		}
-
-		// Wait for the close operation to complete
-		await tick();
-
 		// Move to next dialog if available
 		const nextOauthIndex = oauthQueue.findIndex(
 			(m, index) => !closed.has(m.id) && index > oauthIndex
 		);
-		if (nextOauthIndex < oauthQueue.length - 1 && nextOauthIndex !== -1) {
+		if (nextOauthIndex < oauthQueue.length && nextOauthIndex !== -1) {
 			oauthIndex = nextOauthIndex;
 			oauthDialogs[oauthIndex]?.showModal();
 			return;
@@ -187,6 +183,7 @@
 			const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
 			await ChatService.configureSingleOrRemoteMcpServer(server.id, secretValues);
 			configDialog?.close();
+			ready = false;
 			await refreshUserServers();
 			// Refresh project MCPs to clear warnings in the sidebar
 			try {
@@ -196,6 +193,7 @@
 			} catch {
 				// ignore refresh errors
 			}
+			ready = true;
 			const nextConfigIndex = configQueue.findIndex(
 				(s, index) => !closed.has(s.id) && index > configIndex
 			);
