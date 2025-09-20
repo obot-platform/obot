@@ -33,6 +33,7 @@
 		isNew?: boolean;
 		showAlias?: boolean;
 		disableOutsideClick?: boolean;
+		animate?: 'slide' | 'fade' | null;
 	}
 	let {
 		form = $bindable(),
@@ -47,7 +48,8 @@
 		error,
 		isNew,
 		showAlias,
-		disableOutsideClick
+		disableOutsideClick,
+		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let highlightedFields = $state<Set<string>>(new Set());
@@ -135,7 +137,7 @@
 
 <ResponsiveDialog
 	bind:this={configDialog}
-	animate="slide"
+	{animate}
 	onClose={() => {
 		clearHighlights();
 		onClose?.();

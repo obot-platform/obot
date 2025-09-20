@@ -2,7 +2,7 @@
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import { onMount, tick } from 'svelte';
-	import { Server, X } from 'lucide-svelte';
+	import { Server, Ticket, X } from 'lucide-svelte';
 	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { convertEnvHeadersToRecord } from '$lib/services/chat/mcp';
@@ -98,8 +98,6 @@
 	});
 
 	async function maybeOpenDialogs() {
-		await tick();
-
 		if (oauthQueue.length > 0) {
 			oauthIndex = oauthQueue.findIndex((m) => !closed.has(m.id));
 			oauthDialogs[oauthIndex]?.showModal();
@@ -249,6 +247,7 @@
 <CatalogConfigureForm
 	bind:this={configDialog}
 	bind:form={configureForm}
+	animate={null}
 	disableOutsideClick
 	name={configName}
 	icon={configIcon}
@@ -259,13 +258,11 @@
 	onSave={handleSaveConfig}
 	onClose={async () => {
 		closed.add(configServerId);
-		// wait 300ms -- the close animation length of the dialog
-		await new Promise((resolve) => setTimeout(resolve, 300));
+		await tick();
 		const nextConfigIndex = configQueue.findIndex(
 			(s, index) => !closed.has(s.id) && index > configIndex
 		);
 		if (nextConfigIndex !== -1) {
-			await tick();
 			await openConfigAt(nextConfigIndex);
 		}
 	}}
