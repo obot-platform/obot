@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/randomtoken"
@@ -18,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/invoke"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -415,44 +415,77 @@ func (t *Handler) CopyTasksFromSource(req router.Request, _ router.Response) err
 		return nil
 	}
 
-	// Delete all existing tasks for this thread
-	var existing v1.WorkflowList
-	if err := req.Client.List(req.Ctx, &existing, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
+	// Get all existing tasks for this thread
+	var existingTasksList v1.WorkflowList
+	if err := req.Client.List(req.Ctx, &existingTasksList, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
 		"spec.threadName": thread.Name,
 	}); err != nil {
 		return err
 	}
-	for _, wf := range existing.Items {
-		if err := req.Client.Delete(req.Ctx, &wf); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
+
+	existingTasks := make(map[string]v1.Workflow, len(existingTasksList.Items))
+	for _, existingTask := range existingTasksList.Items {
+		existingTasks[existingTask.Name] = existingTask
 	}
 
 	// Copy all tasks from the source thread to the new thread
-	var srcList v1.WorkflowList
-	if err := req.Client.List(req.Ctx, &srcList, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
+	var sourceTasksList v1.WorkflowList
+	if err := req.Client.List(req.Ctx, &sourceTasksList, kclient.InNamespace(thread.Namespace), kclient.MatchingFields{
 		"spec.threadName": thread.Spec.SourceThreadName,
 	}); err != nil {
 		return err
 	}
-	for _, src := range srcList.Items {
-		newManifest := src.Spec.Manifest
+	for _, sourceTask := range sourceTasksList.Items {
+		copiedTaskName := name.SafeHashConcatName(sourceTask.Name, thread.Name)
+
+		// Check for an existing copied task and determine if it should be updated
+		if copiedTask, exists := existingTasks[copiedTaskName]; exists {
+			delete(existingTasks, copiedTaskName)
+
+			// Clear the alias before checking semantic equality
+			alias := copiedTask.Spec.Manifest.Alias
+			copiedTask.Spec.Manifest.Alias = ""
+			sourceTask.Spec.Manifest.Alias = ""
+			if equality.Semantic.DeepEqual(copiedTask.Spec.Manifest, sourceTask.Spec.Manifest) {
+				// The copied task is already up to date, skip
+				continue
+			}
+
+			// The copied task has been modified, restore the alias, copy the source manifest, and update
+			copiedTask.Spec.Manifest = sourceTask.Spec.Manifest
+			copiedTask.Spec.Manifest.Alias = alias
+			if err := req.Client.Update(req.Ctx, &copiedTask); err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		// We couldn't find the copied task, so create a new one
+		newManifest := sourceTask.Spec.Manifest
 		alias, err := randomtoken.Generate()
 		if err != nil {
 			return err
 		}
 		newManifest.Alias = alias
-		wf := v1.Workflow{
+		copiedTask := v1.Workflow{
 			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.WorkflowPrefix,
-				Namespace:    thread.Namespace,
+				Namespace: thread.Namespace,
+				Name:      copiedTaskName,
 			},
 			Spec: v1.WorkflowSpec{
 				ThreadName: thread.Name,
 				Manifest:   newManifest,
 			},
 		}
-		if err := req.Client.Create(req.Ctx, &wf); err != nil {
+		if err := req.Client.Create(req.Ctx, &copiedTask); err != nil {
+			return err
+		}
+	}
+
+	// Delete any remaining existing tasks that we didn't find in the source tasks
+	for _, existingTask := range existingTasks {
+		if err := req.Client.Delete(req.Ctx, &existingTask); err != nil {
 			return err
 		}
 	}
