@@ -650,14 +650,14 @@ export interface ProjectTemplate {
 	created: string;
 	deleted?: string;
 	projectSnapshot: ThreadManifest;
+	projectSnapshotStale?: boolean;
+	projectSnapshotUpgradeInProgress?: boolean;
+	projectSnapshotLastUpgraded?: string;
 	mcpServers: string[];
 	assistantID: string;
 	projectID: string;
 	publicID?: string;
 	ready?: boolean;
-	lastUpdated?: string;
-	projectSnapshotStale?: boolean;
-	projectSnapshotUpgradeInProgress?: boolean;
 }
 
 export interface ModelProvider {

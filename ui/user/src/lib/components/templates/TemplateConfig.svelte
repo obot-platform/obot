@@ -14,9 +14,9 @@
 		getProjectTemplateForProject,
 		createProjectTemplate
 	} from '$lib/services';
-	import { XIcon, Loader2, Trash2 } from 'lucide-svelte';
+	import { XIcon, Loader2, Trash2, Server } from 'lucide-svelte';
 	import { closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
-	import { IGNORED_BUILTIN_TOOLS } from '$lib/constants';
+	import { DEFAULT_CUSTOM_SERVER_NAME, IGNORED_BUILTIN_TOOLS } from '$lib/constants';
 	import { sortShownToolsPriority } from '$lib/sort';
 	import ToolPill from '$lib/components/ToolPill.svelte';
 	import AssistantIcon from '$lib/icons/AssistantIcon.svelte';
@@ -185,15 +185,15 @@
 		<div class="flex flex-col items-center gap-6 py-8 text-center">
 			<div class="max-w-2xl space-y-3">
 				<p class="text-sm text-gray-600 dark:text-gray-300">
-					When you share this project, we'll create a snapshot of its configuration that includes
-					instructions, MCP servers, knowledge files, and task definitions. You can share the
-					generated link with others and when they follow it, they'll get their own copy of the
-					project. Your MCP server configuration and authentication will not be copied over.
+					When you share this project, we'll take a snapshot of its configuration that includes
+					instructions, connectors, knowledge files, and task definitions. You can share the
+					generated link with others and they can use it to launch their own instance of the project
+					from your snapshot.
 				</p>
 				<p class="text-sm text-gray-600 dark:text-gray-300">
-					If you make changes to your project, you can return to this page to update the shared
-					snapshot. When you do, existing users will be notified that an update is available and new
-					users will automatically get the new version.
+					If you make changes to your project, you can return to this page to take a new snapshot.
+					When you do, owners of existing projects launched using your link will be notified that an
+					update is available and new instances will automatically get the new version.
 				</p>
 			</div>
 			<button class="button-primary" onclick={createFromSnapshot}>Share Project</button>
@@ -278,11 +278,11 @@
 				</div>
 			{:else}
 				<div class="flex flex-col divide-y divide-gray-100 dark:divide-gray-700">
-					{#if template.lastUpdated}
+					{#if template.projectSnapshotLastUpgraded}
 						<div class="p-3">
-							<h4 class="mb-1 text-xs font-medium text-gray-500">Template Last Updated</h4>
+							<h4 class="mb-1 text-xs font-medium text-gray-500">Last Updated</h4>
 							<p class="text-sm text-gray-600 dark:text-gray-300">
-								{formatDate(template.lastUpdated)}
+								{formatDate(template.projectSnapshotLastUpgraded)}
 							</p>
 						</div>
 					{/if}
@@ -333,14 +333,26 @@
 						<div class="p-3">
 							<h4 class="mb-2 text-xs font-medium text-gray-500">Connectors</h4>
 							<div class="flex flex-col gap-2">
-								{#each mcpServers as mcp (mcp.id)}
+								{#each mcpServers as mcpServer (mcpServer.id)}
 									<div
-										class="flex w-fit items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-gray-800"
+										class="group hover:bg-surface3 flex w-full items-center rounded-md transition-colors duration-200"
 									>
-										<div class="flex-shrink-0 rounded-md bg-white p-1 dark:bg-gray-700">
-											<img src={mcp.icon} class="size-3.5" alt={mcp.alias || mcp.name} />
+										<div class="rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+											{#if mcpServer.icon}
+												<img
+													src={mcpServer.icon}
+													class="size-4"
+													alt={mcpServer.alias || mcpServer.name}
+												/>
+											{:else}
+												<Server class="size-4" />
+											{/if}
 										</div>
-										<span class="truncate text-xs">{mcp.alias || mcp.name}</span>
+										<p
+											class="flex w-[calc(100%-24px)] items-center truncate pl-1.5 text-left text-xs font-light"
+										>
+											{mcpServer.alias || mcpServer.name || DEFAULT_CUSTOM_SERVER_NAME}
+										</p>
 									</div>
 								{/each}
 							</div>
@@ -354,9 +366,6 @@
 								{#each knowledgeFiles as file (file.fileName)}
 									<li class="mb-1 text-xs text-gray-600 last:mb-0 dark:text-gray-300">
 										{file.fileName}
-										{#if file.state && file.state !== 'ready'}
-											<span class="ml-1 text-[10px] text-gray-500">({file.state})</span>
-										{/if}
 									</li>
 								{/each}
 							</ul>
