@@ -185,15 +185,15 @@
 		<div class="flex flex-col items-center gap-6 py-8 text-center">
 			<div class="max-w-2xl space-y-3">
 				<p class="text-sm text-gray-600 dark:text-gray-300">
-					When you share this project, we'll create a snapshot of its configuration that includes
-					instructions, MCP servers, knowledge files, and task definitions. You can share the
-					generated link with others and when they follow it, they'll get their own copy of the
-					project. Your MCP server configuration and authentication will not be copied over.
+					When you share this project, we'll take a snapshot of its configuration that includes
+					instructions, connectors, knowledge files, and task definitions. You can share the
+					generated link with others and they can use it to launch their own instance of the project
+					from your snapshot.
 				</p>
 				<p class="text-sm text-gray-600 dark:text-gray-300">
-					If you make changes to your project, you can return to this page to update the shared
-					snapshot. When you do, existing users will be notified that an update is available and new
-					users will automatically get the new version.
+					If you make changes to your project, you can return to this page to take a new snapshot.
+					When you do, owners of existing projects launched using your link will be notified that an
+					update is available and new instances will automatically get the new version.
 				</p>
 			</div>
 			<button class="button-primary" onclick={createFromSnapshot}>Share Project</button>
