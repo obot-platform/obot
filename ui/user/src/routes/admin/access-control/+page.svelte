@@ -15,7 +15,7 @@
 		getAdminMcpServerAndEntries,
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import { AdminService } from '$lib/services/index.js';
+	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { getUserDisplayName, openUrl } from '$lib/utils.js';
 
 	let { data } = $props();
@@ -250,7 +250,14 @@
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
 		if (!ruleToDelete) return;
-		await AdminService.deleteAccessControlRule(ruleToDelete.id);
+		if (ruleToDelete.powerUserWorkspaceID) {
+			await ChatService.deleteWorkspaceAccessControlRule(
+				ruleToDelete.powerUserWorkspaceID,
+				ruleToDelete.id
+			);
+		} else {
+			await AdminService.deleteAccessControlRule(ruleToDelete.id);
+		}
 		accessControlRules = await AdminService.listAccessControlRules();
 		ruleToDelete = undefined;
 	}}
