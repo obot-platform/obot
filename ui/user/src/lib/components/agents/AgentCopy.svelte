@@ -1,110 +1,69 @@
 <script lang="ts">
-	import type { ProjectTemplate, MCPCatalogEntry } from '$lib/services';
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { X } from 'lucide-svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { responsive } from '$lib/stores';
+	import type { ProjectTemplate } from '$lib/services';
 	import { ChatService } from '$lib/services';
 	import { goto } from '$app/navigation';
 
 	interface Props {
-		inline?: boolean;
 		onBack?: () => void;
 		template?: ProjectTemplate;
-		mcps?: MCPCatalogEntry[];
 	}
 
-	let { template, mcps = [], inline = false, onBack }: Props = $props();
-	let dialog: HTMLDialogElement | undefined = $state();
+	let { template, onBack }: Props = $props();
 
-	export function open(selectedTemplate: ProjectTemplate, templateMcps: MCPCatalogEntry[]) {
-		template = selectedTemplate;
-		mcps = templateMcps;
-
-		dialog?.showModal();
-	}
-
-	async function copyAgent() {
+	async function launchProject() {
 		if (!template || !template.publicID) return;
 		const project = await ChatService.copyTemplate(template.publicID);
 		goto(`/o/${project.id}`);
 	}
 </script>
 
-{#if inline}
-	{@render body()}
+{#if !template}
+	<div class="flex w-full flex-col items-center justify-center gap-4 py-8 text-center">
+		<p class="text-lg">Project Share not found or not available.</p>
+	</div>
 {:else}
-	<dialog
-		bind:this={dialog}
-		use:clickOutside={() => dialog?.close()}
-		class="default-dialog w-full max-w-xs p-0 sm:max-w-sm md:max-w-md"
-		class:mobile-screen-dialog={responsive.isMobile}
-	>
-		<div class="default-scrollbar-thin w-full overflow-y-auto">
-			<button
-				class="icon-button absolute top-3 right-3 z-40"
-				onclick={() => dialog?.close()}
-				use:tooltip={{ disablePortal: true, text: 'Close Project Copy' }}
-			>
-				<X class="size-6" />
-			</button>
-			{@render body()}
-		</div>
-	</dialog>
-{/if}
-
-{#snippet body()}
-	{#if !template}
-		<div class="flex w-full flex-col items-center justify-center gap-4 py-8 text-center">
-			<p class="text-lg">Project Share not found or not available.</p>
-		</div>
-	{:else}
-		<div class="flex flex-col p-4 md:p-6">
-			<div class="mb-6 flex flex-col items-center text-center">
-				<h3 class="text-xl font-medium">
-					{template.projectSnapshot.name || 'Unnamed Project'}
-				</h3>
-				{#if template.projectSnapshotLastUpgraded}
-					<div class="mt-0.5 text-[12px] text-gray-500">
-						Last Updated: {new Date(template.projectSnapshotLastUpgraded).toLocaleString(
-							undefined,
-							{
-								year: 'numeric',
-								month: 'short',
-								day: 'numeric',
-								hour: '2-digit',
-								minute: '2-digit'
-							}
-						)}
-					</div>
-				{/if}
-			</div>
-
-			{#if template.projectSnapshot.description}
-				<div class="mb-5 text-center">
-					<p class="text-sm text-gray-600 dark:text-gray-300">
-						{template.projectSnapshot.description}
-					</p>
+	<div class="flex flex-col p-4 md:p-6">
+		<div class="mb-6 flex flex-col items-center text-center">
+			<h3 class="text-xl font-medium">
+				{template.projectSnapshot.name || 'Unnamed Project'}
+			</h3>
+			{#if template.projectSnapshotLastUpgraded}
+				<div class="mt-0.5 text-[12px] text-gray-500">
+					Last Updated: {new Date(template.projectSnapshotLastUpgraded).toLocaleString(undefined, {
+						year: 'numeric',
+						month: 'short',
+						day: 'numeric',
+						hour: '2-digit',
+						minute: '2-digit'
+					})}
 				</div>
 			{/if}
+		</div>
 
-			<div class="mt-2 flex flex-col gap-4 border-t border-gray-100 pt-4 dark:border-gray-700">
-				<p class="text-center text-xs text-gray-400">
-					This project was shared by a user and may include instructions, Connectors, knowledge
-					files, and task definitions that were not reviewed or verified by our team. It could
-					interact with external systems, access additional data sources, or behave in unexpected
-					ways. By clicking "Launch Project", you acknowledge that you understand the risks and
-					choose to proceed at your own discretion.
+		{#if template.projectSnapshot.description}
+			<div class="mb-5 text-center">
+				<p class="text-sm text-gray-600 dark:text-gray-300">
+					{template.projectSnapshot.description}
 				</p>
-				<div class="flex flex-col items-center gap-3">
-					<button onclick={copyAgent} class="button-primary w-full max-w-xs">
-						Launch Project
-					</button>
-					{#if onBack}
-						<button onclick={onBack} class="button w-full max-w-xs"> Go Back </button>
-					{/if}
-				</div>
+			</div>
+		{/if}
+
+		<div class="mt-2 flex flex-col gap-4 border-t border-gray-100 pt-4 dark:border-gray-700">
+			<p class="text-center text-xs text-gray-400">
+				This project was shared by a user and may include instructions, Connectors, knowledge files,
+				and task definitions that were not reviewed or verified by our team. It could interact with
+				external systems, access additional data sources, or behave in unexpected ways. By clicking
+				"Launch Project", you acknowledge that you understand the risks and choose to proceed at
+				your own discretion.
+			</p>
+			<div class="flex flex-col items-center gap-3">
+				<button onclick={launchProject} class="button-primary w-full max-w-xs">
+					Launch Project
+				</button>
+				{#if onBack}
+					<button onclick={onBack} class="button w-full max-w-xs"> Go Back </button>
+				{/if}
 			</div>
 		</div>
-	{/if}
-{/snippet}
+	</div>
+{/if}
