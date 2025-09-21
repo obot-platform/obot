@@ -64,26 +64,18 @@
 				<h3 class="text-xl font-medium">
 					{template.projectSnapshot.name || 'Unnamed Project'}
 				</h3>
-				{#if template.created}
-					<div class="mt-1 text-xs text-gray-500">
-						{new Date(template.created).toLocaleString(undefined, {
-							year: 'numeric',
-							month: 'short',
-							day: 'numeric',
-							hour: '2-digit',
-							minute: '2-digit'
-						})}
-					</div>
-				{/if}
-				{#if template.lastUpdated}
-					<div class="mt-0.5 text-[10px] text-gray-500">
-						Last Updated: {new Date(template.lastUpdated).toLocaleString(undefined, {
-							year: 'numeric',
-							month: 'short',
-							day: 'numeric',
-							hour: '2-digit',
-							minute: '2-digit'
-						})}
+				{#if template.projectSnapshotLastUpgraded}
+					<div class="mt-0.5 text-[12px] text-gray-500">
+						Last Updated: {new Date(template.projectSnapshotLastUpgraded).toLocaleString(
+							undefined,
+							{
+								year: 'numeric',
+								month: 'short',
+								day: 'numeric',
+								hour: '2-digit',
+								minute: '2-digit'
+							}
+						)}
 					</div>
 				{/if}
 			</div>
@@ -93,27 +85,6 @@
 					<p class="text-sm text-gray-600 dark:text-gray-300">
 						{template.projectSnapshot.description}
 					</p>
-				</div>
-			{/if}
-
-			{#if mcps.length > 0}
-				<div class="mb-5 flex flex-col items-center">
-					<div class="flex flex-wrap justify-center gap-2">
-						{#each mcps as mcp (mcp.id)}
-							{#if mcp.manifest}
-								<div
-									class="flex w-fit items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1 dark:bg-gray-800"
-								>
-									{#if mcp.manifest.icon}
-										<div class="flex-shrink-0 rounded-md bg-white p-1 dark:bg-gray-700">
-											<img src={mcp.manifest.icon} class="size-3.5" alt={mcp.manifest.name} />
-										</div>
-									{/if}
-									<span class="truncate text-xs">{mcp.manifest.name}</span>
-								</div>
-							{/if}
-						{/each}
-					</div>
 				</div>
 			{/if}
 

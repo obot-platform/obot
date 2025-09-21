@@ -278,11 +278,11 @@
 				</div>
 			{:else}
 				<div class="flex flex-col divide-y divide-gray-100 dark:divide-gray-700">
-					{#if template.lastUpdated}
+					{#if template.projectSnapshotLastUpgraded}
 						<div class="p-3">
-							<h4 class="mb-1 text-xs font-medium text-gray-500">Template Last Updated</h4>
+							<h4 class="mb-1 text-xs font-medium text-gray-500">Last Updated</h4>
 							<p class="text-sm text-gray-600 dark:text-gray-300">
-								{formatDate(template.lastUpdated)}
+								{formatDate(template.projectSnapshotLastUpgraded)}
 							</p>
 						</div>
 					{/if}
