@@ -24,7 +24,8 @@ export function getProjectMCPs() {
 export async function validateOauthProjectMcps(
 	assistantID: string,
 	projectID: string,
-	projectMcps: ProjectMcpItem[]
+	projectMcps: ProjectMcpItem[],
+	all: boolean = false
 ) {
 	const updatingMcps = [...projectMcps];
 	let needsMcpOauth = false;
@@ -42,7 +43,7 @@ export async function validateOauthProjectMcps(
 			updatingMcps[i].authenticated = true; // does not require oauth, so we can assume it's authenticated
 		}
 	}
-	if (needsMcpOauth) {
+	if (needsMcpOauth || all) {
 		return updatingMcps;
 	}
 
