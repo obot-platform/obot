@@ -432,19 +432,31 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		return retConfig, fmt.Errorf("failed to ensure image exists: %w", err)
 	}
 
+	var containerID string
 	// Create container
 	resp, err := d.client.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, nil, containerName)
 	if err != nil {
-		return retConfig, fmt.Errorf("failed to create container: %w", err)
+		if !cerrdefs.IsConflict(err) && !cerrdefs.IsAlreadyExists(err) {
+			return retConfig, fmt.Errorf("failed to create container: %w", err)
+		}
+
+		cont, getErr := d.getContainer(ctx, containerName)
+		if getErr != nil || cont == nil {
+			return retConfig, fmt.Errorf("failed to create container: %w", err)
+		}
+
+		containerID = cont.ID
+	} else {
+		containerID = resp.ID
 	}
 
 	// Start container
-	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+	if err := d.client.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
 		return retConfig, fmt.Errorf("failed to start container: %w", err)
 	}
 
 	// Wait for container to be running and healthy
-	if err := d.waitForContainer(ctx, resp.ID); err != nil {
+	if err := d.waitForContainer(ctx, containerID); err != nil {
 		return retConfig, fmt.Errorf("container failed to become ready: %w", err)
 	}
 
@@ -517,12 +529,12 @@ func (d *dockerBackend) waitForContainer(ctx context.Context, containerID string
 }
 
 // prepareContainerFiles creates a volume for server.Files and returns volume name and env vars
-func (d *dockerBackend) prepareContainerFiles(ctx context.Context, server ServerConfig, containerID string) (string, map[string]string, error) {
+func (d *dockerBackend) prepareContainerFiles(ctx context.Context, server ServerConfig, containerName string) (string, map[string]string, error) {
 	if len(server.Files) == 0 {
 		return "", nil, nil
 	}
 
-	volumeName, envVars, err := d.createVolumeWithFiles(ctx, server.Files, containerID)
+	volumeName, envVars, err := d.createVolumeWithFiles(ctx, server.Files, containerName)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create volume with files: %w", err)
 	}
@@ -532,17 +544,17 @@ func (d *dockerBackend) prepareContainerFiles(ctx context.Context, server Server
 
 // ensureImageExists checks if an image exists locally and pulls it if not
 // createVolumeWithFiles creates an anonymous volume and populates it with file data using an init container
-func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File, containerID string) (string, map[string]string, error) {
+func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File, containerName string) (string, map[string]string, error) {
 	if len(files) == 0 {
 		return "", nil, nil
 	}
 
-	volumeName := containerID + "-files"
+	volumeName := containerName + "-files"
 
 	// Create anonymous volume
 	_, err := d.client.VolumeCreate(ctx, volume.CreateOptions{
 		Labels: map[string]string{
-			"mcp.server.id": containerID,
+			"mcp.server.id": containerName,
 			"mcp.purpose":   "files",
 		},
 		Name: volumeName,
@@ -564,7 +576,7 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	envVars := make(map[string]string, len(files))
 	for _, file := range files {
 		// Generate unique filename for container
-		filename := fmt.Sprintf("%s-%s", containerID[:12], hash.Digest(file)[:24])
+		filename := fmt.Sprintf("%s-%s", containerName[:12], hash.Digest(file)[:24])
 		containerPath := path.Join("/files", filename)
 
 		// Add to script
@@ -596,9 +608,9 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	}
 
 	var initContainerID string
-	initContainerName := fmt.Sprintf("%s-init", containerID)
+	initContainerName := fmt.Sprintf("%s-init", containerName)
 	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, &network.NetworkingConfig{}, nil, initContainerName)
-	if cerrdefs.IsAlreadyExists(err) {
+	if cerrdefs.IsConflict(err) || cerrdefs.IsAlreadyExists(err) {
 		// Init container already exists, get its containerID
 		resp, err := d.client.ContainerList(ctx, container.ListOptions{
 			All: true,
@@ -664,7 +676,7 @@ func (d *dockerBackend) ensureImageExists(ctx context.Context, imageName string)
 }
 
 // prepareNanobotConfig creates a volume with nanobot YAML configuration for UVX/NPX runtimes
-func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerConfig, displayName string, envVars map[string]string, containerID string) (string, error) {
+func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerConfig, displayName string, envVars map[string]string, containerName string) (string, error) {
 	// Create all environment variables map
 	allEnvVars := make(map[string]string, len(server.Env)+len(envVars)+2)
 
@@ -687,11 +699,11 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 		return "", fmt.Errorf("failed to construct nanobot YAML: %w", err)
 	}
 
-	volumeName := containerID + "-nanobot-config"
+	volumeName := containerName + "-nanobot-config"
 	// Create volume for nanobot config
 	_, err = d.client.VolumeCreate(ctx, volume.CreateOptions{
 		Labels: map[string]string{
-			"mcp.server.id": containerID,
+			"mcp.server.id": containerName,
 			"mcp.purpose":   "nanobot-config",
 		},
 		Name: volumeName,
@@ -728,9 +740,9 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 	}
 
 	var initContainerID string
-	initContainerName := fmt.Sprintf("%s-nanobot-init", containerID)
+	initContainerName := fmt.Sprintf("%s-nanobot-init", containerName)
 	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, &network.NetworkingConfig{}, nil, initContainerName)
-	if cerrdefs.IsAlreadyExists(err) {
+	if cerrdefs.IsConflict(err) || cerrdefs.IsAlreadyExists(err) {
 		// Container already exists, so get its ID
 		resp, err := d.client.ContainerList(ctx, container.ListOptions{
 			All: true,
