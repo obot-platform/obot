@@ -38,6 +38,7 @@
 			<McpServerK8sInfo
 				id={workspaceId}
 				entity="workspace"
+				catalogEntryId={catalogEntry?.id}
 				{mcpServerId}
 				name={catalogEntryName}
 				{connectedUsers}

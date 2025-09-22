@@ -28,6 +28,7 @@
 		classes?: {
 			title?: string;
 		};
+		catalogEntryId?: string;
 	}
 
 	const {
@@ -38,6 +39,7 @@
 		connectedUsers,
 		title,
 		classes,
+		catalogEntryId,
 		entity = 'catalog'
 	}: Props = $props();
 
@@ -50,11 +52,15 @@
 	let refreshingEvents = $state(false);
 	let refreshingLogs = $state(false);
 
-	let logsUrl = $derived(
-		entity === 'workspace'
-			? `/api/workspaces/${entityId}/servers/${mcpServerId}/logs`
-			: `/api/mcp-servers/${mcpServerId}/logs`
-	);
+	let logsUrl = $derived.by(() => {
+		if (entity === 'workspace') {
+			return catalogEntryId
+				? `/api/workspaces/${entityId}/entries/${catalogEntryId}/servers/${mcpServerId}/logs`
+				: `/api/workspaces/${entityId}/servers/${mcpServerId}/logs`;
+		}
+
+		return `/api/mcp-servers/${mcpServerId}/logs`;
+	});
 
 	const eventStream = new EventStreamService<string>();
 
@@ -78,7 +84,13 @@
 	onMount(() => {
 		listK8sInfo =
 			entity === 'workspace' && entityId
-				? ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
+				? catalogEntryId
+					? ChatService.getWorkspaceCatalogEntryServerK8sDetails(
+							entityId,
+							catalogEntryId,
+							mcpServerId
+						)
+					: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
 				: AdminService.getK8sServerDetail(mcpServerId);
 		eventStream.connect(logsUrl, {
 			onMessage: (data) => {
@@ -107,12 +119,24 @@
 		restarting = true;
 		try {
 			await (entity === 'workspace' && entityId
-				? ChatService.restartWorkspaceK8sServerDeployment(entityId, mcpServerId)
+				? catalogEntryId
+					? ChatService.restartWorkspaceCatalogEntryServerDeployment(
+							entityId,
+							catalogEntryId,
+							mcpServerId
+						)
+					: ChatService.restartWorkspaceK8sServerDeployment(entityId, mcpServerId)
 				: AdminService.restartK8sDeployment(mcpServerId));
 			// Refresh the k8s info after restart
 			listK8sInfo =
 				entity === 'workspace' && entityId
-					? ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
+					? catalogEntryId
+						? ChatService.getWorkspaceCatalogEntryServerK8sDetails(
+								entityId,
+								catalogEntryId,
+								mcpServerId
+							)
+						: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
 					: AdminService.getK8sServerDetail(mcpServerId);
 		} catch (err) {
 			console.error('Failed to restart deployment:', err);
@@ -127,7 +151,13 @@
 		try {
 			listK8sInfo =
 				entity === 'workspace' && entityId
-					? ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
+					? catalogEntryId
+						? ChatService.getWorkspaceCatalogEntryServerK8sDetails(
+								entityId,
+								catalogEntryId,
+								mcpServerId
+							)
+						: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
 					: AdminService.getK8sServerDetail(mcpServerId);
 		} catch (err) {
 			console.error('Failed to refresh events:', err);

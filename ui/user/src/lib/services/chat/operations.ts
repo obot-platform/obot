@@ -1962,13 +1962,14 @@ export async function getWorkspaceCatalogEntryServers(
 	return response.items ?? [];
 }
 
-export async function getWorkspaceCatalogEntryServerDetails(
+export async function getWorkspaceCatalogEntryServerK8sDetails(
 	workspaceID: string,
 	entryID: string,
+	mcpServerId: string,
 	opts?: { fetch?: Fetcher }
 ) {
 	const response = (await doGet(
-		`/workspaces/${workspaceID}/entries/${entryID}/servers/details`,
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/details`,
 		opts
 	)) as K8sServerDetail;
 	return response;
@@ -1977,7 +1978,12 @@ export async function getWorkspaceCatalogEntryServerDetails(
 export async function restartWorkspaceCatalogEntryServerDeployment(
 	workspaceID: string,
 	entryID: string,
+	mcpServerId: string,
 	opts?: { fetch?: Fetcher }
 ) {
-	await doPost(`/workspaces/${workspaceID}/entries/${entryID}/servers/restart`, {}, opts);
+	await doPost(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/restart`,
+		{},
+		opts
+	);
 }
