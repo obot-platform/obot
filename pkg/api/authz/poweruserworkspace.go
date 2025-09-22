@@ -46,7 +46,12 @@ func (a *Authorizer) checkPowerUserWorkspace(req *http.Request, resources *Resou
 		}
 	}
 
-	return workspace.Spec.UserID == user.GetUID(), nil
+	if workspace.Spec.UserID == user.GetUID() {
+		resources.Authorizated.PowerUserWorkspace = &workspace
+		return true, nil
+	}
+
+	return false, nil
 }
 
 // Workspace access patterns that require PowerUserPlus privileges, and not PowerUser

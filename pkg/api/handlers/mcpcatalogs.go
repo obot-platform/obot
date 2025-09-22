@@ -428,6 +428,74 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 	return req.Write(types.MCPServerList{Items: items})
 }
 
+// ListServersForEntry returns a specific entry from a catalog or workspace.
+func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+	entryName := req.PathValue("entry_id")
+
+	// Verify the scope exists
+	if catalogName != "" {
+		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+			return fmt.Errorf("failed to get catalog: %w", err)
+		}
+	} else if workspaceID != "" {
+		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+			return fmt.Errorf("failed to get workspace: %w", err)
+		}
+	} else {
+		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return fmt.Errorf("failed to get entry: %w", err)
+	}
+
+	// Verify entry belongs to the requested scope
+	if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	} else if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+		return types.NewErrBadRequest("entry does not belong to workspace")
+	}
+
+	var list v1.MCPServerList
+	if err := req.List(&list, client.MatchingFields{
+		"spec.mcpServerCatalogEntryName": entryName,
+	}); err != nil {
+		return fmt.Errorf("failed to list servers: %w", err)
+	}
+
+	var items []types.MCPServer
+	for _, server := range list.Items {
+		if server.Spec.Template {
+			// Hide template servers
+			continue
+		}
+
+		var credCtx string
+		if server.Spec.MCPCatalogID != "" {
+			credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
+		} else {
+			credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
+		}
+
+		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential: %w", err)
+		}
+
+		slug, err := slugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
+		if err != nil {
+			return fmt.Errorf("failed to generate slug: %w", err)
+		}
+
+		items = append(items, convertMCPServer(server, cred.Env, h.serverURL, slug))
+	}
+
+	return req.Write(types.MCPServerList{Items: items})
+}
+
 // GenerateToolPreviews launches a temporary instance of an MCP server from a catalog entry
 // to generate tool preview data, then cleans up the instance.
 func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
