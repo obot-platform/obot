@@ -8,7 +8,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 
 	let mcpServer;
 	try {
-		mcpServer = await ChatService.getSingleOrRemoteMcpServer(id, {
+		mcpServer = await ChatService.getWorkspaceMCPCatalogServer(wid, id, {
 			fetch
 		});
 	} catch (err) {
