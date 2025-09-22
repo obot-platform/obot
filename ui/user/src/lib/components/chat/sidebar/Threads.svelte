@@ -183,9 +183,7 @@
 
 	function togglePanel() {
 		isOpen = !isOpen;
-		if (!isOpen) {
-			layout.sidebarOpen = false;
-		}
+
 		focusChat();
 	}
 
@@ -251,7 +249,7 @@
 		{#each (layout.threads ?? []).slice(0, displayCount) as thread (thread.id)}
 			<li
 				class:bg-surface2={isCurrentThread(thread)}
-				class="group hover:bg-surface3 flex min-h-9 items-center gap-3 rounded-md font-light"
+				class="hover:bg-surface3 group flex min-h-9 items-center gap-3 rounded-md font-light"
 			>
 				{#if editMode === thread.id}
 					<input
