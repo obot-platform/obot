@@ -20,7 +20,7 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/gen2brain/webp v0.5.4
 	github.com/go-git/go-git/v5 v5.13.2
-	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
 	github.com/gptscript-ai/cmd v0.0.0-20250530150401-bc71fddf8070
@@ -32,7 +32,7 @@ require (
 	github.com/moby/moby/api v1.52.0-alpha.1
 	github.com/moby/moby/client v0.1.0-alpha.0
 	github.com/modelcontextprotocol/go-sdk v0.2.0
-	github.com/nanobot-ai/nanobot v0.0.6-0.20250915231604-8a58b9356e6c
+	github.com/nanobot-ai/nanobot v0.0.25
 	github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83
 	github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317
 	github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2
