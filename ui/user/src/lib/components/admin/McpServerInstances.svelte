@@ -259,7 +259,7 @@
 							? `/admin/mcp-servers/w/${id}/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}`
 							: `/admin/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}`}
 					<div class="flex items-center gap-1">
-						{#if profile.current?.role === Role.ADMIN}
+						{#if profile.current?.role === Role.ADMIN && isAdminUrl}
 							<a class="button-text" href={url}> View Audit Logs </a>
 						{/if}
 

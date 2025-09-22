@@ -51,6 +51,7 @@
 	let restarting = $state(false);
 	let refreshingEvents = $state(false);
 	let refreshingLogs = $state(false);
+	let isAdminUrl = $state(false);
 
 	let logsUrl = $derived.by(() => {
 		if (entity === 'workspace') {
@@ -82,6 +83,10 @@
 	}
 
 	onMount(() => {
+		if (location.pathname.includes('/admin')) {
+			isAdminUrl = true;
+		}
+
 		listK8sInfo =
 			entity === 'workspace' && entityId
 				? catalogEntryId
@@ -367,7 +372,7 @@
 		{/snippet}
 
 		{#snippet actions(d)}
-			{#if profile.current?.role === Role.ADMIN}
+			{#if profile.current?.role === Role.ADMIN && isAdminUrl}
 				{@const mcpId = d.mcpInstanceId ? d.mcpInstanceId : mcpServerId || mcpServerInstanceId}
 				{@const id = mcpId?.split('-').at(-1)}
 				{@const url =
