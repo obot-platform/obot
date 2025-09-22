@@ -145,11 +145,9 @@
 	});
 
 	onMount(() => {
-		if (isAdmin) {
-			AdminService.listUsersIncludeDeleted().then((data) => {
-				users = data;
-			});
-		}
+		AdminService.listUsersIncludeDeleted().then((data) => {
+			users = data;
+		});
 
 		checkScrollPosition();
 		scrollContainer?.addEventListener('scroll', checkScrollPosition);
