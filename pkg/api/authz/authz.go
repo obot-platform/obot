@@ -111,6 +111,10 @@ var staticRules = map[string][]string{
 		"GET /api/groups",
 	},
 
+	PowerUserGroup: {
+		"GET /api/users",
+	},
+
 	MetricsGroup: {
 		"/debug/metrics",
 	},
