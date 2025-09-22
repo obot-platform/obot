@@ -145,6 +145,7 @@ func (h *TemplateHandler) CopyTemplate(req api.Context) error {
 		},
 		Spec: v1.ThreadSpec{
 			AgentName:        templateThread.Spec.AgentName,
+			Manifest:         templateThread.Spec.Manifest,
 			SourceThreadName: templateThread.Name,
 			UserID:           req.User.GetUID(),
 			Project:          true,
