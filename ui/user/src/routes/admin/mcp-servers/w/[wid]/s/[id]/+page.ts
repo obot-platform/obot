@@ -8,11 +8,11 @@ export const load: PageLoad = async ({ params, fetch }) => {
 
 	let mcpServer;
 	try {
-		mcpServer = await ChatService.getWorkspaceMCPCatalogServer(wid, id, {
+		mcpServer = await ChatService.getSingleOrRemoteMcpServer(id, {
 			fetch
 		});
 	} catch (err) {
-		handleRouteError(err, `/mcp-publisher/s/${id}`, profile.current);
+		handleRouteError(err, `/admin/mcp-servers/w/${wid}/s/${id}`, profile.current);
 	}
 
 	return {

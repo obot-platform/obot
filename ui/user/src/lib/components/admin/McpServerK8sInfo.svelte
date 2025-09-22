@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { AdminService, type K8sServerDetail, type OrgUser } from '$lib/services';
+	import {
+		AdminService,
+		ChatService,
+		Role,
+		type K8sServerDetail,
+		type OrgUser
+	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { AlertTriangle, Info, LoaderCircle, RotateCcw, RefreshCw } from 'lucide-svelte';
@@ -9,8 +15,11 @@
 	import { fade } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import { profile } from '$lib/stores';
 
 	interface Props {
+		id?: string;
+		entity?: 'workspace' | 'catalog';
 		mcpServerId: string;
 		name: string;
 		mcpServerInstanceId?: string;
@@ -21,8 +30,16 @@
 		};
 	}
 
-	const { mcpServerId, mcpServerInstanceId, name, connectedUsers, title, classes }: Props =
-		$props();
+	const {
+		id: entityId,
+		mcpServerId,
+		mcpServerInstanceId,
+		name,
+		connectedUsers,
+		title,
+		classes,
+		entity = 'catalog'
+	}: Props = $props();
 
 	let listK8sInfo = $state<Promise<K8sServerDetail>>();
 	let messages = $state<string[]>([]);
@@ -32,6 +49,12 @@
 	let restarting = $state(false);
 	let refreshingEvents = $state(false);
 	let refreshingLogs = $state(false);
+
+	let logsUrl = $derived(
+		entity === 'workspace'
+			? `/api/workspaces/${entityId}/servers/${mcpServerId}/logs`
+			: `/api/mcp-servers/${mcpServerId}/logs`
+	);
 
 	const eventStream = new EventStreamService<string>();
 
@@ -53,8 +76,11 @@
 	}
 
 	onMount(() => {
-		listK8sInfo = AdminService.getK8sServerDetail(mcpServerId);
-		eventStream.connect(`/api/mcp-servers/${mcpServerId}/logs`, {
+		listK8sInfo =
+			entity === 'workspace' && entityId
+				? ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
+				: AdminService.getK8sServerDetail(mcpServerId);
+		eventStream.connect(logsUrl, {
 			onMessage: (data) => {
 				messages = [...messages, data];
 				// Trigger auto-scroll after adding new message
@@ -80,9 +106,14 @@
 	async function handleRestart() {
 		restarting = true;
 		try {
-			await AdminService.restartK8sDeployment(mcpServerId);
+			await (entity === 'workspace' && entityId
+				? ChatService.restartWorkspaceK8sServerDeployment(entityId, mcpServerId)
+				: AdminService.restartK8sDeployment(mcpServerId));
 			// Refresh the k8s info after restart
-			listK8sInfo = AdminService.getK8sServerDetail(mcpServerId);
+			listK8sInfo =
+				entity === 'workspace' && entityId
+					? ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
+					: AdminService.getK8sServerDetail(mcpServerId);
 		} catch (err) {
 			console.error('Failed to restart deployment:', err);
 		} finally {
@@ -94,7 +125,10 @@
 	async function handleRefreshEvents() {
 		refreshingEvents = true;
 		try {
-			listK8sInfo = AdminService.getK8sServerDetail(mcpServerId);
+			listK8sInfo =
+				entity === 'workspace' && entityId
+					? ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
+					: AdminService.getK8sServerDetail(mcpServerId);
 		} catch (err) {
 			console.error('Failed to refresh events:', err);
 		} finally {
@@ -108,7 +142,7 @@
 			// Clear existing messages and reconnect to get fresh logs
 			messages = [];
 			eventStream.disconnect();
-			eventStream.connect(`/api/mcp-servers/${mcpServerId}/logs`, {
+			eventStream.connect(logsUrl, {
 				onMessage: (data) => {
 					messages = [...messages, data];
 					// Trigger auto-scroll after adding new message
@@ -303,10 +337,15 @@
 		{/snippet}
 
 		{#snippet actions(d)}
-			{@const mcpId = d.mcpInstanceId ? d.mcpInstanceId : mcpServerId || mcpServerInstanceId}
-			{@const id = mcpId?.split('-').at(-1)}
-			{@const url = `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`}
-			<a href={url} class="button-text"> View Audit Logs </a>
+			{#if profile.current?.role === Role.ADMIN}
+				{@const mcpId = d.mcpInstanceId ? d.mcpInstanceId : mcpServerId || mcpServerInstanceId}
+				{@const id = mcpId?.split('-').at(-1)}
+				{@const url =
+					entity === 'workspace'
+						? `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`
+						: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`}
+				<a href={url} class="button-text"> View Audit Logs </a>
+			{/if}
 		{/snippet}
 	</Table>
 </div>

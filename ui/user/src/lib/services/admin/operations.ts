@@ -27,7 +27,6 @@ import type {
 	AuditLog,
 	AuditLogUsageStats,
 	AuditLogURLFilters,
-	K8sServerLog,
 	K8sServerDetail,
 	BaseAgent,
 	MCPFilter,
@@ -687,11 +686,6 @@ export async function listServerOrInstanceAuditLogStats(
 
 export async function getK8sServerDetail(mcpServerId: string, opts?: { fetch?: Fetcher }) {
 	const response = (await doGet(`/mcp-servers/${mcpServerId}/details`, opts)) as K8sServerDetail;
-	return response;
-}
-
-export async function listK8sServerLogs(mcpServerId: string, opts?: { fetch?: Fetcher }) {
-	const response = (await doGet(`/mcp-servers/${mcpServerId}/logs`, opts)) as K8sServerLog[];
 	return response;
 }
 

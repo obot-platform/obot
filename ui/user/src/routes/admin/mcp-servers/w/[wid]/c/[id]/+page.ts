@@ -9,7 +9,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	try {
 		catalogEntry = await ChatService.getWorkspaceMCPCatalogEntry(wid, id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/admin/user-mcp-servers/${wid}/c/${id}`, profile.current);
+		handleRouteError(err, `/admin/mcp-servers/w/${wid}/c/${id}`, profile.current);
 	}
 	return {
 		workspaceId: wid,
