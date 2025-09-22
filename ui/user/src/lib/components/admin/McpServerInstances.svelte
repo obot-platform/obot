@@ -26,7 +26,7 @@
 	import DotDotDot from '../DotDotDot.svelte';
 	import { onMount } from 'svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import Table from '../Table.svelte';
+	import Table from '../table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';

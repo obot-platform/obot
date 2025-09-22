@@ -3,7 +3,7 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import Table from '$lib/components/Table.svelte';
+	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ChatService, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
@@ -156,7 +156,7 @@
 			{:else}
 				<Table
 					data={filteredTableData}
-					fields={['name', 'type', 'users', 'source', 'created']}
+					fields={['name', 'type', 'users', 'created']}
 					onSelectRow={(d, isCtrlClick) => {
 						const url =
 							d.type === 'single' || d.type === 'remote'
@@ -164,8 +164,9 @@
 								: `/mcp-publisher/s/${d.id}`;
 						openUrl(url, isCtrlClick);
 					}}
-					sortable={['name', 'type', 'users', 'source', 'created']}
+					sortable={['name', 'type', 'users', 'created']}
 					noDataMessage="No catalog servers added."
+					filterable={['name', 'type']}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'name'}

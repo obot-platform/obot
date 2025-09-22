@@ -3,7 +3,7 @@
 	import { darkMode, profile } from '$lib/stores';
 	import { PictureInPicture2 } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
-	import Table from '../Table.svelte';
+	import Table from '../table/Table.svelte';
 	import { ModelUsage, ModelUsageLabels, type Model } from '$lib/services';
 	import Toggle from '../Toggle.svelte';
 	import Select from '../Select.svelte';

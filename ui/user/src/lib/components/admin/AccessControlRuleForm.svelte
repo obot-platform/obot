@@ -18,7 +18,7 @@
 	import { onMount, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Table from '../Table.svelte';
+	import Table from '../table/Table.svelte';
 	import SearchUsers from './SearchUsers.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { goto } from '$app/navigation';
