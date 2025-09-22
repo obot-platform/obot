@@ -92,7 +92,6 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		return err
 	}
 
-	// For non-admin users, check access via AccessControlRules across all sources
 	var entries []types.MCPServerCatalogEntry
 	for _, entry := range list.Items {
 		var (
@@ -100,11 +99,9 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 			hasAccess bool
 		)
 
-		// Check default catalog entries
 		if entry.Spec.MCPCatalogName != "" {
 			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
 		} else if entry.Spec.PowerUserWorkspaceID != "" {
-			// Check workspace-scoped entries
 			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
 		}
 		if err != nil {
@@ -1779,7 +1776,6 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 	}
 
 	var allowedServers []v1.MCPServer
-	// For non-admin users, check access via AccessControlRules across all sources
 	for _, server := range list.Items {
 		var (
 			err       error

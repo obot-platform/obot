@@ -172,7 +172,7 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 		return fmt.Errorf("failed to list entries: %w", err)
 	}
 
-	var entries []types.MCPServerCatalogEntry
+	entries := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
 	for _, entry := range list.Items {
 		var (
 			err       error
