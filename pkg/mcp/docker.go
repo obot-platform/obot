@@ -47,19 +47,24 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	// Check if container already exists
 	existing, err := d.getContainer(ctx, id)
 	if err == nil && existing != nil {
-		// Container exists, check if it's running
-		if existing.State == "running" {
-			// Return existing config
+		// Container exists, check state
+		switch existing.State {
+		case container.StateRunning:
 			containerPort := server.ContainerPort
 			if containerPort == 0 {
 				containerPort = defaultContainerPort
 			}
 			return d.buildServerConfig(server, existing, containerPort)
-		}
-
-		// Container exists but not running, remove it and recreate
-		if err := d.client.ContainerRemove(ctx, existing.ID, container.RemoveOptions{Force: true}); err != nil {
-			return ServerConfig{}, fmt.Errorf("failed to remove stopped container: %w", err)
+		case container.StateCreated:
+			// Container exists and is created, wait for it to be ready.
+			if err := d.waitForContainer(ctx, existing.ID); err != nil {
+				return ServerConfig{}, fmt.Errorf("failed to wait for container: %w", err)
+			}
+		default:
+			// Container exists but not running, remove it and recreate
+			if err := d.client.ContainerRemove(ctx, existing.ID, container.RemoveOptions{Force: true}); err != nil {
+				return ServerConfig{}, fmt.Errorf("failed to remove stopped container: %w", err)
+			}
 		}
 	}
 
