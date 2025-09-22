@@ -1962,6 +1962,19 @@ export async function getWorkspaceCatalogEntryServers(
 	return response.items ?? [];
 }
 
+export async function getWorkspaceCatalogEntryServer(
+	workspaceID: string,
+	entryID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}`,
+		opts
+	)) as MCPCatalogServer;
+	return response;
+}
+
 export async function getWorkspaceCatalogEntryServerK8sDetails(
 	workspaceID: string,
 	entryID: string,

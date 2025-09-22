@@ -372,7 +372,9 @@
 				{@const id = mcpId?.split('-').at(-1)}
 				{@const url =
 					entity === 'workspace'
-						? `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`
+						? catalogEntryId
+							? `/admin/mcp-servers/w/${entityId}/c/${catalogEntryId}?view=audit-logs&userId=${d.id}`
+							: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`
 						: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`}
 				<a href={url} class="button-text"> View Audit Logs </a>
 			{/if}

@@ -58,6 +58,7 @@
 
 	let hasSelected = $derived(Object.values(selected).some((v) => v));
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
+	let isAdminUrl = $state(false);
 
 	onMount(() => {
 		if (entry && !('isCatalogEntry' in entry) && id) {
@@ -72,6 +73,10 @@
 			} else {
 				listEntryServers = AdminService.listMCPServersForEntry(id, entry.id);
 			}
+		}
+
+		if (location.pathname.includes('/admin')) {
+			isAdminUrl = true;
 		}
 	});
 
@@ -198,9 +203,12 @@
 				onSelectRow={type === 'single'
 					? (d, isCtrlClick) => {
 							setLastVisitedMcpServer();
+
 							const url =
 								entity === 'workspace'
-									? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}`
+									? isAdminUrl
+										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}`
+										: `/mcp-publisher/c/${entry?.id}/instance/${d.id}`
 									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`;
 							openUrl(url, isCtrlClick);
 						}
