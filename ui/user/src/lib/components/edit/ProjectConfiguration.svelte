@@ -15,7 +15,7 @@
 	import { onMount } from 'svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
-	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
+	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 
 	interface Props {
 		project: Project;
@@ -64,13 +64,7 @@
 			// bind:project={modifiedProject} in the ProjectConfigurationKnowledge component below
 			modifiedProject = project;
 			layout.tasks = (await ChatService.listTasks(project.assistantID, project.id)).items;
-
-			const mcpsResponse = await ChatService.listProjectMCPs(project.assistantID, project.id);
-			projectMCPs.items = await validateOauthProjectMcps(
-				project.assistantID,
-				project.id,
-				mcpsResponse
-			);
+			projectMCPs.items = await ChatService.listProjectMCPs(project.assistantID, project.id);
 		} catch (error) {
 			console.error('Failed to upgrade project from template:', error);
 		} finally {
