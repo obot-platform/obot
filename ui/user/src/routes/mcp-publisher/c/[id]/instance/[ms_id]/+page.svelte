@@ -17,9 +17,11 @@
 
 	async function fetchUserInfo() {
 		if (!workspaceId || !catalogEntry?.id) return;
-		const mcpServer = (
-			await ChatService.getWorkspaceCatalogEntryServers(workspaceId, catalogEntry.id)
-		)?.find((mcpServer) => mcpServer.id === mcpServerId);
+		const mcpServer = await ChatService.getWorkspaceCatalogEntryServer(
+			workspaceId,
+			catalogEntry.id,
+			mcpServerId
+		);
 		if (mcpServer?.userID) {
 			const user = await AdminService.getUser(mcpServer.userID);
 			connectedUsers = [user];
