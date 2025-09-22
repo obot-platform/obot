@@ -66,23 +66,21 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 	}
 
 	// Authorization check.
-	if !req.UserIsAdmin() {
-		var (
-			hasAccess bool
-			err       error
-		)
+	var (
+		hasAccess bool
+		err       error
+	)
 
-		if entry.Spec.MCPCatalogName != "" {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
-		} else if entry.Spec.PowerUserWorkspaceID != "" {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
-		}
-		if err != nil {
-			return err
-		}
-		if !hasAccess {
-			return types.NewErrForbidden("user is not authorized to access this catalog entry")
-		}
+	if entry.Spec.MCPCatalogName != "" {
+		hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
+	} else if entry.Spec.PowerUserWorkspaceID != "" {
+		hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
+	}
+	if err != nil {
+		return err
+	}
+	if !hasAccess {
+		return types.NewErrForbidden("user is not authorized to access this catalog entry")
 	}
 
 	return req.Write(convertMCPServerCatalogEntry(entry))
@@ -92,18 +90,6 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	var list v1.MCPServerCatalogEntryList
 	if err := req.List(&list); err != nil {
 		return err
-	}
-
-	if req.UserIsAdmin() {
-		// Admins can see all entries from both default catalog and all workspaces
-		items := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
-		for _, entry := range list.Items {
-			if entry.Spec.MCPCatalogName == system.DefaultCatalog || entry.Spec.PowerUserWorkspaceID != "" {
-				items = append(items, convertMCPServerCatalogEntry(entry))
-			}
-		}
-
-		return req.Write(types.MCPServerCatalogEntryList{Items: items})
 	}
 
 	// For non-admin users, check access via AccessControlRules across all sources
@@ -218,6 +204,24 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	for _, server := range servers.Items {
 		if server.Spec.Template {
 			continue
+		}
+
+		if server.Spec.MCPCatalogID != "" {
+			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
+			if err != nil {
+				return fmt.Errorf("failed to check access: %w", err)
+			}
+			if !hasAccess {
+				continue
+			}
+		} else if server.Spec.PowerUserWorkspaceID != "" {
+			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
+			if err != nil {
+				return fmt.Errorf("failed to check access: %w", err)
+			}
+			if !hasAccess {
+				continue
+			}
 		}
 
 		// Add extracted env vars to the server definition
@@ -1775,34 +1779,25 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 	}
 
 	var allowedServers []v1.MCPServer
-	if req.UserIsAdmin() {
-		// Admins can see all servers from both default catalog and all workspaces
-		for _, server := range list.Items {
-			if server.Spec.MCPCatalogID == system.DefaultCatalog || server.Spec.PowerUserWorkspaceID != "" {
-				allowedServers = append(allowedServers, server)
-			}
-		}
-	} else {
-		// For non-admin users, check access via AccessControlRules across all sources
-		for _, server := range list.Items {
-			var (
-				err       error
-				hasAccess bool
-			)
+	// For non-admin users, check access via AccessControlRules across all sources
+	for _, server := range list.Items {
+		var (
+			err       error
+			hasAccess bool
+		)
 
-			if server.Spec.MCPCatalogID != "" {
-				// Check default catalog servers
-				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
-			} else if server.Spec.PowerUserWorkspaceID != "" {
-				// Check workspace-scoped servers
-				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
-			}
-			if err != nil {
-				return err
-			}
-			if hasAccess {
-				allowedServers = append(allowedServers, server)
-			}
+		if server.Spec.MCPCatalogID != "" {
+			// Check default catalog servers
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
+		} else if server.Spec.PowerUserWorkspaceID != "" {
+			// Check workspace-scoped servers
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
+		}
+		if err != nil {
+			return err
+		}
+		if hasAccess {
+			allowedServers = append(allowedServers, server)
 		}
 	}
 

@@ -13,6 +13,7 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -31,15 +32,17 @@ type MCPCatalogHandler struct {
 	sessionManager     *mcp.SessionManager
 	oauthChecker       MCPOAuthChecker
 	gatewayClient      *gclient.Client
+	acrHelper          *accesscontrolrule.Helper
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		defaultCatalogPath: defaultCatalogPath,
 		serverURL:          serverURL,
 		sessionManager:     sessionManager,
 		oauthChecker:       oauthChecker,
 		gatewayClient:      gatewayClient,
+		acrHelper:          acrHelper,
 	}
 }
 
@@ -169,12 +172,29 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 		return fmt.Errorf("failed to list entries: %w", err)
 	}
 
-	var items []types.MCPServerCatalogEntry
+	var entries []types.MCPServerCatalogEntry
 	for _, entry := range list.Items {
-		items = append(items, convertMCPServerCatalogEntry(entry))
+		var (
+			err       error
+			hasAccess bool
+		)
+
+		// Check default catalog entries
+		if entry.Spec.MCPCatalogName != "" {
+			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
+		} else if entry.Spec.PowerUserWorkspaceID != "" {
+			// Check workspace-scoped entries
+			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
+		}
+		if err != nil {
+			return err
+		}
+		if hasAccess {
+			entries = append(entries, convertMCPServerCatalogEntry(entry))
+		}
 	}
 
-	return req.Write(types.MCPServerCatalogEntryList{Items: items})
+	return req.Write(types.MCPServerCatalogEntryList{Items: entries})
 }
 
 // GetEntry returns a specific entry from a catalog or workspace.
