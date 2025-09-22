@@ -12,7 +12,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 			fetch
 		});
 	} catch (err) {
-		handleRouteError(err, `/mcp-publisher/s/${id}`, profile.current);
+		handleRouteError(err, `/admin/mcp-servers/w/${wid}/s/${id}`, profile.current);
 	}
 
 	return {

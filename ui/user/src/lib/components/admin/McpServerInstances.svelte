@@ -2,6 +2,7 @@
 	import {
 		AdminService,
 		ChatService,
+		Role,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance,
@@ -21,7 +22,7 @@
 		TriangleAlert
 	} from 'lucide-svelte';
 	import { formatTimeAgo } from '$lib/time';
-	import { responsive } from '$lib/stores';
+	import { profile, responsive } from '$lib/stores';
 	import { formatJsonWithDiffHighlighting, generateJsonDiff } from '$lib/diff';
 	import DotDotDot from '../DotDotDot.svelte';
 	import { onMount } from 'svelte';
@@ -57,6 +58,7 @@
 
 	let hasSelected = $derived(Object.values(selected).some((v) => v));
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
+	let isAdminUrl = $state(false);
 
 	onMount(() => {
 		if (entry && !('isCatalogEntry' in entry) && id) {
@@ -71,6 +73,10 @@
 			} else {
 				listEntryServers = AdminService.listMCPServersForEntry(id, entry.id);
 			}
+		}
+
+		if (location.pathname.includes('/admin')) {
+			isAdminUrl = true;
 		}
 	});
 
@@ -137,6 +143,8 @@
 		{#if entry && (type === 'multi' || instances.length > 0)}
 			<div class="flex flex-col gap-6">
 				<McpServerK8sInfo
+					{id}
+					{entity}
 					mcpServerId={entry.id}
 					name={'manifest' in entry ? entry.manifest.name || '' : ''}
 					connectedUsers={instances.map((instance) => {
@@ -195,7 +203,13 @@
 				onSelectRow={type === 'single'
 					? (d, isCtrlClick) => {
 							setLastVisitedMcpServer();
-							const url = `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`;
+
+							const url =
+								entity === 'workspace'
+									? isAdminUrl
+										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}`
+										: `/mcp-publisher/c/${entry?.id}/instance/${d.id}`
+									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`;
 							openUrl(url, isCtrlClick);
 						}
 					: undefined}
@@ -240,9 +254,14 @@
 				{/snippet}
 
 				{#snippet actions(d)}
-					{@const url = `/admin/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}`}
+					{@const url =
+						entity === 'workspace'
+							? `/admin/mcp-servers/w/${id}/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}`
+							: `/admin/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}`}
 					<div class="flex items-center gap-1">
-						<a class="button-text" href={url}> View Audit Logs </a>
+						{#if profile.current?.role === Role.ADMIN && isAdminUrl}
+							<a class="button-text" href={url}> View Audit Logs </a>
+						{/if}
 
 						{#if d.needsUpdate}
 							<DotDotDot class="icon-button hover:dark:bg-black/50">

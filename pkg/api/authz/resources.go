@@ -19,8 +19,6 @@ var apiResources = []string{
 	"GET    /mcp-connect/{mcp_id}",
 	"POST   /mcp-connect/{mcp_id}",
 	"DELETE /mcp-connect/{mcp_id}",
-	"GET    /api/mcp-stats/{mcp_id}",
-	"GET    /api/mcp-audit-logs/{mcp_id}",
 	"GET    /api/assistants",
 	"GET    /api/assistants/{assistant_id}",
 	"GET    /api/assistants/{assistant_id}/projects",
@@ -223,6 +221,9 @@ var apiResources = []string{
 	"DELETE /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
 	"GET    /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
 	"PUT    /api/workspaces/{workspace_id}/servers/{mcp_server_id}",
+	"GET    /api/workspaces/{workspace_id}/servers/{mcp_server_id}/details",
+	"GET    /api/workspaces/{workspace_id}/servers/{mcp_server_id}/logs",
+	"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/restart",
 	"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/launch",
 	"POST   /api/workspaces/{workspace_id}/servers/{mcp_server_id}/check-oauth",
 	"GET    /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-url",
@@ -235,6 +236,11 @@ var apiResources = []string{
 	"POST   /api/workspaces/{workspace_id}/entries",
 	"DELETE /api/workspaces/{workspace_id}/entries/{entry_id}",
 	"GET    /api/workspaces/{workspace_id}/entries/{entry_id}",
+	"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/servers",
+	"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}",
+	"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/details",
+	"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/logs",
+	"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/restart",
 	"PUT    /api/workspaces/{workspace_id}/entries/{entry_id}",
 	"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews",
 	"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews/oauth-url",
@@ -266,16 +272,17 @@ type Resources struct {
 }
 
 type ResourcesAuthorized struct {
-	Assistant         *v1.Agent
-	Project           *v1.Thread
-	Thread            *v1.Thread
-	ThreadShare       *v1.ThreadShare
-	Task              *v1.Workflow
-	MCPServer         *v1.MCPServer
-	MCPServerInstance *v1.MCPServerInstance
-	Run               *v1.WorkflowExecution
-	Workflow          *v1.Workflow
-	Tool              *v1.Tool
+	Assistant          *v1.Agent
+	Project            *v1.Thread
+	Thread             *v1.Thread
+	ThreadShare        *v1.ThreadShare
+	Task               *v1.Workflow
+	MCPServer          *v1.MCPServer
+	MCPServerInstance  *v1.MCPServerInstance
+	Run                *v1.WorkflowExecution
+	Workflow           *v1.Workflow
+	Tool               *v1.Tool
+	PowerUserWorkspace *v1.PowerUserWorkspace
 }
 
 func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user.Info) (bool, error) {

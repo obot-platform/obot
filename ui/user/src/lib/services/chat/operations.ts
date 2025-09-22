@@ -2,6 +2,7 @@ import type {
 	AccessControlRule,
 	AccessControlRuleManifest,
 	AuthProvider,
+	K8sServerDetail,
 	MCPCatalogEntry,
 	MCPCatalogEntryServerManifest,
 	MCPCatalogServerManifest
@@ -1927,4 +1928,75 @@ export async function getWorkspaceMcpServerOauthURL(
 	} catch (_err) {
 		return '';
 	}
+}
+
+export async function getWorkspaceK8sServerDetail(
+	workspaceID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/servers/${mcpServerId}/details`,
+		opts
+	)) as K8sServerDetail;
+	return response;
+}
+
+export async function restartWorkspaceK8sServerDeployment(
+	workspaceID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	await doPost(`/workspaces/${workspaceID}/servers/${mcpServerId}/restart`, {}, opts);
+}
+
+export async function getWorkspaceCatalogEntryServers(
+	workspaceID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers`,
+		opts
+	)) as ItemsResponse<MCPCatalogServer>;
+	return response.items ?? [];
+}
+
+export async function getWorkspaceCatalogEntryServer(
+	workspaceID: string,
+	entryID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}`,
+		opts
+	)) as MCPCatalogServer;
+	return response;
+}
+
+export async function getWorkspaceCatalogEntryServerK8sDetails(
+	workspaceID: string,
+	entryID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/details`,
+		opts
+	)) as K8sServerDetail;
+	return response;
+}
+
+export async function restartWorkspaceCatalogEntryServerDeployment(
+	workspaceID: string,
+	entryID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	await doPost(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/restart`,
+		{},
+		opts
+	);
 }

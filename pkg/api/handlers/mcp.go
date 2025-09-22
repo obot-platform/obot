@@ -1975,6 +1975,29 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		return types.NewErrBadRequest("cannot get details for remote MCP server")
 	}
 
+	if !req.UserIsAdmin() {
+		workspaceID := req.PathValue("workspace_id")
+		if workspaceID == "" {
+			return types.NewErrNotFound("MCP server %s not found", server.Name)
+		} else if server.Spec.PowerUserWorkspaceID != "" && workspaceID != server.Spec.PowerUserWorkspaceID {
+			return types.NewErrNotFound("MCP server %s not found", server.Name)
+		} else if server.Spec.PowerUserWorkspaceID == "" {
+			if server.Spec.MCPServerCatalogEntryName == "" {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
+
+			// In this case, the server should correspond to a workspace catalog entry.
+			var entry v1.MCPServerCatalogEntry
+			if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+				return fmt.Errorf("failed to get MCP server catalog entry: %v", err)
+			}
+
+			if entry.Spec.PowerUserWorkspaceID != workspaceID {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
+		}
+	}
+
 	mcpServerDisplayName := server.Spec.Manifest.Name
 	if mcpServerDisplayName == "" {
 		mcpServerDisplayName = server.Name
@@ -1992,13 +2015,36 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 }
 
 func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
-	_, serverConfig, err := serverForAction(req)
+	server, serverConfig, err := serverForAction(req)
 	if err != nil {
 		return err
 	}
 
 	if serverConfig.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("cannot restart deployment for remote MCP server")
+	}
+
+	if !req.UserIsAdmin() {
+		workspaceID := req.PathValue("workspace_id")
+		if workspaceID == "" {
+			return types.NewErrNotFound("MCP server %s not found", server.Name)
+		} else if server.Spec.PowerUserWorkspaceID != "" && workspaceID != server.Spec.PowerUserWorkspaceID {
+			return types.NewErrNotFound("MCP server %s not found", server.Name)
+		} else if server.Spec.PowerUserWorkspaceID == "" {
+			if server.Spec.MCPServerCatalogEntryName == "" {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
+
+			// In this case, the server should correspond to a workspace catalog entry.
+			var entry v1.MCPServerCatalogEntry
+			if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+				return fmt.Errorf("failed to get MCP server catalog entry: %v", err)
+			}
+
+			if entry.Spec.PowerUserWorkspaceID != workspaceID {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
+		}
 	}
 
 	if err := m.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
@@ -2020,6 +2066,29 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 
 	if serverConfig.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("cannot stream logs for remote MCP server")
+	}
+
+	if !req.UserIsAdmin() {
+		workspaceID := req.PathValue("workspace_id")
+		if workspaceID == "" {
+			return types.NewErrNotFound("MCP server %s not found", server.Name)
+		} else if server.Spec.PowerUserWorkspaceID != "" && workspaceID != server.Spec.PowerUserWorkspaceID {
+			return types.NewErrNotFound("MCP server %s not found", server.Name)
+		} else if server.Spec.PowerUserWorkspaceID == "" {
+			if server.Spec.MCPServerCatalogEntryName == "" {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
+
+			// In this case, the server should correspond to a workspace catalog entry.
+			var entry v1.MCPServerCatalogEntry
+			if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+				return fmt.Errorf("failed to get MCP server catalog entry: %v", err)
+			}
+
+			if entry.Spec.PowerUserWorkspaceID != workspaceID {
+				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			}
+		}
 	}
 
 	mcpServerDisplayName := server.Spec.Manifest.Name

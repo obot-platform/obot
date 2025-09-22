@@ -20,7 +20,7 @@
 		if (type === 'mcp-servers') {
 			return [
 				{ href: '/admin/mcp-servers', label: 'MCP Servers' },
-				...(id ? [convertToMcpLink(id)] : [])
+				...(id ? [convertToMcpLink(id, true)] : [])
 			];
 		}
 
@@ -48,7 +48,13 @@
 			if (id === 'access-control') {
 				return [{ href: `/mcp-publisher/access-control`, label: 'Access Control' }];
 			}
-			return [{ href: '/mcp-publisher', label: 'MCP Servers' }];
+			return [
+				{
+					href: '/mcp-publisher',
+					label: 'MCP Servers'
+				},
+				...(id ? [convertToMcpLink(id, false)] : [])
+			];
 		}
 
 		return [];
@@ -60,16 +66,24 @@
 		}
 	});
 
-	function convertToMcpLink(id: string) {
+	function convertToMcpLink(id: string, isAdmin: boolean) {
 		const stringified = sessionStorage.getItem(ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER);
 		const json = JSON.parse(stringified ?? '{}');
 		const label = id === json.id ? json.name : 'Unknown';
 
 		if (json.entity === 'workspace') {
-			const href =
-				json.type === 'single' || json.type === 'remote'
-					? `/admin/mcp-servers/w/${json.entityId}/c/${id}`
-					: `/admin/mcp-servers/w/${json.entityId}/s/${id}`;
+			let href = '';
+			if (isAdmin) {
+				href =
+					json.type === 'single' || json.type === 'remote'
+						? `/admin/mcp-servers/w/${json.entityId}/c/${id}`
+						: `/admin/mcp-servers/w/${json.entityId}/s/${id}`;
+			} else {
+				href =
+					json.type === 'single' || json.type === 'remote'
+						? `/mcp-publisher/c/${id}`
+						: `/mcp-publisher/s/${id}`;
+			}
 			return { href, label };
 		}
 
