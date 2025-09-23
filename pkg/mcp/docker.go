@@ -49,17 +49,34 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	if err == nil && existing != nil {
 		// Container exists, check state
 		switch existing.State {
+		case container.StateCreated:
+			// Container exists and is created, start it and wait for it to be ready.
+			if err := d.client.ContainerStart(ctx, existing.ID, container.StartOptions{}); err != nil {
+				return ServerConfig{}, fmt.Errorf("failed to start container: %w", err)
+			}
+
+			if err := d.waitForContainer(ctx, existing.ID); err != nil {
+				return ServerConfig{}, fmt.Errorf("failed to wait for container: %w", err)
+			}
+
+			existing, err = d.getContainer(ctx, id)
+			if err != nil {
+				return ServerConfig{}, fmt.Errorf("failed to get running container: %w", err)
+			}
+
+			// The container is ready now, so fallthrough to the next case.
+			fallthrough
 		case container.StateRunning:
 			containerPort := server.ContainerPort
 			if containerPort == 0 {
 				containerPort = defaultContainerPort
 			}
-			return d.buildServerConfig(server, existing, containerPort)
-		case container.StateCreated:
-			// Container exists and is created, wait for it to be ready.
-			if err := d.waitForContainer(ctx, existing.ID); err != nil {
-				return ServerConfig{}, fmt.Errorf("failed to wait for container: %w", err)
+
+			if err = d.ensureServerReady(ctx, existing, server, containerPort, id); err != nil {
+				return ServerConfig{}, fmt.Errorf("server running, but readiness check failed: %w", err)
 			}
+
+			return d.buildServerConfig(server, existing, containerPort)
 		default:
 			// Container exists but not running, remove it and recreate
 			if err := d.client.ContainerRemove(ctx, existing.ID, container.RemoveOptions{Force: true}); err != nil {
@@ -438,21 +455,33 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	}
 
 	var containerID string
-	// Create container
-	resp, err := d.client.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, nil, containerName)
-	if err != nil {
-		if !cerrdefs.IsConflict(err) && !cerrdefs.IsAlreadyExists(err) {
-			return retConfig, fmt.Errorf("failed to create container: %w", err)
-		}
+	// There seems to be a race condition in the Docker API where creating the container fails with a conflict,
+	// but getting the container with the name returns no results.
+	// This hack addresses this by retrying 3 times, waiting a second each time.
+	for range 3 {
+		// Create container
+		resp, err := d.client.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, nil, containerName)
+		if err != nil {
+			if !cerrdefs.IsConflict(err) && !cerrdefs.IsAlreadyExists(err) {
+				return retConfig, fmt.Errorf("failed to create container: %w", err)
+			}
 
-		cont, getErr := d.getContainer(ctx, containerName)
-		if getErr != nil || cont == nil {
-			return retConfig, fmt.Errorf("failed to create container: %w", err)
-		}
+			cont, getErr := d.getContainer(ctx, containerName)
+			if getErr != nil {
+				return retConfig, fmt.Errorf("failed to create container: %w", err)
+			}
+			if cont == nil {
+				time.Sleep(time.Second)
+				continue
+			}
 
-		containerID = cont.ID
-	} else {
-		containerID = resp.ID
+			containerID = cont.ID
+		} else {
+			containerID = resp.ID
+		}
+	}
+	if containerID == "" {
+		return retConfig, fmt.Errorf("failed to create container")
 	}
 
 	// Start container
@@ -470,31 +499,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		return retConfig, fmt.Errorf("failed to get container after starting: %w", err)
 	}
 
-	var (
-		host string
-		port = containerPort
-	)
-	if d.containerEnv {
-		if c == nil || c.NetworkSettings == nil {
-			return retConfig, fmt.Errorf("container %s not found or has no network settings", containerName)
-		}
-
-		n, ok := c.NetworkSettings.Networks["bridge"]
-		if !ok || n.IPAddress == "" {
-			return retConfig, fmt.Errorf("container %s is not connected to bridge network", containerName)
-		}
-
-		host = n.IPAddress
-	} else {
-		port, err = d.getHostPort(c, containerPort)
-		if err != nil {
-			return retConfig, fmt.Errorf("failed to get host port: %w", err)
-		}
-
-		host = "localhost"
-	}
-
-	if err = ensureServerReady(ctx, fmt.Sprintf("http://%s:%d", host, port), server); err != nil {
+	if err = d.ensureServerReady(ctx, c, server, containerPort, containerName); err != nil {
 		return retConfig, fmt.Errorf("server readiness check failed: %w", err)
 	}
 
@@ -522,7 +527,7 @@ func (d *dockerBackend) waitForContainer(ctx context.Context, containerID string
 			}
 
 			if inspect.State.Running {
-				// Container is running, optionally check health endpoint
+				// Container is running
 				return nil
 			}
 
@@ -531,6 +536,39 @@ func (d *dockerBackend) waitForContainer(ctx context.Context, containerID string
 			}
 		}
 	}
+}
+
+func (d *dockerBackend) ensureServerReady(ctx context.Context, c *container.Summary, server ServerConfig, containerPort int, containerName string) error {
+	var (
+		host string
+		err  error
+		port = containerPort
+	)
+	if d.containerEnv {
+		if c == nil || c.NetworkSettings == nil {
+			return fmt.Errorf("container %s not found or has no network settings", containerName)
+		}
+
+		n, ok := c.NetworkSettings.Networks["bridge"]
+		if !ok || n.IPAddress == "" {
+			return fmt.Errorf("container %s is not connected to bridge network", containerName)
+		}
+
+		host = n.IPAddress
+	} else {
+		port, err = d.getHostPort(c, containerPort)
+		if err != nil {
+			return fmt.Errorf("failed to get host port: %w", err)
+		}
+
+		host = "localhost"
+	}
+
+	if err = ensureServerReady(ctx, fmt.Sprintf("http://%s:%d", host, port), server); err != nil {
+		return fmt.Errorf("server readiness check failed: %w", err)
+	}
+
+	return nil
 }
 
 // prepareContainerFiles creates a volume for server.Files and returns volume name and env vars
