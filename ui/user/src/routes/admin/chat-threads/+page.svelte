@@ -18,6 +18,8 @@
 	import { Group } from '$lib/services/admin/types';
 	import { openUrl } from '$lib/utils';
 	import { profile } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	type SupportedFilter = 'username' | 'email' | 'project' | 'query';
 
@@ -284,6 +286,7 @@
 				return [];
 		}
 	}
+	let isAuditor = $derived(profile.current.groups.includes(Group.AUDITOR));
 </script>
 
 <Layout>
@@ -341,11 +344,12 @@
 					<Table
 						data={tableData}
 						fields={['name', 'userName', 'userEmail', 'projectName', 'created']}
-						onSelectRow={(d, isCtrlClick) => {
-							if (!profile.current.groups.includes(Group.AUDITOR)) return;
-							const url = `/admin/chat-threads/${d.id}`;
-							openUrl(url, isCtrlClick);
-						}}
+						onSelectRow={isAuditor
+							? (d, isCtrlClick) => {
+									const url = `/admin/chat-threads/${d.id}`;
+									openUrl(url, isCtrlClick);
+								}
+							: undefined}
 						headers={[
 							{
 								title: 'Name',
@@ -378,7 +382,19 @@
 						initSort={{ property: 'created', order: 'desc' }}
 					>
 						{#snippet actions()}
-							<button class="icon-button hover:text-blue-500" title="View Thread">
+							<button
+								class={twMerge(
+									'icon-button',
+									isAuditor && 'hover:text-blue-500',
+									!isAuditor && 'opacity-50 hover:bg-transparent dark:hover:bg-transparent'
+								)}
+								title="View Thread"
+								use:tooltip={{
+									text: isAuditor
+										? 'View Thread'
+										: 'To view details, auditing permissions are required.'
+								}}
+							>
 								<Eye class="size-4" />
 							</button>
 						{/snippet}

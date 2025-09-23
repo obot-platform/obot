@@ -62,6 +62,12 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	obj.isAdmin = () => {
 		return obj.groups.includes(Group.ADMIN);
 	};
+	obj.hasAdminAccess = () => {
+		return obj.groups.includes(Group.ADMIN) || obj.groups.includes(Group.AUDITOR);
+	};
+	obj.isAdminReadonly = () => {
+		return !obj.groups.includes(Group.ADMIN) && obj.groups.includes(Group.AUDITOR);
+	};
 	obj.loaded = true;
 	return obj;
 }

@@ -3,12 +3,11 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import Select from '$lib/components/Select.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { BOOTSTRAP_USER_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { userRoleOptions } from '$lib/services/admin/constants.js';
 	import { Group, Role, type OrgUser } from '$lib/services/admin/types';
-	import { AdminService } from '$lib/services/index.js';
+	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
 	import { formatTimeAgo } from '$lib/time.js';
 	import { Handshake, LoaderCircle, ShieldAlert, Trash2, X } from 'lucide-svelte';
@@ -24,7 +23,8 @@
 			...user,
 			name: getUserDisplayName(user),
 			role: getUserRoleLabel(user.role),
-			roleId: user.role
+			roleId: user.role & ~Role.AUDITOR,
+			auditor: user.role & Role.AUDITOR ? true : false
 		}))
 	);
 
@@ -35,17 +35,14 @@
 	let deletingUser = $state<TableItem>();
 	let confirmHandoffToUser = $state<TableItem>();
 	let loading = $state(false);
-	let roleOptions = $state([
-		{ label: 'Owner', id: Role.OWNER },
+	let roleOptions = $derived([
+		...(profile.current.groups.includes(Group.OWNER) ? [{ label: 'Owner', id: Role.OWNER }] : []),
 		{ label: 'Admin', id: Role.ADMIN },
 		{ label: 'Power User', id: Role.POWERUSER },
 		{ label: 'Power User+', id: Role.POWERUSER_PLUS },
-		{ label: 'Basic', id: Role.BASIC }
+		{ label: 'Basic User', id: Role.BASIC }
 	]);
-
-	if (!profile.current.groups.includes(Group.OWNER)) {
-		roleOptions.splice(0, 1);
-	}
+	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
 	function closeUpdateRoleDialog() {
 		updateRoleDialog?.close();
@@ -57,6 +54,10 @@
 		await AdminService.updateUserRole(userID, role);
 		if (refreshUsers) {
 			users = await AdminService.listUsers();
+		}
+		if (profile.current.id === userID) {
+			// update with the role change
+			profile.current = await ChatService.getProfile();
 		}
 		loading = false;
 		closeUpdateRoleDialog();
@@ -92,9 +93,11 @@
 				<h2 class="mb-2 text-lg font-semibold">Groups</h2>
 				<Table data={[]} fields={[]}>
 					{#snippet actions()}
-						<button class="icon-button hover:text-red-500" onclick={() => {}}>
-							<Trash2 class="size-4" />
-						</button>
+						{#if !isAdminReadonly}
+							<button class="icon-button hover:text-red-500" onclick={() => {}}>
+								<Trash2 class="size-4" />
+							</button>
+						{/if}
 					{/snippet}
 				</Table>
 			</div>
@@ -126,31 +129,33 @@
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}
-						<DotDotDot>
-							<div class="default-dialog flex min-w-max flex-col p-2">
-								<button
-									class="menu-button"
-									disabled={d.explicitRole ||
-										(d.groups.includes(Group.OWNER) &&
-											!profile.current.groups.includes(Group.OWNER))}
-									onclick={() => {
-										updatingRole = d;
-										updateRoleDialog?.showModal();
-									}}
-								>
-									Update Role
-								</button>
-								<button
-									class="menu-button text-red-500"
-									disabled={d.explicitRole ||
-										(d.groups.includes(Group.OWNER) &&
-											!profile.current.groups.includes(Group.OWNER))}
-									onclick={() => (deletingUser = d)}
-								>
-									Delete User
-								</button>
-							</div>
-						</DotDotDot>
+						{#if !isAdminReadonly}
+							<DotDotDot>
+								<div class="default-dialog flex min-w-max flex-col p-2">
+									<button
+										class="menu-button"
+										disabled={d.explicitRole ||
+											(d.groups.includes(Group.OWNER) &&
+												!profile.current.groups.includes(Group.OWNER))}
+										onclick={() => {
+											updatingRole = d;
+											updateRoleDialog?.showModal();
+										}}
+									>
+										Update Role
+									</button>
+									<button
+										class="menu-button text-red-500"
+										disabled={d.explicitRole ||
+											(d.groups.includes(Group.OWNER) &&
+												!profile.current.groups.includes(Group.OWNER))}
+										onclick={() => (deletingUser = d)}
+									>
+										Delete User
+									</button>
+								</div>
+							</DotDotDot>
+						{/if}
 					{/snippet}
 				</Table>
 			</div>
@@ -174,35 +179,58 @@
 
 <dialog bind:this={updateRoleDialog} class="w-full max-w-xl overflow-visible p-4">
 	{#if updatingRole}
+		{@const roleDescriptionMap = userRoleOptions.reduce(
+			(acc, role) => {
+				acc[role.id] = role.description;
+				return acc;
+			},
+			{} as Record<number, string>
+		)}
 		<h3 class="default-dialog-title">
 			Update User Role
 			<button onclick={() => closeUpdateRoleDialog()} class="icon-button">
 				<X class="size-5" />
 			</button>
 		</h3>
-		<div class="my-4 flex flex-col gap-4 text-sm font-light text-gray-500">
-			{#each userRoleOptions as role (role.id)}
-				<div class="flex gap-4">
-					<p class="w-28 flex-shrink-0 font-semibold">{role.label}</p>
-					{#if role.id === Role.ADMIN}
-						<p>Admins can manage all aspects of the platform.</p>
-					{:else}
-						<p>{role.description}</p>
-					{/if}
-				</div>
+		<div class="m-4 flex flex-col gap-2 text-sm font-light">
+			{#each roleOptions as role (role.id)}
+				<label class="flex gap-4">
+					<input type="radio" value={role.id} bind:group={updatingRole.roleId} />
+					<span class="flex flex-col">
+						<p class="w-28 flex-shrink-0 font-semibold">{role.label}</p>
+						<p class="text-gray-500">
+							{#if role.id === Role.OWNER}
+								Owners can manage all aspects of the platform and can also assign the Owner role to
+								other users.
+							{:else if role.id === Role.ADMIN}
+								Admins can manage all aspects of the platform.
+							{:else}
+								{roleDescriptionMap[role.id]}
+							{/if}
+						</p>
+					</span>
+				</label>
 			{/each}
-		</div>
-		<div>
-			<Select
-				class="bg-surface1 shadow-inner"
-				options={roleOptions}
-				selected={updatingRole.roleId & Role.OWNER & Role.ADMIN & Role.BASIC}
-				onSelect={(option) => {
-					if (updatingRole) {
-						updatingRole.roleId = option.id as number;
-					}
-				}}
-			/>
+
+			{#if profile.current.groups.includes(Group.OWNER)}
+				<label class="my-4 flex gap-4">
+					<input type="checkbox" bind:checked={updatingRole.auditor} />
+					<span class="flex flex-col">
+						<p class="w-28 flex-shrink-0 font-semibold">Auditor</p>
+						{#if updatingRole.roleId === Role.BASIC}
+							<p class="text-gray-500">
+								Will have read-only access to the admin system and see additional details such as
+								response, request, and header information in audit logs.
+							</p>
+						{:else}
+							<p class="text-gray-500">
+								Will gain access to additional details such as response, request, and header
+								information in audit logs.
+							</p>
+						{/if}
+					</span>
+				</label>
+			{/if}
 		</div>
 		<div class="mt-4 flex justify-end gap-2">
 			<button class="button" onclick={() => closeUpdateRoleDialog()}>Cancel</button>
@@ -219,7 +247,10 @@
 						return;
 					}
 
-					updateUserRole(updatingRole.id, updatingRole.roleId);
+					updateUserRole(
+						updatingRole.id,
+						updatingRole.auditor ? updatingRole.roleId | Role.AUDITOR : updatingRole.roleId
+					);
 				}}
 				disabled={loading}
 			>

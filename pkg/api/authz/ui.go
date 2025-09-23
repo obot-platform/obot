@@ -50,10 +50,10 @@ func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
 		return true
 	}
 
-	// For /admin/ subroutes (but not /admin/ itself), only allow admin users
+	// For /admin/ subroutes, if user has auditor or admin group
 	if rest, ok := strings.CutPrefix(req.URL.Path, "/admin/"); ok && rest != "" {
 		return slices.ContainsFunc(user.GetGroups(), func(group string) bool {
-			return group == types.GroupAdmin || group == types.GroupOwner
+			return group == types.GroupAdmin || group == types.GroupOwner || group == types.GroupAuditor
 		})
 	}
 

@@ -12,6 +12,7 @@
 
 	interface Props {
 		provider: ModelProvider;
+		readonly?: boolean;
 	}
 
 	function filterOutModelsByProvider(models: Model[], providerID: string) {
@@ -21,7 +22,7 @@
 	}
 
 	const adminModels = getAdminModels();
-	const { provider }: Props = $props();
+	const { provider, readonly }: Props = $props();
 	let modelsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let modelsByProvider = $derived(filterOutModelsByProvider(adminModels.items ?? [], provider.id));
 
@@ -66,6 +67,7 @@
 				name="email"
 				value={profile.current.email}
 				class="hidden"
+				disabled={readonly}
 			/>
 			<div class="default-scrollbar-thin h-[500px] overflow-y-auto px-4">
 				<Table
@@ -88,6 +90,7 @@
 									}
 								}}
 								label="Toggle Active Model"
+								disabled={readonly}
 							/>
 						{:else if field === 'usage'}
 							<Select
@@ -105,6 +108,7 @@
 										modelsByProvider[index].usage = option.id as ModelUsage;
 									}
 								}}
+								disabled={readonly}
 							/>
 						{:else if field === 'name'}
 							{columnData.displayName ? columnData.displayName : columnData.name}

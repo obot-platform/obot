@@ -14,6 +14,7 @@
 		onDeconfigure: () => void;
 		configuredActions?: Snippet<[BaseProvider]>;
 		deprecated?: boolean;
+		readonly?: boolean;
 	}
 
 	const {
@@ -22,7 +23,8 @@
 		onConfigure,
 		onDeconfigure,
 		configuredActions,
-		deprecated
+		deprecated,
+		readonly
 	}: Props = $props();
 </script>
 
@@ -45,7 +47,11 @@
 				{/if}
 				<DotDotDot>
 					<div class="default-dialog flex min-w-max flex-col p-2">
-						<button class="menu-button text-red-500" onclick={() => onDeconfigure()}>
+						<button
+							disabled={readonly}
+							class="menu-button text-red-500"
+							onclick={() => onDeconfigure()}
+						>
 							Deconfigure Provider
 						</button>
 					</div>
@@ -90,7 +96,9 @@
 			onclick={onConfigure}
 			class={twMerge('w-full border-0 text-sm', provider.configured ? 'button' : 'button-primary ')}
 		>
-			{#if provider.configured}
+			{#if readonly}
+				View
+			{:else if provider.configured}
 				Modify
 			{:else}
 				Configure

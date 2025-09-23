@@ -188,7 +188,8 @@ export const getUserRoleLabel = (role: number) => {
 	if (role & Role.ADMIN) return 'Admin' + withAuditor;
 	if (role & Role.POWERUSER) return 'Power User' + withAuditor;
 	if (role & Role.POWERUSER_PLUS) return 'Power User Plus' + withAuditor;
-	if (role & Role.BASIC) return 'User' + withAuditor;
+	if (role & Role.BASIC) return 'Basic User' + withAuditor;
+	if (role & Role.OWNER) return 'Owner' + withAuditor;
 	return 'Unknown' + withAuditor;
 };
 

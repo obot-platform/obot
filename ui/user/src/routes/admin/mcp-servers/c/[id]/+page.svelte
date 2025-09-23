@@ -7,12 +7,18 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import { profile } from '$lib/stores/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
 	let { catalogEntry: initialCatalogEntry } = data;
 	let catalogEntry = $state(initialCatalogEntry);
+
+	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let isSourcedEntry = $derived(
+		catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL
+	);
 </script>
 
 <Layout
@@ -30,7 +36,7 @@
 		<McpServerEntryForm
 			entry={catalogEntry}
 			type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
-			readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
+			readonly={isAdminReadonly || isSourcedEntry}
 			id={DEFAULT_MCP_CATALOG_ID}
 			onCancel={() => {
 				goto('/admin/mcp-servers');

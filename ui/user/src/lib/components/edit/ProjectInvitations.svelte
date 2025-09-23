@@ -2,7 +2,6 @@
 	import { Trash2, Plus, Clock, X, Crown } from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { browser } from '$app/environment';
-	import { Group } from '$lib/services/admin/types';
 	import {
 		ChatService,
 		type Project,
@@ -27,9 +26,7 @@
 	let isLoading = $state(false);
 	let isCreating = $state(false);
 	let ownerID = $state<string>('');
-	let isOwnerOrAdmin = $derived(
-		profile.current.id === ownerID || profile.current.groups.includes(Group.ADMIN)
-	);
+	let isOwnerOrAdmin = $derived(profile.current.id === ownerID || profile.current.isAdmin?.());
 	let invitationUrl = $derived(
 		browser && invitation?.code
 			? `${window.location.protocol}//${window.location.host}/i/${invitation.code}`

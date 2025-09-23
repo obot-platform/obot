@@ -13,7 +13,7 @@
 	import Select from '../Select.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
 
-	let { availableModels }: { availableModels: Model[] } = $props();
+	let { availableModels, readonly }: { availableModels: Model[]; readonly?: boolean } = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let defaultModelAliases = $state<DefaultModelAlias[]>([]);
 	let sortedModelAliases = $derived(
@@ -212,26 +212,29 @@
 							[modelAlias.alias as ModelAlias]: option.id as string
 						};
 					}}
+					disabled={readonly}
 				/>
 			</div>
 		{/each}
 	</div>
-	<div class="flex flex-col gap-4 pt-4">
-		<button
-			class="button-primary w-full text-sm font-normal"
-			onclick={handleSaveChanges}
-			disabled={loading || !changed}
-		>
-			{#if loading}
-				<LoaderCircle class="size-4 animate-spin" />
-			{:else}
-				Save Changes
-			{/if}
-		</button>
-		{#if showSkip}
-			<button class="button w-full text-sm font-normal" onclick={() => dialog?.close()}>
-				Skip
+	{#if !readonly}
+		<div class="flex flex-col gap-4 pt-4">
+			<button
+				class="button-primary w-full text-sm font-normal"
+				onclick={handleSaveChanges}
+				disabled={loading || !changed}
+			>
+				{#if loading}
+					<LoaderCircle class="size-4 animate-spin" />
+				{:else}
+					Save Changes
+				{/if}
 			</button>
-		{/if}
-	</div>
+			{#if showSkip}
+				<button class="button w-full text-sm font-normal" onclick={() => dialog?.close()}>
+					Skip
+				</button>
+			{/if}
+		</div>
+	{/if}
 </ResponsiveDialog>

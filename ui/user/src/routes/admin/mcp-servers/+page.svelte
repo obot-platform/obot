@@ -38,6 +38,7 @@
 	import { openUrl } from '$lib/utils';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp';
+	import { profile } from '$lib/stores';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 	let search = $state('');
@@ -131,6 +132,8 @@
 	let sourceError = $state<string>();
 	let syncInterval = $state<ReturnType<typeof setInterval>>();
 
+	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+
 	function selectServerType(type: 'single' | 'multi' | 'remote', updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
@@ -200,16 +203,18 @@
 		<div class="flex flex-col items-center justify-start md:flex-row md:justify-between">
 			<h1 class="flex w-full items-center gap-2 text-2xl font-semibold">
 				MCP Servers
-				<button class="button-small flex items-center gap-1 text-xs font-normal" onclick={sync}>
-					{#if syncing}
-						<LoaderCircle class="size-4 animate-spin" /> Syncing...
-					{:else}
-						<RefreshCcw class="size-4" />
-						Sync
-					{/if}
-				</button>
+				{#if !isAdminReadonly}
+					<button class="button-small flex items-center gap-1 text-xs font-normal" onclick={sync}>
+						{#if syncing}
+							<LoaderCircle class="size-4 animate-spin" /> Syncing...
+						{:else}
+							<RefreshCcw class="size-4" />
+							Sync
+						{/if}
+					</button>
+				{/if}
 			</h1>
-			{#if totalCount > 0}
+			{#if totalCount > 0 && !isAdminReadonly}
 				<div class="mt-4 w-full flex-shrink-0 md:mt-0 md:w-fit">
 					{@render addServerButton()}
 				</div>
@@ -247,7 +252,9 @@
 						Click the button below to get started.
 					</p>
 
-					{@render addServerButton()}
+					{#if !isAdminReadonly}
+						{@render addServerButton()}
+					{/if}
 				</div>
 			{:else}
 				<Table
@@ -295,7 +302,7 @@
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}
-						{#if d.editable}
+						{#if d.editable && !isAdminReadonly}
 							<button
 								class="icon-button hover:text-red-500"
 								onclick={(e) => {
@@ -341,14 +348,16 @@
 					}}
 				>
 					{#snippet actions(d)}
-						<button
-							class="icon-button hover:text-red-500"
-							onclick={() => {
-								deletingSource = d.url;
-							}}
-						>
-							<Trash2 class="size-4" />
-						</button>
+						{#if !isAdminReadonly}
+							<button
+								class="icon-button hover:text-red-500"
+								onclick={() => {
+									deletingSource = d.url;
+								}}
+							>
+								<Trash2 class="size-4" />
+							</button>
+						{/if}
 					{/snippet}
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'url'}

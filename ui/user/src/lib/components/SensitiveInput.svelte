@@ -9,9 +9,10 @@
 		error?: boolean;
 		oninput?: () => void;
 		textarea?: boolean;
+		disabled?: boolean;
 	}
 
-	let { name, value = $bindable(''), error, oninput, textarea }: Props = $props();
+	let { name, value = $bindable(''), error, oninput, textarea, disabled }: Props = $props();
 	let showSensitive = $state(false);
 	let textareaElement = $state<HTMLTextAreaElement>();
 	let isEditing = $state(false);
@@ -66,6 +67,7 @@
 			onfocus={handleTextareaFocus}
 			onblur={handleTextareaBlur}
 			oninput={handleTextareaInput}
+			{disabled}
 		></textarea>
 	{:else}
 		<input
@@ -81,6 +83,7 @@
 			type={showSensitive ? 'text' : 'password'}
 			oninput={handleInput}
 			autocomplete="new-password"
+			{disabled}
 		/>
 	{/if}
 

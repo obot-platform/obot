@@ -155,7 +155,9 @@ export interface Profile {
 	role: number;
 	groups: string[];
 	loaded?: boolean;
+	hasAdminAccess?: () => boolean;
 	isAdmin?: () => boolean;
+	isAdminReadonly?: () => boolean;
 	unauthorized?: boolean;
 	username: string;
 	currentAuthProvider?: string;

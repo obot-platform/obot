@@ -17,6 +17,7 @@
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { getUserDisplayName, openUrl } from '$lib/utils.js';
+	import { profile } from '$lib/stores/index.js';
 
 	let { data } = $props();
 	const { accessControlRules: initialRules } = data;
@@ -49,6 +50,7 @@
 				};
 			})
 	);
+	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 
 	onMount(() => {
 		const url = new URL(window.location.href);
@@ -104,7 +106,9 @@
 						</h4>
 						<p class="text-sm font-light text-gray-400 dark:text-gray-600">
 							Looks like you don't have any rules created yet. <br />
-							Click the button below to get started.
+							{#if !isReadonly}
+								Click the button below to get started.
+							{/if}
 						</p>
 
 						{@render addRuleButton()}
@@ -112,100 +116,12 @@
 				{:else}
 					<div class="flex flex-col gap-2">
 						<h2 class="text-xl font-semibold">Global Access Control Rules</h2>
-						<Table
-							data={globalAccessControlRules}
-							fields={['displayName', 'servers']}
-							onSelectRow={(d, isCtrlClick) => {
-								const url = d.powerUserWorkspaceID
-									? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
-									: `/admin/access-control/${d.id}`;
-								openUrl(url, isCtrlClick);
-							}}
-							headers={[
-								{
-									title: 'Name',
-									property: 'displayName'
-								}
-							]}
-							sortable={['displayName', 'servers']}
-						>
-							{#snippet actions(d)}
-								<button
-									class="icon-button hover:text-red-500"
-									onclick={(e) => {
-										e.stopPropagation();
-										ruleToDelete = d;
-									}}
-									use:tooltip={'Delete Rule'}
-								>
-									<Trash2 class="size-4" />
-								</button>
-							{/snippet}
-							{#snippet onRenderColumn(property, d)}
-								{#if property === 'servers'}
-									{@const hasEverything = d.resources?.find((r) => r.id === '*')}
-									{@const count = hasEverything
-										? totalServers
-										: ((d.resources &&
-												d.resources.filter(
-													(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
-												).length) ??
-											0)}
-									{count ? count : '-'}
-								{:else}
-									{d[property as keyof typeof d]}
-								{/if}
-							{/snippet}
-						</Table>
+						{@render accessControlRuleTable('global')}
 					</div>
 
 					<div class="flex flex-col gap-2">
 						<h2 class="text-xl font-semibold">User Created Access Control Rules</h2>
-						<Table
-							data={userAccessControlRules}
-							fields={['displayName', 'servers', 'owner']}
-							onSelectRow={(d, isCtrlClick) => {
-								const url = d.powerUserWorkspaceID
-									? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
-									: `/admin/access-control/${d.id}`;
-								openUrl(url, isCtrlClick);
-							}}
-							headers={[
-								{
-									title: 'Name',
-									property: 'displayName'
-								}
-							]}
-							sortable={['displayName', 'servers', 'owner']}
-						>
-							{#snippet actions(d)}
-								<button
-									class="icon-button hover:text-red-500"
-									onclick={(e) => {
-										e.stopPropagation();
-										ruleToDelete = d;
-									}}
-									use:tooltip={'Delete Rule'}
-								>
-									<Trash2 class="size-4" />
-								</button>
-							{/snippet}
-							{#snippet onRenderColumn(property, d)}
-								{#if property === 'servers'}
-									{@const hasEverything = d.resources?.find((r) => r.id === '*')}
-									{@const count = hasEverything
-										? totalServers
-										: ((d.resources &&
-												d.resources.filter(
-													(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
-												).length) ??
-											0)}
-									{count ? count : '-'}
-								{:else}
-									{d[property as keyof typeof d]}
-								{/if}
-							{/snippet}
-						</Table>
+						{@render accessControlRuleTable('user')}
 					</div>
 				{/if}
 			</div>
@@ -213,13 +129,66 @@
 	</div>
 </Layout>
 
-{#snippet addRuleButton()}
-	<button
-		class="button-primary flex items-center gap-1 text-sm"
-		onclick={() => (showCreateRule = true)}
+{#snippet accessControlRuleTable(type: 'global' | 'user')}
+	{@const data = type === 'user' ? userAccessControlRules : globalAccessControlRules}
+	<Table
+		{data}
+		fields={type === 'user' ? ['displayName', 'servers', 'owner'] : ['displayName', 'servers']}
+		onSelectRow={(d, isCtrlClick) => {
+			const url = d.powerUserWorkspaceID
+				? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
+				: `/admin/access-control/${d.id}`;
+			openUrl(url, isCtrlClick);
+		}}
+		headers={[
+			{
+				title: 'Name',
+				property: 'displayName'
+			}
+		]}
+		sortable={['displayName', 'servers', 'owner']}
 	>
-		<Plus class="size-4" /> Add New Rule
-	</button>
+		{#snippet actions(d)}
+			{#if !isReadonly}
+				<button
+					class="icon-button hover:text-red-500"
+					onclick={(e) => {
+						e.stopPropagation();
+						ruleToDelete = d;
+					}}
+					use:tooltip={'Delete Rule'}
+				>
+					<Trash2 class="size-4" />
+				</button>
+			{/if}
+		{/snippet}
+		{#snippet onRenderColumn(property, d)}
+			{#if property === 'servers'}
+				{@const hasEverything = d.resources?.find((r) => r.id === '*')}
+				{@const count = hasEverything
+					? totalServers
+					: ((d.resources &&
+							d.resources.filter(
+								(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
+							).length) ??
+						0)}
+				{count ? count : '-'}
+			{:else}
+				{d[property as keyof typeof d]}
+			{/if}
+		{/snippet}
+	</Table>
+{/snippet}
+
+{#snippet addRuleButton()}
+	{#if !profile.current.isAdminReadonly?.()}
+		<button
+			class="button-primary flex items-center gap-1 text-sm"
+			onclick={() => (showCreateRule = true)}
+		>
+			<Plus class="size-4" /> Add New Rule
+		</button>
+	{/if}
 {/snippet}
 
 {#snippet createRuleScreen()}

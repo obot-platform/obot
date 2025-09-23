@@ -13,6 +13,7 @@
 	import { fly } from 'svelte/transition';
 	import { browser } from '$app/environment';
 	import type { MCPFilter } from '$lib/services/admin/types';
+	import { profile } from '$lib/stores';
 
 	let { data }: { data: { filter: MCPFilter } } = $props();
 	const { filter: initialFilter } = data;
@@ -43,6 +44,7 @@
 				goto('/admin/filters');
 			}}
 			mcpEntriesContextFn={getAdminMcpServerAndEntries}
+			readonly={profile.current.isAdminReadonly?.()}
 		>
 			{#snippet topContent()}
 				<BackLink currentLabel={filter?.name ?? 'Filter'} {fromURL} />

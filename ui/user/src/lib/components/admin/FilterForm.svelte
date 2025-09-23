@@ -27,6 +27,7 @@
 		onCreate?: (filter?: MCPFilter) => void;
 		onUpdate?: (filter?: MCPFilter) => void;
 		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
+		readonly?: boolean;
 	}
 
 	let {
@@ -34,7 +35,8 @@
 		filter: initialFilter,
 		onCreate,
 		onUpdate,
-		mcpEntriesContextFn
+		mcpEntriesContextFn,
+		readonly
 	}: Props = $props();
 	const duration = PAGE_TRANSITION_DURATION;
 	let filter = $state<{
@@ -171,14 +173,16 @@
 				<h1 class="flex items-center gap-4 text-2xl font-semibold">
 					{initialFilter.name || 'Filter'}
 				</h1>
-				<button
-					class="button-destructive flex items-center gap-1 text-xs font-normal"
-					use:tooltip={'Delete Filter'}
-					disabled={saving}
-					onclick={() => (deletingFilter = true)}
-				>
-					<Trash2 class="size-4" />
-				</button>
+				{#if !readonly}
+					<button
+						class="button-destructive flex items-center gap-1 text-xs font-normal"
+						use:tooltip={'Delete Filter'}
+						disabled={saving}
+						onclick={() => (deletingFilter = true)}
+					>
+						<Trash2 class="size-4" />
+					</button>
+				{/if}
 			</div>
 		{:else}
 			<h1 class="text-2xl font-semibold">Create Filter</h1>
@@ -196,6 +200,7 @@
 						class="text-input-filled mt-0.5 {nameError
 							? 'border-red-500 focus:border-red-500 focus:ring-red-500'
 							: ''}"
+						disabled={readonly}
 					/>
 					{#if nameError}
 						<p class="text-xs text-red-600 dark:text-red-400">Name is required</p>
@@ -213,6 +218,7 @@
 							? 'border-red-500 focus:border-red-500 focus:ring-red-500'
 							: ''}"
 						required
+						disabled={readonly}
 					/>
 					{#if urlError}
 						<p class="text-xs text-red-600 dark:text-red-400">Webhook URL is required</p>
@@ -230,6 +236,7 @@
 							class="text-input-filled pr-10"
 							type={showSecret ? 'text' : 'password'}
 							placeholder={initialFilter?.hasSecret && !filter.secret ? '*****' : ''}
+							disabled={readonly}
 						/>
 						{#if filter.secret || (initialFilter?.hasSecret && !filter.secret)}
 							<button
@@ -259,19 +266,21 @@
 								will need to be updated. If you want to keep the secret, you can leave this field
 								unchanged.
 							</p>
-							<button
-								type="button"
-								class="button-destructive flex-shrink-0 text-xs"
-								disabled={removingSecret || saving}
-								onclick={handleRemoveSecret}
-							>
-								{#if removingSecret}
-									<LoaderCircle class="size-3 animate-spin" />
-									Removing...
-								{:else}
-									Remove Secret
-								{/if}
-							</button>
+							{#if !readonly}
+								<button
+									type="button"
+									class="button-destructive flex-shrink-0 text-xs"
+									disabled={removingSecret || saving}
+									onclick={handleRemoveSecret}
+								>
+									{#if removingSecret}
+										<LoaderCircle class="size-3 animate-spin" />
+										Removing...
+									{:else}
+										Remove Secret
+									{/if}
+								</button>
+							{/if}
 						</div>
 					{:else}
 						<p class="text-xs text-gray-500 dark:text-gray-400">
@@ -290,11 +299,13 @@
 						Specify which requests should be matched by this filter.
 					</p>
 				</div>
-				<div class="relative flex items-center gap-4">
-					<button class="button-primary flex items-center gap-1 text-sm" onclick={addSelector}>
-						<Plus class="size-4" /> Add Selector
-					</button>
-				</div>
+				{#if !readonly}
+					<div class="relative flex items-center gap-4">
+						<button class="button-primary flex items-center gap-1 text-sm" onclick={addSelector}>
+							<Plus class="size-4" /> Add Selector
+						</button>
+					</div>
+				{/if}
 			</div>
 
 			{#if filter.selectors.length === 0}
@@ -311,13 +322,15 @@
 							<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
 								Selector {selectorIndex + 1}
 							</h3>
-							<button
-								class="icon-button text-red-500 hover:text-red-600"
-								onclick={() => removeSelector(selectorIndex)}
-								use:tooltip={'Remove Selector'}
-							>
-								<Trash2 class="size-4" />
-							</button>
+							{#if !readonly}
+								<button
+									class="icon-button text-red-500 hover:text-red-600"
+									onclick={() => removeSelector(selectorIndex)}
+									use:tooltip={'Remove Selector'}
+								>
+									<Trash2 class="size-4" />
+								</button>
+							{/if}
 						</div>
 
 						<div class="flex flex-col gap-4">
@@ -330,6 +343,7 @@
 									bind:value={selector.method}
 									class="text-input-filled"
 									placeholder="e.g., tools/call, resources/read"
+									disabled={readonly}
 								/>
 							</div>
 
@@ -338,19 +352,25 @@
 									<label for="identifier-btn" class="text-sm font-light">
 										Identifiers (Optional)
 									</label>
-									<button
-										id="identifier-btn"
-										type="button"
-										class="button-text flex items-center gap-1 text-xs"
-										onclick={() => addIdentifier(selectorIndex)}
-									>
-										<Plus class="size-3" /> Add Identifier
-									</button>
+									{#if !readonly}
+										<button
+											id="identifier-btn"
+											type="button"
+											class="button-text flex items-center gap-1 text-xs"
+											onclick={() => addIdentifier(selectorIndex)}
+										>
+											<Plus class="size-3" /> Add Identifier
+										</button>
+									{/if}
 								</div>
 
 								{#if !selector.identifiers || selector.identifiers.length === 0}
 									<div class="p-3 text-center text-sm text-gray-500">
-										No identifiers added. Click "Add Identifier" to specify filter criteria.
+										{#if !readonly}
+											No identifiers added. Click "Add Identifier" to specify filter criteria.
+										{:else}
+											No identifiers added.
+										{/if}
 									</div>
 								{:else}
 									{#each selector.identifiers as _, identifierIndex (identifierIndex)}
@@ -360,15 +380,18 @@
 												bind:value={selector.identifiers[identifierIndex]}
 												class="text-input-filled flex-1"
 												placeholder="e.g., tool name, resource URI"
+												disabled
 											/>
-											<button
-												type="button"
-												class="icon-button text-red-500 hover:text-red-600"
-												onclick={() => removeIdentifier(selectorIndex, identifierIndex)}
-												use:tooltip={'Remove Identifier'}
-											>
-												<X class="size-4" />
-											</button>
+											{#if !readonly}
+												<button
+													type="button"
+													class="icon-button text-red-500 hover:text-red-600"
+													onclick={() => removeIdentifier(selectorIndex, identifierIndex)}
+													use:tooltip={'Remove Identifier'}
+												>
+													<X class="size-4" />
+												</button>
+											{/if}
 										</div>
 									{/each}
 								{/if}
@@ -387,99 +410,105 @@
 						Specify which MCP servers this filter should be applied to.
 					</p>
 				</div>
-				<div class="relative flex items-center gap-4">
-					<button
-						class="button-primary flex items-center gap-1 text-sm"
-						onclick={() => {
-							addMcpServerDialog?.open();
-						}}
-					>
-						<Plus class="size-4" /> Add MCP Server
-					</button>
-				</div>
+				{#if !readonly}
+					<div class="relative flex items-center gap-4">
+						<button
+							class="button-primary flex items-center gap-1 text-sm"
+							onclick={() => {
+								addMcpServerDialog?.open();
+							}}
+						>
+							<Plus class="size-4" /> Add MCP Server
+						</button>
+					</div>
+				{/if}
 			</div>
 			<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
 				{#snippet actions(d)}
-					<button
-						class="icon-button hover:text-red-500"
-						onclick={() => {
-							filter.resources = filter.resources.filter((resource) => resource.id !== d.id);
-						}}
-						use:tooltip={'Remove MCP Server'}
-					>
-						<Trash2 class="size-4" />
-					</button>
+					{#if !readonly}
+						<button
+							class="icon-button hover:text-red-500"
+							onclick={() => {
+								filter.resources = filter.resources.filter((resource) => resource.id !== d.id);
+							}}
+							use:tooltip={'Remove MCP Server'}
+						>
+							<Trash2 class="size-4" />
+						</button>
+					{/if}
 				{/snippet}
 			</Table>
 		</div>
 	</div>
-	<div
-		class="bg-surface1 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 dark:bg-black dark:text-gray-600"
-		out:fly={{ x: -100, duration }}
-		in:fly={{ x: -100 }}
-	>
-		<div class="flex w-full justify-end gap-2">
-			<button
-				class="button text-sm"
-				onclick={() => {
-					if (initialFilter) {
-						onUpdate?.(undefined);
-					} else {
-						onCreate?.(undefined);
-					}
-				}}
-			>
-				Cancel
-			</button>
-			<button
-				class="button-primary text-sm disabled:opacity-75"
-				disabled={saving}
-				onclick={async () => {
-					// Show validation errors if required fields are missing
-					if (!filter.name.trim() || !filter.url.trim()) {
-						showValidation = true;
-						return;
-					}
-
-					saving = true;
-					try {
-						const manifest: MCPFilterManifest = {
-							name: filter.name,
-							resources: filter.resources,
-							url: filter.url,
-							secret: filter.secret || undefined,
-							selectors:
-								filter.selectors.length > 0
-									? filter.selectors
-											.map((s) => ({
-												...s,
-												identifiers: s.identifiers?.filter((id) => id.trim()) || []
-											}))
-											.filter((s) => s.method || (s.identifiers && s.identifiers.length > 0))
-									: undefined
-						};
-
-						let result: MCPFilter;
+	{#if !readonly}
+		<div
+			class="bg-surface1 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 dark:bg-black dark:text-gray-600"
+			out:fly={{ x: -100, duration }}
+			in:fly={{ x: -100 }}
+		>
+			<div class="flex w-full justify-end gap-2">
+				<button
+					class="button text-sm"
+					onclick={() => {
 						if (initialFilter) {
-							result = await AdminService.updateMCPFilter(initialFilter.id, manifest);
-							onUpdate?.(result);
+							onUpdate?.(undefined);
 						} else {
-							result = await AdminService.createMCPFilter(manifest);
-							onCreate?.(result);
+							onCreate?.(undefined);
 						}
-					} finally {
-						saving = false;
-					}
-				}}
-			>
-				{#if saving}
-					<LoaderCircle class="size-4 animate-spin" />
-				{:else}
-					Save
-				{/if}
-			</button>
+					}}
+				>
+					Cancel
+				</button>
+				<button
+					class="button-primary text-sm disabled:opacity-75"
+					disabled={saving}
+					onclick={async () => {
+						// Show validation errors if required fields are missing
+						if (!filter.name.trim() || !filter.url.trim()) {
+							showValidation = true;
+							return;
+						}
+
+						saving = true;
+						try {
+							const manifest: MCPFilterManifest = {
+								name: filter.name,
+								resources: filter.resources,
+								url: filter.url,
+								secret: filter.secret || undefined,
+								selectors:
+									filter.selectors.length > 0
+										? filter.selectors
+												.map((s) => ({
+													...s,
+													identifiers: s.identifiers?.filter((id) => id.trim()) || []
+												}))
+												.filter((s) => s.method || (s.identifiers && s.identifiers.length > 0))
+										: undefined
+							};
+
+							let result: MCPFilter;
+							if (initialFilter) {
+								result = await AdminService.updateMCPFilter(initialFilter.id, manifest);
+								onUpdate?.(result);
+							} else {
+								result = await AdminService.createMCPFilter(manifest);
+								onCreate?.(result);
+							}
+						} finally {
+							saving = false;
+						}
+					}}
+				>
+					{#if saving}
+						<LoaderCircle class="size-4 animate-spin" />
+					{:else}
+						Save
+					{/if}
+				</button>
+			</div>
 		</div>
-	</div>
+	{/if}
 </div>
 
 <SearchMcpServers

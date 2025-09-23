@@ -11,9 +11,7 @@
 
 	let toDelete = $state('');
 	let ownerID = $state<string>('');
-	let isOwnerOrAdmin = $derived(
-		profile.current.id === ownerID || profile.current.groups.includes('admin')
-	);
+	let isOwnerOrAdmin = $derived(profile.current.id === ownerID || profile.current.isAdmin?.());
 
 	interface Props {
 		project: Project;

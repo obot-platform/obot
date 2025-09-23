@@ -15,6 +15,7 @@
 	import { AdminService, type MCPFilter } from '$lib/services/index.js';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import { openUrl } from '$lib/utils';
+	import { profile } from '$lib/stores';
 
 	initMcpServerAndEntries();
 
@@ -71,7 +72,9 @@
 						{#if loading}
 							<LoaderCircle class="size-4 animate-spin" />
 						{/if}
-						{@render addFilterButton()}
+						{#if !profile.current.isAdminReadonly?.()}
+							{@render addFilterButton()}
+						{/if}
 					</div>
 				</div>
 				{#if filters.length === 0}

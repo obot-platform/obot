@@ -17,6 +17,7 @@
 	import { sortModelProviders } from '$lib/sort.js';
 	import { AlertTriangle } from 'lucide-svelte';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
+	import { profile } from '$lib/stores/index.js';
 
 	let { data } = $props();
 	let { modelProviders: initialModelProviders } = data;
@@ -40,6 +41,7 @@
 					(provider) => provider.id !== CommonModelProviderIds.ANTHROPIC_BEDROCK
 				)
 	);
+	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
 	initModels([]);
 	const adminModels = getAdminModels();
@@ -132,7 +134,11 @@
 		<div class="flex flex-col gap-8">
 			<h1 class="flex items-center justify-between gap-4 text-2xl font-semibold">
 				Model Providers
-				<DefaultModels bind:this={defaultModelsDialog} availableModels={adminModels.items} />
+				<DefaultModels
+					bind:this={defaultModelsDialog}
+					availableModels={adminModels.items}
+					readonly={isAdminReadonly}
+				/>
 			</h1>
 
 			{#if !atLeastOneConfigured}
@@ -173,9 +179,10 @@
 						modelProviders = await AdminService.listModelProviders();
 						adminConfigStore.updateModelProviders(modelProviders);
 					}}
+					readonly={isAdminReadonly}
 				>
 					{#snippet configuredActions(provider)}
-						<ListModels {provider} />
+						<ListModels {provider} readonly={isAdminReadonly} />
 					{/snippet}
 				</ProviderCard>
 			{/each}
@@ -190,6 +197,7 @@
 	values={configuringModelProviderValues}
 	error={configureError}
 	{loading}
+	readonly={isAdminReadonly}
 >
 	{#snippet note()}
 		{#if configuringModelProvider && isAnthropic(configuringModelProvider)}

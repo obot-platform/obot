@@ -14,7 +14,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { darkMode } from '$lib/stores/index.js';
+	import { darkMode, profile } from '$lib/stores/index.js';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 
 	let { data } = $props();
@@ -123,6 +123,7 @@
 					onDeconfigure={async () => {
 						confirmDeconfigureAuthProvider = authProvider;
 					}}
+					readonly={profile.current.isAdminReadonly?.()}
 				/>
 			{/each}
 		</div>
@@ -136,6 +137,7 @@
 	onConfigure={handleAuthProviderConfigure}
 	{loading}
 	error={configureError}
+	readonly={profile.current.isAdminReadonly?.()}
 >
 	{#snippet note()}
 		{@const callbackUrl = window.location.protocol + '//' + window.location.host + '/'}

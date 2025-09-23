@@ -29,8 +29,8 @@
 			title?: string;
 		};
 		catalogEntryId?: string;
+		readonly?: boolean;
 	}
-
 	const {
 		id: entityId,
 		mcpServerId,
@@ -40,7 +40,8 @@
 		title,
 		classes,
 		catalogEntryId,
-		entity = 'catalog'
+		entity = 'catalog',
+		readonly
 	}: Props = $props();
 
 	let listK8sInfo = $state<Promise<K8sServerDetail>>();
@@ -270,7 +271,7 @@
 					<p class="col-span-4 text-sm font-semibold">{detail.label}</p>
 					<div class="col-span-8 flex items-center justify-between">
 						<p class="truncate text-sm font-light">{detail.value}</p>
-						{#if detail.id === 'status'}
+						{#if detail.id === 'status' && !readonly}
 							<button
 								onclick={() => (showRestartConfirm = true)}
 								class="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
