@@ -6,6 +6,7 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -14,11 +15,13 @@ import (
 
 type PowerUserWorkspaceHandler struct {
 	serverURL string
+	acrHelper *accesscontrolrule.Helper
 }
 
-func NewPowerUserWorkspaceHandler(serverURL string) *PowerUserWorkspaceHandler {
+func NewPowerUserWorkspaceHandler(serverURL string, acrHelper *accesscontrolrule.Helper) *PowerUserWorkspaceHandler {
 	return &PowerUserWorkspaceHandler{
 		serverURL: serverURL,
+		acrHelper: acrHelper,
 	}
 }
 
@@ -62,7 +65,7 @@ func (*PowerUserWorkspaceHandler) Get(req api.Context) error {
 	return req.Write(convertPowerUserWorkspace(workspace))
 }
 
-func (*PowerUserWorkspaceHandler) ListAllEntries(req api.Context) error {
+func (p *PowerUserWorkspaceHandler) ListAllEntries(req api.Context) error {
 	var list v1.PowerUserWorkspaceList
 	if err := req.List(&list); err != nil {
 		return fmt.Errorf("failed to list power user workspaces: %w", err)
@@ -75,8 +78,26 @@ func (*PowerUserWorkspaceHandler) ListAllEntries(req api.Context) error {
 		if err := req.List(&list2, fieldSelector); err != nil {
 			return fmt.Errorf("failed to list entries: %w", err)
 		}
+
 		for _, entry := range list2.Items {
-			catalogEntries = append(catalogEntries, convertMCPServerCatalogEntryWithWorkspace(entry, item.Name, item.Spec.UserID))
+			var (
+				err       error
+				hasAccess bool
+			)
+
+			// Check default catalog entries
+			if entry.Spec.MCPCatalogName != "" {
+				hasAccess, err = p.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
+			} else if entry.Spec.PowerUserWorkspaceID != "" {
+				// Check workspace-scoped entries
+				hasAccess, err = p.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
+			}
+			if err != nil {
+				return err
+			}
+			if hasAccess {
+				catalogEntries = append(catalogEntries, convertMCPServerCatalogEntry(entry))
+			}
 		}
 	}
 
@@ -123,6 +144,23 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 		}
 
 		for _, server := range serverList.Items {
+			if server.Spec.MCPCatalogID != "" {
+				hasAccess, err := p.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
+				if err != nil {
+					return fmt.Errorf("failed to check access: %w", err)
+				}
+				if !hasAccess {
+					continue
+				}
+			} else if server.Spec.PowerUserWorkspaceID != "" {
+				hasAccess, err := p.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
+				if err != nil {
+					return fmt.Errorf("failed to check access: %w", err)
+				}
+				if !hasAccess {
+					continue
+				}
+			}
 			// Add extracted env vars to the server definition
 			addExtractedEnvVars(&server)
 
