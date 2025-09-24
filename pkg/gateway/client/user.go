@@ -135,7 +135,7 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, er
 			return fmt.Errorf("failed to decrypt user: %w", err)
 		}
 
-		if existingUser.Role.HasRole(types2.RoleAdmin) || existingUser.Role.HasRole(types2.RoleOwner) {
+		if existingUser.Role.HasRole(types2.RoleAdmin) {
 			var adminCount int64
 			// We filter out empty email users here, because that is the bootstrap user.
 			// Also exclude already soft-deleted users from the count.
