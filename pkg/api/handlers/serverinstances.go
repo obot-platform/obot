@@ -236,6 +236,7 @@ func slugForMCPServerInstance(ctx context.Context, client kclient.Client, instan
 		FieldSelector: fields.SelectorFromSet(map[string]string{
 			"spec.mcpServerName": instance.Spec.MCPServerName,
 			"spec.userID":        userID,
+			"spec.template":      "false",
 		}),
 	}); err != nil {
 		return "", fmt.Errorf("failed to find MCP server catalog entry for server: %w", err)
