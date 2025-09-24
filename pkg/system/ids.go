@@ -43,6 +43,7 @@ const (
 	AccessControlRulePrefix    = "acr1"
 	MCPWebhookValidationPrefix = "mwv1"
 	PowerUserWorkspacePrefix   = "puw1"
+	NanobotConfigPrefix        = "nbc1"
 )
 
 func IsThreadID(id string) bool {

@@ -183,6 +183,11 @@ var apiResources = map[string][]string{
 		"GET    /api/templates",
 		"GET    /api/templates/{template_public_id}",
 		"POST   /api/templates/{template_public_id}",
+		"GET    /api/nanobot-configs",
+		"GET    /api/nanobot-configs/{nanobot_config_id}",
+		"POST   /api/nanobot-configs",
+		"PUT    /api/nanobot-configs/{nanobot_config_id}",
+		"DELETE /api/nanobot-configs/{nanobot_config_id}",
 
 		// These can be removed when we get rid of the legacy admin side of things.
 		"DELETE /api/threads/{thread_id}",

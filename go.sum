@@ -537,8 +537,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f h1:y5//uYreIhSUg3J1GEMiLbxo1LJaP8RfCpH6pymGZus=
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f/go.mod h1:ZdcZmHo+o7JKHSa8/e818NopupXU1YMK5fe1lsApnBw=
-github.com/nanobot-ai/nanobot v0.0.30-0.20250924161751-7c8f9e002dac h1:QXmf2+QqM+Fgh1xIvUKwacFp0Qy/q/FyqzGzjLT3kFo=
-github.com/nanobot-ai/nanobot v0.0.30-0.20250924161751-7c8f9e002dac/go.mod h1:MZc8KYWTB982B3R9KFKKv4B5DWhGbs4Y7LKnXcBhDoc=
+github.com/nanobot-ai/nanobot v0.0.31-0.20250926061653-ee9e2a7c211c h1:9O/RyBgNXhGhff7hiqrtBuKPZLNglcOboHl5PK1HoyM=
+github.com/nanobot-ai/nanobot v0.0.31-0.20250926061653-ee9e2a7c211c/go.mod h1:MZc8KYWTB982B3R9KFKKv4B5DWhGbs4Y7LKnXcBhDoc=
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
 github.com/nightlyone/lockfile v1.0.0 h1:RHep2cFKK4PonZJDdEl4GmkabuhbsRMgk/k3uAmxBiA=
@@ -553,6 +553,8 @@ github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 h1:bQx3WeLcUWy+RletI
 github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90/go.mod h1:y5+oSEHCPT/DGrS++Wc/479ERge0zTFxaF8PbGKcg2o=
 github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83 h1:f38gPMZxtqsvmusPBUgU8ZNmGsEU/lw4qpCruiStmu8=
 github.com/obot-platform/kinm v0.0.0-20250905213846-3c65d6845f83/go.mod h1:uIt/q4bSrRWxjnX9wGn9i+LfBvN04g0b/c4h5imPCOI=
+github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20250916000024-e4d621ab46e1 h1:fCAbO88O7phBUZOOxTDIUOHJQQSjv2DQ3Y5DuFXhqP8=
+github.com/obot-platform/mcp-oauth-proxy v0.0.3-0.20250916000024-e4d621ab46e1/go.mod h1:pZpmUUk1ang8frJxBC9kkxMe4K7O6cWdCjQOrbQNnS8=
 github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317 h1:yUEiybfv/VpPf4Ct73cIBIDi++V0x5vzFH79pAXWgL0=
 github.com/obot-platform/nah v0.0.0-20250418220644-1b9278409317/go.mod h1:AUP8EhWbz+tBQn1QMYcBY8EPFN8LFNZvKhOxpt4hafA=
 github.com/obot-platform/namegenerator v0.0.0-20241217121223-fc58bdb7dca2 h1:jiyBM/TYxU6UNVS9ff8Y8n55DOKDYohKkIZjfHpjfTY=
@@ -622,6 +624,8 @@ github.com/russross/blackfriday/v2 v2.1.0/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQD
 github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd/go.mod h1:hPqNNc0+uJM6H+SuU8sEs5K5IQeKccPqeSjfgcKGgPk=
 github.com/samber/lo v1.38.1 h1:j2XEAqXKb09Am4ebOg31SpvzUTTs6EN3VfgeLUhPdXM=
 github.com/samber/lo v1.38.1/go.mod h1:+m/ZKRl6ClXCE2Lgf3MsQlWfh4bn1bz6CXEOxnEXnEA=
+github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 h1:KRzFb2m7YtdldCEkzs6KqmJw4nqEVZGK7IN2kJkjTuQ=
+github.com/santhosh-tekuri/jsonschema/v6 v6.0.2/go.mod h1:JXeL+ps8p7/KNMjDQk3TCwPpBy0wYklyWTfbkIzdIFU=
 github.com/sendgrid/sendgrid-go v3.16.0+incompatible h1:i8eE6IMkiCy7vusSdacHHSBUpXyTcTXy/Rl9N9aZ/Qw=
 github.com/sendgrid/sendgrid-go v3.16.0+incompatible/go.mod h1:QRQt+LX/NmgVEvmdRw0VT/QgUn499+iza2FnDca9fg8=
 github.com/sergi/go-diff v1.2.0/go.mod h1:STckp+ISIX8hZLjrqAeVduY0gWCT9IjLuqbuNXdaHfM=
