@@ -182,7 +182,7 @@
 								icon: Users,
 								label: 'Users',
 								collapsible: false,
-								disabled: false
+								disabled: !version.current.authEnabled
 							},
 							{
 								id: 'user-roles',
@@ -190,7 +190,7 @@
 								icon: UserCog,
 								label: 'User Roles',
 								collapsible: false,
-								disabled: false
+								disabled: !version.current.authEnabled
 							},
 							{
 								id: 'auth-providers',

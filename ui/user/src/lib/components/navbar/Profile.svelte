@@ -179,7 +179,7 @@
 					Chat
 				</button>
 			{/if}
-			{#if (profile.current.role === Role.POWERUSER || profile.current.role === Role.POWERUSER_PLUS || profile.current.role === Role.ADMIN) && showMcpPublisherLink}
+			{#if (profile.current.role === Role.POWERUSER || profile.current.role === Role.POWERUSER_PLUS || profile.current.role === Role.ADMIN) && showMcpPublisherLink && version.current.authEnabled}
 				<a href="/mcp-publisher" rel="external" class="link">
 					<ServerCog class="size-4" /> MCP Publisher
 				</a>
