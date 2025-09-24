@@ -30,6 +30,9 @@
 	type OauthRequirement = Extract<Requirement, { type: 'oauth' }>;
 	let requirements = $derived([
 		...projectMcps.items
+			.filter((m) => (m.configured === false || m.needsURL) && !closed.has(m.id!))
+			.map((m) => ({ type: 'config', id: m.id!, mcpID: m.mcpID! }) as Requirement),
+		...projectMcps.items
 			.filter((m) => !m.authenticated && m.oauthURL && !closed.has(m.id!))
 			.map(
 				(m) =>
@@ -40,10 +43,7 @@
 						icon: m.icon,
 						oauthURL: m.oauthURL!
 					}) as Requirement
-			),
-		...projectMcps.items
-			.filter((m) => (m.configured === false || m.needsURL) && !closed.has(m.id!))
-			.map((m) => ({ type: 'config', id: m.id!, mcpID: m.mcpID! }) as Requirement)
+			)
 	]);
 
 	let oauthDialog = $state<HTMLDialogElement>();
@@ -101,6 +101,7 @@
 
 		if (oauthDialog?.open || currentConfigReq) return;
 		if (requirements.length === 0) return;
+
 		const req = requirements[0];
 		if (!req) return;
 		if (req.type === 'oauth') {
@@ -230,73 +231,71 @@
 	}
 </script>
 
-{#if requirements[0]}
-	{#key requirements[0].id}
-		{#if requirements[0].type === 'oauth'}
-			{@const oauth = requirements[0] as OauthRequirement}
-			<dialog
-				bind:this={oauthDialog}
-				class="flex w-full flex-col gap-4 p-4 md:w-sm"
-				use:dialogAnimation={{ type: 'fade' }}
-			>
-				<div class="absolute top-2 right-2">
-					<button class="icon-button" onclick={dismissCurrent}>
-						<X class="size-4" />
-					</button>
-				</div>
-				<div class="flex items-center gap-2">
-					<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
-						{#if oauth.icon}
-							<img src={oauth.icon} alt={oauth.name} class="size-6" />
-						{:else}
-							<Server class="size-6" />
-						{/if}
-					</div>
-					<h3 class="text-lg leading-5.5 font-semibold">
-						{oauth.name}
-					</h3>
-				</div>
-
-				<p>
-					In order to use {oauth.name}, authentication with the MCP server is required.
-				</p>
-
-				<p>Click the link below to authenticate.</p>
-
-				<a
-					href={oauth.oauthURL}
-					target="_blank"
-					class="button-primary text-center text-sm outline-none"
-					onclick={() => {
-						if (currentOauthId) return;
-						currentOauthId = oauth.id;
-					}}
-				>
-					{#if currentOauthId === oauth.id}
-						Authenticating...
+{#key requirements[0]?.id}
+	{#if requirements[0]?.type === 'oauth'}
+		{@const oauth = requirements[0] as OauthRequirement}
+		<dialog
+			bind:this={oauthDialog}
+			class="flex w-full flex-col gap-4 p-4 md:w-sm"
+			use:dialogAnimation={{ type: 'fade' }}
+		>
+			<div class="absolute top-2 right-2">
+				<button class="icon-button" onclick={dismissCurrent}>
+					<X class="size-4" />
+				</button>
+			</div>
+			<div class="flex items-center gap-2">
+				<div class="h-fit flex-shrink-0 self-start rounded-md bg-gray-50 p-1 dark:bg-gray-600">
+					{#if oauth.icon}
+						<img src={oauth.icon} alt={oauth.name} class="size-6" />
 					{:else}
-						Authenticate
+						<Server class="size-6" />
 					{/if}
-				</a>
-			</dialog>
-		{/if}
-	{/key}
-{/if}
+				</div>
+				<h3 class="text-lg leading-5.5 font-semibold">
+					{oauth.name}
+				</h3>
+			</div>
 
-<CatalogConfigureForm
-	bind:this={configDialog}
-	bind:form={configureForm}
-	name={configName}
-	icon={configIcon}
-	serverId={configServerId}
-	submitText="Save"
-	loading={configuring}
-	error={configError}
-	onSave={handleSaveConfig}
-	onClose={() => {
-		if (currentConfigReq) {
-			closed.add(currentConfigReq.id);
-			currentConfigReq = null;
-		}
-	}}
-/>
+			<p>
+				In order to use {oauth.name}, authentication with the MCP server is required.
+			</p>
+
+			<p>Click the link below to authenticate.</p>
+
+			<a
+				href={oauth.oauthURL}
+				target="_blank"
+				class="button-primary text-center text-sm outline-none"
+				onclick={() => {
+					if (currentOauthId) return;
+					currentOauthId = oauth.id;
+				}}
+			>
+				{#if currentOauthId === oauth.id}
+					Authenticating...
+				{:else}
+					Authenticate
+				{/if}
+			</a>
+		</dialog>
+	{:else if requirements[0]?.type === 'config'}
+		<CatalogConfigureForm
+			bind:this={configDialog}
+			bind:form={configureForm}
+			name={configName}
+			icon={configIcon}
+			serverId={configServerId}
+			submitText="Save"
+			loading={configuring}
+			error={configError}
+			onSave={handleSaveConfig}
+			onClose={() => {
+				if (currentConfigReq) {
+					closed.add(currentConfigReq.id);
+					currentConfigReq = null;
+				}
+			}}
+		/>
+	{/if}
+{/key}
