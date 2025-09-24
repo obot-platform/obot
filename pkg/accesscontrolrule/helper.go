@@ -1,6 +1,7 @@
 package accesscontrolrule
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -8,15 +9,18 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Helper struct {
 	acrIndexer gocache.Indexer
+	client     client.Client
 }
 
-func NewAccessControlRuleHelper(acrIndexer gocache.Indexer) *Helper {
+func NewAccessControlRuleHelper(acrIndexer gocache.Indexer, client client.Client) *Helper {
 	return &Helper{
 		acrIndexer: acrIndexer,
+		client:     client,
 	}
 }
 
@@ -326,7 +330,7 @@ func (h *Helper) GetAccessControlRulesForSelectorInWorkspace(namespace, selector
 }
 
 // UserHasAccessToMCPServerInWorkspace checks if a user has access to a specific MCP server through workspace-scoped AccessControlRules
-func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName, workspaceID string) (bool, error) {
+func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName, workspaceID, serverUserID string) (bool, error) {
 	// See if there is a selector that this user is included on in the specified workspace.
 	selectorRules, err := h.GetAccessControlRulesForSelectorInWorkspace(system.DefaultNamespace, "*", workspaceID)
 	if err != nil {
@@ -381,11 +385,16 @@ func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName
 		}
 	}
 
+	// If the server is owned by the current user, they have access to it to ignore the AccessControlRules
+	if serverUserID == userID {
+		return true, nil
+	}
+
 	return false, nil
 }
 
 // UserHasAccessToMCPServerCatalogEntryInWorkspace checks if a user has access to a specific catalog entry through workspace-scoped AccessControlRules
-func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(user kuser.Info, entryName, workspaceID string) (bool, error) {
+func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx context.Context, user kuser.Info, entryName, workspaceID string) (bool, error) {
 	// See if there is a selector that this user is included on in the specified workspace.
 	selectorRules, err := h.GetAccessControlRulesForSelectorInWorkspace(system.DefaultNamespace, "*", workspaceID)
 	if err != nil {
@@ -437,6 +446,17 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(user kuser.Info
 					return true, nil
 				}
 			}
+		}
+	}
+
+	// If the workspace is owned by the current user, they have access to all entries in the workspace
+	if workspaceID != "" {
+		var workspace v1.PowerUserWorkspace
+		if err := h.client.Get(ctx, client.ObjectKey{Namespace: system.DefaultNamespace, Name: workspaceID}, &workspace); err != nil {
+			return false, err
+		}
+		if workspace.Spec.UserID == userID {
+			return true, nil
 		}
 	}
 

@@ -80,24 +80,7 @@ func (p *PowerUserWorkspaceHandler) ListAllEntries(req api.Context) error {
 		}
 
 		for _, entry := range list2.Items {
-			var (
-				err       error
-				hasAccess bool
-			)
-
-			// Check default catalog entries
-			if entry.Spec.MCPCatalogName != "" {
-				hasAccess, err = p.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
-			} else if entry.Spec.PowerUserWorkspaceID != "" {
-				// Check workspace-scoped entries
-				hasAccess, err = p.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
-			}
-			if err != nil {
-				return err
-			}
-			if hasAccess {
-				catalogEntries = append(catalogEntries, convertMCPServerCatalogEntry(entry))
-			}
+			catalogEntries = append(catalogEntries, convertMCPServerCatalogEntryWithWorkspace(entry, item.Name, item.Spec.UserID))
 		}
 	}
 
@@ -144,23 +127,6 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 		}
 
 		for _, server := range serverList.Items {
-			if server.Spec.MCPCatalogID != "" {
-				hasAccess, err := p.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
-				if err != nil {
-					return fmt.Errorf("failed to check access: %w", err)
-				}
-				if !hasAccess {
-					continue
-				}
-			} else if server.Spec.PowerUserWorkspaceID != "" {
-				hasAccess, err := p.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
-				if err != nil {
-					return fmt.Errorf("failed to check access: %w", err)
-				}
-				if !hasAccess {
-					continue
-				}
-			}
 			// Add extracted env vars to the server definition
 			addExtractedEnvVars(&server)
 

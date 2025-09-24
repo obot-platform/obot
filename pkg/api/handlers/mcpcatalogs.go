@@ -184,11 +184,12 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
 		} else if entry.Spec.PowerUserWorkspaceID != "" {
 			// Check workspace-scoped entries
-			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
+			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
 		}
 		if err != nil {
 			return err
 		}
+
 		if hasAccess {
 			entries = append(entries, convertMCPServerCatalogEntry(entry))
 		}

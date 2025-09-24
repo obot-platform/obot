@@ -74,7 +74,7 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 	if entry.Spec.MCPCatalogName != "" {
 		hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
 	} else if entry.Spec.PowerUserWorkspaceID != "" {
-		hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
+		hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
 	}
 	if err != nil {
 		return err
@@ -102,11 +102,12 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		if entry.Spec.MCPCatalogName != "" {
 			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
 		} else if entry.Spec.PowerUserWorkspaceID != "" {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
 		}
 		if err != nil {
 			return err
 		}
+
 		if hasAccess {
 			entries = append(entries, convertMCPServerCatalogEntry(entry))
 		}
@@ -203,22 +204,28 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 			continue
 		}
 
+		var hasAccess bool
+		var err error
+
 		if server.Spec.MCPCatalogID != "" {
-			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
 			if err != nil {
 				return fmt.Errorf("failed to check access: %w", err)
-			}
-			if !hasAccess {
-				continue
 			}
 		} else if server.Spec.PowerUserWorkspaceID != "" {
-			hasAccess, err := m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, server.Name, server.Spec.PowerUserWorkspaceID)
 			if err != nil {
 				return fmt.Errorf("failed to check access: %w", err)
 			}
-			if !hasAccess {
-				continue
-			}
+		}
+
+		// if the server is owned by the current user, they have access to it
+		if server.Spec.UserID == req.User.GetUID() {
+			hasAccess = true
+		}
+
+		if !hasAccess {
+			continue
 		}
 
 		// Add extracted env vars to the server definition
@@ -1122,23 +1129,22 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return err
 		}
 
-		if !req.UserIsAdmin() {
-			var (
-				err       error
-				hasAccess bool
-			)
+		var (
+			err       error
+			hasAccess bool
+		)
 
-			if catalogEntry.Spec.MCPCatalogName != "" {
-				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, catalogEntry.Name, catalogEntry.Spec.MCPCatalogName)
-			} else if catalogEntry.Spec.PowerUserWorkspaceID != "" {
-				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.User, catalogEntry.Name, catalogEntry.Spec.PowerUserWorkspaceID)
-			}
-			if err != nil {
-				return err
-			}
-			if !hasAccess {
-				return types.NewErrForbidden("user does not have access to MCP server catalog entry")
-			}
+		if catalogEntry.Spec.MCPCatalogName != "" {
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, catalogEntry.Name, catalogEntry.Spec.MCPCatalogName)
+		} else if catalogEntry.Spec.PowerUserWorkspaceID != "" {
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, catalogEntry.Name, catalogEntry.Spec.PowerUserWorkspaceID)
+		}
+		if err != nil {
+			return err
+		}
+
+		if !hasAccess {
+			return types.NewErrForbidden("user does not have access to MCP server catalog entry")
 		}
 
 		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.Manifest, input.MCPServerManifest)
@@ -1787,11 +1793,12 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
 		} else if server.Spec.PowerUserWorkspaceID != "" {
 			// Check workspace-scoped servers
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
 		}
 		if err != nil {
 			return err
 		}
+
 		if hasAccess {
 			allowedServers = append(allowedServers, server)
 		}
@@ -1884,7 +1891,7 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		if server.Spec.MCPCatalogID != "" {
 			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
 		} else if server.Spec.PowerUserWorkspaceID != "" {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID)
+			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
 		}
 		if err != nil {
 			return err
