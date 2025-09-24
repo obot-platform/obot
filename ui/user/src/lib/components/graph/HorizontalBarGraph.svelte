@@ -17,6 +17,7 @@
 	let show = $state(false);
 
 	let xDomain = $derived([0, Math.max(...data.map((d) => Number(d[y])))]);
+	$inspect(xDomain);
 
 	onMount(() => {
 		setTimeout(() => {
@@ -34,8 +35,8 @@
 		{data}
 		x={y}
 		y={x}
-		{xDomain}
 		xScale={scaleLinear()}
+		{xDomain}
 		yScale={scaleBand().paddingInner(0.1).paddingOuter(1)}
 		yDomain={data.map((d) => String(d[x]))}
 		padding={{ left: padding, bottom: padding, top: padding, right: padding }}
@@ -56,8 +57,10 @@
 					if (max <= 1) {
 						return [0, 1];
 					}
+
 					return [0, max];
 				}}
+				format={(d) => Math.round(d).toString()}
 			/>
 
 			{#if show}
