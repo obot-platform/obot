@@ -455,6 +455,21 @@
 						{/if}
 					{/snippet}
 				</McpServerTools>
+				{#if entry && entry.manifest?.toolPreview && !readonly}
+					<div class="mt-4 flex justify-center">
+						<button
+							class="button-primary flex items-center gap-1 text-sm"
+							onclick={handleInitTemporaryInstance}
+							disabled={saving}
+						>
+							{#if saving}
+								<LoaderCircle class="size-4 animate-spin" />
+							{:else}
+								Regenerate Tool Preview
+							{/if}
+						</button>
+					</div>
+				{/if}
 			</div>
 		{:else if selected === 'access-control'}
 			{@render accessControlView()}
