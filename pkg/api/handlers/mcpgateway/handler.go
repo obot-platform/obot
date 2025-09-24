@@ -30,6 +30,25 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// MCP Method Constants
+const (
+	methodPing                          = "ping"
+	methodInitialize                    = "initialize"
+	methodResourcesRead                 = "resources/read"
+	methodResourcesList                 = "resources/list"
+	methodResourcesTemplatesList        = "resources/templates/list"
+	methodPromptsList                   = "prompts/list"
+	methodPromptsGet                    = "prompts/get"
+	methodToolsList                     = "tools/list"
+	methodToolsCall                     = "tools/call"
+	methodNotificationsInitialized      = "notifications/initialized"
+	methodNotificationsProgress         = "notifications/progress"
+	methodNotificationsRootsListChanged = "notifications/roots/list_changed"
+	methodNotificationsCancelled        = "notifications/cancelled"
+	methodLoggingSetLevel               = "logging/setLevel"
+	methodSampling                      = "sampling/createMessage"
+)
+
 var log = mvl.Package()
 
 type Handler struct {
@@ -245,13 +264,13 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 	}
 
 	switch msg.Method {
-	case "notifications/initialized":
+	case methodNotificationsInitialized:
 		// This method is special because it is handled automatically by the client.
 		// So, we don't forward this one, just respond with a success.
 		return
-	case "ping":
+	case methodPing:
 		result = nmcp.PingResult{}
-	case "initialize":
+	case methodInitialize:
 		go func(sessionID string) {
 			msg.Session.Wait()
 
@@ -282,21 +301,21 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		}
 
 		result = nmcp.InitializeResult{}
-	case "resources/read":
+	case methodResourcesRead:
 		result = nmcp.ReadResourceResult{}
-	case "resources/list":
+	case methodResourcesList:
 		result = nmcp.ListResourcesResult{}
-	case "resources/templates/list":
+	case methodResourcesTemplatesList:
 		result = nmcp.ListResourceTemplatesResult{}
-	case "prompts/list":
+	case methodPromptsList:
 		result = nmcp.ListPromptsResult{}
-	case "prompts/get":
+	case methodPromptsGet:
 		result = nmcp.GetPromptResult{}
-	case "tools/list":
+	case methodToolsList:
 		result = nmcp.ListToolsResult{}
-	case "tools/call":
+	case methodToolsCall:
 		result = nmcp.CallToolResult{}
-	case "notifications/progress", "notifications/roots/list_changed", "notifications/cancelled", "logging/setLevel":
+	case methodNotificationsProgress, methodNotificationsRootsListChanged, methodNotificationsCancelled, methodLoggingSetLevel:
 		// These methods don't require a result.
 		result = nmcp.Notification{}
 	default:
@@ -367,9 +386,9 @@ func getClientIP(req *http.Request) string {
 
 func extractCallIdentifier(msg nmcp.Message) string {
 	switch msg.Method {
-	case "resources/read":
+	case methodResourcesRead:
 		return gjson.GetBytes(msg.Params, "uri").String()
-	case "tools/call", "prompts/get":
+	case methodToolsCall, methodPromptsGet:
 		return gjson.GetBytes(msg.Params, "name").String()
 	default:
 		return ""
