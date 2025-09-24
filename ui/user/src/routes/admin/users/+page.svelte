@@ -10,7 +10,7 @@
 	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
 	import { formatTimeAgo } from '$lib/time.js';
-	import { Handshake, LoaderCircle, ShieldAlert, Trash2, X } from 'lucide-svelte';
+	import { Handshake, Info, LoaderCircle, ShieldAlert, Trash2, X } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import { getUserRoleLabel } from '$lib/utils';
 
@@ -34,6 +34,7 @@
 	let updatingRole = $state<TableItem>();
 	let deletingUser = $state<TableItem>();
 	let confirmHandoffToUser = $state<TableItem>();
+	let confirmAuditorAdditionToUser = $state<TableItem>();
 	let loading = $state(false);
 	let roleOptions = $derived([
 		...(profile.current.groups.includes(Group.OWNER) ? [{ label: 'Owner', id: Role.OWNER }] : []),
@@ -116,7 +117,7 @@
 								{d.role}
 								{#if d.explicitRole}
 									<div
-										use:tooltip={"This user's role explicitly set at the system level and cannot be changed."}
+										use:tooltip={"This user's role is explicitly set at the system level and cannot be changed."}
 									>
 										<ShieldAlert class="size-5" />
 									</div>
@@ -134,9 +135,8 @@
 								<div class="default-dialog flex min-w-max flex-col p-2">
 									<button
 										class="menu-button"
-										disabled={d.explicitRole ||
-											(d.groups.includes(Group.OWNER) &&
-												!profile.current.groups.includes(Group.OWNER))}
+										disabled={!profile.current.groups.includes(Group.OWNER) &&
+											(d.groups.includes(Group.OWNER) || d.explicitRole)}
 										onclick={() => {
 											updatingRole = d;
 											updateRoleDialog?.showModal();
@@ -193,10 +193,23 @@
 			</button>
 		</h3>
 		<div class="m-4 flex flex-col gap-2 text-sm font-light">
+			{#if updatingRole.explicitRole}
+				<div class="notification-info mb-2 p-3 text-sm font-light">
+					<div class="flex items-center gap-3">
+						<Info class="size-6" />
+						<div>This user's role is explicitly set at the system level and cannot be changed.</div>
+					</div>
+				</div>
+			{/if}
 			{#each roleOptions as role (role.id)}
 				<label class="flex gap-4">
-					<input type="radio" value={role.id} bind:group={updatingRole.roleId} />
-					<span class="flex flex-col">
+					<input
+						type="radio"
+						value={role.id}
+						bind:group={updatingRole.roleId}
+						disabled={updatingRole.explicitRole}
+					/>
+					<span class="flex flex-col" class:opacity-50={updatingRole.explicitRole}>
 						<p class="w-28 flex-shrink-0 font-semibold">{role.label}</p>
 						<p class="text-gray-500">
 							{#if role.id === Role.OWNER}
@@ -220,12 +233,12 @@
 						{#if updatingRole.roleId === Role.BASIC}
 							<p class="text-gray-500">
 								Will have read-only access to the admin system and see additional details such as
-								response, request, and header information in audit logs.
+								response, request, and header information in the audit logs.
 							</p>
 						{:else}
 							<p class="text-gray-500">
 								Will gain access to additional details such as response, request, and header
-								information in audit logs.
+								information in the audit logs.
 							</p>
 						{/if}
 					</span>
@@ -240,10 +253,16 @@
 					if (!updatingRole) return;
 					if (
 						profile.current.username === BOOTSTRAP_USER_ID &&
-						(updatingRole.roleId === Role.ADMIN || updatingRole.roleId === Role.OWNER)
+						updatingRole.roleId === Role.OWNER
 					) {
 						updateRoleDialog?.close();
 						confirmHandoffToUser = updatingRole;
+						return;
+					}
+
+					if (updatingRole.auditor) {
+						updateRoleDialog?.close();
+						confirmAuditorAdditionToUser = updatingRole;
 						return;
 					}
 
@@ -269,7 +288,13 @@
 	{loading}
 	onsuccess={async () => {
 		if (!confirmHandoffToUser) return;
-		await updateUserRole(confirmHandoffToUser.id, confirmHandoffToUser.roleId, false);
+		await updateUserRole(
+			confirmHandoffToUser.id,
+			confirmHandoffToUser.auditor
+				? confirmHandoffToUser.roleId | Role.AUDITOR
+				: confirmHandoffToUser.roleId,
+			false
+		);
 		await AdminService.bootstrapLogout();
 		window.location.href = '/oauth2/sign_out?rd=/admin';
 		confirmHandoffToUser = undefined;
@@ -290,6 +315,44 @@
 				using your auth provider.
 			</p>
 			<p>Are you sure you want to continue?</p>
+		</div>
+	{/snippet}
+</Confirm>
+
+<Confirm
+	{loading}
+	show={Boolean(confirmAuditorAdditionToUser)}
+	onsuccess={async () => {
+		if (!confirmAuditorAdditionToUser) return;
+		await updateUserRole(
+			confirmAuditorAdditionToUser.id,
+			confirmAuditorAdditionToUser.roleId | Role.AUDITOR
+		);
+		confirmAuditorAdditionToUser = undefined;
+	}}
+	oncancel={() => (confirmAuditorAdditionToUser = undefined)}
+>
+	{#snippet title()}
+		<div class="flex items-center justify-center gap-2">
+			<h3 class="text-xl font-semibold">Confirm Auditor Role</h3>
+		</div>
+	{/snippet}
+	{#snippet note()}
+		<div class="mt-4 mb-8 flex flex-col gap-4">
+			<p class="text-left">
+				{#if confirmAuditorAdditionToUser?.roleId === Role.BASIC}
+					Basic user auditors will have read-only access to the admin system and can see additional
+					details such as response, request, and header information in the audit logs.
+				{:else}
+					Auditors will gain access to additional details such as response, request, and header
+					information in the audit logs.
+				{/if}
+			</p>
+			<p>
+				Are you sure you want to grant <b
+					>{confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name}</b
+				> this role?
+			</p>
 		</div>
 	{/snippet}
 </Confirm>

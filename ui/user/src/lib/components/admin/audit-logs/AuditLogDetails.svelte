@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { columnResize } from '$lib/actions/resize';
 	import CopyButton from '$lib/components/CopyButton.svelte';
-	import type { AuditLog } from '$lib/services/admin/types';
-	import { responsive } from '$lib/stores';
-	import { X } from 'lucide-svelte';
+	import { Group, type AuditLog } from '$lib/services/admin/types';
+	import { profile, responsive } from '$lib/stores';
+	import { Info, X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -15,6 +15,7 @@
 
 	let { auditLog, onClose }: Props = $props();
 	let container = $state<HTMLDivElement>();
+	let hasAuditorAccess = $derived(profile.current.groups.includes(Group.AUDITOR));
 </script>
 
 {#if !responsive.isMobile && container}
@@ -121,6 +122,8 @@
 						{/each}
 					</div>
 				</div>
+			{:else if !hasAuditorAccess}
+				{@render noAuditorAccessInfo('Request Headers')}
 			{/if}
 
 			{#if Object.keys(auditLog.requestBody ?? {}).length > 0}
@@ -137,6 +140,8 @@
 						text={body}
 					/>
 				</div>
+			{:else if !hasAuditorAccess}
+				{@render noAuditorAccessInfo('Request Body')}
 			{/if}
 		</div>
 
@@ -169,6 +174,8 @@
 						{/each}
 					</div>
 				</div>
+			{:else if !hasAuditorAccess}
+				{@render noAuditorAccessInfo('Response Headers')}
 			{/if}
 
 			{#if auditLog.error}
@@ -192,7 +199,16 @@
 						text={body}
 					/>
 				</div>
+			{:else if !hasAuditorAccess}
+				{@render noAuditorAccessInfo('Response Body')}
 			{/if}
 		</div>
 	</div>
 </div>
+
+{#snippet noAuditorAccessInfo(name: string)}
+	<p class="mt-4 mb-2 text-base font-semibold">{name}</p>
+	<div class="text-xs text-gray-400 dark:text-gray-600">
+		<i>Details are hidden; further permissions are required to access this information.</i>
+	</div>
+{/snippet}
