@@ -3,7 +3,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { Group, type AuditLog } from '$lib/services/admin/types';
 	import { profile, responsive } from '$lib/stores';
-	import { Info, X } from 'lucide-svelte';
+	import { X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
