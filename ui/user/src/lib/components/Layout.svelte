@@ -74,6 +74,7 @@
 	let pathname = $state('');
 
 	let isBootStrapUser = $derived(profile.current.username === BOOTSTRAP_USER_ID);
+	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 	let navLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.() && !showUserLinks
 			? [
@@ -212,7 +213,7 @@
 						disabled: false,
 						collapsible: false
 					},
-					...(profile.current?.groups.includes(Group.POWERUSER_PLUS)
+					...(isAtLeastPowerUser
 						? [
 								{
 									id: 'access-control',

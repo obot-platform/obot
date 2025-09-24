@@ -81,6 +81,7 @@
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
+	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
 </script>
 
 <Layout>
@@ -230,7 +231,7 @@
 					<input type="checkbox" bind:checked={updatingRole.auditor} />
 					<span class="flex flex-col">
 						<p class="w-28 flex-shrink-0 font-semibold">Auditor</p>
-						{#if updatingRole.roleId === Role.BASIC}
+						{#if auditorReadonlyAdminRoles.includes(updatingRole.roleId)}
 							<p class="text-gray-500">
 								Will have read-only access to the admin system and see additional details such as
 								response, request, and header information in the audit logs.
@@ -340,7 +341,7 @@
 	{#snippet note()}
 		<div class="mt-4 mb-8 flex flex-col gap-4">
 			<p class="text-left">
-				{#if confirmAuditorAdditionToUser?.roleId === Role.BASIC}
+				{#if confirmAuditorAdditionToUser && auditorReadonlyAdminRoles.includes(confirmAuditorAdditionToUser.roleId)}
 					Basic user auditors will have read-only access to the admin system and can see additional
 					details such as response, request, and header information in the audit logs.
 				{:else}
