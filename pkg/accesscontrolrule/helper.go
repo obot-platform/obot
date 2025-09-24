@@ -331,16 +331,22 @@ func (h *Helper) GetAccessControlRulesForSelectorInWorkspace(namespace, selector
 
 // UserHasAccessToMCPServerInWorkspace checks if a user has access to a specific MCP server through workspace-scoped AccessControlRules
 func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName, workspaceID, serverUserID string) (bool, error) {
+	var (
+		userID = user.GetUID()
+		groups = authGroupSet(user)
+	)
+
+	// If the server is owned by the current user, they have access to it to ignore the AccessControlRules
+	if serverUserID == userID {
+		return true, nil
+	}
+
 	// See if there is a selector that this user is included on in the specified workspace.
 	selectorRules, err := h.GetAccessControlRulesForSelectorInWorkspace(system.DefaultNamespace, "*", workspaceID)
 	if err != nil {
 		return false, err
 	}
 
-	var (
-		userID = user.GetUID()
-		groups = authGroupSet(user)
-	)
 	for _, rule := range selectorRules {
 		for _, subject := range rule.Spec.Manifest.Subjects {
 			switch subject.Type {
@@ -383,11 +389,6 @@ func (h *Helper) UserHasAccessToMCPServerInWorkspace(user kuser.Info, serverName
 				}
 			}
 		}
-	}
-
-	// If the server is owned by the current user, they have access to it to ignore the AccessControlRules
-	if serverUserID == userID {
-		return true, nil
 	}
 
 	return false, nil

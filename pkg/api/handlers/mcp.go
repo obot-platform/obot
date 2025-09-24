@@ -204,24 +204,26 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 			continue
 		}
 
-		var hasAccess bool
-		var err error
-
-		if server.Spec.MCPCatalogID != "" {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
-			if err != nil {
-				return fmt.Errorf("failed to check access: %w", err)
-			}
-		} else if server.Spec.PowerUserWorkspaceID != "" {
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, server.Name, server.Spec.PowerUserWorkspaceID)
-			if err != nil {
-				return fmt.Errorf("failed to check access: %w", err)
-			}
-		}
+		var (
+			hasAccess bool
+			err       error
+		)
 
 		// if the server is owned by the current user, they have access to it
 		if server.Spec.UserID == req.User.GetUID() {
 			hasAccess = true
+		} else {
+			if server.Spec.MCPCatalogID != "" {
+				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
+				if err != nil {
+					return fmt.Errorf("failed to check access: %w", err)
+				}
+			} else if server.Spec.PowerUserWorkspaceID != "" {
+				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, server.Name, server.Spec.PowerUserWorkspaceID)
+				if err != nil {
+					return fmt.Errorf("failed to check access: %w", err)
+				}
+			}
 		}
 
 		if !hasAccess {
