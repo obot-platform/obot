@@ -2,6 +2,7 @@ package v1
 
 import (
 	"slices"
+	"strconv"
 
 	"github.com/obot-platform/nah/pkg/fields"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +38,8 @@ func (in *MCPServerInstance) Get(field string) (value string) {
 		return in.Spec.MCPServerCatalogEntryName
 	case "spec.powerUserWorkspaceID":
 		return in.Spec.PowerUserWorkspaceID
+	case "spec.template":
+		return strconv.FormatBool(in.Spec.Template)
 	}
 	return ""
 }
@@ -48,6 +51,7 @@ func (in *MCPServerInstance) FieldNames() []string {
 		"spec.mcpCatalogName",
 		"spec.mcpServerCatalogEntryName",
 		"spec.powerUserWorkspaceID",
+		"spec.template",
 	}
 }
 
