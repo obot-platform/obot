@@ -39,7 +39,8 @@
 		set,
 		endOfMinute,
 		getHours,
-		type Duration
+		type Duration,
+		getDay
 	} from 'date-fns';
 	import type { AuditLog } from '$lib/services';
 	import { debounce } from 'es-toolkit';
@@ -180,16 +181,20 @@
 			return 1;
 		}
 
-		if (width >= 1024) {
+		if (width >= 1280) {
 			return 2;
 		}
 
-		if (width >= 768) {
+		if (width >= 1024) {
 			return 3;
 		}
 
-		if (width >= 425) {
+		if (width >= 768) {
 			return 4;
+		}
+
+		if (width >= 425) {
+			return 5;
 		}
 
 		return 6;
@@ -305,7 +310,7 @@
 			} else if (duration < 60) {
 				step = 2 * ticksRatio;
 			} else {
-				step = 5 * ticksRatio;
+				step = frameStep * ticksRatio;
 			}
 		}
 
@@ -372,6 +377,23 @@
 	const yScale = $derived(scaleLinear(yDomain, [innerHeight, 0]));
 
 	let currentItem = $state<{ key: string; value: string; date: string }>();
+
+	const isMainTick = (tick: Date) => {
+		const [frame] = timeFrame;
+
+		switch (frame) {
+			case 'minute':
+				return tick.getMinutes() === 0;
+			case 'hour':
+				return tick.getHours() === 0;
+			case 'day':
+				return tick.getDate() === 1 || getDay(tick) === 1;
+			case 'month':
+				return tick.getMonth() === 0;
+			default:
+				return false;
+		}
+	};
 
 	function viewport() {
 		const getViewportWidth = () => {
@@ -520,7 +542,11 @@
 									return formatDayOfWeek;
 								}
 
-								if (timeFrame[0] === 'hour' && timeFrame[1] > 1) {
+								if (timeFrame[0] === 'hour') {
+									return formatDayOfWeek;
+								}
+
+								if (timeFrame[0] === 'day' && timeFrame[2] <= 90 && getDay(date) === 1) {
 									return formatDayOfWeek;
 								}
 
@@ -553,22 +579,49 @@
 						.attr('class', function (d) {
 							const element = this as SVGElement;
 
+							const add = (...cn: string[]) => {
+								for (const name of cn) {
+									classNames.add(name);
+								}
+							};
+
+							const remove = (...cn: string[]) => {
+								for (const name of cn) {
+									classNames.delete(name);
+								}
+							};
+
 							const isActive = isWithinInterval(d as Date, {
 								start,
 								end
 							});
 
 							const classNames = new Set(element.classList);
-							const activeClassName = [
-								'text-on-surface3',
-								'dark:text-on-surface1',
-								'duration-1000',
-								'transiton-colors'
-							];
+							const baseClassName = ['duration-500', 'transiton-all'];
+							add(...baseClassName);
 
-							const callbackfn = (d: string) =>
-								isActive ? classNames.add(d) : classNames.delete(d);
-							activeClassName.forEach(callbackfn);
+							const activeClassName = ['text-on-surface3', 'dark:text-on-surface1'];
+							const inactiveClassName = ['opacity-0', 'duration-500', 'transiton-opacity'];
+
+							if (isActive) {
+								add(...activeClassName);
+								remove(...inactiveClassName);
+							} else {
+								add(...inactiveClassName);
+								remove(...activeClassName);
+							}
+
+							const mainTickClassName = ['opacity-100', 'font-medium'];
+							const secondaryTickClassName = ['opacity-50', 'font-normal'];
+
+							const isMain = isMainTick(d as Date);
+
+							if (isMain) {
+								add(...mainTickClassName);
+							} else {
+								remove(...mainTickClassName);
+								add(...secondaryTickClassName);
+							}
 
 							// Keep old class names
 							// Filter falsy values and join with a space
