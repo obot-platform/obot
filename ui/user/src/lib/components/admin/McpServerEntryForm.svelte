@@ -37,6 +37,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import { profile } from '$lib/stores';
+	import OverflowContainer from '../OverflowContainer.svelte';
 
 	type MCPType = 'single' | 'multi' | 'remote';
 
@@ -347,40 +348,53 @@
 		</div>
 	{/if}
 	<div class="flex grow flex-col gap-2">
-		<div class="flex w-full items-center gap-2">
-			{#if tabs.length > 0}
-				<div class="size-4">
-					<button disabled={!showLeftChevron} onclick={scrollLeft} class="disabled:opacity-30">
-						<ChevronLeft class="size-4" />
-					</button>
-				</div>
-				<div
-					bind:this={scrollContainer}
-					class="default-scrollbar-thin scrollbar-none flex gap-2 overflow-x-auto py-1 text-sm font-light"
-					style="scroll-behavior: smooth;"
-				>
-					{#each tabs as tab (tab.view)}
+		<OverflowContainer
+			class="scrollbar-none flex w-full items-center gap-2 overflow-x-auto"
+			style="scroll-behavior: smooth;"
+			{@attach (node: HTMLDivElement) => (scrollContainer = node)}
+		>
+			{#snippet children({ x })}
+				{#if tabs.length > 0}
+					{#if x}
 						<button
-							onclick={() => {
-								handleSelectionChange(tab.view);
-							}}
-							class={twMerge(
-								'w-48 flex-shrink-0 rounded-md border border-transparent px-4 py-2 text-center transition-colors duration-300',
-								selected === tab.view && 'dark:bg-surface1 dark:border-surface3 bg-white shadow-sm',
-								selected !== tab.view && 'hover:bg-surface3'
-							)}
+							disabled={!showLeftChevron}
+							onclick={scrollLeft}
+							class="bg-surface1 sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30 dark:bg-black"
 						>
-							{tab.label}
+							<ChevronLeft class="size-full" />
 						</button>
-					{/each}
-				</div>
-				<div class="size-4">
-					<button disabled={!showRightChevron} onclick={scrollRight} class="disabled:opacity-30">
-						<ChevronRight class="size-4" />
-					</button>
-				</div>
-			{/if}
-		</div>
+					{/if}
+
+					<div class="flex flex-1 gap-2 py-1 text-sm font-light">
+						{#each tabs as tab (tab.view)}
+							<button
+								onclick={() => {
+									handleSelectionChange(tab.view);
+								}}
+								class={twMerge(
+									'w-48 flex-shrink-0 rounded-md border border-transparent px-4 py-2 text-center transition-colors duration-300',
+									selected === tab.view &&
+										'dark:bg-surface1 dark:border-surface3 bg-white shadow-sm',
+									selected !== tab.view && 'hover:bg-surface3'
+								)}
+							>
+								{tab.label}
+							</button>
+						{/each}
+					</div>
+
+					{#if x}
+						<button
+							disabled={!showRightChevron}
+							onclick={scrollRight}
+							class="bg-surface1 sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30 dark:bg-black"
+						>
+							<ChevronRight class="size-full" />
+						</button>
+					{/if}
+				{/if}
+			{/snippet}
+		</OverflowContainer>
 
 		{#if selected === 'overview' && entry}
 			<div class="pb-8">
