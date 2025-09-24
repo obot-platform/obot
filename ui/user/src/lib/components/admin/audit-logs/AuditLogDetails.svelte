@@ -209,6 +209,6 @@
 {#snippet noAuditorAccessInfo(name: string)}
 	<p class="mt-4 mb-2 text-base font-semibold">{name}</p>
 	<div class="text-xs text-gray-400 dark:text-gray-600">
-		<i>Details are hidden; further permissions are required to access this information.</i>
+		<i>Details are hidden; auditor role is required to access this information.</i>
 	</div>
 {/snippet}
