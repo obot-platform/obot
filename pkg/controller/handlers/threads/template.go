@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/gptscript/pkg/hash"
-	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -155,7 +155,7 @@ func remapCopiedAllowedMCPTools(copiedThread *v1.Thread) *v1.Thread {
 	for pmsName, toolNames := range allowedMCPTools {
 		// Copied ProjectMCPServers names are always constructed by concatenating the source MCP
 		// server name with the copied thread name.
-		remapped[name.SafeHashConcatName(pmsName, copiedThread.Name)] = toolNames
+		remapped[copiedName(system.ProjectMCPServerPrefix, pmsName, copiedThread.Name)] = toolNames
 	}
 	copiedThread.Spec.Manifest.AllowedMCPTools = remapped
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/obot-platform/nah/pkg/name"
+	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/randomtoken"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -436,7 +436,7 @@ func (t *Handler) CopyTasksFromSource(req router.Request, _ router.Response) err
 		return err
 	}
 	for _, sourceTask := range sourceTasksList.Items {
-		copiedTaskName := name.SafeHashConcatName(sourceTask.Name, thread.Name)
+		copiedTaskName := copiedName(system.WorkflowPrefix, sourceTask.Name, thread.Name)
 
 		// Check for an existing copied task and determine if it should be updated
 		if copiedTask, exists := existingTasks[copiedTaskName]; exists {
@@ -514,7 +514,7 @@ func (t *Handler) CopyToolsFromSource(req router.Request, _ router.Response) err
 	for _, tool := range toolList.Items {
 		newTool := v1.Tool{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.SafeHashConcatName(tool.Name, thread.Name),
+				Name:      copiedName(system.ToolPrefix, tool.Name, thread.Name),
 				Namespace: thread.Namespace,
 			},
 			Spec: v1.ToolSpec{
@@ -635,7 +635,7 @@ func (*Handler) copyMCPServerInstance(req router.Request, sourcePMS *v1.ProjectM
 
 	// Create or update the copied MCPServerInstance
 	var (
-		copiedMCPInstanceID = name.SafeHashConcatName(sourceMCPID, thread.Name)
+		copiedMCPInstanceID = copiedName(system.MCPServerInstancePrefix, sourceMCPID, thread.Name)
 		copiedMCPInstance   v1.MCPServerInstance
 	)
 	if err := req.Get(&copiedMCPInstance, thread.Namespace, copiedMCPInstanceID); err != nil {
@@ -677,7 +677,7 @@ func (*Handler) copyMCPServerInstance(req router.Request, sourcePMS *v1.ProjectM
 	}
 
 	// Return the desired ProjectMCPServer
-	copiedPMSName := name.SafeHashConcatName(sourcePMS.Name, thread.Name)
+	copiedPMSName := copiedName(system.ProjectMCPServerPrefix, sourcePMS.Name, thread.Name)
 	return &v1.ProjectMCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       copiedPMSName,
@@ -707,7 +707,7 @@ func (*Handler) copyMCPServer(req router.Request, sourcePMS *v1.ProjectMCPServer
 
 	// Create or update the copied MCPServer
 	var (
-		copiedMCPID     = name.SafeHashConcatName(sourceMCPID, thread.Name)
+		copiedMCPID     = copiedName(system.MCPServerPrefix, sourceMCPID, thread.Name)
 		copiedMCPServer v1.MCPServer
 	)
 	if err := req.Get(&copiedMCPServer, thread.Namespace, copiedMCPID); err != nil {
@@ -754,7 +754,7 @@ func (*Handler) copyMCPServer(req router.Request, sourcePMS *v1.ProjectMCPServer
 	}
 
 	// Return the desired ProjectMCPServer
-	copiedPMSName := name.SafeHashConcatName(sourcePMS.Name, thread.Name)
+	copiedPMSName := copiedName(system.ProjectMCPServerPrefix, sourcePMS.Name, thread.Name)
 	return &v1.ProjectMCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       copiedPMSName,
@@ -770,4 +770,13 @@ func (*Handler) copyMCPServer(req router.Request, sourcePMS *v1.ProjectMCPServer
 			UserID:     thread.Spec.UserID,
 		},
 	}, nil
+}
+
+func copiedName(prefix string, sourceName string, threadName string) string {
+	id := hash.ID(sourceName, threadName)
+	if len(id) > 10 {
+		id = id[:10]
+	}
+
+	return prefix + id
 }
