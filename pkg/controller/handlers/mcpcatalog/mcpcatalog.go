@@ -580,7 +580,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstances(req router.Request, _ rou
 				return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 			}
 		} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
-			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerInWorkspace(user, instance.Spec.MCPServerName, mcpServer.Spec.PowerUserWorkspaceID)
+			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerInWorkspace(user, instance.Spec.MCPServerName, mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Spec.UserID)
 			if err != nil {
 				return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 			}

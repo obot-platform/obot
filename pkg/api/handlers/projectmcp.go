@@ -193,7 +193,7 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 		if mcpServer.Spec.MCPCatalogID != "" {
 			hasAccess, err = p.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, mcpServer.Name, mcpServer.Spec.MCPCatalogID)
 		} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
-			hasAccess, err = p.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, mcpServer.Name, mcpServer.Spec.PowerUserWorkspaceID)
+			hasAccess, err = p.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, mcpServer.Name, mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Spec.UserID)
 		}
 
 		if err != nil {

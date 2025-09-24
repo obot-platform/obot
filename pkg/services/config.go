@@ -467,7 +467,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	acrHelper := accesscontrolrule.NewAccessControlRuleHelper(acrInformer.GetIndexer())
+	acrHelper := accesscontrolrule.NewAccessControlRuleHelper(acrInformer.GetIndexer(), r.Backend())
 
 	// Set up MCPWebhookValidation indexer
 	mcpWebhookValidationGVK, err := r.Backend().GroupVersionKindFor(&v1.MCPWebhookValidation{})
