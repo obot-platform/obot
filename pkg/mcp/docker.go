@@ -449,8 +449,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		},
 	}
 
-	// Pull image if it doesn't exist locally
-	if err := d.ensureImageExists(ctx, image); err != nil {
+	if err := d.pullImage(ctx, image, false); err != nil {
 		return retConfig, fmt.Errorf("failed to ensure image exists: %w", err)
 	}
 
@@ -585,7 +584,6 @@ func (d *dockerBackend) prepareContainerFiles(ctx context.Context, server Server
 	return volumeName, envVars, nil
 }
 
-// ensureImageExists checks if an image exists locally and pulls it if not
 // createVolumeWithFiles creates an anonymous volume and populates it with file data using an init container
 func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File, containerName string) (string, map[string]string, error) {
 	if len(files) == 0 {
@@ -608,7 +606,7 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 
 	// Create init container to populate the volume
 	initImage := "alpine:latest"
-	if err := d.ensureImageExists(ctx, initImage); err != nil {
+	if err := d.pullImage(ctx, initImage, true); err != nil {
 		return "", nil, fmt.Errorf("failed to ensure init image exists: %w", err)
 	}
 
@@ -696,12 +694,14 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	return volumeName, envVars, nil
 }
 
-func (d *dockerBackend) ensureImageExists(ctx context.Context, imageName string) error {
-	// Check if image exists locally
-	_, err := d.client.ImageInspect(ctx, imageName)
-	if err == nil {
-		// Image exists locally
-		return nil
+func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotExists bool) error {
+	if ifNotExists {
+		// Check if image exists locally
+		_, err := d.client.ImageInspect(ctx, imageName)
+		if err == nil {
+			// Image exists locally
+			return nil
+		}
 	}
 
 	reader, err := d.client.ImagePull(ctx, imageName, image.PullOptions{})
@@ -757,7 +757,7 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 
 	// Create init container to populate the volume with nanobot config
 	initImage := "alpine:latest"
-	if err = d.ensureImageExists(ctx, initImage); err != nil {
+	if err = d.pullImage(ctx, initImage, true); err != nil {
 		return "", fmt.Errorf("failed to ensure init image exists: %w", err)
 	}
 

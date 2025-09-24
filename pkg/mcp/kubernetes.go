@@ -468,7 +468,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
 	}
 
-	// Now get the pod name that is currently running, waiting for there to only be one running pod.
+	// Now get the pod name that is currently running
 	var (
 		pods            corev1.PodList
 		runningPodCount int
@@ -483,7 +483,6 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		return "", fmt.Errorf("failed to list MCP pods: %w", err)
 	}
 
-	runningPodCount = 0
 	for _, p := range pods.Items {
 		if p.Status.Phase == corev1.PodRunning {
 			podName = p.Name
