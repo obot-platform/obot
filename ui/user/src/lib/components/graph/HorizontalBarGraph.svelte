@@ -17,7 +17,6 @@
 	let show = $state(false);
 
 	let xDomain = $derived([0, Math.max(...data.map((d) => Number(d[y])))]);
-	$inspect(xDomain);
 
 	onMount(() => {
 		setTimeout(() => {
