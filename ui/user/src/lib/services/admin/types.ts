@@ -132,12 +132,12 @@ export interface OrgGroup {
 }
 
 export const Role = {
-	BASIC: 2,
-	OWNER: 4,
-	ADMIN: 8,
-	AUDITOR: 16,
-	POWERUSER: 32,
-	POWERUSER_PLUS: 64
+	BASIC: 4,
+	OWNER: 8,
+	ADMIN: 16,
+	AUDITOR: 32,
+	POWERUSER: 64,
+	POWERUSER_PLUS: 128
 };
 
 export const Group = {

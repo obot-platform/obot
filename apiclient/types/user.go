@@ -1,7 +1,9 @@
 package types
 
 const (
-	RoleBasic Role = 1 << (iota + 1)
+	// We're start with 4 here so that our old and new roles are mutually exclusive.
+	// This makes migrations and detecting when migrations are needed easier.
+	RoleBasic Role = 1 << (iota + 2)
 	RoleOwner
 	RoleAdmin
 	RoleAuditor

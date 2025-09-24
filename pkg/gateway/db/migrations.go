@@ -184,6 +184,9 @@ func migrateUserRoles(tx *gorm.DB) error {
 				user.Role = types2.RolePowerUserPlus
 			case 10:
 				user.Role = types2.RoleBasic
+			default:
+				// The role was already migrated, so know need to save it.
+				continue
 			}
 			if err := tx.Save(&user).Error; err != nil {
 				return err

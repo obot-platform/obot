@@ -13,9 +13,9 @@ export type User = EntityMeta & {
 };
 
 export const Role = {
-	Basic: 2,
-	Owner: 4,
-	Admin: 8,
+	Basic: 4,
+	Owner: 8,
+	Admin: 16,
 } as const;
 export type Role = (typeof Role)[keyof typeof Role];
 
