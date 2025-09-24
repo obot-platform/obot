@@ -33,6 +33,24 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	userDelete := req.Object.(*v1.UserDelete)
 	userID := strconv.FormatUint(uint64(userDelete.Spec.UserID), 10)
 
+	// Delete identities first so that the user can login again.
+	identities, err := u.gatewayClient.FindIdentitiesForUser(req.Ctx, userDelete.Spec.UserID)
+	if err != nil {
+		return err
+	}
+
+	if err = u.gatewayClient.DeleteSessionsForUser(req.Ctx, req.Client, identities, ""); err != nil {
+		if !errors.Is(err, gclient.LogoutAllErr{}) {
+			return err
+		}
+	}
+
+	for _, identity := range identities {
+		if err := u.gatewayClient.RemoveIdentity(req.Ctx, &identity); err != nil {
+			return err
+		}
+	}
+
 	var threads v1.ThreadList
 	if err := req.List(&threads, &kclient.ListOptions{
 		Namespace: req.Namespace,
@@ -102,23 +120,6 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		})
 		acr.Spec.Manifest.Subjects = newSubjects
 		if err := req.Client.Update(req.Ctx, &acr); err != nil {
-			return err
-		}
-	}
-
-	identities, err := u.gatewayClient.FindIdentitiesForUser(req.Ctx, userDelete.Spec.UserID)
-	if err != nil {
-		return err
-	}
-
-	if err = u.gatewayClient.DeleteSessionsForUser(req.Ctx, req.Client, identities, ""); err != nil {
-		if !errors.Is(err, gclient.LogoutAllErr{}) {
-			return err
-		}
-	}
-
-	for _, identity := range identities {
-		if err := u.gatewayClient.RemoveIdentity(req.Ctx, &identity); err != nil {
 			return err
 		}
 	}

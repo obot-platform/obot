@@ -191,7 +191,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	}
 
 	var created, checkForExistingUser bool
-	userQuery := tx
+	userQuery := tx.Where("deleted_at IS NULL")
 	if user.ID != 0 {
 		// Check for an existing user with this exact ID.
 		userQuery = userQuery.Where("id = ?", user.ID)
@@ -207,6 +207,8 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		// Copy the user so that we don't have to decrypt unless the user already exists.
 		u := *user
 		if err := userQuery.First(&u).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			// Clear user ID so that it can be auto-generated.
+			u.ID = 0
 			created = true
 			if err = c.encryptUser(ctx, &u); err != nil {
 				return nil, false, fmt.Errorf("failed to encrypt user: %w", err)
