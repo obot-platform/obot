@@ -506,6 +506,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/details", mcp.GetServerDetails)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/restart", mcp.RestartServerDeployment)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/trigger-update", mcp.TriggerUpdate)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews", mcpCatalogs.GenerateToolPreviews)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateToolPreviewsOAuthURL)
 
