@@ -16,6 +16,10 @@
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import { openUrl } from '$lib/utils';
 	import { profile } from '$lib/stores';
+	import Search from '$lib/components/Search.svelte';
+	import { replaceState } from '$app/navigation';
+	import { debounce } from 'es-toolkit';
+	import { page } from '$app/state';
 
 	initMcpServerAndEntries();
 
@@ -24,6 +28,12 @@
 	let filterToDelete = $state<MCPFilter>();
 
 	let filters = $state<MCPFilter[]>([]);
+	let filteredFilters = $derived(
+		filters.filter((filter) => filter.name?.toLowerCase().includes(query.toLowerCase()))
+	);
+
+	let query = $state('');
+	let urlFilters = $state<Record<string, (string | number)[]>>({});
 
 	async function refresh() {
 		loading = true;
@@ -45,10 +55,38 @@
 		await refresh();
 	}
 
+	const updateQuery = debounce((value: string) => {
+		query = value;
+
+		if (value) {
+			page.url.searchParams.set('query', value);
+		} else {
+			page.url.searchParams.delete('query');
+		}
+
+		replaceState(page.url, { query });
+	}, 100);
+
+	function handleColumnFilter(property: string, values: string[]) {
+		if (values.length === 0) {
+			page.url.searchParams.delete(property);
+		} else {
+			page.url.searchParams.set(property, values.join(','));
+		}
+
+		replaceState(page.url, {});
+	}
+
 	const duration = PAGE_TRANSITION_DURATION;
 	onMount(async () => {
 		await fetchMcpServerAndEntries(DEFAULT_MCP_CATALOG_ID);
 		await refresh();
+
+		if (page.url.searchParams.size > 0) {
+			page.url.searchParams.forEach((value, key) => {
+				urlFilters[key] = value.split(',');
+			});
+		}
 	});
 </script>
 
@@ -77,67 +115,77 @@
 						{/if}
 					</div>
 				</div>
-				{#if filters.length === 0}
-					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<BookOpenText class="size-24 text-gray-200 dark:text-gray-900" />
-						<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-							No created filters
-						</h4>
-						<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-							Looks like you don't have any filters created yet. <br />
-							Click the "Add New Filter" button above to get started.
-						</p>
-					</div>
-				{:else}
-					<Table
-						data={filters}
-						fields={['name', 'url', 'selectors']}
-						onSelectRow={(d, isCtrlClick) => {
-							const url = `/admin/filters/${d.id}`;
-							openUrl(url, isCtrlClick);
-						}}
-						filterable={['name', 'url']}
-						headers={[
-							{
-								title: 'Name',
-								property: 'name'
-							},
-							{
-								title: 'Webhook URL',
-								property: 'url'
-							},
-							{
-								title: 'Selectors',
-								property: 'selectors'
-							}
-						]}
-					>
-						{#snippet actions(d: MCPFilter)}
-							<button
-								class="icon-button hover:text-red-500"
-								onclick={(e) => {
-									e.stopPropagation();
-									filterToDelete = d;
-								}}
-								use:tooltip={'Delete Filter'}
-							>
-								<Trash2 class="size-4" />
-							</button>
-						{/snippet}
-						{#snippet onRenderColumn(property, d: MCPFilter)}
-							{#if property === 'name'}
-								{d.name || '-'}
-							{:else if property === 'url'}
-								{d.url || '-'}
-							{:else if property === 'selectors'}
-								{@const count = d.selectors?.length || 0}
-								{count > 0 ? `${count} selector${count > 1 ? 's' : ''}` : '-'}
-							{:else}
-								-
-							{/if}
-						{/snippet}
-					</Table>
-				{/if}
+				<div class="flex flex-col gap-2">
+					<Search
+						value={query}
+						class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+						onChange={updateQuery}
+						placeholder="Search filters..."
+					/>
+					{#if filters.length === 0}
+						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+							<BookOpenText class="size-24 text-gray-200 dark:text-gray-900" />
+							<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
+								No created filters
+							</h4>
+							<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+								Looks like you don't have any filters created yet. <br />
+								Click the "Add New Filter" button above to get started.
+							</p>
+						</div>
+					{:else}
+						<Table
+							data={filteredFilters}
+							fields={['name', 'url', 'selectors']}
+							onSelectRow={(d, isCtrlClick) => {
+								const url = `/admin/filters/${d.id}`;
+								openUrl(url, isCtrlClick);
+							}}
+							filterable={['name', 'url']}
+							filters={urlFilters}
+							onFilter={handleColumnFilter}
+							headers={[
+								{
+									title: 'Name',
+									property: 'name'
+								},
+								{
+									title: 'Webhook URL',
+									property: 'url'
+								},
+								{
+									title: 'Selectors',
+									property: 'selectors'
+								}
+							]}
+						>
+							{#snippet actions(d: MCPFilter)}
+								<button
+									class="icon-button hover:text-red-500"
+									onclick={(e) => {
+										e.stopPropagation();
+										filterToDelete = d;
+									}}
+									use:tooltip={'Delete Filter'}
+								>
+									<Trash2 class="size-4" />
+								</button>
+							{/snippet}
+							{#snippet onRenderColumn(property, d: MCPFilter)}
+								{#if property === 'name'}
+									{d.name || '-'}
+								{:else if property === 'url'}
+									{d.url || '-'}
+								{:else if property === 'selectors'}
+									{@const count = d.selectors?.length || 0}
+									{count > 0 ? `${count} selector${count > 1 ? 's' : ''}` : '-'}
+								{:else}
+									-
+								{/if}
+							{/snippet}
+						</Table>
+					{/if}
+				</div>
 			</div>
 		{/if}
 	</div>
