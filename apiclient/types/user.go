@@ -47,7 +47,7 @@ func (u Role) IsExactBaseRole(role Role) bool {
 }
 
 func (u Role) SwitchBaseRole(role Role) Role {
-	return role | (role & RoleAuditor)
+	return role | (u & RoleAuditor)
 }
 
 func (u Role) Groups() []string {
