@@ -14,7 +14,8 @@
 		type OrgUser,
 		type AuditLogURLFilters,
 		AdminService,
-		type AuditLog
+		type AuditLog,
+		ChatService
 	} from '$lib/services';
 	import { type PaginatedResponse } from '$lib/services/admin/operations';
 	import { clickOutside } from '$lib/actions/clickoutside';
@@ -31,14 +32,21 @@
 
 	interface Props {
 		mcpId?: string | null;
-		catalogId?: string | null;
+		id?: string | null;
 		mcpServerDisplayName?: string | null;
 		mcpServerCatalogEntryName?: string | null;
 		emptyContent?: Snippet;
+		entity?: 'workspace' | 'catalog';
 	}
 
-	let { mcpServerDisplayName, mcpServerCatalogEntryName, mcpId, catalogId, emptyContent }: Props =
-		$props();
+	let {
+		mcpServerDisplayName,
+		mcpServerCatalogEntryName,
+		mcpId,
+		id,
+		emptyContent,
+		entity = 'catalog'
+	}: Props = $props();
 
 	let auditLogsResponse = $state<PaginatedResponse<AuditLog>>();
 	const auditLogsTotalItems = $derived(auditLogsResponse?.total ?? 0);
@@ -528,14 +536,14 @@
 					return { options: response?.options.filter((option) => option.endsWith(mcpId)) ?? [] };
 				}
 
-				if (!catalogId || !mcpServerCatalogEntryName) {
+				if (!id || !mcpServerCatalogEntryName) {
 					return await AdminService.listAuditLogFilterOptions(filterId, ...args);
 				}
 
-				const items = await AdminService.listMCPServersForEntry(
-					catalogId,
-					mcpServerCatalogEntryName
-				);
+				const items =
+					entity === 'catalog'
+						? await AdminService.listMCPServersForEntry(id, mcpServerCatalogEntryName)
+						: await ChatService.listWorkspaceMCPServersForEntry(id, mcpServerCatalogEntryName);
 
 				const options = items?.map?.((item) => item.id) ?? [];
 
