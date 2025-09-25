@@ -25,17 +25,18 @@ type Client struct {
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int) *Client {
-	adminEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
-	for _, email := range ownerEmails {
-		adminEmailsSet[email] = types2.RoleOwner
-	}
+	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
 	for _, email := range adminEmails {
-		adminEmailsSet[email] = types2.RoleAdmin
+		explicitRoleEmailsSet[email] = types2.RoleAdmin
+	}
+	// If a user is explicitly both an admin and owner, they are an owner.
+	for _, email := range ownerEmails {
+		explicitRoleEmailsSet[email] = types2.RoleOwner
 	}
 	c := &Client{
 		db:                     db,
 		encryptionConfig:       encryptionConfig,
-		emailsWithExplictRoles: adminEmailsSet,
+		emailsWithExplictRoles: explicitRoleEmailsSet,
 		auditBuffer:            make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:       make(chan struct{}),
 		storageClient:          storageClient,
