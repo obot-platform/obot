@@ -618,7 +618,8 @@
 					mcpId={isMultiUserServer ? entryId : null}
 					mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
 					{mcpServerDisplayName}
-					catalogId={id}
+					{id}
+					{entity}
 				>
 					{#snippet emptyContent()}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
