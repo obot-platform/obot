@@ -168,25 +168,27 @@ func migrateUserRoles(tx *gorm.DB) error {
 			return err
 		}
 		for _, user := range users {
-			if user.HashedUsername == "333c04dd151a2a6831c039cb9a651df29198be8a04e16ce861d4b6a34a11c954" ||
-				user.HashedUsername == "6382b3cc881412b77bfcaeed026001c00d9e3025e66c20f6e7e92f079851462a" {
-				// These represent the bootstrap and nobody (authentication is turned off) users, respectively.
-				// Their roles will be updated the next time they log in.
-				continue
-			}
-
-			switch user.Role {
-			case 1:
-				user.Role = types2.RoleAdmin
-			case 2:
-				user.Role = types2.RolePowerUser
-			case 3:
-				user.Role = types2.RolePowerUserPlus
-			case 10:
-				user.Role = types2.RoleBasic
+			switch user.HashedUsername {
+			case "333c04dd151a2a6831c039cb9a651df29198be8a04e16ce861d4b6a34a11c954":
+				// This is the bootstrap user, then should be an owner.
+				user.Role = types2.RoleOwner
+			case "6382b3cc881412b77bfcaeed026001c00d9e3025e66c20f6e7e92f079851462a":
+				// This is the "nobody" user which means authentication is disabled. They should be an owner and auditor
+				user.Role = types2.RoleOwner | types2.RoleAuditor
 			default:
-				// The role was already migrated, so know need to save it.
-				continue
+				switch user.Role {
+				case 1:
+					user.Role = types2.RoleAdmin
+				case 2:
+					user.Role = types2.RolePowerUser
+				case 3:
+					user.Role = types2.RolePowerUserPlus
+				case 10:
+					user.Role = types2.RoleBasic
+				default:
+					// The role was already migrated, so know need to save it.
+					continue
+				}
 			}
 			if err := tx.Save(&user).Error; err != nil {
 				return err
