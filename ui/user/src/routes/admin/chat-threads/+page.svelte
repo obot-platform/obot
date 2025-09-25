@@ -2,18 +2,13 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type ProjectThread, type Project, type OrgUser } from '$lib/services';
-	import { Eye, LoaderCircle, MessageCircle, Funnel } from 'lucide-svelte';
+	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { replaceState } from '$app/navigation';
+	import { afterNavigate, replaceState } from '$app/navigation';
 	import { formatTimeAgo } from '$lib/time';
 	import Search from '$lib/components/Search.svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { page } from '$app/state';
-	import FiltersDrawer from '$lib/components/admin/filters-drawer/FiltersDrawer.svelte';
-	import { getUserDisplayName } from '$lib/utils';
-	import type { FilterOptionsEndpoint } from '$lib/components/admin/filters-drawer/types';
 	import { debounce } from 'es-toolkit';
 	import { Group } from '$lib/services/admin/types';
 	import { openUrl } from '$lib/utils';
@@ -21,95 +16,22 @@
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 
-	type SupportedFilter = 'username' | 'email' | 'project' | 'query';
-
 	let threads = $state<ProjectThread[]>([]);
-	let filteredThreads = $state<ProjectThread[]>([]);
 	let projects = $state<Project[]>([]);
 	let users = $state<OrgUser[]>([]);
 	let projectMap = $derived(new Map(projects.map((p) => [p.id, p.name])));
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
 
-	let rightSidebar = $state<HTMLDialogElement>();
-
-	let showFilters = $state(false);
-
-	const supportedFilters: Exclude<SupportedFilter, 'query'>[] = ['username', 'email', 'project'];
-
-	const searchParamsAsArray: [SupportedFilter, string | undefined | null][] = $derived(
-		supportedFilters.map((d) => {
-			const hasSearchParam = page.url.searchParams.has(d);
-
-			const value = page.url.searchParams.get(d);
-			const isValueDefined = isSafe(value);
-
-			return [
-				d,
-				isValueDefined
-					? // Value is defined then decode and use it
-						decodeURIComponent(value)
-					: hasSearchParam
-						? // Value is not defined but has a search param then override with empty string
-							''
-						: // No search params return default value if exist otherwise return undefined
-							null
-			];
-		})
-	);
-
-	// Extract search supported params from the URL and convert them to AuditLogURLFilters
-	// This is used to filter the audit logs based on the URL parameters
-	const searchParamFilters = $derived.by<Record<SupportedFilter, string | undefined | null>>(() => {
-		return searchParamsAsArray.reduce(
-			(acc, [key, value]) => {
-				acc[key!] = value;
-				return acc;
-			},
-			{} as Record<SupportedFilter, string | undefined | null>
-		);
-	});
-
 	let query = $state(page.url.searchParams.get('query') || '');
-
-	// Base filters with time filters and query and pagination
-	const pageFilters = $derived({
-		...searchParamFilters,
-		query
-	});
-
-	const options = $derived.by(() => {
-		const usernames = new Set<string>();
-		const emails = new Set<string>();
-		const projects = new Set<string>();
-
-		threads.forEach((thread) => {
-			const user = userMap.get(thread.userID || '');
-
-			if (user?.displayName) {
-				usernames.add(user.displayName);
-			}
-
-			if (user?.email) {
-				emails.add(user.email);
-			}
-
-			if (thread.projectID) {
-				projects.add(thread.projectID);
-			}
-		});
-
-		return {
-			username: { options: Array.from(usernames).sort() },
-			email: { options: Array.from(emails).sort() },
-			project: { options: Array.from(projects).sort() }
-		};
-	});
+	let urlFilters = $state<Record<string, (string | number)[]>>({});
 
 	let loading = $state(true);
+	let filteredThreads = $derived(threads.filter((thread) => !thread.project && !thread.systemTask));
 	let tableData = $derived(
 		filteredThreads.map((thread) => {
 			return {
 				...thread,
+				displayName: formatThreadName(thread),
 				projectName: projectMap.get(thread.projectID || '') || thread.projectID,
 				userName: userMap.get(thread.userID || '')?.displayName || '-',
 				userEmail: userMap.get(thread.userID || '')?.email || '-'
@@ -132,25 +54,24 @@
 		replaceState(page.url, { query });
 	}, 100);
 
+	function handleColumnFilter(property: string, values: string[]) {
+		if (values.length === 0) {
+			page.url.searchParams.delete(property);
+		} else {
+			page.url.searchParams.set(property, values.join(','));
+		}
+
+		replaceState(page.url, {});
+	}
+
 	onMount(() => {
 		loadThreads();
+		if (page.url.searchParams.size > 0) {
+			page.url.searchParams.forEach((value, key) => {
+				urlFilters[key] = value.split(',');
+			});
+		}
 	});
-
-	$effect(() => {
-		filteredThreads = applyFilters(threads, pageFilters);
-	});
-
-	function getFilterDisplayLabel(key: string) {
-		if (key === 'email') return 'Email';
-		if (key === 'project') return 'Project';
-		if (key === 'username') return 'User Name';
-
-		return key.replace(/_(\w)/g, ' $1');
-	}
-
-	function isSafe<T = unknown>(value: T) {
-		return value !== undefined && value !== null;
-	}
 
 	async function loadThreads() {
 		loading = true;
@@ -198,93 +119,8 @@
 		}
 	}
 
-	function applyFilters(
-		data: ProjectThread[] = threads,
-		filters: typeof pageFilters = pageFilters
-	) {
-		// First filter to only include project threads and exclude system tasks
-		let filtered = data.filter((thread) => !thread.project && !thread.systemTask);
-
-		type FilterFunction = [string | undefined | null, (array: ProjectThread[]) => ProjectThread[]];
-
-		const queryFilterFunction = (array: ProjectThread[]) => {
-			const lowercasedQuery = query.toLowerCase();
-			return array.filter((thread) => {
-				const user = userMap.get(thread.userID || '');
-				return (
-					thread.name?.toLowerCase().includes(lowercasedQuery) ||
-					thread.id.toLowerCase().includes(lowercasedQuery) ||
-					thread.userID?.toLowerCase().includes(lowercasedQuery) ||
-					thread.projectID?.toLowerCase().includes(lowercasedQuery) ||
-					user?.displayName?.toLowerCase().includes(lowercasedQuery) ||
-					user?.email?.toLowerCase().includes(lowercasedQuery) ||
-					projectMap
-						.get(thread.projectID || '')
-						?.toLowerCase()
-						.includes(lowercasedQuery)
-				);
-			});
-		};
-
-		const usernameFilterFunction = (array: ProjectThread[]) => {
-			return array.filter((thread) => {
-				const user = userMap.get(thread.userID || '');
-				return (filters?.username ?? '')
-					?.toLowerCase()
-					.includes(user?.displayName?.toLowerCase() || '');
-			});
-		};
-
-		const emailFilterFunction = (array: ProjectThread[]) => {
-			return array.filter((thread) => {
-				const user = userMap.get(thread.userID || '');
-				return (filters?.email ?? '')?.toLowerCase().includes(user?.email?.toLowerCase() || '');
-			});
-		};
-
-		const projectFilterFunction = (array: ProjectThread[]) => {
-			return array.filter((thread) => {
-				return (filters?.project ?? '')
-					?.toLowerCase()
-					.includes(thread.projectID?.toLowerCase() || '');
-			});
-		};
-
-		const filterFns: FilterFunction[] = [
-			[pageFilters.query, queryFilterFunction],
-			[filters.username, usernameFilterFunction],
-			[filters.email, emailFilterFunction],
-			[filters.project, projectFilterFunction]
-		].filter((d) => !!d[0]) as FilterFunction[];
-
-		// sort by most recent
-		return filterFns
-			.reduce((acc, val) => val[1](acc), filtered)
-			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
-	}
-
 	function formatThreadName(thread: ProjectThread) {
 		return thread.name || 'Unnamed Thread';
-	}
-
-	function handleRightSidebarClose() {
-		rightSidebar?.close();
-		setTimeout(() => {
-			showFilters = false;
-		}, 300);
-	}
-
-	async function optionsEndpoint(filterId: SupportedFilter) {
-		switch (filterId) {
-			case 'username':
-				return options.username;
-			case 'email':
-				return options.email;
-			case 'project':
-				return options.project;
-			default:
-				return [];
-		}
 	}
 	let isAuditor = $derived(profile.current.groups.includes(Group.AUDITOR));
 </script>
@@ -306,16 +142,6 @@
 						onChange={updateQuery}
 						placeholder="Search threads..."
 					/>
-					<button
-						class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
-						onclick={() => {
-							showFilters = true;
-							rightSidebar?.show();
-						}}
-					>
-						<Funnel class="size-4" />
-						Filters
-					</button>
 				</div>
 
 				{#if loading}
@@ -326,24 +152,19 @@
 					<div class="flex w-full flex-col items-center justify-center py-12 text-center">
 						<MessageCircle class="size-24 text-gray-200 dark:text-gray-700" />
 						<h3 class="mt-4 text-lg font-semibold text-gray-400 dark:text-gray-600">
-							{#if query}
-								No threads found
-							{:else}
-								No threads available
-							{/if}
+							No threads available
 						</h3>
 						<p class="mt-2 text-sm font-light text-gray-400 dark:text-gray-600">
-							{#if query}
-								Try adjusting your search terms.
-							{:else}
-								Threads will appear here once they are created.
-							{/if}
+							Threads will appear here once they are created.
 						</p>
 					</div>
 				{:else}
 					<Table
 						data={tableData}
-						fields={['name', 'userName', 'userEmail', 'projectName', 'created']}
+						fields={['displayName', 'userName', 'userEmail', 'projectName', 'created']}
+						filterable={['displayName', 'userName', 'userEmail', 'projectName']}
+						filters={urlFilters}
+						onFilter={handleColumnFilter}
 						onSelectRow={isAuditor
 							? (d, isCtrlClick) => {
 									const url = `/admin/chat-threads/${d.id}`;
@@ -353,7 +174,7 @@
 						headers={[
 							{
 								title: 'Name',
-								property: 'name'
+								property: 'displayName'
 							},
 							{
 								title: 'User Name',
@@ -399,9 +220,7 @@
 							</button>
 						{/snippet}
 						{#snippet onRenderColumn(property, thread)}
-							{#if property === 'name'}
-								<span>{formatThreadName(thread)}</span>
-							{:else if property === 'created'}
+							{#if property === 'created'}
 								<span class="text-sm text-gray-600 dark:text-gray-400">
 									{formatTimeAgo(thread.created).relativeTime}
 								</span>
@@ -415,23 +234,6 @@
 		</div>
 	</div>
 </Layout>
-
-<dialog
-	bind:this={rightSidebar}
-	use:clickOutside={[handleRightSidebarClose, true]}
-	use:dialogAnimation={{ type: 'drawer' }}
-	class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-screen w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
->
-	{#if showFilters}
-		<FiltersDrawer
-			onClose={handleRightSidebarClose}
-			filters={searchParamFilters}
-			{getFilterDisplayLabel}
-			getUserDisplayName={(...args) => getUserDisplayName(userMap, ...args)}
-			endpoint={optionsEndpoint as unknown as FilterOptionsEndpoint}
-		/>
-	{/if}
-</dialog>
 
 <svelte:head>
 	<title>Obot | Admin - Chat Threads</title>

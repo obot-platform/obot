@@ -60,7 +60,7 @@
 				onclick={() => toggle()}
 			>
 				{headerTitle ?? property}
-				<Funnel class="size-3" />
+				<Funnel class="size-3 flex-shrink-0" />
 			</button>
 		{:else}
 			{headerTitle ?? property}

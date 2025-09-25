@@ -9,108 +9,27 @@
 		type ProjectTask,
 		Group
 	} from '$lib/services';
-	import { Eye, LoaderCircle, MessageCircle, Funnel } from 'lucide-svelte';
+	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { goto, replaceState } from '$app/navigation';
 	import { formatTimeAgo } from '$lib/time';
 	import Search from '$lib/components/Search.svelte';
-	import { clickOutside } from '$lib/actions/clickoutside';
-	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { page } from '$app/state';
-	import FiltersDrawer from '$lib/components/admin/filters-drawer/FiltersDrawer.svelte';
-	import { getUserDisplayName } from '$lib/utils';
-	import type { FilterOptionsEndpoint } from '$lib/components/admin/filters-drawer/types';
 	import { debounce } from 'es-toolkit';
 	import { profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 
-	type SupportedFilter = 'username' | 'email' | 'project' | 'query';
-
 	let tasks = $state<ProjectTask[]>([]);
 	let threads = $state<ProjectThread[]>([]);
-	let filteredTasks = $state<ProjectTask[]>([]);
 	let projects = $state<Project[]>([]);
 	let users = $state<OrgUser[]>([]);
 	let projectMap = $derived(new Map(projects.map((p) => [p.id, p])));
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
 
-	let rightSidebar = $state<HTMLDialogElement>();
-
-	let showFilters = $state(false);
-
-	const supportedFilters: Exclude<SupportedFilter, 'query'>[] = ['username', 'email', 'project'];
-
-	const searchParamsAsArray: [SupportedFilter, string | undefined | null][] = $derived(
-		supportedFilters.map((d) => {
-			const hasSearchParam = page.url.searchParams.has(d);
-
-			const value = page.url.searchParams.get(d);
-			const isValueDefined = isSafe(value);
-
-			return [
-				d,
-				isValueDefined
-					? // Value is defined then decode and use it
-						decodeURIComponent(value)
-					: hasSearchParam
-						? // Value is not defined but has a search param then override with empty string
-							''
-						: // No search params return default value if exist otherwise return undefined
-							null
-			];
-		})
-	);
-
-	// Extract search supported params from the URL and convert them to AuditLogURLFilters
-	// This is used to filter the audit logs based on the URL parameters
-	const searchParamFilters = $derived.by<Record<SupportedFilter, string | undefined | null>>(() => {
-		return searchParamsAsArray.reduce(
-			(acc, [key, value]) => {
-				acc[key!] = value;
-				return acc;
-			},
-			{} as Record<SupportedFilter, string | undefined | null>
-		);
-	});
-
+	let urlFilters = $state<Record<string, (string | number)[]>>({});
 	let query = $state(page.url.searchParams.get('query') || '');
-
-	// Base filters with time filters and query and pagination
-	const pageFilters = $derived({
-		...searchParamFilters,
-		query
-	});
-
-	const options = $derived.by(() => {
-		const usernameOptions = new Set<string>();
-		const emailOptions = new Set<string>();
-		const projectOptions = new Set<string>();
-
-		tasks.forEach((task) => {
-			const project = projects.find((p) => p.id === task.projectID);
-			const user = userMap.get(project?.userID || '');
-
-			if (user?.displayName) {
-				usernameOptions.add(user.displayName);
-			}
-
-			if (user?.email) {
-				emailOptions.add(user.email);
-			}
-
-			if (task.projectID) {
-				projectOptions.add(task.projectID);
-			}
-		});
-
-		return {
-			username: { options: Array.from(usernameOptions).sort() },
-			email: { options: Array.from(emailOptions).sort() },
-			project: { options: Array.from(projectOptions).sort() }
-		};
-	});
 
 	let loading = $state(true);
 
@@ -122,7 +41,7 @@
 	);
 
 	let tableData = $derived(
-		filteredTasks.map((task) => {
+		tasks.map((task) => {
 			const project = projectMap.get(task.projectID || '');
 			return {
 				...task,
@@ -153,23 +72,12 @@
 
 	onMount(() => {
 		loadThreads();
+		if (page.url.searchParams.size > 0) {
+			page.url.searchParams.forEach((value, key) => {
+				urlFilters[key] = value.split(',');
+			});
+		}
 	});
-
-	$effect(() => {
-		filteredTasks = applyFilters(tasks, pageFilters);
-	});
-
-	function getFilterDisplayLabel(key: string) {
-		if (key === 'email') return 'Email';
-		if (key === 'project') return 'Project';
-		if (key === 'username') return 'User Name';
-
-		return key.replace(/_(\w)/g, ' $1');
-	}
-
-	function isSafe<T = unknown>(value: T) {
-		return value !== undefined && value !== null;
-	}
 
 	async function loadThreads() {
 		loading = true;
@@ -220,88 +128,18 @@
 		}
 	}
 
-	function applyFilters(data: ProjectTask[] = tasks, filters: typeof pageFilters = pageFilters) {
-		let filtered = [...data];
+	function handleColumnFilter(property: string, values: string[]) {
+		if (values.length === 0) {
+			page.url.searchParams.delete(property);
+		} else {
+			page.url.searchParams.set(property, values.join(','));
+		}
 
-		type FilterFunction = [string | undefined | null, (array: ProjectTask[]) => ProjectTask[]];
-
-		const queryFilterFunction = (array: ProjectTask[]) => {
-			const lowercasedQuery = query.toLowerCase();
-			return array.filter((task) => {
-				const project = projectMap.get(task.projectID || '');
-				const user = userMap.get(project?.userID || '');
-				return (
-					task.name?.toLowerCase().includes(lowercasedQuery) ||
-					task.id.toLowerCase().includes(lowercasedQuery) ||
-					project?.userID?.toLowerCase().includes(lowercasedQuery) ||
-					project?.id?.toLowerCase().includes(lowercasedQuery) ||
-					user?.displayName?.toLowerCase().includes(lowercasedQuery) ||
-					user?.email?.toLowerCase().includes(lowercasedQuery) ||
-					project?.name?.toLowerCase().includes(lowercasedQuery)
-				);
-			});
-		};
-
-		const usernameFilterFunction = (array: ProjectTask[]) => {
-			return array.filter((task) => {
-				const project = projectMap.get(task.projectID || '');
-				const user = userMap.get(project?.userID || '');
-				return (filters?.username ?? '')
-					?.toLowerCase()
-					.includes(user?.displayName?.toLowerCase() || '');
-			});
-		};
-
-		const emailFilterFunction = (array: ProjectTask[]) => {
-			return array.filter((task) => {
-				const project = projectMap.get(task.projectID || '');
-				const user = userMap.get(project?.userID || '');
-				return (filters?.email ?? '')?.toLowerCase().includes(user?.email?.toLowerCase() || '');
-			});
-		};
-
-		const projectFilterFunction = (array: ProjectTask[]) => {
-			return array.filter((task) => {
-				const project = projectMap.get(task.projectID || '');
-				return (filters?.project ?? '')?.toLowerCase().includes(project?.id?.toLowerCase() || '');
-			});
-		};
-
-		const filterFns: FilterFunction[] = [
-			[pageFilters.query, queryFilterFunction],
-			[filters.username, usernameFilterFunction],
-			[filters.email, emailFilterFunction],
-			[filters.project, projectFilterFunction]
-		].filter((d) => !!d[0]) as FilterFunction[];
-
-		// sort by most recent
-		return filterFns
-			.reduce((acc, val) => val[1](acc), filtered)
-			.sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime());
+		replaceState(page.url, {});
 	}
 
 	function handleViewTask(task: ProjectTask) {
 		goto(`/admin/tasks/${task.id}`);
-	}
-
-	function handleRightSidebarClose() {
-		rightSidebar?.close();
-		setTimeout(() => {
-			showFilters = false;
-		}, 300);
-	}
-
-	async function optionsEndpoint(filterId: SupportedFilter) {
-		switch (filterId) {
-			case 'username':
-				return options.username;
-			case 'email':
-				return options.email;
-			case 'project':
-				return options.project;
-			default:
-				return [];
-		}
 	}
 </script>
 
@@ -315,51 +153,34 @@
 			<h1 class="text-2xl font-semibold">Tasks</h1>
 
 			<div class="flex flex-col gap-2">
-				<div class="flex items-center gap-4">
-					<Search
-						value={query}
-						class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
-						onChange={updateQuery}
-						placeholder="Search threads..."
-					/>
-					<button
-						class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
-						onclick={() => {
-							showFilters = true;
-							rightSidebar?.show();
-						}}
-					>
-						<Funnel class="size-4" />
-						Filters
-					</button>
-				</div>
+				<Search
+					value={query}
+					class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+					onChange={updateQuery}
+					placeholder="Search threads..."
+				/>
 
 				{#if loading}
 					<div class="flex w-full justify-center py-12">
 						<LoaderCircle class="size-8 animate-spin text-blue-600" />
 					</div>
-				{:else if filteredTasks.length === 0}
+				{:else if tasks.length === 0}
 					<div class="flex w-full flex-col items-center justify-center py-12 text-center">
 						<MessageCircle class="size-24 text-gray-200 dark:text-gray-700" />
 						<h3 class="mt-4 text-lg font-semibold text-gray-400 dark:text-gray-600">
-							{#if query}
-								No tasks found
-							{:else}
-								No task available
-							{/if}
+							No task available
 						</h3>
 						<p class="mt-2 text-sm font-light text-gray-400 dark:text-gray-600">
-							{#if query}
-								Try adjusting your search terms.
-							{:else}
-								Task will appear here once they are created.
-							{/if}
+							Task will appear here once they are created.
 						</p>
 					</div>
 				{:else}
 					<Table
 						data={tableData}
 						fields={['name', 'userName', 'userEmail', 'projectName', 'created', 'runs']}
+						filterable={['name', 'userName', 'userEmail', 'projectName']}
+						onFilter={handleColumnFilter}
+						filters={urlFilters}
 						onSelectRow={isAuditor ? handleViewTask : undefined}
 						headers={[
 							{
@@ -430,23 +251,6 @@
 		</div>
 	</div>
 </Layout>
-
-<dialog
-	bind:this={rightSidebar}
-	use:clickOutside={[handleRightSidebarClose, true]}
-	use:dialogAnimation={{ type: 'drawer' }}
-	class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-screen w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
->
-	{#if showFilters}
-		<FiltersDrawer
-			onClose={handleRightSidebarClose}
-			filters={searchParamFilters}
-			{getFilterDisplayLabel}
-			getUserDisplayName={(...args) => getUserDisplayName(userMap, ...args)}
-			endpoint={optionsEndpoint as unknown as FilterOptionsEndpoint}
-		/>
-	{/if}
-</dialog>
 
 <svelte:head>
 	<title>Obot | Admin - Tasks</title>

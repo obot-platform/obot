@@ -96,6 +96,7 @@
 							const url = `/admin/filters/${d.id}`;
 							openUrl(url, isCtrlClick);
 						}}
+						filterable={['name', 'url']}
 						headers={[
 							{
 								title: 'Name',

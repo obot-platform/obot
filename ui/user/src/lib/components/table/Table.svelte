@@ -15,11 +15,13 @@
 		data: T[];
 		onSelectRow?: (row: T, isCtrlClick: boolean) => void;
 		onRenderColumn?: Snippet<[string, T]>;
+		onFilter?: (property: string, values: string[]) => void;
 		setRowClasses?: (row: T) => string;
 		noDataMessage?: string;
 		pageSize?: number;
 		sortable?: string[];
 		filterable?: string[];
+		filters?: Record<string, (string | number)[]>;
 		initSort?: { property: string; order: 'asc' | 'desc' };
 	}
 
@@ -31,13 +33,15 @@
 		data,
 		fields,
 		onSelectRow,
+		onFilter,
 		onRenderColumn,
 		pageSize,
 		noDataMessage = 'No data',
 		setRowClasses,
 		sortable,
 		filterable,
-		initSort
+		initSort,
+		filters
 	}: Props<T> = $props();
 
 	let page = $state(0);
@@ -48,7 +52,7 @@
 	let sortedBy = $state<{ property: string; order: 'asc' | 'desc' } | undefined>(
 		initSort ? initSort : sortable?.[0] ? { property: sortable[0], order: 'asc' } : undefined
 	);
-	let filteredBy = $state<Record<string, (string | number)[]>>();
+	let filteredBy = $state<Record<string, (string | number)[]> | undefined>(filters);
 	let filterValues = $derived.by(() => {
 		if (!filterable) return {};
 
@@ -60,7 +64,13 @@
 					}
 
 					const value = item[property as keyof T];
-					if (typeof value === 'string' || typeof value === 'number') {
+					if (Array.isArray(value)) {
+						value.forEach((v) => {
+							if (typeof v === 'string' || typeof v === 'number') {
+								acc[property].add(v);
+							}
+						});
+					} else if (typeof value === 'string' || typeof value === 'number') {
 						acc[property].add(value);
 					}
 				}
@@ -104,7 +114,9 @@
 				? updatedTableData.filter((d) =>
 						Object.keys(filteredBy || {}).every((property) => {
 							const value = d[property as keyof T];
-							if (typeof value === 'string' || typeof value === 'number') {
+							if (Array.isArray(value)) {
+								return value.some((v) => filteredBy?.[property]?.includes(v.toString()));
+							} else if (typeof value === 'string' || typeof value === 'number') {
 								return filteredBy?.[property]?.includes(value.toString());
 							}
 							return false;
@@ -133,6 +145,8 @@
 				[property]: values
 			};
 		}
+
+		onFilter?.(property, values);
 	}
 </script>
 

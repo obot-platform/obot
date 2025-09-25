@@ -17,18 +17,21 @@
 	import { debounce } from 'es-toolkit';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
+	import { onMount } from 'svelte';
 
 	let { data } = $props();
 	const { users: initialUsers } = data;
 
 	let users = $state<OrgUser[]>(initialUsers);
 	let query = $state('');
+	let urlFilters = $state<Record<string, (string | number)[]>>({});
+
 	const tableData = $derived(
 		users
 			.map((user) => ({
 				...user,
 				name: getUserDisplayName(user),
-				role: getUserRoleLabel(user.role),
+				role: getUserRoleLabel(user.role).split(','),
 				roleId: user.role & ~Role.AUDITOR,
 				auditor: user.role & Role.AUDITOR ? true : false
 			}))
@@ -55,6 +58,14 @@
 		{ label: 'Basic User', id: Role.BASIC }
 	]);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+
+	onMount(() => {
+		if (page.url.searchParams.size > 0) {
+			page.url.searchParams.forEach((value, key) => {
+				urlFilters[key] = value.split(',');
+			});
+		}
+	});
 
 	function closeUpdateRoleDialog() {
 		updateRoleDialog?.close();
@@ -103,6 +114,16 @@
 		replaceState(page.url, { query });
 	}, 100);
 
+	function handleColumnFilter(property: string, values: string[]) {
+		if (values.length === 0) {
+			page.url.searchParams.delete(property);
+		} else {
+			page.url.searchParams.set(property, values.join(','));
+		}
+
+		replaceState(page.url, {});
+	}
+
 	const duration = PAGE_TRANSITION_DURATION;
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
 </script>
@@ -124,6 +145,9 @@
 				<Table
 					data={tableData}
 					fields={['name', 'email', 'role', 'lastActiveDay']}
+					filterable={['name', 'email', 'role']}
+					filters={urlFilters}
+					onFilter={handleColumnFilter}
 					sortable={['name', 'email', 'role', 'lastActiveDay']}
 					headers={[{ title: 'Last Active', property: 'lastActiveDay' }]}
 				>
