@@ -177,7 +177,6 @@
 		<div class="mt-auto flex justify-between gap-4">
 			<button class="button-primary" onclick={handleCreateNewRule}> Create New Rule </button>
 			<div class="flex items-center gap-4">
-				<button class="button" onclick={close}> Skip Step </button>
 				<button
 					class="button-primary flex items-center gap-1"
 					onclick={handleAddToRules}
