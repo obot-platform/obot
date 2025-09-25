@@ -164,6 +164,7 @@ var apiResources = map[string][]string{
 		"DELETE /api/mcp-servers/{mcpserver_id}",
 		"DELETE /api/mcp-servers/{mcpserver_id}/oauth",
 		"PUT	/api/mcp-servers/{mcpserver_id}/alias",
+		"POST   /api/mcp-servers/{mcpserver_id}/trigger-update",
 		"POST   /api/mcp-servers/{mcpserver_id}/update-url",
 		"POST   /api/mcp-servers/{mcpserver_id}/configure",
 		"POST   /api/mcp-servers/{mcpserver_id}/deconfigure",
