@@ -518,7 +518,7 @@ func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Resp
 		} else if catalogEntry.Spec.PowerUserWorkspaceID != "" {
 			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Ctx, user, server.Spec.MCPServerCatalogEntryName, catalogEntry.Spec.PowerUserWorkspaceID)
 			if err != nil {
-				return fmt.Errorf("failed to check if user %s has access to server entry %s in workspace %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, catalogEntry.Spec.PowerUserWorkspaceID, err)
+				return fmt.Errorf("failed to check if user %s has access to catalog entry %s in workspace %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, catalogEntry.Spec.PowerUserWorkspaceID, err)
 			}
 		}
 
