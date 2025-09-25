@@ -90,24 +90,27 @@ func (p *PowerUserWorkspaceHandler) ListAllEntries(req api.Context) error {
 }
 
 func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
-	var list v1.PowerUserWorkspaceList
-	if err := req.List(&list); err != nil {
-		return fmt.Errorf("failed to list power user workspaces: %w", err)
+	var serverList v1.MCPServerList
+	if err := req.List(&serverList); err != nil {
+		return fmt.Errorf("failed to list servers: %w", err)
 	}
 
-	servers := make([]types.MCPServer, 0)
-	for _, item := range list.Items {
-		fieldSelector := kclient.MatchingFields{"spec.powerUserWorkspaceID": item.Name}
-		var serverList v1.MCPServerList
-		if err := req.List(&serverList, fieldSelector); err != nil {
-			return fmt.Errorf("failed to list servers: %w", err)
+	// Filter servers that have a non-empty PowerUserWorkspaceID
+	filteredServers := make([]v1.MCPServer, 0)
+	for _, server := range serverList.Items {
+		if server.Spec.PowerUserWorkspaceID != "" {
+			filteredServers = append(filteredServers, server)
 		}
+	}
 
-		credCtxs := make([]string, 0, len(serverList.Items))
-		for _, server := range serverList.Items {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", item.Name, server.Name))
-		}
+	// Build credential contexts for all filtered servers
+	credCtxs := make([]string, 0, len(filteredServers))
+	for _, server := range filteredServers {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
+	}
 
+	var credMap map[string]map[string]string
+	if len(credCtxs) > 0 {
 		creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
 			CredentialContexts: credCtxs,
 		})
@@ -115,7 +118,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 			return fmt.Errorf("failed to list credentials: %w", err)
 		}
 
-		credMap := make(map[string]map[string]string, len(creds))
+		credMap = make(map[string]map[string]string, len(creds))
 		for _, cred := range creds {
 			if _, ok := credMap[cred.ToolName]; !ok {
 				c, err := req.GPTClient.RevealCredential(req.Context(), []string{cred.Context}, cred.ToolName)
@@ -125,18 +128,21 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 				credMap[cred.ToolName] = c.Env
 			}
 		}
+	} else {
+		credMap = make(map[string]map[string]string)
+	}
 
-		for _, server := range serverList.Items {
-			// Add extracted env vars to the server definition
-			addExtractedEnvVars(&server)
+	servers := make([]types.MCPServer, 0, len(filteredServers))
+	for _, server := range filteredServers {
+		// Add extracted env vars to the server definition
+		addExtractedEnvVars(&server)
 
-			slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", item.Name)
-			if err != nil {
-				return fmt.Errorf("failed to determine slug: %w", err)
-			}
-
-			servers = append(servers, convertMCPServer(server, credMap[server.Name], p.serverURL, slug))
+		slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", server.Spec.PowerUserWorkspaceID)
+		if err != nil {
+			return fmt.Errorf("failed to determine slug: %w", err)
 		}
+
+		servers = append(servers, convertMCPServer(server, credMap[server.Name], p.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{
