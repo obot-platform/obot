@@ -5,7 +5,7 @@
 	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { afterNavigate, replaceState } from '$app/navigation';
+	import { replaceState } from '$app/navigation';
 	import { formatTimeAgo } from '$lib/time';
 	import Search from '$lib/components/Search.svelte';
 	import { page } from '$app/state';
