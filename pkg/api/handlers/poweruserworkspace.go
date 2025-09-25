@@ -96,7 +96,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 	}
 
 	// Filter servers that have a non-empty PowerUserWorkspaceID
-	filteredServers := make([]v1.MCPServer, 0)
+	var filteredServers []v1.MCPServer
 	for _, server := range serverList.Items {
 		if server.Spec.PowerUserWorkspaceID != "" {
 			filteredServers = append(filteredServers, server)
@@ -128,8 +128,6 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 				credMap[cred.ToolName] = c.Env
 			}
 		}
-	} else {
-		credMap = make(map[string]map[string]string)
 	}
 
 	servers := make([]types.MCPServer, 0, len(filteredServers))
