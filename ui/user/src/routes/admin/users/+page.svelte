@@ -50,8 +50,8 @@
 	let roleOptions = $derived([
 		...(profile.current.groups.includes(Group.OWNER) ? [{ label: 'Owner', id: Role.OWNER }] : []),
 		{ label: 'Admin', id: Role.ADMIN },
-		{ label: 'Power User', id: Role.POWERUSER },
 		{ label: 'Power User+', id: Role.POWERUSER_PLUS },
+		{ label: 'Power User', id: Role.POWERUSER },
 		{ label: 'Basic User', id: Role.BASIC }
 	]);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
