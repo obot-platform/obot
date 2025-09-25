@@ -13,19 +13,30 @@
 	import { Handshake, Info, LoaderCircle, ShieldAlert, Trash2, X } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import { getUserRoleLabel } from '$lib/utils';
+	import Search from '$lib/components/Search.svelte';
+	import { debounce } from 'es-toolkit';
+	import { page } from '$app/state';
+	import { replaceState } from '$app/navigation';
 
 	let { data } = $props();
 	const { users: initialUsers } = data;
 
 	let users = $state<OrgUser[]>(initialUsers);
+	let query = $state('');
 	const tableData = $derived(
-		users.map((user) => ({
-			...user,
-			name: getUserDisplayName(user),
-			role: getUserRoleLabel(user.role),
-			roleId: user.role & ~Role.AUDITOR,
-			auditor: user.role & Role.AUDITOR ? true : false
-		}))
+		users
+			.map((user) => ({
+				...user,
+				name: getUserDisplayName(user),
+				role: getUserRoleLabel(user.role),
+				roleId: user.role & ~Role.AUDITOR,
+				auditor: user.role & Role.AUDITOR ? true : false
+			}))
+			.filter(
+				(user) =>
+					user.name.toLowerCase().includes(query.toLowerCase()) ||
+					user.email.toLowerCase().includes(query.toLowerCase())
+			)
 	);
 
 	type TableItem = (typeof tableData)[0];
@@ -80,6 +91,18 @@
 		return display;
 	}
 
+	const updateQuery = debounce((value: string) => {
+		query = value;
+
+		if (value) {
+			page.url.searchParams.set('query', value);
+		} else {
+			page.url.searchParams.delete('query');
+		}
+
+		replaceState(page.url, { query });
+	}, 100);
+
 	const duration = PAGE_TRANSITION_DURATION;
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
 </script>
@@ -92,20 +115,12 @@
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<h2 class="mb-2 text-lg font-semibold">Groups</h2>
-				<Table data={[]} fields={[]}>
-					{#snippet actions()}
-						{#if !isAdminReadonly}
-							<button class="icon-button hover:text-red-500" onclick={() => {}}>
-								<Trash2 class="size-4" />
-							</button>
-						{/if}
-					{/snippet}
-				</Table>
-			</div>
-
-			<div class="flex flex-col gap-2">
-				<h2 class="mb-2 text-lg font-semibold">Users</h2>
+				<Search
+					value={query}
+					class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+					onChange={updateQuery}
+					placeholder="Search by name or email..."
+				/>
 				<Table
 					data={tableData}
 					fields={['name', 'email', 'role', 'lastActiveDay']}
