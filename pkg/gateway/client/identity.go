@@ -134,6 +134,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	if id.Email != "" {
 		id.HashedEmail = hash.String(id.Email)
 	}
+
 	// See if the identity already exists.
 	if err := tx.First(id).Error; errors.Is(err, gorm.ErrRecordNotFound) {
 		// The identity does not exist.
@@ -255,6 +256,12 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 				userChanged = true
 			}
 
+			if user.Email != email {
+				user.Email = email
+				user.HashedEmail = hash.String(user.Email)
+				userChanged = true
+			}
+
 			// Update the verified email status if needed.
 			// This can happen in two cases:
 			// 1. The user was created before we started tracking verified emails (user.VerifiedEmail is nil)
@@ -296,6 +303,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	// This also corrects the provider user ID to correct a bug introduced when re-encrypting all users and identities
 	if id.Email != email || id.UserID != user.ID || id.ProviderUserID != providerUserID {
 		id.Email = email
+		id.HashedEmail = hash.String(id.Email)
 		id.UserID = user.ID
 		id.ProviderUserID = providerUserID
 		id.HashedProviderUserID = hash.String(id.ProviderUserID)
