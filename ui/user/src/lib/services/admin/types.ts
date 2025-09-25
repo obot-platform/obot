@@ -136,8 +136,8 @@ export const Role = {
 	OWNER: 8,
 	ADMIN: 16,
 	AUDITOR: 32,
-	POWERUSER: 64,
-	POWERUSER_PLUS: 128
+	POWERUSER_PLUS: 64,
+	POWERUSER: 128
 };
 
 export const Group = {
