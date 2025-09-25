@@ -265,21 +265,11 @@
 									break;
 							}
 						}}
-						class="mx-2 w-0 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
+						class="mx-2 w-0 flex-1 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
 						placeholder="Enter name"
 						type="text"
 					/>
-				{:else}
-					<button
-						use:overflowToolTip
-						class:font-medium={isCurrentThread(thread)}
-						class="h-full grow p-2 text-start"
-						onclick={() => selectThread(thread.id)}
-					>
-						{thread.name || 'New Chat'}
-					</button>
-				{/if}
-				{#if editMode === thread.id}
+
 					<button class="list-button-primary" onclick={() => (editMode = null)}>
 						<CircleX class="h-4 w-4" />
 					</button>
@@ -287,6 +277,15 @@
 						<Save class="mr-2 h-4 w-4" />
 					</button>
 				{:else}
+					<button
+						use:overflowToolTip
+						class:font-medium={isCurrentThread(thread)}
+						class="h-full flex-1 grow p-2 text-start"
+						onclick={() => selectThread(thread.id)}
+					>
+						{thread.name || 'New Chat'}
+					</button>
+
 					<DotDotDot
 						class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
 					>
