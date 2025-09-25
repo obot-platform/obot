@@ -210,7 +210,11 @@
 		const { server, parent } = findServerAndParentByMcpId(req.mcpID);
 		if (!server) return;
 		try {
-			if (parent?.manifest.runtime === 'remote' && configureForm.url) {
+			if (
+				parent?.manifest.runtime === 'remote' &&
+				configureForm.url &&
+				parent.manifest.remoteConfig?.urlTemplate === undefined
+			) {
 				await ChatService.updateRemoteMcpServerUrl(server.id, configureForm.url.trim());
 			}
 			const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);

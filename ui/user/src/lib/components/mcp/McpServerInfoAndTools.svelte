@@ -86,7 +86,11 @@
 	async function handleConfigureFormUpdate() {
 		if (!configuringServer || !configureForm) return;
 		try {
-			if (configuringServer.manifest.runtime === 'remote' && configureForm.url) {
+			if (
+				configuringServer.manifest.runtime === 'remote' &&
+				configureForm.url &&
+				!configuringServer.manifest.remoteConfig?.isTemplate
+			) {
 				await ChatService.updateRemoteMcpServerUrl(configuringServer.id, configureForm.url.trim());
 			}
 

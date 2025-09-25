@@ -31,6 +31,7 @@ export interface RemoteRuntimeConfigAdmin {
 
 export interface RemoteCatalogConfigAdmin {
 	fixedURL?: string;
+	urlTemplate?: string;
 	hostname?: string;
 	headers?: MCPCatalogEntryFieldManifest[];
 }
