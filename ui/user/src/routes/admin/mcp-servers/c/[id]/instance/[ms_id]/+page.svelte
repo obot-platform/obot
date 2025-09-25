@@ -7,6 +7,7 @@
 	import { Info } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { profile } from '$lib/stores/index.js';
 
 	let { data } = $props();
 	let { catalogEntry, mcpServerId } = data;
@@ -35,7 +36,12 @@
 		{/if}
 
 		{#if mcpServerId && catalogEntry?.manifest.runtime !== 'remote'}
-			<McpServerK8sInfo {mcpServerId} name={catalogEntryName} {connectedUsers} />
+			<McpServerK8sInfo
+				{mcpServerId}
+				name={catalogEntryName}
+				{connectedUsers}
+				readonly={profile.current.isAdminReadonly?.()}
+			/>
 		{:else}
 			<h1 class="text-2xl font-semibold">
 				{catalogEntryName} | {mcpServerId}

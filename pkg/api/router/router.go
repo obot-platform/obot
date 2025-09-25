@@ -149,9 +149,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/tasks/{id}", tasks.Delete)
 	mux.HandleFunc("GET /api/tasks/{id}", tasks.Get)
 	mux.HandleFunc("PUT /api/tasks/{id}", tasks.Update)
+	mux.HandleFunc("GET /api/tasks/{id}/files", agents.ListFiles)
+
+	// These can be removed when we get rid of the legacy admin side of things.
 	mux.HandleFunc("GET /api/tasks/{id}/file/{file...}", agents.GetFile)
 	mux.HandleFunc("GET /api/tasks/{id}/files/{file...}", agents.GetFile)
-	mux.HandleFunc("GET /api/tasks/{id}/files", agents.ListFiles)
 	mux.HandleFunc("DELETE /api/tasks/{id}/file/{file...}", agents.DeleteFile)
 	mux.HandleFunc("DELETE /api/tasks/{id}/files/{file...}", agents.DeleteFile)
 	mux.HandleFunc("POST /api/tasks/{id}/file/{file...}", agents.UploadFile)
@@ -161,6 +163,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/tasks/{id}/runs/{run_id}/abort", tasks.AbortRun)
 	mux.HandleFunc("POST /api/tasks/{id}/runs/{run_id}/events", tasks.Abort)
 	mux.HandleFunc("GET /api/tasks/{id}/runs/{run_id}/events", tasks.Events)
+	//
 
 	// Project Tasks
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/tasks", tasks.CreateFromScope)
@@ -188,10 +191,13 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/threads/{thread_id}/tasks", tasks.CreateFromScope)
 	mux.HandleFunc("GET /api/threads/{thread_id}/tasks", tasks.ListFromScope)
 	mux.HandleFunc("GET /api/threads/{thread_id}/tasks/{id}", tasks.GetFromScope)
-	mux.HandleFunc("PUT /api/threads/{thread_id}/tasks/{id}", tasks.UpdateFromScope)
-	mux.HandleFunc("POST /api/threads/{thread_id}/tasks/{id}/run", tasks.RunFromScope)
 	mux.HandleFunc("GET /api/threads/{thread_id}/tasks/{id}/runs", tasks.ListRunsFromScope)
 	mux.HandleFunc("GET /api/threads/{thread_id}/tasks/{id}/runs/{run_id}", tasks.GetRunFromScope)
+
+	// These can be removed when we get rid of the legacy admin side of things
+	mux.HandleFunc("PUT /api/threads/{thread_id}/tasks/{id}", tasks.UpdateFromScope)
+	mux.HandleFunc("POST /api/threads/{thread_id}/tasks/{id}/run", tasks.RunFromScope)
+	//
 
 	// Projects in Project
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects", projects.CreateProject)
@@ -277,9 +283,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/agents/{agent_id}/knowledge-sources/{knowledge_source_id}/knowledge-files/{file_id}/ingest", agents.ReIngestKnowledgeFile)
 
 	// Invoker
+	// We can remove these endpoints when we get rid of the legacy admin side of things
 	mux.HandleFunc("POST /api/invoke/{id}", invoker.Invoke)
 	mux.HandleFunc("POST /api/invoke/{id}/thread/{thread}", invoker.Invoke)
 	mux.HandleFunc("POST /api/invoke/{id}/threads/{thread}", invoker.Invoke)
+	//
 
 	// Threads
 	mux.HandleFunc("GET /api/agents/{agent}/threads", threads.List)
@@ -337,10 +345,13 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/agents/{agent}/threads/{thread}/runs", runs.List)
 	mux.HandleFunc("GET /api/runs", runs.List)
 	mux.HandleFunc("GET /api/runs/{id}", runs.ByID)
+	mux.HandleFunc("GET /api/threads/{thread}/runs", runs.List)
+
+	// We can remove these endpoints when we get rid of the legacy admin side of things
 	mux.HandleFunc("DELETE /api/runs/{id}", runs.Delete)
 	mux.HandleFunc("GET /api/runs/{id}/debug", runs.Debug)
 	mux.HandleFunc("GET /api/runs/{id}/events", runs.Events)
-	mux.HandleFunc("GET /api/threads/{thread}/runs", runs.List)
+	//
 
 	// Credentials
 	mux.HandleFunc("GET /api/agents/{context}/credentials", handlers.ListCredentials)
@@ -621,8 +632,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	// Workflows
 	mux.HandleFunc("GET /api/workflows", workflows.List)
 	mux.HandleFunc("GET /api/workflows/{id}", workflows.ByID)
+
+	// We can remove these endpoints when we get rid of the legacy admin side of things
 	mux.HandleFunc("PUT /api/workflows/{id}", workflows.Update)
 	mux.HandleFunc("DELETE /api/workflows/{id}", workflows.Delete)
+	//
 
 	// Generated and uploaded images
 	mux.HandleFunc("POST /api/image/generate", images.GenerateImage)

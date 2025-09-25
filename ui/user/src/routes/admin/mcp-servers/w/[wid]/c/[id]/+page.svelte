@@ -7,6 +7,7 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import { goto } from '$app/navigation';
+	import { profile } from '$lib/stores/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -39,6 +40,7 @@
 				onSubmit={async () => {
 					goto('/admin/mcp-servers');
 				}}
+				readonly={profile.current.isAdminReadonly?.()}
 			/>
 		{/if}
 	</div>

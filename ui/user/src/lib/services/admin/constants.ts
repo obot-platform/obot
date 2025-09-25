@@ -2,7 +2,7 @@ import { Role } from './types';
 
 export const userRoleOptions = [
 	{
-		id: Role.USER,
+		id: Role.BASIC,
 		label: 'Basic User',
 		description:
 			'New users can connect to MCP servers through the My Connectors app and have access to Obot Chat.'

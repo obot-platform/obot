@@ -93,7 +93,6 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 	resp, err := a.invoker.Thread(req.Context(), a.cachedClient, &thread, string(input), invoke.Options{
 		GenerateName:    system.ChatRunPrefix,
 		UserUID:         req.User.GetUID(),
-		UserIsAdmin:     req.UserIsAdmin(),
 		IgnoreMCPErrors: true,
 	})
 	if err != nil {

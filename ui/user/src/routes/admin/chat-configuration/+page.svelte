@@ -15,6 +15,7 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
+	import { profile } from '$lib/stores/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();
@@ -80,6 +81,8 @@
 			isDefault: model.id === baseAgent?.model
 		}))
 	);
+
+	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
 	onMount(() => {
 		Promise.all([AdminService.listModelProviders(), AdminService.listModels()]).then(
@@ -177,6 +180,7 @@
 									id="name"
 									bind:value={baseAgent.name}
 									class="text-input-filled dark:bg-black"
+									disabled={isAdminReadonly}
 								/>
 							</div>
 							<div class="flex flex-col gap-1">
@@ -186,6 +190,7 @@
 									id="description"
 									bind:value={baseAgent.description}
 									class="text-input-filled dark:bg-black"
+									disabled={isAdminReadonly}
 								/>
 							</div>
 						</div>
@@ -196,6 +201,7 @@
 						<MarkdownInput
 							bind:value={baseAgent.introductionMessage}
 							placeholder="Begin every conversation with an introduction."
+							disabled={isAdminReadonly}
 						/>
 					</div>
 
@@ -208,6 +214,7 @@
 							class="text-input-filled dark:bg-black"
 							placeholder={HELPER_TEXTS.prompt}
 							use:autoHeight
+							disabled={isAdminReadonly}
 						></textarea>
 					</div>
 				</div>
@@ -223,13 +230,15 @@
 							/>
 						</div>
 
-						<button
-							class="button-primary flex items-center gap-1"
-							onclick={() => showAddModelsDialog?.open()}
-						>
-							<Plus class="size-4" />
-							Add Model
-						</button>
+						{#if !isAdminReadonly}
+							<button
+								class="button-primary flex items-center gap-1"
+								onclick={() => showAddModelsDialog?.open()}
+							>
+								<Plus class="size-4" />
+								Add Model
+							</button>
+						{/if}
 					</div>
 
 					<Table
@@ -250,32 +259,34 @@
 						noDataMessage="No models added."
 					>
 						{#snippet actions(d)}
-							<DotDotDot>
-								<div class="default-dialog flex min-w-max flex-col p-2">
-									<button
-										class="menu-button"
-										onclick={() => {
-											if (!baseAgent) return;
-											baseAgent.model = d.id;
-										}}
-									>
-										Set as Default
-									</button>
-									{#if !d.isDefault}
+							{#if !isAdminReadonly}
+								<DotDotDot>
+									<div class="default-dialog flex min-w-max flex-col p-2">
 										<button
 											class="menu-button"
 											onclick={() => {
 												if (!baseAgent) return;
-												baseAgent.allowedModels = baseAgent.allowedModels?.filter(
-													(modelId) => modelId !== d.id
-												);
+												baseAgent.model = d.id;
 											}}
 										>
-											Remove
+											Set as Default
 										</button>
-									{/if}
-								</div>
-							</DotDotDot>
+										{#if !d.isDefault}
+											<button
+												class="menu-button"
+												onclick={() => {
+													if (!baseAgent) return;
+													baseAgent.allowedModels = baseAgent.allowedModels?.filter(
+														(modelId) => modelId !== d.id
+													);
+												}}
+											>
+												Remove
+											</button>
+										{/if}
+									</div>
+								</DotDotDot>
+							{/if}
 						{/snippet}
 
 						{#snippet onRenderColumn(property, d)}
@@ -301,38 +312,42 @@
 					</Table>
 				</div>
 
-				<div
-					class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
-				>
-					{#if showSaved}
-						<span
-							in:fade={{ duration: 200 }}
-							class="flex min-h-10 items-center px-4 text-sm font-extralight text-gray-500"
-						>
-							Your changes have been saved.
-						</span>
-					{/if}
-
-					<button
-						class="button hover:bg-surface3 flex items-center gap-1 bg-transparent"
-						onclick={() => {
-							baseAgent = prevAgent;
-						}}
+				{#if !isAdminReadonly}
+					<div
+						class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
 					>
-						Reset
-					</button>
-					<button
-						class="button-primary flex items-center gap-1"
-						disabled={saving}
-						onclick={handleSave}
-					>
-						{#if saving}
-							<LoaderCircle class="size-4 animate-spin" />
-						{:else}
-							Save
+						{#if showSaved}
+							<span
+								in:fade={{ duration: 200 }}
+								class="flex min-h-10 items-center px-4 text-sm font-extralight text-gray-500"
+							>
+								Your changes have been saved.
+							</span>
 						{/if}
-					</button>
-				</div>
+
+						<button
+							class="button hover:bg-surface3 flex items-center gap-1 bg-transparent"
+							onclick={() => {
+								baseAgent = prevAgent;
+							}}
+						>
+							Reset
+						</button>
+						<button
+							class="button-primary flex items-center gap-1"
+							disabled={saving}
+							onclick={handleSave}
+						>
+							{#if saving}
+								<LoaderCircle class="size-4 animate-spin" />
+							{:else}
+								Save
+							{/if}
+						</button>
+					</div>
+				{:else}
+					<div class="h-4"></div>
+				{/if}
 			{:else}
 				<div class="h-full w-full items-center justify-center">
 					<TriangleAlert class="size-24 text-gray-200 dark:text-gray-900" />

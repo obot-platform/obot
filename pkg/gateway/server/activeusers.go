@@ -25,7 +25,7 @@ func (s *Server) activeUsers(apiContext api.Context) error {
 	items := make([]types2.User, 0, len(activeUsers))
 	for _, user := range activeUsers {
 		if user.Username != "bootstrap" && user.Email != "" { // Filter out the bootstrap admin
-			items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.IsExplicitAdmin(user.Email), ""))
+			items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, ""))
 		}
 	}
 

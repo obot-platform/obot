@@ -4,7 +4,7 @@
 		type MCPFilter,
 		type MCPCatalogServer,
 		ChatService,
-		Role
+		Group
 	} from '$lib/services';
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { twMerge } from 'tailwind-merge';
@@ -52,12 +52,11 @@
 	}
 
 	let { entry, id, entity = 'catalog', type, readonly, onCancel, onSubmit }: Props = $props();
-	let isAdmin = $derived(profile.current?.role === Role.ADMIN);
-	let isAtLeastPowerUserPlus = $derived(profile.current?.role === Role.POWERUSER_PLUS || isAdmin);
+	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 
 	const tabs = $derived(
 		entry
-			? entity === 'workspace' && !isAdmin
+			? entity === 'workspace' && !profile.current?.isAdmin?.()
 				? [
 						{ label: 'Overview', view: 'overview' },
 						{ label: 'Server Details', view: 'server-instances' },
@@ -146,9 +145,11 @@
 	});
 
 	onMount(() => {
-		AdminService.listUsersIncludeDeleted().then((data) => {
-			users = data;
-		});
+		if (isAtLeastPowerUserPlus) {
+			AdminService.listUsersIncludeDeleted().then((data) => {
+				users = data;
+			});
+		}
 
 		checkScrollPosition();
 		scrollContainer?.addEventListener('scroll', checkScrollPosition);
@@ -416,7 +417,7 @@
 					{#snippet noToolsContent()}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 							<Wrench class="size-24 text-gray-200 dark:text-gray-900" />
-							{#if !entry}
+							{#if !entry || (entry && readonly)}
 								<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No tools</h4>
 								<p class="text-sm font-light text-gray-400 dark:text-gray-600">
 									Looks like this MCP server doesn't have any tools available.

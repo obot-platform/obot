@@ -33,7 +33,7 @@
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
 	import { Render } from './ui/render';
-	import { Role } from '$lib/services';
+	import { Group } from '$lib/services';
 
 	type NavLink = {
 		id: string;
@@ -74,8 +74,9 @@
 	let pathname = $state('');
 
 	let isBootStrapUser = $derived(profile.current.username === BOOTSTRAP_USER_ID);
+	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 	let navLinks = $derived<NavLink[]>(
-		profile.current.isAdmin?.() && !showUserLinks
+		profile.current.hasAdminAccess?.() && !showUserLinks
 			? [
 					{
 						id: 'mcp-server-management',
@@ -212,7 +213,7 @@
 						disabled: false,
 						collapsible: false
 					},
-					...(profile.current?.role === Role.POWERUSER_PLUS || profile.current?.role === Role.ADMIN
+					...(isAtLeastPowerUser
 						? [
 								{
 									id: 'access-control',

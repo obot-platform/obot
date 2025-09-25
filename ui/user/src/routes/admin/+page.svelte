@@ -8,7 +8,7 @@
 	import { slide } from 'svelte/transition';
 
 	const { data } = $props();
-	const { authProviders, loggedIn, isAdmin } = data;
+	const { authProviders, loggedIn, hasAccess } = data;
 	let fetchBootstrapStatus = $state<Promise<BootstrapStatus>>();
 	let bootstrapToken = $state('');
 	let error = $state('');
@@ -61,7 +61,7 @@
 						</div>
 					{/if}
 
-					{#if loggedIn && !isAdmin}
+					{#if loggedIn && !hasAccess}
 						<div class="relative z-10 my-6 flex w-full flex-col items-center justify-center gap-6">
 							<p
 								class="px-8 text-center text-sm font-light text-gray-500 md:px-8 dark:text-gray-300"

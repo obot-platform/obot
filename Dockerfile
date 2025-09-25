@@ -6,7 +6,7 @@ ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base
 FROM ${BASE_IMAGE} AS base
 ARG BASE_IMAGE
 RUN if [ "${BASE_IMAGE}" = "cgr.dev/chainguard/wolfi-base" ]; then \
-        apk add --no-cache gcc=14.2.0-r13 go make git nodejs npm pnpm; \
+    apk add --no-cache gcc=14.2.0-r13 go make git nodejs npm pnpm; \
     fi
 
 FROM base AS bin
@@ -62,7 +62,6 @@ COPY --from=provider /bin/*-encryption-provider /bin/
 COPY --from=bin /app/bin/obot /bin/
 COPY --from=bin --link /app/ui/user/build-node /ui
 
-# libreoffice executables
 ENV PATH=$PATH:/usr/lib/libreoffice/program
 ENV PATH=$PATH:/usr/bin
 ENV HOME=/data

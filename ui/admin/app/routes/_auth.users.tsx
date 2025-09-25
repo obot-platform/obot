@@ -11,7 +11,7 @@ import { $path } from "safe-routes";
 import useSWR, { preload } from "swr";
 
 import { Thread } from "~/lib/model/threads";
-import { ExplicitAdminDescription, User, roleLabel } from "~/lib/model/users";
+import { ExplicitRoleDescription, User, roleLabel } from "~/lib/model/users";
 import { ThreadsService } from "~/lib/service/api/threadsService";
 import { UserService } from "~/lib/service/api/userService";
 import { VersionApiService } from "~/lib/service/api/versionApiService";
@@ -139,10 +139,10 @@ export default function Users() {
 				header: "Role",
 				cell: ({ row, getValue }) => (
 					<div>
-						{row.original.explicitAdmin ? (
+						{row.original.explicitRole ? (
 							<Tooltip>
 								<TooltipContent className="max-w-sm">
-									{ExplicitAdminDescription}
+									{ExplicitRoleDescription}
 								</TooltipContent>
 
 								<div className="flex items-center gap-2">

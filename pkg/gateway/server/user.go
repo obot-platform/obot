@@ -43,7 +43,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		}
 	}
 
-	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.IsExplicitAdmin(user.Email), name))
+	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name))
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {
@@ -55,7 +55,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 	items := make([]types2.User, 0, len(users))
 	for _, user := range users {
 		if user.Username != "bootstrap" && user.Email != "" { // Filter out the bootstrap admin
-			items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.IsExplicitAdmin(user.Email), ""))
+			items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, ""))
 		}
 	}
 
@@ -100,7 +100,7 @@ func (s *Server) getUser(apiContext api.Context) error {
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
-	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.IsExplicitAdmin(user.Email), ""))
+	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, ""))
 }
 
 func (s *Server) updateUser(apiContext api.Context) error {
@@ -128,6 +128,15 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get original user: %v", err))
 	}
 
+	if !apiContext.UserIsOwner() {
+		if originalUser.Role.HasRole(types2.RoleOwner) != user.Role.HasRole(types2.RoleOwner) {
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove owner role")
+		}
+		if originalUser.Role.HasRole(types2.RoleAuditor) != user.Role.HasRole(types2.RoleAuditor) {
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can remove admin role")
+		}
+	}
+
 	status := http.StatusInternalServerError
 	existingUser, err := apiContext.GatewayClient.UpdateUser(apiContext.Context(), apiContext.UserIsAdmin(), user, userID)
 	if err != nil {
@@ -135,7 +144,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			status = http.StatusNotFound
 		} else if lae := (*client.LastAdminError)(nil); errors.As(err, &lae) {
 			status = http.StatusBadRequest
-		} else if ea := (*client.ExplicitAdminError)(nil); errors.As(err, &ea) {
+		} else if ea := (*client.ExplicitRoleError)(nil); errors.As(err, &ea) {
 			status = http.StatusBadRequest
 		} else if ae := (*client.AlreadyExistsError)(nil); errors.As(err, &ae) {
 			status = http.StatusConflict
@@ -159,7 +168,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		}
 	}
 
-	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.IsExplicitAdmin(existingUser.Email), ""))
+	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.HasExplicitRole(existingUser.Email) != types2.RoleUnknown, ""))
 }
 
 func (s *Server) markUserInternal(apiContext api.Context) error {
@@ -202,6 +211,15 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
+	if !apiContext.UserIsOwner() {
+		if existingUser.Role.HasRole(types2.RoleOwner) {
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete an owner")
+		}
+		if existingUser.Role.HasRole(types2.RoleAuditor) {
+			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete an auditor")
+		}
+	}
+
 	status := http.StatusInternalServerError
 	_, err = apiContext.GatewayClient.DeleteUser(apiContext.Context(), userID)
 	if err != nil {
@@ -238,7 +256,7 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		})
 	}
 
-	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.IsExplicitAdmin(existingUser.Email), ""))
+	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.HasExplicitRole(existingUser.Email) != types2.RoleUnknown, ""))
 }
 
 func (s *Server) listAuthGroups(apiContext api.Context) error {

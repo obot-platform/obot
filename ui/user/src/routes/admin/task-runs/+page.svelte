@@ -6,7 +6,8 @@
 		type ProjectThread,
 		type Project,
 		type OrgUser,
-		type Task
+		type Task,
+		Group
 	} from '$lib/services';
 	import { Eye, LoaderCircle, MessageCircle, Funnel } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -21,6 +22,9 @@
 	import { getUserDisplayName } from '$lib/utils';
 	import type { FilterOptionsEndpoint } from '$lib/components/admin/filters-drawer/types';
 	import { debounce } from 'es-toolkit';
+	import { profile } from '$lib/stores';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	type SupportedFilter = 'username' | 'email' | 'project' | 'query' | 'task';
 
@@ -147,6 +151,8 @@
 		// history.replaceState(null, '', page.url);
 		replaceState(page.url, { query });
 	}, 100);
+
+	let isAuditor = $derived(profile.current.groups.includes(Group.AUDITOR));
 
 	onMount(() => {
 		loadThreads();
@@ -380,7 +386,7 @@
 					<Table
 						data={tableData}
 						fields={['name', 'userName', 'userEmail', 'task', 'projectName', 'created']}
-						onSelectRow={handleViewThread}
+						onSelectRow={isAuditor ? handleViewThread : undefined}
 						headers={[
 							{
 								title: 'User Name',
@@ -405,12 +411,21 @@
 					>
 						{#snippet actions(thread)}
 							<button
-								class="icon-button hover:text-blue-500"
+								class={twMerge(
+									'icon-button',
+									isAuditor && 'hover:text-blue-500',
+									!isAuditor && 'opacity-50 hover:bg-transparent dark:hover:bg-transparent'
+								)}
 								onclick={(e) => {
 									e.stopPropagation();
 									handleViewThread(thread);
 								}}
 								title="View Thread"
+								use:tooltip={{
+									text: isAuditor
+										? 'View Task Run'
+										: 'To view details, auditing permissions are required.'
+								}}
 							>
 								<Eye class="size-4" />
 							</button>

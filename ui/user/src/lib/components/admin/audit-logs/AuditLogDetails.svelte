@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { columnResize } from '$lib/actions/resize';
 	import CopyButton from '$lib/components/CopyButton.svelte';
-	import type { AuditLog } from '$lib/services/admin/types';
-	import { responsive } from '$lib/stores';
+	import { Group, type AuditLog } from '$lib/services/admin/types';
+	import { profile, responsive } from '$lib/stores';
 	import { X } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -15,6 +15,7 @@
 
 	let { auditLog, onClose }: Props = $props();
 	let container = $state<HTMLDivElement>();
+	let hasAuditorAccess = $derived(profile.current.groups.includes(Group.AUDITOR));
 </script>
 
 {#if !responsive.isMobile && container}
@@ -106,20 +107,24 @@
 				{/if}
 			</div>
 
-			<p class="my-2 text-base font-semibold">Request Headers</p>
+			{#if auditLog.requestHeaders}
+				<p class="my-2 text-base font-semibold">Request Headers</p>
 
-			<div
-				class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
-			>
-				<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
-				<div class="flex flex-col gap-1">
-					{#each Object.entries(auditLog.requestHeaders ?? {}) as [key, value] (key)}
-						<p>
-							<span class="font-medium">{key}</span>: {value}
-						</p>
-					{/each}
+				<div
+					class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
+				>
+					<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
+					<div class="flex flex-col gap-1">
+						{#each Object.entries(auditLog.requestHeaders ?? {}) as [key, value] (key)}
+							<p>
+								<span class="font-medium">{key}</span>: {value}
+							</p>
+						{/each}
+					</div>
 				</div>
-			</div>
+			{:else if !hasAuditorAccess}
+				{@render noAuditorAccessInfo('Request Headers')}
+			{/if}
 
 			{#if Object.keys(auditLog.requestBody ?? {}).length > 0}
 				{@const body = JSON.stringify(auditLog.requestBody, null, 2)}
@@ -135,6 +140,8 @@
 						text={body}
 					/>
 				</div>
+			{:else if !hasAuditorAccess}
+				{@render noAuditorAccessInfo('Request Body')}
 			{/if}
 		</div>
 
@@ -152,20 +159,24 @@
 					</p>
 				{/if}
 			</div>
-			<p class="mt-4 mb-2 text-base font-semibold">Response Headers</p>
 
-			<div
-				class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
-			>
-				<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
-				<div class="flex flex-col gap-1">
-					{#each Object.entries(auditLog.responseHeaders ?? {}) as [key, value] (key)}
-						<p>
-							<span class="font-medium">{key}</span>: {value}
-						</p>
-					{/each}
+			{#if auditLog.responseHeaders}
+				<p class="mt-4 mb-2 text-base font-semibold">Response Headers</p>
+				<div
+					class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
+				>
+					<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
+					<div class="flex flex-col gap-1">
+						{#each Object.entries(auditLog.responseHeaders ?? {}) as [key, value] (key)}
+							<p>
+								<span class="font-medium">{key}</span>: {value}
+							</p>
+						{/each}
+					</div>
 				</div>
-			</div>
+			{:else if !hasAuditorAccess}
+				{@render noAuditorAccessInfo('Response Headers')}
+			{/if}
 
 			{#if auditLog.error}
 				<div class="mt-4 flex flex-col">
@@ -188,7 +199,16 @@
 						text={body}
 					/>
 				</div>
+			{:else if !hasAuditorAccess}
+				{@render noAuditorAccessInfo('Response Body')}
 			{/if}
 		</div>
 	</div>
 </div>
+
+{#snippet noAuditorAccessInfo(name: string)}
+	<p class="mt-4 mb-2 text-base font-semibold">{name}</p>
+	<div class="text-xs text-gray-400 dark:text-gray-600">
+		<i>Details are hidden; auditor role is required to access this information.</i>
+	</div>
+{/snippet}

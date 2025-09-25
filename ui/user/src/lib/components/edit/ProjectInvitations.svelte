@@ -26,7 +26,7 @@
 	let isLoading = $state(false);
 	let isCreating = $state(false);
 	let ownerID = $state<string>('');
-	let isOwnerOrAdmin = $derived(profile.current.id === ownerID || profile.current.role === 1);
+	let isOwnerOrAdmin = $derived(profile.current.id === ownerID || profile.current.isAdmin?.());
 	let invitationUrl = $derived(
 		browser && invitation?.code
 			? `${window.location.protocol}//${window.location.host}/i/${invitation.code}`

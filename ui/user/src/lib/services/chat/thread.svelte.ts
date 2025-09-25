@@ -86,7 +86,7 @@ export class Thread {
 		const currentID = this.#count;
 		this.replayComplete = false;
 		let opened = false;
-		const es = newMessageEventSource(this.#project.assistantID, this.#project.id, {
+		const es = newMessageEventSource(undefined, this.#project.id, {
 			threadID: this.threadID,
 			task: this.#task,
 			runID: this.runID,

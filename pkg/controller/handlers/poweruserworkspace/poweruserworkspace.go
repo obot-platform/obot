@@ -54,7 +54,7 @@ func (h *Handler) HandleRoleChange(req router.Request, _ router.Response) error 
 
 		// If demoting to PowerUser from PowerUserPlus or Admin, clean up workspace resources.
 		// PowerUsers are not allowed to manage Access Control Rules or multi-user MCPServers.
-		if roleChange.Spec.NewRole == types.RolePowerUser && roleChange.Spec.OldRole.HasRole(types.RolePowerUserPlus) {
+		if roleChange.Spec.NewRole.IsExactBaseRole(types.RolePowerUser) && roleChange.Spec.OldRole.HasRole(types.RolePowerUserPlus) {
 			if err := h.cleanupWorkspaceForDemotionToPowerUser(req.Ctx, req.Client, req.Namespace, userIDStr); err != nil {
 				return err
 			}

@@ -820,9 +820,8 @@ func (a *AgentHandler) Script(req api.Context) error {
 	}
 
 	renderedAgent, err := render.Agent(req.Context(), a.tokenService, a.mcpSessionManager, req.Storage, &agent, a.serverURL, render.AgentOptions{
-		Thread:      thread,
-		UserID:      req.User.GetUID(),
-		UserIsAdmin: req.UserIsAdmin(),
+		Thread: thread,
+		UserID: req.User.GetUID(),
 	})
 	if err != nil {
 		return err

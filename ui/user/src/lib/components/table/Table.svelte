@@ -151,7 +151,7 @@
 					<TableHeader
 						sortable={sortableFields.has(property)}
 						filterable={filterableFields.has(property)}
-						filterOptions={Array.from(filterValues[property])}
+						filterOptions={filterValues[property] ? Array.from(filterValues[property]) : []}
 						{headerClass}
 						{headerTitle}
 						{property}

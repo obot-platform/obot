@@ -12,6 +12,7 @@
 		getAdminMcpServerAndEntries,
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte.js';
+	import { profile } from '$lib/stores/index.js';
 
 	let { data } = $props();
 	const { accessControlRule: initialRule, workspaceId } = data;
@@ -46,6 +47,7 @@
 			entity="workspace"
 			id={workspaceId}
 			mcpEntriesContextFn={getAdminMcpServerAndEntries}
+			readonly={profile.current.isAdminReadonly?.()}
 		>
 			{#snippet topContent()}
 				<BackLink

@@ -2,6 +2,7 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile, responsive, darkMode } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
+	import { Group } from '$lib/services/admin/types';
 	import {
 		Book,
 		LayoutDashboard,
@@ -18,7 +19,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { AdminService, ChatService, EditorService, Role } from '$lib/services';
+	import { AdminService, ChatService, EditorService } from '$lib/services';
 	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 	import { afterNavigate, goto } from '$app/navigation';
 	import PageLoading from '../PageLoading.svelte';
@@ -102,7 +103,7 @@
 						{profile.current.displayName || 'Anonymous'}
 					</span>
 					<span class="text-sm text-gray-500">
-						{profile.current.role === 1 ? 'Admin' : 'User'}
+						{profile.current.isAdmin?.() ? 'Admin' : 'User'}
 					</span>
 				</div>
 			</div>
@@ -122,8 +123,9 @@
 		</div>
 	{/snippet}
 	{#snippet body()}
+		{@const canAccessAdmin = profile.current.hasAdminAccess?.()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
-			{#if profile.current.role === Role.ADMIN && !inAdminRoute}
+			{#if canAccessAdmin && !inAdminRoute}
 				<button
 					onclick={(event) => {
 						const asNewTab = event?.ctrlKey || event?.metaKey;
@@ -179,7 +181,7 @@
 					Chat
 				</button>
 			{/if}
-			{#if (profile.current.role === Role.POWERUSER || profile.current.role === Role.POWERUSER_PLUS || profile.current.role === Role.ADMIN) && showMcpPublisherLink && version.current.authEnabled}
+			{#if profile.current.groups.includes(Group.POWERUSER) && showMcpPublisherLink && version.current.authEnabled}
 				<a href="/mcp-publisher" rel="external" class="link">
 					<ServerCog class="size-4" /> MCP Publisher
 				</a>

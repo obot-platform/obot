@@ -16,7 +16,6 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
-	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/controller/handlers/retention"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -193,7 +192,6 @@ type Options struct {
 	CreateThread          bool
 	CredentialContextIDs  []string
 	UserUID               string
-	UserIsAdmin           bool
 	IgnoreMCPErrors       bool
 	GenerateName          string
 	ExtraEnv              []string
@@ -383,7 +381,6 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		Thread:          thread,
 		WorkflowStepID:  opt.WorkflowStepID,
 		UserID:          opt.UserUID,
-		UserIsAdmin:     opt.UserIsAdmin,
 		IgnoreMCPErrors: opt.IgnoreMCPErrors,
 	})
 	if err != nil {
@@ -644,9 +641,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		userID, userName, userEmail, userTimezone = thread.Spec.UserID, u.Username, u.Email, u.Timezone
 
 		// Add groups based on user's role
-		if u.Role.HasRole(types.RoleAdmin) {
-			userGroups = []string{authz.AdminGroup}
-		}
+		userGroups = u.Role.Groups()
 		// Note: AuthenticatedGroup is added by default in the token service
 	}
 

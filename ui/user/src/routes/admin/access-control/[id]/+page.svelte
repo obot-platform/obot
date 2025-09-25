@@ -12,6 +12,7 @@
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { browser } from '$app/environment';
+	import { profile } from '$lib/stores/index.js';
 
 	let { data } = $props();
 	const { accessControlRule: initialRule } = data;
@@ -43,6 +44,7 @@
 				goto('/admin/access-control');
 			}}
 			mcpEntriesContextFn={getAdminMcpServerAndEntries}
+			readonly={profile.current.isAdminReadonly?.()}
 		>
 			{#snippet topContent()}
 				<BackLink

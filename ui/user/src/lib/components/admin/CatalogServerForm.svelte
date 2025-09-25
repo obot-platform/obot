@@ -4,7 +4,7 @@
 		type RuntimeFormData,
 		type MCPCatalogEntryServerManifest,
 		type MCPCatalogServerManifest,
-		Role
+		Group
 	} from '$lib/services/admin/types';
 	import type { Runtime } from '$lib/services/chat/types';
 	import { Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
@@ -68,9 +68,7 @@
 	let remoteCategories = $state<string[]>([]);
 
 	let categories = $derived([...remoteCategories, ...(formData?.categories ?? [])]);
-	const isAtLeastPowerUserPlus = $derived(
-		profile.current?.role === Role.POWERUSER_PLUS || profile.current?.role === Role.ADMIN
-	);
+	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 
 	onMount(() => {
 		if (!id || entity === 'workspace') return;

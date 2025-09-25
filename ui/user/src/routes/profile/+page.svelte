@@ -3,11 +3,11 @@
 	import { profile, errors, version } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
+	import { Group } from '$lib/services/admin/types';
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 	import { success } from '$lib/stores/success';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import { userRoleOptions } from '$lib/services/admin/constants';
 
 	let toDelete = $state(false);
 	let toRevoke = $state(false);
@@ -75,7 +75,7 @@
 					<div class="flex flex-row py-3">
 						<div class="w-1/2 max-w-[150px]">Role:</div>
 						<div class="w-1/2 break-words">
-							{userRoleOptions.find((role) => role.id === profile.current.role)?.label ?? 'Unknown'}
+							{profile.current.groups.includes(Group.ADMIN) ? 'Admin' : 'User'}
 						</div>
 					</div>
 					<hr />

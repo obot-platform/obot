@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -20,7 +21,16 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/admin/users",
 			user: &user.DefaultInfo{
 				Name:   "admin",
-				Groups: []string{AdminGroup, AuthenticatedGroup},
+				Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
+			},
+			expected: true,
+		},
+		{
+			name: "owner user can access /admin/users",
+			path: "/admin/users",
+			user: &user.DefaultInfo{
+				Name:   "owner",
+				Groups: []string{types.GroupOwner, types.GroupAuthenticated},
 			},
 			expected: true,
 		},
@@ -29,7 +39,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/admin/auth-providers",
 			user: &user.DefaultInfo{
 				Name:   "bootstrap",
-				Groups: []string{AdminGroup, AuthenticatedGroup},
+				Groups: []string{types.GroupOwner, types.GroupAdmin, types.GroupAuthenticated},
 			},
 			expected: true,
 		},
@@ -38,7 +48,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/admin/users",
 			user: &user.DefaultInfo{
 				Name:   "user",
-				Groups: []string{AuthenticatedGroup},
+				Groups: []string{types.GroupBasic, types.GroupAuthenticated},
 			},
 			expected: false,
 		},
@@ -56,7 +66,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/admin",
 			user: &user.DefaultInfo{
 				Name:   "user",
-				Groups: []string{AuthenticatedGroup},
+				Groups: []string{types.GroupAuthenticated},
 			},
 			expected: true,
 		},
@@ -74,7 +84,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/admin/",
 			user: &user.DefaultInfo{
 				Name:   "user",
-				Groups: []string{AuthenticatedGroup},
+				Groups: []string{types.GroupAuthenticated},
 			},
 			expected: true,
 		},
@@ -92,7 +102,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/",
 			user: &user.DefaultInfo{
 				Name:   "admin",
-				Groups: []string{AdminGroup, AuthenticatedGroup},
+				Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
 			},
 			expected: true,
 		},
@@ -101,7 +111,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/",
 			user: &user.DefaultInfo{
 				Name:   "user",
-				Groups: []string{AuthenticatedGroup},
+				Groups: []string{types.GroupAuthenticated},
 			},
 			expected: true,
 		},
@@ -119,7 +129,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/",
 			user: &user.DefaultInfo{
 				Name:   "user",
-				Groups: []string{AuthenticatedGroup},
+				Groups: []string{types.GroupAuthenticated},
 			},
 			expected: true,
 		},
@@ -128,7 +138,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/chat",
 			user: &user.DefaultInfo{
 				Name:   "admin",
-				Groups: []string{AdminGroup, AuthenticatedGroup},
+				Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
 			},
 			expected: true,
 		},

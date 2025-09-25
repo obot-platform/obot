@@ -15,9 +15,10 @@
 		error?: string;
 		values?: Record<string, string>;
 		loading?: boolean;
+		readonly?: boolean;
 	}
 
-	const { provider, onConfigure, note, values, error, loading }: Props = $props();
+	const { provider, onConfigure, note, values, error, loading, readonly }: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let form = $state<Record<string, string>>({});
 	let showRequired = $state(false);
@@ -94,7 +95,7 @@
 			provider.optionalConfigurationParameters?.filter((p) => !p.hidden) ?? []}
 		<form
 			class="default-scrollbar-thin flex max-h-[70vh] flex-col gap-4 overflow-y-auto p-4 pt-0"
-			onsubmit={configure}
+			onsubmit={readonly ? undefined : configure}
 		>
 			<input
 				type="text"
@@ -102,6 +103,7 @@
 				name="email"
 				value={profile.current.email}
 				class="hidden"
+				disabled={readonly}
 			/>
 			{#if error}
 				<div class="notification-error flex items-center gap-2">
@@ -138,6 +140,7 @@
 											{error}
 											name={parameter.name}
 											bind:value={form[parameter.name]}
+											disabled={readonly}
 										/>
 									{:else if multipValuesInputs.has(parameter.name)}
 										<MultiValueInput
@@ -148,6 +151,7 @@
 												: {}}
 											class="text-input-filled"
 											placeholder={`Hit "Enter" to insert`.toString()}
+											disabled={readonly}
 										/>
 									{:else}
 										<input
@@ -156,6 +160,7 @@
 											bind:value={form[parameter.name]}
 											class:error
 											class="text-input-filled"
+											disabled={readonly}
 										/>
 									{/if}
 								</li>
@@ -179,6 +184,7 @@
 											id={parameter.name}
 											class="text-input-filled"
 											placeholder={`Hit "Enter" to insert`.toString()}
+											disabled={readonly}
 										/>
 									{:else}
 										<input
@@ -186,6 +192,7 @@
 											id={parameter.name}
 											bind:value={form[parameter.name]}
 											class="text-input-filled"
+											disabled={readonly}
 										/>
 									{/if}
 								</li>
@@ -195,14 +202,16 @@
 				</div>
 			{/if}
 		</form>
-		<div class="mt-4 flex justify-end gap-2 p-4 pt-0">
-			<button class="button-primary" type="button" onclick={() => configure()} disabled={loading}>
-				{#if loading}
-					<LoaderCircle class="size-4 animate-spin" />
-				{:else}
-					Confirm
-				{/if}
-			</button>
-		</div>
+		{#if !readonly}
+			<div class="mt-4 flex justify-end gap-2 p-4 pt-0">
+				<button class="button-primary" type="button" onclick={() => configure()} disabled={loading}>
+					{#if loading}
+						<LoaderCircle class="size-4 animate-spin" />
+					{:else}
+						Confirm
+					{/if}
+				</button>
+			</div>
+		{/if}
 	{/if}
 </ResponsiveDialog>

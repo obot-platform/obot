@@ -1,6 +1,6 @@
 import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { ChatService, getProfile, type AuthProvider } from '$lib/services';
-import { Role } from '$lib/services/admin/types';
+import { Group } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -16,10 +16,12 @@ export const load: PageLoad = async ({ fetch }) => {
 		authProviders = await ChatService.listAuthProviders({ fetch });
 	}
 
-	if (profile?.role === Role.ADMIN) {
+	const hasAccess =
+		profile?.groups.includes(Group.ADMIN) || profile?.groups.includes(Group.AUDITOR);
+	if (hasAccess) {
 		throw redirect(
 			307,
-			profile.username === BOOTSTRAP_USER_ID && version?.authEnabled
+			profile?.username === BOOTSTRAP_USER_ID && version?.authEnabled
 				? '/admin/auth-providers'
 				: '/admin/mcp-servers'
 		);
@@ -27,7 +29,7 @@ export const load: PageLoad = async ({ fetch }) => {
 
 	return {
 		loggedIn: profile?.loaded ?? false,
-		isAdmin: profile?.role === Role.ADMIN,
+		hasAccess,
 		authProviders
 	};
 };

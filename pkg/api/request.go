@@ -11,7 +11,6 @@ import (
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/storage"
@@ -268,12 +267,20 @@ func (r *Context) Namespace() string {
 	return system.DefaultNamespace
 }
 
+func (r *Context) UserIsOwner() bool {
+	return slices.Contains(r.User.GetGroups(), types.GroupOwner)
+}
+
 func (r *Context) UserIsAdmin() bool {
-	return slices.Contains(r.User.GetGroups(), authz.AdminGroup)
+	return slices.Contains(r.User.GetGroups(), types.GroupAdmin)
+}
+
+func (r *Context) UserIsAuditor() bool {
+	return slices.Contains(r.User.GetGroups(), types.GroupAuditor)
 }
 
 func (r *Context) UserIsAuthenticated() bool {
-	return slices.Contains(r.User.GetGroups(), authz.AuthenticatedGroup)
+	return slices.Contains(r.User.GetGroups(), types.GroupAuthenticated)
 }
 
 func (r *Context) UserID() uint {

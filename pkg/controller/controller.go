@@ -130,13 +130,28 @@ func ensureDefaultUserRoleSetting(ctx context.Context, client kclient.Client) er
 				Role: types.RoleBasic,
 			},
 		}
-		if err := client.Create(ctx, &defaultRoleSetting); err != nil {
-			return err
-		}
+
+		return client.Create(ctx, &defaultRoleSetting)
 	} else if err != nil {
 		return err
 	}
-	return nil
+
+	// If the role is 1, 2, 3, or 10, then this needs to be migrated to the new role system. Any other value means it was already migrated.
+	switch defaultRoleSetting.Spec.Role {
+	case 1:
+		defaultRoleSetting.Spec.Role = types.RoleAdmin
+	case 2:
+		defaultRoleSetting.Spec.Role = types.RolePowerUserPlus
+	case 3:
+		defaultRoleSetting.Spec.Role = types.RolePowerUser
+	case 10:
+		defaultRoleSetting.Spec.Role = types.RoleBasic
+	default:
+		// Already migrated
+		return nil
+	}
+
+	return client.Update(ctx, &defaultRoleSetting)
 }
 
 // createLocalK8sRouter creates a router for local Kubernetes resources

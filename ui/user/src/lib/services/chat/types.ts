@@ -153,8 +153,11 @@ export interface Profile {
 	email: string;
 	iconURL: string;
 	role: number;
+	groups: string[];
 	loaded?: boolean;
+	hasAdminAccess?: () => boolean;
 	isAdmin?: () => boolean;
+	isAdminReadonly?: () => boolean;
 	unauthorized?: boolean;
 	username: string;
 	currentAuthProvider?: string;

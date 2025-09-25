@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	"github.com/sethvargo/go-limiter"
 	"github.com/sethvargo/go-limiter/memorystore"
@@ -74,7 +74,7 @@ func New(opts Options) (*RateLimiter, error) {
 func (l *RateLimiter) ApplyLimit(u user.Info, rw http.ResponseWriter, req *http.Request) error {
 	groups := u.GetGroups()
 
-	if slices.Contains(groups, authz.AdminGroup) {
+	if slices.Contains(groups, types.GroupAdmin) {
 		// Admins are exempt from rate limiting
 		return nil
 	}
@@ -85,7 +85,7 @@ func (l *RateLimiter) ApplyLimit(u user.Info, rw http.ResponseWriter, req *http.
 		key = u.GetName()
 	}
 
-	if slices.Contains(groups, authz.AuthenticatedGroup) && key != "" {
+	if slices.Contains(groups, types.GroupAuthenticated) && key != "" {
 		store = l.authenticatedStore
 	} else {
 		// Get the source IP address from the request.

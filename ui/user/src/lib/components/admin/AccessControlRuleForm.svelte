@@ -37,6 +37,7 @@
 		id?: string | null;
 		mcpEntriesContextFn: () => AdminMcpServerAndEntriesContext | PoweruserWorkspaceContext;
 		all?: { label: string; description: string };
+		readonly?: boolean;
 	}
 
 	let {
@@ -45,6 +46,7 @@
 		onCreate,
 		onUpdate,
 		mcpEntriesContextFn,
+		readonly,
 		all = ADMIN_ALL_OPTION,
 		id = DEFAULT_MCP_CATALOG_ID,
 		entity = 'catalog'
@@ -253,15 +255,17 @@
 						{/if}
 					{/if}
 				</div>
-				<button
-					class="button-destructive flex items-center gap-1 text-xs font-normal"
-					use:tooltip={'Delete Catalog'}
-					onclick={() => {
-						deletingRule = true;
-					}}
-				>
-					<Trash2 class="size-4" />
-				</button>
+				{#if !readonly}
+					<button
+						class="button-destructive flex items-center gap-1 text-xs font-normal"
+						use:tooltip={'Delete Catalog'}
+						onclick={() => {
+							deletingRule = true;
+						}}
+					>
+						<Trash2 class="size-4" />
+					</button>
+				{/if}
 			</div>
 		{:else}
 			<h1 class="text-2xl font-semibold">Create Access Control Rule</h1>
@@ -280,6 +284,7 @@
 							id="mcp-catalog-name"
 							bind:value={accessControlRule.displayName}
 							class="text-input-filled mt-0.5"
+							disabled={readonly}
 						/>
 					</div>
 				</div>
@@ -289,22 +294,24 @@
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
 				<h2 class="text-lg font-semibold">User & Groups</h2>
-				<div class="relative flex items-center gap-4">
-					{#if loadingUsersAndGroups}
-						<button class="button-primary flex items-center gap-1 text-sm" disabled>
-							<Plus class="size-4" /> Add User/Group
-						</button>
-					{:else}
-						<button
-							class="button-primary flex items-center gap-1 text-sm"
-							onclick={() => {
-								addUserGroupDialog?.open();
-							}}
-						>
-							<Plus class="size-4" /> Add User/Group
-						</button>
-					{/if}
-				</div>
+				{#if !readonly}
+					<div class="relative flex items-center gap-4">
+						{#if loadingUsersAndGroups}
+							<button class="button-primary flex items-center gap-1 text-sm" disabled>
+								<Plus class="size-4" /> Add User/Group
+							</button>
+						{:else}
+							<button
+								class="button-primary flex items-center gap-1 text-sm"
+								onclick={() => {
+									addUserGroupDialog?.open();
+								}}
+							>
+								<Plus class="size-4" /> Add User/Group
+							</button>
+						{/if}
+					</div>
+				{/if}
 			</div>
 			{#if loadingUsersAndGroups}
 				<div class="my-2 flex items-center justify-center">
@@ -323,17 +330,19 @@
 					noDataMessage="No users or groups added."
 				>
 					{#snippet actions(d)}
-						<button
-							class="icon-button hover:text-red-500"
-							onclick={() => {
-								accessControlRule.subjects = accessControlRule.subjects?.filter(
-									(subject) => subject.id !== d.id
-								);
-							}}
-							use:tooltip={'Delete User/Group'}
-						>
-							<Trash2 class="size-4" />
-						</button>
+						{#if !readonly}
+							<button
+								class="icon-button hover:text-red-500"
+								onclick={() => {
+									accessControlRule.subjects = accessControlRule.subjects?.filter(
+										(subject) => subject.id !== d.id
+									);
+								}}
+								use:tooltip={'Delete User/Group'}
+							>
+								<Trash2 class="size-4" />
+							</button>
+						{/if}
 					{/snippet}
 				</Table>
 			{/if}
@@ -342,124 +351,130 @@
 		<div class="flex flex-col gap-2">
 			<div class="mb-2 flex items-center justify-between">
 				<h2 class="text-lg font-semibold">MCP Servers</h2>
-				<div class="relative flex items-center gap-4">
-					<button
-						class="button-primary flex items-center gap-1 text-sm"
-						onclick={() => {
-							addMcpServerDialog?.open();
-						}}
-					>
-						<Plus class="size-4" /> Add MCP Server
-					</button>
-				</div>
+				{#if !readonly}
+					<div class="relative flex items-center gap-4">
+						<button
+							class="button-primary flex items-center gap-1 text-sm"
+							onclick={() => {
+								addMcpServerDialog?.open();
+							}}
+						>
+							<Plus class="size-4" /> Add MCP Server
+						</button>
+					</div>
+				{/if}
 			</div>
 			<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
 				{#snippet actions(d)}
-					<button
-						class="icon-button hover:text-red-500"
-						onclick={() => {
-							accessControlRule.resources =
-								accessControlRule.resources?.filter((resource) => resource.id !== d.id) ?? [];
-						}}
-						use:tooltip={'Remove MCP Server'}
-					>
-						<Trash2 class="size-4" />
-					</button>
+					{#if !readonly}
+						<button
+							class="icon-button hover:text-red-500"
+							onclick={() => {
+								accessControlRule.resources =
+									accessControlRule.resources?.filter((resource) => resource.id !== d.id) ?? [];
+							}}
+							use:tooltip={'Remove MCP Server'}
+						>
+							<Trash2 class="size-4" />
+						</button>
+					{/if}
 				{/snippet}
 			</Table>
 		</div>
 	</div>
-	<div
-		class="bg-surface1 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 dark:bg-black dark:text-gray-600"
-		out:fly={{ x: -100, duration }}
-		in:fly={{ x: -100 }}
-	>
-		<div class="flex w-full justify-end gap-2">
-			{#if !accessControlRule.id}
-				<button
-					class="button text-sm"
-					onclick={() => {
-						if (redirect) {
-							goto(redirect);
-						} else {
-							goto('/admin/access-control');
-						}
-					}}
-				>
-					Cancel
-				</button>
-				<button
-					class="button-primary text-sm disabled:opacity-75"
-					disabled={!validate(accessControlRule) || saving}
-					onclick={async () => {
-						if (!id) return;
-						saving = true;
-						const response =
-							entity === 'workspace'
-								? await ChatService.createWorkspaceAccessControlRule(id, accessControlRule)
-								: await AdminService.createAccessControlRule(accessControlRule);
-						accessControlRule = response;
-						if (redirect) {
-							goto(redirect);
-						} else {
-							onCreate?.(response);
-						}
-						saving = false;
-					}}
-				>
-					{#if saving}
-						<LoaderCircle class="size-4 animate-spin" />
-					{:else}
-						Save
-					{/if}
-				</button>
-			{:else}
-				<button
-					class="button text-sm"
-					disabled={saving}
-					onclick={async () => {
-						if (!accessControlRule.id || !id) return;
-						saving = true;
-						accessControlRule =
-							entity === 'workspace'
-								? await ChatService.getWorkspaceAccessControlRule(id, accessControlRule.id)
-								: await AdminService.getAccessControlRule(accessControlRule.id);
-						saving = false;
-					}}
-				>
-					Reset
-				</button>
-				<button
-					class="button-primary text-sm disabled:opacity-75"
-					disabled={!validate(accessControlRule) || saving}
-					onclick={async () => {
-						if (!accessControlRule.id || !id) return;
-						saving = true;
-						const response =
-							entity === 'workspace'
-								? await ChatService.updateWorkspaceAccessControlRule(
-										id,
-										accessControlRule.id,
-										accessControlRule
-									)
-								: await AdminService.updateAccessControlRule(
-										accessControlRule.id,
-										accessControlRule
-									);
-						accessControlRule = response;
-						onUpdate?.(response);
-						saving = false;
-					}}
-				>
-					{#if saving}
-						<LoaderCircle class="size-4 animate-spin" />
-					{:else}
-						Update
-					{/if}
-				</button>
-			{/if}
+	{#if !readonly}
+		<div
+			class="bg-surface1 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 dark:bg-black dark:text-gray-600"
+			out:fly={{ x: -100, duration }}
+			in:fly={{ x: -100 }}
+		>
+			<div class="flex w-full justify-end gap-2">
+				{#if !accessControlRule.id}
+					<button
+						class="button text-sm"
+						onclick={() => {
+							if (redirect) {
+								goto(redirect);
+							} else {
+								goto('/admin/access-control');
+							}
+						}}
+					>
+						Cancel
+					</button>
+					<button
+						class="button-primary text-sm disabled:opacity-75"
+						disabled={!validate(accessControlRule) || saving}
+						onclick={async () => {
+							if (!id) return;
+							saving = true;
+							const response =
+								entity === 'workspace'
+									? await ChatService.createWorkspaceAccessControlRule(id, accessControlRule)
+									: await AdminService.createAccessControlRule(accessControlRule);
+							accessControlRule = response;
+							if (redirect) {
+								goto(redirect);
+							} else {
+								onCreate?.(response);
+							}
+							saving = false;
+						}}
+					>
+						{#if saving}
+							<LoaderCircle class="size-4 animate-spin" />
+						{:else}
+							Save
+						{/if}
+					</button>
+				{:else}
+					<button
+						class="button text-sm"
+						disabled={saving}
+						onclick={async () => {
+							if (!accessControlRule.id || !id) return;
+							saving = true;
+							accessControlRule =
+								entity === 'workspace'
+									? await ChatService.getWorkspaceAccessControlRule(id, accessControlRule.id)
+									: await AdminService.getAccessControlRule(accessControlRule.id);
+							saving = false;
+						}}
+					>
+						Reset
+					</button>
+					<button
+						class="button-primary text-sm disabled:opacity-75"
+						disabled={!validate(accessControlRule) || saving}
+						onclick={async () => {
+							if (!accessControlRule.id || !id) return;
+							saving = true;
+							const response =
+								entity === 'workspace'
+									? await ChatService.updateWorkspaceAccessControlRule(
+											id,
+											accessControlRule.id,
+											accessControlRule
+										)
+									: await AdminService.updateAccessControlRule(
+											accessControlRule.id,
+											accessControlRule
+										);
+							accessControlRule = response;
+							onUpdate?.(response);
+							saving = false;
+						}}
+					>
+						{#if saving}
+							<LoaderCircle class="size-4 animate-spin" />
+						{:else}
+							Update
+						{/if}
+					</button>
+				{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 </div>
 
 <SearchUsers

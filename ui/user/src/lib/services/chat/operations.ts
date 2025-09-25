@@ -1,3 +1,4 @@
+import { Group } from '$lib/services/admin/types';
 import type {
 	AccessControlRule,
 	AccessControlRuleManifest,
@@ -59,7 +60,13 @@ type ItemsResponse<T> = { items: T[] | null };
 export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	const obj = (await doGet('/me', opts)) as Profile;
 	obj.isAdmin = () => {
-		return obj.role === 1;
+		return obj.groups.includes(Group.ADMIN);
+	};
+	obj.hasAdminAccess = () => {
+		return obj.groups.includes(Group.ADMIN) || obj.groups.includes(Group.AUDITOR);
+	};
+	obj.isAdminReadonly = () => {
+		return !obj.groups.includes(Group.ADMIN) && obj.groups.includes(Group.AUDITOR);
 	};
 	obj.loaded = true;
 	return obj;
@@ -656,7 +663,7 @@ export async function listProjects(opts?: {
 }
 
 export function newMessageEventSource(
-	assistantID: string,
+	assistantID: string | undefined,
 	projectID: string,
 	opts?: {
 		authenticate?: {
@@ -695,10 +702,13 @@ export function newMessageEventSource(
 	}
 
 	const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
-	return new EventSource(
-		baseURL +
-			`/assistants/${assistantID}/projects/${projectID}/threads/${opts?.threadID}/events${queryString}`
-	);
+	if (assistantID) {
+		return new EventSource(
+			baseURL +
+				`/assistants/${assistantID}/projects/${projectID}/threads/${opts?.threadID}/events${queryString}`
+		);
+	}
+	return new EventSource(baseURL + `/threads/${opts?.threadID}/events${queryString}`);
 }
 
 export async function listTasks(assistantID: string, projectID: string): Promise<TaskList> {

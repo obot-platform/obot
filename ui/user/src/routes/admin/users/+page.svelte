@@ -3,16 +3,16 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import Select from '$lib/components/Select.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { BOOTSTRAP_USER_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { userRoleOptions } from '$lib/services/admin/constants.js';
-	import { Role, type OrgUser } from '$lib/services/admin/types';
-	import { AdminService } from '$lib/services/index.js';
+	import { Group, Role, type OrgUser } from '$lib/services/admin/types';
+	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
 	import { formatTimeAgo } from '$lib/time.js';
-	import { Handshake, LoaderCircle, ShieldAlert, Trash2, X } from 'lucide-svelte';
+	import { Handshake, Info, LoaderCircle, ShieldAlert, Trash2, X } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
+	import { getUserRoleLabel } from '$lib/utils';
 
 	let { data } = $props();
 	const { users: initialUsers } = data;
@@ -22,8 +22,9 @@
 		users.map((user) => ({
 			...user,
 			name: getUserDisplayName(user),
-			role: userRoleOptions.find((role) => role.id === user.role)?.label ?? 'Unknown',
-			roleId: user.role
+			role: getUserRoleLabel(user.role),
+			roleId: user.role & ~Role.AUDITOR,
+			auditor: user.role & Role.AUDITOR ? true : false
 		}))
 	);
 
@@ -33,7 +34,16 @@
 	let updatingRole = $state<TableItem>();
 	let deletingUser = $state<TableItem>();
 	let confirmHandoffToUser = $state<TableItem>();
+	let confirmAuditorAdditionToUser = $state<TableItem>();
 	let loading = $state(false);
+	let roleOptions = $derived([
+		...(profile.current.groups.includes(Group.OWNER) ? [{ label: 'Owner', id: Role.OWNER }] : []),
+		{ label: 'Admin', id: Role.ADMIN },
+		{ label: 'Power User', id: Role.POWERUSER },
+		{ label: 'Power User+', id: Role.POWERUSER_PLUS },
+		{ label: 'Basic User', id: Role.BASIC }
+	]);
+	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
 	function closeUpdateRoleDialog() {
 		updateRoleDialog?.close();
@@ -45,6 +55,10 @@
 		await AdminService.updateUserRole(userID, role);
 		if (refreshUsers) {
 			users = await AdminService.listUsers();
+		}
+		if (profile.current.id === userID) {
+			// update with the role change
+			profile.current = await ChatService.getProfile();
 		}
 		loading = false;
 		closeUpdateRoleDialog();
@@ -67,6 +81,7 @@
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
+	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
 </script>
 
 <Layout>
@@ -80,9 +95,11 @@
 				<h2 class="mb-2 text-lg font-semibold">Groups</h2>
 				<Table data={[]} fields={[]}>
 					{#snippet actions()}
-						<button class="icon-button hover:text-red-500" onclick={() => {}}>
-							<Trash2 class="size-4" />
-						</button>
+						{#if !isAdminReadonly}
+							<button class="icon-button hover:text-red-500" onclick={() => {}}>
+								<Trash2 class="size-4" />
+							</button>
+						{/if}
 					{/snippet}
 				</Table>
 			</div>
@@ -99,9 +116,9 @@
 						{#if property === 'role'}
 							<div class="flex items-center gap-1">
 								{d.role}
-								{#if d.explicitAdmin}
+								{#if d.explicitRole}
 									<div
-										use:tooltip={'This user is explicitly set as an admin at the system level and their role cannot be changed.'}
+										use:tooltip={"This user's role is explicitly set at the system level and cannot be changed."}
 									>
 										<ShieldAlert class="size-5" />
 									</div>
@@ -114,27 +131,32 @@
 						{/if}
 					{/snippet}
 					{#snippet actions(d)}
-						<DotDotDot>
-							<div class="default-dialog flex min-w-max flex-col p-2">
-								<button
-									class="menu-button"
-									disabled={d.explicitAdmin}
-									onclick={() => {
-										updatingRole = d;
-										updateRoleDialog?.showModal();
-									}}
-								>
-									Update Role
-								</button>
-								<button
-									class="menu-button text-red-500"
-									disabled={d.explicitAdmin}
-									onclick={() => (deletingUser = d)}
-								>
-									Delete User
-								</button>
-							</div>
-						</DotDotDot>
+						{#if !isAdminReadonly}
+							<DotDotDot>
+								<div class="default-dialog flex min-w-max flex-col p-2">
+									<button
+										class="menu-button"
+										disabled={!profile.current.groups.includes(Group.OWNER) &&
+											(d.groups.includes(Group.OWNER) || d.explicitRole)}
+										onclick={() => {
+											updatingRole = d;
+											updateRoleDialog?.showModal();
+										}}
+									>
+										Update Role
+									</button>
+									<button
+										class="menu-button text-red-500"
+										disabled={d.explicitRole ||
+											(d.groups.includes(Group.OWNER) &&
+												!profile.current.groups.includes(Group.OWNER))}
+										onclick={() => (deletingUser = d)}
+									>
+										Delete User
+									</button>
+								</div>
+							</DotDotDot>
+						{/if}
 					{/snippet}
 				</Table>
 			</div>
@@ -158,40 +180,71 @@
 
 <dialog bind:this={updateRoleDialog} class="w-full max-w-xl overflow-visible p-4">
 	{#if updatingRole}
+		{@const roleDescriptionMap = userRoleOptions.reduce(
+			(acc, role) => {
+				acc[role.id] = role.description;
+				return acc;
+			},
+			{} as Record<number, string>
+		)}
 		<h3 class="default-dialog-title">
 			Update User Role
 			<button onclick={() => closeUpdateRoleDialog()} class="icon-button">
 				<X class="size-5" />
 			</button>
 		</h3>
-		<div class="my-4 flex flex-col gap-4 text-sm font-light text-gray-500">
-			{#each userRoleOptions as role (role.id)}
-				<div class="flex gap-4">
-					<p class="w-28 flex-shrink-0 font-semibold">{role.label}</p>
-					{#if role.id === Role.ADMIN}
-						<p>Admins can manage all aspects of the platform.</p>
-					{:else}
-						<p>{role.description}</p>
-					{/if}
+		<div class="m-4 flex flex-col gap-2 text-sm font-light">
+			{#if updatingRole.explicitRole}
+				<div class="notification-info mb-2 p-3 text-sm font-light">
+					<div class="flex items-center gap-3">
+						<Info class="size-6" />
+						<div>This user's role is explicitly set at the system level and cannot be changed.</div>
+					</div>
 				</div>
+			{/if}
+			{#each roleOptions as role (role.id)}
+				<label class="flex gap-4">
+					<input
+						type="radio"
+						value={role.id}
+						bind:group={updatingRole.roleId}
+						disabled={updatingRole.explicitRole}
+					/>
+					<span class="flex flex-col" class:opacity-50={updatingRole.explicitRole}>
+						<p class="w-28 flex-shrink-0 font-semibold">{role.label}</p>
+						<p class="text-gray-500">
+							{#if role.id === Role.OWNER}
+								Owners can manage all aspects of the platform and can also assign the Owner role to
+								other users.
+							{:else if role.id === Role.ADMIN}
+								Admins can manage all aspects of the platform.
+							{:else}
+								{roleDescriptionMap[role.id]}
+							{/if}
+						</p>
+					</span>
+				</label>
 			{/each}
-		</div>
-		<div>
-			<Select
-				class="bg-surface1 shadow-inner"
-				options={[
-					{ label: 'Admin', id: Role.ADMIN },
-					{ label: 'Basic User', id: Role.USER },
-					{ label: 'Power User', id: Role.POWERUSER },
-					{ label: 'Power User Plus', id: Role.POWERUSER_PLUS }
-				]}
-				selected={updatingRole.roleId}
-				onSelect={(option) => {
-					if (updatingRole) {
-						updatingRole.roleId = option.id as number;
-					}
-				}}
-			/>
+
+			{#if profile.current.groups.includes(Group.OWNER)}
+				<label class="my-4 flex gap-4">
+					<input type="checkbox" bind:checked={updatingRole.auditor} />
+					<span class="flex flex-col">
+						<p class="w-28 flex-shrink-0 font-semibold">Auditor</p>
+						{#if auditorReadonlyAdminRoles.includes(updatingRole.roleId)}
+							<p class="text-gray-500">
+								Will have read-only access to the admin system and see additional details such as
+								response, request, and header information in the audit logs.
+							</p>
+						{:else}
+							<p class="text-gray-500">
+								Will gain access to additional details such as response, request, and header
+								information in the audit logs.
+							</p>
+						{/if}
+					</span>
+				</label>
+			{/if}
 		</div>
 		<div class="mt-4 flex justify-end gap-2">
 			<button class="button" onclick={() => closeUpdateRoleDialog()}>Cancel</button>
@@ -201,14 +254,23 @@
 					if (!updatingRole) return;
 					if (
 						profile.current.username === BOOTSTRAP_USER_ID &&
-						updatingRole.roleId === Role.ADMIN
+						updatingRole.roleId === Role.OWNER
 					) {
 						updateRoleDialog?.close();
 						confirmHandoffToUser = updatingRole;
 						return;
 					}
 
-					updateUserRole(updatingRole.id, updatingRole.roleId);
+					if (updatingRole.auditor) {
+						updateRoleDialog?.close();
+						confirmAuditorAdditionToUser = updatingRole;
+						return;
+					}
+
+					updateUserRole(
+						updatingRole.id,
+						updatingRole.auditor ? updatingRole.roleId | Role.AUDITOR : updatingRole.roleId
+					);
 				}}
 				disabled={loading}
 			>
@@ -227,7 +289,13 @@
 	{loading}
 	onsuccess={async () => {
 		if (!confirmHandoffToUser) return;
-		await updateUserRole(confirmHandoffToUser.id, Role.ADMIN, false);
+		await updateUserRole(
+			confirmHandoffToUser.id,
+			confirmHandoffToUser.auditor
+				? confirmHandoffToUser.roleId | Role.AUDITOR
+				: confirmHandoffToUser.roleId,
+			false
+		);
 		await AdminService.bootstrapLogout();
 		window.location.href = '/oauth2/sign_out?rd=/admin';
 		confirmHandoffToUser = undefined;
@@ -243,11 +311,49 @@
 	{#snippet note()}
 		<div class="mt-4 mb-8 flex flex-col gap-4">
 			<p>
-				Once you've established your first admin user, the bootstrap user currently being used will
-				be disabled. Upon completing this action, you'll be logged out and asked to log in using
-				your auth provider.
+				Once you've established your first admin or owner user, the bootstrap user currently being
+				used will be disabled. Upon completing this action, you'll be logged out and asked to log in
+				using your auth provider.
 			</p>
 			<p>Are you sure you want to continue?</p>
+		</div>
+	{/snippet}
+</Confirm>
+
+<Confirm
+	{loading}
+	show={Boolean(confirmAuditorAdditionToUser)}
+	onsuccess={async () => {
+		if (!confirmAuditorAdditionToUser) return;
+		await updateUserRole(
+			confirmAuditorAdditionToUser.id,
+			confirmAuditorAdditionToUser.roleId | Role.AUDITOR
+		);
+		confirmAuditorAdditionToUser = undefined;
+	}}
+	oncancel={() => (confirmAuditorAdditionToUser = undefined)}
+>
+	{#snippet title()}
+		<div class="flex items-center justify-center gap-2">
+			<h3 class="text-xl font-semibold">Confirm Auditor Role</h3>
+		</div>
+	{/snippet}
+	{#snippet note()}
+		<div class="mt-4 mb-8 flex flex-col gap-4">
+			<p class="text-left">
+				{#if confirmAuditorAdditionToUser && auditorReadonlyAdminRoles.includes(confirmAuditorAdditionToUser.roleId)}
+					Basic user auditors will have read-only access to the admin system and can see additional
+					details such as response, request, and header information in the audit logs.
+				{:else}
+					Auditors will gain access to additional details such as response, request, and header
+					information in the audit logs.
+				{/if}
+			</p>
+			<p>
+				Are you sure you want to grant <b
+					>{confirmAuditorAdditionToUser?.email || confirmAuditorAdditionToUser?.name}</b
+				> this role?
+			</p>
 		</div>
 	{/snippet}
 </Confirm>
