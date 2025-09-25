@@ -58,4 +58,5 @@ catalog.json
 # Ignore zed files
 .zed/
 
+.claude/
 CLAUDE.md

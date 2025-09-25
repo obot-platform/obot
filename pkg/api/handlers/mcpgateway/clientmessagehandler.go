@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gptscript-ai/go-gptscript"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -17,26 +18,47 @@ import (
 )
 
 func (h *Handler) asClientOption(session *nmcp.Session, userID, mcpID, mcpServerNamespace, mcpServerName, serverDisplayName, serverCatalogEntryName, serverCatalogName string) nmcp.ClientOption {
-	return nmcp.ClientOption{
+	ch := &clientMessageHandler{
+		webhookHelper:   h.webhookHelper,
+		gptClient:       h.gptClient,
+		gatewayClient:   h.gatewayClient,
+		pendingRequests: h.pendingRequestsForSession(session.ID()),
+		session: &gatewaySession{
+			session:                session,
+			userID:                 userID,
+			mcpID:                  mcpID,
+			serverNamespace:        mcpServerNamespace,
+			serverName:             mcpServerName,
+			serverDisplayName:      serverDisplayName,
+			serverCatalogEntryName: serverCatalogEntryName,
+			serverCatalogName:      serverCatalogName,
+		},
+	}
+
+	opts := nmcp.ClientOption{
 		ClientName:   "Obot MCP Gateway",
 		TokenStorage: h.tokenStore.ForUserAndMCP(userID, mcpID),
-		OnMessage: (&clientMessageHandler{
-			webhookHelper:   h.webhookHelper,
-			gptClient:       h.gptClient,
-			gatewayClient:   h.gatewayClient,
-			pendingRequests: h.pendingRequestsForSession(session.ID()),
-			session: &gatewaySession{
-				session:                session,
-				userID:                 userID,
-				mcpID:                  mcpID,
-				serverNamespace:        mcpServerNamespace,
-				serverName:             mcpServerName,
-				serverDisplayName:      serverDisplayName,
-				serverCatalogEntryName: serverCatalogEntryName,
-				serverCatalogName:      serverCatalogName,
-			},
-		}).onMessage,
+		OnMessage:    ch.onMessage,
 	}
+
+	if session.InitializeRequest.Capabilities.Elicitation != nil {
+		opts.OnElicit = func(ctx context.Context, msg nmcp.Message, _ nmcp.ElicitRequest) (nmcp.ElicitResult, error) {
+			return nmcp.ElicitResult{
+				// Returning action "handled" here tells nanobot that we are sending the response.
+				Action: "handled",
+			}, ch.onMessage(ctx, msg)
+		}
+	}
+
+	if session.InitializeRequest.Capabilities.Sampling != nil {
+		opts.OnSampling = ch.onSampling
+	}
+
+	if session.InitializeRequest.Capabilities.Roots != nil {
+		opts.OnRoots = ch.onMessage
+	}
+
+	return opts
 }
 
 type clientMessageHandler struct {
@@ -54,6 +76,51 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 		return fmt.Errorf("method is empty for message, the requester likely canceled and is no longer waiting for a response")
 	}
 
+	resp, err := c.handleMessage(ctx, msg)
+	if err != nil {
+		if msg.ID != nil {
+			msg.SendError(ctx, err)
+		}
+		return err
+	}
+
+	if msg.ID != nil {
+		if err = msg.Reply(ctx, resp); err != nil {
+			err = fmt.Errorf("failed to reply to message: %w", err)
+			msg.SendError(ctx, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *clientMessageHandler) onSampling(ctx context.Context, req nmcp.CreateMessageRequest) (nmcp.CreateMessageResult, error) {
+	var result nmcp.CreateMessageResult
+
+	msg, err := nmcp.NewMessage(methodSampling, req)
+	if err != nil {
+		return result, fmt.Errorf("failed to create message for request: %w", err)
+	}
+
+	// This message ID is only seen by us and the client. The MCP server has its own ID, we just don't see it here.
+	// Calling this out because we've seen some issues with IDs as strings, but hopefully the clients that people use
+	// handle this correctly.
+	msg.ID = uuid.NewString()
+
+	resp, err := c.handleMessage(ctx, *msg)
+	if err != nil {
+		return result, err
+	}
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return result, fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	return result, nil
+}
+
+func (c *clientMessageHandler) handleMessage(ctx context.Context, msg nmcp.Message) (json.RawMessage, error) {
 	auditLog := gatewaytypes.MCPAuditLog{
 		UserID:                    c.session.userID,
 		MCPID:                     c.session.mcpID,
@@ -96,12 +163,7 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 			}
 		} else {
 			auditLog.ResponseStatus = http.StatusOK
-			// Capture response body if available
-			if result != nil {
-				if responseBody, err := json.Marshal(result); err == nil {
-					auditLog.ResponseBody = responseBody
-				}
-			}
+			auditLog.ResponseBody = result
 		}
 
 		c.gatewayClient.LogMCPAuditEntry(auditLog)
@@ -110,15 +172,13 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 	var webhooks []mcp.Webhook
 	webhooks, err = c.webhookHelper.GetWebhooksForMCPServer(ctx, c.gptClient, c.session.serverNamespace, c.session.serverName, c.session.serverCatalogEntryName, c.session.serverCatalogName, auditLog.CallType, auditLog.CallIdentifier)
 	if err != nil {
-		msg.SendError(ctx, err)
 		auditLog.ResponseStatus = http.StatusInternalServerError
-		return fmt.Errorf("failed to get webhooks: %w", err)
+		return nil, fmt.Errorf("failed to get webhooks: %w", err)
 	}
 
 	if err = fireWebhooks(ctx, webhooks, msg, &auditLog, "request", c.session.userID, c.session.mcpID); err != nil {
-		msg.SendError(ctx, err)
 		auditLog.ResponseStatus = http.StatusFailedDependency
-		return fmt.Errorf("failed to fire webhooks: %w", err)
+		return nil, fmt.Errorf("failed to fire webhooks for request: %w", err)
 	}
 
 	var ch <-chan nmcp.Message
@@ -132,47 +192,38 @@ func (c *clientMessageHandler) onMessage(ctx context.Context, msg nmcp.Message) 
 			// No clients are reading these messages. Return and drop the audit log.
 			dropAuditLog = true
 
-			return nil
+			return nil, nil
 		}
-		msg.SendError(ctx, err)
-		return fmt.Errorf("failed to send message: %w", err)
+		return nil, fmt.Errorf("failed to send message: %w", err)
 	}
 
 	if msg.ID == nil || strings.HasPrefix(msg.Method, "notifications/") {
 		// Notifications only go from server to client. We don't expect a response.
-		return nil
+		return nil, nil
 	}
 
 	select {
 	case <-ctx.Done():
 		err = ctx.Err()
-		msg.SendError(ctx, err)
 	case m, ok := <-ch:
 		if !ok {
 			err = nmcp.ErrNoResponse
-			msg.SendError(ctx, err)
 		}
 
 		if m.Error != nil {
 			err = m.Error
-			msg.SendError(ctx, err)
-			return fmt.Errorf("message returned with error: %w", err)
+			return nil, fmt.Errorf("message returned with error: %w", err)
 		}
 
 		if err = fireWebhooks(ctx, webhooks, m, &auditLog, "response", c.session.userID, c.session.mcpID); err != nil {
-			msg.SendError(ctx, err)
 			auditLog.ResponseStatus = http.StatusFailedDependency
-			return fmt.Errorf("failed to fire webhooks: %w", err)
+			return nil, fmt.Errorf("failed to fire webhooks for response: %w", err)
 		}
 
 		result = m.Result
-		if err = msg.Reply(ctx, result); err != nil {
-			msg.SendError(ctx, err)
-			return fmt.Errorf("failed to reply to message: %w", err)
-		}
 	}
 
-	return err
+	return result, nil
 }
 
 type gatewaySession struct {
