@@ -50,6 +50,8 @@ var (
 		"/api/cronjobs/",
 		"/api/mcp-catalogs",
 		"/api/mcp-catalogs/",
+		"/api/mcp-servers",
+		"/api/mcp-servers/",
 		"/api/workspaces",
 		"/api/workspaces/",
 		"/api/mcp-webhook-validations",
