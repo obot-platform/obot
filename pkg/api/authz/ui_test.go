@@ -39,7 +39,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			path: "/admin/auth-providers",
 			user: &user.DefaultInfo{
 				Name:   "bootstrap",
-				Groups: []string{types.GroupOwner, types.GroupAdmin, types.GroupAuthenticated},
+				Groups: []string{types.GroupOwner, types.GroupAdmin, types.GroupBasic, types.GroupAuthenticated},
 			},
 			expected: true,
 		},
