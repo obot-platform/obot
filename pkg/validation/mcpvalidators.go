@@ -378,6 +378,16 @@ func (v RemoteValidator) validateRemoteCatalogConfig(config types.RemoteCatalogC
 		}
 	}
 
+	for i, header := range config.Headers {
+		if header.Value != "" && header.Sensitive {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   fmt.Sprintf("header[%d]", i),
+				Message: "static header value cannot be marked as sensitive",
+			}
+		}
+	}
+
 	return nil
 }
 

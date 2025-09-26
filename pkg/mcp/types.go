@@ -101,9 +101,24 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv ma
 	}
 
 	for _, header := range mcpServer.Spec.Manifest.Headers {
-		val, ok := credEnv[header.Key]
-		if !ok && header.Required {
-			missingRequiredNames = append(missingRequiredNames, header.Key)
+		var (
+			val      string
+			hasValue bool
+		)
+
+		// Check for static value first
+		if header.Value != "" {
+			val = header.Value
+			hasValue = true
+		} else {
+			// Fall back to user-configured value from credentials
+			val, hasValue = credEnv[header.Key]
+		}
+
+		if !hasValue {
+			if header.Required {
+				missingRequiredNames = append(missingRequiredNames, header.Key)
+			}
 			continue
 		}
 
@@ -178,13 +193,31 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 			// Add headers from remote config
 			serverConfig.Headers = make([]string, 0, len(mcpServer.Spec.Manifest.RemoteConfig.Headers))
 			for _, header := range mcpServer.Spec.Manifest.RemoteConfig.Headers {
-				val, ok := credEnv[header.Key]
-				if !ok || val == "" {
+				var (
+					val      string
+					hasValue bool
+				)
+
+				// Check for static value first
+				if header.Value != "" {
+					val = header.Value
+					hasValue = true
+				} else {
+					// Fall back to user-configured value from credentials
+					credVal, ok := credEnv[header.Key]
+					if ok && credVal != "" {
+						val = credVal
+						hasValue = true
+					}
+				}
+
+				if !hasValue {
 					if header.Required {
 						missingRequiredNames = append(missingRequiredNames, header.Key)
 					}
 					continue
 				}
+
 				serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
 			}
 		} else {

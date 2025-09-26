@@ -91,9 +91,14 @@ type MCPHeader struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 
-	Key       string `json:"key"`
-	Sensitive bool   `json:"sensitive"`
-	Required  bool   `json:"required"`
+	Key string `json:"key"`
+
+	// For static headers
+	Value string `json:"value"`
+
+	// For user-supplied headers
+	Sensitive bool `json:"sensitive"`
+	Required  bool `json:"required"`
 }
 
 type MCPEnv struct {
