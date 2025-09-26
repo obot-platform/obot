@@ -88,6 +88,9 @@
 	});
 
 	onMount(async () => {
+		// Prevent loading users and groups if we are in creation mode and onCreate callback is provided
+		if (onCreate) return;
+
 		loadingUsersAndGroups = true;
 		usersAndGroups = {
 			users: await AdminService.listUsers(),
