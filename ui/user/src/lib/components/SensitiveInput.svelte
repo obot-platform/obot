@@ -15,28 +15,10 @@
 	let { name, value = $bindable(''), error, oninput, textarea, disabled }: Props = $props();
 	let showSensitive = $state(false);
 	let textareaElement = $state<HTMLTextAreaElement>();
-	let isEditing = $state(false);
+	let isPulsing = $state(false);
 
 	function getMaskedValue(text: string): string {
 		return text.replace(/[^\n\r]/g, '•');
-	}
-
-	function handleTextareaFocus() {
-		if (!showSensitive) {
-			isEditing = true;
-		}
-	}
-
-	function handleTextareaBlur() {
-		if (!showSensitive) {
-			isEditing = false;
-		}
-	}
-
-	function handleTextareaInput(event: Event) {
-		const input = event.target as HTMLInputElement | HTMLTextAreaElement;
-		value = input.value;
-		oninput?.();
 	}
 
 	function handleInput(event: Event) {
@@ -48,6 +30,12 @@
 	function toggleVisibility(e: MouseEvent) {
 		e.preventDefault();
 		showSensitive = !showSensitive;
+
+		if (showSensitive) {
+			textareaElement?.focus();
+		}
+
+		isPulsing = false;
 	}
 </script>
 
@@ -58,16 +46,29 @@
 			data-1p-ignore
 			id={name}
 			{name}
+			{disabled}
 			class={twMerge(
 				'text-input-filled w-full pr-10',
 				error && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
 			)}
 			class:text-red-500={error}
-			value={showSensitive || isEditing ? value : getMaskedValue(value || '')}
-			onfocus={handleTextareaFocus}
-			onblur={handleTextareaBlur}
-			oninput={handleTextareaInput}
-			{disabled}
+			bind:value={
+				() => (showSensitive ? value : getMaskedValue(value || '')),
+				(v) => {
+					value = v;
+					oninput?.();
+				}
+			}
+			onkeydown={(ev) => {
+				if (!showSensitive) {
+					if (ev.key === 'v' && (ev.metaKey || ev.ctrlKey)) return true;
+
+					ev.preventDefault();
+					isPulsing = true;
+
+					return false;
+				}
+			}}
 		></textarea>
 	{:else}
 		<input
@@ -87,17 +88,40 @@
 		/>
 	{/if}
 
-	<button
-		type="button"
-		class="absolute top-1/2 right-4 z-10 -translate-y-1/2 cursor-pointer"
-		class:text-red-500={error}
-		onclick={toggleVisibility}
+	<div
+		class="absolute top-1/2 right-4 z-10 grid -translate-y-1/2 grid-cols-1 grid-rows-1"
 		use:tooltip={{ disablePortal: true, text: showSensitive ? 'Hide' : 'Reveal' }}
 	>
-		{#if showSensitive}
-			<EyeOff class="size-4" />
-		{:else}
-			<Eye class="size-4" />
-		{/if}
-	</button>
+		<button
+			type="button"
+			class="cursor-pointer transition-colors duration-150"
+			class:text-red-500={error}
+			class:pulse={isPulsing}
+			onclick={toggleVisibility}
+		>
+			{#if showSensitive}
+				<EyeOff class="size-4" />
+			{:else}
+				<Eye class="size-4" />
+			{/if}
+		</button>
+	</div>
 </div>
+
+<style>
+	@keyframes pulse {
+		0% {
+			color: rgb(255, 255, 255);
+			transform: scale(1);
+		}
+
+		100% {
+			color: var(--color-blue);
+			transform: scale(1.2);
+		}
+	}
+
+	.pulse {
+		animation: pulse 0.2s ease-in-out alternate infinite;
+	}
+</style>

@@ -57,12 +57,16 @@
 	let initialFormJson = $state<string>('');
 	let resizing = $state(false);
 
+	let isOpen = $state(false);
+
 	export function open() {
 		configDialog?.open();
 		if (!isNew) {
 			// store initial form data as jsonified string for comparison when not new
 			initialFormJson = JSON.stringify(form);
 		}
+
+		isOpen = true;
 	}
 
 	function clearHighlights() {
@@ -141,6 +145,7 @@
 	onClose={() => {
 		clearHighlights();
 		onClose?.();
+		isOpen = false;
 	}}
 	onClickOutside={() => {
 		if (resizing || disableOutsideClick) return;
@@ -148,6 +153,7 @@
 			showConfirmClose = true;
 		} else {
 			configDialog?.close();
+			isOpen = false;
 		}
 	}}
 >
@@ -163,122 +169,125 @@
 			{name}
 		</div>
 	{/snippet}
-	{#if error}
-		<div class="notification-error flex items-center gap-2">
-			<AlertCircle class="size-6 flex-shrink-0 text-red-500" />
-			<p class="flex flex-col text-sm font-light">
-				<span class="font-semibold">Error:</span>
-				<span>
-					{error}
-				</span>
-			</p>
-		</div>
-	{/if}
-	{#if form}
-		<form
-			onsubmit={(e) => {
-				e.preventDefault();
-			}}
-		>
-			<div class="my-4 flex flex-col gap-4">
-				{#if showAlias}
-					<div class="flex flex-col gap-1">
-						<span class="flex items-center gap-2">
-							<label for="name"> Server Alias </label>
-							<span class="text-gray-400 dark:text-gray-600">(optional)</span>
-							<InfoTooltip
-								text="Uses server name as default. Duplicate instances default to a number increment added at the end of name."
-							/>
-						</span>
-						<input type="text" id="name" bind:value={form.name} class="text-input-filled" />
-					</div>
-				{/if}
-				{#if form.envs && form.envs.length > 0}
-					{#each form.envs as env, i (env.key)}
-						{@const highlightRequired = highlightedFields.has(env.key) && !env.value}
-						<div class="flex flex-col gap-1">
-							<span class="flex items-center gap-2">
-								<label for={env.key} class={highlightRequired ? 'text-red-500' : ''}>
-									{env.name}
-									{#if !env.required}
-										<span class="text-gray-400 dark:text-gray-600">(optional)</span>
-									{/if}
-								</label>
-								<InfoTooltip text={env.description} />
-							</span>
-							{#if env.sensitive}
-								<SensitiveInput
-									error={highlightRequired}
-									name={env.name}
-									bind:value={form.envs[i].value}
-									textarea={env.file}
-								/>
-							{:else if env.file}
-								<textarea
-									id={env.key}
-									bind:value={form.envs[i].value}
-									class={twMerge(
-										'text-input-filled h-32 resize-y whitespace-pre-wrap',
-										highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-									)}
-									onmousedown={() => (resizing = true)}
-									onmouseup={() => (resizing = false)}
-								></textarea>
-							{:else}
-								<input
-									type="text"
-									id={env.key}
-									bind:value={form.envs[i].value}
-									class={twMerge(
-										'text-input-filled',
-										highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-									)}
-								/>
-							{/if}
-						</div>
-					{/each}
-				{/if}
-				{#if form.headers && form.headers.length > 0}
-					{#each form.headers as header, i (header.key)}
-						<div class="flex flex-col gap-1">
-							<span class="flex items-center gap-2">
-								<label for={header.key}>
-									{header.name}
-									{#if !header.required}
-										<span class="text-gray-400 dark:text-gray-600">(optional)</span>
-									{/if}
-								</label>
-								<InfoTooltip text={header.description} />
-							</span>
-							{#if header.sensitive}
-								<SensitiveInput name={header.name} bind:value={form.headers[i].value} />
-							{:else}
-								<input
-									type="text"
-									id={header.key}
-									bind:value={form.headers[i].value}
-									class="text-input-filled"
-								/>
-							{/if}
-						</div>
-					{/each}
-				{/if}
-				{#if form.hostname}
-					<label for="url-manifest-url"> URL </label>
-					<input
-						type="text"
-						id="url-manifest-url"
-						bind:value={form.url}
-						class="text-input-filled"
-					/>
-					<span class="font-light text-gray-400 dark:text-gray-600">
-						The URL must contain the hostname: <b class="font-semibold">
-							{form.hostname}
-						</b>
+
+	{#if isOpen}
+		{#if error}
+			<div class="notification-error flex items-center gap-2">
+				<AlertCircle class="size-6 flex-shrink-0 text-red-500" />
+				<p class="flex flex-col text-sm font-light">
+					<span class="font-semibold">Error:</span>
+					<span>
+						{error}
 					</span>
-				{/if}
+				</p>
 			</div>
-		</form>
+		{/if}
+		{#if form}
+			<form
+				onsubmit={(e) => {
+					e.preventDefault();
+				}}
+			>
+				<div class="my-4 flex flex-col gap-4">
+					{#if showAlias}
+						<div class="flex flex-col gap-1">
+							<span class="flex items-center gap-2">
+								<label for="name"> Server Alias </label>
+								<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+								<InfoTooltip
+									text="Uses server name as default. Duplicate instances default to a number increment added at the end of name."
+								/>
+							</span>
+							<input type="text" id="name" bind:value={form.name} class="text-input-filled" />
+						</div>
+					{/if}
+					{#if form.envs && form.envs.length > 0}
+						{#each form.envs as env, i (env.key)}
+							{@const highlightRequired = highlightedFields.has(env.key) && !env.value}
+							<div class="flex flex-col gap-1">
+								<span class="flex items-center gap-2">
+									<label for={env.key} class={highlightRequired ? 'text-red-500' : ''}>
+										{env.name}
+										{#if !env.required}
+											<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+										{/if}
+									</label>
+									<InfoTooltip text={env.description} />
+								</span>
+								{#if env.sensitive}
+									<SensitiveInput
+										error={highlightRequired}
+										name={env.name}
+										bind:value={form.envs[i].value}
+										textarea={env.file}
+									/>
+								{:else if env.file}
+									<textarea
+										id={env.key}
+										bind:value={form.envs[i].value}
+										class={twMerge(
+											'text-input-filled h-32 resize-y whitespace-pre-wrap',
+											highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+										)}
+										onmousedown={() => (resizing = true)}
+										onmouseup={() => (resizing = false)}
+									></textarea>
+								{:else}
+									<input
+										type="text"
+										id={env.key}
+										bind:value={form.envs[i].value}
+										class={twMerge(
+											'text-input-filled',
+											highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+										)}
+									/>
+								{/if}
+							</div>
+						{/each}
+					{/if}
+					{#if form.headers && form.headers.length > 0}
+						{#each form.headers as header, i (header.key)}
+							<div class="flex flex-col gap-1">
+								<span class="flex items-center gap-2">
+									<label for={header.key}>
+										{header.name}
+										{#if !header.required}
+											<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+										{/if}
+									</label>
+									<InfoTooltip text={header.description} />
+								</span>
+								{#if header.sensitive}
+									<SensitiveInput name={header.name} bind:value={form.headers[i].value} />
+								{:else}
+									<input
+										type="text"
+										id={header.key}
+										bind:value={form.headers[i].value}
+										class="text-input-filled"
+									/>
+								{/if}
+							</div>
+						{/each}
+					{/if}
+					{#if form.hostname}
+						<label for="url-manifest-url"> URL </label>
+						<input
+							type="text"
+							id="url-manifest-url"
+							bind:value={form.url}
+							class="text-input-filled"
+						/>
+						<span class="font-light text-gray-400 dark:text-gray-600">
+							The URL must contain the hostname: <b class="font-semibold">
+								{form.hostname}
+							</b>
+						</span>
+					{/if}
+				</div>
+			</form>
+		{/if}
 	{/if}
 
 	<div class="flex justify-end gap-2">
@@ -302,6 +311,7 @@
 	onsuccess={async () => {
 		showConfirmClose = false;
 		configDialog?.close();
+		isOpen = false;
 	}}
 	oncancel={() => (showConfirmClose = false)}
 >
