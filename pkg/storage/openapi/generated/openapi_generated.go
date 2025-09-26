@@ -3134,11 +3134,20 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 							Format:  "",
 						},
 					},
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Description: "For static headers",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"sensitive": {
 						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
+							Description: "For user-supplied headers",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"required": {
@@ -3156,7 +3165,7 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"name", "description", "key", "sensitive", "required", "file"},
+				Required: []string{"name", "description", "key", "value", "sensitive", "required", "file"},
 			},
 		},
 	}
@@ -3189,11 +3198,20 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 							Format:  "",
 						},
 					},
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Description: "For static headers",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"sensitive": {
 						SchemaProps: spec.SchemaProps{
-							Default: false,
-							Type:    []string{"boolean"},
-							Format:  "",
+							Description: "For user-supplied headers",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"required": {
@@ -3204,7 +3222,7 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"name", "description", "key", "sensitive", "required"},
+				Required: []string{"name", "description", "key", "value", "sensitive", "required"},
 			},
 		},
 	}
