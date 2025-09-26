@@ -1,3 +1,4 @@
+//nolint:revive
 package types
 
 type Migration struct {
