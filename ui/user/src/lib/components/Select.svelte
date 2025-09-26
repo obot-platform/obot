@@ -72,7 +72,7 @@
 	});
 
 	let input = $state<HTMLInputElement>();
-	let optionHighlightIndex = $state(0);
+	let optionHighlightIndex = $state(-1);
 	let popoverPlacement = $state<{ x: number; y: number }>();
 
 	let availableOptions = $derived(
@@ -105,7 +105,7 @@
 			input?.focus();
 		}
 
-		optionHighlightIndex = 0;
+		optionHighlightIndex = -1;
 		query = (e.target as HTMLInputElement).value;
 	}
 
@@ -238,7 +238,7 @@
 		use:clickOutside={[
 			() => {
 				popover?.close();
-				optionHighlightIndex = 0;
+				optionHighlightIndex = -1;
 			},
 			true
 		]}
@@ -257,14 +257,17 @@
 
 				<button
 					class={twMerge(
-						'dark:hover:bg-surface3 hover:bg-surface2 text-md flex w-full items-center px-4 py-2 text-left break-all transition-colors duration-100',
-						isSelected && 'dark:bg-surface1 bg-gray-50',
-						isHighlighted && 'dark:bg-surface3 bg-surface2',
+						'dark:hover:bg-surface3/50 hover:bg-surface2/50 text-md flex w-full items-center px-4 py-2 text-left break-all transition-colors duration-100',
+						isSelected &&
+							'dark:bg-surface3/90 dark:hover:bg-surface3/50 bg-surface2/90 hover:bg-surface3/50',
+						isHighlighted && 'dark:bg-surface3 bg-surface3',
 						classes?.option
 					)}
 					onclick={(e) => {
 						e.stopPropagation();
 						handleSelect(option);
+
+						optionHighlightIndex = -1;
 					}}
 				>
 					<div>{option.label}</div>
@@ -296,10 +299,10 @@
 				e.preventDefault();
 				e.stopPropagation();
 
-				if (e.key === 'ArrowDown' && optionHighlightIndex !== availableOptions.length - 1) {
-					optionHighlightIndex++;
-				} else if (e.key === 'ArrowUp' && optionHighlightIndex !== 0) {
-					optionHighlightIndex--;
+				if (e.key === 'ArrowDown') {
+					optionHighlightIndex = Math.min(optionHighlightIndex + 1, availableOptions.length - 1);
+				} else if (e.key === 'ArrowUp') {
+					optionHighlightIndex = Math.max(optionHighlightIndex - 1, -1);
 				}
 			}
 
