@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -605,6 +606,218 @@ func TestRemoteValidator_validateRemoteCatalogConfig_HostnameRegexEdgeCases(t *t
 			} else {
 				if err != nil {
 					t.Errorf("unexpected error for hostname '%s': %v", tt.hostname, err)
+				}
+			}
+		})
+	}
+}
+
+func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
+	validator := RemoteValidator{}
+
+	tests := []struct {
+		name        string
+		manifest    types.MCPServerManifest
+		expectError bool
+		errorField  string
+		errorMsg    string
+	}{
+		{
+			name: "valid headers",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://example.com/mcp",
+					Headers: []types.MCPHeader{
+						{Key: "Authorization", Value: "Bearer token"},
+						{Key: "Content-Type", Value: "application/json"},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "empty header key should fail",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://example.com/mcp",
+					Headers: []types.MCPHeader{
+						{Key: "", Value: "some-value"},
+					},
+				},
+			},
+			expectError: true,
+			errorField:  "header[0].key",
+			errorMsg:    "header key cannot be empty",
+		},
+		{
+			name: "whitespace-only header key should fail",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://example.com/mcp",
+					Headers: []types.MCPHeader{
+						{Key: "   ", Value: "some-value"},
+					},
+				},
+			},
+			expectError: true,
+			errorField:  "header[0].key",
+			errorMsg:    "header key cannot be empty",
+		},
+		{
+			name: "static header marked as sensitive should fail",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://example.com/mcp",
+					Headers: []types.MCPHeader{
+						{Key: "Authorization", Value: "Bearer token", Sensitive: true},
+					},
+				},
+			},
+			expectError: true,
+			errorField:  "header[0]",
+			errorMsg:    "static header value cannot be marked as sensitive",
+		},
+		{
+			name: "user-configurable header can be sensitive",
+			manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://example.com/mcp",
+					Headers: []types.MCPHeader{
+						{Key: "API-Key", Value: "", Sensitive: true, Required: true},
+					},
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateConfig(tt.manifest)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+					return
+				}
+
+				var runtimeErr types.RuntimeValidationError
+				if errors.As(err, &runtimeErr) {
+					if runtimeErr.Field != tt.errorField {
+						t.Errorf("expected error field %q, got %q", tt.errorField, runtimeErr.Field)
+					}
+					if !strings.Contains(runtimeErr.Message, tt.errorMsg) {
+						t.Errorf("expected error message to contain %q, got %q", tt.errorMsg, runtimeErr.Message)
+					}
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestRemoteValidator_ValidateCatalogConfig_HeaderValidation(t *testing.T) {
+	validator := RemoteValidator{}
+
+	tests := []struct {
+		name        string
+		manifest    types.MCPServerCatalogEntryManifest
+		expectError bool
+		errorField  string
+		errorMsg    string
+	}{
+		{
+			name: "valid headers",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://example.com/mcp",
+					Headers: []types.MCPHeader{
+						{Key: "Authorization", Value: "Bearer token"},
+						{Key: "Content-Type", Value: "application/json"},
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "empty header key should fail",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://example.com/mcp",
+					Headers: []types.MCPHeader{
+						{Key: "", Value: "some-value"},
+					},
+				},
+			},
+			expectError: true,
+			errorField:  "header[0].key",
+			errorMsg:    "header key cannot be empty",
+		},
+		{
+			name: "multiple headers with one empty key should fail",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://example.com/mcp",
+					Headers: []types.MCPHeader{
+						{Key: "Valid-Header", Value: "valid-value"},
+						{Key: "", Value: "invalid-value"},
+					},
+				},
+			},
+			expectError: true,
+			errorField:  "header[1].key",
+			errorMsg:    "header key cannot be empty",
+		},
+		{
+			name: "static header marked as sensitive should fail",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://example.com/mcp",
+					Headers: []types.MCPHeader{
+						{Key: "Authorization", Value: "Bearer token", Sensitive: true},
+					},
+				},
+			},
+			expectError: true,
+			errorField:  "header[0]",
+			errorMsg:    "static header value cannot be marked as sensitive",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateCatalogConfig(tt.manifest)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+					return
+				}
+
+				var runtimeErr types.RuntimeValidationError
+				if errors.As(err, &runtimeErr) {
+					if runtimeErr.Field != tt.errorField {
+						t.Errorf("expected error field %q, got %q", tt.errorField, runtimeErr.Field)
+					}
+					if !strings.Contains(runtimeErr.Message, tt.errorMsg) {
+						t.Errorf("expected error message to contain %q, got %q", tt.errorMsg, runtimeErr.Message)
+					}
+				}
+			} else {
+				if err != nil {
+					t.Errorf("unexpected error: %v", err)
 				}
 			}
 		})

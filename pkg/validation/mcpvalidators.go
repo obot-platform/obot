@@ -308,6 +308,24 @@ func (v RemoteValidator) validateRemoteConfig(config types.RemoteRuntimeConfig) 
 		}
 	}
 
+	// Validate headers
+	for i, header := range config.Headers {
+		if strings.TrimSpace(header.Key) == "" {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   fmt.Sprintf("header[%d].key", i),
+				Message: "header key cannot be empty",
+			}
+		}
+		if header.Value != "" && header.Sensitive {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   fmt.Sprintf("header[%d]", i),
+				Message: "static header value cannot be marked as sensitive",
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -379,6 +397,13 @@ func (v RemoteValidator) validateRemoteCatalogConfig(config types.RemoteCatalogC
 	}
 
 	for i, header := range config.Headers {
+		if strings.TrimSpace(header.Key) == "" {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   fmt.Sprintf("header[%d].key", i),
+				Message: "header key cannot be empty",
+			}
+		}
 		if header.Value != "" && header.Sensitive {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeRemote,

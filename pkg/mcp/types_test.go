@@ -276,23 +276,6 @@ func TestServerToServerConfig_StaticHeaders_EdgeCases(t *testing.T) {
 		expectError     bool
 	}{
 		{
-			name: "empty header key gets processed as empty key",
-			manifest: types.MCPServerManifest{
-				Runtime: types.RuntimeRemote,
-				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://example.com/mcp",
-					Headers: []types.MCPHeader{
-						{Key: "", Value: "some-value"},
-						{Key: "Valid-Header", Value: "valid-value"},
-					},
-				},
-			},
-			credEnv:         map[string]string{},
-			expectedHeaders: []string{"=some-value", "Valid-Header=valid-value"},
-			expectedMissing: []string{},
-			expectError:     false,
-		},
-		{
 			name: "header with special characters in value",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeRemote,
