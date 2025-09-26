@@ -406,6 +406,7 @@
 				if (
 					selectedEntryOrServer.parent &&
 					selectedEntryOrServer.parent.manifest.runtime === 'remote' &&
+					selectedEntryOrServer.parent.manifest.remoteConfig?.urlTemplate === undefined &&
 					configureForm.url
 				) {
 					await ChatService.updateRemoteMcpServerUrl(
