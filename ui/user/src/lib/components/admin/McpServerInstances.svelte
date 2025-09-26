@@ -15,25 +15,22 @@
 		GitCompare,
 		LoaderCircle,
 		Router,
-		Server,
 		ServerCog,
 		Square,
 		SquareCheck,
 		TriangleAlert
 	} from 'lucide-svelte';
 	import { formatTimeAgo } from '$lib/time';
-	import { profile, responsive } from '$lib/stores';
-	import { formatJsonWithDiffHighlighting, generateJsonDiff } from '$lib/diff';
+	import { profile } from '$lib/stores';
 	import DotDotDot from '../DotDotDot.svelte';
 	import { onMount } from 'svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Table from '../table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { twMerge } from 'tailwind-merge';
 	import Confirm from '../Confirm.svelte';
 	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
 	import { openUrl } from '$lib/utils';
+	import DiffDialog from '../DiffDialog.svelte';
 
 	interface Props {
 		id?: string;
@@ -51,7 +48,7 @@
 	let showConfirm = $state<
 		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
 	>();
-	let diffDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
 	let diffServer = $state<MCPCatalogServer>();
 	let selected = $state<Record<string, MCPCatalogServer>>({});
 	let updating = $state<Record<string, { inProgress: boolean; error: string }>>({});
@@ -372,92 +369,7 @@
 	{@render emptyInstancesContent()}
 {/if}
 
-<ResponsiveDialog bind:this={diffDialog} class="h-dvh w-full max-w-full p-0 md:w-[calc(100vw-2em)]">
-	{#snippet titleContent()}
-		{#if diffServer?.manifest}
-			<div class="flex items-center gap-2 md:p-4 md:pb-0">
-				<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
-					{#if diffServer?.manifest?.icon}
-						<img src={diffServer.manifest.icon} alt={diffServer.manifest.name} class="size-5" />
-					{:else}
-						<Server class="size-5" />
-					{/if}
-				</div>
-				{diffServer.manifest.name} | {diffServer.id}
-			</div>
-		{/if}
-	{/snippet}
-	{#if entry}
-		{@const newServerManifest = entry.manifest}
-		{@const diffManifest = diffServer?.manifest}
-		{#if newServerManifest && diffManifest}
-			{@const diff = generateJsonDiff(diffManifest, newServerManifest)}
-			{#if !responsive.isMobile}
-				<div class="grid h-full grid-cols-2">
-					<div class="h-full">
-						<h3 class="mb-2 px-4 text-sm font-semibold text-gray-600 dark:text-gray-400">
-							Current Version
-						</h3>
-						<div
-							class="default-scrollbar-thin dark:border-surface3 dark:bg-surface1 h-full overflow-x-auto border-r border-gray-200 bg-gray-50 p-4"
-						>
-							<div class="font-mono text-sm whitespace-pre">
-								{@html formatJsonWithDiffHighlighting(diffManifest, diff, true)}
-							</div>
-						</div>
-					</div>
-					<div class="h-full">
-						<h3 class="mb-2 px-4 text-sm font-semibold text-gray-600 dark:text-gray-400">
-							New Version
-						</h3>
-						<div
-							class="default-scrollbar-thin dark:border-surface3 dark:bg-surface1 h-full overflow-x-auto bg-gray-50 p-4"
-						>
-							<div class="font-mono text-sm whitespace-pre">
-								{@html formatJsonWithDiffHighlighting(newServerManifest, diff, false)}
-							</div>
-						</div>
-					</div>
-				</div>
-			{:else}
-				<div class="h-full w-full pl-2">
-					<h3 class="mb-2 text-sm font-semibold text-gray-600 dark:text-gray-400">Source Diff</h3>
-					<div
-						class="default-scrollbar-thin dark:bg-surface1 h-full overflow-auto rounded-sm bg-gray-50 pt-4"
-					>
-						{#each diff.unifiedLines as line, i (i)}
-							{@const type = line.startsWith('+')
-								? 'added'
-								: line.startsWith('-')
-									? 'removed'
-									: 'unchanged'}
-							{@const content = line.startsWith('+') || line.startsWith('-') ? line.slice(1) : line}
-							{@const prefix = line.startsWith('+') ? '+' : line.startsWith('-') ? '-' : ' '}
-							<div
-								class={twMerge(
-									'font-mono text-sm whitespace-pre',
-									type === 'added'
-										? 'bg-green-500/10 text-green-500 dark:bg-green-900/30'
-										: type === 'removed'
-											? 'bg-red-500/10 text-red-500'
-											: 'text-gray-700 dark:text-gray-300'
-								)}
-							>
-								{prefix}{content}
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-		{:else}
-			<div class="flex items-center justify-center py-8">
-				<p class="text-gray-500 dark:text-gray-400">
-					Unable to compare manifests. Missing manifest data.
-				</p>
-			</div>
-		{/if}
-	{/if}
-</ResponsiveDialog>
+<DiffDialog bind:this={diffDialog} fromServer={diffServer} toServer={entry} />
 
 {#snippet emptyInstancesContent()}
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
