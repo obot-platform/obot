@@ -449,6 +449,87 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 	return req.Write(types.MCPServerList{Items: items})
 }
 
+// AdminListServersForAllEntriesInCatalog returns all servers for all entries in a catalog.
+func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+
+	var catalog v1.MCPCatalog
+	if err := req.Get(&catalog, catalogName); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	// Get all entries in the catalog
+	var entriesList v1.MCPServerCatalogEntryList
+	if err := req.List(&entriesList); err != nil {
+		return fmt.Errorf("failed to list entries: %w", err)
+	}
+
+	// Filter entries that belong to this catalog
+	var catalogEntries []v1.MCPServerCatalogEntry
+	for _, entry := range entriesList.Items {
+		if entry.Spec.MCPCatalogName == catalogName {
+			catalogEntries = append(catalogEntries, entry)
+		}
+	}
+
+	// Collect all entry names
+	entryNames := make([]string, 0, len(catalogEntries))
+	for _, entry := range catalogEntries {
+		entryNames = append(entryNames, entry.Name)
+	}
+
+	// For each entry, get its servers using the same approach as AdminListServersForEntryInCatalog
+	var allServers []v1.MCPServer
+	for _, entry := range catalogEntries {
+		var serverList v1.MCPServerList
+		if err := req.List(&serverList, client.MatchingFields{
+			"spec.mcpServerCatalogEntryName": entry.Name,
+		}); err != nil {
+			return fmt.Errorf("failed to list servers for entry %s: %w", entry.Name, err)
+		}
+		allServers = append(allServers, serverList.Items...)
+	}
+
+	// Filter out template servers and duplicates
+	var filteredServers []v1.MCPServer
+	seenServers := make(map[string]bool)
+	for _, server := range allServers {
+		if server.Spec.Template {
+			// Hide template servers
+			continue
+		}
+		if seenServers[server.Name] {
+			continue
+		}
+		seenServers[server.Name] = true
+		filteredServers = append(filteredServers, server)
+	}
+
+	var items []types.MCPServer
+	for _, server := range filteredServers {
+		var credCtx string
+		if server.Spec.MCPCatalogID != "" {
+			credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
+		} else {
+			credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
+		}
+
+		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential: %w", err)
+		}
+
+		slug, err := slugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
+		if err != nil {
+			return fmt.Errorf("failed to generate slug: %w", err)
+		}
+
+		items = append(items, convertMCPServer(server, cred.Env, h.serverURL, slug))
+	}
+
+	return req.Write(types.MCPServerList{Items: items})
+}
+
 // ListServersForEntry returns a specific entry from a catalog or workspace.
 func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
