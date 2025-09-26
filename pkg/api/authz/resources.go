@@ -238,6 +238,7 @@ var apiResources = map[string][]string{
 		"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/details",
 		"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/logs",
 		"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/restart",
+		"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/trigger-update",
 	},
 	types.GroupPowerUserPlus: {
 		"GET    /api/workspaces/{workspace_id}/servers",
