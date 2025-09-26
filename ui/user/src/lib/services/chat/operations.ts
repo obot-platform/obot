@@ -663,7 +663,7 @@ export async function listProjects(opts?: {
 }
 
 export function newMessageEventSource(
-	assistantID: string | undefined,
+	assistantID: string,
 	projectID: string,
 	opts?: {
 		authenticate?: {
@@ -702,13 +702,10 @@ export function newMessageEventSource(
 	}
 
 	const queryString = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
-	if (assistantID) {
-		return new EventSource(
-			baseURL +
-				`/assistants/${assistantID}/projects/${projectID}/threads/${opts?.threadID}/events${queryString}`
-		);
-	}
-	return new EventSource(baseURL + `/threads/${opts?.threadID}/events${queryString}`);
+	return new EventSource(
+		baseURL +
+			`/assistants/${assistantID}/projects/${projectID}/threads/${opts?.threadID}/events${queryString}`
+	);
 }
 
 export async function listTasks(assistantID: string, projectID: string): Promise<TaskList> {
