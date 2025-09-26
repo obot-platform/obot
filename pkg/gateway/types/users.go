@@ -41,6 +41,11 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 		return nil
 	}
 
+	groups := u.Role.Groups()
+	if authProviderName == "bootstrap" {
+		groups = []string{types2.GroupOwner, types2.GroupAdmin, types2.GroupBasic, types2.GroupAuthenticated}
+	}
+
 	user := &types2.User{
 		Metadata: types2.Metadata{
 			ID:      fmt.Sprint(u.ID),
@@ -50,7 +55,7 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 		Username:                   u.Username,
 		Email:                      u.Email,
 		Role:                       u.Role,
-		Groups:                     u.Role.Groups(),
+		Groups:                     groups,
 		ExplicitRole:               roleFixed,
 		IconURL:                    u.IconURL,
 		Timezone:                   u.Timezone,

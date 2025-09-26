@@ -173,6 +173,9 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 			Name:   "bootstrap",
 			UID:    fmt.Sprintf("%d", gatewayUser.ID),
 			Groups: []string{types2.GroupOwner, types2.GroupAdmin, types2.GroupBasic, types2.GroupAuthenticated},
+			Extra: map[string][]string{
+				"auth_provider_name": {"bootstrap"},
+			},
 		},
 	}, true, nil
 }
