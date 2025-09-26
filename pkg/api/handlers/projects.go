@@ -319,7 +319,7 @@ func (h *ProjectsHandler) ListProjects(req api.Context) error {
 		}
 	}
 
-	projects, err := h.getProjects(req, agent, req.UserIsAdmin() && req.URL.Query().Get("all") == "true")
+	projects, err := h.getProjects(req, agent, (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true")
 	if err != nil {
 		return err
 	}

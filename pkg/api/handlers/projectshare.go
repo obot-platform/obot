@@ -93,7 +93,7 @@ func (h *ProjectShareHandler) ListShares(req api.Context) error {
 		fields          = kclient.MatchingFields{
 			"spec.template": "false",
 		}
-		all = req.UserIsAdmin() && req.URL.Query().Get("all") == "true"
+		all = (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
 	)
 
 	if !all {
