@@ -146,6 +146,7 @@
 				property: 'displayName'
 			}
 		]}
+		filterable={['displayName', 'owner']}
 		sortable={['displayName', 'servers', 'owner']}
 	>
 		{#snippet actions(d)}
