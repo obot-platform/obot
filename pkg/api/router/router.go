@@ -455,6 +455,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.UpdateEntry)
 	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.DeleteEntry)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/servers", mcpCatalogs.AdminListServersForEntryInCatalog)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/all-servers", mcpCatalogs.AdminListServersForAllEntriesInCatalog)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/generate-tool-previews", mcpCatalogs.GenerateToolPreviews)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateToolPreviewsOAuthURL)
 
@@ -472,6 +473,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/reveal", mcp.Reveal)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/instances", serverInstances.ListServerInstancesForServer)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/all-instances", mcp.ListServerInstances)
 
 	// Access Control Rules (admin only, scoped to catalogs)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/access-control-rules", accessControlRules.List)
@@ -486,7 +488,9 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	mux.HandleFunc("GET /api/workspaces/all-entries", powerUserWorkspaces.ListAllEntries)
 	mux.HandleFunc("GET /api/workspaces/all-servers", powerUserWorkspaces.ListAllServers)
+	mux.HandleFunc("GET /api/workspaces/all-entries/all-servers", powerUserWorkspaces.ListAllServersForAllEntries)
 	mux.HandleFunc("GET /api/workspaces/all-access-control-rules", powerUserWorkspaces.ListAllAccessControlRules)
+	mux.HandleFunc("GET /api/workspaces/all-servers/all-instances", powerUserWorkspaces.ListAllServersInstances)
 
 	// Workspace-scoped Access Control Rules (PowerUserPlus only)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/access-control-rules", accessControlRules.List)

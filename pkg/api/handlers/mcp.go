@@ -2383,3 +2383,68 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 
 	return nil
 }
+
+// ListServerInstances returns all instances for all servers within a specific catalog
+func (m *MCPHandler) ListServerInstances(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+
+	// Verify the catalog exists
+	var catalog v1.MCPCatalog
+	if err := req.Get(&catalog, catalogID); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	// Get all servers in this catalog
+	var serverList v1.MCPServerList
+	if err := req.List(&serverList, kclient.MatchingFields{
+		"spec.mcpCatalogID": catalogID,
+	}); err != nil {
+		return fmt.Errorf("failed to list servers in catalog: %w", err)
+	}
+
+	// Filter out template servers
+	var catalogServers []v1.MCPServer
+	for _, server := range serverList.Items {
+		if !server.Spec.Template {
+			catalogServers = append(catalogServers, server)
+		}
+	}
+
+	// Get all instances for these catalog servers
+	var allInstances v1.MCPServerInstanceList
+	if err := req.List(&allInstances); err != nil {
+		return fmt.Errorf("failed to list server instances: %w", err)
+	}
+
+	// Filter instances that belong to servers in this catalog
+	var catalogServerNames = make(map[string]bool)
+	for _, server := range catalogServers {
+		catalogServerNames[server.Name] = true
+	}
+
+	var filteredInstances []v1.MCPServerInstance
+	for _, instance := range allInstances.Items {
+		if instance.Spec.Template {
+			// Hide template instances
+			continue
+		}
+		if catalogServerNames[instance.Spec.MCPServerName] {
+			filteredInstances = append(filteredInstances, instance)
+		}
+	}
+
+	// Convert instances to API types
+	convertedInstances := make([]types.MCPServerInstance, 0, len(filteredInstances))
+	for _, instance := range filteredInstances {
+		slug, err := slugForMCPServerInstance(req.Context(), req.Storage, instance)
+		if err != nil {
+			return fmt.Errorf("failed to determine slug for instance %s: %w", instance.Name, err)
+		}
+
+		convertedInstances = append(convertedInstances, convertMCPServerInstance(instance, m.serverURL, slug))
+	}
+
+	return req.Write(types.MCPServerInstanceList{
+		Items: convertedInstances,
+	})
+}
