@@ -1978,7 +1978,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		return types.NewErrBadRequest("cannot get details for remote MCP server")
 	}
 
-	if !req.UserIsAdmin() {
+	if !req.UserIsAdmin() && !req.UserIsAuditor() {
 		workspaceID := req.PathValue("workspace_id")
 		if workspaceID == "" {
 			return types.NewErrNotFound("MCP server %s not found", server.Name)
@@ -2071,7 +2071,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		return types.NewErrBadRequest("cannot stream logs for remote MCP server")
 	}
 
-	if !req.UserIsAdmin() {
+	if !req.UserIsAdmin() && !req.UserIsAuditor() {
 		workspaceID := req.PathValue("workspace_id")
 		if workspaceID == "" {
 			return types.NewErrNotFound("MCP server %s not found", server.Name)
