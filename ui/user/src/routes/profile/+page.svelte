@@ -3,7 +3,7 @@
 	import { profile, errors, version } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
-	import { getUserRoleLabelFromGroups } from '$lib/utils';
+	import { getUserRoleLabel } from '$lib/utils';
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 	import { success } from '$lib/stores/success';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -75,7 +75,7 @@
 					<div class="flex flex-row py-3">
 						<div class="w-1/2 max-w-[150px]">Role:</div>
 						<div class="w-1/2 break-words">
-							{getUserRoleLabelFromGroups(profile.current.groups)}
+							{getUserRoleLabel(profile.current.role)}
 						</div>
 					</div>
 					<hr />
