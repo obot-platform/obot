@@ -146,7 +146,7 @@ export const Group = {
 	ADMIN: 'admin',
 	POWERUSER_PLUS: 'power-user-plus',
 	POWERUSER: 'power-user',
-	BASIC: 'basic',
+	USER: 'user',
 	AUDITOR: 'auditor'
 };
 
