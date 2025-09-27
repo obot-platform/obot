@@ -53,6 +53,7 @@
 
 	let { entry, id, entity = 'catalog', type, readonly, onCancel, onSubmit }: Props = $props();
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
+	let isAuditor = $derived(profile.current?.groups.includes(Group.AUDITOR));
 
 	const tabs = $derived(
 		entry
@@ -145,7 +146,7 @@
 	});
 
 	onMount(() => {
-		if (isAtLeastPowerUserPlus) {
+		if (isAtLeastPowerUserPlus || isAuditor) {
 			AdminService.listUsersIncludeDeleted().then((data) => {
 				users = data;
 			});
