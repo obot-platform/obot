@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import { Group } from '$lib/services/admin/types';
+	import { getUserRoleLabelFromGroups } from '$lib/utils';
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 	import { success } from '$lib/stores/success';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -75,7 +76,7 @@
 					<div class="flex flex-row py-3">
 						<div class="w-1/2 max-w-[150px]">Role:</div>
 						<div class="w-1/2 break-words">
-							{profile.current.groups.includes(Group.ADMIN) ? 'Admin' : 'User'}
+							{getUserRoleLabelFromGroups(profile.current.groups)}
 						</div>
 					</div>
 					<hr />
