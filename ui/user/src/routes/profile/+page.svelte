@@ -3,7 +3,6 @@
 	import { profile, errors, version } from '$lib/stores';
 	import { goto } from '$app/navigation';
 	import Notifications from '$lib/components/Notifications.svelte';
-	import { Group } from '$lib/services/admin/types';
 	import { getUserRoleLabelFromGroups } from '$lib/utils';
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';
 	import { success } from '$lib/stores/success';

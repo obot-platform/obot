@@ -195,21 +195,21 @@ export const getUserRoleLabel = (role: number) => {
 
 /**
  * Determines the highest user role label from the groups array.
- * 
+ *
  * @param groups - Array of group names the user belongs to
  * @returns A formatted role string
  */
 export const getUserRoleLabelFromGroups = (groups: string[]) => {
 	const hasAuditor = groups.includes(Group.AUDITOR);
 	const withAuditor = hasAuditor ? ', Auditor' : '';
-	
+
 	// Check from highest to lowest priority
 	if (groups.includes(Group.OWNER)) return 'Owner' + withAuditor;
 	if (groups.includes(Group.ADMIN)) return 'Admin' + withAuditor;
 	if (groups.includes(Group.POWERUSER_PLUS)) return 'Power User Plus' + withAuditor;
 	if (groups.includes(Group.POWERUSER)) return 'Power User' + withAuditor;
 	if (groups.includes(Group.BASIC)) return 'Basic User' + withAuditor;
-	
+
 	// Fallback for auditor-only users or unknown cases
 	if (hasAuditor) return 'Auditor';
 	return 'User';
