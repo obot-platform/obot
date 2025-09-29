@@ -170,12 +170,7 @@
 		{@const numServerUpdatesNeeded = servers.filter((s) => s.needsUpdate).length}
 		{#if servers.length > 0}
 			{#if numServerUpdatesNeeded}
-				<button
-					class="group mb-2 w-fit rounded-md bg-white dark:bg-black"
-					onclick={() => {
-						// TODO: show all servers with upgrade & update all option
-					}}
-				>
+				<div class="group mb-2 w-fit rounded-md bg-white dark:bg-black">
 					<div
 						class="flex items-center gap-1 rounded-md border border-yellow-500 bg-yellow-500/10 px-4 py-2 transition-colors duration-300 group-hover:bg-yellow-500/20 dark:bg-yellow-500/30 dark:group-hover:bg-yellow-500/40"
 					>
@@ -188,7 +183,7 @@
 							{/if}
 						</p>
 					</div>
-				</button>
+				</div>
 			{/if}
 			<Table
 				data={servers}

@@ -1,13 +1,12 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
-		fetchMcpServerAndEntries,
-		getAdminMcpServerAndEntries,
-		initMcpServerAndEntries
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import { AdminService, ChatService, type MCP, type MCPCatalogServer } from '$lib/services';
+		ADMIN_SESSION_STORAGE,
+		DEFAULT_MCP_CATALOG_ID,
+		PAGE_TRANSITION_DURATION
+	} from '$lib/constants';
+	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import {
 		CircleAlert,
@@ -24,34 +23,39 @@
 	import { fade, fly } from 'svelte/transition';
 	import Search from '$lib/components/Search.svelte';
 	import { profile } from '$lib/stores';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import DiffDialog from '$lib/components/DiffDialog.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+
+	type TableItem = {
+		id: string;
+		name?: string;
+		icon?: string;
+		parentServer?: string;
+		registry?: string;
+		user?: string;
+		needsUpdate?: boolean;
+		server?: MCPCatalogServer;
+		entry?: MCPCatalogEntry;
+	};
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 	let search = $state('');
 
-	initMcpServerAndEntries();
-	const mcpServerAndEntries = getAdminMcpServerAndEntries();
 	let users = $state<OrgUser[]>([]);
 	let loading = $state(false);
-	let data = $state<
-		{
-			id: string;
-			name?: string;
-			icon?: string;
-			parentServer?: string;
-			registry?: string;
-			user?: string;
-			needsUpdate?: boolean;
-			server?: MCPCatalogServer;
-			entry?: MCPCatalogEntry;
-		}[]
-	>([]);
+	let data = $state<TableItem[]>([]);
+	let filteredData = $derived(
+		data.filter(
+			(d) =>
+				d.name?.toLowerCase().includes(search.toLowerCase()) ||
+				d.parentServer?.toLowerCase().includes(search.toLowerCase())
+		)
+	);
 
 	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
-	let diffServer = $state<MCPCatalogServer>();
 	let selected = $state<Record<string, MCPCatalogServer>>({});
 	let updating = $state<Record<string, { inProgress: boolean; error: string }>>({});
 
@@ -87,36 +91,37 @@
 		};
 	}
 
+	async function fetchDeployedCatalogEntryServers() {
+		const adminEntries = await AdminService.listMCPCatalogEntries(defaultCatalogId);
+		const workspaceEntries = await AdminService.listAllUserWorkspaceCatalogEntries();
+		const entries = [...adminEntries, ...workspaceEntries];
+
+		const deployedCatalogEntryServers =
+			await AdminService.listAllCatalogDeployedSingleRemoteServers(defaultCatalogId);
+		const deployedWorkspaceCatalogEntryServers =
+			await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
+
+		const usersMap = new Map(users.map((user) => [user.id, user]));
+		const entryMap = new Map(entries.map((entry) => [entry.id, entry]));
+
+		return [
+			...deployedCatalogEntryServers.map((server) =>
+				convertToTableItem(server, usersMap, entryMap.get(server.catalogEntryID))
+			),
+			...deployedWorkspaceCatalogEntryServers.map((server) =>
+				convertToTableItem(server, usersMap, entryMap.get(server.catalogEntryID))
+			)
+		];
+	}
+
 	onMount(async () => {
 		loading = true;
-		await fetchMcpServerAndEntries(
-			defaultCatalogId,
-			mcpServerAndEntries,
-			async (entries, servers) => {
-				const deployedCatalogEntryServers =
-					await AdminService.listAllCatalogDeployedSingleRemoteServers(defaultCatalogId);
-				const deployedWorkspaceCatalogEntryServers =
-					await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
-				users = await AdminService.listUsersIncludeDeleted();
-				const usersMap = new Map(users.map((user) => [user.id, user]));
-
-				const entryMap = new Map(entries.map((entry) => [entry.id, entry]));
-				data = [
-					...deployedCatalogEntryServers.map((server) =>
-						convertToTableItem(server, usersMap, entryMap.get(server.catalogEntryID))
-					),
-					...deployedWorkspaceCatalogEntryServers.map((server) =>
-						convertToTableItem(server, usersMap, entryMap.get(server.catalogEntryID))
-					),
-					...servers.map((server) => convertToTableItem(server, usersMap, undefined))
-				];
-				loading = false;
-			}
-		);
+		users = await AdminService.listUsersIncludeDeleted();
+		data = await fetchDeployedCatalogEntryServers();
+		loading = false;
 	});
 
 	async function handleMultiUpdate() {
-		// TODO: update
 		for (const id of Object.keys(selected)) {
 			updating[id] = { inProgress: true, error: '' };
 			try {
@@ -132,23 +137,16 @@
 			}
 		}
 
-		// listEntryServers =
-		// 	entity === 'workspace'
-		// 		? ChatService.listWorkspaceMCPServersForEntry(id, entry.id)
-		// 		: AdminService.listMCPServersForEntry(id, entry.id);
 		selected = {};
+		data = await fetchDeployedCatalogEntryServers();
 	}
 
 	async function updateServer(server?: MCPCatalogServer) {
-		// TODO: update
 		if (!server) return;
 		updating[server.id] = { inProgress: true, error: '' };
 		try {
 			await ChatService.triggerMcpServerUpdate(server.id);
-			// listEntryServers =
-			// 	entity === 'workspace'
-			// 		? ChatService.listWorkspaceMCPServersForEntry(id, entry.id)
-			// 		: AdminService.listMCPServersForEntry(id, entry.id);
+			data = await fetchDeployedCatalogEntryServers();
 		} catch (err) {
 			updating[server.id] = {
 				inProgress: false,
@@ -157,6 +155,22 @@
 		}
 
 		delete updating[server.id];
+	}
+
+	function setLastVisitedMcpServer(item: TableItem) {
+		if (!item) return;
+
+		const belongsToWorkspace = item.entry?.powerUserWorkspaceID ? true : false;
+		sessionStorage.setItem(
+			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
+			JSON.stringify({
+				id: item.entry?.id,
+				name: item.entry?.manifest?.name,
+				type: 'single',
+				entity: belongsToWorkspace ? 'workspace' : 'catalog',
+				entityId: belongsToWorkspace ? item.server?.powerUserWorkspaceID : defaultCatalogId
+			})
+		);
 	}
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
@@ -176,12 +190,7 @@
 
 			<div class="flex flex-col gap-2">
 				{#if numServerUpdatesNeeded}
-					<button
-						class="group mb-2 w-fit rounded-md bg-white dark:bg-black"
-						onclick={() => {
-							// TODO: show all servers with upgrade & update all option
-						}}
-					>
+					<div class="group mb-2 w-fit rounded-md bg-white dark:bg-black">
 						<div
 							class="flex items-center gap-1 rounded-md border border-yellow-500 bg-yellow-500/10 px-4 py-2 transition-colors duration-300 group-hover:bg-yellow-500/20 dark:bg-yellow-500/30 dark:group-hover:bg-yellow-500/40"
 						>
@@ -194,7 +203,7 @@
 								{/if}
 							</p>
 						</div>
-					</button>
+					</div>
 				{/if}
 				<Search
 					class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
@@ -208,15 +217,22 @@
 					</div>
 				{:else}
 					<Table
-						{data}
+						data={filteredData}
 						fields={['name', 'parentServer', 'user', 'registry', 'needsUpdate']}
-						filterable={['name', 'parentServer', 'user', 'registry', 'needsUpdate']}
+						filterable={['name', 'parentServer', 'user', 'registry']}
 						headers={[
 							{ title: 'Parent Server', property: 'parentServer' },
 							{ title: 'Needs Update', property: 'needsUpdate' }
 						]}
+						sortable={['name', 'parentServer', 'user', 'needsUpdate']}
 						onSelectRow={(d, isCtrlClick) => {
-							// TODO;
+							setLastVisitedMcpServer(d);
+
+							const belongsToWorkspace = d.entry?.powerUserWorkspaceID ? true : false;
+							const url = belongsToWorkspace
+								? `/admin/mcp-servers/w/${d.entry?.powerUserWorkspaceID}/c/${d.entry?.id}/instance/${d.id}?from=deployed-servers`
+								: `/admin/mcp-servers/c/${d.entry?.id}/instance/${d.id}?from=deployed-servers`;
+							openUrl(url, isCtrlClick);
 						}}
 						noDataMessage="No servers deployed."
 					>
@@ -232,7 +248,10 @@
 								</div>
 							{:else if property === 'needsUpdate'}
 								{#if d.needsUpdate}
-									<div class="flex grow items-center justify-center">
+									<div
+										class="flex grow items-center gap-1"
+										use:tooltip={{ text: 'This server requires an update.' }}
+									>
 										<TriangleAlert class="size-4 text-yellow-500" />
 									</div>
 								{/if}
@@ -261,7 +280,7 @@
 										</button>
 										<button
 											class="menu-button bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20"
-											disabled={updating[d.id]?.inProgress}
+											disabled={updating[d.id]?.inProgress || isAdminReadonly}
 											onclick={async (e) => {
 												e.stopPropagation();
 												if (!d.server) return;
@@ -280,24 +299,26 @@
 										</button>
 									</div>
 								</DotDotDot>
-								<button
-									class="icon-button hover:bg-black/50"
-									onclick={(e) => {
-										e.stopPropagation();
-										if (!d.server) return;
-										if (selected[d.id]) {
-											delete selected[d.id];
-										} else {
-											selected[d.id] = d.server;
-										}
-									}}
-								>
-									{#if selected[d.id]}
-										<SquareCheck class="size-5" />
-									{:else}
-										<Square class="size-5" />
-									{/if}
-								</button>
+								{#if !isAdminReadonly}
+									<button
+										class="icon-button hover:bg-black/50"
+										onclick={(e) => {
+											e.stopPropagation();
+											if (!d.server) return;
+											if (selected[d.id]) {
+												delete selected[d.id];
+											} else {
+												selected[d.id] = d.server;
+											}
+										}}
+									>
+										{#if selected[d.id]}
+											<SquareCheck class="size-5" />
+										{:else}
+											<Square class="size-5" />
+										{/if}
+									</button>
+								{/if}
 							{:else if numServerUpdatesNeeded > 0}
 								<div class="size-10"></div>
 								<div class="size-10"></div>
@@ -335,7 +356,7 @@
 								type: 'multi'
 							};
 						}}
-						disabled={updatingInProgress}
+						disabled={updatingInProgress || isAdminReadonly}
 					>
 						{#if updatingInProgress}
 							<LoaderCircle class="size-5" />

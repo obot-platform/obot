@@ -24,6 +24,10 @@
 			];
 		}
 
+		if (type === 'deployed-servers') {
+			return [{ href: '/admin/deployed-servers', label: 'Deployed Servers' }];
+		}
+
 		if (type === 'access-control') {
 			return [{ href: '/admin/access-control', label: 'Access Control' }];
 		}

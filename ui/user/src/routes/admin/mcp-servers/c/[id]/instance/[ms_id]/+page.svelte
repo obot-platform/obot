@@ -8,6 +8,7 @@
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { profile } from '$lib/stores/index.js';
+	import { page } from '$app/state';
 
 	let { data } = $props();
 	let { catalogEntry, mcpServerId } = data;
@@ -32,7 +33,8 @@
 	<div class="mt-6 flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServerId}
 			{@const currentLabel = mcpServerId ?? 'Server'}
-			<BackLink fromURL={`/mcp-servers/${catalogEntry?.id}`} {currentLabel} />
+			{@const from = page.url.searchParams.get('from') ?? `/mcp-servers/${catalogEntry?.id}`}
+			<BackLink fromURL={from} {currentLabel} />
 		{/if}
 
 		{#if mcpServerId && catalogEntry?.manifest.runtime !== 'remote'}
