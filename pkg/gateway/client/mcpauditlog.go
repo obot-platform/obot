@@ -409,7 +409,7 @@ type MCPAuditLogOptions struct {
 // MCPUsageStatsOptions represents options for querying MCP usage statistics
 type MCPUsageStatsOptions struct {
 	MCPID                      string
-	PowerUserWorkspaceID       []string // Add workspace filtering support (same as audit logs)
+	PowerUserWorkspaceID       []string // Workspace filtering support (same as audit logs)
 	UserIDs                    []string
 	MCPServerDisplayNames      []string
 	MCPServerCatalogEntryNames []string
