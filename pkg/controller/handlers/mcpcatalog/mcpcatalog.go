@@ -509,9 +509,17 @@ func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Resp
 			return fmt.Errorf("failed to get MCPServerCatalogEntry %s: %w", server.Spec.MCPServerCatalogEntryName, err)
 		}
 
-		hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(user, server.Spec.MCPServerCatalogEntryName, catalogEntry.Spec.MCPCatalogName)
-		if err != nil {
-			return fmt.Errorf("failed to check if user %s has access to catalog entry %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, err)
+		var hasAccess bool
+		if catalogEntry.Spec.MCPCatalogName != "" {
+			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(user, server.Spec.MCPServerCatalogEntryName, catalogEntry.Spec.MCPCatalogName)
+			if err != nil {
+				return fmt.Errorf("failed to check if user %s has access to catalog entry %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, err)
+			}
+		} else if catalogEntry.Spec.PowerUserWorkspaceID != "" {
+			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Ctx, user, server.Spec.MCPServerCatalogEntryName, catalogEntry.Spec.PowerUserWorkspaceID)
+			if err != nil {
+				return fmt.Errorf("failed to check if user %s has access to server entry %s in workspace %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, catalogEntry.Spec.PowerUserWorkspaceID, err)
+			}
 		}
 
 		if !hasAccess {

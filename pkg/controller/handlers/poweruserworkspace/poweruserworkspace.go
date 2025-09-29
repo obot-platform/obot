@@ -172,10 +172,8 @@ func (h *Handler) cleanupWorkspaceForDemotionToPowerUser(ctx context.Context, cl
 		}
 
 		for _, acr := range acrs.Items {
-			if !acr.Spec.Generated {
-				if err := client.Delete(ctx, &acr); err != nil {
-					return err
-				}
+			if err := client.Delete(ctx, &acr); err != nil {
+				return err
 			}
 		}
 
