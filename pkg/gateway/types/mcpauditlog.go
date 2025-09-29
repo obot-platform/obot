@@ -15,6 +15,7 @@ type MCPAuditLog struct {
 	CreatedAt                 time.Time                             `json:"createdAt" gorm:"index"`
 	UserID                    string                                `json:"userID" gorm:"index"`
 	MCPID                     string                                `json:"mcpID" gorm:"index"`
+	PowerUserWorkspaceID      string                                `json:"powerUserWorkspaceID,omitempty" gorm:"index"`
 	MCPServerDisplayName      string                                `json:"mcpServerDisplayName" gorm:"index"`
 	MCPServerCatalogEntryName string                                `json:"mcpServerCatalogEntryName" gorm:"index"`
 	ClientName                string                                `json:"clientName" gorm:"index"`
@@ -106,6 +107,7 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 		CreatedAt:                 *types2.NewTime(a.CreatedAt),
 		UserID:                    a.UserID,
 		MCPID:                     a.MCPID,
+		PowerUserWorkspaceID:      a.PowerUserWorkspaceID,
 		MCPServerDisplayName:      a.MCPServerDisplayName,
 		MCPServerCatalogEntryName: a.MCPServerCatalogEntryName,
 		ClientInfo: types2.ClientInfo{

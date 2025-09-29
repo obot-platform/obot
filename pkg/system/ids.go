@@ -94,3 +94,7 @@ func GetProjectShareName(userID string, projectID string) string {
 	return name.SafeHashConcatName(ThreadSharePrefix, userID,
 		strings.Replace(projectID, ThreadPrefix, ProjectPrefix, 1))
 }
+
+func GetPowerUserWorkspaceID(userID string) string {
+	return name.SafeConcatName(PowerUserWorkspacePrefix, userID)
+}

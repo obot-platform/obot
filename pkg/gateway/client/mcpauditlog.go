@@ -79,6 +79,9 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 	if len(opts.UserID) > 0 {
 		db = db.Where("user_id IN (?)", opts.UserID)
 	}
+	if len(opts.PowerUserWorkspaceID) > 0 {
+		db = db.Where("power_user_workspace_id IN (?)", opts.PowerUserWorkspaceID)
+	}
 	if len(opts.MCPID) > 0 {
 		db = db.Where("mcp_id IN (?)", opts.MCPID)
 	}
@@ -229,6 +232,9 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 	if len(opts.ClientIP) > 0 {
 		db = db.Where("client_ip IN (?)", opts.ClientIP)
 	}
+	if len(opts.PowerUserWorkspaceID) > 0 {
+		db = db.Where("power_user_workspace_id IN (?)", opts.PowerUserWorkspaceID)
+	}
 	if !opts.StartTime.IsZero() {
 		db = db.Where("created_at >= ?", opts.StartTime.Local())
 	}
@@ -262,6 +268,9 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 
 		if opts.MCPID != "" {
 			tx = tx.Where("mcp_id = ?", opts.MCPID)
+		}
+		if len(opts.PowerUserWorkspaceID) > 0 {
+			tx = tx.Where("power_user_workspace_id IN (?)", opts.PowerUserWorkspaceID)
 		}
 		if len(opts.UserIDs) > 0 {
 			tx = tx.Where("user_id IN (?)", opts.UserIDs)
@@ -374,6 +383,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 // MCPAuditLogOptions represents options for querying MCP audit logs
 type MCPAuditLogOptions struct {
 	WithRequestAndResponse    bool
+	PowerUserWorkspaceID      []string // Support filtering by workspace ID(s)
 	UserID                    []string
 	MCPID                     []string
 	MCPServerDisplayName      []string
@@ -399,6 +409,7 @@ type MCPAuditLogOptions struct {
 // MCPUsageStatsOptions represents options for querying MCP usage statistics
 type MCPUsageStatsOptions struct {
 	MCPID                      string
+	PowerUserWorkspaceID       []string // Add workspace filtering support (same as audit logs)
 	UserIDs                    []string
 	MCPServerDisplayNames      []string
 	MCPServerCatalogEntryNames []string

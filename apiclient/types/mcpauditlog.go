@@ -10,6 +10,7 @@ type MCPAuditLog struct {
 	CreatedAt                 Time            `json:"createdAt"`
 	UserID                    string          `json:"userID"`
 	MCPID                     string          `json:"mcpID"`
+	PowerUserWorkspaceID      string          `json:"powerUserWorkspaceID,omitempty"`
 	MCPServerDisplayName      string          `json:"mcpServerDisplayName"`
 	MCPServerCatalogEntryName string          `json:"mcpServerCatalogEntryName"`
 	ClientInfo                ClientInfo      `json:"client"`

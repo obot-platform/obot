@@ -2790,6 +2790,12 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format:  "",
 						},
 					},
+					"powerUserWorkspaceID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"mcpServerDisplayName": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",

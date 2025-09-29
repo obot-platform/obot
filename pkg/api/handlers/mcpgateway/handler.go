@@ -142,10 +142,22 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		return
 	}
 
+	// Determine PowerUserWorkspaceID: use server's workspace ID for multi-user servers,
+	// or look up catalog entry's workspace ID for single-user servers
+	powerUserWorkspaceID := m.mcpServer.Spec.PowerUserWorkspaceID
+	if powerUserWorkspaceID == "" && m.mcpServer.Spec.MCPServerCatalogEntryName != "" {
+		// This is a single-user server created from a catalog entry, look up the entry
+		var entry v1.MCPServerCatalogEntry
+		if err := h.storageClient.Get(ctx, kclient.ObjectKey{Namespace: m.mcpServer.Namespace, Name: m.mcpServer.Spec.MCPServerCatalogEntryName}, &entry); err == nil {
+			powerUserWorkspaceID = entry.Spec.PowerUserWorkspaceID
+		}
+	}
+
 	auditLog := gatewaytypes.MCPAuditLog{
 		CreatedAt:                 time.Now(),
 		UserID:                    m.userID,
 		MCPID:                     m.mcpID,
+		PowerUserWorkspaceID:      powerUserWorkspaceID,
 		MCPServerDisplayName:      m.mcpServer.Spec.Manifest.Name,
 		MCPServerCatalogEntryName: m.mcpServer.Spec.MCPServerCatalogEntryName,
 		ClientName:                msg.Session.InitializeRequest.ClientInfo.Name,
@@ -256,6 +268,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			m.mcpServer.Spec.Manifest.Name,
 			m.mcpServer.Spec.MCPServerCatalogEntryName,
 			catalogName,
+			powerUserWorkspaceID,
 		),
 	)
 	if err != nil {
