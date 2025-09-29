@@ -6,7 +6,7 @@
 		DEFAULT_MCP_CATALOG_ID,
 		PAGE_TRANSITION_DURATION
 	} from '$lib/constants';
-	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
+	import { AdminService, ChatService, Group, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import {
 		CircleAlert,
@@ -39,6 +39,7 @@
 		needsUpdate?: boolean;
 		server?: MCPCatalogServer;
 		entry?: MCPCatalogEntry;
+		type?: string;
 	};
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
@@ -76,6 +77,7 @@
 		const { manifest, powerUserWorkspaceID, catalogEntryID, id, needsUpdate } = server;
 		return {
 			id,
+			type: server.manifest.runtime,
 			powerUserWorkspaceID,
 			catalogEntryID,
 			name: server.alias || manifest.name,
@@ -218,14 +220,16 @@
 				{:else}
 					<Table
 						data={filteredData}
-						fields={['name', 'parentServer', 'user', 'registry', 'needsUpdate']}
-						filterable={['name', 'parentServer', 'user', 'registry']}
+						fields={['name', 'parentServer', 'type', 'user', 'registry', 'needsUpdate']}
+						filterable={['name', 'parentServer', 'type', 'user', 'registry']}
 						headers={[
 							{ title: 'Parent Server', property: 'parentServer' },
 							{ title: 'Needs Update', property: 'needsUpdate' }
 						]}
 						sortable={['name', 'parentServer', 'user', 'needsUpdate']}
 						onSelectRow={(d, isCtrlClick) => {
+							const isRemote = d.server?.manifest?.runtime === 'remote';
+							if (isRemote) return;
 							setLastVisitedMcpServer(d);
 
 							const belongsToWorkspace = d.entry?.powerUserWorkspaceID ? true : false;
@@ -246,6 +250,8 @@
 									{/if}
 									{d.name}
 								</div>
+							{:else if property === 'type'}
+								{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
 							{:else if property === 'needsUpdate'}
 								{#if d.needsUpdate}
 									<div
@@ -260,69 +266,77 @@
 							{/if}
 						{/snippet}
 						{#snippet actions(d)}
-							{#if d.needsUpdate}
-								<DotDotDot class="icon-button hover:dark:bg-black/50">
-									{#snippet icon()}
-										<Ellipsis class="size-4" />
-									{/snippet}
+							{@const url = d.entry?.powerUserWorkspaceID
+								? `/admin/audit-logs?mcp_id=${d.id}`
+								: `/admin/audit-logs?mcp_id=${d.id}`}
+							<div class="flex items-center gap-1">
+								{#if profile.current?.groups.includes(Group.ADMIN)}
+									<a class="button-text" href={url}> View Audit Logs </a>
+								{/if}
+								{#if d.needsUpdate}
+									<DotDotDot class="icon-button hover:dark:bg-black/50">
+										{#snippet icon()}
+											<Ellipsis class="size-4" />
+										{/snippet}
 
-									<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
+										<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
+											<button
+												class="menu-button"
+												onclick={(e) => {
+													e.stopPropagation();
+													existingServer = d.server;
+													updatedServer = d.entry;
+													diffDialog?.open();
+												}}
+											>
+												<GitCompare class="size-4" /> View Diff
+											</button>
+											<button
+												class="menu-button bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20"
+												disabled={updating[d.id]?.inProgress || isAdminReadonly}
+												onclick={async (e) => {
+													e.stopPropagation();
+													if (!d.server) return;
+													showConfirm = {
+														type: 'single',
+														server: d.server
+													};
+												}}
+											>
+												{#if updating[d.id]?.inProgress}
+													<LoaderCircle class="size-4 animate-spin" />
+												{:else}
+													<ServerCog class="size-4" />
+												{/if}
+												Update Server
+											</button>
+										</div>
+									</DotDotDot>
+									{#if !isAdminReadonly}
 										<button
-											class="menu-button"
+											class="icon-button hover:bg-black/50"
 											onclick={(e) => {
 												e.stopPropagation();
-												existingServer = d.server;
-												updatedServer = d.entry;
-												diffDialog?.open();
-											}}
-										>
-											<GitCompare class="size-4" /> View Diff
-										</button>
-										<button
-											class="menu-button bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20"
-											disabled={updating[d.id]?.inProgress || isAdminReadonly}
-											onclick={async (e) => {
-												e.stopPropagation();
 												if (!d.server) return;
-												showConfirm = {
-													type: 'single',
-													server: d.server
-												};
+												if (selected[d.id]) {
+													delete selected[d.id];
+												} else {
+													selected[d.id] = d.server;
+												}
 											}}
 										>
-											{#if updating[d.id]?.inProgress}
-												<LoaderCircle class="size-4 animate-spin" />
+											{#if selected[d.id]}
+												<SquareCheck class="size-5" />
 											{:else}
-												<ServerCog class="size-4" />
+												<Square class="size-5" />
 											{/if}
-											Update Server
 										</button>
-									</div>
-								</DotDotDot>
-								{#if !isAdminReadonly}
-									<button
-										class="icon-button hover:bg-black/50"
-										onclick={(e) => {
-											e.stopPropagation();
-											if (!d.server) return;
-											if (selected[d.id]) {
-												delete selected[d.id];
-											} else {
-												selected[d.id] = d.server;
-											}
-										}}
-									>
-										{#if selected[d.id]}
-											<SquareCheck class="size-5" />
-										{:else}
-											<Square class="size-5" />
-										{/if}
-									</button>
+									{/if}
+								{:else if numServerUpdatesNeeded > 0}
+									<div class="size-10"></div>
+									<div class="size-10"></div>
 								{/if}
-							{:else if numServerUpdatesNeeded > 0}
-								<div class="size-10"></div>
-								<div class="size-10"></div>
-							{/if}
+							</div>
 						{/snippet}
 					</Table>
 				{/if}
