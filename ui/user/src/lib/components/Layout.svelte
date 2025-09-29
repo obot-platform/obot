@@ -18,7 +18,6 @@
 		LockKeyhole,
 		MessageCircle,
 		MessageCircleMore,
-		Router,
 		Server,
 		Settings,
 		SidebarClose,
@@ -90,14 +89,6 @@
 								icon: Server,
 								href: '/admin/mcp-servers',
 								label: 'MCP Servers',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'deployed-servers',
-								href: '/admin/deployed-servers',
-								icon: Router,
-								label: 'Deployed Servers',
 								disabled: isBootStrapUser,
 								collapsible: false
 							},

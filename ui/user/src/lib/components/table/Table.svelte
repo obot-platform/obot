@@ -15,6 +15,7 @@
 		data: T[];
 		onSelectRow?: (row: T, isCtrlClick: boolean) => void;
 		onRenderColumn?: Snippet<[string, T]>;
+		onRenderSubrowContent?: Snippet<[T]>;
 		onFilter?: (property: string, values: string[]) => void;
 		setRowClasses?: (row: T) => string;
 		noDataMessage?: string;
@@ -35,6 +36,7 @@
 		onSelectRow,
 		onFilter,
 		onRenderColumn,
+		onRenderSubrowContent,
 		pageSize,
 		noDataMessage = 'No data',
 		setRowClasses,
@@ -265,4 +267,11 @@
 			</td>
 		{/if}
 	</tr>
+	{#if onRenderSubrowContent}
+		<tr>
+			<td colspan={fields.length + (actions ? 1 : 0)}>
+				{@render onRenderSubrowContent(d)}
+			</td>
+		</tr>
+	{/if}
 {/snippet}
