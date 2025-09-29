@@ -4,7 +4,6 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/create"
@@ -94,7 +93,7 @@ func (h *Handler) ensureWorkspaceForUser(ctx context.Context, client kclient.Cli
 	workspace := &v1.PowerUserWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
-			Name:      name.SafeConcatName(system.PowerUserWorkspacePrefix, userIDStr),
+			Name:      system.GetPowerUserWorkspaceID(userIDStr),
 		},
 		Spec: v1.PowerUserWorkspaceSpec{
 			UserID: userIDStr,

@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 type AuditLogHandler struct{}
@@ -69,6 +70,11 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		ResponseStatus:            parseMultiValueParam(query, "response_status"),
 		ClientIP:                  parseMultiValueParam(query, "client_ip"),
 		Query:                     strings.TrimSpace(query.Get("query")),
+	}
+
+	// Apply workspace filtering for Power Users
+	if req.UserIsPowerUser() && !req.UserIsAdmin() {
+		opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
 	}
 
 	// Handle path parameter for mcp_id (takes precedence over query parameter)
@@ -185,6 +191,11 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 		ClientIP:                  parseMultiValueParam(query, "client_ip"),
 	}
 
+	// Apply workspace filtering for Power Users
+	if req.UserIsPowerUser() && !req.UserIsAdmin() {
+		opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
+	}
+
 	// Parse time range
 	if startTime := query.Get("start_time"); startTime != "" {
 		if t, err := time.Parse(time.RFC3339, startTime); err == nil {
@@ -248,6 +259,11 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 		MCPServerDisplayNames:      mcpServerDisplayNames,
 		MCPServerCatalogEntryNames: mcpServerCatalogEntryNames,
 		UserIDs:                    userIDs,
+	}
+
+	// Apply workspace filtering for Power Users (same logic as audit logs)
+	if req.UserIsPowerUser() && !req.UserIsAdmin() {
+		opts.PowerUserWorkspaceID = []string{system.GetPowerUserWorkspaceID(req.User.GetUID())}
 	}
 
 	var (

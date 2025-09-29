@@ -204,6 +204,11 @@ var (
 		types.GroupPowerUser: {
 			"GET /api/users",
 			"GET /api/users/{user_id}",
+			"GET /api/mcp-audit-logs",
+			"GET /api/mcp-audit-logs/filter-options/{filter}",
+			"GET /api/mcp-audit-logs/{mcp_id}",
+			"GET /api/mcp-stats",
+			"GET /api/mcp-stats/{mcp_id}",
 		},
 
 		types.GroupAuthenticated: {

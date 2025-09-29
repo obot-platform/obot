@@ -17,7 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 )
 
-func (h *Handler) asClientOption(session *nmcp.Session, userID, mcpID, mcpServerNamespace, mcpServerName, serverDisplayName, serverCatalogEntryName, serverCatalogName string) nmcp.ClientOption {
+func (h *Handler) asClientOption(session *nmcp.Session, userID, mcpID, mcpServerNamespace, mcpServerName, serverDisplayName, serverCatalogEntryName, serverCatalogName, powerUserWorkspaceID string) nmcp.ClientOption {
 	ch := &clientMessageHandler{
 		webhookHelper:   h.webhookHelper,
 		gptClient:       h.gptClient,
@@ -27,6 +27,7 @@ func (h *Handler) asClientOption(session *nmcp.Session, userID, mcpID, mcpServer
 			session:                session,
 			userID:                 userID,
 			mcpID:                  mcpID,
+			powerUserWorkspaceID:   powerUserWorkspaceID,
 			serverNamespace:        mcpServerNamespace,
 			serverName:             mcpServerName,
 			serverDisplayName:      serverDisplayName,
@@ -124,6 +125,7 @@ func (c *clientMessageHandler) handleMessage(ctx context.Context, msg nmcp.Messa
 	auditLog := gatewaytypes.MCPAuditLog{
 		UserID:                    c.session.userID,
 		MCPID:                     c.session.mcpID,
+		PowerUserWorkspaceID:      c.session.powerUserWorkspaceID,
 		MCPServerDisplayName:      c.session.serverDisplayName,
 		MCPServerCatalogEntryName: c.session.serverCatalogEntryName,
 		ClientName:                c.session.session.InitializeRequest.ClientInfo.Name,
@@ -229,6 +231,7 @@ func (c *clientMessageHandler) handleMessage(ctx context.Context, msg nmcp.Messa
 type gatewaySession struct {
 	session                *nmcp.Session
 	userID, mcpID          string
+	powerUserWorkspaceID   string
 	serverNamespace        string
 	serverName             string
 	serverDisplayName      string
