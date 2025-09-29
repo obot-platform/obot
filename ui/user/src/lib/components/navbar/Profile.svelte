@@ -3,6 +3,7 @@
 	import { profile, responsive, darkMode } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import { Group } from '$lib/services/admin/types';
+	import { getUserRoleLabel } from '$lib/utils';
 	import {
 		Book,
 		LayoutDashboard,
@@ -103,7 +104,7 @@
 						{profile.current.displayName || 'Anonymous'}
 					</span>
 					<span class="text-sm text-gray-500">
-						{profile.current.isAdmin?.() ? 'Admin' : 'User'}
+						{getUserRoleLabel(profile.current.role)}
 					</span>
 				</div>
 			</div>
