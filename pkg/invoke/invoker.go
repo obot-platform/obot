@@ -630,8 +630,9 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		return fmt.Errorf("failed to get chat state: %w", err)
 	}
 
+	// For runs that are not from a user, ensure the token has the basic and authenticated groups.
+	userGroups := []string{types.GroupBasic, types.GroupAuthenticated}
 	var userID, userName, userEmail, userTimezone string
-	var userGroups []string
 	if thread.Spec.UserID != "" && thread.Spec.UserID != "anonymous" && thread.Spec.UserID != "nobody" {
 		u, err := i.gatewayClient.UserByID(ctx, thread.Spec.UserID)
 		if err != nil {
@@ -642,7 +643,6 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 
 		// Add groups based on user's role
 		userGroups = u.Role.Groups()
-		// Note: AuthenticatedGroup is added by default in the token service
 	}
 
 	model, modelProvider, err := threadmodel.GetModelAndModelProviderForThread(ctx, c, thread)
