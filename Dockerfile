@@ -20,11 +20,11 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 
 FROM cgr.dev/chainguard/postgres:latest-dev AS build-pgvector
 RUN apk add build-base git postgresql-dev clang-19
-RUN git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git && \
+RUN git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git && \
     cd pgvector && \
     make clean && \
     make OPTFLAGS="" && \
-    make install && \
+    PG_MAJOR=18 make install && \
     cd .. && \
     rm -rf pgvector
 
@@ -39,8 +39,8 @@ ENV POSTGRES_PASSWORD=obot
 ENV POSTGRES_DB=obot
 ENV PGDATA=/data/postgresql
 
-COPY --from=build-pgvector /usr/lib/postgresql17/vector.so /usr/lib/postgresql17/
-COPY --from=build-pgvector /usr/share/postgresql17/extension/vector* /usr/share/postgresql17/extension/
+COPY --from=build-pgvector /usr/lib/postgresql18/vector.so /usr/lib/postgresql18/
+COPY --from=build-pgvector /usr/share/postgresql18/extension/vector* /usr/share/postgresql18/extension/
 
 RUN apk add --no-cache git python-3.13 py3.13-pip npm nodejs bash tini procps libreoffice docker perl-utils sqlite sqlite-dev curl kubectl jq
 COPY --chmod=0755 /tools/package-chrome.sh /
