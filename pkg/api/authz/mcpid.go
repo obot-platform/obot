@@ -32,7 +32,7 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user us
 		if mcpServer.Spec.MCPCatalogID != "" {
 			return a.acrHelper.UserHasAccessToMCPServerInCatalog(user, resources.MCPID, mcpServer.Spec.MCPCatalogID)
 		} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
-			return a.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), user, resources.MCPID, mcpServer.Spec.PowerUserWorkspaceID)
+			return a.acrHelper.UserHasAccessToMCPServerInWorkspace(user, resources.MCPID, mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Spec.UserID)
 		}
 
 		// For single-user MCP servers, ensure the user owns the server.
