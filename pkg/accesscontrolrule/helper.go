@@ -33,7 +33,7 @@ func (h *Helper) GetAccessControlRulesForUser(namespace, userID string) ([]v1.Ac
 	result := make([]v1.AccessControlRule, 0, len(acrs))
 	for _, acr := range acrs {
 		res, ok := acr.(*v1.AccessControlRule)
-		if ok && res.Namespace == namespace {
+		if ok && res.Namespace == namespace && res.DeletionTimestamp.IsZero() {
 			result = append(result, *res)
 		}
 	}
@@ -51,7 +51,7 @@ func (h *Helper) GetAccessControlRulesForMCPServer(namespace, serverName string)
 	result := make([]v1.AccessControlRule, 0, len(acrs))
 	for _, acr := range acrs {
 		res, ok := acr.(*v1.AccessControlRule)
-		if ok && res.Namespace == namespace {
+		if ok && res.Namespace == namespace && res.DeletionTimestamp.IsZero() {
 			result = append(result, *res)
 		}
 	}
@@ -69,7 +69,7 @@ func (h *Helper) GetAccessControlRulesForMCPServerCatalogEntry(namespace, entryN
 	result := make([]v1.AccessControlRule, 0, len(acrs))
 	for _, acr := range acrs {
 		res, ok := acr.(*v1.AccessControlRule)
-		if ok && res.Namespace == namespace {
+		if ok && res.Namespace == namespace && res.DeletionTimestamp.IsZero() {
 			result = append(result, *res)
 		}
 	}
@@ -87,7 +87,7 @@ func (h *Helper) GetAccessControlRulesForSelector(namespace, selector string) ([
 	result := make([]v1.AccessControlRule, 0, len(acrs))
 	for _, acr := range acrs {
 		res, ok := acr.(*v1.AccessControlRule)
-		if ok && res.Namespace == namespace {
+		if ok && res.Namespace == namespace && res.DeletionTimestamp.IsZero() {
 			result = append(result, *res)
 		}
 	}

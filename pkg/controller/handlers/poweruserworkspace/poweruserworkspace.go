@@ -67,10 +67,7 @@ func (h *Handler) CreateACR(req router.Request, _ router.Response) error {
 	workspace := req.Object.(*v1.PowerUserWorkspace)
 
 	// Create the default access control rule for this workspace
-	if err := h.createDefaultAccessControlRule(req.Ctx, req.Client, req.Namespace, workspace); err != nil {
-		return err
-	}
-	return nil
+	return h.createDefaultAccessControlRule(req.Ctx, req.Client, req.Namespace, workspace)
 }
 
 func (h *Handler) isPrivilegedRole(role types.Role) bool {
@@ -228,7 +225,8 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 
 	for _, acr := range existingACRs.Items {
 		if acr.Spec.Generated {
-			return nil
+			workspace.Status.DefaultAccessControlRuleGenerated = true
+			return client.Status().Update(ctx, workspace)
 		}
 	}
 
@@ -237,6 +235,7 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    namespace,
 			GenerateName: system.AccessControlRulePrefix,
+			Finalizers:   []string{v1.AccessControlRuleFinalizer},
 		},
 		Spec: v1.AccessControlRuleSpec{
 			PowerUserWorkspaceID: workspace.Name,
@@ -264,9 +263,5 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 	}
 
 	workspace.Status.DefaultAccessControlRuleGenerated = true
-	if err := client.Status().Update(ctx, workspace); err != nil {
-		return err
-	}
-
-	return nil
+	return client.Status().Update(ctx, workspace)
 }

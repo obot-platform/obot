@@ -21,6 +21,7 @@ const (
 	ProjectMCPServerFinalizer  = "obot.obot.ai/project-mcp-server"
 	SlackReceiverFinalizer     = "obot.obot.ai/slack-receiver"
 	MCPSessionFinalizer        = "obot.obot.ai/mcp-session"
+	AccessControlRuleFinalizer = "obot.obot.ai/access-control-rule"
 
 	ModelProviderSyncAnnotation       = "obot.ai/model-provider-sync"
 	WorkflowSyncAnnotation            = "obot.ai/workflow-sync"
