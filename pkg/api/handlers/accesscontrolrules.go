@@ -137,6 +137,7 @@ func (h *AccessControlRuleHandler) Create(req api.Context) error {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.AccessControlRulePrefix,
 			Namespace:    req.Namespace(),
+			Finalizers:   []string{v1.AccessControlRuleFinalizer},
 		},
 		Spec: v1.AccessControlRuleSpec{
 			Manifest:             manifest,

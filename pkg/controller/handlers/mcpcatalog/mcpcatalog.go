@@ -24,8 +24,8 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -434,98 +434,63 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 	return nil
 }
 
-// DeleteUnauthorizedMCPServers is a handler that deletes MCP servers that are no longer authorized to exist.
-// This can happen whenever AccessControlRules change.
+// DeleteUnauthorizedMCPServersForCatalog is a handler that deletes MCP servers that are no longer authorized to exist
+// for the given catalog. This can happen whenever AccessControlRules change.
 // It does not delete MCPServerInstances, since those have a delete ref to their MCPServer, and will be deleted automatically.
-func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Response) error {
+func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ router.Response) error {
 	// List AccessControlRules so that this handler gets triggered any time one of them changes.
 	if err := req.List(&v1.AccessControlRuleList{}, &client.ListOptions{
-		Namespace: system.DefaultNamespace,
+		Namespace:     req.Object.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpCatalogID", req.Object.GetName()),
 	}); err != nil {
 		return fmt.Errorf("failed to list access control rules: %w", err)
 	}
 
-	var mcpServers v1.MCPServerList
-	if err := req.List(&mcpServers, &client.ListOptions{
-		Namespace: system.DefaultNamespace,
+	var mcpCatalogEntries v1.MCPServerCatalogEntryList
+	if err := req.List(&mcpCatalogEntries, &client.ListOptions{
+		Namespace:     req.Object.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpCatalogName", req.Object.GetName()),
 	}); err != nil {
-		return fmt.Errorf("failed to list MCP servers: %w", err)
+		return fmt.Errorf("failed to list MCP catalog entries: %w", err)
 	}
 
-	// Iterate through each MCPServer and make sure it is still allowed to exist.
-	for _, server := range mcpServers.Items {
-		if server.Spec.ThreadName != "" || server.Spec.MCPCatalogID != "" {
-			// For legacy project-scoped servers and multi-user servers created by the admin, we don't need to check them.
-			continue
-		}
-
-		if server.Spec.PowerUserWorkspaceID != "" {
-			// For multi-user servers in a PowerUserWorkspace, make sure that the user on that workspace is a PowerUserPlus, and not a normal PowerUser
-			var workspace v1.PowerUserWorkspace
-			if err := req.Get(&workspace, req.Namespace, server.Spec.PowerUserWorkspaceID); err != nil {
-				return fmt.Errorf("failed to get power user workspace %s: %w", server.Spec.PowerUserWorkspaceID, err)
-			}
-
-			if !workspace.Spec.Role.HasRole(types.RolePowerUserPlus) {
-				log.Infof("Deleting multi-user MCP server %q because its owner is no longer a PowerUserPlus", server.Name)
-				if err := req.Delete(&server); err != nil {
-					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
-				}
-			}
-
-			return nil
-		}
-
-		user, err := h.getUserInfoForAccessControl(req.Ctx, server.Spec.UserID)
+	usersCache := map[string]*userInfo{}
+	for _, entry := range mcpCatalogEntries.Items {
+		var mcpServers v1.MCPServerList
+		err := req.List(&mcpServers, &client.ListOptions{
+			Namespace:     req.Object.GetNamespace(),
+			FieldSelector: fields.OneTermEqualSelector("spec.mcpServerCatalogEntryName", entry.Name),
+		})
 		if err != nil {
-			return fmt.Errorf("failed to get user info for %s: %w", server.Spec.UserID, err)
+			return fmt.Errorf("failed to list MCP servers: %w", err)
 		}
-
-		if user.role.HasRole(types.RoleAdmin) {
-			// Don't delete servers created by admins.
-			continue
-		}
-
-		if server.Spec.MCPServerCatalogEntryName == "" {
-			// If the server doesn't have a catalog entry name, that's bad, because it should. Delete it.
-			log.Infof("Deleting MCP server %q because it does not correspond to a catalog entry", server.Name)
-			if err := req.Delete(&server); err != nil {
-				return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
-			}
-			continue
-		}
-
-		// Get the catalog ID for the server's catalog entry to check access properly
-		var catalogEntry v1.MCPServerCatalogEntry
-		if err := req.Get(&catalogEntry, system.DefaultNamespace, server.Spec.MCPServerCatalogEntryName); err != nil {
-			if apierrors.IsNotFound(err) {
-				log.Infof("Deleting MCP server %q because its catalog entry no longer exists", server.Name)
-				if err := req.Delete(&server); err != nil {
-					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
-				}
+		// Iterate through each MCPServer and make sure it is still allowed to exist.
+		for _, server := range mcpServers.Items {
+			if server.Spec.ThreadName != "" || server.Spec.MCPCatalogID != "" {
+				// For legacy project-scoped servers and multi-user servers created by the admin, we don't need to check them.
 				continue
 			}
 
-			return fmt.Errorf("failed to get MCPServerCatalogEntry %s: %w", server.Spec.MCPServerCatalogEntryName, err)
-		}
+			user := usersCache[server.Spec.UserID]
+			if user == nil {
+				user, err = h.getUserInfoForAccessControl(req.Ctx, server.Spec.UserID)
+				if err != nil {
+					return fmt.Errorf("failed to get user info for %s: %w", server.Spec.UserID, err)
+				}
 
-		var hasAccess bool
-		if catalogEntry.Spec.MCPCatalogName != "" {
-			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(user, server.Spec.MCPServerCatalogEntryName, catalogEntry.Spec.MCPCatalogName)
+				usersCache[server.Spec.UserID] = user
+			}
+
+			hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(user, server.Spec.MCPServerCatalogEntryName, entry.Spec.MCPCatalogName)
 			if err != nil {
 				return fmt.Errorf("failed to check if user %s has access to catalog entry %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, err)
 			}
-		} else if catalogEntry.Spec.PowerUserWorkspaceID != "" {
-			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Ctx, user, server.Spec.MCPServerCatalogEntryName, catalogEntry.Spec.PowerUserWorkspaceID)
-			if err != nil {
-				return fmt.Errorf("failed to check if user %s has access to catalog entry %s in workspace %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, catalogEntry.Spec.PowerUserWorkspaceID, err)
-			}
-		}
 
-		if !hasAccess {
-			log.Infof("Deleting MCP server %q because it is no longer authorized to exist", server.Name)
-			if err := req.Delete(&server); err != nil {
-				return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
+			if !hasAccess {
+				log.Infof("Deleting MCP server %q because it is no longer authorized to exist", server.Name)
+				if err := req.Delete(&server); err != nil {
+					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
+				}
 			}
 		}
 	}
@@ -533,71 +498,201 @@ func (h *Handler) DeleteUnauthorizedMCPServers(req router.Request, _ router.Resp
 	return nil
 }
 
-// DeleteUnauthorizedMCPServerInstances is a handler that deletes MCPServerInstances that point to multi-user MCPServers created by the admin,
-// where the user who owns the MCPServerInstance is no longer authorized to use the MCPServer.
-// This can happen whenever AccessControlRules change.
-func (h *Handler) DeleteUnauthorizedMCPServerInstances(req router.Request, _ router.Response) error {
+// DeleteUnauthorizedMCPServersForWorkspace is a handler that deletes MCP servers that are no longer authorized to exist
+// for the given workspace. This can happen whenever AccessControlRules change.
+// It does not delete MCPServerInstances, since those have a delete ref to their MCPServer, and will be deleted automatically.
+func (h *Handler) DeleteUnauthorizedMCPServersForWorkspace(req router.Request, _ router.Response) error {
 	// List AccessControlRules so that this handler gets triggered any time one of them changes.
 	if err := req.List(&v1.AccessControlRuleList{}, &client.ListOptions{
-		Namespace: system.DefaultNamespace,
+		Namespace:     req.Object.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector("spec.powerUserWorkspaceID", req.Object.GetName()),
 	}); err != nil {
 		return fmt.Errorf("failed to list access control rules: %w", err)
 	}
 
-	var mcpServerInstances v1.MCPServerInstanceList
-	if err := req.List(&mcpServerInstances, &client.ListOptions{
-		Namespace: system.DefaultNamespace,
+	var mcpCatalogEntries v1.MCPServerCatalogEntryList
+	if err := req.List(&mcpCatalogEntries, &client.ListOptions{
+		Namespace:     req.Object.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector("spec.powerUserWorkspaceID", req.Object.GetName()),
 	}); err != nil {
-		return fmt.Errorf("failed to list MCP server instances: %w", err)
+		return fmt.Errorf("failed to list MCP catalog entries: %w", err)
 	}
 
-	// Iterate through each MCPServerInstance and make sure it is still allowed to exist.
-	for _, instance := range mcpServerInstances.Items {
-		if !instance.DeletionTimestamp.IsZero() {
-			continue
-		}
-
-		user, err := h.getUserInfoForAccessControl(req.Ctx, instance.Spec.UserID)
+	usersCache := map[string]*userInfo{}
+	for _, entry := range mcpCatalogEntries.Items {
+		var mcpServers v1.MCPServerList
+		err := req.List(&mcpServers, &client.ListOptions{
+			Namespace:     req.Object.GetNamespace(),
+			FieldSelector: fields.OneTermEqualSelector("spec.mcpServerCatalogEntryName", entry.Name),
+		})
 		if err != nil {
-			return fmt.Errorf("failed to get user %s: %w", instance.Spec.UserID, err)
+			return fmt.Errorf("failed to list MCP servers: %w", err)
 		}
 
-		if user.role.HasRole(types.RoleAdmin) {
-			// Don't delete instances created by admins.
-			continue
-		}
-
-		// Get the MCP server to determine which catalog it belongs to
-		var mcpServer v1.MCPServer
-		if err := req.Get(&mcpServer, system.DefaultNamespace, instance.Spec.MCPServerName); err != nil {
-			if apierrors.IsNotFound(err) {
-				log.Infof("Deleting MCPServerInstance %q because its MCP server no longer exists", instance.Name)
-				if err := req.Delete(&instance); err != nil {
-					return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
+		// Iterate through each MCPServer and make sure it is still allowed to exist.
+		for _, server := range mcpServers.Items {
+			user := usersCache[server.Spec.UserID]
+			if user == nil {
+				user, err = h.getUserInfoForAccessControl(req.Ctx, server.Spec.UserID)
+				if err != nil {
+					return fmt.Errorf("failed to get user info for %s: %w", server.Spec.UserID, err)
 				}
+
+				usersCache[server.Spec.UserID] = user
+			}
+
+			if server.Spec.PowerUserWorkspaceID != "" {
+				// For multi-user servers in a PowerUserWorkspace, make sure that the user on that workspace is a PowerUserPlus, and not a normal PowerUser
+				if !user.role.HasRole(types.RolePowerUserPlus) {
+					log.Infof("Deleting multi-user MCP server %q because its owner is no longer a PowerUserPlus", server.Name)
+					if err := req.Delete(&server); err != nil {
+						return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
+					}
+				}
+
 				continue
 			}
 
-			return fmt.Errorf("failed to get MCPServer %s: %w", instance.Spec.MCPServerName, err)
+			hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Ctx, user, server.Spec.MCPServerCatalogEntryName, entry.Spec.PowerUserWorkspaceID)
+			if err != nil {
+				return fmt.Errorf("failed to check if user %s has access to catalog entry %s in workspace %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, entry.Spec.PowerUserWorkspaceID, err)
+			}
+
+			if !hasAccess {
+				log.Infof("Deleting MCP server %q because it is no longer authorized to exist", server.Name)
+				if err := req.Delete(&server); err != nil {
+					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// DeleteUnauthorizedMCPServerInstancesForCatalog is a handler that deletes MCPServerInstances that point to multi-user MCPServers created by the admin,
+// where the user who owns the MCPServerInstance is no longer authorized to use the MCPServer.
+// This can happen whenever AccessControlRules change.
+func (h *Handler) DeleteUnauthorizedMCPServerInstancesForCatalog(req router.Request, _ router.Response) error {
+	// List AccessControlRules so that this handler gets triggered any time one of them changes.
+	if err := req.List(&v1.AccessControlRuleList{}, &client.ListOptions{
+		Namespace:     req.Object.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpCatalogID", req.Object.GetName()),
+	}); err != nil {
+		return fmt.Errorf("failed to list access control rules: %w", err)
+	}
+
+	var mcpServers v1.MCPServerList
+	err := req.List(&mcpServers, &client.ListOptions{
+		Namespace:     req.Object.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpCatalogID", req.Object.GetName()),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list MCP servers: %w", err)
+	}
+
+	userCache := map[string]*userInfo{}
+	for _, server := range mcpServers.Items {
+		var mcpServerInstances v1.MCPServerInstanceList
+		err = req.List(&mcpServerInstances, &client.ListOptions{
+			Namespace:     req.Object.GetNamespace(),
+			FieldSelector: fields.OneTermEqualSelector("spec.mcpServerName", server.Name),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list MCP server instances: %w", err)
 		}
 
-		var hasAccess bool
-		if mcpServer.Spec.MCPCatalogID != "" {
-			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerInCatalog(user, instance.Spec.MCPServerName, mcpServer.Spec.MCPCatalogID)
+		// Iterate through each MCPServerInstance and make sure it is still allowed to exist.
+		for _, instance := range mcpServerInstances.Items {
+			if !instance.DeletionTimestamp.IsZero() {
+				continue
+			}
+
+			user := userCache[instance.Spec.UserID]
+			if user == nil {
+				user, err = h.getUserInfoForAccessControl(req.Ctx, instance.Spec.UserID)
+				if err != nil {
+					return fmt.Errorf("failed to get user %s: %w", instance.Spec.UserID, err)
+				}
+
+				userCache[instance.Spec.UserID] = user
+			}
+
+			hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServerInCatalog(user, instance.Spec.MCPServerName, server.Spec.MCPCatalogID)
 			if err != nil {
 				return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 			}
-		} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
-			hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerInWorkspace(user, instance.Spec.MCPServerName, mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Spec.UserID)
+
+			if !hasAccess {
+				log.Infof("Deleting MCPServerInstance %q because it is no longer authorized to exist", instance.Name)
+				if err := req.Delete(&instance); err != nil {
+					return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// DeleteUnauthorizedMCPServerInstancesForWorkspace is a handler that deletes MCPServerInstances that point to multi-user MCPServers created by the admin,
+// where the user who owns the MCPServerInstance is no longer authorized to use the MCPServer.
+// This can happen whenever AccessControlRules change.
+func (h *Handler) DeleteUnauthorizedMCPServerInstancesForWorkspace(req router.Request, _ router.Response) error {
+	// List AccessControlRules so that this handler gets triggered any time one of them changes.
+	if err := req.List(&v1.AccessControlRuleList{}, &client.ListOptions{
+		Namespace:     req.Object.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector("spec.powerUserWorkspaceID", req.Object.GetName()),
+	}); err != nil {
+		return fmt.Errorf("failed to list access control rules: %w", err)
+	}
+
+	var mcpServers v1.MCPServerList
+	err := req.List(&mcpServers, &client.ListOptions{
+		Namespace:     req.Object.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector("spec.powerUserWorkspaceID", req.Object.GetName()),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list MCP servers: %w", err)
+	}
+
+	userCache := map[string]*userInfo{}
+	for _, server := range mcpServers.Items {
+		var mcpServerInstances v1.MCPServerInstanceList
+		err = req.List(&mcpServerInstances, &client.ListOptions{
+			Namespace:     req.Object.GetNamespace(),
+			FieldSelector: fields.OneTermEqualSelector("spec.mcpServerName", server.Name),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to list MCP server instances: %w", err)
+		}
+
+		// Iterate through each MCPServerInstance and make sure it is still allowed to exist.
+		for _, instance := range mcpServerInstances.Items {
+			if !instance.DeletionTimestamp.IsZero() {
+				continue
+			}
+
+			user := userCache[instance.Spec.UserID]
+			if user == nil {
+				user, err = h.getUserInfoForAccessControl(req.Ctx, instance.Spec.UserID)
+				if err != nil {
+					return fmt.Errorf("failed to get user %s: %w", instance.Spec.UserID, err)
+				}
+
+				userCache[instance.Spec.UserID] = user
+			}
+
+			hasAccess, err := h.accessControlRuleHelper.UserHasAccessToMCPServerInWorkspace(user, instance.Spec.MCPServerName, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
 			if err != nil {
 				return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 			}
-		}
 
-		if !hasAccess {
-			log.Infof("Deleting MCPServerInstance %q because it is no longer authorized to exist", instance.Name)
-			if err := req.Delete(&instance); err != nil {
-				return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
+			if !hasAccess {
+				log.Infof("Deleting MCPServerInstance %q because it is no longer authorized to exist", instance.Name)
+				if err := req.Delete(&instance); err != nil {
+					return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
+				}
 			}
 		}
 	}

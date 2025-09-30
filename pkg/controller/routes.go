@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/obot-platform/nah/pkg/handlers"
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/controller/generationed"
 	"github.com/obot-platform/obot/pkg/controller/handlers/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
@@ -236,8 +237,8 @@ func (c *Controller) setupRoutes() {
 
 	// MCPCatalog
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.Sync)
-	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServers)
-	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServerInstances)
+	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServersForCatalog)
+	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServerInstancesForCatalog)
 
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
@@ -261,6 +262,12 @@ func (c *Controller) setupRoutes() {
 	// AccessControlRule
 	root.Type(&v1.AccessControlRule{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.AccessControlRule{}).HandlerFunc(accesscontrolrule.PruneDeletedResources)
+	// This is a hack. We use field selectors to trigger other resources. However, when an access control rule is deleted,
+	// we don't trigger because we don't have the object to match the field selectors against.
+	// Having a finalizer that does nothing will ensure that the other resources are triggered.
+	root.Type(&v1.AccessControlRule{}).FinalizeFunc(v1.AccessControlRuleFinalizer, func(router.Request, router.Response) error {
+		return nil
+	})
 
 	// ProjectInvitations
 	root.Type(&v1.ProjectInvitation{}).HandlerFunc(projectinvitation.SetRespondedTime)
@@ -290,6 +297,8 @@ func (c *Controller) setupRoutes() {
 
 	// PowerUserWorkspace
 	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(powerUserWorkspaceHandler.CreateACR)
+	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServersForWorkspace)
+	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServerInstancesForWorkspace)
 
 	// Project-based MCP Servers
 	root.Type(&v1.ProjectMCPServer{}).FinalizeFunc(v1.ProjectMCPServerFinalizer, credentialCleanup.ShutdownProjectMCP)
