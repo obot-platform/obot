@@ -2266,7 +2266,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		return err
 	}
 
-	if server.Spec.MCPCatalogID != "" {
+	if server.Spec.MCPCatalogID != "" || server.Spec.PowerUserWorkspaceID != "" {
 		return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server; use the UpdateServer endpoint instead")
 	}
 
@@ -2277,6 +2277,17 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	var entry v1.MCPServerCatalogEntry
 	if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
 		return err
+	}
+
+	if !req.UserIsAdmin() {
+		workspaceID := req.PathValue("workspace_id")
+		if workspaceID == "" {
+			return types.NewErrNotFound("MCP server %s not found", server.Name)
+		}
+
+		if entry.Spec.PowerUserWorkspaceID != workspaceID {
+			return types.NewErrNotFound("MCP server %s not found", server.Name)
+		}
 	}
 
 	// Update the server manifest with the latest from the catalog entry
