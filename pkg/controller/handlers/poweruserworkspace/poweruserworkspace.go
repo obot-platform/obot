@@ -177,9 +177,11 @@ func (h *Handler) cleanupWorkspaceForDemotionToPowerUser(ctx context.Context, cl
 			}
 		}
 
-		workspace.Status.DefaultAccessControlRuleGenerated = false
-		if err := client.Status().Update(ctx, &workspace); err != nil {
-			return err
+		if workspace.Status.DefaultAccessControlRuleGenerated {
+			workspace.Status.DefaultAccessControlRuleGenerated = false
+			if err := client.Status().Update(ctx, &workspace); err != nil {
+				return err
+			}
 		}
 
 		// Delete all MCPServers in this workspace
