@@ -10,6 +10,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { Eye, EyeClosed, UsersRound, ArrowBigDown } from 'lucide-svelte';
 	import { DraggableList } from '../primitives/draggable';
+	import { page } from '$app/state';
 
 	interface Props {
 		task: Task;
@@ -42,6 +43,9 @@
 		shouldFollowTaskRun = $bindable(),
 		lastStepId
 	}: Props = $props();
+
+	const isAdmin = $derived(page.url.pathname.startsWith('/admin/tasks'));
+	const shouldShowToggleAllOutput = $derived(!isAdmin);
 
 	let orderedSteps = $state(readOnly && taskRun ? taskRun?.steps : (task?.steps ?? []));
 
@@ -251,31 +255,34 @@
 >
 	<div class="flex w-full items-center justify-between">
 		<h4 class="text-lg font-semibold">Steps</h4>
-		<button
-			class="icon-button"
-			data-testid="steps-toggle-output-btn"
-			onclick={async () => {
-				if (showAllOutput) {
-					const scrollableElement = element?.closest('[data-scrollable="true"]');
 
-					if (scrollableElement) {
-						// Search up the DOM tree for the scollable parent
-						scrollableElement?.scrollTo({ top: 0, behavior: 'smooth' });
-						await tick();
-						showAllOutput = false;
+		{#if shouldShowToggleAllOutput}
+			<button
+				class="icon-button"
+				data-testid="steps-toggle-output-btn"
+				onclick={async () => {
+					if (showAllOutput) {
+						const scrollableElement = element?.closest('[data-scrollable="true"]');
+
+						if (scrollableElement) {
+							// Search up the DOM tree for the scollable parent
+							scrollableElement?.scrollTo({ top: 0, behavior: 'smooth' });
+							await tick();
+							showAllOutput = false;
+						}
+					} else {
+						showAllOutput = true;
 					}
-				} else {
-					showAllOutput = true;
-				}
-			}}
-			use:tooltip={'Toggle All Output Visbility'}
-		>
-			{#if showAllOutput}
-				<Eye class="size-5" />
-			{:else}
-				<EyeClosed class="size-5" />
-			{/if}
-		</button>
+				}}
+				use:tooltip={'Toggle All Output Visbility'}
+			>
+				{#if showAllOutput}
+					<Eye class="size-5" />
+				{:else}
+					<EyeClosed class="size-5" />
+				{/if}
+			</button>
+		{/if}
 	</div>
 
 	<DraggableList
