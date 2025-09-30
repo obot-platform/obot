@@ -230,13 +230,7 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 		}
 	}
 
-	// For power user plus and admin, generate rules that give all users access
-	subject := types.Subject{
-		Type: types.SubjectTypeSelector,
-		ID:   "*",
-	}
-
-	// Create the default access control rule
+	// For power user plus and admin, generate a rule that gives all users access
 	defaultACR := &v1.AccessControlRule{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace:    namespace,
@@ -248,7 +242,10 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 			Manifest: types.AccessControlRuleManifest{
 				DisplayName: "Default Access Rule",
 				Subjects: []types.Subject{
-					subject,
+					{
+						Type: types.SubjectTypeSelector,
+						ID:   "*",
+					},
 				},
 				Resources: []types.Resource{
 					{
