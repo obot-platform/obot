@@ -160,7 +160,7 @@ func (h *Handler) cleanupWorkspaceForDemotionToPowerUser(ctx context.Context, cl
 	}
 
 	for _, workspace := range workspaces.Items {
-		// Delete non-generated AccessControlRules in this workspace
+		// Delete AccessControlRules in this workspace
 		var acrs v1.AccessControlRuleList
 		if err := client.List(ctx, &acrs, &kclient.ListOptions{
 			Namespace: namespace,
@@ -175,6 +175,11 @@ func (h *Handler) cleanupWorkspaceForDemotionToPowerUser(ctx context.Context, cl
 			if err := client.Delete(ctx, &acr); err != nil {
 				return err
 			}
+		}
+
+		workspace.Status.DefaultAccessControlRuleGenerated = false
+		if err := client.Status().Update(ctx, &workspace); err != nil {
+			return err
 		}
 
 		// Delete all MCPServers in this workspace
@@ -199,6 +204,12 @@ func (h *Handler) cleanupWorkspaceForDemotionToPowerUser(ctx context.Context, cl
 }
 
 func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kclient.Client, namespace string, workspace *v1.PowerUserWorkspace) error {
+	// Power Users have implicit access to their own workspace resources through the workspace ownership check.
+	// Only create default ACRs for PowerUserPlus and above, where the wildcard selector grants access to all users.
+	if workspace.Spec.Role.IsExactBaseRole(types.RolePowerUser) {
+		return nil
+	}
+
 	if workspace.Status.DefaultAccessControlRuleGenerated {
 		return nil
 	}
@@ -219,15 +230,10 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 		}
 	}
 
-	// for power user, generate rules that only give the current user access
-	// for power user plus, generate rules that give all users access
+	// For power user plus and admin, generate rules that give all users access
 	subject := types.Subject{
-		Type: types.SubjectTypeUser,
-		ID:   workspace.Spec.UserID,
-	}
-	if workspace.Spec.Role.HasRole(types.RolePowerUserPlus) {
-		subject.Type = types.SubjectTypeSelector
-		subject.ID = "*"
+		Type: types.SubjectTypeSelector,
+		ID:   "*",
 	}
 
 	// Create the default access control rule
