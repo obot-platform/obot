@@ -36,8 +36,14 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 
 		resources.Authorizated.MCPServer = &mcpServer
 		return true, nil
-	} else if resources.Authorizated.PowerUserWorkspace == nil || resources.Authorizated.PowerUserWorkspace.Spec.UserID != u.GetUID() {
-		return false, nil
+	} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
+		hasAccess, err := a.acrHelper.UserHasAccessToMCPServerInWorkspace(u, mcpServer.Name, mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Spec.UserID)
+		if err != nil || !hasAccess {
+			return false, err
+		}
+
+		resources.Authorizated.MCPServer = &mcpServer
+		return true, nil
 	} else if mcpServer.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
 		if err := a.get(req.Context(), router.Key(system.DefaultNamespace, mcpServer.Spec.MCPServerCatalogEntryName), &entry); err != nil || entry.Spec.PowerUserWorkspaceID != resources.Authorizated.PowerUserWorkspace.Name {
@@ -46,7 +52,7 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 
 		resources.Authorizated.MCPServer = &mcpServer
 		return true, nil
-	} else if mcpServer.Spec.PowerUserWorkspaceID == resources.Authorizated.PowerUserWorkspace.Name {
+	} else if resources.Authorizated.PowerUserWorkspace != nil && mcpServer.Spec.PowerUserWorkspaceID == resources.Authorizated.PowerUserWorkspace.Name {
 		resources.Authorizated.MCPServer = &mcpServer
 		return true, nil
 	}
