@@ -133,7 +133,7 @@
 	<button
 		type="submit"
 		onclick={() => submit()}
-		class="button-colors text-blue rounded-full p-2 transition-all duration-100 hover:border-none"
+		class="button-colors text-blue h-fit self-end rounded-full p-2 transition-all duration-100 hover:border-none"
 	>
 		{#if readonly}
 			<div class="m-1.5 h-3 w-3 place-self-center rounded-xs bg-white"></div>
@@ -146,7 +146,7 @@
 	</button>
 {/snippet}
 
-<div class="relative">
+<div class="relative w-full">
 	{#if inputPopover}
 		{@render inputPopover(value)}
 	{/if}
