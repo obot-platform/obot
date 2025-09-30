@@ -2131,6 +2131,12 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		scanner := bufio.NewScanner(logs)
 		for scanner.Scan() {
 			line := scanner.Text()
+			if line[0] == '\x01' || line[0] == '\x02' {
+				// Docker appends a header to each line of logs so that it knows where to send the log (stdout/stderr)
+				// and how long the log is. We don't need this information and it doesn't produce good output.
+				// See https://github.com/moby/moby/issues/7375#issuecomment-51462963
+				line = line[8:]
+			}
 			select {
 			case <-req.Context().Done():
 				return
