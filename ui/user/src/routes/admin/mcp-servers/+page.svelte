@@ -1,12 +1,8 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import Table from '$lib/components/table/Table.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
 		fetchMcpServerAndEntries,
@@ -15,33 +11,26 @@
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalog, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
-	import {
-		AlertTriangle,
-		Eye,
-		Info,
-		LoaderCircle,
-		Plus,
-		RefreshCcw,
-		Server,
-		Trash2,
-		TriangleAlert,
-		X
-	} from 'lucide-svelte';
+	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import BackLink from '$lib/components/BackLink.svelte';
-	import Search from '$lib/components/Search.svelte';
-	import { formatTimeAgo } from '$lib/time';
-	import { openUrl } from '$lib/utils';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
-	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp';
 	import { profile } from '$lib/stores';
+	import { page } from '$app/state';
+	import { twMerge } from 'tailwind-merge';
+	import RegistriesView from './RegistriesView.svelte';
+	import DeploymentsView from './DeploymentsView.svelte';
+	import Search from '$lib/components/Search.svelte';
+	import SourceUrlsView from './SourceUrlsView.svelte';
 
+	type View = 'registry' | 'deployments' | 'urls';
+
+	let view = $state<View>((page.url.searchParams.get('view') as View) || 'registry');
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
-	let search = $state('');
 
 	initMcpServerAndEntries();
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
@@ -49,25 +38,8 @@
 
 	onMount(async () => {
 		users = await AdminService.listUsersIncludeDeleted();
-		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries, (entries, servers) => {
-			const serverId = new URL(window.location.href).searchParams.get('id');
-			if (serverId) {
-				const foundEntry = entries.find((e) => e.id === serverId);
-				const foundServer = servers.find((s) => s.id === serverId);
-				const found = foundEntry || foundServer;
 
-				if (found && selectedEntryServer?.id !== found.id) {
-					selectedEntryServer = found;
-					showServerForm = true;
-				} else if (!found && selectedEntryServer) {
-					selectedEntryServer = undefined;
-					showServerForm = false;
-				}
-			} else {
-				selectedEntryServer = undefined;
-				showServerForm = false;
-			}
-		});
+		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
 		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
 
 		if (defaultCatalog?.isSyncing) {
@@ -88,30 +60,7 @@
 		}
 	});
 
-	let totalCount = $derived(
-		mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length
-	);
-
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
-	let tableData = $derived(
-		convertEntriesAndServersToTableData(
-			mcpServerAndEntries.entries,
-			mcpServerAndEntries.servers,
-			usersMap
-		)
-	);
-
-	let filteredTableData = $derived(
-		tableData
-			.filter(
-				(d) =>
-					d.name.toLowerCase().includes(search.toLowerCase()) ||
-					d.registry.toLowerCase().includes(search.toLowerCase())
-			)
-			.sort((a, b) => {
-				return a.name.localeCompare(b.name);
-			})
-	);
 
 	let defaultCatalog = $state<MCPCatalog>();
 	let editingSource = $state<{ index: number; value: string }>();
@@ -119,20 +68,18 @@
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let selectedServerType = $state<'single' | 'multi' | 'remote'>();
 	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
-
-	let syncError = $state<{ url: string; error: string }>();
-	let syncErrorDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let query = $state('');
 
 	let showServerForm = $state(false);
-	let deletingEntry = $state<MCPCatalogEntry>();
-	let deletingServer = $state<MCPCatalogServer>();
-	let deletingSource = $state<string>();
 	let saving = $state(false);
 	let syncing = $state(false);
 	let sourceError = $state<string>();
 	let syncInterval = $state<ReturnType<typeof setInterval>>();
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let totalCount = $derived(
+		mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length
+	);
 
 	function selectServerType(type: 'single' | 'multi' | 'remote', updateUrl = true) {
 		selectedServerType = type;
@@ -175,6 +122,12 @@
 		}
 	}
 
+	async function switchView(newView: View) {
+		view = newView;
+		page.url.searchParams.set('view', newView);
+		replaceState(page.url, {});
+	}
+
 	onDestroy(() => {
 		if (syncInterval) {
 			clearInterval(syncInterval);
@@ -184,8 +137,8 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout>
-	<div class="flex flex-col gap-8 pt-4 pb-8" in:fade>
+<Layout classes={{ navbar: 'bg-surface1' }}>
+	<div class="flex min-h-full flex-col gap-8 pt-4" in:fade>
 		{#if showServerForm}
 			{@render configureEntryScreen()}
 		{:else}
@@ -196,13 +149,15 @@
 
 {#snippet mainContent()}
 	<div
-		class="flex flex-col gap-4 md:gap-8"
+		class="flex min-h-full flex-col"
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<div class="flex flex-col items-center justify-start md:flex-row md:justify-between">
-			<h1 class="flex w-full items-center gap-2 text-2xl font-semibold">
-				MCP Servers
+		<div
+			class="mb-4 flex flex-col items-center justify-start md:mb-8 md:flex-row md:justify-between"
+		>
+			<div class="flex items-center gap-2">
+				<h1 class="text-2xl font-semibold">MCP Servers</h1>
 				{#if !isAdminReadonly}
 					<button class="button-small flex items-center gap-1 text-xs font-normal" onclick={sync}>
 						{#if syncing}
@@ -213,179 +168,87 @@
 						{/if}
 					</button>
 				{/if}
-			</h1>
+			</div>
 			{#if totalCount > 0 && !isAdminReadonly}
 				<div class="mt-4 w-full flex-shrink-0 md:mt-0 md:w-fit">
 					{@render addServerButton()}
 				</div>
 			{/if}
 		</div>
-
-		{#if defaultCatalog?.isSyncing}
-			<div class="notification-info p-3 text-sm font-light">
-				<div class="flex items-center gap-3">
-					<Info class="size-6" />
-					<div>The catalog is currently syncing with your configured Git repositories.</div>
-				</div>
+		<div class="bg-surface1 sticky top-16 left-0 z-20 w-full pb-1 dark:bg-black">
+			<div class="mb-2">
+				<Search
+					class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+					onChange={(val) => (query = val)}
+					placeholder={view !== 'urls' ? 'Search servers...' : 'Search sources...'}
+				/>
 			</div>
-		{/if}
-
-		<div class="flex flex-col gap-2">
-			<Search
-				class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
-				onChange={(val) => (search = val)}
-				placeholder="Search servers..."
-			/>
-
-			{#if mcpServerAndEntries.loading}
-				<div class="my-2 flex items-center justify-center">
-					<LoaderCircle class="size-6 animate-spin" />
-				</div>
-			{:else if totalCount === 0}
-				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-					<Server class="size-24 text-gray-200 dark:text-gray-900" />
-					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-						No created MCP servers
-					</h4>
-					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-						Looks like you don't have any servers created yet. <br />
-						Click the button below to get started.
-					</p>
-
-					{#if !isAdminReadonly}
-						{@render addServerButton()}
-					{/if}
-				</div>
-			{:else}
-				<Table
-					data={filteredTableData}
-					fields={['name', 'type', 'users', 'created', 'registry']}
-					filterable={['name', 'type', 'registry']}
-					onSelectRow={(d, isCtrlClick) => {
-						let url = '';
-						if (d.type === 'single' || d.type === 'remote') {
-							url = d.data.powerUserWorkspaceID
-								? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/c/${d.id}`
-								: `/admin/mcp-servers/c/${d.id}`;
-						} else {
-							url = d.data.powerUserWorkspaceID
-								? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/s/${d.id}`
-								: `/admin/mcp-servers/s/${d.id}`;
-						}
-						openUrl(url, isCtrlClick);
-					}}
-					sortable={['name', 'type', 'users', 'created', 'registry']}
-					noDataMessage="No catalog servers added."
+		</div>
+		<div class="dark:bg-surface2 rounded-t-md bg-white shadow-sm">
+			<div class="flex items-center">
+				<button
+					class={twMerge(
+						'hover:bg-surface1/50 dark:hover:bg-surface3/50 max-w-xs flex-1 border-b-2 border-transparent p-4 text-sm transition-colors',
+						view === 'registry' && 'border-b-2 border-blue-500'
+					)}
+					onclick={() => switchView('registry')}
 				>
-					{#snippet onRenderColumn(property, d)}
-						{#if property === 'name'}
-							<div class="flex flex-shrink-0 items-center gap-2">
-								<div
-									class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
-								>
-									{#if d.icon}
-										<img src={d.icon} alt={d.name} class="size-6" />
-									{:else}
-										<Server class="size-6" />
-									{/if}
-								</div>
-								<p class="flex items-center gap-1">
-									{d.name}
-								</p>
-							</div>
-						{:else if property === 'type'}
-							{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
-						{:else if property === 'created'}
-							{formatTimeAgo(d.created).relativeTime}
-						{:else}
-							{d[property as keyof typeof d]}
-						{/if}
+					Registry Entries
+				</button>
+				<button
+					class={twMerge(
+						'hover:bg-surface1/50 dark:hover:bg-surface3/50 max-w-xs flex-1 border-b-2 border-transparent p-4 text-sm transition-colors',
+						view === 'deployments' && 'border-b-2 border-blue-500'
+					)}
+					onclick={() => switchView('deployments')}
+				>
+					Deployments & Connections
+				</button>
+				<button
+					class={twMerge(
+						'hover:bg-surface1/50 dark:hover:bg-surface3/50 max-w-xs flex-1 border-b-2 border-transparent p-4 text-sm transition-colors',
+						view === 'urls' && 'border-b-2 border-blue-500'
+					)}
+					onclick={() => switchView('urls')}
+				>
+					Registry Sources
+				</button>
+			</div>
+
+			{#if defaultCatalog?.isSyncing}
+				<div class="p-4" transition:slide={{ axis: 'y' }}>
+					<div class="notification-info p-3 text-sm font-light">
+						<div class="flex items-center gap-3">
+							<Info class="size-6" />
+							<div>The catalog is currently syncing with your configured Git repositories.</div>
+						</div>
+					</div>
+				</div>
+			{/if}
+
+			{#if view === 'registry'}
+				<RegistriesView bind:catalog={defaultCatalog} readonly={isAdminReadonly} {usersMap} {query}>
+					{#snippet emptyContentButton()}
+						{@render addServerButton()}
 					{/snippet}
-					{#snippet actions(d)}
-						{#if d.editable && !isAdminReadonly}
-							<button
-								class="icon-button hover:text-red-500"
-								onclick={(e) => {
-									e.stopPropagation();
-									if (d.data.type === 'mcpserver') {
-										deletingServer = d.data as MCPCatalogServer;
-									} else {
-										deletingEntry = d.data as MCPCatalogEntry;
-									}
-								}}
-								use:tooltip={'Delete Entry'}
-							>
-								<Trash2 class="size-4" />
-							</button>
-						{/if}
-						<button class="icon-button hover:text-blue-500" use:tooltip={'View Entry'}>
-							<Eye class="size-4" />
-						</button>
-					{/snippet}
-				</Table>
+				</RegistriesView>
+			{:else if view === 'urls'}
+				<SourceUrlsView
+					catalog={defaultCatalog}
+					readonly={isAdminReadonly}
+					{query}
+					{syncing}
+					onSync={sync}
+				/>
+			{:else if view === 'deployments'}
+				<DeploymentsView
+					catalogId={defaultCatalogId}
+					readonly={isAdminReadonly}
+					{usersMap}
+					{query}
+				/>
 			{/if}
 		</div>
-
-		{#if defaultCatalog?.sourceURLs && defaultCatalog.sourceURLs.length > 0 && defaultCatalog.id}
-			<div class="flex flex-col gap-2" in:slide={{ axis: 'y', duration }}>
-				<h2 class="mb-2 text-lg font-semibold">Global Registry Git Source URLs</h2>
-
-				<Table
-					data={defaultCatalog?.sourceURLs?.map((url, index) => ({ id: index, url })) ?? []}
-					fields={['url']}
-					headers={[
-						{
-							property: 'url',
-							title: 'URL'
-						}
-					]}
-					noDataMessage="No Git Source URLs added."
-					setRowClasses={(d) => {
-						if (defaultCatalog?.syncErrors?.[d.url]) {
-							return 'bg-yellow-500/10';
-						}
-						return '';
-					}}
-				>
-					{#snippet actions(d)}
-						{#if !isAdminReadonly}
-							<button
-								class="icon-button hover:text-red-500"
-								onclick={() => {
-									deletingSource = d.url;
-								}}
-							>
-								<Trash2 class="size-4" />
-							</button>
-						{/if}
-					{/snippet}
-					{#snippet onRenderColumn(property, d)}
-						{#if property === 'url'}
-							<div class="flex items-center gap-2">
-								<p>{d.url}</p>
-								{#if defaultCatalog?.syncErrors?.[d.url]}
-									<button
-										onclick={() => {
-											syncError = {
-												url: d.url,
-												error: defaultCatalog?.syncErrors?.[d.url] ?? ''
-											};
-											syncErrorDialog?.open();
-										}}
-										use:tooltip={{
-											text: 'An issue occurred. Click to see more details.',
-											classes: ['break-words']
-										}}
-									>
-										<TriangleAlert class="size-4 text-yellow-500" />
-									</button>
-								{/if}
-							</div>
-						{/if}
-					{/snippet}
-				</Table>
-			</div>
-		{/if}
 	</div>
 {/snippet}
 
@@ -526,70 +389,7 @@
 	{/if}
 </dialog>
 
-<Confirm
-	msg="Are you sure you want to delete this server?"
-	show={Boolean(deletingEntry)}
-	onsuccess={async () => {
-		if (!deletingEntry) {
-			return;
-		}
-
-		await AdminService.deleteMCPCatalogEntry(defaultCatalogId, deletingEntry.id);
-		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
-		deletingEntry = undefined;
-	}}
-	oncancel={() => (deletingEntry = undefined)}
-/>
-
-<Confirm
-	msg="Are you sure you want to delete this server?"
-	show={Boolean(deletingServer)}
-	onsuccess={async () => {
-		if (!deletingServer) {
-			return;
-		}
-
-		await AdminService.deleteMCPCatalogServer(defaultCatalogId, deletingServer.id);
-		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
-		deletingServer = undefined;
-	}}
-	oncancel={() => (deletingServer = undefined)}
-/>
-
-<Confirm
-	msg="Are you sure you want to delete this Git Source URL?"
-	show={Boolean(deletingSource)}
-	onsuccess={async () => {
-		if (!deletingSource || !defaultCatalog) {
-			return;
-		}
-
-		const response = await AdminService.updateMCPCatalog(defaultCatalogId, {
-			...defaultCatalog,
-			sourceURLs: defaultCatalog.sourceURLs?.filter((url) => url !== deletingSource)
-		});
-		await sync();
-		defaultCatalog = response;
-		deletingSource = undefined;
-	}}
-	oncancel={() => (deletingSource = undefined)}
-/>
-
 <SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />
-
-<ResponsiveDialog title="Git Source URL Sync" bind:this={syncErrorDialog} class="md:w-2xl">
-	<div class="mb-4 flex flex-col gap-4">
-		<div class="notification-alert flex flex-col gap-2">
-			<div class="flex items-center gap-2">
-				<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
-				<p class="my-0.5 flex flex-col text-sm font-semibold">
-					An issue occurred fetching this source URL:
-				</p>
-			</div>
-			<span class="text-sm font-light break-all">{syncError?.error}</span>
-		</div>
-	</div>
-</ResponsiveDialog>
 
 <svelte:head>
 	<title>Obot | MCP Servers</title>

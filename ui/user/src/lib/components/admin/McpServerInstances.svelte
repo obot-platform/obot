@@ -11,29 +11,26 @@
 
 	import {
 		CircleAlert,
+		CircleFadingArrowUp,
 		Ellipsis,
 		GitCompare,
 		LoaderCircle,
 		Router,
-		Server,
-		ServerCog,
 		Square,
-		SquareCheck,
-		TriangleAlert
+		SquareCheck
 	} from 'lucide-svelte';
 	import { formatTimeAgo } from '$lib/time';
-	import { profile, responsive } from '$lib/stores';
-	import { formatJsonWithDiffHighlighting, generateJsonDiff } from '$lib/diff';
+	import { profile } from '$lib/stores';
 	import DotDotDot from '../DotDotDot.svelte';
 	import { onMount } from 'svelte';
-	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Table from '../table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { twMerge } from 'tailwind-merge';
 	import Confirm from '../Confirm.svelte';
 	import McpServerK8sInfo from './McpServerK8sInfo.svelte';
 	import { openUrl } from '$lib/utils';
+	import DiffDialog from './DiffDialog.svelte';
+	import { page } from '$app/state';
 
 	interface Props {
 		id?: string;
@@ -51,14 +48,14 @@
 	let showConfirm = $state<
 		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
 	>();
-	let diffDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
 	let diffServer = $state<MCPCatalogServer>();
 	let selected = $state<Record<string, MCPCatalogServer>>({});
 	let updating = $state<Record<string, { inProgress: boolean; error: string }>>({});
 
 	let hasSelected = $derived(Object.values(selected).some((v) => v));
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
-	let isAdminUrl = $state(false);
+	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 
 	onMount(() => {
 		if (entry && !('isCatalogEntry' in entry) && id) {
@@ -73,10 +70,6 @@
 			} else {
 				listEntryServers = AdminService.listMCPServersForEntry(id, entry.id);
 			}
-		}
-
-		if (location.pathname.includes('/admin')) {
-			isAdminUrl = true;
 		}
 	});
 
@@ -180,10 +173,10 @@
 					}}
 				>
 					<div
-						class="flex items-center gap-1 rounded-md border border-yellow-500 bg-yellow-500/10 px-4 py-2 transition-colors duration-300 group-hover:bg-yellow-500/20 dark:bg-yellow-500/30 dark:group-hover:bg-yellow-500/40"
+						class="flex items-center gap-1 rounded-md border border-blue-500 bg-blue-500/10 px-4 py-2 transition-colors duration-300 group-hover:bg-blue-500/20 dark:bg-blue-500/30 dark:group-hover:bg-blue-500/40"
 					>
-						<TriangleAlert class="size-4 text-yellow-500" />
-						<p class="text-sm font-light text-yellow-500">
+						<CircleFadingArrowUp class="size-4 text-blue-500" />
+						<p class="text-sm font-light text-blue-500">
 							{#if numServerUpdatesNeeded === 1}
 								1 instance has an update available.
 							{:else}
@@ -200,7 +193,7 @@
 					{ title: 'User', property: 'userID' },
 					{ title: 'URL', property: 'url' }
 				]}
-				onSelectRow={type === 'single'
+				onClickRow={type === 'single'
 					? (d, isCtrlClick) => {
 							setLastVisitedMcpServer();
 
@@ -225,7 +218,7 @@
 										classes: ['break-words', 'w-58']
 									}}
 								>
-									<TriangleAlert class="size-4 text-yellow-500" />
+									<CircleFadingArrowUp class="size-4 text-blue-500" />
 								</div>
 							{/if}
 						</span>
@@ -241,7 +234,7 @@
 											classes: ['break-words', 'w-58']
 										}}
 									>
-										<TriangleAlert class="size-4 text-yellow-500" />
+										<CircleFadingArrowUp class="size-4 text-blue-500" />
 									</div>
 								{/if}
 							{/if}
@@ -281,7 +274,7 @@
 										<GitCompare class="size-4" /> View Diff
 									</button>
 									<button
-										class="menu-button bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20"
+										class="menu-button bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
 										disabled={updating[d.id]?.inProgress}
 										onclick={async (e) => {
 											e.stopPropagation();
@@ -294,7 +287,7 @@
 										{#if updating[d.id]?.inProgress}
 											<LoaderCircle class="size-4 animate-spin" />
 										{:else}
-											<ServerCog class="size-4" />
+											<CircleFadingArrowUp class="size-4" />
 										{/if}
 										Update Server
 									</button>
@@ -372,92 +365,7 @@
 	{@render emptyInstancesContent()}
 {/if}
 
-<ResponsiveDialog bind:this={diffDialog} class="h-dvh w-full max-w-full p-0 md:w-[calc(100vw-2em)]">
-	{#snippet titleContent()}
-		{#if diffServer?.manifest}
-			<div class="flex items-center gap-2 md:p-4 md:pb-0">
-				<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
-					{#if diffServer?.manifest?.icon}
-						<img src={diffServer.manifest.icon} alt={diffServer.manifest.name} class="size-5" />
-					{:else}
-						<Server class="size-5" />
-					{/if}
-				</div>
-				{diffServer.manifest.name} | {diffServer.id}
-			</div>
-		{/if}
-	{/snippet}
-	{#if entry}
-		{@const newServerManifest = entry.manifest}
-		{@const diffManifest = diffServer?.manifest}
-		{#if newServerManifest && diffManifest}
-			{@const diff = generateJsonDiff(diffManifest, newServerManifest)}
-			{#if !responsive.isMobile}
-				<div class="grid h-full grid-cols-2">
-					<div class="h-full">
-						<h3 class="mb-2 px-4 text-sm font-semibold text-gray-600 dark:text-gray-400">
-							Current Version
-						</h3>
-						<div
-							class="default-scrollbar-thin dark:border-surface3 dark:bg-surface1 h-full overflow-x-auto border-r border-gray-200 bg-gray-50 p-4"
-						>
-							<div class="font-mono text-sm whitespace-pre">
-								{@html formatJsonWithDiffHighlighting(diffManifest, diff, true)}
-							</div>
-						</div>
-					</div>
-					<div class="h-full">
-						<h3 class="mb-2 px-4 text-sm font-semibold text-gray-600 dark:text-gray-400">
-							New Version
-						</h3>
-						<div
-							class="default-scrollbar-thin dark:border-surface3 dark:bg-surface1 h-full overflow-x-auto bg-gray-50 p-4"
-						>
-							<div class="font-mono text-sm whitespace-pre">
-								{@html formatJsonWithDiffHighlighting(newServerManifest, diff, false)}
-							</div>
-						</div>
-					</div>
-				</div>
-			{:else}
-				<div class="h-full w-full pl-2">
-					<h3 class="mb-2 text-sm font-semibold text-gray-600 dark:text-gray-400">Source Diff</h3>
-					<div
-						class="default-scrollbar-thin dark:bg-surface1 h-full overflow-auto rounded-sm bg-gray-50 pt-4"
-					>
-						{#each diff.unifiedLines as line, i (i)}
-							{@const type = line.startsWith('+')
-								? 'added'
-								: line.startsWith('-')
-									? 'removed'
-									: 'unchanged'}
-							{@const content = line.startsWith('+') || line.startsWith('-') ? line.slice(1) : line}
-							{@const prefix = line.startsWith('+') ? '+' : line.startsWith('-') ? '-' : ' '}
-							<div
-								class={twMerge(
-									'font-mono text-sm whitespace-pre',
-									type === 'added'
-										? 'bg-green-500/10 text-green-500 dark:bg-green-900/30'
-										: type === 'removed'
-											? 'bg-red-500/10 text-red-500'
-											: 'text-gray-700 dark:text-gray-300'
-								)}
-							>
-								{prefix}{content}
-							</div>
-						{/each}
-					</div>
-				</div>
-			{/if}
-		{:else}
-			<div class="flex items-center justify-center py-8">
-				<p class="text-gray-500 dark:text-gray-400">
-					Unable to compare manifests. Missing manifest data.
-				</p>
-			</div>
-		{/if}
-	{/if}
-</ResponsiveDialog>
+<DiffDialog bind:this={diffDialog} fromServer={diffServer} toServer={entry} />
 
 {#snippet emptyInstancesContent()}
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">

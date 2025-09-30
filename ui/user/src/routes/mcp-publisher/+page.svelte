@@ -157,7 +157,7 @@
 				<Table
 					data={filteredTableData}
 					fields={['name', 'type', 'users', 'created']}
-					onSelectRow={(d, isCtrlClick) => {
+					onClickRow={(d, isCtrlClick) => {
 						const url =
 							d.type === 'single' || d.type === 'remote'
 								? `/mcp-publisher/c/${d.id}`

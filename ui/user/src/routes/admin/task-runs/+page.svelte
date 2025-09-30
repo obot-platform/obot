@@ -179,7 +179,7 @@
 						filterable={['name', 'userName', 'userEmail', 'task', 'projectName']}
 						onFilter={handleColumnFilter}
 						filters={urlFilters}
-						onSelectRow={isAuditor ? handleViewThread : undefined}
+						onClickRow={isAuditor ? handleViewThread : undefined}
 						headers={[
 							{
 								title: 'User Name',

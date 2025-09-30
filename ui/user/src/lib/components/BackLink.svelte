@@ -57,6 +57,10 @@
 			];
 		}
 
+		if (type === 'deployed-servers') {
+			return [{ href: '/admin/mcp-servers?view=deployments', label: 'MCP Servers' }];
+		}
+
 		return [];
 	}
 

@@ -225,7 +225,10 @@
 				<div class="flex justify-end">
 					<button
 						class="button flex items-center gap-1 text-xs"
-						onclick={() =>
+						onclick={() => {
+							if (!config.headers) {
+								config.headers = [];
+							}
 							config.headers?.push({
 								key: '',
 								description: '',
@@ -234,7 +237,8 @@
 								required: false,
 								sensitive: false,
 								file: false
-							})}
+							});
+						}}
 					>
 						<Plus class="size-4" />
 						Header

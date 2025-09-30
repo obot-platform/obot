@@ -181,7 +181,7 @@
 						filterable={['name', 'userName', 'userEmail', 'projectName']}
 						onFilter={handleColumnFilter}
 						filters={urlFilters}
-						onSelectRow={isAuditor ? handleViewTask : undefined}
+						onClickRow={isAuditor ? handleViewTask : undefined}
 						headers={[
 							{
 								title: 'User Name',

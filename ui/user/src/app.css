@@ -268,6 +268,35 @@
 		}
 	}
 
+	.button-icon {
+		display: flex;
+		min-height: 2.5rem; /* min-h-10 */
+		min-width: 2.5rem; /* min-w-10 */
+		align-items: center;
+		justify-content: center;
+		border-radius: 9999px; /* rounded-full */
+		padding: 0.625rem; /* p-2.5 */
+		font-size: 0.875rem; /* text-sm */
+		transition-property: all;
+		transition-duration: 200ms;
+		color: var(--color-gray-500);
+		&:hover {
+			background-color: var(--surface3);
+		}
+		&:focus {
+			outline: none;
+		}
+		.dark & {
+			color: var(--color-gray-400);
+		}
+		&:disabled {
+			opacity: 0.5;
+		}
+		&:disabled:hover {
+			background-color: transparent;
+		}
+	}
+
 	.icon-default {
 		height: 1.25rem; /* h-5 */
 		width: 1.25rem; /* w-5 */
@@ -451,6 +480,14 @@
 			color: var(--color-blue);
 			background-color: transparent;
 		}
+	}
+
+	.page-tab {
+
+	}
+
+	.page-tab-active {
+
 	}
 
 	.text-input-filled {
@@ -675,6 +712,74 @@
 		.dark &:hover {
 			background-color: var(--surface3);
 		}
+		@media (min-width: 768px) {
+			padding-top: 0.5rem;
+			padding-bottom: 0.5rem;
+		}
+	}
+	
+	.menu-button-destructive {
+		display: flex;
+		min-height: 2.5rem;
+		min-width: 2.5rem;
+		align-items: center;
+		gap: 0.5rem;
+		border-radius: 0.5rem;
+		padding: 0.5rem;
+		padding-top: 1rem;
+		padding-bottom: 1rem;
+		font-size: 0.875rem;
+		transition-property: all;
+		transition-duration: 200ms;
+		background-color: rgb(239 68 68 / 0.1);
+		color: var(--color-red-500);
+
+		&:hover {
+			background-color: rgb(239 68 68 / 0.2);
+		}
+
+		&:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+		&:disabled:hover {
+			background-color: rgb(239 68 68 / 0.1);
+		}
+
+		@media (min-width: 768px) {
+			padding-top: 0.5rem;
+			padding-bottom: 0.5rem;
+		}
+	}
+
+	.menu-button-primary {
+		display: flex;
+		min-height: 2.5rem;
+		min-width: 2.5rem;
+		align-items: center;
+		gap: 0.5rem;
+		border-radius: 0.5rem;
+		padding: 0.5rem;
+		padding-top: 1rem;
+		padding-bottom: 1rem;
+		font-size: 0.875rem;
+		transition-property: all;
+		transition-duration: 200ms;
+		background-color: color-mix(in oklab, var(--color-blue-500) /* #4f7ef3 */ 10%, transparent);
+		color: var(--color-blue-500);
+
+		&:hover {
+			background-color: color-mix(in oklab, var(--color-blue-500) /* #4f7ef3 */ 20%, transparent)
+		}
+
+		&:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+		&:disabled:hover {
+			background-color: color-mix(in oklab, var(--color-blue-500) /* #4f7ef3 */ 10%, transparent);
+		}
+
 		@media (min-width: 768px) {
 			padding-top: 0.5rem;
 			padding-bottom: 0.5rem;

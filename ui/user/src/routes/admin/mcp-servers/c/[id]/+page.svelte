@@ -8,6 +8,7 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import { profile } from '$lib/stores/index.js';
+	import { page } from '$app/state';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -30,7 +31,8 @@
 	<div class="flex h-full flex-col gap-6 pt-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if catalogEntry}
 			{@const currentLabel = catalogEntry?.manifest?.name ?? 'MCP Server'}
-			<BackLink fromURL="mcp-servers" {currentLabel} />
+			{@const from = page.url.searchParams.get('from') || `/mcp-servers`}
+			<BackLink fromURL={from} {currentLabel} />
 		{/if}
 
 		<McpServerEntryForm

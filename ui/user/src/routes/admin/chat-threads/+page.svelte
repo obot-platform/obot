@@ -165,7 +165,7 @@
 						filterable={['displayName', 'userName', 'userEmail', 'projectName']}
 						filters={urlFilters}
 						onFilter={handleColumnFilter}
-						onSelectRow={isAuditor
+						onClickRow={isAuditor
 							? (d, isCtrlClick) => {
 									const url = `/admin/chat-threads/${d.id}`;
 									openUrl(url, isCtrlClick);
