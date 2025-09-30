@@ -2135,7 +2135,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 				// Docker appends a header to each line of logs so that it knows where to send the log (stdout/stderr)
 				// and how long the log is. We don't need this information and it doesn't produce good output.
 				// See https://github.com/moby/moby/issues/7375#issuecomment-51462963
-				line = line[8:]
+				line = line[min(8, len(line)):]
 			}
 			select {
 			case <-req.Context().Done():
