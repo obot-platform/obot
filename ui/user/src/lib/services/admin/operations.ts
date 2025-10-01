@@ -73,11 +73,10 @@ export async function listMCPCatalogEntries(
 	catalogID: string,
 	opts?: { fetch?: Fetcher; all?: boolean }
 ): Promise<MCPCatalogEntry[]> {
-	const url = opts?.all ? `/mcp-catalogs/${catalogID}/entries?all=true` : `/mcp-catalogs/${catalogID}/entries`;
-	const response = (await doGet(
-		url,
-		opts
-	)) as ItemsResponse<MCPCatalogEntry>;
+	const url = opts?.all
+		? `/mcp-catalogs/${catalogID}/entries?all=true`
+		: `/mcp-catalogs/${catalogID}/entries`;
+	const response = (await doGet(url, opts)) as ItemsResponse<MCPCatalogEntry>;
 	return (
 		response.items?.map((item) => {
 			return {
@@ -199,11 +198,10 @@ export async function listMCPCatalogServers(
 	catalogID: string,
 	opts?: { fetch?: Fetcher; all?: boolean }
 ): Promise<MCPCatalogServer[]> {
-	const url = opts?.all ? `/mcp-catalogs/${catalogID}/servers?all=true` : `/mcp-catalogs/${catalogID}/servers`;
-	const response = (await doGet(
-		url,
-		opts
-	)) as ItemsResponse<MCPCatalogServer>;
+	const url = opts?.all
+		? `/mcp-catalogs/${catalogID}/servers?all=true`
+		: `/mcp-catalogs/${catalogID}/servers`;
+	const response = (await doGet(url, opts)) as ItemsResponse<MCPCatalogServer>;
 	return response.items ?? [];
 }
 
