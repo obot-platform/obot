@@ -92,6 +92,16 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		return err
 	}
 
+	// Allow admins/auditors to bypass ACR filtering with ?all=true
+	if (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
+		entries := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
+		for _, entry := range list.Items {
+			entries = append(entries, convertMCPServerCatalogEntry(entry))
+		}
+		return req.Write(types.MCPServerCatalogEntryList{Items: entries})
+	}
+
+	// Apply ACR filtering for regular users and for admins without ?all=true
 	var entries []types.MCPServerCatalogEntry
 	for _, entry := range list.Items {
 		var (
@@ -199,6 +209,9 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 
 	items := make([]types.MCPServer, 0, len(servers.Items))
 
+	// Allow admins/auditors to bypass ACR filtering with ?all=true
+	bypassACRCheck := (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
+
 	for _, server := range servers.Items {
 		if server.Spec.Template {
 			continue
@@ -209,10 +222,14 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 			err       error
 		)
 
-		// if the server is owned by the current user, they have access to it
-		if server.Spec.UserID == req.User.GetUID() {
+		if bypassACRCheck {
+			// Admins/auditors with ?all=true can see all servers
+			hasAccess = true
+		} else if server.Spec.UserID == req.User.GetUID() {
+			// If the server is owned by the current user, they have access to it
 			hasAccess = true
 		} else {
+			// Apply ACR filtering for regular users and for admins without ?all=true
 			if server.Spec.MCPCatalogID != "" {
 				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
 				if err != nil {
@@ -1787,25 +1804,32 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 	}
 
 	var allowedServers []v1.MCPServer
-	for _, server := range list.Items {
-		var (
-			err       error
-			hasAccess bool
-		)
 
-		if server.Spec.MCPCatalogID != "" {
-			// Check default catalog servers
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
-		} else if server.Spec.PowerUserWorkspaceID != "" {
-			// Check workspace-scoped servers
-			hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
-		}
-		if err != nil {
-			return err
-		}
+	// Allow admins/auditors to bypass ACR filtering with ?all=true
+	if (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
+		allowedServers = list.Items
+	} else {
+		// Apply ACR filtering for regular users and for admins without ?all=true
+		for _, server := range list.Items {
+			var (
+				err       error
+				hasAccess bool
+			)
 
-		if hasAccess {
-			allowedServers = append(allowedServers, server)
+			if server.Spec.MCPCatalogID != "" {
+				// Check default catalog servers
+				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInCatalog(req.User, server.Name, server.Spec.MCPCatalogID)
+			} else if server.Spec.PowerUserWorkspaceID != "" {
+				// Check workspace-scoped servers
+				hasAccess, err = m.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
+			}
+			if err != nil {
+				return err
+			}
+
+			if hasAccess {
+				allowedServers = append(allowedServers, server)
+			}
 		}
 	}
 
