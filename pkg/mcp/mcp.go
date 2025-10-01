@@ -128,6 +128,14 @@ func findSpecialError(err error, mcpServerDisplayName string) (bool, error) {
 			return true, fmt.Errorf("no response from MCP server %s, this is likely due to a configuration error", mcpServerDisplayName)
 		case unwrappedErr == ErrHealthCheckFailed || unwrappedErr == ErrHealthCheckTimeout:
 			return true, fmt.Errorf("MCP server %s is unhealthy", mcpServerDisplayName)
+		case unwrappedErr == ErrPodCrashLoopBackOff:
+			return true, fmt.Errorf("MCP server %s pod is crashing", mcpServerDisplayName)
+		case unwrappedErr == ErrImagePullFailed:
+			return true, fmt.Errorf("failed to pull image for MCP server %s", mcpServerDisplayName)
+		case unwrappedErr == ErrPodSchedulingFailed:
+			return true, fmt.Errorf("MCP server %s pod could not be scheduled", mcpServerDisplayName)
+		case unwrappedErr == ErrPodConfigurationFailed:
+			return true, fmt.Errorf("MCP server %s has invalid configuration", mcpServerDisplayName)
 		default:
 			switch e := unwrappedErr.(type) {
 			case nmcp.AuthRequiredErr:
