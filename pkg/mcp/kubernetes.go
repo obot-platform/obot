@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var klog = logger.Package()
 
 type kubernetesBackend struct {
 	clientset        *kubernetes.Clientset
@@ -582,12 +584,12 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 				"app": id,
 			}),
 		}); listErr != nil {
-			slog.Error("failed to list MCP pods for status check", "id", id, "error", listErr)
+			klog.Debugf("failed to list MCP pods for status check: id=%s error=%v", id, listErr)
 			return "", fmt.Errorf("failed to list MCP pods: %w", listErr)
 		}
 
 		if len(pods.Items) == 0 {
-			slog.Warn("no pods found for MCP server", "id", id, "attempt", attempt+1)
+			klog.Debugf("no pods found for MCP server: id=%s attempt=%d", id, attempt+1)
 			lastReason = "no pods found"
 			if attempt < maxRetries {
 				continue
@@ -602,7 +604,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 
 		if !shouldRetry {
 			// Permanent failure - return appropriate error based on reason
-			slog.Error("pod in non-retryable state", "id", id, "reason", reason, "attempt", attempt+1)
+			klog.Debugf("pod in non-retryable state: id=%s reason=%s attempt=%d", id, reason, attempt+1)
 			if strings.Contains(reason, "CrashLoopBackOff") {
 				return "", fmt.Errorf("%w: %s", ErrPodCrashLoopBackOff, reason)
 			} else if strings.Contains(reason, "ImagePull") || strings.Contains(reason, "InvalidImageName") {
@@ -617,12 +619,12 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 
 		// Transient issue - retry if we haven't exceeded max retries
 		if attempt < maxRetries {
-			slog.Info("pod not ready, will retry", "id", id, "reason", reason, "attempt", attempt+1, "maxRetries", maxRetries)
+			klog.Debugf("pod not ready, will retry: id=%s reason=%s attempt=%d maxRetries=%d", id, reason, attempt+1, maxRetries)
 			continue
 		}
 
 		// Exceeded max retries
-		slog.Error("exceeded max retries waiting for pod", "id", id, "lastReason", lastReason, "attempts", attempt+1)
+		klog.Debugf("exceeded max retries waiting for pod: id=%s lastReason=%s attempts=%d", id, lastReason, attempt+1)
 		return "", fmt.Errorf("%w after %d retries: %s", ErrHealthCheckTimeout, maxRetries+1, lastReason)
 	}
 
