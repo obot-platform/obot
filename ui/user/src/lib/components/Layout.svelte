@@ -224,7 +224,23 @@
 									collapsible: false
 								}
 							]
-						: [])
+						: []),
+					{
+						id: 'audit-logs',
+						href: '/mcp-publisher/audit-logs',
+						icon: Captions,
+						label: 'Audit Logs',
+						disabled: false,
+						collapsible: false
+					},
+					{
+						id: 'usage',
+						href: '/mcp-publisher/usage',
+						icon: ChartBarDecreasing,
+						label: 'Usage',
+						disabled: false,
+						collapsible: false
+					}
 				])
 	);
 

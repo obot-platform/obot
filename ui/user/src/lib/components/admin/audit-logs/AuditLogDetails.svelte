@@ -14,8 +14,11 @@
 	}
 
 	let { auditLog, onClose }: Props = $props();
+
 	let container = $state<HTMLDivElement>();
 	let hasAuditorAccess = $derived(profile.current.groups.includes(Group.AUDITOR));
+
+	const shouldShowPayload = $derived(profile?.current?.hasAdminAccess?.() ?? false);
 </script>
 
 {#if !responsive.isMobile && container}
@@ -107,41 +110,45 @@
 				{/if}
 			</div>
 
-			{#if auditLog.requestHeaders}
-				<p class="my-2 text-base font-semibold">Request Headers</p>
+			{#if shouldShowPayload}
+				{#if auditLog.requestHeaders}
+					<p class="my-2 text-base font-semibold">Request Headers</p>
 
-				<div
-					class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
-				>
-					<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
-					<div class="flex flex-col gap-1">
-						{#each Object.entries(auditLog.requestHeaders ?? {}) as [key, value] (key)}
-							<p>
-								<span class="font-medium">{key}</span>: {value}
-							</p>
-						{/each}
+					<div
+						class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
+					>
+						<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
+						<div class="flex flex-col gap-1">
+							{#each Object.entries(auditLog.requestHeaders ?? {}) as [key, value] (key)}
+								<p>
+									<span class="font-medium">{key}</span>: {value}
+								</p>
+							{/each}
+						</div>
 					</div>
-				</div>
-			{:else if !hasAuditorAccess}
-				{@render noAuditorAccessInfo('Request Headers')}
+				{:else if !hasAuditorAccess}
+					{@render noAuditorAccessInfo('Request Headers')}
+				{/if}
 			{/if}
 
-			{#if Object.keys(auditLog.requestBody ?? {}).length > 0}
-				{@const body = JSON.stringify(auditLog.requestBody, null, 2)}
+			{#if shouldShowPayload}
+				{#if Object.keys(auditLog.requestBody ?? {}).length > 0}
+					{@const body = JSON.stringify(auditLog.requestBody, null, 2)}
 
-				<p class="translate-y-2 pt-4 text-base font-semibold">Request Body</p>
-				<div class="relative text-white">
-					<pre class="default-scrollbar-thin max-h-96 overflow-y-auto p-4">
+					<p class="translate-y-2 pt-4 text-base font-semibold">Request Body</p>
+					<div class="relative text-white">
+						<pre class="default-scrollbar-thin max-h-96 overflow-y-auto p-4">
 						<code class="language-json">{body}</code>
 					</pre>
 
-					<CopyButton
-						classes={{ button: 'absolute right-4 top-4 flex flex-col items-end' }}
-						text={body}
-					/>
-				</div>
-			{:else if !hasAuditorAccess}
-				{@render noAuditorAccessInfo('Request Body')}
+						<CopyButton
+							classes={{ button: 'absolute right-4 top-4 flex flex-col items-end' }}
+							text={body}
+						/>
+					</div>
+				{:else if !hasAuditorAccess}
+					{@render noAuditorAccessInfo('Request Body')}
+				{/if}
 			{/if}
 		</div>
 
@@ -160,22 +167,24 @@
 				{/if}
 			</div>
 
-			{#if auditLog.responseHeaders}
-				<p class="mt-4 mb-2 text-base font-semibold">Response Headers</p>
-				<div
-					class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
-				>
-					<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
-					<div class="flex flex-col gap-1">
-						{#each Object.entries(auditLog.responseHeaders ?? {}) as [key, value] (key)}
-							<p>
-								<span class="font-medium">{key}</span>: {value}
-							</p>
-						{/each}
+			{#if shouldShowPayload}
+				{#if auditLog.responseHeaders}
+					<p class="mt-4 mb-2 text-base font-semibold">Response Headers</p>
+					<div
+						class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
+					>
+						<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
+						<div class="flex flex-col gap-1">
+							{#each Object.entries(auditLog.responseHeaders ?? {}) as [key, value] (key)}
+								<p>
+									<span class="font-medium">{key}</span>: {value}
+								</p>
+							{/each}
+						</div>
 					</div>
-				</div>
-			{:else if !hasAuditorAccess}
-				{@render noAuditorAccessInfo('Response Headers')}
+				{:else if !hasAuditorAccess}
+					{@render noAuditorAccessInfo('Response Headers')}
+				{/if}
 			{/if}
 
 			{#if auditLog.error}
@@ -185,22 +194,24 @@
 				</div>
 			{/if}
 
-			{#if Object.keys(auditLog.responseBody ?? {}).length > 0}
-				{@const body = JSON.stringify(auditLog.responseBody, null, 2)}
+			{#if shouldShowPayload}
+				{#if Object.keys(auditLog.responseBody ?? {}).length > 0}
+					{@const body = JSON.stringify(auditLog.responseBody, null, 2)}
 
-				<p class="translate-y-2 pt-4 text-base font-semibold">Response Body</p>
-				<div class="relative text-white">
-					<pre class="default-scrollbar-thin max-h-96 overflow-y-auto p-4">
+					<p class="translate-y-2 pt-4 text-base font-semibold">Response Body</p>
+					<div class="relative text-white">
+						<pre class="default-scrollbar-thin max-h-96 overflow-y-auto p-4">
 						<code class="language-json">{body}</code>
 					</pre>
 
-					<CopyButton
-						classes={{ button: 'absolute right-4 top-4 flex flex-col items-end text-current' }}
-						text={body}
-					/>
-				</div>
-			{:else if !hasAuditorAccess}
-				{@render noAuditorAccessInfo('Response Body')}
+						<CopyButton
+							classes={{ button: 'absolute right-4 top-4 flex flex-col items-end text-current' }}
+							text={body}
+						/>
+					</div>
+				{:else if !hasAuditorAccess}
+					{@render noAuditorAccessInfo('Response Body')}
+				{/if}
 			{/if}
 		</div>
 	</div>

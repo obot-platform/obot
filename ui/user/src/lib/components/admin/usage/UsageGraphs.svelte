@@ -21,7 +21,6 @@
 	import { flip } from 'svelte/animate';
 	import { endOfDay, isBefore, set, subDays } from 'date-fns';
 	import { page } from '$app/state';
-	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import AuditLogCalendar from '../audit-logs/AuditLogCalendar.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -490,23 +489,6 @@
 		AdminService.listUsersIncludeDeleted().then((userData) => {
 			for (const user of userData) {
 				usersMap.set(user.id, user);
-			}
-		});
-
-		Promise.all([
-			AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID),
-			AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID)
-		]).then(([entries, servers]) => {
-			const names = new Set<string>();
-			for (const entry of entries ?? []) {
-				if (!entry.deleted && entry.manifest?.name) {
-					names.add(entry.manifest.name);
-				}
-			}
-			for (const server of servers ?? []) {
-				if (!server.deleted && server.manifest?.name) {
-					names.add(server.manifest.name);
-				}
 			}
 		});
 	});
