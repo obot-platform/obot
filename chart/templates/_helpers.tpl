@@ -32,7 +32,9 @@ helm.sh/chart: {{ include "obot.chart" . }}
 {{- with .Chart.AppVersion }}
 app.kubernetes.io/version: {{ . | quote }}
 {{- end }}
+app.kubernetes.io/component: gateway
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/part-of: obot
 {{- end -}}
 
 {{/*
