@@ -7,7 +7,8 @@ metadata:
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
-
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
 {{- range .Values.mcpImagePullSecrets }}
 ---
 apiVersion: v1
@@ -15,6 +16,8 @@ kind: Secret
 metadata:
   name: {{ .name }}
   namespace: {{ include "obot.config.mcpNamespace" $ }}
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
 type: kubernetes.io/dockerconfigjson
 data:
   .dockerconfigjson: {{ printf "{\"auths\":{\"%s\":{\"username\":\"%s\",\"password\":\"%s\",\"email\":\"%s\",\"auth\":\"%s\"}}}" .registry .username .password .email (printf "%s:%s" .username .password | b64enc) | b64enc }}
@@ -26,6 +29,8 @@ kind: Role
 metadata:
   namespace: {{ include "obot.config.mcpNamespace" . }}
   name: obot-mcp-role
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
 rules:
   - apiGroups: [""]
     resources: ["secrets", "services"]
@@ -43,6 +48,8 @@ kind: RoleBinding
 metadata:
   namespace: {{ include "obot.config.mcpNamespace" . }}
   name: obot-mcp-rolebinding
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
 subjects:
   - kind: ServiceAccount
     name: {{ include "obot.serviceAccountName" . }}

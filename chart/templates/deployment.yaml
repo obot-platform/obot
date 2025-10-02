@@ -18,7 +18,7 @@ spec:
         checksum/config-secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
       {{- end }}
       labels:
-        {{- include "obot.selectorLabels" . | nindent 8 }}
+        {{- include "obot.labels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "obot.serviceAccountName" . }}
       {{- if .Values.imagePullSecrets }}
