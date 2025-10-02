@@ -35,6 +35,9 @@ app.kubernetes.io/version: {{ . | quote }}
 app.kubernetes.io/component: gateway
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 app.kubernetes.io/part-of: obot
+{{- if .Values.additionalLabels }}
+{{ toYaml .Values.additionalLabels }}
+{{- end }}
 {{- end -}}
 
 {{/*

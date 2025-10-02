@@ -17,6 +17,10 @@ imagePullSecrets: []
 # updateStrategy -- Configures what update strategy to use for the deployment (Recreate or RollingUpdate)
 updateStrategy: "RollingUpdate"
 
+# Additional labels that should be applied to all resources
+additionalLabels: {}
+  # app: obot
+
 service:
   # service.type -- Type of Kubernetes service to create
   type: ClusterIP
