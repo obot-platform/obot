@@ -33,7 +33,7 @@
 				<p class="mb-1 text-sm font-semibold">Single User Server</p>
 				<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
 					This option is appropriate for servers that require individualized configuration or were
-					not designed for multi-user access, such as most studio MCP servers. When a user selects
+					not designed for multi-user access, such as most stdio MCP servers. When a user selects
 					this server, a private instance will be created for them.
 				</span>
 			</div>
