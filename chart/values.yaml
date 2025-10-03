@@ -191,3 +191,42 @@ mcpNamespace:
   # mcpNamespace.annotation - Annotations to add to the mcp server namespace. Includes ArgoCD sync wave by default.
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
+
+# nodeSelector -- Configure node selector for pod assignment
+nodeSelector: {}
+
+# tolerations -- Configure tolerations for pod scheduling
+tolerations: []
+# Example:
+# tolerations:
+#   - key: "node-role.kubernetes.io/control-plane"
+#     operator: "Exists"
+#     effect: "NoSchedule"
+#   - key: "dedicated"
+#     operator: "Equal"
+#     value: "obot"
+#     effect: "NoSchedule"
+
+# affinity -- Configure affinity rules for pod scheduling
+affinity: {}
+# Example:
+# affinity:
+#   nodeAffinity:
+#     requiredDuringSchedulingIgnoredDuringExecution:
+#       nodeSelectorTerms:
+#       - matchExpressions:
+#         - key: node-type
+#           operator: In
+#           values:
+#           - compute
+#   podAntiAffinity:
+#     preferredDuringSchedulingIgnoredDuringExecution:
+#     - weight: 100
+#       podAffinityTerm:
+#         labelSelector:
+#           matchExpressions:
+#           - key: app.kubernetes.io/name
+#             operator: In
+#             values:
+#             - obot
+#         topologyKey: kubernetes.io/hostname
