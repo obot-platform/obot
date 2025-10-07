@@ -313,25 +313,27 @@
 
 					<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
 						{#if d.needsUpdate}
-							<button
-								class="menu-button-primary"
-								disabled={updating[d.id]?.inProgress || readonly}
-								onclick={(e) => {
-									e.stopPropagation();
-									if (!d) return;
-									showUpgradeConfirm = {
-										type: 'single',
-										server: d
-									};
-								}}
-							>
-								{#if updating[d.id]?.inProgress}
-									<LoaderCircle class="size-4 animate-spin" />
-								{:else}
-									<CircleFadingArrowUp class="size-4" />
-								{/if}
-								Update Server
-							</button>
+							{#if !readonly}
+								<button
+									class="menu-button-primary"
+									disabled={updating[d.id]?.inProgress || readonly}
+									onclick={(e) => {
+										e.stopPropagation();
+										if (!d) return;
+										showUpgradeConfirm = {
+											type: 'single',
+											server: d
+										};
+									}}
+								>
+									{#if updating[d.id]?.inProgress}
+										<LoaderCircle class="size-4 animate-spin" />
+									{:else}
+										<CircleFadingArrowUp class="size-4" />
+									{/if}
+									Update Server
+								</button>
+							{/if}
 							<button
 								class="menu-button"
 								onclick={(e) => {
@@ -344,7 +346,7 @@
 								<GitCompare class="size-4" /> View Diff
 							</button>
 						{/if}
-						{#if d.manifest.runtime !== 'remote'}
+						{#if d.manifest.runtime !== 'remote' && !readonly}
 							<button
 								class="menu-button"
 								onclick={async (e) => {
@@ -365,18 +367,20 @@
 						<a href={`/admin/audit-logs?mcp_id=${d.id}`} class="menu-button">
 							<Captions class="size-4" /> View Audit Logs
 						</a>
-						<button
-							class="menu-button-destructive"
-							onclick={async (e) => {
-								e.stopPropagation();
-								showDeleteConfirm = {
-									type: 'single',
-									server: d
-								};
-							}}
-						>
-							<Trash2 class="size-4" /> Delete Server
-						</button>
+						{#if !readonly}
+							<button
+								class="menu-button-destructive"
+								onclick={async (e) => {
+									e.stopPropagation();
+									showDeleteConfirm = {
+										type: 'single',
+										server: d
+									};
+								}}
+							>
+								<Trash2 class="size-4" /> Delete Server
+							</button>
+						{/if}
 					</div>
 				</DotDotDot>
 			{/snippet}
@@ -388,7 +392,7 @@
 							selected = currentSelected;
 							handleBulkRestart();
 						}}
-						disabled={bulkRestarting}
+						disabled={bulkRestarting || readonly}
 					>
 						{#if bulkRestarting}
 							<LoaderCircle class="size-4 animate-spin" />
@@ -404,6 +408,7 @@
 								type: 'multi'
 							};
 						}}
+						disabled={readonly}
 					>
 						<CircleFadingArrowUp class="size-4" /> Upgrade
 					</button>
@@ -415,6 +420,7 @@
 								type: 'multi'
 							};
 						}}
+						disabled={readonly}
 					>
 						<Trash2 class="size-4" /> Delete
 					</button>

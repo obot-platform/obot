@@ -98,6 +98,7 @@
 							selected = Object.values(currentSelected).map((d) => d.url);
 							deletingSource = { type: 'multi' };
 						}}
+						disabled={readonly}
 					>
 						<Trash2 class="size-4" /> Delete
 					</button>

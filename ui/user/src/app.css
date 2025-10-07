@@ -350,6 +350,13 @@
 		.dark &:hover {
 			background-color: var(--color-gray-700);
 		}
+
+		&:disabled {
+			opacity: 0.5;
+		}
+		&:disabled:hover {
+			background-color: var(--surface3);
+		}
 	}
 
 	.button-small {

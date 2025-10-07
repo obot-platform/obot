@@ -178,6 +178,7 @@
 							selected = currentSelected;
 							confirmBulkDelete = true;
 						}}
+						disabled={readonly}
 					>
 						<Trash2 class="size-4" /> Delete
 					</button>
