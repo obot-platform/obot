@@ -8,6 +8,7 @@
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import {
 		AdminService,
+		ChatService,
 		type MCPCatalog,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
@@ -196,7 +197,14 @@
 			return;
 		}
 
-		await AdminService.deleteMCPCatalogEntry(catalog.id, deletingEntry.id);
+		if (deletingEntry.powerUserWorkspaceID) {
+			await ChatService.deleteWorkspaceMCPCatalogEntry(
+				deletingEntry.powerUserWorkspaceID,
+				deletingEntry.id
+			);
+		} else {
+			await AdminService.deleteMCPCatalogEntry(catalog.id, deletingEntry.id);
+		}
 		await fetchMcpServerAndEntries(catalog.id, mcpServerAndEntries);
 		deletingEntry = undefined;
 	}}
@@ -211,7 +219,14 @@
 			return;
 		}
 
-		await AdminService.deleteMCPCatalogServer(catalog.id, deletingServer.id);
+		if (deletingServer.powerUserWorkspaceID) {
+			await ChatService.deleteWorkspaceMCPCatalogServer(
+				deletingServer.powerUserWorkspaceID,
+				deletingServer.id
+			);
+		} else {
+			await AdminService.deleteMCPCatalogServer(catalog.id, deletingServer.id);
+		}
 		await fetchMcpServerAndEntries(catalog.id, mcpServerAndEntries);
 		deletingServer = undefined;
 	}}
@@ -226,9 +241,23 @@
 		loadingBulkDelete = true;
 		for (const item of Object.values(selected)) {
 			if (item.type === 'multi') {
-				await AdminService.deleteMCPCatalogServer(catalog.id, item.data.id);
+				if (item.data.powerUserWorkspaceID) {
+					await ChatService.deleteWorkspaceMCPCatalogServer(
+						item.data.powerUserWorkspaceID,
+						item.data.id
+					);
+				} else {
+					await AdminService.deleteMCPCatalogServer(catalog.id, item.data.id);
+				}
 			} else {
-				await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
+				if (item.data.powerUserWorkspaceID) {
+					await ChatService.deleteWorkspaceMCPCatalogEntry(
+						item.data.powerUserWorkspaceID,
+						item.data.id
+					);
+				} else {
+					await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
+				}
 			}
 		}
 		await fetchMcpServerAndEntries(catalog.id, mcpServerAndEntries);
