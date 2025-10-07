@@ -338,7 +338,7 @@
 			}
 		}}
 	>
-		{#if Object.keys(selected).length === totalSelectable}
+		{#if Object.keys(selected).length === totalSelectable && totalSelectable > 0}
 			<SquareCheck class="size-5" />
 		{:else if Object.keys(selected).length > 0}
 			<SquareMinus class="size-5" />
