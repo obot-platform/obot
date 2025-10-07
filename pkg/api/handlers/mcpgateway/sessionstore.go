@@ -35,7 +35,8 @@ func (h *Handler) Store(ctx context.Context, sessionID string, sess *nmcp.Server
 	}
 
 	mcpSess, _, err := h.get(ctx, h, sessionID)
-	if apierrors.IsNotFound(err) {
+	if mcpSess == nil {
+		// The session doesn't exist, create a new one.
 		mcpSess = &v1.MCPSession{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:  system.DefaultNamespace,
@@ -64,6 +65,8 @@ func (h *Handler) Acquire(ctx context.Context, server nmcp.MessageHandler, sessi
 	mcpSess, sess, err := h.get(ctx, server, sessionID)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to get session %s from cache: %w", sessionID, err)
+	} else if mcpSess == nil {
+		return nil, false, nil
 	}
 
 	// If the session hasn't been updated in the last hour, update it.
@@ -105,7 +108,10 @@ func (h *Handler) LoadAndDelete(ctx context.Context, server nmcp.MessageHandler,
 	if !ok || mcpSess == nil || mcpSess.Name == "" {
 		mcpSess = new(v1.MCPSession)
 		err := h.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSess)
-		if err != nil {
+		if apierrors.IsNotFound(err) {
+			h.dropPendingRequests(sessionID)
+			return nil, false, nil
+		} else if err != nil {
 			return nil, false, err
 		}
 
@@ -138,7 +144,9 @@ func (h *Handler) get(ctx context.Context, messageHandler nmcp.MessageHandler, s
 	} else {
 		mcpSess = new(v1.MCPSession)
 		err := h.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, mcpSess)
-		if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil, nil
+		} else if err != nil {
 			return nil, nil, err
 		}
 
