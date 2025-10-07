@@ -180,9 +180,9 @@ func migrateUserRoles(tx *gorm.DB) error {
 				case 1:
 					user.Role = types2.RoleAdmin
 				case 2:
-					user.Role = types2.RolePowerUser
-				case 3:
 					user.Role = types2.RolePowerUserPlus
+				case 3:
+					user.Role = types2.RolePowerUser
 				case 10:
 					user.Role = types2.RoleBasic
 				default:
