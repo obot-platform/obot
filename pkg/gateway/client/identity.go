@@ -285,6 +285,9 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			}
 		}
 	} else {
+		// Creating a new user
+		created = true
+
 		// Copy the user so we don't have to decrypt
 		u := *user
 		if err := c.encryptUser(ctx, &u); err != nil {
