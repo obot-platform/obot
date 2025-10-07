@@ -314,44 +314,46 @@
 		{/each}
 	</div>
 
-	{#await revealServerValues}
-		<div class="flex w-full justify-center">
-			<LoaderCircle class="size-6 animate-spin" />
-		</div>
-	{:then revealedValues}
-		{@const { headers, envs } = compileRevealedValues(revealedValues, catalogEntry)}
-		{#if catalogEntry?.manifest.runtime === 'remote'}
+	{#if profile.current?.isAdmin?.()}
+		{#await revealServerValues}
+			<div class="flex w-full justify-center">
+				<LoaderCircle class="size-6 animate-spin" />
+			</div>
+		{:then revealedValues}
+			{@const { headers, envs } = compileRevealedValues(revealedValues, catalogEntry)}
+			{#if catalogEntry?.manifest.runtime === 'remote'}
+				<div>
+					<h2 class="mb-2 text-lg font-semibold">Headers</h2>
+					{#if headers.length > 0}
+						<div class="flex flex-col gap-2">
+							{#each headers as h (h.id)}
+								{@render configurationRow(h.label, h.value, h.sensitive)}
+							{/each}
+						</div>
+					{:else}
+						<span class="text-sm font-light text-gray-400 dark:text-gray-600"
+							>No configured headers.</span
+						>
+					{/if}
+				</div>
+			{/if}
+
 			<div>
-				<h2 class="mb-2 text-lg font-semibold">Headers</h2>
-				{#if headers.length > 0}
+				<h2 class="mb-2 text-lg font-semibold">Configuration</h2>
+				{#if envs.length > 0}
 					<div class="flex flex-col gap-2">
-						{#each headers as h (h.id)}
-							{@render configurationRow(h.label, h.value, h.sensitive)}
+						{#each envs as env (env.id)}
+							{@render configurationRow(env.label, env.value, env.sensitive)}
 						{/each}
 					</div>
 				{:else}
 					<span class="text-sm font-light text-gray-400 dark:text-gray-600"
-						>No configured headers.</span
+						>No configured environment of file variables set.</span
 					>
 				{/if}
 			</div>
-		{/if}
-
-		<div>
-			<h2 class="mb-2 text-lg font-semibold">Configuration</h2>
-			{#if envs.length > 0}
-				<div class="flex flex-col gap-2">
-					{#each envs as env (env.id)}
-						{@render configurationRow(env.label, env.value, env.sensitive)}
-					{/each}
-				</div>
-			{:else}
-				<span class="text-sm font-light text-gray-400 dark:text-gray-600"
-					>No configured environment of file variables set.</span
-				>
-			{/if}
-		</div>
-	{/await}
+		{/await}
+	{/if}
 
 	<div>
 		<h2 class="mb-2 text-lg font-semibold">Recent Events</h2>
