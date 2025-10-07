@@ -15,7 +15,6 @@
 	let { name, value = $bindable(''), error, oninput, textarea, disabled }: Props = $props();
 	let showSensitive = $state(false);
 	let textareaElement = $state<HTMLTextAreaElement>();
-	let isPulsing = $state(false);
 
 	function getMaskedValue(text: string): string {
 		return text.replace(/[^\n\r]/g, '•');
@@ -34,8 +33,6 @@
 		if (showSensitive) {
 			textareaElement?.focus();
 		}
-
-		isPulsing = false;
 	}
 </script>
 
@@ -48,28 +45,28 @@
 			{name}
 			{disabled}
 			class={twMerge(
-				'text-input-filled w-full pr-10',
-				error && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+				'text-input-filled base w-full pr-10 font-mono',
+				error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1',
+				!showSensitive && 'hide'
 			)}
-			class:text-red-500={error}
 			bind:value={
-				() => (showSensitive ? value : getMaskedValue(value || '')),
+				() => value,
 				(v) => {
 					value = v;
 					oninput?.();
 				}
 			}
-			onkeydown={(ev) => {
-				if (!showSensitive) {
-					if (ev.key === 'v' && (ev.metaKey || ev.ctrlKey)) return true;
-
-					ev.preventDefault();
-					isPulsing = true;
-
-					return false;
-				}
-			}}
 		></textarea>
+
+		{#if !showSensitive}
+			<!-- Invisible textarea to allow copying the real value -->
+			<textarea
+				class={twMerge(
+					'text-input-filled layer-1 pointer-events-none absolute inset-0 w-full bg-transparent pr-10 font-mono'
+				)}
+				value={getMaskedValue(value || '')}
+			></textarea>
+		{/if}
 	{:else}
 		<input
 			data-1p-ignore
@@ -77,9 +74,8 @@
 			{name}
 			class={twMerge(
 				'text-input-filled w-full pr-10',
-				error && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+				error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1'
 			)}
-			class:text-red-500={error}
 			{value}
 			type={showSensitive ? 'text' : 'password'}
 			oninput={handleInput}
@@ -96,7 +92,6 @@
 			type="button"
 			class="cursor-pointer transition-colors duration-150"
 			class:text-red-500={error}
-			class:pulse={isPulsing}
 			onclick={toggleVisibility}
 		>
 			{#if showSensitive}
@@ -109,19 +104,12 @@
 </div>
 
 <style>
-	@keyframes pulse {
-		0% {
-			color: rgb(255, 255, 255);
-			transform: scale(1);
-		}
-
-		100% {
-			color: var(--color-blue);
-			transform: scale(1.2);
-		}
+	.text-input-filled.base.hide {
+		color: transparent;
+		caret-color: var(--color-on-background);
 	}
-
-	.pulse {
-		animation: pulse 0.2s ease-in-out alternate infinite;
+	.text-input-filled.base.hide::selection {
+		background: highlight;
+		color: transparent;
 	}
 </style>
