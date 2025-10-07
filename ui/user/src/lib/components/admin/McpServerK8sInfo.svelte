@@ -336,7 +336,7 @@
 		{/if}
 
 		<div class="flex flex-col gap-2">
-			<h2 class="mb-2 text-lg font-semibold">Environment Variables</h2>
+			<h2 class="mb-2 text-lg font-semibold">Configuration</h2>
 			{#if envs.length > 0}
 				{#each envs as env, i (env.id)}
 					{@render configurationRow(env.label, env.value, env.sensitive)}
