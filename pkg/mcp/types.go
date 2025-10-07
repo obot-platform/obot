@@ -222,6 +222,14 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 		} else {
 			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires remote config", mcpServer.Spec.Manifest.Runtime)
 		}
+	case types.RuntimeComposite:
+		if mcpServer.Spec.Manifest.CompositeConfig == nil {
+			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires composite config", mcpServer.Spec.Manifest.Runtime)
+		}
+		// Composite servers don't have a command or URL in the traditional sense
+		// They will be accessed via a special connect endpoint that aggregates child servers
+		// The URL will be empty for now and filled in at runtime
+		serverConfig.URL = ""
 	default:
 		return serverConfig, missingRequiredNames, fmt.Errorf("unknown runtime %s", mcpServer.Spec.Manifest.Runtime)
 	}

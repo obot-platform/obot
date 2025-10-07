@@ -18,6 +18,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -103,14 +104,38 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 		return fmt.Errorf("failed to get mcp server config: %w", err)
 	}
 
-	req.Request = req.WithContext(withMessageContext(req.Context(), messageContext{
+	msgCtx := messageContext{
 		userID:       req.User.GetUID(),
 		mcpID:        mcpID,
 		serverConfig: mcpServerConfig,
 		mcpServer:    mcpServer,
 		req:          req.Request,
 		resp:         req.ResponseWriter,
-	}))
+	}
+
+	// If composite server, load child servers
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		var childServerList v1.MCPServerList
+		if err := req.List(&childServerList, kclient.MatchingLabels{
+			"composite-parent": mcpServer.Name,
+		}); err != nil {
+			return fmt.Errorf("failed to list child servers: %w", err)
+		}
+
+		msgCtx.childServers = childServerList.Items
+		msgCtx.childConfigs = make([]mcp.ServerConfig, len(childServerList.Items))
+
+		// Get server configs for each child
+		for i, childServer := range childServerList.Items {
+			childConfig, err := handlers.ServerConfigForAction(req, childServer)
+			if err != nil {
+				return fmt.Errorf("failed to get config for child server %s: %w", childServer.Name, err)
+			}
+			msgCtx.childConfigs[i] = childConfig
+		}
+	}
+
+	req.Request = req.WithContext(withMessageContext(req.Context(), msgCtx))
 
 	nmcp.NewHTTPServer(nil, h, nmcp.HTTPServerOptions{SessionStore: h}).ServeHTTP(req.ResponseWriter, req.Request)
 
@@ -123,6 +148,9 @@ type messageContext struct {
 	serverConfig  mcp.ServerConfig
 	req           *http.Request
 	resp          http.ResponseWriter
+	// For composite servers (when serverConfig.Runtime == types.RuntimeComposite)
+	childServers []v1.MCPServer
+	childConfigs []mcp.ServerConfig
 }
 
 func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
@@ -254,6 +282,181 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		return
 	}
 
+	// Handle composite servers - connect to all children and aggregate
+	if m.serverConfig.Runtime == types.RuntimeComposite {
+		switch msg.Method {
+		case methodNotificationsInitialized:
+			return
+		case methodPing:
+			result = nmcp.PingResult{}
+		case methodInitialize:
+			// Aggregate capabilities from all children
+			aggregatedResult := nmcp.InitializeResult{
+				ProtocolVersion: "2024-11-05",
+				ServerInfo: nmcp.ServerInfo{
+					Name:    m.mcpServer.Spec.Manifest.Name,
+					Version: "1.0.0",
+				},
+				Capabilities: nmcp.ServerCapabilities{},
+			}
+
+			// Connect to each child and get their capabilities
+			for i, childServer := range m.childServers {
+				childClient, childErr := h.mcpSessionManager.ClientForMCPServerWithOptions(
+					ctx,
+					msg.Session.ID()+"-child-"+childServer.Name,
+					childServer,
+					m.childConfigs[i],
+					h.asClientOption(
+						msg.Session,
+						m.userID,
+						childServer.Name,
+						childServer.Namespace,
+						childServer.Name,
+						childServer.Spec.Manifest.Name,
+						childServer.Spec.MCPServerCatalogEntryName,
+						catalogName,
+						powerUserWorkspaceID,
+					),
+				)
+				if childErr != nil {
+					log.Errorf("Failed to get client for child server %s: %v", childServer.Name, childErr)
+					continue
+				}
+
+				// Merge capabilities
+				if childClient.Session.InitializeResult.Capabilities.Tools != nil {
+					aggregatedResult.Capabilities.Tools = childClient.Session.InitializeResult.Capabilities.Tools
+				}
+				if childClient.Session.InitializeResult.Capabilities.Resources != nil {
+					aggregatedResult.Capabilities.Resources = childClient.Session.InitializeResult.Capabilities.Resources
+				}
+				if childClient.Session.InitializeResult.Capabilities.Prompts != nil {
+					aggregatedResult.Capabilities.Prompts = childClient.Session.InitializeResult.Capabilities.Prompts
+				}
+			}
+
+			if err = msg.Reply(ctx, aggregatedResult); err != nil {
+				log.Errorf("Failed to reply: %v", err)
+			}
+			return
+		case methodToolsList:
+			// Aggregate tools from all children
+			var allTools []nmcp.Tool
+			for i, childServer := range m.childServers {
+				childClient, childErr := h.mcpSessionManager.ClientForMCPServerWithOptions(
+					ctx,
+					msg.Session.ID()+"-child-"+childServer.Name,
+					childServer,
+					m.childConfigs[i],
+					h.asClientOption(
+						msg.Session,
+						m.userID,
+						childServer.Name,
+						childServer.Namespace,
+						childServer.Name,
+						childServer.Spec.Manifest.Name,
+						childServer.Spec.MCPServerCatalogEntryName,
+						catalogName,
+						powerUserWorkspaceID,
+					),
+				)
+				if childErr != nil {
+					log.Errorf("Failed to get client for child server %s: %v", childServer.Name, childErr)
+					continue
+				}
+
+				var listResult nmcp.ListToolsResult
+				if err := childClient.Session.Exchange(ctx, methodToolsList, &msg, &listResult); err != nil {
+					log.Errorf("Failed to list tools for child %s: %v", childServer.Name, err)
+					continue
+				}
+
+				// Prefix tool names with child server name to avoid collisions
+				for _, tool := range listResult.Tools {
+					tool.Name = childServer.Name + "_" + tool.Name
+					allTools = append(allTools, tool)
+				}
+			}
+
+			result = nmcp.ListToolsResult{Tools: allTools}
+		case methodToolsCall:
+			// Route tool call to correct child based on name prefix
+			var params struct {
+				Name      string                 `json:"name"`
+				Arguments map[string]interface{} `json:"arguments"`
+			}
+			if err := json.Unmarshal(msg.Params, &params); err != nil {
+				err = &nmcp.RPCError{Code: -32602, Message: "Invalid params"}
+				return
+			}
+
+			// Find which child this tool belongs to
+			var targetChild *v1.MCPServer
+			var targetConfig *mcp.ServerConfig
+			var originalToolName string
+
+			for i, childServer := range m.childServers {
+				prefix := childServer.Name + "_"
+				if strings.HasPrefix(params.Name, prefix) {
+					targetChild = &m.childServers[i]
+					targetConfig = &m.childConfigs[i]
+					originalToolName = strings.TrimPrefix(params.Name, prefix)
+					break
+				}
+			}
+
+			if targetChild == nil {
+				err = &nmcp.RPCError{Code: -32602, Message: "Tool not found"}
+				return
+			}
+
+			// Connect to target child and call the tool
+			childClient, err := h.mcpSessionManager.ClientForMCPServerWithOptions(
+				ctx,
+				msg.Session.ID()+"-child-"+targetChild.Name,
+				*targetChild,
+				*targetConfig,
+				h.asClientOption(
+					msg.Session,
+					m.userID,
+					targetChild.Name,
+					targetChild.Namespace,
+					targetChild.Name,
+					targetChild.Spec.Manifest.Name,
+					targetChild.Spec.MCPServerCatalogEntryName,
+					catalogName,
+					powerUserWorkspaceID,
+				),
+			)
+			if err != nil {
+				log.Errorf("Failed to get client for child server %s: %v", targetChild.Name, err)
+				return
+			}
+
+			// Update params with original tool name
+			params.Name = originalToolName
+			modifiedParams, _ := json.Marshal(params)
+			msg.Params = modifiedParams
+
+			result = nmcp.CallToolResult{}
+			if err = childClient.Session.Exchange(ctx, methodToolsCall, &msg, &result); err != nil {
+				log.Errorf("Failed to call tool on child %s: %v", targetChild.Name, err)
+				return
+			}
+		default:
+			// For other methods, return empty results for now
+			result = nmcp.Notification{}
+		}
+
+		// Send the aggregated/routed result
+		if err = msg.Reply(ctx, result); err != nil {
+			log.Errorf("Failed to reply: %v", err)
+		}
+		return
+	}
+
+	// Non-composite path (original logic)
 	client, err = h.mcpSessionManager.ClientForMCPServerWithOptions(
 		ctx,
 		msg.Session.ID(),

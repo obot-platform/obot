@@ -101,6 +101,7 @@ export interface RuntimeFormData {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin; // For catalog entries
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
+	compositeConfig?: { componentCatalogEntries: string[] };
 }
 
 export interface MCPCatalogServerManifest {
