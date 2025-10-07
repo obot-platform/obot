@@ -91,7 +91,7 @@
 				<h2 class="mb-2 text-lg font-semibold">Headers</h2>
 				{#if headers.length > 0}
 					<div class="flex flex-col gap-2">
-						{#each headers as h}
+						{#each headers as h (h.key)}
 							{@render status(h.key, h.value, h.sensitive)}
 						{/each}
 					</div>
@@ -106,7 +106,7 @@
 				<h2 class="mb-2 text-lg font-semibold">Configuration</h2>
 				{#if envs.length > 0}
 					<div class="flex flex-col gap-2">
-						{#each envs as env, i (env.key)}
+						{#each envs as env (env.key)}
 							{@render status(env.key, env.value, env.sensitive)}
 						{/each}
 					</div>

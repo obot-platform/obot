@@ -325,7 +325,7 @@
 				<h2 class="mb-2 text-lg font-semibold">Headers</h2>
 				{#if headers.length > 0}
 					<div class="flex flex-col gap-2">
-						{#each headers as h, i (h.id)}
+						{#each headers as h (h.id)}
 							{@render configurationRow(h.label, h.value, h.sensitive)}
 						{/each}
 					</div>
@@ -341,7 +341,7 @@
 			<h2 class="mb-2 text-lg font-semibold">Configuration</h2>
 			{#if envs.length > 0}
 				<div class="flex flex-col gap-2">
-					{#each envs as env, i (env.id)}
+					{#each envs as env (env.id)}
 						{@render configurationRow(env.label, env.value, env.sensitive)}
 					{/each}
 				</div>
