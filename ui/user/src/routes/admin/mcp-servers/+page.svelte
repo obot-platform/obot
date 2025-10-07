@@ -187,28 +187,19 @@
 		<div class="dark:bg-surface2 rounded-t-md bg-white shadow-sm">
 			<div class="flex items-center">
 				<button
-					class={twMerge(
-						'hover:bg-surface1/50 dark:hover:bg-surface3/50 max-w-xs flex-1 border-b-2 border-transparent p-4 text-sm transition-colors',
-						view === 'registry' && 'border-b-2 border-blue-500'
-					)}
+					class={twMerge('page-tab', view === 'registry' && 'page-tab-active')}
 					onclick={() => switchView('registry')}
 				>
 					Registry Entries
 				</button>
 				<button
-					class={twMerge(
-						'hover:bg-surface1/50 dark:hover:bg-surface3/50 max-w-xs flex-1 border-b-2 border-transparent p-4 text-sm transition-colors',
-						view === 'deployments' && 'border-b-2 border-blue-500'
-					)}
+					class={twMerge('page-tab', view === 'deployments' && 'page-tab-active')}
 					onclick={() => switchView('deployments')}
 				>
 					Deployments & Connections
 				</button>
 				<button
-					class={twMerge(
-						'hover:bg-surface1/50 dark:hover:bg-surface3/50 max-w-xs flex-1 border-b-2 border-transparent p-4 text-sm transition-colors',
-						view === 'urls' && 'border-b-2 border-blue-500'
-					)}
+					class={twMerge('page-tab', view === 'urls' && 'page-tab-active')}
 					onclick={() => switchView('urls')}
 				>
 					Registry Sources
