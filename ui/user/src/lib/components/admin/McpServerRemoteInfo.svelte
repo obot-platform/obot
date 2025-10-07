@@ -87,12 +87,14 @@
 	<div class="flex flex-col gap-8">
 		{@render status('URL', mcpServer?.manifest.remoteConfig?.url)}
 		{#if profile.current?.isAdmin?.()}
-			<div class="flex flex-col gap-2">
+			<div>
 				<h2 class="mb-2 text-lg font-semibold">Headers</h2>
 				{#if headers.length > 0}
-					{#each headers as h}
-						{@render status(h.key, h.value, h.sensitive)}
-					{/each}
+					<div class="flex flex-col gap-2">
+						{#each headers as h}
+							{@render status(h.key, h.value, h.sensitive)}
+						{/each}
+					</div>
 				{:else}
 					<span class="text-sm font-light text-gray-400 dark:text-gray-600"
 						>No configured headers.</span
@@ -100,12 +102,14 @@
 				{/if}
 			</div>
 
-			<div class="flex flex-col gap-2">
+			<div>
 				<h2 class="mb-2 text-lg font-semibold">Configuration</h2>
 				{#if envs.length > 0}
-					{#each envs as env, i (env.key)}
-						{@render status(env.key, env.value, env.sensitive)}
-					{/each}
+					<div class="flex flex-col gap-2">
+						{#each envs as env, i (env.key)}
+							{@render status(env.key, env.value, env.sensitive)}
+						{/each}
+					</div>
 				{:else}
 					<span class="text-sm font-light text-gray-400 dark:text-gray-600"
 						>No configured environment or file variables set.</span
