@@ -185,7 +185,7 @@
 			</div>
 		</div>
 		<div class="dark:bg-surface2 rounded-t-md bg-white shadow-sm">
-			<div class="flex items-center">
+			<div class="flex">
 				<button
 					class={twMerge('page-tab', view === 'registry' && 'page-tab-active')}
 					onclick={() => switchView('registry')}

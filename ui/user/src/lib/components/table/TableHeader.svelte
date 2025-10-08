@@ -16,6 +16,7 @@
 		headerTitle?: string;
 		order?: 'asc' | 'desc';
 		sortable?: boolean;
+		style?: string;
 	}
 	let {
 		onSort,
@@ -27,7 +28,8 @@
 		headerClass,
 		headerTitle,
 		order,
-		sortable
+		sortable,
+		style
 	}: Props = $props();
 
 	let query = $state('');
@@ -49,6 +51,7 @@
 		pointerOnTHeader && 'cursor-pointer',
 		headerClass
 	)}
+	{style}
 	onclick={pointerOnTHeader ? () => onSort?.(property) : undefined}
 >
 	<span class="flex grow items-center justify-between gap-4">

@@ -91,6 +91,8 @@
 	});
 
 	let selected = $state<Record<string, T>>({});
+	let dataTableRef: HTMLTableElement | null = $state(null);
+	let columnWidths = $state<number[]>([]);
 
 	let tableData = $derived.by(() => {
 		let updatedTableData = data;
@@ -182,116 +184,113 @@
 		visibleItems.filter((d) => (validateSelect ? validateSelect(d) : true)).length
 	);
 
-	let theadElement: HTMLTableSectionElement;
-	let tHeadYPosition = $state(0);
-	let tHeadWidth = $state(0);
+	export function clearSelectAll() {
+		selected = {};
+	}
 
-	function updateTHeadYPosition() {
-		if (!theadElement) return;
-		const rect = theadElement.getBoundingClientRect();
-		tHeadYPosition = rect.top;
-		tHeadWidth = rect.width;
+	function measureColumnWidths() {
+		if (!dataTableRef || !tableSelectActions) return;
+
+		// Find the first data row
+		const firstRow = dataTableRef.querySelector('tbody tr');
+
+		if (!firstRow) return;
+
+		const cells = firstRow.querySelectorAll('td');
+		const widths: number[] = [];
+
+		cells.forEach((cell) => {
+			const rect = cell.getBoundingClientRect();
+			widths.push(rect.width);
+		});
+
+		columnWidths = widths;
 	}
 
 	onMount(() => {
 		// Find the closest scrollable container
-		const scrollableElement = theadElement?.closest('[class*="overflow-y-auto"]') as HTMLElement;
+		const scrollableElement = dataTableRef?.closest('[class*="overflow-y-auto"]') as HTMLElement;
 
-		if (scrollableElement) {
-			scrollableElement.addEventListener('scroll', updateTHeadYPosition);
-			window.addEventListener('resize', updateTHeadYPosition);
-
-			// Initial check
-			updateTHeadYPosition();
+		if (scrollableElement && tableSelectActions) {
+			scrollableElement.addEventListener('scroll', measureColumnWidths);
+			window.addEventListener('resize', measureColumnWidths);
 
 			return () => {
-				scrollableElement.removeEventListener('scroll', updateTHeadYPosition);
-				window.removeEventListener('resize', updateTHeadYPosition);
+				scrollableElement.removeEventListener('scroll', measureColumnWidths);
+				window.removeEventListener('resize', measureColumnWidths);
 			};
 		}
 	});
 
-	export function clearSelectAll() {
-		selected = {};
-	}
+	$effect(() => {
+		if (dataTableRef && tableData.length > 0 && tableSelectActions) {
+			// Use a small delay to ensure the table is fully rendered
+			setTimeout(() => {
+				measureColumnWidths();
+			}, 0);
+		}
+	});
 </script>
 
-<div
-	class={twMerge(
-		'dark:bg-surface2 relative overflow-hidden overflow-x-auto rounded-md bg-white shadow-sm',
-		tableSelectActions && 'overflow-visible',
-		classes?.root
-	)}
->
-	{#if Object.keys(selected).length > 0 && tableSelectActions}
+<div>
+	{#if tableSelectActions}
 		<div
-			class={twMerge('dark:bg-surface1 bg-surface2 fixed z-40 w-full', classes?.thead)}
-			style={`top: ${tHeadYPosition}px; width: ${tHeadWidth}px`}
-		>
-			<div class="flex w-full items-center">
-				<div class="flex-shrink-0 p-2">
-					{@render selectAll()}
-				</div>
-				<div class="px-4 py-2 text-left text-sm font-semibold text-gray-500">
-					{Object.keys(selected).length} of {totalSelectable} selected
-				</div>
-				<div class="flex grow items-center justify-end">
-					{@render tableSelectActions(selected)}
-				</div>
-			</div>
-		</div>
-	{/if}
-	<table class="w-full border-collapse">
-		<thead
-			bind:this={theadElement}
 			class={twMerge(
-				'dark:bg-surface1 bg-surface2',
-				tableSelectActions && 'sticky top-0 left-0 z-30 w-full',
+				'dark:bg-surface1 bg-surface2 sticky top-0 left-0 z-40 w-full',
 				classes?.thead
 			)}
 		>
-			<tr>
-				{#if tableSelectActions}
-					<th class="w-4 p-2">
+			{#if Object.keys(selected).length > 0}
+				<div class="flex w-full items-center">
+					<div class="flex-shrink-0 p-2">
 						{@render selectAll()}
-					</th>
-				{/if}
-
-				{#each fields as property (property)}
-					{@const headerClass = headerClasses?.find((hc) => hc.property === property)?.class}
-					{@const headerTitle = headers?.find((h) => h.property === property)?.title}
-					<TableHeader
-						sortable={sortableFields.has(property)}
-						filterable={filterableFields.has(property)}
-						filterOptions={filterValues[property] ? Array.from(filterValues[property]) : []}
-						{headerClass}
-						{headerTitle}
-						{property}
-						onFilter={handleFilter}
-						onSort={handleSort}
-						activeSort={sortedBy?.property === property}
-						order={sortedBy?.order}
-					/>
-				{/each}
-				{#if actions}
-					{@const actionHeaderClass = headerClasses?.find((hc) => hc.property === 'actions')?.class}
-					<th
-						class={twMerge(
-							'text-md float-right w-auto px-4 py-2 text-left font-medium text-gray-500',
-							actionHeaderClass
-						)}
-					></th>
-				{/if}
-			</tr>
-		</thead>
-		{#if tableData.length > 0}
-			<tbody>
-				{#each visibleItems as d (sortedBy ? `${d.id}-${sortedBy.property}-${sortedBy.order}` : d.id)}
-					{@render row(d)}
-				{/each}
-			</tbody>
-		{/if}
-	</table>
+					</div>
+					<div class="px-4 py-2 text-left text-sm font-semibold text-gray-500">
+						{Object.keys(selected).length} of {totalSelectable} selected
+					</div>
+					<div class="flex grow items-center justify-end">
+						{@render tableSelectActions(selected)}
+					</div>
+				</div>
+			{:else}
+				<div class="w-full overflow-x-auto">
+					<table class="w-full border-collapse" style="table-layout: fixed; width: 100%;">
+						<colgroup>
+							<col style="width: {columnWidths[0] || 57}px;" />
+							{#each fields as fieldName, index (fieldName)}
+								<col
+									style="width: {columnWidths[index + 1]
+										? columnWidths[index + 1] + 'px'
+										: 'auto'};"
+								/>
+							{/each}
+							{#if actions}
+								<col style="width: {columnWidths[columnWidths.length - 1] || 80}px;" />
+							{/if}
+						</colgroup>
+						{@render header()}
+					</table>
+				</div>
+			{/if}
+		</div>
+	{/if}
+	<div
+		class={twMerge(
+			'dark:bg-surface2 relative overflow-hidden overflow-x-auto rounded-md bg-white shadow-sm',
+			classes?.root
+		)}
+	>
+		<table class="w-full border-collapse" bind:this={dataTableRef}>
+			{@render header(Boolean(tableSelectActions))}
+			{#if tableData.length > 0}
+				<tbody>
+					{#each visibleItems as d (sortedBy ? `${d.id}-${sortedBy.property}-${sortedBy.order}` : d.id)}
+						{@render row(d)}
+					{/each}
+				</tbody>
+			{/if}
+		</table>
+	</div>
 </div>
 {#if tableData.length === 0}
 	<div class="my-2 flex flex-col items-center justify-center gap-2">
@@ -359,6 +358,44 @@
 			<Square class="size-5" />
 		{/if}
 	</button>
+{/snippet}
+
+{#snippet header(hidden?: boolean)}
+	<thead class={twMerge('dark:bg-surface1 bg-surface2', hidden && 'hidden', classes?.thead)}>
+		<tr>
+			{#if tableSelectActions}
+				<th class="w-4 p-2">
+					{@render selectAll()}
+				</th>
+			{/if}
+
+			{#each fields as property (property)}
+				{@const headerClass = headerClasses?.find((hc) => hc.property === property)?.class}
+				{@const headerTitle = headers?.find((h) => h.property === property)?.title}
+				<TableHeader
+					sortable={sortableFields.has(property)}
+					filterable={filterableFields.has(property)}
+					filterOptions={filterValues[property] ? Array.from(filterValues[property]) : []}
+					{headerClass}
+					{headerTitle}
+					{property}
+					onFilter={handleFilter}
+					onSort={handleSort}
+					activeSort={sortedBy?.property === property}
+					order={sortedBy?.order}
+				/>
+			{/each}
+			{#if actions}
+				{@const actionHeaderClass = headerClasses?.find((hc) => hc.property === 'actions')?.class}
+				<th
+					class={twMerge(
+						'text-md float-right w-auto px-4 py-2 text-left font-medium text-gray-500',
+						actionHeaderClass
+					)}
+				></th>
+			{/if}
+		</tr>
+	</thead>
 {/snippet}
 
 {#snippet row(d: T)}

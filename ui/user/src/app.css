@@ -515,6 +515,10 @@
 				transparent
 			);
 		}
+
+		@media (max-width: 768px) {
+			font-size: var(--text-xs);
+		}
 	}
 
 	.page-tab-active {
