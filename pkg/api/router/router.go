@@ -490,7 +490,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/workspaces/all-servers", powerUserWorkspaces.ListAllServers)
 	mux.HandleFunc("GET /api/workspaces/all-entries/all-servers", powerUserWorkspaces.ListAllServersForAllEntries)
 	mux.HandleFunc("GET /api/workspaces/all-access-control-rules", powerUserWorkspaces.ListAllAccessControlRules)
-	mux.HandleFunc("GET /api/workspaces/all-servers/all-instances", powerUserWorkspaces.ListAllServersInstances)
+	mux.HandleFunc("GET /api/workspaces/all-servers/all-instances", powerUserWorkspaces.ListAllServerInstances)
 
 	// Workspace-scoped Access Control Rules (PowerUserPlus only)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/access-control-rules", accessControlRules.List)

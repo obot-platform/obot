@@ -156,21 +156,23 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 	}
 
 	// Get all entries from all workspaces
-	var allEntries []v1.MCPServerCatalogEntry
-	var entryList v1.MCPServerCatalogEntryList
+	var (
+	    allEntries []v1.MCPServerCatalogEntry
+	    entryList v1.MCPServerCatalogEntryList
+	)
 	if err := req.List(&entryList); err != nil {
 		return fmt.Errorf("failed to list entries: %w", err)
 	}
 
 	// Create a map of workspace names for efficient lookup
-	workspaceNames := make(map[string]bool)
+	workspaceNames := make(map[string]struct{}, len(workspaceList.Items))
 	for _, workspace := range workspaceList.Items {
-		workspaceNames[workspace.Name] = true
+		workspaceNames[workspace.Name] = struct{}{}
 	}
 
 	// Filter entries that belong to any workspace
 	for _, entry := range entryList.Items {
-		if entry.Spec.PowerUserWorkspaceID != "" && workspaceNames[entry.Spec.PowerUserWorkspaceID] {
+		if entry.Spec.PowerUserWorkspaceID != "" {
 			allEntries = append(allEntries, entry)
 		}
 	}
@@ -187,16 +189,16 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 		allServers = append(allServers, serverList.Items...)
 	}
 
-	// Filter out template servers and duplicates
-	var filteredServers []v1.MCPServer
-	seenServers := make(map[string]bool)
+	// Filter out template servers
+	var (
+	    filteredServers []v1.MCPServer
+	    seenServers = make(map[string]bool)
+	)
 	for _, server := range allServers {
-		if server.Spec.Template {
+		if _, seen := seenServers[server.Name]; seen || server.Spec.Template {
 			continue
 		}
-		if seenServers[server.Name] {
-			continue
-		}
+		
 		seenServers[server.Name] = true
 		filteredServers = append(filteredServers, server)
 	}
@@ -204,7 +206,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 	// Build credential contexts for all filtered servers
 	credCtxs := make([]string, 0, len(filteredServers))
 	for _, server := range filteredServers {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
 	}
 
 	var credMap map[string]map[string]string
@@ -233,7 +235,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
-		slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", server.Spec.PowerUserWorkspaceID)
+		slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", "")
 		if err != nil {
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
@@ -281,7 +283,7 @@ func convertAccessControlRuleWithWorkspace(rule v1.AccessControlRule, powerUserI
 	}
 }
 
-func (p *PowerUserWorkspaceHandler) ListAllServersInstances(req api.Context) error {
+func (p *PowerUserWorkspaceHandler) ListAllServerInstances(req api.Context) error {
 	// Get all multi-user servers (servers with PowerUserWorkspaceID)
 	var serverList v1.MCPServerList
 	if err := req.List(&serverList); err != nil {

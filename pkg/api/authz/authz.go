@@ -50,7 +50,6 @@ var (
 		"/api/cronjobs/",
 		"/api/mcp-catalogs",
 		"/api/mcp-catalogs/",
-		"GET /api/mcp-catalogs/{catalog_id}/entries/all-servers",
 		"/api/mcp-servers",
 		"/api/mcp-servers/",
 		"/api/workspaces",
