@@ -25,6 +25,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import McpServerInfoAndTools from './McpServerInfoAndTools.svelte';
 	import PageLoading from '../PageLoading.svelte';
+	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 
 	type Entry = MCPCatalogEntry & {
 		categories: string[]; // categories for the entry
@@ -101,6 +102,9 @@
 	let launching = $state(false);
 	let launchError = $state<string>();
 	let launchProgress = $state<number>(0);
+	let launchLogsEventStream = $state<EventStreamService<string>>();
+	let launchLogs = $state<string[]>([]);
+	let relaunching = $state(false);
 
 	let deletingInstance = $state<MCPServerInstance>();
 	let deletingServer = $state<MCPCatalogServer>();
@@ -250,10 +254,26 @@
 		deletingServer = undefined;
 	}
 
-	async function handleLaunchCatalogEntry(entry: Entry) {
+	function listLaunchLogs(mcpServerId: string) {
+		launchLogsEventStream = new EventStreamService<string>();
+		launchLogsEventStream.connect(`/api/mcp-servers/${mcpServerId}/logs`, {
+			onMessage: (data) => {
+				launchLogs = [...launchLogs, data];
+			}
+		});
+	}
+
+	async function handleLaunchCatalogEntry(entry: Entry, retryingServer?: MCPCatalogServer) {
 		if (!entry.manifest) {
 			console.error('No server manifest found');
 			return;
+		}
+
+		if (launchLogsEventStream) {
+			// reset launch logs
+			launchLogsEventStream.disconnect();
+			launchLogsEventStream = undefined;
+			launchLogs = [];
 		}
 
 		launchError = undefined;
@@ -279,14 +299,18 @@
 		const aliasToUse = configureForm?.name || getUniqueAlias(serverName);
 
 		let response: MCPCatalogServer | undefined = undefined;
-		try {
-			response = await ChatService.createSingleOrRemoteMcpServer({
-				catalogEntryID: entry.id,
-				manifest: url ? { remoteConfig: { url } } : {},
-				alias: aliasToUse
-			});
-		} catch (err) {
-			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+		if (!retryingServer) {
+			try {
+				response = await ChatService.createSingleOrRemoteMcpServer({
+					catalogEntryID: entry.id,
+					manifest: url ? { remoteConfig: { url } } : {},
+					alias: aliasToUse
+				});
+			} catch (err) {
+				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			}
+		} else {
+			response = retryingServer;
 		}
 
 		if (response) {
@@ -301,19 +325,20 @@
 					configuredResponse.id
 				);
 				if (!launchResponse.success) {
-					// because something failed, go ahead and delete the server we created
 					launchError = launchResponse.message;
-					await ChatService.deleteSingleOrRemoteMcpServer(configuredResponse.id);
+					listLaunchLogs(configuredResponse.id);
 				} else {
 					launchProgress = 100;
+				}
 
-					selectedEntryOrServer = {
-						server: configuredResponse,
-						connectURL: configuredResponse.connectURL,
-						instance: undefined,
-						parent: entry
-					} as ConnectedServer;
+				selectedEntryOrServer = {
+					server: configuredResponse,
+					connectURL: configuredResponse.connectURL,
+					instance: undefined,
+					parent: entry
+				} as ConnectedServer;
 
+				if (!launchError) {
 					const ref = selectedEntryOrServer;
 					setTimeout(() => {
 						launching = false;
@@ -322,12 +347,13 @@
 					}, 1000);
 				}
 			} catch (err) {
-				await ChatService.deleteSingleOrRemoteMcpServer(response.id);
 				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
 			} finally {
 				clearTimeout(timeout1);
 				clearTimeout(timeout2);
 				clearTimeout(timeout3);
+
+				relaunching = false;
 			}
 		}
 	}
@@ -400,6 +426,19 @@
 	async function handleConfigureForm() {
 		if (!selectedEntryOrServer) return;
 		if (!configureForm) return;
+
+		console.log(selectedEntryOrServer, configureForm, relaunching);
+		if (
+			relaunching &&
+			'parent' in selectedEntryOrServer &&
+			'server' in selectedEntryOrServer &&
+			selectedEntryOrServer.parent &&
+			selectedEntryOrServer.server
+		) {
+			configDialog?.close();
+			await handleLaunchCatalogEntry(selectedEntryOrServer.parent, selectedEntryOrServer.server);
+			return;
+		}
 
 		try {
 			if ('server' in selectedEntryOrServer && selectedEntryOrServer.server?.id) {
@@ -482,6 +521,23 @@
 			hostname: connectedServer.parent?.manifest.remoteConfig?.hostname
 		};
 		configDialog?.open();
+	}
+
+	async function handleCancelLaunch() {
+		if (launchLogsEventStream) {
+			launchLogsEventStream.disconnect();
+		}
+		if (
+			selectedEntryOrServer &&
+			'server' in selectedEntryOrServer &&
+			selectedEntryOrServer.server
+		) {
+			await ChatService.deleteSingleOrRemoteMcpServer(selectedEntryOrServer.server.id);
+			selectedEntryOrServer = selectedEntryOrServer.parent;
+		}
+
+		launching = false;
+		launchError = undefined;
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -654,17 +710,60 @@
 	text="Configuring and initializing server..."
 	progress={launchProgress}
 	error={launchError}
-	onClose={() => {
-		launching = false;
+	errorClasses={{
+		root: 'md:w-[95vw]'
 	}}
+	onClose={handleCancelLaunch}
 >
 	{#snippet errorPreContent()}
 		<h4 class="text-xl font-semibold">MCP Server Launch Failed</h4>
 	{/snippet}
 	{#snippet errorPostContent()}
-		<p class="text-md self-start">An issue occurred while launching the MCP server.</p>
+		{@const hasConfigurableParent =
+			selectedEntryOrServer &&
+			'parent' in selectedEntryOrServer &&
+			selectedEntryOrServer.parent &&
+			hasEditableConfiguration(selectedEntryOrServer.parent)}
+		{#if launchLogs.length > 0}
+			<div
+				class="default-scrollbar-thin bg-surface1 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
+			>
+				{#each launchLogs as log, i (i)}
+					<div class="font-mono text-sm">
+						<span class="text-gray-600 dark:text-gray-400">{log}</span>
+					</div>
+				{/each}
+			</div>
+		{:else}
+			<p class="text-md self-start">An issue occurred while launching the MCP server.</p>
+		{/if}
 
-		<p class="text-md self-start">If the problem persists, please contact an administrator.</p>
+		<div class="flex w-full items-center gap-2">
+			{#if hasConfigurableParent}
+				<button
+					class="button-primary w-1/2"
+					onclick={() => {
+						launching = false;
+						launchError = undefined;
+						relaunching = true;
+						if (
+							selectedEntryOrServer &&
+							'parent' in selectedEntryOrServer &&
+							selectedEntryOrServer.parent
+						) {
+							if (hasEditableConfiguration(selectedEntryOrServer.parent)) {
+								configDialog?.open();
+							} else {
+								handleLaunch();
+							}
+						}
+					}}
+				>
+					Go Back
+				</button>
+			{/if}
+			<button class="button w-1/2 flex-1" onclick={handleCancelLaunch}> Cancel </button>
+		</div>
 	{/snippet}
 </PageLoading>
 
