@@ -335,7 +335,17 @@ export interface MCPServer {
 	uvxConfig?: UVXRuntimeConfig;
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
-	remoteConfig?: RemoteRuntimeConfig;
+    remoteConfig?: RemoteRuntimeConfig;
+    compositeConfig?: {
+        componentCatalogEntries: string[];
+        toolMappings?: {
+            componentEntryName: string;
+            componentTool: string;
+            exposedTool: string;
+            exposedDescription?: string;
+            enabled?: boolean;
+        }[];
+    };
 }
 
 export interface MCPServerTool {

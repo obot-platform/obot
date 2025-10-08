@@ -13,8 +13,7 @@
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
-	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
-	import CompositeToolsConfig from '../mcp/CompositeToolsConfig.svelte';
+    import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
 	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import { onMount, tick, type Snippet } from 'svelte';
 	import MarkdownInput from '../MarkdownInput.svelte';
@@ -414,11 +413,14 @@
 				}
 				break;
 			case 'composite':
-				if (baseData.compositeConfig) {
-					manifest.compositeConfig = {
-						componentCatalogEntries: baseData.compositeConfig.componentCatalogEntries || []
-					};
-				}
+                if (baseData.compositeConfig) {
+                    manifest.compositeConfig = {
+                        componentCatalogEntries: baseData.compositeConfig.componentCatalogEntries || [],
+                        ...(baseData.compositeConfig.toolMappings && baseData.compositeConfig.toolMappings.length
+                            ? { toolMappings: baseData.compositeConfig.toolMappings }
+                            : {})
+                    };
+                }
 				break;
 		}
 
@@ -748,11 +750,6 @@
 		{readonly}
 		catalogId={id}
 		mcpEntriesContextFn={getAdminMcpServerAndEntries}
-	/>
-	<CompositeToolsConfig
-		bind:compositeConfig={formData.compositeConfig}
-		catalogId={id}
-		{readonly}
 	/>
 {/if}
 

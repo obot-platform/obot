@@ -292,18 +292,21 @@ export async function deconfigureMCPCatalogServer(
 }
 
 export async function generateMcpCatalogEntryToolPreviews(
-	catalogID: string,
-	entryID: string,
-	body?: {
-		config?: Record<string, string>;
-		url?: string;
-	},
-	opts?: { fetch?: Fetcher }
-): Promise<void> {
-	await doPost(`/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews`, body ?? {}, {
-		...opts,
-		dontLogErrors: true
-	});
+    catalogID: string,
+    entryID: string,
+    body?: {
+        config?: Record<string, string>;
+        url?: string;
+    },
+    opts?: { fetch?: Fetcher; preview?: boolean }
+): Promise<MCPCatalogEntry | void> {
+    const path = `/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews`;
+    const url = opts?.preview ? `${path}?preview=true` : path;
+    const resp = await doPost(url, body ?? {}, {
+        ...opts,
+        dontLogErrors: true
+    });
+    return opts?.preview ? (resp as MCPCatalogEntry) : undefined;
 }
 
 export async function getMcpCatalogToolPreviewsOauth(

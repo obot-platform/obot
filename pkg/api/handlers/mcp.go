@@ -1285,7 +1285,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 				Icon:            catalogEntry.Spec.Manifest.Icon,
 				Env:             catalogEntry.Spec.Manifest.Env,
 				Runtime:         types.RuntimeComposite,
-				CompositeConfig: &types.CompositeRuntimeConfig{ComponentCatalogEntries: catalogEntry.Spec.Manifest.CompositeConfig.ComponentCatalogEntries},
+				CompositeConfig: catalogEntry.Spec.Manifest.CompositeConfig.DeepCopy(),
 			}
 		} else {
 			manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.Manifest, input.MCPServerManifest)
