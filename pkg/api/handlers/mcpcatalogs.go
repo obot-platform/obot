@@ -468,19 +468,15 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 		return fmt.Errorf("failed to get catalog: %w", err)
 	}
 
-	// Get all entries in the catalog
+	// Get all entries in the catalog using field selector
 	var entriesList v1.MCPServerCatalogEntryList
-	if err := req.List(&entriesList); err != nil {
+	if err := req.List(&entriesList, client.MatchingFields{
+		"spec.mcpCatalogName": catalogName,
+	}); err != nil {
 		return fmt.Errorf("failed to list entries: %w", err)
 	}
 
-	// Filter entries that belong to this catalog
-	var catalogEntries []v1.MCPServerCatalogEntry
-	for _, entry := range entriesList.Items {
-		if entry.Spec.MCPCatalogName == catalogName {
-			catalogEntries = append(catalogEntries, entry)
-		}
-	}
+	catalogEntries := entriesList.Items
 
 	// For each entry, get its servers using the same approach as AdminListServersForEntryInCatalog
 	var allServers []v1.MCPServer
@@ -494,18 +490,19 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 		allServers = append(allServers, serverList.Items...)
 	}
 
-	// Filter out template servers and duplicates
+	// Filter out template servers and servers in workspaces
 	var filteredServers []v1.MCPServer
-	seenServers := make(map[string]bool)
 	for _, server := range allServers {
-		if server.Spec.Template {
-			// Hide template servers
+		if server.Spec.Template || server.Spec.PowerUserWorkspaceID != "" {
+			// Hide template servers and servers in workspaces.
+			// Servers in workspaces should not be possible,
+			// unless somehow someone (like an admin) created one from
+			// an entry in the default catalog.
+			// Though the UI does not expose the ability to do this,
+			// nor would ordinary users have the authz rules to allow them to.
 			continue
 		}
-		if seenServers[server.Name] {
-			continue
-		}
-		seenServers[server.Name] = true
+
 		filteredServers = append(filteredServers, server)
 	}
 

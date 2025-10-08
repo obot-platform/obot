@@ -157,8 +157,8 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 
 	// Get all entries from all workspaces
 	var (
-	    allEntries []v1.MCPServerCatalogEntry
-	    entryList v1.MCPServerCatalogEntryList
+		allEntries []v1.MCPServerCatalogEntry
+		entryList  v1.MCPServerCatalogEntryList
 	)
 	if err := req.List(&entryList); err != nil {
 		return fmt.Errorf("failed to list entries: %w", err)
@@ -191,14 +191,14 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 
 	// Filter out template servers
 	var (
-	    filteredServers []v1.MCPServer
-	    seenServers = make(map[string]bool)
+		filteredServers []v1.MCPServer
+		seenServers     = make(map[string]bool)
 	)
 	for _, server := range allServers {
 		if _, seen := seenServers[server.Name]; seen || server.Spec.Template {
 			continue
 		}
-		
+
 		seenServers[server.Name] = true
 		filteredServers = append(filteredServers, server)
 	}
