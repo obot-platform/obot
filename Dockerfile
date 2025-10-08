@@ -6,41 +6,55 @@ ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base
 FROM ${BASE_IMAGE} AS base
 ARG BASE_IMAGE
 RUN if [ "${BASE_IMAGE}" = "cgr.dev/chainguard/wolfi-base" ]; then \
-    apk add --no-cache gcc=14.2.0-r13 go make git nodejs npm pnpm; \
-    fi
+  apk add --no-cache gcc=14.2.0-r13 go make git nodejs npm pnpm; \
+  fi
 
 FROM base AS bin
 WORKDIR /app
 COPY . .
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
-    --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=cache,target=/root/go/pkg/mod \
-    make all
+  --mount=type=cache,target=/root/.cache/go-build \
+  --mount=type=cache,target=/root/.cache/uv \
+  --mount=type=cache,target=/root/go/pkg/mod \
+  make all
 
-FROM cgr.dev/chainguard/postgres:latest-dev AS build-pgvector
-RUN apk add build-base git postgresql-dev clang-19
+FROM cgr.dev/chainguard/wolfi-base:latest AS final-base
+RUN addgroup -g 70 postgres && \
+  adduser -u 70 -G postgres -h /home/postgres -s /bin/sh postgres -D
+
+ENV PGDATA=/var/lib/postgresql/data
+ENV LANG=en_US.UTF-8
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+WORKDIR /home/postgres
+
+RUN apk add --no-cache postgresql-17 postgresql-17-oci-entrypoint postgresql-17-client postgresql-17-contrib gosu ecpg-17 glibc-locale-en glibc-locale-posix posix-libc-utils
+
+ENTRYPOINT [ "/usr/bin/docker-entrypoint.sh", "postgres" ]
+
+FROM final-base AS build-pgvector
+RUN apk add --no-cache build-base git postgresql-17-dev clang-19
 RUN git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git && \
-    cd pgvector && \
-    make clean && \
-    make OPTFLAGS="" && \
-    PG_MAJOR=18 make install && \
-    cd .. && \
-    rm -rf pgvector
+  cd pgvector && \
+  make clean && \
+  make OPTFLAGS="" && \
+  PG_MAJOR=17 make install && \
+  cd .. && \
+  rm -rf pgvector
 
 FROM ${TOOLS_IMAGE} AS tools
 FROM ${PROVIDER_IMAGE} AS provider
 FROM ${ENTERPRISE_IMAGE} AS enterprise-tools
 RUN mkdir -p /obot-tools
 
-FROM cgr.dev/chainguard/postgres:latest-dev AS final
+FROM final-base AS final
 ENV POSTGRES_USER=obot
 ENV POSTGRES_PASSWORD=obot
 ENV POSTGRES_DB=obot
 ENV PGDATA=/data/postgresql
 
-COPY --from=build-pgvector /usr/lib/postgresql18/vector.so /usr/lib/postgresql18/
-COPY --from=build-pgvector /usr/share/postgresql18/extension/vector* /usr/share/postgresql18/extension/
+COPY --from=build-pgvector /usr/lib/postgresql17/vector.so /usr/lib/postgresql17/
+COPY --from=build-pgvector /usr/share/postgresql17/extension/vector* /usr/share/postgresql17/extension/
 
 RUN apk add --no-cache git python-3.13 py3.13-pip npm nodejs bash tini procps libreoffice docker perl-utils sqlite sqlite-dev curl kubectl jq
 COPY --chmod=0755 /tools/package-chrome.sh /
