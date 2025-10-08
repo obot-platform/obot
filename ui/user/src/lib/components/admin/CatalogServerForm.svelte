@@ -715,189 +715,191 @@
 {/if}
 
 <!-- Environment Variables Section -->
-{#if !readonly || (readonly && formData.env && formData.env.length > 0)}
-	<div
-		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
-	>
-		<h4 class="text-sm font-semibold">
-			{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
-		</h4>
+{#if formData.runtime !== 'remote'}
+	{#if !readonly || (readonly && formData.env && formData.env.length > 0)}
+		<div
+			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+		>
+			<h4 class="text-sm font-semibold">
+				{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
+			</h4>
 
-		{#if formData.env}
-			{#each formData.env as _, i (i)}
-				<div
-					class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
-				>
-					<div class="flex w-full flex-col gap-4">
-						<div class="flex w-full flex-col gap-1">
-							<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
-							<Select
-								class="bg-surface1 dark:border-surface3 dark:bg-surface1 border border-transparent shadow-inner"
-								classes={{
-									root: 'flex grow'
-								}}
-								options={[
-									{ label: 'Environment Variable', id: 'environment_variable_type' },
-									{ label: 'File', id: 'file_type' }
-								]}
-								selected={formData.env[i].file ? 'file_type' : 'environment_variable_type'}
-								onSelect={(option) => {
-									if (option.id === 'file_type') {
-										formData.env[i].file = true;
-									} else {
-										formData.env[i].file = false;
-									}
-								}}
-								id={`env-type-${i}`}
-							/>
+			{#if formData.env}
+				{#each formData.env as _, i (i)}
+					<div
+						class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
+					>
+						<div class="flex w-full flex-col gap-4">
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
+								<Select
+									class="bg-surface1 dark:border-surface3 dark:bg-surface1 border border-transparent shadow-inner"
+									classes={{
+										root: 'flex grow'
+									}}
+									options={[
+										{ label: 'Environment Variable', id: 'environment_variable_type' },
+										{ label: 'File', id: 'file_type' }
+									]}
+									selected={formData.env[i].file ? 'file_type' : 'environment_variable_type'}
+									onSelect={(option) => {
+										if (option.id === 'file_type') {
+											formData.env[i].file = true;
+										} else {
+											formData.env[i].file = false;
+										}
+									}}
+									id={`env-type-${i}`}
+								/>
+							</div>
+
+							<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+								{#if formData.env[i].file}
+									The value {type === 'single' ? 'the user supplies' : 'you provide'} will be written
+									to a file. An environment variable will be created using the name you specify in the
+									Key field and its value will be the path to that file. This environment variable will
+									be set inside your MCP server and you can reference it in the arguments section above
+									using the syntax ${'{KEY_NAME}'}.
+								{:else}
+									{type === 'single' ? 'The value the user supplies' : 'The value you provide'} will
+									be set as an environment variable using the name you specify in the Key field. This
+									environment variable will be set inside your MCP server and you can reference it in
+									the arguments section above using the syntax ${'{KEY_NAME}'}.
+								{/if}
+							</p>
+
+							{#if type === 'single'}
+								<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+									The Name and Description fields will be displayed to the user when configuring
+									this server. The Key field will not.
+								</p>
+								<div class="flex w-full flex-col gap-1">
+									<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
+									<input
+										id={`env-name-${i}`}
+										class="text-input-filled w-full"
+										bind:value={formData.env[i].name}
+										disabled={readonly}
+									/>
+								</div>
+								<div class="flex w-full flex-col gap-1">
+									<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
+									<input
+										id={`env-description-${i}`}
+										class="text-input-filled w-full"
+										bind:value={formData.env[i].description}
+										disabled={readonly}
+									/>
+								</div>
+								<div class="flex w-full flex-col gap-1">
+									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
+									<input
+										id={`env-key-${i}`}
+										class="text-input-filled w-full"
+										bind:value={formData.env[i].key}
+										placeholder="e.g. CUSTOM_API_KEY"
+										disabled={readonly}
+									/>
+								</div>
+								<div class="flex gap-8">
+									<label class="flex items-center gap-2">
+										<input
+											type="checkbox"
+											bind:checked={formData.env[i].sensitive}
+											disabled={readonly}
+										/>
+										<span class="text-sm">Sensitive</span>
+									</label>
+									<label class="flex items-center gap-2">
+										<input
+											type="checkbox"
+											bind:checked={formData.env[i].required}
+											disabled={readonly}
+										/>
+										<span class="text-sm">Required</span>
+									</label>
+								</div>
+							{:else}
+								<div class="flex w-full flex-col gap-1">
+									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
+									<input
+										id={`env-key-${i}`}
+										class="text-input-filled w-full"
+										bind:value={formData.env[i].key}
+										placeholder="e.g. CUSTOM_API_KEY"
+										disabled={readonly}
+									/>
+								</div>
+								<div class="flex w-full flex-col gap-1">
+									<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
+									{#if formData.env[i].file}
+										<textarea
+											id={`env-value-${i}`}
+											class="text-input-filled min-h-24 w-full resize-y"
+											bind:value={formData.env[i].value}
+											disabled={readonly}
+											rows={formData.env[i].value.split('\n').length + 1}
+										></textarea>
+									{:else}
+										<input
+											id={`env-value-${i}`}
+											class="text-input-filled w-full"
+											bind:value={formData.env[i].value}
+											placeholder="e.g. 123abcdef456"
+											disabled={readonly}
+											type={formData.env[i].sensitive ? 'password' : 'text'}
+										/>
+									{/if}
+								</div>
+								<div class="flex w-full gap-4">
+									<label class="flex items-center gap-2">
+										<input
+											type="checkbox"
+											bind:checked={formData.env[i].sensitive}
+											disabled={readonly}
+										/>
+										<span class="text-sm">Sensitive</span>
+									</label>
+								</div>
+							{/if}
 						</div>
 
-						<p class="text-xs font-light text-gray-400 dark:text-gray-600">
-							{#if formData.env[i].file}
-								The value {type === 'single' ? 'the user supplies' : 'you provide'} will be written to
-								a file. An environment variable will be created using the name you specify in the Key
-								field and its value will be the path to that file. This environment variable will be
-								set inside your MCP server and you can reference it in the arguments section above using
-								the syntax ${'{KEY_NAME}'}.
-							{:else}
-								{type === 'single' ? 'The value the user supplies' : 'The value you provide'} will be
-								set as an environment variable using the name you specify in the Key field. This environment
-								variable will be set inside your MCP server and you can reference it in the arguments
-								section above using the syntax ${'{KEY_NAME}'}.
-							{/if}
-						</p>
-
-						{#if type === 'single'}
-							<p class="text-xs font-light text-gray-400 dark:text-gray-600">
-								The Name and Description fields will be displayed to the user when configuring this
-								server. The Key field will not.
-							</p>
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
-								<input
-									id={`env-name-${i}`}
-									class="text-input-filled w-full"
-									bind:value={formData.env[i].name}
-									disabled={readonly}
-								/>
-							</div>
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
-								<input
-									id={`env-description-${i}`}
-									class="text-input-filled w-full"
-									bind:value={formData.env[i].description}
-									disabled={readonly}
-								/>
-							</div>
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
-								<input
-									id={`env-key-${i}`}
-									class="text-input-filled w-full"
-									bind:value={formData.env[i].key}
-									placeholder="e.g. CUSTOM_API_KEY"
-									disabled={readonly}
-								/>
-							</div>
-							<div class="flex gap-8">
-								<label class="flex items-center gap-2">
-									<input
-										type="checkbox"
-										bind:checked={formData.env[i].sensitive}
-										disabled={readonly}
-									/>
-									<span class="text-sm">Sensitive</span>
-								</label>
-								<label class="flex items-center gap-2">
-									<input
-										type="checkbox"
-										bind:checked={formData.env[i].required}
-										disabled={readonly}
-									/>
-									<span class="text-sm">Required</span>
-								</label>
-							</div>
-						{:else}
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
-								<input
-									id={`env-key-${i}`}
-									class="text-input-filled w-full"
-									bind:value={formData.env[i].key}
-									placeholder="e.g. CUSTOM_API_KEY"
-									disabled={readonly}
-								/>
-							</div>
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
-								{#if formData.env[i].file}
-									<textarea
-										id={`env-value-${i}`}
-										class="text-input-filled min-h-24 w-full resize-y"
-										bind:value={formData.env[i].value}
-										disabled={readonly}
-										rows={formData.env[i].value.split('\n').length + 1}
-									></textarea>
-								{:else}
-									<input
-										id={`env-value-${i}`}
-										class="text-input-filled w-full"
-										bind:value={formData.env[i].value}
-										placeholder="e.g. 123abcdef456"
-										disabled={readonly}
-										type={formData.env[i].sensitive ? 'password' : 'text'}
-									/>
-								{/if}
-							</div>
-							<div class="flex w-full gap-4">
-								<label class="flex items-center gap-2">
-									<input
-										type="checkbox"
-										bind:checked={formData.env[i].sensitive}
-										disabled={readonly}
-									/>
-									<span class="text-sm">Sensitive</span>
-								</label>
-							</div>
+						{#if !readonly}
+							<button
+								class="icon-button"
+								onclick={() => {
+									formData.env.splice(i, 1);
+								}}
+							>
+								<Trash2 class="size-4" />
+							</button>
 						{/if}
 					</div>
+				{/each}
+			{/if}
 
-					{#if !readonly}
-						<button
-							class="icon-button"
-							onclick={() => {
-								formData.env.splice(i, 1);
-							}}
-						>
-							<Trash2 class="size-4" />
-						</button>
-					{/if}
+			{#if !readonly}
+				<div class="flex justify-end">
+					<button
+						class="button flex items-center gap-1 text-xs"
+						onclick={() =>
+							formData.env.push({
+								key: '',
+								description: '',
+								name: '',
+								value: '',
+								required: false,
+								sensitive: false,
+								file: false
+							})}
+					>
+						<Plus class="size-4" />
+						{type === 'single' ? 'User Configuration' : 'Configuration'}
+					</button>
 				</div>
-			{/each}
-		{/if}
-
-		{#if !readonly}
-			<div class="flex justify-end">
-				<button
-					class="button flex items-center gap-1 text-xs"
-					onclick={() =>
-						formData.env.push({
-							key: '',
-							description: '',
-							name: '',
-							value: '',
-							required: false,
-							sensitive: false,
-							file: false
-						})}
-				>
-					<Plus class="size-4" />
-					{type === 'single' ? 'User Configuration' : 'Configuration'}
-				</button>
-			</div>
-		{/if}
-	</div>
+			{/if}
+		</div>
+	{/if}
 {/if}
 
 {#if !readonly}

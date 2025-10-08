@@ -151,25 +151,6 @@
 					>
 						<div class="flex w-full flex-col gap-4">
 							<div class="flex w-full flex-col gap-1">
-								<label for={`header-name-${i}`} class="text-sm font-light">Name</label>
-								<input
-									id={`header-name-${i}`}
-									class="text-input-filled w-full"
-									bind:value={config.headers[i].name}
-									disabled={readonly}
-								/>
-							</div>
-							<div class="flex w-full flex-col gap-1">
-								<label for={`header-description-${i}`} class="text-sm font-light">Description</label
-								>
-								<input
-									id={`header-description-${i}`}
-									class="text-input-filled w-full"
-									bind:value={config.headers[i].description}
-									disabled={readonly}
-								/>
-							</div>
-							<div class="flex w-full flex-col gap-1">
 								<label for={`header-key-${i}`} class="text-sm font-light">Key</label>
 								<input
 									id={`header-key-${i}`}
@@ -179,7 +160,54 @@
 									disabled={readonly}
 								/>
 							</div>
-							<div class="flex gap-8">
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-type-${i}`} class="text-sm font-light">Value</label>
+								<Select
+									class="bg-surface1 dark:border-surface3 dark:bg-surface1 border border-transparent shadow-inner"
+									classes={{
+										root: 'flex grow'
+									}}
+									options={[
+										{ label: 'Static', id: 'static' },
+										{ label: 'User-Supplied', id: 'user_supplied' }
+									]}
+									selected={config.headers[i].required ? 'user_supplied' : 'static'}
+									onSelect={(option) => {
+										if (!config.headers?.[i]) return;
+										if (option.id === 'user_supplied') {
+											config.headers[i].required = true;
+										} else {
+											config.headers[i].required = false;
+											config.headers[i].name = '';
+											config.headers[i].description = '';
+											config.headers[i].sensitive = false;
+										}
+										config.headers[i].value = '';
+									}}
+									id={`env-type-${i}`}
+								/>
+							</div>
+							{#if config.headers[i].required}
+								<div class="flex w-full flex-col gap-1">
+									<label for={`header-name-${i}`} class="text-sm font-light">Name</label>
+									<input
+										id={`header-name-${i}`}
+										class="text-input-filled w-full"
+										bind:value={config.headers[i].name}
+										disabled={readonly}
+									/>
+								</div>
+								<div class="flex w-full flex-col gap-1">
+									<label for={`header-description-${i}`} class="text-sm font-light"
+										>Description</label
+									>
+									<input
+										id={`header-description-${i}`}
+										class="text-input-filled w-full"
+										bind:value={config.headers[i].description}
+										disabled={readonly}
+									/>
+								</div>
 								<Toggle
 									classes={{ label: 'text-sm text-inherit' }}
 									disabled={readonly}
@@ -192,19 +220,14 @@
 										}
 									}}
 								/>
-								<Toggle
-									classes={{ label: 'text-sm text-inherit' }}
+							{:else}
+								<input
+									id={`header-description-${i}`}
+									class="text-input-filled w-full"
+									bind:value={config.headers[i].value}
 									disabled={readonly}
-									label="Required"
-									labelInline
-									checked={!!header.required}
-									onChange={(checked) => {
-										if (config.headers?.[i]) {
-											config.headers[i].required = checked;
-										}
-									}}
 								/>
-							</div>
+							{/if}
 						</div>
 
 						{#if !readonly}

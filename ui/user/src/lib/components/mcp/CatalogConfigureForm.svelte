@@ -247,7 +247,7 @@
 						{/each}
 					{/if}
 					{#if form.headers && form.headers.length > 0}
-						{#each form.headers as header, i (header.key)}
+						{#each form.headers.filter((header) => header.required) as header, i (header.key)}
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
 									<label for={header.key}>
