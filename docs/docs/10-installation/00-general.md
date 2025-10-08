@@ -8,10 +8,15 @@ slug: /installation/general
 Obot is a complete platform for building and running agents. The main components are:
 
 - Obot server
-- Postgres database
+- Postgres database (version 17 or higher)
 - Caching directory
 
 Obot stores its data under the `/data` path. If you are not using an external Postgres database, that data will also be under `/data`.
+
+### Database Requirements
+
+- **PostgreSQL Version**: 17 or higher
+- **Required Extension**: [pgvector](https://github.com/pgvector/pgvector) must be installed
 
 ### Production Considerations
 
