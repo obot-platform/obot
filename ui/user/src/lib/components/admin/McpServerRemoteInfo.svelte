@@ -43,7 +43,7 @@
 			const value = revealedInfo[h.key];
 			return {
 				...h,
-				value
+				value: h.value || value
 			};
 		})
 	);
