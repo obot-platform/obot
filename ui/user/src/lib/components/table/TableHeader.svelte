@@ -17,6 +17,7 @@
 		order?: 'asc' | 'desc';
 		sortable?: boolean;
 		style?: string;
+		presetFilters?: (string | number)[];
 	}
 	let {
 		onSort,
@@ -29,11 +30,12 @@
 		headerTitle,
 		order,
 		sortable,
-		style
+		style,
+		presetFilters
 	}: Props = $props();
 
 	let query = $state('');
-	let selectedFilterValues = $state<string[]>([]);
+	let selectedFilterValues = $state<string[]>(presetFilters?.map((d) => d.toString()) ?? []);
 	let pointerOnTHeader = $derived(sortable && !filterable);
 
 	const {

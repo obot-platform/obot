@@ -383,6 +383,7 @@
 					onSort={handleSort}
 					activeSort={sortedBy?.property === property}
 					order={sortedBy?.order}
+					presetFilters={filteredBy?.[property]}
 				/>
 			{/each}
 			{#if actions}
