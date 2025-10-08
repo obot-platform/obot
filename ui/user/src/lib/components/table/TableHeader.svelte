@@ -16,6 +16,8 @@
 		headerTitle?: string;
 		order?: 'asc' | 'desc';
 		sortable?: boolean;
+		style?: string;
+		presetFilters?: (string | number)[];
 	}
 	let {
 		onSort,
@@ -27,11 +29,13 @@
 		headerClass,
 		headerTitle,
 		order,
-		sortable
+		sortable,
+		style,
+		presetFilters
 	}: Props = $props();
 
 	let query = $state('');
-	let selectedFilterValues = $state<string[]>([]);
+	let selectedFilterValues = $state<string[]>(presetFilters?.map((d) => d.toString()) ?? []);
 	let pointerOnTHeader = $derived(sortable && !filterable);
 
 	const {
@@ -49,6 +53,7 @@
 		pointerOnTHeader && 'cursor-pointer',
 		headerClass
 	)}
+	{style}
 	onclick={pointerOnTHeader ? () => onSort?.(property) : undefined}
 >
 	<span class="flex grow items-center justify-between gap-4">

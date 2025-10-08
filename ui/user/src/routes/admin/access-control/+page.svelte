@@ -134,7 +134,7 @@
 	<Table
 		{data}
 		fields={type === 'user' ? ['displayName', 'servers', 'owner'] : ['displayName', 'servers']}
-		onSelectRow={(d, isCtrlClick) => {
+		onClickRow={(d, isCtrlClick) => {
 			const url = d.powerUserWorkspaceID
 				? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
 				: `/admin/access-control/${d.id}`;

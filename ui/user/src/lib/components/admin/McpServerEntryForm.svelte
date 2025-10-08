@@ -514,7 +514,7 @@
 					{ title: 'Rule', property: 'displayName' },
 					{ title: 'Accessible To', property: 'resources' }
 				]}
-				onSelectRow={(d, isCtrlClick) => {
+				onClickRow={(d, isCtrlClick) => {
 					if (!entry) return;
 					setLastVisitedMcpServer();
 
@@ -667,7 +667,7 @@
 						{ title: 'Webhook URL', property: 'url' },
 						{ title: 'Selectors', property: 'selectors' }
 					]}
-					onSelectRow={(d, isCtrlClick) => {
+					onClickRow={(d, isCtrlClick) => {
 						setLastVisitedMcpServer();
 						const url = `/admin/filters/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry?.id}`)}`;
 						openUrl(url, isCtrlClick);

@@ -137,7 +137,7 @@
 						<Table
 							data={filteredFilters}
 							fields={['name', 'url', 'selectors']}
-							onSelectRow={(d, isCtrlClick) => {
+							onClickRow={(d, isCtrlClick) => {
 								const url = `/admin/filters/${d.id}`;
 								openUrl(url, isCtrlClick);
 							}}

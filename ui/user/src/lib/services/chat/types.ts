@@ -746,6 +746,7 @@ export interface MCPCatalogServer {
 	toolPreviewsLastGenerated?: string;
 	lastUpdated?: string;
 	powerUserWorkspaceID?: string;
+	deploymentStatus?: string;
 }
 
 export interface MCPServerInstance {

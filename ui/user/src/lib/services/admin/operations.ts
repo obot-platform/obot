@@ -736,6 +736,17 @@ export async function listCatalogCategories(catalogId: string, opts?: { fetch?: 
 	return response;
 }
 
+export async function listAllCatalogDeployedSingleRemoteServers(
+	catalogId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = (await doGet(
+		`/mcp-catalogs/${catalogId}/entries/all-servers`,
+		opts
+	)) as ItemsResponse<MCPCatalogServer>;
+	return response.items ?? [];
+}
+
 export async function listAllUserWorkspaceCatalogEntries(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet(`/workspaces/all-entries`, opts)) as ItemsResponse<MCPCatalogEntry>;
 	return (
@@ -746,6 +757,14 @@ export async function listAllUserWorkspaceCatalogEntries(opts?: { fetch?: Fetche
 			};
 		}) ?? []
 	);
+}
+
+export async function listAllWorkspaceDeployedSingleRemoteServers(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		`/workspaces/all-entries/all-servers`,
+		opts
+	)) as ItemsResponse<MCPCatalogServer>;
+	return response.items ?? [];
 }
 
 export async function listAllUserWorkspaceMCPServers(opts?: { fetch?: Fetcher }) {

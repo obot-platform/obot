@@ -459,6 +459,78 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 	return req.Write(types.MCPServerList{Items: items})
 }
 
+// AdminListServersForAllEntriesInCatalog returns all servers for all entries in a catalog.
+func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+
+	var catalog v1.MCPCatalog
+	if err := req.Get(&catalog, catalogName); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	// Get all entries in the catalog using field selector
+	var entriesList v1.MCPServerCatalogEntryList
+	if err := req.List(&entriesList, client.MatchingFields{
+		"spec.mcpCatalogName": catalogName,
+	}); err != nil {
+		return fmt.Errorf("failed to list entries: %w", err)
+	}
+
+	catalogEntries := entriesList.Items
+
+	// For each entry, get its servers using the same approach as AdminListServersForEntryInCatalog
+	var allServers []v1.MCPServer
+	for _, entry := range catalogEntries {
+		var serverList v1.MCPServerList
+		if err := req.List(&serverList, client.MatchingFields{
+			"spec.mcpServerCatalogEntryName": entry.Name,
+		}); err != nil {
+			return fmt.Errorf("failed to list servers for entry %s: %w", entry.Name, err)
+		}
+		allServers = append(allServers, serverList.Items...)
+	}
+
+	// Filter out template servers and servers in workspaces
+	var filteredServers []v1.MCPServer
+	for _, server := range allServers {
+		if server.Spec.Template || server.Spec.PowerUserWorkspaceID != "" {
+			// Hide template servers and servers in workspaces.
+			// Servers in workspaces should not be possible,
+			// unless somehow someone (like an admin) created one from
+			// an entry in the default catalog.
+			// Though the UI does not expose the ability to do this,
+			// nor would ordinary users have the authz rules to allow them to.
+			continue
+		}
+
+		filteredServers = append(filteredServers, server)
+	}
+
+	var items []types.MCPServer
+	for _, server := range filteredServers {
+		var credCtx string
+		if server.Spec.MCPCatalogID != "" {
+			credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
+		} else {
+			credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
+		}
+
+		cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
+		if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+			return fmt.Errorf("failed to find credential: %w", err)
+		}
+
+		slug, err := slugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
+		if err != nil {
+			return fmt.Errorf("failed to generate slug: %w", err)
+		}
+
+		items = append(items, convertMCPServer(server, cred.Env, h.serverURL, slug))
+	}
+
+	return req.Write(types.MCPServerList{Items: items})
+}
+
 // ListServersForEntry returns a specific entry from a catalog or workspace.
 func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")

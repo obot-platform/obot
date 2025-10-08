@@ -92,7 +92,7 @@
 					<Table
 						data={accessControlRules}
 						fields={['displayName', 'servers']}
-						onSelectRow={(d, isCtrlClick) => {
+						onClickRow={(d, isCtrlClick) => {
 							const url = `/mcp-publisher/access-control/${d.id}`;
 							openUrl(url, isCtrlClick);
 						}}
