@@ -141,8 +141,8 @@
 		>
 			<h4 class="text-sm font-semibold">Headers</h4>
 			<p class="text-xs font-light text-gray-400 dark:text-gray-600">
-				Header values will be supplied with the URL to configure the MCP server. Their values will
-				be supplied by the user during initial setup.
+				Header values will be supplied with the URL to configure the MCP server. Their values can be
+				supplied by the user during initial setup or as static provided values.
 			</p>
 			{#if config.headers}
 				{#each config.headers as header, i (i)}
