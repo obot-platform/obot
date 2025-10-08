@@ -2417,9 +2417,9 @@ func (m *MCPHandler) ListServerInstances(req api.Context) error {
 	}
 
 	// Filter instances that belong to servers in this catalog
-	var catalogServerNames = make(map[string]bool)
+	var catalogServerNames = make(map[string]struct{})
 	for _, server := range catalogServers {
-		catalogServerNames[server.Name] = true
+		catalogServerNames[server.Name] = struct{}{}
 	}
 
 	var filteredInstances []v1.MCPServerInstance
@@ -2428,7 +2428,7 @@ func (m *MCPHandler) ListServerInstances(req api.Context) error {
 			// Hide template instances
 			continue
 		}
-		if catalogServerNames[instance.Spec.MCPServerName] {
+		if _, exists := catalogServerNames[instance.Spec.MCPServerName]; exists {
 			filteredInstances = append(filteredInstances, instance)
 		}
 	}
