@@ -94,32 +94,45 @@
 
 	let tableData = $derived.by(() => {
 		let updatedTableData = data;
-		updatedTableData = sortedBy
-			? data.sort((a, b) => {
-					const aValue = a[sortedBy!.property as keyof T];
-					const bValue = b[sortedBy!.property as keyof T];
 
-					if (sortedBy?.property === 'created') {
-						const aDate = new Date(aValue as string);
-						const bDate = new Date(bValue as string);
-						return sortedBy!.order === 'asc'
-							? aDate.getTime() - bDate.getTime()
-							: bDate.getTime() - aDate.getTime();
+		if (sortedBy) {
+			updatedTableData = data.sort((a, b) => {
+				// If tableSelectActions and validateSelect are available, sort by selectability first
+				if (tableSelectActions && validateSelect) {
+					const aSelectable = validateSelect(a);
+					const bSelectable = validateSelect(b);
+
+					// First sort by selectability (selectable items first)
+					if (aSelectable !== bSelectable) {
+						return aSelectable ? -1 : 1;
 					}
+				}
 
-					if (typeof aValue === 'number' && typeof bValue === 'number') {
-						return sortedBy!.order === 'asc' ? aValue - bValue : bValue - aValue;
-					}
+				// Then sort by the specified property
+				const aValue = a[sortedBy!.property as keyof T];
+				const bValue = b[sortedBy!.property as keyof T];
 
-					if (typeof aValue === 'string' && typeof bValue === 'string') {
-						return sortedBy!.order === 'asc'
-							? aValue.localeCompare(bValue)
-							: bValue.localeCompare(aValue);
-					}
+				if (sortedBy?.property === 'created') {
+					const aDate = new Date(aValue as string);
+					const bDate = new Date(bValue as string);
+					return sortedBy!.order === 'asc'
+						? aDate.getTime() - bDate.getTime()
+						: bDate.getTime() - aDate.getTime();
+				}
 
-					return 0;
-				})
-			: data;
+				if (typeof aValue === 'number' && typeof bValue === 'number') {
+					return sortedBy!.order === 'asc' ? aValue - bValue : bValue - aValue;
+				}
+
+				if (typeof aValue === 'string' && typeof bValue === 'string') {
+					return sortedBy!.order === 'asc'
+						? aValue.localeCompare(bValue)
+						: bValue.localeCompare(aValue);
+				}
+
+				return 0;
+			});
+		}
 
 		updatedTableData =
 			filteredBy && Object.keys(filteredBy).length > 0
@@ -220,7 +233,7 @@
 					{@render selectAll()}
 				</div>
 				<div class="px-4 py-2 text-left text-sm font-semibold text-gray-500">
-					{Object.keys(selected).length} of {tableData.length} selected
+					{Object.keys(selected).length} of {totalSelectable} selected
 				</div>
 				<div class="flex grow items-center justify-end">
 					{@render tableSelectActions(selected)}

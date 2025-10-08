@@ -31,7 +31,7 @@
 	);
 </script>
 
-<div class="relative flex flex-col gap-2">
+<div class="flex flex-col gap-2">
 	{#if catalog?.sourceURLs && catalog.sourceURLs.length > 0 && catalog.id}
 		<Table
 			data={tableData}

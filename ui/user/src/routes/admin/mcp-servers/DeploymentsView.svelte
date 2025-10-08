@@ -216,7 +216,7 @@
 	}
 </script>
 
-<div class="relative flex flex-col gap-2">
+<div class="flex flex-col gap-2">
 	{#if loading || mcpServerAndEntries.loading}
 		<div class="my-2 flex items-center justify-center">
 			<LoaderCircle class="size-6 animate-spin" />
