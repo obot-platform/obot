@@ -2,7 +2,7 @@
 	export type VirtualListViewportProps<T> = {
 		class?: string;
 		as?: string;
-		data: T[];
+		data?: T[];
 		itemHeight: number; // Optional for dynamic heights
 		overscan?: number; // Buffer items to render above/below viewport
 		onScroll?: (scrollTop: number) => void;
