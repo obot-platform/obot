@@ -72,7 +72,7 @@ You can view the source code for GitHub provider in this [repo](https://github.c
 
 ### Google
 
-Follow the instructions [here](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) to create the OAUTH app for Obot.
+Follow the instructions [here](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) to create the OAuth app for Obot.
 
 You can view the source code for Google provider in this [repo](https://github.com/obot-platform/tools).
 
@@ -87,4 +87,15 @@ You will need the following permissions:
 
 ### Okta (Enterprise Only)
 
-Create an OAuTH app in Okta following these [instructions](https://developer.okta.com/docs/guides/implement-oauth-for-okta/main/#create-an-oauth-2-0-app-in-okta).
+Create an OAuth app in Okta following these [instructions](https://developer.okta.com/docs/guides/implement-oauth-for-okta/main/#create-an-oauth-2-0-app-in-okta).
+
+Once your app is created, go to the Sign On tab and scroll to the OpenID Connect ID Token section. Click on Edit.
+Then, set the Group Claims Type to `Filter`, and the Groups Claim Filter to `groups Matches regex .*`. It should look like this:
+
+![screenshot of Okta groups claim settings](/img/okta-group-claims.png)
+
+Next, click on the Okta API Scopes tab. Scroll down and find `okta.groups.read`, then click the `✓ Grant` button.
+
+When configuring the Okta auth provider in Obot, be sure to set the Issuer URL to the Issuer URL for your org-level authorization server.
+Obot does not work with custom authorization servers in Okta, because they are unable to support the `okta.groups.read` scope.
+Typically, the Issuer URL for your org-level authorization server is simply the URL for your Okta workspace itself, with no path.
