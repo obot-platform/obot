@@ -12,7 +12,7 @@
 	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$app/navigation';
+	import { replaceState } from '$app/navigation';
 	import { formatTimeAgo } from '$lib/time';
 	import Search from '$lib/components/Search.svelte';
 	import { page } from '$app/state';
@@ -53,8 +53,6 @@
 			};
 		})
 	);
-
-	let isAuditor = $derived(profile.current.groups.includes(Group.AUDITOR));
 
 	const updateQuery = debounce((value: string) => {
 		query = value;
@@ -207,7 +205,7 @@
 						sortable={['name', 'userName', 'userEmail', 'projectName', 'created', 'runs']}
 						initSort={{ property: 'created', order: 'desc' }}
 					>
-						{#snippet actions(task)}
+						{#snippet actions()}
 							<button
 								class={twMerge('icon-button hover:text-blue-500')}
 								title="View Task"

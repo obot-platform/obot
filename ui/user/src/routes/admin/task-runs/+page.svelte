@@ -12,7 +12,7 @@
 	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$app/navigation';
+	import { replaceState } from '$app/navigation';
 	import { formatTimeAgo } from '$lib/time';
 	import Search from '$lib/components/Search.svelte';
 	import { page } from '$app/state';
@@ -214,7 +214,7 @@
 						sortable={['name', 'userName', 'userEmail', 'projectName', 'created', 'task']}
 						initSort={{ property: 'created', order: 'desc' }}
 					>
-						{#snippet actions(thread)}
+						{#snippet actions()}
 							<button
 								class={twMerge(
 									'icon-button',
