@@ -6,8 +6,7 @@
 		type ProjectThread,
 		type Project,
 		type OrgUser,
-		type ProjectTask,
-		Group
+		type ProjectTask
 	} from '$lib/services';
 	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -17,7 +16,6 @@
 	import Search from '$lib/components/Search.svelte';
 	import { page } from '$app/state';
 	import { debounce } from 'es-toolkit';
-	import { profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { openUrl } from '$lib/utils';
