@@ -22,8 +22,10 @@
 		<p class="text-lg">Project Share not found or not available.</p>
 	</div>
 {:else}
-	<div class="flex flex-col p-4 md:p-6">
-		<div class="mb-6 flex flex-col items-center text-center">
+	<div class="flex flex-col">
+		<div class="mb-2 flex flex-col items-center text-center">
+			<img src="/user/images/share-project-delivery.webp" class="max-h-48" alt="invitation" />
+			<h2 class="text-2xl font-semibold">Launch Shared Project</h2>
 			<h3 class="text-xl font-medium">
 				{template.projectSnapshot.name || 'Unnamed Project'}
 			</h3>
@@ -49,7 +51,7 @@
 		{/if}
 
 		<div class="mt-2 flex flex-col gap-4 border-t border-gray-100 pt-4 dark:border-gray-700">
-			<p class="text-center text-xs text-gray-400">
+			<p class="px-2 text-sm font-light text-gray-400">
 				This project was shared by a user and may include instructions, Connectors, knowledge files,
 				and task definitions that were not reviewed or verified by our team. It could interact with
 				external systems, access additional data sources, or behave in unexpected ways. By clicking

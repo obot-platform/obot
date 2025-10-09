@@ -177,26 +177,31 @@
 			onclick={() => closeSidebarConfig(layout)}
 			class="ml-auto text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
 		>
-			<XIcon class="size-4" />
+			<XIcon class="size-6" />
 		</button>
 	</div>
 
 	{#if !template}
-		<div class="flex flex-col items-center gap-6 py-8 text-center">
-			<div class="max-w-2xl space-y-3">
-				<p class="text-sm text-gray-600 dark:text-gray-300">
-					When you share this project, we'll take a snapshot of its configuration that includes
-					instructions, connectors, knowledge files, and task definitions. You can share the
-					generated link with others and they can use it to launch their own instance of the project
-					from your snapshot.
-				</p>
-				<p class="text-sm text-gray-600 dark:text-gray-300">
-					If you make changes to your project, you can return to this page to take a new snapshot.
-					When you do, owners of existing projects launched using your link will be notified that an
-					update is available and new instances will automatically get the new version.
-				</p>
+		<div class="card gap-4">
+			<img src="/user/images/share-project-snapshot.webp" class="max-h-48" alt="invitation" />
+			<h4 class="text-2xl font-semibold">Project Sharing</h4>
+
+			<div class="flex flex-col items-center gap-6">
+				<div class="max-w-2xl space-y-3 text-sm font-light text-gray-600 dark:text-gray-300">
+					<p>
+						When you share this project, we'll take a snapshot of its configuration that includes
+						instructions, connectors, knowledge files, and task definitions. You can share the
+						generated link with others and they can use it to launch their own instance of the
+						project from your snapshot.
+					</p>
+					<p>
+						If you make changes to your project, you can return to this page to take a new snapshot.
+						When you do, owners of existing projects launched using your link will be notified that
+						an update is available and new instances will automatically get the new version.
+					</p>
+				</div>
+				<button class="button-primary" onclick={createFromSnapshot}>Share This Project</button>
 			</div>
-			<button class="button-primary" onclick={createFromSnapshot}>Share Project</button>
 		</div>
 	{:else}
 		<div class="flex items-center gap-3">
