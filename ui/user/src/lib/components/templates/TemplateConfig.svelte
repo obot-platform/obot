@@ -171,117 +171,118 @@
 	{/if}
 {/snippet}
 
-<div class="flex w-full flex-col gap-4 p-5" in:fade>
-	<div class="flex w-full items-center justify-end">
-		<button
-			onclick={() => closeSidebarConfig(layout)}
-			class="ml-auto text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-		>
-			<XIcon class="size-6" />
-		</button>
+{#if loading}
+	<div class="flex items-center justify-center p-6">
+		<div class="flex flex-col items-center gap-2">
+			<Loader2 class="size-6 animate-spin text-gray-500" />
+			<span class="text-sm text-gray-500">Loading Project Share...</span>
+		</div>
 	</div>
-
-	{#if !template}
-		<div class="card gap-4">
-			<img src="/user/images/share-project-snapshot.webp" class="max-h-48" alt="invitation" />
-			<h4 class="text-2xl font-semibold">Project Sharing</h4>
-
-			<div class="flex flex-col items-center gap-6">
-				<div class="max-w-2xl space-y-3 text-sm font-light text-gray-600 dark:text-gray-300">
-					<p>
-						When you share this project, we'll take a snapshot of its configuration that includes
-						instructions, connectors, knowledge files, and task definitions. You can share the
-						generated link with others and they can use it to launch their own instance of the
-						project from your snapshot.
-					</p>
-					<p>
-						If you make changes to your project, you can return to this page to take a new snapshot.
-						When you do, owners of existing projects launched using your link will be notified that
-						an update is available and new instances will automatically get the new version.
-					</p>
-				</div>
-				<button class="button-primary" onclick={createFromSnapshot}>Share This Project</button>
-			</div>
+{:else}
+	<div class="flex w-full flex-col gap-4 p-5" in:fade>
+		<div class="flex w-full items-center justify-end">
+			<button
+				onclick={() => closeSidebarConfig(layout)}
+				class="ml-auto text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+			>
+				<XIcon class="size-6" />
+			</button>
 		</div>
-	{:else}
-		<div class="flex items-center gap-3">
-			<AssistantIcon project={template.projectSnapshot} class="shrink-0" />
-			<div class="flex flex-1 items-center justify-between">
-				<h3 class="text-base font-medium">
-					{template.projectSnapshot.name || 'Unnamed Template'}
-				</h3>
-				<div class="flex items-center gap-2">
-					{#if template.projectSnapshotStale}
-						{#if template.projectSnapshotUpgradeInProgress}
-							<div class="flex items-center gap-1 text-xs text-gray-500">
-								<Loader2 class="size-4 animate-spin" />
-								Updating...
-							</div>
-						{:else}
-							<button
-								class="button-primary px-3 py-1 text-sm"
-								onclick={createFromSnapshot}
-								use:tooltip={'Update Project Share with current project state'}
-							>
-								Update Project Share
-							</button>
+
+		{#if !template}
+			<div class="card gap-4">
+				<img src="/user/images/share-project-snapshot.webp" class="max-h-48" alt="invitation" />
+				<h4 class="text-2xl font-semibold">Project Sharing</h4>
+
+				<div class="flex flex-col items-center gap-6">
+					<div class="max-w-2xl space-y-3 text-sm font-light text-gray-600 dark:text-gray-300">
+						<p>
+							When you share this project, we'll take a snapshot of its configuration that includes
+							instructions, connectors, knowledge files, and task definitions. You can share the
+							generated link with others and they can use it to launch their own instance of the
+							project from your snapshot.
+						</p>
+						<p>
+							If you make changes to your project, you can return to this page to take a new
+							snapshot. When you do, owners of existing projects launched using your link will be
+							notified that an update is available and new instances will automatically get the new
+							version.
+						</p>
+					</div>
+					<button class="button-primary" onclick={createFromSnapshot}>Share This Project</button>
+				</div>
+			</div>
+		{:else}
+			<div class="flex items-center gap-3">
+				<AssistantIcon project={template.projectSnapshot} class="shrink-0" />
+				<div class="flex flex-1 items-center justify-between">
+					<h3 class="text-base font-medium">
+						{template.projectSnapshot.name || 'Unnamed Template'}
+					</h3>
+					<div class="flex items-center gap-2">
+						{#if template.projectSnapshotStale}
+							{#if template.projectSnapshotUpgradeInProgress}
+								<div class="flex items-center gap-1 text-xs text-gray-500">
+									<Loader2 class="size-4 animate-spin" />
+									Updating...
+								</div>
+							{:else}
+								<button
+									class="button-primary px-3 py-1 text-sm"
+									onclick={createFromSnapshot}
+									use:tooltip={'Update Project Share with current project state'}
+								>
+									Update Project Share
+								</button>
+							{/if}
 						{/if}
-					{/if}
-					<button
-						class="icon-button hover:text-red-500"
-						onclick={() => (toDelete = true)}
-						use:tooltip={'Delete Project Share'}
-					>
-						<Trash2 class="size-4" />
-					</button>
-				</div>
-			</div>
-		</div>
-
-		{#if template.publicID}
-			<div class="rounded-md border border-gray-100 dark:border-gray-700">
-				<div class="border-b border-gray-100 p-3 dark:border-gray-700">
-					<h3 class="text-sm font-medium">Project Share URL</h3>
-				</div>
-				<div class="p-3">
-					<div class="flex items-center gap-1">
-						<CopyButton text={url} />
-						<a href={url} class="overflow-hidden text-sm text-ellipsis hover:underline">{url}</a>
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		{#if templateTools.length > 0}
-			<div class="rounded-md border border-gray-100 dark:border-gray-700">
-				<div class="border-b border-gray-100 p-3 dark:border-gray-700">
-					<h3 class="text-sm font-medium">Tools</h3>
-				</div>
-				<div class="flex flex-wrap gap-2 p-3">
-					{#each templateTools as tool (tool.id)}
-						<div
-							class="flex items-center gap-2 rounded-md bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700"
+						<button
+							class="icon-button hover:text-red-500"
+							onclick={() => (toDelete = true)}
+							use:tooltip={'Delete Project Share'}
 						>
-							<ToolPill {tool} />
-							<span>{tool.name}</span>
-						</div>
-					{/each}
-				</div>
-			</div>
-		{/if}
-
-		<div class="rounded-md border border-gray-100 dark:border-gray-700">
-			<div class="border-b border-gray-100 p-3 dark:border-gray-700">
-				<h3 class="text-sm font-medium">Project Share details</h3>
-			</div>
-			{#if loading}
-				<div class="flex items-center justify-center p-6">
-					<div class="flex flex-col items-center gap-2">
-						<Loader2 class="size-6 animate-spin text-gray-500" />
-						<span class="text-sm text-gray-500">Loading Project Share...</span>
+							<Trash2 class="size-4" />
+						</button>
 					</div>
 				</div>
-			{:else}
+			</div>
+
+			{#if template.publicID}
+				<div class="rounded-md border border-gray-100 dark:border-gray-700">
+					<div class="border-b border-gray-100 p-3 dark:border-gray-700">
+						<h3 class="text-sm font-medium">Project Share URL</h3>
+					</div>
+					<div class="p-3">
+						<div class="flex items-center gap-1">
+							<CopyButton text={url} />
+							<a href={url} class="overflow-hidden text-sm text-ellipsis hover:underline">{url}</a>
+						</div>
+					</div>
+				</div>
+			{/if}
+
+			{#if templateTools.length > 0}
+				<div class="rounded-md border border-gray-100 dark:border-gray-700">
+					<div class="border-b border-gray-100 p-3 dark:border-gray-700">
+						<h3 class="text-sm font-medium">Tools</h3>
+					</div>
+					<div class="flex flex-wrap gap-2 p-3">
+						{#each templateTools as tool (tool.id)}
+							<div
+								class="flex items-center gap-2 rounded-md bg-gray-50 px-2 py-1 text-xs dark:bg-gray-700"
+							>
+								<ToolPill {tool} />
+								<span>{tool.name}</span>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			<div class="rounded-md border border-gray-100 dark:border-gray-700">
+				<div class="border-b border-gray-100 p-3 dark:border-gray-700">
+					<h3 class="text-sm font-medium">Project Share details</h3>
+				</div>
 				<div class="flex flex-col divide-y divide-gray-100 dark:divide-gray-700">
 					{#if template.projectSnapshotLastUpgraded}
 						<div class="p-3">
@@ -379,16 +380,16 @@
 
 					{@render displayTasks(tasks)}
 				</div>
-			{/if}
-		</div>
-	{/if}
+			</div>
+		{/if}
 
-	{#if template}
-		<Confirm
-			msg={`Are you sure you want to delete this Project Share: ${template.projectSnapshot.name || 'Unnamed Project Snapshot'}?`}
-			show={toDelete}
-			onsuccess={handleDeleteTemplate}
-			oncancel={() => (toDelete = false)}
-		/>
-	{/if}
-</div>
+		{#if template}
+			<Confirm
+				msg={`Are you sure you want to delete this Project Share: ${template.projectSnapshot.name || 'Unnamed Project Snapshot'}?`}
+				show={toDelete}
+				onsuccess={handleDeleteTemplate}
+				oncancel={() => (toDelete = false)}
+			/>
+		{/if}
+	</div>
+{/if}
