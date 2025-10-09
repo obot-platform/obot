@@ -20,6 +20,7 @@
 	import { profile } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import { openUrl } from '$lib/utils';
 
 	let threads = $state<ProjectThread[]>([]);
 	let projects = $state<Project[]>([]);
@@ -145,9 +146,9 @@
 		replaceState(page.url, {});
 	}
 
-	function handleViewThread(thread: ProjectThread) {
-		// Navigate to thread view
-		goto(`/admin/task-runs/${thread.id}`);
+	function handleViewThread(thread: ProjectThread, isCtrlClick: boolean) {
+		const url = `/admin/task-runs/${thread.id}`;
+		openUrl(url, isCtrlClick);
 	}
 </script>
 
@@ -220,10 +221,6 @@
 									isAuditor && 'hover:text-blue-500',
 									!isAuditor && 'opacity-50 hover:bg-transparent dark:hover:bg-transparent'
 								)}
-								onclick={(e) => {
-									e.stopPropagation();
-									handleViewThread(thread);
-								}}
 								title="View Thread"
 								use:tooltip={{
 									text: isAuditor

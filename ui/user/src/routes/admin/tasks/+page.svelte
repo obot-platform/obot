@@ -20,6 +20,7 @@
 	import { profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { openUrl } from '$lib/utils';
 
 	let tasks = $state<ProjectTask[]>([]);
 	let threads = $state<ProjectThread[]>([]);
@@ -138,8 +139,9 @@
 		replaceState(page.url, {});
 	}
 
-	function handleViewTask(task: ProjectTask) {
-		goto(`/admin/tasks/${task.id}`);
+	function handleViewTask(task: ProjectTask, isCtrlClick: boolean) {
+		const url = `/admin/tasks/${task.id}`;
+		openUrl(url, isCtrlClick);
 	}
 </script>
 
@@ -208,10 +210,6 @@
 						{#snippet actions(task)}
 							<button
 								class={twMerge('icon-button hover:text-blue-500')}
-								onclick={(e) => {
-									e.stopPropagation();
-									handleViewTask(task);
-								}}
 								title="View Task"
 								use:tooltip={{
 									text: 'View Task'
