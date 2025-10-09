@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
+	import { openUrl } from '$lib/utils';
 	import { ChevronLeft } from 'lucide-svelte';
 
 	interface Props {
@@ -103,9 +104,21 @@
 	{#each links as link, index (link.href)}
 		<ChevronLeft class={index === 0 ? 'mr-2 size-4' : 'mx-2 size-4'} />
 
-		<a href={link.href} class="button-text flex items-center gap-2 p-0 text-lg font-light">
+		<button
+			onclick={(e) => {
+				const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+				const isCtrlClick = isTouchDevice ? false : e.metaKey || e.ctrlKey;
+
+				if (isCtrlClick) {
+					openUrl(link.href, true);
+				} else {
+					history.go(-(links.length - index));
+				}
+			}}
+			class="button-text flex items-center gap-2 p-0 text-lg font-light"
+		>
 			{link.label}
-		</a>
+		</button>
 	{/each}
 	<ChevronLeft class="mx-2 size-4" />
 	<span class="text-lg font-light">{currentLabel}</span>
