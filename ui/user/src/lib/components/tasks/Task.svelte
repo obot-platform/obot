@@ -31,6 +31,7 @@
 		runID?: string;
 		readonly?: boolean;
 		skipFetchOnMount?: boolean;
+		noChat?: boolean;
 	}
 
 	let {
@@ -40,7 +41,8 @@
 		onDelete,
 		runID: inputRunID,
 		readonly,
-		skipFetchOnMount
+		skipFetchOnMount,
+		noChat
 	}: Props = $props();
 
 	const readOnly = !!inputRunID || readonly;
@@ -296,7 +298,7 @@
 
 {#snippet mainActions()}
 	<div class="flex items-center gap-2">
-		{#if allMessages.messages.length > 0 && !readOnly}
+		{#if allMessages.messages.length > 0 && !noChat}
 			<button
 				class="icon-button"
 				onclick={() => (showChat = !showChat)}

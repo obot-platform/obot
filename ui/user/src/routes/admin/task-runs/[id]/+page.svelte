@@ -43,6 +43,7 @@
 						runID={data.taskRun.taskRunID}
 						readonly
 						skipFetchOnMount
+						noChat
 					/>
 				{/if}
 			</div>
