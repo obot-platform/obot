@@ -348,7 +348,15 @@ func (h *handler) oauthCallback(req api.Context) error {
 
 	if oauthAuthRequestID == "" {
 		// If there is no OAuth request object, then MCP OAuth wasn't started by OAuth; likely the UI kicked it off.
-		// Redirect to the login complete page.
+		// Check if this is part of a composite flow
+		compositeMCPID, err := h.getCompositeMCPIDFromState(req, req.URL.Query().Get("state"))
+		if err == nil && compositeMCPID != "" {
+			// Redirect back to composite OAuth page
+			http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/mcp/composite/%s/%s", oauthAuthRequestID, compositeMCPID), http.StatusFound)
+			return nil
+		}
+
+		// Regular single server flow - redirect to login complete page
 		http.Redirect(req.ResponseWriter, req.Request, "/login_complete", http.StatusFound)
 		return nil
 	}
@@ -396,4 +404,36 @@ func redirectWithAuthorizeResponse(req api.Context, oauthAuthRequest v1.OAuthAut
 	}
 
 	http.Redirect(req.ResponseWriter, req.Request, oauthAuthRequest.Spec.RedirectURI+"?"+q.Encode(), http.StatusFound)
+}
+
+func (h *handler) getCompositeMCPIDFromState(ctx api.Context, state string) (string, error) {
+	// Retrieve the stored state to check if it's part of a composite flow
+	token, err := h.oauthChecker.stateCache.gatewayClient.GetMCPOAuthTokenByState(ctx.Context(), state)
+	if err != nil {
+		return "", err
+	}
+
+	// Check if the MCP server associated with this state has a composite-parent label
+	var mcpServer v1.MCPServer
+	if err := ctx.Storage.Get(ctx.Context(), kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      token.MCPID,
+	}, &mcpServer); err != nil {
+		return "", err
+	}
+
+	// Check if this server has a composite-parent label
+	if parentName, ok := mcpServer.Labels["composite-parent"]; ok {
+		// This is a child server - return the parent's ID
+		var parentServer v1.MCPServer
+		if err := ctx.Storage.Get(ctx.Context(), kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      parentName,
+		}, &parentServer); err != nil {
+			return "", err
+		}
+		return parentServer.Name, nil
+	}
+
+	return "", nil
 }

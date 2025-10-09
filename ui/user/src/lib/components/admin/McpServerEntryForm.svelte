@@ -276,26 +276,86 @@
 		}
 	}
 
-	function handleInitTemporaryInstance() {
+	async function handleInitTemporaryInstance() {
 		if (!entry) return;
 
-		const hostname =
-			entry?.manifest?.remoteConfig &&
-			'hostname' in entry.manifest.remoteConfig &&
-			entry.manifest.remoteConfig.hostname;
+		// For composite servers, fetch component entries and aggregate their config
+		if (type === 'composite' && entry.manifest.compositeConfig?.componentCatalogEntries) {
+			const aggregatedEnvs: any[] = [];
+			const aggregatedHeaders: any[] = [];
 
-		configureForm = {
-			name: '',
-			envs: entry.manifest?.env?.map((env) => ({
-				...env,
-				value: ''
-			})),
-			headers: entry.manifest?.remoteConfig?.headers?.map((header) => ({
-				...header,
-				value: ''
-			})),
-			...(hostname ? { hostname, url: '' } : {})
-		};
+			// Fetch all component entries
+			for (const componentEntryID of entry.manifest.compositeConfig.componentCatalogEntries) {
+				try {
+					const componentEntry = await (entity === 'workspace'
+						? ChatService.getWorkspaceMCPCatalogEntry(id!, componentEntryID)
+						: AdminService.getMCPCatalogEntry(id!, componentEntryID));
+
+					// Aggregate env vars with prefix
+					if (componentEntry.manifest?.env) {
+						for (const env of componentEntry.manifest.env) {
+							aggregatedEnvs.push({
+								...env,
+								key: `${componentEntry.id}_${env.key}`,
+								name: `[${componentEntry.manifest.name}] ${env.name}`,
+								value: ''
+							});
+						}
+					}
+
+					// Aggregate headers from remote components
+					if (componentEntry.manifest?.runtime === 'remote' && componentEntry.manifest?.remoteConfig?.headers) {
+						for (const header of componentEntry.manifest.remoteConfig.headers) {
+							aggregatedHeaders.push({
+								...header,
+								key: `${componentEntry.id}_${header.key}`,
+								name: `[${componentEntry.manifest.name}] ${header.name}`,
+								value: ''
+							});
+						}
+					}
+
+					// Add URL field for remote components with hostname
+					if (componentEntry.manifest?.runtime === 'remote' && componentEntry.manifest?.remoteConfig?.hostname) {
+						aggregatedEnvs.push({
+							key: `${componentEntry.id}_URL`,
+							name: `[${componentEntry.manifest.name}] URL`,
+							description: `URL for ${componentEntry.manifest.name} (must match hostname: ${componentEntry.manifest.remoteConfig.hostname})`,
+							required: true,
+							sensitive: false,
+							value: ''
+						});
+					}
+				} catch (err) {
+					console.error(`Failed to fetch component entry ${componentEntryID}:`, err);
+				}
+			}
+
+			configureForm = {
+				name: '',
+				envs: aggregatedEnvs.length > 0 ? aggregatedEnvs : undefined,
+				headers: aggregatedHeaders.length > 0 ? aggregatedHeaders : undefined
+			};
+		} else {
+			// Non-composite: use entry's own config
+			const hostname =
+				entry?.manifest?.remoteConfig &&
+				'hostname' in entry.manifest.remoteConfig &&
+				entry.manifest.remoteConfig.hostname;
+
+			configureForm = {
+				name: '',
+				envs: entry.manifest?.env?.map((env) => ({
+					...env,
+					value: ''
+				})),
+				headers: entry.manifest?.remoteConfig?.headers?.map((header) => ({
+					...header,
+					value: ''
+				})),
+				...(hostname ? { hostname, url: '' } : {})
+			};
+		}
 
 		const needsEnvValue = configureForm.envs?.some((env) => !env.value);
 		const needsHeaderValue = configureForm.headers?.some((header) => !header.value);

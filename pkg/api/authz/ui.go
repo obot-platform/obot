@@ -29,6 +29,9 @@ var uiResources = []string{
 	"GET /api/image/{id}",
 	"GET /mcp-publisher",
 	"GET /mcp-publisher/",
+
+	// TODO(njhale): This needs to be properly protected. Not sure this is the right place.
+	"/mcp/composite/",
 }
 
 func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {

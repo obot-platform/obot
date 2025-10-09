@@ -8,6 +8,7 @@
 	import CatalogConfigureForm, {
 		type LaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
+	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
 	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { convertEnvHeadersToRecord } from '$lib/services/chat/mcp';
 
@@ -25,26 +26,50 @@
 
 	type Requirement =
 		| { type: 'oauth'; id: string; name: string; icon?: string; oauthURL: string }
-		| { type: 'config'; id: string; mcpID: string };
+		| { type: 'config'; id: string; mcpID: string }
+		| { type: 'composite-oauth'; id: string; mcpID: string; oauthAuthRequestID: string };
 
 	type OauthRequirement = Extract<Requirement, { type: 'oauth' }>;
-	let requirements = $derived([
-		...projectMcps.items
-			.filter((m) => (m.configured === false || m.needsURL) && !closed.has(m.id!))
-			.map((m) => ({ type: 'config', id: m.id!, mcpID: m.mcpID! }) as Requirement),
-		...projectMcps.items
-			.filter((m) => !m.authenticated && m.oauthURL && !closed.has(m.id!))
-			.map(
-				(m) =>
-					({
-						type: 'oauth',
-						id: m.id!,
-						name: m.name!,
-						icon: m.icon,
-						oauthURL: m.oauthURL!
-					}) as Requirement
-			)
-	]);
+	let requirements = $derived(
+		(() => {
+			const reqs: Requirement[] = [];
+
+			// Config requirements
+			reqs.push(
+				...projectMcps.items
+					.filter((m) => (m.configured === false || m.needsURL) && !closed.has(m.id!))
+					.map((m) => ({ type: 'config', id: m.id!, mcpID: m.mcpID! }) as Requirement)
+			);
+
+			// OAuth requirements
+			for (const m of projectMcps.items) {
+				if (!m.authenticated && m.oauthURL && !closed.has(m.id!)) {
+					// Check if this is a composite OAuth URL
+					if (m.oauthURL.includes('/mcp/composite/')) {
+						// Extract oauth_auth_request from URL: /mcp/composite/{oauth_auth_request}/{mcp_id}
+						const parts = m.oauthURL.split('/');
+						const oauthAuthRequestID = parts[parts.length - 2];
+						reqs.push({
+							type: 'composite-oauth',
+							id: m.id!,
+							mcpID: m.mcpID!,
+							oauthAuthRequestID
+						} as Requirement);
+					} else {
+						reqs.push({
+							type: 'oauth',
+							id: m.id!,
+							name: m.name!,
+							icon: m.icon,
+							oauthURL: m.oauthURL!
+						} as Requirement);
+					}
+				}
+			}
+
+			return reqs;
+		})()
+	);
 
 	let oauthDialog = $state<HTMLDialogElement>();
 	const layout = getLayout();
@@ -90,7 +115,7 @@
 		if (isInMcp) return;
 		if (currentOauthId) {
 			const stillNeedsOauth = requirements.some(
-				(r) => r.type === 'oauth' && r.id === currentOauthId
+				(r) => (r.type === 'oauth' || r.type === 'composite-oauth') && r.id === currentOauthId
 			);
 			if (!stillNeedsOauth) {
 				if (oauthDialog?.open) oauthDialog.close();
@@ -104,7 +129,7 @@
 
 		const req = requirements[0];
 		if (!req) return;
-		if (req.type === 'oauth') {
+		if (req.type === 'oauth' || req.type === 'composite-oauth') {
 			if (!oauthDialog?.open) {
 				oauthDialog?.showModal();
 			}
@@ -149,7 +174,7 @@
 	function dismissCurrent() {
 		const req = requirements[0];
 		if (!req) return;
-		if (req.type === 'oauth') {
+		if (req.type === 'oauth' || req.type === 'composite-oauth') {
 			closed.add(req.id);
 			if (currentOauthId === req.id) {
 				authenticating.delete(currentOauthId);
@@ -283,6 +308,25 @@
 				{/if}
 			</a>
 		</dialog>
+	{:else if requirements[0]?.type === 'composite-oauth'}
+		{@const compositeOauth = requirements[0] as Extract<Requirement, { type: 'composite-oauth' }>}
+		<McpCompositeOauth
+			mcpID={compositeOauth.mcpID}
+			oauthAuthRequestID={compositeOauth.oauthAuthRequestID}
+			asDialog={true}
+			onComplete={() => {
+				closed.add(compositeOauth.id);
+				// Refresh project MCPs
+				ChatService.listProjectMCPs(assistantId, projectId)
+					.then((refreshed) => validateOauthProjectMcps(assistantId, projectId, refreshed, true))
+					.then((updated) => {
+						projectMcps.items = updated;
+					})
+					.catch(() => {
+						// ignore refresh errors
+					});
+			}}
+		/>
 	{:else if requirements[0]?.type === 'config'}
 		<CatalogConfigureForm
 			bind:this={configDialog}

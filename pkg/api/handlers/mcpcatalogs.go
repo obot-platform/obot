@@ -625,30 +625,139 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		return types.NewErrBadRequest("failed to read configuration: %v", err)
 	}
 
-	server, serverConfig, err := tempServerAndConfig(entry, configRequest.Config, configRequest.URL)
-	if err != nil {
-		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
-	}
+	var toolPreviews []types.MCPServerTool
 
-	if serverConfig.Runtime == types.RuntimeRemote {
-		oauthURL, err := h.oauthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, "system", server.Name, "")
+	// Handle composite servers differently - they need to aggregate tools from components
+	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
+		// Fetch all component catalog entries
+		if entry.Spec.Manifest.CompositeConfig == nil || len(entry.Spec.Manifest.CompositeConfig.ComponentCatalogEntries) == 0 {
+			return types.NewErrBadRequest("composite server has no component catalog entries configured")
+		}
+
+		// Build tool mapping index for quick lookup
+		compositeConfig := entry.Spec.Manifest.CompositeConfig
+		toolMap := make(map[string]types.CompositeToolMapping)
+		hasAnyMappings := len(compositeConfig.ToolMappings) > 0
+		for _, tm := range compositeConfig.ToolMappings {
+			key := tm.ComponentEntryName + "\x00" + tm.ComponentTool
+			toolMap[key] = tm
+		}
+
+		// Process each component catalog entry
+		for _, componentEntryID := range compositeConfig.ComponentCatalogEntries {
+			var componentEntry v1.MCPServerCatalogEntry
+			if err := req.Get(&componentEntry, componentEntryID); err != nil {
+				return fmt.Errorf("failed to get component catalog entry %s: %w", componentEntryID, err)
+			}
+
+			// Skip nested composite servers (not yet supported)
+			if componentEntry.Spec.Manifest.Runtime == types.RuntimeComposite {
+				continue
+			}
+
+			// Extract component-specific config from prefixed keys
+			var (
+				componentConfig = make(map[string]string)
+				prefix          = fmt.Sprintf("%s_", componentEntry.Name)
+				componentURL    string
+			)
+			for key, value := range configRequest.Config {
+				if strings.HasPrefix(key, prefix) {
+					// Remove prefix to get original env var name
+					originalKey := strings.TrimPrefix(key, prefix)
+					componentConfig[originalKey] = value
+				}
+			}
+			// Check for component-specific URL (prefixed)
+			if urlValue, ok := configRequest.Config[prefix+"URL"]; ok {
+				componentURL = urlValue
+			}
+
+			// Generate tool previews for this component using existing logic
+			componentServer, componentServerConfig, err := tempServerAndConfig(componentEntry, componentConfig, componentURL)
+			if err != nil {
+				// Skip components that can't be configured without user input
+				continue
+			}
+
+			// Check for OAuth requirement for remote components
+			if componentServerConfig.Runtime == types.RuntimeRemote {
+				oauthURL, err := h.oauthChecker.CheckForMCPAuth(req.Context(), componentServer, componentServerConfig, "system", componentServer.Name, "")
+				if err != nil {
+					return fmt.Errorf("failed to check for MCP auth on component %s: %w", componentEntry.Spec.Manifest.Name, err)
+				}
+
+				if oauthURL != "" {
+					return types.NewErrBadRequest("Component '%s' requires OAuth authentication", componentEntry.Spec.Manifest.Name)
+				}
+
+				defer func() {
+					_ = h.gatewayClient.DeleteMCPOAuthToken(context.Background(), "system", componentServer.Name)
+				}()
+			}
+
+			componentTools, err := h.sessionManager.GenerateToolPreviews(req.Context(), componentServer, componentServerConfig)
+			if err != nil {
+				// Log but continue with other components
+				continue
+			}
+
+			// Apply mappings and prefixing to component tools
+			componentPrefix := sanitizeToolPrefix(componentEntry.Spec.Manifest.Name)
+			entryKey := componentEntry.Name
+
+			for _, tool := range componentTools {
+				lookupKey := entryKey + "\x00" + tool.Name
+				if tm, ok := toolMap[lookupKey]; ok {
+					// Tool has explicit mapping
+					if !tm.Enabled {
+						continue // Skip disabled tools
+					}
+					// Use exposed name if provided, otherwise use original tool name
+					exposedName := tm.ExposedTool
+					if exposedName == "" {
+						exposedName = tool.Name
+					}
+					// Always prefix with component prefix
+					tool.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(exposedName))
+					if tm.ExposedDescription != "" {
+						tool.Description = tm.ExposedDescription
+					}
+					toolPreviews = append(toolPreviews, tool)
+				} else if !hasAnyMappings {
+					// No mappings configured - include everything with prefix to avoid collisions
+					tool.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(tool.Name))
+					toolPreviews = append(toolPreviews, tool)
+				}
+				// If mappings exist but this tool isn't mapped - exclude it (allowlist behavior)
+			}
+		}
+	} else {
+		server, serverConfig, err := tempServerAndConfig(entry, configRequest.Config, configRequest.URL)
 		if err != nil {
-			return fmt.Errorf("failed to check for MCP auth: %w", err)
+			return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 		}
 
-		if oauthURL != "" {
-			return types.NewErrBadRequest("MCP server requires OAuth authentication")
+		if serverConfig.Runtime == types.RuntimeRemote {
+			oauthURL, err := h.oauthChecker.CheckForMCPAuth(req.Context(), server, serverConfig, "system", server.Name, "")
+			if err != nil {
+				return fmt.Errorf("failed to check for MCP auth: %w", err)
+			}
+
+			if oauthURL != "" {
+				return types.NewErrBadRequest("MCP server requires OAuth authentication")
+			}
+
+			defer func() {
+				_ = h.gatewayClient.DeleteMCPOAuthToken(context.Background(), "system", server.Name)
+			}()
 		}
 
-		defer func() {
-			_ = h.gatewayClient.DeleteMCPOAuthToken(context.Background(), "system", server.Name)
-		}()
-	}
-
-	// Launch temporary instance and get tools
-	toolPreviews, err := h.sessionManager.GenerateToolPreviews(req.Context(), server, serverConfig)
-	if err != nil {
-		return fmt.Errorf("failed to launch temporary instance: %w", err)
+		// Launch temporary instance and get tools
+		toolPreviews, err = h.sessionManager.GenerateToolPreviews(req.Context(), server, serverConfig)
+		if err != nil {
+			return fmt.Errorf("failed to launch temporary instance: %w", err)
+		}
 	}
 
 	entry.Spec.Manifest.ToolPreview = toolPreviews
@@ -830,4 +939,27 @@ func normalizeMCPCatalogEntryName(name string) string {
 		name = strings.TrimRight(name, "-")
 	}
 	return name
+}
+
+// sanitizeToolPrefix converts a server manifest name to a safe tool prefix
+// e.g., "Component 1" -> "component_1"
+func sanitizeToolPrefix(name string) string {
+	prefix := strings.ToLower(name)
+	prefix = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return '_'
+	}, prefix)
+	for strings.Contains(prefix, "__") {
+		prefix = strings.ReplaceAll(prefix, "__", "_")
+	}
+	prefix = strings.Trim(prefix, "_")
+	return prefix
+}
+
+// buildCompositedToolName creates the final tool name with component prefix
+// e.g., prefix="component_1", exposedName="add_stuff" -> "component_1_add_stuff"
+func buildCompositedToolName(componentPrefix, exposedName string) string {
+	return componentPrefix + "_" + exposedName
 }
