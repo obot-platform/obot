@@ -15,6 +15,7 @@ const (
 	RuntimeNPX           Runtime = "npx"
 	RuntimeContainerized Runtime = "containerized"
 	RuntimeRemote        Runtime = "remote"
+	RuntimeComposite     Runtime = "composite"
 )
 
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
@@ -54,6 +55,41 @@ type RemoteCatalogConfig struct {
 	Headers     []MCPHeader `json:"headers,omitempty"`     // Optional
 }
 
+// CompositeRuntimeConfig represents configuration for composite runtime (Composite MCP servers)
+// A composite server aggregates multiple MCP catalog entries into a single unified server
+type CompositeRuntimeConfig struct {
+	// ComponentCatalogEntries lists the catalog entry IDs to include in this composite server
+	ComponentCatalogEntries []string `json:"componentCatalogEntries"`
+	// Optional tool mapping configuration for exposing/renaming tools from component servers
+	ToolMappings []CompositeToolMapping `json:"toolMappings,omitempty"`
+}
+
+// CompositeParameterMapping defines how a single tool parameter is exposed by the composite server
+type CompositeParameterMapping struct {
+	// ComponentParameter is the original parameter name as defined by the component server
+	ComponentParameter string `json:"componentParameter"`
+	// ExposedParameter is the parameter name exposed by the composite server
+	ExposedParameter string `json:"exposedParameter"`
+	// Optional override for parameter description
+	ExposedDescription string `json:"exposedDescription,omitempty"`
+}
+
+// CompositeToolMapping defines how a single component tool is exposed by the composite server
+type CompositeToolMapping struct {
+	// ComponentEntryName is the catalog entry name of the component server (Kubernetes object name)
+	ComponentEntryName string `json:"componentEntryName"`
+	// ComponentTool is the original tool name as returned by the component server
+	ComponentTool string `json:"componentTool"`
+	// ExposedTool is the tool name exposed by the composite server
+	ExposedTool string `json:"exposedTool"`
+	// Optional overrides for display
+	ExposedDescription string `json:"exposedDescription,omitempty"`
+	// Whether to include this tool (default true)
+	Enabled bool `json:"enabled,omitempty"`
+	// Optional parameter name/description mappings
+	ParameterMappings []CompositeParameterMapping `json:"parameterMappings,omitempty"`
+}
+
 type MCPServerCatalogEntry struct {
 	Metadata
 	Manifest                  MCPServerCatalogEntryManifest `json:"manifest"`
@@ -83,6 +119,7 @@ type MCPServerCatalogEntryManifest struct {
 	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
+	CompositeConfig     *CompositeRuntimeConfig     `json:"compositeConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
 }
@@ -99,6 +136,14 @@ type MCPHeader struct {
 	// For user-supplied headers
 	Sensitive bool `json:"sensitive"`
 	Required  bool `json:"required"`
+
+	// Optional provenance for composite aggregation
+	// ComponentEntryID is the catalog entry ID that this field originated from (when part of a composite)
+	ComponentEntryID string `json:"componentEntryID,omitempty"`
+	// ComponentEntryName is the catalog entry name (Kubernetes object name) for the component
+	ComponentEntryName string `json:"componentEntryName,omitempty"`
+	// ComponentDisplayName is the human-friendly manifest.name of the component entry
+	ComponentDisplayName string `json:"componentDisplayName,omitempty"`
 }
 
 type MCPEnv struct {
@@ -123,6 +168,7 @@ type MCPServerManifest struct {
 	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
+	CompositeConfig     *CompositeRuntimeConfig     `json:"compositeConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
 
@@ -340,6 +386,22 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		// Copy headers from catalog entry
 		remoteConfig.Headers = catalogEntry.RemoteConfig.Headers
 		serverManifest.RemoteConfig = remoteConfig
+
+	case RuntimeComposite:
+		if catalogEntry.CompositeConfig == nil {
+			return serverManifest, RuntimeValidationError{
+				Runtime: RuntimeComposite,
+				Field:   "compositeConfig",
+				Message: "composite configuration is required for composite runtime",
+			}
+		}
+
+		// Keep composite runtime and config as-is
+		// Child MCPServers will be created when the composite server is configured
+		serverManifest.CompositeConfig = &CompositeRuntimeConfig{
+			ComponentCatalogEntries: catalogEntry.CompositeConfig.ComponentCatalogEntries,
+			ToolMappings:            catalogEntry.CompositeConfig.ToolMappings,
+		}
 
 	default:
 		return serverManifest, RuntimeValidationError{

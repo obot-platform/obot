@@ -83,6 +83,20 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 		return types.NewErrForbidden("user is not authorized to access this catalog entry")
 	}
 
+	// If composite, load component entries to aggregate fields for the response
+	if entry.Spec.Manifest.Runtime == types.RuntimeComposite && entry.Spec.Manifest.CompositeConfig != nil {
+		componentIDs := entry.Spec.Manifest.CompositeConfig.ComponentCatalogEntries
+		components := make([]v1.MCPServerCatalogEntry, 0, len(componentIDs))
+		for _, cid := range componentIDs {
+			var comp v1.MCPServerCatalogEntry
+			if err := req.Get(&comp, cid); err != nil {
+				return fmt.Errorf("failed to get component catalog entry %s: %w", cid, err)
+			}
+			components = append(components, comp)
+		}
+		return req.Write(convertMCPServerCatalogEntry(entry, components...))
+	}
+
 	return req.Write(convertMCPServerCatalogEntry(entry))
 }
 
@@ -119,22 +133,35 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		}
 
 		if hasAccess {
-			entries = append(entries, convertMCPServerCatalogEntry(entry))
+			if entry.Spec.Manifest.Runtime == types.RuntimeComposite && entry.Spec.Manifest.CompositeConfig != nil {
+				componentIDs := entry.Spec.Manifest.CompositeConfig.ComponentCatalogEntries
+				components := make([]v1.MCPServerCatalogEntry, 0, len(componentIDs))
+				for _, cid := range componentIDs {
+					var comp v1.MCPServerCatalogEntry
+					if err := req.Get(&comp, cid); err != nil {
+						return fmt.Errorf("failed to get component catalog entry %s: %w", cid, err)
+					}
+					components = append(components, comp)
+				}
+				entries = append(entries, convertMCPServerCatalogEntry(entry, components...))
+			} else {
+				entries = append(entries, convertMCPServerCatalogEntry(entry))
+			}
 		}
 	}
 
 	return req.Write(types.MCPServerCatalogEntryList{Items: entries})
 }
 
-func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
-	return convertMCPServerCatalogEntryWithWorkspace(entry, "", "")
+func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry, componentEntries ...v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
+	return convertMCPServerCatalogEntryWithWorkspace(entry, "", "", componentEntries...)
 }
 
-func convertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID string) types.MCPServerCatalogEntry {
+func convertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID string, componentEntries ...v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
 	// Add extracted env vars directly to the entry
 	addExtractedEnvVarsToCatalogEntry(&entry)
 
-	return types.MCPServerCatalogEntry{
+	result := types.MCPServerCatalogEntry{
 		Metadata:                  MetadataFrom(&entry),
 		Manifest:                  entry.Spec.Manifest,
 		Editable:                  entry.Spec.Editable,
@@ -146,6 +173,68 @@ func convertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 		PowerUserWorkspaceID:      powerUserWorkspaceID,
 		PowerUserID:               powerUserID,
 	}
+
+	// If composite and component entries provided, aggregate env/headers
+	if entry.Spec.Manifest.Runtime == types.RuntimeComposite && len(componentEntries) > 0 {
+		var aggregatedEnv []types.MCPEnv
+		var aggregatedHeaders []types.MCPHeader
+
+		for _, componentEntry := range componentEntries {
+			// Prefix env vars with component entry name to avoid collisions
+			for _, env := range componentEntry.Spec.Manifest.Env {
+				prefixedEnv := env
+				prefixedEnv.Key = fmt.Sprintf("%s_%s", componentEntry.Name, env.Key)
+				prefixedEnv.Name = fmt.Sprintf("[%s] %s", componentEntry.Spec.Manifest.Name, env.Name)
+				// add provenance
+				prefixedEnv.ComponentEntryID = componentEntry.Name
+				prefixedEnv.ComponentEntryName = componentEntry.Name
+				prefixedEnv.ComponentDisplayName = componentEntry.Spec.Manifest.Name
+				aggregatedEnv = append(aggregatedEnv, prefixedEnv)
+			}
+
+			// Aggregate headers and URL from remote component entries
+			if componentEntry.Spec.Manifest.Runtime == types.RuntimeRemote && componentEntry.Spec.Manifest.RemoteConfig != nil {
+				// Add URL field if the component has hostname constraint
+				if componentEntry.Spec.Manifest.RemoteConfig.Hostname != "" {
+					urlField := types.MCPEnv{
+						MCPHeader: types.MCPHeader{
+							Key:                  fmt.Sprintf("%s_URL", componentEntry.Name),
+							Name:                 fmt.Sprintf("[%s] URL", componentEntry.Spec.Manifest.Name),
+							Description:          fmt.Sprintf("URL for %s (must match hostname: %s)", componentEntry.Spec.Manifest.Name, componentEntry.Spec.Manifest.RemoteConfig.Hostname),
+							Required:             true,
+							Sensitive:            false,
+							ComponentEntryID:     componentEntry.Name,
+							ComponentEntryName:   componentEntry.Name,
+							ComponentDisplayName: componentEntry.Spec.Manifest.Name,
+						},
+					}
+					aggregatedEnv = append(aggregatedEnv, urlField)
+				}
+
+				// Aggregate headers
+				for _, header := range componentEntry.Spec.Manifest.RemoteConfig.Headers {
+					prefixedHeader := header
+					prefixedHeader.Key = fmt.Sprintf("%s_%s", componentEntry.Name, header.Key)
+					prefixedHeader.Name = fmt.Sprintf("[%s] %s", componentEntry.Spec.Manifest.Name, header.Name)
+					// add provenance
+					prefixedHeader.ComponentEntryID = componentEntry.Name
+					prefixedHeader.ComponentEntryName = componentEntry.Name
+					prefixedHeader.ComponentDisplayName = componentEntry.Spec.Manifest.Name
+					aggregatedHeaders = append(aggregatedHeaders, prefixedHeader)
+				}
+			}
+		}
+
+		result.Manifest.Env = aggregatedEnv
+		if len(aggregatedHeaders) > 0 {
+			if result.Manifest.RemoteConfig == nil {
+				result.Manifest.RemoteConfig = &types.RemoteCatalogConfig{}
+			}
+			result.Manifest.RemoteConfig.Headers = aggregatedHeaders
+		}
+	}
+
+	return result
 }
 
 func (m *MCPHandler) ListServer(req api.Context) error {
@@ -366,6 +455,43 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 	// For servers that are not in catalogs or workspaces, this checks to make sure that no catalogID or workspaceID was provided.
 	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
+	}
+
+	// For composite servers, launch all child servers by health-checking each child
+	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
+		var childServerList v1.MCPServerList
+		if err := req.List(&childServerList, kclient.MatchingLabels{
+			"composite-parent": server.Name,
+		}); err != nil {
+			return fmt.Errorf("failed to list child servers: %w", err)
+		}
+
+		for _, child := range childServerList.Items {
+			// Mirror normal behavior: only health-check non-remote runtimes here.
+			if child.Spec.Manifest.Runtime == types.RuntimeRemote {
+				continue
+			}
+
+			childConfig, err := ServerConfigForAction(req, child)
+			if err != nil {
+				return fmt.Errorf("failed to get config for child server %s: %w", child.Name, err)
+			}
+
+			if _, err = m.mcpSessionManager.ListTools(req.Context(), req.User.GetUID(), child, childConfig); err != nil {
+				if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
+					return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("Child MCP server %s is not healthy, check configuration for errors", child.Name))
+				}
+				if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+					return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("No response from child MCP server %s, check configuration for errors", child.Name))
+				}
+				if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+					return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+				}
+				return fmt.Errorf("failed to launch child MCP server %s: %w", child.Name, err)
+			}
+		}
+
+		return nil
 	}
 
 	if server.Spec.Manifest.Runtime != types.RuntimeRemote {
@@ -911,7 +1037,7 @@ func ServerForActionWithConnectID(req api.Context, id string) (string, v1.MCPSer
 		server, config, err := serverFromMCPServerInstance(req, instance)
 		return instance.Name, server, config, err
 	case server.Name != "":
-		config, err := serverConfigForAction(req, server)
+		config, err := ServerConfigForAction(req, server)
 		return server.Name, server, config, err
 	default:
 		return "", v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("unknown MCP server ID %s", id)
@@ -965,11 +1091,11 @@ func ServerForAction(req api.Context, id string) (v1.MCPServer, mcp.ServerConfig
 		return server, mcp.ServerConfig{}, err
 	}
 
-	serverConfig, err := serverConfigForAction(req, server)
+	serverConfig, err := ServerConfigForAction(req, server)
 	return server, serverConfig, err
 }
 
-func serverConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConfig, error) {
+func ServerConfigForAction(req api.Context, server v1.MCPServer) (mcp.ServerConfig, error) {
 	if server.Spec.NeedsURL {
 		return mcp.ServerConfig{}, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
 	}
@@ -1168,12 +1294,24 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return types.NewErrForbidden("user does not have access to MCP server catalog entry")
 		}
 
-		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.Manifest, input.MCPServerManifest)
-		if err != nil {
-			return err
-		}
+		// For composite catalog entries, create a composite server directly
+		if catalogEntry.Spec.Manifest.Runtime == types.RuntimeComposite {
+			server.Spec.Manifest = types.MCPServerManifest{
+				Name:            catalogEntry.Spec.Manifest.Name,
+				Description:     catalogEntry.Spec.Manifest.Description,
+				Icon:            catalogEntry.Spec.Manifest.Icon,
+				Env:             catalogEntry.Spec.Manifest.Env,
+				Runtime:         types.RuntimeComposite,
+				CompositeConfig: catalogEntry.Spec.Manifest.CompositeConfig.DeepCopy(),
+			}
+		} else {
+			manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.Manifest, input.MCPServerManifest)
+			if err != nil {
+				return err
+			}
 
-		server.Spec.Manifest = manifest
+			server.Spec.Manifest = manifest
+		}
 		server.Spec.UnsupportedTools = catalogEntry.Spec.UnsupportedTools
 	} else if req.UserIsAdmin() || workspaceID != "" {
 		// If the user is an admin, or if this server is being created in a workspace by a PowerUserPlus,
@@ -1384,6 +1522,108 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			// Save the updated server
 			if err := req.Update(&mcpServer); err != nil {
 				return fmt.Errorf("failed to update server with processed URL: %w", err)
+			}
+		}
+
+		// Handle composite runtime - create child MCPServers for each component
+		if catalogEntry.Spec.Manifest.Runtime == types.RuntimeComposite && catalogEntry.Spec.Manifest.CompositeConfig != nil {
+			for _, componentEntryID := range catalogEntry.Spec.Manifest.CompositeConfig.ComponentCatalogEntries {
+				var componentEntry v1.MCPServerCatalogEntry
+				if err := req.Get(&componentEntry, componentEntryID); err != nil {
+					return fmt.Errorf("failed to get component catalog entry %s: %w", componentEntryID, err)
+				}
+
+				// Extract env vars for this component (prefixed with component name)
+				componentEnvVars := make(map[string]string)
+				prefix := fmt.Sprintf("%s_", componentEntry.Name)
+				var userURL string
+				for key, value := range envVars {
+					if strings.HasPrefix(key, prefix) {
+						// Remove prefix to get original env var key
+						originalKey := strings.TrimPrefix(key, prefix)
+						componentEnvVars[originalKey] = value
+
+						// Check if this is a URL field for remote servers
+						if originalKey == "URL" && componentEntry.Spec.Manifest.Runtime == types.RuntimeRemote {
+							userURL = value
+						}
+					}
+				}
+
+				// Check if child server already exists
+				var existingChildServers v1.MCPServerList
+				if err := req.List(&existingChildServers, kclient.MatchingFields{
+					"spec.userID":                    req.User.GetUID(),
+					"spec.mcpServerCatalogEntryName": componentEntry.Name,
+				}); err != nil {
+					return fmt.Errorf("failed to list existing child servers: %w", err)
+				}
+
+				// Filter for children of this composite server
+				var childServer *v1.MCPServer
+				for i := range existingChildServers.Items {
+					// Check if this server is a child of the composite (via labels or owner reference)
+					if existingChildServers.Items[i].Labels != nil &&
+						existingChildServers.Items[i].Labels["composite-parent"] == mcpServer.Name {
+						childServer = &existingChildServers.Items[i]
+						break
+					}
+				}
+
+				if childServer == nil {
+					// Create new child MCPServer, passing user URL if this is a remote component
+					childManifest, err := types.MapCatalogEntryToServer(componentEntry.Spec.Manifest, userURL)
+					if err != nil {
+						return fmt.Errorf("failed to map component catalog entry to server: %w", err)
+					}
+
+					childServer = &v1.MCPServer{
+						ObjectMeta: metav1.ObjectMeta{
+							GenerateName: system.MCPServerPrefix,
+							Namespace:    req.Namespace(),
+							Finalizers:   []string{v1.MCPServerFinalizer},
+							Labels: map[string]string{
+								"composite-parent": mcpServer.Name,
+							},
+						},
+						Spec: v1.MCPServerSpec{
+							Manifest:                  childManifest,
+							MCPServerCatalogEntryName: componentEntry.Name,
+							UserID:                    req.User.GetUID(),
+							MCPCatalogID:              mcpServer.Spec.MCPCatalogID,
+							PowerUserWorkspaceID:      mcpServer.Spec.PowerUserWorkspaceID,
+							UnsupportedTools:          componentEntry.Spec.UnsupportedTools,
+						},
+					}
+
+					addExtractedEnvVars(childServer)
+
+					if err := req.Create(childServer); err != nil {
+						return fmt.Errorf("failed to create child MCP server: %w", err)
+					}
+				}
+
+				// Configure the child server with its env vars
+				var childCredCtx string
+				if catalogID != "" {
+					childCredCtx = fmt.Sprintf("%s-%s", catalogID, childServer.Name)
+				} else if workspaceID != "" {
+					childCredCtx = fmt.Sprintf("%s-%s", workspaceID, childServer.Name)
+				} else {
+					childCredCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), childServer.Name)
+				}
+
+				// Store credentials for child server
+				if len(componentEnvVars) > 0 {
+					if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
+						Context:  childCredCtx,
+						ToolName: childServer.Name,
+						Type:     gptscript.CredentialTypeTool,
+						Env:      componentEnvVars,
+					}); err != nil {
+						return fmt.Errorf("failed to create credential for child server: %w", err)
+					}
+				}
 			}
 		}
 	}

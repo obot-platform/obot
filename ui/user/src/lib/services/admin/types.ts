@@ -52,7 +52,8 @@ export interface MCPCatalogEntryServerManifest {
 	uvxConfig?: UVXRuntimeConfig;
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
-	remoteConfig?: RemoteCatalogConfigAdmin;
+    remoteConfig?: RemoteCatalogConfigAdmin;
+    compositeConfig?: { componentCatalogEntries: string[]; toolMappings?: CompositeToolMapping[] };
 }
 
 export interface MCPCatalogEntry {
@@ -101,6 +102,22 @@ export interface RuntimeFormData {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin; // For catalog entries
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
+    compositeConfig?: { componentCatalogEntries: string[]; toolMappings?: CompositeToolMapping[] };
+}
+
+export interface CompositeParameterMapping {
+	componentParameter: string;
+	exposedParameter: string;
+	exposedDescription?: string;
+}
+
+export interface CompositeToolMapping {
+	componentEntryName: string;
+	componentTool: string;
+	exposedTool: string;
+	exposedDescription?: string;
+	enabled?: boolean;
+	parameterMappings?: CompositeParameterMapping[];
 }
 
 export interface MCPCatalogServerManifest {

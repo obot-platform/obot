@@ -39,7 +39,7 @@
 	import { profile } from '$lib/stores';
 	import OverflowContainer from '../OverflowContainer.svelte';
 
-	type MCPType = 'single' | 'multi' | 'remote';
+	type MCPType = 'single' | 'multi' | 'remote' | 'composite';
 
 	interface Props {
 		id?: string;
@@ -327,7 +327,7 @@
 				{/if}
 				<h1 class="text-2xl font-semibold capitalize">{entry.manifest.name || 'Unknown'}</h1>
 				<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
-					{type === 'single' ? 'Single User' : type === 'multi' ? 'Multi-User' : 'Remote'}
+					{type === 'single' ? 'Single User' : type === 'multi' ? 'Multi-User' : type === 'remote' ? 'Remote' : 'Composite'}
 				</div>
 				{#if registry}
 					<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
@@ -586,6 +586,7 @@
 		{@const isSingleUserServer =
 			!isMultiUserServer && ['npx', 'uvx', 'containerized'].includes(entry.manifest.runtime)}
 		{@const isRemoteServer = !isMultiUserServer && entry.manifest.runtime === 'remote'}
+		{@const isCompositeServer = !isMultiUserServer && entry.manifest.runtime === 'composite'}
 
 		{@const mcpServerDisplayName = entry.manifest?.name ?? null}
 		{@const entryId = entry.id ?? null}
@@ -593,7 +594,7 @@
 		<div class="mt-4 flex min-h-full flex-col gap-8 pb-8">
 			<UsageGraphs
 				mcpId={isMultiUserServer ? entryId : null}
-				mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
+				mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer || isCompositeServer ? entryId : null}
 				{mcpServerDisplayName}
 			/>
 		</div>
@@ -606,6 +607,7 @@
 		{@const isSingleUserServer =
 			!isMultiUserServer && ['npx', 'uvx', 'containerized'].includes(entry.manifest.runtime)}
 		{@const isRemoteServer = !isMultiUserServer && entry.manifest.runtime === 'remote'}
+		{@const isCompositeServer = !isMultiUserServer && entry.manifest.runtime === 'composite'}
 
 		{@const mcpServerDisplayName = entry.manifest?.name ?? null}
 		{@const entryId = entry.id ?? null}
@@ -616,7 +618,7 @@
 			{#if id}
 				<AuditLogsPageContent
 					mcpId={isMultiUserServer ? entryId : null}
-					mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
+					mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer || isCompositeServer ? entryId : null}
 					{mcpServerDisplayName}
 					{id}
 					{entity}

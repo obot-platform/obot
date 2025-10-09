@@ -201,13 +201,16 @@
 							<input type="text" id="name" bind:value={form.name} class="text-input-filled" />
 						</div>
 					{/if}
-					{#if form.envs && form.envs.length > 0}
-						{#each form.envs as env, i (env.key)}
+                    {#if form.envs && form.envs.length > 0}
+                        {#each [...form.envs].sort((a, b) => (a.componentDisplayName || '').localeCompare(b.componentDisplayName || '')) as env, i (env.key)}
 							{@const highlightRequired = highlightedFields.has(env.key) && !env.value}
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
 									<label for={env.key} class={highlightRequired ? 'text-red-500' : ''}>
-										{env.name}
+                                        {env.name}
+                                        {#if env.componentDisplayName}
+                                            <span class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">{env.componentDisplayName}</span>
+                                        {/if}
 										{#if !env.required}
 											<span class="text-gray-400 dark:text-gray-600">(optional)</span>
 										{/if}
@@ -246,12 +249,15 @@
 							</div>
 						{/each}
 					{/if}
-					{#if form.headers && form.headers.length > 0}
-						{#each form.headers as header, i (header.key)}
+                    {#if form.headers && form.headers.length > 0}
+                        {#each [...form.headers].sort((a, b) => (a.componentDisplayName || '').localeCompare(b.componentDisplayName || '')) as header, i (header.key)}
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
 									<label for={header.key}>
-										{header.name}
+                                        {header.name}
+                                        {#if header.componentDisplayName}
+                                            <span class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">{header.componentDisplayName}</span>
+                                        {/if}
 										{#if !header.required}
 											<span class="text-gray-400 dark:text-gray-600">(optional)</span>
 										{/if}

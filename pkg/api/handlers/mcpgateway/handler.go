@@ -18,6 +18,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -103,14 +104,38 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 		return fmt.Errorf("failed to get mcp server config: %w", err)
 	}
 
-	req.Request = req.WithContext(withMessageContext(req.Context(), messageContext{
+	msgCtx := messageContext{
 		userID:       req.User.GetUID(),
 		mcpID:        mcpID,
 		serverConfig: mcpServerConfig,
 		mcpServer:    mcpServer,
 		req:          req.Request,
 		resp:         req.ResponseWriter,
-	}))
+	}
+
+	// If composite server, load child servers
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		var childServerList v1.MCPServerList
+		if err := req.List(&childServerList, kclient.MatchingLabels{
+			"composite-parent": mcpServer.Name,
+		}); err != nil {
+			return fmt.Errorf("failed to list child servers: %w", err)
+		}
+
+		msgCtx.childServers = childServerList.Items
+		msgCtx.childConfigs = make([]mcp.ServerConfig, len(childServerList.Items))
+
+		// Get server configs for each child
+		for i, childServer := range childServerList.Items {
+			childConfig, err := handlers.ServerConfigForAction(req, childServer)
+			if err != nil {
+				return fmt.Errorf("failed to get config for child server %s: %w", childServer.Name, err)
+			}
+			msgCtx.childConfigs[i] = childConfig
+		}
+	}
+
+	req.Request = req.WithContext(withMessageContext(req.Context(), msgCtx))
 
 	nmcp.NewHTTPServer(nil, h, nmcp.HTTPServerOptions{SessionStore: h}).ServeHTTP(req.ResponseWriter, req.Request)
 
@@ -123,6 +148,9 @@ type messageContext struct {
 	serverConfig  mcp.ServerConfig
 	req           *http.Request
 	resp          http.ResponseWriter
+	// For composite servers (when serverConfig.Runtime == types.RuntimeComposite)
+	childServers []v1.MCPServer
+	childConfigs []mcp.ServerConfig
 }
 
 func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
@@ -254,6 +282,292 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		return
 	}
 
+	// Handle composite servers - connect to all children and aggregate
+	log.Warnf("OnMessage for server %s, method %s, runtime: %s, hasChildServers: %v", m.mcpServer.Name, msg.Method, m.serverConfig.Runtime, len(m.childServers) > 0)
+	if m.serverConfig.Runtime == types.RuntimeComposite {
+		log.Warnf("Handling composite server %s for method %s", m.mcpServer.Name, msg.Method)
+		switch msg.Method {
+		case methodNotificationsInitialized:
+			return
+		case methodPing:
+			result = nmcp.PingResult{}
+		case methodInitialize:
+			// Aggregate capabilities from all children
+			aggregatedResult := nmcp.InitializeResult{
+				ProtocolVersion: "2024-11-05",
+				ServerInfo: nmcp.ServerInfo{
+					Name:    m.mcpServer.Spec.Manifest.Name,
+					Version: "1.0.0",
+				},
+				Capabilities: nmcp.ServerCapabilities{},
+			}
+
+			// Connect to each child and get their capabilities
+			for i, childServer := range m.childServers {
+				childClient, childErr := h.mcpSessionManager.ClientForMCPServerWithOptions(
+					ctx,
+					msg.Session.ID()+"-child-"+childServer.Name,
+					childServer,
+					m.childConfigs[i],
+					h.asClientOption(
+						msg.Session,
+						m.userID,
+						childServer.Name,
+						childServer.Namespace,
+						childServer.Name,
+						childServer.Spec.Manifest.Name,
+						childServer.Spec.MCPServerCatalogEntryName,
+						catalogName,
+						powerUserWorkspaceID,
+					),
+				)
+				if childErr != nil {
+					log.Errorf("Failed to get client for child server %s: %v", childServer.Name, childErr)
+					continue
+				}
+
+				// Merge capabilities (OR logic - if any child has a capability, the composite has it)
+				if childClient.Session.InitializeResult.Capabilities.Tools != nil {
+					aggregatedResult.Capabilities.Tools = childClient.Session.InitializeResult.Capabilities.Tools
+				}
+				if childClient.Session.InitializeResult.Capabilities.Resources != nil {
+					aggregatedResult.Capabilities.Resources = childClient.Session.InitializeResult.Capabilities.Resources
+				}
+				if childClient.Session.InitializeResult.Capabilities.Prompts != nil {
+					aggregatedResult.Capabilities.Prompts = childClient.Session.InitializeResult.Capabilities.Prompts
+				}
+			}
+
+			if err = msg.Reply(ctx, aggregatedResult); err != nil {
+				log.Errorf("Failed to reply: %v", err)
+			}
+			return
+		case methodToolsList:
+			// Aggregate tools from all children
+			var allTools []nmcp.Tool
+			// Build a quick lookup of tool mappings by (componentEntryName, componentTool)
+			toolMap := make(map[string]types.CompositeToolMapping)
+			hasAnyMappings := false
+			if m.mcpServer.Spec.Manifest.CompositeConfig != nil {
+				hasAnyMappings = len(m.mcpServer.Spec.Manifest.CompositeConfig.ToolMappings) > 0
+				log.Warnf("Composite server %s has %d tool mappings", m.mcpServer.Name, len(m.mcpServer.Spec.Manifest.CompositeConfig.ToolMappings))
+				for _, tm := range m.mcpServer.Spec.Manifest.CompositeConfig.ToolMappings {
+					key := tm.ComponentEntryName + "\x00" + tm.ComponentTool
+					toolMap[key] = tm
+					log.Warnf("Tool mapping: %s -> %s (enabled: %v)", key, tm.ExposedTool, tm.Enabled)
+				}
+			}
+			for i, childServer := range m.childServers {
+				childClient, childErr := h.mcpSessionManager.ClientForMCPServerWithOptions(
+					ctx,
+					msg.Session.ID()+"-child-"+childServer.Name,
+					childServer,
+					m.childConfigs[i],
+					h.asClientOption(
+						msg.Session,
+						m.userID,
+						childServer.Name,
+						childServer.Namespace,
+						childServer.Name,
+						childServer.Spec.Manifest.Name,
+						childServer.Spec.MCPServerCatalogEntryName,
+						catalogName,
+						powerUserWorkspaceID,
+					),
+				)
+				if childErr != nil {
+					log.Errorf("Failed to get client for child server %s: %v", childServer.Name, childErr)
+					continue
+				}
+
+				var listResult nmcp.ListToolsResult
+				if err := childClient.Session.Exchange(ctx, methodToolsList, &msg, &listResult); err != nil {
+					log.Errorf("Failed to list tools for child %s: %v", childServer.Name, err)
+					continue
+				}
+
+				// Apply mapping (if provided) or default prefixing
+				// Always use sanitized manifest name as the component prefix
+				componentPrefix := sanitizeToolPrefix(childServer.Spec.Manifest.Name)
+				entryKey := childServer.Spec.MCPServerCatalogEntryName
+				log.Warnf("Processing tools from child server %s with prefix: %s, entryKey: %s", childServer.Spec.Manifest.Name, componentPrefix, entryKey)
+				for _, tool := range listResult.Tools {
+					lookupKey := entryKey + "\x00" + tool.Name
+					if tm, ok := toolMap[lookupKey]; ok {
+						// Tool has explicit mapping
+						log.Warnf("Found mapping for tool %s: enabled=%v", tool.Name, tm.Enabled)
+						if !tm.Enabled {
+							log.Warnf("Skipping disabled tool: %s", tool.Name)
+							continue
+						}
+						// Use exposed name if provided, otherwise use original tool name
+						exposedName := tm.ExposedTool
+						if exposedName == "" {
+							exposedName = tool.Name
+						}
+						// Always prefix with component prefix
+						tool.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(exposedName))
+						if tm.ExposedDescription != "" {
+							tool.Description = tm.ExposedDescription
+						}
+						// Apply parameter mappings to InputSchema
+						if len(tm.ParameterMappings) > 0 && len(tool.InputSchema) > 0 {
+							tool.InputSchema = applyParameterMappings(tool.InputSchema, tm.ParameterMappings, false)
+						}
+						allTools = append(allTools, tool)
+					} else if !hasAnyMappings {
+						// No mappings configured - include everything with prefix to avoid collisions
+						log.Warnf("No mappings configured, including tool %s with prefix", tool.Name)
+						tool.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(tool.Name))
+						allTools = append(allTools, tool)
+					} else {
+						// mappings exist but this tool isn't mapped - exclude it (allowlist behavior)
+						log.Warnf("Tool %s not in mapping (key: %s), excluding", tool.Name, lookupKey)
+					}
+				}
+			}
+
+			result = nmcp.ListToolsResult{Tools: allTools}
+		case methodToolsCall:
+			// Route tool call using mapping (or legacy prefix fallback)
+			var params struct {
+				Name      string                 `json:"name"`
+				Arguments map[string]interface{} `json:"arguments"`
+			}
+			if err := json.Unmarshal(msg.Params, &params); err != nil {
+				err = &nmcp.RPCError{Code: -32602, Message: "Invalid params"}
+				return
+			}
+
+			// Find which child this tool belongs to
+			var (
+				targetChild      *v1.MCPServer
+				targetConfig     *mcp.ServerConfig
+				originalToolName string
+				toolMapping      *types.CompositeToolMapping
+			)
+
+			// Build list of component prefixes for parsing
+			componentPrefixes := make([]string, len(m.childServers))
+			for i, childServer := range m.childServers {
+				componentPrefixes[i] = sanitizeToolPrefix(childServer.Spec.Manifest.Name)
+			}
+
+			// Parse the composited tool name to get component prefix and exposed name
+			componentPrefix, exposedName, found := parseCompositedToolName(params.Name, componentPrefixes)
+			if !found {
+				err = &nmcp.RPCError{Code: -32602, Message: "Tool not found"}
+				return
+			}
+
+			// Find the child server by matching component prefix
+			var hasAnyMappings bool
+			if m.mcpServer.Spec.Manifest.CompositeConfig != nil {
+				hasAnyMappings = len(m.mcpServer.Spec.Manifest.CompositeConfig.ToolMappings) > 0
+			}
+
+			for i, childServer := range m.childServers {
+				childPrefix := sanitizeToolPrefix(childServer.Spec.Manifest.Name)
+				if childPrefix != componentPrefix {
+					continue
+				}
+
+				// Found the matching child server
+				targetChild = &m.childServers[i]
+				targetConfig = &m.childConfigs[i]
+
+				// Now determine the original tool name
+				if hasAnyMappings {
+					// Look for a tool mapping that matches this exposed name
+					entryKey := childServer.Spec.MCPServerCatalogEntryName
+					mappings := m.mcpServer.Spec.Manifest.CompositeConfig.ToolMappings
+					for _, tm := range mappings {
+						if tm.ComponentEntryName != entryKey {
+							continue
+						}
+						// Check if this mapping would produce the exposed name we have
+						mappingExposedName := tm.ExposedTool
+						if mappingExposedName == "" {
+							mappingExposedName = tm.ComponentTool
+						}
+						if sanitizeToolPrefix(mappingExposedName) == exposedName {
+							if !tm.Enabled {
+								err = &nmcp.RPCError{Code: -32602, Message: "Tool not found"}
+								return
+							}
+							originalToolName = tm.ComponentTool
+							toolMapping = &tm
+							break
+						}
+					}
+					// If no mapping matched, tool is excluded
+					if originalToolName == "" {
+						err = &nmcp.RPCError{Code: -32602, Message: "Tool not found"}
+						return
+					}
+				} else {
+					// No mappings, exposed name is the original tool name
+					originalToolName = exposedName
+				}
+				break
+			}
+
+			if targetChild == nil {
+				err = &nmcp.RPCError{Code: -32602, Message: "Tool not found"}
+				return
+			}
+
+			// Apply parameter name mappings to arguments (exposed → component)
+			if toolMapping != nil && len(toolMapping.ParameterMappings) > 0 {
+				params.Arguments = transformArguments(params.Arguments, toolMapping.ParameterMappings, true)
+			}
+
+			// Connect to target child and call the tool
+			childClient, err := h.mcpSessionManager.ClientForMCPServerWithOptions(
+				ctx,
+				msg.Session.ID()+"-child-"+targetChild.Name,
+				*targetChild,
+				*targetConfig,
+				h.asClientOption(
+					msg.Session,
+					m.userID,
+					targetChild.Name,
+					targetChild.Namespace,
+					targetChild.Name,
+					targetChild.Spec.Manifest.Name,
+					targetChild.Spec.MCPServerCatalogEntryName,
+					catalogName,
+					powerUserWorkspaceID,
+				),
+			)
+			if err != nil {
+				log.Errorf("Failed to get client for child server %s: %v", targetChild.Name, err)
+				return
+			}
+
+			// Update params with original tool name
+			params.Name = originalToolName
+			modifiedParams, _ := json.Marshal(params)
+			msg.Params = modifiedParams
+
+			result = nmcp.CallToolResult{}
+			if err = childClient.Session.Exchange(ctx, methodToolsCall, &msg, &result); err != nil {
+				log.Errorf("Failed to call tool on child %s: %v", targetChild.Name, err)
+				return
+			}
+		default:
+			// For other methods, return empty results for now
+			result = nmcp.Notification{}
+		}
+
+		// Send the aggregated/routed result
+		if err = msg.Reply(ctx, result); err != nil {
+			log.Errorf("Failed to reply: %v", err)
+		}
+		return
+	}
+
+	// Non-composite path (original logic)
 	client, err = h.mcpSessionManager.ClientForMCPServerWithOptions(
 		ctx,
 		msg.Session.ID(),
@@ -466,6 +780,45 @@ func fireWebhooks(ctx context.Context, webhooks []mcp.Webhook, msg nmcp.Message,
 	return nil
 }
 
+// sanitizeToolPrefix converts a server manifest name to a safe tool prefix
+// e.g., "Component 1" -> "component_1"
+func sanitizeToolPrefix(name string) string {
+	// Convert to lowercase
+	prefix := strings.ToLower(name)
+	// Replace spaces and special characters with underscores
+	prefix = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			return r
+		}
+		return '_'
+	}, prefix)
+	// Collapse multiple underscores into one
+	for strings.Contains(prefix, "__") {
+		prefix = strings.ReplaceAll(prefix, "__", "_")
+	}
+	// Trim leading/trailing underscores
+	prefix = strings.Trim(prefix, "_")
+	return prefix
+}
+
+// buildCompositedToolName creates the final tool name with component prefix
+// e.g., prefix="component_1", exposedName="add_stuff" -> "component_1_add_stuff"
+func buildCompositedToolName(componentPrefix, exposedName string) string {
+	return componentPrefix + "_" + exposedName
+}
+
+// parseCompositedToolName extracts the component prefix and exposed tool name
+// e.g., "component_1_add_stuff" -> ("component_1", "add_stuff")
+func parseCompositedToolName(compositeName string, componentPrefixes []string) (componentPrefix, exposedName string, found bool) {
+	for _, prefix := range componentPrefixes {
+		prefixWithSep := prefix + "_"
+		if strings.HasPrefix(compositeName, prefixWithSep) {
+			return prefix, strings.TrimPrefix(compositeName, prefixWithSep), true
+		}
+	}
+	return "", "", false
+}
+
 func fireWebhook(ctx context.Context, httpClient *http.Client, body []byte, mcpID, userID, url, secret string, signatures map[string]string) (string, *nmcp.RPCError) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
@@ -511,4 +864,125 @@ func fireWebhook(ctx context.Context, httpClient *http.Client, body []byte, mcpI
 	}
 
 	return resp.Status, nil
+}
+
+// transformArguments renames argument keys based on parameter mappings
+// If toComponent is true: exposed → component (for incoming tool calls)
+// If toComponent is false: component → exposed (for outgoing tool call results, if needed)
+func transformArguments(args map[string]interface{}, mappings []types.CompositeParameterMapping, toComponent bool) map[string]interface{} {
+	if len(mappings) == 0 {
+		return args
+	}
+
+	// Build mapping lookup
+	paramMap := make(map[string]string)
+	for _, pm := range mappings {
+		if toComponent {
+			// Map exposed parameter name to component parameter name
+			paramMap[pm.ExposedParameter] = pm.ComponentParameter
+		} else {
+			// Map component parameter name to exposed parameter name
+			paramMap[pm.ComponentParameter] = pm.ExposedParameter
+		}
+	}
+
+	// Transform argument keys
+	result := make(map[string]interface{}, len(args))
+	for key, value := range args {
+		if newKey, found := paramMap[key]; found {
+			result[newKey] = value
+		} else {
+			// Keep unmapped arguments as-is
+			result[key] = value
+		}
+	}
+	return result
+}
+
+// applyParameterMappings transforms parameter names and descriptions in a JSON Schema InputSchema
+// If reverse is false: component → exposed (for tools/list - showing schema to clients)
+// If reverse is true: exposed → component (for future use transforming incoming schemas)
+func applyParameterMappings(inputSchema json.RawMessage, mappings []types.CompositeParameterMapping, reverse bool) json.RawMessage {
+	if len(mappings) == 0 || len(inputSchema) == 0 {
+		return inputSchema
+	}
+
+	var schema map[string]interface{}
+	if err := json.Unmarshal(inputSchema, &schema); err != nil {
+		log.Errorf("Failed to unmarshal input schema for parameter mapping: %v", err)
+		return inputSchema
+	}
+
+	// Build mapping lookup
+	paramMap := make(map[string]types.CompositeParameterMapping)
+	for _, pm := range mappings {
+		if reverse {
+			// For exposed → component: key by exposed name
+			paramMap[pm.ExposedParameter] = pm
+		} else {
+			// For component → exposed: key by component name
+			paramMap[pm.ComponentParameter] = pm
+		}
+	}
+
+	// Transform properties in the schema
+	if properties, ok := schema["properties"].(map[string]interface{}); ok {
+		newProperties := make(map[string]interface{})
+		for propName, propDef := range properties {
+			if pm, found := paramMap[propName]; found {
+				// Rename the property
+				var newName string
+				if reverse {
+					// exposed → component
+					newName = pm.ComponentParameter
+				} else {
+					// component → exposed
+					newName = pm.ExposedParameter
+				}
+
+				// Update description if mapping provides one (only for component → exposed)
+				if !reverse && pm.ExposedDescription != "" {
+					if propMap, ok := propDef.(map[string]interface{}); ok {
+						propMap["description"] = pm.ExposedDescription
+					}
+				}
+
+				newProperties[newName] = propDef
+			} else {
+				// Keep unmapped properties as-is
+				newProperties[propName] = propDef
+			}
+		}
+		schema["properties"] = newProperties
+	}
+
+	// Update required array if present
+	if required, ok := schema["required"].([]interface{}); ok {
+		newRequired := make([]interface{}, 0, len(required))
+		for _, req := range required {
+			if reqStr, ok := req.(string); ok {
+				if pm, found := paramMap[reqStr]; found {
+					if reverse {
+						// exposed → component
+						newRequired = append(newRequired, pm.ComponentParameter)
+					} else {
+						// component → exposed
+						newRequired = append(newRequired, pm.ExposedParameter)
+					}
+				} else {
+					newRequired = append(newRequired, req)
+				}
+			} else {
+				newRequired = append(newRequired, req)
+			}
+		}
+		schema["required"] = newRequired
+	}
+
+	result, err := json.Marshal(schema)
+	if err != nil {
+		log.Errorf("Failed to marshal transformed schema: %v", err)
+		return inputSchema
+	}
+	return result
 }

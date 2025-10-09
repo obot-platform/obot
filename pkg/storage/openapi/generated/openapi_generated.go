@@ -36,6 +36,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ClientInfo":                                   schema_obot_platform_obot_apiclient_types_ClientInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata":                       schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus":                         schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.CompositeParameterMapping":                    schema_obot_platform_obot_apiclient_types_CompositeParameterMapping(ref),
+		"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig":                       schema_obot_platform_obot_apiclient_types_CompositeRuntimeConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.CompositeToolMapping":                         schema_obot_platform_obot_apiclient_types_CompositeToolMapping(ref),
 		"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig":                   schema_obot_platform_obot_apiclient_types_ContainerizedRuntimeConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.Credential":                                   schema_obot_platform_obot_apiclient_types_Credential(ref),
 		"github.com/obot-platform/obot/apiclient/types.CredentialList":                               schema_obot_platform_obot_apiclient_types_CredentialList(ref),
@@ -1575,6 +1578,156 @@ func schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref common.R
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata", "github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_CompositeParameterMapping(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CompositeParameterMapping defines how a single tool parameter is exposed by the composite server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"componentParameter": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentParameter is the original parameter name as defined by the component server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"exposedParameter": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExposedParameter is the parameter name exposed by the composite server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"exposedDescription": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional override for parameter description",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"componentParameter", "exposedParameter"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_CompositeRuntimeConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CompositeRuntimeConfig represents configuration for composite runtime (Composite MCP servers) A composite server aggregates multiple MCP catalog entries into a single unified server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"componentCatalogEntries": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentCatalogEntries lists the catalog entry IDs to include in this composite server",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"toolMappings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional tool mapping configuration for exposing/renaming tools from component servers",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.CompositeToolMapping"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"componentCatalogEntries"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.CompositeToolMapping"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_CompositeToolMapping(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CompositeToolMapping defines how a single component tool is exposed by the composite server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"componentEntryName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentEntryName is the catalog entry name of the component server (Kubernetes object name)",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"componentTool": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentTool is the original tool name as returned by the component server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"exposedTool": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExposedTool is the tool name exposed by the composite server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"exposedDescription": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional overrides for display",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to include this tool (default true)",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"parameterMappings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional parameter name/description mappings",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.CompositeParameterMapping"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"componentEntryName", "componentTool", "exposedTool"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.CompositeParameterMapping"},
 	}
 }
 
@@ -3163,6 +3316,27 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 							Format:  "",
 						},
 					},
+					"componentEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional provenance for composite aggregation ComponentEntryID is the catalog entry ID that this field originated from (when part of a composite)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"componentEntryName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentEntryName is the catalog entry name (Kubernetes object name) for the component",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"componentDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentDisplayName is the human-friendly manifest.name of the component entry",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"file": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,
@@ -3225,6 +3399,27 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 							Default: false,
 							Type:    []string{"boolean"},
 							Format:  "",
+						},
+					},
+					"componentEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional provenance for composite aggregation ComponentEntryID is the catalog entry ID that this field originated from (when part of a composite)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"componentEntryName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentEntryName is the catalog entry name (Kubernetes object name) for the component",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"componentDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentDisplayName is the human-friendly manifest.name of the component entry",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
@@ -3692,6 +3887,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig"),
 						},
 					},
+					"compositeConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig"),
+						},
+					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -3710,7 +3910,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -4054,6 +4254,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig"),
 						},
 					},
+					"compositeConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig"),
+						},
+					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -4112,7 +4317,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 

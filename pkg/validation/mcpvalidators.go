@@ -416,6 +416,82 @@ func (v RemoteValidator) validateRemoteCatalogConfig(config types.RemoteCatalogC
 	return nil
 }
 
+// CompositeValidator implements RuntimeValidator for composite runtime
+type CompositeValidator struct{}
+
+func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) error {
+	if manifest.Runtime != types.RuntimeComposite {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "runtime",
+			Message: "expected composite runtime",
+		}
+	}
+
+	if manifest.CompositeConfig == nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeComposite,
+			Field:   "compositeConfig",
+			Message: "composite configuration is required",
+		}
+	}
+
+	return v.validateCompositeConfig(*manifest.CompositeConfig)
+}
+
+func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error {
+	if manifest.Runtime != types.RuntimeComposite {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "runtime",
+			Message: "expected composite runtime",
+		}
+	}
+
+	if manifest.CompositeConfig == nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeComposite,
+			Field:   "compositeConfig",
+			Message: "composite configuration is required",
+		}
+	}
+
+	return v.validateCompositeConfig(*manifest.CompositeConfig)
+}
+
+func (v CompositeValidator) validateCompositeConfig(config types.CompositeRuntimeConfig) error {
+	if len(config.ComponentCatalogEntries) == 0 {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeComposite,
+			Field:   "componentCatalogEntries",
+			Message: "at least one component catalog entry is required",
+		}
+	}
+
+	// Check for duplicate entries
+	seen := make(map[string]bool)
+	for i, entryID := range config.ComponentCatalogEntries {
+		if strings.TrimSpace(entryID) == "" {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   fmt.Sprintf("componentCatalogEntries[%d]", i),
+				Message: "catalog entry ID cannot be empty",
+			}
+		}
+
+		if seen[entryID] {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   fmt.Sprintf("componentCatalogEntries[%d]", i),
+				Message: fmt.Sprintf("duplicate catalog entry ID: %s", entryID),
+			}
+		}
+		seen[entryID] = true
+	}
+
+	return nil
+}
+
 // getRuntimeValidators returns a map of all available runtime validators
 func getRuntimeValidators() RuntimeValidators {
 	return RuntimeValidators{
@@ -423,6 +499,7 @@ func getRuntimeValidators() RuntimeValidators {
 		types.RuntimeNPX:           NPXValidator{},
 		types.RuntimeContainerized: ContainerizedValidator{},
 		types.RuntimeRemote:        RemoteValidator{},
+		types.RuntimeComposite:     CompositeValidator{},
 	}
 }
 

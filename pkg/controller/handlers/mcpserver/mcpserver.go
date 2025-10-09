@@ -3,12 +3,14 @@ package mcpserver
 import (
 	"fmt"
 	"slices"
+	"sort"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -40,6 +42,22 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
+	// For composite servers, also check if any child component servers have drifted
+	if !drifted && server.Spec.Manifest.Runtime == types.RuntimeComposite {
+		var childServerList v1.MCPServerList
+		if err := req.Client.List(req.Ctx, &childServerList, kclient.InNamespace(server.Namespace), kclient.MatchingLabels{"composite-parent": server.Name}); err != nil {
+			return fmt.Errorf("failed to list child servers: %w", err)
+		}
+
+		// If any child server has drifted, the composite server has drifted
+		for _, childServer := range childServerList.Items {
+			if childServer.Status.NeedsUpdate {
+				drifted = true
+				break
+			}
+		}
+	}
+
 	if server.Status.NeedsUpdate != drifted {
 		server.Status.NeedsUpdate = drifted
 		return req.Client.Status().Update(req.Ctx, server)
@@ -64,6 +82,8 @@ func configurationHasDrifted(needsURL bool, serverManifest types.MCPServerManife
 		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig)
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(needsURL, serverManifest.RemoteConfig, entryManifest.RemoteConfig)
+	case types.RuntimeComposite:
+		drifted = compositeConfigHasDrifted(serverManifest.CompositeConfig, entryManifest.CompositeConfig)
 	default:
 		return false, fmt.Errorf("unknown runtime type: %s", serverManifest.Runtime)
 	}
@@ -149,6 +169,53 @@ func remoteConfigHasDrifted(needsURL bool, serverConfig *types.RemoteRuntimeConf
 
 	// Check if headers have drifted
 	return !utils.SlicesEqualIgnoreOrder(serverConfig.Headers, entryConfig.Headers)
+}
+
+// compositeConfigHasDrifted checks if composite configuration has drifted
+func compositeConfigHasDrifted(serverConfig, entryConfig *types.CompositeRuntimeConfig) bool {
+	if serverConfig == nil && entryConfig == nil {
+		return false
+	}
+	if serverConfig == nil || entryConfig == nil {
+		return true
+	}
+
+	// Check if component catalog entries have changed
+	if !slices.Equal(serverConfig.ComponentCatalogEntries, entryConfig.ComponentCatalogEntries) {
+		return true
+	}
+
+	// Check if tool mappings have changed (order-insensitive comparison)
+	serverMappings := make([]types.CompositeToolMapping, len(serverConfig.ToolMappings))
+	copy(serverMappings, serverConfig.ToolMappings)
+	entryMappings := make([]types.CompositeToolMapping, len(entryConfig.ToolMappings))
+	copy(entryMappings, entryConfig.ToolMappings)
+
+	// Sort both slices for order-insensitive comparison
+	sortToolMappings(serverMappings)
+	sortToolMappings(entryMappings)
+
+	return !equality.Semantic.DeepEqual(serverMappings, entryMappings)
+}
+
+// sortToolMappings sorts a slice of CompositeToolMapping for consistent comparison
+func sortToolMappings(mappings []types.CompositeToolMapping) {
+	sort.Slice(mappings, func(i, j int) bool {
+		if mappings[i].ComponentEntryName != mappings[j].ComponentEntryName {
+			return mappings[i].ComponentEntryName < mappings[j].ComponentEntryName
+		}
+		if mappings[i].ComponentTool != mappings[j].ComponentTool {
+			return mappings[i].ComponentTool < mappings[j].ComponentTool
+		}
+		return mappings[i].ExposedTool < mappings[j].ExposedTool
+	})
+
+	// Also sort parameter mappings within each tool mapping
+	for i := range mappings {
+		sort.Slice(mappings[i].ParameterMappings, func(a, b int) bool {
+			return mappings[i].ParameterMappings[a].ComponentParameter < mappings[i].ParameterMappings[b].ComponentParameter
+		})
+	}
 }
 
 // EnsureMCPServerInstanceUserCount ensures that mcp server instance user count for multi-user MCP servers is up to date.
