@@ -31,7 +31,7 @@
 			</div>
 			<div class="flex w-full grow justify-center">
 				{#if data.task && data.project && browser}
-					<Task project={data.project} bind:task={data.task} readonly />
+					<Task project={data.project} bind:task={data.task} readonly skipFetchOnMount />
 				{/if}
 			</div>
 		</div>

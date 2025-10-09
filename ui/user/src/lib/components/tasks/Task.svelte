@@ -30,6 +30,7 @@
 		onDelete?: () => void | Promise<void>;
 		runID?: string;
 		readonly?: boolean;
+		skipFetchOnMount?: boolean;
 	}
 
 	let {
@@ -38,7 +39,8 @@
 		project,
 		onDelete,
 		runID: inputRunID,
-		readonly
+		readonly,
+		skipFetchOnMount
 	}: Props = $props();
 
 	const readOnly = !!inputRunID || readonly;
@@ -161,7 +163,9 @@
 	});
 
 	onMount(async () => {
-		task = await ChatService.getTask(project.assistantID, project.id, task.id);
+		if (!skipFetchOnMount) {
+			task = await ChatService.getTask(project.assistantID, project.id, task.id);
+		}
 		if (!readOnly) {
 			saver.start();
 		}

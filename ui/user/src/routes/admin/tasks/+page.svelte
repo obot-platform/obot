@@ -181,7 +181,7 @@
 						filterable={['name', 'userName', 'userEmail', 'projectName']}
 						onFilter={handleColumnFilter}
 						filters={urlFilters}
-						onClickRow={isAuditor ? handleViewTask : undefined}
+						onClickRow={handleViewTask}
 						headers={[
 							{
 								title: 'User Name',
@@ -203,23 +203,18 @@
 							}
 						]}
 						sortable={['name', 'userName', 'userEmail', 'projectName', 'created', 'runs']}
+						initSort={{ property: 'created', order: 'desc' }}
 					>
 						{#snippet actions(task)}
 							<button
-								class={twMerge(
-									'icon-button',
-									isAuditor && 'hover:text-blue-500',
-									!isAuditor && 'opacity-50 hover:bg-transparent dark:hover:bg-transparent'
-								)}
+								class={twMerge('icon-button hover:text-blue-500')}
 								onclick={(e) => {
 									e.stopPropagation();
 									handleViewTask(task);
 								}}
 								title="View Task"
 								use:tooltip={{
-									text: isAuditor
-										? 'View Task'
-										: 'To view details, auditing permissions are required.'
+									text: 'View Task'
 								}}
 							>
 								<Eye class="size-4" />

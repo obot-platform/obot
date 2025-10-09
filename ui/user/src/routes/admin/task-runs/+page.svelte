@@ -47,6 +47,16 @@
 		})
 	);
 
+	let convertedUrlFilters = $derived.by(() => {
+		if (urlFilters.task) {
+			return {
+				...urlFilters,
+				task: urlFilters.task.map((idOrName) => taskMap.get(idOrName.toString())?.name ?? idOrName)
+			};
+		}
+		return urlFilters;
+	});
+
 	const updateQuery = debounce((value: string) => {
 		query = value;
 
@@ -178,7 +188,7 @@
 						fields={['name', 'userName', 'userEmail', 'task', 'projectName', 'created']}
 						filterable={['name', 'userName', 'userEmail', 'task', 'projectName']}
 						onFilter={handleColumnFilter}
-						filters={urlFilters}
+						filters={convertedUrlFilters}
 						onClickRow={isAuditor ? handleViewThread : undefined}
 						headers={[
 							{
@@ -201,6 +211,7 @@
 							}
 						]}
 						sortable={['name', 'userName', 'userEmail', 'projectName', 'created', 'task']}
+						initSort={{ property: 'created', order: 'desc' }}
 					>
 						{#snippet actions(thread)}
 							<button
@@ -219,6 +230,7 @@
 										? 'View Task Run'
 										: 'To view details, auditing permissions are required.'
 								}}
+								disabled={!isAuditor}
 							>
 								<Eye class="size-4" />
 							</button>
