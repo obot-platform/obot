@@ -247,28 +247,30 @@
 						{/each}
 					{/if}
 					{#if form.headers && form.headers.length > 0}
-						{#each form.headers.filter((header) => header.required) as header, i (header.key)}
-							<div class="flex flex-col gap-1">
-								<span class="flex items-center gap-2">
-									<label for={header.key}>
-										{header.name}
-										{#if !header.required}
-											<span class="text-gray-400 dark:text-gray-600">(optional)</span>
-										{/if}
-									</label>
-									<InfoTooltip text={header.description} />
-								</span>
-								{#if header.sensitive}
-									<SensitiveInput name={header.name} bind:value={form.headers[i].value} />
-								{:else}
-									<input
-										type="text"
-										id={header.key}
-										bind:value={form.headers[i].value}
-										class="text-input-filled"
-									/>
-								{/if}
-							</div>
+						{#each form.headers as header, i (header.key)}
+							{#if header.required}
+								<div class="flex flex-col gap-1">
+									<span class="flex items-center gap-2">
+										<label for={header.key}>
+											{header.name}
+											{#if !header.required}
+												<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+											{/if}
+										</label>
+										<InfoTooltip text={header.description} />
+									</span>
+									{#if header.sensitive}
+										<SensitiveInput name={header.name} bind:value={form.headers[i].value} />
+									{:else}
+										<input
+											type="text"
+											id={header.key}
+											bind:value={form.headers[i].value}
+											class="text-input-filled"
+										/>
+									{/if}
+								</div>
+							{/if}
 						{/each}
 					{/if}
 					{#if form.hostname}
