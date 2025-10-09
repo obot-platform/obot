@@ -183,55 +183,85 @@ export function formatJsonWithDiffHighlighting(
 	try {
 		const formatted = JSON.stringify(json, null, 2);
 		const lines = formatted.split('\n');
+
 		let highlighted = '';
 
-		const oldContentMap = new Map<string, number[]>();
-		const newContentMap = new Map<string, number[]>();
+		const oldLines: string[] = diff.oldLines.map((line) => line.trim());
+		const newLines: string[] = diff.newLines.map((line) => line.trim());
 
-		// Build content maps for both versions
-		diff.oldLines.forEach((line, index) => {
-			if (line.trim()) {
-				const key = line.trim();
-				if (!oldContentMap.has(key)) {
-					oldContentMap.set(key, []);
-				}
-				oldContentMap.get(key)!.push(index);
-			}
-		});
-
-		diff.newLines.forEach((line, index) => {
-			if (line.trim()) {
-				const key = line.trim();
-				if (!newContentMap.has(key)) {
-					newContentMap.set(key, []);
-				}
-				newContentMap.get(key)!.push(index);
-			}
-		});
+		const changes: [changeType: string | undefined, line: string][] = [];
 
 		for (let i = 0; i < lines.length; i++) {
 			const line = lines[i];
-			const oldLine = diff.oldLines[i] || '';
-			const newLine = diff.newLines[i] || '';
+
+			const oldLine = oldLines[i] || '';
+			const newLine = newLines[i] || '';
 
 			// Check if this line is different between old and new
 			const isChanged = oldLine !== newLine;
 
 			// Check if this line content exists in the other version (indicating it was moved)
-			const lineContent = line.trim();
-			const existsInOld = oldContentMap.has(lineContent);
-			const existsInNew = newContentMap.has(lineContent);
+			const existsInOld = oldLines.at(i) === line;
+			const existsInNew = newLines.at(i) === line;
 
 			// A line is truly removed if it exists in old but not in new
 			const isRemoved = isOldVersion && isChanged && oldLine && !newLine && !existsInNew;
+			if (isRemoved) {
+				changes.push(['removed', line]);
+				continue;
+			}
+
 			// A line is truly added if it exists in new but not in old
 			const isAdded = !isOldVersion && isChanged && newLine && !oldLine && !existsInOld;
+			if (isAdded) {
+				changes.push(['added', line]);
+				continue;
+			}
+
 			// A line is modified if both exist but are different (and not just moved)
-			const isModified = isChanged && oldLine && newLine && oldLine.trim() !== newLine.trim();
+			const isModified = isChanged && oldLine && newLine && oldLine !== newLine;
+			if (isModified) {
+				changes.push(['modified', line]);
+				continue;
+			}
+
+			changes.push([undefined, line]);
+		}
+
+		let i = -1;
+		while (Math.abs(i) <= changes.length) {
+			const oldLine = diff.oldLines.at(i);
+			const newLine = diff.newLines.at(i);
+
+			if (oldLine === undefined && newLine === undefined) {
+				break;
+			}
+
+			const line = changes.at(i);
+			if (line) {
+				if (['}', ']'].includes(line[1]?.trim()) && oldLine === newLine) {
+					line[0] = undefined;
+				}
+			}
+
+			i--;
+		}
+
+		for (let i = 0; i < changes.length; i++) {
+			const index = i;
+			const [changeType, line] = changes[index];
+
+			// A line is truly removed if it exists in old but not in new
+			const isRemoved = changeType === 'removed';
+			// A line is truly added if it exists in new but not in old
+			const isAdded = changeType === 'added';
+			// A line is modified if both exist but are different (and not just moved)
+			const isModified = changeType === 'modified';
 
 			// For old version: highlight removed and modified lines in red
 			// For new version: highlight added and modified lines in green
 			let lineClass = 'text-gray-700 dark:text-gray-300';
+
 			if (isRemoved || (isOldVersion && isModified)) {
 				lineClass = 'bg-red-500/10 text-red-500';
 			} else if (isAdded || (!isOldVersion && isModified)) {
@@ -262,7 +292,7 @@ export function formatJsonWithDiffHighlighting(
 			// Replace string values
 			highlightedLine = highlightedLine.replace(
 				/: "([^"]+)"/g,
-				': <span class="text-gray-600 dark:text-gray-300">"$1"</span>'
+				': <span class="text-gray-600 dark:text-gray-300 whitespace-normal break-words">"$1"</span>'
 			);
 
 			// Replace null
