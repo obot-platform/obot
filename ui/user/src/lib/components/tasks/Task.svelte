@@ -296,7 +296,7 @@
 
 {#snippet mainActions()}
 	<div class="flex items-center gap-2">
-		{#if allMessages.messages.length > 0}
+		{#if allMessages.messages.length > 0 && !readOnly}
 			<button
 				class="icon-button"
 				onclick={() => (showChat = !showChat)}
