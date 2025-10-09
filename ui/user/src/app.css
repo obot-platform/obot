@@ -690,11 +690,11 @@
 		background-color: white;
 		padding: 1rem; /* p-4 */
 		box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); /* shadow-sm */
-		
+
 		@media (min-width: 768px) {
 			padding: 1.5rem; /* md:p-6 */
 		}
-		
+
 		.dark & {
 			background-color: var(--surface1);
 			border-color: var(--surface3);
