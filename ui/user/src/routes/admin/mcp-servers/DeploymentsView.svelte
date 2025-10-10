@@ -118,6 +118,9 @@
 
 	async function handleBulkUpdate() {
 		for (const id of Object.keys(selected)) {
+			if (!selected[id].needsUpdate) {
+				continue;
+			}
 			updating[id] = { inProgress: true, error: '' };
 			try {
 				await ChatService.triggerMcpServerUpdate(id);
