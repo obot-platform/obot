@@ -330,6 +330,9 @@ type ThreadStatus struct {
 	// into this thread AND the thread's configuration has not changed since it was copied.
 	UpgradeAvailable bool `json:"upgradeAvailable,omitempty"`
 
+	// ForceUpgradeAvailable is a flag to indicate if an force upgrade is available from the source thread.
+	ForceUpgradeAvailable bool `json:"forceUpgradeAvailable,omitempty"`
+
 	// UpgradeInProgress indicates if an upgrade from the source thread is in progress.
 	UpgradeInProgress bool `json:"upgradeInProgress,omitempty"`
 

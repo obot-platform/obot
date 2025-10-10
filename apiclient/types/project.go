@@ -3,16 +3,17 @@ package types
 type Project struct {
 	Metadata
 	ProjectManifest
-	AssistantID                  string                       `json:"assistantID,omitempty"`
-	Editor                       bool                         `json:"editor"`
-	ParentID                     string                       `json:"parentID,omitempty"`
-	SourceProjectID              string                       `json:"sourceProjectID,omitempty"`
-	UserID                       string                       `json:"userID,omitempty"`
-	WorkflowNamesFromIntegration WorkflowNamesFromIntegration `json:"workflowNamesFromIntegration,omitempty"`
-	TemplateUpgradeAvailable     bool                         `json:"templateUpgradeAvailable,omitempty"`
-	TemplateUpgradeInProgress    bool                         `json:"templateUpgradeInProgress,omitempty"`
-	TemplateLastUpgraded         *Time                        `json:"templateLastUpgraded,omitempty"`
-	TemplatePublicID             string                       `json:"templatePublicID,omitempty"`
+	AssistantID                   string                       `json:"assistantID,omitempty"`
+	Editor                        bool                         `json:"editor"`
+	ParentID                      string                       `json:"parentID,omitempty"`
+	SourceProjectID               string                       `json:"sourceProjectID,omitempty"`
+	UserID                        string                       `json:"userID,omitempty"`
+	WorkflowNamesFromIntegration  WorkflowNamesFromIntegration `json:"workflowNamesFromIntegration,omitempty"`
+	TemplateUpgradeAvailable      bool                         `json:"templateUpgradeAvailable,omitempty"`
+	TemplateForceUpgradeAvailable bool                         `json:"templateForceUpgradeAvailable,omitempty"`
+	TemplateUpgradeInProgress     bool                         `json:"templateUpgradeInProgress,omitempty"`
+	TemplateLastUpgraded          *Time                        `json:"templateLastUpgraded,omitempty"`
+	TemplatePublicID              string                       `json:"templatePublicID,omitempty"`
 }
 
 type WorkflowNamesFromIntegration struct {

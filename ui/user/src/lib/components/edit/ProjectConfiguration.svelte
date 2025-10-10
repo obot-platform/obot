@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project } from '$lib/services';
-	import { LoaderCircle, X, AlertCircle, CircleFadingArrowUp } from 'lucide-svelte';
+	import { LoaderCircle, X, CircleFadingArrowUp } from 'lucide-svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import Memories from '$lib/components/edit/Memories.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
@@ -39,6 +39,12 @@
 		!!project?.sourceProjectID &&
 			project.sourceProjectID.trim() !== '' &&
 			project.templateUpgradeAvailable &&
+			shareUrl
+	);
+	let showForceUpgradeButton = $derived(
+		!!project?.sourceProjectID &&
+			project.sourceProjectID.trim() !== '' &&
+			project.templateForceUpgradeAvailable &&
 			shareUrl
 	);
 
@@ -166,21 +172,37 @@
 													<CircleFadingArrowUp class="relative top-[1px] size-4 shrink-0" />
 												{/if}
 											</button>
+										{:else if showForceUpgradeButton}
+											<button
+												class="button flex gap-1"
+												onclick={upgradeFromTemplate}
+												disabled={upgradeLoading}
+												title="This will override any manual changes and upgrade to the latest revision"
+											>
+												{#if upgradeLoading}
+													<LoaderCircle class="size-4 animate-spin" />
+												{:else}
+													Force Upgrade
+													<CircleFadingArrowUp class="relative top-[1px] size-4 shrink-0" />
+												{/if}
+											</button>
 										{/if}
 									</div>
 								</div>
 							{/if}
-
-							<p
-								class="mt-1 flex w-full items-center justify-center gap-1 text-center text-xs font-light text-gray-600"
-							>
-								<AlertCircle class="max-h-3.5 min-h-3.5" />
-								<span>
-									Changing fields such as instructions, MCP servers, tasks, or knowledge will make
-									this project ineligible to receive updates from the shared project snapshot
-									author.
-								</span>
-							</p>
+							{#if showForceUpgradeButton}
+								<p
+									class="mt-2 flex w-full items-center justify-center gap-1 text-center text-xs font-light text-yellow-500"
+								>
+									<AlertTriangle class="max-h-3.5 min-h-3.5" />
+									<span>
+										Our system has detected that you have made changes to this project that are
+										launched from a template. Clicking on Force Upgrade will override any changes
+										that were made manually and upgrade to the latest revision of the original
+										project template.
+									</span>
+								</p>
+							{/if}
 						</div>
 					</div>
 				</div>

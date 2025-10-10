@@ -5988,6 +5988,12 @@ func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"templateForceUpgradeAvailable": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"templateUpgradeInProgress": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -15506,6 +15512,13 @@ func schema_storage_apis_obotobotai_v1_ThreadStatus(ref common.ReferenceCallback
 					"upgradeAvailable": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UpgradeAvailable is a flag to indicate if an upgrade is available from the source thread.\n\nAn upgrade is considered available if the source thread's configuration has changed since it was copied into this thread AND the thread's configuration has not changed since it was copied.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"forceUpgradeAvailable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ForceUpgradeAvailable is a flag to indicate if an force upgrade is available from the source thread.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
