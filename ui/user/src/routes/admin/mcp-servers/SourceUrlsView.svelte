@@ -107,7 +107,7 @@
 		</Table>
 	{:else}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Link2 class="size-24 text-gray-200 dark:text-gray-900" />
+			<Link2 class="dark:text-surface3 size-24 text-gray-200" />
 			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
 				No current Git Source URLs.
 			</h4>

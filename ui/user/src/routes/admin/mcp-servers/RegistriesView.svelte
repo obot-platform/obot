@@ -79,8 +79,8 @@
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
 	{:else if mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length === 0}
-		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Server class="size-24 text-gray-200 dark:text-gray-900" />
+		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
+			<Server class="dark:text-surface3 size-24 text-gray-200" />
 			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No created MCP servers</h4>
 			<p class="text-sm font-light text-gray-400 dark:text-gray-600">
 				Looks like you don't have any servers created yet. <br />
