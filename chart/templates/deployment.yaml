@@ -13,9 +13,14 @@ spec:
       {{- include "obot.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- if not .Values.config.existingSecret }}
+      {{- if or .Values.podAnnotations (not .Values.config.existingSecret)  }}
       annotations:
+        {{- if not .Values.config.existingSecret }}
         checksum/config-secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 4 }}
+        {{- end }}
       {{- end }}
       labels:
         {{- include "obot.labels" . | nindent 8 }}
