@@ -27,6 +27,7 @@
 	import type { PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
 	import { getRegistryLabel, getUserDisplayName } from '$lib/utils';
 	import { profile } from '$lib/stores';
+	import { KV, KVSync } from '$lib/kv';
 
 	interface Props {
 		topContent?: Snippet;
@@ -39,6 +40,9 @@
 		all?: { label: string; description: string };
 		readonly?: boolean;
 	}
+
+	const kv = KV.get();
+	const kvSync = new KVSync(kv!);
 
 	let {
 		topContent,
@@ -93,41 +97,7 @@
 			return;
 		}
 
-		loadingUsersAndGroups = true;
-
-		// Prevent refetching when adding new users or groups
-		const promises: [Promise<OrgUser[] | undefined>, Promise<OrgGroup[] | undefined>] = [
-			Promise.resolve(undefined),
-			Promise.resolve(undefined)
-		];
-
-		if (!usersAndGroups?.users) {
-			promises[0] = AdminService.listUsers();
-		}
-		if (!usersAndGroups?.groups) {
-			promises[1] = AdminService.listGroups();
-		}
-
-		Promise.all(promises)
-			.then(([users, groups]) => {
-				if (!usersAndGroups) {
-					usersAndGroups = { users: [], groups: [] };
-				}
-
-				if (users) {
-					usersAndGroups!.users = users;
-				}
-
-				if (groups) {
-					usersAndGroups!.groups = groups;
-				}
-
-				loadingUsersAndGroups = false;
-			})
-			.catch((error) => {
-				console.error('Failed to load users and groups:', error);
-				loadingUsersAndGroups = false;
-			});
+		loadData();
 	});
 
 	$effect(() => {
@@ -172,6 +142,34 @@
 			sessionStorage.removeItem(ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION);
 		}
 	});
+
+	async function loadData() {
+		try {
+			loadingUsersAndGroups = true;
+
+			// Prevent refetching when adding new users or groups
+			const promises: [Promise<OrgUser[] | undefined>, Promise<OrgGroup[] | undefined>] = [
+				Promise.resolve(undefined),
+				Promise.resolve(undefined)
+			];
+
+			promises[0] = kvSync!.get('users', () => AdminService.listUsers(), 1000 * 60 * 5);
+			promises[1] = kvSync.get('groups', () => AdminService.listGroups(), 1000 * 60 * 5);
+
+			const [users, groups] = await Promise.all(promises);
+
+			if (!usersAndGroups) {
+				usersAndGroups = { users: [], groups: [] };
+			}
+
+			usersAndGroups!.users = users ?? [];
+			usersAndGroups!.groups = groups ?? [];
+
+			loadingUsersAndGroups = false;
+		} catch (error) {
+			console.error('Error initializing data:', error);
+		}
+	}
 
 	function convertSubjectsToTableData(
 		subjects: AccessControlRuleSubject[],

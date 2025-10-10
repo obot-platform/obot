@@ -4,6 +4,7 @@
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
+	import { KV } from '$lib/kv';
 
 	interface Props {
 		children?: import('svelte').Snippet;
@@ -23,6 +24,16 @@
 			html?.classList.remove('dark');
 		}
 		html?.classList.remove('hidden');
+	});
+
+	let kv: KV;
+
+	$effect.pre(() => {
+		if (kv) {
+			kv.share();
+		} else {
+			kv = new KV().share();
+		}
 	});
 </script>
 
