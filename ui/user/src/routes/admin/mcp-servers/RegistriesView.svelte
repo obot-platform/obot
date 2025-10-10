@@ -16,6 +16,7 @@
 	} from '$lib/services';
 	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
+	import { clearUrlParams, setUrlParams } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Captions, Ellipsis, LoaderCircle, Server, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
@@ -28,9 +29,17 @@
 		emptyContentButton?: Snippet;
 		usersMap?: Map<string, OrgUser>;
 		query?: string;
+		urlFilters?: Record<string, (string | number)[]>;
 	}
 
-	let { catalog = $bindable(), readonly, emptyContentButton, usersMap, query }: Props = $props();
+	let {
+		catalog = $bindable(),
+		readonly,
+		emptyContentButton,
+		usersMap,
+		query,
+		urlFilters: filters
+	}: Props = $props();
 
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
@@ -96,6 +105,7 @@
 			data={filteredTableData}
 			fields={['name', 'type', 'users', 'created', 'registry']}
 			filterable={['name', 'type', 'registry']}
+			{filters}
 			onClickRow={(d, isCtrlClick) => {
 				let url = '';
 				if (d.type === 'single' || d.type === 'remote') {
@@ -109,6 +119,8 @@
 				}
 				openUrl(url, isCtrlClick);
 			}}
+			onFilter={setUrlParams}
+			onClearAllFilters={clearUrlParams}
 			sortable={['name', 'type', 'users', 'created', 'registry']}
 			noDataMessage="No catalog servers added."
 			classes={{

@@ -64,7 +64,7 @@
 	let sortedBy = $state<{ property: string; order: 'asc' | 'desc' } | undefined>(
 		initSort ? initSort : sortable?.[0] ? { property: sortable[0], order: 'asc' } : undefined
 	);
-	let filteredBy = $state<Record<string, (string | number)[]> | undefined>(filters);
+	let filteredBy = $derived<Record<string, (string | number)[]> | undefined>(filters);
 	let filterValues = $derived.by(() => {
 		if (!filterable) return {};
 

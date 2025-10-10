@@ -26,6 +26,7 @@
 	import DeploymentsView from './DeploymentsView.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
+	import { clearUrlParams } from '$lib/url';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
@@ -35,6 +36,7 @@
 	initMcpServerAndEntries();
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
 	let users = $state<OrgUser[]>([]);
+	let urlFilters = $state<Record<string, (string | number)[]>>({});
 
 	onMount(async () => {
 		users = await AdminService.listUsersIncludeDeleted();
@@ -44,6 +46,13 @@
 
 		if (defaultCatalog?.isSyncing) {
 			pollTillSyncComplete();
+		}
+
+		if (page.url.searchParams.size > 0) {
+			page.url.searchParams.forEach((value, key) => {
+				if (key === 'view') return;
+				urlFilters[key] = value.split(',');
+			});
 		}
 	});
 
@@ -123,6 +132,7 @@
 	}
 
 	async function switchView(newView: View) {
+		clearUrlParams();
 		view = newView;
 		page.url.searchParams.set('view', newView);
 		replaceState(page.url, {});
@@ -218,7 +228,13 @@
 			{/if}
 
 			{#if view === 'registry'}
-				<RegistriesView bind:catalog={defaultCatalog} readonly={isAdminReadonly} {usersMap} {query}>
+				<RegistriesView
+					bind:catalog={defaultCatalog}
+					readonly={isAdminReadonly}
+					{usersMap}
+					{query}
+					{urlFilters}
+				>
 					{#snippet emptyContentButton()}
 						{@render addServerButton()}
 					{/snippet}
@@ -237,6 +253,7 @@
 					readonly={isAdminReadonly}
 					{usersMap}
 					{query}
+					{urlFilters}
 				/>
 			{/if}
 		</div>

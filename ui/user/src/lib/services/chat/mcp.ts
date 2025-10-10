@@ -131,7 +131,6 @@ function convertServersToTableData(
 	return servers
 		.filter((server) => !server.catalogEntryID && !server.deleted)
 		.map((server) => {
-			console.log(server);
 			return {
 				id: server.id,
 				name: server.manifest.name ?? '',
