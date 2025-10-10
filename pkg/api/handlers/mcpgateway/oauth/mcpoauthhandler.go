@@ -44,7 +44,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer 
 		var childServerList v1.MCPServerList
 		if err := f.client.List(ctx, &childServerList,
 			kclient.InNamespace(mcpServer.Namespace),
-			kclient.MatchingLabels{"composite-parent": mcpServer.Name},
+			kclient.MatchingFields{"spec.compositeName": mcpServer.Name},
 		); err != nil {
 			return "", fmt.Errorf("failed to list child servers: %w", err)
 		}
@@ -71,7 +71,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer 
 
 			if u != "" {
 				// If any child needs OAuth, return composite OAuth page URL
-				return fmt.Sprintf("%s/mcp/composite/%s/%s", f.baseURL, oauthAppAuthRequestID, mcpID), nil
+				return fmt.Sprintf("%s/mcp/composite/%s", f.baseURL, mcpID), nil
 			}
 		}
 

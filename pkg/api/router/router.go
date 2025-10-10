@@ -426,6 +426,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/configure", mcp.ConfigureServer)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/reveal", mcp.Reveal)
+	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/components", mcp.ListComponentServers)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/tools", mcp.GetTools)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/resources", mcp.GetResources)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/resources/{resource_uri}", mcp.ReadResource)

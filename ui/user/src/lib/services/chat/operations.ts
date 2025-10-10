@@ -1393,6 +1393,14 @@ export async function getSingleOrRemoteMcpServer(
 	return response;
 }
 
+export async function listComponentServersForComposite(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer[]> {
+	const response = (await doGet(`/mcp-servers/${id}/components`, opts)) as ItemsResponse<MCPCatalogServer>;
+	return response.items ?? [];
+}
+
 export async function createSingleOrRemoteMcpServer(server: {
 	catalogEntryID?: string;
 	manifest?: {

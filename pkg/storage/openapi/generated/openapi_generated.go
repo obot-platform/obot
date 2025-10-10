@@ -36,9 +36,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ClientInfo":                                   schema_obot_platform_obot_apiclient_types_ClientInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata":                       schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus":                         schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref),
-		"github.com/obot-platform/obot/apiclient/types.CompositeParameterMapping":                    schema_obot_platform_obot_apiclient_types_CompositeParameterMapping(ref),
+		"github.com/obot-platform/obot/apiclient/types.CompositeComponent":                           schema_obot_platform_obot_apiclient_types_CompositeComponent(ref),
 		"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig":                       schema_obot_platform_obot_apiclient_types_CompositeRuntimeConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.CompositeToolMapping":                         schema_obot_platform_obot_apiclient_types_CompositeToolMapping(ref),
 		"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig":                   schema_obot_platform_obot_apiclient_types_ContainerizedRuntimeConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.Credential":                                   schema_obot_platform_obot_apiclient_types_Credential(ref),
 		"github.com/obot-platform/obot/apiclient/types.CredentialList":                               schema_obot_platform_obot_apiclient_types_CredentialList(ref),
@@ -121,6 +120,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                      schema_obot_platform_obot_apiclient_types_OnEmail(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnWebhook":                                    schema_obot_platform_obot_apiclient_types_OnWebhook(ref),
 		"github.com/obot-platform/obot/apiclient/types.OneDriveConfig":                               schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.ParameterOverride":                            schema_obot_platform_obot_apiclient_types_ParameterOverride(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace":                           schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspaceList":                       schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Progress":                                     schema_obot_platform_obot_apiclient_types_Progress(ref),
@@ -186,6 +186,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ToolInfo":                                     schema_obot_platform_obot_apiclient_types_ToolInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolInput":                                    schema_obot_platform_obot_apiclient_types_ToolInput(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolManifest":                                 schema_obot_platform_obot_apiclient_types_ToolManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolOverride":                                 schema_obot_platform_obot_apiclient_types_ToolOverride(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolReference":                                schema_obot_platform_obot_apiclient_types_ToolReference(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolReferenceList":                            schema_obot_platform_obot_apiclient_types_ToolReferenceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolReferenceManifest":                        schema_obot_platform_obot_apiclient_types_ToolReferenceManifest(ref),
@@ -1581,40 +1582,41 @@ func schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref common.R
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_CompositeParameterMapping(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_obot_platform_obot_apiclient_types_CompositeComponent(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CompositeParameterMapping defines how a single tool parameter is exposed by the composite server",
+				Description: "CompositeComponent represents a single component within a composite server",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"componentParameter": {
+					"catalogEntryName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ComponentParameter is the original parameter name as defined by the component server",
+							Description: "CatalogEntryName is the ID (Kubernetes object name) of the catalog entry",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"exposedParameter": {
+					"toolOverrides": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ExposedParameter is the parameter name exposed by the composite server",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"exposedDescription": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Optional override for parameter description",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "ToolOverrides configures tool exposure/renaming for this component",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ToolOverride"),
+									},
+								},
+							},
 						},
 					},
 				},
-				Required: []string{"componentParameter", "exposedParameter"},
+				Required: []string{"catalogEntryName"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.ToolOverride"},
 	}
 }
 
@@ -1625,109 +1627,26 @@ func schema_obot_platform_obot_apiclient_types_CompositeRuntimeConfig(ref common
 				Description: "CompositeRuntimeConfig represents configuration for composite runtime (Composite MCP servers) A composite server aggregates multiple MCP catalog entries into a single unified server",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"componentCatalogEntries": {
+					"components": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ComponentCatalogEntries lists the catalog entry IDs to include in this composite server",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"toolMappings": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Optional tool mapping configuration for exposing/renaming tools from component servers",
+							Description: "Components lists the catalog entries to include in this composite server, along with optional tool overrides per component",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.CompositeToolMapping"),
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.CompositeComponent"),
 									},
 								},
 							},
 						},
 					},
 				},
-				Required: []string{"componentCatalogEntries"},
+				Required: []string{"components"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeToolMapping"},
-	}
-}
-
-func schema_obot_platform_obot_apiclient_types_CompositeToolMapping(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "CompositeToolMapping defines how a single component tool is exposed by the composite server",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"componentEntryName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ComponentEntryName is the catalog entry name of the component server (Kubernetes object name)",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"componentTool": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ComponentTool is the original tool name as returned by the component server",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"exposedTool": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ExposedTool is the tool name exposed by the composite server",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"exposedDescription": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Optional overrides for display",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"enabled": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Whether to include this tool (default true)",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"parameterMappings": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Optional parameter name/description mappings",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/obot-platform/obot/apiclient/types.CompositeParameterMapping"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"componentEntryName", "componentTool", "exposedTool"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeParameterMapping"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeComponent"},
 	}
 }
 
@@ -5935,6 +5854,43 @@ func schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref common.Referen
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_ParameterOverride(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ParameterOverride defines how a single tool parameter is exposed by the composite server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the original parameter name as defined by the component server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overrideName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OverrideName is the parameter name exposed by the composite server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overrideDescription": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional override for parameter description",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "overrideName"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -8776,6 +8732,66 @@ func schema_obot_platform_obot_apiclient_types_ToolManifest(ref common.Reference
 				},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ToolOverride(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ToolOverride defines how a single component tool is exposed by the composite server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the original tool name as returned by the component server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overrideName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OverrideName is the tool name exposed by the composite server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overrideDescription": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional overrides for display",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to include this tool (default true)",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"parameterOverrides": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional parameter name/description overrides",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.ParameterOverride"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "overrideName"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.ParameterOverride"},
 	}
 }
 
@@ -12240,6 +12256,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 					"sharedWithinMCPCatalogName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SharedWithinMCPCatalogName is a deprecated field. It is renamed to MCPCatalogID.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"compositeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CompositeName contains the name of the Composite MCP server that this server is a component of, if there is one.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

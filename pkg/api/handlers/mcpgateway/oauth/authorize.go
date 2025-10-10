@@ -352,7 +352,7 @@ func (h *handler) oauthCallback(req api.Context) error {
 		compositeMCPID, err := h.getCompositeMCPIDFromState(req, req.URL.Query().Get("state"))
 		if err == nil && compositeMCPID != "" {
 			// Redirect back to composite OAuth page
-			http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/mcp/composite/%s/%s", oauthAuthRequestID, compositeMCPID), http.StatusFound)
+			http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/mcp/composite/%s", compositeMCPID), http.StatusFound)
 			return nil
 		}
 
@@ -413,7 +413,7 @@ func (h *handler) getCompositeMCPIDFromState(ctx api.Context, state string) (str
 		return "", err
 	}
 
-	// Check if the MCP server associated with this state has a composite-parent label
+	// Check if the MCP server associated with this state is part of a composite
 	var mcpServer v1.MCPServer
 	if err := ctx.Storage.Get(ctx.Context(), kclient.ObjectKey{
 		Namespace: system.DefaultNamespace,
@@ -422,18 +422,5 @@ func (h *handler) getCompositeMCPIDFromState(ctx api.Context, state string) (str
 		return "", err
 	}
 
-	// Check if this server has a composite-parent label
-	if parentName, ok := mcpServer.Labels["composite-parent"]; ok {
-		// This is a child server - return the parent's ID
-		var parentServer v1.MCPServer
-		if err := ctx.Storage.Get(ctx.Context(), kclient.ObjectKey{
-			Namespace: system.DefaultNamespace,
-			Name:      parentName,
-		}, &parentServer); err != nil {
-			return "", err
-		}
-		return parentServer.Name, nil
-	}
-
-	return "", nil
+	return mcpServer.Spec.CompositeName, nil
 }

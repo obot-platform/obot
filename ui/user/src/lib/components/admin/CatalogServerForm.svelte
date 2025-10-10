@@ -101,7 +101,7 @@
 				containerizedConfig: undefined,
 				remoteConfig: defaultRuntime === 'remote' ? { fixedURL: '', headers: [] } : undefined,
 				remoteServerConfig: undefined,
-				compositeConfig: defaultRuntime === 'composite' ? { componentCatalogEntries: [] } : undefined
+                compositeConfig: defaultRuntime === 'composite' ? { components: [] } : undefined
 			};
 		}
 
@@ -150,8 +150,8 @@
 							}
 						: { url: '', headers: [] };
 					break;
-				case 'composite':
-					formData.compositeConfig = manifest.compositeConfig || { componentCatalogEntries: [] };
+                case 'composite':
+                    formData.compositeConfig = manifest.compositeConfig || { components: [] };
 					break;
 			}
 
@@ -196,8 +196,8 @@
 				case 'remote':
 					formData.remoteConfig = manifest.remoteConfig || { fixedURL: '', headers: [] };
 					break;
-				case 'composite':
-					formData.compositeConfig = manifest.compositeConfig || { componentCatalogEntries: [] };
+                case 'composite':
+                    formData.compositeConfig = manifest.compositeConfig || { components: [] };
 					break;
 			}
 
@@ -281,8 +281,8 @@
 				// For remote servers (catalog entries), use remoteConfig
 				formData.remoteConfig = { fixedURL: '', headers: [] };
 				break;
-			case 'composite':
-				formData.compositeConfig = { componentCatalogEntries: [] };
+            case 'composite':
+                formData.compositeConfig = { components: [] } as any;
 				break;
 		}
 	}
@@ -412,14 +412,9 @@
 					};
 				}
 				break;
-			case 'composite':
+            case 'composite':
                 if (baseData.compositeConfig) {
-                    manifest.compositeConfig = {
-                        componentCatalogEntries: baseData.compositeConfig.componentCatalogEntries || [],
-                        ...(baseData.compositeConfig.toolMappings && baseData.compositeConfig.toolMappings.length
-                            ? { toolMappings: baseData.compositeConfig.toolMappings }
-                            : {})
-                    };
+                    manifest.compositeConfig = baseData.compositeConfig;
                 }
 				break;
 		}

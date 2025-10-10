@@ -5,7 +5,8 @@ import {
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
 	type ContainerizedRuntimeConfig,
-	type Task
+	type CompositeRuntimeConfig,
+	type Task,
 } from '../chat/types';
 
 export interface MCPCatalogManifest {
@@ -53,7 +54,7 @@ export interface MCPCatalogEntryServerManifest {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
     remoteConfig?: RemoteCatalogConfigAdmin;
-    compositeConfig?: { componentCatalogEntries: string[]; toolMappings?: CompositeToolMapping[] };
+    compositeConfig?: CompositeRuntimeConfig;
 }
 
 export interface MCPCatalogEntry {
@@ -102,23 +103,10 @@ export interface RuntimeFormData {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin; // For catalog entries
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
-    compositeConfig?: { componentCatalogEntries: string[]; toolMappings?: CompositeToolMapping[] };
+    compositeConfig?: CompositeRuntimeConfig;
 }
 
-export interface CompositeParameterMapping {
-	componentParameter: string;
-	exposedParameter: string;
-	exposedDescription?: string;
-}
-
-export interface CompositeToolMapping {
-	componentEntryName: string;
-	componentTool: string;
-	exposedTool: string;
-	exposedDescription?: string;
-	enabled?: boolean;
-	parameterMappings?: CompositeParameterMapping[];
-}
+// (deprecated mappings interfaces removed in favor of overrides)
 
 export interface MCPCatalogServerManifest {
 	catalogEntryID?: string;

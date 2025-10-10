@@ -460,35 +460,58 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 }
 
 func (v CompositeValidator) validateCompositeConfig(config types.CompositeRuntimeConfig) error {
-	if len(config.ComponentCatalogEntries) == 0 {
+	if len(config.Components) == 0 {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeComposite,
-			Field:   "componentCatalogEntries",
-			Message: "at least one component catalog entry is required",
+			Field:   "components",
+			Message: "at least one component is required",
 		}
 	}
 
-	// Check for duplicate entries
-	seen := make(map[string]bool)
-	for i, entryID := range config.ComponentCatalogEntries {
-		if strings.TrimSpace(entryID) == "" {
+	seen := make(map[string]struct{}, len(config.Components))
+	for i, c := range config.Components {
+		if strings.TrimSpace(c.CatalogEntryName) == "" {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("componentCatalogEntries[%d]", i),
-				Message: "catalog entry ID cannot be empty",
+				Field:   fmt.Sprintf("components[%d].catalogEntryName", i),
+				Message: "catalog entry name cannot be empty",
 			}
 		}
+		if _, dup := seen[c.CatalogEntryName]; dup {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   fmt.Sprintf("components[%d].catalogEntryName", i),
+				Message: fmt.Sprintf("duplicate catalog entry name: %s", c.CatalogEntryName),
+			}
+		}
+		seen[c.CatalogEntryName] = struct{}{}
 
-		if seen[entryID] {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("componentCatalogEntries[%d]", i),
-				Message: fmt.Sprintf("duplicate catalog entry ID: %s", entryID),
+		toolSeen := make(map[string]struct{}, len(c.ToolOverrides))
+		for j, tm := range c.ToolOverrides {
+			if strings.TrimSpace(tm.Name) == "" {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("components[%d].toolOverrides[%d].name", i, j),
+					Message: "tool name cannot be empty",
+				}
 			}
+			if strings.TrimSpace(tm.OverrideName) == "" {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("components[%d].toolOverrides[%d].overrideName", i, j),
+					Message: "override name cannot be empty",
+				}
+			}
+			if _, dup := toolSeen[tm.Name]; dup {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("components[%d].toolOverrides[%d].name", i, j),
+					Message: fmt.Sprintf("duplicate tool mapping for: %s", tm.Name),
+				}
+			}
+			toolSeen[tm.Name] = struct{}{}
 		}
-		seen[entryID] = true
 	}
-
 	return nil
 }
 

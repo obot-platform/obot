@@ -27,7 +27,7 @@
 	type Requirement =
 		| { type: 'oauth'; id: string; name: string; icon?: string; oauthURL: string }
 		| { type: 'config'; id: string; mcpID: string }
-		| { type: 'composite-oauth'; id: string; mcpID: string; oauthAuthRequestID: string };
+		| { type: 'composite-oauth'; id: string; mcpID: string };
 
 	type OauthRequirement = Extract<Requirement, { type: 'oauth' }>;
 	let requirements = $derived(
@@ -46,14 +46,13 @@
 				if (!m.authenticated && m.oauthURL && !closed.has(m.id!)) {
 					// Check if this is a composite OAuth URL
 					if (m.oauthURL.includes('/mcp/composite/')) {
-						// Extract oauth_auth_request from URL: /mcp/composite/{oauth_auth_request}/{mcp_id}
+						// Extract mcp_id from URL: /mcp/composite/{mcp_id}
 						const parts = m.oauthURL.split('/');
-						const oauthAuthRequestID = parts[parts.length - 2];
+						const mcpID = parts[parts.length - 1];
 						reqs.push({
 							type: 'composite-oauth',
 							id: m.id!,
-							mcpID: m.mcpID!,
-							oauthAuthRequestID
+							mcpID
 						} as Requirement);
 					} else {
 						reqs.push({
@@ -312,8 +311,6 @@
 		{@const compositeOauth = requirements[0] as Extract<Requirement, { type: 'composite-oauth' }>}
 		<McpCompositeOauth
 			mcpID={compositeOauth.mcpID}
-			oauthAuthRequestID={compositeOauth.oauthAuthRequestID}
-			asDialog={true}
 			onComplete={() => {
 				closed.add(compositeOauth.id);
 				// Refresh project MCPs

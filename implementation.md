@@ -15,13 +15,12 @@ From `plan.md`:
 ## Design Decisions
 
 ### URL Structure
-Based on existing OAuth patterns (`/oauth/callback/{oauth_auth_request}/{mcp_id}`), we'll use:
+Simplified from the original design, we use:
 ```
-/mcp/composite/{oauth_auth_request}/{mcp_id}
+/mcp/composite/{mcp_id}
 ```
 
 Where:
-- `{oauth_auth_request}` - The OAuthAuthRequestID shared across all children
 - `{mcp_id}` - The composite parent MCP server ID
 
 ### State Management
@@ -31,9 +30,7 @@ Where:
 - Existing `stateCache` and gateway DB handle all state persistence
 
 ### UI Component Strategy
-Create a single `McpCompositeOauth.svelte` component that works in two modes:
-- **Dialog mode** (`asDialog={true}`): For Obot UI integration
-- **Page mode** (`asDialog={false}`): For external MCP clients
+Create a single `McpCompositeOauth.svelte` component that renders as a standalone page for composite MCP server authentication. The component is used directly in chat requirements dialogs within the Obot UI.
 
 ## Implementation Steps
 
@@ -107,7 +104,7 @@ func (f *MCPOAuthHandlerFactory) checkForCompositeMCPAuth(ctx context.Context, m
 	}
 
 	// Return URL to composite OAuth page
-	return fmt.Sprintf("%s/mcp/composite/%s/%s", f.baseURL, oauthAppAuthRequestID, mcpID), nil
+	return fmt.Sprintf("%s/mcp/composite/%s", f.baseURL, mcpID), nil
 }
 ```
 
@@ -151,7 +148,7 @@ func (h *handler) oauthCallback(req api.Context) error {
 		compositeMCPID, err := h.getCompositeMCPIDFromState(req.Context(), req.URL.Query().Get("state"))
 		if err == nil && compositeMCPID != "" {
 			// Redirect back to composite OAuth page
-			http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/mcp/composite/%s/%s", oauthAuthRequestID, compositeMCPID), http.StatusFound)
+			http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/mcp/composite/%s", compositeMCPID), http.StatusFound)
 			return nil
 		}
 
@@ -222,12 +219,10 @@ func (h *handler) getCompositeMCPIDFromState(ctx context.Context, state string) 
 
 	interface Props {
 		mcpID: string;
-		oauthAuthRequestID: string;
-		asDialog?: boolean;
 		onComplete?: () => void;
 	}
 
-	let { mcpID, oauthAuthRequestID, asDialog = false, onComplete }: Props = $props();
+	let { mcpID, onComplete }: Props = $props();
 
 	interface ChildServerAuth {
 		id: string;
@@ -547,9 +542,8 @@ func (h *handler) getCompositeMCPIDFromState(ctx context.Context, state string) 
 ```
 
 **Notes**:
-- Single component works in both dialog and standalone page modes
-- Uses `asDialog` prop to toggle rendering mode
-- Fetches parent and child servers via existing APIs
+- Component works as a standalone page
+- Fetches parent and child component servers using new endpoint
 - Checks auth status for each child
 - Handles visibility change to detect OAuth completion
 - Shows authenticate buttons for each unauthenticated child
@@ -557,22 +551,16 @@ func (h *handler) getCompositeMCPIDFromState(ctx context.Context, state string) 
 
 ### 4. Frontend: Create Route for Standalone Page
 
-**File**: `/Users/nick/projects/obot-platform/obot/ui/user/src/routes/mcp/composite/[oauth_auth_request]/[mcp_id]/+page.svelte`
+**File**: `/Users/nick/projects/obot-platform/obot/ui/user/src/routes/mcp/composite/[mcp_id]/+page.svelte`
 
 ```svelte
 <script lang="ts">
 	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
-	import { page } from '$app/stores';
-
-	const mcpID = $derived($page.params.mcp_id);
-	const oauthAuthRequestID = $derived($page.params.oauth_auth_request);
+	export let data: { mcpID: string };
+	const mcpID = data.mcpID;
 </script>
 
-<McpCompositeOauth
-	{mcpID}
-	{oauthAuthRequestID}
-	asDialog={false}
-/>
+<McpCompositeOauth {mcpID} />
 ```
 
 **Notes**:
@@ -593,7 +581,7 @@ import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
 type Requirement =
 	| { type: 'oauth'; id: string; name: string; icon?: string; oauthURL: string }
 	| { type: 'config'; id: string; mcpID: string }
-	| { type: 'composite-oauth'; id: string; mcpID: string; oauthAuthRequestID: string };
+	| { type: 'composite-oauth'; id: string; mcpID: string };
 ```
 
 **Modify requirements derivation** (around line 31) to detect composite OAuth URLs:
@@ -614,14 +602,13 @@ let requirements = $derived(
 			if (!m.authenticated && m.oauthURL && !closed.has(m.id!)) {
 				// Check if this is a composite OAuth URL
 				if (m.oauthURL.includes('/mcp/composite/')) {
-					// Extract oauth_auth_request from URL: /mcp/composite/{oauth_auth_request}/{mcp_id}
+					// Extract mcp_id from URL: /mcp/composite/{mcp_id}
 					const parts = m.oauthURL.split('/');
-					const oauthAuthRequestID = parts[parts.length - 2];
+					const mcpID = parts[parts.length - 1];
 					reqs.push({
 						type: 'composite-oauth',
 						id: m.id!,
-						mcpID: m.mcpID!,
-						oauthAuthRequestID
+						mcpID
 					} as Requirement);
 				} else {
 					reqs.push({
@@ -646,8 +633,6 @@ let requirements = $derived(
 	{@const compositeOauth = requirements[0] as Extract<Requirement, { type: 'composite-oauth' }>}
 	<McpCompositeOauth
 		mcpID={compositeOauth.mcpID}
-		oauthAuthRequestID={compositeOauth.oauthAuthRequestID}
-		asDialog={true}
 		onComplete={() => {
 			closed.add(compositeOauth.id);
 			// Refresh project MCPs
@@ -666,8 +651,8 @@ let requirements = $derived(
 
 **Notes**:
 - Detects composite OAuth URLs in requirement list
-- Extracts `oauthAuthRequestID` from URL path
-- Renders `McpCompositeOauth` in dialog mode
+- Extracts `mcpID` from URL path
+- Renders `McpCompositeOauth` component
 - Refreshes project MCPs when authentication completes
 
 ### 6. Frontend: Update McpOauth Component (Optional)
@@ -723,7 +708,7 @@ try {
 
 **Test Scenario 1: External MCP Client**
 1. External client connects to composite MCP server
-2. CheckForMCPAuth returns `/mcp/composite/{oauth_auth_request}/{mcp_id}`
+2. CheckForMCPAuth returns `/mcp/composite/{mcp_id}`
 3. Client is redirected to standalone page
 4. Page shows list of child servers requiring OAuth
 5. User clicks "Authenticate" for first child

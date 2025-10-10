@@ -3,7 +3,7 @@ package mcpserver
 import (
 	"fmt"
 	"slices"
-	"sort"
+	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -45,7 +45,7 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 	// For composite servers, also check if any child component servers have drifted
 	if !drifted && server.Spec.Manifest.Runtime == types.RuntimeComposite {
 		var childServerList v1.MCPServerList
-		if err := req.Client.List(req.Ctx, &childServerList, kclient.InNamespace(server.Namespace), kclient.MatchingLabels{"composite-parent": server.Name}); err != nil {
+		if err := req.Client.List(req.Ctx, &childServerList, kclient.InNamespace(server.Namespace), kclient.MatchingFields{"spec.compositeName": server.Name}); err != nil {
 			return fmt.Errorf("failed to list child servers: %w", err)
 		}
 
@@ -180,42 +180,44 @@ func compositeConfigHasDrifted(serverConfig, entryConfig *types.CompositeRuntime
 		return true
 	}
 
-	// Check if component catalog entries have changed
-	if !slices.Equal(serverConfig.ComponentCatalogEntries, entryConfig.ComponentCatalogEntries) {
-		return true
-	}
+	sv := append([]types.CompositeComponent(nil), serverConfig.Components...)
+	ev := append([]types.CompositeComponent(nil), entryConfig.Components...)
 
-	// Check if tool mappings have changed (order-insensitive comparison)
-	serverMappings := make([]types.CompositeToolMapping, len(serverConfig.ToolMappings))
-	copy(serverMappings, serverConfig.ToolMappings)
-	entryMappings := make([]types.CompositeToolMapping, len(entryConfig.ToolMappings))
-	copy(entryMappings, entryConfig.ToolMappings)
-
-	// Sort both slices for order-insensitive comparison
-	sortToolMappings(serverMappings)
-	sortToolMappings(entryMappings)
-
-	return !equality.Semantic.DeepEqual(serverMappings, entryMappings)
-}
-
-// sortToolMappings sorts a slice of CompositeToolMapping for consistent comparison
-func sortToolMappings(mappings []types.CompositeToolMapping) {
-	sort.Slice(mappings, func(i, j int) bool {
-		if mappings[i].ComponentEntryName != mappings[j].ComponentEntryName {
-			return mappings[i].ComponentEntryName < mappings[j].ComponentEntryName
-		}
-		if mappings[i].ComponentTool != mappings[j].ComponentTool {
-			return mappings[i].ComponentTool < mappings[j].ComponentTool
-		}
-		return mappings[i].ExposedTool < mappings[j].ExposedTool
+	slices.SortFunc(sv, func(a, b types.CompositeComponent) int {
+		return strings.Compare(a.CatalogEntryName, b.CatalogEntryName)
 	})
-
-	// Also sort parameter mappings within each tool mapping
-	for i := range mappings {
-		sort.Slice(mappings[i].ParameterMappings, func(a, b int) bool {
-			return mappings[i].ParameterMappings[a].ComponentParameter < mappings[i].ParameterMappings[b].ComponentParameter
+	for i := range sv {
+		slices.SortFunc(sv[i].ToolOverrides, func(a, b types.ToolOverride) int {
+			if d := strings.Compare(a.Name, b.Name); d != 0 {
+				return d
+			}
+			return strings.Compare(a.OverrideName, b.OverrideName)
 		})
+		for j := range sv[i].ToolOverrides {
+			slices.SortFunc(sv[i].ToolOverrides[j].ParameterOverrides, func(a, b types.ParameterOverride) int {
+				return strings.Compare(a.Name, b.Name)
+			})
+		}
 	}
+
+	slices.SortFunc(ev, func(a, b types.CompositeComponent) int {
+		return strings.Compare(a.CatalogEntryName, b.CatalogEntryName)
+	})
+	for i := range ev {
+		slices.SortFunc(ev[i].ToolOverrides, func(a, b types.ToolOverride) int {
+			if d := strings.Compare(a.Name, b.Name); d != 0 {
+				return d
+			}
+			return strings.Compare(a.OverrideName, b.OverrideName)
+		})
+		for j := range ev[i].ToolOverrides {
+			slices.SortFunc(ev[i].ToolOverrides[j].ParameterOverrides, func(a, b types.ParameterOverride) int {
+				return strings.Compare(a.Name, b.Name)
+			})
+		}
+	}
+
+	return !equality.Semantic.DeepEqual(sv, ev)
 }
 
 // EnsureMCPServerInstanceUserCount ensures that mcp server instance user count for multi-user MCP servers is up to date.

@@ -630,24 +630,16 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	// Handle composite servers differently - they need to aggregate tools from components
 	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
 		// Fetch all component catalog entries
-		if entry.Spec.Manifest.CompositeConfig == nil || len(entry.Spec.Manifest.CompositeConfig.ComponentCatalogEntries) == 0 {
-			return types.NewErrBadRequest("composite server has no component catalog entries configured")
+		if entry.Spec.Manifest.CompositeConfig == nil || len(entry.Spec.Manifest.CompositeConfig.Components) == 0 {
+			return types.NewErrBadRequest("composite server has no components configured")
 		}
 
-		// Build tool mapping index for quick lookup
+		// Process each component
 		compositeConfig := entry.Spec.Manifest.CompositeConfig
-		toolMap := make(map[string]types.CompositeToolMapping)
-		hasAnyMappings := len(compositeConfig.ToolMappings) > 0
-		for _, tm := range compositeConfig.ToolMappings {
-			key := tm.ComponentEntryName + "\x00" + tm.ComponentTool
-			toolMap[key] = tm
-		}
-
-		// Process each component catalog entry
-		for _, componentEntryID := range compositeConfig.ComponentCatalogEntries {
+		for _, comp := range compositeConfig.Components {
 			var componentEntry v1.MCPServerCatalogEntry
-			if err := req.Get(&componentEntry, componentEntryID); err != nil {
-				return fmt.Errorf("failed to get component catalog entry %s: %w", componentEntryID, err)
+			if err := req.Get(&componentEntry, comp.CatalogEntryName); err != nil {
+				return fmt.Errorf("failed to get component catalog entry %s: %w", comp.CatalogEntryName, err)
 			}
 
 			// Skip nested composite servers (not yet supported)
@@ -702,34 +694,33 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 				continue
 			}
 
-			// Apply mappings and prefixing to component tools
+			// Apply overrides and prefixing to component tools
 			componentPrefix := sanitizeToolPrefix(componentEntry.Spec.Manifest.Name)
-			entryKey := componentEntry.Name
+			// Build per-component overrides map
+			overrideMap := make(map[string]types.ToolOverride, len(comp.ToolOverrides))
+			for _, tm := range comp.ToolOverrides {
+				overrideMap[tm.Name] = tm
+			}
+			hasOverrides := len(overrideMap) > 0
 
 			for _, tool := range componentTools {
-				lookupKey := entryKey + "\x00" + tool.Name
-				if tm, ok := toolMap[lookupKey]; ok {
-					// Tool has explicit mapping
+				if tm, ok := overrideMap[tool.Name]; ok {
 					if !tm.Enabled {
-						continue // Skip disabled tools
+						continue
 					}
-					// Use exposed name if provided, otherwise use original tool name
-					exposedName := tm.ExposedTool
-					if exposedName == "" {
-						exposedName = tool.Name
+					name := tm.OverrideName
+					if name == "" {
+						name = tool.Name
 					}
-					// Always prefix with component prefix
-					tool.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(exposedName))
-					if tm.ExposedDescription != "" {
-						tool.Description = tm.ExposedDescription
+					tool.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(name))
+					if tm.OverrideDescription != "" {
+						tool.Description = tm.OverrideDescription
 					}
 					toolPreviews = append(toolPreviews, tool)
-				} else if !hasAnyMappings {
-					// No mappings configured - include everything with prefix to avoid collisions
+				} else if !hasOverrides {
 					tool.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(tool.Name))
 					toolPreviews = append(toolPreviews, tool)
 				}
-				// If mappings exist but this tool isn't mapped - exclude it (allowlist behavior)
 			}
 		}
 	} else {

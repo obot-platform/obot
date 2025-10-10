@@ -345,16 +345,20 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		case methodToolsList:
 			// Aggregate tools from all children
 			var allTools []nmcp.Tool
-			// Build a quick lookup of tool mappings by (componentEntryName, componentTool)
-			toolMap := make(map[string]types.CompositeToolMapping)
+			// Build per-component override maps: entryName -> (toolName -> override)
+			componentToolMaps := map[string]map[string]types.ToolOverride{}
 			hasAnyMappings := false
-			if m.mcpServer.Spec.Manifest.CompositeConfig != nil {
-				hasAnyMappings = len(m.mcpServer.Spec.Manifest.CompositeConfig.ToolMappings) > 0
-				log.Warnf("Composite server %s has %d tool mappings", m.mcpServer.Name, len(m.mcpServer.Spec.Manifest.CompositeConfig.ToolMappings))
-				for _, tm := range m.mcpServer.Spec.Manifest.CompositeConfig.ToolMappings {
-					key := tm.ComponentEntryName + "\x00" + tm.ComponentTool
-					toolMap[key] = tm
-					log.Warnf("Tool mapping: %s -> %s (enabled: %v)", key, tm.ExposedTool, tm.Enabled)
+			if cfg := m.mcpServer.Spec.Manifest.CompositeConfig; cfg != nil {
+				for _, comp := range cfg.Components {
+					if len(comp.ToolOverrides) == 0 {
+						continue
+					}
+					hasAnyMappings = true
+					mp := make(map[string]types.ToolOverride, len(comp.ToolOverrides))
+					for _, tm := range comp.ToolOverrides {
+						mp[tm.Name] = tm
+					}
+					componentToolMaps[comp.CatalogEntryName] = mp
 				}
 			}
 			for i, childServer := range m.childServers {
@@ -392,37 +396,32 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 				entryKey := childServer.Spec.MCPServerCatalogEntryName
 				log.Warnf("Processing tools from child server %s with prefix: %s, entryKey: %s", childServer.Spec.Manifest.Name, componentPrefix, entryKey)
 				for _, tool := range listResult.Tools {
-					lookupKey := entryKey + "\x00" + tool.Name
-					if tm, ok := toolMap[lookupKey]; ok {
-						// Tool has explicit mapping
-						log.Warnf("Found mapping for tool %s: enabled=%v", tool.Name, tm.Enabled)
-						if !tm.Enabled {
-							log.Warnf("Skipping disabled tool: %s", tool.Name)
+					if tmap, ok := componentToolMaps[entryKey]; ok {
+						if tm, ok := tmap[tool.Name]; ok {
+							log.Warnf("Found override for tool %s: enabled=%v", tool.Name, tm.Enabled)
+							if !tm.Enabled {
+								log.Warnf("Skipping disabled tool: %s", tool.Name)
+								continue
+							}
+							name := tm.OverrideName
+							if name == "" {
+								name = tool.Name
+							}
+							tool.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(name))
+							if tm.OverrideDescription != "" {
+								tool.Description = tm.OverrideDescription
+							}
+							if len(tm.ParameterOverrides) > 0 && len(tool.InputSchema) > 0 {
+								tool.InputSchema = applyParameterMappings(tool.InputSchema, tm.ParameterOverrides, false)
+							}
+							allTools = append(allTools, tool)
 							continue
 						}
-						// Use exposed name if provided, otherwise use original tool name
-						exposedName := tm.ExposedTool
-						if exposedName == "" {
-							exposedName = tool.Name
-						}
-						// Always prefix with component prefix
-						tool.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(exposedName))
-						if tm.ExposedDescription != "" {
-							tool.Description = tm.ExposedDescription
-						}
-						// Apply parameter mappings to InputSchema
-						if len(tm.ParameterMappings) > 0 && len(tool.InputSchema) > 0 {
-							tool.InputSchema = applyParameterMappings(tool.InputSchema, tm.ParameterMappings, false)
-						}
-						allTools = append(allTools, tool)
-					} else if !hasAnyMappings {
-						// No mappings configured - include everything with prefix to avoid collisions
+					}
+					if !hasAnyMappings {
 						log.Warnf("No mappings configured, including tool %s with prefix", tool.Name)
 						tool.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(tool.Name))
 						allTools = append(allTools, tool)
-					} else {
-						// mappings exist but this tool isn't mapped - exclude it (allowlist behavior)
-						log.Warnf("Tool %s not in mapping (key: %s), excluding", tool.Name, lookupKey)
 					}
 				}
 			}
@@ -444,7 +443,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 				targetChild      *v1.MCPServer
 				targetConfig     *mcp.ServerConfig
 				originalToolName string
-				toolMapping      *types.CompositeToolMapping
+				toolMapping      *types.ToolOverride
 			)
 
 			// Build list of component prefixes for parsing
@@ -462,8 +461,19 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 			// Find the child server by matching component prefix
 			var hasAnyMappings bool
-			if m.mcpServer.Spec.Manifest.CompositeConfig != nil {
-				hasAnyMappings = len(m.mcpServer.Spec.Manifest.CompositeConfig.ToolMappings) > 0
+			var tmap map[string]types.ToolOverride
+			if cfg := m.mcpServer.Spec.Manifest.CompositeConfig; cfg != nil {
+				for _, comp := range cfg.Components {
+					if comp.CatalogEntryName == m.mcpServer.Spec.MCPServerCatalogEntryName && len(comp.ToolOverrides) > 0 {
+						m := make(map[string]types.ToolOverride, len(comp.ToolOverrides))
+						for _, tm := range comp.ToolOverrides {
+							m[tm.Name] = tm
+						}
+						tmap = m
+						hasAnyMappings = true
+						break
+					}
+				}
 			}
 
 			for i, childServer := range m.childServers {
@@ -478,35 +488,27 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 				// Now determine the original tool name
 				if hasAnyMappings {
-					// Look for a tool mapping that matches this exposed name
-					entryKey := childServer.Spec.MCPServerCatalogEntryName
-					mappings := m.mcpServer.Spec.Manifest.CompositeConfig.ToolMappings
-					for _, tm := range mappings {
-						if tm.ComponentEntryName != entryKey {
-							continue
+					for _, tm := range tmap {
+						exposed := tm.OverrideName
+						if exposed == "" {
+							exposed = tm.Name
 						}
-						// Check if this mapping would produce the exposed name we have
-						mappingExposedName := tm.ExposedTool
-						if mappingExposedName == "" {
-							mappingExposedName = tm.ComponentTool
-						}
-						if sanitizeToolPrefix(mappingExposedName) == exposedName {
+						if sanitizeToolPrefix(exposed) == exposedName {
 							if !tm.Enabled {
 								err = &nmcp.RPCError{Code: -32602, Message: "Tool not found"}
 								return
 							}
-							originalToolName = tm.ComponentTool
-							toolMapping = &tm
+							originalToolName = tm.Name
+							tmCopy := tm
+							toolMapping = &tmCopy
 							break
 						}
 					}
-					// If no mapping matched, tool is excluded
 					if originalToolName == "" {
 						err = &nmcp.RPCError{Code: -32602, Message: "Tool not found"}
 						return
 					}
 				} else {
-					// No mappings, exposed name is the original tool name
 					originalToolName = exposedName
 				}
 				break
@@ -518,8 +520,8 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			}
 
 			// Apply parameter name mappings to arguments (exposed → component)
-			if toolMapping != nil && len(toolMapping.ParameterMappings) > 0 {
-				params.Arguments = transformArguments(params.Arguments, toolMapping.ParameterMappings, true)
+			if toolMapping != nil && len(toolMapping.ParameterOverrides) > 0 {
+				params.Arguments = transformArguments(params.Arguments, toolMapping.ParameterOverrides, true)
 			}
 
 			// Connect to target child and call the tool
@@ -869,7 +871,7 @@ func fireWebhook(ctx context.Context, httpClient *http.Client, body []byte, mcpI
 // transformArguments renames argument keys based on parameter mappings
 // If toComponent is true: exposed → component (for incoming tool calls)
 // If toComponent is false: component → exposed (for outgoing tool call results, if needed)
-func transformArguments(args map[string]interface{}, mappings []types.CompositeParameterMapping, toComponent bool) map[string]interface{} {
+func transformArguments(args map[string]interface{}, mappings []types.ParameterOverride, toComponent bool) map[string]interface{} {
 	if len(mappings) == 0 {
 		return args
 	}
@@ -878,11 +880,11 @@ func transformArguments(args map[string]interface{}, mappings []types.CompositeP
 	paramMap := make(map[string]string)
 	for _, pm := range mappings {
 		if toComponent {
-			// Map exposed parameter name to component parameter name
-			paramMap[pm.ExposedParameter] = pm.ComponentParameter
+			// Map override parameter name to original parameter name
+			paramMap[pm.OverrideName] = pm.Name
 		} else {
-			// Map component parameter name to exposed parameter name
-			paramMap[pm.ComponentParameter] = pm.ExposedParameter
+			// Map original parameter name to override parameter name
+			paramMap[pm.Name] = pm.OverrideName
 		}
 	}
 
@@ -902,7 +904,7 @@ func transformArguments(args map[string]interface{}, mappings []types.CompositeP
 // applyParameterMappings transforms parameter names and descriptions in a JSON Schema InputSchema
 // If reverse is false: component → exposed (for tools/list - showing schema to clients)
 // If reverse is true: exposed → component (for future use transforming incoming schemas)
-func applyParameterMappings(inputSchema json.RawMessage, mappings []types.CompositeParameterMapping, reverse bool) json.RawMessage {
+func applyParameterMappings(inputSchema json.RawMessage, mappings []types.ParameterOverride, reverse bool) json.RawMessage {
 	if len(mappings) == 0 || len(inputSchema) == 0 {
 		return inputSchema
 	}
@@ -914,14 +916,14 @@ func applyParameterMappings(inputSchema json.RawMessage, mappings []types.Compos
 	}
 
 	// Build mapping lookup
-	paramMap := make(map[string]types.CompositeParameterMapping)
+	paramMap := make(map[string]types.ParameterOverride)
 	for _, pm := range mappings {
 		if reverse {
-			// For exposed → component: key by exposed name
-			paramMap[pm.ExposedParameter] = pm
+			// For override → original: key by override name
+			paramMap[pm.OverrideName] = pm
 		} else {
-			// For component → exposed: key by component name
-			paramMap[pm.ComponentParameter] = pm
+			// For original → override: key by original name
+			paramMap[pm.Name] = pm
 		}
 	}
 
@@ -933,17 +935,17 @@ func applyParameterMappings(inputSchema json.RawMessage, mappings []types.Compos
 				// Rename the property
 				var newName string
 				if reverse {
-					// exposed → component
-					newName = pm.ComponentParameter
+					// override → original
+					newName = pm.Name
 				} else {
-					// component → exposed
-					newName = pm.ExposedParameter
+					// original → override
+					newName = pm.OverrideName
 				}
 
 				// Update description if mapping provides one (only for component → exposed)
-				if !reverse && pm.ExposedDescription != "" {
+				if !reverse && pm.OverrideDescription != "" {
 					if propMap, ok := propDef.(map[string]interface{}); ok {
-						propMap["description"] = pm.ExposedDescription
+						propMap["description"] = pm.OverrideDescription
 					}
 				}
 
@@ -963,11 +965,11 @@ func applyParameterMappings(inputSchema json.RawMessage, mappings []types.Compos
 			if reqStr, ok := req.(string); ok {
 				if pm, found := paramMap[reqStr]; found {
 					if reverse {
-						// exposed → component
-						newRequired = append(newRequired, pm.ComponentParameter)
+						// override → original
+						newRequired = append(newRequired, pm.Name)
 					} else {
-						// component → exposed
-						newRequired = append(newRequired, pm.ExposedParameter)
+						// original → override
+						newRequired = append(newRequired, pm.OverrideName)
 					}
 				} else {
 					newRequired = append(newRequired, req)

@@ -280,16 +280,16 @@
 		if (!entry) return;
 
 		// For composite servers, fetch component entries and aggregate their config
-		if (type === 'composite' && entry.manifest.compositeConfig?.componentCatalogEntries) {
+    if (type === 'composite' && entry.manifest.compositeConfig?.components) {
 			const aggregatedEnvs: any[] = [];
 			const aggregatedHeaders: any[] = [];
 
 			// Fetch all component entries
-			for (const componentEntryID of entry.manifest.compositeConfig.componentCatalogEntries) {
+        for (const component of entry.manifest.compositeConfig.components) {
 				try {
-					const componentEntry = await (entity === 'workspace'
-						? ChatService.getWorkspaceMCPCatalogEntry(id!, componentEntryID)
-						: AdminService.getMCPCatalogEntry(id!, componentEntryID));
+                const componentEntry = await (entity === 'workspace'
+                    ? ChatService.getWorkspaceMCPCatalogEntry(id!, component.catalogEntryName)
+                    : AdminService.getMCPCatalogEntry(id!, component.catalogEntryName));
 
 					// Aggregate env vars with prefix
 					if (componentEntry.manifest?.env) {
@@ -326,9 +326,9 @@
 							value: ''
 						});
 					}
-				} catch (err) {
-					console.error(`Failed to fetch component entry ${componentEntryID}:`, err);
-				}
+                } catch (err) {
+                    console.error(`Failed to fetch component entry ${component.catalogEntryName}:`, err);
+                }
 			}
 
 			configureForm = {
@@ -525,7 +525,7 @@
 		{:else if selected === 'audit-logs'}
 			{@render auditLogsView()}
 		{:else if selected === 'server-instances'}
-			<McpServerInstances {id} {entity} {entry} {users} {type} />
+            <McpServerInstances {id} {entity} {entry} {users} type={type === 'composite' ? undefined : type} />
 		{:else if selected === 'filters'}
 			{@render filtersView()}
 		{/if}

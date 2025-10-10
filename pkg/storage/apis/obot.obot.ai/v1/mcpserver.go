@@ -44,6 +44,8 @@ func (in *MCPServer) Get(field string) (value string) {
 		return in.Spec.PowerUserWorkspaceID
 	case "spec.template":
 		return strconv.FormatBool(in.Spec.Template)
+	case "spec.compositeName":
+		return in.Spec.CompositeName
 	}
 	return ""
 }
@@ -56,6 +58,7 @@ func (in *MCPServer) FieldNames() []string {
 		"spec.mcpCatalogID",
 		"spec.powerUserWorkspaceID",
 		"spec.template",
+		"spec.compositeName",
 	}
 }
 
@@ -65,6 +68,7 @@ func (in *MCPServer) DeleteRefs() []Ref {
 		{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName},
 		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogID},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
+		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
 	}
 }
 
@@ -81,6 +85,8 @@ type MCPServerSpec struct {
 	UserID string `json:"userID,omitempty"`
 	// SharedWithinMCPCatalogName is a deprecated field. It is renamed to MCPCatalogID.
 	SharedWithinMCPCatalogName string `json:"sharedWithinMCPCatalogName,omitempty"`
+	// CompositeName contains the name of the Composite MCP server that this server is a component of, if there is one.
+	CompositeName string `json:"compositeName,omitempty"`
 	// MCPCatalogID contains the name of the MCPCatalog inside of which this server was directly created by the admin, if there is one.
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`
 	// MCPServerCatalogEntryName contains the name of the MCPServerCatalogEntry from which this MCP server was created, if there is one.

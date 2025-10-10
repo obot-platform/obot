@@ -7,12 +7,12 @@
 	import CatalogConfigureForm, { type LaunchFormData } from './CatalogConfigureForm.svelte';
 	import { hasEditableConfiguration, convertEnvHeadersToRecord } from '$lib/services/chat/mcp';
 
-	interface Props {
-		compositeConfig: { componentCatalogEntries: string[] };
-		readonly?: boolean;
-		catalogId?: string;
-		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
-	}
+interface Props {
+    compositeConfig: { components: { catalogEntryName: string; toolOverrides?: any[] }[] };
+    readonly?: boolean;
+    catalogId?: string;
+    mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
+}
 
 	let { compositeConfig = $bindable(), readonly, catalogId, mcpEntriesContextFn }: Props = $props();
 	let searchDialog = $state<ReturnType<typeof SearchMcpServers>>();
@@ -47,41 +47,22 @@
 
 function updateCompositeToolMappings() {
     if (!compositeConfig) return;
-    const mappings: {
-        componentEntryName: string;
-        componentTool: string;
-        exposedTool: string;
-        exposedDescription?: string;
-        enabled?: boolean;
-        parameterMappings?: {
-            componentParameter: string;
-            exposedParameter: string;
-            exposedDescription?: string;
-        }[];
-    }[] = [];
-    const entryIds = Object.keys(toolsByEntry);
-    for (const eid of entryIds) {
-        const rows = toolsByEntry[eid] || [];
-        for (const row of rows) {
-            const paramMappings = row.parameters?.map((p) => ({
-                componentParameter: p.originalName,
-                exposedParameter: p.exposedName,
-                exposedDescription: p.exposedDescription
-            }));
-            mappings.push({
-                componentEntryName: eid,
-                componentTool: row.originalName,
-                exposedTool: row.exposedName,
-                exposedDescription: row.exposedDescription,
-                enabled: row.enabled,
-                parameterMappings: paramMappings
-            });
-        }
-    }
-    // preserve component list; attach mappings so parent form persists it
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore - compositeConfig has toolMappings in admin types
-    compositeConfig.toolMappings = mappings;
+    const components = (compositeConfig.components || []).map((c) => {
+        const rows = toolsByEntry[c.catalogEntryName] || [];
+        const toolOverrides = rows.map((row) => ({
+            name: row.originalName,
+            overrideName: row.exposedName,
+            overrideDescription: row.exposedDescription,
+            enabled: row.enabled,
+            parameterOverrides: row.parameters?.map((p) => ({
+                name: p.originalName,
+                overrideName: p.exposedName,
+                overrideDescription: p.exposedDescription
+            }))
+        }));
+        return { catalogEntryName: c.catalogEntryName, toolOverrides };
+    });
+    compositeConfig.components = components;
 }
 
 	// Per-entry configuration dialog state
@@ -156,16 +137,16 @@ function updateCompositeToolMappings() {
 
 	// Load full catalog entry details for display
 	async function loadComponentEntries() {
-		if (!compositeConfig?.componentCatalogEntries || !catalogId) return;
+    if (!compositeConfig?.components || !catalogId) return;
 
 		loading = true;
 		try {
-			const entries = await Promise.all(
-				compositeConfig.componentCatalogEntries.map(async (entryId) => {
+            const entries = await Promise.all(
+                compositeConfig.components.map(async (c) => {
 					try {
-						return await AdminService.getMCPCatalogEntry(catalogId, entryId);
+                        return await AdminService.getMCPCatalogEntry(catalogId, c.catalogEntryName);
 					} catch (e) {
-						console.error(`Failed to load component entry ${entryId}:`, e);
+                        console.error(`Failed to load component entry ${c.catalogEntryName}:`, e);
 						return null;
 					}
 				})
@@ -182,7 +163,7 @@ function updateCompositeToolMappings() {
 
 	// Re-fetch component entry details whenever the selected component IDs or catalog change
 	$effect(() => {
-		const idsKey = compositeConfig?.componentCatalogEntries?.join(',') || '';
+    const idsKey = compositeConfig?.components?.map((c) => c.catalogEntryName).join(',') || '';
 		const catKey = catalogId || '';
 		// touch keys so Svelte tracks them
 		idsKey;
@@ -190,25 +171,25 @@ function updateCompositeToolMappings() {
 		loadComponentEntries();
 	});
 
-	function handleAdd(mcpCatalogEntryIds: string[]) {
-		if (!compositeConfig) {
-			compositeConfig = { componentCatalogEntries: [] };
-		}
-		// Add new entries that aren't already in the list
-		const newEntries = mcpCatalogEntryIds.filter(
-			(id) => !compositeConfig.componentCatalogEntries.includes(id)
-		);
-		compositeConfig.componentCatalogEntries = [
-			...compositeConfig.componentCatalogEntries,
-			...newEntries
-		];
-	}
+function handleAdd(mcpCatalogEntryIds: string[]) {
+    if (!compositeConfig) {
+        compositeConfig = { components: [] } as any;
+    }
+    const existing = new Set((compositeConfig.components || []).map((c) => c.catalogEntryName));
+    const newComponents = mcpCatalogEntryIds
+        .filter((id) => !existing.has(id))
+        .map((id) => ({ catalogEntryName: id, toolOverrides: [] }));
+    compositeConfig.components = [...(compositeConfig.components || []), ...newComponents];
+}
 
-	function removeServer(entryId: string) {
-		compositeConfig.componentCatalogEntries = compositeConfig.componentCatalogEntries.filter(
-			(id) => id !== entryId
-		);
-	}
+function removeServer(entryId: string) {
+    compositeConfig.components = (compositeConfig.components || []).filter(
+        (c) => c.catalogEntryName !== entryId
+    );
+    delete toolsByEntry[entryId];
+    delete populatedByEntry[entryId];
+    delete loadingByEntry[entryId];
+}
 </script>
 
 <div
@@ -391,9 +372,9 @@ function updateCompositeToolMappings() {
 <SearchMcpServers
 	bind:this={searchDialog}
 	onAdd={(mcpCatalogEntryIds) => handleAdd(mcpCatalogEntryIds)}
-	exclude={compositeConfig?.componentCatalogEntries}
-	type="acr"
-	{mcpEntriesContextFn}
+exclude={compositeConfig?.components?.map((c) => c.catalogEntryName)}
+type="acr"
+{mcpEntriesContextFn}
 />
 
 <!-- Inline configuration dialog for previewing tools on components that require config -->

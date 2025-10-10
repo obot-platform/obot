@@ -58,36 +58,41 @@ type RemoteCatalogConfig struct {
 // CompositeRuntimeConfig represents configuration for composite runtime (Composite MCP servers)
 // A composite server aggregates multiple MCP catalog entries into a single unified server
 type CompositeRuntimeConfig struct {
-	// ComponentCatalogEntries lists the catalog entry IDs to include in this composite server
-	ComponentCatalogEntries []string `json:"componentCatalogEntries"`
-	// Optional tool mapping configuration for exposing/renaming tools from component servers
-	ToolMappings []CompositeToolMapping `json:"toolMappings,omitempty"`
+	// Components lists the catalog entries to include in this composite server,
+	// along with optional tool overrides per component
+	Components []CompositeComponent `json:"components"`
 }
 
-// CompositeParameterMapping defines how a single tool parameter is exposed by the composite server
-type CompositeParameterMapping struct {
-	// ComponentParameter is the original parameter name as defined by the component server
-	ComponentParameter string `json:"componentParameter"`
-	// ExposedParameter is the parameter name exposed by the composite server
-	ExposedParameter string `json:"exposedParameter"`
+// CompositeComponent represents a single component within a composite server
+type CompositeComponent struct {
+	// CatalogEntryName is the ID (Kubernetes object name) of the catalog entry
+	CatalogEntryName string `json:"catalogEntryName"`
+	// ToolOverrides configures tool exposure/renaming for this component
+	ToolOverrides []ToolOverride `json:"toolOverrides,omitempty"`
+}
+
+// ParameterOverride defines how a single tool parameter is exposed by the composite server
+type ParameterOverride struct {
+	// Name is the original parameter name as defined by the component server
+	Name string `json:"name"`
+	// OverrideName is the parameter name exposed by the composite server
+	OverrideName string `json:"overrideName"`
 	// Optional override for parameter description
-	ExposedDescription string `json:"exposedDescription,omitempty"`
+	OverrideDescription string `json:"overrideDescription,omitempty"`
 }
 
-// CompositeToolMapping defines how a single component tool is exposed by the composite server
-type CompositeToolMapping struct {
-	// ComponentEntryName is the catalog entry name of the component server (Kubernetes object name)
-	ComponentEntryName string `json:"componentEntryName"`
-	// ComponentTool is the original tool name as returned by the component server
-	ComponentTool string `json:"componentTool"`
-	// ExposedTool is the tool name exposed by the composite server
-	ExposedTool string `json:"exposedTool"`
+// ToolOverride defines how a single component tool is exposed by the composite server
+type ToolOverride struct {
+	// Name is the original tool name as returned by the component server
+	Name string `json:"name"`
+	// OverrideName is the tool name exposed by the composite server
+	OverrideName string `json:"overrideName"`
 	// Optional overrides for display
-	ExposedDescription string `json:"exposedDescription,omitempty"`
+	OverrideDescription string `json:"overrideDescription,omitempty"`
 	// Whether to include this tool (default true)
 	Enabled bool `json:"enabled,omitempty"`
-	// Optional parameter name/description mappings
-	ParameterMappings []CompositeParameterMapping `json:"parameterMappings,omitempty"`
+	// Optional parameter name/description overrides
+	ParameterOverrides []ParameterOverride `json:"parameterOverrides,omitempty"`
 }
 
 type MCPServerCatalogEntry struct {
@@ -138,8 +143,6 @@ type MCPHeader struct {
 	Required  bool `json:"required"`
 
 	// Optional provenance for composite aggregation
-	// ComponentEntryID is the catalog entry ID that this field originated from (when part of a composite)
-	ComponentEntryID string `json:"componentEntryID,omitempty"`
 	// ComponentEntryName is the catalog entry name (Kubernetes object name) for the component
 	ComponentEntryName string `json:"componentEntryName,omitempty"`
 	// ComponentDisplayName is the human-friendly manifest.name of the component entry
@@ -399,8 +402,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		// Keep composite runtime and config as-is
 		// Child MCPServers will be created when the composite server is configured
 		serverManifest.CompositeConfig = &CompositeRuntimeConfig{
-			ComponentCatalogEntries: catalogEntry.CompositeConfig.ComponentCatalogEntries,
-			ToolMappings:            catalogEntry.CompositeConfig.ToolMappings,
+			Components: catalogEntry.CompositeConfig.Components,
 		}
 
 	default:

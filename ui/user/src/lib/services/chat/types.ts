@@ -308,10 +308,8 @@ export interface MCPSubField {
 	name: string;
 	required: boolean;
 	sensitive: boolean;
-  // Optional provenance when fields are aggregated from composite components
-  componentEntryID?: string;
-  componentEntryName?: string;
-  componentDisplayName?: string;
+  	componentEntryName?: string;
+  	componentDisplayName?: string;
 }
 
 export interface MCP {
@@ -336,16 +334,31 @@ export interface MCPServer {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
     remoteConfig?: RemoteRuntimeConfig;
-    compositeConfig?: {
-        componentCatalogEntries: string[];
-        toolMappings?: {
-            componentEntryName: string;
-            componentTool: string;
-            exposedTool: string;
-            exposedDescription?: string;
-            enabled?: boolean;
-        }[];
-    };
+    compositeConfig?: CompositeRuntimeConfig;
+}
+
+// Named types for composite config (avoid inline types)
+export interface ParameterOverride {
+	name: string;
+	overrideName: string;
+	overrideDescription?: string;
+}
+
+export interface ToolOverride {
+	name: string;
+	overrideName: string;
+	overrideDescription?: string;
+	enabled?: boolean;
+	parameterOverrides?: ParameterOverride[];
+}
+
+export interface CompositeComponent {
+	catalogEntryName: string;
+	toolOverrides?: ToolOverride[];
+}
+
+export interface CompositeRuntimeConfig {
+	components: CompositeComponent[];
 }
 
 export interface MCPServerTool {
