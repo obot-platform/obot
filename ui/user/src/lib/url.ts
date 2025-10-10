@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
-import { navigating } from '$app/state';
+import { replaceState } from '$app/navigation';
+import { navigating, page } from '$app/state';
 
 export function qIsSet(key: string): boolean {
 	if (navigating?.to?.url.searchParams.has(key)) {
@@ -13,4 +14,23 @@ export function q(key: string): string {
 		return navigating.to.url.searchParams.get(key) || '';
 	}
 	return browser ? new URL(window.location.href).searchParams.get(key) || '' : '';
+}
+
+export function setUrlParams(property: string, values: string[]) {
+	if (values.length === 0) {
+		page.url.searchParams.delete(property);
+	} else {
+		page.url.searchParams.set(property, values.join(','));
+	}
+
+	replaceState(page.url, {});
+}
+
+export function clearUrlParams() {
+	// Collect all keys first to avoid issues with modifying during iteration
+	const keysToDelete = Array.from(page.url.searchParams.keys());
+	for (const key of keysToDelete) {
+		page.url.searchParams.delete(key);
+	}
+	replaceState(page.url, {});
 }

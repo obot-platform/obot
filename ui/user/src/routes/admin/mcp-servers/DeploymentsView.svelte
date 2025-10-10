@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { afterNavigate } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -14,6 +15,7 @@
 		type OrgUser
 	} from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
+	import { clearUrlParams, setUrlParams } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import {
 		Captions,
@@ -33,9 +35,10 @@
 		catalogId: string;
 		readonly?: boolean;
 		query?: string;
+		urlFilters?: Record<string, (string | number)[]>;
 	}
 
-	let { usersMap = new Map(), catalogId, readonly, query }: Props = $props();
+	let { usersMap = new Map(), catalogId, readonly, query, urlFilters: filters }: Props = $props();
 	let loading = $state(false);
 
 	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
@@ -54,8 +57,14 @@
 
 	let bulkRestarting = $state(false);
 
-	let serversData = $state<MCPCatalogServer[]>([]);
 	let mcpServerAndEntries = getAdminMcpServerAndEntries();
+	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
+	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
+	let serversData = $derived([
+		...deployedCatalogEntryServers,
+		...deployedWorkspaceCatalogEntryServers,
+		...mcpServerAndEntries.servers
+	]);
 
 	let tableRef = $state<ReturnType<typeof Table>>();
 
@@ -97,22 +106,16 @@
 			: transformedData;
 	});
 
-	onMount(async () => {
-		await reload();
+	onMount(() => {
+		reload();
 	});
 
 	async function reload() {
 		loading = true;
-		const deployedCatalogEntryServers =
+		deployedCatalogEntryServers =
 			await AdminService.listAllCatalogDeployedSingleRemoteServers(catalogId);
-		const deployedWorkspaceCatalogEntryServers =
+		deployedWorkspaceCatalogEntryServers =
 			await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
-
-		serversData = [
-			...deployedCatalogEntryServers,
-			...deployedWorkspaceCatalogEntryServers,
-			...mcpServerAndEntries.servers
-		];
 		loading = false;
 	}
 
@@ -226,7 +229,7 @@
 		</div>
 	{:else if serversData.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Server class="size-24 text-gray-200 dark:text-gray-900" />
+			<Server class="dark:text-surface3 size-24 text-gray-200" />
 			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
 				No current deployments.
 			</h4>
@@ -241,6 +244,7 @@
 			data={tableData}
 			fields={['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
 			filterable={['displayName', 'type', 'deploymentStatus', 'userName', 'registry']}
+			{filters}
 			headers={[
 				{ title: 'Name', property: 'displayName' },
 				{ title: 'User', property: 'userName' },
@@ -264,6 +268,8 @@
 				}
 				openUrl(url, isCtrlClick);
 			}}
+			onFilter={setUrlParams}
+			onClearAllFilters={clearUrlParams}
 			sortable={['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
 			noDataMessage="No catalog servers added."
 			setRowClasses={(d) => {
