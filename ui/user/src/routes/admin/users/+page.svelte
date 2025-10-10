@@ -18,6 +18,7 @@
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import { clearUrlParams, setUrlParams } from '$lib/url.js';
 
 	let { data } = $props();
 	const { users: initialUsers } = data;
@@ -114,16 +115,6 @@
 		replaceState(page.url, { query });
 	}, 100);
 
-	function handleColumnFilter(property: string, values: string[]) {
-		if (values.length === 0) {
-			page.url.searchParams.delete(property);
-		} else {
-			page.url.searchParams.set(property, values.join(','));
-		}
-
-		replaceState(page.url, {});
-	}
-
 	const duration = PAGE_TRANSITION_DURATION;
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
 </script>
@@ -147,7 +138,8 @@
 					fields={['name', 'email', 'role', 'lastActiveDay']}
 					filterable={['name', 'email', 'role']}
 					filters={urlFilters}
-					onFilter={handleColumnFilter}
+					onFilter={setUrlParams}
+					onClearAllFilters={clearUrlParams}
 					sortable={['name', 'email', 'role', 'lastActiveDay']}
 					headers={[{ title: 'Last Active', property: 'lastActiveDay' }]}
 				>

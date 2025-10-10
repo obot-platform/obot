@@ -17,6 +17,7 @@
 		data: T[];
 		onClickRow?: (row: T, isCtrlClick: boolean) => void;
 		onFilter?: (property: string, values: string[]) => void;
+		onClearAllFilters?: () => void;
 		onRenderColumn?: Snippet<[string, T]>;
 		onRenderSubrowContent?: Snippet<[T]>;
 		setRowClasses?: (row: T) => string;
@@ -39,6 +40,7 @@
 		data,
 		fields,
 		onClickRow,
+		onClearAllFilters,
 		onFilter,
 		onRenderColumn,
 		onRenderSubrowContent,
@@ -302,7 +304,13 @@
 	<div class="my-2 flex flex-col items-center justify-center gap-2">
 		{#if Object.keys(filteredBy || {}).length > 0}
 			<p class="text-sm font-light text-gray-400 dark:text-gray-600">No results found.</p>
-			<button class="button text-sm" onclick={() => (filteredBy = undefined)}>
+			<button
+				class="button text-sm"
+				onclick={() => {
+					filteredBy = undefined;
+					onClearAllFilters?.();
+				}}
+			>
 				Clear All Filters
 			</button>
 		{:else}
