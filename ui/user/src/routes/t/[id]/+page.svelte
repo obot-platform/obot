@@ -16,7 +16,7 @@
 	});
 </script>
 
-<div class="flex h-dvh w-dvw flex-col">
+<div class="bg-surface1 flex h-dvh w-dvw flex-col dark:bg-black">
 	<div
 		class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
 	>
@@ -28,7 +28,7 @@
 		</div>
 	</div>
 	<div class="flex flex-1 items-center justify-center p-4">
-		<div class="bg-surface1 dark:bg-surface2 w-full max-w-xl p-6 md:rounded-xl">
+		<div class="card">
 			<AgentCopy onBack={() => goto('/')} template={data.template} />
 		</div>
 	</div>
