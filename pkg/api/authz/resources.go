@@ -115,6 +115,7 @@ var apiResources = map[string][]string{
 		"POST   /api/assistants/{assistant_id}/projects/{project_id}/template",
 		"GET    /api/assistants/{assistant_id}/projects/{project_id}/template",
 		"DELETE /api/assistants/{assistant_id}/projects/{project_id}/template",
+		"POST   /api/assistants/{assistant_id}/projects/{project_id}/upgrade-from-template",
 		"GET    /api/assistants/{assistant_id}/projects/{project_id}/threads",
 		"POST   /api/assistants/{assistant_id}/projects/{project_id}/threads",
 		"DELETE /api/assistants/{assistant_id}/projects/{project_id}/threads/{thread_id}",
