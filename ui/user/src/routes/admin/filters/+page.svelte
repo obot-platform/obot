@@ -153,16 +153,18 @@
 							sortable={['name']}
 						>
 							{#snippet actions(d: MCPFilter)}
-								<button
-									class="icon-button hover:text-red-500"
-									onclick={(e) => {
-										e.stopPropagation();
-										filterToDelete = d;
-									}}
-									use:tooltip={'Delete Filter'}
-								>
-									<Trash2 class="size-4" />
-								</button>
+								{#if !profile.current.isAdminReadonly?.()}
+									<button
+										class="icon-button hover:text-red-500"
+										onclick={(e) => {
+											e.stopPropagation();
+											filterToDelete = d;
+										}}
+										use:tooltip={'Delete Filter'}
+									>
+										<Trash2 class="size-4" />
+									</button>
+								{/if}
 							{/snippet}
 							{#snippet onRenderColumn(property, d: MCPFilter)}
 								{#if property === 'name'}
