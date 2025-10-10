@@ -30,6 +30,8 @@
 		onDelete?: () => void | Promise<void>;
 		runID?: string;
 		readonly?: boolean;
+		skipFetchOnMount?: boolean;
+		noChat?: boolean;
 	}
 
 	let {
@@ -38,7 +40,9 @@
 		project,
 		onDelete,
 		runID: inputRunID,
-		readonly
+		readonly,
+		skipFetchOnMount,
+		noChat
 	}: Props = $props();
 
 	const readOnly = !!inputRunID || readonly;
@@ -161,7 +165,9 @@
 	});
 
 	onMount(async () => {
-		task = await ChatService.getTask(project.assistantID, project.id, task.id);
+		if (!skipFetchOnMount) {
+			task = await ChatService.getTask(project.assistantID, project.id, task.id);
+		}
 		if (!readOnly) {
 			saver.start();
 		}
@@ -292,7 +298,7 @@
 
 {#snippet mainActions()}
 	<div class="flex items-center gap-2">
-		{#if allMessages.messages.length > 0}
+		{#if allMessages.messages.length > 0 && !noChat}
 			<button
 				class="icon-button"
 				onclick={() => (showChat = !showChat)}

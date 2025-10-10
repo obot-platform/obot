@@ -204,7 +204,7 @@
 		<div class="flex h-full flex-col">
 			<div class="my-6">
 				{#if currentThreadData}
-					{@const currentLabel = currentThreadData.name}
+					{@const currentLabel = currentThreadData.name || 'Unnamed Thread'}
 					<BackLink fromURL="chat-threads" {currentLabel} />
 				{/if}
 			</div>

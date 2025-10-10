@@ -6,20 +6,19 @@
 		type ProjectThread,
 		type Project,
 		type OrgUser,
-		type ProjectTask,
-		Group
+		type ProjectTask
 	} from '$lib/services';
 	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$app/navigation';
+	import { replaceState } from '$app/navigation';
 	import { formatTimeAgo } from '$lib/time';
 	import Search from '$lib/components/Search.svelte';
 	import { page } from '$app/state';
 	import { debounce } from 'es-toolkit';
-	import { profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { openUrl } from '$lib/utils';
 
 	let tasks = $state<ProjectTask[]>([]);
 	let threads = $state<ProjectThread[]>([]);
@@ -52,8 +51,6 @@
 			};
 		})
 	);
-
-	let isAuditor = $derived(profile.current.groups.includes(Group.AUDITOR));
 
 	const updateQuery = debounce((value: string) => {
 		query = value;
@@ -138,8 +135,9 @@
 		replaceState(page.url, {});
 	}
 
-	function handleViewTask(task: ProjectTask) {
-		goto(`/admin/tasks/${task.id}`);
+	function handleViewTask(task: ProjectTask, isCtrlClick: boolean) {
+		const url = `/admin/tasks/${task.id}`;
+		openUrl(url, isCtrlClick);
 	}
 </script>
 
@@ -181,7 +179,7 @@
 						filterable={['name', 'userName', 'userEmail', 'projectName']}
 						onFilter={handleColumnFilter}
 						filters={urlFilters}
-						onClickRow={isAuditor ? handleViewTask : undefined}
+						onClickRow={handleViewTask}
 						headers={[
 							{
 								title: 'User Name',
@@ -203,23 +201,14 @@
 							}
 						]}
 						sortable={['name', 'userName', 'userEmail', 'projectName', 'created', 'runs']}
+						initSort={{ property: 'created', order: 'desc' }}
 					>
-						{#snippet actions(task)}
+						{#snippet actions()}
 							<button
-								class={twMerge(
-									'icon-button',
-									isAuditor && 'hover:text-blue-500',
-									!isAuditor && 'opacity-50 hover:bg-transparent dark:hover:bg-transparent'
-								)}
-								onclick={(e) => {
-									e.stopPropagation();
-									handleViewTask(task);
-								}}
+								class={twMerge('icon-button hover:text-blue-500')}
 								title="View Task"
 								use:tooltip={{
-									text: isAuditor
-										? 'View Task'
-										: 'To view details, auditing permissions are required.'
+									text: 'View Task'
 								}}
 							>
 								<Eye class="size-4" />

@@ -12,7 +12,7 @@
 	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { goto, replaceState } from '$app/navigation';
+	import { replaceState } from '$app/navigation';
 	import { formatTimeAgo } from '$lib/time';
 	import Search from '$lib/components/Search.svelte';
 	import { page } from '$app/state';
@@ -20,6 +20,7 @@
 	import { profile } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import { openUrl } from '$lib/utils';
 
 	let threads = $state<ProjectThread[]>([]);
 	let projects = $state<Project[]>([]);
@@ -46,6 +47,16 @@
 			};
 		})
 	);
+
+	let convertedUrlFilters = $derived.by(() => {
+		if (urlFilters.task) {
+			return {
+				...urlFilters,
+				task: urlFilters.task.map((idOrName) => taskMap.get(idOrName.toString())?.name ?? idOrName)
+			};
+		}
+		return urlFilters;
+	});
 
 	const updateQuery = debounce((value: string) => {
 		query = value;
@@ -135,9 +146,9 @@
 		replaceState(page.url, {});
 	}
 
-	function handleViewThread(thread: ProjectThread) {
-		// Navigate to thread view
-		goto(`/admin/task-runs/${thread.id}`);
+	function handleViewThread(thread: ProjectThread, isCtrlClick: boolean) {
+		const url = `/admin/task-runs/${thread.id}`;
+		openUrl(url, isCtrlClick);
 	}
 </script>
 
@@ -178,7 +189,7 @@
 						fields={['name', 'userName', 'userEmail', 'task', 'projectName', 'created']}
 						filterable={['name', 'userName', 'userEmail', 'task', 'projectName']}
 						onFilter={handleColumnFilter}
-						filters={urlFilters}
+						filters={convertedUrlFilters}
 						onClickRow={isAuditor ? handleViewThread : undefined}
 						headers={[
 							{
@@ -201,24 +212,22 @@
 							}
 						]}
 						sortable={['name', 'userName', 'userEmail', 'projectName', 'created', 'task']}
+						initSort={{ property: 'created', order: 'desc' }}
 					>
-						{#snippet actions(thread)}
+						{#snippet actions()}
 							<button
 								class={twMerge(
 									'icon-button',
 									isAuditor && 'hover:text-blue-500',
 									!isAuditor && 'opacity-50 hover:bg-transparent dark:hover:bg-transparent'
 								)}
-								onclick={(e) => {
-									e.stopPropagation();
-									handleViewThread(thread);
-								}}
 								title="View Thread"
 								use:tooltip={{
 									text: isAuditor
 										? 'View Task Run'
 										: 'To view details, auditing permissions are required.'
 								}}
+								disabled={!isAuditor}
 							>
 								<Eye class="size-4" />
 							</button>
