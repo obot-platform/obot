@@ -167,6 +167,9 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, resp router.Respo
 	if mcpServer.Spec.MCPCatalogID != "" {
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.MCPCatalogID, mcpServer.Name)
 		scope = mcpServer.Spec.MCPCatalogID
+	} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
+		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Name)
+		scope = mcpServer.Spec.PowerUserWorkspaceID
 	} else {
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)
 		scope = mcpServer.Spec.UserID

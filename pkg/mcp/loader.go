@@ -281,18 +281,18 @@ func deploymentID(server ServerConfig) string {
 // GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,
 // then shuts it down and returns the tool preview data.
 func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServer v1.MCPServer, serverConfig ServerConfig) ([]otypes.MCPServerTool, error) {
-	// Create MCP client and list tools
-	client, err := sm.ClientForServer(ctx, "system", tempMCPServer.Spec.Manifest.Name, tempMCPServer.Name, serverConfig)
-	if err != nil {
-		return nil, err
-	}
-
 	// Ensure cleanup happens regardless of success or failure
 	defer func() {
 		if cleanupErr := sm.ShutdownServer(ctx, serverConfig); cleanupErr != nil {
 			log.Errorf("failed to clean up temporary instance %s: %v", tempMCPServer.Name, cleanupErr)
 		}
 	}()
+
+	// Create MCP client and list tools
+	client, err := sm.ClientForServer(ctx, "system", tempMCPServer.Spec.Manifest.Name, tempMCPServer.Name, serverConfig)
+	if err != nil {
+		return nil, err
+	}
 
 	tools, err := client.ListTools(ctx)
 	if err != nil {
