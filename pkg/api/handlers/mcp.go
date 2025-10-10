@@ -2320,6 +2320,8 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		}
 	}
 
+	oldServer := server.DeepCopy()
+
 	// Update the server manifest with the latest from the catalog entry
 	server.Spec.Manifest.Metadata = entry.Spec.Manifest.Metadata
 	server.Spec.Manifest.Name = entry.Spec.Manifest.Name
@@ -2373,7 +2375,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	}
 
 	// Shutdown the server, even if there is no credential
-	if err := m.removeMCPServer(req.Context(), server, server.Spec.UserID, cred.Env); err != nil {
+	if err := m.removeMCPServer(req.Context(), *oldServer, server.Spec.UserID, cred.Env); err != nil {
 		return err
 	}
 
