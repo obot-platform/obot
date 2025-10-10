@@ -158,6 +158,7 @@
 									property: 'selectors'
 								}
 							]}
+							sortable={['name']}
 						>
 							{#snippet actions(d: MCPFilter)}
 								<button

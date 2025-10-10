@@ -195,11 +195,11 @@
 						]}
 						headerClasses={[
 							{
-								property: 'name',
+								property: 'displayName',
 								class: 'w-4/12 min-w-sm'
 							}
 						]}
-						sortable={['name', 'userName', 'userEmail', 'projectName', 'created']}
+						sortable={['displayName', 'userName', 'userEmail', 'projectName', 'created']}
 						initSort={{ property: 'created', order: 'desc' }}
 					>
 						{#snippet actions()}
