@@ -268,13 +268,6 @@ func (h *ProjectsHandler) UpgradeFromTemplate(req api.Context) error {
 		return types.NewErrHTTP(http.StatusTooEarly, "project upgrade already in progress")
 	}
 
-	if !thread.Status.UpgradeAvailable {
-		// Project is ineligable for an upgrade due to one of the following reasons:
-		// - the project is already at the latest revision of the project snapshot
-		// - the user has manually modified the project
-		return types.NewErrBadRequest("project not eligible for an upgrade")
-	}
-
 	if thread.Spec.UpgradeApproved {
 		// Project is already approved for an upgrade, nothing to do
 		return nil
@@ -518,15 +511,16 @@ func convertProject(thread *v1.Thread, parentThread *v1.Thread) types.Project {
 			Models:               thread.Spec.Models,
 			Capabilities:         convertProjectCapabilities(thread.Spec.Capabilities),
 		},
-		ParentID:                     strings.Replace(thread.Spec.ParentThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
-		SourceProjectID:              strings.Replace(thread.Spec.SourceThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
-		AssistantID:                  thread.Spec.AgentName,
-		Editor:                       thread.IsEditor(),
-		UserID:                       thread.Spec.UserID,
-		WorkflowNamesFromIntegration: thread.Status.WorkflowNamesFromIntegration,
-		TemplateUpgradeAvailable:     (thread.Status.UpgradeAvailable && !thread.Spec.UpgradeApproved),
-		TemplateUpgradeInProgress:    thread.Status.UpgradeInProgress,
-		TemplatePublicID:             thread.Status.UpgradePublicID,
+		ParentID:                      strings.Replace(thread.Spec.ParentThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
+		SourceProjectID:               strings.Replace(thread.Spec.SourceThreadName, system.ThreadPrefix, system.ProjectPrefix, 1),
+		AssistantID:                   thread.Spec.AgentName,
+		Editor:                        thread.IsEditor(),
+		UserID:                        thread.Spec.UserID,
+		WorkflowNamesFromIntegration:  thread.Status.WorkflowNamesFromIntegration,
+		TemplateUpgradeAvailable:      (thread.Status.UpgradeAvailable && !thread.Spec.UpgradeApproved),
+		TemplateForceUpgradeAvailable: thread.Status.ForceUpgradeAvailable,
+		TemplateUpgradeInProgress:     thread.Status.UpgradeInProgress,
+		TemplatePublicID:              thread.Status.UpgradePublicID,
 	}
 
 	if !thread.Status.LastUpgraded.IsZero() {

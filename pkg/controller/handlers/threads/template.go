@@ -32,8 +32,9 @@ func (t *Handler) EnsureUpgradeAvailable(req router.Request, _ router.Response) 
 	}
 
 	var (
-		source           v1.Thread
-		upgradeAvailable bool
+		source                v1.Thread
+		upgradeAvailable      bool
+		forceUpgradeAvailable bool
 	)
 	if err := req.Client.Get(req.Ctx, router.Key(thread.Namespace, thread.Spec.SourceThreadName), &source); err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -53,18 +54,22 @@ func (t *Handler) EnsureUpgradeAvailable(req router.Request, _ router.Response) 
 			// If we find the revision, but it's the latest revision, there's no new upgrade available.
 			found, latest := source.HasRevision(thread.GetLatestConfigRevision())
 			upgradeAvailable = found && !latest
+
+			// if the thread's latest revision is not in the source thread's history, then we provide a status to show option to force upgrade
+			forceUpgradeAvailable = !found
 		}
 
 		upgradeAvailable = !source.Status.UpgradeInProgress && upgradeAvailable
 	}
 
-	if thread.Status.UpgradeAvailable == upgradeAvailable {
+	if thread.Status.UpgradeAvailable == upgradeAvailable && thread.Status.ForceUpgradeAvailable == forceUpgradeAvailable {
 		// No change, bail out
 		return nil
 	}
 
 	// Update the status with the new value
 	thread.Status.UpgradeAvailable = upgradeAvailable
+	thread.Status.ForceUpgradeAvailable = forceUpgradeAvailable
 	return req.Client.Status().Update(req.Ctx, thread)
 }
 
