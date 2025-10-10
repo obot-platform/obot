@@ -111,8 +111,8 @@
 				}
 
 				// Then sort by the specified property
-				const aValue = a[sortedBy!.property as keyof T];
-				const bValue = b[sortedBy!.property as keyof T];
+				let aValue = a[sortedBy!.property as keyof T];
+				let bValue = b[sortedBy!.property as keyof T];
 
 				if (sortedBy?.property === 'created') {
 					const aDate = new Date(aValue as string);
@@ -120,6 +120,12 @@
 					return sortedBy!.order === 'asc'
 						? aDate.getTime() - bDate.getTime()
 						: bDate.getTime() - aDate.getTime();
+				}
+
+				if (Array.isArray(aValue) && Array.isArray(bValue)) {
+					// use first value in array to sort
+					aValue = aValue[0];
+					bValue = bValue[0];
 				}
 
 				if (typeof aValue === 'number' && typeof bValue === 'number') {

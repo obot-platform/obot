@@ -36,19 +36,30 @@
 	let validAccessControlRules = $derived(
 		accessControlRules.filter((rule) => (rule.powerUserID ? usersMap.has(rule.powerUserID) : true))
 	);
+
+	function convertToTableData(rule: AccessControlRule) {
+		const owner = rule.powerUserID ? getUserDisplayName(usersMap, rule.powerUserID) : undefined;
+		const totalServers = mcpServersAndEntries.entries.length + mcpServersAndEntries.servers.length;
+
+		const hasEverything = rule.resources?.find((r) => r.id === '*');
+		const count = hasEverything
+			? totalServers
+			: ((rule.resources &&
+					rule.resources.filter((r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer')
+						.length) ??
+				0);
+
+		return {
+			...rule,
+			owner: owner || 'Unknown',
+			serversCount: count || '-'
+		};
+	}
 	let globalAccessControlRules = $derived(
-		validAccessControlRules.filter((rule) => !rule.powerUserID)
+		validAccessControlRules.filter((rule) => !rule.powerUserID).map(convertToTableData)
 	);
 	let userAccessControlRules = $derived(
-		validAccessControlRules
-			.filter((rule) => rule.powerUserID)
-			.map((rule) => {
-				const owner = rule.powerUserID ? getUserDisplayName(usersMap, rule.powerUserID) : undefined;
-				return {
-					...rule,
-					owner: owner || 'Unknown'
-				};
-			})
+		validAccessControlRules.filter((rule) => rule.powerUserID).map(convertToTableData)
 	);
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 
@@ -66,9 +77,6 @@
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
-	const totalServers = $derived(
-		mcpServersAndEntries.entries.length + mcpServersAndEntries.servers.length
-	);
 
 	onMount(async () => {
 		fetchMcpServerAndEntries(defaultCatalogId);
@@ -133,7 +141,9 @@
 	{@const data = type === 'user' ? userAccessControlRules : globalAccessControlRules}
 	<Table
 		{data}
-		fields={type === 'user' ? ['displayName', 'servers', 'owner'] : ['displayName', 'servers']}
+		fields={type === 'user'
+			? ['displayName', 'serversCount', 'owner']
+			: ['displayName', 'serversCount']}
 		onClickRow={(d, isCtrlClick) => {
 			const url = d.powerUserWorkspaceID
 				? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
@@ -144,10 +154,14 @@
 			{
 				title: 'Name',
 				property: 'displayName'
+			},
+			{
+				title: 'Servers',
+				property: 'serversCount'
 			}
 		]}
 		filterable={['displayName', 'owner']}
-		sortable={['displayName', 'servers', 'owner']}
+		sortable={['displayName', 'serversCount', 'owner']}
 	>
 		{#snippet actions(d)}
 			{#if !isReadonly}
@@ -164,19 +178,7 @@
 			{/if}
 		{/snippet}
 		{#snippet onRenderColumn(property, d)}
-			{#if property === 'servers'}
-				{@const hasEverything = d.resources?.find((r) => r.id === '*')}
-				{@const count = hasEverything
-					? totalServers
-					: ((d.resources &&
-							d.resources.filter(
-								(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
-							).length) ??
-						0)}
-				{count ? count : '-'}
-			{:else}
-				{d[property as keyof typeof d]}
-			{/if}
+			{d[property as keyof typeof d]}
 		{/snippet}
 	</Table>
 {/snippet}
