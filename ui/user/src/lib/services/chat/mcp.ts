@@ -131,6 +131,7 @@ function convertServersToTableData(
 	return servers
 		.filter((server) => !server.catalogEntryID && !server.deleted)
 		.map((server) => {
+			console.log(server);
 			return {
 				id: server.id,
 				name: server.manifest.name ?? '',
@@ -142,7 +143,7 @@ function convertServersToTableData(
 				editable: true,
 				created: server.created,
 				registry:
-					usersMap && server.userID
+					usersMap && server.userID && server.powerUserWorkspaceID
 						? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
 						: 'Global Registry'
 			};
