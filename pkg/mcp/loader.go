@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/gptscript-ai/gptscript/pkg/hash"
@@ -303,6 +304,7 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServe
 }
 
 func constructNanobotYAML(name, command string, args []string, env map[string]string) (string, error) {
+	name = strings.ReplaceAll(name, "/", "-")
 	config := nanobotConfig{
 		Publish: nanobotConfigPublish{
 			MCPServers: []string{name},
@@ -325,7 +327,7 @@ func constructNanobotYAML(name, command string, args []string, env map[string]st
 }
 
 type nanobotConfig struct {
-	Publish    nanobotConfigPublish              `json:"publish,omitempty"`
+	Publish    nanobotConfigPublish              `json:"publish,omitzero"`
 	MCPServers map[string]nanobotConfigMCPServer `json:"mcpServers,omitempty"`
 }
 
