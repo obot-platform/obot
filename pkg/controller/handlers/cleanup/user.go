@@ -103,6 +103,22 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		}
 	}
 
+	var nanobots v1.NanobotConfigList
+	if err := req.List(&nanobots, &kclient.ListOptions{
+		Namespace: req.Namespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.userID": userID,
+		}),
+	}); err != nil {
+		return err
+	}
+
+	for _, nanobot := range nanobots.Items {
+		if err := kclient.IgnoreNotFound(req.Delete(&nanobot)); err != nil {
+			return err
+		}
+	}
+
 	// Find the AccessControlRules that the user is on, and update them to remove the user.
 	acrs, err := u.acrHelper.GetAccessControlRulesForUser(req.Namespace, userID)
 	if err != nil {

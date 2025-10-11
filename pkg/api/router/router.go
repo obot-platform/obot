@@ -59,6 +59,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
+	nanobots := handlers.NewNanobotHandler()
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -440,6 +441,13 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-server-instances", serverInstances.CreateServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.DeleteServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}/oauth", serverInstances.ClearOAuthCredentials)
+
+	// NanobotConfigs
+	mux.HandleFunc("GET /api/nanobot-configs", nanobots.List)
+	mux.HandleFunc("GET /api/nanobot-configs/{nanobot_config_id}", nanobots.Get)
+	mux.HandleFunc("POST /api/nanobot-configs", nanobots.Create)
+	mux.HandleFunc("PUT /api/nanobot-configs/{nanobot_config_id}", nanobots.Update)
+	mux.HandleFunc("DELETE /api/nanobot-configs/{nanobot_config_id}", nanobots.Delete)
 
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)
