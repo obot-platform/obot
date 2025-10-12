@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { afterNavigate } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
