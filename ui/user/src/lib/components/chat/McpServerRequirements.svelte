@@ -213,7 +213,8 @@
 			if (
 				parent?.manifest.runtime === 'remote' &&
 				configureForm.url &&
-				parent.manifest.remoteConfig?.urlTemplate === undefined
+				parent.manifest.remoteConfig?.urlTemplate === undefined &&
+				server.manifest.remoteConfig?.fixedURL !== undefined
 			) {
 				await ChatService.updateRemoteMcpServerUrl(server.id, configureForm.url.trim());
 			}
