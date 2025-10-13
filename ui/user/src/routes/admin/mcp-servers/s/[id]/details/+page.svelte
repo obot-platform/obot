@@ -5,6 +5,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type MCPServerInstance, type OrgUser } from '$lib/services';
+	import { profile } from '$lib/stores/index.js';
 	import { LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -56,6 +57,7 @@
 							};
 						})}
 						title={mcpServer.manifest.name}
+						readonly={profile.current.isAdminReadonly?.()}
 					/>
 				{/if}
 			</div>
