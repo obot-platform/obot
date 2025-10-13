@@ -15,6 +15,7 @@
 	import { profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { clearUrlParams, setUrlParams } from '$lib/url';
 
 	let threads = $state<ProjectThread[]>([]);
 	let projects = $state<Project[]>([]);
@@ -53,16 +54,6 @@
 		// history.replaceState(null, '', page.url);
 		replaceState(page.url, { query });
 	}, 100);
-
-	function handleColumnFilter(property: string, values: string[]) {
-		if (values.length === 0) {
-			page.url.searchParams.delete(property);
-		} else {
-			page.url.searchParams.set(property, values.join(','));
-		}
-
-		replaceState(page.url, {});
-	}
 
 	onMount(() => {
 		loadThreads();
@@ -164,7 +155,8 @@
 						fields={['displayName', 'userName', 'userEmail', 'projectName', 'created']}
 						filterable={['displayName', 'userName', 'userEmail', 'projectName']}
 						filters={urlFilters}
-						onFilter={handleColumnFilter}
+						onFilter={setUrlParams}
+						onClearAllFilters={clearUrlParams}
 						onClickRow={isAuditor
 							? (d, isCtrlClick) => {
 									const url = `/admin/chat-threads/${d.id}`;
@@ -195,11 +187,11 @@
 						]}
 						headerClasses={[
 							{
-								property: 'name',
+								property: 'displayName',
 								class: 'w-4/12 min-w-sm'
 							}
 						]}
-						sortable={['name', 'userName', 'userEmail', 'projectName', 'created']}
+						sortable={['displayName', 'userName', 'userEmail', 'projectName', 'created']}
 						initSort={{ property: 'created', order: 'desc' }}
 					>
 						{#snippet actions()}

@@ -16,6 +16,7 @@
 	} from '$lib/services';
 	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
+	import { clearUrlParams, setUrlParams } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Captions, Ellipsis, LoaderCircle, Server, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
@@ -28,9 +29,17 @@
 		emptyContentButton?: Snippet;
 		usersMap?: Map<string, OrgUser>;
 		query?: string;
+		urlFilters?: Record<string, (string | number)[]>;
 	}
 
-	let { catalog = $bindable(), readonly, emptyContentButton, usersMap, query }: Props = $props();
+	let {
+		catalog = $bindable(),
+		readonly,
+		emptyContentButton,
+		usersMap,
+		query,
+		urlFilters: filters
+	}: Props = $props();
 
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
@@ -79,8 +88,8 @@
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
 	{:else if mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length === 0}
-		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Server class="size-24 text-gray-200 dark:text-gray-900" />
+		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
+			<Server class="dark:text-surface3 size-24 text-gray-200" />
 			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No created MCP servers</h4>
 			<p class="text-sm font-light text-gray-400 dark:text-gray-600">
 				Looks like you don't have any servers created yet. <br />
@@ -96,6 +105,7 @@
 			data={filteredTableData}
 			fields={['name', 'type', 'users', 'created', 'registry']}
 			filterable={['name', 'type', 'registry']}
+			{filters}
 			onClickRow={(d, isCtrlClick) => {
 				let url = '';
 				if (d.type === 'single' || d.type === 'remote') {
@@ -109,6 +119,8 @@
 				}
 				openUrl(url, isCtrlClick);
 			}}
+			onFilter={setUrlParams}
+			onClearAllFilters={clearUrlParams}
 			sortable={['name', 'type', 'users', 'created', 'registry']}
 			noDataMessage="No catalog servers added."
 			classes={{

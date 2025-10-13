@@ -17,6 +17,7 @@
 		data: T[];
 		onClickRow?: (row: T, isCtrlClick: boolean) => void;
 		onFilter?: (property: string, values: string[]) => void;
+		onClearAllFilters?: () => void;
 		onRenderColumn?: Snippet<[string, T]>;
 		onRenderSubrowContent?: Snippet<[T]>;
 		setRowClasses?: (row: T) => string;
@@ -39,6 +40,7 @@
 		data,
 		fields,
 		onClickRow,
+		onClearAllFilters,
 		onFilter,
 		onRenderColumn,
 		onRenderSubrowContent,
@@ -62,7 +64,7 @@
 	let sortedBy = $state<{ property: string; order: 'asc' | 'desc' } | undefined>(
 		initSort ? initSort : sortable?.[0] ? { property: sortable[0], order: 'asc' } : undefined
 	);
-	let filteredBy = $state<Record<string, (string | number)[]> | undefined>(filters);
+	let filteredBy = $derived<Record<string, (string | number)[]> | undefined>(filters);
 	let filterValues = $derived.by(() => {
 		if (!filterable) return {};
 
@@ -111,8 +113,8 @@
 				}
 
 				// Then sort by the specified property
-				const aValue = a[sortedBy!.property as keyof T];
-				const bValue = b[sortedBy!.property as keyof T];
+				let aValue = a[sortedBy!.property as keyof T];
+				let bValue = b[sortedBy!.property as keyof T];
 
 				if (sortedBy?.property === 'created') {
 					const aDate = new Date(aValue as string);
@@ -120,6 +122,12 @@
 					return sortedBy!.order === 'asc'
 						? aDate.getTime() - bDate.getTime()
 						: bDate.getTime() - aDate.getTime();
+				}
+
+				if (Array.isArray(aValue) && Array.isArray(bValue)) {
+					// use first value in array to sort
+					aValue = aValue[0];
+					bValue = bValue[0];
 				}
 
 				if (typeof aValue === 'number' && typeof bValue === 'number') {
@@ -296,7 +304,13 @@
 	<div class="my-2 flex flex-col items-center justify-center gap-2">
 		{#if Object.keys(filteredBy || {}).length > 0}
 			<p class="text-sm font-light text-gray-400 dark:text-gray-600">No results found.</p>
-			<button class="button text-sm" onclick={() => (filteredBy = undefined)}>
+			<button
+				class="button text-sm"
+				onclick={() => {
+					filteredBy = undefined;
+					onClearAllFilters?.();
+				}}
+			>
 				Clear All Filters
 			</button>
 		{:else}

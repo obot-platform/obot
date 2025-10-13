@@ -20,6 +20,7 @@
 	import { replaceState } from '$app/navigation';
 	import { debounce } from 'es-toolkit';
 	import { page } from '$app/state';
+	import { clearUrlParams, setUrlParams } from '$lib/url';
 
 	initMcpServerAndEntries();
 
@@ -66,16 +67,6 @@
 
 		replaceState(page.url, { query });
 	}, 100);
-
-	function handleColumnFilter(property: string, values: string[]) {
-		if (values.length === 0) {
-			page.url.searchParams.delete(property);
-		} else {
-			page.url.searchParams.set(property, values.join(','));
-		}
-
-		replaceState(page.url, {});
-	}
 
 	const duration = PAGE_TRANSITION_DURATION;
 	onMount(async () => {
@@ -143,7 +134,8 @@
 							}}
 							filterable={['name', 'url']}
 							filters={urlFilters}
-							onFilter={handleColumnFilter}
+							onFilter={setUrlParams}
+							onClearAllFilters={clearUrlParams}
 							headers={[
 								{
 									title: 'Name',
@@ -158,18 +150,21 @@
 									property: 'selectors'
 								}
 							]}
+							sortable={['name']}
 						>
 							{#snippet actions(d: MCPFilter)}
-								<button
-									class="icon-button hover:text-red-500"
-									onclick={(e) => {
-										e.stopPropagation();
-										filterToDelete = d;
-									}}
-									use:tooltip={'Delete Filter'}
-								>
-									<Trash2 class="size-4" />
-								</button>
+								{#if !profile.current.isAdminReadonly?.()}
+									<button
+										class="icon-button hover:text-red-500"
+										onclick={(e) => {
+											e.stopPropagation();
+											filterToDelete = d;
+										}}
+										use:tooltip={'Delete Filter'}
+									>
+										<Trash2 class="size-4" />
+									</button>
+								{/if}
 							{/snippet}
 							{#snippet onRenderColumn(property, d: MCPFilter)}
 								{#if property === 'name'}

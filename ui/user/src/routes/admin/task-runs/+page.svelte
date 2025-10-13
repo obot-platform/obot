@@ -21,6 +21,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { openUrl } from '$lib/utils';
+	import { clearUrlParams, setUrlParams } from '$lib/url';
 
 	let threads = $state<ProjectThread[]>([]);
 	let projects = $state<Project[]>([]);
@@ -136,16 +137,6 @@
 		}
 	}
 
-	function handleColumnFilter(property: string, values: string[]) {
-		if (values.length === 0) {
-			page.url.searchParams.delete(property);
-		} else {
-			page.url.searchParams.set(property, values.join(','));
-		}
-
-		replaceState(page.url, {});
-	}
-
 	function handleViewThread(thread: ProjectThread, isCtrlClick: boolean) {
 		const url = `/admin/task-runs/${thread.id}`;
 		openUrl(url, isCtrlClick);
@@ -188,8 +179,9 @@
 						data={tableData}
 						fields={['name', 'userName', 'userEmail', 'task', 'projectName', 'created']}
 						filterable={['name', 'userName', 'userEmail', 'task', 'projectName']}
-						onFilter={handleColumnFilter}
+						onFilter={setUrlParams}
 						filters={convertedUrlFilters}
+						onClearAllFilters={clearUrlParams}
 						onClickRow={isAuditor ? handleViewThread : undefined}
 						headers={[
 							{

@@ -142,7 +142,7 @@ function convertServersToTableData(
 				editable: true,
 				created: server.created,
 				registry:
-					usersMap && server.userID
+					usersMap && server.userID && server.powerUserWorkspaceID
 						? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
 						: 'Global Registry'
 			};
