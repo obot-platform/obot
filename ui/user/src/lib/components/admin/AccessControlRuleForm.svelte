@@ -38,6 +38,7 @@
 		mcpEntriesContextFn: () => AdminMcpServerAndEntriesContext | PoweruserWorkspaceContext;
 		all?: { label: string; description: string };
 		readonly?: boolean;
+		isAdminView?: boolean;
 	}
 
 	let {
@@ -47,6 +48,7 @@
 		onUpdate,
 		mcpEntriesContextFn,
 		readonly,
+		isAdminView,
 		all = ADMIN_ALL_OPTION,
 		id = DEFAULT_MCP_CATALOG_ID,
 		entity = 'catalog'
@@ -557,6 +559,9 @@
 	}}
 	{mcpEntriesContextFn}
 	{all}
+	{entity}
+	{isAdminView}
+	workspaceId={entity === 'workspace' ? id : undefined}
 />
 
 <Confirm
