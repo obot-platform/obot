@@ -684,7 +684,10 @@ export async function listServerOrInstanceAuditLogStats(
 	return response;
 }
 
-export async function getK8sServerDetail(mcpServerId: string, opts?: { fetch?: Fetcher }) {
+export async function getK8sServerDetail(
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+) {
 	const response = (await doGet(`/mcp-servers/${mcpServerId}/details`, opts)) as K8sServerDetail;
 	return response;
 }
