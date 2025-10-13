@@ -905,6 +905,15 @@
 			color: var(--color-blue-600);
 		}
 	}
+
+	.pill-primary {
+		border-radius: var(--radius-sm);
+		background-color: color-mix(in oklab, var(--color-blue-500) /* #4f7ef3 */ 50%, transparent);
+		color: var(--color-white);
+		padding: 0.125rem 0.25rem;
+		font-size: 11px;
+		line-height: 1rem;
+	}
 }
 
 .milkdown-content {

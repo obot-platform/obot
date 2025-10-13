@@ -146,7 +146,7 @@
 		bulkRestarting = true;
 		try {
 			for (const id of Object.keys(selected)) {
-				if (selected[id].manifest.runtime === 'remote') {
+				if (selected[id].manifest.runtime === 'remote' || !selected[id].configured) {
 					// skip remote servers
 					continue;
 				}
@@ -393,6 +393,12 @@
 				</DotDotDot>
 			{/snippet}
 			{#snippet tableSelectActions(currentSelected)}
+				{@const restartableCount = Object.values(currentSelected).filter(
+					(s) => s.manifest.runtime !== 'remote' && s.configured
+				).length}
+				{@const upgradeableCount = Object.values(currentSelected).filter(
+					(s) => s.needsUpdate
+				).length}
 				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 					<button
 						class="button flex items-center gap-1 text-sm font-normal"
@@ -400,12 +406,17 @@
 							selected = currentSelected;
 							handleBulkRestart();
 						}}
-						disabled={bulkRestarting || readonly}
+						disabled={bulkRestarting || readonly || restartableCount === 0}
 					>
 						{#if bulkRestarting}
 							<LoaderCircle class="size-4 animate-spin" />
 						{:else}
 							<Power class="size-4" /> Restart
+							{#if restartableCount > 0 && !readonly}
+								<span class="pill-primary">
+									{restartableCount}
+								</span>
+							{/if}
 						{/if}
 					</button>
 					<button
@@ -416,9 +427,14 @@
 								type: 'multi'
 							};
 						}}
-						disabled={readonly}
+						disabled={readonly || upgradeableCount === 0}
 					>
 						<CircleFadingArrowUp class="size-4" /> Upgrade
+						{#if upgradeableCount > 0 && !readonly}
+							<span class="pill-primary">
+								{upgradeableCount}
+							</span>
+						{/if}
 					</button>
 					<button
 						class="button flex items-center gap-1 text-sm font-normal"
@@ -431,6 +447,11 @@
 						disabled={readonly}
 					>
 						<Trash2 class="size-4" /> Delete
+						{#if !readonly}
+							<span class="pill-primary">
+								{Object.keys(currentSelected).length}
+							</span>
+						{/if}
 					</button>
 				</div>
 			{/snippet}
