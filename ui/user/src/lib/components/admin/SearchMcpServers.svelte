@@ -9,7 +9,7 @@
 	import { ADMIN_ALL_OPTION } from '$lib/constants';
 	import { getUserDisplayName } from '$lib/utils';
 	import { AdminService, type OrgUser } from '$lib/services';
-	import { onMount } from 'svelte';
+	import { KV, KVSync } from '$lib/kv';
 
 	interface Props {
 		onAdd: (mcpCatalogEntryIds: string[], mcpServerIds: string[], otherSelectors: string[]) => void;
@@ -28,13 +28,16 @@
 		registry?: string;
 	};
 
+	const kv = KV.get();
+	const kvSync = new KVSync(kv!);
+
 	let { onAdd, exclude, mcpEntriesContextFn, all = ADMIN_ALL_OPTION, type }: Props = $props();
 	let addMcpServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let users = $state<OrgUser[]>([]);
 	let search = $state('');
 	let selected = $state<SearchItem[]>([]);
 	let selectedMap = $derived(new Set(selected.map((i) => i.id)));
-	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
+	let usersMap = $derived(new Map(users?.map((user) => [user.id, user])));
 
 	const mcpServerAndEntries = mcpEntriesContextFn?.() ?? {
 		entries: [],
@@ -81,6 +84,10 @@
 			: allData
 	);
 
+	$effect.pre(() => {
+		loadData();
+	});
+
 	export function open() {
 		addMcpServerDialog?.open();
 	}
@@ -107,9 +114,23 @@
 		addMcpServerDialog?.close();
 	}
 
-	onMount(async () => {
-		users = await AdminService.listUsersIncludeDeleted();
-	});
+	async function loadData() {
+		try {
+			loading = true;
+
+			const u = await kvSync!.get(
+				'users',
+				() => AdminService.listUsersIncludeDeleted(),
+				1000 * 60 * 5
+			);
+
+			users = u ?? [];
+
+			loading = false;
+		} catch (error) {
+			console.error('Error initializing data:', error);
+		}
+	}
 </script>
 
 <ResponsiveDialog

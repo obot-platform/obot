@@ -7,16 +7,21 @@
 	import Search from '../Search.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { getUserRoleLabel } from '$lib/utils';
+	import { KV, KVSync } from '$lib/kv';
 
 	interface Props {
 		onAdd: (users: OrgUser[], groups: OrgGroup[]) => void;
 		filterIds?: string[];
 	}
 
+	const kv = KV.get();
+	const kvSync = new KVSync(kv!);
+
 	let { onAdd, filterIds }: Props = $props();
 
 	let addUserGroupDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let users = $state<OrgUser[]>([]);
+	let groups = $state<OrgGroup[]>([]);
 	let loading = $state(false);
 	let searchNames = $state('');
 	let selectedUsers = $state<(OrgUser | OrgGroup)[]>([]);
@@ -48,16 +53,12 @@
 					)
 				: users;
 
-		try {
-			// Fetch groups with server-side search
-			filteredGroups = (
-				await AdminService.listGroups(searchNames.length > 0 ? { query: searchNames } : undefined)
-			).sort((a, b) => a.name.localeCompare(b.name));
-		} catch (error) {
-			console.error('Error loading groups:', error);
-		} finally {
-			loading = false;
-		}
+		filteredGroups =
+			searchNames.length > 0
+				? groups.filter((group) => group.name.toLowerCase().includes(searchNames.toLowerCase()))
+				: groups;
+
+		loading = false;
 	}
 
 	const handleSearch = debounce(() => {
@@ -70,15 +71,7 @@
 	}
 
 	async function onOpen() {
-		loading = true;
-
-		try {
-			users = await AdminService.listUsers();
-		} catch (error) {
-			console.error('Error loading initial users:', error);
-		} finally {
-			loading = false;
-		}
+		await loadData();
 
 		// Now search to populate filtered data
 		await search();
@@ -90,6 +83,30 @@
 		selectedUsers = [];
 		filteredUsers = [];
 		filteredGroups = [];
+	}
+
+	async function loadData() {
+		try {
+			loading = true;
+
+			// Prevent refetching when adding new users or groups
+			const promises: [Promise<OrgUser[] | undefined>, Promise<OrgGroup[] | undefined>] = [
+				Promise.resolve(undefined),
+				Promise.resolve(undefined)
+			];
+
+			promises[0] = kvSync!.get('users', () => AdminService.listUsers(), 1000 * 60 * 5);
+			promises[1] = kvSync.get('groups', () => AdminService.listGroups(), 1000 * 60 * 5);
+
+			const [u, g] = await Promise.all(promises);
+
+			users = u ?? [];
+			groups = g ?? [];
+
+			loading = false;
+		} catch (error) {
+			console.error('Error initializing data:', error);
+		}
 	}
 </script>
 
