@@ -269,6 +269,17 @@
 			headers
 		};
 	}
+
+	function getAuditLogUrl(d: (typeof connectedUsers)[number]) {
+		const id = d.mcpInstanceId ? d.mcpInstanceId : mcpServerId || mcpServerInstanceId;
+		return entity === 'workspace'
+			? catalogEntry?.id
+				? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&userId=${d.id}`
+				: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`
+			: catalogEntry?.id
+				? `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&userId=${d.id}`
+				: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`;
+	}
 </script>
 
 <div class="flex items-center gap-3">
@@ -442,14 +453,7 @@
 
 		{#snippet actions(d)}
 			{#if profile.current?.isAdmin?.() && isAdminUrl}
-				{@const mcpId = d.mcpInstanceId ? d.mcpInstanceId : mcpServerId || mcpServerInstanceId}
-				{@const id = mcpId?.split('-').at(-1)}
-				{@const url =
-					entity === 'workspace'
-						? catalogEntry?.id
-							? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&userId=${d.id}`
-							: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`
-						: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`}
+				{@const url = getAuditLogUrl(d)}
 				<a href={url} class="button-text"> View Audit Logs </a>
 			{/if}
 		{/snippet}
