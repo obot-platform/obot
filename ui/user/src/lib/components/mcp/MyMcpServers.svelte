@@ -738,10 +738,10 @@
 			<p class="text-md self-start">An issue occurred while launching the MCP server.</p>
 		{/if}
 
-		<div class="flex w-full items-center gap-2">
+		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
 			{#if hasConfigurableParent}
 				<button
-					class="button-primary w-1/2"
+					class="button-primary w-full md:w-1/2 md:flex-1"
 					onclick={() => {
 						launching = false;
 						launchError = undefined;
@@ -759,10 +759,12 @@
 						}
 					}}
 				>
-					Go Back
+					Update Configuration and Try Again
 				</button>
 			{/if}
-			<button class="button w-1/2 flex-1" onclick={handleCancelLaunch}> Cancel </button>
+			<button class="button w-full md:w-1/2 md:flex-1" onclick={handleCancelLaunch}>
+				Cancel and Delete Server
+			</button>
 		</div>
 	{/snippet}
 </PageLoading>
