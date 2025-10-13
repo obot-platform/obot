@@ -220,6 +220,7 @@
 										name={env.name}
 										bind:value={form.envs[i].value}
 										textarea={env.file}
+										growable
 									/>
 								{:else if env.file}
 									<textarea
