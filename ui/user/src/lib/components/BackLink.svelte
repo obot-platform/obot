@@ -109,10 +109,13 @@
 				const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 				const isCtrlClick = isTouchDevice ? false : e.metaKey || e.ctrlKey;
 
-				if (isCtrlClick) {
-					openUrl(link.href, true);
+				const stepsBack = links.length - index;
+				const hasHistory = history.length > stepsBack;
+
+				if (hasHistory && !isCtrlClick) {
+					history.go(-stepsBack);
 				} else {
-					history.go(-(links.length - index));
+					openUrl(link.href, isCtrlClick);
 				}
 			}}
 			class="button-text flex items-center gap-2 p-0 text-lg font-light"
