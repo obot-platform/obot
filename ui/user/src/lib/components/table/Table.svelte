@@ -87,11 +87,11 @@
 					if (Array.isArray(value)) {
 						value.forEach((v) => {
 							if (typeof v === 'string' || typeof v === 'number') {
-								acc[property].add(v);
+								acc[property].add((typeof v === 'string' ? v : v.toString()).trim());
 							}
 						});
 					} else if (typeof value === 'string' || typeof value === 'number') {
-						acc[property].add(value);
+						acc[property].add((typeof value === 'string' ? value : value.toString()).trim());
 					}
 				}
 				return acc;
@@ -161,9 +161,9 @@
 
 							const value = d[property as keyof T];
 							if (Array.isArray(value)) {
-								return value.some((v) => filteredBy?.[property]?.includes(v.toString()));
+								return value.some((v) => filteredBy?.[property]?.includes(v.toString().trim()));
 							} else if (typeof value === 'string' || typeof value === 'number') {
-								return filteredBy?.[property]?.includes(value.toString());
+								return filteredBy?.[property]?.includes(value.toString().trim());
 							}
 							return false;
 						})
