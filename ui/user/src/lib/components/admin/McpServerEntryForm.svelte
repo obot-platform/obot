@@ -85,7 +85,12 @@
 	let users = $state<OrgUser[]>([]);
 	let registry = $derived.by(() => {
 		if (!entry) return undefined;
-		const ownerUserId = 'isCatalogEntry' in entry ? entry.powerUserID : entry.userID;
+		const ownerUserId =
+			'isCatalogEntry' in entry
+				? entry.powerUserID
+				: entry.powerUserWorkspaceID
+					? entry.userID
+					: undefined;
 		return getRegistryLabel(ownerUserId, profile.current?.id, users);
 	});
 
