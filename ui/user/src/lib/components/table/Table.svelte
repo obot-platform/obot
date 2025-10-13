@@ -1,9 +1,17 @@
 <script lang="ts" generics="T extends { id: string | number }">
-	import { ChevronsLeft, ChevronsRight, Square, SquareCheck, SquareMinus } from 'lucide-svelte';
+	import {
+		ChevronDown,
+		ChevronsLeft,
+		ChevronsRight,
+		Square,
+		SquareCheck,
+		SquareMinus
+	} from 'lucide-svelte';
 	import { onMount, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 	import TableHeader from './TableHeader.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import DotDotDot from '../DotDotDot.svelte';
 
 	interface Props<T> {
 		actions?: Snippet<[T]>;
@@ -101,8 +109,7 @@
 
 		if (sortedBy) {
 			updatedTableData = data.sort((a, b) => {
-				// If tableSelectActions and validateSelect are available, sort by selectability first
-				if (tableSelectActions && validateSelect) {
+				if (tableSelectActions && validateSelect && sortedBy?.property === 'selectable') {
 					const aSelectable = validateSelect(a);
 					const bSelectable = validateSelect(b);
 
@@ -148,6 +155,10 @@
 			filteredBy && Object.keys(filteredBy).length > 0
 				? updatedTableData.filter((d) =>
 						Object.keys(filteredBy || {}).every((property) => {
+							if (property === 'selectable') {
+								return validateSelect ? validateSelect(d) : true;
+							}
+
 							const value = d[property as keyof T];
 							if (Array.isArray(value)) {
 								return value.some((v) => filteredBy?.[property]?.includes(v.toString()));
@@ -174,6 +185,7 @@
 		if (!filterable?.includes(property)) return;
 		if (values.length === 0) {
 			delete filteredBy?.[property];
+			filteredBy = { ...filteredBy };
 		} else {
 			filteredBy = {
 				...filteredBy,
@@ -344,34 +356,76 @@
 {/if}
 
 {#snippet selectAll()}
-	<button
-		class="icon-button"
-		onclick={(e) => {
-			e.stopPropagation();
-			if (Object.keys(selected).length > 0) {
-				selected = {};
-			} else {
-				selected = visibleItems.reduce(
-					(acc, d) => {
-						const isSelectable = validateSelect ? validateSelect(d) : true;
-						if (isSelectable) {
-							acc[d.id] = d;
+	<div class="flex items-center gap-1">
+		<button
+			class="icon-button"
+			onclick={(e) => {
+				e.stopPropagation();
+				if (Object.keys(selected).length > 0) {
+					selected = {};
+				} else {
+					selected = visibleItems.reduce(
+						(acc, d) => {
+							const isSelectable = validateSelect ? validateSelect(d) : true;
+							if (isSelectable) {
+								acc[d.id] = d;
+							}
+							return acc;
+						},
+						{} as Record<string, T>
+					);
+				}
+			}}
+		>
+			{#if Object.keys(selected).length === totalSelectable && totalSelectable > 0}
+				<SquareCheck class="size-5" />
+			{:else if Object.keys(selected).length > 0}
+				<SquareMinus class="size-5" />
+			{:else}
+				<Square class="size-5" />
+			{/if}
+		</button>
+		<DotDotDot class="text-gray-500">
+			{#snippet icon()}
+				<ChevronDown class="size-4" />
+			{/snippet}
+
+			<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
+				<button
+					class="menu-button"
+					onclick={() => {
+						sortedBy = {
+							property: 'selectable',
+							order: 'asc'
+						};
+					}}
+				>
+					Sort By Selectable Items
+				</button>
+				<button
+					class="menu-button"
+					onclick={async () => {
+						if (filteredBy?.['selectable']) {
+							delete filteredBy['selectable'];
+							filteredBy = { ...filteredBy };
+						} else {
+							filteredBy = {
+								...filteredBy,
+								selectable: ['true']
+							};
 						}
-						return acc;
-					},
-					{} as Record<string, T>
-				);
-			}
-		}}
-	>
-		{#if Object.keys(selected).length === totalSelectable && totalSelectable > 0}
-			<SquareCheck class="size-5" />
-		{:else if Object.keys(selected).length > 0}
-			<SquareMinus class="size-5" />
-		{:else}
-			<Square class="size-5" />
-		{/if}
-	</button>
+						onFilter?.('selectable', ['true']);
+					}}
+				>
+					{#if filteredBy?.['selectable']}
+						Show All Items
+					{:else}
+						Show Only Selectable Items
+					{/if}
+				</button>
+			</div>
+		</DotDotDot>
+	</div>
 {/snippet}
 
 {#snippet header(hidden?: boolean)}
