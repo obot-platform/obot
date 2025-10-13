@@ -14,7 +14,6 @@
 		type OrgUser
 	} from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
-	import { clearUrlParams, setUrlParams } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import {
 		Captions,
@@ -35,9 +34,19 @@
 		readonly?: boolean;
 		query?: string;
 		urlFilters?: Record<string, (string | number)[]>;
+		onFilter?: (property: string, values: string[]) => void;
+		onClearAllFilters?: () => void;
 	}
 
-	let { usersMap = new Map(), catalogId, readonly, query, urlFilters: filters }: Props = $props();
+	let {
+		usersMap = new Map(),
+		catalogId,
+		readonly,
+		query,
+		urlFilters: filters,
+		onFilter,
+		onClearAllFilters
+	}: Props = $props();
 	let loading = $state(false);
 
 	let diffDialog = $state<ReturnType<typeof DiffDialog>>();
@@ -60,9 +69,9 @@
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let serversData = $derived([
-		...deployedCatalogEntryServers,
-		...deployedWorkspaceCatalogEntryServers,
-		...mcpServerAndEntries.servers
+		...deployedCatalogEntryServers.filter((server) => !server.deleted),
+		...deployedWorkspaceCatalogEntryServers.filter((server) => !server.deleted),
+		...mcpServerAndEntries.servers.filter((server) => !server.deleted)
 	]);
 
 	let tableRef = $state<ReturnType<typeof Table>>();
@@ -267,8 +276,8 @@
 				}
 				openUrl(url, isCtrlClick);
 			}}
-			onFilter={setUrlParams}
-			onClearAllFilters={clearUrlParams}
+			{onFilter}
+			{onClearAllFilters}
 			sortable={['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
 			noDataMessage="No catalog servers added."
 			setRowClasses={(d) => {

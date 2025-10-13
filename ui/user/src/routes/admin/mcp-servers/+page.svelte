@@ -26,7 +26,7 @@
 	import DeploymentsView from './DeploymentsView.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
-	import { clearUrlParams } from '$lib/url';
+	import { clearUrlParams, setUrlParams } from '$lib/url';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
@@ -55,6 +55,16 @@
 			});
 		}
 	});
+
+	function handleFilter(property: string, values: string[]) {
+		urlFilters[property] = values;
+		setUrlParams(property, values);
+	}
+
+	function handleClearAllFilters() {
+		urlFilters = {};
+		clearUrlParams();
+	}
 
 	afterNavigate(({ to }) => {
 		if (browser && to?.url) {
@@ -234,6 +244,8 @@
 					{usersMap}
 					{query}
 					{urlFilters}
+					onFilter={handleFilter}
+					onClearAllFilters={handleClearAllFilters}
 				>
 					{#snippet emptyContentButton()}
 						{@render addServerButton()}
@@ -254,6 +266,8 @@
 					{usersMap}
 					{query}
 					{urlFilters}
+					onFilter={handleFilter}
+					onClearAllFilters={handleClearAllFilters}
 				/>
 			{/if}
 		</div>

@@ -30,6 +30,8 @@
 		usersMap?: Map<string, OrgUser>;
 		query?: string;
 		urlFilters?: Record<string, (string | number)[]>;
+		onFilter?: (property: string, values: string[]) => void;
+		onClearAllFilters?: () => void;
 	}
 
 	let {
@@ -38,7 +40,9 @@
 		emptyContentButton,
 		usersMap,
 		query,
-		urlFilters: filters
+		urlFilters: filters,
+		onFilter,
+		onClearAllFilters
 	}: Props = $props();
 
 	let deletingEntry = $state<MCPCatalogEntry>();
@@ -119,8 +123,8 @@
 				}
 				openUrl(url, isCtrlClick);
 			}}
-			onFilter={setUrlParams}
-			onClearAllFilters={clearUrlParams}
+			{onFilter}
+			{onClearAllFilters}
 			sortable={['name', 'type', 'users', 'created', 'registry']}
 			noDataMessage="No catalog servers added."
 			classes={{
