@@ -237,7 +237,14 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 }
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, id string, server ServerConfig, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
-	if server.Runtime == otypes.RuntimeRemote {
+	// Both Remote and Composite servers are accessed via URL and don't need deployment.
+	// Composite servers have their child components already deployed and are accessed via the mcp-connect gateway.
+	if server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite {
+		// For composite servers, set the URL to point to the mcp-connect endpoint using the server name as the slug
+		if server.Runtime == otypes.RuntimeComposite && server.URL == "" {
+			server.URL = fmt.Sprintf("%s/mcp-connect/%s", sm.baseURL, mcpServerName)
+		}
+
 		if server.URL == "" {
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", mcpServerDisplayName)
 		}
@@ -261,7 +268,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, id string, serve
 				}
 			}
 		}
-		// This is a remote MCP server, so there is nothing to deploy.
+		// Remote and Composite servers don't need deployment, just URL access.
 		return server, nil
 	}
 
@@ -300,6 +307,53 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServe
 	}
 
 	return ConvertTools(tools.Tools, []string{"*"}, nil)
+}
+
+// GeneratePromptPreviews creates a temporary MCP server from a catalog entry, lists its prompts,
+// then shuts it down and returns the prompt preview data.
+func (sm *SessionManager) GeneratePromptPreviews(ctx context.Context, tempMCPServer v1.MCPServer, serverConfig ServerConfig) ([]otypes.MCPServerPrompt, error) {
+	// Create MCP client and list prompts
+	client, err := sm.ClientForServer(ctx, "system", tempMCPServer.Spec.Manifest.Name, tempMCPServer.Name, serverConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Ensure cleanup happens regardless of success or failure
+	defer func() {
+		if cleanupErr := sm.ShutdownServer(ctx, serverConfig); cleanupErr != nil {
+			log.Errorf("failed to clean up temporary instance %s: %v", tempMCPServer.Name, cleanupErr)
+		}
+	}()
+
+	prompts, err := client.ListPrompts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list prompts: %w", err)
+	}
+
+	// Convert prompts to preview format
+	result := make([]otypes.MCPServerPrompt, 0, len(prompts.Prompts))
+	for _, prompt := range prompts.Prompts {
+		convertedPrompt := otypes.MCPServerPrompt{
+			Name:        prompt.Name,
+			Description: prompt.Description,
+		}
+
+		// Convert arguments
+		if len(prompt.Arguments) > 0 {
+			convertedPrompt.Arguments = make([]otypes.MCPServerPromptArg, 0, len(prompt.Arguments))
+			for _, arg := range prompt.Arguments {
+				convertedPrompt.Arguments = append(convertedPrompt.Arguments, otypes.MCPServerPromptArg{
+					Name:        arg.Name,
+					Description: arg.Description,
+					Required:    arg.Required,
+				})
+			}
+		}
+
+		result = append(result, convertedPrompt)
+	}
+
+	return result, nil
 }
 
 func constructNanobotYAML(name, command string, args []string, env map[string]string) (string, error) {

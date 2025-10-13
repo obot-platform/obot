@@ -69,6 +69,8 @@ type CompositeComponent struct {
 	CatalogEntryName string `json:"catalogEntryName"`
 	// ToolOverrides configures tool exposure/renaming for this component
 	ToolOverrides []ToolOverride `json:"toolOverrides,omitempty"`
+	// PromptOverrides configures prompt exposure/renaming for this component
+	PromptOverrides []PromptOverride `json:"promptOverrides,omitempty"`
 }
 
 // ParameterOverride defines how a single tool parameter is exposed by the composite server
@@ -95,6 +97,30 @@ type ToolOverride struct {
 	ParameterOverrides []ParameterOverride `json:"parameterOverrides,omitempty"`
 }
 
+// PromptArgumentOverride defines how a single prompt argument is exposed by the composite server
+type PromptArgumentOverride struct {
+	// Name is the original argument name as defined by the component server
+	Name string `json:"name"`
+	// OverrideName is the argument name exposed by the composite server
+	OverrideName string `json:"overrideName"`
+	// Optional override for argument description
+	OverrideDescription string `json:"overrideDescription,omitempty"`
+}
+
+// PromptOverride defines how a single component prompt is exposed by the composite server
+type PromptOverride struct {
+	// Name is the original prompt name as returned by the component server
+	Name string `json:"name"`
+	// OverrideName is the prompt name exposed by the composite server
+	OverrideName string `json:"overrideName"`
+	// Optional overrides for display
+	OverrideDescription string `json:"overrideDescription,omitempty"`
+	// Whether to include this prompt (default true)
+	Enabled bool `json:"enabled,omitempty"`
+	// Optional argument name/description overrides
+	ArgumentOverrides []PromptArgumentOverride `json:"argumentOverrides,omitempty"`
+}
+
 type MCPServerCatalogEntry struct {
 	Metadata
 	Manifest                  MCPServerCatalogEntryManifest `json:"manifest"`
@@ -109,12 +135,13 @@ type MCPServerCatalogEntry struct {
 }
 
 type MCPServerCatalogEntryManifest struct {
-	Metadata    map[string]string `json:"metadata,omitempty"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Icon        string            `json:"icon"`
-	RepoURL     string            `json:"repoURL,omitempty"`
-	ToolPreview []MCPServerTool   `json:"toolPreview,omitempty"`
+	Metadata      map[string]string `json:"metadata,omitempty"`
+	Name          string            `json:"name"`
+	Description   string            `json:"description"`
+	Icon          string            `json:"icon"`
+	RepoURL       string            `json:"repoURL,omitempty"`
+	ToolPreview   []MCPServerTool   `json:"toolPreview,omitempty"`
+	PromptPreview []MCPServerPrompt `json:"promptPreview,omitempty"`
 
 	// Runtime configuration
 	Runtime Runtime `json:"runtime"`
@@ -157,11 +184,12 @@ type MCPEnv struct {
 type MCPServerCatalogEntryList List[MCPServerCatalogEntry]
 
 type MCPServerManifest struct {
-	Metadata    map[string]string `json:"metadata,omitempty"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Icon        string            `json:"icon"`
-	ToolPreview []MCPServerTool   `json:"toolPreview,omitempty"`
+	Metadata      map[string]string `json:"metadata,omitempty"`
+	Name          string            `json:"name"`
+	Description   string            `json:"description"`
+	Icon          string            `json:"icon"`
+	ToolPreview   []MCPServerTool   `json:"toolPreview,omitempty"`
+	PromptPreview []MCPServerPrompt `json:"promptPreview,omitempty"`
 
 	// Runtime configuration
 	Runtime Runtime `json:"runtime"`
@@ -256,6 +284,18 @@ type MCPServerTool struct {
 	Credentials []string          `json:"credentials,omitempty"`
 	Enabled     bool              `json:"enabled"`
 	Unsupported bool              `json:"unsupported,omitempty"`
+}
+
+type MCPServerPromptArg struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Required    bool   `json:"required,omitempty"`
+}
+
+type MCPServerPrompt struct {
+	Name        string               `json:"name"`
+	Description string               `json:"description,omitempty"`
+	Arguments   []MCPServerPromptArg `json:"arguments,omitempty"`
 }
 
 type ProjectMCPServerManifest struct {

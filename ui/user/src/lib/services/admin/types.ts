@@ -1,12 +1,13 @@
 import {
 	type MCPServerTool,
+	type MCPServerPrompt,
 	type Project,
 	type Runtime,
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
 	type ContainerizedRuntimeConfig,
 	type CompositeRuntimeConfig,
-	type Task,
+	type Task
 } from '../chat/types';
 
 export interface MCPCatalogManifest {
@@ -44,6 +45,7 @@ export interface MCPCatalogEntryServerManifest {
 	name?: string;
 	description?: string;
 	toolPreview?: MCPServerTool[];
+	promptPreview?: MCPServerPrompt[];
 	metadata?: {
 		categories?: string;
 		'allow-multiple'?: string;
@@ -53,8 +55,8 @@ export interface MCPCatalogEntryServerManifest {
 	uvxConfig?: UVXRuntimeConfig;
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
-    remoteConfig?: RemoteCatalogConfigAdmin;
-    compositeConfig?: CompositeRuntimeConfig;
+	remoteConfig?: RemoteCatalogConfigAdmin;
+	compositeConfig?: CompositeRuntimeConfig;
 }
 
 export interface MCPCatalogEntry {
@@ -103,7 +105,7 @@ export interface RuntimeFormData {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin; // For catalog entries
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
-    compositeConfig?: CompositeRuntimeConfig;
+	compositeConfig?: CompositeRuntimeConfig;
 }
 
 // (deprecated mappings interfaces removed in favor of overrides)

@@ -7,12 +7,14 @@
 	import CatalogConfigureForm, { type LaunchFormData } from './CatalogConfigureForm.svelte';
 	import { hasEditableConfiguration, convertEnvHeadersToRecord } from '$lib/services/chat/mcp';
 
-interface Props {
-    compositeConfig: { components: { catalogEntryName: string; toolOverrides?: any[] }[] };
-    readonly?: boolean;
-    catalogId?: string;
-    mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
-}
+	interface Props {
+		compositeConfig: {
+			components: { catalogEntryName: string; toolOverrides?: any[]; promptOverrides?: any[] }[];
+		};
+		readonly?: boolean;
+		catalogId?: string;
+		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
+	}
 
 	let { compositeConfig = $bindable(), readonly, catalogId, mcpEntriesContextFn }: Props = $props();
 	let searchDialog = $state<ReturnType<typeof SearchMcpServers>>();
@@ -36,34 +38,66 @@ interface Props {
 		enabled: boolean;
 		parameters?: ParameterRow[];
 	};
+	type PromptArgumentRow = {
+		id: string;
+		originalName: string;
+		exposedName: string;
+		originalDescription?: string;
+		exposedDescription?: string;
+	};
+	type PromptRow = {
+		id: string;
+		originalName: string;
+		exposedName: string;
+		originalDescription?: string;
+		exposedDescription?: string;
+		enabled: boolean;
+		promptArgs?: PromptArgumentRow[];
+	};
 	let toolsByEntry = $state<Record<string, ToolRow[]>>({});
+	let promptsByEntry = $state<Record<string, PromptRow[]>>({});
 	let populatedByEntry = $state<Record<string, boolean>>({});
 	let loadingByEntry = $state<Record<string, boolean>>({});
+	let expandedPromptArgs = $state<Record<string, boolean>>({});
 
 	function teaser(text?: string, max = 140): string {
 		if (!text) return '';
 		return text.length > max ? text.slice(0, max).trimEnd() + '…' : text;
 	}
 
-function updateCompositeToolMappings() {
-    if (!compositeConfig) return;
-    const components = (compositeConfig.components || []).map((c) => {
-        const rows = toolsByEntry[c.catalogEntryName] || [];
-        const toolOverrides = rows.map((row) => ({
-            name: row.originalName,
-            overrideName: row.exposedName,
-            overrideDescription: row.exposedDescription,
-            enabled: row.enabled,
-            parameterOverrides: row.parameters?.map((p) => ({
-                name: p.originalName,
-                overrideName: p.exposedName,
-                overrideDescription: p.exposedDescription
-            }))
-        }));
-        return { catalogEntryName: c.catalogEntryName, toolOverrides };
-    });
-    compositeConfig.components = components;
-}
+	function updateCompositeToolMappings() {
+		if (!compositeConfig) return;
+		const components = (compositeConfig.components || []).map((c) => {
+			const toolRows = toolsByEntry[c.catalogEntryName] || [];
+			const toolOverrides = toolRows.map((row) => ({
+				name: row.originalName,
+				overrideName: row.exposedName,
+				overrideDescription: row.exposedDescription,
+				enabled: row.enabled,
+				parameterOverrides: row.parameters?.map((p) => ({
+					name: p.originalName,
+					overrideName: p.exposedName,
+					overrideDescription: p.exposedDescription
+				}))
+			}));
+
+			const promptRows = promptsByEntry[c.catalogEntryName] || [];
+			const promptOverrides = promptRows.map((row) => ({
+				name: row.originalName,
+				overrideName: row.exposedName,
+				overrideDescription: row.exposedDescription,
+				enabled: row.enabled,
+				argumentOverrides: row.promptArgs?.map((a) => ({
+					name: a.originalName,
+					overrideName: a.exposedName,
+					overrideDescription: a.exposedDescription
+				}))
+			}));
+
+			return { catalogEntryName: c.catalogEntryName, toolOverrides, promptOverrides };
+		});
+		compositeConfig.components = components;
+	}
 
 	// Per-entry configuration dialog state
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
@@ -103,7 +137,7 @@ function updateCompositeToolMappings() {
 							exposedName: paramName,
 							originalDescription: t.params?.[paramName],
 							exposedDescription: t.params?.[paramName]
-					  }))
+						}))
 					: [];
 
 				return {
@@ -116,6 +150,31 @@ function updateCompositeToolMappings() {
 					parameters
 				};
 			});
+
+			// Process prompts
+			const promptPreview = resp?.manifest?.promptPreview || [];
+			promptsByEntry[entry.id] = promptPreview.map((p) => {
+				const promptArgs: PromptArgumentRow[] = p.arguments
+					? p.arguments.map((arg) => ({
+							id: `${entry.id}-${p.name}-${arg.name}`,
+							originalName: arg.name,
+							exposedName: arg.name,
+							originalDescription: arg.description,
+							exposedDescription: arg.description
+						}))
+					: [];
+
+				return {
+					id: `${entry.id}-${p.name}`,
+					originalName: p.name,
+					exposedName: p.name,
+					originalDescription: p.description,
+					exposedDescription: p.description,
+					enabled: true,
+					promptArgs
+				};
+			});
+
 			populatedByEntry[entry.id] = true;
 			updateCompositeToolMappings();
 		} catch (err) {
@@ -137,16 +196,16 @@ function updateCompositeToolMappings() {
 
 	// Load full catalog entry details for display
 	async function loadComponentEntries() {
-    if (!compositeConfig?.components || !catalogId) return;
+		if (!compositeConfig?.components || !catalogId) return;
 
 		loading = true;
 		try {
-            const entries = await Promise.all(
-                compositeConfig.components.map(async (c) => {
+			const entries = await Promise.all(
+				compositeConfig.components.map(async (c) => {
 					try {
-                        return await AdminService.getMCPCatalogEntry(catalogId, c.catalogEntryName);
+						return await AdminService.getMCPCatalogEntry(catalogId, c.catalogEntryName);
 					} catch (e) {
-                        console.error(`Failed to load component entry ${c.catalogEntryName}:`, e);
+						console.error(`Failed to load component entry ${c.catalogEntryName}:`, e);
 						return null;
 					}
 				})
@@ -163,7 +222,7 @@ function updateCompositeToolMappings() {
 
 	// Re-fetch component entry details whenever the selected component IDs or catalog change
 	$effect(() => {
-    const idsKey = compositeConfig?.components?.map((c) => c.catalogEntryName).join(',') || '';
+		const idsKey = compositeConfig?.components?.map((c) => c.catalogEntryName).join(',') || '';
 		const catKey = catalogId || '';
 		// touch keys so Svelte tracks them
 		idsKey;
@@ -171,25 +230,26 @@ function updateCompositeToolMappings() {
 		loadComponentEntries();
 	});
 
-function handleAdd(mcpCatalogEntryIds: string[]) {
-    if (!compositeConfig) {
-        compositeConfig = { components: [] } as any;
-    }
-    const existing = new Set((compositeConfig.components || []).map((c) => c.catalogEntryName));
-    const newComponents = mcpCatalogEntryIds
-        .filter((id) => !existing.has(id))
-        .map((id) => ({ catalogEntryName: id, toolOverrides: [] }));
-    compositeConfig.components = [...(compositeConfig.components || []), ...newComponents];
-}
+	function handleAdd(mcpCatalogEntryIds: string[]) {
+		if (!compositeConfig) {
+			compositeConfig = { components: [] } as any;
+		}
+		const existing = new Set((compositeConfig.components || []).map((c) => c.catalogEntryName));
+		const newComponents = mcpCatalogEntryIds
+			.filter((id) => !existing.has(id))
+			.map((id) => ({ catalogEntryName: id, toolOverrides: [], promptOverrides: [] }));
+		compositeConfig.components = [...(compositeConfig.components || []), ...newComponents];
+	}
 
-function removeServer(entryId: string) {
-    compositeConfig.components = (compositeConfig.components || []).filter(
-        (c) => c.catalogEntryName !== entryId
-    );
-    delete toolsByEntry[entryId];
-    delete populatedByEntry[entryId];
-    delete loadingByEntry[entryId];
-}
+	function removeServer(entryId: string) {
+		compositeConfig.components = (compositeConfig.components || []).filter(
+			(c) => c.catalogEntryName !== entryId
+		);
+		delete toolsByEntry[entryId];
+		delete promptsByEntry[entryId];
+		delete populatedByEntry[entryId];
+		delete loadingByEntry[entryId];
+	}
 </script>
 
 <div
@@ -276,7 +336,7 @@ function removeServer(entryId: string) {
 										>
 											<div class="flex items-center gap-2">
 												<input
-													class="text-input-filled text-sm flex-1"
+													class="text-input-filled flex-1 text-sm"
 													bind:value={tool.exposedName}
 													oninput={() => updateCompositeToolMappings()}
 													placeholder="Tool name"
@@ -307,7 +367,7 @@ function removeServer(entryId: string) {
 												{/if}
 											</div>
 											<textarea
-												class="text-input-filled text-xs resize-none"
+												class="text-input-filled resize-none text-xs"
 												bind:value={tool.exposedDescription}
 												oninput={() => updateCompositeToolMappings()}
 												placeholder="Tool description"
@@ -332,6 +392,80 @@ function removeServer(entryId: string) {
 																bind:value={param.exposedDescription}
 																oninput={() => updateCompositeToolMappings()}
 																placeholder="Parameter description (optional)"
+															/>
+														</div>
+													{/each}
+												</div>
+											{/if}
+										</div>
+									{/each}
+								</div>
+							{/if}
+							{#if promptsByEntry[entry.id]?.length}
+								<div class="mt-4 flex flex-col gap-2">
+									<h5 class="text-xs font-semibold text-gray-700 dark:text-gray-300">Prompts:</h5>
+									{#each promptsByEntry[entry.id] as prompt (prompt.id)}
+										<div
+											class="dark:bg-surface2 dark:border-surface3 rounded border border-gray-200 bg-white p-2"
+										>
+											<div class="flex items-center gap-2">
+												<input
+													class="text-input-filled flex-1 text-sm"
+													bind:value={prompt.exposedName}
+													oninput={() => updateCompositeToolMappings()}
+													placeholder="Prompt name"
+												/>
+												<label class="flex items-center gap-1 text-xs whitespace-nowrap">
+													<input
+														type="checkbox"
+														bind:checked={prompt.enabled}
+														onchange={() => updateCompositeToolMappings()}
+													/> Enable
+												</label>
+												{#if prompt.promptArgs && prompt.promptArgs.length > 0}
+													<button
+														type="button"
+														class="icon-button"
+														onclick={() =>
+															(expandedPromptArgs[prompt.id] = !expandedPromptArgs[prompt.id])}
+														aria-label={expandedPromptArgs[prompt.id]
+															? 'Collapse arguments'
+															: 'Expand arguments'}
+													>
+														{#if expandedPromptArgs[prompt.id]}
+															<ChevronUp class="size-4" />
+														{:else}
+															<ChevronDown class="size-4" />
+														{/if}
+													</button>
+												{/if}
+											</div>
+											<textarea
+												class="text-input-filled resize-none text-xs"
+												bind:value={prompt.exposedDescription}
+												oninput={() => updateCompositeToolMappings()}
+												placeholder="Prompt description"
+												rows="2"
+											></textarea>
+
+											{#if expandedPromptArgs[prompt.id] && prompt.promptArgs && prompt.promptArgs.length > 0}
+												<div class="mt-3 space-y-2 border-t border-gray-200 pt-3">
+													<div class="text-xs font-semibold text-gray-700 dark:text-gray-300">
+														Arguments:
+													</div>
+													{#each prompt.promptArgs as arg (arg.id)}
+														<div class="ml-4 flex flex-col gap-1">
+															<input
+																class="text-input-filled text-xs"
+																bind:value={arg.exposedName}
+																oninput={() => updateCompositeToolMappings()}
+																placeholder="Argument name"
+															/>
+															<input
+																class="text-input-filled text-xs"
+																bind:value={arg.exposedDescription}
+																oninput={() => updateCompositeToolMappings()}
+																placeholder="Argument description (optional)"
 															/>
 														</div>
 													{/each}
@@ -372,9 +506,9 @@ function removeServer(entryId: string) {
 <SearchMcpServers
 	bind:this={searchDialog}
 	onAdd={(mcpCatalogEntryIds) => handleAdd(mcpCatalogEntryIds)}
-exclude={compositeConfig?.components?.map((c) => c.catalogEntryName)}
-type="acr"
-{mcpEntriesContextFn}
+	exclude={compositeConfig?.components?.map((c) => c.catalogEntryName)}
+	type="acr"
+	{mcpEntriesContextFn}
 />
 
 <!-- Inline configuration dialog for previewing tools on components that require config -->

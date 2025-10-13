@@ -78,7 +78,11 @@
 	afterNavigate(({ to }) => {
 		if (browser && to?.url) {
 			const serverId = to.url.searchParams.get('id');
-			const createNewType = to.url.searchParams.get('new') as 'single' | 'multi' | 'remote' | 'composite';
+			const createNewType = to.url.searchParams.get('new') as
+				| 'single'
+				| 'multi'
+				| 'remote'
+				| 'composite';
 			if (createNewType) {
 				selectServerType(createNewType, false);
 			} else if (!serverId && (selectedEntryServer || showServerForm)) {

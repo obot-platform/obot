@@ -88,6 +88,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServerInstanceList":                        schema_obot_platform_obot_apiclient_types_MCPServerInstanceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerList":                                schema_obot_platform_obot_apiclient_types_MCPServerList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerManifest":                            schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerPrompt":                              schema_obot_platform_obot_apiclient_types_MCPServerPrompt(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerPromptArg":                           schema_obot_platform_obot_apiclient_types_MCPServerPromptArg(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerTool":                                schema_obot_platform_obot_apiclient_types_MCPServerTool(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStats":                             schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStatsItem":                         schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref),
@@ -141,6 +143,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ProjectTemplate":                              schema_obot_platform_obot_apiclient_types_ProjectTemplate(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectTemplateList":                          schema_obot_platform_obot_apiclient_types_ProjectTemplateList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Prompt":                                       schema_obot_platform_obot_apiclient_types_Prompt(ref),
+		"github.com/obot-platform/obot/apiclient/types.PromptArgumentOverride":                       schema_obot_platform_obot_apiclient_types_PromptArgumentOverride(ref),
+		"github.com/obot-platform/obot/apiclient/types.PromptOverride":                               schema_obot_platform_obot_apiclient_types_PromptOverride(ref),
 		"github.com/obot-platform/obot/apiclient/types.PromptResponse":                               schema_obot_platform_obot_apiclient_types_PromptResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":               schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsage":                          schema_obot_platform_obot_apiclient_types_RemainingTokenUsage(ref),
@@ -1611,12 +1615,26 @@ func schema_obot_platform_obot_apiclient_types_CompositeComponent(ref common.Ref
 							},
 						},
 					},
+					"promptOverrides": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PromptOverrides configures prompt exposure/renaming for this component",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.PromptOverride"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"catalogEntryName"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ToolOverride"},
+			"github.com/obot-platform/obot/apiclient/types.PromptOverride", "github.com/obot-platform/obot/apiclient/types.ToolOverride"},
 	}
 }
 
@@ -3235,16 +3253,9 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 							Format:  "",
 						},
 					},
-					"componentEntryID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Optional provenance for composite aggregation ComponentEntryID is the catalog entry ID that this field originated from (when part of a composite)",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"componentEntryName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ComponentEntryName is the catalog entry name (Kubernetes object name) for the component",
+							Description: "Optional provenance for composite aggregation ComponentEntryName is the catalog entry name (Kubernetes object name) for the component",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3320,16 +3331,9 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 							Format:  "",
 						},
 					},
-					"componentEntryID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Optional provenance for composite aggregation ComponentEntryID is the catalog entry ID that this field originated from (when part of a composite)",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"componentEntryName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ComponentEntryName is the catalog entry name (Kubernetes object name) for the component",
+							Description: "Optional provenance for composite aggregation ComponentEntryName is the catalog entry name (Kubernetes object name) for the component",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -3777,6 +3781,19 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							},
 						},
 					},
+					"promptPreview": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerPrompt"),
+									},
+								},
+							},
+						},
+					},
 					"runtime": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Runtime configuration",
@@ -3829,7 +3846,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPServerPrompt", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -4144,6 +4161,19 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							},
 						},
 					},
+					"promptPreview": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerPrompt"),
+									},
+								},
+							},
+						},
+					},
 					"runtime": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Runtime configuration",
@@ -4236,7 +4266,80 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPServerPrompt", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerPrompt(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"arguments": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerPromptArg"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerPromptArg"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerPromptArg(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"required": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
 	}
 }
 
@@ -6902,6 +7005,103 @@ func schema_obot_platform_obot_apiclient_types_Prompt(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Field", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_PromptArgumentOverride(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PromptArgumentOverride defines how a single prompt argument is exposed by the composite server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the original argument name as defined by the component server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overrideName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OverrideName is the argument name exposed by the composite server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overrideDescription": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional override for argument description",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "overrideName"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_PromptOverride(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PromptOverride defines how a single component prompt is exposed by the composite server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the original prompt name as returned by the component server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overrideName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OverrideName is the prompt name exposed by the composite server",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overrideDescription": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional overrides for display",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to include this prompt (default true)",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"argumentOverrides": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional argument name/description overrides",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.PromptArgumentOverride"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "overrideName"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.PromptArgumentOverride"},
 	}
 }
 

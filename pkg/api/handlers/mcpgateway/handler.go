@@ -427,6 +427,221 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 			}
 
 			result = nmcp.ListToolsResult{Tools: allTools}
+		case methodPromptsList:
+			// Aggregate prompts from all children
+			var allPrompts []nmcp.Prompt
+			// Build per-component override maps: entryName -> (promptName -> override)
+			componentPromptMaps := map[string]map[string]types.PromptOverride{}
+			hasAnyMappings := false
+			if cfg := m.mcpServer.Spec.Manifest.CompositeConfig; cfg != nil {
+				for _, comp := range cfg.Components {
+					if len(comp.PromptOverrides) == 0 {
+						continue
+					}
+					hasAnyMappings = true
+					mp := make(map[string]types.PromptOverride, len(comp.PromptOverrides))
+					for _, pm := range comp.PromptOverrides {
+						mp[pm.Name] = pm
+					}
+					componentPromptMaps[comp.CatalogEntryName] = mp
+				}
+			}
+			for i, childServer := range m.childServers {
+				childClient, childErr := h.mcpSessionManager.ClientForMCPServerWithOptions(
+					ctx,
+					msg.Session.ID()+"-child-"+childServer.Name,
+					childServer,
+					m.childConfigs[i],
+					h.asClientOption(
+						msg.Session,
+						m.userID,
+						childServer.Name,
+						childServer.Namespace,
+						childServer.Name,
+						childServer.Spec.Manifest.Name,
+						childServer.Spec.MCPServerCatalogEntryName,
+						catalogName,
+						powerUserWorkspaceID,
+					),
+				)
+				if childErr != nil {
+					log.Errorf("Failed to get client for child server %s: %v", childServer.Name, childErr)
+					continue
+				}
+
+				var listResult nmcp.ListPromptsResult
+				if err := childClient.Session.Exchange(ctx, methodPromptsList, &msg, &listResult); err != nil {
+					log.Errorf("Failed to list prompts for child %s: %v", childServer.Name, err)
+					continue
+				}
+
+				// Apply mapping (if provided) or default prefixing
+				componentPrefix := sanitizeToolPrefix(childServer.Spec.Manifest.Name)
+				entryKey := childServer.Spec.MCPServerCatalogEntryName
+				log.Warnf("Processing prompts from child server %s with prefix: %s, entryKey: %s", childServer.Spec.Manifest.Name, componentPrefix, entryKey)
+				for _, prompt := range listResult.Prompts {
+					if pmap, ok := componentPromptMaps[entryKey]; ok {
+						if pm, ok := pmap[prompt.Name]; ok {
+							log.Warnf("Found override for prompt %s: enabled=%v", prompt.Name, pm.Enabled)
+							if !pm.Enabled {
+								log.Warnf("Skipping disabled prompt: %s", prompt.Name)
+								continue
+							}
+							name := pm.OverrideName
+							if name == "" {
+								name = prompt.Name
+							}
+							prompt.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(name))
+							if pm.OverrideDescription != "" {
+								prompt.Description = pm.OverrideDescription
+							}
+							if len(pm.ArgumentOverrides) > 0 && len(prompt.Arguments) > 0 {
+								prompt.Arguments = applyPromptArgumentOverrides(prompt.Arguments, pm.ArgumentOverrides)
+							}
+							allPrompts = append(allPrompts, prompt)
+							continue
+						}
+					}
+					if !hasAnyMappings {
+						log.Warnf("No mappings configured, including prompt %s with prefix", prompt.Name)
+						prompt.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(prompt.Name))
+						allPrompts = append(allPrompts, prompt)
+					}
+				}
+			}
+
+			result = nmcp.ListPromptsResult{Prompts: allPrompts}
+		case methodPromptsGet:
+			// Route prompt get using mapping (or legacy prefix fallback)
+			var params struct {
+				Name      string            `json:"name"`
+				Arguments map[string]string `json:"arguments"`
+			}
+			if err := json.Unmarshal(msg.Params, &params); err != nil {
+				err = &nmcp.RPCError{Code: -32602, Message: "Invalid params"}
+				return
+			}
+
+			// Find which child this prompt belongs to
+			var (
+				targetChild        *v1.MCPServer
+				targetConfig       *mcp.ServerConfig
+				originalPromptName string
+				promptMapping      *types.PromptOverride
+			)
+
+			// Build list of component prefixes for parsing
+			componentPrefixes := make([]string, len(m.childServers))
+			for i, childServer := range m.childServers {
+				componentPrefixes[i] = sanitizeToolPrefix(childServer.Spec.Manifest.Name)
+			}
+
+			// Parse the composited prompt name to get component prefix and exposed name
+			componentPrefix, exposedName, found := parseCompositedToolName(params.Name, componentPrefixes)
+			if !found {
+				err = &nmcp.RPCError{Code: -32602, Message: "Prompt not found"}
+				return
+			}
+
+			// Find the child server by matching component prefix
+			var hasAnyMappings bool
+			var pmap map[string]types.PromptOverride
+			if cfg := m.mcpServer.Spec.Manifest.CompositeConfig; cfg != nil {
+				for _, comp := range cfg.Components {
+					if len(comp.PromptOverrides) > 0 {
+						m := make(map[string]types.PromptOverride, len(comp.PromptOverrides))
+						for _, pm := range comp.PromptOverrides {
+							m[pm.Name] = pm
+						}
+						pmap = m
+						hasAnyMappings = true
+						break
+					}
+				}
+			}
+
+			for i, childServer := range m.childServers {
+				if sanitizeToolPrefix(childServer.Spec.Manifest.Name) == componentPrefix {
+					targetChild = &m.childServers[i]
+					targetConfig = &m.childConfigs[i]
+
+					// Reverse-map the prompt name if overrides exist
+					if hasAnyMappings {
+						for origName, pm := range pmap {
+							if pm.OverrideName == exposedName {
+								originalPromptName = origName
+								promptMapping = &pm
+								break
+							}
+						}
+						if originalPromptName == "" {
+							originalPromptName = exposedName
+						}
+					} else {
+						originalPromptName = exposedName
+					}
+					break
+				}
+			}
+
+			if targetChild == nil {
+				err = &nmcp.RPCError{Code: -32602, Message: "Prompt not found in any child server"}
+				return
+			}
+
+			// Reverse-map argument names if needed
+			reversedArgs := params.Arguments
+			if promptMapping != nil && len(promptMapping.ArgumentOverrides) > 0 {
+				reversedArgs = make(map[string]string, len(params.Arguments))
+				argMap := make(map[string]string)
+				for _, override := range promptMapping.ArgumentOverrides {
+					if override.OverrideName != "" {
+						argMap[override.OverrideName] = override.Name
+					}
+				}
+				for key, value := range params.Arguments {
+					if origName, ok := argMap[key]; ok {
+						reversedArgs[origName] = value
+					} else {
+						reversedArgs[key] = value
+					}
+				}
+			}
+
+			// Call the child server with the original prompt name
+			childClient, childErr := h.mcpSessionManager.ClientForMCPServerWithOptions(
+				ctx,
+				msg.Session.ID()+"-child-"+targetChild.Name,
+				*targetChild,
+				*targetConfig,
+				h.asClientOption(
+					msg.Session,
+					m.userID,
+					targetChild.Name,
+					targetChild.Namespace,
+					targetChild.Name,
+					targetChild.Spec.Manifest.Name,
+					targetChild.Spec.MCPServerCatalogEntryName,
+					catalogName,
+					powerUserWorkspaceID,
+				),
+			)
+			if childErr != nil {
+				err = &nmcp.RPCError{Code: -32603, Message: fmt.Sprintf("failed to get client for child: %v", childErr)}
+				return
+			}
+
+			getParams := map[string]interface{}{
+				"name":      originalPromptName,
+				"arguments": reversedArgs,
+			}
+			msg.Params, _ = json.Marshal(getParams)
+
+			result = nmcp.GetPromptResult{}
+			if err = childClient.Session.Exchange(ctx, methodPromptsGet, &msg, &result); err != nil {
+				log.Errorf("Failed to get prompt from child %s: %v", targetChild.Name, err)
+				return
+			}
 		case methodToolsCall:
 			// Route tool call using mapping (or legacy prefix fallback)
 			var params struct {
@@ -521,7 +736,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 			// Apply parameter name mappings to arguments (exposed → component)
 			if toolMapping != nil && len(toolMapping.ParameterOverrides) > 0 {
-				params.Arguments = transformArguments(params.Arguments, toolMapping.ParameterOverrides, true)
+				params.Arguments = overridePromptArguments(params.Arguments, toolMapping.ParameterOverrides, true)
 			}
 
 			// Connect to target child and call the tool
@@ -868,10 +1083,10 @@ func fireWebhook(ctx context.Context, httpClient *http.Client, body []byte, mcpI
 	return resp.Status, nil
 }
 
-// transformArguments renames argument keys based on parameter mappings
+// overridePromptArguments renames argument keys based on parameter mappings
 // If toComponent is true: exposed → component (for incoming tool calls)
 // If toComponent is false: component → exposed (for outgoing tool call results, if needed)
-func transformArguments(args map[string]interface{}, mappings []types.ParameterOverride, toComponent bool) map[string]interface{} {
+func overridePromptArguments(args map[string]interface{}, mappings []types.ParameterOverride, toComponent bool) map[string]interface{} {
 	if len(mappings) == 0 {
 		return args
 	}
@@ -985,6 +1200,31 @@ func applyParameterMappings(inputSchema json.RawMessage, mappings []types.Parame
 	if err != nil {
 		log.Errorf("Failed to marshal transformed schema: %v", err)
 		return inputSchema
+	}
+	return result
+}
+
+func applyPromptArgumentOverrides(args []nmcp.PromptArgument, overrides []types.PromptArgumentOverride) []nmcp.PromptArgument {
+	if len(overrides) == 0 {
+		return args
+	}
+
+	overrideMap := make(map[string]types.PromptArgumentOverride, len(overrides))
+	for _, override := range overrides {
+		overrideMap[override.Name] = override
+	}
+
+	result := make([]nmcp.PromptArgument, 0, len(args))
+	for _, arg := range args {
+		if override, ok := overrideMap[arg.Name]; ok {
+			if override.OverrideName != "" {
+				arg.Name = override.OverrideName
+			}
+			if override.OverrideDescription != "" {
+				arg.Description = override.OverrideDescription
+			}
+		}
+		result = append(result, arg)
 	}
 	return result
 }

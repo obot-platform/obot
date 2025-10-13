@@ -308,8 +308,8 @@ export interface MCPSubField {
 	name: string;
 	required: boolean;
 	sensitive: boolean;
-  	componentEntryName?: string;
-  	componentDisplayName?: string;
+	componentEntryName?: string;
+	componentDisplayName?: string;
 }
 
 export interface MCP {
@@ -333,8 +333,8 @@ export interface MCPServer {
 	uvxConfig?: UVXRuntimeConfig;
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
-    remoteConfig?: RemoteRuntimeConfig;
-    compositeConfig?: CompositeRuntimeConfig;
+	remoteConfig?: RemoteRuntimeConfig;
+	compositeConfig?: CompositeRuntimeConfig;
 }
 
 // Named types for composite config (avoid inline types)
@@ -352,9 +352,24 @@ export interface ToolOverride {
 	parameterOverrides?: ParameterOverride[];
 }
 
+export interface PromptArgumentOverride {
+	name: string;
+	overrideName: string;
+	overrideDescription?: string;
+}
+
+export interface PromptOverride {
+	name: string;
+	overrideName: string;
+	overrideDescription?: string;
+	enabled?: boolean;
+	argumentOverrides?: PromptArgumentOverride[];
+}
+
 export interface CompositeComponent {
 	catalogEntryName: string;
 	toolOverrides?: ToolOverride[];
+	promptOverrides?: PromptOverride[];
 }
 
 export interface CompositeRuntimeConfig {
@@ -372,14 +387,16 @@ export interface MCPServerTool {
 	unsupported?: boolean;
 }
 
+export interface MCPServerPromptArg {
+	name: string;
+	description?: string;
+	required?: boolean;
+}
+
 export interface MCPServerPrompt {
 	name: string;
-	description: string;
-	arguments?: {
-		description: string;
-		name: string;
-		required: boolean;
-	}[];
+	description?: string;
+	arguments?: MCPServerPromptArg[];
 }
 
 export interface McpServerGeneratedPrompt {

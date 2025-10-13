@@ -1397,7 +1397,10 @@ export async function listComponentServersForComposite(
 	id: string,
 	opts?: { fetch?: Fetcher }
 ): Promise<MCPCatalogServer[]> {
-	const response = (await doGet(`/mcp-servers/${id}/components`, opts)) as ItemsResponse<MCPCatalogServer>;
+	const response = (await doGet(
+		`/mcp-servers/${id}/components`,
+		opts
+	)) as ItemsResponse<MCPCatalogServer>;
 	return response.items ?? [];
 }
 

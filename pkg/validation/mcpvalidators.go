@@ -511,6 +511,59 @@ func (v CompositeValidator) validateCompositeConfig(config types.CompositeRuntim
 			}
 			toolSeen[tm.Name] = struct{}{}
 		}
+
+		promptSeen := make(map[string]struct{}, len(c.PromptOverrides))
+		for j, pm := range c.PromptOverrides {
+			if strings.TrimSpace(pm.Name) == "" {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("components[%d].promptOverrides[%d].name", i, j),
+					Message: "prompt name cannot be empty",
+				}
+			}
+			if strings.TrimSpace(pm.OverrideName) == "" {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("components[%d].promptOverrides[%d].overrideName", i, j),
+					Message: "prompt overrideName cannot be empty",
+				}
+			}
+			if _, dup := promptSeen[pm.Name]; dup {
+				return types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   fmt.Sprintf("components[%d].promptOverrides[%d].name", i, j),
+					Message: fmt.Sprintf("duplicate prompt mapping for: %s", pm.Name),
+				}
+			}
+			promptSeen[pm.Name] = struct{}{}
+
+			// Validate argument overrides
+			argSeen := make(map[string]struct{}, len(pm.ArgumentOverrides))
+			for k, ao := range pm.ArgumentOverrides {
+				if strings.TrimSpace(ao.Name) == "" {
+					return types.RuntimeValidationError{
+						Runtime: types.RuntimeComposite,
+						Field:   fmt.Sprintf("components[%d].promptOverrides[%d].argumentOverrides[%d].name", i, j, k),
+						Message: "argument name cannot be empty",
+					}
+				}
+				if strings.TrimSpace(ao.OverrideName) == "" {
+					return types.RuntimeValidationError{
+						Runtime: types.RuntimeComposite,
+						Field:   fmt.Sprintf("components[%d].promptOverrides[%d].argumentOverrides[%d].overrideName", i, j, k),
+						Message: "argument overrideName cannot be empty",
+					}
+				}
+				if _, dup := argSeen[ao.Name]; dup {
+					return types.RuntimeValidationError{
+						Runtime: types.RuntimeComposite,
+						Field:   fmt.Sprintf("components[%d].promptOverrides[%d].argumentOverrides[%d].name", i, j, k),
+						Message: fmt.Sprintf("duplicate argument mapping for: %s", ao.Name),
+					}
+				}
+				argSeen[ao.Name] = struct{}{}
+			}
+		}
 	}
 	return nil
 }

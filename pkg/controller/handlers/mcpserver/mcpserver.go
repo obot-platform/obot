@@ -198,6 +198,17 @@ func compositeConfigHasDrifted(serverConfig, entryConfig *types.CompositeRuntime
 				return strings.Compare(a.Name, b.Name)
 			})
 		}
+		slices.SortFunc(sv[i].PromptOverrides, func(a, b types.PromptOverride) int {
+			if d := strings.Compare(a.Name, b.Name); d != 0 {
+				return d
+			}
+			return strings.Compare(a.OverrideName, b.OverrideName)
+		})
+		for j := range sv[i].PromptOverrides {
+			slices.SortFunc(sv[i].PromptOverrides[j].ArgumentOverrides, func(a, b types.PromptArgumentOverride) int {
+				return strings.Compare(a.Name, b.Name)
+			})
+		}
 	}
 
 	slices.SortFunc(ev, func(a, b types.CompositeComponent) int {
@@ -212,6 +223,17 @@ func compositeConfigHasDrifted(serverConfig, entryConfig *types.CompositeRuntime
 		})
 		for j := range ev[i].ToolOverrides {
 			slices.SortFunc(ev[i].ToolOverrides[j].ParameterOverrides, func(a, b types.ParameterOverride) int {
+				return strings.Compare(a.Name, b.Name)
+			})
+		}
+		slices.SortFunc(ev[i].PromptOverrides, func(a, b types.PromptOverride) int {
+			if d := strings.Compare(a.Name, b.Name); d != 0 {
+				return d
+			}
+			return strings.Compare(a.OverrideName, b.OverrideName)
+		})
+		for j := range ev[i].PromptOverrides {
+			slices.SortFunc(ev[i].PromptOverrides[j].ArgumentOverrides, func(a, b types.PromptArgumentOverride) int {
 				return strings.Compare(a.Name, b.Name)
 			})
 		}

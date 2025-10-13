@@ -31,7 +31,11 @@
 		{#if workspaceId && catalogEntry}
 			<McpServerEntryForm
 				entry={catalogEntry}
-				type={catalogEntry?.manifest.runtime === 'composite' ? 'composite' : catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
+				type={catalogEntry?.manifest.runtime === 'composite'
+					? 'composite'
+					: catalogEntry?.manifest.runtime === 'remote'
+						? 'remote'
+						: 'single'}
 				id={workspaceId}
 				entity="workspace"
 				onCancel={() => {

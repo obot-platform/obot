@@ -13,7 +13,7 @@
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
-    import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
+	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
 	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import { onMount, tick, type Snippet } from 'svelte';
 	import MarkdownInput from '../MarkdownInput.svelte';
@@ -86,8 +86,7 @@
 		if (!item) {
 			// Default initialization for new servers - determine runtime based on type
 			const defaultRuntime: Runtime =
-				type === 'composite' ? 'composite' :
-				type === 'remote' ? 'remote' : 'npx';
+				type === 'composite' ? 'composite' : type === 'remote' ? 'remote' : 'npx';
 
 			return {
 				categories: [''],
@@ -101,7 +100,7 @@
 				containerizedConfig: undefined,
 				remoteConfig: defaultRuntime === 'remote' ? { fixedURL: '', headers: [] } : undefined,
 				remoteServerConfig: undefined,
-                compositeConfig: defaultRuntime === 'composite' ? { components: [] } : undefined
+				compositeConfig: defaultRuntime === 'composite' ? { components: [] } : undefined
 			};
 		}
 
@@ -150,8 +149,8 @@
 							}
 						: { url: '', headers: [] };
 					break;
-                case 'composite':
-                    formData.compositeConfig = manifest.compositeConfig || { components: [] };
+				case 'composite':
+					formData.compositeConfig = manifest.compositeConfig || { components: [] };
 					break;
 			}
 
@@ -196,8 +195,8 @@
 				case 'remote':
 					formData.remoteConfig = manifest.remoteConfig || { fixedURL: '', headers: [] };
 					break;
-                case 'composite':
-                    formData.compositeConfig = manifest.compositeConfig || { components: [] };
+				case 'composite':
+					formData.compositeConfig = manifest.compositeConfig || { components: [] };
 					break;
 			}
 
@@ -281,8 +280,8 @@
 				// For remote servers (catalog entries), use remoteConfig
 				formData.remoteConfig = { fixedURL: '', headers: [] };
 				break;
-            case 'composite':
-                formData.compositeConfig = { components: [] } as any;
+			case 'composite':
+				formData.compositeConfig = { components: [] } as any;
 				break;
 		}
 	}
@@ -412,10 +411,10 @@
 					};
 				}
 				break;
-            case 'composite':
-                if (baseData.compositeConfig) {
-                    manifest.compositeConfig = baseData.compositeConfig;
-                }
+			case 'composite':
+				if (baseData.compositeConfig) {
+					manifest.compositeConfig = baseData.compositeConfig;
+				}
 				break;
 		}
 

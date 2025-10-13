@@ -280,16 +280,16 @@
 		if (!entry) return;
 
 		// For composite servers, fetch component entries and aggregate their config
-    if (type === 'composite' && entry.manifest.compositeConfig?.components) {
+		if (type === 'composite' && entry.manifest.compositeConfig?.components) {
 			const aggregatedEnvs: any[] = [];
 			const aggregatedHeaders: any[] = [];
 
 			// Fetch all component entries
-        for (const component of entry.manifest.compositeConfig.components) {
+			for (const component of entry.manifest.compositeConfig.components) {
 				try {
-                const componentEntry = await (entity === 'workspace'
-                    ? ChatService.getWorkspaceMCPCatalogEntry(id!, component.catalogEntryName)
-                    : AdminService.getMCPCatalogEntry(id!, component.catalogEntryName));
+					const componentEntry = await (entity === 'workspace'
+						? ChatService.getWorkspaceMCPCatalogEntry(id!, component.catalogEntryName)
+						: AdminService.getMCPCatalogEntry(id!, component.catalogEntryName));
 
 					// Aggregate env vars with prefix
 					if (componentEntry.manifest?.env) {
@@ -304,7 +304,10 @@
 					}
 
 					// Aggregate headers from remote components
-					if (componentEntry.manifest?.runtime === 'remote' && componentEntry.manifest?.remoteConfig?.headers) {
+					if (
+						componentEntry.manifest?.runtime === 'remote' &&
+						componentEntry.manifest?.remoteConfig?.headers
+					) {
 						for (const header of componentEntry.manifest.remoteConfig.headers) {
 							aggregatedHeaders.push({
 								...header,
@@ -316,7 +319,10 @@
 					}
 
 					// Add URL field for remote components with hostname
-					if (componentEntry.manifest?.runtime === 'remote' && componentEntry.manifest?.remoteConfig?.hostname) {
+					if (
+						componentEntry.manifest?.runtime === 'remote' &&
+						componentEntry.manifest?.remoteConfig?.hostname
+					) {
 						aggregatedEnvs.push({
 							key: `${componentEntry.id}_URL`,
 							name: `[${componentEntry.manifest.name}] URL`,
@@ -326,9 +332,9 @@
 							value: ''
 						});
 					}
-                } catch (err) {
-                    console.error(`Failed to fetch component entry ${component.catalogEntryName}:`, err);
-                }
+				} catch (err) {
+					console.error(`Failed to fetch component entry ${component.catalogEntryName}:`, err);
+				}
 			}
 
 			configureForm = {
@@ -388,7 +394,13 @@
 				{/if}
 				<h1 class="text-2xl font-semibold capitalize">{entry.manifest.name || 'Unknown'}</h1>
 				<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
-					{type === 'single' ? 'Single User' : type === 'multi' ? 'Multi-User' : type === 'remote' ? 'Remote' : 'Composite'}
+					{type === 'single'
+						? 'Single User'
+						: type === 'multi'
+							? 'Multi-User'
+							: type === 'remote'
+								? 'Remote'
+								: 'Composite'}
 				</div>
 				{#if registry}
 					<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
@@ -525,7 +537,13 @@
 		{:else if selected === 'audit-logs'}
 			{@render auditLogsView()}
 		{:else if selected === 'server-instances'}
-            <McpServerInstances {id} {entity} {entry} {users} type={type === 'composite' ? undefined : type} />
+			<McpServerInstances
+				{id}
+				{entity}
+				{entry}
+				{users}
+				type={type === 'composite' ? undefined : type}
+			/>
 		{:else if selected === 'filters'}
 			{@render filtersView()}
 		{/if}
@@ -655,7 +673,9 @@
 		<div class="mt-4 flex min-h-full flex-col gap-8 pb-8">
 			<UsageGraphs
 				mcpId={isMultiUserServer ? entryId : null}
-				mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer || isCompositeServer ? entryId : null}
+				mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer || isCompositeServer
+					? entryId
+					: null}
 				{mcpServerDisplayName}
 			/>
 		</div>
@@ -679,7 +699,9 @@
 			{#if id}
 				<AuditLogsPageContent
 					mcpId={isMultiUserServer ? entryId : null}
-					mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer || isCompositeServer ? entryId : null}
+					mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer || isCompositeServer
+						? entryId
+						: null}
 					{mcpServerDisplayName}
 					{id}
 					{entity}

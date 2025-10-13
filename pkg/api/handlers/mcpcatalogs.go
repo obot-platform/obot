@@ -625,9 +625,12 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		return types.NewErrBadRequest("failed to read configuration: %v", err)
 	}
 
-	var toolPreviews []types.MCPServerTool
+	var (
+		toolPreviews   []types.MCPServerTool
+		promptPreviews []types.MCPServerPrompt
+	)
 
-	// Handle composite servers differently - they need to aggregate tools from components
+	// Handle composite servers differently - they need to aggregate tools and prompts from components
 	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
 		// Fetch all component catalog entries
 		if entry.Spec.Manifest.CompositeConfig == nil || len(entry.Spec.Manifest.CompositeConfig.Components) == 0 {
@@ -694,17 +697,24 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 				continue
 			}
 
+			// Generate prompt previews for this component
+			componentPrompts, err := h.sessionManager.GeneratePromptPreviews(req.Context(), componentServer, componentServerConfig)
+			if err != nil {
+				// Log but continue - prompts are optional
+				log.Warnf("Failed to generate prompt previews for component %s: %v", componentEntry.Spec.Manifest.Name, err)
+			}
+
 			// Apply overrides and prefixing to component tools
 			componentPrefix := sanitizeToolPrefix(componentEntry.Spec.Manifest.Name)
-			// Build per-component overrides map
-			overrideMap := make(map[string]types.ToolOverride, len(comp.ToolOverrides))
+			// Build per-component tool overrides map
+			toolOverrideMap := make(map[string]types.ToolOverride, len(comp.ToolOverrides))
 			for _, tm := range comp.ToolOverrides {
-				overrideMap[tm.Name] = tm
+				toolOverrideMap[tm.Name] = tm
 			}
-			hasOverrides := len(overrideMap) > 0
+			hasToolOverrides := len(toolOverrideMap) > 0
 
 			for _, tool := range componentTools {
-				if tm, ok := overrideMap[tool.Name]; ok {
+				if tm, ok := toolOverrideMap[tool.Name]; ok {
 					if !tm.Enabled {
 						continue
 					}
@@ -717,9 +727,36 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 						tool.Description = tm.OverrideDescription
 					}
 					toolPreviews = append(toolPreviews, tool)
-				} else if !hasOverrides {
+				} else if !hasToolOverrides {
 					tool.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(tool.Name))
 					toolPreviews = append(toolPreviews, tool)
+				}
+			}
+
+			// Build per-component prompt overrides map
+			promptOverrideMap := make(map[string]types.PromptOverride, len(comp.PromptOverrides))
+			for _, pm := range comp.PromptOverrides {
+				promptOverrideMap[pm.Name] = pm
+			}
+			hasPromptOverrides := len(promptOverrideMap) > 0
+
+			for _, prompt := range componentPrompts {
+				if pm, ok := promptOverrideMap[prompt.Name]; ok {
+					if !pm.Enabled {
+						continue
+					}
+					name := pm.OverrideName
+					if name == "" {
+						name = prompt.Name
+					}
+					prompt.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(name))
+					if pm.OverrideDescription != "" {
+						prompt.Description = pm.OverrideDescription
+					}
+					promptPreviews = append(promptPreviews, prompt)
+				} else if !hasPromptOverrides {
+					prompt.Name = buildCompositedToolName(componentPrefix, sanitizeToolPrefix(prompt.Name))
+					promptPreviews = append(promptPreviews, prompt)
 				}
 			}
 		}
@@ -749,12 +786,21 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to launch temporary instance: %w", err)
 		}
+
+		// Generate prompt previews for non-composite servers
+		promptPreviews, err = h.sessionManager.GeneratePromptPreviews(req.Context(), server, serverConfig)
+		if err != nil {
+			// Log but continue - prompts are optional
+			log.Warnf("Failed to generate prompt previews: %v", err)
+		}
 	}
 
 	entry.Spec.Manifest.ToolPreview = toolPreviews
+	entry.Spec.Manifest.PromptPreview = promptPreviews
 	if preview {
-		// Return the entry with updated tool previews without persisting it
+		// Return the entry with updated tool and prompt previews without persisting it
 		entry.Spec.Manifest.ToolPreview = toolPreviews
+		entry.Spec.Manifest.PromptPreview = promptPreviews
 		return req.Write(convertMCPServerCatalogEntry(entry))
 	}
 
