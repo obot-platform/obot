@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway/oauth"
 	"github.com/obot-platform/obot/pkg/api/handlers/sendgrid"
+	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/ui"
@@ -59,6 +60,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
+	setupHandler := setup.NewHandler(services.GatewayClient)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -615,6 +617,14 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/bootstrap", services.Bootstrapper.IsEnabled)
 	mux.HandleFunc("POST /api/bootstrap/login", services.Bootstrapper.Login)
 	mux.HandleFunc("POST /api/bootstrap/logout", services.Bootstrapper.Logout)
+
+	// Setup endpoints for bootstrap configuration flow
+	mux.HandleFunc("GET /api/setup/explicit-role-emails", setupHandler.ListExplicitRoleEmails)
+	mux.HandleFunc("POST /api/setup/initiate-temp-login", setupHandler.InitiateTempLogin)
+	mux.HandleFunc("GET /api/setup/oauth-complete", setupHandler.OAuthComplete)
+	mux.HandleFunc("GET /api/setup/temp-user", setupHandler.GetTempUser)
+	mux.HandleFunc("POST /api/setup/confirm-owner", setupHandler.ConfirmOwner)
+	mux.HandleFunc("POST /api/setup/cancel-temp-login", setupHandler.CancelTempLogin)
 
 	// Models
 	mux.HandleFunc("POST /api/models", models.Create)
