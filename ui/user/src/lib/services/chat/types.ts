@@ -292,6 +292,7 @@ export interface ContainerizedRuntimeConfig {
 export interface RemoteRuntimeConfig {
 	url: string;
 	headers?: MCPSubField[];
+	fixedURL?: string;
 	isTemplate?: boolean;
 }
 
