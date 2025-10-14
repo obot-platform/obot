@@ -85,7 +85,7 @@ Use this when your server has one static URL for all users:
 ```yaml
 runtime: remote
 remoteConfig:
-  fixedURL: <https://api.example.com/v1/mcp>
+  fixedURL: https://api.example.com/v1/mcp
   headers:
     - name: Personal Access Token
       description: PAT
