@@ -78,12 +78,41 @@ You can view the source code for Google provider in this [repo](https://github.c
 
 ### Entra (Enterprise Only)
 
-Within the Microsoft Entra admin center, go to App registrations, and create a new single tenant web registration for your Obot gateway. You can find detail in the [Microsoft docs](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app).
+Within the [Microsoft Entra admin center](https://entra.microsoft.com), go to App registrations and click New registration.
 
-You will need the following permissions:
+Under Supported account types, ensure `Accounts in this organizational directory only` is selected. In the Redirect URI section, set the platform to `Web` and enter the redirect URI provided in Obot's Auth Provider configuration dialog.
 
-- `User.read`
-- `Group.Read.All` *requires an org admin to approve to permission. When group support becomes available in Obot*
+![screenshot of Entra App registration](/img/entra-app-registration.png)
+
+After completing the form, click Register.
+
+Next, go to the API permissions tab and add the following delegated permissions:
+
+- `User.Read`
+- `GroupMember.Read.All` *requires admin approval*
+- `ProfilePhoto.Read.All` *requires admin approval*
+
+After all permissions are approved, your App's Configured permissions section should look something like this:
+
+![screenshot of Entra configured permissions](/img/entra-configured-permissions.png)
+
+Head to the Certificates & secrets tab and click New Client secret.
+Select a desired expiration date and click `Add`.
+
+Copy the exposed secret from the `Value` column to a safe location. You will not be able to retrieve the secret value after this point.
+
+![screenshot of Entra client secret](/img/entra-client-secret.png)
+
+Finally, navigate to the Overview tab and copy the values of `Application (client) ID` and `Directory (tenant) ID` for reference.
+
+You can now return to Obot and finish configuring Entra. Use the table below to determine the values to use for each field:
+
+| Obot          | Entra                   | Entra App Tab          |
+|---------------|-------------------------|------------------------|
+| Client ID     | Application (client) ID | Overview               |
+| Client Secret | Secret `Value` column   | Certificates & secrets |
+| Tenant ID     | Directory (tenant) ID   | Overview               |
+
 
 ### Okta (Enterprise Only)
 
