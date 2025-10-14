@@ -15,9 +15,9 @@ Each Obot instance connects to our open source registry by default. You can foll
     
 - **Stdio**
     
-    You have a stdio server
+    You have a npx/uvx stdio MCP server
     
-    → You’ll touch **both** repos: first [**mcp-images**](https://github.com/obot-platform/mcp-images) (to package it), then [**mcp-catalog**](https://github.com/obot-platform/mcp-catalog).
+    → You’ll touch **both** repos: first [**mcp-images**](https://github.com/obot-platform/mcp-images) (to containerize it), then [**mcp-catalog**](https://github.com/obot-platform/mcp-catalog).
     
 
 ---
@@ -225,16 +225,6 @@ Edit `repackaging/images.yaml` and add your entry:
   type: python
   package: mcp-python-server            # PyPI package name
   version: 2.0.1
-
-```
-
-### Docker-based Stdio Servers
-
-```yaml
-- name: my-docker-server
-  type: docker
-  package: myorg/mcp-docker-server      # Docker image
-  version: 1.0.0
 
 ```
 
