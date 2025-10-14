@@ -287,7 +287,7 @@ If you have Obot running locally, you can test your catalog entry before submitt
 
 1. When you run Obot locally, you’d need to set this env variable `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` to the absolute path of your local map-catalog fork.
 2. Add your YAML to your local Obot catalog directory
-3. In the UI, Admin→MCP-Servers, click **`sync`**
+3. On the MCP Servers page in the Admin UI, click **`sync`**
 4. Attempt to connect to your server through the UI
 5. Verify all tools appear and function correctly
 
