@@ -62,7 +62,7 @@ func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseU
 
 	switch opts.MCPRuntimeBackend {
 	case "docker":
-		dockerBackend, err := newDockerBackend(opts.MCPBaseImage)
+		dockerBackend, err := newDockerBackend(ctx, opts.MCPBaseImage)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize Docker backend: %w", err)
 		}
@@ -152,7 +152,7 @@ func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig, 
 		return nil
 	}
 
-	serverConfig, err := sm.backend.transformConfig(ctx, deploymentID(server), server)
+	serverConfig, err := sm.backend.transformConfig(ctx, server)
 	if err != nil {
 		return fmt.Errorf("failed to transform MCP server config: %w", err)
 	} else if serverConfig != nil {
@@ -162,7 +162,7 @@ func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig, 
 }
 
 func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
-	id := deploymentID(server)
+	id := clientID(server)
 
 	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
@@ -194,13 +194,12 @@ func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
 
 // ShutdownServer will close the connections to the MCP server and remove the Kubernetes objects.
 func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfig) error {
-	id := deploymentID(server)
-	sm.closeClients(id)
+	sm.closeClients(server)
 
-	return sm.backend.shutdownServer(ctx, id)
+	return sm.backend.shutdownServer(ctx, server.Scope)
 }
 
-func (sm *SessionManager) closeClients(id string) {
+func (sm *SessionManager) closeClients(server ServerConfig) {
 	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
 		sm.contextLock.Unlock()
@@ -208,7 +207,7 @@ func (sm *SessionManager) closeClients(id string) {
 	}
 	sm.contextLock.Unlock()
 
-	sessions, ok := sm.sessions.LoadAndDelete(id)
+	sessions, ok := sm.sessions.LoadAndDelete(clientID(server))
 	if !ok || sessions == nil {
 		return
 	}
@@ -233,10 +232,10 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 	if server.Runtime == otypes.RuntimeRemote {
 		return otypes.NewErrBadRequest("cannot restart deployment for remote MCP server")
 	}
-	return sm.backend.restartServer(ctx, deploymentID(server))
+	return sm.backend.restartServer(ctx, server.Scope)
 }
 
-func (sm *SessionManager) ensureDeployment(ctx context.Context, id string, server ServerConfig, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
+func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
 	if server.Runtime == otypes.RuntimeRemote {
 		if server.URL == "" {
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", mcpServerDisplayName)
@@ -265,17 +264,17 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, id string, serve
 		return server, nil
 	}
 
-	return sm.backend.ensureServerDeployment(ctx, server, id, mcpServerDisplayName, mcpServerName)
+	return sm.backend.ensureServerDeployment(ctx, server, userID, mcpServerDisplayName, mcpServerName)
 }
 
-func (sm *SessionManager) transformServerConfig(ctx context.Context, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig) (ServerConfig, error) {
-	return sm.ensureDeployment(ctx, deploymentID(serverConfig), serverConfig, mcpServerDisplayName, mcpServerName)
+func (sm *SessionManager) transformServerConfig(ctx context.Context, userID, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig) (ServerConfig, error) {
+	return sm.ensureDeployment(ctx, serverConfig, userID, mcpServerDisplayName, mcpServerName)
 }
 
-func deploymentID(server ServerConfig) string {
-	// The allowed tools aren't part of the deployment ID.
+func clientID(server ServerConfig) string {
+	// The allowed tools aren't part of the client ID.
 	server.AllowedTools = nil
-	return "mcp" + hash.Digest(server)[:60]
+	return "mcp" + hash.Digest(server)
 }
 
 // GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,

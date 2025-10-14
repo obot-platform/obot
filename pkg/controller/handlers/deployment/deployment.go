@@ -3,7 +3,9 @@ package deployment
 import (
 	"fmt"
 	"slices"
+	"strings"
 
+	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -86,6 +88,18 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 	}
 
 	return nil
+}
+
+// CleanupOldIDs will remove deployments with the old ID
+func (h *Handler) CleanupOldIDs(req router.Request, _ router.Response) error {
+	name := req.Object.GetName()
+	if !strings.HasPrefix(name, "mcp") || len(name) < 16 {
+		return nil
+	}
+
+	return apply.New(req.Client).WithNamespace(h.mcpDeploymentNamespace).WithOwnerSubContext(name).WithPruneTypes(
+		new(appsv1.Deployment), new(corev1.Secret), new(corev1.Service),
+	).Apply(req.Ctx, nil)
 }
 
 // getDeploymentStatus determines the overall deployment status based on conditions
