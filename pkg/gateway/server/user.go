@@ -1,9 +1,11 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -261,24 +263,60 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 
 func (s *Server) listAuthGroups(apiContext api.Context) error {
 	name, namespace := apiContext.AuthProviderNameAndNamespace()
-
-	if name != "" && namespace != "" {
-		providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
-		if err != nil {
-			return fmt.Errorf("failed to get auth provider URL: %v", err)
-		}
-		groups, err := apiContext.GatewayClient.ListAuthGroups(
-			apiContext.Context(),
-			providerURL.String(),
-			namespace,
-			name,
-			apiContext.URL.Query().Get("name"),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to list auth groups: %v", err)
-		}
-		return apiContext.Write(groups)
+	if name == "" || namespace == "" {
+		return apiContext.Write([]types.Group{})
 	}
 
-	return apiContext.Write([]types.Group{})
+	providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
+	if err != nil {
+		return fmt.Errorf("failed to get auth provider URL: %v", err)
+	}
+	groups, err := apiContext.GatewayClient.ListAuthGroups(
+		apiContext.Context(),
+		providerURL.String(),
+		namespace,
+		name,
+		apiContext.URL.Query().Get("name"),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to list auth groups: %v", err)
+	}
+
+	if apiContext.URL.Query().Get("includeRestricted") != "true" {
+		// Remove restricted groups from the results
+		groups, err = s.restrictGroups(apiContext.Context(), namespace, name, groups)
+		if err != nil {
+			return fmt.Errorf("failed to restrict groups: %v", err)
+		}
+	}
+
+	return apiContext.Write(groups)
+}
+
+// restrictGroups removes all restricted groups from the given slice and returns the modified result.
+// Restrictions are determined by the configuration of the specific auth provider.
+// Currently, only the GitHub auth provider supports group restrictions.
+func (s *Server) restrictGroups(ctx context.Context, authProviderNamespace, authProviderName string, groups []types.Group) ([]types.Group, error) {
+	if authProviderName != "github-auth-provider" {
+		// Only GitHub auth provider expose org restriction for now
+		return groups, nil
+	}
+
+	allowedOrg, err := s.dispatcher.GetAuthProviderConfigEnv(ctx, authProviderNamespace, authProviderName, "OBOT_GITHUB_AUTH_PROVIDER_ORG")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get org restriction: %v", err)
+	}
+
+	if allowedOrg == "" {
+		// All orgs allowed
+		return groups, nil
+	}
+
+	allowedOrg = strings.ToLower(allowedOrg)
+	groups = slices.DeleteFunc(groups, func(group types.Group) bool {
+		org, _, _ := strings.Cut(group.Name, "/")
+		return strings.ToLower(org) != allowedOrg
+	})
+
+	return groups, nil
 }

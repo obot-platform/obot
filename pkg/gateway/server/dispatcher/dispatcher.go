@@ -264,3 +264,18 @@ func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, credCtx []str
 
 	return aps.Configured
 }
+
+// GetAuthProviderConfigEnv returns the value of the specified environment variable from the given auth providers config.
+func (d *Dispatcher) GetAuthProviderConfigEnv(ctx context.Context, namespace, authProviderName, envName string) (string, error) {
+	var authProvider v1.ToolReference
+	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: authProviderName}, &authProvider); err != nil {
+		return "", fmt.Errorf("failed to get auth provider: %w", err)
+	}
+
+	cred, err := d.gptscript.RevealCredential(ctx, []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider.Name)
+	if err != nil {
+		return "", fmt.Errorf("failed to reveal credential: %w", err)
+	}
+
+	return cred.Env[envName], nil
+}
