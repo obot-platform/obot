@@ -80,6 +80,8 @@ func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionMana
 func (h *Handler) StreamableHTTP(req api.Context) error {
 	sessionID := req.Request.Header.Get("Mcp-Session-Id")
 
+	log.Warnf("StreamableHTTP for session %s at %q", sessionID, req.URL.Path)
+
 	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, req.PathValue("mcp_id"))
 	if err == nil && mcpServer.Spec.Template {
 		// Prevent connections to MCP server templates by returning a 404.
@@ -116,9 +118,10 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 	// If composite server, load child servers
 	if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 		var childServerList v1.MCPServerList
-		if err := req.List(&childServerList, kclient.MatchingLabels{
-			"composite-parent": mcpServer.Name,
-		}); err != nil {
+		if err := req.List(&childServerList,
+			kclient.InNamespace(mcpServer.Namespace),
+			kclient.MatchingFields{"spec.compositeName": mcpServer.Name},
+		); err != nil {
 			return fmt.Errorf("failed to list child servers: %w", err)
 		}
 

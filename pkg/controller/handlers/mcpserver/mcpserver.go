@@ -42,6 +42,9 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
+	// TODO(njhale): In this case, we should actually check if the children have drifted from the respective snapshot in the composite catalog entry?
+	// If they have, that means the composite server has drifted.
+
 	// For composite servers, also check if any child component servers have drifted
 	if !drifted && server.Spec.Manifest.Runtime == types.RuntimeComposite {
 		var childServerList v1.MCPServerList
