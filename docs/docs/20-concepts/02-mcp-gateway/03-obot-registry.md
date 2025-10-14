@@ -1,5 +1,5 @@
-# Obot's Open-source Registry
-Each Obot instance connects to our open-source registry. You can follow this guide to add your MCP server to [Obot’s registry](https://github.com/obot-platform/mcp-catalog). You’ll either submit **just a catalog entry**, or **a catalog entry + a repackaged image** (for stdio servers).
+# Obot's Open Source Registry
+Each Obot instance connects to our open source registry by default. You can follow this guide to add your MCP server to [Obot’s registry](https://github.com/obot-platform/mcp-catalog). You’ll either submit **just a catalog entry**, or **a catalog entry + a repackaged image** (for stdio servers).
 
 ---
 
