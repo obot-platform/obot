@@ -176,7 +176,6 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	if err := c.decryptIdentity(ctx, id); err != nil {
 		return nil, false, fmt.Errorf("failed to decrypt identity: %w", err)
 	}
-
 	user := &types.User{
 		ID:             id.UserID,
 		Username:       id.ProviderUsername,
