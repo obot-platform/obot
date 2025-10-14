@@ -20,6 +20,10 @@ type OAuthCompleteResponse struct {
 // to confirm them as the first Owner.
 // Endpoint: GET /api/setup/oauth-complete
 func (h *Handler) OAuthComplete(req api.Context) error {
+	if err := h.requireBootstrapEnabled(req); err != nil {
+		return err
+	}
+
 	// Note: This endpoint does NOT require bootstrap authentication
 	// because the OAuth user is calling it after authentication
 

@@ -6,6 +6,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
 type Handler struct {
@@ -26,5 +27,28 @@ func (h *Handler) requireBootstrap(req api.Context) error {
 		return types.NewErrHTTP(http.StatusForbidden,
 			"this endpoint requires bootstrap authentication")
 	}
+	return nil
+}
+
+// requireBootstrapEnabled checks if bootstrap mode is enabled.
+// Returns 404 if bootstrap is disabled.
+func (h *Handler) requireBootstrapEnabled(req api.Context) error {
+	// Query all Owner users
+	adminUsers, err := h.gatewayClient.Users(req.Context(), gwtypes.UserQuery{
+		Role: types.RoleOwner,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Check if any non-bootstrap Owner with email exists
+	for _, u := range adminUsers {
+		if u.Username != "bootstrap" && u.Email != "" {
+			// Bootstrap is disabled - return 404
+			return types.NewErrHTTP(http.StatusNotFound, "not found")
+		}
+	}
+
+	// Bootstrap is enabled
 	return nil
 }

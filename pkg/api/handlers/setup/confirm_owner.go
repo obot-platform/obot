@@ -8,6 +8,10 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 )
 
+type ConfirmOwnerRequest struct {
+	Email string `json:"email"`
+}
+
 type ConfirmOwnerResponse struct {
 	Success bool   `json:"success"`
 	UserID  uint   `json:"userId"`
@@ -20,13 +24,33 @@ type ConfirmOwnerResponse struct {
 // ensure they have the Owner role and clear the cache.
 // Endpoint: POST /api/setup/confirm-owner
 func (h *Handler) ConfirmOwner(req api.Context) error {
+	if err := h.requireBootstrapEnabled(req); err != nil {
+		return err
+	}
+
 	if err := h.requireBootstrap(req); err != nil {
 		return err
+	}
+
+	var body ConfirmOwnerRequest
+	if err := req.Read(&body); err != nil {
+		return types.NewErrBadRequest("invalid request body: %v", err)
+	}
+
+	if body.Email == "" {
+		return types.NewErrBadRequest("email is required")
 	}
 
 	cached := h.gatewayClient.GetTempUserCache()
 	if cached == nil {
 		return types.NewErrHTTP(http.StatusNotFound, "no temporary user to confirm")
+	}
+
+	// Verify that the email matches the cached user's email
+	// This prevents a race condition where the cached user might change
+	if cached.Email != body.Email {
+		return types.NewErrHTTP(http.StatusConflict,
+			fmt.Sprintf("email mismatch: expected %s but got %s in request", cached.Email, body.Email))
 	}
 
 	// Get the user from the database

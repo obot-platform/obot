@@ -23,6 +23,10 @@ type TempUserInfoResponse struct {
 // GetTempUser returns information about the temporarily cached user.
 // Endpoint: GET /api/setup/temp-user
 func (h *Handler) GetTempUser(req api.Context) error {
+	if err := h.requireBootstrapEnabled(req); err != nil {
+		return err
+	}
+
 	if err := h.requireBootstrap(req); err != nil {
 		return err
 	}

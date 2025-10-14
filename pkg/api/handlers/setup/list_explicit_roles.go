@@ -15,6 +15,10 @@ type ExplicitRoleEmailsResponse struct {
 // not just those on these lists.
 // Endpoint: GET /api/setup/explicit-role-emails
 func (h *Handler) ListExplicitRoleEmails(req api.Context) error {
+	if err := h.requireBootstrapEnabled(req); err != nil {
+		return err
+	}
+
 	if err := h.requireBootstrap(req); err != nil {
 		return err
 	}

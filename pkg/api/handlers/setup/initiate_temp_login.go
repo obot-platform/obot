@@ -26,6 +26,10 @@ type InitiateTempLoginResponse struct {
 // can become the first Owner if the bootstrap user confirms them.
 // Endpoint: POST /api/setup/initiate-temp-login
 func (h *Handler) InitiateTempLogin(req api.Context) error {
+	if err := h.requireBootstrapEnabled(req); err != nil {
+		return err
+	}
+
 	if err := h.requireBootstrap(req); err != nil {
 		return err
 	}
@@ -50,7 +54,7 @@ func (h *Handler) InitiateTempLogin(req api.Context) error {
 	tokenID := uuid.New().String()
 	tokenRequest := &gwtypes.TokenRequest{
 		ID:                    tokenID,
-		CompletionRedirectURL: fmt.Sprintf("%s/api/setup/oauth-complete", req.APIBaseURL),
+		CompletionRedirectURL: fmt.Sprintf("%s/setup/oauth-complete", req.APIBaseURL),
 		ExpiresAt:             time.Now().Add(15 * time.Minute),
 	}
 
@@ -59,7 +63,7 @@ func (h *Handler) InitiateTempLogin(req api.Context) error {
 	}
 
 	// Build OAuth start URL
-	redirectURL := fmt.Sprintf("%s/api/oauth/start/%s/%s/%s",
+	redirectURL := fmt.Sprintf("%s/oauth/start/%s/%s/%s",
 		req.APIBaseURL,
 		tokenID,
 		body.AuthProviderNS,

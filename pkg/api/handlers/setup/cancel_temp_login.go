@@ -17,6 +17,10 @@ type CancelTempLoginResponse struct {
 // demotes the user in the database.
 // Endpoint: POST /api/setup/cancel-temp-login
 func (h *Handler) CancelTempLogin(req api.Context) error {
+	if err := h.requireBootstrapEnabled(req); err != nil {
+		return err
+	}
+
 	if err := h.requireBootstrap(req); err != nil {
 		return err
 	}
