@@ -35,7 +35,9 @@
 	}: Props = $props();
 
 	let query = $state('');
-	let selectedFilterValues = $derived<string[]>(presetFilters?.map((d) => d.toString()) ?? []);
+	let selectedFilterValues = $derived<string[]>(
+		presetFilters?.map((d) => d.toString()).filter(Boolean) ?? []
+	);
 	let pointerOnTHeader = $derived(sortable && !filterable);
 
 	const {

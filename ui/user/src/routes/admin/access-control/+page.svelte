@@ -52,7 +52,7 @@
 		return {
 			...rule,
 			owner: owner || 'Unknown',
-			serversCount: count || '-'
+			serversCount: count || 0
 		};
 	}
 	let globalAccessControlRules = $derived(
@@ -178,7 +178,11 @@
 			{/if}
 		{/snippet}
 		{#snippet onRenderColumn(property, d)}
-			{d[property as keyof typeof d]}
+			{#if property === 'serversCount'}
+				{d.serversCount === 0 ? '-' : d.serversCount}
+			{:else}
+				{d[property as keyof typeof d]}
+			{/if}
 		{/snippet}
 	</Table>
 {/snippet}

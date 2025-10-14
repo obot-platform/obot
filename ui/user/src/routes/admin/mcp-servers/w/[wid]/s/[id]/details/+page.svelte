@@ -5,6 +5,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, ChatService, type MCPServerInstance, type OrgUser } from '$lib/services';
+	import { profile } from '$lib/stores/index.js';
 	import { LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -56,6 +57,7 @@
 						classes={{
 							title: 'text-lg font-semibold'
 						}}
+						readonly={profile.current.isAdminReadonly?.()}
 					/>
 				{/if}
 			</div>

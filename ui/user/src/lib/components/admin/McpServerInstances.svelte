@@ -151,6 +151,7 @@
 					classes={{
 						title: 'text-lg font-semibold'
 					}}
+					readonly={profile.current.isAdminReadonly?.()}
 				/>
 			</div>
 		{:else}

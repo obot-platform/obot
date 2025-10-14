@@ -8,6 +8,7 @@
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { page } from '$app/state';
+	import { profile } from '$lib/stores/index.js';
 
 	let { data } = $props();
 	let { catalogEntry, mcpServerId, workspaceId } = data;
@@ -44,6 +45,7 @@
 				{mcpServerId}
 				name={catalogEntryName}
 				{connectedUsers}
+				readonly={profile.current.isAdminReadonly?.()}
 			/>
 		{:else}
 			<h1 class="text-2xl font-semibold">

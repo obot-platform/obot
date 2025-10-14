@@ -1940,7 +1940,7 @@ export async function getWorkspaceMcpServerOauthURL(
 export async function getWorkspaceK8sServerDetail(
 	workspaceID: string,
 	mcpServerId: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ) {
 	const response = (await doGet(
 		`/workspaces/${workspaceID}/servers/${mcpServerId}/details`,
@@ -1986,7 +1986,7 @@ export async function getWorkspaceCatalogEntryServerK8sDetails(
 	workspaceID: string,
 	entryID: string,
 	mcpServerId: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ) {
 	const response = (await doGet(
 		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/details`,

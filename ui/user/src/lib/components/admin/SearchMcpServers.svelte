@@ -7,9 +7,9 @@
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { type PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
 	import { ADMIN_ALL_OPTION } from '$lib/constants';
-	import { getUserDisplayName } from '$lib/utils';
 	import { AdminService, type OrgUser } from '$lib/services';
 	import { onMount } from 'svelte';
+	import { getUserDisplayName } from '$lib/utils';
 
 	interface Props {
 		onAdd: (mcpCatalogEntryIds: string[], mcpServerIds: string[], otherSelectors: string[]) => void;
@@ -17,6 +17,9 @@
 		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext | PoweruserWorkspaceContext;
 		all?: { label: string; description: string };
 		type: 'acr' | 'filter';
+		entity?: 'catalog' | 'workspace';
+		workspaceId?: string | null;
+		isAdminView?: boolean;
 	}
 
 	type SearchItem = {
@@ -28,7 +31,16 @@
 		registry?: string;
 	};
 
-	let { onAdd, exclude, mcpEntriesContextFn, all = ADMIN_ALL_OPTION, type }: Props = $props();
+	let {
+		onAdd,
+		exclude,
+		mcpEntriesContextFn,
+		type,
+		workspaceId,
+		isAdminView,
+		entity = 'catalog',
+		all = ADMIN_ALL_OPTION
+	}: Props = $props();
 	let addMcpServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let users = $state<OrgUser[]>([]);
 	let search = $state('');
@@ -53,24 +65,44 @@
 				type: 'all' as const,
 				registry: ''
 			},
-			...mcpServerAndEntries.entries.map((entry) => ({
-				icon: entry.manifest?.icon,
-				name: entry.manifest?.name || '',
-				description: entry.manifest?.description,
-				id: entry.id,
-				type: 'mcpcatalogentry' as const,
-				registry: entry.powerUserID
-					? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
-					: ''
-			})),
-			...mcpServerAndEntries.servers.map((server) => ({
-				icon: server.manifest.icon,
-				name: server.manifest.name || '',
-				description: server.manifest.description,
-				id: server.id,
-				type: 'mcpserver' as const,
-				registry: server.userID ? `${getUserDisplayName(usersMap, server.userID)}'s Registry` : ''
-			}))
+			...mcpServerAndEntries.entries
+				.filter((entry) =>
+					entity === 'catalog'
+						? !entry.powerUserWorkspaceID
+						: workspaceId
+							? entry.powerUserWorkspaceID === workspaceId
+							: !!entry.powerUserWorkspaceID
+				)
+				.map((entry) => ({
+					icon: entry.manifest?.icon,
+					name: entry.manifest?.name || '',
+					description: entry.manifest?.description,
+					id: entry.id,
+					type: 'mcpcatalogentry' as const,
+					registry:
+						entry.powerUserID && isAdminView
+							? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
+							: ''
+				})),
+			...mcpServerAndEntries.servers
+				.filter((server) =>
+					entity === 'catalog'
+						? !server.powerUserWorkspaceID
+						: workspaceId
+							? server.powerUserWorkspaceID === workspaceId
+							: !!server.powerUserWorkspaceID
+				)
+				.map((server) => ({
+					icon: server.manifest.icon,
+					name: server.manifest.name || '',
+					description: server.manifest.description,
+					id: server.id,
+					type: 'mcpserver' as const,
+					registry:
+						server.userID && server.powerUserWorkspaceID && isAdminView
+							? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
+							: ''
+				}))
 		].filter((item) => !exclude?.includes(item.id))
 	);
 	let filteredData = $derived(

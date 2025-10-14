@@ -48,6 +48,7 @@
 			id={workspaceId}
 			mcpEntriesContextFn={getAdminMcpServerAndEntries}
 			readonly={profile.current.isAdminReadonly?.()}
+			isAdminView
 		>
 			{#snippet topContent()}
 				<BackLink

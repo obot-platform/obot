@@ -86,22 +86,26 @@
 		}
 	}
 
+	function getK8sInfo() {
+		return entity === 'workspace' && entityId
+			? catalogEntry?.id
+				? ChatService.getWorkspaceCatalogEntryServerK8sDetails(
+						entityId,
+						catalogEntry.id,
+						mcpServerId,
+						{ dontLogErrors: true }
+					)
+				: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors: true })
+			: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors: true });
+	}
+
 	onMount(() => {
 		revealServerValues = profile.current.isAdmin?.()
 			? ChatService.revealSingleOrRemoteMcpServer(mcpServerId, {
 					dontLogErrors: true
 				})
 			: Promise.resolve<Record<string, string>>({});
-		listK8sInfo =
-			entity === 'workspace' && entityId
-				? catalogEntry?.id
-					? ChatService.getWorkspaceCatalogEntryServerK8sDetails(
-							entityId,
-							catalogEntry.id,
-							mcpServerId
-						)
-					: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
-				: AdminService.getK8sServerDetail(mcpServerId);
+		listK8sInfo = getK8sInfo();
 		eventStream.connect(logsUrl, {
 			onMessage: (data) => {
 				messages = [...messages, data];
@@ -138,16 +142,7 @@
 					: ChatService.restartWorkspaceK8sServerDeployment(entityId, mcpServerId)
 				: AdminService.restartK8sDeployment(mcpServerId));
 			// Refresh the k8s info after restart
-			listK8sInfo =
-				entity === 'workspace' && entityId
-					? catalogEntry?.id
-						? ChatService.getWorkspaceCatalogEntryServerK8sDetails(
-								entityId,
-								catalogEntry.id,
-								mcpServerId
-							)
-						: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
-					: AdminService.getK8sServerDetail(mcpServerId);
+			listK8sInfo = getK8sInfo();
 		} catch (err) {
 			console.error('Failed to restart deployment:', err);
 		} finally {
@@ -159,16 +154,7 @@
 	async function handleRefreshEvents() {
 		refreshingEvents = true;
 		try {
-			listK8sInfo =
-				entity === 'workspace' && entityId
-					? catalogEntry?.id
-						? ChatService.getWorkspaceCatalogEntryServerK8sDetails(
-								entityId,
-								catalogEntry.id,
-								mcpServerId
-							)
-						: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId)
-					: AdminService.getK8sServerDetail(mcpServerId);
+			listK8sInfo = getK8sInfo();
 		} catch (err) {
 			console.error('Failed to refresh events:', err);
 		} finally {
@@ -268,6 +254,17 @@
 			envs,
 			headers
 		};
+	}
+
+	function getAuditLogUrl(d: (typeof connectedUsers)[number]) {
+		const id = d.mcpInstanceId ? d.mcpInstanceId : mcpServerId || mcpServerInstanceId;
+		return entity === 'workspace'
+			? catalogEntry?.id
+				? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&userId=${d.id}`
+				: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`
+			: catalogEntry?.id
+				? `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&userId=${d.id}`
+				: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`;
 	}
 </script>
 
@@ -381,13 +378,34 @@
 	</div>
 {:catch error}
 	{@const isPending = error instanceof Error && error.message.includes('ContainerCreating')}
+	{@const needsUpdate = error instanceof Error && error.message.includes('missing required config')}
+
+	{#if needsUpdate}
+		<div class="notification-alert">
+			<div class="flex grow flex-col gap-2">
+				<div class="flex items-center gap-2">
+					<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
+					<p class="my-0.5 flex flex-col text-sm font-semibold">
+						User Configuration Update Required
+					</p>
+				</div>
+				<span class="text-sm font-light break-all">
+					The server was recently updated and requires the user to update their configuration.
+					Server details and logs are temporarily unavailable as a result.
+				</span>
+			</div>
+		</div>
+	{/if}
+
 	<div class="flex flex-col gap-2">
 		<div
 			class="dark:bg-surface1 dark:border-surface3 flex flex-col rounded-lg border border-transparent bg-white p-4 shadow-sm"
 		>
 			<div class="grid grid-cols-2 gap-4">
 				<p class="text-sm font-semibold">Status</p>
-				<p class="text-sm font-light">{isPending ? 'Pending' : 'Error'}</p>
+				<p class="text-sm font-light">
+					{isPending ? 'Pending' : needsUpdate ? 'Update Required' : 'Error'}
+				</p>
 			</div>
 		</div>
 	</div>
@@ -442,14 +460,7 @@
 
 		{#snippet actions(d)}
 			{#if profile.current?.isAdmin?.() && isAdminUrl}
-				{@const mcpId = d.mcpInstanceId ? d.mcpInstanceId : mcpServerId || mcpServerInstanceId}
-				{@const id = mcpId?.split('-').at(-1)}
-				{@const url =
-					entity === 'workspace'
-						? catalogEntry?.id
-							? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&userId=${d.id}`
-							: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`
-						: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`}
+				{@const url = getAuditLogUrl(d)}
 				<a href={url} class="button-text"> View Audit Logs </a>
 			{/if}
 		{/snippet}
