@@ -37,17 +37,19 @@
 		accessControlRules.filter((rule) => (rule.powerUserID ? usersMap.has(rule.powerUserID) : true))
 	);
 
-	function convertToTableData(rule: AccessControlRule) {
+	function convertToTableData(rule: AccessControlRule, registry: 'user' | 'global' = 'global') {
 		const owner = rule.powerUserID ? getUserDisplayName(usersMap, rule.powerUserID) : undefined;
 		const totalServers = mcpServersAndEntries.entries.length + mcpServersAndEntries.servers.length;
 
 		const hasEverything = rule.resources?.find((r) => r.id === '*');
-		const count = hasEverything
-			? totalServers
-			: ((rule.resources &&
-					rule.resources.filter((r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer')
-						.length) ??
-				0);
+		const count =
+			registry === 'global' && hasEverything
+				? totalServers
+				: ((rule.resources &&
+						rule.resources.filter(
+							(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
+						).length) ??
+					0);
 
 		return {
 			...rule,
@@ -56,11 +58,14 @@
 		};
 	}
 	let globalAccessControlRules = $derived(
-		validAccessControlRules.filter((rule) => !rule.powerUserID).map(convertToTableData)
+		validAccessControlRules.filter((rule) => !rule.powerUserID).map((d) => convertToTableData(d))
 	);
 	let userAccessControlRules = $derived(
-		validAccessControlRules.filter((rule) => rule.powerUserID).map(convertToTableData)
+		validAccessControlRules
+			.filter((rule) => rule.powerUserID)
+			.map((d) => convertToTableData(d, 'user'))
 	);
+
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 
 	onMount(() => {
@@ -235,6 +240,7 @@
 			await AdminService.deleteAccessControlRule(ruleToDelete.id);
 		}
 		accessControlRules = await AdminService.listAccessControlRules();
+
 		ruleToDelete = undefined;
 	}}
 	oncancel={() => (ruleToDelete = undefined)}
