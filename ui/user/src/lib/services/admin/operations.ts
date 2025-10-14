@@ -350,9 +350,20 @@ export async function getUser(
 	return response;
 }
 
-export async function listGroups(opts?: { fetch?: Fetcher; query?: string }): Promise<OrgGroup[]> {
-	const queryParam = opts?.query ? `?name=${encodeURIComponent(opts.query)}` : '';
-	const response = (await doGet(`/groups${queryParam}`, opts)) as OrgGroup[];
+export async function listGroups(opts?: {
+	fetch?: Fetcher;
+	query?: string;
+	includeRestricted?: boolean;
+}): Promise<OrgGroup[]> {
+	const params: string[] = [];
+	if (opts?.query !== undefined) {
+		params.push(`name=${encodeURIComponent(opts.query)}`);
+	}
+	if (opts?.includeRestricted === true) {
+		params.push(`includeRestricted=${encodeURIComponent(String(opts.includeRestricted))}`);
+	}
+	const queryString = params.length ? `?${params.join('&')}` : '';
+	const response = (await doGet(`/groups${queryString}`, opts)) as OrgGroup[];
 	return response ?? [];
 }
 
