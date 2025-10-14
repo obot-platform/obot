@@ -293,6 +293,6 @@ If you have Obot running locally, you can test your catalog entry before submitt
 
 ---
 
-## Examples :
+## Examples:
 
-please refer to entries in https://github.com/obot-platform/mcp-catalog
+Please refer to entries in https://github.com/obot-platform/mcp-catalog
