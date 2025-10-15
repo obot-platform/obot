@@ -24,18 +24,25 @@ func New(gatewayClient *gclient.Client) *Handler {
 	}
 }
 
-// EnsureAllAdminWorkspaces ensures PowerUserWorkspaces exist for all admin users
+// EnsureAllAdminAndOwnerWorkspaces ensures PowerUserWorkspaces exist for all admin and owner users
 // This should be called during controller startup
-func (h *Handler) EnsureAllAdminWorkspaces(ctx context.Context, client kclient.Client, namespace string) error {
-	users, err := h.gatewayClient.Users(ctx, types2.UserQuery{
+func (h *Handler) EnsureAllAdminAndOwnerWorkspaces(ctx context.Context, client kclient.Client, namespace string) error {
+	admins, err := h.gatewayClient.Users(ctx, types2.UserQuery{
 		Role: types.RoleAdmin,
 	})
 	if err != nil {
 		return err
 	}
 
-	for _, user := range users {
-		if err := h.ensureAdminWorkspace(ctx, client, namespace, &user); err != nil {
+	owners, err := h.gatewayClient.Users(ctx, types2.UserQuery{
+		Role: types.RoleOwner,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, user := range append(admins, owners...) {
+		if err := h.ensureAdminOrOwnerWorkspace(ctx, client, namespace, &user); err != nil {
 			return err
 		}
 	}
@@ -43,10 +50,10 @@ func (h *Handler) EnsureAllAdminWorkspaces(ctx context.Context, client kclient.C
 	return nil
 }
 
-func (h *Handler) ensureAdminWorkspace(ctx context.Context, client kclient.Client, namespace string, user *types2.User) error {
+func (h *Handler) ensureAdminOrOwnerWorkspace(ctx context.Context, client kclient.Client, namespace string, user *types2.User) error {
 	userIDStr := strconv.Itoa(int(user.ID))
 
-	// Check if admin already has a PowerUserWorkspace
+	// Check if user already has a PowerUserWorkspace
 	var existingWorkspaces v1.PowerUserWorkspaceList
 	if err := client.List(ctx, &existingWorkspaces, &kclient.ListOptions{
 		Namespace: namespace,
@@ -62,7 +69,7 @@ func (h *Handler) ensureAdminWorkspace(ctx context.Context, client kclient.Clien
 		return nil
 	}
 
-	// Create PowerUserWorkspace directly for the admin
+	// Create PowerUserWorkspace directly for the user
 	workspace := &v1.PowerUserWorkspace{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
