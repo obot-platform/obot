@@ -140,9 +140,9 @@
 				{@const url =
 					entity === 'workspace'
 						? catalogEntry?.id
-							? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&userId=${d.id}`
-							: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`
-						: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`}
+							? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+							: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`
+						: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`}
 				<a href={url} class="button-text"> View Audit Logs </a>
 			{/if}
 		{/snippet}
