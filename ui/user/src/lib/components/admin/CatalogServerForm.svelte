@@ -299,13 +299,15 @@
 				break;
 			case 'remote':
 				if (type === 'remote') {
-					// For remote catalog entries, either fixedURL or hostname is required
+					// For remote catalog entries, one of fixedURL, hostname, or urlTemplate is required
 					if (
 						!formData.remoteConfig?.fixedURL?.trim() &&
-						!formData.remoteConfig?.hostname?.trim()
+						!formData.remoteConfig?.hostname?.trim() &&
+						!formData.remoteConfig?.urlTemplate?.trim()
 					) {
 						missingFields.fixedURL = true;
 						missingFields.hostname = true;
+						missingFields.urlTemplate = true;
 					}
 					break;
 				} else {
@@ -387,6 +389,7 @@
 					manifest.remoteConfig = {
 						fixedURL: baseData.remoteConfig.fixedURL?.trim() || undefined,
 						hostname: baseData.remoteConfig.hostname?.trim() || undefined,
+						urlTemplate: baseData.remoteConfig.urlTemplate?.trim() || undefined,
 						headers: baseData.remoteConfig.headers || []
 					};
 				}
