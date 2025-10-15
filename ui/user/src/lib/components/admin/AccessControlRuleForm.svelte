@@ -211,7 +211,7 @@
 
 					return {
 						id: subject.id,
-						displayName: subject.id === '*' ? 'Everyone' : subject.id,
+						displayName: subject.id === '*' ? 'All Obot Users' : subject.id,
 						type: 'Group'
 					};
 				})
