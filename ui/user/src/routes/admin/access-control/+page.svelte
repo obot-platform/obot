@@ -42,14 +42,28 @@
 		const totalServers = mcpServersAndEntries.entries.length + mcpServersAndEntries.servers.length;
 
 		const hasEverything = rule.resources?.find((r) => r.id === '*');
-		const count =
-			registry === 'global' && hasEverything
-				? totalServers
-				: ((rule.resources &&
+		const count = (() => {
+			if (registry === 'global') {
+				if (hasEverything) return totalServers;
+
+				return (
+					(rule.resources &&
 						rule.resources.filter(
 							(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
 						).length) ??
-					0);
+					0
+				);
+			}
+
+			if (hasEverything) return getAcrServerCount(rule.powerUserWorkspaceID!);
+
+			return (
+				(rule.resources &&
+					rule.resources.filter((r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer')
+						.length) ??
+				0
+			);
+		})();
 
 		return {
 			...rule,
@@ -87,6 +101,12 @@
 		fetchMcpServerAndEntries(defaultCatalogId);
 		users = await AdminService.listUsersIncludeDeleted();
 	});
+
+	function getAcrServerCount(powerUserWorkspaceID: string) {
+		const mcpServers = Array.from(mcpServersAndEntries.servers.values());
+		return mcpServers.filter((server) => server.powerUserWorkspaceID === powerUserWorkspaceID)
+			.length;
+	}
 </script>
 
 <Layout>
