@@ -28,7 +28,7 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var klog = logger.Package()
+var olog = logger.Package()
 
 type kubernetesBackend struct {
 	clientset        *kubernetes.Clientset
@@ -458,18 +458,41 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 	return objs, nil
 }
 
+// analyzePodStatuses combines the results of analyzing each individual pod status.
+func analyzePodStatuses(pods []corev1.Pod) (bool, error) {
+	var (
+		shouldRetry bool
+		errs        []error
+	)
+	for i, pod := range pods {
+		podShouldRetry, podErr := analyzePodStatus(&pod)
+		shouldRetry = shouldRetry || podShouldRetry
+		if podErr != nil {
+			errs = append(errs, fmt.Errorf("pod %d: %w", i+1, podErr))
+		}
+	}
+
+	if len(errs) == 0 {
+		return shouldRetry, nil
+	}
+	if len(errs) == 1 {
+		return shouldRetry, errs[0]
+	}
+	return shouldRetry, fmt.Errorf("multiple pod issues: %v", errs)
+}
+
 // analyzePodStatus examines a pod's status to determine if we should retry waiting for it
-// or if we should fail immediately. Returns (shouldRetry, reason).
-func analyzePodStatus(pod *corev1.Pod) (bool, string) {
+// or if we should fail immediately. Returns (shouldRetry, error).
+func analyzePodStatus(pod *corev1.Pod) (bool, error) {
 	// Check pod phase first
 	switch pod.Status.Phase {
 	case corev1.PodFailed:
-		return false, fmt.Sprintf("pod is in Failed phase: %s", pod.Status.Message)
+		return false, fmt.Errorf("%w: pod is in Failed phase: %s", ErrHealthCheckTimeout, pod.Status.Message)
 	case corev1.PodSucceeded:
 		// This shouldn't happen for a long-running deployment, but if it does, it's an error
-		return false, "pod succeeded and exited"
+		return false, fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
 	case corev1.PodUnknown:
-		return false, "pod is in Unknown phase"
+		return false, fmt.Errorf("%w: pod is in Unknown phase", ErrHealthCheckTimeout)
 	}
 
 	// Check pod conditions for scheduling issues
@@ -478,70 +501,66 @@ func analyzePodStatus(pod *corev1.Pod) (bool, string) {
 			// Pod can't be scheduled - check if it's a transient issue
 			if cond.Reason == corev1.PodReasonUnschedulable {
 				// Unschedulable could be transient (e.g., waiting for autoscaler)
-				return true, fmt.Sprintf("pod unschedulable: %s", cond.Message)
+				return true, fmt.Errorf("%w: pod unschedulable: %s", ErrPodSchedulingFailed, cond.Message)
 			}
 		}
 	}
 
-	// Check container statuses
-	allContainerStatuses := append([]corev1.ContainerStatus{}, pod.Status.ContainerStatuses...)
-
-	for _, cs := range allContainerStatuses {
+	for _, cs := range pod.Status.ContainerStatuses {
 		// Check if container is waiting
 		if cs.State.Waiting != nil {
 			waiting := cs.State.Waiting
 			switch waiting.Reason {
 			// Transient/recoverable states - should retry
 			case "ContainerCreating", "PodInitializing":
-				return true, fmt.Sprintf("container %s is %s", cs.Name, waiting.Reason)
+				return true, fmt.Errorf("container %s is %s", cs.Name, waiting.Reason)
 
 			// Image pull states - need to check if it's temporary or permanent
 			case "ImagePullBackOff", "ErrImagePull":
 				// ImagePullBackOff can be transient (network issues) but also permanent (bad image)
 				// We'll treat it as retryable for now, but it will eventually hit max retries
-				return true, fmt.Sprintf("container %s: %s - %s", cs.Name, waiting.Reason, waiting.Message)
+				return true, fmt.Errorf("%w: container %s: %s - %s", ErrImagePullFailed, cs.Name, waiting.Reason, waiting.Message)
 
 			// Permanent failures - should not retry
 			case "CrashLoopBackOff":
-				return false, fmt.Sprintf("container %s is in CrashLoopBackOff: %s", cs.Name, waiting.Message)
+				return false, fmt.Errorf("%w: container %s is in CrashLoopBackOff: %s", ErrPodCrashLoopBackOff, cs.Name, waiting.Message)
 			case "InvalidImageName":
-				return false, fmt.Sprintf("container %s has invalid image name: %s", cs.Name, waiting.Message)
+				return false, fmt.Errorf("%w: container %s has invalid image name: %s", ErrImagePullFailed, cs.Name, waiting.Message)
 			case "CreateContainerConfigError", "CreateContainerError":
-				return false, fmt.Sprintf("container %s failed to create: %s - %s", cs.Name, waiting.Reason, waiting.Message)
+				return false, fmt.Errorf("%w: container %s failed to create: %s - %s", ErrPodConfigurationFailed, cs.Name, waiting.Reason, waiting.Message)
 			case "RunContainerError":
-				return false, fmt.Sprintf("container %s failed to run: %s", cs.Name, waiting.Message)
+				return false, fmt.Errorf("%w: container %s failed to run: %s", ErrPodConfigurationFailed, cs.Name, waiting.Message)
 			}
 		}
 
 		// Check if container terminated with errors and has high restart count
 		if cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
 			if cs.RestartCount > 3 {
-				return false, fmt.Sprintf("container %s repeatedly crashing (exit code %d, %d restarts): %s",
-					cs.Name, cs.State.Terminated.ExitCode, cs.RestartCount, cs.State.Terminated.Reason)
+				return false, fmt.Errorf("%w: container %s repeatedly crashing (exit code %d, %d restarts): %s",
+					ErrPodCrashLoopBackOff, cs.Name, cs.State.Terminated.ExitCode, cs.RestartCount, cs.State.Terminated.Reason)
 			}
 		}
 	}
 
 	// Check if pod is being evicted
 	if pod.Status.Reason == "Evicted" {
-		return false, fmt.Sprintf("pod was evicted: %s", pod.Status.Message)
+		return false, fmt.Errorf("%w: pod was evicted: %s", ErrPodSchedulingFailed, pod.Status.Message)
 	}
 
 	// Default: pod is in Pending or Running but not ready yet - should retry
-	return true, fmt.Sprintf("pod in phase %s, waiting for containers to be ready", pod.Status.Phase)
+	return true, fmt.Errorf("pod in phase %s, waiting for containers to be ready", pod.Status.Phase)
 }
 
 func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig) (string, error) {
 	const maxRetries = 5
-	var lastReason string
+	var lastErr error
 
 	// Retry loop with smart pod status checking
-	for attempt := 0; attempt <= maxRetries; attempt++ {
+	for attempt := range maxRetries {
 		// Wait for the deployment to be updated.
 		_, err := wait.For(ctx, k.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}}, func(dep *appsv1.Deployment) (bool, error) {
 			return dep.Generation == dep.Status.ObservedGeneration && dep.Status.Replicas == 1 && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1, nil
 		}, wait.Option{Timeout: time.Minute})
-
 		if err == nil {
 			// Deployment is ready, now ensure the server is ready
 			if err = ensureServerReady(ctx, url, server); err != nil {
@@ -569,11 +588,17 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 					runningPodCount++
 				}
 			}
+
+			// runningPodCount should always equal 1, if the deployment is ready, as it is by this point in the code.
+			// However, we will check just to make sure, and retry if it isn't.
 			if runningPodCount == 1 {
 				return podName, nil
+			} else if runningPodCount > 1 {
+				lastErr = fmt.Errorf("more than one running pod found")
+			} else {
+				lastErr = fmt.Errorf("no pods found")
 			}
-
-			return "", ErrHealthCheckTimeout
+			continue
 		}
 
 		// Deployment wait timed out, check pod status to decide if we should retry
@@ -584,51 +609,40 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 				"app": id,
 			}),
 		}); listErr != nil {
-			klog.Debugf("failed to list MCP pods for status check: id=%s error=%v", id, listErr)
+			olog.Debugf("failed to list MCP pods for status check: id=%s error=%v", id, listErr)
 			return "", fmt.Errorf("failed to list MCP pods: %w", listErr)
 		}
 
 		if len(pods.Items) == 0 {
-			klog.Debugf("no pods found for MCP server: id=%s attempt=%d", id, attempt+1)
-			lastReason = "no pods found"
+			olog.Debugf("no pods found for MCP server: id=%s attempt=%d", id, attempt+1)
+			lastErr = fmt.Errorf("no pods found")
 			if attempt < maxRetries {
 				continue
 			}
-			return "", fmt.Errorf("%w: %s", ErrHealthCheckTimeout, lastReason)
+			return "", fmt.Errorf("%w: %v", ErrHealthCheckTimeout, lastErr)
 		}
 
-		// Analyze the first pod (there should only be one for a deployment with replicas=1)
-		pod := &pods.Items[0]
-		shouldRetry, reason := analyzePodStatus(pod)
-		lastReason = reason
+		shouldRetry, podErr := analyzePodStatuses(pods.Items)
+		lastErr = podErr
 
 		if !shouldRetry {
-			// Permanent failure - return appropriate error based on reason
-			klog.Debugf("pod in non-retryable state: id=%s reason=%s attempt=%d", id, reason, attempt+1)
-			if strings.Contains(reason, "CrashLoopBackOff") {
-				return "", fmt.Errorf("%w: %s", ErrPodCrashLoopBackOff, reason)
-			} else if strings.Contains(reason, "ImagePull") || strings.Contains(reason, "InvalidImageName") {
-				return "", fmt.Errorf("%w: %s", ErrImagePullFailed, reason)
-			} else if strings.Contains(reason, "unschedulable") || strings.Contains(reason, "Evicted") {
-				return "", fmt.Errorf("%w: %s", ErrPodSchedulingFailed, reason)
-			} else if strings.Contains(reason, "CreateContainer") || strings.Contains(reason, "RunContainer") {
-				return "", fmt.Errorf("%w: %s", ErrPodConfigurationFailed, reason)
-			}
-			return "", fmt.Errorf("%w: %s", ErrHealthCheckTimeout, reason)
+			// Permanent failure - return the error with the appropriate type already wrapped
+			olog.Debugf("pod in non-retryable state: id=%s error=%v attempt=%d", id, podErr, attempt+1)
+			return "", podErr
 		}
 
 		// Transient issue - retry if we haven't exceeded max retries
 		if attempt < maxRetries {
-			klog.Debugf("pod not ready, will retry: id=%s reason=%s attempt=%d maxRetries=%d", id, reason, attempt+1, maxRetries)
+			olog.Debugf("pod not ready, will retry: id=%s error=%v attempt=%d maxRetries=%d", id, podErr, attempt+1, maxRetries)
 			continue
 		}
 
 		// Exceeded max retries
-		klog.Debugf("exceeded max retries waiting for pod: id=%s lastReason=%s attempts=%d", id, lastReason, attempt+1)
-		return "", fmt.Errorf("%w after %d retries: %s", ErrHealthCheckTimeout, maxRetries+1, lastReason)
+		olog.Debugf("exceeded max retries waiting for pod: id=%s lastError=%v attempts=%d", id, lastErr, attempt+1)
+		return "", fmt.Errorf("%w after %d retries: %v", ErrHealthCheckTimeout, maxRetries+1, lastErr)
 	}
 
-	return "", fmt.Errorf("%w: %s", ErrHealthCheckTimeout, lastReason)
+	return "", fmt.Errorf("%w: %v", ErrHealthCheckTimeout, lastErr)
 }
 
 func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error {
