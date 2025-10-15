@@ -60,7 +60,7 @@
 		}
 
 		if (type === 'deployed-servers') {
-			return [{ href: '/admin/mcp-servers?view=deployments', label: 'MCP Servers' }];
+			return [{ href: '/admin/mcp-servers', label: 'MCP Servers' }];
 		}
 
 		return [];
@@ -112,8 +112,6 @@
 
 				const searchParams = getSearchParamsLocalStorage(link.href);
 				const url = [link.href, searchParams].filter(Boolean).join('');
-
-				console.log(url);
 
 				openUrl(url, isCtrlClick);
 			}}

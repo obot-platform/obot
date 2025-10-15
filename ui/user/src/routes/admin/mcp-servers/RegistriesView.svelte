@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Table from '$lib/components/table/Table.svelte';
@@ -16,6 +17,7 @@
 	} from '$lib/services';
 	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
+	import { setSearchParamsLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Captions, Ellipsis, LoaderCircle, Server, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
@@ -120,6 +122,8 @@
 						? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/s/${d.id}`
 						: `/admin/mcp-servers/s/${d.id}`;
 				}
+
+				setSearchParamsLocalStorage(page.url.pathname, page.url.search);
 				openUrl(url, isCtrlClick);
 			}}
 			{onFilter}

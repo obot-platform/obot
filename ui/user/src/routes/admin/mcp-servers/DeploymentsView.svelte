@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -14,6 +15,7 @@
 		type OrgUser
 	} from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
+	import { setSearchParamsLocalStorage } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import {
 		Captions,
@@ -274,6 +276,8 @@
 						? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}?from=deployed-servers`
 						: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}?from=deployed-servers`;
 				}
+
+				setSearchParamsLocalStorage(page.url.pathname, page.url.search);
 				openUrl(url, isCtrlClick);
 			}}
 			{onFilter}
