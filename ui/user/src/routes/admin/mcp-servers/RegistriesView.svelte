@@ -17,7 +17,7 @@
 	} from '$lib/services';
 	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
-	import { setSearchParamsLocalStorage } from '$lib/url';
+	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Captions, Ellipsis, LoaderCircle, Server, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
@@ -123,7 +123,7 @@
 						: `/admin/mcp-servers/s/${d.id}`;
 				}
 
-				setSearchParamsLocalStorage(page.url.pathname, page.url.search);
+				setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 				openUrl(url, isCtrlClick);
 			}}
 			{onFilter}

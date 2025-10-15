@@ -15,7 +15,7 @@
 		type OrgUser
 	} from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
-	import { setSearchParamsLocalStorage } from '$lib/url';
+	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import {
 		Captions,
@@ -277,7 +277,7 @@
 						: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}?from=deployed-servers`;
 				}
 
-				setSearchParamsLocalStorage(page.url.pathname, page.url.search);
+				setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 				openUrl(url, isCtrlClick);
 			}}
 			{onFilter}

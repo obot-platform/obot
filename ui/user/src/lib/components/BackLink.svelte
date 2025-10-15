@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
-	import { getSearchParamsLocalStorage } from '$lib/url';
+	import { getSearchParamsFromLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { ChevronLeft } from 'lucide-svelte';
 
@@ -110,7 +110,7 @@
 				const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 				const isCtrlClick = isTouchDevice ? false : e.metaKey || e.ctrlKey;
 
-				const searchParams = getSearchParamsLocalStorage(link.href);
+				const searchParams = getSearchParamsFromLocalStorage(link.href);
 				const url = [link.href, searchParams].filter(Boolean).join('');
 
 				openUrl(url, isCtrlClick);
