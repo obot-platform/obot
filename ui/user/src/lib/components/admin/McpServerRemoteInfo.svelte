@@ -135,14 +135,14 @@
 
 		{#snippet actions(d)}
 			{#if profile.current?.isAdmin?.() && isAdminUrl}
-				{@const mcpId = mcpServerId || mcpServerInstanceId}
-				{@const id = mcpId?.split('-').at(-1)}
 				{@const url =
 					entity === 'workspace'
 						? catalogEntry?.id
 							? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-							: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`
-						: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`}
+							: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(mcpServerId ?? '')}?view=audit-logs&user_id=${d.id}`
+						: catalogEntry?.id
+							? `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+							: `/admin/mcp-servers/s/${encodeURIComponent(mcpServerId ?? '')}?view=audit-logs&user_id=${d.id}`}
 				<a href={url} class="button-text"> View Audit Logs </a>
 			{/if}
 		{/snippet}

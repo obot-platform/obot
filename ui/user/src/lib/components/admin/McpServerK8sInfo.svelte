@@ -257,7 +257,7 @@
 	}
 
 	function getAuditLogUrl(d: (typeof connectedUsers)[number]) {
-		const id = d.mcpInstanceId ? d.mcpInstanceId : mcpServerId || mcpServerInstanceId;
+		const id = mcpServerId || mcpServerInstanceId;
 		return entity === 'workspace'
 			? catalogEntry?.id
 				? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
