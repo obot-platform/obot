@@ -89,8 +89,6 @@
 
 	let isAuditor = $derived(profile.current.groups.includes(Group.AUDITOR));
 
-	setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-
 	onMount(() => {
 		loadThreads();
 	});
@@ -148,6 +146,8 @@
 	}
 
 	function handleViewThread(thread: ProjectThread, isCtrlClick: boolean) {
+		setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+
 		const url = `/admin/task-runs/${thread.id}`;
 		openUrl(url, isCtrlClick);
 	}
