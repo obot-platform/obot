@@ -33,7 +33,18 @@
 	let taskMap = $derived(new Map(tasks.map((t) => [t.id, t])));
 
 	let query = $state(page.url.searchParams.get('query') || '');
-	let urlFilters = $state<Record<string, (string | number)[]>>({});
+	let urlFilters = $derived.by<Record<string, (string | number)[]>>(() => {
+		return page.url.searchParams
+			.entries()
+			.filter((entry) => entry[0] !== 'query')
+			.reduce(
+				(acc, [key, value]) => {
+					acc[key] = value.split(',');
+					return acc;
+				},
+				{} as Record<string, (string | number)[]>
+			);
+	});
 
 	let loading = $state(true);
 	let filteredThreads = $derived(threads.filter((thread) => !thread.project && !thread.systemTask));
@@ -50,13 +61,15 @@
 	);
 
 	let convertedUrlFilters = $derived.by(() => {
-		if (urlFilters.task) {
+		const { task, ...rest } = urlFilters;
+		// Convert task to taskID for filtering
+		if (task) {
 			return {
-				...urlFilters,
-				task: urlFilters.task.map((idOrName) => taskMap.get(idOrName.toString())?.name ?? idOrName)
+				...rest,
+				taskID: task
 			};
 		}
-		return urlFilters;
+		return rest;
 	});
 
 	const updateQuery = debounce((value: string) => {
@@ -78,11 +91,6 @@
 
 	onMount(() => {
 		loadThreads();
-		if (page.url.searchParams.size > 0) {
-			page.url.searchParams.forEach((value, key) => {
-				urlFilters[key] = value.split(',');
-			});
-		}
 	});
 
 	async function loadThreads() {
