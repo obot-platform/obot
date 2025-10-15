@@ -1676,22 +1676,37 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 		}
 	case types.RuntimeRemote:
 		if entry.Spec.Manifest.RemoteConfig != nil {
-			toExtract = append(toExtract, entry.Spec.Manifest.RemoteConfig.FixedURL)
+			// Add the existing headers to the existing map.
+			for _, header := range entry.Spec.Manifest.RemoteConfig.Headers {
+				existing[header.Key] = struct{}{}
+			}
+
+			toExtract = append(toExtract, entry.Spec.Manifest.RemoteConfig.URLTemplate)
 		}
 	}
 
 	for _, v := range toExtract {
 		for _, env := range extractEnvVars(v) {
 			if _, exists := existing[env]; !exists {
-				entry.Spec.Manifest.Env = append(entry.Spec.Manifest.Env, types.MCPEnv{
-					MCPHeader: types.MCPHeader{
+				if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
+					entry.Spec.Manifest.Env = append(entry.Spec.Manifest.Env, types.MCPEnv{
+						MCPHeader: types.MCPHeader{
+							Name:        env,
+							Key:         env,
+							Description: "Automatically detected variable",
+							Sensitive:   true,
+							Required:    true,
+						},
+					})
+				} else if entry.Spec.Manifest.RemoteConfig != nil {
+					entry.Spec.Manifest.RemoteConfig.Headers = append(entry.Spec.Manifest.RemoteConfig.Headers, types.MCPHeader{
 						Name:        env,
 						Key:         env,
 						Description: "Automatically detected variable",
-						Sensitive:   true,
+						Sensitive:   false,
 						Required:    true,
-					},
-				})
+					})
+				}
 			}
 		}
 	}
