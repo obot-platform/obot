@@ -144,6 +144,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
+	var powerUserID string
 
 	// Verify the scope exists
 	if catalogName != "" {
@@ -151,9 +152,11 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 			return fmt.Errorf("failed to get catalog: %w", err)
 		}
 	} else if workspaceID != "" {
-		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
+		var workspace v1.PowerUserWorkspace
+		if err := req.Get(&workspace, workspaceID); err != nil {
 			return fmt.Errorf("failed to get workspace: %w", err)
 		}
+		powerUserID = workspace.Spec.UserID
 	} else {
 		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
 	}
@@ -176,7 +179,7 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 	if (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
 		entries := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
 		for _, entry := range list.Items {
-			entries = append(entries, convertMCPServerCatalogEntry(entry))
+			entries = append(entries, convertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
 		}
 		return req.Write(types.MCPServerCatalogEntryList{Items: entries})
 	}
@@ -201,7 +204,7 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 		}
 
 		if hasAccess {
-			entries = append(entries, convertMCPServerCatalogEntry(entry))
+			entries = append(entries, convertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
 		}
 	}
 
