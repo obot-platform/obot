@@ -104,8 +104,12 @@
 
 	function getAcrServerCount(powerUserWorkspaceID: string) {
 		const mcpServers = Array.from(mcpServersAndEntries.servers.values());
-		return mcpServers.filter((server) => server.powerUserWorkspaceID === powerUserWorkspaceID)
-			.length;
+		const mcpEntries = Array.from(mcpServersAndEntries.entries.values());
+
+		return (
+			mcpServers.filter((server) => server.powerUserWorkspaceID === powerUserWorkspaceID).length +
+			mcpEntries.filter((entry) => entry.powerUserWorkspaceID === powerUserWorkspaceID).length
+		);
 	}
 </script>
 
