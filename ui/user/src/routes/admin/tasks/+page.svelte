@@ -19,7 +19,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { openUrl } from '$lib/utils';
-	import { clearUrlParams, setUrlParams } from '$lib/url';
+	import { clearUrlParams, setSearchParamsToLocalStorage, setUrlParams } from '$lib/url';
 
 	let tasks = $state<ProjectTask[]>([]);
 	let threads = $state<ProjectThread[]>([]);
@@ -127,6 +127,8 @@
 	}
 
 	function handleViewTask(task: ProjectTask, isCtrlClick: boolean) {
+		setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+
 		const url = `/admin/tasks/${task.id}`;
 		openUrl(url, isCtrlClick);
 	}
