@@ -34,3 +34,17 @@ export function clearUrlParams() {
 	}
 	replaceState(page.url, {});
 }
+
+export function setSearchParamsLocalStorage(pathname: string, searchParams: string) {
+	if (browser) {
+		localStorage.setItem(`page.searchParams.${pathname}`, searchParams);
+	}
+}
+
+export function getSearchParamsLocalStorage(pathname: string): string | null {
+	if (browser) {
+		return localStorage.getItem(`page.searchParams.${pathname}`);
+	}
+
+	return null;
+}

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
+	import { getSearchParamsLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { ChevronLeft } from 'lucide-svelte';
 
@@ -109,14 +110,12 @@
 				const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 				const isCtrlClick = isTouchDevice ? false : e.metaKey || e.ctrlKey;
 
-				const stepsBack = links.length - index;
-				const hasHistory = history.length > stepsBack;
+				const searchParams = getSearchParamsLocalStorage(link.href);
+				const url = [link.href, searchParams].filter(Boolean).join('');
 
-				if (hasHistory && !isCtrlClick) {
-					history.go(-stepsBack);
-				} else {
-					openUrl(link.href, isCtrlClick);
-				}
+				console.log(url);
+
+				openUrl(url, isCtrlClick);
 			}}
 			class="button-text flex items-center gap-2 p-0 text-lg font-light"
 		>

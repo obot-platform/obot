@@ -21,7 +21,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { openUrl } from '$lib/utils';
-	import { clearUrlParams, setUrlParams } from '$lib/url';
+	import { clearUrlParams, setSearchParamsLocalStorage, setUrlParams } from '$lib/url';
 
 	let threads = $state<ProjectThread[]>([]);
 	let projects = $state<Project[]>([]);
@@ -88,6 +88,8 @@
 	}, 100);
 
 	let isAuditor = $derived(profile.current.groups.includes(Group.AUDITOR));
+
+	setSearchParamsLocalStorage(page.url.pathname, page.url.search);
 
 	onMount(() => {
 		loadThreads();
