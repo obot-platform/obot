@@ -630,19 +630,10 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 			olog.Debugf("pod in non-retryable state: id=%s error=%v attempt=%d", id, podErr, attempt+1)
 			return "", podErr
 		}
-
-		// Transient issue - retry if we haven't exceeded max retries
-		if attempt < maxRetries {
-			olog.Debugf("pod not ready, will retry: id=%s error=%v attempt=%d maxRetries=%d", id, podErr, attempt+1, maxRetries)
-			continue
-		}
-
-		// Exceeded max retries
-		olog.Debugf("exceeded max retries waiting for pod: id=%s lastError=%v attempts=%d", id, lastErr, attempt+1)
-		return "", fmt.Errorf("%w after %d retries: %v", ErrHealthCheckTimeout, maxRetries+1, lastErr)
 	}
 
-	return "", fmt.Errorf("%w: %v", ErrHealthCheckTimeout, lastErr)
+	olog.Debugf("exceeded max retries waiting for pod: id=%s lastError=%v attempts=%d", id, lastErr, maxRetries)
+	return "", fmt.Errorf("%w after %d retries: %v", ErrHealthCheckTimeout, maxRetries, lastErr)
 }
 
 func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error {
