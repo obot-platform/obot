@@ -161,7 +161,7 @@
 							)}
 							bind:value={remoteConfig.urlTemplate}
 							disabled={readonly}
-							placeholder="e.g. https://${'${API_HOST}'}/api/${'${VERSION}'}/endpoint"
+							placeholder={`e.g. https://$${'{API_HOST}'}/api/$${'{VERSION}'}/endpoint`}
 							oninput={() => {
 								onFieldChange?.('urlTemplate');
 							}}
