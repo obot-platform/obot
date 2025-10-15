@@ -3,7 +3,7 @@
 		RemoteCatalogConfigAdmin,
 		RemoteRuntimeConfigAdmin
 	} from '$lib/services/admin/types';
-	import { Plus, Trash2, AlertTriangle, Info } from 'lucide-svelte';
+	import { Plus, Trash2, Info } from 'lucide-svelte';
 	import Select from '../Select.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { fade, slide } from 'svelte/transition';
