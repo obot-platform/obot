@@ -64,7 +64,7 @@ func expandEnvVars(text string, credEnv map[string]string, fileEnvVars map[strin
 // applyPrefix adds a prefix to a value if the value doesn't already start with it.
 // Returns the original value if prefix is empty or if value already starts with the prefix.
 func applyPrefix(value, prefix string) string {
-	if prefix == "" || value == "" || strings.HasPrefix(value, prefix) {
+	if value == "" || strings.HasPrefix(value, prefix) {
 		return value
 	}
 	return prefix + value
