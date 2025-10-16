@@ -325,6 +325,9 @@
 	let projectModel = $derived(project.defaultModel ?? projectDefaultModel);
 	let lastMessageWithFile = $derived(messages.messages.findLastIndex((msg) => msg.file));
 
+	// Detect Safari for browser-specific styling
+	let isSafari = $derived(browser && /^((?!chrome|android).)*safari/i.test(navigator.userAgent));
+
 	$effect(() => {
 		if (!project.defaultModelProvider || !project.defaultModel) {
 			getProjectDefaultModel(project.assistantID, project.id).then((res) => {
@@ -552,8 +555,8 @@
 					/>
 				{/each}
 			{/if}
-			<div class="min-h-4">
-				<!-- Vertical Spacer -->
+			<div class={isSafari ? 'min-h-48' : 'min-h-4'}>
+				<!-- Vertical Spacer - needs to be taller (like input size) in Safari due to sticky interaction -->
 			</div>
 		</div>
 
