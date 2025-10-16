@@ -92,11 +92,11 @@ name: Your Server Name
 description: |
   One-line summary of what this server does.
 
-  *## Features*
+  ## Features
   - Key capability 1 
   - Key capability 2 
 
-  *## What you'll need to connect*
+  ## What you'll need to connect
   - API key from https://example.com/api-keys
   - Account with "read" scope enabled
   - (Optional) Optional
@@ -107,7 +107,7 @@ metadata:
 icon: https://example.com/icon.png
 repoURL: https://github.com/your-org/your-mcp-repo
 
-*# Environment variables your server needs (optional)*
+# Environment variables your server needs (optional)
 env:
   - key: API_KEY                     *# Actual env var name*
     name: API Key                    *# Display name in UI*
@@ -115,7 +115,7 @@ env:
     sensitive: true                  *# Masks value in UI (for credentials)*
     description: Your API key from the developer dashboard
 
-*# Preview your server's tools*
+# Preview your server's tools
 toolPreview:
   - name: search_documents
     description: Search through indexed documents using natural language
@@ -128,7 +128,11 @@ toolPreview:
       document_id: Unique identifier for the document
 ```
 
-Now choose **exactly one** runtime block below.
+**Tip: Generating Tool Previews**
+
+To easily generate your `toolPreview` section, connect your MCP server to an MCP client (like Claude Desktop, Cursor, or VSCode with MCP extension) and ask the AI to list all tools from your MCP server and convert the tool definitions to the tool preview format.
+
+Now choose **exactly one** runtime block below.
 
 <details>
   <summary>Option A: Remote HTTP Server</summary>
