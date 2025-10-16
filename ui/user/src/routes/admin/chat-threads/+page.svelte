@@ -15,7 +15,7 @@
 	import { profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { clearUrlParams, setUrlParams } from '$lib/url';
+	import { clearUrlParams, setSearchParamsToLocalStorage, setUrlParams } from '$lib/url';
 
 	let threads = $state<ProjectThread[]>([]);
 	let projects = $state<Project[]>([]);
@@ -159,6 +159,7 @@
 						onClearAllFilters={clearUrlParams}
 						onClickRow={isAuditor
 							? (d, isCtrlClick) => {
+									setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 									const url = `/admin/chat-threads/${d.id}`;
 									openUrl(url, isCtrlClick);
 								}

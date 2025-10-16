@@ -20,7 +20,7 @@
 	import { replaceState } from '$app/navigation';
 	import { debounce } from 'es-toolkit';
 	import { page } from '$app/state';
-	import { clearUrlParams, setUrlParams } from '$lib/url';
+	import { clearUrlParams, setSearchParamsToLocalStorage, setUrlParams } from '$lib/url';
 
 	initMcpServerAndEntries();
 
@@ -129,6 +129,8 @@
 							data={filteredFilters}
 							fields={['name', 'url', 'selectors']}
 							onClickRow={(d, isCtrlClick) => {
+								setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+
 								const url = `/admin/filters/${d.id}`;
 								openUrl(url, isCtrlClick);
 							}}
