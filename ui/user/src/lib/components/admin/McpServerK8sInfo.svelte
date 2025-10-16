@@ -2,6 +2,7 @@
 	import {
 		AdminService,
 		ChatService,
+		Group,
 		type K8sServerDetail,
 		type MCPCatalogEntry,
 		type OrgUser
@@ -257,14 +258,23 @@
 	}
 
 	function getAuditLogUrl(d: (typeof connectedUsers)[number]) {
-		const id = d.mcpInstanceId ? d.mcpInstanceId : mcpServerId || mcpServerInstanceId;
-		return entity === 'workspace'
-			? catalogEntry?.id
-				? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&userId=${d.id}`
-				: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`
-			: catalogEntry?.id
-				? `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&userId=${d.id}`
-				: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&userId=${d.id}`;
+		const id = mcpServerId || mcpServerInstanceId;
+
+		if (isAdminUrl) {
+			if (!profile.current?.hasAdminAccess?.()) return null;
+			return entity === 'workspace'
+				? catalogEntry?.id
+					? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+					: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`
+				: catalogEntry?.id
+					? `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+					: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
+		}
+
+		if (!profile.current?.groups.includes(Group.POWERUSER_PLUS)) return null;
+		return catalogEntry?.id
+			? `/mcp-publisher/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+			: `/mcp-publisher/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
 	}
 </script>
 
@@ -459,9 +469,9 @@
 		{/snippet}
 
 		{#snippet actions(d)}
-			{#if profile.current?.isAdmin?.() && isAdminUrl}
-				{@const url = getAuditLogUrl(d)}
-				<a href={url} class="button-text"> View Audit Logs </a>
+			{@const auditLogsUrl = getAuditLogUrl(d)}
+			{#if auditLogsUrl}
+				<a href={auditLogsUrl} class="button-text"> View Audit Logs </a>
 			{/if}
 		{/snippet}
 	</Table>
