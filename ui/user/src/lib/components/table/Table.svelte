@@ -305,7 +305,7 @@
 					</div>
 				</div>
 			{:else}
-				<div class="w-full overflow-x-auto">
+				<div class="default-scrollbar-thin w-full overflow-x-auto">
 					<table class="w-full border-collapse" style="table-layout: fixed; width: 100%;">
 						<colgroup>
 							<col style="width: {columnWidths[0] || 57}px;" />
@@ -328,7 +328,7 @@
 	{/if}
 	<div
 		class={twMerge(
-			'dark:bg-surface2 relative overflow-hidden overflow-x-auto rounded-md bg-white shadow-sm',
+			'dark:bg-surface2 default-scrollbar-thin relative overflow-hidden overflow-x-auto rounded-md bg-white shadow-sm',
 			classes?.root
 		)}
 	>
