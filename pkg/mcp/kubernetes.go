@@ -458,27 +458,20 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 	return objs, nil
 }
 
-// analyzePodStatuses combines the results of analyzing each individual pod status.
-func analyzePodStatuses(pods []corev1.Pod) (bool, error) {
-	var (
-		shouldRetry bool
-		errs        []error
-	)
-	for i, pod := range pods {
-		podShouldRetry, podErr := analyzePodStatus(&pod)
-		shouldRetry = shouldRetry || podShouldRetry
-		if podErr != nil {
-			errs = append(errs, fmt.Errorf("pod %d: %w", i+1, podErr))
+// getNewestPod finds and returns the most recently created pod from the list.
+func getNewestPod(pods []corev1.Pod) (*corev1.Pod, error) {
+	if len(pods) == 0 {
+		return nil, fmt.Errorf("no pods provided")
+	}
+
+	newest := &pods[0]
+	for i := range pods {
+		if pods[i].CreationTimestamp.After(newest.CreationTimestamp.Time) {
+			newest = &pods[i]
 		}
 	}
 
-	if len(errs) == 0 {
-		return shouldRetry, nil
-	}
-	if len(errs) == 1 {
-		return shouldRetry, errs[0]
-	}
-	return shouldRetry, fmt.Errorf("multiple pod issues: %v", errs)
+	return newest, nil
 }
 
 // analyzePodStatus examines a pod's status to determine if we should retry waiting for it
@@ -622,7 +615,18 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 			return "", fmt.Errorf("%w: %v", ErrHealthCheckTimeout, lastErr)
 		}
 
-		shouldRetry, podErr := analyzePodStatuses(pods.Items)
+		// Get the newest pod and analyze its status
+		newestPod, err := getNewestPod(pods.Items)
+		if err != nil {
+			olog.Debugf("failed to get newest pod: id=%s error=%v attempt=%d", id, err, attempt+1)
+			lastErr = err
+			if attempt < maxRetries {
+				continue
+			}
+			return "", fmt.Errorf("%w: %v", ErrHealthCheckTimeout, lastErr)
+		}
+
+		shouldRetry, podErr := analyzePodStatus(newestPod)
 		lastErr = podErr
 
 		if !shouldRetry {
