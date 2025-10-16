@@ -44,7 +44,7 @@ func (a *Authorizer) checkMCPServer(req *http.Request, resources *Resources, u u
 
 		resources.Authorizated.MCPServer = &mcpServer
 		return true, nil
-	} else if mcpServer.Spec.MCPServerCatalogEntryName != "" {
+	} else if mcpServer.Spec.MCPServerCatalogEntryName != "" && resources.Authorizated.PowerUserWorkspace != nil {
 		var entry v1.MCPServerCatalogEntry
 		if err := a.get(req.Context(), router.Key(system.DefaultNamespace, mcpServer.Spec.MCPServerCatalogEntryName), &entry); err != nil || entry.Spec.PowerUserWorkspaceID != resources.Authorizated.PowerUserWorkspace.Name {
 			return false, err
