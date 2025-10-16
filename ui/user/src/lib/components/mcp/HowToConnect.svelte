@@ -29,10 +29,6 @@
 		vscode: {
 			label: 'VSCode',
 			icon: '/user/images/assistant/vscode-mark.svg'
-		},
-		cline: {
-			label: 'Cline',
-			icon: '/user/images/assistant/cline-mark.svg'
 		}
 	};
 
@@ -112,7 +108,7 @@
 		style="scroll-behavior: smooth;"
 	>
 		{#each options as option (option.key)}
-			<li class="w-36 flex-shrink-0">
+			<li class="w-49 flex-shrink-0">
 				<button
 					class={twMerge(
 						'dark:hover:bg-surface3 relative flex w-full items-center justify-center gap-1.5 rounded-t-xs border-b-2 border-transparent py-2 text-[13px] font-light transition-all duration-200 hover:bg-gray-50',
@@ -222,29 +218,6 @@ ${servers
 	.map(
 		(server) => `			"${server.name}": {
 				"url": "${server.url}"
-			}`
-	)
-	.join(',\n')}
-		}
-	}
-
-`)}
-					{:else if option.key === 'cline'}
-						<p>
-							To add this MCP server to Cline, update your <span class="snippet"
-								>~/Library/Application
-								Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json</span
-							>
-						</p>
-						{@render codeSnippet(`
-	{
-		"servers": {
-${servers
-	.map(
-		(server) => `			"${server.name}": {
-				"url": "${server.url}",
-				"disabled": false,
-				"autoApprove": []
 			}`
 	)
 	.join(',\n')}
