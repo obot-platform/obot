@@ -134,7 +134,7 @@ config:
   # config.OBOT_SERVER_DISALLOW_LOCALHOST_MCP -- disallow MCP servers that try to connect to localhost. Defaults to false.
   OBOT_SERVER_DISALLOW_LOCALHOST_MCP: ""
   # config.OBOT_SERVER_MCPRUNTIME_BACKEND -- The runtime backend to use for MCP servers. Can be 'local', 'docker', or 'kubernetes'. Defaults to 'docker'. Setting this to 'kubernetes' will also create the necessary service account, role and rolebinding.
-  OBOT_SERVER_MCPRUNTIME_BACKEND: "kubernetes"
+  OBOT_SERVER_MCPRUNTIME_BACKEND: "docker"
 
   # config.OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS -- The interval in seconds to persist MCP audit logs to the database. Defaults to 5 seconds.
   OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS: ""
