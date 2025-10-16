@@ -2,7 +2,6 @@
 	import {
 		AdminService,
 		ChatService,
-		Role,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance,

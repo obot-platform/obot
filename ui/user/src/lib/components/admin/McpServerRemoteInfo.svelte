@@ -25,16 +25,8 @@
 		connectedUsers: OrgUser[];
 	}
 
-	let {
-		name,
-		connectedUsers,
-		classes,
-		entity,
-		entityId,
-		catalogEntry,
-		mcpServerId,
-		mcpServerInstanceId
-	}: Props = $props();
+	let { name, connectedUsers, classes, entity, entityId, catalogEntry, mcpServerId }: Props =
+		$props();
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 	let mcpServer = $state<MCPCatalogServer>();
 	let revealedInfo = $state<Record<string, string>>({});
