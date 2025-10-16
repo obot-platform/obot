@@ -26,11 +26,64 @@ Each Obot instance connects to our open source registry by default. You can foll
 
 ---
 
-## Step 1 — Create your catalog entry
+## Step 1 — Repackage your image (Skip to Step 2 if you have a Remote HTTP server)
 
-Fork from: `https://github.com/obot-platform/mcp-catalog`
+If your server is containerized (Docker-based HTTP or stdio-based npx/uvx), we'll repackage and publish it first.
 
-Add a file: `your-server-name.yaml`
+Fork from: `https://github.com/obot-platform/mcp-images`
+
+Edit `repackaging/images.yaml` and add your entry:
+
+### Docker-based HTTP Servers
+
+```yaml
+- name: my-http-server
+  type: docker
+  package: ghcr.io/yourorg/mcp-http-server    # Your existing Docker image
+  version: 1.0.0                              # Specific version tag
+
+```
+
+### Node.js (npx) Servers
+
+```yaml
+- name: my-awesome-server
+  type: node
+  package: @myorg/mcp-awesome-server    # NPM package name
+  version: 1.2.3                        # Specific version
+
+```
+
+### Python (uvx) Servers
+
+```yaml
+- name: my-python-server
+  type: python
+  package: mcp-python-server            # PyPI package name
+  version: 2.0.1
+
+```
+
+### After Your Image is Published
+
+Once your PR in `mcp-images` merges, we'll publish:
+
+```
+ghcr.io/obot-platform/mcp-images/<your-server-name>:<version>
+
+```
+
+**Then** proceed to Step 2 and:
+- For Docker-based HTTP servers: use **Option B** with your published GHCR image
+- For stdio servers: use **Option C** with your published GHCR image
+
+---
+
+## Step 2 — Create your catalog entry
+
+Fork from: `https://github.com/obot-platform/mcp-catalog`
+
+Add a file: `your-server-name.yaml`
 
 ### Base Template (required for all servers)
 
@@ -62,7 +115,7 @@ env:
     sensitive: true                  *# Masks value in UI (for credentials)*
     description: Your API key from the developer dashboard
 
-*# Preview your server's tools (list top 20 if you have many)*
+*# Preview your server's tools*
 toolPreview:
   - name: search_documents
     description: Search through indexed documents using natural language
@@ -148,12 +201,7 @@ remoteConfig:
 <details>
   <summary>Option B: Containerized HTTP Server</summary>
 
-**⚠️ Important:** If you have a Docker image that serves HTTP MCP, do NOT complete this section yet.
-**Instead:**
-
-1. Complete **Step 2** below to repackage your Docker image
-2. Wait for your image to be published to GHCR
-3. Return here and use this runtime block:
+**⚠️ Important:** If you have a Docker image that serves HTTP MCP, you must complete **Step 1** first to repackage your Docker image and wait for it to be published to GHCR. Then return here and use this runtime block:
 
 ```yaml
 runtime: containerized
@@ -176,14 +224,9 @@ containerizedConfig:
 
 
 <details>
-  <summary>Option C: Stdio MCP Server (npx, uvx, docker)</summary>
+  <summary>Option C: Stdio MCP Server (npx, uvx)</summary>
 
-**⚠️ Important:** If your server is stdio-based, do NOT complete this section yet.
-**Instead:**
-
-1. Complete **Step 2** below to repackage your stdio server
-2. Wait for your image to be published to GHCR
-3. Return here and use this runtime block:
+**⚠️ Important:** If your server is stdio-based, you must complete **Step 1** first to repackage your stdio server and wait for it to be published to GHCR. Then return here and use this runtime block:
 
 ```yaml
 runtime: containerized
@@ -208,70 +251,17 @@ The `args` must include the command that starts your stdio server, plus any requ
 
 ---
 
-## Step 2 — Repackage and publish an image
-
-If your server is containerized (Docker-based HTTP or stdio-based npx/uvx), we'll repackage and publish it.
-
-Fork from: `https://github.com/obot-platform/mcp-images`
-
-Edit `repackaging/images.yaml` and add your entry:
-
-### Docker-based HTTP Servers
-
-```yaml
-- name: my-http-server
-  type: docker
-  package: ghcr.io/yourorg/mcp-http-server    # Your existing Docker image
-  version: 1.0.0                              # Specific version tag
-
-```
-
-### Node.js (npx) Servers
-
-```yaml
-- name: my-awesome-server
-  type: node
-  package: @myorg/mcp-awesome-server    # NPM package name
-  version: 1.2.3                        # Specific version
-
-```
-
-### Python (uvx) Servers
-
-```yaml
-- name: my-python-server
-  type: python
-  package: mcp-python-server            # PyPI package name
-  version: 2.0.1
-
-```
-
-### After Your Image is Published
-
-Once your PR in `mcp-images` merges, we'll publish:
-
-```
-ghcr.io/obot-platform/mcp-images/<your-server-name>:<version>
-
-```
-
-**Then** return to Step 1 and:
-- For Docker-based HTTP servers: complete **Option B** with your published GHCR image
-- For stdio servers: complete **Option C** with your published GHCR image
-
----
-
 ## Step 3 — Open your PR(s)
 
 ### For Remote HTTP Servers (Option A)
 
-Open **one PR** in `mcp-catalog` adding `your-server-name.yaml`
+Open **one PR** in `mcp-catalog` adding `your-server-name.yaml` (Step 2)
 
 ### For Docker-based HTTP or Stdio Servers (Options B & C)
 
-1. Open a PR in `mcp-images` editing `repackaging/images.yaml`
+1. Open a PR in `mcp-images` editing `repackaging/images.yaml` (Step 1)
 2. Wait for the image to be published to GHCR (typically within a few hours after the PR is merged)
-3. Open a PR in `mcp-catalog` referencing the published GHCR image
+3. Open a PR in `mcp-catalog` adding `your-server-name.yaml` referencing the published GHCR image (Step 2)
 
 ---
 
@@ -283,7 +273,7 @@ Before opening your PR, verify:
 - [ ]  `metadata.categories` lists a few categories
 - [ ]  `icon` is a square image, publicly accessible
 - [ ]  `repoURL` points to GitHub (or documentation if unavailable)
-- [ ]  `toolPreview` lists your tool schemas (top 20 if you have many)
+- [ ]  `toolPreview` lists your tool schemas
 - [ ]  **Exactly one** runtime block (remote OR containerized)
 - [ ]  All `env` variables have clear descriptions
 - [ ]  Sensitive credentials are marked `sensitive: true`
