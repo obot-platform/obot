@@ -6005,6 +6005,11 @@ func schema_obot_platform_obot_apiclient_types_Project(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"lastUsedTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
 				},
 				Required: []string{"Metadata", "ProjectManifest", "editor"},
 			},
