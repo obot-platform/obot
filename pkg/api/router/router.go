@@ -60,7 +60,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
-	setupHandler := setup.NewHandler(services.GatewayClient)
+	setupHandler := setup.NewHandler()
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)

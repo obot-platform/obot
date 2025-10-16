@@ -92,11 +92,7 @@ var (
 		"/api/oauth-apps/",
 		"/api/file-scanner-config",
 		"/api/user-default-role-settings",
-		"/api/setup/explicit-role-emails",
-		"/api/setup/initiate-temp-login",
-		"/api/setup/temp-user",
-		"/api/setup/confirm-owner",
-		"/api/setup/cancel-temp-login",
+		"/api/setup/",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,

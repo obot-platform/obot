@@ -41,7 +41,7 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 		return types.NewErrBadRequest("email is required")
 	}
 
-	cached := h.gatewayClient.GetTempUserCache()
+	cached := req.GatewayClient.GetTempUserCache()
 	if cached == nil {
 		return types.NewErrHTTP(http.StatusNotFound, "no temporary user to confirm")
 	}
@@ -54,13 +54,13 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 	}
 
 	// Get the user from the database
-	user, err := h.gatewayClient.UserByID(req.Context(), fmt.Sprintf("%d", cached.UserID))
+	user, err := req.GatewayClient.UserByID(req.Context(), fmt.Sprintf("%d", cached.UserID))
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
 	// Check if the user has an explicit role from environment variables
-	explicitRole := h.gatewayClient.HasExplicitRole(user.Email)
+	explicitRole := req.GatewayClient.HasExplicitRole(user.Email)
 
 	// Ensure user has Owner role
 	// Note: If the user is a hardcoded Admin or Owner from environment variables,
@@ -76,13 +76,13 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 		user.Role = user.Role.SwitchBaseRole(types.RoleOwner)
 
 		// Update in database
-		if _, err := h.gatewayClient.UpdateUser(req.Context(), true, user, fmt.Sprintf("%d", user.ID)); err != nil {
+		if _, err := req.GatewayClient.UpdateUser(req.Context(), true, user, fmt.Sprintf("%d", user.ID)); err != nil {
 			return fmt.Errorf("failed to update user role: %w", err)
 		}
 	}
 
 	// Clear the temporary cache
-	h.gatewayClient.ClearTempUserCache()
+	req.GatewayClient.ClearTempUserCache()
 
 	return req.Write(ConfirmOwnerResponse{
 		Success: true,

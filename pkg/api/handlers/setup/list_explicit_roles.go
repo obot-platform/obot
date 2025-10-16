@@ -23,7 +23,7 @@ func (h *Handler) ListExplicitRoleEmails(req api.Context) error {
 		return err
 	}
 
-	emailRoles := h.gatewayClient.GetExplicitRoleEmails()
+	emailRoles := req.GatewayClient.GetExplicitRoleEmails()
 
 	var owners, admins []string
 	for email, role := range emailRoles {

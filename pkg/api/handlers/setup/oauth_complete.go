@@ -8,11 +8,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 )
 
-type OAuthCompleteResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-}
-
 // OAuthComplete handles the OAuth callback for setup flow.
 // This endpoint is called after oauth2-proxy completes authentication.
 // Any authenticated user can be cached - they don't need to be pre-configured
@@ -40,7 +35,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 		return types.NewErrHTTP(http.StatusBadRequest, "no user ID in context")
 	}
 
-	user, err := h.gatewayClient.UserByID(req.Context(), fmt.Sprintf("%d", userID))
+	user, err := req.GatewayClient.UserByID(req.Context(), fmt.Sprintf("%d", userID))
 	if err != nil {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
@@ -50,7 +45,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 
 	// Cache the temporary user
 	// This will fail if another user is already cached
-	if err := h.gatewayClient.SetTempUserCache(user, authProviderName, authProviderNS); err != nil {
+	if err := req.GatewayClient.SetTempUserCache(user, authProviderName, authProviderNS); err != nil {
 		return types.NewErrHTTP(http.StatusConflict, err.Error())
 	}
 

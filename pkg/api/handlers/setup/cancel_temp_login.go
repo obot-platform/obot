@@ -25,16 +25,16 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 		return err
 	}
 
-	cached := h.gatewayClient.GetTempUserCache()
+	cached := req.GatewayClient.GetTempUserCache()
 	if cached == nil {
 		return types.NewErrHTTP(http.StatusNotFound, "no temporary user to cancel")
 	}
 
 	// Get the user from the database
-	user, err := h.gatewayClient.UserByID(req.Context(), fmt.Sprintf("%d", cached.UserID))
+	user, err := req.GatewayClient.UserByID(req.Context(), fmt.Sprintf("%d", cached.UserID))
 	if err != nil {
 		// If user doesn't exist, just clear cache
-		h.gatewayClient.ClearTempUserCache()
+		req.GatewayClient.ClearTempUserCache()
 		return req.Write(CancelTempLoginResponse{
 			Success: true,
 			Message: "Temporary login cancelled",
@@ -43,19 +43,19 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 
 	// Check if the user has an explicit role from environment variables
 	// If they do, don't demote them
-	explicitRole := h.gatewayClient.HasExplicitRole(user.Email)
-	if !explicitRole.HasRole(types.RoleOwner) && !explicitRole.HasRole(types.RoleAdmin) {
+	explicitRole := req.GatewayClient.HasExplicitRole(user.Email)
+	if !explicitRole.HasRole(types.RoleAdmin) {
 		// Demote user to Basic role (don't delete, as they may have logged in legitimately)
 		if user.Role != types.RoleBasic {
 			user.Role = types.RoleBasic
-			if _, err := h.gatewayClient.UpdateUser(req.Context(), true, user, fmt.Sprintf("%d", user.ID)); err != nil {
+			if _, err := req.GatewayClient.UpdateUser(req.Context(), true, user, fmt.Sprintf("%d", user.ID)); err != nil {
 				return fmt.Errorf("failed to demote user: %w", err)
 			}
 		}
 	}
 
 	// Clear the temporary cache
-	h.gatewayClient.ClearTempUserCache()
+	req.GatewayClient.ClearTempUserCache()
 
 	return req.Write(CancelTempLoginResponse{
 		Success: true,

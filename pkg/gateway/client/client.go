@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"sync"
 	"time"
 
@@ -127,9 +128,5 @@ func (c *Client) ClearTempUserCache() {
 // Used by setup endpoints to list Owner and Admin emails.
 func (c *Client) GetExplicitRoleEmails() map[string]types2.Role {
 	// No lock needed - map is immutable after construction
-	result := make(map[string]types2.Role, len(c.emailsWithExplictRoles))
-	for email, role := range c.emailsWithExplictRoles {
-		result[email] = role
-	}
-	return result
+	return maps.Clone(c.emailsWithExplictRoles)
 }

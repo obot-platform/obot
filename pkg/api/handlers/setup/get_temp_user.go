@@ -31,7 +31,7 @@ func (h *Handler) GetTempUser(req api.Context) error {
 		return err
 	}
 
-	cached := h.gatewayClient.GetTempUserCache()
+	cached := req.GatewayClient.GetTempUserCache()
 	if cached == nil {
 		return types.NewErrHTTP(http.StatusNotFound, "no temporary user cached")
 	}

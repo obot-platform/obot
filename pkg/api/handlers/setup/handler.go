@@ -5,18 +5,13 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/gateway/client"
 	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
-type Handler struct {
-	gatewayClient *client.Client
-}
+type Handler struct{}
 
-func NewHandler(gc *client.Client) *Handler {
-	return &Handler{
-		gatewayClient: gc,
-	}
+func NewHandler() *Handler {
+	return &Handler{}
 }
 
 // requireBootstrap checks if the request is from the bootstrap user.
@@ -34,7 +29,7 @@ func (h *Handler) requireBootstrap(req api.Context) error {
 // Returns 404 if bootstrap is disabled.
 func (h *Handler) requireBootstrapEnabled(req api.Context) error {
 	// Query all Owner users
-	adminUsers, err := h.gatewayClient.Users(req.Context(), gwtypes.UserQuery{
+	adminUsers, err := req.GatewayClient.Users(req.Context(), gwtypes.UserQuery{
 		Role: types.RoleOwner,
 	})
 	if err != nil {

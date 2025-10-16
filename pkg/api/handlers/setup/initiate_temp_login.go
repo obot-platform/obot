@@ -45,7 +45,7 @@ func (h *Handler) InitiateTempLogin(req api.Context) error {
 	}
 
 	// Check if a temporary user is already cached
-	if cached := h.gatewayClient.GetTempUserCache(); cached != nil {
+	if cached := req.GatewayClient.GetTempUserCache(); cached != nil {
 		return types.NewErrHTTP(http.StatusConflict,
 			fmt.Sprintf("temporary user already cached: %s", cached.Email))
 	}
@@ -58,7 +58,7 @@ func (h *Handler) InitiateTempLogin(req api.Context) error {
 		ExpiresAt:             time.Now().Add(15 * time.Minute),
 	}
 
-	if err := h.gatewayClient.CreateTokenRequest(req.Context(), tokenRequest); err != nil {
+	if err := req.GatewayClient.CreateTokenRequest(req.Context(), tokenRequest); err != nil {
 		return fmt.Errorf("failed to create token request: %w", err)
 	}
 
