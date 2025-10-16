@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import {
 		ChatService,
+		Group,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser
@@ -69,19 +70,16 @@
 	});
 
 	function getAuditLogUrl(d: OrgUser) {
+		if (!catalogEntry?.id) return null;
 		if (isAdminUrl) {
+			if (!profile.current?.hasAdminAccess?.()) return null;
 			return entity === 'workspace'
-				? catalogEntry?.id
-					? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-					: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(mcpServerId ?? '')}?view=audit-logs&user_id=${d.id}`
-				: catalogEntry?.id
-					? `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-					: `/admin/mcp-servers/s/${encodeURIComponent(mcpServerId ?? '')}?view=audit-logs&user_id=${d.id}`;
+				? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+				: `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`;
 		}
 
-		return catalogEntry?.id
-			? `/mcp-publisher/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-			: `/mcp-publisher/s/${encodeURIComponent(mcpServerId ?? '')}?view=audit-logs&user_id=${d.id}`;
+		if (!profile.current?.groups.includes(Group.POWERUSER_PLUS)) return null;
+		return `/mcp-publisher/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`;
 	}
 </script>
 
@@ -142,8 +140,10 @@
 		{/snippet}
 
 		{#snippet actions(d)}
-			{@const url = getAuditLogUrl(d)}
-			<a href={url} class="button-text"> View Audit Logs </a>
+			{@const auditLogsUrl = getAuditLogUrl(d)}
+			{#if auditLogsUrl}
+				<a href={auditLogsUrl} class="button-text"> View Audit Logs </a>
+			{/if}
 		{/snippet}
 	</Table>
 </div>
