@@ -1,24 +1,28 @@
 # Obot's Open Source Registry
-Each Obot instance connects to our open source registry by default. You can follow this guide to add your MCP server to [Obot’s registry](https://github.com/obot-platform/mcp-catalog). You’ll either submit **just a catalog entry**, or **a catalog entry + a repackaged image** (for stdio servers).
+Each Obot instance connects to our open source registry by default. You can follow this guide to add your MCP server to [Obot's registry](https://github.com/obot-platform/mcp-catalog). You'll either submit **just a catalog entry**, or **a catalog entry + a repackaged image** (for containerized servers).
 
 ---
 
 ## Step 0 — Pick your path
 
-**Question:** What type of MCP server are you shipping?
+**Question:** What type of MCP server are you shipping?
 
-- **Remote / Streamable HTTP**
+- **Remote HTTP (Hosted Service)**
     
-    You expose an HTTP MCP endpoint (hosted) **or** you already have a Docker image that serves the streamable HTTP MCP endpoint.
+    You expose a hosted HTTP MCP endpoint at a fixed URL or domain.
     
-    → You only need [**mcp-catalog**](https://github.com/obot-platform/mcp-catalog).
+    → You only need [**mcp-catalog**](https://github.com/obot-platform/mcp-catalog).
     
-- **Stdio**
+- **Docker-based HTTP or Stdio npx/uvx**
     
-    You have a npx/uvx stdio MCP server
+    You have a Docker image that serves **HTTP MCP** **or** you have a **stdio** npx/uvx MCP server.
     
-    → You’ll touch **both** repos: first [**mcp-images**](https://github.com/obot-platform/mcp-images) (to containerize it), then [**mcp-catalog**](https://github.com/obot-platform/mcp-catalog).
+    → You'll touch **both** repos: first [**mcp-images**](https://github.com/obot-platform/mcp-images) (to repackage it), then [**mcp-catalog**](https://github.com/obot-platform/mcp-catalog).
     
+
+**⚠️ Not Currently Supported:**
+- Docker images that use stdio transport (only HTTP-based Docker images are supported)
+- npx/uvx packages that serve streamable HTTP (only stdio-based npx/uvx packages are supported)
 
 ---
 
@@ -144,13 +148,18 @@ remoteConfig:
 <details>
   <summary>Option B: Containerized HTTP Server</summary>
 
-Use this if you already have a Docker image that serves streamable HTTP:
+**⚠️ Important:** If you have a Docker image that serves HTTP MCP, do NOT complete this section yet.
+**Instead:**
+
+1. Complete **Step 2** below to repackage your Docker image
+2. Wait for your image to be published to GHCR
+3. Return here and use this runtime block:
 
 ```yaml
 runtime: containerized
 containerizedConfig:
-  image: your-dockerhub-user/your-mcp-server:v1.0.0
-  port: 8080           # Your container's exposed HTTP port
+  image: ghcr.io/obot-platform/mcp-images/<your-server-name>:<tag>
+  port: <port-number>           # Your container's exposed HTTP port
   path: /mcp           # HTTP path where MCP endpoint is served
   args:                # Optional runtime flags
     - flags # flags needed.
@@ -161,7 +170,6 @@ containerizedConfig:
 
 - Your container must serve HTTP/SSE on the specified port
 - The MCP endpoint must be available at the specified path
-- Image must be publicly accessible (Docker Hub, GHCR, etc.)
 
 ---
 </details>
@@ -200,13 +208,23 @@ The `args` must include the command that starts your stdio server, plus any requ
 
 ---
 
-## Step 2 — (Only for stdio) Repackage and publish an image
+## Step 2 — Repackage and publish an image
 
-If your server is stdio-based and you want Obot to run it, we’ll build and publish a helper image.
+If your server is containerized (Docker-based HTTP or stdio-based npx/uvx), we'll repackage and publish it.
 
-Fork from: `https://github.com/obot-platform/mcp-images`
+Fork from: `https://github.com/obot-platform/mcp-images`
 
 Edit `repackaging/images.yaml` and add your entry:
+
+### Docker-based HTTP Servers
+
+```yaml
+- name: my-http-server
+  type: docker
+  package: ghcr.io/yourorg/mcp-http-server    # Your existing Docker image
+  version: 1.0.0                              # Specific version tag
+
+```
 
 ### Node.js (npx) Servers
 
@@ -237,20 +255,22 @@ ghcr.io/obot-platform/mcp-images/<your-server-name>:<version>
 
 ```
 
-**Then** return to Step 1 and complete Option C with your published GHCR image.
+**Then** return to Step 1 and:
+- For Docker-based HTTP servers: complete **Option B** with your published GHCR image
+- For stdio servers: complete **Option C** with your published GHCR image
 
 ---
 
 ## Step 3 — Open your PR(s)
 
-### For Remote or Containerized HTTP Servers
+### For Remote HTTP Servers (Option A)
 
 Open **one PR** in `mcp-catalog` adding `your-server-name.yaml`
 
-### For Stdio Servers
+### For Docker-based HTTP or Stdio Servers (Options B & C)
 
 1. Open a PR in `mcp-images` editing `repackaging/images.yaml`
-2. Wait for the image to be published to GHCR (typically within a few hours after the PR is merged).
+2. Wait for the image to be published to GHCR (typically within a few hours after the PR is merged)
 3. Open a PR in `mcp-catalog` referencing the published GHCR image
 
 ---
@@ -267,7 +287,7 @@ Before opening your PR, verify:
 - [ ]  **Exactly one** runtime block (remote OR containerized)
 - [ ]  All `env` variables have clear descriptions
 - [ ]  Sensitive credentials are marked `sensitive: true`
-- [ ]  (Stdio only) Image is published to GHCR before catalog PR
+- [ ]  (Docker-based HTTP or Stdio only) Image is published to GHCR before catalog PR
 
 ## Testing Your MCP Server Configuration
 
@@ -275,7 +295,7 @@ Before opening your PR, verify:
 
 If you have Obot running locally, you can test your catalog entry before submitting:
 
-1. When you run Obot locally, you’d need to set this env variable `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` to the absolute path of your local map-catalog fork.
+1. When you run Obot locally, you'd need to set this env variable `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` to the absolute path of your local mcp-catalog fork.
 2. Add your YAML to your local Obot catalog directory
 3. On the MCP Servers page in the Admin UI, click **`sync`**
 4. Attempt to connect to your server through the UI
