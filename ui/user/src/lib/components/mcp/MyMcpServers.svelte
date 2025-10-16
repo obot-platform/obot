@@ -427,7 +427,6 @@
 		if (!selectedEntryOrServer) return;
 		if (!configureForm) return;
 
-		console.log(selectedEntryOrServer, configureForm, relaunching);
 		if (
 			relaunching &&
 			'parent' in selectedEntryOrServer &&
