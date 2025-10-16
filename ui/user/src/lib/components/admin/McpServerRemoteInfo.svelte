@@ -75,6 +75,22 @@
 				})
 			: {};
 	});
+
+	function getAuditLogUrl(d: OrgUser) {
+		if (isAdminUrl) {
+			return entity === 'workspace'
+				? catalogEntry?.id
+					? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+					: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(mcpServerId ?? '')}?view=audit-logs&user_id=${d.id}`
+				: catalogEntry?.id
+					? `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+					: `/admin/mcp-servers/s/${encodeURIComponent(mcpServerId ?? '')}?view=audit-logs&user_id=${d.id}`;
+		}
+
+		return catalogEntry?.id
+			? `/mcp-publisher/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+			: `/mcp-publisher/s/${encodeURIComponent(mcpServerId ?? '')}?view=audit-logs&user_id=${d.id}`;
+	}
 </script>
 
 <div class="flex items-center gap-3">
@@ -134,17 +150,8 @@
 		{/snippet}
 
 		{#snippet actions(d)}
-			{#if profile.current?.isAdmin?.() && isAdminUrl}
-				{@const url =
-					entity === 'workspace'
-						? catalogEntry?.id
-							? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-							: `/admin/mcp-servers/w/${entityId}/s/${encodeURIComponent(mcpServerId ?? '')}?view=audit-logs&user_id=${d.id}`
-						: catalogEntry?.id
-							? `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-							: `/admin/mcp-servers/s/${encodeURIComponent(mcpServerId ?? '')}?view=audit-logs&user_id=${d.id}`}
-				<a href={url} class="button-text"> View Audit Logs </a>
-			{/if}
+			{@const url = getAuditLogUrl(d)}
+			<a href={url} class="button-text"> View Audit Logs </a>
 		{/snippet}
 	</Table>
 </div>

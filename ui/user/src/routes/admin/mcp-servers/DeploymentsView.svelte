@@ -93,7 +93,9 @@
 					: undefined);
 			const powerUserID = deployment.catalogEntryID
 				? entriesMap[deployment.catalogEntryID]?.powerUserID
-				: undefined;
+				: powerUserWorkspaceID
+					? deployment.userID
+					: undefined;
 			return {
 				...deployment,
 				displayName: deployment.manifest.name ?? '',
@@ -323,6 +325,10 @@
 				{/if}
 			{/snippet}
 			{#snippet actions(d)}
+				{@const isMultiUser = !d.catalogEntryID}
+				{@const auditLogsUrl = isMultiUser
+					? `/admin/audit-logs?mcp_server_display_name=${d.manifest.name}`
+					: `/admin/audit-logs?mcp_id=${d.id}`}
 				<DotDotDot class="icon-button hover:dark:bg-black/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
@@ -381,7 +387,7 @@
 								<Power class="size-4" /> Restart Server
 							</button>
 						{/if}
-						<a href={`/admin/audit-logs?mcp_id=${d.id}`} class="menu-button">
+						<a href={auditLogsUrl} class="menu-button">
 							<Captions class="size-4" /> View Audit Logs
 						</a>
 						{#if !readonly}
