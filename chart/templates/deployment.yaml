@@ -7,7 +7,7 @@ metadata:
 spec:
   replicas: {{ .Values.replicaCount }}
   strategy:
-    type: {{ .Values.updateStrategy }}
+    type: {{ if .Values.dev.useEmbeddedDb }}Recreate{{ else }}{{ .Values.updateStrategy }}{{ end }}
   selector:
     matchLabels:
       {{- include "obot.selectorLabels" . | nindent 6 }}
