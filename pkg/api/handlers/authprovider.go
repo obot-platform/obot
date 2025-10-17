@@ -130,9 +130,6 @@ func (ap *AuthProviderHandler) listAuthProviders(req api.Context) ([]types.AuthP
 }
 
 func (ap *AuthProviderHandler) Configure(req api.Context) error {
-	ap.configureLock.Lock()
-	defer ap.configureLock.Unlock()
-
 	var ref v1.ToolReference
 	if err := req.Get(&ref, req.PathValue("id")); err != nil {
 		return err
@@ -143,7 +140,9 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	}
 
 	// Check if another auth provider is already configured
+	ap.configureLock.Lock()
 	configuredProviders := ap.dispatcher.ListConfiguredAuthProviders(req.Namespace())
+	ap.configureLock.Unlock()
 	for _, configuredName := range configuredProviders {
 		// Allow reconfiguring the same provider
 		if configuredName != ref.Name {
@@ -181,10 +180,6 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		}
 	}
 
-	defer func() {
-		go ap.dispatcher.UpdateConfiguredAuthProviders(context.Background())
-	}()
-
 	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
 		Context:  string(ref.UID),
 		ToolName: ref.Name,
@@ -194,7 +189,24 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to create credential for auth provider %q: %w", ref.Name, err)
 	}
 
+	ap.dispatcher.UpdateConfiguredAuthProviders(req.Context())
 	ap.dispatcher.StopAuthProvider(ref.Namespace, ref.Name)
+
+	// Check to make sure that only this provider is configured.
+	// Deconfigure it if that is not the case, and return a 400.
+	ap.configureLock.Lock()
+	configuredProviders = ap.dispatcher.ListConfiguredAuthProviders(req.Namespace())
+	ap.configureLock.Unlock()
+	for _, configuredName := range configuredProviders {
+		if configuredName != ref.Name {
+			// Delete the credential we just configured
+			_ = req.GPTClient.DeleteCredential(req.Context(), string(ref.UID), ref.Name)
+			return types.NewErrBadRequest(
+				"only one authentication provider can be configured at a time. Please deconfigure %q first",
+				configuredName,
+			)
+		}
+	}
 
 	if ref.Annotations[v1.AuthProviderSyncAnnotation] == "" {
 		if ref.Annotations == nil {
