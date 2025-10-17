@@ -16,6 +16,9 @@
 		error?: string;
 		errorPreContent?: Snippet;
 		errorPostContent?: Snippet;
+		errorClasses?: {
+			root?: string;
+		};
 		onClose?: () => void;
 	}
 
@@ -27,6 +30,7 @@
 		progress,
 		isProgressBar,
 		error,
+		errorClasses,
 		errorPreContent,
 		errorPostContent,
 		onClose
@@ -80,7 +84,10 @@
 	>
 		{#if error}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 relative flex w-full flex-col items-center gap-4 rounded-lg bg-white p-4 md:w-md dark:border"
+				class={twMerge(
+					'dark:bg-surface2 dark:border-surface3 relative flex w-full flex-col items-center gap-4 rounded-lg bg-white p-4 dark:border',
+					errorClasses?.root
+				)}
 				use:clickOutside={() => onClose?.()}
 			>
 				<button class="icon-button absolute top-2 right-2 self-end" onclick={() => onClose?.()}
@@ -106,8 +113,6 @@
 				{#if errorPostContent}
 					{@render errorPostContent()}
 				{/if}
-
-				<button class="button w-full" onclick={() => onClose?.()}>Close</button>
 			</div>
 		{:else if isProgressBar}
 			<div
