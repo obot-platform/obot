@@ -78,15 +78,14 @@
 
 	let tableRef = $state<ReturnType<typeof Table>>();
 
-	let tableData = $derived.by(() => {
-		const entriesMap = mcpServerAndEntries.entries.reduce<Record<string, MCPCatalogEntry>>(
-			(acc, entry) => {
-				acc[entry.id] = entry;
-				return acc;
-			},
-			{}
-		);
+	let entriesMap = $derived(
+		mcpServerAndEntries.entries.reduce<Record<string, MCPCatalogEntry>>((acc, entry) => {
+			acc[entry.id] = entry;
+			return acc;
+		}, {})
+	);
 
+	let tableData = $derived.by(() => {
 		const transformedData = serversData.map((deployment) => {
 			const powerUserWorkspaceID =
 				deployment.powerUserWorkspaceID ||
@@ -365,8 +364,10 @@
 								class="menu-button"
 								onclick={(e) => {
 									e.stopPropagation();
+									if (!d.catalogEntryID) return;
+
 									existingServer = d;
-									// updatedServer = parent;
+									updatedServer = entriesMap[d.catalogEntryID];
 									diffDialog?.open();
 								}}
 							>
