@@ -25,7 +25,7 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 		return err
 	}
 
-	cached := req.GatewayClient.GetTempUserCache()
+	cached := req.GatewayClient.GetTempUserCache(req.Context())
 	if cached == nil {
 		return types.NewErrHTTP(http.StatusNotFound, "no temporary user to cancel")
 	}
@@ -34,7 +34,9 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 	user, err := req.GatewayClient.UserByID(req.Context(), fmt.Sprintf("%d", cached.UserID))
 	if err != nil {
 		// If user doesn't exist, just clear cache
-		req.GatewayClient.ClearTempUserCache()
+		if clearErr := req.GatewayClient.ClearTempUserCache(req.Context()); clearErr != nil {
+			return fmt.Errorf("failed to clear temp user cache: %w", clearErr)
+		}
 		return req.Write(CancelTempLoginResponse{
 			Success: true,
 			Message: "Temporary login cancelled",
@@ -55,7 +57,9 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 	}
 
 	// Clear the temporary cache
-	req.GatewayClient.ClearTempUserCache()
+	if err := req.GatewayClient.ClearTempUserCache(req.Context()); err != nil {
+		return fmt.Errorf("failed to clear temp user cache: %w", err)
+	}
 
 	return req.Write(CancelTempLoginResponse{
 		Success: true,

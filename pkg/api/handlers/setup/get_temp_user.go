@@ -31,7 +31,7 @@ func (h *Handler) GetTempUser(req api.Context) error {
 		return err
 	}
 
-	cached := req.GatewayClient.GetTempUserCache()
+	cached := req.GatewayClient.GetTempUserCache(req.Context())
 	if cached == nil {
 		return types.NewErrHTTP(http.StatusNotFound, "no temporary user cached")
 	}
@@ -45,6 +45,6 @@ func (h *Handler) GetTempUser(req api.Context) error {
 		IconURL:          cached.IconURL,
 		AuthProviderName: cached.AuthProviderName,
 		AuthProviderNS:   cached.AuthProviderNS,
-		CachedAt:         cached.CachedAt.Format(time.RFC3339),
+		CachedAt:         cached.CreatedAt.Format(time.RFC3339),
 	})
 }

@@ -45,7 +45,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 
 	// Cache the temporary user
 	// This will fail if another user is already cached
-	if err := req.GatewayClient.SetTempUserCache(user, authProviderName, authProviderNS); err != nil {
+	if err := req.GatewayClient.SetTempUserCache(req.Context(), user, authProviderName, authProviderNS); err != nil {
 		return types.NewErrHTTP(http.StatusConflict, err.Error())
 	}
 

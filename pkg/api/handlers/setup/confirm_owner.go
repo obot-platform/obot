@@ -41,7 +41,7 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 		return types.NewErrBadRequest("email is required")
 	}
 
-	cached := req.GatewayClient.GetTempUserCache()
+	cached := req.GatewayClient.GetTempUserCache(req.Context())
 	if cached == nil {
 		return types.NewErrHTTP(http.StatusNotFound, "no temporary user to confirm")
 	}
@@ -82,7 +82,9 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 	}
 
 	// Clear the temporary cache
-	req.GatewayClient.ClearTempUserCache()
+	if err := req.GatewayClient.ClearTempUserCache(req.Context()); err != nil {
+		return fmt.Errorf("failed to clear temp user cache: %w", err)
+	}
 
 	return req.Write(ConfirmOwnerResponse{
 		Success: true,
