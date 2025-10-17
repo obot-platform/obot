@@ -196,18 +196,19 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	// Deconfigure it if that is not the case, and return a 400.
 	ap.configureLock.Lock()
 	configuredProviders = ap.dispatcher.ListConfiguredAuthProviders(req.Namespace())
-	ap.configureLock.Unlock()
 	for _, configuredName := range configuredProviders {
 		if configuredName != ref.Name {
 			// Delete the credential we just configured
 			_ = req.GPTClient.DeleteCredential(req.Context(), string(ref.UID), ref.Name)
+			ap.dispatcher.UpdateConfiguredAuthProviders(req.Context())
+			ap.configureLock.Unlock()
 			return types.NewErrBadRequest(
 				"only one authentication provider can be configured at a time. Please deconfigure %q first",
 				configuredName,
 			)
 		}
 	}
-
+	ap.configureLock.Unlock()
 	if ref.Annotations[v1.AuthProviderSyncAnnotation] == "" {
 		if ref.Annotations == nil {
 			ref.Annotations = make(map[string]string, 1)
