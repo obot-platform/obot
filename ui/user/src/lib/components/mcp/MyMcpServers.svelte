@@ -576,7 +576,7 @@
 						)}
 					>
 						<button
-							class="button-text flex items-center gap-1 disabled:no-underline disabled:opacity-50"
+							class="button-text flex items-center gap-1"
 							onclick={() => (page = page - 1)}
 							disabled={page === 0}
 						>
@@ -586,7 +586,7 @@
 							{page + 1} of {Math.ceil(filteredEntriesData.length / pageSize)}
 						</span>
 						<button
-							class="button-text flex items-center gap-1 disabled:no-underline disabled:opacity-50"
+							class="button-text flex items-center gap-1"
 							onclick={() => (page = page + 1)}
 							disabled={page === Math.floor(filteredEntriesData.length / pageSize)}
 						>

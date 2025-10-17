@@ -684,7 +684,7 @@
 							class="mt-4 flex items-center justify-center gap-4 border-t border-gray-200 p-4 dark:border-gray-700"
 						>
 							<button
-								class="icon-button disabled:opacity-50"
+								class="icon-button"
 								onclick={() => setGraphPage(cfg.id, Math.max(0, page - 1))}
 								disabled={page === 0}
 								use:tooltip={'Previous Page'}
@@ -696,7 +696,7 @@
 								(showing {Math.min(graphPageSize, total - page * graphPageSize)} of {total} items)
 							</span>
 							<button
-								class="icon-button disabled:opacity-50"
+								class="icon-button"
 								onclick={() => setGraphPage(cfg.id, Math.min(maxPage, page + 1))}
 								disabled={page >= maxPage}
 								use:tooltip={'Next Page'}

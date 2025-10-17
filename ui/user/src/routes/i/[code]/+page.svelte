@@ -192,7 +192,7 @@
 					</p>
 					<div class="mt-6 flex w-full justify-center gap-4">
 						<button
-							class="button-destructive text-md w-full justify-center rounded-full p-4 px-6 disabled:opacity-50"
+							class="button-destructive text-md w-full justify-center rounded-full p-4 px-6"
 							disabled={isProcessing}
 							onclick={rejectInvitation}
 						>
@@ -200,7 +200,7 @@
 							Reject
 						</button>
 						<button
-							class="button dark:hover:bg-surface2 hover:bg-surface1 flex w-full items-center justify-center gap-1 rounded-full bg-transparent p-4 px-6 disabled:opacity-50"
+							class="button dark:hover:bg-surface2 hover:bg-surface1 flex w-full items-center justify-center gap-1 rounded-full bg-transparent p-4 px-6"
 							disabled={isProcessing}
 							onclick={acceptInvitation}
 						>

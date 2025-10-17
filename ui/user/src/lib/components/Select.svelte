@@ -135,7 +135,7 @@
 			{id}
 			class={twMerge(
 				'dark:bg-surface1 text-md flex min-h-10 w-full grow resize-none items-center gap-2 rounded-lg bg-white px-2 py-2 text-left shadow-sm',
-				disabled && 'pointer-events-none cursor-not-allowed opacity-50',
+				disabled && 'pointer-events-none cursor-default opacity-50',
 				multiple && 'flex-wrap',
 				klass
 			)}
