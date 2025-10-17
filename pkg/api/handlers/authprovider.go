@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -24,14 +25,16 @@ import (
 )
 
 type AuthProviderHandler struct {
-	dispatcher  *dispatcher.Dispatcher
-	postgresDSN string
+	dispatcher    *dispatcher.Dispatcher
+	postgresDSN   string
+	configureLock *sync.Mutex
 }
 
 func NewAuthProviderHandler(dispatcher *dispatcher.Dispatcher, postgresDSN string) *AuthProviderHandler {
 	return &AuthProviderHandler{
-		dispatcher:  dispatcher,
-		postgresDSN: postgresDSN,
+		dispatcher:    dispatcher,
+		postgresDSN:   postgresDSN,
+		configureLock: new(sync.Mutex),
 	}
 }
 
@@ -136,6 +139,20 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
 	}
 
+	// Check if another auth provider is already configured
+	ap.configureLock.Lock()
+	configuredProviders := ap.dispatcher.ListConfiguredAuthProviders(req.Namespace())
+	for _, configuredName := range configuredProviders {
+		// Allow reconfiguring the same provider
+		if configuredName != ref.Name {
+			ap.configureLock.Unlock()
+			return types.NewErrBadRequest(
+				"only one authentication provider can be configured at a time. Please deconfigure %q first",
+				configuredName,
+			)
+		}
+	}
+	ap.configureLock.Unlock()
 	var envVars map[string]string
 	if err := req.Read(&envVars); err != nil {
 		return err
@@ -163,10 +180,6 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		}
 	}
 
-	defer func() {
-		go ap.dispatcher.UpdateConfiguredAuthProviders(context.Background())
-	}()
-
 	if err := req.GPTClient.CreateCredential(req.Context(), gptscript.Credential{
 		Context:  string(ref.UID),
 		ToolName: ref.Name,
@@ -176,8 +189,26 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to create credential for auth provider %q: %w", ref.Name, err)
 	}
 
+	ap.dispatcher.UpdateConfiguredAuthProviders(req.Context())
 	ap.dispatcher.StopAuthProvider(ref.Namespace, ref.Name)
 
+	// Check to make sure that only this provider is configured.
+	// Deconfigure it if that is not the case, and return a 400.
+	ap.configureLock.Lock()
+	configuredProviders = ap.dispatcher.ListConfiguredAuthProviders(req.Namespace())
+	for _, configuredName := range configuredProviders {
+		if configuredName != ref.Name {
+			// Delete the credential we just configured
+			_ = req.GPTClient.DeleteCredential(req.Context(), string(ref.UID), ref.Name)
+			ap.dispatcher.UpdateConfiguredAuthProviders(req.Context())
+			ap.configureLock.Unlock()
+			return types.NewErrBadRequest(
+				"only one authentication provider can be configured at a time. Please deconfigure %q first",
+				configuredName,
+			)
+		}
+	}
+	ap.configureLock.Unlock()
 	if ref.Annotations[v1.AuthProviderSyncAnnotation] == "" {
 		if ref.Annotations == nil {
 			ref.Annotations = make(map[string]string, 1)
