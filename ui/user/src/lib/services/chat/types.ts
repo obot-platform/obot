@@ -519,6 +519,7 @@ export interface Project {
 	userID: string;
 	workflowNamesFromIntegration?: WorkflowNamesFromIntegration;
 	templateUpgradeAvailable?: boolean;
+	templateForceUpgradeAvailable?: boolean;
 	templateUpgradeInProgress?: boolean;
 	templateLastUpgraded?: string;
 	templatePublicID?: string;
