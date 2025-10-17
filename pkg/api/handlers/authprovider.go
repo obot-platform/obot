@@ -142,17 +142,17 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	// Check if another auth provider is already configured
 	ap.configureLock.Lock()
 	configuredProviders := ap.dispatcher.ListConfiguredAuthProviders(req.Namespace())
-	ap.configureLock.Unlock()
 	for _, configuredName := range configuredProviders {
 		// Allow reconfiguring the same provider
 		if configuredName != ref.Name {
+			ap.configureLock.Unlock()
 			return types.NewErrBadRequest(
 				"only one authentication provider can be configured at a time. Please deconfigure %q first",
 				configuredName,
 			)
 		}
 	}
-
+	ap.configureLock.Unlock()
 	var envVars map[string]string
 	if err := req.Read(&envVars); err != nil {
 		return err
