@@ -18,17 +18,17 @@ func newLocalBackend() backend {
 	return &localBackend{}
 }
 
-func (*localBackend) ensureServerDeployment(_ context.Context, server ServerConfig, id, _, _ string) (ServerConfig, error) {
+func (*localBackend) ensureServerDeployment(_ context.Context, server ServerConfig, _, _, _ string) (ServerConfig, error) {
 	if server.Runtime == types.RuntimeContainerized {
 		// The containerized runtime is not supported when running servers locally.
 		return ServerConfig{}, &ErrNotSupportedByBackend{Feature: "containerized runtime", Backend: "local"}
 	}
 
-	return transformFileEnvVars(server, id)
+	return transformFileEnvVars(server, server.Scope)
 }
 
-func (*localBackend) transformConfig(_ context.Context, id string, server ServerConfig) (*ServerConfig, error) {
-	server, err := transformFileEnvVars(server, id)
+func (*localBackend) transformConfig(_ context.Context, server ServerConfig) (*ServerConfig, error) {
+	server, err := transformFileEnvVars(server, server.Scope)
 	if err != nil {
 		return nil, fmt.Errorf("failed to transform file environment variables: %w", err)
 	}

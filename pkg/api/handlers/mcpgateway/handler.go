@@ -256,6 +256,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 	client, err = h.mcpSessionManager.ClientForMCPServerWithOptions(
 		ctx,
+		m.userID,
 		msg.Session.ID(),
 		m.mcpServer,
 		m.serverConfig,

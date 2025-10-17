@@ -16,8 +16,8 @@ import (
 const defaultContainerPort = 8099
 
 type backend interface {
-	ensureServerDeployment(ctx context.Context, server ServerConfig, id, mcpServerDisplayName, mcpServerName string) (ServerConfig, error)
-	transformConfig(ctx context.Context, id string, serverConfig ServerConfig) (*ServerConfig, error)
+	ensureServerDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error)
+	transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error)
 	streamServerLogs(ctx context.Context, id string) (io.ReadCloser, error)
 	getServerDetails(ctx context.Context, id string) (types.MCPServerDetails, error)
 	restartServer(ctx context.Context, id string) error

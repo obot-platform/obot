@@ -47,7 +47,7 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 	}
 }
 
-func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, id, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
+func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
 	switch server.Runtime {
 	case types.RuntimeNPX, types.RuntimeUVX, types.RuntimeContainerized:
 	default:
@@ -55,17 +55,17 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	}
 
 	// Generate the Kubernetes deployment objects.
-	objs, err := k.k8sObjects(id, server, mcpServerDisplayName, mcpServerName)
+	objs, err := k.k8sObjects(server, userID, mcpServerDisplayName, mcpServerName)
 	if err != nil {
-		return ServerConfig{}, fmt.Errorf("failed to generate kubernetes objects for server %s: %w", id, err)
+		return ServerConfig{}, fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.Scope, err)
 	}
 
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(id).Apply(ctx, nil, objs...); err != nil {
-		return ServerConfig{}, fmt.Errorf("failed to create MCP deployment %s: %w", id, err)
+	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).Apply(ctx, nil, objs...); err != nil {
+		return ServerConfig{}, fmt.Errorf("failed to create MCP deployment %s: %w", server.Scope, err)
 	}
 
-	u := fmt.Sprintf("http://%s.%s.svc.%s", id, k.mcpNamespace, k.mcpClusterDomain)
-	podName, err := k.updatedMCPPodName(ctx, u, id, server)
+	u := fmt.Sprintf("http://%s.%s.svc.%s", server.Scope, k.mcpNamespace, k.mcpClusterDomain)
+	podName, err := k.updatedMCPPodName(ctx, u, server.Scope, server)
 	if err != nil {
 		return ServerConfig{}, err
 	}
@@ -187,12 +187,12 @@ func (k *kubernetesBackend) streamServerLogs(ctx context.Context, id string) (io
 	return logs, nil
 }
 
-func (k *kubernetesBackend) transformConfig(ctx context.Context, id string, serverConfig ServerConfig) (*ServerConfig, error) {
+func (k *kubernetesBackend) transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error) {
 	var pods corev1.PodList
 	if err := k.client.List(ctx, &pods, &kclient.ListOptions{
 		Namespace: k.mcpNamespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{
-			"app": id,
+			"app": serverConfig.Scope,
 		}),
 	}); err != nil {
 		return nil, fmt.Errorf("failed to list MCP pods: %w", err)
@@ -202,7 +202,7 @@ func (k *kubernetesBackend) transformConfig(ctx context.Context, id string, serv
 		return nil, nil
 	}
 
-	return &ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/%s", id, k.mcpNamespace, k.mcpClusterDomain, strings.TrimPrefix(serverConfig.ContainerPath, "/")), Scope: pods.Items[0].Name}, nil
+	return &ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/%s", serverConfig.Scope, k.mcpNamespace, k.mcpClusterDomain, strings.TrimPrefix(serverConfig.ContainerPath, "/")), Scope: pods.Items[0].Name}, nil
 }
 
 func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error {
@@ -213,7 +213,7 @@ func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error
 	return nil
 }
 
-func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDisplayName, serverName string) ([]kclient.Object, error) {
+func (k *kubernetesBackend) k8sObjects(server ServerConfig, userID, serverDisplayName, serverName string) ([]kclient.Object, error) {
 	var (
 		command []string
 		objs    = make([]kclient.Object, 0, 5)
@@ -222,8 +222,10 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 		port    = 8099
 
 		annotations = map[string]string{
-			"mcp-server-name":  serverName,
-			"mcp-server-scope": server.Scope,
+			"mcp-server-display-name": serverDisplayName,
+			"mcp-server-name":         serverName,
+			"mcp-server-scope":        server.Scope,
+			"mcp-user-id":             userID,
 		}
 
 		fileMapping            = make(map[string]string, len(server.Files))
@@ -233,7 +235,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 	)
 
 	for _, file := range server.Files {
-		filename := fmt.Sprintf("%s-%s", id, hash.Digest(file))
+		filename := fmt.Sprintf("%s-%s", server.Scope, hash.Digest(file))
 		secretVolumeStringData[filename] = file.Data
 		if file.EnvKey != "" {
 			metaEnv = append(metaEnv, file.EnvKey)
@@ -244,7 +246,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(id, "files"),
+			Name:        name.SafeConcatName(server.Scope, "files"),
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
@@ -292,7 +294,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 
 		objs = append(objs, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        name.SafeConcatName(id, "run"),
+				Name:        name.SafeConcatName(server.Scope, "run"),
 				Namespace:   k.mcpNamespace,
 				Annotations: annotations,
 			},
@@ -316,7 +318,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(id, "config"),
+			Name:        name.SafeConcatName(server.Scope, "config"),
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
@@ -325,26 +327,28 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        id,
+			Name:        server.Scope,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 			Labels: map[string]string{
-				"app":             id,
+				"app":             server.Scope,
 				"mcp-server-name": serverName,
+				"mcp-user-id":     userID,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": id,
+					"app": server.Scope,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: annotations,
 					Labels: map[string]string{
-						"app":             id,
+						"app":             server.Scope,
 						"mcp-server-name": serverName,
+						"mcp-user-id":     userID,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -353,7 +357,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 							Name: "files",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(id, "files"),
+									SecretName: name.SafeConcatName(server.Scope, "files"),
 								},
 							},
 						},
@@ -361,7 +365,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 							Name: "run-file",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(id, "run"),
+									SecretName: name.SafeConcatName(server.Scope, "run"),
 								},
 							},
 						},
@@ -390,7 +394,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 						EnvFrom: []corev1.EnvFromSource{{
 							SecretRef: &corev1.SecretEnvSource{
 								LocalObjectReference: corev1.LocalObjectReference{
-									Name: name.SafeConcatName(id, "config"),
+									Name: name.SafeConcatName(server.Scope, "config"),
 								},
 							},
 						}},
@@ -433,7 +437,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 
 	objs = append(objs, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        id,
+			Name:        server.Scope,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
@@ -446,7 +450,7 @@ func (k *kubernetesBackend) k8sObjects(id string, server ServerConfig, serverDis
 				},
 			},
 			Selector: map[string]string{
-				"app": id,
+				"app": server.Scope,
 			},
 			Type: corev1.ServiceTypeClusterIP,
 		},

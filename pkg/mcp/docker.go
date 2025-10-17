@@ -30,10 +30,14 @@ type dockerBackend struct {
 	baseImage    string
 }
 
-func newDockerBackend(baseImage string) (backend, error) {
+func newDockerBackend(ctx context.Context, baseImage string) (backend, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
+	}
+
+	if err = cleanupContainersWithOldID(ctx, cli); err != nil {
+		return nil, fmt.Errorf("failed to cleanup containers with old ID: %w", err)
 	}
 
 	return &dockerBackend{
@@ -43,10 +47,38 @@ func newDockerBackend(baseImage string) (backend, error) {
 	}, nil
 }
 
-func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, id, mcpServerDisplayName, _ string) (ServerConfig, error) {
+// cleanupContainersWithOldID removes containers with old ID and no config hash label.
+// This is a migration for simplifying the container names and updating existing containers
+// when configuration changes instead of possibly orphaning them.
+func cleanupContainersWithOldID(ctx context.Context, client *client.Client) error {
+	containers, err := client.ContainerList(ctx, container.ListOptions{
+		All: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list containers for cleanup: %w", err)
+	}
+
+	for _, c := range containers {
+		if id := c.Labels["mcp.server.id"]; id != "" && c.Labels["mcp.config.hash"] == "" {
+			if err := removeObjectsForContainer(ctx, client, &c, id); err != nil {
+				return fmt.Errorf("failed to remove container with old ID %s: %w", c.ID, err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
+	configHash := clientID(server)
 	// Check if container already exists
-	existing, err := d.getContainer(ctx, id)
+	existing, err := d.getContainer(ctx, server.Scope)
 	if err == nil && existing != nil {
+		if existing.Labels["mcp.config.hash"] != configHash {
+			// Clear the state. The below logic will remove and recreate the container.
+			existing.State = ""
+		}
+
 		// Container exists, check state
 		switch existing.State {
 		case container.StateCreated:
@@ -59,7 +91,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 				return ServerConfig{}, fmt.Errorf("failed to wait for container: %w", err)
 			}
 
-			existing, err = d.getContainer(ctx, id)
+			existing, err = d.getContainer(ctx, server.Scope)
 			if err != nil {
 				return ServerConfig{}, fmt.Errorf("failed to get running container: %w", err)
 			}
@@ -72,7 +104,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 				containerPort = defaultContainerPort
 			}
 
-			if err = d.ensureServerReady(ctx, existing, server, containerPort, id); err != nil {
+			if err = d.ensureServerReady(ctx, existing, server, containerPort, server.Scope); err != nil {
 				return ServerConfig{}, fmt.Errorf("server running, but readiness check failed: %w", err)
 			}
 
@@ -86,11 +118,11 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	// Create new container
-	return d.createAndStartContainer(ctx, server, id, mcpServerDisplayName)
+	return d.createAndStartContainer(ctx, server, userID, server.Scope, mcpServerDisplayName, mcpServerName, configHash)
 }
 
-func (d *dockerBackend) transformConfig(ctx context.Context, id string, serverConfig ServerConfig) (*ServerConfig, error) {
-	existing, err := d.getContainer(ctx, id)
+func (d *dockerBackend) transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error) {
+	existing, err := d.getContainer(ctx, serverConfig.Scope)
 	if err != nil || existing == nil || existing.State != "running" {
 		// Container doesn't exist or isn't running, config can't be transformed
 		return nil, nil
@@ -209,18 +241,25 @@ func (d *dockerBackend) restartServer(ctx context.Context, id string) error {
 }
 
 func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
-	var volumeNames []string
-	// Get container info to retrieve associated volumes for cleanup
 	c, err := d.getContainer(ctx, id)
-	if err == nil && c != nil {
+	if err != nil && !cerrdefs.IsNotFound(err) {
+		return fmt.Errorf("failed to get container %s for shutdown: %w", id, err)
+	}
+
+	return removeObjectsForContainer(ctx, d.client, c, id)
+}
+
+func removeObjectsForContainer(ctx context.Context, client *client.Client, c *container.Summary, id string) error {
+	var volumeNames []string
+	if c != nil {
 		// Get container inspection to find volumes
-		inspect, err := d.client.ContainerInspect(ctx, c.ID)
+		inspect, err := client.ContainerInspect(ctx, c.ID)
 		if err == nil {
 			// Clean up volumes associated with this container
 			for _, mount := range inspect.Mounts {
 				if mount.Type == "volume" {
 					// Check if this is our volume based on labels
-					volumeInspect, err := d.client.VolumeInspect(ctx, mount.Name)
+					volumeInspect, err := client.VolumeInspect(ctx, mount.Name)
 					if err == nil {
 						if serverID, exists := volumeInspect.Labels["mcp.server.id"]; exists && serverID == id {
 							// This is our volume, remove it
@@ -233,18 +272,18 @@ func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
 	}
 
 	// Stop and remove the container
-	if err := d.client.ContainerStop(ctx, id, container.StopOptions{Timeout: &[]int{30}[0]}); err != nil && !cerrdefs.IsNotFound(err) {
+	if err := client.ContainerStop(ctx, id, container.StopOptions{Timeout: &[]int{30}[0]}); err != nil && !cerrdefs.IsNotFound(err) {
 		// If container doesn't exist, that's fine
 		return fmt.Errorf("failed to stop container %s: %w", id, err)
 	}
 
-	if err := d.client.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil && !cerrdefs.IsNotFound(err) {
+	if err := client.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil && !cerrdefs.IsNotFound(err) {
 		// If container doesn't exist, that's fine
 		return fmt.Errorf("failed to remove container %s: %w", id, err)
 	}
 
 	for _, volumeName := range volumeNames {
-		if err := d.client.VolumeRemove(ctx, volumeName, true); err != nil && !cerrdefs.IsNotFound(err) {
+		if err := client.VolumeRemove(ctx, volumeName, true); err != nil && !cerrdefs.IsNotFound(err) {
 			log.Warnf("Failed to remove volume %s: %v", volumeName, err)
 		}
 	}
@@ -322,7 +361,7 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 	}, nil
 }
 
-func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, containerName, displayName string) (retConfig ServerConfig, retErr error) {
+func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, userID, containerName, displayName, serverName, configHash string) (retConfig ServerConfig, retErr error) {
 	var (
 		volumeMounts  []mount.Mount
 		entrypoint    []string
@@ -435,8 +474,11 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		Entrypoint:   entrypoint,
 		Cmd:          cmd,
 		Labels: map[string]string{
-			"mcp.server.name": displayName,
-			"mcp.server.id":   containerName,
+			"mcp.server.displayName": displayName,
+			"mcp.server.name":        serverName,
+			"mcp.server.id":          containerName,
+			"mcp.user.id":            userID,
+			"mcp.config.hash":        configHash,
 		},
 	}
 

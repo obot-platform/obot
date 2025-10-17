@@ -184,4 +184,5 @@ func (c *Controller) setupLocalK8sRoutes() {
 
 	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend())
 	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
+	c.localK8sRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
 }

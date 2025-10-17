@@ -21,13 +21,13 @@ func (c *Client) Capabilities() nmcp.ServerCapabilities {
 	return c.Session.InitializeResult.Capabilities
 }
 
-func (sm *SessionManager) ClientForMCPServerWithOptions(ctx context.Context, clientScope string, mcpServer v1.MCPServer, serverConfig ServerConfig, opts ...nmcp.ClientOption) (*Client, error) {
+func (sm *SessionManager) ClientForMCPServerWithOptions(ctx context.Context, userID, clientScope string, mcpServer v1.MCPServer, serverConfig ServerConfig, opts ...nmcp.ClientOption) (*Client, error) {
 	mcpServerDisplayName := mcpServer.Spec.Manifest.Name
 	if mcpServerDisplayName == "" {
 		mcpServerDisplayName = mcpServer.Name
 	}
 
-	return sm.clientForServerWithOptions(ctx, clientScope, mcpServerDisplayName, mcpServer.Name, serverConfig, opts...)
+	return sm.clientForServerWithOptions(ctx, userID, clientScope, mcpServerDisplayName, mcpServer.Name, serverConfig, opts...)
 }
 
 func (sm *SessionManager) ClientForMCPServer(ctx context.Context, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig) (*Client, error) {
@@ -57,14 +57,14 @@ func (sm *SessionManager) clientForServerWithScope(ctx context.Context, clientSc
 		tokenStorage = sm.tokenStorage.ForUserAndMCP(userID, mcpServerName)
 	}
 
-	return sm.clientForServerWithOptions(ctx, clientScope, mcpServerDisplayName, mcpServerName, serverConfig, nmcp.ClientOption{
+	return sm.clientForServerWithOptions(ctx, userID, clientScope, mcpServerDisplayName, mcpServerName, serverConfig, nmcp.ClientOption{
 		ClientName:   clientName,
 		TokenStorage: tokenStorage,
 	})
 }
 
-func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, clientScope, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig, opts ...nmcp.ClientOption) (*Client, error) {
-	config, err := sm.transformServerConfig(ctx, mcpServerDisplayName, mcpServerName, serverConfig)
+func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, userID, clientScope, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig, opts ...nmcp.ClientOption) (*Client, error) {
+	config, err := sm.transformServerConfig(ctx, userID, mcpServerDisplayName, mcpServerName, serverConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, client
 }
 
 func (sm *SessionManager) loadSession(server ServerConfig, clientScope, mcpServerDisplayName string, clientOpts ...nmcp.ClientOption) (*Client, error) {
-	id := deploymentID(server)
+	id := clientID(server)
 	sessions, _ := sm.sessions.LoadOrStore(id, &sync.Map{})
 
 	clientSessions, ok := sessions.(*sync.Map)

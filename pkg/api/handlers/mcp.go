@@ -2045,7 +2045,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		mcpServerDisplayName = server.Name
 	}
 
-	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), mcpServerDisplayName, server.Name, serverConfig)
+	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), server.Spec.UserID, mcpServerDisplayName, server.Name, serverConfig)
 	if err != nil {
 		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
 			return types.NewErrNotFound(nse.Error())
@@ -2138,7 +2138,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		mcpServerDisplayName = server.Name
 	}
 
-	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), mcpServerDisplayName, server.Name, serverConfig)
+	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), server.Spec.UserID, mcpServerDisplayName, server.Name, serverConfig)
 	if err != nil {
 		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
 			return types.NewErrNotFound(nse.Error())
