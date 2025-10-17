@@ -3,6 +3,7 @@ package mcp
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -60,6 +61,15 @@ func expandEnvVars(text string, credEnv map[string]string, fileEnvVars map[strin
 	})
 }
 
+// applyPrefix adds a prefix to a value if the value doesn't already start with it.
+// Returns the original value if prefix is empty or if value already starts with the prefix.
+func applyPrefix(value, prefix string) string {
+	if value == "" || strings.HasPrefix(value, prefix) {
+		return value
+	}
+	return prefix + value
+}
+
 func legacyServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]string, fileEnvVars map[string]struct{}, allowedTools ...string) (ServerConfig, []string, error) {
 	// Expand environment variables in command, args, and URL
 	command := expandEnvVars(mcpServer.Spec.Manifest.Command, credEnv, fileEnvVars)
@@ -87,6 +97,9 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv ma
 			missingRequiredNames = append(missingRequiredNames, env.Key)
 			continue
 		}
+
+		// Apply prefix if specified (e.g., "Bearer ", "sk-")
+		val = applyPrefix(val, env.Prefix)
 
 		if !env.File {
 			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
@@ -119,6 +132,12 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv ma
 				missingRequiredNames = append(missingRequiredNames, header.Key)
 			}
 			continue
+		}
+
+		// Apply prefix if specified (e.g., "Bearer ", "Token ")
+		// Only apply to user-supplied values, not static values
+		if header.Value == "" {
+			val = applyPrefix(val, header.Prefix)
 		}
 
 		serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
@@ -217,6 +236,12 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 					continue
 				}
 
+				// Apply prefix if specified (e.g., "Bearer ", "Token ")
+				// Only apply to user-supplied values, not static values
+				if header.Value == "" {
+					val = applyPrefix(val, header.Prefix)
+				}
+
 				serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
 			}
 		} else {
@@ -234,6 +259,9 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 			}
 			continue
 		}
+
+		// Apply prefix if specified (e.g., "Bearer ", "sk-")
+		val = applyPrefix(val, env.Prefix)
 
 		if !env.File {
 			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))

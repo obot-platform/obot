@@ -97,8 +97,9 @@ type MCPHeader struct {
 	Value string `json:"value"`
 
 	// For user-supplied headers
-	Sensitive bool `json:"sensitive"`
-	Required  bool `json:"required"`
+	Sensitive bool   `json:"sensitive"`
+	Required  bool   `json:"required"`
+	Prefix    string `json:"prefix,omitempty"` // Optional prefix to prepend to user-supplied values (e.g., "Bearer ")
 }
 
 type MCPEnv struct {
