@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -24,14 +25,16 @@ import (
 )
 
 type AuthProviderHandler struct {
-	dispatcher  *dispatcher.Dispatcher
-	postgresDSN string
+	dispatcher    *dispatcher.Dispatcher
+	postgresDSN   string
+	configureLock *sync.Mutex
 }
 
 func NewAuthProviderHandler(dispatcher *dispatcher.Dispatcher, postgresDSN string) *AuthProviderHandler {
 	return &AuthProviderHandler{
-		dispatcher:  dispatcher,
-		postgresDSN: postgresDSN,
+		dispatcher:    dispatcher,
+		postgresDSN:   postgresDSN,
+		configureLock: new(sync.Mutex),
 	}
 }
 
@@ -127,6 +130,9 @@ func (ap *AuthProviderHandler) listAuthProviders(req api.Context) ([]types.AuthP
 }
 
 func (ap *AuthProviderHandler) Configure(req api.Context) error {
+	ap.configureLock.Lock()
+	defer ap.configureLock.Unlock()
+
 	var ref v1.ToolReference
 	if err := req.Get(&ref, req.PathValue("id")); err != nil {
 		return err
@@ -134,6 +140,18 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 
 	if ref.Spec.Type != types.ToolReferenceTypeAuthProvider {
 		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
+	}
+
+	// Check if another auth provider is already configured
+	configuredProviders := ap.dispatcher.ListConfiguredAuthProviders(req.Namespace())
+	for _, configuredName := range configuredProviders {
+		// Allow reconfiguring the same provider
+		if configuredName != ref.Name {
+			return types.NewErrBadRequest(
+				"only one authentication provider can be configured at a time. Please deconfigure %q first",
+				configuredName,
+			)
+		}
 	}
 
 	var envVars map[string]string
