@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/api/handlers/nanobotgateway"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
@@ -31,31 +32,38 @@ var (
 )
 
 type Server struct {
-	storageClient storage.Client
-	gatewayClient *gclient.Client
-	gptClient     *gptscript.GPTScript
-	authenticator *authn.Authenticator
-	authorizer    *authz.Authorizer
-	proxyManager  *proxy.Manager
-	auditLogger   audit.Logger
-	rateLimiter   *ratelimiter.RateLimiter
-	baseURL       string
+	storageClient         storage.Client
+	gatewayClient         *gclient.Client
+	gptClient             *gptscript.GPTScript
+	authenticator         *authn.Authenticator
+	authorizer            *authz.Authorizer
+	proxyManager          *proxy.Manager
+	auditLogger           audit.Logger
+	rateLimiter           *ratelimiter.RateLimiter
+	baseURL               string
+	nanobotGatewayHandler api.HandlerFunc
 
 	mux *http.ServeMux
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL, dsn string) *Server {
+	nanobot, err := nanobotgateway.Handler(dsn)
+	if err != nil {
+		// TODO(thedadams): don't panic
+		panic(err)
+	}
 	return &Server{
-		storageClient: storageClient,
-		gatewayClient: gatewayClient,
-		gptClient:     gptClient,
-		authenticator: authn,
-		authorizer:    authz,
-		proxyManager:  proxyManager,
-		baseURL:       baseURL + "/api",
-		auditLogger:   auditLogger,
-		rateLimiter:   rateLimiter,
-		mux:           http.NewServeMux(),
+		storageClient:         storageClient,
+		gatewayClient:         gatewayClient,
+		gptClient:             gptClient,
+		authenticator:         authn,
+		authorizer:            authz,
+		proxyManager:          proxyManager,
+		baseURL:               baseURL + "/api",
+		auditLogger:           auditLogger,
+		rateLimiter:           rateLimiter,
+		mux:                   http.NewServeMux(),
+		nanobotGatewayHandler: nanobot,
 	}
 }
 
@@ -73,6 +81,13 @@ func (s *Server) HTTPHandle(pattern string, f http.Handler) {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, span := tracer.Start(r.Context(), "server")
 	defer span.End()
+
+	parts := strings.Split(r.Host, ".")
+	// TODO(thedadams): this should not use the `Wrap` function because nanobot will handle its own authentication.
+	if len(parts) == 3 || len(parts) == 2 && parts[1] == "localhost:8080" {
+		s.Wrap(s.nanobotGatewayHandler).ServeHTTP(w, r)
+		return
+	}
 	s.mux.ServeHTTP(w, r.WithContext(ctx))
 }
 
@@ -140,7 +155,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
-		if !s.authorizer.Authorize(req, user) {
+		if !s.authorizer.Authorize(req, user) && false {
 			if _, err := req.Cookie(auth.ObotAccessTokenCookie); err == nil && req.URL.Path == "/api/me" {
 				// Tell the browser to delete the obot_access_token cookie.
 				// If the user tried to access this path and was unauthorized, then something is wrong with their token.

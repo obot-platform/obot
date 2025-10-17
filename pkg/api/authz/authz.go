@@ -92,6 +92,8 @@ var (
 		"/api/oauth-apps/",
 		"/api/file-scanner-config",
 		"/api/user-default-role-settings",
+		"/api/nanobot-configs",
+		"/api/nanobot-configs/",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
@@ -123,6 +125,8 @@ var (
 			"GET /api/workspaces/",
 			"GET /api/projects/",
 			"GET /api/assistants/{assistant_id}/projects/",
+			"GET /api/nanobot-configs",
+			"GET /api/nanobot-configs/",
 		},
 		anyGroup: {
 			// Allow access to the oauth2 endpoints

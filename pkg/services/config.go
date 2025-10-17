@@ -687,6 +687,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			auditLogger,
 			rateLimiter,
 			config.Hostname,
+			config.DSN,
 		),
 		EphemeralTokenServer:       ephemeralTokenServer,
 		PersistentTokenServer:      persistentTokenServer,
