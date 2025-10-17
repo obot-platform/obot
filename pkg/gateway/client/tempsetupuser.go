@@ -13,38 +13,40 @@ import (
 // SetTempUserCache stores a temporary user in the database for the bootstrap setup flow.
 // Returns an error if a user is already cached.
 func (c *Client) SetTempUserCache(ctx context.Context, user *types.User, authProviderName, authProviderNS string) error {
-	// Check if a temp user already exists
-	var count int64
-	if err := c.db.WithContext(ctx).Model(&types.TempSetupUser{}).Count(&count).Error; err != nil {
-		return fmt.Errorf("failed to check for existing temp setup user: %w", err)
-	}
-
-	if count > 0 {
-		// Get the existing user's email for the error message
-		var existingUser types.TempSetupUser
-		if err := c.db.WithContext(ctx).First(&existingUser).Error; err != nil {
-			return fmt.Errorf("temporary user already cached")
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Check if a temp user already exists
+		var count int64
+		if err := tx.Model(&types.TempSetupUser{}).Count(&count).Error; err != nil {
+			return fmt.Errorf("failed to check for existing temp setup user: %w", err)
 		}
-		return fmt.Errorf("temporary user already cached: %s", existingUser.Email)
-	}
 
-	// Create new temp user entry
-	tempUser := &types.TempSetupUser{
-		UserID:           user.ID,
-		Username:         user.Username,
-		Email:            user.Email,
-		Role:             user.Role,
-		IconURL:          user.IconURL,
-		AuthProviderName: authProviderName,
-		AuthProviderNS:   authProviderNS,
-		CreatedAt:        time.Now(),
-	}
+		if count > 0 {
+			// Get the existing user's email for the error message
+			var existingUser types.TempSetupUser
+			if err := tx.First(&existingUser).Error; err != nil {
+				return fmt.Errorf("temporary user already cached")
+			}
+			return fmt.Errorf("temporary user already cached: %s", existingUser.Email)
+		}
 
-	if err := c.db.WithContext(ctx).Create(tempUser).Error; err != nil {
-		return fmt.Errorf("failed to create temp user: %w", err)
-	}
+		// Create new temp user entry
+		tempUser := &types.TempSetupUser{
+			UserID:           user.ID,
+			Username:         user.Username,
+			Email:            user.Email,
+			Role:             user.Role,
+			IconURL:          user.IconURL,
+			AuthProviderName: authProviderName,
+			AuthProviderNS:   authProviderNS,
+			CreatedAt:        time.Now(),
+		}
 
-	return nil
+		if err := tx.Create(tempUser).Error; err != nil {
+			return fmt.Errorf("failed to create temp user: %w", err)
+		}
+
+		return nil
+	})
 }
 
 // GetTempUserCache retrieves the cached temporary user, if one exists.
@@ -57,6 +59,7 @@ func (c *Client) GetTempUserCache(ctx context.Context) *types.TempSetupUser {
 			return nil
 		}
 		// Log error but return nil to maintain existing behavior
+		log.Errorf("failed to get temp user cache: %v", err)
 		return nil
 	}
 
