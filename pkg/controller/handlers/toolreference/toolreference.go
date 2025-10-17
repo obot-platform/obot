@@ -240,9 +240,9 @@ func (h *Handler) Populate(req router.Request, resp router.Response) error {
 
 func (h *Handler) EnsureOpenAIEnvCredentialAndDefaults(ctx context.Context, c client.Client) error {
 	return h.ensureModelProviderCredAndDefaults(ctx, c, map[types.DefaultModelAliasType]string{
-		types.DefaultModelAliasTypeLLM:             "gpt-4.1",
-		types.DefaultModelAliasTypeLLMMini:         "gpt-4.1-mini",
-		types.DefaultModelAliasTypeVision:          "gpt-4.1",
+		types.DefaultModelAliasTypeLLM:             "gpt-5",
+		types.DefaultModelAliasTypeLLMMini:         "gpt-5-mini",
+		types.DefaultModelAliasTypeVision:          "gpt-5",
 		types.DefaultModelAliasTypeImageGeneration: "dall-e-3",
 		types.DefaultModelAliasTypeTextEmbedding:   "text-embedding-3-large",
 	}, "openai-model-provider", "OPENAI_API_KEY")
