@@ -34,9 +34,10 @@ type kubernetesBackend struct {
 	mcpNamespace     string
 	mcpClusterDomain string
 	imagePullSecrets []string
+	k8sSettings      K8sSettingsGetter
 }
 
-func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, baseImage, mcpNamespace, mcpClusterDomain string, imagePullSecrets []string) backend {
+func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, baseImage, mcpNamespace, mcpClusterDomain string, imagePullSecrets []string, k8sSettings K8sSettingsGetter) backend {
 	return &kubernetesBackend{
 		clientset:        clientset,
 		client:           client,
@@ -44,6 +45,7 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 		mcpNamespace:     mcpNamespace,
 		mcpClusterDomain: mcpClusterDomain,
 		imagePullSecrets: imagePullSecrets,
+		k8sSettings:      k8sSettings,
 	}
 }
 
@@ -55,7 +57,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	}
 
 	// Generate the Kubernetes deployment objects.
-	objs, err := k.k8sObjects(server, userID, mcpServerDisplayName, mcpServerName)
+	objs, err := k.k8sObjects(ctx, server, userID, mcpServerDisplayName, mcpServerName)
 	if err != nil {
 		return ServerConfig{}, fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.Scope, err)
 	}
@@ -213,7 +215,7 @@ func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error
 	return nil
 }
 
-func (k *kubernetesBackend) k8sObjects(server ServerConfig, userID, serverDisplayName, serverName string) ([]kclient.Object, error) {
+func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig, userID, serverDisplayName, serverName string) ([]kclient.Object, error) {
 	var (
 		command []string
 		objs    = make([]kclient.Object, 0, 5)
@@ -325,6 +327,14 @@ func (k *kubernetesBackend) k8sObjects(server ServerConfig, userID, serverDispla
 		StringData: secretStringData,
 	})
 
+	// Fetch K8s settings
+	k8sSettings, err := k.k8sSettings.GetK8sSettings(ctx)
+	if err != nil {
+		// Log error but continue with defaults
+		log.Warnf("Failed to get K8s settings, using defaults: %v", err)
+		k8sSettings = nil
+	}
+
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        server.Scope,
@@ -352,6 +362,22 @@ func (k *kubernetesBackend) k8sObjects(server ServerConfig, userID, serverDispla
 					},
 				},
 				Spec: corev1.PodSpec{
+					// Apply affinity from K8s settings
+					Affinity: func() *corev1.Affinity {
+						if k8sSettings != nil {
+							return k8sSettings.Affinity
+						}
+						return nil
+					}(),
+
+					// Apply tolerations from K8s settings
+					Tolerations: func() []corev1.Toleration {
+						if k8sSettings != nil {
+							return k8sSettings.Tolerations
+						}
+						return nil
+					}(),
+
 					Volumes: []corev1.Volume{
 						{
 							Name: "files",
@@ -378,11 +404,17 @@ func (k *kubernetesBackend) k8sObjects(server ServerConfig, userID, serverDispla
 							Name:          "http",
 							ContainerPort: int32(port),
 						}},
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("400Mi"),
-							},
-						},
+						// Apply resources from K8s settings with fallback to default
+						Resources: func() corev1.ResourceRequirements {
+							if k8sSettings != nil && k8sSettings.Resources != nil {
+								return *k8sSettings.Resources
+							}
+							return corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("400Mi"),
+								},
+							}
+						}(),
 						SecurityContext: &corev1.SecurityContext{
 							AllowPrivilegeEscalation: &[]bool{false}[0],
 							RunAsNonRoot:             &[]bool{true}[0],

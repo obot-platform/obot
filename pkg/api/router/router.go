@@ -571,6 +571,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/user-default-role-settings", userDefaultRoleSettings.Get)
 	mux.HandleFunc("POST /api/user-default-role-settings", userDefaultRoleSettings.Set)
 
+	// K8s Settings
+	k8sSettingsHandler := handlers.NewK8sSettingsHandler()
+	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
+	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)
+
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
 	mux.HTTPHandle("GET /debug/triggers", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

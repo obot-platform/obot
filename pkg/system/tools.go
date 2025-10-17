@@ -22,6 +22,7 @@ const (
 	DefaultNamespace       = "default"
 	DefaultCatalog         = "default"
 	DefaultRoleSettingName = "user-default-role-setting"
+	K8sSettingsName        = "k8s-settings"
 
 	ModelProviderCredential = "sys.model.provider.credential"
 

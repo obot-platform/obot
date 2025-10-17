@@ -12,6 +12,7 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,11 @@ type Options struct {
 	DisallowLocalhostMCP bool     `usage:"Allow MCP containers to run on localhost"`
 	MCPRuntimeBackend    string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
 	MCPImagePullSecrets  []string `usage:"The name of the image pull secret to use for pulling MCP images"`
+
+	// Kubernetes settings from Helm
+	MCPK8sSettingsAffinity    string `usage:"Affinity rules for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_AFFINITY"`
+	MCPK8sSettingsTolerations string `usage:"Tolerations for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_TOLERATIONS"`
+	MCPK8sSettingsResources   string `usage:"Resource requests/limits for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_RESOURCES"`
 }
 
 type SessionManager struct {
@@ -57,7 +63,7 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseURL string, opts Options, localK8sConfig *rest.Config) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseURL string, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
 	var backend backend
 
 	switch opts.MCPRuntimeBackend {
@@ -91,7 +97,7 @@ func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseU
 			return nil, err
 		}
 
-		backend = newKubernetesBackend(clientset, client, opts.MCPBaseImage, opts.MCPNamespace, opts.MCPClusterDomain, opts.MCPImagePullSecrets)
+		backend = newKubernetesBackend(clientset, client, opts.MCPBaseImage, opts.MCPNamespace, opts.MCPClusterDomain, opts.MCPImagePullSecrets, newK8sSettingsGetter(obotStorageClient))
 	case "local":
 		backend = newLocalBackend()
 	default:
