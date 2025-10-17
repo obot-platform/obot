@@ -2100,6 +2100,160 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 	return nil
 }
 
+// CheckK8sSettingsStatus checks if a server needs redeployment with new K8s settings
+func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+	entryID := req.PathValue("entry_id")
+
+	server, serverConfig, err := serverForAction(req)
+	if err != nil {
+		return err
+	}
+
+	// Validate catalog/workspace membership
+	// If entry_id is in the path, validate the server was created from that entry
+	if entryID != "" {
+		if server.Spec.MCPServerCatalogEntryName != entryID {
+			return types.NewErrNotFound("MCP server not found")
+		}
+
+		// Get the entry and validate it's in the correct catalog/workspace
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, entryID); err != nil {
+			return types.NewErrNotFound("MCP server not found")
+		}
+
+		// Validate the entry is in the correct catalog or workspace
+		if entry.Spec.MCPCatalogName != catalogID || entry.Spec.PowerUserWorkspaceID != workspaceID {
+			return types.NewErrNotFound("MCP server not found")
+		}
+	} else if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
+		// Multi-user server was not in the specified catalog or workspace
+		return types.NewErrNotFound("MCP server not found")
+	}
+
+	// Remote servers don't have deployments
+	if serverConfig.Runtime == types.RuntimeRemote {
+		return types.NewErrBadRequest("K8s settings check is not supported for remote servers")
+	}
+
+	// Check status
+	needsUpdate, deployedHash, err := m.mcpSessionManager.CheckK8sSettingsStatus(req.Context(), serverConfig)
+	if err != nil {
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrBadRequest("K8s settings check is only supported for Kubernetes runtime")
+		}
+		return err
+	}
+
+	// Get current K8s settings
+	var k8sSettings v1.K8sSettings
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
+		Namespace: req.Namespace(),
+		Name:      system.K8sSettingsName,
+	}, &k8sSettings); err != nil {
+		return err
+	}
+
+	currentSettings, err := convertK8sSettings(k8sSettings)
+	if err != nil {
+		return err
+	}
+
+	status := types.K8sSettingsStatus{
+		NeedsK8sUpdate:       needsUpdate,
+		CurrentSettings:      &currentSettings,
+		DeployedSettingsHash: deployedHash,
+	}
+
+	return req.Write(status)
+}
+
+// RedeployWithK8sSettings redeploys a server with the current K8s settings
+func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+	workspaceID := req.PathValue("workspace_id")
+	entryID := req.PathValue("entry_id")
+
+	server, serverConfig, err := serverForAction(req)
+	if err != nil {
+		return err
+	}
+
+	// Validate catalog/workspace membership
+	// If entry_id is in the path, validate the server was created from that entry
+	if entryID != "" {
+		if server.Spec.MCPServerCatalogEntryName != entryID {
+			return types.NewErrNotFound("MCP server not found")
+		}
+
+		// Get the entry and validate it's in the correct catalog/workspace
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, entryID); err != nil {
+			return types.NewErrNotFound("MCP server not found")
+		}
+
+		// Validate the entry is in the correct catalog or workspace
+		if entry.Spec.MCPCatalogName != catalogID || entry.Spec.PowerUserWorkspaceID != workspaceID {
+			return types.NewErrNotFound("MCP server not found")
+		}
+	} else if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
+		// Multi-user server was not in the specified catalog or workspace
+		return types.NewErrNotFound("MCP server not found")
+	}
+
+	// Remote servers don't have deployments
+	if serverConfig.Runtime == types.RuntimeRemote {
+		return types.NewErrBadRequest("Redeployment is not supported for remote servers")
+	}
+
+	// Check if server actually needs update
+	needsUpdate, _, err := m.mcpSessionManager.CheckK8sSettingsStatus(req.Context(), serverConfig)
+	if err != nil {
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrBadRequest("Redeployment is only supported for Kubernetes runtime")
+		}
+		return err
+	}
+
+	if !needsUpdate {
+		return types.NewErrBadRequest("Server is already using the current K8s settings")
+	}
+
+	// Trigger restart to force redeployment with new settings
+	if err := m.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrBadRequest("Restart is not supported by the current backend")
+		}
+		return fmt.Errorf("failed to redeploy server: %w", err)
+	}
+
+	// Get credential for server
+	var credCtxs []string
+	if server.Spec.MCPCatalogID != "" {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
+	} else if server.Spec.PowerUserWorkspaceID != "" {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
+	} else {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
+	}
+
+	cred, err := req.GPTClient.RevealCredential(req.Context(), credCtxs, server.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
+	}
+
+	slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
+	if err != nil {
+		return fmt.Errorf("failed to generate slug: %w", err)
+	}
+
+	// Return updated server
+	converted := convertMCPServer(server, cred.Env, m.serverURL, slug)
+	return req.Write(converted)
+}
+
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 	server, serverConfig, err := serverForAction(req)
 	if err != nil {
