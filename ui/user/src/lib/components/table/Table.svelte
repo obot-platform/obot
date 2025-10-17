@@ -385,7 +385,7 @@
 {#if pageSize && tableData.length > pageSize}
 	<div class="flex items-center justify-center gap-4">
 		<button
-			class="button-text flex items-center gap-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline"
+			class="button-text flex items-center gap-1 text-xs"
 			disabled={page === 0}
 			onclick={() => page--}
 		>
@@ -397,7 +397,7 @@
 		</p>
 
 		<button
-			class="button-text flex items-center gap-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline"
+			class="button-text flex items-center gap-1 text-xs"
 			disabled={page === Math.floor(total / pageSize)}
 			onclick={() => page++}
 		>

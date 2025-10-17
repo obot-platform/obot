@@ -266,6 +266,12 @@
 		.dark & {
 			color: var(--color-gray-400);
 		}
+		&:disabled {
+			opacity: 0.5;
+		}
+		&:disabled:hover {
+			background-color: transparent;
+		}
 	}
 
 	.button-icon {
@@ -419,6 +425,8 @@
 		&:disabled {
 			background-color: rgba(79, 126, 243, 0.5); /* bg-blue-500/50 */
 			border-color: transparent; /* border-blue-50/50 */
+			cursor: default;
+			opacity: 0.5;
 		}
 	}
 
@@ -451,6 +459,15 @@
 		&:hover {
 			text-decoration: underline;
 		}
+		&:disabled {
+			&:hover {
+				@media (hover: hover) {
+					text-decoration-line: none;
+				}
+			}
+			cursor: default;
+			opacity: 0.5;
+		}
 	}
 
 	.button-destructive {
@@ -467,6 +484,11 @@
 		&:hover {
 			background-color: var(--color-red-500);
 			color: white;
+		}
+
+		&:disabled {
+			cursor: default;
+			opacity: 0.5;
 		}
 	}
 
@@ -730,7 +752,7 @@
 
 		&:disabled {
 			opacity: 0.5;
-			cursor: not-allowed;
+			cursor: default;
 		}
 
 		.dark &:hover {
@@ -764,7 +786,7 @@
 
 		&:disabled {
 			opacity: 0.5;
-			cursor: not-allowed;
+			cursor: default;
 		}
 		&:disabled:hover {
 			background-color: rgb(239 68 68 / 0.1);
@@ -798,7 +820,7 @@
 
 		&:disabled {
 			opacity: 0.5;
-			cursor: not-allowed;
+			cursor: default;
 		}
 		&:disabled:hover {
 			background-color: color-mix(in oklab, var(--color-blue-500) /* #4f7ef3 */ 10%, transparent);

@@ -442,7 +442,7 @@
 						Cancel
 					</button>
 					<button
-						class="button-primary text-sm disabled:opacity-75"
+						class="button-primary text-sm"
 						disabled={!validate(accessControlRule) || saving}
 						onclick={async () => {
 							if (!id) return;
@@ -483,7 +483,7 @@
 						Reset
 					</button>
 					<button
-						class="button-primary text-sm disabled:opacity-75"
+						class="button-primary text-sm"
 						disabled={!validate(accessControlRule) || saving}
 						onclick={async () => {
 							if (!accessControlRule.id || !id) return;
