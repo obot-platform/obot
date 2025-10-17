@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -26,6 +27,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var olog = logger.Package()
 
 type kubernetesBackend struct {
 	clientset        *kubernetes.Clientset
@@ -459,45 +462,186 @@ func (k *kubernetesBackend) k8sObjects(server ServerConfig, userID, serverDispla
 	return objs, nil
 }
 
-func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig) (string, error) {
-	// Wait for the deployment to be updated.
-	_, err := wait.For(ctx, k.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}}, func(dep *appsv1.Deployment) (bool, error) {
-		return dep.Generation == dep.Status.ObservedGeneration && dep.Status.Replicas == 1 && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1, nil
-	}, wait.Option{Timeout: time.Minute})
-	if err != nil {
-		return "", ErrHealthCheckTimeout
+// getNewestPod finds and returns the most recently created pod from the list.
+func getNewestPod(pods []corev1.Pod) (*corev1.Pod, error) {
+	if len(pods) == 0 {
+		return nil, fmt.Errorf("no pods provided")
 	}
 
-	if err = ensureServerReady(ctx, url, server); err != nil {
-		return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
-	}
-
-	// Now get the pod name that is currently running
-	var (
-		pods            corev1.PodList
-		runningPodCount int
-		podName         string
-	)
-	if err = k.client.List(ctx, &pods, &kclient.ListOptions{
-		Namespace: k.mcpNamespace,
-		LabelSelector: labels.SelectorFromSet(map[string]string{
-			"app": id,
-		}),
-	}); err != nil {
-		return "", fmt.Errorf("failed to list MCP pods: %w", err)
-	}
-
-	for _, p := range pods.Items {
-		if p.Status.Phase == corev1.PodRunning {
-			podName = p.Name
-			runningPodCount++
+	newest := &pods[0]
+	for i := range pods {
+		if pods[i].CreationTimestamp.After(newest.CreationTimestamp.Time) {
+			newest = &pods[i]
 		}
 	}
-	if runningPodCount == 1 {
-		return podName, nil
+
+	return newest, nil
+}
+
+// analyzePodStatus examines a pod's status to determine if we should retry waiting for it
+// or if we should fail immediately. Returns (shouldRetry, error).
+func analyzePodStatus(pod *corev1.Pod) (bool, error) {
+	// Check pod phase first
+	switch pod.Status.Phase {
+	case corev1.PodFailed:
+		return false, fmt.Errorf("%w: pod is in Failed phase: %s", ErrHealthCheckTimeout, pod.Status.Message)
+	case corev1.PodSucceeded:
+		// This shouldn't happen for a long-running deployment, but if it does, it's an error
+		return false, fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
+	case corev1.PodUnknown:
+		return false, fmt.Errorf("%w: pod is in Unknown phase", ErrHealthCheckTimeout)
 	}
 
-	return "", ErrHealthCheckTimeout
+	// Check pod conditions for scheduling issues
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
+			// Pod can't be scheduled - check if it's a transient issue
+			if cond.Reason == corev1.PodReasonUnschedulable {
+				// Unschedulable could be transient (e.g., waiting for autoscaler)
+				return true, fmt.Errorf("%w: pod unschedulable: %s", ErrPodSchedulingFailed, cond.Message)
+			}
+		}
+	}
+
+	for _, cs := range pod.Status.ContainerStatuses {
+		// Check if container is waiting
+		if cs.State.Waiting != nil {
+			waiting := cs.State.Waiting
+			switch waiting.Reason {
+			// Transient/recoverable states - should retry
+			case "ContainerCreating", "PodInitializing":
+				return true, fmt.Errorf("container %s is %s", cs.Name, waiting.Reason)
+
+			// Image pull states - need to check if it's temporary or permanent
+			case "ImagePullBackOff", "ErrImagePull":
+				// ImagePullBackOff can be transient (network issues) but also permanent (bad image)
+				// We'll treat it as retryable for now, but it will eventually hit max retries
+				return true, fmt.Errorf("%w: container %s: %s - %s", ErrImagePullFailed, cs.Name, waiting.Reason, waiting.Message)
+
+			// Permanent failures - should not retry
+			case "CrashLoopBackOff":
+				return false, fmt.Errorf("%w: container %s is in CrashLoopBackOff: %s", ErrPodCrashLoopBackOff, cs.Name, waiting.Message)
+			case "InvalidImageName":
+				return false, fmt.Errorf("%w: container %s has invalid image name: %s", ErrImagePullFailed, cs.Name, waiting.Message)
+			case "CreateContainerConfigError", "CreateContainerError":
+				return false, fmt.Errorf("%w: container %s failed to create: %s - %s", ErrPodConfigurationFailed, cs.Name, waiting.Reason, waiting.Message)
+			case "RunContainerError":
+				return false, fmt.Errorf("%w: container %s failed to run: %s", ErrPodConfigurationFailed, cs.Name, waiting.Message)
+			}
+		}
+
+		// Check if container terminated with errors and has high restart count
+		if cs.State.Terminated != nil && cs.State.Terminated.ExitCode != 0 {
+			if cs.RestartCount > 3 {
+				return false, fmt.Errorf("%w: container %s repeatedly crashing (exit code %d, %d restarts): %s",
+					ErrPodCrashLoopBackOff, cs.Name, cs.State.Terminated.ExitCode, cs.RestartCount, cs.State.Terminated.Reason)
+			}
+		}
+	}
+
+	// Check if pod is being evicted
+	if pod.Status.Reason == "Evicted" {
+		return false, fmt.Errorf("%w: pod was evicted: %s", ErrPodSchedulingFailed, pod.Status.Message)
+	}
+
+	// Default: pod is in Pending or Running but not ready yet - should retry
+	return true, fmt.Errorf("pod in phase %s, waiting for containers to be ready", pod.Status.Phase)
+}
+
+func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id string, server ServerConfig) (string, error) {
+	const maxRetries = 5
+	var lastErr error
+
+	// Retry loop with smart pod status checking
+	for attempt := range maxRetries {
+		// Wait for the deployment to be updated.
+		_, err := wait.For(ctx, k.client, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}}, func(dep *appsv1.Deployment) (bool, error) {
+			return dep.Generation == dep.Status.ObservedGeneration && dep.Status.Replicas == 1 && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1, nil
+		}, wait.Option{Timeout: time.Minute})
+		if err == nil {
+			// Deployment is ready, now ensure the server is ready
+			if err = ensureServerReady(ctx, url, server); err != nil {
+				return "", fmt.Errorf("failed to ensure MCP server is ready: %w", err)
+			}
+
+			// Now get the pod name that is currently running
+			var (
+				pods            corev1.PodList
+				runningPodCount int
+				podName         string
+			)
+			if err = k.client.List(ctx, &pods, &kclient.ListOptions{
+				Namespace: k.mcpNamespace,
+				LabelSelector: labels.SelectorFromSet(map[string]string{
+					"app": id,
+				}),
+			}); err != nil {
+				return "", fmt.Errorf("failed to list MCP pods: %w", err)
+			}
+
+			for _, p := range pods.Items {
+				if p.Status.Phase == corev1.PodRunning {
+					podName = p.Name
+					runningPodCount++
+				}
+			}
+
+			// runningPodCount should always equal 1, if the deployment is ready, as it is by this point in the code.
+			// However, we will check just to make sure, and retry if it isn't.
+			if runningPodCount == 1 {
+				return podName, nil
+			} else if runningPodCount > 1 {
+				lastErr = fmt.Errorf("more than one running pod found")
+			} else {
+				lastErr = fmt.Errorf("no pods found")
+			}
+			continue
+		}
+
+		// Deployment wait timed out, check pod status to decide if we should retry
+		var pods corev1.PodList
+		if listErr := k.client.List(ctx, &pods, &kclient.ListOptions{
+			Namespace: k.mcpNamespace,
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				"app": id,
+			}),
+		}); listErr != nil {
+			olog.Debugf("failed to list MCP pods for status check: id=%s error=%v", id, listErr)
+			return "", fmt.Errorf("failed to list MCP pods: %w", listErr)
+		}
+
+		if len(pods.Items) == 0 {
+			olog.Debugf("no pods found for MCP server: id=%s attempt=%d", id, attempt+1)
+			lastErr = fmt.Errorf("no pods found")
+			if attempt < maxRetries {
+				continue
+			}
+			return "", fmt.Errorf("%w: %v", ErrHealthCheckTimeout, lastErr)
+		}
+
+		// Get the newest pod and analyze its status
+		newestPod, err := getNewestPod(pods.Items)
+		if err != nil {
+			olog.Debugf("failed to get newest pod: id=%s error=%v attempt=%d", id, err, attempt+1)
+			lastErr = err
+			if attempt < maxRetries {
+				continue
+			}
+			return "", fmt.Errorf("%w: %v", ErrHealthCheckTimeout, lastErr)
+		}
+
+		shouldRetry, podErr := analyzePodStatus(newestPod)
+		lastErr = podErr
+
+		if !shouldRetry {
+			// Permanent failure - return the error with the appropriate type already wrapped
+			olog.Debugf("pod in non-retryable state: id=%s error=%v attempt=%d", id, podErr, attempt+1)
+			return "", podErr
+		}
+	}
+
+	olog.Debugf("exceeded max retries waiting for pod: id=%s lastError=%v attempts=%d", id, lastErr, maxRetries)
+	return "", fmt.Errorf("%w after %d retries: %v", ErrHealthCheckTimeout, maxRetries, lastErr)
 }
 
 func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error {
