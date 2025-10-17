@@ -154,7 +154,7 @@ func remoteConfigHasDrifted(needsURL bool, serverConfig *types.RemoteRuntimeConf
 // EnsureMCPServerInstanceUserCount ensures that mcp server instance user count for multi-user MCP servers is up to date.
 func (*Handler) EnsureMCPServerInstanceUserCount(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
-	if server.Spec.MCPCatalogID == "" {
+	if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
 		// Server is not multi-user, ensure we're not tracking the instance user count
 		if server.Status.MCPServerInstanceUserCount == nil {
 			return nil
