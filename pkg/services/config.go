@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -54,6 +55,7 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
@@ -168,6 +170,9 @@ type Services struct {
 	// Local Kubernetes configuration for deployment monitoring
 	LocalK8sConfig     *rest.Config
 	MCPServerNamespace string
+
+	// Parsed settings from Helm for k8s to pass to controller
+	K8sSettingsFromHelm *v1.K8sSettingsSpec
 }
 
 const (
@@ -220,6 +225,40 @@ func buildLocalK8sConfig() (*rest.Config, error) {
 		kubeconfig = k
 	}
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
+}
+
+func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
+	if opts.MCPK8sSettingsAffinity == "" && opts.MCPK8sSettingsTolerations == "" && opts.MCPK8sSettingsResources == "" {
+		return nil, nil
+	}
+
+	spec := &v1.K8sSettingsSpec{}
+
+	if opts.MCPK8sSettingsAffinity != "" {
+		var affinity corev1.Affinity
+		if err := json.Unmarshal([]byte(opts.MCPK8sSettingsAffinity), &affinity); err != nil {
+			return nil, fmt.Errorf("failed to parse affinity from Helm: %w", err)
+		}
+		spec.Affinity = &affinity
+	}
+
+	if opts.MCPK8sSettingsTolerations != "" {
+		var tolerations []corev1.Toleration
+		if err := json.Unmarshal([]byte(opts.MCPK8sSettingsTolerations), &tolerations); err != nil {
+			return nil, fmt.Errorf("failed to parse tolerations from Helm: %w", err)
+		}
+		spec.Tolerations = tolerations
+	}
+
+	if opts.MCPK8sSettingsResources != "" {
+		var resources corev1.ResourceRequirements
+		if err := json.Unmarshal([]byte(opts.MCPK8sSettingsResources), &resources); err != nil {
+			return nil, fmt.Errorf("failed to parse resources from Helm: %w", err)
+		}
+		spec.Resources = &resources
+	}
+
+	return spec, nil
 }
 
 func newGPTScript(ctx context.Context,
@@ -387,7 +426,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 	}
 
-	mcpLoader, err := mcp.NewSessionManager(ctx, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig)
+	// Parse Helm K8s settings
+	helmK8sSettings, err := parseK8sSettingsFromHelm(mcp.Options(config.MCPConfig))
+	if err != nil {
+		return nil, err
+	}
+
+	mcpLoader, err := mcp.NewSessionManager(ctx, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
 	if err != nil {
 		return nil, err
 	}
@@ -722,6 +767,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		WebhookHelper:           mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer()),
 		LocalK8sConfig:          localK8sConfig,
 		MCPServerNamespace:      config.MCPNamespace,
+		K8sSettingsFromHelm:     helmK8sSettings,
 	}, nil
 }
 
