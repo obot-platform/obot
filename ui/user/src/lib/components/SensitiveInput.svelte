@@ -85,7 +85,6 @@
 					id={name}
 					{name}
 					{disabled}
-					contenteditable={growable ? true : undefined}
 					spellcheck="false"
 					class={twMerge(
 						'text-input-filled base min-h-full w-full flex-1 pr-10 font-mono',
