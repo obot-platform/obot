@@ -12,7 +12,7 @@ const sidebars = {
         "concepts/chat/overview",
         "concepts/chat/projects",
         "concepts/chat/threads",
-	"concepts/chat/tasks",
+        "concepts/chat/tasks",
       ],
     },
     {
@@ -51,16 +51,21 @@ const sidebars = {
             "configuration/oauth-configuration",
             {
               type: "category",
+              label: "Reference Architectures",
+              items: ["configuration/reference-architectures/gcp-gke"],
+            },
+            {
+              type: "category",
               label: "Encryption Providers",
               items: [
                 "configuration/encryption-providers/aws-kms",
                 "configuration/encryption-providers/azure-key-vault",
-                "configuration/encryption-providers/google-cloud-kms"
-              ]
-            }
+                "configuration/encryption-providers/google-cloud-kms",
+              ],
+            },
           ],
         },
-        "enterprise"
+        "enterprise",
       ],
     },
     {
