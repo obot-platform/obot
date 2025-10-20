@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Pen, Plus, Save, Trash2 } from 'lucide-svelte';
+	import { Pen, Plus, Save, Trash2, Pin, PinOff } from 'lucide-svelte';
 	import { ChatService, type Project, type Thread } from '$lib/services';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { CircleX } from 'lucide-svelte/icons';
@@ -11,6 +11,8 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
+	import { localState } from '$lib/runes/localState.svelte';
+	import { flip } from 'svelte/animate';
 
 	interface Props {
 		currentThreadID?: string;
@@ -28,6 +30,11 @@
 	let lastSeenThreadID = $state('');
 	let watchingThread: (() => void) | undefined;
 	let displayCount = $state(10); // Number of threads to display initially
+	let localPinnedThreads = localState('@obot/sidebar/pinned-threads', {
+		[project.id]: []
+	}); // Track pinned thread IDs
+
+	const projectPinnedThreads = $derived(localPinnedThreads.current?.[project.id] || []) as string[];
 
 	function isCurrentThread(thread: Thread) {
 		return currentThreadID === thread.id && !isSomethingSelected(layout);
@@ -43,6 +50,48 @@
 	function loadMore() {
 		displayCount += 10;
 	}
+
+	function toggleThreadPin(threadId: string) {
+		const pinnedThreadsSet = new Set(projectPinnedThreads);
+
+		if (pinnedThreadsSet.has(threadId)) {
+			pinnedThreadsSet.delete(threadId);
+		} else {
+			pinnedThreadsSet.add(threadId);
+		}
+
+		savePinnedThreads(pinnedThreadsSet.values().toArray());
+	}
+
+	function isThreadPinned(threadId: string): boolean {
+		return projectPinnedThreads.includes(threadId);
+	}
+
+	function savePinnedThreads(threads: string[]) {
+		try {
+			const current = localPinnedThreads.current || {};
+
+			current[project.id] = threads;
+
+			localPinnedThreads.current = current;
+		} catch (e) {
+			console.error('Failed to save pinned threads:', e);
+		}
+	}
+
+	// Derived value: sorted threads with pinned ones first
+	let sortedThreads = $derived.by(() => {
+		const pinnedThreadsSet = new Set(projectPinnedThreads);
+
+		const threads = [...($state.snapshot(layout.threads) ?? [])];
+		return threads.sort((a, b) => {
+			const aPinned = pinnedThreadsSet.has(a.id);
+			const bPinned = pinnedThreadsSet.has(b.id);
+			if (aPinned && !bPinned) return -1;
+			if (!aPinned && bPinned) return 1;
+			return 0;
+		});
+	});
 
 	async function startEditName() {
 		const thread = layout.threads?.find(isCurrentThread);
@@ -137,6 +186,14 @@
 				console.log('deleted thread', thread.id);
 				layout.threads = layout.threads?.filter((t) => t.id !== thread.id);
 				layout.taskRuns = layout.taskRuns?.filter((t) => t.id !== thread.id);
+
+				// Clean up pinned thread if it was deleted
+				if (isThreadPinned(thread.id)) {
+					const pinnedThreadsSet = new Set(projectPinnedThreads);
+					pinnedThreadsSet.delete(thread.id);
+					savePinnedThreads(pinnedThreadsSet.values().toArray());
+				}
+
 				if (currentThreadID === thread.id) {
 					setCurrentThread(layout.threads?.[0]?.id ?? '');
 				}
@@ -246,10 +303,11 @@
 
 {#snippet content()}
 	<ul transition:fade>
-		{#each (layout.threads ?? []).slice(0, displayCount) as thread (thread.id)}
+		{#each sortedThreads.slice(0, displayCount) as thread (thread.id)}
 			<li
 				class:bg-surface2={isCurrentThread(thread)}
 				class="hover:bg-surface3 group flex min-h-9 items-center gap-3 rounded-md font-light"
+				animate:flip={{ duration: 200 }}
 			>
 				{#if editMode === thread.id}
 					<input
@@ -265,7 +323,7 @@
 									break;
 							}
 						}}
-						class="mx-2 w-0 flex-1 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
+						class="outline-hidden mx-2 w-0 flex-1 grow border-none bg-transparent ring-0 dark:text-white"
 						placeholder="Enter name"
 						type="text"
 					/>
@@ -280,16 +338,28 @@
 					<button
 						use:overflowToolTip
 						class:font-medium={isCurrentThread(thread)}
-						class="h-full flex-1 grow p-2 text-start"
+						class="flex h-full flex-1 grow items-center gap-2 p-2 text-start"
 						onclick={() => selectThread(thread.id)}
 					>
-						{thread.name || 'New Chat'}
+						<span class="truncate">{thread.name || 'New Chat'}</span>
+						{#if isThreadPinned(thread.id)}
+							<span transition:fade={{ duration: 100 }}>
+								<Pin class="h-3 w-3 shrink-0 text-blue-500" />
+							</span>
+						{/if}
 					</button>
 
 					<DotDotDot
 						class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
 					>
 						<div class="default-dialog flex min-w-max flex-col p-2">
+							<button class="menu-button" onclick={() => toggleThreadPin(thread.id)}>
+								{#if isThreadPinned(thread.id)}
+									<PinOff class="h-4 w-4" /> Unpin
+								{:else}
+									<Pin class="h-4 w-4" /> Pin
+								{/if}
+							</button>
 							<button
 								class="menu-button"
 								onclick={() => {
