@@ -323,7 +323,7 @@
 									break;
 							}
 						}}
-						class="outline-hidden mx-2 w-0 flex-1 grow border-none bg-transparent ring-0 dark:text-white"
+						class="mx-2 w-0 flex-1 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
 						placeholder="Enter name"
 						type="text"
 					/>
