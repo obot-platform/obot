@@ -104,6 +104,7 @@
 		<div class="grid grid-cols-1 gap-4 py-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			{#each sortedAuthProviders as authProvider (authProvider.id)}
 				<ProviderCard
+					disableConfigure={atLeastOneConfigured && !authProvider.configured}
 					provider={authProvider}
 					recommended={RecommendedModelProviders.includes(authProvider.id)}
 					onConfigure={async () => {

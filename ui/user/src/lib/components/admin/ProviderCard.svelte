@@ -15,6 +15,7 @@
 		configuredActions?: Snippet<[BaseProvider]>;
 		deprecated?: boolean;
 		readonly?: boolean;
+		disableConfigure?: boolean;
 	}
 
 	const {
@@ -24,7 +25,8 @@
 		onDeconfigure,
 		configuredActions,
 		deprecated,
-		readonly
+		readonly,
+		disableConfigure
 	}: Props = $props();
 </script>
 
@@ -94,7 +96,8 @@
 	<div class="mt-auto w-full">
 		<button
 			onclick={onConfigure}
-			class={twMerge('w-full border-0 text-sm', provider.configured ? 'button' : 'button-primary ')}
+			class={twMerge('w-full border-0 text-sm', provider.configured ? 'button' : 'button-primary')}
+			disabled={disableConfigure}
 		>
 			{#if readonly}
 				View

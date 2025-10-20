@@ -744,6 +744,7 @@
 										{ label: 'Environment Variable', id: 'environment_variable_type' },
 										{ label: 'File', id: 'file_type' }
 									]}
+									disabled={readonly}
 									selected={formData.env[i].file ? 'file_type' : 'environment_variable_type'}
 									onSelect={(option) => {
 										if (option.id === 'file_type') {

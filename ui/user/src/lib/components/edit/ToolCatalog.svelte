@@ -503,7 +503,7 @@
 						toggleTool(tool.id, !toggleValue);
 					}
 				}}
-				class="flex grow items-center justify-between gap-2 rounded-lg p-2 px-4 disabled:cursor-not-allowed"
+				class="flex grow items-center justify-between gap-2 rounded-lg p-2 px-4 disabled:cursor-default"
 				disabled={readOnly}
 			>
 				{#if !toggleValue}
@@ -572,7 +572,7 @@
 		}}
 		class={twMerge(
 			'group flex grow items-center gap-2 p-2 px-4 transition-opacity duration-200',
-			readOnly && 'cursor-not-allowed',
+			readOnly && 'cursor-default',
 			!readOnly && 'dark:bg-surface2 hover:bg-surface2 dark:hover:bg-surface3 bg-white'
 		)}
 	>

@@ -69,7 +69,7 @@
 				disabled={username2 === '' || username2 !== username}
 				onclick={onsuccess}
 				type="button"
-				class="inline-flex w-full items-center justify-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50"
+				class="inline-flex w-full items-center justify-center rounded-3xl bg-red-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800 disabled:cursor-default disabled:opacity-50"
 			>
 				{buttonText}
 			</button>
