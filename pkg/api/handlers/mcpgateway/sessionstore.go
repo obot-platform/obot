@@ -73,7 +73,14 @@ func (h *Handler) Acquire(ctx context.Context, server nmcp.MessageHandler, sessi
 	if time.Since(mcpSess.Status.LastUsedTime.Time) > time.Hour {
 		// Get the latest version of the session from storage.
 		s := new(v1.MCPSession)
-		if err := h.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, s); err != nil {
+		if err := h.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: sessionID}, s); apierrors.IsNotFound(err) {
+			// The session is still in memory but not in storage.
+			// Remove it from the cache and indicate that the session was not found.
+			h.mcpSessionCache.Delete(sessionID)
+			h.sessionCache.Delete(sessionID)
+
+			return nil, false, nil
+		} else if err != nil {
 			return nil, false, fmt.Errorf("failed to get session %s: %w", sessionID, err)
 		}
 
@@ -136,9 +143,9 @@ func (h *Handler) get(ctx context.Context, messageHandler nmcp.MessageHandler, s
 		sess    *nmcp.ServerSession
 		mcpSess *v1.MCPSession
 	)
-	mcpSession, ok := h.mcpSessionCache.Load(sessionID)
-	session, _ := h.sessionCache.Load(sessionID)
-	if ok {
+	mcpSession, mcpOK := h.mcpSessionCache.Load(sessionID)
+	session, ok := h.sessionCache.Load(sessionID)
+	if mcpOK && ok {
 		mcpSess = mcpSession.(*v1.MCPSession)
 		sess = session.(*nmcp.ServerSession)
 	} else {
