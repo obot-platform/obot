@@ -15,6 +15,6 @@ type TempSetupUser struct {
 	Role                  types2.Role `json:"role"`
 	IconURL               string      `json:"iconURL"`
 	AuthProviderName      string      `json:"authProviderName"`
-	AuthProviderNamespace string      `json:"authProviderNAMESPACE"`
+	AuthProviderNamespace string      `json:"authProviderNamespace"`
 	CreatedAt             time.Time   `json:"createdAt"`
 }
