@@ -310,6 +310,7 @@ export interface MCPSubField {
 	required: boolean;
 	sensitive: boolean;
 	value?: string;
+	prefix?: string;
 }
 
 export interface MCP {

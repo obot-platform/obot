@@ -21,6 +21,7 @@
 	import CategorySelectInput from './CategorySelectInput.svelte';
 	import Select from '../Select.svelte';
 	import { profile } from '$lib/stores';
+	import InfoTooltip from '../InfoTooltip.svelte';
 
 	interface Props {
 		id?: string;
@@ -802,6 +803,24 @@
 										class="text-input-filled w-full"
 										bind:value={formData.env[i].key}
 										placeholder="e.g. CUSTOM_API_KEY"
+										disabled={readonly}
+									/>
+								</div>
+								<div class="flex w-full flex-col gap-1">
+									<label
+										for={`env-prefix]-${i}`}
+										class="flex items-center gap-1 text-sm font-light"
+									>
+										Value Prefix
+										<InfoTooltip
+											text="A constant prepended value that will be added to the user-supplied value. Ex. 'BEARER ' in 'BEARER [USER_SUPPLIED_VALUE]'."
+											popoverWidth="lg"
+										/>
+									</label>
+									<input
+										id={`header-prefix-${i}`}
+										class="text-input-filled w-full"
+										bind:value={formData.env[i].prefix}
 										disabled={readonly}
 									/>
 								</div>
