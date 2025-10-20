@@ -26,6 +26,18 @@ export function setUrlParams(property: string, values: string[]) {
 	replaceState(page.url, {});
 }
 
+export function setSortUrlParams(property?: string, direction?: 'asc' | 'desc') {
+	if (!property || !direction) {
+		page.url.searchParams.delete('sort');
+		page.url.searchParams.delete('sortDirection');
+		replaceState(page.url, {});
+		return;
+	}
+	page.url.searchParams.set('sort', property);
+	page.url.searchParams.set('sortDirection', direction);
+	replaceState(page.url, {});
+}
+
 export function clearUrlParams() {
 	// Collect all keys first to avoid issues with modifying during iteration
 	const keysToDelete = Array.from(page.url.searchParams.keys());

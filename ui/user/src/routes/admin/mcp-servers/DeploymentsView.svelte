@@ -4,7 +4,7 @@
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import Table from '$lib/components/table/Table.svelte';
+	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import {
@@ -38,6 +38,8 @@
 		urlFilters?: Record<string, (string | number)[]>;
 		onFilter?: (property: string, values: string[]) => void;
 		onClearAllFilters?: () => void;
+		onSort?: InitSortFn;
+		initSort?: InitSort;
 	}
 
 	let {
@@ -47,7 +49,9 @@
 		query,
 		urlFilters: filters,
 		onFilter,
-		onClearAllFilters
+		onClearAllFilters,
+		onSort,
+		initSort
 	}: Props = $props();
 	let loading = $state(false);
 
@@ -283,6 +287,8 @@
 			}}
 			{onFilter}
 			{onClearAllFilters}
+			{onSort}
+			{initSort}
 			sortable={['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
 			noDataMessage="No catalog servers added."
 			setRowClasses={(d) => {

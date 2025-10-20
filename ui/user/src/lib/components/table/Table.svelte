@@ -13,6 +13,9 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 
+	export type InitSort = { property: string; order: 'asc' | 'desc' };
+	export type InitSortFn = (property: string, order: 'asc' | 'desc') => void;
+
 	interface Props<T> {
 		actions?: Snippet<[T]>;
 		classes?: {
@@ -28,13 +31,14 @@
 		onClearAllFilters?: () => void;
 		onRenderColumn?: Snippet<[string, T]>;
 		onRenderSubrowContent?: Snippet<[T]>;
+		onSort?: InitSortFn;
 		setRowClasses?: (row: T) => string;
 		noDataMessage?: string;
 		pageSize?: number;
 		sortable?: string[];
 		filterable?: string[];
 		filters?: Record<string, (string | number)[]>;
-		initSort?: { property: string; order: 'asc' | 'desc' };
+		initSort?: InitSort;
 		tableSelectActions?: Snippet<[Record<string, T>]>;
 		validateSelect?: (row: T) => boolean;
 		disabledSelectMessage?: string;
@@ -52,6 +56,7 @@
 		onFilter,
 		onRenderColumn,
 		onRenderSubrowContent,
+		onSort,
 		pageSize,
 		noDataMessage = 'No data',
 		setRowClasses,
@@ -179,6 +184,8 @@
 		} else {
 			sortedBy.order = sortedBy.order === 'asc' ? 'desc' : 'asc';
 		}
+
+		onSort?.(property, sortedBy.order);
 	}
 
 	function handleFilter(property: string, values: string[]) {
@@ -436,46 +443,49 @@
 				<Square class="size-5" />
 			{/if}
 		</button>
-		<DotDotDot class="text-gray-500">
-			{#snippet icon()}
-				<ChevronDown class="size-4" />
-			{/snippet}
+		{#if validateSelect}
+			<DotDotDot class="text-gray-500">
+				{#snippet icon()}
+					<ChevronDown class="size-4" />
+				{/snippet}
 
-			<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-				<button
-					class="menu-button"
-					onclick={() => {
-						sortedBy = {
-							property: 'selectable',
-							order: 'asc'
-						};
-					}}
-				>
-					Sort By Selectable Items
-				</button>
-				<button
-					class="menu-button"
-					onclick={async () => {
-						if (filteredBy?.['selectable']) {
-							delete filteredBy['selectable'];
-							filteredBy = { ...filteredBy };
-						} else {
-							filteredBy = {
-								...filteredBy,
-								selectable: ['true']
+				<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
+					<button
+						class="menu-button"
+						onclick={() => {
+							sortedBy = {
+								property: 'selectable',
+								order: 'asc'
 							};
-						}
-						onFilter?.('selectable', ['true']);
-					}}
-				>
-					{#if filteredBy?.['selectable']}
-						Show All Items
-					{:else}
-						Show Only Selectable Items
-					{/if}
-				</button>
-			</div>
-		</DotDotDot>
+							onSort?.('selectable', 'asc');
+						}}
+					>
+						Sort By Selectable Items
+					</button>
+					<button
+						class="menu-button"
+						onclick={async () => {
+							if (filteredBy?.['selectable']) {
+								delete filteredBy['selectable'];
+								filteredBy = { ...filteredBy };
+							} else {
+								filteredBy = {
+									...filteredBy,
+									selectable: ['true']
+								};
+							}
+							onFilter?.('selectable', ['true']);
+						}}
+					>
+						{#if filteredBy?.['selectable']}
+							Show All Items
+						{:else}
+							Show Only Selectable Items
+						{/if}
+					</button>
+				</div>
+			</DotDotDot>
+		{/if}
 	</div>
 {/snippet}
 
