@@ -51,8 +51,7 @@
 	let auditLogsResponse = $state<PaginatedResponse<AuditLog>>();
 	const auditLogsTotalItems = $derived(auditLogsResponse?.total ?? 0);
 
-	let pageIndexLocal = localState('@obot/auditlogs/page-index', {
-		value: 0,
+	let pageIndexLocal = localState('@obot/auditlogs/page-index', 0, {
 		parse: (ls) => (ls ? parseInt(ls) : 0)
 	});
 
@@ -496,7 +495,7 @@
 		{emptyContent}
 	></AuditLogsTable>
 {:else if !showLoadingSpinner}
-	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
+	<div class="w-md mt-12 flex max-w-full flex-col items-center gap-4 self-center text-center">
 		<Captions class="size-24 text-gray-200 dark:text-gray-900" />
 		<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No audit logs</h4>
 		<p class="text-sm font-light text-gray-400 dark:text-gray-600">
@@ -510,7 +509,7 @@
 	bind:this={rightSidebar}
 	use:clickOutside={[handleRightSidebarClose, true]}
 	use:dialogAnimation={{ type: 'drawer' }}
-	class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-dvh w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
+	class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! outline-none! z-40 h-dvh w-auto max-w-none rounded-none border-0 bg-white shadow-lg"
 >
 	{#if selectedAuditLog}
 		<AuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
