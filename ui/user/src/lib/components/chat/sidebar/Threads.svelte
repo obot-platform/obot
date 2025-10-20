@@ -30,7 +30,7 @@
 	let lastSeenThreadID = $state('');
 	let watchingThread: (() => void) | undefined;
 	let displayCount = $state(10); // Number of threads to display initially
-	let localPinnedThreads = localState('@obot/sidebar/pinned-threads', {
+	let localPinnedThreads = localState<Record<string, string[]>>('@obot/sidebar/pinned-threads', {
 		[project.id]: []
 	}); // Track pinned thread IDs
 
