@@ -12,8 +12,8 @@ import (
 )
 
 type InitiateTempLoginRequest struct {
-	AuthProviderName string `json:"authProviderName"`
-	AuthProviderNS   string `json:"authProviderNamespace"`
+	AuthProviderName      string `json:"authProviderName"`
+	AuthProviderNamespace string `json:"authProviderNamespace"`
 }
 
 type InitiateTempLoginResponse struct {
@@ -40,7 +40,7 @@ func (h *Handler) InitiateTempLogin(req api.Context) error {
 	}
 
 	// Validate required fields
-	if body.AuthProviderName == "" || body.AuthProviderNS == "" {
+	if body.AuthProviderName == "" || body.AuthProviderNamespace == "" {
 		return types.NewErrBadRequest("authProviderName and authProviderNamespace are required")
 	}
 
@@ -66,7 +66,7 @@ func (h *Handler) InitiateTempLogin(req api.Context) error {
 	redirectURL := fmt.Sprintf("%s/oauth/start/%s/%s/%s",
 		req.APIBaseURL,
 		tokenID,
-		body.AuthProviderNS,
+		body.AuthProviderNamespace,
 		body.AuthProviderName,
 	)
 

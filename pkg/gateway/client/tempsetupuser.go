@@ -12,7 +12,7 @@ import (
 
 // SetTempUserCache stores a temporary user in the database for the bootstrap setup flow.
 // Returns an error if a user is already cached.
-func (c *Client) SetTempUserCache(ctx context.Context, user *types.User, authProviderName, authProviderNS string) error {
+func (c *Client) SetTempUserCache(ctx context.Context, user *types.User, authProviderName, authProviderNamespace string) error {
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Check if a temp user already exists
 		var count int64
@@ -31,14 +31,14 @@ func (c *Client) SetTempUserCache(ctx context.Context, user *types.User, authPro
 
 		// Create new temp user entry
 		tempUser := &types.TempSetupUser{
-			UserID:           user.ID,
-			Username:         user.Username,
-			Email:            user.Email,
-			Role:             user.Role,
-			IconURL:          user.IconURL,
-			AuthProviderName: authProviderName,
-			AuthProviderNS:   authProviderNS,
-			CreatedAt:        time.Now(),
+			UserID:                user.ID,
+			Username:              user.Username,
+			Email:                 user.Email,
+			Role:                  user.Role,
+			IconURL:               user.IconURL,
+			AuthProviderName:      authProviderName,
+			AuthProviderNamespace: authProviderNamespace,
+			CreatedAt:             time.Now(),
 		}
 
 		if err := tx.Create(tempUser).Error; err != nil {

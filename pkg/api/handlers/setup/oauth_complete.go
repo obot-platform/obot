@@ -41,11 +41,11 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 	}
 
 	// Get auth provider info from context
-	authProviderName, authProviderNS := req.AuthProviderNameAndNamespace()
+	authProviderName, authProviderNamespace := req.AuthProviderNameAndNamespace()
 
 	// Cache the temporary user
 	// This will fail if another user is already cached
-	if err := req.GatewayClient.SetTempUserCache(req.Context(), user, authProviderName, authProviderNS); err != nil {
+	if err := req.GatewayClient.SetTempUserCache(req.Context(), user, authProviderName, authProviderNamespace); err != nil {
 		return types.NewErrHTTP(http.StatusConflict, err.Error())
 	}
 

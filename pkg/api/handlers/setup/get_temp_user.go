@@ -9,15 +9,15 @@ import (
 )
 
 type TempUserInfoResponse struct {
-	UserID           uint       `json:"userId"`
-	Username         string     `json:"username"`
-	Email            string     `json:"email"`
-	Role             types.Role `json:"role"`
-	Groups           []string   `json:"groups"`
-	IconURL          string     `json:"iconUrl,omitempty"`
-	AuthProviderName string     `json:"authProviderName"`
-	AuthProviderNS   string     `json:"authProviderNamespace"`
-	CachedAt         string     `json:"cachedAt"`
+	UserID                uint       `json:"userId"`
+	Username              string     `json:"username"`
+	Email                 string     `json:"email"`
+	Role                  types.Role `json:"role"`
+	Groups                []string   `json:"groups"`
+	IconURL               string     `json:"iconUrl,omitempty"`
+	AuthProviderName      string     `json:"authProviderName"`
+	AuthProviderNamespace string     `json:"authProviderNamespace"`
+	CachedAt              string     `json:"cachedAt"`
 }
 
 // GetTempUser returns information about the temporarily cached user.
@@ -37,14 +37,14 @@ func (h *Handler) GetTempUser(req api.Context) error {
 	}
 
 	return req.Write(TempUserInfoResponse{
-		UserID:           cached.UserID,
-		Username:         cached.Username,
-		Email:            cached.Email,
-		Role:             cached.Role,
-		Groups:           cached.Role.Groups(),
-		IconURL:          cached.IconURL,
-		AuthProviderName: cached.AuthProviderName,
-		AuthProviderNS:   cached.AuthProviderNS,
-		CachedAt:         cached.CreatedAt.Format(time.RFC3339),
+		UserID:                cached.UserID,
+		Username:              cached.Username,
+		Email:                 cached.Email,
+		Role:                  cached.Role,
+		Groups:                cached.Role.Groups(),
+		IconURL:               cached.IconURL,
+		AuthProviderName:      cached.AuthProviderName,
+		AuthProviderNamespace: cached.AuthProviderNamespace,
+		CachedAt:              cached.CreatedAt.Format(time.RFC3339),
 	})
 }
