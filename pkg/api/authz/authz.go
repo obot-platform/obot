@@ -92,6 +92,7 @@ var (
 		"/api/oauth-apps/",
 		"/api/file-scanner-config",
 		"/api/user-default-role-settings",
+		"/api/setup/",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
@@ -217,6 +218,7 @@ var (
 			"DELETE /api/me",
 			"POST /api/logout-all",
 			"GET /api/version",
+			"GET /api/setup/oauth-complete",
 		},
 
 		MetricsGroup: {
