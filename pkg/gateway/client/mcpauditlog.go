@@ -25,7 +25,86 @@ var (
 )
 
 func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLog) error {
-	return c.db.WithContext(ctx).CreateInBatches(logs, 100).Error
+	if len(logs) == 0 {
+		return nil
+	}
+
+	// Separate logs into three categories
+	toInsert := make([]types.MCPAuditLog, 0, len(logs)/2)
+	responseOnlyLogs := make([]types.MCPAuditLog, 0, len(logs)/2)
+
+	for _, log := range logs {
+		if !log.ResponseReceived {
+			// Request-only logs
+			toInsert = append(toInsert, log)
+		} else if len(log.RequestBody) > 0 {
+			// Complete logs (has both request and response data)
+			toInsert = append(toInsert, log)
+		} else {
+			// Response-only logs (need to find and update existing request)
+			responseOnlyLogs = append(responseOnlyLogs, log)
+		}
+	}
+
+	// Use a transaction to ensure atomicity
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Insert request-only and complete logs in batches
+		if len(toInsert) > 0 {
+			if err := tx.CreateInBatches(toInsert, 100).Error; err != nil {
+				return fmt.Errorf("failed to insert audit logs: %w", err)
+			}
+		}
+
+		// Process response-only logs
+		for _, responseLog := range responseOnlyLogs {
+			// Find matching request log by RequestID and SessionID
+			var existingLog types.MCPAuditLog
+			err := tx.Where("request_id = ? AND session_id = ? AND response_received = ?", responseLog.RequestID, responseLog.SessionID, false).
+				First(&existingLog).Error
+
+			if err == nil {
+				// Found matching request - update with response data
+				updates := map[string]any{
+					"response_received": true,
+				}
+
+				// Update response-specific fields if they have values
+				if len(responseLog.ResponseBody) > 0 {
+					updates["response_body"] = responseLog.ResponseBody
+				}
+				if len(responseLog.ResponseHeaders) > 0 {
+					updates["response_headers"] = responseLog.ResponseHeaders
+				}
+				if responseLog.ResponseStatus != 0 {
+					updates["response_status"] = responseLog.ResponseStatus
+				}
+				if responseLog.Error != "" {
+					updates["error"] = responseLog.Error
+				}
+				if len(responseLog.WebhookStatuses) > 0 {
+					updates["webhook_statuses"] = responseLog.WebhookStatuses
+				}
+
+				// Calculate processing time as difference between response and request timestamps
+				updates["processing_time_ms"] = responseLog.CreatedAt.Sub(existingLog.CreatedAt).Milliseconds()
+
+				// Update the existing log
+				if err := tx.Model(&existingLog).Updates(updates).Error; err != nil {
+					return fmt.Errorf("failed to update audit log with response data: %w", err)
+				}
+			} else if errors.Is(err, gorm.ErrRecordNotFound) {
+				// No matching request found - insert as new record
+				if err := tx.Create(&responseLog).Error; err != nil {
+					return fmt.Errorf("failed to insert orphaned response audit log: %w", err)
+				}
+			} else {
+				// Database error
+				return fmt.Errorf("failed to query for existing audit log: %w", err)
+			}
+		}
+
+		return nil
+	})
 }
 
 // GetMCPAuditLogs retrieves MCP audit logs with optional filters

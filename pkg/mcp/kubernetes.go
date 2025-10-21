@@ -34,54 +34,44 @@ import (
 var olog = logger.Package()
 
 type kubernetesBackend struct {
-	clientset        *kubernetes.Clientset
-	client           kclient.WithWatch
-	baseImage        string
-	mcpNamespace     string
-	mcpClusterDomain string
-	imagePullSecrets []string
-	obotClient       kclient.Client
+	clientset            *kubernetes.Clientset
+	client               kclient.WithWatch
+	baseImage            string
+	httpWebhookBaseImage string
+	remoteShimBaseImage  string
+	mcpNamespace         string
+	mcpClusterDomain     string
+	imagePullSecrets     []string
+	obotClient           kclient.Client
 }
 
-func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, baseImage, mcpNamespace, mcpClusterDomain string, imagePullSecrets []string, obotClient kclient.Client) backend {
+func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, baseImage, httpWebhookBaseImage, remoteShimBaseImage, mcpNamespace, mcpClusterDomain string, imagePullSecrets []string, obotClient kclient.Client) backend {
 	return &kubernetesBackend{
-		clientset:        clientset,
-		client:           client,
-		baseImage:        baseImage,
-		mcpNamespace:     mcpNamespace,
-		mcpClusterDomain: mcpClusterDomain,
-		imagePullSecrets: imagePullSecrets,
-		obotClient:       obotClient,
+		clientset:            clientset,
+		client:               client,
+		baseImage:            baseImage,
+		httpWebhookBaseImage: httpWebhookBaseImage,
+		remoteShimBaseImage:  remoteShimBaseImage,
+		mcpNamespace:         mcpNamespace,
+		mcpClusterDomain:     mcpClusterDomain,
+		imagePullSecrets:     imagePullSecrets,
+		obotClient:           obotClient,
 	}
 }
 
-func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) error {
-	switch server.Runtime {
-	case types.RuntimeNPX, types.RuntimeUVX, types.RuntimeContainerized:
-	default:
-		return fmt.Errorf("unsupported MCP runtime: %s", server.Runtime)
-	}
-
+func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
 	// Generate the Kubernetes deployment objects.
-	objs, err := k.k8sObjects(ctx, server, userID, mcpServerDisplayName, mcpServerName)
+	objs, err := k.k8sObjects(ctx, server, webhooks)
 	if err != nil {
-		return fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.Scope, err)
+		return ServerConfig{}, fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.MCPServerName, err)
 	}
 
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).Apply(ctx, nil, objs...); err != nil {
-		return fmt.Errorf("failed to create MCP deployment %s: %w", server.Scope, err)
+	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.MCPServerName).Apply(ctx, nil, objs...); err != nil {
+		return ServerConfig{}, fmt.Errorf("failed to create MCP deployment %s: %w", server.MCPServerName, err)
 	}
 
-	return nil
-}
-
-func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
-	if err := k.deployServer(ctx, server, userID, mcpServerDisplayName, mcpServerName); err != nil {
-		return ServerConfig{}, err
-	}
-
-	u := fmt.Sprintf("http://%s.%s.svc.%s", server.Scope, k.mcpNamespace, k.mcpClusterDomain)
-	podName, err := k.updatedMCPPodName(ctx, u, server.Scope, server)
+	u := fmt.Sprintf("http://%s.%s.svc.%s", server.MCPServerName, k.mcpNamespace, k.mcpClusterDomain)
+	podName, err := k.updatedMCPPodName(ctx, u, server.MCPServerName, server)
 	if err != nil {
 		return ServerConfig{}, err
 	}
@@ -89,7 +79,20 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	fullURL := fmt.Sprintf("%s/%s", u, strings.TrimPrefix(server.ContainerPath, "/"))
 
 	// Use the pod name as the scope, so we get a new session if the pod restarts. MCP sessions aren't persistent on the server side.
-	return ServerConfig{URL: fullURL, Scope: podName, AllowedTools: server.AllowedTools}, nil
+	return ServerConfig{
+		URL:                  fullURL,
+		MCPServerName:        server.MCPServerName,
+		Audiences:            server.Audiences,
+		MCPServerNamespace:   server.MCPServerNamespace,
+		MCPServerDisplayName: server.MCPServerDisplayName,
+		Scope:                podName,
+		UserID:               server.UserID,
+		Runtime:              types.RuntimeRemote,
+		Issuer:               server.Issuer,
+		JWKS:                 server.JWKS,
+		ContainerPort:        server.ContainerPort,
+		ContainerPath:        server.ContainerPath,
+	}, nil
 }
 
 func (k *kubernetesBackend) getServerDetails(ctx context.Context, id string) (types.MCPServerDetails, error) {
@@ -195,6 +198,7 @@ func (k *kubernetesBackend) streamServerLogs(ctx context.Context, id string) (io
 		Follow:     true,
 		Timestamps: true,
 		TailLines:  &tailLines,
+		Container:  "mcp",
 	}).Stream(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get logs: %w", err)
@@ -208,7 +212,7 @@ func (k *kubernetesBackend) transformConfig(ctx context.Context, serverConfig Se
 	if err := k.client.List(ctx, &pods, &kclient.ListOptions{
 		Namespace: k.mcpNamespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{
-			"app": serverConfig.Scope,
+			"app": serverConfig.MCPServerName,
 		}),
 	}); err != nil {
 		return nil, fmt.Errorf("failed to list MCP pods: %w", err)
@@ -218,7 +222,7 @@ func (k *kubernetesBackend) transformConfig(ctx context.Context, serverConfig Se
 		return nil, nil
 	}
 
-	return &ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/%s", serverConfig.Scope, k.mcpNamespace, k.mcpClusterDomain, strings.TrimPrefix(serverConfig.ContainerPath, "/")), Scope: pods.Items[0].Name}, nil
+	return &ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/%s", serverConfig.MCPServerName, k.mcpNamespace, k.mcpClusterDomain, strings.TrimPrefix(serverConfig.ContainerPath, "/")), MCPServerName: pods.Items[0].Name}, nil
 }
 
 func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error {
@@ -229,40 +233,49 @@ func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error
 	return nil
 }
 
-func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig, userID, serverDisplayName, serverName string) ([]kclient.Object, error) {
+func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig, webhooks []Webhook) ([]kclient.Object, error) {
 	var (
-		command []string
-		objs    = make([]kclient.Object, 0, 5)
-		image   = k.baseImage
-		args    = []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "/run/nanobot.yaml"}
-		port    = 8099
+		command  []string
+		objs     = make([]kclient.Object, 0, 5)
+		image    = k.baseImage
+		args     = []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "/run/nanobot.yaml"}
+		port     = defaultContainerPort
+		portName = "http"
 
 		annotations = map[string]string{
-			"mcp-server-display-name": serverDisplayName,
-			"mcp-server-name":         serverName,
-			"mcp-server-scope":        server.Scope,
-			"mcp-user-id":             userID,
+			"mcp-server-display-name": server.MCPServerDisplayName,
+			"mcp-server-scope":        server.MCPServerName,
+			"mcp-user-id":             server.UserID,
 		}
 
 		fileMapping            = make(map[string]string, len(server.Files))
-		secretStringData       = make(map[string]string, len(server.Env)+len(server.Headers)+3)
+		secretEnvStringData    = make(map[string]string, len(server.Env)+10)
 		secretVolumeStringData = make(map[string]string, len(server.Files))
-		metaEnv                = make([]string, 0, len(server.Env)+len(server.Headers)+len(server.Files))
+		headerData             = make(map[string]string, len(server.Headers))
+		metaEnv                = make([]string, 0, len(server.Env)+len(server.Files))
 	)
 
+	// Use remote shim image for remote runtimes
+	switch server.Runtime {
+	case types.RuntimeRemote:
+		image = k.remoteShimBaseImage
+	case types.RuntimeContainerized:
+		port = server.ContainerPort
+	}
+
 	for _, file := range server.Files {
-		filename := fmt.Sprintf("%s-%s", server.Scope, hash.Digest(file))
+		filename := fmt.Sprintf("%s-%s", server.MCPServerName, hash.Digest(file))
 		secretVolumeStringData[filename] = file.Data
 		if file.EnvKey != "" {
 			metaEnv = append(metaEnv, file.EnvKey)
-			secretStringData[file.EnvKey] = "/files/" + filename
+			secretEnvStringData[file.EnvKey] = "/files/" + filename
 			fileMapping[file.EnvKey] = "/files/" + filename
 		}
 	}
 
 	objs = append(objs, &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(server.Scope, "files"),
+			Name:        name.SafeConcatName(server.MCPServerName, "files"),
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
@@ -273,14 +286,13 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		k, v, ok := strings.Cut(env, "=")
 		if ok {
 			metaEnv = append(metaEnv, k)
-			secretStringData[k] = v
+			secretEnvStringData[k] = v
 		}
 	}
 	for _, header := range server.Headers {
 		k, v, ok := strings.Cut(header, "=")
 		if ok {
-			metaEnv = append(metaEnv, k)
-			secretStringData[k] = v
+			headerData[k] = v
 		}
 	}
 
@@ -294,52 +306,26 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		server.Args = args
 	}
 
-	if server.Runtime == types.RuntimeContainerized {
-		if server.Command != "" {
-			command = []string{expandEnvVars(server.Command, fileMapping, nil)}
-		}
-
-		image = expandEnvVars(server.ContainerImage, fileMapping, nil)
-		args = server.Args
-		port = server.ContainerPort
-	} else {
-		nanobotFileString, err := constructNanobotYAML(serverDisplayName, server.Command, server.Args, secretStringData)
-		if err != nil {
-			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
-		}
-
-		objs = append(objs, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        name.SafeConcatName(server.Scope, "run"),
-				Namespace:   k.mcpNamespace,
-				Annotations: annotations,
-			},
-			StringData: map[string]string{
-				"nanobot.yaml": nanobotFileString,
-			},
-		})
-	}
-
-	annotations["obot-revision"] = hash.Digest(hash.Digest(secretStringData) + hash.Digest(secretVolumeStringData))
+	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvStringData) + hash.Digest(secretVolumeStringData) + hash.Digest(webhooks))
 
 	// Set this environment variable for our nanobot image to read
-	secretStringData["NANOBOT_META_ENV"] = strings.Join(metaEnv, ",")
+	secretEnvStringData["NANOBOT_META_ENV"] = strings.Join(metaEnv, ",")
 
 	// Set an environment variable to indicate that the MCP server is running in Kubernetes.
 	// This is something that our special images read and react to.
-	secretStringData["OBOT_KUBERNETES_MODE"] = "true"
+	secretEnvStringData["OBOT_KUBERNETES_MODE"] = "true"
 
 	// Tell nanobot to expose the healthz endpoint
-	secretStringData["NANOBOT_RUN_HEALTHZ_PATH"] = "/healthz"
+	secretEnvStringData["NANOBOT_RUN_HEALTHZ_PATH"] = "/healthz"
 
-	objs = append(objs, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(server.Scope, "config"),
-			Namespace:   k.mcpNamespace,
-			Annotations: annotations,
-		},
-		StringData: secretStringData,
-	})
+	// JWT environment variables
+	secretEnvStringData["NANOBOT_RUN_TRUSTED_ISSUER"] = server.Issuer
+	secretEnvStringData["NANOBOT_RUN_TRUSTED_AUDIENCES"] = strings.Join(server.Audiences, ",")
+	secretEnvStringData["NANOBOT_RUN_JWKS"] = server.JWKS
+	secretEnvStringData["NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_ID"] = server.TokenExchangeClientID
+	secretEnvStringData["NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_SECRET"] = server.TokenExchangeClientSecret
+	secretEnvStringData["NANOBOT_RUN_TOKEN_EXCHANGE_ENDPOINT"] = server.TokenExchangeEndpoint
+	secretEnvStringData["NANOBOT_DISABLE_HEALTH_CHECKER"] = "false"
 
 	// Fetch K8s settings
 	k8sSettings, err := k.getK8sSettings(ctx)
@@ -352,30 +338,256 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	// Add K8s settings hash to annotations
 	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings)
 
+	webhookSecretStringData := make(map[string]string, len(webhooks))
+	containers := make([]corev1.Container, 0, len(webhooks)+2)
+	// Add a container for each webhook, ensuring that there are no port collisions.
+	for i, webhook := range webhooks {
+		port := port + i + 1
+		c, err := webhookToServerConfig(webhook, k.httpWebhookBaseImage, server.MCPServerName, server.UserID, server.Scope, port)
+		if err != nil {
+			return nil, fmt.Errorf("failed to translate webhook to config %s: %v", webhook.Name, err)
+		}
+
+		env := make([]corev1.EnvVar, 0, len(c.Env))
+		for _, e := range c.Env {
+			key, val, ok := strings.Cut(e, "=")
+			if !ok {
+				continue
+			}
+
+			if key != "WEBHOOK_SECRET" {
+				env = append(env, corev1.EnvVar{
+					Name:  key,
+					Value: val,
+				})
+			} else {
+				secretKey := strings.ToUpper(server.MCPServerName + "_" + key)
+				webhookSecretStringData[secretKey] = val
+				env = append(env, corev1.EnvVar{
+					Name: key,
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: name.SafeConcatName(server.MCPServerName, "webhook", "secrets"),
+							},
+							Key: secretKey,
+						},
+					},
+				})
+			}
+		}
+
+		containers = append(containers, corev1.Container{
+			Name:            c.MCPServerName,
+			Image:           k.httpWebhookBaseImage,
+			ImagePullPolicy: corev1.PullAlways,
+			Ports: []corev1.ContainerPort{{
+				ContainerPort: int32(port),
+			}},
+			SecurityContext: &corev1.SecurityContext{
+				AllowPrivilegeEscalation: &[]bool{false}[0],
+				RunAsNonRoot:             &[]bool{true}[0],
+				RunAsUser:                &[]int64{1000}[0],
+				RunAsGroup:               &[]int64{1000}[0],
+			},
+			Env: env,
+		})
+
+		// Update the URL for this webhook for use inside the "main" container.
+		webhook.URL = fmt.Sprintf("http://localhost:%d%s", port, c.ContainerPath)
+		webhooks[i] = webhook
+	}
+
+	objs = append(objs, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name.SafeConcatName(server.MCPServerName, "webhook", "secrets"),
+			Namespace:   k.mcpNamespace,
+			Annotations: annotations,
+		},
+		StringData: webhookSecretStringData,
+	})
+
+	if server.Runtime != types.RuntimeRemote {
+		// If this is a containerized runtime, then we need to add a shim container.
+		nanobotFileString, err := constructNanobotYAMLForServer(server.MCPServerDisplayName+" Shim", fmt.Sprintf("http://localhost:%d/%s", server.ContainerPort, strings.TrimPrefix(server.ContainerPath, "/")), "", nil, nil, nil, webhooks)
+		if err != nil {
+			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
+		}
+
+		objs = append(objs, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name.SafeConcatName(server.MCPServerName, "run", "shim"),
+				Namespace:   k.mcpNamespace,
+				Annotations: annotations,
+			},
+			StringData: map[string]string{
+				"nanobot.yaml": nanobotFileString,
+			},
+		})
+
+		objs = append(objs, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name.SafeConcatName(server.MCPServerName, "config", "shim"),
+				Namespace:   k.mcpNamespace,
+				Annotations: annotations,
+			},
+			StringData: func() map[string]string {
+				vars := make(map[string]string, 10)
+				for k, v := range secretEnvStringData {
+					if k == "NANOBOT_DISABLE_HEALTH_CHECKER" {
+						vars[k] = "true"
+						delete(secretEnvStringData, k)
+					} else if strings.HasPrefix(k, "NANOBOT_") {
+						vars[k] = v
+						delete(secretEnvStringData, k)
+					}
+				}
+
+				return vars
+			}(),
+		})
+
+		port := port + len(webhooks) + 1
+
+		containers = append(containers, corev1.Container{
+			Name:            server.MCPServerName + "-shim",
+			Image:           k.remoteShimBaseImage,
+			ImagePullPolicy: corev1.PullAlways,
+			Ports: []corev1.ContainerPort{{
+				Name:          portName,
+				ContainerPort: int32(port),
+			}},
+			SecurityContext: &corev1.SecurityContext{
+				AllowPrivilegeEscalation: &[]bool{false}[0],
+				RunAsNonRoot:             &[]bool{true}[0],
+				RunAsUser:                &[]int64{1000}[0],
+				RunAsGroup:               &[]int64{1000}[0],
+			},
+			Args: []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", port), "/run/nanobot.yaml"},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "run-shim-file",
+					MountPath: "/run",
+					ReadOnly:  true,
+				},
+			},
+			EnvFrom: []corev1.EnvFromSource{{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: name.SafeConcatName(server.MCPServerName, "config", "shim"),
+					},
+				},
+			}},
+			ReadinessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
+						Path: "/healthz",
+						Port: intstr.FromInt(port),
+					},
+				},
+			},
+		})
+
+		// Reset the portName so that the service points to the shim.
+		portName = ""
+
+		if server.Command != "" {
+			command = []string{expandEnvVars(server.Command, fileMapping, nil)}
+		}
+
+		image = expandEnvVars(server.ContainerImage, fileMapping, nil)
+		args = server.Args
+	} else {
+		nanobotFileString, err := constructNanobotYAMLForServer(server.MCPServerDisplayName, server.URL, server.Command, server.Args, secretEnvStringData, headerData, webhooks)
+		if err != nil {
+			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
+		}
+
+		objs = append(objs, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name.SafeConcatName(server.MCPServerName, "run"),
+				Namespace:   k.mcpNamespace,
+				Annotations: annotations,
+			},
+			StringData: map[string]string{
+				"nanobot.yaml": nanobotFileString,
+			},
+		})
+	}
+
+	objs = append(objs, &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name.SafeConcatName(server.MCPServerName, "config"),
+			Namespace:   k.mcpNamespace,
+			Annotations: annotations,
+		},
+		StringData: secretEnvStringData,
+	})
+
+	containers = append(containers, corev1.Container{
+		Name:            "mcp",
+		Image:           image,
+		ImagePullPolicy: corev1.PullAlways,
+		Ports: []corev1.ContainerPort{{
+			Name:          portName,
+			ContainerPort: int32(port),
+		}},
+		// Apply resources from K8s settings with fallback to default
+		Resources: func() corev1.ResourceRequirements {
+			if k8sSettings.Resources != nil {
+				return *k8sSettings.Resources
+			}
+			return corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("400Mi"),
+				},
+			}
+		}(),
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &[]bool{false}[0],
+			RunAsNonRoot:             &[]bool{true}[0],
+			RunAsUser:                &[]int64{1000}[0],
+			RunAsGroup:               &[]int64{1000}[0],
+		},
+		Command: command,
+		Args:    args,
+		EnvFrom: []corev1.EnvFromSource{{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: name.SafeConcatName(server.MCPServerName, "config"),
+				},
+			},
+		}},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "files",
+				MountPath: "/files",
+			},
+		},
+	})
+
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        server.Scope,
+			Name:        server.MCPServerName,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 			Labels: map[string]string{
-				"app":             server.Scope,
-				"mcp-server-name": serverName,
-				"mcp-user-id":     userID,
+				"app":         server.MCPServerName,
+				"mcp-user-id": server.UserID,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": server.Scope,
+					"app": server.MCPServerName,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: annotations,
 					Labels: map[string]string{
-						"app":             server.Scope,
-						"mcp-server-name": serverName,
-						"mcp-user-id":     userID,
+						"app":         server.MCPServerName,
+						"mcp-user-id": server.UserID,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -386,7 +598,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 							Name: "files",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(server.Scope, "files"),
+									SecretName: name.SafeConcatName(server.MCPServerName, "files"),
 								},
 							},
 						},
@@ -394,69 +606,37 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 							Name: "run-file",
 							VolumeSource: corev1.VolumeSource{
 								Secret: &corev1.SecretVolumeSource{
-									SecretName: name.SafeConcatName(server.Scope, "run"),
+									SecretName: name.SafeConcatName(server.MCPServerName, "run"),
+								},
+							},
+						},
+						{
+							Name: "run-shim-file",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: name.SafeConcatName(server.MCPServerName, "run", "shim"),
 								},
 							},
 						},
 					},
-					Containers: []corev1.Container{{
-						Name:            "mcp",
-						Image:           image,
-						ImagePullPolicy: corev1.PullAlways,
-						Ports: []corev1.ContainerPort{{
-							Name:          "http",
-							ContainerPort: int32(port),
-						}},
-						// Apply resources from K8s settings with fallback to default
-						Resources: func() corev1.ResourceRequirements {
-							if k8sSettings.Resources != nil {
-								return *k8sSettings.Resources
-							}
-							return corev1.ResourceRequirements{
-								Requests: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("400Mi"),
-								},
-							}
-						}(),
-						SecurityContext: &corev1.SecurityContext{
-							AllowPrivilegeEscalation: &[]bool{false}[0],
-							RunAsNonRoot:             &[]bool{true}[0],
-							RunAsUser:                &[]int64{1000}[0],
-							RunAsGroup:               &[]int64{1000}[0],
-						},
-						Command: command,
-						Args:    args,
-						EnvFrom: []corev1.EnvFromSource{{
-							SecretRef: &corev1.SecretEnvSource{
-								LocalObjectReference: corev1.LocalObjectReference{
-									Name: name.SafeConcatName(server.Scope, "config"),
-								},
-							},
-						}},
-						VolumeMounts: []corev1.VolumeMount{
-							{
-								Name:      "files",
-								MountPath: "/files",
-							},
-						},
-					}},
+					Containers: containers,
 				},
 			},
 		},
 	}
 
 	if server.Runtime != types.RuntimeContainerized {
-		dep.Spec.Template.Spec.Containers[0].VolumeMounts = append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+		dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts = append(dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts, corev1.VolumeMount{
 			Name:      "run-file",
 			MountPath: "/run",
 			ReadOnly:  true,
 		})
 
-		dep.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
+		dep.Spec.Template.Spec.Containers[len(containers)-1].ReadinessProbe = &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path: "/healthz",
-					Port: intstr.FromString("http"),
+					Port: intstr.FromInt(port),
 				},
 			},
 		}
@@ -472,7 +652,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 	objs = append(objs, &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        server.Scope,
+			Name:        server.MCPServerName,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 		},
@@ -485,7 +665,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				},
 			},
 			Selector: map[string]string{
-				"app": server.Scope,
+				"app": server.MCPServerName,
 			},
 			Type: corev1.ServiceTypeClusterIP,
 		},
@@ -584,6 +764,9 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 	const maxRetries = 5
 	var lastErr error
 
+	// The Kubernetes backend is always going to have a Nanobot pod running. So, ensure that the runtime is "remote" instead of "containerized"
+	server.Runtime = types.RuntimeRemote
+
 	// Retry loop with smart pod status checking
 	for attempt := range maxRetries {
 		// Wait for the deployment to be updated.
@@ -612,7 +795,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 			}
 
 			for _, p := range pods.Items {
-				if p.Status.Phase == corev1.PodRunning {
+				if p.DeletionTimestamp.IsZero() && p.Status.Phase == corev1.PodRunning {
 					podName = p.Name
 					runningPodCount++
 				}

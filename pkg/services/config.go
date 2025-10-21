@@ -318,8 +318,10 @@ func newGPTScript(ctx context.Context,
 		return nil, err
 	}
 
-	if err := os.Setenv("GPTSCRIPT_URL", url); err != nil {
-		return nil, err
+	if mcpSessionManager != nil {
+		if err := os.Setenv("GPTSCRIPT_URL", url); err != nil {
+			return nil, err
+		}
 	}
 
 	if os.Getenv("WORKSPACE_PROVIDER_DATA_HOME") == "" {
@@ -431,7 +433,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.AuthOwnerEmails,
 		config.AuthAdminEmails,
 		time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second,
-		config.MCPAuditLogsPersistBatchSize)
+		config.MCPAuditLogsPersistBatchSize,
+	)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)
@@ -450,15 +453,42 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	ephemeralTokenServer := &ephemeral.TokenService{}
-	mcpLoader, err := mcp.NewSessionManager(ctx, ephemeralTokenServer, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
+	events := events.NewEmitter(storageClient, gatewayClient)
+
+	var postgresDSN string
+	if strings.HasPrefix(config.DSN, "postgres://") {
+		postgresDSN = config.DSN
+	}
+
+	invoker := invoke.NewInvoker(
+		storageClient,
+		gatewayClient,
+		config.Hostname,
+		config.HTTPListenPort,
+		ephemeralTokenServer,
+		events,
+	)
+	providerDispatcher := dispatcher.New(invoker, storageClient, gatewayClient, postgresDSN)
+	credOnlyGPTscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpLoader)
+	persistentTokenServer, err := persistent.NewTokenService(ctx, config.Hostname, gatewayClient, providerDispatcher, credOnlyGPTscriptClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
+	}
+
+	mcpSessionManager, err := mcp.NewSessionManager(ctx, persistentTokenServer, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
 	if err != nil {
 		return nil, err
 	}
+
+	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpSessionManager)
+	if err != nil {
+		return nil, err
+	}
+	providerDispatcher.UpdateConfiguredAuthProviders(ctx, gptscriptClient)
 
 	if strings.HasPrefix(config.DSN, "postgres://") {
 		if err := gptscriptClient.CreateCredential(ctx, gptscript.Credential{
@@ -611,33 +641,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
 	apply.AddValidOwnerChange("mcpcatalogentries", "catalog-default")
 
-	var postgresDSN string
-	if strings.HasPrefix(config.DSN, "postgres://") {
-		postgresDSN = config.DSN
-	}
-
-	var (
-		events  = events.NewEmitter(storageClient, gatewayClient)
-		invoker = invoke.NewInvoker(
-			storageClient,
-			gptscriptClient,
-			gatewayClient,
-			mcpLoader,
-			config.Hostname,
-			config.HTTPListenPort,
-			ephemeralTokenServer,
-			events,
-		)
-		providerDispatcher = dispatcher.New(ctx, invoker, storageClient, gptscriptClient, gatewayClient, postgresDSN)
-
-		proxyManager *proxy.Manager
-	)
-
-	persistentTokenServer, err := persistent.NewTokenService(ctx, config.Hostname, gatewayClient, providerDispatcher, gptscriptClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
-	}
-
+	var proxyManager *proxy.Manager
 	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, gptscriptClient, config.EnableAuthentication, config.ForceEnableBootstrap)
 	if err != nil {
 		return nil, err
@@ -648,13 +652,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient, providerDispatcher)
-	authenticators = union.New(authenticators, persistentTokenServer)
+	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient, gptscriptClient, providerDispatcher)
 	if config.EnableAuthentication {
-		proxyManager = proxy.NewProxyManager(ctx, providerDispatcher)
+		proxyManager = proxy.NewProxyManager(ctx, providerDispatcher, gptscriptClient)
 
 		// Token Auth + OAuth auth
 		authenticators = union.New(authenticators, proxyManager)
+		// Persistent Token Auth
+		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add gateway user info
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
 		// Add token auth
@@ -728,6 +733,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	retentionPolicy := time.Duration(config.RetentionPolicyHours) * time.Hour
 
+	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.MCPHTTPWebhookBaseImage)
+
+	mcpSessionManager.Init(gptscriptClient, webhookHelper)
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		EncryptionConfig:      encryptionConfig,
@@ -773,17 +781,17 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		PostgresDSN:                postgresDSN,
 		RetentionPolicy:            retentionPolicy,
 		DefaultMCPCatalogPath:      config.DefaultMCPCatalogPath,
-		MCPLoader:                  mcpLoader,
+		MCPLoader:                  mcpSessionManager,
 		MCPOAuthTokenStorage:       mcpOAuthTokenStorage,
 		OAuthServerConfig: OAuthAuthorizationServerConfig{
 			JWKSURI:                           config.Hostname + "/oauth/jwks.json",
 			ResponseTypesSupported:            []string{"code"},
-			GrantTypesSupported:               []string{"authorization_code", "refresh_token"},
+			GrantTypesSupported:               []string{"authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"},
 			CodeChallengeMethodsSupported:     []string{"S256", "plain"},
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 		},
 		AccessControlRuleHelper: acrHelper,
-		WebhookHelper:           mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer()),
+		WebhookHelper:           webhookHelper,
 		LocalK8sConfig:          localK8sConfig,
 		MCPServerNamespace:      config.MCPNamespace,
 		K8sSettingsFromHelm:     helmK8sSettings,

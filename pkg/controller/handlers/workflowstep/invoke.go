@@ -32,7 +32,7 @@ func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
 
 	var run v1.Run
 	if len(step.Status.RunNames) == 0 {
-		invokeResp, err := h.invoker.Step(ctx, req.Client, step, invoke.StepOptions{
+		invokeResp, err := h.invoker.Step(ctx, h.mcpSessionManager, h.gptscriptClient, req.Client, step, invoke.StepOptions{
 			PreviousRunName: lastRunName,
 			IgnoreMCPErrors: true,
 		})

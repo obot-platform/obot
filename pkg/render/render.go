@@ -13,7 +13,6 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gz"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -55,7 +54,7 @@ func stringAppend(first string, second ...string) string {
 	return strings.Join(append([]string{first}, second...), "\n\n")
 }
 
-func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSessionManager *mcp.SessionManager, db kclient.Client, agent *v1.Agent, serverURL, internalServerURL string, opts AgentOptions) (RenderedAgent, error) {
+func Agent(ctx context.Context, mcpSessionManager *mcp.SessionManager, db kclient.Client, agent *v1.Agent, serverURL, internalServerURL string, opts AgentOptions) (RenderedAgent, error) {
 	var renderedAgent RenderedAgent
 	defer func() {
 		sort.Strings(renderedAgent.Env)
@@ -173,7 +172,7 @@ func Agent(ctx context.Context, tokenService *ephemeral.TokenService, mcpSession
 				mcpDisplayName = mcpServer.Spec.Alias
 			}
 
-			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, tokenService, projectMCPServer, opts.UserID, mcpDisplayName, internalServerURL, allowedTools)
+			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, projectMCPServer, opts.UserID, mcpDisplayName, internalServerURL, allowedTools)
 			if err != nil {
 				if !opts.IgnoreMCPErrors {
 					return renderedAgent, fmt.Errorf("failed to populate tools for MCP server %q: %w", mcpDisplayName, err)

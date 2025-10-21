@@ -2,7 +2,6 @@ package server
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -110,6 +109,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			log.Warnf("Failed to apply rate limits: %v", err)
 		}
 
+		authenticated := !slices.Contains(user.GetGroups(), authz.UnauthenticatedGroup)
 		if strings.HasPrefix(req.URL.Path, "/api/") && req.URL.Path != "/api/healthz" {
 			// Setup a new response writer for audit logging.
 			rw = &responseWriter{
@@ -126,7 +126,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				auditLogger: s.auditLogger,
 			}
 
-			if user.GetUID() != "" && user.GetUID() != "anonymous" {
+			if authenticated {
 				// Best effort
 				if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
 					log.Warnf("Failed to add activity tracking for user %s: %v", user.GetName(), err)
@@ -152,14 +152,10 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				})
 			}
 
-			if strings.HasPrefix(req.URL.Path, "/mcp-connect/") {
-				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"`, strings.TrimSuffix(s.baseURL, "/api"), req.URL.Path))
-			}
-
-			if slices.Contains(user.GetGroups(), authz.UnauthenticatedGroup) {
-				http.Error(rw, "unauthorized", http.StatusUnauthorized)
-			} else {
+			if authenticated {
 				http.Error(rw, "forbidden", http.StatusForbidden)
+			} else {
+				http.Error(rw, "unauthorized", http.StatusUnauthorized)
 			}
 
 			return

@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/obot-platform/nah/pkg/fields"
+	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -64,6 +65,14 @@ func (in *MCPServerInstance) DeleteRefs() []Ref {
 		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 	}
+}
+
+func (in *MCPServerInstance) ValidConnectURLs(base string) []string {
+	var urls []string
+	if in.Spec.MCPServerName != "" {
+		urls = append(urls, system.MCPConnectURL(base, in.Spec.MCPServerName))
+	}
+	return append(urls, system.MCPConnectURL(base, in.Name))
 }
 
 type MCPServerInstanceSpec struct {

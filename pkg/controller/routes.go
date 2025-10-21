@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpsession"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthapp"
+	"github.com/obot-platform/obot/pkg/controller/handlers/oauthclients"
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projectinvitation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
@@ -47,7 +48,7 @@ func (c *Controller) setupRoutes() {
 	root := c.router
 
 	workflowExecution := workflowexecution.New(c.services.Invoker)
-	workflowStep := workflowstep.New(c.services.Invoker, c.services.GPTClient)
+	workflowStep := workflowstep.New(c.services.Invoker, c.services.GPTClient, c.services.MCPLoader)
 	toolRef := toolreference.New(
 		c.services.GPTClient,
 		c.services.ProviderDispatcher,
@@ -55,17 +56,17 @@ func (c *Controller) setupRoutes() {
 		c.services.SupportDocker,
 	)
 	workspace := workspace.New(c.services.GPTClient, c.services.WorkspaceProviderType)
-	knowledgeset := knowledgeset.New(c.services.Invoker)
+	knowledgeset := knowledgeset.New(c.services.Invoker, c.services.GPTClient)
 	knowledgesource := knowledgesource.NewHandler(c.services.Invoker, c.services.GPTClient)
 	knowledgefile := knowledgefile.New(c.services.Invoker, c.services.GPTClient, c.services.KnowledgeSetIngestionLimit)
-	runs := runs.New(c.services.Invoker, c.services.Router.Backend(), c.services.GatewayClient)
+	runs := runs.New(c.services.Invoker, c.services.Router.Backend(), c.services.GatewayClient, c.services.GPTClient)
 	webHooks := webhook.New()
 	cronJobs := cronjob.New()
-	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.ServerURL)
+	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.GPTClient, c.services.ServerURL)
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
 	toolInfo := toolinfo.New(c.services.GPTClient)
-	threads := threads.NewHandler(c.services.GPTClient, c.services.Invoker)
-	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient, c.services.MCPLoader, c.services.GatewayClient, c.services.EphemeralTokenServer, c.services.ServerURL)
+	threads := threads.NewHandler(c.services.GPTClient, c.services.Invoker, c.services.MCPLoader)
+	credentialCleanup := cleanup.NewCredentials(c.services.GPTClient, c.services.MCPLoader, c.services.GatewayClient, c.services.ServerURL)
 	projects := projects.NewHandler()
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
@@ -74,7 +75,7 @@ func (c *Controller) setupRoutes() {
 	slackReceiverHandler := slackreceiver.NewHandler(c.services.GPTClient, c.services.StorageClient)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpSession := mcpsession.New(c.services.GPTClient)
-	mcpserver := mcpserver.New(c.services.ServerURL)
+	mcpserver := mcpserver.New(c.services.GPTClient, c.services.ServerURL)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New()
@@ -82,6 +83,7 @@ func (c *Controller) setupRoutes() {
 	adminWorkspaceHandler := adminworkspace.New(c.services.GatewayClient)
 	auditLogExportHandler := auditlogexport.NewHandler(c.services.GPTClient, c.services.GatewayClient, c.services.EncryptionConfig)
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
+	oauthclients := oauthclients.NewHandler(c.services.GPTClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -259,6 +261,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.CleanupNestedCompositeServers)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectDrift)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerInstanceUserCount)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureOAuthClient)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
 
 	// MCPServerInstance
@@ -284,6 +287,8 @@ func (c *Controller) setupRoutes() {
 
 	// OAuthClients
 	root.Type(&v1.OAuthClient{}).HandlerFunc(cleanup.OAuthClients)
+	root.Type(&v1.OAuthClient{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.OAuthClient{}).FinalizeFunc(v1.OAuthClientFinalizer, oauthclients.CleanupOAuthClientCred)
 
 	// OAuthAuthRequests
 	root.Type(&v1.OAuthAuthRequest{}).HandlerFunc(cleanup.OAuthAuth)

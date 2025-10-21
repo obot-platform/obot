@@ -113,8 +113,9 @@ func (h *handler) deleteClient(req api.Context) error {
 
 	return req.Delete(&v1.OAuthClient{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:       name,
+			Namespace:  namespace,
+			Finalizers: []string{v1.OAuthClientFinalizer},
 		},
 	})
 }

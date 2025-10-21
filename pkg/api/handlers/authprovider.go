@@ -189,7 +189,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to create credential for auth provider %q: %w", ref.Name, err)
 	}
 
-	ap.dispatcher.UpdateConfiguredAuthProviders(req.Context())
+	ap.dispatcher.UpdateConfiguredAuthProviders(req.Context(), req.GPTClient)
 	ap.dispatcher.StopAuthProvider(ref.Namespace, ref.Name)
 
 	// Check to make sure that only this provider is configured.
@@ -200,7 +200,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		if configuredName != ref.Name {
 			// Delete the credential we just configured
 			_ = req.GPTClient.DeleteCredential(req.Context(), string(ref.UID), ref.Name)
-			ap.dispatcher.UpdateConfiguredAuthProviders(req.Context())
+			ap.dispatcher.UpdateConfiguredAuthProviders(req.Context(), req.GPTClient)
 			ap.configureLock.Unlock()
 			return types.NewErrBadRequest(
 				"only one authentication provider can be configured at a time. Please deconfigure %q first",
@@ -241,7 +241,7 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 	}
 
 	defer func() {
-		go ap.dispatcher.UpdateConfiguredAuthProviders(context.Background())
+		go ap.dispatcher.UpdateConfiguredAuthProviders(context.Background(), req.GPTClient)
 	}()
 
 	// Stop the auth provider so that the credential is completely removed from the system.

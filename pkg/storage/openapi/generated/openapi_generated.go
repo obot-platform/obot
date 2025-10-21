@@ -13978,6 +13978,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"oauthClientName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuthClientName is the OAuth client for this MCP server for token exchange.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"needsUpdate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",
@@ -15060,6 +15067,13 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 							Format:  "int32",
 						},
 					},
+					"mcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"authProviderUserID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -15082,7 +15096,7 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "codeChallengeMethod", "grantType", "resource", "hashedAuthCode", "userID", "authProviderUserID", "authProviderNamespace", "authProviderName"},
+				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "codeChallengeMethod", "grantType", "resource", "hashedAuthCode", "userID", "mcpID", "authProviderUserID", "authProviderNamespace", "authProviderName"},
 			},
 		},
 	}
@@ -15268,8 +15282,15 @@ func schema_storage_apis_obotobotai_v1_OAuthClientSpec(ref common.ReferenceCallb
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
+					"mcp_server_name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"manifest", "clientSecretHash", "client_secret_issued_at", "client_secret_expires_at", "registrationTokenHash", "registration_token_issued_at", "registration_token_expires_at"},
+				Required: []string{"manifest", "clientSecretHash", "client_secret_issued_at", "client_secret_expires_at", "registrationTokenHash", "registration_token_issued_at", "registration_token_expires_at", "mcp_server_name"},
 			},
 		},
 		Dependencies: []string{
@@ -15409,6 +15430,13 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref common.ReferenceCallba
 							Format:  "int32",
 						},
 					},
+					"mcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"authProviderUserID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -15431,7 +15459,7 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"resource", "clientID", "userID", "authProviderUserID", "authProviderName", "authProviderNamespace"},
+				Required: []string{"resource", "clientID", "userID", "mcpID", "authProviderUserID", "authProviderName", "authProviderNamespace"},
 			},
 		},
 	}

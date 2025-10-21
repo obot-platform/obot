@@ -20,18 +20,35 @@ var mcpOAuthTokenGroupResource = schema.GroupResource{
 	Resource: "mcpoauthtokens",
 }
 
-func (c *Client) GetMCPOAuthToken(ctx context.Context, userID, mcpID string) (*types.MCPOAuthToken, error) {
-	token := new(types.MCPOAuthToken)
-	err := c.db.WithContext(ctx).Where("mcp_id = ? AND user_id = ?", mcpID, userID).First(token).Error
+func (c *Client) GetMCPOAuthToken(ctx context.Context, userID, mcpID, url string) (*types.MCPOAuthToken, error) {
+	var tokens []types.MCPOAuthToken
+	err := c.db.WithContext(ctx).Where("mcp_id = ? AND user_id = ?", mcpID, userID).Find(&tokens).Error
 	if err != nil {
 		return nil, err
 	}
 
-	if err = c.decryptMCPOAuthToken(ctx, token); err != nil {
+	var token types.MCPOAuthToken
+	for _, t := range tokens {
+		if t.URL == url {
+			token = t
+			break
+		}
+	}
+
+	if token.MCPID == "" {
+		// We didn't find a token. If there is only one, then use that one.
+		if len(tokens) != 1 {
+			return nil, gorm.ErrRecordNotFound
+		}
+
+		token = tokens[0]
+	}
+
+	if err = c.decryptMCPOAuthToken(ctx, &token); err != nil {
 		return nil, fmt.Errorf("failed to decrypt token: %w", err)
 	}
 
-	return token, nil
+	return &token, nil
 }
 
 func (c *Client) GetMCPOAuthTokenByState(ctx context.Context, state string) (*types.MCPOAuthToken, error) {
@@ -48,10 +65,11 @@ func (c *Client) GetMCPOAuthTokenByState(ctx context.Context, state string) (*ty
 	return token, nil
 }
 
-func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, userID, mcpID, oauthAuthRequestID, state, verifier string, oauthConf *oauth2.Config, token *oauth2.Token) error {
+func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, userID, mcpID, url, oauthAuthRequestID, state, verifier string, oauthConf *oauth2.Config, token *oauth2.Token) error {
 	t := &types.MCPOAuthToken{
 		UserID:             userID,
 		MCPID:              mcpID,
+		URL:                url,
 		OAuthAuthRequestID: oauthAuthRequestID,
 		State:              state,
 		Verifier:           verifier,
@@ -78,8 +96,8 @@ func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, userID, mcpID, oauthA
 	return c.db.WithContext(ctx).Save(t).Error
 }
 
-func (c *Client) DeleteMCPOAuthToken(ctx context.Context, userID, mcpID string) error {
-	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{MCPID: mcpID, UserID: userID}).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+func (c *Client) DeleteMCPOAuthToken(ctx context.Context, userID, mcpID, mcpURL string) error {
+	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "user_id = ? AND mcp_id = ? AND (mcp_url = ? OR mcp_url = ?)", userID, mcpID, mcpURL, "").Error; !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	return nil

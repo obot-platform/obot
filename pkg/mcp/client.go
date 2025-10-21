@@ -5,71 +5,65 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
+	gtypes "github.com/gptscript-ai/gptscript/pkg/types"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
 type Client struct {
 	*nmcp.Client
 	ID     string
 	Config ServerConfig
+
+	jwt *jwt.Token
 }
 
-func (c *Client) Capabilities() nmcp.ServerCapabilities {
-	return c.Session.InitializeResult.Capabilities
-}
-
-func (sm *SessionManager) ClientForMCPServerWithOptions(ctx context.Context, userID, clientScope string, mcpServer v1.MCPServer, serverConfig ServerConfig, opts ...nmcp.ClientOption) (*Client, error) {
-	mcpServerDisplayName := mcpServer.Spec.Manifest.Name
-	if mcpServerDisplayName == "" {
-		mcpServerDisplayName = mcpServer.Name
+func (c *Client) hasValidToken() bool {
+	if c.jwt != nil {
+		expiration, err := c.jwt.Claims.GetExpirationTime()
+		return err == nil && (expiration == nil || !expiration.Before(time.Now().Add(-5*time.Minute)))
 	}
-
-	return sm.clientForServerWithOptions(ctx, userID, clientScope, mcpServerDisplayName, mcpServer.Name, serverConfig, opts...)
+	return false
 }
 
-func (sm *SessionManager) ClientForMCPServer(ctx context.Context, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig) (*Client, error) {
-	return sm.clientForMCPServerWithClientScope(ctx, "default", userID, mcpServer, serverConfig)
+func (sm *SessionManager) ClientForMCPServerForOAuthCheck(ctx context.Context, clientScope string, serverConfig ServerConfig, opt nmcp.ClientOption) (*Client, error) {
+	return sm.clientForServerWithOptions(ctx, clientScope, serverConfig, false, opt)
 }
 
-func (sm *SessionManager) clientForMCPServerWithClientScope(ctx context.Context, clientScope, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig) (*Client, error) {
-	mcpServerDisplayName := mcpServer.Spec.Manifest.Name
-	if mcpServerDisplayName == "" {
-		mcpServerDisplayName = mcpServer.Name
-	}
-
-	return sm.clientForServerWithScope(ctx, clientScope, userID, mcpServerDisplayName, mcpServer.Name, serverConfig)
+func (sm *SessionManager) clientForMCPServer(ctx context.Context, serverConfig ServerConfig) (*Client, error) {
+	return sm.clientForMCPServerWithClientScope(ctx, "default", serverConfig)
 }
 
-func (sm *SessionManager) ClientForServer(ctx context.Context, userID, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig) (*Client, error) {
-	return sm.clientForServerWithScope(ctx, "default", userID, mcpServerDisplayName, mcpServerName, serverConfig)
+func (sm *SessionManager) clientForMCPServerWithClientScope(ctx context.Context, clientScope string, serverConfig ServerConfig) (*Client, error) {
+	return sm.clientForServerWithScope(ctx, clientScope, serverConfig)
 }
 
-func (sm *SessionManager) clientForServerWithScope(ctx context.Context, clientScope, userID, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig) (*Client, error) {
+func (sm *SessionManager) clientForServer(ctx context.Context, serverConfig ServerConfig) (*Client, error) {
+	return sm.clientForServerWithScope(ctx, "default", serverConfig)
+}
+
+func (sm *SessionManager) clientForServerWithScope(ctx context.Context, clientScope string, serverConfig ServerConfig) (*Client, error) {
 	clientName := "Obot MCP Gateway"
-	var tokenStorage nmcp.TokenStorage
-	if (serverConfig.Runtime == types.RuntimeRemote) && strings.HasPrefix(serverConfig.URL, fmt.Sprintf("%s/mcp-connect/", sm.baseURL)) {
-		// If the URL points back to us (mcp-connect), then this is Obot chat. Ensure the client name reflects that.
+	if serverConfig.Runtime == types.RuntimeRemote && strings.HasPrefix(serverConfig.URL, fmt.Sprintf("%s/mcp-connect/", sm.baseURL)) {
+		// If the URL points back to us, then this is Obot chat. Ensure the client name reflects that.
 		clientName = "Obot Chat"
-	} else {
-		tokenStorage = sm.tokenStorage.ForUserAndMCP(userID, mcpServerName)
 	}
 
-	return sm.clientForServerWithOptions(ctx, userID, clientScope, mcpServerDisplayName, mcpServerName, serverConfig, nmcp.ClientOption{
-		ClientName:   clientName,
-		TokenStorage: tokenStorage,
+	return sm.clientForServerWithOptions(ctx, clientScope, serverConfig, true, nmcp.ClientOption{
+		ClientName: clientName,
 	})
 }
 
-func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, userID, clientScope, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig, opts ...nmcp.ClientOption) (*Client, error) {
-	config, err := sm.transformServerConfig(ctx, userID, mcpServerDisplayName, mcpServerName, serverConfig)
+func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, clientScope string, serverConfig ServerConfig, transformRemote bool, opt nmcp.ClientOption) (*Client, error) {
+	config, err := sm.ensureDeployment(ctx, serverConfig, transformRemote)
 	if err != nil {
 		return nil, err
 	}
 
-	session, err := sm.loadSession(config, clientScope, mcpServerDisplayName, opts...)
+	session, err := sm.loadSession(config, clientScope, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -77,20 +71,26 @@ func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, userID
 	return session, nil
 }
 
-func (sm *SessionManager) loadSession(server ServerConfig, clientScope, mcpServerDisplayName string, clientOpts ...nmcp.ClientOption) (*Client, error) {
-	id := clientID(server)
-	sessions, _ := sm.sessions.LoadOrStore(id, &sync.Map{})
+func (sm *SessionManager) loadSession(server ServerConfig, clientScope string, clientOpts nmcp.ClientOption) (*Client, error) {
+	sessions, _ := sm.sessions.LoadOrStore(server.MCPServerName, &sync.Map{})
 
 	clientSessions, ok := sessions.(*sync.Map)
 	if !ok || clientSessions == nil {
 		// Shouldn't happen, but handle it anyway
 		clientSessions = &sync.Map{}
-		sm.sessions.Store(id, clientSessions)
+		sm.sessions.Store(server.MCPServerName, clientSessions)
 	}
+
+	clientScope = clientID(server) + clientScope
 
 	existing, ok := clientSessions.Load(clientScope)
 	if ok && existing != nil {
-		return existing.(*Client), nil
+		c := existing.(*Client)
+		if c.hasValidToken() {
+			return c, nil
+		}
+
+		c.Close(false)
 	}
 
 	sm.contextLock.Lock()
@@ -99,27 +99,65 @@ func (sm *SessionManager) loadSession(server ServerConfig, clientScope, mcpServe
 	}
 	sm.contextLock.Unlock()
 
-	c, err := nmcp.NewClient(sm.sessionCtx, mcpServerDisplayName, nmcp.Server{
+	headers := splitIntoMap(server.Headers)
+
+	var jwtToken *jwt.Token
+	// If the token storage is not set, then this is a client we use in our API.
+	// This needs authentication for it to work.
+	if clientOpts.TokenStorage == nil {
+		var (
+			token string
+			err   error
+		)
+
+		// TODO(thedadams): fix this.
+		jwtToken, token, err = sm.tokenService.NewTokenWithClaims(jwt.MapClaims{
+			"aud": gtypes.FirstSet(server.Audiences...),
+			"exp": time.Now().Add(time.Hour).Unix(),
+			"iat": time.Now().Unix(),
+			"sub": server.UserID,
+			// "name":       server.UserName,
+			// "email":      server.UserEmail,
+			// "picture":    server.Picture,
+			// "UserGroups": strings.Join(server.UserGroups, ","),
+			"MCPID": server.MCPServerName,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWT token for client: %w", err)
+		}
+
+		headers["Authorization"] = "Bearer " + token
+	}
+
+	c, err := nmcp.NewClient(sm.sessionCtx, server.MCPServerDisplayName, nmcp.Server{
 		Env:     splitIntoMap(server.Env),
 		Command: server.Command,
 		Args:    server.Args,
 		BaseURL: server.URL,
-		Headers: splitIntoMap(server.Headers),
-	}, clientOpts...)
+		Headers: headers,
+	}, clientOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MCP client: %w", err)
 	}
 
 	result := &Client{
-		ID:     id,
+		ID:     clientScope,
 		Client: c,
 		Config: server,
+		jwt:    jwtToken,
 	}
 
 	res, ok := clientSessions.LoadOrStore(clientScope, result)
 	if ok {
-		c.Session.Close(true)
-		return res.(*Client), nil
+		c := res.(*Client)
+		if c.hasValidToken() {
+			c.Session.Close(true)
+			return c, nil
+		}
+
+		// Swap the existing client with the new one and close the old one.
+		clientSessions.Swap(clientScope, result)
+		c.Close(false)
 	}
 
 	return result, nil

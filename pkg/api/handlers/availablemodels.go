@@ -68,7 +68,7 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 			continue
 		}
 
-		m, err := a.dispatcher.ModelsForProvider(req.Context(), modelProvider.Namespace, modelProvider.Name)
+		m, err := a.dispatcher.ModelsForProvider(req.Context(), req.GPTClient, modelProvider.Namespace, modelProvider.Name)
 		if err != nil {
 			return err
 		}
@@ -143,9 +143,9 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 	var oModels *openai.ModelsList
 	if assistantID != "" {
 		// If this is a request for obot-based models, then send the credential environment variables with the request so the model provider uses the correct credentials.
-		oModels, err = a.dispatcher.ModelsForProviderWithEnv(req.Context(), modelProviderReference.Namespace, modelProviderReference.Name, credEnvVars)
+		oModels, err = a.dispatcher.ModelsForProviderWithEnv(req.Context(), req.GPTClient, modelProviderReference.Namespace, modelProviderReference.Name, credEnvVars)
 	} else {
-		oModels, err = a.dispatcher.ModelsForProvider(req.Context(), modelProviderReference.Namespace, modelProviderReference.Name)
+		oModels, err = a.dispatcher.ModelsForProvider(req.Context(), req.GPTClient, modelProviderReference.Namespace, modelProviderReference.Name)
 	}
 	if err != nil {
 		return err

@@ -47,23 +47,19 @@ const (
 )
 
 type Invoker struct {
-	gptClient         *gptscript.GPTScript
 	uncached          kclient.WithWatch
 	gatewayClient     *client.Client
 	tokenService      *ephemeral.TokenService
-	mcpSessionManager *mcp.SessionManager
 	events            *events.Emitter
 	serverURL         string
 	internalServerURL string
 }
 
-func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, mcpSessionManager *mcp.SessionManager, serverURL string, serverPort int, tokenService *ephemeral.TokenService, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.WithWatch, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *ephemeral.TokenService, events *events.Emitter) *Invoker {
 	return &Invoker{
 		uncached:          c,
-		gptClient:         gptClient,
 		gatewayClient:     gatewayClient,
 		tokenService:      tokenService,
-		mcpSessionManager: mcpSessionManager,
 		events:            events,
 		serverURL:         serverURL,
 		internalServerURL: fmt.Sprintf("http://localhost:%d", serverPort),
@@ -327,16 +323,16 @@ func createThreadForAgent(ctx context.Context, c kclient.WithWatch, agent *v1.Ag
 	return thread, c.Create(ctx, thread)
 }
 
-func (i *Invoker) Thread(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, input string, opt Options) (*Response, error) {
+func (i *Invoker) Thread(ctx context.Context, mcpSessionManager *mcp.SessionManager, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, input string, opt Options) (*Response, error) {
 	var agent v1.Agent
 	if err := c.Get(ctx, router.Key(thread.Namespace, thread.Spec.AgentName), &agent); err != nil {
 		return nil, err
 	}
 	opt.Thread = thread
-	return i.Agent(ctx, c, &agent, input, opt)
+	return i.Agent(ctx, mcpSessionManager, gptClient, c, &agent, input, opt)
 }
 
-func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agent, input string, opt Options) (*Response, error) {
+func (i *Invoker) Agent(ctx context.Context, mcpSessionManager *mcp.SessionManager, gptClient *gptscript.GPTScript, c kclient.WithWatch, agent *v1.Agent, input string, opt Options) (*Response, error) {
 	thread := opt.Thread
 	if thread == nil {
 		var err error
@@ -377,7 +373,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		}
 	}
 
-	renderedAgent, err := render.Agent(ctx, i.tokenService, i.mcpSessionManager, c, agent, i.serverURL, i.internalServerURL, render.AgentOptions{
+	renderedAgent, err := render.Agent(ctx, mcpSessionManager, c, agent, i.serverURL, i.internalServerURL, render.AgentOptions{
 		Thread:          thread,
 		WorkflowStepID:  opt.WorkflowStepID,
 		UserID:          opt.UserUID,
@@ -396,7 +392,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		}
 	}
 
-	resp, err := i.createRun(ctx, c, thread, renderedAgent.Tools, input, runOptions{
+	resp, err := i.createRun(ctx, gptClient, c, thread, renderedAgent.Tools, input, runOptions{
 		Synchronous:           opt.Synchronous,
 		WorkflowName:          opt.WorkflowName,
 		AgentName:             agent.Name,
@@ -450,7 +446,7 @@ func isEphemeral(run *v1.Run) bool {
 	return strings.HasPrefix(run.Name, ephemeralRunPrefix)
 }
 
-func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (*Response, error) {
+func (i *Invoker) createRun(ctx context.Context, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, tool any, input string, opts runOptions) (*Response, error) {
 	if thread.Spec.Project && !opts.Ephemeral {
 		return nil, fmt.Errorf("project threads cannot be invoked")
 	}
@@ -560,7 +556,7 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 	resp.gatewayClient = i.gatewayClient
 	resp.cancel = cancel
 	go func() {
-		if err := i.Resume(ctx, c, thread, &run); err != nil {
+		if err := i.Resume(ctx, gptClient, c, thread, &run); err != nil {
 			log.Errorf("run failed: %v", err)
 		}
 	}()
@@ -568,7 +564,7 @@ func (i *Invoker) createRun(ctx context.Context, c kclient.WithWatch, thread *v1
 	return resp, nil
 }
 
-func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, run *v1.Run) (err error) {
+func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, run *v1.Run) (err error) {
 	defer func() {
 		if err != nil {
 			errStr, _, _ := strings.Cut(err.Error(), ": exit status")
@@ -738,7 +734,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		if err != nil {
 			return fmt.Errorf("failed to resolve tool reference: %w", err)
 		}
-		runResp, err = i.gptClient.Run(ctx, toolRef, options)
+		runResp, err = gptClient.Run(ctx, toolRef, options)
 		if err != nil {
 			return fmt.Errorf("failed to run tool: %w", err)
 		}
@@ -746,7 +742,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolDefs); err != nil {
 			return fmt.Errorf("invalid tool definition: %s: %w", run.Spec.Tool, err)
 		}
-		runResp, err = i.gptClient.Evaluate(ctx, options, toolDefs...)
+		runResp, err = gptClient.Evaluate(ctx, options, toolDefs...)
 		if err != nil {
 			return fmt.Errorf("failed to evaluate tool: %w", err)
 		}
@@ -754,7 +750,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		if err := json.Unmarshal([]byte(run.Spec.Tool), &toolDef); err != nil {
 			return fmt.Errorf("invalid tool definition: %s: %w", run.Spec.Tool, err)
 		}
-		runResp, err = i.gptClient.Evaluate(ctx, options, toolDef)
+		runResp, err = gptClient.Evaluate(ctx, options, toolDef)
 		if err != nil {
 			return fmt.Errorf("failed to evaluate tool: %w", err)
 		}
@@ -762,7 +758,7 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 		return fmt.Errorf("invalid tool definition: %s", run.Spec.Tool)
 	}
 
-	if err := i.stream(ctx, c, thread, run, runResp); err != nil {
+	if err := i.stream(ctx, gptClient, c, thread, run, runResp); err != nil {
 		return fmt.Errorf("failed to stream: %w", err)
 	}
 
@@ -999,7 +995,7 @@ func getCredentialCallingTool(runResp *gptscript.Run) (result gptscript.Tool) {
 	return
 }
 
-func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run) (retErr error) {
+func (i *Invoker) stream(ctx context.Context, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, run *v1.Run, runResp *gptscript.Run) (retErr error) {
 	var (
 		runEvent = runResp.Events()
 		wg       sync.WaitGroup
@@ -1055,7 +1051,7 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	go timeoutAfter(runCtx, cancelRun, timeout)
 	if !isEphemeral(run) {
 		// Don't watch thread abort for ephemeral runs
-		go i.watchThreadAbort(runCtx, c, thread, cancelRun, runResp)
+		go i.watchThreadAbort(runCtx, gptClient, c, thread, cancelRun, runResp)
 	}
 
 	var (
@@ -1117,7 +1113,7 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 					// In this case, we're waiting for an OAuth prompt
 					timeoutMsg = "timeout waiting for oauth"
 					timeout = 90 * time.Second
-					err := i.gptClient.PromptResponse(runCtx, gptscript.PromptResponse{
+					err := gptClient.PromptResponse(runCtx, gptscript.PromptResponse{
 						ID: frame.Prompt.ID,
 						Responses: map[string]string{
 							"handled": "true",
@@ -1152,7 +1148,7 @@ func (i *Invoker) stream(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	}
 }
 
-func (i *Invoker) watchThreadAbort(ctx context.Context, c kclient.WithWatch, thread *v1.Thread, cancel context.CancelCauseFunc, run *gptscript.Run) {
+func (i *Invoker) watchThreadAbort(ctx context.Context, gptClient *gptscript.GPTScript, c kclient.WithWatch, thread *v1.Thread, cancel context.CancelCauseFunc, run *gptscript.Run) {
 	_, _ = wait.For(ctx, c, thread, func(thread *v1.Thread) (bool, error) {
 		if thread.Spec.Abort {
 			// we should abort aggressive in the task so that the next step in task won't continue
@@ -1160,7 +1156,7 @@ func (i *Invoker) watchThreadAbort(ctx context.Context, c kclient.WithWatch, thr
 				cancel(fmt.Errorf("thread was aborted, cancelling run"))
 				return true, nil
 			}
-			if err := i.gptClient.AbortRun(ctx, run); err != nil {
+			if err := gptClient.AbortRun(ctx, run); err != nil {
 				return false, err
 			}
 			// cancel the context after 30 seconds in case the abort doesn't work

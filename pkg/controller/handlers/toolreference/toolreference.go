@@ -372,7 +372,7 @@ func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) erro
 		}
 	}
 
-	availableModels, err := h.dispatcher.ModelsForProvider(req.Ctx, req.Namespace, req.Name)
+	availableModels, err := h.dispatcher.ModelsForProvider(req.Ctx, h.gptClient, req.Namespace, req.Name)
 	if err != nil {
 		// Don't error and retry because it will likely fail again. Log the error, and the user can re-sync manually.
 		// Also, the toolRef.Status.Error field will bubble up to the user in the UI.

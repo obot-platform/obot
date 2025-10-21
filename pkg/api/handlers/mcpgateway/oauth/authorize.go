@@ -235,6 +235,7 @@ func (h *handler) authorize(req api.Context) error {
 			CodeChallenge:       codeChallenge,
 			CodeChallengeMethod: codeChallengeMethod,
 			GrantType:           "authorization_code",
+			MCPID:               mcpID,
 		},
 	}
 
@@ -290,7 +291,7 @@ func (h *handler) callback(req api.Context) error {
 
 	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
 		// Check whether the MCP server needs authentication.
-		_, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID, h.oauthChecker.mcpSessionManager.TokenService(), h.baseURL)
+		_, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID, h.jwks())
 		if err != nil {
 			return err
 		}

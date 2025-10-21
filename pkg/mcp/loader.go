@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"strings"
+	"slices"
 	"sync"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -20,18 +20,19 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 )
 
 var log = logger.Package()
 
 type Options struct {
-	MCPBaseImage         string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/phat:main"`
-	MCPNamespace         string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
-	MCPClusterDomain     string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
-	DisallowLocalhostMCP bool     `usage:"Allow MCP containers to run on localhost"`
-	MCPRuntimeBackend    string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
-	MCPImagePullSecrets  []string `usage:"The name of the image pull secret to use for pulling MCP images"`
+	MCPBaseImage            string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/phat:main"`
+	MCPHTTPWebhookBaseImage string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:main"`
+	MCPRemoteShimBaseImage  string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/obot-platform/mcp-images/nanobot:main"`
+	MCPNamespace            string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
+	MCPClusterDomain        string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
+	DisallowLocalhostMCP    bool     `usage:"Allow MCP containers to run on localhost"`
+	MCPRuntimeBackend       string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
+	MCPImagePullSecrets     []string `usage:"The name of the image pull secret to use for pulling MCP images"`
 
 	// Kubernetes settings from Helm
 	MCPK8sSettingsAffinity    string `usage:"Affinity rules for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_AFFINITY"`
@@ -40,20 +41,17 @@ type Options struct {
 }
 
 type SessionManager struct {
-	backend               backend
-	contextLock           sync.Mutex
-	sessionCtx            context.Context
-	cancel                func()
-	sessions              sync.Map
-	tokenStorage          GlobalTokenStore
-	ephemeralTokenService *ephemeral.TokenService
-	baseURL               string
-	allowLocalhostMCP     bool
-}
+	backend           backend
+	contextLock       sync.Mutex
+	sessionCtx        context.Context
+	cancel            func()
+	sessions          sync.Map
+	tokenService      TokenService
+	baseURL           string
+	allowLocalhostMCP bool
 
-// TokenService returns the ephemeral token service used by this session manager.
-func (sm *SessionManager) TokenService() *ephemeral.TokenService {
-	return sm.ephemeralTokenService
+	webhookHelper *WebhookHelper
+	gptClient     *gptscript.GPTScript
 }
 
 const streamableHTTPHealthcheckBody string = `{
@@ -70,12 +68,12 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, ephemeralTokenService *ephemeral.TokenService, tokenStorage GlobalTokenStore, baseURL string, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL string, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
 	var backend backend
 
 	switch opts.MCPRuntimeBackend {
 	case "docker":
-		dockerBackend, err := newDockerBackend(ctx, opts.MCPBaseImage)
+		dockerBackend, err := newDockerBackend(ctx, opts.MCPBaseImage, opts.MCPHTTPWebhookBaseImage, opts.MCPRemoteShimBaseImage)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize Docker backend: %w", err)
 		}
@@ -104,20 +102,23 @@ func NewSessionManager(ctx context.Context, ephemeralTokenService *ephemeral.Tok
 			return nil, err
 		}
 
-		backend = newKubernetesBackend(clientset, client, opts.MCPBaseImage, opts.MCPNamespace, opts.MCPClusterDomain, opts.MCPImagePullSecrets, obotStorageClient)
-	case "local":
-		backend = newLocalBackend()
+		backend = newKubernetesBackend(clientset, client, opts.MCPBaseImage, opts.MCPHTTPWebhookBaseImage, opts.MCPRemoteShimBaseImage, opts.MCPNamespace, opts.MCPClusterDomain, opts.MCPImagePullSecrets, obotStorageClient)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}
 
 	return &SessionManager{
-		backend:               backend,
-		tokenStorage:          tokenStorage,
-		ephemeralTokenService: ephemeralTokenService,
-		baseURL:               baseURL,
-		allowLocalhostMCP:     !opts.DisallowLocalhostMCP,
+		tokenService:      tokenService,
+		backend:           backend,
+		baseURL:           baseURL,
+		allowLocalhostMCP: !opts.DisallowLocalhostMCP,
 	}, nil
+}
+
+// Init must be called before the session manager is used.
+func (sm *SessionManager) Init(gptClient *gptscript.GPTScript, webhookHelper *WebhookHelper) {
+	sm.gptClient = gptClient
+	sm.webhookHelper = webhookHelper
 }
 
 // Load is used by GPTScript to load tools from dynamic MCP server tool definitions.
@@ -161,11 +162,6 @@ func (sm *SessionManager) Close() error {
 
 // CloseClient will close the client for this MCP server, but leave the deployment running.
 func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig, clientScope string) error {
-	if server.Command == "" {
-		sm.closeClient(server, clientScope)
-		return nil
-	}
-
 	serverConfig, err := sm.backend.transformConfig(ctx, server)
 	if err != nil {
 		return fmt.Errorf("failed to transform MCP server config: %w", err)
@@ -176,8 +172,6 @@ func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig, 
 }
 
 func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
-	id := clientID(server)
-
 	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
 		sm.contextLock.Unlock()
@@ -185,7 +179,7 @@ func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
 	}
 	sm.contextLock.Unlock()
 
-	sessions, ok := sm.sessions.Load(id)
+	sessions, ok := sm.sessions.Load(server.MCPServerName)
 	if !ok || sessions == nil {
 		return
 	}
@@ -195,7 +189,7 @@ func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
 		return
 	}
 
-	sess, ok := clientSessions.LoadAndDelete(clientScope)
+	sess, ok := clientSessions.LoadAndDelete(clientID(server) + clientScope)
 	if !ok || sess == nil {
 		return
 	}
@@ -206,14 +200,20 @@ func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
 	}
 }
 
-// ShutdownServer will close the connections to the MCP server and remove the Kubernetes objects.
-func (sm *SessionManager) ShutdownServer(ctx context.Context, server ServerConfig) error {
-	sm.closeClients(server)
-
-	return sm.backend.shutdownServer(ctx, server.Scope)
+// LaunchServer will ensure that the server is deployed
+func (sm *SessionManager) LaunchServer(ctx context.Context, serverConfig ServerConfig) (string, error) {
+	c, err := sm.ensureDeployment(ctx, serverConfig, true)
+	return c.URL, err
 }
 
-func (sm *SessionManager) closeClients(server ServerConfig) {
+// ShutdownServer will close the connections to the MCP server and remove the Kubernetes objects.
+func (sm *SessionManager) ShutdownServer(ctx context.Context, serverName string) error {
+	sm.closeClients(serverName)
+
+	return sm.backend.shutdownServer(ctx, serverName)
+}
+
+func (sm *SessionManager) closeClients(serverName string) {
 	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {
 		sm.contextLock.Unlock()
@@ -221,7 +221,7 @@ func (sm *SessionManager) closeClients(server ServerConfig) {
 	}
 	sm.contextLock.Unlock()
 
-	sessions, ok := sm.sessions.LoadAndDelete(clientID(server))
+	sessions, ok := sm.sessions.LoadAndDelete(serverName)
 	if !ok || sessions == nil {
 		return
 	}
@@ -246,14 +246,33 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 	if server.Runtime == otypes.RuntimeRemote {
 		return otypes.NewErrBadRequest("cannot restart deployment for remote MCP server")
 	}
-	return sm.backend.restartServer(ctx, server.Scope)
+	return sm.backend.restartServer(ctx, server.MCPServerName)
 }
 
-func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
-	switch server.Runtime {
-	case otypes.RuntimeRemote:
+func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, transformRemote bool) (ServerConfig, error) {
+	var webhooks []Webhook
+	if !server.ComponentMCPServer {
+		// Don't get webhooks for servers that are components of composite servers.
+		// The webhooks would be called at the composite level.
+		var err error
+		webhooks, err = sm.webhookHelper.GetWebhooksForMCPServer(ctx, sm.gptClient, server)
+		if err != nil {
+			return ServerConfig{}, err
+		}
+
+		slices.SortFunc(webhooks, func(a, b Webhook) int {
+			if a.Name < b.Name {
+				return -1
+			} else if a.Name > b.Name {
+				return 1
+			}
+			return 0
+		})
+	}
+
+	if server.Runtime == otypes.RuntimeRemote {
 		if server.URL == "" {
-			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", mcpServerDisplayName)
+			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", server.MCPServerDisplayName)
 		}
 
 		if !sm.allowLocalhostMCP && !server.ProjectMCPServer && server.URL != "" {
@@ -276,26 +295,17 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 			}
 		}
 
-		return server, nil
-	case otypes.RuntimeComposite:
-		// Transform composite into a remote connection to the gateway with auth
-		remote, err := CompositeServerToConfig(sm.ephemeralTokenService, mcpServerName, sm.baseURL, userID, server.Scope)
-		if err != nil {
-			return ServerConfig{}, err
+		if !transformRemote || server.ProjectMCPServer {
+			// If we aren't transforming the remote MCP server, then return it as is.
+			return server, nil
 		}
-		return remote, nil
 	}
 
-	return sm.backend.ensureServerDeployment(ctx, server, userID, mcpServerDisplayName, mcpServerName)
-}
-
-func (sm *SessionManager) transformServerConfig(ctx context.Context, userID, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig) (ServerConfig, error) {
-	return sm.ensureDeployment(ctx, serverConfig, userID, mcpServerDisplayName, mcpServerName)
+	return sm.backend.ensureServerDeployment(ctx, server, webhooks)
 }
 
 func clientID(server ServerConfig) string {
 	// The allowed tools aren't part of the client ID.
-	server.AllowedTools = nil
 	return "mcp" + hash.Digest(server)
 }
 
@@ -304,13 +314,16 @@ func clientID(server ServerConfig) string {
 func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServer v1.MCPServer, serverConfig ServerConfig) ([]otypes.MCPServerTool, error) {
 	// Ensure cleanup happens regardless of success or failure
 	defer func() {
-		if cleanupErr := sm.ShutdownServer(ctx, serverConfig); cleanupErr != nil {
+		if cleanupErr := sm.ShutdownServer(ctx, serverConfig.MCPServerName); cleanupErr != nil {
 			log.Errorf("failed to clean up temporary instance %s: %v", tempMCPServer.Name, cleanupErr)
 		}
 	}()
 
+	// Use "system" for the user ID to identify non-user MCP servers.
+	serverConfig.UserID = "system"
+
 	// Create MCP client and list tools
-	client, err := sm.ClientForServer(ctx, "system", tempMCPServer.Spec.Manifest.Name, tempMCPServer.Name, serverConfig)
+	client, err := sm.clientForServer(ctx, serverConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -321,42 +334,4 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServe
 	}
 
 	return ConvertTools(tools.Tools, []string{"*"}, nil)
-}
-
-func constructNanobotYAML(name, command string, args []string, env map[string]string) (string, error) {
-	name = strings.ReplaceAll(name, "/", "-")
-	config := nanobotConfig{
-		Publish: nanobotConfigPublish{
-			MCPServers: []string{name},
-		},
-		MCPServers: map[string]nanobotConfigMCPServer{
-			name: {
-				Command: command,
-				Args:    args,
-				Env:     env,
-			},
-		},
-	}
-
-	data, err := yaml.Marshal(config)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal nanobot.yaml: %w", err)
-	}
-
-	return string(data), nil
-}
-
-type nanobotConfig struct {
-	Publish    nanobotConfigPublish              `json:"publish,omitzero"`
-	MCPServers map[string]nanobotConfigMCPServer `json:"mcpServers,omitempty"`
-}
-
-type nanobotConfigPublish struct {
-	MCPServers []string `json:"mcpServers,omitempty"`
-}
-
-type nanobotConfigMCPServer struct {
-	Command string            `json:"command,omitempty"`
-	Args    []string          `json:"args,omitempty"`
-	Env     map[string]string `json:"env,omitempty"`
 }

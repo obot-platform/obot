@@ -16,7 +16,6 @@ import (
 	"github.com/MicahParks/jwkset"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gptscript-ai/go-gptscript"
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -26,24 +25,26 @@ import (
 )
 
 type TokenService struct {
-	lock          sync.RWMutex
-	privateKey    ed25519.PrivateKey
-	jwks          json.RawMessage
-	gatewayClient *client.Client
-	dispatcher    *dispatcher.Dispatcher
-	serverURL     string
+	lock              sync.RWMutex
+	privateKey        ed25519.PrivateKey
+	jwks              json.RawMessage
+	gatewayClient     *client.Client
+	credOnlyGPTClient *gptscript.GPTScript
+	dispatcher        *dispatcher.Dispatcher
+	serverURL         string
 }
 
-func NewTokenService(ctx context.Context, serverURL string, gatewayClient *client.Client, dispatcher *dispatcher.Dispatcher, gptClient *gptscript.GPTScript) (*TokenService, error) {
-	key, err := ensureJWK(ctx, gptClient)
+func NewTokenService(ctx context.Context, serverURL string, gatewayClient *client.Client, dispatcher *dispatcher.Dispatcher, credOnlyGPTClient *gptscript.GPTScript) (*TokenService, error) {
+	key, err := ensureJWK(ctx, credOnlyGPTClient)
 	if err != nil {
 		return nil, err
 	}
 
 	t := &TokenService{
-		gatewayClient: gatewayClient,
-		dispatcher:    dispatcher,
-		serverURL:     serverURL,
+		gatewayClient:     gatewayClient,
+		credOnlyGPTClient: credOnlyGPTClient,
+		dispatcher:        dispatcher,
+		serverURL:         serverURL,
 	}
 
 	if err = t.replaceKey(ctx, key); err != nil {
@@ -81,7 +82,6 @@ func (t *TokenService) ReplaceJWK(req api.Context) error {
 type TokenContext struct {
 	Audience              string
 	IssuedAt              time.Time
-	NotBefore             time.Time
 	ExpiresAt             time.Time
 	UserID                string
 	UserName              string
@@ -91,6 +91,8 @@ type TokenContext struct {
 	AuthProviderName      string
 	AuthProviderNamespace string
 	AuthProviderUserID    string
+
+	MCPID string
 }
 
 func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
@@ -99,30 +101,28 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
-	tokenContext, err := t.decodeToken(token)
+	tokenContext, err := t.DecodeToken(token)
 	if err != nil {
 		return nil, false, nil
 	}
 
-	groups := tokenContext.UserGroups
-	if !slices.Contains(groups, types.GroupAuthenticated) {
-		groups = append(groups, types.GroupAuthenticated)
-	}
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			UID:    tokenContext.AuthProviderUserID,
 			Name:   tokenContext.UserName,
-			Groups: groups,
+			Groups: tokenContext.UserGroups,
 			Extra: map[string][]string{
 				"email":                   {tokenContext.UserEmail},
 				"auth_provider_name":      {tokenContext.AuthProviderName},
 				"auth_provider_namespace": {tokenContext.AuthProviderNamespace},
+				"mcp_id":                  {tokenContext.MCPID},
+				"resource":                {tokenContext.Audience},
 			},
 		},
 	}, true, nil
 }
 
-func (t *TokenService) decodeToken(token string) (*TokenContext, error) {
+func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 	tk, err := jwt.Parse(token, func(*jwt.Token) (any, error) {
 		t.lock.RLock()
 		defer t.lock.RUnlock()
@@ -142,12 +142,9 @@ func (t *TokenService) decodeToken(token string) (*TokenContext, error) {
 		groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
 	}
 
-	var issuedAt, notBefore, expiresAt time.Time
+	var issuedAt, expiresAt time.Time
 	if iat, ok := claims["iat"].(float64); ok {
 		issuedAt = time.Unix(int64(iat), 0)
-	}
-	if nbf, ok := claims["nbf"].(float64); ok {
-		notBefore = time.Unix(int64(nbf), 0)
 	}
 	if exp, ok := claims["exp"].(float64); ok {
 		expiresAt = time.Unix(int64(exp), 0)
@@ -164,7 +161,6 @@ func (t *TokenService) decodeToken(token string) (*TokenContext, error) {
 
 	return &TokenContext{
 		IssuedAt:              issuedAt,
-		NotBefore:             notBefore,
 		ExpiresAt:             expiresAt,
 		UserGroups:            groups,
 		Audience:              getStringClaim("aud"),
@@ -173,6 +169,7 @@ func (t *TokenService) decodeToken(token string) (*TokenContext, error) {
 		AuthProviderName:      getStringClaim("AuthProviderName"),
 		AuthProviderNamespace: getStringClaim("AuthProviderNamespace"),
 		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
+		MCPID:                 getStringClaim("MCPID"),
 		// These two fields were the latter names and changed the former.
 		// This makes this backwards compatible with older tokens.
 		UserName:  getStringClaim("name", "UserName"),
@@ -182,10 +179,8 @@ func (t *TokenService) decodeToken(token string) (*TokenContext, error) {
 
 func (t *TokenService) NewToken(context TokenContext) (string, error) {
 	claims := jwt.MapClaims{
-		"iss":                   t.serverURL,
 		"aud":                   context.Audience,
 		"exp":                   context.ExpiresAt.Unix(),
-		"nbf":                   context.NotBefore.Unix(),
 		"iat":                   context.IssuedAt.Unix(),
 		"sub":                   context.UserID,
 		"name":                  context.UserName,
@@ -195,21 +190,36 @@ func (t *TokenService) NewToken(context TokenContext) (string, error) {
 		"AuthProviderName":      context.AuthProviderName,
 		"AuthProviderNamespace": context.AuthProviderNamespace,
 		"AuthProviderUserID":    context.AuthProviderUserID,
+		"MCPID":                 context.MCPID,
 	}
+
+	_, s, err := t.NewTokenWithClaims(claims)
+	return s, err
+}
+
+func (t *TokenService) NewTokenWithClaims(claims jwt.MapClaims) (*jwt.Token, string, error) {
+	claims["iss"] = t.serverURL
 	if claims["aud"] == "" {
 		claims["aud"] = t.serverURL
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
-	return token.SignedString(t.privateKey)
+	s, err := token.SignedString(t.privateKey)
+	return token, s, err
 }
 
 func (t *TokenService) ServeJWKS(api api.Context) error {
-	t.lock.RLock()
-	jwks := t.jwks
-	t.lock.RUnlock()
+	return api.Write(t.JWKS())
+}
 
-	return api.Write(jwks)
+func (t *TokenService) JWKS() []byte {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+	return t.jwks
+}
+
+func (t *TokenService) EncodedJWKS() string {
+	return base64.StdEncoding.EncodeToString(t.JWKS())
 }
 
 const keyEnvVar = "JWK_KEY"

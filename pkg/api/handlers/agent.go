@@ -17,7 +17,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/creds"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/invoke"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -30,7 +29,6 @@ import (
 )
 
 type AgentHandler struct {
-	tokenService      *ephemeral.TokenService
 	mcpSessionManager *mcp.SessionManager
 	invoker           *invoke.Invoker
 	dispatcher        *dispatcher.Dispatcher
@@ -38,13 +36,12 @@ type AgentHandler struct {
 	serverURL         string
 }
 
-func NewAgentHandler(tokenService *ephemeral.TokenService, dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, serverURL string, port int) *AgentHandler {
+func NewAgentHandler(dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, serverURL string, port int) *AgentHandler {
 	return &AgentHandler{
 		serverURL:         serverURL,
 		internalServerURL: fmt.Sprintf("http://localhost:%d", port),
 		invoker:           invoker,
 		dispatcher:        dispatcher,
-		tokenService:      tokenService,
 		mcpSessionManager: mcpSessionManager,
 	}
 }
@@ -68,7 +65,7 @@ func (a *AgentHandler) Authenticate(req api.Context) (err error) {
 		return err
 	}
 
-	resp, err := runAuthForAgent(req, a.invoker, &agent, id, tools, req.User.GetUID(), "")
+	resp, err := runAuthForAgent(req, a.mcpSessionManager, a.invoker, &agent, id, tools, req.User.GetUID(), "")
 	if err != nil {
 		return err
 	}
@@ -821,7 +818,7 @@ func (a *AgentHandler) Script(req api.Context) error {
 		}
 	}
 
-	renderedAgent, err := render.Agent(req.Context(), a.tokenService, a.mcpSessionManager, req.Storage, &agent, a.serverURL, a.internalServerURL, render.AgentOptions{
+	renderedAgent, err := render.Agent(req.Context(), a.mcpSessionManager, req.Storage, &agent, a.serverURL, a.internalServerURL, render.AgentOptions{
 		Thread: thread,
 		UserID: req.User.GetUID(),
 	})
@@ -925,7 +922,7 @@ func MetadataFrom(obj kclient.Object, linkKV ...string) types.Metadata {
 	return m
 }
 
-func runAuthForAgent(req api.Context, invoker *invoke.Invoker, agent *v1.Agent, credContext string, tools []string, userID string, parentThreadName string) (*invoke.Response, error) {
+func runAuthForAgent(req api.Context, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, agent *v1.Agent, credContext string, tools []string, userID string, parentThreadName string) (*invoke.Response, error) {
 	credentials := make([]string, 0, len(tools))
 
 	var toolRef v1.ToolReference
@@ -971,7 +968,7 @@ func runAuthForAgent(req api.Context, invoker *invoke.Invoker, agent *v1.Agent, 
 	agent.Spec.Manifest.Credentials = credentials
 	agent.Name = ""
 
-	return invoker.Agent(req.Context(), req.Storage, agent, "", invoke.Options{
+	return invoker.Agent(req.Context(), mcpSessionManager, req.GPTClient, req.Storage, agent, "", invoke.Options{
 		Synchronous:          true,
 		EphemeralThread:      true,
 		ParentThreadName:     parentThreadName,

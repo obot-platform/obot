@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/invoke"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,14 +20,16 @@ import (
 )
 
 type Handler struct {
-	invoker         *invoke.Invoker
-	gptscriptClient *gptscript.GPTScript
+	invoker           *invoke.Invoker
+	gptscriptClient   *gptscript.GPTScript
+	mcpSessionManager *mcp.SessionManager
 }
 
-func New(invoker *invoke.Invoker, gptscriptClient *gptscript.GPTScript) *Handler {
+func New(invoker *invoke.Invoker, gptscriptClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager) *Handler {
 	return &Handler{
-		invoker:         invoker,
-		gptscriptClient: gptscriptClient,
+		invoker:           invoker,
+		gptscriptClient:   gptscriptClient,
+		mcpSessionManager: mcpSessionManager,
 	}
 }
 
