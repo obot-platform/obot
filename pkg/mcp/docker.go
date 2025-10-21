@@ -659,7 +659,7 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	envVars := make(map[string]string, len(files))
 	for _, file := range files {
 		// Generate unique filename for container
-		filename := fmt.Sprintf("%s-%s", containerName[:12], hash.Digest(file)[:24])
+		filename := fmt.Sprintf("%s-%s", containerName, hash.Digest(file)[:24])
 		containerPath := path.Join("/files", filename)
 
 		// Add to script
