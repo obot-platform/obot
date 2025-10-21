@@ -18,6 +18,9 @@
 	let isSetup = $derived(page.url.searchParams.get('setup') === 'complete');
 	let getTempUser = $state<Promise<TempUser>>();
 
+	let loadingCancelTempUser = $state(false);
+	let loadingConfirmTempUser = $state(false);
+
 	onMount(() => {
 		fetchBootstrapStatus = AdminService.getBootstrapStatus();
 		if (isSetup) {
@@ -85,23 +88,35 @@
 				</div>
 				<div class="flex flex-col gap-2">
 					<button
-						class="button-primary"
+						class="button-primary place-items-center"
 						onclick={async () => {
+							loadingConfirmTempUser = true;
 							await AdminService.confirmTempUserAsOwner(tempUser.email);
 							await AdminService.bootstrapLogout();
 							goto('/admin/mcp-servers');
 						}}
+						disabled={loadingCancelTempUser || loadingConfirmTempUser}
 					>
-						Yes, make this account an owner
+						{#if loadingConfirmTempUser}
+							<LoaderCircle class="size-4 animate-spin" />
+						{:else}
+							Yes, make this account an owner
+						{/if}
 					</button>
 					<button
-						class="button"
+						class="button place-items-center"
 						onclick={async () => {
+							loadingCancelTempUser = true;
 							await AdminService.cancelTempLogin();
 							window.location.href = '/oauth2/sign_out?rd=/admin';
 						}}
+						disabled={loadingCancelTempUser || loadingConfirmTempUser}
 					>
-						No, cancel & go back
+						{#if loadingCancelTempUser}
+							<LoaderCircle class="size-4 animate-spin" />
+						{:else}
+							No, cancel & go back
+						{/if}
 					</button>
 				</div>
 			</div>

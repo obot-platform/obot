@@ -18,6 +18,7 @@
 	import { darkMode, errors, profile } from '$lib/stores/index.js';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { onMount } from 'svelte';
 
 	let { data } = $props();
 	let { authProviders: initialAuthProviders } = data;
@@ -64,6 +65,30 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 
+	$effect(() => {
+		if (profile.current.username === BOOTSTRAP_USER_ID && atLeastOneConfigured) {
+			const handleVisibilityChange = async () => {
+				if (document.visibilityState === 'visible') {
+					const configuredAuthProvider = authProviders.find((provider) => provider.configured);
+					configuringAuthProvider = configuredAuthProvider;
+					handleOwnerSetup();
+				}
+			};
+
+			const configuredAuthProvider = authProviders.find((provider) => provider.configured);
+			if (configuredAuthProvider) {
+				configuringAuthProvider = configuredAuthProvider;
+				handleOwnerSetup();
+			}
+
+			document.addEventListener('visibilitychange', handleVisibilityChange);
+
+			return () => {
+				document.removeEventListener('visibilitychange', handleVisibilityChange);
+			};
+		}
+	});
+
 	async function handleOwnerSetup() {
 		if (!configuringAuthProvider) return;
 		try {
@@ -82,7 +107,6 @@
 				configuringAuthProvider.namespace
 			)
 		).redirectUrl;
-		console.log('setupTempLoginUrl', setupTempLoginUrl, configuringAuthProvider);
 		setupSignInDialog?.open();
 	}
 
@@ -95,7 +119,6 @@
 				authProviders = await AdminService.listAuthProviders();
 				adminConfigStore.updateAuthProviders(authProviders);
 				providerConfigure?.close();
-
 				if (profile.current.username === BOOTSTRAP_USER_ID) {
 					await handleOwnerSetup();
 				}
@@ -157,21 +180,7 @@
 						confirmDeconfigureAuthProvider = authProvider;
 					}}
 					readonly={profile.current.isAdminReadonly?.()}
-				>
-					{#snippet configuredActions(provider)}
-						{#if profile.current.username === BOOTSTRAP_USER_ID && provider.configured}
-							<button
-								class="button-icon"
-								onclick={async () => {
-									configuringAuthProvider = authProvider;
-									await handleOwnerSetup();
-								}}
-							>
-								<UserPlus class="size-4" />
-							</button>
-						{/if}
-					{/snippet}
-				</ProviderCard>
+				/>
 			{/each}
 		</div>
 	</div>
