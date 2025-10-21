@@ -19,7 +19,14 @@
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { openUrl } from '$lib/utils';
-	import { clearUrlParams, setSearchParamsToLocalStorage, setUrlParams } from '$lib/url';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		getTableUrlParamsSort,
+		setSearchParamsToLocalStorage,
+		setSortUrlParams,
+		setFilterUrlParams
+	} from '$lib/url';
 
 	let tasks = $state<ProjectTask[]>([]);
 	let threads = $state<ProjectThread[]>([]);
@@ -28,7 +35,8 @@
 	let projectMap = $derived(new Map(projects.map((p) => [p.id, p])));
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
 
-	let urlFilters = $state<Record<string, (string | number)[]>>({});
+	let urlFilters = $derived(getTableUrlParamsFilters());
+	let initSort = $derived(getTableUrlParamsSort());
 	let query = $state(page.url.searchParams.get('query') || '');
 
 	let loading = $state(true);
@@ -70,11 +78,6 @@
 
 	onMount(() => {
 		loadThreads();
-		if (page.url.searchParams.size > 0) {
-			page.url.searchParams.forEach((value, key) => {
-				urlFilters[key] = value.split(',');
-			});
-		}
 	});
 
 	async function loadThreads() {
@@ -170,7 +173,7 @@
 						data={tableData}
 						fields={['name', 'userName', 'userEmail', 'projectName', 'created', 'runs']}
 						filterable={['name', 'userName', 'userEmail', 'projectName']}
-						onFilter={setUrlParams}
+						onFilter={setFilterUrlParams}
 						filters={urlFilters}
 						onClearAllFilters={clearUrlParams}
 						onClickRow={handleViewTask}
@@ -195,7 +198,8 @@
 							}
 						]}
 						sortable={['name', 'userName', 'userEmail', 'projectName', 'created', 'runs']}
-						initSort={{ property: 'created', order: 'desc' }}
+						{initSort}
+						onSort={setSortUrlParams}
 					>
 						{#snippet actions()}
 							<button
