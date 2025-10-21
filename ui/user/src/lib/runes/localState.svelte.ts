@@ -1,38 +1,42 @@
 import { untrack } from 'svelte';
 
-function defaultParser<T = string>(raw?: string | null) {
-	if (raw === undefined || raw === null) return '' as T;
+function defaultParser<T = string>(raw: T | null) {
 	return raw as T;
 }
 
 type LocalStateParams<T = string> = {
-	value?: T;
-	parse?: (raw?: string | null) => T;
+	parse?: (raw: T | null) => T;
 };
 export function localState<T = string>(
 	key: string,
-	{ value: defaultVallue, parse = defaultParser }: LocalStateParams<T> = {}
+	defaultValue: T,
+	{ parse = defaultParser }: LocalStateParams<T> = {}
 ) {
-	let value = $state<T>();
+	let value = $state<T | undefined | null>();
 	let isReady = $state(false);
 
+	let shouldCaptureUpdates = false;
+
 	$effect(() => {
-		const storedValue = localStorage.getItem(key);
+		const storedValue = get();
+
 		untrack(() => {
 			if (storedValue) {
-				value = parse(storedValue) as T;
+				value = parse(storedValue);
 			} else {
-				value = defaultVallue ?? ('' as T);
+				value = set(defaultValue);
 			}
 
 			isReady = true;
+			shouldCaptureUpdates = true;
 		});
 	});
 
 	$effect(() => {
+		if (!shouldCaptureUpdates) return;
 		if (!localStorage) return;
 
-		localStorage.setItem(key, JSON.stringify(value));
+		set(value);
 	});
 
 	return {
@@ -46,4 +50,25 @@ export function localState<T = string>(
 			return isReady;
 		}
 	};
+
+	function get() {
+		const local = localStorage.getItem(key);
+
+		if (local) {
+			return JSON.parse(local) as T;
+		}
+
+		return local as null;
+	}
+
+	function set(value: T | undefined | null) {
+		if (value === undefined || value === null) {
+			localStorage.removeItem(key);
+			return value;
+		}
+
+		localStorage.setItem(key, JSON.stringify(value));
+
+		return value;
+	}
 }
