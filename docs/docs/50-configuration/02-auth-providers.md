@@ -5,7 +5,8 @@ Administrators must configure at least one authentication provider before users 
 Multiple providers can be configured and available for login at the same time.
 
 :::note
-In order for authentication to be enabled, the Obot server must be run with `--enable-authentication` or
+In order for authentication to be enabled, the Obot server must be run with the environment variable set:
+
 `OBOT_SERVER_ENABLE_AUTHENTICATION=true`.
 :::
 
