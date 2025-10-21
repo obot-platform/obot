@@ -58,7 +58,7 @@
 	}
 
 	function shouldShowWarning(mcp: (typeof projectMCPs.items)[0]) {
-		if (mcp.needsURL || mcp.needsUpdate) {
+		if (mcp.needsURL) {
 			return true;
 		}
 
@@ -74,7 +74,7 @@
 	}
 
 	function warningTooltip(mcp: (typeof projectMCPs.items)[0]) {
-		if (mcp.needsURL || mcp.needsUpdate) return 'Configuration Required';
+		if (mcp.needsURL) return 'Configuration Required';
 		if (typeof mcp.configured === 'boolean' && mcp.configured === false)
 			return 'Configuration Required';
 		if (typeof mcp.authenticated === 'boolean' && mcp.authenticated === false)
