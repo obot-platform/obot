@@ -88,8 +88,6 @@ These three components create a powerful, integrated AI platform:
 
 ## Next Steps
 
-## Next Steps
-
 - [Installation Guide](/installation/general)
 - [Chat Interface Concepts](/concepts/chat/overview)
 - [MCP Gateway Concepts](/concepts/mcp-gateway/overview)

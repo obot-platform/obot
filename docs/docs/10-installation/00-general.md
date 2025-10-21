@@ -20,7 +20,7 @@ Obot stores its data under the `/data` path. If you are not using an external Po
 
 ### Production Considerations
 
-A production setup will need to be deployed on to a Kubernetes cluster. You will need an external to Obot deployment Postgres database and encryption keys to store Obot data.
+A production setup will need to be deployed on to a Kubernetes cluster. You will need an external Postgres database and encryption keys to store Obot data.
 
 ## System requirements
 
