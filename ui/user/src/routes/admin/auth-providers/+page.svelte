@@ -2,6 +2,7 @@
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import {
+		BOOTSTRAP_USER_ID,
 		CommonAuthProviderIds,
 		PAGE_TRANSITION_DURATION,
 		RecommendedModelProviders
@@ -10,12 +11,13 @@
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { AdminService } from '$lib/services/index.js';
-	import { AlertTriangle, Info } from 'lucide-svelte';
+	import { AlertTriangle, Info, UserPlus } from 'lucide-svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { darkMode, profile } from '$lib/stores/index.js';
+	import { darkMode, errors, profile } from '$lib/stores/index.js';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 
 	let { data } = $props();
 	let { authProviders: initialAuthProviders } = data;
@@ -51,12 +53,38 @@
 	let configuringAuthProviderValues = $state<Record<string, string>>();
 	let atLeastOneConfigured = $derived(authProviders.some((provider) => provider.configured));
 
+	let setupSignInDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let explicitOwners = $state<string[]>([]);
+	let setupTempLoginUrl = $state('');
+
 	let loading = $state(false);
 	let configureError = $state<string>();
 
 	let confirmDeconfigureAuthProvider = $state<AuthProvider>();
 
 	const duration = PAGE_TRANSITION_DURATION;
+
+	async function handleOwnerSetup() {
+		if (!configuringAuthProvider) return;
+		try {
+			await AdminService.cancelTempLogin();
+		} catch (err) {
+			if (err instanceof Error && err.message.includes('404')) {
+				// ignore, no current temp login to cancel
+			} else {
+				errors.append(err);
+			}
+		}
+		explicitOwners = (await AdminService.listExplicitRoleEmails())?.owners ?? [];
+		setupTempLoginUrl = (
+			await AdminService.initiateTempLogin(
+				configuringAuthProvider.id,
+				configuringAuthProvider.namespace
+			)
+		).redirectUrl;
+		console.log('setupTempLoginUrl', setupTempLoginUrl, configuringAuthProvider);
+		setupSignInDialog?.open();
+	}
 
 	async function handleAuthProviderConfigure(form: Record<string, string>) {
 		if (configuringAuthProvider) {
@@ -67,6 +95,10 @@
 				authProviders = await AdminService.listAuthProviders();
 				adminConfigStore.updateAuthProviders(authProviders);
 				providerConfigure?.close();
+
+				if (profile.current.username === BOOTSTRAP_USER_ID) {
+					await handleOwnerSetup();
+				}
 			} catch (err: unknown) {
 				if (err instanceof Error) {
 					const errorMessageMatch = err.message.match(/{"error":\s*"(.*?)"}/);
@@ -125,7 +157,21 @@
 						confirmDeconfigureAuthProvider = authProvider;
 					}}
 					readonly={profile.current.isAdminReadonly?.()}
-				/>
+				>
+					{#snippet configuredActions(provider)}
+						{#if profile.current.username === BOOTSTRAP_USER_ID && provider.configured}
+							<button
+								class="button-icon"
+								onclick={async () => {
+									configuringAuthProvider = authProvider;
+									await handleOwnerSetup();
+								}}
+							>
+								<UserPlus class="size-4" />
+							</button>
+						{/if}
+					{/snippet}
+				</ProviderCard>
 			{/each}
 		</div>
 	</div>
@@ -204,6 +250,50 @@
 		</div>
 	{/snippet}
 </Confirm>
+
+<ResponsiveDialog bind:this={setupSignInDialog}>
+	{#snippet titleContent()}
+		<h3 class="text-lg font-semibold">Next Step: Owner Login Setup</h3>
+	{/snippet}
+
+	<div class="flex flex-col gap-4">
+		{#if explicitOwners.length > 0}
+			<p>The following users have been explicitly assigned the Owner role:</p>
+			<ul>
+				{#each explicitOwners as owner}
+					<li>{owner}</li>
+				{/each}
+			</ul>
+			<p>
+				Select an option below to either sign out & log in as one of the aforementioned owners or
+				log into a different account with your configured auth provider to continue owner setup.
+			</p>
+		{:else}
+			<p>
+				You'll need to set up an initial owner for the system. Login with your configured auth
+				provider to continue.
+			</p>
+		{/if}
+
+		<div class="my-4 flex flex-col gap-2">
+			{#if explicitOwners.length > 0}
+				<button class="button-auth"> Sign Out </button>
+			{/if}
+			<a class="group button-auth" href={setupTempLoginUrl}>
+				{#if configuringAuthProvider?.icon}
+					<img
+						class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-gray-600"
+						src={configuringAuthProvider.icon}
+						alt={configuringAuthProvider.name}
+					/>
+					<span class="text-center text-sm font-light">
+						Continue with {configuringAuthProvider.name}
+					</span>
+				{/if}
+			</a>
+		</div>
+	</div>
+</ResponsiveDialog>
 
 <svelte:head>
 	<title>Obot | Auth Providers</title>

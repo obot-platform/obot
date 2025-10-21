@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { CircleSlash, CircleCheck } from 'lucide-svelte';
 	import DotDotDot from '../DotDotDot.svelte';
-	import { darkMode } from '$lib/stores';
+	import { darkMode, profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import type { BaseProvider } from '$lib/services/admin/types';
 	import type { Snippet } from 'svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 
 	interface Props {
 		recommended?: boolean;

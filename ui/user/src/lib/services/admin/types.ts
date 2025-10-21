@@ -127,6 +127,18 @@ export interface OrgUser {
 	originalUsername?: string;
 }
 
+export interface TempUser {
+	userId: number;
+	username: string;
+	email: string;
+	role: number;
+	groups: string[];
+	iconUrl: string;
+	authProviderName: string;
+	authProviderNamespace: string;
+	cachedAt: string;
+}
+
 export interface OrgGroup {
 	id: string;
 	name: string;

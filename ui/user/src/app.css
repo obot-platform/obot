@@ -491,6 +491,33 @@
 			opacity: 0.5;
 		}
 	}
+	
+	.button-auth {
+		display: flex;
+		width: 100%;
+		align-items: center;
+		justify-content: center;
+		gap: 0.375rem; /* gap-1.5 */
+		border-radius: 9999px; /* rounded-full */
+		padding: 0.5rem 2rem; /* p-2 px-8 */
+		font-size: 1.125rem; /* text-lg */
+		font-weight: 600; /* font-semibold */
+		background-color: var(--surface1);
+		transition-property: background-color;
+		transition-duration: 200ms;
+		
+		&:hover {
+			background-color: var(--surface2);
+		}
+		
+		.dark & {
+			background-color: var(--surface1);
+		}
+		
+		.dark &:hover {
+			background-color: var(--surface3);
+		}
+	}
 
 	.list-button-primary {
 		display: flex;
