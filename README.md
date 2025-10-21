@@ -13,6 +13,12 @@ docker run -d --name obot -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.s
 
 Then open your browser to [http://localhost:8080](http://localhost:8080) to access the Obot UI.
 
+Alternatively, you can also launch Obot with Docker Compose by running:
+
+```
+docker compose up --build
+```
+
 > [!TIP]
 > You need to replace `<API KEY>` with your [OpenAI API Key](https://platform.openai.com/api-keys).
 >
