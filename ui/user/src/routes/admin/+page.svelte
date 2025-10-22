@@ -10,21 +10,20 @@
 	import { slide } from 'svelte/transition';
 
 	const { data } = $props();
-	const { authProviders, loggedIn, hasAccess } = data;
+	const { authProviders, loggedIn, hasAccess, showSetupHandoff } = data;
 	let fetchBootstrapStatus = $state<Promise<BootstrapStatus>>();
 	let bootstrapToken = $state('');
 	let error = $state('');
 	let showBootstrapLogin = $state(authProviders.length === 0);
-	let isSetup = $derived(page.url.searchParams.get('setup') === 'complete');
-	let getTempUser = $state<Promise<TempUser>>();
 
+	let getTempUser = $state<Promise<TempUser>>();
 	let loadingCancelTempUser = $state(false);
 	let loadingConfirmTempUser = $state(false);
 	let showSuccessOwnerConfirmation = $state(false);
 
 	onMount(() => {
 		fetchBootstrapStatus = AdminService.getBootstrapStatus();
-		if (isSetup) {
+		if (showSetupHandoff) {
 			getTempUser = AdminService.getTempUser();
 		}
 	});
@@ -50,7 +49,7 @@
 					<LoaderCircle class="text-primary size-8 animate-spin" />
 				</div>
 			{:then bootstrapStatus}
-				{#if isSetup}
+				{#if showSetupHandoff}
 					{@render setupView()}
 				{:else}
 					{@render loginView(bootstrapStatus)}
@@ -77,12 +76,12 @@
 				{/if}
 
 				{#if showSuccessOwnerConfirmation}
-					<div class="my-6 flex w-full flex-col items-center justify-center gap-6 px-8">
+					<div class="my-6 flex w-full flex-col items-center justify-center gap-6">
 						<div class="flex items-center justify-center gap-2">
 							<Handshake class="size-6" />
 							<h3 class="text-xl font-semibold">Confirm Handoff</h3>
 						</div>
-						<p class="text-md text-center font-light md:px-8">
+						<p class="text-md px-4 text-left font-light">
 							You've established your first owner user, the bootstrap user currently being used will
 							be disabled. Upon completing this action, you'll be logged out and asked to log in
 							using your auth provider.
@@ -99,6 +98,10 @@
 					</button>
 				{:else}
 					<div class="my-6 flex w-full flex-col items-center justify-center gap-6 px-8">
+						<div class="flex items-center justify-center gap-2">
+							<Handshake class="size-6" />
+							<h3 class="text-xl font-semibold">Confirm Owner Addition</h3>
+						</div>
 						<p class="text-md text-center font-light">
 							You're now logged in as <span class="font-semibold"
 								>{tempUser.email || tempUser.username}</span
