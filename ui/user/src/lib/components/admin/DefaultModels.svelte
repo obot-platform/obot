@@ -33,11 +33,11 @@
 	let showSkip = $state(false);
 
 	const SUGGESTED_MODEL_SELECTIONS: Record<ModelAlias, string> = {
-		[ModelAlias.Llm]: 'gpt-4.1',
-		[ModelAlias.LlmMini]: 'gpt-4.1-mini',
+		[ModelAlias.Llm]: 'gpt-5',
+		[ModelAlias.LlmMini]: 'gpt-5-mini',
 		[ModelAlias.TextEmbedding]: 'text-embedding-3-large',
 		[ModelAlias.ImageGeneration]: 'dall-e-3',
-		[ModelAlias.Vision]: 'gpt-4.1'
+		[ModelAlias.Vision]: 'gpt-5'
 	};
 
 	export function open(updateShowSkip = false) {
