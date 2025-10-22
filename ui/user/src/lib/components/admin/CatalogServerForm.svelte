@@ -813,7 +813,7 @@
 									>
 										Value Prefix
 										<InfoTooltip
-											text="A constant prepended value that will be added to the user-supplied value. Ex. 'BEARER ' in 'BEARER [USER_SUPPLIED_VALUE]'."
+											text="A constant prepended value that will be added to the user-supplied value. Ex. 'Bearer ' in 'Bearer [USER_SUPPLIED_VALUE]'."
 											popoverWidth="lg"
 										/>
 									</label>
