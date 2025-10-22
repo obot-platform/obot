@@ -33,8 +33,12 @@ func (e *ErrNotSupportedByBackend) Error() string {
 }
 
 var (
-	ErrHealthCheckTimeout = errors.New("timed out waiting for MCP server to be ready")
-	ErrHealthCheckFailed  = errors.New("MCP server is not healthy")
+	ErrHealthCheckTimeout     = errors.New("timed out waiting for MCP server to be ready")
+	ErrHealthCheckFailed      = errors.New("MCP server is not healthy")
+	ErrPodCrashLoopBackOff    = errors.New("pod is in CrashLoopBackOff state")
+	ErrImagePullFailed        = errors.New("failed to pull container image")
+	ErrPodSchedulingFailed    = errors.New("pod could not be scheduled")
+	ErrPodConfigurationFailed = errors.New("pod configuration is invalid")
 )
 
 func ensureServerReady(ctx context.Context, url string, server ServerConfig) error {
