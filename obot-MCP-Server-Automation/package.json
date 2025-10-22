@@ -1,0 +1,48 @@
+{
+  "name": "Obot Acceptance Tests",
+  "version": "1.0.0",
+  "description": "WebDriverIO - Cucumber and Webdriverio automation test suite",
+  "scripts": {
+    "wdio:all": "wdio run wdio.conf.ts",
+    "wdio:byScenario": "wdio run wdio.conf.ts --spec src/features/mcpServer.feature",
+    "test:report": "npx allure generate --clean allure-results && npx allure open"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^8.4.1",
+    "@types/chai": "^4.3.16",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.15.21",
+    "@typescript-eslint/eslint-plugin": "^7.6.0",
+    "@typescript-eslint/parser": "^7.6.0",
+    "@wdio/allure-reporter": "^8.38.2",
+    "@wdio/cli": "^8.36.0",
+    "@wdio/config": "^8.36.0",
+    "@wdio/cucumber-framework": "^8.36.0",
+    "@wdio/devtools-service": "^8.38.0",
+    "@wdio/globals": "^8.36.0",
+    "@wdio/local-runner": "^8.36.0",
+    "@wdio/spec-reporter": "^8.36.0",
+    "@wdio/static-server-service": "^8.36.0",
+    "allure-commandline": "^2.24.0",
+    "chai": "^5.1.1",
+    "dotenv": "^16.5.0",
+    "eslint": "^8.56.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-wdio": "^8.24.12",
+    "http-server": "^14.1.1",
+    "npm-run-all2": "^6.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5",
+    "webdriverio": "^8.36.0"
+  },
+  "dependencies": {
+    "axios": "^1.8.4",
+    "fix-esm": "^1.0.1",
+    "google-auth-library": "^9.15.1",
+    "googleapis": "^149.0.0",
+    "imap-simple": "^5.1.0",
+    "mailparser": "^3.7.3",
+    "node-fetch": "^2.7.0"
+  }
+}
