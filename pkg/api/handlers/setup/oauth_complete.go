@@ -54,7 +54,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 	http.Redirect(
 		req.ResponseWriter,
 		req.Request,
-		"/admin?setup=complete",
+		"/oauth2/sign_out?rd=/admin?setup=complete",
 		http.StatusFound,
 	)
 
