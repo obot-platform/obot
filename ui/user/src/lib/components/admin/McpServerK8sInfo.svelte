@@ -236,18 +236,20 @@
 
 		for (const key in revealedValues) {
 			if (envMap.has(key)) {
+				const env = envMap.get(key);
 				envs.push({
 					id: key,
-					label: envMap.get(key)?.name ?? 'Unknown',
-					value: revealedValues[key] ?? '',
-					sensitive: envMap.get(key)?.sensitive || false
+					label: env?.name ?? 'Unknown',
+					value: env?.prefix ? env.prefix + revealedValues[key] : (revealedValues[key] ?? ''),
+					sensitive: env?.sensitive || false
 				});
 			} else if (headerMap.has(key)) {
+				const header = headerMap.get(key);
 				headers.push({
 					id: key,
-					label: headerMap.get(key)?.name ?? 'Unknown',
-					value: revealedValues[key] ?? '',
-					sensitive: headerMap.get(key)?.sensitive || false
+					label: header?.name ?? 'Unknown',
+					value: header?.prefix ? header.prefix + revealedValues[key] : (revealedValues[key] ?? ''),
+					sensitive: header?.sensitive || false
 				});
 			}
 		}

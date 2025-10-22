@@ -76,6 +76,7 @@ export interface MCPCatalogEntryFieldManifest {
 	sensitive: boolean;
 	value: string;
 	file?: boolean;
+	prefix?: string;
 }
 
 export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryServerManifest, 'metadata'> & {

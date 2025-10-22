@@ -11,9 +11,23 @@
 			icon?: string;
 		};
 		placement?: Placement;
+		popoverWidth?: 'sm' | 'md' | 'lg';
 	}
 
-	let { text, class: klass, classes, placement }: Props = $props();
+	let { text, class: klass, classes, placement, popoverWidth = 'md' }: Props = $props();
+
+	function getPopoverWidth() {
+		switch (popoverWidth) {
+			case 'sm':
+				return 'w-48';
+			case 'md':
+				return 'w-64';
+			case 'lg':
+				return 'w-96';
+			default:
+				return 'w-64';
+		}
+	}
 </script>
 
 <div
@@ -21,7 +35,7 @@
 	use:tooltip={{
 		text,
 		disablePortal: true,
-		classes: ['w-64', 'break-normal'],
+		classes: [getPopoverWidth(), 'break-normal'],
 		placement
 	}}
 >

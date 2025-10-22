@@ -214,36 +214,47 @@
 									</label>
 									<InfoTooltip text={env.description} />
 								</span>
-								{#if env.sensitive}
-									<SensitiveInput
-										error={highlightRequired}
-										name={env.name}
-										bind:value={form.envs[i].value}
-										textarea={env.file}
-										growable
-									/>
-								{:else if env.file}
-									<textarea
-										id={env.key}
-										bind:value={form.envs[i].value}
-										class={twMerge(
-											'text-input-filled h-32 resize-y whitespace-pre-wrap',
-											highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-										)}
-										onmousedown={() => (resizing = true)}
-										onmouseup={() => (resizing = false)}
-									></textarea>
-								{:else}
-									<input
-										type="text"
-										id={env.key}
-										bind:value={form.envs[i].value}
-										class={twMerge(
-											'text-input-filled',
-											highlightRequired && 'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-										)}
-									/>
-								{/if}
+								<div class="flex items-center">
+									{#if env.prefix}
+										<div class="text-input-filled w-fit rounded-r-none border-r-0">
+											{env.prefix}
+										</div>
+									{/if}
+									{#if env.sensitive}
+										<SensitiveInput
+											error={highlightRequired}
+											name={env.name}
+											bind:value={form.envs[i].value}
+											textarea={env.file}
+											growable
+											class={env.prefix ? 'rounded-l-none' : ''}
+										/>
+									{:else if env.file}
+										<textarea
+											id={env.key}
+											bind:value={form.envs[i].value}
+											class={twMerge(
+												'text-input-filled h-32 resize-y whitespace-pre-wrap',
+												highlightRequired &&
+													'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+											)}
+											onmousedown={() => (resizing = true)}
+											onmouseup={() => (resizing = false)}
+										></textarea>
+									{:else}
+										<input
+											type="text"
+											id={env.key}
+											bind:value={form.envs[i].value}
+											class={twMerge(
+												'text-input-filled',
+												env.prefix ? 'rounded-l-none' : '',
+												highlightRequired &&
+													'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+											)}
+										/>
+									{/if}
+								</div>
 							</div>
 						{/each}
 					{/if}
@@ -260,15 +271,35 @@
 										</label>
 										<InfoTooltip text={header.description} />
 									</span>
-									{#if header.sensitive}
-										<SensitiveInput name={header.name} bind:value={form.headers[i].value} />
-									{:else}
-										<input
-											type="text"
-											id={header.key}
-											bind:value={form.headers[i].value}
-											class="text-input-filled"
-										/>
+									<div class="flex items-center">
+										{#if header.prefix}
+											<div class="text-input-filled w-fit rounded-r-none border-r-0">
+												{header.prefix}
+											</div>
+										{/if}
+										{#if header.sensitive}
+											<SensitiveInput
+												name={header.name}
+												bind:value={form.headers[i].value}
+												class={header.prefix ? 'rounded-l-none' : ''}
+											/>
+										{:else}
+											<input
+												type="text"
+												id={header.key}
+												bind:value={form.headers[i].value}
+												class={twMerge('text-input-filled', header.prefix ? 'rounded-l-none' : '')}
+											/>
+										{/if}
+									</div>
+									{#if header.prefix && form.headers[i].value.startsWith(header.prefix)}
+										<div class="mt-1 text-xs font-light text-gray-400 dark:text-gray-600">
+											It looks like your value starts with the already supplied prefix. The value
+											that will be saved will be "<span class="font-normal text-blue-500"
+												>{header.prefix}
+												{form.headers[i].value}</span
+											>".
+										</div>
 									{/if}
 								</div>
 							{/if}

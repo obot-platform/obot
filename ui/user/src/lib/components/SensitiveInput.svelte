@@ -11,6 +11,7 @@
 		textarea?: boolean;
 		disabled?: boolean;
 		growable?: boolean;
+		class?: string;
 	}
 
 	let {
@@ -20,7 +21,8 @@
 		oninput,
 		textarea,
 		disabled,
-		growable
+		growable,
+		class: klass
 	}: Props = $props();
 	let showSensitive = $state(false);
 	let textareaElement = $state<HTMLElement>();
@@ -59,6 +61,7 @@
 					spellcheck="false"
 					class={twMerge(
 						'text-input-filled base min-h-full w-full flex-1 pr-10 font-mono',
+						klass,
 						error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1',
 						growable && 'resize-y',
 						disabled && 'opacity-50',
@@ -88,6 +91,7 @@
 					spellcheck="false"
 					class={twMerge(
 						'text-input-filled base min-h-full w-full flex-1 pr-10 font-mono',
+						klass,
 						error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1',
 						!showSensitive ? 'hide' : ''
 					)}
@@ -113,7 +117,8 @@
 					bind:this={maskedTextarea}
 					tabindex="-1"
 					class={twMerge(
-						'text-input-filled layer-1 pointer-events-none absolute inset-0 w-full overflow-auto bg-transparent pr-10 font-mono break-words whitespace-pre-wrap'
+						'text-input-filled layer-1 pointer-events-none absolute inset-0 w-full overflow-auto bg-transparent pr-10 font-mono break-words whitespace-pre-wrap',
+						klass
 					)}
 				>
 					{@html getMaskedValue(value)}
@@ -127,6 +132,7 @@
 			{name}
 			class={twMerge(
 				'text-input-filled w-full pr-10',
+				klass,
 				error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1'
 			)}
 			{value}

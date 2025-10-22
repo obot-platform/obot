@@ -98,7 +98,7 @@
 				{#if headers.length > 0}
 					<div class="flex flex-col gap-2">
 						{#each headers as h (h.key)}
-							{@render status(h.key, h.value, h.sensitive)}
+							{@render status(h.key, h.prefix ? h.prefix + h.value : h.value, h.sensitive)}
 						{/each}
 					</div>
 				{:else}
