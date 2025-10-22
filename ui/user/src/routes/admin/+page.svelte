@@ -1,11 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { AdminService, type BootstrapStatus, type TempUser } from '$lib/services';
-	import { darkMode } from '$lib/stores';
 	import { AlertCircle, Handshake, LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { onMount } from 'svelte';
 
 	interface Props {
 		modelProviderConfigured?: boolean;

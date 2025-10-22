@@ -273,7 +273,7 @@
 			<p>You'll need to continue setup with an owner account.</p>
 			<p>The following user(s) have been explicitly assigned the Owner role:</p>
 			<ul class="list-disc px-8">
-				{#each explicitOwners as owner}
+				{#each explicitOwners as owner (owner)}
 					<li>{owner}</li>
 				{/each}
 			</ul>

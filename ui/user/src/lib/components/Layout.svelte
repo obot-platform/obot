@@ -3,7 +3,7 @@
 	import { columnResize } from '$lib/actions/resize';
 	import { profile, responsive, version } from '$lib/stores';
 	import { initLayout, getLayout } from '$lib/context/layout.svelte';
-	import { onMount, type Component, type Snippet } from 'svelte';
+	import { type Component, type Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import {
 		Boxes,

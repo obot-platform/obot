@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CircleSlash, CircleCheck } from 'lucide-svelte';
 	import DotDotDot from '../DotDotDot.svelte';
-	import { darkMode, profile } from '$lib/stores';
+	import { darkMode } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import type { BaseProvider } from '$lib/services/admin/types';
 	import type { Snippet } from 'svelte';
