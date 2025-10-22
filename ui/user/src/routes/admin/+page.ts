@@ -1,4 +1,3 @@
-import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { ChatService, getProfile, type AuthProvider } from '$lib/services';
 import { Group } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
@@ -22,7 +21,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	if (hasAccess && !showSetupHandoff) {
 		throw redirect(
 			307,
-			profile?.username === BOOTSTRAP_USER_ID && version?.authEnabled
+			profile?.isBootstrapUser?.() && version?.authEnabled
 				? '/admin/auth-providers'
 				: '/admin/mcp-servers'
 		);

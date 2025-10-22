@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Navbar from '$lib/components/Navbar.svelte';
+	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { AdminService, type BootstrapStatus, type TempUser } from '$lib/services';
 	import { darkMode } from '$lib/stores';
@@ -69,11 +70,7 @@
 			<div
 				class="dark:bg-surface2 dark:border-surface3 flex w-sm flex-col rounded-lg border border-transparent bg-white px-4 py-8 shadow-sm"
 			>
-				{#if darkMode.isDark}
-					<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-				{:else}
-					<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-				{/if}
+				<BetaLogo class="self-center" />
 
 				{#if showSuccessOwnerConfirmation}
 					<div class="my-6 flex w-full flex-col items-center justify-center gap-6">
@@ -91,6 +88,8 @@
 						class="button place-items-center"
 						onclick={async () => {
 							await AdminService.bootstrapLogout();
+							// make sure to clear seenSplashDialog so splash will show for logged in owner if needed
+							localStorage.removeItem('seenSplashDialog');
 							window.location.href = '/oauth2/sign_out?rd=/admin';
 						}}
 					>
@@ -156,11 +155,7 @@
 		class="dark:bg-surface2 dark:border-surface3 flex w-sm flex-col rounded-lg border border-transparent bg-white px-4 py-8 shadow-sm"
 		onsubmit={(e) => e.preventDefault()}
 	>
-		{#if darkMode.isDark}
-			<img src="/user/images/obot-logo-blue-white-text.svg" class="h-12" alt="Obot logo" />
-		{:else}
-			<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
-		{/if}
+		<BetaLogo class="self-center" />
 
 		{#if error}
 			<div class="notification-error mt-4 flex items-center gap-2">

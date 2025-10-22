@@ -2,7 +2,6 @@
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import {
-		BOOTSTRAP_USER_ID,
 		CommonAuthProviderIds,
 		PAGE_TRANSITION_DURATION,
 		RecommendedModelProviders
@@ -11,14 +10,13 @@
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { AdminService } from '$lib/services/index.js';
-	import { AlertTriangle, Info, UserPlus } from 'lucide-svelte';
+	import { AlertTriangle, Info } from 'lucide-svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { darkMode, errors, profile } from '$lib/stores/index.js';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import { onMount } from 'svelte';
 
 	let { data } = $props();
 	let { authProviders: initialAuthProviders } = data;
@@ -66,7 +64,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	$effect(() => {
-		if (profile.current.username === BOOTSTRAP_USER_ID && atLeastOneConfigured) {
+		if (profile.current.isBootstrapUser?.() && atLeastOneConfigured) {
 			const handleVisibilityChange = async () => {
 				if (document.visibilityState === 'visible') {
 					const configuredAuthProvider = authProviders.find((provider) => provider.configured);
@@ -119,7 +117,7 @@
 				authProviders = await AdminService.listAuthProviders();
 				adminConfigStore.updateAuthProviders(authProviders);
 				providerConfigure?.close();
-				if (profile.current.username === BOOTSTRAP_USER_ID) {
+				if (profile.current.isBootstrapUser?.()) {
 					await handleOwnerSetup();
 				}
 			} catch (err: unknown) {
@@ -172,6 +170,11 @@
 							// if 404, ignore, it means no credentials are set
 							if (err instanceof Error && !err.message.includes('404')) {
 								console.error('An error occurred while revealing auth provider credentials', err);
+							} else {
+								// no credentials set, set initial default value for allowed domains
+								configuringAuthProviderValues = {
+									OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
+								};
 							}
 						}
 						providerConfigure?.open();
@@ -260,22 +263,23 @@
 	{/snippet}
 </Confirm>
 
-<ResponsiveDialog bind:this={setupSignInDialog}>
+<ResponsiveDialog bind:this={setupSignInDialog} class="w-md">
 	{#snippet titleContent()}
 		<h3 class="text-lg font-semibold">Next Step: Owner Login Setup</h3>
 	{/snippet}
 
 	<div class="flex flex-col gap-4">
 		{#if explicitOwners.length > 0}
-			<p>The following users have been explicitly assigned the Owner role:</p>
-			<ul>
+			<p>You'll need to continue setup with an owner account.</p>
+			<p>The following user(s) have been explicitly assigned the Owner role:</p>
+			<ul class="list-disc px-8">
 				{#each explicitOwners as owner}
 					<li>{owner}</li>
 				{/each}
 			</ul>
 			<p>
-				Select an option below to either sign out & log in as one of the aforementioned owners or
-				log into a different account with your configured auth provider to continue owner setup.
+				Log in into the system as one of the explicit owners or log into a different account with
+				your configured auth provider.
 			</p>
 		{:else}
 			<p>
@@ -286,7 +290,17 @@
 
 		<div class="my-4 flex flex-col gap-2">
 			{#if explicitOwners.length > 0}
-				<button class="button-auth"> Sign Out </button>
+				<button
+					class="button-auth"
+					onclick={async () => {
+						await AdminService.bootstrapLogout();
+						// make sure to clear seenSplashDialog so splash will show for logged in owner if needed
+						localStorage.removeItem('seenSplashDialog');
+						window.location.href = '/oauth2/sign_out?rd=/admin';
+					}}
+				>
+					<span class="text-center text-sm font-light"> Log Out </span>
+				</button>
 			{/if}
 			<a class="group button-auth" href={setupTempLoginUrl}>
 				{#if configuringAuthProvider?.icon}

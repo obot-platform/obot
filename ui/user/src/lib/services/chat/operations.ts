@@ -1,3 +1,4 @@
+import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { Group } from '$lib/services/admin/types';
 import type {
 	AccessControlRule,
@@ -67,6 +68,9 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	};
 	obj.isAdminReadonly = () => {
 		return !obj.groups.includes(Group.ADMIN) && obj.groups.includes(Group.AUDITOR);
+	};
+	obj.isBootstrapUser = () => {
+		return obj.username === BOOTSTRAP_USER_ID;
 	};
 	obj.loaded = true;
 	return obj;

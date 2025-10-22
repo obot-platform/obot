@@ -6,7 +6,6 @@
 	import type { BaseProvider } from '$lib/services/admin/types';
 	import type { Snippet } from 'svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 
 	interface Props {
 		recommended?: boolean;

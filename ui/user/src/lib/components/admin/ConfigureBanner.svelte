@@ -29,11 +29,6 @@
 	);
 
 	const loading = $derived(storeData.loading);
-
-	onMount(() => {
-		// Initialize the store if it hasn't been initialized yet
-		adminConfigStore.initialize();
-	});
 </script>
 
 {#if !loading && (!isModelProviderConfigured || !isAuthProviderConfigured)}

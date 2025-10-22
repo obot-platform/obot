@@ -38,6 +38,8 @@ const createAdminConfigStore = () => {
 				AdminService.listAuthProviders()
 			]);
 
+			console.log('modelProviders', modelProviders);
+			console.log('authProviders', authProviders);
 			const modelProviderConfigured = modelProviders.some((provider) => provider.configured);
 			const authProviderConfigured = authProviders.some((provider) => provider.configured);
 
