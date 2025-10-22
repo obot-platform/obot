@@ -491,7 +491,7 @@
 			opacity: 0.5;
 		}
 	}
-	
+
 	.button-auth {
 		display: flex;
 		width: 100%;
@@ -505,15 +505,15 @@
 		background-color: var(--surface1);
 		transition-property: background-color;
 		transition-duration: 200ms;
-		
+
 		&:hover {
 			background-color: var(--surface2);
 		}
-		
+
 		.dark & {
 			background-color: var(--surface1);
 		}
-		
+
 		.dark &:hover {
 			background-color: var(--surface3);
 		}
