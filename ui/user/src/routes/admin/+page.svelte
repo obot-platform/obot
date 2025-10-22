@@ -4,8 +4,8 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { AdminService, type BootstrapStatus, type TempUser } from '$lib/services';
-	import { darkMode, profile } from '$lib/stores';
-	import { AlertCircle, LoaderCircle } from 'lucide-svelte';
+	import { darkMode } from '$lib/stores';
+	import { AlertCircle, Handshake, LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 
@@ -20,6 +20,7 @@
 
 	let loadingCancelTempUser = $state(false);
 	let loadingConfirmTempUser = $state(false);
+	let showSuccessOwnerConfirmation = $state(false);
 
 	onMount(() => {
 		fetchBootstrapStatus = AdminService.getBootstrapStatus();
@@ -75,50 +76,73 @@
 					<img src="/user/images/obot-logo-blue-black-text.svg" class="h-12" alt="Obot logo" />
 				{/if}
 
-				<div class="relative z-10 my-6 flex w-full flex-col items-center justify-center gap-6">
-					<p class="text-md px-8 text-center font-light text-gray-500 md:px-8 dark:text-gray-300">
-						You're now logged in as <span class="font-semibold"
-							>{tempUser.email || tempUser.username}</span
-						>.
-					</p>
-
-					<p class="text-md px-8 text-center font-light text-gray-500 md:px-8 dark:text-gray-300">
-						Are you sure you wish to make this account an owner?
-					</p>
-				</div>
-				<div class="flex flex-col gap-2">
-					<button
-						class="button-primary place-items-center"
-						onclick={async () => {
-							loadingConfirmTempUser = true;
-							await AdminService.confirmTempUserAsOwner(tempUser.email);
-							await AdminService.bootstrapLogout();
-							goto('/admin/mcp-servers');
-						}}
-						disabled={loadingCancelTempUser || loadingConfirmTempUser}
-					>
-						{#if loadingConfirmTempUser}
-							<LoaderCircle class="size-4 animate-spin" />
-						{:else}
-							Yes, make this account an owner
-						{/if}
-					</button>
+				{#if showSuccessOwnerConfirmation}
+					<div class="my-6 flex w-full flex-col items-center justify-center gap-6 px-8">
+						<div class="flex items-center justify-center gap-2">
+							<Handshake class="size-6" />
+							<h3 class="text-xl font-semibold">Confirm Handoff</h3>
+						</div>
+						<p class="text-md text-center font-light md:px-8">
+							You've established your first owner user, the bootstrap user currently being used will
+							be disabled. Upon completing this action, you'll be logged out and asked to log in
+							using your auth provider.
+						</p>
+					</div>
 					<button
 						class="button place-items-center"
 						onclick={async () => {
-							loadingCancelTempUser = true;
-							await AdminService.cancelTempLogin();
+							await AdminService.bootstrapLogout();
 							window.location.href = '/oauth2/sign_out?rd=/admin';
 						}}
-						disabled={loadingCancelTempUser || loadingConfirmTempUser}
 					>
-						{#if loadingCancelTempUser}
-							<LoaderCircle class="size-4 animate-spin" />
-						{:else}
-							No, cancel & go back
-						{/if}
+						Confirm & Log Out
 					</button>
-				</div>
+				{:else}
+					<div class="my-6 flex w-full flex-col items-center justify-center gap-6 px-8">
+						<p class="text-md text-center font-light">
+							You're now logged in as <span class="font-semibold"
+								>{tempUser.email || tempUser.username}</span
+							>.
+						</p>
+
+						<p class="text-md text-center font-light">
+							Are you sure you wish to make this account an owner?
+						</p>
+					</div>
+					<div class="flex flex-col gap-2">
+						<button
+							class="button-primary place-items-center"
+							onclick={async () => {
+								loadingConfirmTempUser = true;
+								await AdminService.confirmTempUserAsOwner(tempUser.email);
+								loadingConfirmTempUser = false;
+								showSuccessOwnerConfirmation = true;
+							}}
+							disabled={loadingCancelTempUser || loadingConfirmTempUser}
+						>
+							{#if loadingConfirmTempUser}
+								<LoaderCircle class="size-4 animate-spin" />
+							{:else}
+								Yes, make this account an owner
+							{/if}
+						</button>
+						<button
+							class="button place-items-center"
+							onclick={async () => {
+								loadingCancelTempUser = true;
+								await AdminService.cancelTempLogin();
+								goto('/admin/auth-providers', { replaceState: true });
+							}}
+							disabled={loadingCancelTempUser || loadingConfirmTempUser}
+						>
+							{#if loadingCancelTempUser}
+								<LoaderCircle class="size-4 animate-spin" />
+							{:else}
+								No, cancel & go back
+							{/if}
+						</button>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	{/await}
