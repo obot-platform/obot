@@ -26,7 +26,13 @@
 	import DeploymentsView from './DeploymentsView.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
-	import { clearUrlParams, setUrlParams } from '$lib/url';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		getTableUrlParamsSort,
+		setSortUrlParams,
+		setFilterUrlParams
+	} from '$lib/url';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
@@ -36,7 +42,8 @@
 	initMcpServerAndEntries();
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
 	let users = $state<OrgUser[]>([]);
-	let urlFilters = $state<Record<string, (string | number)[]>>({});
+	let urlFilters = $state(getTableUrlParamsFilters());
+	let initSort = $derived(getTableUrlParamsSort());
 
 	onMount(async () => {
 		users = await AdminService.listUsersIncludeDeleted();
@@ -47,18 +54,11 @@
 		if (defaultCatalog?.isSyncing) {
 			pollTillSyncComplete();
 		}
-
-		if (page.url.searchParams.size > 0) {
-			page.url.searchParams.forEach((value, key) => {
-				if (key === 'view') return;
-				urlFilters[key] = value.split(',');
-			});
-		}
 	});
 
 	function handleFilter(property: string, values: string[]) {
 		urlFilters[property] = values;
-		setUrlParams(property, values);
+		setFilterUrlParams(property, values);
 	}
 
 	function handleClearAllFilters() {
@@ -246,6 +246,8 @@
 					{urlFilters}
 					onFilter={handleFilter}
 					onClearAllFilters={handleClearAllFilters}
+					onSort={setSortUrlParams}
+					{initSort}
 				>
 					{#snippet emptyContentButton()}
 						{@render addServerButton()}
@@ -268,6 +270,8 @@
 					{urlFilters}
 					onFilter={handleFilter}
 					onClearAllFilters={handleClearAllFilters}
+					onSort={setSortUrlParams}
+					{initSort}
 				/>
 			{/if}
 		</div>

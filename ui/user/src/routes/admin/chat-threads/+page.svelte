@@ -15,7 +15,14 @@
 	import { profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { clearUrlParams, setUrlParams } from '$lib/url';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		getTableUrlParamsSort,
+		setSearchParamsToLocalStorage,
+		setSortUrlParams,
+		setFilterUrlParams
+	} from '$lib/url';
 
 	let threads = $state<ProjectThread[]>([]);
 	let projects = $state<Project[]>([]);
@@ -24,7 +31,8 @@
 	let userMap = $derived(new Map(users.map((u) => [u.id, u])));
 
 	let query = $state(page.url.searchParams.get('query') || '');
-	let urlFilters = $state<Record<string, (string | number)[]>>({});
+	let urlFilters = $derived(getTableUrlParamsFilters());
+	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
 
 	let loading = $state(true);
 	let filteredThreads = $derived(threads.filter((thread) => !thread.project && !thread.systemTask));
@@ -57,11 +65,6 @@
 
 	onMount(() => {
 		loadThreads();
-		if (page.url.searchParams.size > 0) {
-			page.url.searchParams.forEach((value, key) => {
-				urlFilters[key] = value.split(',');
-			});
-		}
 	});
 
 	async function loadThreads() {
@@ -155,10 +158,11 @@
 						fields={['displayName', 'userName', 'userEmail', 'projectName', 'created']}
 						filterable={['displayName', 'userName', 'userEmail', 'projectName']}
 						filters={urlFilters}
-						onFilter={setUrlParams}
+						onFilter={setFilterUrlParams}
 						onClearAllFilters={clearUrlParams}
 						onClickRow={isAuditor
 							? (d, isCtrlClick) => {
+									setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 									const url = `/admin/chat-threads/${d.id}`;
 									openUrl(url, isCtrlClick);
 								}
@@ -192,7 +196,8 @@
 							}
 						]}
 						sortable={['displayName', 'userName', 'userEmail', 'projectName', 'created']}
-						initSort={{ property: 'created', order: 'desc' }}
+						{initSort}
+						onSort={setSortUrlParams}
 					>
 						{#snippet actions()}
 							<button

@@ -13,6 +13,9 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 
+	export type InitSort = { property: string; order: 'asc' | 'desc' };
+	export type InitSortFn = (property: string, order: 'asc' | 'desc') => void;
+
 	interface Props<T> {
 		actions?: Snippet<[T]>;
 		classes?: {
@@ -28,13 +31,14 @@
 		onClearAllFilters?: () => void;
 		onRenderColumn?: Snippet<[string, T]>;
 		onRenderSubrowContent?: Snippet<[T]>;
+		onSort?: InitSortFn;
 		setRowClasses?: (row: T) => string;
 		noDataMessage?: string;
 		pageSize?: number;
 		sortable?: string[];
 		filterable?: string[];
 		filters?: Record<string, (string | number)[]>;
-		initSort?: { property: string; order: 'asc' | 'desc' };
+		initSort?: InitSort;
 		tableSelectActions?: Snippet<[Record<string, T>]>;
 		validateSelect?: (row: T) => boolean;
 		disabledSelectMessage?: string;
@@ -52,6 +56,7 @@
 		onFilter,
 		onRenderColumn,
 		onRenderSubrowContent,
+		onSort,
 		pageSize,
 		noDataMessage = 'No data',
 		setRowClasses,
@@ -179,6 +184,8 @@
 		} else {
 			sortedBy.order = sortedBy.order === 'asc' ? 'desc' : 'asc';
 		}
+
+		onSort?.(property, sortedBy.order);
 	}
 
 	function handleFilter(property: string, values: string[]) {
@@ -211,20 +218,54 @@
 	function measureColumnWidths() {
 		if (!dataTableRef || !tableSelectActions) return;
 
-		// Find the first data row
-		const firstRow = dataTableRef.querySelector('tbody tr');
+		// temp clear columnWidths to measure natural content width
+		const previousWidths = columnWidths;
+		columnWidths = [];
 
-		if (!firstRow) return;
+		requestAnimationFrame(() => {
+			const firstRow = dataTableRef?.querySelector('tbody tr');
 
-		const cells = firstRow.querySelectorAll('td');
-		const widths: number[] = [];
+			if (!firstRow) {
+				columnWidths = previousWidths;
+				return;
+			}
 
-		cells.forEach((cell) => {
-			const rect = cell.getBoundingClientRect();
-			widths.push(rect.width);
+			const cells = firstRow.querySelectorAll('td');
+			const widths: number[] = [];
+
+			cells.forEach((cell, index) => {
+				const contentDiv = cell.querySelector('div');
+				let width: number;
+
+				if (contentDiv) {
+					width = contentDiv.scrollWidth;
+				} else {
+					width = cell.getBoundingClientRect().width;
+				}
+
+				// accounting for header icons and cell padding
+				if (index > 0 && index <= fields.length) {
+					const fieldIndex = index - 1;
+					const property = fields[fieldIndex];
+
+					width += 32; // cell padding
+
+					// 12px for filter icon and gap
+					if (filterableFields.has(property)) {
+						width += 12;
+					}
+
+					// 20px for sort icon (sort + gap)
+					if (sortableFields.has(property)) {
+						width += 20;
+					}
+				}
+
+				widths.push(width);
+			});
+
+			columnWidths = widths;
 		});
-
-		columnWidths = widths;
 	}
 
 	onMount(() => {
@@ -232,11 +273,9 @@
 		const scrollableElement = dataTableRef?.closest('[class*="overflow-y-auto"]') as HTMLElement;
 
 		if (scrollableElement && tableSelectActions) {
-			scrollableElement.addEventListener('scroll', measureColumnWidths);
 			window.addEventListener('resize', measureColumnWidths);
 
 			return () => {
-				scrollableElement.removeEventListener('scroll', measureColumnWidths);
 				window.removeEventListener('resize', measureColumnWidths);
 			};
 		}
@@ -273,7 +312,7 @@
 					</div>
 				</div>
 			{:else}
-				<div class="w-full overflow-x-auto">
+				<div class="default-scrollbar-thin w-full overflow-x-auto">
 					<table class="w-full border-collapse" style="table-layout: fixed; width: 100%;">
 						<colgroup>
 							<col style="width: {columnWidths[0] || 57}px;" />
@@ -296,11 +335,30 @@
 	{/if}
 	<div
 		class={twMerge(
-			'dark:bg-surface2 relative overflow-hidden overflow-x-auto rounded-md bg-white shadow-sm',
+			'dark:bg-surface2 default-scrollbar-thin relative overflow-hidden overflow-x-auto rounded-md bg-white shadow-sm',
 			classes?.root
 		)}
 	>
-		<table class="w-full border-collapse" bind:this={dataTableRef}>
+		<table
+			class="w-full border-collapse"
+			bind:this={dataTableRef}
+			style={tableSelectActions && columnWidths.length > 0
+				? 'table-layout: fixed; width: 100%;'
+				: ''}
+		>
+			{#if tableSelectActions && columnWidths.length > 0}
+				<colgroup>
+					<col style="width: {columnWidths[0] || 57}px;" />
+					{#each fields as fieldName, index (fieldName)}
+						<col
+							style="width: {columnWidths[index + 1] ? columnWidths[index + 1] + 'px' : 'auto'};"
+						/>
+					{/each}
+					{#if actions}
+						<col style="width: {columnWidths[columnWidths.length - 1] || 80}px;" />
+					{/if}
+				</colgroup>
+			{/if}
 			{@render header(Boolean(tableSelectActions))}
 			{#if tableData.length > 0}
 				<tbody>
@@ -334,7 +392,7 @@
 {#if pageSize && tableData.length > pageSize}
 	<div class="flex items-center justify-center gap-4">
 		<button
-			class="button-text flex items-center gap-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline"
+			class="button-text flex items-center gap-1 text-xs"
 			disabled={page === 0}
 			onclick={() => page--}
 		>
@@ -346,7 +404,7 @@
 		</p>
 
 		<button
-			class="button-text flex items-center gap-1 text-xs disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:no-underline"
+			class="button-text flex items-center gap-1 text-xs"
 			disabled={page === Math.floor(total / pageSize)}
 			onclick={() => page++}
 		>
@@ -385,46 +443,49 @@
 				<Square class="size-5" />
 			{/if}
 		</button>
-		<DotDotDot class="text-gray-500">
-			{#snippet icon()}
-				<ChevronDown class="size-4" />
-			{/snippet}
+		{#if validateSelect}
+			<DotDotDot class="text-gray-500">
+				{#snippet icon()}
+					<ChevronDown class="size-4" />
+				{/snippet}
 
-			<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-				<button
-					class="menu-button"
-					onclick={() => {
-						sortedBy = {
-							property: 'selectable',
-							order: 'asc'
-						};
-					}}
-				>
-					Sort By Selectable Items
-				</button>
-				<button
-					class="menu-button"
-					onclick={async () => {
-						if (filteredBy?.['selectable']) {
-							delete filteredBy['selectable'];
-							filteredBy = { ...filteredBy };
-						} else {
-							filteredBy = {
-								...filteredBy,
-								selectable: ['true']
+				<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
+					<button
+						class="menu-button"
+						onclick={() => {
+							sortedBy = {
+								property: 'selectable',
+								order: 'asc'
 							};
-						}
-						onFilter?.('selectable', ['true']);
-					}}
-				>
-					{#if filteredBy?.['selectable']}
-						Show All Items
-					{:else}
-						Show Only Selectable Items
-					{/if}
-				</button>
-			</div>
-		</DotDotDot>
+							onSort?.('selectable', 'asc');
+						}}
+					>
+						Sort By Selectable Items
+					</button>
+					<button
+						class="menu-button"
+						onclick={async () => {
+							if (filteredBy?.['selectable']) {
+								delete filteredBy['selectable'];
+								filteredBy = { ...filteredBy };
+							} else {
+								filteredBy = {
+									...filteredBy,
+									selectable: ['true']
+								};
+							}
+							onFilter?.('selectable', ['true']);
+						}}
+					>
+						{#if filteredBy?.['selectable']}
+							Show All Items
+						{:else}
+							Show Only Selectable Items
+						{/if}
+					</button>
+				</div>
+			</DotDotDot>
+		{/if}
 	</div>
 {/snippet}
 

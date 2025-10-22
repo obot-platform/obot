@@ -1,7 +1,8 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import Table from '$lib/components/table/Table.svelte';
+	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import {
 		fetchMcpServerAndEntries,
 		getAdminMcpServerAndEntries
@@ -16,6 +17,7 @@
 	} from '$lib/services';
 	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
+	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Captions, Ellipsis, LoaderCircle, Server, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
@@ -31,6 +33,8 @@
 		urlFilters?: Record<string, (string | number)[]>;
 		onFilter?: (property: string, values: string[]) => void;
 		onClearAllFilters?: () => void;
+		onSort?: InitSortFn;
+		initSort?: InitSort;
 	}
 
 	let {
@@ -41,7 +45,9 @@
 		query,
 		urlFilters: filters,
 		onFilter,
-		onClearAllFilters
+		onClearAllFilters,
+		onSort,
+		initSort
 	}: Props = $props();
 
 	let deletingEntry = $state<MCPCatalogEntry>();
@@ -120,10 +126,14 @@
 						? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/s/${d.id}`
 						: `/admin/mcp-servers/s/${d.id}`;
 				}
+
+				setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 				openUrl(url, isCtrlClick);
 			}}
+			{initSort}
 			{onFilter}
 			{onClearAllFilters}
+			{onSort}
 			sortable={['name', 'type', 'users', 'created', 'registry']}
 			noDataMessage="No catalog servers added."
 			classes={{

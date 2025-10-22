@@ -194,7 +194,7 @@
 			'w-8 h-8 flex items-center justify-center text-sm rounded-md transition-colors';
 
 		if (isDisabled(date)) {
-			return twMerge(baseClasses, 'text-gray-400 cursor-not-allowed');
+			return twMerge(baseClasses, 'text-gray-400 cursor-default');
 		}
 
 		if (isStartDate(date) || isEndDate(date)) {
@@ -223,7 +223,7 @@
 		{disabled}
 		class={twMerge(
 			'dark:bg-surface1 text-md flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg bg-white px-4 py-2 text-left shadow-sm',
-			disabled && 'cursor-not-allowed opacity-50',
+			disabled && 'cursor-default opacity-50',
 			klass
 		)}
 		onmousedown={() => {

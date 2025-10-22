@@ -9,6 +9,7 @@
 	import { fly } from 'svelte/transition';
 	import { page } from '$app/state';
 	import { profile } from '$lib/stores/index.js';
+	import McpServerRemoteInfo from '$lib/components/admin/McpServerRemoteInfo.svelte';
 
 	let { data } = $props();
 	let { catalogEntry, mcpServerId, workspaceId } = data;
@@ -37,16 +38,27 @@
 			<BackLink fromURL={from} {currentLabel} />
 		{/if}
 
-		{#if mcpServerId && catalogEntry?.manifest.runtime !== 'remote'}
-			<McpServerK8sInfo
-				id={workspaceId}
-				entity="workspace"
-				{catalogEntry}
-				{mcpServerId}
-				name={catalogEntryName}
-				{connectedUsers}
-				readonly={profile.current.isAdminReadonly?.()}
-			/>
+		{#if mcpServerId}
+			{#if catalogEntry?.manifest.runtime === 'remote'}
+				<McpServerRemoteInfo
+					{mcpServerId}
+					name={catalogEntryName}
+					{connectedUsers}
+					entity="workspace"
+					entityId={workspaceId}
+					{catalogEntry}
+				/>
+			{:else}
+				<McpServerK8sInfo
+					id={workspaceId}
+					entity="workspace"
+					{mcpServerId}
+					name={catalogEntryName}
+					{connectedUsers}
+					readonly={profile.current.isAdminReadonly?.()}
+					{catalogEntry}
+				/>
+			{/if}
 		{:else}
 			<h1 class="text-2xl font-semibold">
 				{catalogEntryName} | {mcpServerId}

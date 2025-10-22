@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"sync"
 	"time"
 
@@ -57,4 +58,11 @@ func (c *Client) Close() error {
 
 func (c *Client) HasExplicitRole(email string) types2.Role {
 	return c.emailsWithExplictRoles[email]
+}
+
+// GetExplicitRoleEmails returns a copy of all emails with explicit roles.
+// Used by setup endpoints to list Owner and Admin emails.
+func (c *Client) GetExplicitRoleEmails() map[string]types2.Role {
+	// No lock needed - map is immutable after construction
+	return maps.Clone(c.emailsWithExplictRoles)
 }

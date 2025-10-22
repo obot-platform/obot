@@ -607,7 +607,7 @@
 
 {#snippet auditLogsView()}
 	{#if entry}
-		{@const isMultiUserServer = !!page.url.pathname.match(/\/mcp-servers\/s.*$/)?.[0]}
+		{@const isMultiUserServer = 'catalogEntryID' in entry ? !entry.catalogEntryID : false}
 		{@const isSingleUserServer =
 			!isMultiUserServer && ['npx', 'uvx', 'containerized'].includes(entry.manifest.runtime)}
 		{@const isRemoteServer = !isMultiUserServer && entry.manifest.runtime === 'remote'}

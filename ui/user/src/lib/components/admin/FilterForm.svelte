@@ -460,7 +460,7 @@
 					Cancel
 				</button>
 				<button
-					class="button-primary text-sm disabled:opacity-75"
+					class="button-primary text-sm"
 					disabled={saving}
 					onclick={async () => {
 						// Show validation errors if required fields are missing

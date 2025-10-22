@@ -20,7 +20,14 @@
 	import { replaceState } from '$app/navigation';
 	import { debounce } from 'es-toolkit';
 	import { page } from '$app/state';
-	import { clearUrlParams, setUrlParams } from '$lib/url';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		getTableUrlParamsSort,
+		setSearchParamsToLocalStorage,
+		setSortUrlParams,
+		setFilterUrlParams
+	} from '$lib/url';
 
 	initMcpServerAndEntries();
 
@@ -34,7 +41,8 @@
 	);
 
 	let query = $state('');
-	let urlFilters = $state<Record<string, (string | number)[]>>({});
+	let urlFilters = $derived(getTableUrlParamsFilters());
+	let initSort = $derived(getTableUrlParamsSort());
 
 	async function refresh() {
 		loading = true;
@@ -129,12 +137,14 @@
 							data={filteredFilters}
 							fields={['name', 'url', 'selectors']}
 							onClickRow={(d, isCtrlClick) => {
+								setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+
 								const url = `/admin/filters/${d.id}`;
 								openUrl(url, isCtrlClick);
 							}}
 							filterable={['name', 'url']}
 							filters={urlFilters}
-							onFilter={setUrlParams}
+							onFilter={setFilterUrlParams}
 							onClearAllFilters={clearUrlParams}
 							headers={[
 								{
@@ -151,6 +161,8 @@
 								}
 							]}
 							sortable={['name']}
+							onSort={setSortUrlParams}
+							{initSort}
 						>
 							{#snippet actions(d: MCPFilter)}
 								{#if !profile.current.isAdminReadonly?.()}

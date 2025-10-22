@@ -21,6 +21,7 @@
 	import CategorySelectInput from './CategorySelectInput.svelte';
 	import Select from '../Select.svelte';
 	import { profile } from '$lib/stores';
+	import InfoTooltip from '../InfoTooltip.svelte';
 
 	interface Props {
 		id?: string;
@@ -299,13 +300,15 @@
 				break;
 			case 'remote':
 				if (type === 'remote') {
-					// For remote catalog entries, either fixedURL or hostname is required
+					// For remote catalog entries, one of fixedURL, hostname, or urlTemplate is required
 					if (
 						!formData.remoteConfig?.fixedURL?.trim() &&
-						!formData.remoteConfig?.hostname?.trim()
+						!formData.remoteConfig?.hostname?.trim() &&
+						!formData.remoteConfig?.urlTemplate?.trim()
 					) {
 						missingFields.fixedURL = true;
 						missingFields.hostname = true;
+						missingFields.urlTemplate = true;
 					}
 					break;
 				} else {
@@ -387,6 +390,7 @@
 					manifest.remoteConfig = {
 						fixedURL: baseData.remoteConfig.fixedURL?.trim() || undefined,
 						hostname: baseData.remoteConfig.hostname?.trim() || undefined,
+						urlTemplate: baseData.remoteConfig.urlTemplate?.trim() || undefined,
 						headers: baseData.remoteConfig.headers || []
 					};
 				}
@@ -741,6 +745,7 @@
 										{ label: 'Environment Variable', id: 'environment_variable_type' },
 										{ label: 'File', id: 'file_type' }
 									]}
+									disabled={readonly}
 									selected={formData.env[i].file ? 'file_type' : 'environment_variable_type'}
 									onSelect={(option) => {
 										if (option.id === 'file_type') {
@@ -798,6 +803,24 @@
 										class="text-input-filled w-full"
 										bind:value={formData.env[i].key}
 										placeholder="e.g. CUSTOM_API_KEY"
+										disabled={readonly}
+									/>
+								</div>
+								<div class="flex w-full flex-col gap-1">
+									<label
+										for={`env-prefix]-${i}`}
+										class="flex items-center gap-1 text-sm font-light"
+									>
+										Value Prefix
+										<InfoTooltip
+											text="A constant prepended value that will be added to the user-supplied value. Ex. 'Bearer ' in 'Bearer [USER_SUPPLIED_VALUE]'."
+											popoverWidth="lg"
+										/>
+									</label>
+									<input
+										id={`header-prefix-${i}`}
+										class="text-input-filled w-full"
+										bind:value={formData.env[i].prefix}
 										disabled={readonly}
 									/>
 								</div>

@@ -21,6 +21,7 @@ const sidebars = {
       items: [
         "concepts/mcp-gateway/overview",
         "concepts/mcp-gateway/servers-and-tools",
+        "concepts/mcp-gateway/obot-registry",
       ],
     },
     {

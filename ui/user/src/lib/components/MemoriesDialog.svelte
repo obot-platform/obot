@@ -361,10 +361,7 @@
 
 {#snippet deleteAllButton(inline?: boolean)}
 	<button
-		class={twMerge(
-			'button-destructive disabled:cursor-not-allowed disabled:opacity-50',
-			inline && 'py-2 text-xs'
-		)}
+		class={twMerge('button-destructive', inline && 'py-2 text-xs')}
 		onclick={() => (toDeleteAll = true)}
 		disabled={loading || memories.length === 0}
 	>

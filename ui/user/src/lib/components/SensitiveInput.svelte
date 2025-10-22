@@ -11,6 +11,7 @@
 		textarea?: boolean;
 		disabled?: boolean;
 		growable?: boolean;
+		class?: string;
 	}
 
 	let {
@@ -20,14 +21,15 @@
 		oninput,
 		textarea,
 		disabled,
-		growable
+		growable,
+		class: klass
 	}: Props = $props();
 	let showSensitive = $state(false);
 	let textareaElement = $state<HTMLElement>();
 	let maskedTextarea = $state<HTMLElement>();
 
 	function getMaskedValue(text: string): string {
-		return text.replace(/[^\s]/g, '•');
+		return text.replace(/[^\s]/g, '•').replace(/\n/g, '<br>');
 	}
 
 	function handleInput(ev: Event) {
@@ -55,9 +57,11 @@
 					bind:this={textareaElement}
 					data-1p-ignore
 					id={name}
-					contenteditable
+					contenteditable="plaintext-only"
+					spellcheck="false"
 					class={twMerge(
 						'text-input-filled base min-h-full w-full flex-1 pr-10 font-mono',
+						klass,
 						error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1',
 						growable && 'resize-y',
 						disabled && 'opacity-50',
@@ -84,9 +88,10 @@
 					id={name}
 					{name}
 					{disabled}
-					contenteditable={growable ? true : undefined}
+					spellcheck="false"
 					class={twMerge(
 						'text-input-filled base min-h-full w-full flex-1 pr-10 font-mono',
+						klass,
 						error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1',
 						!showSensitive ? 'hide' : ''
 					)}
@@ -112,12 +117,12 @@
 					bind:this={maskedTextarea}
 					tabindex="-1"
 					class={twMerge(
-						'text-input-filled layer-1 pointer-events-none absolute inset-0 w-full bg-transparent pr-10 font-mono'
+						'text-input-filled layer-1 pointer-events-none absolute inset-0 w-full overflow-auto bg-transparent pr-10 font-mono break-words whitespace-pre-wrap',
+						klass
 					)}
-					{@attach (node) => {
-						node.innerText = getMaskedValue(value);
-					}}
-				></div>
+				>
+					{@html getMaskedValue(value)}
+				</div>
 			{/if}
 		</div>
 	{:else}
@@ -127,6 +132,7 @@
 			{name}
 			class={twMerge(
 				'text-input-filled w-full pr-10',
+				klass,
 				error && 'border-red-500 bg-red-500/20 text-red-500 ring-red-500 focus:ring-1'
 			)}
 			{value}

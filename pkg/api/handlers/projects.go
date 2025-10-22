@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -328,6 +329,10 @@ func (h *ProjectsHandler) ListProjects(req api.Context) error {
 		projects.Items = filterEditorProjects(projects.Items, isEditor)
 	}
 
+	sort.Slice(projects.Items, func(i, j int) bool {
+		return projects.Items[i].LastUsedTime.GetTime().After(projects.Items[j].LastUsedTime.GetTime())
+	})
+
 	return req.Write(projects)
 }
 
@@ -527,6 +532,7 @@ func convertProject(thread *v1.Thread, parentThread *v1.Thread) types.Project {
 		TemplateUpgradeAvailable:     (thread.Status.UpgradeAvailable && !thread.Spec.UpgradeApproved),
 		TemplateUpgradeInProgress:    thread.Status.UpgradeInProgress,
 		TemplatePublicID:             thread.Status.UpgradePublicID,
+		LastUsedTime:                 types.NewTime(thread.Status.LastUsedTime.Time),
 	}
 
 	if !thread.Status.LastUpgraded.IsZero() {

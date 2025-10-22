@@ -82,7 +82,7 @@
 	}
 
 	function convertToUserDisplayName(id: string) {
-		if (id === '*') return 'Everyone';
+		if (id === '*') return 'All Obot Users';
 		const user = userMap.get(id);
 		if (!user) return id;
 		return user.email ?? user.username ?? id;

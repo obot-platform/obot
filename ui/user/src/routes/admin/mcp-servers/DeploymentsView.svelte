@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import Table from '$lib/components/table/Table.svelte';
+	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import {
@@ -14,6 +15,7 @@
 		type OrgUser
 	} from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
+	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import {
 		Captions,
@@ -36,6 +38,8 @@
 		urlFilters?: Record<string, (string | number)[]>;
 		onFilter?: (property: string, values: string[]) => void;
 		onClearAllFilters?: () => void;
+		onSort?: InitSortFn;
+		initSort?: InitSort;
 	}
 
 	let {
@@ -45,7 +49,9 @@
 		query,
 		urlFilters: filters,
 		onFilter,
-		onClearAllFilters
+		onClearAllFilters,
+		onSort,
+		initSort
 	}: Props = $props();
 	let loading = $state(false);
 
@@ -76,15 +82,14 @@
 
 	let tableRef = $state<ReturnType<typeof Table>>();
 
-	let tableData = $derived.by(() => {
-		const entriesMap = mcpServerAndEntries.entries.reduce<Record<string, MCPCatalogEntry>>(
-			(acc, entry) => {
-				acc[entry.id] = entry;
-				return acc;
-			},
-			{}
-		);
+	let entriesMap = $derived(
+		mcpServerAndEntries.entries.reduce<Record<string, MCPCatalogEntry>>((acc, entry) => {
+			acc[entry.id] = entry;
+			return acc;
+		}, {})
+	);
 
+	let tableData = $derived.by(() => {
 		const transformedData = serversData.map((deployment) => {
 			const powerUserWorkspaceID =
 				deployment.powerUserWorkspaceID ||
@@ -93,7 +98,9 @@
 					: undefined);
 			const powerUserID = deployment.catalogEntryID
 				? entriesMap[deployment.catalogEntryID]?.powerUserID
-				: undefined;
+				: powerUserWorkspaceID
+					? deployment.userID
+					: undefined;
 			return {
 				...deployment,
 				displayName: deployment.manifest.name ?? '',
@@ -274,10 +281,14 @@
 						? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}?from=deployed-servers`
 						: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}?from=deployed-servers`;
 				}
+
+				setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 				openUrl(url, isCtrlClick);
 			}}
 			{onFilter}
 			{onClearAllFilters}
+			{onSort}
+			{initSort}
 			sortable={['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
 			noDataMessage="No catalog servers added."
 			setRowClasses={(d) => {
@@ -323,6 +334,10 @@
 				{/if}
 			{/snippet}
 			{#snippet actions(d)}
+				{@const isMultiUser = !d.catalogEntryID}
+				{@const auditLogsUrl = isMultiUser
+					? `/admin/audit-logs?mcp_server_display_name=${d.manifest.name}`
+					: `/admin/audit-logs?mcp_id=${d.id}`}
 				<DotDotDot class="icon-button hover:dark:bg-black/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
@@ -355,8 +370,10 @@
 								class="menu-button"
 								onclick={(e) => {
 									e.stopPropagation();
+									if (!d.catalogEntryID) return;
+
 									existingServer = d;
-									// updatedServer = parent;
+									updatedServer = entriesMap[d.catalogEntryID];
 									diffDialog?.open();
 								}}
 							>
@@ -381,7 +398,7 @@
 								<Power class="size-4" /> Restart Server
 							</button>
 						{/if}
-						<a href={`/admin/audit-logs?mcp_id=${d.id}`} class="menu-button">
+						<a href={auditLogsUrl} class="menu-button">
 							<Captions class="size-4" /> View Audit Logs
 						</a>
 						{#if !readonly}

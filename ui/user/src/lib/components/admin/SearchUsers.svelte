@@ -25,7 +25,7 @@
 	let filteredGroups = $state<OrgGroup[]>([]);
 
 	let filteredData = $derived.by(() => {
-		const everyoneGroup: OrgGroup = { id: '*', name: 'Everyone' };
+		const everyoneGroup: OrgGroup = { id: '*', name: 'All Obot Users' };
 		const shouldIncludeEveryone =
 			!searchNames.length || everyoneGroup.name.toLowerCase().includes(searchNames.toLowerCase());
 

@@ -1676,22 +1676,37 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 		}
 	case types.RuntimeRemote:
 		if entry.Spec.Manifest.RemoteConfig != nil {
-			toExtract = append(toExtract, entry.Spec.Manifest.RemoteConfig.FixedURL)
+			// Add the existing headers to the existing map.
+			for _, header := range entry.Spec.Manifest.RemoteConfig.Headers {
+				existing[header.Key] = struct{}{}
+			}
+
+			toExtract = append(toExtract, entry.Spec.Manifest.RemoteConfig.URLTemplate)
 		}
 	}
 
 	for _, v := range toExtract {
 		for _, env := range extractEnvVars(v) {
 			if _, exists := existing[env]; !exists {
-				entry.Spec.Manifest.Env = append(entry.Spec.Manifest.Env, types.MCPEnv{
-					MCPHeader: types.MCPHeader{
+				if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
+					entry.Spec.Manifest.Env = append(entry.Spec.Manifest.Env, types.MCPEnv{
+						MCPHeader: types.MCPHeader{
+							Name:        env,
+							Key:         env,
+							Description: "Automatically detected variable",
+							Sensitive:   true,
+							Required:    true,
+						},
+					})
+				} else if entry.Spec.Manifest.RemoteConfig != nil {
+					entry.Spec.Manifest.RemoteConfig.Headers = append(entry.Spec.Manifest.RemoteConfig.Headers, types.MCPHeader{
 						Name:        env,
 						Key:         env,
 						Description: "Automatically detected variable",
-						Sensitive:   true,
+						Sensitive:   false,
 						Required:    true,
-					},
-				})
+					})
+				}
 			}
 		}
 	}
@@ -2030,7 +2045,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		mcpServerDisplayName = server.Name
 	}
 
-	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), mcpServerDisplayName, server.Name, serverConfig)
+	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), server.Spec.UserID, mcpServerDisplayName, server.Name, serverConfig)
 	if err != nil {
 		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
 			return types.NewErrNotFound(nse.Error())
@@ -2123,7 +2138,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		mcpServerDisplayName = server.Name
 	}
 
-	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), mcpServerDisplayName, server.Name, serverConfig)
+	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), server.Spec.UserID, mcpServerDisplayName, server.Name, serverConfig)
 	if err != nil {
 		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
 			return types.NewErrNotFound(nse.Error())

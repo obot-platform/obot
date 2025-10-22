@@ -86,6 +86,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.MCPOAuthToken{},
 		types.MCPAuditLog{},
 		types.SessionCookie{},
+		types.TempSetupUser{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
 	}

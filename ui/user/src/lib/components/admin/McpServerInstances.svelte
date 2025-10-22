@@ -2,7 +2,7 @@
 	import {
 		AdminService,
 		ChatService,
-		Role,
+		Group,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance,
@@ -124,6 +124,19 @@
 			ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
 			JSON.stringify({ id: entry.id, name, type, entity, entityId: id })
 		);
+	}
+
+	function getAuditLogUrl(d: MCPCatalogServer) {
+		if (isAdminUrl) {
+			if (!profile.current?.hasAdminAccess?.()) return null;
+			return entity === 'workspace'
+				? `/admin/mcp-servers/w/${id}/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
+				: `/admin/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`;
+		}
+
+		return profile.current?.groups.includes(Group.POWERUSER_PLUS)
+			? `/mcp-publisher/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
+			: null;
 	}
 </script>
 
@@ -248,13 +261,10 @@
 				{/snippet}
 
 				{#snippet actions(d)}
-					{@const url =
-						entity === 'workspace'
-							? `/admin/mcp-servers/w/${id}/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}`
-							: `/admin/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}`}
+					{@const auditLogsUrl = getAuditLogUrl(d)}
 					<div class="flex items-center gap-1">
-						{#if profile.current?.role === Role.ADMIN && isAdminUrl}
-							<a class="button-text" href={url}> View Audit Logs </a>
+						{#if auditLogsUrl}
+							<a class="button-text" href={auditLogsUrl}> View Audit Logs </a>
 						{/if}
 
 						{#if d.needsUpdate}

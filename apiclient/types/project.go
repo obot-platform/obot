@@ -13,6 +13,7 @@ type Project struct {
 	TemplateUpgradeInProgress    bool                         `json:"templateUpgradeInProgress,omitempty"`
 	TemplateLastUpgraded         *Time                        `json:"templateLastUpgraded,omitempty"`
 	TemplatePublicID             string                       `json:"templatePublicID,omitempty"`
+	LastUsedTime                 *Time                        `json:"lastUsedTime,omitempty"`
 }
 
 type WorkflowNamesFromIntegration struct {
