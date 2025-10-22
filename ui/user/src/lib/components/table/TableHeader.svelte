@@ -67,7 +67,17 @@
 				onclick={() => toggle()}
 			>
 				{headerTitle ?? property}
-				<Funnel class="size-3 flex-shrink-0" />
+				<div
+					class={twMerge(
+						'flex items-center gap-1 px-2 py-0.5',
+						selectedFilterValues.length > 0 && 'bg-surface3 rounded-full'
+					)}
+				>
+					<Funnel class="size-3 flex-shrink-0" />
+					{#if selectedFilterValues.length > 0}
+						<span class="text-xs font-semibold">{selectedFilterValues.length}</span>
+					{/if}
+				</div>
 			</button>
 		{:else}
 			{headerTitle ?? property}
