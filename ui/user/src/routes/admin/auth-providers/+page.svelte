@@ -289,19 +289,6 @@
 		{/if}
 
 		<div class="my-4 flex flex-col gap-2">
-			{#if explicitOwners.length > 0}
-				<button
-					class="button-auth"
-					onclick={async () => {
-						await AdminService.bootstrapLogout();
-						// make sure to clear seenSplashDialog so splash will show for logged in owner if needed
-						localStorage.removeItem('seenSplashDialog');
-						window.location.href = '/oauth2/sign_out?rd=/admin';
-					}}
-				>
-					<span class="text-center text-sm font-light"> Log Out </span>
-				</button>
-			{/if}
 			<a class="group button-auth" href={setupTempLoginUrl}>
 				{#if configuringAuthProvider?.icon}
 					<img

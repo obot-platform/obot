@@ -4,9 +4,10 @@
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import Logo from '../navbar/Logo.svelte';
 	import { Group } from '$lib/services';
-	import { Square, SquareCheck } from 'lucide-svelte';
+	import { CircleCheckBig } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { twMerge } from 'tailwind-merge';
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	const storeData = $derived($adminConfigStore);
@@ -89,24 +90,22 @@
 
 {#snippet renderChecklistItem(label: string, isChecked: boolean)}
 	<li>
-		{#if isChecked}
-			<SquareCheck class="size-5 text-green-500" />
-		{:else}
-			<Square class="size-5" />
-		{/if}
-		<span class={isChecked ? 'line-through' : ''}>{label}</span>
+		<span class={twMerge('flex items-center gap-1', isChecked ? 'text-gray-500 line-through' : '')}>
+			{label}
+			{#if isChecked}
+				<CircleCheckBig class="size-5 text-green-500" />
+			{/if}
+		</span>
 	</li>
 {/snippet}
 
 <style lang="postcss">
 	.checklist {
-		list-style-type: none;
 		padding-left: 1rem;
 		margin-top: 0.5rem;
+		list-style-type: disc;
 		li {
-			display: flex;
 			margin-bottom: 0.5rem;
-			align-items: center;
 			gap: 0.5rem;
 		}
 	}
