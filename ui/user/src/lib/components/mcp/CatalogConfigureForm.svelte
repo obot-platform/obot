@@ -100,6 +100,14 @@
 		return `${compId}:${k}`;
 	}
 
+	function componentHasConfig(comp?: ComponentLaunchFormData) {
+		if (!comp) return false;
+		const hasEnvs = Array.isArray(comp.envs) && comp.envs.length > 0;
+		const hasHeaders = Array.isArray(comp.headers) && comp.headers.length > 0;
+		const needsURL = Boolean(comp.hostname);
+		return hasEnvs || hasHeaders || needsURL;
+	}
+
 	function missingRequiredFields(formAny: LaunchFormData | CompositeLaunchFormData) {
 		if (!formAny) return false;
 		if (isCompositeForm(formAny)) {
@@ -262,73 +270,75 @@
 
 					{#if 'componentConfigs' in form}
 						{#each Object.entries(form.componentConfigs) as [compId, comp]}
-							<div class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-gray-200">
-								<div class="flex items-center gap-2 p-2">
-									{#if comp.icon}
-										<img src={comp.icon} alt={comp.name || compId} class="size-8" />
-									{/if}
-									<div class="font-medium">{comp.name || compId}</div>
-									<label class="ml-auto flex items-center gap-2 text-sm">
-										<input type="checkbox" bind:checked={form.componentConfigs[compId].skip} /> Skip
-									</label>
-								</div>
-								<div class="border-t border-gray-200 p-3">
-									{#if comp.envs && comp.envs.length > 0}
-										{#each comp.envs as env, i (env.key)}
-											{@const highlightRequired =
-												highlightedFields.has(`${compId}:${env.key}`) && !env.value}
-											<div class="flex flex-col gap-1">
-												<span class="flex items-center gap-2">
-													<label
-														for={`${compId}-${env.key}`}
-														class={highlightRequired ? 'text-red-500' : ''}
-													>
-														{env.name}
-														{#if !env.required}
-															<span class="text-gray-400 dark:text-gray-600">(optional)</span>
-														{/if}
-													</label>
-													<InfoTooltip text={env.description} />
-												</span>
-												{#if env.sensitive}
-													<SensitiveInput
-														error={highlightRequired}
-														name={env.name}
-														bind:value={comp.envs[i].value}
-														textarea={env.file}
-														growable
-													/>
-												{:else if env.file}
-													<textarea
-														id={`${compId}-${env.key}`}
-														bind:value={comp.envs[i].value}
-														class={twMerge(
-															'text-input-filled h-32 resize-y whitespace-pre-wrap',
-															highlightRequired &&
-																'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-														)}
-														onmousedown={() => (resizing = true)}
-														onmouseup={() => (resizing = false)}
-													></textarea>
-												{:else}
-													<input
-														type="text"
-														id={`${compId}-${env.key}`}
-														bind:value={comp.envs[i].value}
-														class={twMerge(
-															'text-input-filled',
-															highlightRequired &&
-																'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-														)}
-													/>
-												{/if}
-											</div>
-										{/each}
-									{/if}
+							{#if componentHasConfig(comp)}
+								<div
+									class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-gray-200"
+								>
+									<div class="flex items-center gap-2 p-2">
+										{#if comp.icon}
+											<img src={comp.icon} alt={comp.name || compId} class="size-8" />
+										{/if}
+										<div class="font-medium">{comp.name || compId}</div>
+										<label class="ml-auto flex items-center gap-2 text-sm">
+											<input type="checkbox" bind:checked={form.componentConfigs[compId].skip} /> Skip
+										</label>
+									</div>
+									<div class="border-t border-gray-200 p-3">
+										{#if comp.envs && comp.envs.length > 0}
+											{#each comp.envs as env, i (env.key)}
+												{@const highlightRequired =
+													highlightedFields.has(`${compId}:${env.key}`) && !env.value}
+												<div class="flex flex-col gap-1">
+													<span class="flex items-center gap-2">
+														<label
+															for={`${compId}-${env.key}`}
+															class={highlightRequired ? 'text-red-500' : ''}
+														>
+															{env.name}
+															{#if !env.required}
+																<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+															{/if}
+														</label>
+														<InfoTooltip text={env.description} />
+													</span>
+													{#if env.sensitive}
+														<SensitiveInput
+															error={highlightRequired}
+															name={env.name}
+															bind:value={comp.envs[i].value}
+															textarea={env.file}
+															growable
+														/>
+													{:else if env.file}
+														<textarea
+															id={`${compId}-${env.key}`}
+															bind:value={comp.envs[i].value}
+															class={twMerge(
+																'text-input-filled h-32 resize-y whitespace-pre-wrap',
+																highlightRequired &&
+																	'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+															)}
+															onmousedown={() => (resizing = true)}
+															onmouseup={() => (resizing = false)}
+														></textarea>
+													{:else}
+														<input
+															type="text"
+															id={`${compId}-${env.key}`}
+															bind:value={comp.envs[i].value}
+															class={twMerge(
+																'text-input-filled',
+																highlightRequired &&
+																	'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+															)}
+														/>
+													{/if}
+												</div>
+											{/each}
+										{/if}
 
-									{#if comp.headers && comp.headers.length > 0}
-										{#each comp.headers as header, i (header.key)}
-											{#if header.required}
+										{#if comp.headers && comp.headers.length > 0}
+											{#each comp.headers as header, i (header.key)}
 												{@const highlightRequired = highlightedFields.has(
 													`${compId}:${header.key}`
 												)}
@@ -353,25 +363,26 @@
 														/>
 													{/if}
 												</div>
-											{/if}
-										{/each}
-									{/if}
+											{/each}
+										{/if}
 
-									{#if comp.hostname}
-										<label for={`${compId}-url`}> URL </label>
-										<input
-											type="text"
-											id={`${compId}-url`}
-											bind:value={comp.url}
-											class="text-input-filled"
-										/>
-										<span class="font-light text-gray-400 dark:text-gray-600">
-											The URL must contain the hostname: <b class="font-semibold">{comp.hostname}</b
-											>
-										</span>
-									{/if}
+										{#if comp.hostname}
+											<label for={`${compId}-url`}> URL </label>
+											<input
+												type="text"
+												id={`${compId}-url`}
+												bind:value={comp.url}
+												class="text-input-filled"
+											/>
+											<span class="font-light text-gray-400 dark:text-gray-600">
+												The URL must contain the hostname: <b class="font-semibold"
+													>{comp.hostname}</b
+												>
+											</span>
+										{/if}
+									</div>
 								</div>
-							</div>
+							{/if}
 						{/each}
 					{:else}
 						{#if form.envs && form.envs.length > 0}

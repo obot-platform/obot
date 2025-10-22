@@ -149,7 +149,7 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 		)
 		if err != nil {
 			log.Errorf("Failed to get client for server %s: %v", componentServer.mcpServer.Name, err)
-			return
+			continue
 		}
 
 		clients[componentKey] = componentClient{
@@ -243,6 +243,8 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 				Message: fmt.Sprintf("failed to reply to composite server %s: %v", m.mcpID, err),
 			}
 		}
+
+		result = compositeResult
 		return
 
 	case methodPromptsList:
@@ -286,6 +288,7 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 			}
 		}
 
+		result = compositeResult
 		return
 	case methodToolsCall:
 		var compositeRequest nmcp.CallToolRequest
@@ -350,6 +353,8 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 				Message: fmt.Sprintf("failed to reply to composite server %s: %v", m.mcpID, err),
 			}
 		}
+
+		result = componentResult
 		return
 
 	case methodNotificationsProgress, methodNotificationsRootsListChanged, methodNotificationsCancelled, methodLoggingSetLevel:

@@ -1281,7 +1281,6 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
-	// For non-composite, perform validation + create parent (composite path handled in helper)
 	if err := validation.ValidateServerManifest(server.Spec.Manifest); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}

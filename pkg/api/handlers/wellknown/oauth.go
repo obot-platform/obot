@@ -3,11 +3,8 @@ package wellknown
 import (
 	"fmt"
 
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 )
-
-var log = logger.Package()
 
 // oauthAuthorization handles the /.well-known/oauth-authorization-server endpoint
 func (h *handler) oauthAuthorization(req api.Context) error {
@@ -25,7 +22,6 @@ func (h *handler) oauthAuthorization(req api.Context) error {
 
 func (h *handler) oauthProtectedResource(req api.Context) error {
 	mcpID := req.PathValue("mcp_id")
-	log.Errorf("oauthProtectedResource called for: %s", mcpID)
 	if mcpID != "" {
 		return req.Write(fmt.Sprintf(`{
 	"resource_name": "Obot MCP Gateway",

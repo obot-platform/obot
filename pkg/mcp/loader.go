@@ -266,7 +266,6 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, id string, serve
 
 		return server, nil
 	case otypes.RuntimeComposite:
-		// This is either a remote or composite MCP server, so there is nothing to deploy
 		server.URL = fmt.Sprintf("%s/mcp-connect/%s", sm.baseURL, mcpServerName)
 		return server, nil
 	}
