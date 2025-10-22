@@ -259,9 +259,11 @@
 	const excludeConfigureBanner = ['/admin/model-providers', '/admin/auth-providers'];
 	const isAdminRoute = $derived(pathname.includes('/admin'));
 
-	onMount(() => {
-		if (profile.current.groups.includes(Group.ADMIN) && isAdminRoute) {
-			// Initialize the admin store if it hasn't been initialized yet
+	$effect(() => {
+		const isAdminOrBootstrapUser =
+			profile.current.loaded &&
+			(profile.current.groups.includes(Group.ADMIN) || profile.current.isBootstrapUser?.());
+		if (isAdminOrBootstrapUser && isAdminRoute) {
 			adminConfigStore.initialize();
 		}
 	});

@@ -13,18 +13,17 @@
 	const isAuthProviderConfigured = $derived(
 		version.current.authEnabled ? storeData.authProviderConfigured : true
 	);
-	const isModelProviderConfigured = $derived(storeData.modelProviderConfigured);
 	const isOnAuthProvidersPage = $derived(page.url.pathname === '/admin/auth-providers');
 	const isBootstrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 
 	$effect(() => {
-		if (profile.current.loaded && !profile.current.unauthorized) {
+		if (profile.current.loaded && !profile.current.unauthorized && storeData.lastFetched) {
 			const firstTimeViewed = localStorage.getItem('seenSplashDialog');
 			const isOwner = profile.current.groups.includes(Group.OWNER);
 			if (
 				!firstTimeViewed &&
 				(isBootstrapUser || isOwner) &&
-				(!isAuthProviderConfigured || !isModelProviderConfigured)
+				(!isAuthProviderConfigured || !storeData.modelProviderConfigured)
 			) {
 				dialog?.open();
 			}
@@ -41,20 +40,18 @@
 	<div class="w-fit self-center">
 		{#if isBootstrapUser}
 			<p>Before using Obot, you'll need to:</p>
-			<ul class="checklist">
-				{#if version.current.authEnabled}
-					{@render renderChecklistItem(
-						'Setup an Authentication Provider',
-						isAuthProviderConfigured
-					)}
-				{/if}
-				{@render renderChecklistItem('Setup a Model Provider', isModelProviderConfigured)}
-			</ul>
 		{:else}
 			<p class="text-center">
 				You're halfway there! You just need to configure your model provider.
 			</p>
 		{/if}
+
+		<ul class="checklist">
+			{#if version.current.authEnabled}
+				{@render renderChecklistItem('Setup an Authentication Provider', isAuthProviderConfigured)}
+			{/if}
+			{@render renderChecklistItem('Setup a Model Provider', storeData.modelProviderConfigured)}
+		</ul>
 	</div>
 
 	{#if isBootstrapUser}
@@ -93,11 +90,11 @@
 {#snippet renderChecklistItem(label: string, isChecked: boolean)}
 	<li>
 		{#if isChecked}
-			<SquareCheck class="size-5" />
+			<SquareCheck class="size-5 text-green-500" />
 		{:else}
 			<Square class="size-5" />
 		{/if}
-		{label}
+		<span class={isChecked ? 'line-through' : ''}>{label}</span>
 	</li>
 {/snippet}
 
