@@ -7,8 +7,7 @@ import {
 	type ContainerizedRuntimeConfig,
 	type CompositeRuntimeConfig,
 	type Task,
-	type ToolOverride,
-	type ParameterOverride
+	type ToolOverride
 } from '../chat/types';
 
 export interface MCPCatalogManifest {
@@ -47,7 +46,6 @@ export interface CatalogComponentServer {
 	catalogEntryID: string;
 	manifest: MCPCatalogEntryServerManifest;
 	toolOverrides?: ToolOverride[];
-	parameterOverrides?: ParameterOverride[];
 }
 
 export interface MCPCatalogEntryServerManifest {

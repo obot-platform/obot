@@ -309,7 +309,6 @@ export interface ComponentServer {
 	catalogEntryID: string;
 	manifest: MCPServer;
 	toolOverrides?: ToolOverride[];
-	parameterOverrides?: ParameterOverride[];
 }
 
 export interface ToolOverride {
@@ -317,13 +316,6 @@ export interface ToolOverride {
 	overrideName?: string;
 	overrideDescription?: string;
 	enabled?: boolean;
-	parameterOverrides?: ParameterOverride[];
-}
-
-export interface ParameterOverride {
-	name: string;
-	overrideName?: string;
-	overrideDescription?: string;
 }
 
 export interface MCPSubField {

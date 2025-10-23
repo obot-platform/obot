@@ -1112,8 +1112,7 @@ func serverManifestFromCatalogEntryManifest(isAdmin bool, entry types.MCPServerC
 				CatalogEntryID:  c.CatalogEntryID,
 				Manifest:        mapped,
 				ToolOverrides:   c.ToolOverrides,
-				PromptOverrides: c.PromptOverrides,
-			})
+				})
 		}
 
 		if isAdmin {

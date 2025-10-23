@@ -553,54 +553,6 @@ func validateToolOverrides(overrides []types.ToolOverride) error {
 		if override.Enabled {
 			seenOverrideNames[override.OverrideName] = true
 		}
-
-		// Validate parameter overrides
-		if err := validateParameterOverrides(override.ParameterOverrides); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func validateParameterOverrides(overrides []types.ParameterOverride) error {
-	seenNames := make(map[string]bool)
-	seenOverrideNames := make(map[string]bool)
-
-	for _, override := range overrides {
-		if override.Name == "" {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "parameterOverrides.name",
-				Message: "original parameter name is required",
-			}
-		}
-
-		if override.OverrideName == "" {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "parameterOverrides.overrideName",
-				Message: "override parameter name is required",
-			}
-		}
-
-		if seenNames[override.Name] {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "parameterOverrides.name",
-				Message: fmt.Sprintf("duplicate parameter override for: %s", override.Name),
-			}
-		}
-		seenNames[override.Name] = true
-
-		if seenOverrideNames[override.OverrideName] {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "parameterOverrides.overrideName",
-				Message: fmt.Sprintf("duplicate override name: %s", override.OverrideName),
-			}
-		}
-		seenOverrideNames[override.OverrideName] = true
 	}
 
 	return nil

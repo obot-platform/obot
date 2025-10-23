@@ -219,9 +219,6 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 		if hash.Digest(serverComponent.ToolOverrides) != hash.Digest(entryComponent.ToolOverrides) {
 			return true
 		}
-		if hash.Digest(serverComponent.PromptOverrides) != hash.Digest(entryComponent.PromptOverrides) {
-			return true
-		}
 
 		// Compare manifests for non-remote components
 		switch serverComponent.Manifest.Runtime {

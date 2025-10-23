@@ -248,9 +248,87 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 		return
 
 	case methodPromptsList:
-		result = nmcp.ListPromptsResult{}
+		var compositePrompts []nmcp.Prompt
+		for componentKey, client := range clients {
+			var result nmcp.ListPromptsResult
+			if err = client.Session.Exchange(ctx, methodPromptsList, &msg, &result); err != nil {
+				log.Errorf("Failed to send %s message to server %s: %v", msg.Method, client.mcpID, err)
+				return
+			}
+			for _, prompt := range result.Prompts {
+				compositePrompts = append(compositePrompts, m.toCompositePrompt(componentKey, prompt))
+			}
+		}
+
+		compositeResult := nmcp.ListPromptsResult{
+			Prompts: compositePrompts,
+		}
+		if err = msg.Reply(ctx, compositeResult); err != nil {
+			log.Errorf("Failed to reply to composite server %s: %v", m.mcpID, err)
+			err = &nmcp.RPCError{
+				Code:    -32603,
+				Message: fmt.Sprintf("failed to reply to composite server %s: %v", m.mcpID, err),
+			}
+		}
+
+		result = compositeResult
+		return
 	case methodPromptsGet:
-		result = nmcp.GetPromptResult{}
+		var compositeRequest nmcp.GetPromptRequest
+		if err := json.Unmarshal(msg.Params, &compositeRequest); err != nil {
+			err = &nmcp.RPCError{
+				Code:    -32602,
+				Message: fmt.Sprintf("Failed to unmarshal get prompt request: %v", err),
+			}
+			return
+		}
+
+		componentKey, _, ok := strings.Cut(compositeRequest.Name, "_")
+		if !ok {
+			err = &nmcp.RPCError{
+				Code:    -32602,
+				Message: fmt.Sprintf("Unknown prompt: %s", compositeRequest.Name),
+			}
+			return
+		}
+
+		client, ok := clients[componentKey]
+		if !ok {
+			err = &nmcp.RPCError{
+				Code:    -32602,
+				Message: fmt.Sprintf("Unknown prompt: %s", compositeRequest.Name),
+			}
+			return
+		}
+
+		componentRequest := m.toComponentGetPromptRequest(componentKey, compositeRequest)
+
+		b, err := json.Marshal(componentRequest)
+		if err != nil {
+			err = &nmcp.RPCError{
+				Code:    -32603,
+				Message: fmt.Sprintf("failed to marshal request for server %s: %v", client.mcpServer.Name, err),
+			}
+			return
+		}
+
+		msg.Params = b
+		var componentResult nmcp.GetPromptResult
+		if err = client.Session.Exchange(ctx, methodPromptsGet, &msg, &componentResult); err != nil {
+			log.Errorf("Failed to send %s message to server %s: %v", msg.Method, client.mcpID, err)
+			return
+		}
+
+		if err = msg.Reply(ctx, componentResult); err != nil {
+			log.Errorf("Failed to reply to composite server %s: %v", m.mcpID, err)
+			err = &nmcp.RPCError{
+				Code:    -32603,
+				Message: fmt.Sprintf("failed to reply to composite server %s: %v", m.mcpID, err),
+			}
+		}
+
+		result = componentResult
+		return
 	case methodToolsList:
 		var compositeTools []nmcp.Tool
 		for componentKey, client := range clients {
@@ -425,20 +503,14 @@ func mergeInitializeResults(composite nmcp.InitializeResult, component nmcp.Init
 }
 
 type compositeContext struct {
-	componentServers        []serverContext
-	toolOverrides           map[string]otypes.ToolOverride
-	toolParameterOverrides  map[string]otypes.ParameterOverride
-	promptOverrides         map[string]otypes.PromptOverride
-	promptArgumentOverrides map[string]otypes.PromptArgumentOverride
+	componentServers []serverContext
+	toolOverrides    map[string]otypes.ToolOverride
 }
 
 func newCompositeContext(config *otypes.CompositeRuntimeConfig, componentServers []serverContext) compositeContext {
 	compositeContext := compositeContext{
-		componentServers:        componentServers,
-		toolOverrides:           make(map[string]otypes.ToolOverride),
-		toolParameterOverrides:  make(map[string]otypes.ParameterOverride),
-		promptOverrides:         make(map[string]otypes.PromptOverride),
-		promptArgumentOverrides: make(map[string]otypes.PromptArgumentOverride),
+		componentServers: componentServers,
+		toolOverrides:    make(map[string]otypes.ToolOverride),
 	}
 	if config == nil {
 		return compositeContext
@@ -459,22 +531,6 @@ func newCompositeContext(config *otypes.CompositeRuntimeConfig, componentServers
 				toolOverrideKey = path.Join(componentKey, toolOverride.Name)
 			}
 			compositeContext.toolOverrides[toolOverrideKey] = toolOverride
-
-			for _, parameterOverride := range toolOverride.ParameterOverrides {
-				// Map componentKey/toolKey/parameterKey -> ParameterOverride
-				parameterKey := path.Join(toolKey, parameterOverride.Name)
-				compositeContext.toolParameterOverrides[parameterKey] = parameterOverride
-
-				var parameterOverrideKey string
-				if overrideName := parameterOverride.OverrideName; overrideName != "" {
-					// Maps componentKey/overrideToolKey/overrideParameterKey -> ParameterOverride
-					parameterOverrideKey = path.Join(toolOverrideKey, overrideName)
-				} else {
-					// Maps componentKey/overrideToolKey/parameterKey -> ParameterOverride
-					parameterOverrideKey = path.Join(toolOverrideKey, parameterOverride.Name)
-				}
-				compositeContext.toolParameterOverrides[parameterOverrideKey] = parameterOverride
-			}
 		}
 	}
 
@@ -505,81 +561,7 @@ func (c *compositeContext) toCompositeTool(componentKey string, tool nmcp.Tool) 
 		tool.Description = overrideDescription
 	}
 
-	// Override parameters in the input schema
-	inputSchema, err := c.toCompositeToolParameters(toolKey, tool.InputSchema)
-	if err != nil {
-		return nil, fmt.Errorf("failed to override tool parameters: %w", err)
-	}
-	tool.InputSchema = inputSchema
-
 	return &tool, nil
-}
-
-func (c *compositeContext) toCompositeToolParameters(toolKey string, inputSchema json.RawMessage) (json.RawMessage, error) {
-	if len(inputSchema) < 1 {
-		return inputSchema, nil
-	}
-
-	var schema map[string]any
-	if err := json.Unmarshal(inputSchema, &schema); err != nil {
-		return nil, err
-	}
-
-	// Apply parameter overrides to each property in the schema
-	props, _ := schema["properties"].(map[string]any)
-	if props != nil {
-		for propertyName, propertyVal := range props {
-			parameterKey := path.Join(toolKey, propertyName)
-			override, ok := c.toolParameterOverrides[parameterKey]
-			if !ok {
-				// No override found for property
-				continue
-			}
-
-			// The property value should be an object
-			propertyMap, ok := propertyVal.(map[string]any)
-			if !ok {
-				continue
-			}
-
-			// Update description if provided
-			if override.OverrideDescription != "" {
-				propertyMap["description"] = override.OverrideDescription
-			}
-
-			// Handle renaming if needed
-			if overrideName := override.OverrideName; overrideName != "" && overrideName != propertyName {
-				// Replace the property
-				delete(props, propertyName)
-				props[overrideName] = propertyMap
-
-				// Update required array if the parameter was required
-				if requiredAny, ok := schema["required"].([]any); ok {
-					for i, v := range requiredAny {
-						if reqName, ok := v.(string); ok && reqName == propertyName {
-							requiredAny[i] = overrideName
-							break
-						}
-					}
-					// Re-assign to ensure any in-place modifications are captured
-					schema["required"] = requiredAny
-				}
-			} else {
-				// If not renaming, update the existing property in place
-				props[propertyName] = propertyMap
-			}
-		}
-
-		// Ensure properties are set back (map reference, but explicit for clarity)
-		schema["properties"] = props
-	}
-
-	inputSchema, err := json.Marshal(schema)
-	if err != nil {
-		return nil, err
-	}
-
-	return inputSchema, nil
 }
 
 func (c *compositeContext) toComponentCallToolRequest(componentKey string, request nmcp.CallToolRequest) (*nmcp.CallToolRequest, error) {
@@ -604,16 +586,18 @@ func (c *compositeContext) toComponentCallToolRequest(componentKey string, reque
 		request.Name = override.Name
 	}
 
-	args := make(map[string]any, len(request.Arguments))
-	for name, value := range request.Arguments {
-		parameterKey := path.Join(toolKey, name)
-		if override, ok := c.toolParameterOverrides[parameterKey]; ok {
-			name = override.Name
-		}
-
-		args[name] = value
-	}
-	request.Arguments = args
-
 	return &request, nil
+}
+
+func (c *compositeContext) toCompositePrompt(componentKey string, prompt nmcp.Prompt) nmcp.Prompt {
+	// Prefix the prompt name with the component key
+	// This lets us lookup the target component server for prompt get requests
+	prompt.Name = fmt.Sprintf("%s_%s", componentKey, prompt.Name)
+	return prompt
+}
+
+func (c *compositeContext) toComponentGetPromptRequest(componentKey string, request nmcp.GetPromptRequest) nmcp.GetPromptRequest {
+	// Remove the component key prefix from the prompt name
+	request.Name = strings.TrimPrefix(request.Name, fmt.Sprintf("%s_", componentKey))
+	return request
 }
