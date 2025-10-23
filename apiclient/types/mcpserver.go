@@ -231,6 +231,18 @@ type ProjectMCPServer struct {
 
 type ProjectMCPServerList List[ProjectMCPServer]
 
+// K8sSettingsStatus represents the K8s settings status of a deployed MCP server
+type K8sSettingsStatus struct {
+	// NeedsK8sUpdate indicates whether the server needs redeployment with new K8s settings
+	NeedsK8sUpdate bool `json:"needsK8sUpdate"`
+
+	// CurrentSettings are the current global K8s settings
+	CurrentSettings *K8sSettings `json:"currentSettings,omitempty"`
+
+	// DeployedSettingsHash is the hash of the K8s settings the server was deployed with
+	DeployedSettingsHash string `json:"deployedSettingsHash,omitempty"`
+}
+
 // RuntimeValidationError represents a validation error for runtime-specific configuration
 type RuntimeValidationError struct {
 	Runtime Runtime

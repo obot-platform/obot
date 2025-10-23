@@ -59,6 +59,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderManifest":                  schema_obot_platform_obot_apiclient_types_FileScannerProviderManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderStatus":                    schema_obot_platform_obot_apiclient_types_FileScannerProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.Item":                                         schema_obot_platform_obot_apiclient_types_Item(ref),
+		"github.com/obot-platform/obot/apiclient/types.K8sSettings":                                  schema_obot_platform_obot_apiclient_types_K8sSettings(ref),
+		"github.com/obot-platform/obot/apiclient/types.K8sSettingsStatus":                            schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.KnowledgeFile":                                schema_obot_platform_obot_apiclient_types_KnowledgeFile(ref),
 		"github.com/obot-platform/obot/apiclient/types.KnowledgeFileList":                            schema_obot_platform_obot_apiclient_types_KnowledgeFileList(ref),
 		"github.com/obot-platform/obot/apiclient/types.KnowledgeSource":                              schema_obot_platform_obot_apiclient_types_KnowledgeSource(ref),
@@ -230,6 +232,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall":                schema_storage_apis_obotobotai_v1_ExternalCall(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult":          schema_storage_apis_obotobotai_v1_ExternalCallResult(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResume":          schema_storage_apis_obotobotai_v1_ExternalCallResume(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettings":                 schema_storage_apis_obotobotai_v1_K8sSettings(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsList":             schema_storage_apis_obotobotai_v1_K8sSettingsList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsSpec":             schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsStatus":           schema_storage_apis_obotobotai_v1_K8sSettingsStatus(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFile":               schema_storage_apis_obotobotai_v1_KnowledgeFile(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFileList":           schema_storage_apis_obotobotai_v1_KnowledgeFileList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeFileSpec":           schema_storage_apis_obotobotai_v1_KnowledgeFileSpec(ref),
@@ -2359,6 +2365,92 @@ func schema_obot_platform_obot_apiclient_types_Item(ref common.ReferenceCallback
 				Type: []string{"object"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_K8sSettings(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "K8sSettings represents global Kubernetes configuration for MCP server deployments",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"affinity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Affinity rules (JSON/YAML blob)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tolerations (JSON/YAML blob)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources configuration (JSON/YAML blob)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"setViaHelm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SetViaHelm indicates settings are from Helm (cannot be updated via API)",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "K8sSettingsStatus represents the K8s settings status of a deployed MCP server",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"needsK8sUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsK8sUpdate indicates whether the server needs redeployment with new K8s settings",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"currentSettings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CurrentSettings are the current global K8s settings",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.K8sSettings"),
+						},
+					},
+					"deployedSettingsHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DeployedSettingsHash is the hash of the K8s settings the server was deployed with",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"needsK8sUpdate"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.K8sSettings"},
 	}
 }
 
@@ -10602,6 +10694,129 @@ func schema_storage_apis_obotobotai_v1_ExternalCallResume(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_K8sSettings(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsSpec", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_K8sSettingsList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettings"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettings", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"setViaHelm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SetViaHelm indicates if these settings came from Helm (cannot be updated via API)",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_K8sSettingsStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
 	}
 }
 

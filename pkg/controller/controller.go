@@ -68,6 +68,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure default user role setting: %w", err)
 	}
 
+	if err := ensureK8sSettings(ctx, c.services.StorageClient, c.services.K8sSettingsFromHelm); err != nil {
+		return fmt.Errorf("failed to ensure K8s settings: %w", err)
+	}
+
 	if err := addCatalogIDToAccessControlRules(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to add catalog ID to access control rules: %w", err)
 	}
@@ -152,6 +156,51 @@ func ensureDefaultUserRoleSetting(ctx context.Context, client kclient.Client) er
 	}
 
 	return client.Update(ctx, &defaultRoleSetting)
+}
+
+func ensureK8sSettings(ctx context.Context, client kclient.Client, helmSettings *v1.K8sSettingsSpec) error {
+	var k8sSettings v1.K8sSettings
+	if err := client.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.K8sSettingsName,
+	}, &k8sSettings); apierrors.IsNotFound(err) {
+		// Create default settings
+		k8sSettings = v1.K8sSettings{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      system.K8sSettingsName,
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.K8sSettingsSpec{
+				SetViaHelm: helmSettings != nil,
+			},
+		}
+
+		// If Helm settings provided, use them
+		if helmSettings != nil {
+			k8sSettings.Spec.Affinity = helmSettings.Affinity
+			k8sSettings.Spec.Tolerations = helmSettings.Tolerations
+			k8sSettings.Spec.Resources = helmSettings.Resources
+		}
+
+		return client.Create(ctx, &k8sSettings)
+	} else if err != nil {
+		return err
+	}
+
+	// If Helm settings provided, update them
+	if helmSettings != nil {
+		k8sSettings.Spec.SetViaHelm = true
+		k8sSettings.Spec.Affinity = helmSettings.Affinity
+		k8sSettings.Spec.Tolerations = helmSettings.Tolerations
+		k8sSettings.Spec.Resources = helmSettings.Resources
+		return client.Update(ctx, &k8sSettings)
+	} else if k8sSettings.Spec.SetViaHelm {
+		// Clear the settings if they were set by Helm, but are now blank.
+		k8sSettings.Spec = v1.K8sSettingsSpec{}
+		return client.Update(ctx, &k8sSettings)
+	}
+
+	return nil
 }
 
 // createLocalK8sRouter creates a router for local Kubernetes resources

@@ -107,6 +107,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&PowerUserWorkspaceList{},
 		&UserDefaultRoleSetting{},
 		&UserDefaultRoleSettingList{},
+		&K8sSettings{},
+		&K8sSettingsList{},
 	); err != nil {
 		return err
 	}

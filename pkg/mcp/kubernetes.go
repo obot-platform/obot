@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,8 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,9 +40,10 @@ type kubernetesBackend struct {
 	mcpNamespace     string
 	mcpClusterDomain string
 	imagePullSecrets []string
+	obotClient       kclient.Client
 }
 
-func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, baseImage, mcpNamespace, mcpClusterDomain string, imagePullSecrets []string) backend {
+func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, baseImage, mcpNamespace, mcpClusterDomain string, imagePullSecrets []string, obotClient kclient.Client) backend {
 	return &kubernetesBackend{
 		clientset:        clientset,
 		client:           client,
@@ -47,6 +51,7 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 		mcpNamespace:     mcpNamespace,
 		mcpClusterDomain: mcpClusterDomain,
 		imagePullSecrets: imagePullSecrets,
+		obotClient:       obotClient,
 	}
 }
 
@@ -58,7 +63,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	}
 
 	// Generate the Kubernetes deployment objects.
-	objs, err := k.k8sObjects(server, userID, mcpServerDisplayName, mcpServerName)
+	objs, err := k.k8sObjects(ctx, server, userID, mcpServerDisplayName, mcpServerName)
 	if err != nil {
 		return ServerConfig{}, fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.Scope, err)
 	}
@@ -216,7 +221,7 @@ func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error
 	return nil
 }
 
-func (k *kubernetesBackend) k8sObjects(server ServerConfig, userID, serverDisplayName, serverName string) ([]kclient.Object, error) {
+func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig, userID, serverDisplayName, serverName string) ([]kclient.Object, error) {
 	var (
 		command []string
 		objs    = make([]kclient.Object, 0, 5)
@@ -328,6 +333,17 @@ func (k *kubernetesBackend) k8sObjects(server ServerConfig, userID, serverDispla
 		StringData: secretStringData,
 	})
 
+	// Fetch K8s settings
+	k8sSettings, err := k.getK8sSettings(ctx)
+	if err != nil {
+		// Log error but continue with defaults
+		log.Warnf("Failed to get K8s settings, using defaults: %v", err)
+		k8sSettings = v1.K8sSettingsSpec{}
+	}
+
+	// Add K8s settings hash to annotations
+	annotations["obot.ai/k8s-settings-hash"] = computeK8sSettingsHash(k8sSettings)
+
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        server.Scope,
@@ -355,6 +371,8 @@ func (k *kubernetesBackend) k8sObjects(server ServerConfig, userID, serverDispla
 					},
 				},
 				Spec: corev1.PodSpec{
+					Affinity:    k8sSettings.Affinity,
+					Tolerations: k8sSettings.Tolerations,
 					Volumes: []corev1.Volume{
 						{
 							Name: "files",
@@ -381,11 +399,17 @@ func (k *kubernetesBackend) k8sObjects(server ServerConfig, userID, serverDispla
 							Name:          "http",
 							ContainerPort: int32(port),
 						}},
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("400Mi"),
-							},
-						},
+						// Apply resources from K8s settings with fallback to default
+						Resources: func() corev1.ResourceRequirements {
+							if k8sSettings.Resources != nil {
+								return *k8sSettings.Resources
+							}
+							return corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceMemory: resource.MustParse("400Mi"),
+								},
+							}
+						}(),
 						SecurityContext: &corev1.SecurityContext{
 							AllowPrivilegeEscalation: &[]bool{false}[0],
 							RunAsNonRoot:             &[]bool{true}[0],
@@ -650,16 +674,70 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 		return fmt.Errorf("failed to get deployment %s: %w", id, err)
 	}
 
+	// Fetch K8s settings
+	k8sSettings, err := k.getK8sSettings(ctx)
+	if err != nil {
+		// Log error but continue with defaults
+		log.Warnf("Failed to get K8s settings, using defaults: %v", err)
+		k8sSettings = v1.K8sSettingsSpec{}
+	}
+
+	// Compute K8s settings hash
+	k8sSettingsHash := computeK8sSettingsHash(k8sSettings)
+
+	// Build the patch with restart annotation and k8s settings hash
+	podAnnotations := map[string]string{
+		"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
+		"obot.ai/k8s-settings-hash":         k8sSettingsHash,
+	}
+
+	// Update the deployment metadata annotation as well
+	deploymentAnnotations := map[string]string{
+		"obot.ai/k8s-settings-hash": k8sSettingsHash,
+	}
+
+	// Build the patch structure
+	templateSpec := make(map[string]any)
 	patch := map[string]any{
+		"metadata": map[string]any{
+			"annotations": deploymentAnnotations,
+		},
 		"spec": map[string]any{
 			"template": map[string]any{
 				"metadata": map[string]any{
-					"annotations": map[string]string{
-						"kubectl.kubernetes.io/restartedAt": time.Now().Format(time.RFC3339),
-					},
+					"annotations": podAnnotations,
 				},
+				"spec": templateSpec,
 			},
 		},
+	}
+
+	// Add affinity if present
+	if k8sSettings.Affinity != nil {
+		templateSpec["affinity"] = k8sSettings.Affinity
+	} else {
+		// Explicitly set to null to remove any existing affinity
+		templateSpec["affinity"] = nil
+	}
+
+	// Add tolerations if present
+	if len(k8sSettings.Tolerations) > 0 {
+		templateSpec["tolerations"] = k8sSettings.Tolerations
+	} else {
+		// Explicitly set to null to remove any existing tolerations
+		templateSpec["tolerations"] = nil
+	}
+
+	// Add resources to the container
+	if k8sSettings.Resources != nil {
+		// Patch the container resources (container name is "mcp")
+		// Using strategic merge patch which can merge containers by name
+		templateSpec["containers"] = []map[string]any{
+			{
+				"name":      "mcp",
+				"resources": *k8sSettings.Resources,
+			},
+		}
 	}
 
 	patchBytes, err := json.Marshal(patch)
@@ -667,9 +745,58 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 		return fmt.Errorf("failed to marshal patch: %w", err)
 	}
 
-	if err := k.client.Patch(ctx, &deployment, kclient.RawPatch(ktypes.MergePatchType, patchBytes)); err != nil {
+	// Use StrategicMergePatchType to merge containers by name without requiring all fields
+	if err := k.client.Patch(ctx, &deployment, kclient.RawPatch(ktypes.StrategicMergePatchType, patchBytes)); err != nil {
 		return fmt.Errorf("failed to patch deployment %s: %w", id, err)
 	}
 
 	return nil
+}
+
+func (k *kubernetesBackend) getDeployment(ctx context.Context, sessionID string) (*appsv1.Deployment, error) {
+	var deployment appsv1.Deployment
+	err := k.client.Get(ctx, kclient.ObjectKey{
+		Namespace: k.mcpNamespace,
+		Name:      sessionID,
+	}, &deployment)
+
+	return &deployment, err
+}
+
+func computeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
+	var buf bytes.Buffer
+
+	// Hash affinity
+	if settings.Affinity != nil {
+		affinityJSON, _ := json.Marshal(settings.Affinity)
+		buf.Write(affinityJSON)
+	}
+
+	// Hash tolerations
+	if len(settings.Tolerations) > 0 {
+		tolerationsJSON, _ := json.Marshal(settings.Tolerations)
+		buf.Write(tolerationsJSON)
+	}
+
+	// Hash resources
+	if settings.Resources != nil {
+		resourcesJSON, _ := json.Marshal(settings.Resources)
+		buf.Write(resourcesJSON)
+	}
+
+	if buf.Len() == 0 {
+		return "none"
+	}
+
+	return hash.Digest(buf.String())
+}
+
+func (k *kubernetesBackend) getK8sSettings(ctx context.Context) (v1.K8sSettingsSpec, error) {
+	var settings v1.K8sSettings
+	err := k.obotClient.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.K8sSettingsName,
+	}, &settings)
+
+	return settings.Spec, err
 }

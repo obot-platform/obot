@@ -93,6 +93,7 @@ var (
 		"/api/file-scanner-config",
 		"/api/user-default-role-settings",
 		"/api/setup/",
+		"/api/k8s-settings",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
@@ -120,6 +121,7 @@ var (
 			"GET /api/agents",
 			"GET /api/default-model-aliases",
 			"GET /api/user-default-role-settings",
+			"GET /api/k8s-settings",
 			"POST /api/auth-providers/",
 			"GET /api/workspaces/",
 			"GET /api/projects/",

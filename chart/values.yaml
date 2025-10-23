@@ -200,6 +200,56 @@ mcpNamespace:
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 
+# mcpServerDefaults -- Default Kubernetes configuration for all deployed MCP server pods
+mcpServerDefaults:
+  # mcpServerDefaults.affinity -- Affinity rules for MCP server pods (YAML format)
+  # When set via Helm, these settings cannot be updated through the API
+  affinity: {}
+  # Example:
+  # affinity:
+  #   nodeAffinity:
+  #     requiredDuringSchedulingIgnoredDuringExecution:
+  #       nodeSelectorTerms:
+  #       - matchExpressions:
+  #         - key: workload-type
+  #           operator: In
+  #           values:
+  #           - mcp
+  #   podAntiAffinity:
+  #     preferredDuringSchedulingIgnoredDuringExecution:
+  #     - weight: 100
+  #       podAffinityTerm:
+  #         labelSelector:
+  #           matchExpressions:
+  #           - key: mcp-server-name
+  #             operator: Exists
+  #         topologyKey: kubernetes.io/hostname
+
+  # mcpServerDefaults.tolerations -- Tolerations for MCP server pods (YAML list format)
+  # When set via Helm, these settings cannot be updated through the API
+  tolerations: []
+  # Example:
+  # tolerations:
+  #   - key: "mcp-workload"
+  #     operator: "Equal"
+  #     value: "true"
+  #     effect: "NoSchedule"
+  #   - key: "node-role.kubernetes.io/mcp"
+  #     operator: "Exists"
+  #     effect: "NoSchedule"
+
+  # mcpServerDefaults.resources -- Resource requests and limits for MCP server pods
+  # When set via Helm, these settings cannot be updated through the API
+  resources: {}
+  # Example:
+  # resources:
+  #   requests:
+  #     memory: "400Mi"
+  #     cpu: "100m"
+  #   limits:
+  #     memory: "1Gi"
+  #     cpu: "500m"
+
 # nodeSelector -- Configure node selector for pod assignment
 nodeSelector: {}
 
