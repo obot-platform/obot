@@ -113,6 +113,19 @@
 			return;
 		}
 
+		// if prefix in field, make sure prefix is prepended to value before calling onSave
+		form.envs = form.envs?.map((env) => {
+			if (env.prefix && !env.value.startsWith(env.prefix)) {
+				env.value = env.prefix + env.value;
+			}
+			return env;
+		});
+		form.headers = form.headers?.map((header) => {
+			if (header.prefix && !header.value.startsWith(header.prefix)) {
+				header.value = header.prefix + header.value;
+			}
+			return header;
+		});
 		onSave?.();
 	}
 
