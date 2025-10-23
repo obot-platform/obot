@@ -273,7 +273,7 @@
 					: `/admin/mcp-servers/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
 		}
 
-		if (!profile.current?.groups.includes(Group.POWERUSER_PLUS)) return null;
+		if (!profile.current?.groups.includes(Group.POWERUSER)) return null;
 		return catalogEntry?.id
 			? `/mcp-publisher/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
 			: `/mcp-publisher/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
