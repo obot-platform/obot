@@ -68,8 +68,7 @@
 	let selected = $state<Record<string, MCPCatalogServer>>({});
 	let updating = $state<Record<string, { inProgress: boolean; error: string }>>({});
 	let deleting = $state(false);
-
-	let bulkRestarting = $state(false);
+	let restarting = $state(false);
 
 	let mcpServerAndEntries = getAdminMcpServerAndEntries();
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
@@ -159,7 +158,7 @@
 	}
 
 	async function handleBulkRestart() {
-		bulkRestarting = true;
+		restarting = true;
 		try {
 			for (const id of Object.keys(selected)) {
 				if (selected[id].manifest.runtime === 'remote' || !selected[id].configured) {
@@ -178,7 +177,7 @@
 		} catch (err) {
 			console.error('Failed to restart deployments:', err);
 		} finally {
-			bulkRestarting = false;
+			restarting = false;
 			selected = {};
 			tableRef?.clearSelectAll();
 		}
@@ -383,8 +382,10 @@
 						{#if d.manifest.runtime !== 'remote' && !readonly}
 							<button
 								class="menu-button"
+								disabled={restarting}
 								onclick={async (e) => {
 									e.stopPropagation();
+									restarting = true;
 									if (d.powerUserWorkspaceID) {
 										await ChatService.restartWorkspaceK8sServerDeployment(
 											d.powerUserWorkspaceID,
@@ -393,9 +394,15 @@
 									} else {
 										await AdminService.restartK8sDeployment(d.id);
 									}
+									restarting = false;
 								}}
 							>
-								<Power class="size-4" /> Restart Server
+								{#if restarting}
+									<LoaderCircle class="size-4 animate-spin" /> Restarting...
+								{:else}
+									<Power class="size-4" />
+									Restart Server
+								{/if}
 							</button>
 						{/if}
 						<button
@@ -440,17 +447,17 @@
 							selected = currentSelected;
 							handleBulkRestart();
 						}}
-						disabled={bulkRestarting || readonly || restartableCount === 0}
+						disabled={restarting || readonly || restartableCount === 0}
 					>
-						{#if bulkRestarting}
-							<LoaderCircle class="size-4 animate-spin" />
+						{#if restarting}
+							<LoaderCircle class="size-4 animate-spin self-center" /> Restarting...
 						{:else}
 							<Power class="size-4" /> Restart
-							{#if restartableCount > 0 && !readonly}
-								<span class="pill-primary">
-									{restartableCount}
-								</span>
-							{/if}
+						{/if}
+						{#if restartableCount > 0 && !readonly}
+							<span class="pill-primary">
+								{restartableCount}
+							</span>
 						{/if}
 					</button>
 					<button
@@ -529,9 +536,6 @@
 </Confirm>
 
 <Confirm
-	msg={showDeleteConfirm?.type === 'single'
-		? 'Are you sure you want to delete this server?'
-		: 'Are you sure you want to delete the selected servers?'}
 	show={!!showDeleteConfirm}
 	onsuccess={async () => {
 		if (!showDeleteConfirm) return;
@@ -551,17 +555,23 @@
 >
 	{#snippet title()}
 		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
-			<CircleAlert class="size-5" />
-			{`Delete ${showDeleteConfirm?.type === 'single' ? showDeleteConfirm.server.id : 'selected server(s)'}?`}
+			{`Delete ${showDeleteConfirm?.type === 'single' ? showDeleteConfirm.server.manifest.name : 'selected server(s)'}?`}
 		</h4>
 	{/snippet}
 	{#snippet note()}
-		<div class="mb-8 text-sm font-light">
-			The following servers will be permanently deleted: <span class="font-semibold"
-				>{Object.values(selected)
-					.map((s) => s.id)
-					.join(', ')}</span
-			>
-		</div>
+		{#if showDeleteConfirm?.type === 'multi'}
+			<p class="text-sm font-light">The following servers will be permanently deleted:</p>
+			<ul class="my-2 font-semibold">
+				{#each Object.values(selected) as s}
+					<li>{s.manifest.name}</li>
+				{/each}
+			</ul>
+		{/if}
+
+		<p class="mb-8 text-sm font-light">
+			Are you sure you want to delete {showDeleteConfirm?.type === 'single'
+				? 'this server'
+				: 'these server(s)'}? They will be permanently deleted and cannot be recovered.
+		</p>
 	{/snippet}
 </Confirm>
