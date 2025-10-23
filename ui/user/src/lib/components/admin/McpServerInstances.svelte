@@ -243,7 +243,12 @@
 					{:else if property === 'userID'}
 						{@const user = usersMap.get(d[property] as string)}
 						<span class="flex items-center gap-1">
-							{user?.email || user?.username || 'Unknown'}
+							{#if users.length === 0}
+								<!--This covers the case where a Power User is listing their own servers.-->
+								{profile.current.email || 'Unknown'}
+							{:else}
+								{user?.email || user?.username || 'Unknown'}
+							{/if}
 							{#if type === 'single'}
 								{#if d.needsUpdate}
 									<div
