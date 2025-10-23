@@ -398,9 +398,17 @@
 								<Power class="size-4" /> Restart Server
 							</button>
 						{/if}
-						<a href={auditLogsUrl} class="menu-button">
+						<button
+							onclick={(e) => {
+								e.stopPropagation();
+								const isCtrlClick = e.ctrlKey || e.metaKey;
+								setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+								openUrl(auditLogsUrl, isCtrlClick);
+							}}
+							class="menu-button"
+						>
 							<Captions class="size-4" /> View Audit Logs
-						</a>
+						</button>
 						{#if !readonly}
 							<button
 								class="menu-button-destructive"
