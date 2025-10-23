@@ -25,6 +25,9 @@ updateStrategy: "RollingUpdate"
 additionalLabels: {}
   # app: obot
 
+# -- Extra pod annotations to add.
+podAnnotations: {}
+
 service:
   # service.type -- Type of Kubernetes service to create
   type: ClusterIP
