@@ -175,9 +175,17 @@
 					{/snippet}
 
 					<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-						<a href={url} class="menu-button">
+						<button
+							onclick={(e) => {
+								e.stopPropagation();
+								const isCtrlClick = e.ctrlKey || e.metaKey;
+								setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+								openUrl(url, isCtrlClick);
+							}}
+							class="menu-button"
+						>
 							<Captions class="size-4" /> View Audit Logs
-						</a>
+						</button>
 						{#if d.editable && !readonly}
 							<button
 								class="menu-button-destructive"
