@@ -278,11 +278,10 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 }
 
 func ProjectServerToConfig(tokenService *ephemeral.TokenService, projectMCPServer v1.ProjectMCPServer, baseURL, userID string, allowedTools ...string) (ServerConfig, error) {
-	tokenContext := ephemeral.TokenContext{
+	token, err := tokenService.NewToken(ephemeral.TokenContext{
 		UserID:     userID,
 		UserGroups: []string{types.GroupBasic},
-	}
-	token, err := tokenService.NewToken(tokenContext)
+	})
 	if err != nil {
 		return ServerConfig{}, fmt.Errorf("failed to create token: %w", err)
 	}
