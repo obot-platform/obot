@@ -158,6 +158,7 @@ export interface Profile {
 	hasAdminAccess?: () => boolean;
 	isAdmin?: () => boolean;
 	isAdminReadonly?: () => boolean;
+	isBootstrapUser?: () => boolean;
 	unauthorized?: boolean;
 	username: string;
 	currentAuthProvider?: string;

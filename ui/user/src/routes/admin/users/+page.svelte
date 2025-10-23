@@ -4,7 +4,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { BOOTSTRAP_USER_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { userRoleOptions } from '$lib/services/admin/constants.js';
 	import { Group, Role, type OrgUser } from '$lib/services/admin/types';
 	import { AdminService, ChatService } from '$lib/services/index.js';
@@ -283,10 +283,7 @@
 				class="button-primary"
 				onclick={async () => {
 					if (!updatingRole) return;
-					if (
-						profile.current.username === BOOTSTRAP_USER_ID &&
-						updatingRole.roleId === Role.OWNER
-					) {
+					if (profile.current.isBootstrapUser?.() && updatingRole.roleId === Role.OWNER) {
 						updateRoleDialog?.close();
 						confirmHandoffToUser = updatingRole;
 						return;

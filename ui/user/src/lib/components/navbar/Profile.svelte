@@ -21,7 +21,6 @@
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { AdminService, ChatService, EditorService } from '$lib/services';
-	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 	import { afterNavigate, goto } from '$app/navigation';
 	import PageLoading from '../PageLoading.svelte';
 
@@ -47,9 +46,8 @@
 
 	async function handleBootstrapLogout() {
 		try {
-			const isBootstrapUser = profile.current.username === BOOTSTRAP_USER_ID;
 			await AdminService.bootstrapLogout();
-			window.location.href = `/oauth2/sign_out?rd=${isBootstrapUser ? '/admin' : '/'}`;
+			window.location.href = `/oauth2/sign_out?rd=${profile.current.isBootstrapUser?.() ? '/admin' : '/'}`;
 		} catch (err) {
 			console.error(err);
 		}
@@ -200,7 +198,7 @@
 					><LogOut class="size-4" /> Log out</a
 				>
 			{/if}
-			{#if profile.current.username === BOOTSTRAP_USER_ID}
+			{#if profile.current.isBootstrapUser?.()}
 				<button class="link" onclick={handleBootstrapLogout}>
 					<LogOut class="size-4" /> Log out
 				</button>

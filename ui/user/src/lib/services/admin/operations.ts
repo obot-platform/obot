@@ -31,7 +31,8 @@ import type {
 	BaseAgent,
 	MCPFilter,
 	MCPFilterManifest,
-	ProjectTask
+	ProjectTask,
+	TempUser
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -804,4 +805,48 @@ export async function updateDefaultUsersRoleSettings(role: number, opts?: { fetc
 export async function getDefaultUsersRoleSettings(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet('/user-default-role-settings', opts)) as { role: number };
 	return response.role;
+}
+
+export async function listExplicitRoleEmails(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/setup/explicit-role-emails', opts)) as {
+		owners: string[] | null;
+		admins: string[] | null;
+	};
+	return response;
+}
+
+export async function initiateTempLogin(authProviderName: string, authProviderNamespace?: string) {
+	const response = (await doPost('/setup/initiate-temp-login', {
+		authProviderName,
+		authProviderNamespace
+	})) as {
+		redirectUrl: string;
+		tokenId: string;
+	};
+	return response;
+}
+
+export async function getTempUser() {
+	const response = (await doGet('/setup/temp-user')) as TempUser;
+	return response;
+}
+
+export async function confirmTempUserAsOwner(email: string) {
+	const response = (await doPost('/setup/confirm-owner', { email })) as {
+		success: boolean;
+		userId: number;
+		email: string;
+		message: string;
+	};
+	return response;
+}
+
+export async function cancelTempLogin() {
+	await doPost(
+		'/setup/cancel-temp-login',
+		{},
+		{
+			dontLogErrors: true
+		}
+	);
 }
