@@ -181,7 +181,7 @@ eventLoop:
 		select {
 		case event := <-eventMessages:
 			mcpEvents = append(mcpEvents, otypes.MCPServerEvent{
-				Time:         otypes.Time{Time: time.Unix(event.Time, event.TimeNano)},
+				Time:         otypes.Time{Time: time.Unix(event.Time, 0)},
 				Reason:       string(event.Action),
 				Message:      fmt.Sprintf("Container %s: %s", event.Actor.Attributes["name"], string(event.Action)),
 				EventType:    string(event.Type),
