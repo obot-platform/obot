@@ -193,7 +193,9 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 		if err != nil {
 			auditLog.Error = err.Error()
-			auditLog.ResponseStatus = http.StatusInternalServerError
+			if auditLog.ResponseStatus < http.StatusBadRequest {
+				auditLog.ResponseStatus = http.StatusInternalServerError
+			}
 
 			var oauthErr nmcp.AuthRequiredErr
 			if errors.As(err, &oauthErr) {

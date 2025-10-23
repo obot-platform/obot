@@ -213,6 +213,24 @@
 					{@render noAuditorAccessInfo('Response Body')}
 				{/if}
 			{/if}
+
+			{#if shouldShowPayload}
+				{#if auditLog.webhookStatuses && auditLog.webhookStatuses.length > 0}
+					{@const statuses = JSON.stringify(auditLog.webhookStatuses, null, 2)}
+
+					<p class="translate-y-2 pt-4 text-base font-semibold">Webhook Statuses</p>
+					<div class="relative text-white">
+						<pre class="default-scrollbar-thin max-h-96 overflow-y-auto p-4">
+						<code class="language-json">{statuses}</code>
+					</pre>
+
+						<CopyButton
+							classes={{ button: 'absolute right-4 top-4 flex flex-col items-end text-current' }}
+							text={statuses}
+						/>
+					</div>
+				{/if}
+			{/if}
 		</div>
 	</div>
 </div>

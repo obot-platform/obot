@@ -20,7 +20,7 @@ type MCPAuditLog struct {
 	RequestBody               json.RawMessage `json:"requestBody,omitempty"`
 	ResponseBody              json.RawMessage `json:"responseBody,omitempty"`
 	ResponseStatus            int             `json:"responseStatus"`
-	WebhookStatuses           []WebhookStatus `json:"webhookStatus,omitempty"`
+	WebhookStatuses           []WebhookStatus `json:"webhookStatuses,omitempty"`
 	Error                     string          `json:"error,omitempty"`
 	ProcessingTimeMs          int64           `json:"processingTimeMs"`
 	SessionID                 string          `json:"sessionID,omitempty"`
