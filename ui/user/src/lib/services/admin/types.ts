@@ -338,6 +338,12 @@ export interface AuditLog {
 		prompts?: Record<string, unknown>[];
 		resources?: Record<string, unknown>[];
 	};
+	webhookStatuses?: {
+		type?: string;
+		url: string;
+		status: string;
+		message?: string;
+	}[];
 	error?: string;
 	sessionID?: string;
 	requestID?: string;

@@ -2947,7 +2947,7 @@ func schema_obot_platform_obot_apiclient_types_MCPAuditLog(ref common.ReferenceC
 							Format:  "int32",
 						},
 					},
-					"webhookStatus": {
+					"webhookStatuses": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
