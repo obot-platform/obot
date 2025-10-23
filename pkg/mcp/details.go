@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -24,6 +25,18 @@ func (sm *SessionManager) GetServerDetails(ctx context.Context, userID, mcpServe
 	return sm.backend.getServerDetails(ctx, serverConfig.Scope)
 }
 
+// shouldAttemptLogStreaming checks if the error is one that should still have logs
+// These are errors where the server might be running but not healthy
+func shouldAttemptLogStreaming(err error) bool {
+	for unwrappedErr := err; unwrappedErr != nil; unwrappedErr = errors.Unwrap(unwrappedErr) {
+		switch unwrappedErr {
+		case ErrHealthCheckFailed, ErrHealthCheckTimeout, ErrPodConfigurationFailed:
+			return true
+		}
+	}
+	return false
+}
+
 // StreamServerLogs will stream the logs of a specific MCP server based on its configuration, if the backend supports it.
 // If the server is remote, it will return an error as remote servers do not support this operation.
 // If the backend does not support the operation, it will return an [ErrNotSupportedByBackend] error.
@@ -34,7 +47,10 @@ func (sm *SessionManager) StreamServerLogs(ctx context.Context, userID, mcpServe
 
 	_, err := sm.ensureDeployment(ctx, serverConfig, userID, mcpServerDisplayName, mcpServerName)
 	if err != nil {
-		return nil, err
+		// If error of deployment is not one that should still have logs, return the error
+		if !shouldAttemptLogStreaming(err) {
+			return nil, err
+		}
 	}
 
 	return sm.backend.streamServerLogs(ctx, serverConfig.Scope)
