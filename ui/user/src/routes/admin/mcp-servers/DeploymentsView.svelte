@@ -562,7 +562,7 @@
 		{#if showDeleteConfirm?.type === 'multi'}
 			<p class="text-sm font-light">The following servers will be permanently deleted:</p>
 			<ul class="my-2 font-semibold">
-				{#each Object.values(selected) as s}
+				{#each Object.values(selected) as s (s.id)}
 					<li>{s.manifest.name}</li>
 				{/each}
 			</ul>
