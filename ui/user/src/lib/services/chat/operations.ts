@@ -1636,6 +1636,13 @@ export async function validateSingleOrRemoteMcpServerLaunched(mcpServerId: strin
 	}
 }
 
+export async function listSingleOrRemoteMcpServerLogs(mcpServerId: string): Promise<string[]> {
+	const response = (await doGet(`/mcp-servers/${mcpServerId}/logs`, {
+		dontLogErrors: true
+	})) as ItemsResponse<string>;
+	return response.items ?? [];
+}
+
 export async function listWorkspaces(opts?: { fetch?: Fetcher }): Promise<Workspace[]> {
 	const response = (await doGet('/workspaces', opts)) as ItemsResponse<Workspace>;
 	return response.items ?? [];
