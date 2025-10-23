@@ -13,6 +13,8 @@
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import { localState } from '$lib/runes/localState.svelte';
 	import { flip } from 'svelte/animate';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 
 	interface Props {
 		currentThreadID?: string;
@@ -142,7 +144,19 @@
 	async function deleteThread(id: string) {
 		await ChatService.deleteThread(project.assistantID, project.id, id);
 		layout.threads = layout.threads?.filter((thread) => thread.id !== id);
-		setCurrentThread(layout.threads?.[0]?.id ?? '');
+
+		// Check if threads are empty after deletion
+		if (layout.threads?.length === 0) {
+			// Delete 'thread' param from URL
+			const url = new URL(page.url);
+			url.searchParams.delete('thread');
+
+			// Navigate to updated URL
+			goto(url);
+		} else {
+			// Update 'thread' param
+			setCurrentThread(layout.threads?.[0]?.id ?? '');
+		}
 	}
 
 	function selectThread(id: string) {
