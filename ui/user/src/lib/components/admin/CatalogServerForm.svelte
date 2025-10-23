@@ -806,24 +806,6 @@
 										disabled={readonly}
 									/>
 								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label
-										for={`env-prefix]-${i}`}
-										class="flex items-center gap-1 text-sm font-light"
-									>
-										Value Prefix
-										<InfoTooltip
-											text="A constant prepended value that will be added to the user-supplied value. Ex. 'Bearer ' in 'Bearer [USER_SUPPLIED_VALUE]'."
-											popoverWidth="lg"
-										/>
-									</label>
-									<input
-										id={`header-prefix-${i}`}
-										class="text-input-filled w-full"
-										bind:value={formData.env[i].prefix}
-										disabled={readonly}
-									/>
-								</div>
 								<div class="flex gap-8">
 									<label class="flex items-center gap-2">
 										<input
