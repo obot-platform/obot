@@ -21,7 +21,6 @@
 	import CategorySelectInput from './CategorySelectInput.svelte';
 	import Select from '../Select.svelte';
 	import { profile } from '$lib/stores';
-	import InfoTooltip from '../InfoTooltip.svelte';
 
 	interface Props {
 		id?: string;
