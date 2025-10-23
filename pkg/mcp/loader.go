@@ -12,6 +12,7 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -39,14 +40,15 @@ type Options struct {
 }
 
 type SessionManager struct {
-	backend           backend
-	contextLock       sync.Mutex
-	sessionCtx        context.Context
-	cancel            func()
-	sessions          sync.Map
-	tokenStorage      GlobalTokenStore
-	baseURL           string
-	allowLocalhostMCP bool
+	backend               backend
+	contextLock           sync.Mutex
+	sessionCtx            context.Context
+	cancel                func()
+	sessions              sync.Map
+	tokenStorage          GlobalTokenStore
+	ephemeralTokenService *ephemeral.TokenService
+	baseURL               string
+	allowLocalhostMCP     bool
 }
 
 const streamableHTTPHealthcheckBody string = `{
@@ -63,7 +65,7 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseURL string, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, ephemeralTokenService *ephemeral.TokenService, tokenStorage GlobalTokenStore, baseURL string, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
 	var backend backend
 
 	switch opts.MCPRuntimeBackend {
@@ -105,10 +107,11 @@ func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseU
 	}
 
 	return &SessionManager{
-		backend:           backend,
-		tokenStorage:      tokenStorage,
-		baseURL:           baseURL,
-		allowLocalhostMCP: !opts.DisallowLocalhostMCP,
+		backend:               backend,
+		tokenStorage:          tokenStorage,
+		ephemeralTokenService: ephemeralTokenService,
+		baseURL:               baseURL,
+		allowLocalhostMCP:     !opts.DisallowLocalhostMCP,
 	}, nil
 }
 

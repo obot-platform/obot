@@ -442,7 +442,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	mcpLoader, err := mcp.NewSessionManager(ctx, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
+	ephemeralTokenServer := &ephemeral.TokenService{}
+	mcpLoader, err := mcp.NewSessionManager(ctx, ephemeralTokenServer, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
 	if err != nil {
 		return nil, err
 	}
@@ -609,9 +610,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	var (
-		ephemeralTokenServer = &ephemeral.TokenService{}
-		events               = events.NewEmitter(storageClient, gatewayClient)
-		invoker              = invoke.NewInvoker(
+		events  = events.NewEmitter(storageClient, gatewayClient)
+		invoker = invoke.NewInvoker(
 			storageClient,
 			gptscriptClient,
 			gatewayClient,

@@ -26,6 +26,18 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *ephe
 		return nil, fmt.Errorf("failed to convert MCP server %s to server config: %w", mcpServerDisplayName, err)
 	}
 
+	// The headers here have an ephemeral token in them.
+	// It's not a big deal to keep it, but it's easy enough to remove it,
+	// and we have to create a new one if this metadata field is needed anyway.
+	headers := serverConfig.Headers
+	serverConfig.Headers = nil
+	serverConfigForMetadata, err := json.Marshal(serverConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal server config for metadata: %w", err)
+	}
+
+	serverConfig.Headers = headers
+
 	client, err := sm.ClientForServer(ctx, userID, mcpServerDisplayName, projectMCPServer.Name, serverConfig)
 	if err != nil {
 		return nil, determineError(err, mcpServerDisplayName)
@@ -67,12 +79,16 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *ephe
 			Description:  tool.Description,
 			Arguments:    &schema,
 			Instructions: fmt.Sprintf("%s%s %s default", types.MCPInvokePrefix, tool.Name, client.ID),
+			MetaData: map[string]string{
+				"obot-server-config":           string(serverConfigForMetadata),
+				"obot-user-id":                 userID,
+				"obot-server-display-name":     mcpServerDisplayName,
+				"obot-project-mcp-server-name": projectMCPServer.Name,
+			},
 		}
 
 		if string(annotations) != "{}" && string(annotations) != "null" {
-			toolDef.MetaData = map[string]string{
-				"mcp-tool-annotations": string(annotations),
-			}
+			toolDef.MetaData["mcp-tool-annotations"] = string(annotations)
 		}
 
 		if tool.Annotations != nil && tool.Annotations.Title != "" && !slices.Contains(strings.Fields(tool.Annotations.Title), "as") {
