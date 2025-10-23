@@ -53,7 +53,11 @@ const sidebars = {
             {
               type: "category",
               label: "Reference Architectures",
-              items: ["configuration/reference-architectures/gcp-gke"],
+              items: [
+                "configuration/reference-architectures/gcp-gke",
+                "configuration/reference-architectures/aws-eks",
+                "configuration/reference-architectures/azure-aks",
+              ],
             },
             {
               type: "category",
