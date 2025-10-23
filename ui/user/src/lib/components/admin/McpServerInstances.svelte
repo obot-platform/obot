@@ -75,18 +75,20 @@
 
 	async function handleMultiUpdate() {
 		if (!id || !entry) return;
-		for (const id of Object.keys(selected)) {
-			updating[id] = { inProgress: true, error: '' };
+		for (const serverId of Object.keys(selected)) {
+			updating[serverId] = { inProgress: true, error: '' };
 			try {
-				await ChatService.triggerMcpServerUpdate(id);
-				updating[id] = { inProgress: false, error: '' };
+				await (entity === 'workspace' && id && entry
+					? ChatService.triggerWorkspaceMcpServerUpdate(id, entry.id, serverId)
+					: ChatService.triggerMcpServerUpdate(serverId));
+				updating[serverId] = { inProgress: false, error: '' };
 			} catch (error) {
-				updating[id] = {
+				updating[serverId] = {
 					inProgress: false,
 					error: error instanceof Error ? error.message : 'An unknown error occurred'
 				};
 			} finally {
-				delete updating[id];
+				delete updating[serverId];
 			}
 		}
 
@@ -102,7 +104,9 @@
 
 		updating[server.id] = { inProgress: true, error: '' };
 		try {
-			await ChatService.triggerMcpServerUpdate(server.id);
+			await (entity === 'workspace' && id && entry
+				? ChatService.triggerWorkspaceMcpServerUpdate(id, entry.id, server.id)
+				: ChatService.triggerMcpServerUpdate(server.id));
 			listEntryServers =
 				entity === 'workspace'
 					? ChatService.listWorkspaceMCPServersForEntry(id, entry.id)
