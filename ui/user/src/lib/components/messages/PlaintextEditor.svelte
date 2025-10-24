@@ -125,7 +125,7 @@
 		return new Plugin({
 			appendTransaction(transactions, oldState, newState) {
 				if (transactions.some((tr) => tr.docChanged)) {
-					_value = value = newState.doc.textBetween(1, newState.doc.content.size - 1, '\n');
+					_value = value = newState.doc.textBetween(1, newState.doc.content.size - 1, '\n\n');
 				}
 
 				return null;
