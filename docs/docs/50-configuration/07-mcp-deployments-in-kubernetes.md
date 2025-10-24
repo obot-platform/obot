@@ -15,7 +15,7 @@ In order to set up Deployments, Services, and Secrets, Obot needs a ServiceAccou
 that give it permissions to do so in the namespace. All of this is included in the Helm chart.
 
 Here is a link to the Role, to view the permissions that Obot will have:
-<https://github.com/obot-platform/obot/blob/main/chart/templates/mcp.yaml>
+[https://github.com/obot-platform/obot/blob/main/chart/templates/mcp.yaml](https://github.com/obot-platform/obot/blob/main/chart/templates/mcp.yaml)
 
 These permissions are granted only for the namespace where Obot deploys MCP servers.
 
