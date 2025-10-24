@@ -2264,25 +2264,29 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		return types.NewErrBadRequest("cannot stream logs for remote MCP server")
 	}
 
-	if !req.UserIsAdmin() && !req.UserIsAuditor() {
-		workspaceID := req.PathValue("workspace_id")
-		if workspaceID == "" {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
-		} else if server.Spec.PowerUserWorkspaceID != "" && workspaceID != server.Spec.PowerUserWorkspaceID {
-			return types.NewErrNotFound("MCP server %s not found", server.Name)
-		} else if server.Spec.PowerUserWorkspaceID == "" {
-			if server.Spec.MCPServerCatalogEntryName == "" {
+	// If this is a single-user MCP server that belongs to the user, then let them access the logs.
+	if server.Spec.UserID != req.User.GetUID() || server.Spec.PowerUserWorkspaceID != "" || server.Spec.MCPCatalogID != "" {
+		// If the user doesn't own the server and is not an admin or auditor, check if they have access to the workspace.
+		if !req.UserIsAdmin() && !req.UserIsAuditor() {
+			workspaceID := req.PathValue("workspace_id")
+			if workspaceID == "" {
 				return types.NewErrNotFound("MCP server %s not found", server.Name)
-			}
-
-			// In this case, the server should correspond to a workspace catalog entry.
-			var entry v1.MCPServerCatalogEntry
-			if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
-				return fmt.Errorf("failed to get MCP server catalog entry: %v", err)
-			}
-
-			if entry.Spec.PowerUserWorkspaceID != workspaceID {
+			} else if server.Spec.PowerUserWorkspaceID != "" && workspaceID != server.Spec.PowerUserWorkspaceID {
 				return types.NewErrNotFound("MCP server %s not found", server.Name)
+			} else if server.Spec.PowerUserWorkspaceID == "" {
+				if server.Spec.MCPServerCatalogEntryName == "" {
+					return types.NewErrNotFound("MCP server %s not found", server.Name)
+				}
+
+				// In this case, the server should correspond to a workspace catalog entry.
+				var entry v1.MCPServerCatalogEntry
+				if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+					return fmt.Errorf("failed to get MCP server catalog entry: %v", err)
+				}
+
+				if entry.Spec.PowerUserWorkspaceID != workspaceID {
+					return types.NewErrNotFound("MCP server %s not found", server.Name)
+				}
 			}
 		}
 	}
