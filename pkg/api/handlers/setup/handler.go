@@ -8,10 +8,14 @@ import (
 	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
-type Handler struct{}
+type Handler struct {
+	serverURL string
+}
 
-func NewHandler() *Handler {
-	return &Handler{}
+func NewHandler(serverURL string) *Handler {
+	return &Handler{
+		serverURL: serverURL,
+	}
 }
 
 // requireBootstrap checks if the request is from the bootstrap user.
