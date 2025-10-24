@@ -7,23 +7,15 @@ This is an overview of how Obot sets up MCP servers in Kubernetes, and how to ch
 Obot will deploy MCP servers into the namespace `{helm-release-name}-mcp`. So if your Helm release name is `obot`,
 Obot will deploy servers to the `obot-mcp` namespace.
 
+You can override this namespace and set it to whatever you would like using the Helm value `.mcpNamespace.name`.
+
 ## RBAC
 
 In order to set up Deployments, Services, and Secrets, Obot needs a ServiceAccount, Role, and RoleBinding
 that give it permissions to do so in the namespace. All of this is included in the Helm chart.
-These are the permissions included on its Role:
 
-```yaml
-- apiGroups: [""]
-  resources: ["secrets", "services"]
-  verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
-- apiGroups: [""]
-  resources: ["pods", "pods/log", "events"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["apps"]
-  resources: ["deployments"]
-  verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
-```
+Here is a link to the Role, to view the permissions that Obot will have:
+<https://github.com/obot-platform/obot/blob/main/chart/templates/mcp.yaml>
 
 These permissions are granted only for the namespace where Obot deploys MCP servers.
 
