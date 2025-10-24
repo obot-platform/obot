@@ -14,7 +14,7 @@
 	import { localState } from '$lib/runes/localState.svelte';
 	import { flip } from 'svelte/animate';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { replaceState } from '$app/navigation';
 
 	interface Props {
 		currentThreadID?: string;
@@ -142,20 +142,34 @@
 	}
 
 	async function deleteThread(id: string) {
-		await ChatService.deleteThread(project.assistantID, project.id, id);
-		layout.threads = layout.threads?.filter((thread) => thread.id !== id);
+		const threads = $state.snapshot(layout.threads);
+		const filteredThreads = threads?.filter((thread) => thread.id !== id) ?? [];
+
+		layout.threads = filteredThreads;
 
 		// Check if threads are empty after deletion
-		if (layout.threads?.length === 0) {
+		if (filteredThreads.length === 0) {
 			// Delete 'thread' param from URL
 			const url = new URL(page.url);
 			url.searchParams.delete('thread');
 
-			// Navigate to updated URL
-			goto(url);
+			// Update URL without navigation
+			replaceState(url, page.state);
 		} else {
 			// Update 'thread' param
-			setCurrentThread(layout.threads?.[0]?.id ?? '');
+			setCurrentThread(filteredThreads?.at(0)?.id ?? '');
+		}
+
+		try {
+			await ChatService.deleteThread(project.assistantID, project.id, id);
+		} catch (_) {
+			// Revert UI changes on failure
+			const isThreadsEmpty = layout.threads?.length === 0;
+
+			layout.threads = threads;
+			if (isThreadsEmpty) {
+				setCurrentThread(layout.threads?.at(0)?.id ?? '');
+			}
 		}
 	}
 
