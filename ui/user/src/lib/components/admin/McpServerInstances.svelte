@@ -138,7 +138,7 @@
 				: `/admin/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`;
 		}
 
-		return profile.current?.groups.includes(Group.POWERUSER_PLUS)
+		return profile.current?.groups.includes(Group.POWERUSER)
 			? `/mcp-publisher/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
 			: null;
 	}
