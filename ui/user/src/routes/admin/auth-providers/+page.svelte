@@ -283,8 +283,12 @@
 				{/each}
 			</ul>
 			<p>
-				Log in into the system as one of the explicit owners or log into a different account with
-				your configured auth provider.
+				Log in into the system as one of the explicit owners -- you'll be redirected back to the
+				admin panel after authenticating.
+			</p>
+			<p>
+				Or log into a different account with your configured auth provider. After authentication,
+				you'll be asked to confirm the owner addition before proceeding.
 			</p>
 		{:else}
 			<p>
