@@ -75,4 +75,4 @@ We recommend allowing all egress traffic out of the MCP server Deployments.
 ### Secrets
 
 Obot will create a Secret to contain the user-provided configuration values for the MCP server.
-Any configuration values that were marked as files will be in separate Secrets, that are mounted as files into the container.
+Any configuration values that were marked as files will be in a separate Secret that is mounted in the `/files` directory in the container.
