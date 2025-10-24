@@ -19,7 +19,17 @@
 
 	$effect(() => {
 		if (profile.current.loaded && !profile.current.unauthorized && storeData.lastFetched) {
-			const firstTimeViewed = localStorage.getItem('seenSplashDialog');
+			const created = profile.current.created ? new Date(profile.current.created) : null;
+			let firstTimeViewed = localStorage.getItem('seenSplashDialog')
+				? new Date(localStorage.getItem('seenSplashDialog')!)
+				: null;
+
+			// the user is newer than the seenSplashDialog set, likely case of fresh install & revisiting with browser
+			if (created && firstTimeViewed && created > firstTimeViewed) {
+				localStorage.removeItem('seenSplashDialog');
+				firstTimeViewed = null;
+			}
+
 			const isOwner = profile.current.groups.includes(Group.OWNER);
 			if (
 				!firstTimeViewed &&

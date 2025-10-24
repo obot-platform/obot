@@ -52,6 +52,7 @@
 	let configuringAuthProviderValues = $state<Record<string, string>>();
 	let atLeastOneConfigured = $derived(authProviders.some((provider) => provider.configured));
 
+	let setupLoading = $state(false);
 	let setupSignInDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let explicitOwners = $state<string[]>([]);
 	let setupTempLoginUrl = $state('');
@@ -66,18 +67,12 @@
 	$effect(() => {
 		if (profile.current.isBootstrapUser?.() && atLeastOneConfigured) {
 			const handleVisibilityChange = async () => {
-				if (document.visibilityState === 'visible') {
+				if (document.visibilityState === 'visible' && !setupLoading && !setupTempLoginUrl) {
 					const configuredAuthProvider = authProviders.find((provider) => provider.configured);
 					configuringAuthProvider = configuredAuthProvider;
 					handleOwnerSetup();
 				}
 			};
-
-			const configuredAuthProvider = authProviders.find((provider) => provider.configured);
-			if (configuredAuthProvider) {
-				configuringAuthProvider = configuredAuthProvider;
-				handleOwnerSetup();
-			}
 
 			document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -87,8 +82,17 @@
 		}
 	});
 
+	$effect(() => {
+		const configuredAuthProvider = authProviders.find((provider) => provider.configured);
+		if (configuredAuthProvider && !setupLoading && !setupTempLoginUrl) {
+			configuringAuthProvider = configuredAuthProvider;
+			handleOwnerSetup();
+		}
+	});
+
 	async function handleOwnerSetup() {
-		if (!configuringAuthProvider) return;
+		if (!configuringAuthProvider || setupLoading) return;
+		setupLoading = true;
 		try {
 			await AdminService.cancelTempLogin();
 		} catch (err) {
@@ -105,6 +109,7 @@
 				configuringAuthProvider.namespace
 			)
 		).redirectUrl;
+		setupLoading = false;
 		setupSignInDialog?.open();
 	}
 
