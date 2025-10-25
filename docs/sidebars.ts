@@ -50,6 +50,7 @@ const sidebars = {
             "configuration/workspace-provider",
             "configuration/model-providers",
             "configuration/oauth-configuration",
+            "configuration/mcp-deployments-in-kubernetes",
             {
               type: "category",
               label: "Reference Architectures",
