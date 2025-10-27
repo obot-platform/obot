@@ -318,7 +318,6 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 }
 
 func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
-	// TODO(cmcp): Update this handler to handle updating composite entries
 	catalogName := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 	entryName := req.PathValue("entry_id")
@@ -683,7 +682,10 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		catalogName = req.PathValue("catalog_id")
 		workspaceID = req.PathValue("workspace_id")
 		entryName   = req.PathValue("entry_id")
-		dryRun      = req.Request.URL.Query().Get("dryRun") == "true"
+		// "dryRun" lets us get the previews for an MCP server without updating its CatalogEntry.
+		// This is used when we populate the tools for individual MCP servers when creating a composite CatalogEntry
+		// (configuring tool overrides).
+		dryRun = req.Request.URL.Query().Get("dryRun") == "true"
 	)
 
 	// Verify the scope exists
@@ -814,7 +816,6 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			}
 
 			if oauthURL != "" {
-				// TODO(cmcp): Figure out how to handle composite OAuth when generating previews for composite servers
 				return types.NewErrBadRequest("MCP server requires OAuth authentication")
 			}
 
@@ -828,7 +829,6 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			return fmt.Errorf("failed to generate tool preview: %w", err)
 		}
 
-		// TODO(cmcp): Apply tool overrides to the tool preview
 		compositeToolPreviews = append(compositeToolPreviews, toolPreview...)
 	}
 
@@ -858,7 +858,10 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 		catalogName = req.PathValue("catalog_id")
 		workspaceID = req.PathValue("workspace_id")
 		entryName   = req.PathValue("entry_id")
-		dryRun      = req.Request.URL.Query().Get("dryRun") == "true"
+		// "dryRun" lets us get the previews for an MCP server without updating its CatalogEntry.
+		// This is used when we populate the tools for individual MCP servers when creating a composite CatalogEntry
+		// (configuring tool overrides).
+		dryRun = req.Request.URL.Query().Get("dryRun") == "true"
 	)
 
 	// Verify the scope exists
@@ -1019,7 +1022,6 @@ func normalizeMCPCatalogEntryName(name string) string {
 func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest *types.MCPServerCatalogEntryManifest, catalogName, workspaceID string) error {
 	// For each component server, fetch its catalog entry and populate the manifest
 	for i := range manifest.CompositeConfig.ComponentServers {
-		// TODO(cmcp): Handle multi-user component servers, these won't have a catalog entry ID, but will instead point directly to an MCP server
 		component := &manifest.CompositeConfig.ComponentServers[i]
 
 		var entry v1.MCPServerCatalogEntry

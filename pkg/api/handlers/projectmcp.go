@@ -284,7 +284,7 @@ func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
 		return err
 	}
 
-	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID)
+	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.tokenService, p.serverURL)
 	if err != nil {
 		return err
 	}
@@ -314,7 +314,7 @@ func (p *ProjectMCPHandler) CheckOAuth(req api.Context) error {
 		return err
 	}
 
-	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID)
+	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.tokenService, p.serverURL)
 	if err != nil {
 		return err
 	}
@@ -339,7 +339,7 @@ func (p *ProjectMCPHandler) GetOAuthURL(req api.Context) error {
 		return err
 	}
 
-	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID)
+	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.tokenService, p.serverURL)
 	if err != nil {
 		return err
 	}

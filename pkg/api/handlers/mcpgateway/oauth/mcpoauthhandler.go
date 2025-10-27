@@ -41,7 +41,7 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 	}
 }
 func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
-	if mcpServerConfig.Runtime == types.RuntimeComposite {
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 		var componentServers v1.MCPServerList
 		if err := f.client.List(req.Context(), &componentServers,
 			kclient.InNamespace(mcpServer.Namespace),
@@ -51,27 +51,24 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		}
 
 		// Precompute disabled component set for quick lookup (by catalog entry ID only)
-		var disabled map[string]struct{}
+		var compositeConfig types.CompositeRuntimeConfig
 		if mcpServer.Spec.Manifest.CompositeConfig != nil {
-			disabled = make(map[string]struct{}, len(mcpServer.Spec.Manifest.CompositeConfig.ComponentServers))
-			for _, comp := range mcpServer.Spec.Manifest.CompositeConfig.ComponentServers {
-				if !comp.Enabled && comp.CatalogEntryID != "" {
-					disabled[comp.CatalogEntryID] = struct{}{}
-				}
-			}
+			compositeConfig = *mcpServer.Spec.Manifest.CompositeConfig
+		}
+
+		disabled := make(map[string]bool, len(compositeConfig.ComponentServers))
+		for _, comp := range compositeConfig.ComponentServers {
+			disabled[comp.CatalogEntryID] = comp.Disabled
 		}
 
 		for _, componentServer := range componentServers.Items {
 			// Skip disabled components defined in the composite server config using O(1) lookups
-			if _, ok := disabled[componentServer.Spec.MCPServerCatalogEntryName]; ok {
-				continue
-			}
-			if componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
-				// Only remote component servers can require OAuth
+			if disabled[componentServer.Spec.MCPServerCatalogEntryName] ||
+				componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
 				continue
 			}
 
-			componentConfig, err := handlers.ServerConfigForAction(req, componentServer)
+			_, componentConfig, err := handlers.ServerForAction(req, componentServer.Name, f.mcpSessionManager.TokenService(), f.baseURL)
 			if err != nil {
 				continue
 			}
@@ -85,7 +82,6 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 			if u != "" {
 				// At least one component requires OAuth
-				log.Errorf("OAuth URL for component server %s: %s", componentServer.Name, u)
 				if oauthAppAuthRequestID != "" {
 					return fmt.Sprintf("%s/auth/mcp/composite/%s?oauth_auth_request=%s", f.baseURL, mcpID, oauthAppAuthRequestID), nil
 				}

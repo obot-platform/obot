@@ -263,7 +263,7 @@
 		});
 	}
 
-	async function handleLaunchCatalogEntry(entry: Entry, retryingServer?: MCPCatalogServer) {
+	async function handleLaunchCatalogEntry(entry: Entry, _retryingServer?: MCPCatalogServer) {
 		if (!entry.manifest) {
 			console.error('No server manifest found');
 			return;
@@ -295,7 +295,18 @@
 		// For composite: open form first to collect per-component URLs before creating
 		if (entry.manifest.runtime === 'composite') {
 			const components = entry.manifest?.compositeConfig?.componentServers || [];
-			const componentConfigs: any = {};
+			const componentConfigs: Record<
+				string,
+				{
+					name?: string;
+					icon?: string;
+					hostname?: string;
+					url?: string;
+					disabled?: boolean;
+					envs?: Array<Record<string, unknown> & { key: string; value: string }>;
+					headers?: Array<Record<string, unknown> & { key: string; value: string }>;
+				}
+			> = {};
 			for (const c of components) {
 				const id = c.catalogEntryID;
 				const m = c.manifest;
@@ -304,9 +315,17 @@
 					icon: m.icon,
 					hostname: m.remoteConfig?.hostname,
 					url: m.remoteConfig?.fixedURL ?? '',
-					enabled: true,
-					envs: (m.env ?? []).map((e: any) => ({ ...e, value: '' })),
-					headers: (m.remoteConfig?.headers ?? []).map((h: any) => ({ ...h, value: '' }))
+					disabled: false,
+					envs: (m.env ?? []).map((e) => ({
+						...(e as unknown as Record<string, unknown>),
+						key: e.key,
+						value: ''
+					})),
+					headers: (m.remoteConfig?.headers ?? []).map((h) => ({
+						...(h as unknown as Record<string, unknown>),
+						key: h.key,
+						value: ''
+					}))
 				};
 			}
 			configureForm = { componentConfigs } as CompositeLaunchFormData;
@@ -444,7 +463,18 @@
 		// For composite servers, build CompositeLaunchFormData for CatalogConfigureForm
 		if (item.manifest?.runtime === 'composite') {
 			const components = item.manifest?.compositeConfig?.componentServers || [];
-			const componentConfigs: any = {};
+			const componentConfigs: Record<
+				string,
+				{
+					name?: string;
+					icon?: string;
+					hostname?: string;
+					url?: string;
+					disabled?: boolean;
+					envs?: Array<Record<string, unknown> & { key: string; value: string }>;
+					headers?: Array<Record<string, unknown> & { key: string; value: string }>;
+				}
+			> = {};
 			for (const c of components) {
 				const id = c.catalogEntryID;
 				const m = c.manifest;
@@ -453,9 +483,17 @@
 					icon: m.icon,
 					hostname: m.remoteConfig?.hostname,
 					url: m.remoteConfig?.fixedURL ?? '',
-					enabled: true,
-					envs: (m.env ?? []).map((e: any) => ({ ...e, value: '' })),
-					headers: (m.remoteConfig?.headers ?? []).map((h: any) => ({ ...h, value: '' }))
+					disabled: false,
+					envs: (m.env ?? []).map((e) => ({
+						...(e as unknown as Record<string, unknown>),
+						key: e.key,
+						value: ''
+					})),
+					headers: (m.remoteConfig?.headers ?? []).map((h) => ({
+						...(h as unknown as Record<string, unknown>),
+						key: h.key,
+						value: ''
+					}))
 				};
 			}
 			configureForm = { componentConfigs } as CompositeLaunchFormData;
@@ -498,25 +536,25 @@
 			if ('componentConfigs' in configureForm) {
 				const payload: Record<
 					string,
-					{ config: Record<string, string>; url?: string; enabled?: boolean }
+					{ config: Record<string, string>; url?: string; disabled?: boolean }
 				> = {};
 				for (const [id, comp] of Object.entries(configureForm.componentConfigs)) {
 					const config: Record<string, string> = {};
-					for (const f of [...(comp.envs ?? ([] as any[])), ...(comp.headers ?? ([] as any[]))]) {
-						if ((f as any).value) config[(f as any).key] = (f as any).value as string;
+					for (const f of [
+						...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
+						...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
+					]) {
+						if (f.value) config[f.key] = f.value;
 					}
 					payload[id] = {
 						config,
 						url: comp.url?.trim() || undefined,
-						enabled: comp.enabled ?? true
+						disabled: comp.disabled ?? false
 					};
 				}
 
 				if ('server' in selectedEntryOrServer && selectedEntryOrServer.server?.id) {
-					await ChatService.configureCompositeMcpServer(
-						selectedEntryOrServer.server.id,
-						payload as any
-					);
+					await ChatService.configureCompositeMcpServer(selectedEntryOrServer.server.id, payload);
 					configDialog?.close();
 					onUpdateConfigure?.();
 					return;
@@ -559,11 +597,15 @@
 				if ('componentConfigs' in configureForm) {
 					const entry = selectedEntryOrServer as Entry;
 					const aliasToUse =
-						(configureForm as any).name || getUniqueAlias(selectedManifest?.name || '');
-					const componentServersForCreate: any[] = [];
+						(configureForm as { name?: string } | undefined)?.name ||
+						getUniqueAlias(selectedManifest?.name || '');
+					const componentServersForCreate: Array<{
+						catalogEntryID: string;
+						manifest: Record<string, unknown>;
+					}> = [];
 					const payload: Record<
 						string,
-						{ config: Record<string, string>; url?: string; enabled?: boolean }
+						{ config: Record<string, string>; url?: string; disabled?: boolean }
 					> = {};
 					for (const [id, comp] of Object.entries(configureForm.componentConfigs)) {
 						const url = comp.url?.trim();
@@ -574,13 +616,16 @@
 								: {}
 						});
 						const config: Record<string, string> = {};
-						for (const f of [...(comp.envs ?? ([] as any[])), ...(comp.headers ?? ([] as any[]))]) {
-							if ((f as any).value) config[(f as any).key] = (f as any).value as string;
+						for (const f of [
+							...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
+							...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
+						]) {
+							if (f.value) config[f.key] = f.value;
 						}
-						payload[id] = { config, url, enabled: comp.enabled ?? true };
+						payload[id] = { config, url, disabled: comp.disabled ?? false };
 					}
 
-					const manifest: any = {
+					const manifest: Record<string, unknown> = {
 						compositeConfig: { componentServers: componentServersForCreate }
 					};
 					const created = await ChatService.createSingleOrRemoteMcpServer({
@@ -593,7 +638,7 @@
 						(v) => Object.keys(v.config || {}).length > 0
 					);
 					if (hasAnyConfig) {
-						await ChatService.configureCompositeMcpServer(created.id, payload as any);
+						await ChatService.configureCompositeMcpServer(created.id, payload);
 					}
 
 					const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
@@ -622,8 +667,8 @@
 				await new Promise((resolve) => setTimeout(resolve, 300));
 				await handleLaunch();
 			}
-		} catch (error) {
-			console.error('Error during configuration:', error);
+		} catch (_error) {
+			console.error('Error during configuration:', _error);
 			configDialog?.close();
 		}
 	}
@@ -645,19 +690,39 @@
 			// Prefill composite configs using CatalogConfigureForm
 			let initial: Record<
 				string,
-				{ config: Record<string, string>; url?: string; enabled?: boolean }
+				{ config: Record<string, string>; url?: string; disabled?: boolean }
 			> = {};
 			try {
 				const revealed = await ChatService.revealCompositeMcpServer(connectedServer.server.id, {
 					dontLogErrors: true
 				});
-				initial = (revealed as any).componentConfigs ?? {};
-			} catch (error) {
-				initial = {} as any;
+				const rc = revealed as unknown as {
+					componentConfigs?: Record<
+						string,
+						{ config: Record<string, string>; url?: string; disabled?: boolean }
+					>;
+				};
+				initial = rc.componentConfigs ?? {};
+			} catch (_error) {
+				initial = {} as Record<
+					string,
+					{ config: Record<string, string>; url?: string; disabled?: boolean }
+				>;
 			}
 			selectedEntryOrServer = connectedServer;
 			const components = connectedServer.parent.manifest?.compositeConfig?.componentServers || [];
-			const componentConfigs: any = {};
+			const componentConfigs: Record<
+				string,
+				{
+					name?: string;
+					icon?: string;
+					hostname?: string;
+					url?: string;
+					disabled?: boolean;
+					envs?: Array<Record<string, unknown> & { key: string; value: string }>;
+					headers?: Array<Record<string, unknown> & { key: string; value: string }>;
+				}
+			> = {};
 			for (const c of components) {
 				const id = c.catalogEntryID;
 				const m = c.manifest;
@@ -667,10 +732,15 @@
 					icon: m.icon,
 					hostname: m.remoteConfig?.hostname,
 					url: init?.url ?? m.remoteConfig?.fixedURL ?? '',
-					enabled: init?.enabled ?? true,
-					envs: (m.env ?? []).map((e: any) => ({ ...e, value: init?.config?.[e.key] ?? '' })),
-					headers: (m.remoteConfig?.headers ?? []).map((h: any) => ({
-						...h,
+					disabled: init?.disabled ?? false,
+					envs: (m.env ?? []).map((e) => ({
+						...(e as unknown as Record<string, unknown>),
+						key: e.key,
+						value: init?.config?.[e.key] ?? ''
+					})),
+					headers: (m.remoteConfig?.headers ?? []).map((h) => ({
+						...(h as unknown as Record<string, unknown>),
+						key: h.key,
 						value: init?.config?.[h.key] ?? ''
 					}))
 				};

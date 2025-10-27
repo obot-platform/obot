@@ -57,7 +57,7 @@
 			}));
 			return { catalogEntryID: c.catalogEntryID, manifest: c.manifest, toolOverrides };
 		});
-		config.componentServers = componentServers as any;
+		config.componentServers = componentServers as unknown as typeof config.componentServers;
 	}
 
 	// Per-entry configuration dialog state
@@ -100,7 +100,7 @@
 			}));
 			populatedByEntry[entry.id] = true;
 			updateCompositeToolMappings();
-		} catch (err) {
+		} catch (err: unknown) {
 			const msg = err instanceof Error ? err.message : String(err);
 			if (msg.includes('OAuth')) {
 				const oauthURL = await AdminService.getMcpCatalogToolPreviewsOauth(
@@ -122,31 +122,37 @@
 	function prePopulateExistingToolOverrides() {
 		if (!config?.componentServers) return;
 
+		// Build a quick lookup for loaded catalog entries by id (to use their previews if needed)
+		const entryById = new Map(componentEntries.map((e) => [e.id, e]));
+
 		for (const component of config.componentServers) {
-			// Use the tool preview from the composite config's manifest, not the catalog entry
-			if (!component.manifest?.toolPreview || !component.toolOverrides?.length) continue;
+			const overrides = component.toolOverrides || [];
+			if (!overrides.length) continue;
 
-			// Build a map of tool overrides by name
-			const overridesMap = new Map(
-				component.toolOverrides.map((override) => [override.name, override])
-			);
+			const manifestPreview = component.manifest?.toolPreview || [];
+			const entryPreview = entryById.get(component.catalogEntryID)?.manifest?.toolPreview || [];
+			const preview = manifestPreview.length ? manifestPreview : entryPreview;
 
-			// Convert tool previews to ToolRow format, applying existing overrides
-			toolsByEntry[component.catalogEntryID] = component.manifest.toolPreview.map((tool) => {
-				const override = overridesMap.get(tool.name);
-
+			// If overrides exist, only show those overrides (use preview to enrich descriptions when present)
+			// Preview of all tools should only be used when user explicitly populates for the first time
+			const previewMap = new Map((preview || []).map((t) => [t.name, t]));
+			const rows: ToolRow[] = overrides.map((o) => {
+				const t = previewMap.get(o.name);
 				return {
-					id: `${component.catalogEntryID}-${tool.id || tool.name}`,
-					originalName: tool.name,
-					overrideName: override?.overrideName || tool.name,
-					originalDescription: tool.description,
-					overrideDescription: override?.overrideDescription || tool.description,
-					enabled: override ? (override.enabled ?? true) : true,
+					id: `${component.catalogEntryID}-${o.overrideName || o.name}`,
+					originalName: o.name,
+					overrideName: o.overrideName || o.name,
+					originalDescription: t?.description || '',
+					overrideDescription: o.overrideDescription || t?.description || '',
+					enabled: o.enabled === true,
 					parameters: []
 				};
 			});
 
-			populatedByEntry[component.catalogEntryID] = true;
+			if (rows.length) {
+				toolsByEntry[component.catalogEntryID] = rows;
+				populatedByEntry[component.catalogEntryID] = true;
+			}
 		}
 	}
 
@@ -196,21 +202,31 @@
 		_otherSelectors?: string[]
 	) {
 		if (!config) {
-			config = { componentServers: [] } as any;
+			config = { componentServers: [] } as unknown as
+				| CompositeCatalogConfig
+				| CompositeRuntimeConfig;
 		}
 		const existing = new Set((config.componentServers || []).map((c) => c.catalogEntryID));
 		const newComponents = mcpCatalogEntryIds
 			.filter((id) => !existing.has(id))
-			.map((id) => ({ catalogEntryID: id, manifest: {} as any, toolOverrides: [], enabled: true }));
+			.map((id) => ({
+				catalogEntryID: id,
+				manifest: {} as Record<string, unknown>,
+				toolOverrides: [],
+				enabled: true
+			}));
 		if (newComponents.length === 0) return;
-		config.componentServers = [...(config.componentServers || []), ...newComponents] as any;
+		config.componentServers = [
+			...(config.componentServers || []),
+			...newComponents
+		] as unknown as typeof config.componentServers;
 		await loadComponentEntries();
 	}
 
 	function removeServer(entryId: string) {
 		config.componentServers = (config.componentServers || []).filter(
 			(c) => c.catalogEntryID !== entryId
-		) as any;
+		) as unknown as typeof config.componentServers;
 		componentEntries = componentEntries.filter((e) => e.id !== entryId);
 		delete toolsByEntry[entryId];
 		delete populatedByEntry[entryId];
@@ -349,7 +365,7 @@
 	bind:this={searchDialog}
 	onAdd={(mcpCatalogEntryIds, mcpServerIds, otherSelectors) =>
 		handleAdd(mcpCatalogEntryIds, mcpServerIds, otherSelectors)}
-	exclude={['*', 'default', ...config?.componentServers?.map((c) => c.catalogEntryID)]}
+	exclude={['*', 'default', ...(config?.componentServers ?? []).map((c) => c.catalogEntryID)]}
 	type="filter"
 	{mcpEntriesContextFn}
 />

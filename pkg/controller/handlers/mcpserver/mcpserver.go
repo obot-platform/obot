@@ -24,8 +24,6 @@ func New(baseURL string) *Handler {
 	}
 }
 
-// TODO(cmcp): Implement composite server drift detection
-
 func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 

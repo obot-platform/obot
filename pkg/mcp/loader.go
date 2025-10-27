@@ -51,6 +51,11 @@ type SessionManager struct {
 	allowLocalhostMCP     bool
 }
 
+// TokenService returns the ephemeral token service used by this session manager.
+func (sm *SessionManager) TokenService() *ephemeral.TokenService {
+	return sm.ephemeralTokenService
+}
+
 const streamableHTTPHealthcheckBody string = `{
 	"jsonrpc": "2.0",
 	"id": "1",
@@ -301,8 +306,12 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 
 		return server, nil
 	case otypes.RuntimeComposite:
-		server.URL = fmt.Sprintf("%s/mcp-connect/%s", sm.baseURL, mcpServerName)
-		return server, nil
+		// Transform composite into a remote connection to the gateway with auth
+		remote, err := CompositeServerToConfig(sm.ephemeralTokenService, mcpServerName, sm.baseURL, userID, server.Scope)
+		if err != nil {
+			return ServerConfig{}, err
+		}
+		return remote, nil
 	}
 
 	return sm.backend.ensureServerDeployment(ctx, server, userID, mcpServerDisplayName, mcpServerName)

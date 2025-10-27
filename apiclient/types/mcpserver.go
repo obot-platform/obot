@@ -65,7 +65,7 @@ type CatalogComponentServer struct {
 	CatalogEntryID string                        `json:"catalogEntryID"`
 	Manifest       MCPServerCatalogEntryManifest `json:"manifest"`
 	ToolOverrides  []ToolOverride                `json:"toolOverrides,omitempty"`
-	Enabled        bool                          `json:"enabled,omitempty"`
+	Disabled       bool                          `json:"disabled,omitempty"`
 }
 
 type CompositeRuntimeConfig struct {
@@ -76,7 +76,7 @@ type ComponentServer struct {
 	CatalogEntryID string            `json:"catalogEntryID"`
 	Manifest       MCPServerManifest `json:"manifest"`
 	ToolOverrides  []ToolOverride    `json:"toolOverrides,omitempty"`
-	Enabled        bool              `json:"enabled,omitempty"`
+	Disabled       bool              `json:"disabled,omitempty"`
 }
 
 type MCPServerCatalogEntry struct {
@@ -419,7 +419,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 				CatalogEntryID: catalogComponent.CatalogEntryID,
 				Manifest:       componentServerManifest,
 				ToolOverrides:  catalogComponent.ToolOverrides,
-				Enabled:        true,
+				Disabled:       false,
 			}
 		}
 

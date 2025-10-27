@@ -223,14 +223,20 @@
 	}
 
 	function compileTemporaryInstanceBody() {
-		if (configureForm && 'componentConfigs' in (configureForm as any)) {
+		function isCompositeForm(
+			f: LaunchFormData | CompositeLaunchFormData | undefined
+		): f is CompositeLaunchFormData {
+			return Boolean(f && typeof f === 'object' && 'componentConfigs' in f);
+		}
+
+		if (isCompositeForm(configureForm)) {
 			const body: {
 				componentConfigs: Record<
 					string,
-					{ config: Record<string, string>; url: string; enabled: boolean }
+					{ config: Record<string, string>; url: string; disabled: boolean }
 				>;
 			} = { componentConfigs: {} };
-			const composite = configureForm as CompositeLaunchFormData;
+			const composite = configureForm;
 			for (const [compId, comp] of Object.entries(composite.componentConfigs)) {
 				const cfg: Record<string, string> = {};
 				for (const f of comp.envs || []) if (f.value) cfg[f.key] = f.value;
@@ -238,7 +244,7 @@
 				body.componentConfigs[compId] = {
 					config: cfg,
 					url: comp.url || '',
-					enabled: !!comp.enabled
+					disabled: !!comp.disabled
 				};
 			}
 			return body;
@@ -278,20 +284,35 @@
 		saving = true;
 		const body = compileTemporaryInstanceBody();
 		try {
-			const generateToolsFn =
-				entity === 'workspace'
-					? ChatService.generateWorkspaceMCPCatalogEntryToolPreviews
-					: AdminService.generateMcpCatalogEntryToolPreviews;
-			await (generateToolsFn as any)(id, entry.id, body as any);
+			if (entity === 'workspace') {
+				await ChatService.generateWorkspaceMCPCatalogEntryToolPreviews(
+					id,
+					entry.id,
+					body as unknown as { config?: Record<string, string>; url?: string }
+				);
+			} else {
+				await AdminService.generateMcpCatalogEntryToolPreviews(
+					id,
+					entry.id,
+					body as unknown as { config?: Record<string, string>; url?: string }
+				);
+			}
 			window.location.reload();
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
 			if (errMessage.includes('MCP server requires OAuth authentication')) {
-				const getOauthFn =
+				const oauthResponse =
 					entity === 'workspace'
-						? ChatService.getWorkspaceMCPCatalogEntryToolPreviewsOauth
-						: AdminService.getMcpCatalogToolPreviewsOauth;
-				const oauthResponse = await (getOauthFn as any)(id, entry.id, body as any);
+						? await ChatService.getWorkspaceMCPCatalogEntryToolPreviewsOauth(
+								id,
+								entry.id,
+								body as unknown as { config?: Record<string, string>; url?: string }
+							)
+						: await AdminService.getMcpCatalogToolPreviewsOauth(
+								id,
+								entry.id,
+								body as unknown as { config?: Record<string, string>; url?: string }
+							);
 				if (oauthResponse) {
 					configDialog?.close();
 					handleTemporaryInstanceOauth(oauthResponse);
@@ -312,15 +333,17 @@
 			const comps = entry.manifest?.compositeConfig?.componentServers || [];
 			const componentConfigs: Record<string, ComponentLaunchFormData> = {};
 			for (const c of comps) {
-				const rc: any = c.manifest?.remoteConfig;
-				const hasHostname = rc && 'hostname' in rc && rc.hostname;
+				const rc = c.manifest?.remoteConfig as Record<string, unknown> | undefined;
+				const hasHostname = Boolean(rc && 'hostname' in rc && rc.hostname);
 				componentConfigs[c.catalogEntryID] = {
 					envs: (c.manifest?.env || []).map((e) => ({ ...e, value: '' })),
 					headers: (c.manifest?.remoteConfig?.headers || []).map((h) => ({ ...h, value: '' })),
-					...(hasHostname ? { hostname: rc.hostname as string, url: '' } : {}),
+					...(hasHostname
+						? { hostname: (rc as Record<string, unknown>).hostname as string, url: '' }
+						: {}),
 					name: c.manifest?.name || c.catalogEntryID,
 					icon: c.manifest?.icon,
-					enabled: true
+					disabled: false
 				};
 			}
 			configureForm = { componentConfigs } as CompositeLaunchFormData;
@@ -330,9 +353,9 @@
 				const headers = c.manifest?.remoteConfig?.headers || [];
 				const hasReqEnv = envs.some((e) => e.required);
 				const hasReqHeader = headers.some((h) => h.required);
-				const rc: any = c.manifest?.remoteConfig;
-				const hasHostname = rc && 'hostname' in rc && rc.hostname;
-				const hasFixed = rc && 'fixedURL' in rc && rc.fixedURL;
+				const rc = c.manifest?.remoteConfig as Record<string, unknown> | undefined;
+				const hasHostname = Boolean(rc && 'hostname' in rc && rc.hostname);
+				const hasFixed = Boolean(rc && 'fixedURL' in rc && rc.fixedURL);
 				const tmpl = rc && 'urlTemplate' in rc && rc.urlTemplate ? (rc.urlTemplate as string) : '';
 				const needsUrl = hasHostname && !hasFixed && !tmpl;
 				const needsTemplateVars = /\$\{[^}]+\}/.test(tmpl);

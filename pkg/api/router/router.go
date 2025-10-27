@@ -53,7 +53,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler()
-	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
+	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.EphemeralTokenServer, oauthChecker, services.ServerURL)
 	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.EphemeralTokenServer, oauthChecker, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)

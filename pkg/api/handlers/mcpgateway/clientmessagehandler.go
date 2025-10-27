@@ -185,6 +185,8 @@ func (c *clientMessageHandler) handleMessage(ctx context.Context, msg nmcp.Messa
 
 	var ch <-chan nmcp.Message
 	if msg.ID != nil {
+		// Generate a new random UUID.
+		// We do this to support composite servers, where multiple messages can have the same ID.
 		msg.ID = uuid.NewString()
 		ch = c.pendingRequests.WaitFor(msg.ID)
 		defer c.pendingRequests.Done(msg.ID)

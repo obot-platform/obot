@@ -72,7 +72,6 @@
 				</span>
 			</div>
 		</button>
-		<!-- TODO(njhale): Disable Composite option for power user workspaces -->
 		<button
 			class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
 			onclick={() => onSelectServerType('composite')}

@@ -1485,7 +1485,7 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 							},
 						},
 					},
-					"enabled": {
+					"disabled": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
@@ -1669,7 +1669,7 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 							},
 						},
 					},
-					"enabled": {
+					"disabled": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",

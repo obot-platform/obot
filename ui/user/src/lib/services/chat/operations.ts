@@ -1434,7 +1434,7 @@ export async function configureCompositeMcpServer(
 	id: string,
 	componentConfigs: Record<
 		string,
-		{ config: Record<string, string>; url?: string; enabled?: boolean }
+		{ config: Record<string, string>; url?: string; disabled?: boolean }
 	>
 ): Promise<MCPCatalogServer> {
 	const response = (await doPost(`/mcp-servers/${id}/configure`, {
@@ -1473,13 +1473,13 @@ export async function revealCompositeMcpServer(
 ): Promise<{
 	componentConfigs: Record<
 		string,
-		{ config: Record<string, string>; url?: string; skip?: boolean }
+		{ config: Record<string, string>; url?: string; disabled?: boolean }
 	>;
 }> {
 	return doPost(`/mcp-servers/${id}/reveal`, {}, opts) as Promise<{
 		componentConfigs: Record<
 			string,
-			{ config: Record<string, string>; url?: string; skip?: boolean }
+			{ config: Record<string, string>; url?: string; disabled?: boolean }
 		>;
 	}>;
 }
@@ -2071,19 +2071,12 @@ export async function checkCompositeOAuth(
 	compositeMcpId: string,
 	opts?: { oauthAuthRequestID?: string; signal?: AbortSignal }
 ): Promise<PendingCompositeAuth[]> {
-	try {
-		console.error(`checkCompositeOAuth called!`);
-		let url = `/oauth/composite/${compositeMcpId}`;
-		if (opts?.oauthAuthRequestID) {
-			url += `?oauth_auth_request=${opts.oauthAuthRequestID}`;
-		}
-		const response = (await doGet(url, { ...opts, dontLogErrors: true })) as PendingCompositeAuth[];
-		return Array.isArray(response) ? response : [];
-	} catch (_err) {
-		console.error(`checkCompositeOAuth error:`, _err);
-		// If server finalized and redirected, the wrapper may surface an error; treat as none pending
-		return [];
+	let url = `/oauth/composite/${compositeMcpId}`;
+	if (opts?.oauthAuthRequestID) {
+		url += `?oauth_auth_request=${opts.oauthAuthRequestID}`;
 	}
+	const response = await doGet(url, { signal: opts?.signal, dontLogErrors: true });
+	return Array.isArray(response) ? response : [];
 }
 
 export async function restartWorkspaceCatalogEntryServerDeployment(

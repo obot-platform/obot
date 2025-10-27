@@ -26,8 +26,8 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 		compositeMCPID     = req.PathValue("mcp_id")
 		oauthAuthRequestID = req.URL.Query().Get("oauth_auth_request")
 	)
-	_, compositeServer, _, err := handlers.ServerForActionWithConnectID(req, compositeMCPID)
-	if err != nil {
+	var compositeServer v1.MCPServer
+	if err := req.Get(&compositeServer, compositeMCPID); err != nil {
 		return fmt.Errorf("failed to get composite server: %w", err)
 	}
 
@@ -50,27 +50,24 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 		userID  = req.User.GetUID()
 		pending = make([]pendingComponentAuth, 0, len(componentServers.Items))
 	)
+	// Build disabled set by catalog entry ID for O(1) checks
+	var compositeConfig types.CompositeRuntimeConfig
+	if compositeServer.Spec.Manifest.CompositeConfig != nil {
+		compositeConfig = *compositeServer.Spec.Manifest.CompositeConfig
+	}
+
+	disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
+	for _, comp := range compositeConfig.ComponentServers {
+		disabledComponents[comp.CatalogEntryID] = comp.Disabled
+	}
+
 	for _, componentServer := range componentServers.Items {
-		// Check if this component is enabled in the composite config
-		isEnabled := true // Default to enabled if not found in config
-		if compositeServer.Spec.Manifest.CompositeConfig != nil {
-			for _, comp := range compositeServer.Spec.Manifest.CompositeConfig.ComponentServers {
-				if comp.CatalogEntryID == componentServer.Spec.MCPServerCatalogEntryName {
-					isEnabled = comp.Enabled
-					break
-				}
-			}
-		}
-
-		if !isEnabled {
+		if disabledComponents[componentServer.Spec.MCPServerCatalogEntryName] ||
+			componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
 			continue
 		}
 
-		if componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
-			continue
-		}
-
-		serverConfig, err := handlers.ServerConfigForAction(req, componentServer)
+		_, serverConfig, err := handlers.ServerForAction(req, componentServer.Name, h.oauthChecker.mcpSessionManager.TokenService(), h.baseURL)
 		if err != nil {
 			return fmt.Errorf("failed to get server config: %w", err)
 		}
@@ -106,5 +103,5 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 		redirectWithAuthorizeResponse(req, authRequest, code)
 	}
 
-	return nil
+	return req.Write(pending)
 }

@@ -80,7 +80,7 @@ func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionMana
 func (h *Handler) StreamableHTTP(req api.Context) error {
 	sessionID := req.Request.Header.Get("Mcp-Session-Id")
 
-	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, req.PathValue("mcp_id"))
+	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, req.PathValue("mcp_id"), h.mcpSessionManager.TokenService(), h.baseURL)
 	if err == nil && mcpServer.Spec.Template {
 		// Prevent connections to MCP server templates by returning a 404.
 		err = apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
@@ -107,16 +107,14 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 	}
 
 	messageCtx := messageContext{
-		serverContext: serverContext{
-			userID:       req.User.GetUID(),
-			mcpID:        mcpID,
-			mcpServer:    mcpServer,
-			serverConfig: mcpServerConfig,
-		},
-		req:  req.Request,
-		resp: req.ResponseWriter,
+		userID:       req.User.GetUID(),
+		mcpID:        mcpID,
+		mcpServer:    mcpServer,
+		serverConfig: mcpServerConfig,
+		req:          req.Request,
+		resp:         req.ResponseWriter,
 	}
-	if mcpServerConfig.Runtime == types.RuntimeComposite {
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 		// List all component servers for the composite server.
 		var componentServerList v1.MCPServerList
 		if err := req.List(&componentServerList,
@@ -127,37 +125,38 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 			return fmt.Errorf("failed to list component servers for composite server %s: %v", mcpServer.Name, err)
 		}
 
-		componentServers := make([]serverContext, 0, len(componentServerList.Items))
-		for _, componentServer := range componentServerList.Items {
-			// Check if this component is enabled in the composite config
-			isEnabled := true // Default to enabled if not found in config
-			if mcpServer.Spec.Manifest.CompositeConfig != nil {
-				for _, comp := range mcpServer.Spec.Manifest.CompositeConfig.ComponentServers {
-					if comp.CatalogEntryID == componentServer.Spec.MCPServerCatalogEntryName {
-						isEnabled = comp.Enabled
-						break
-					}
-				}
-			}
+		// Precompute disabled component IDs for quick lookup (default is enabled if not listed)
+		var compositeConfig types.CompositeRuntimeConfig
+		if mcpServer.Spec.Manifest.CompositeConfig != nil {
+			compositeConfig = *mcpServer.Spec.Manifest.CompositeConfig
+		}
 
-			if !isEnabled {
+		disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
+		for _, comp := range compositeConfig.ComponentServers {
+			disabledComponents[comp.CatalogEntryID] = comp.Disabled
+		}
+
+		componentServers := make([]messageContext, 0, len(componentServerList.Items))
+		for _, componentServer := range componentServerList.Items {
+			// Skip if explicitly disabled in composite config
+			if disabledComponents[componentServer.Spec.MCPServerCatalogEntryName] {
 				log.Debugf("Skipping component server %s not enabled in composite config", componentServer.Name)
 				continue
 			}
 
-			config, err := handlers.ServerConfigForAction(req, componentServer)
+			// Resolve server and config using the higher-level API
+			srv, config, err := handlers.ServerForAction(req, componentServer.Name, h.mcpSessionManager.TokenService(), h.baseURL)
 			if err != nil {
 				// If the component isn't configured or can't be reached, skip it.
 				log.Warnf("Failed to get component server %s: %v", componentServer.Name, err)
 				continue
 			}
 
-			componentServers = append(componentServers, serverContext{
+			componentServers = append(componentServers, messageContext{
 				userID:       req.User.GetUID(),
-				mcpID:        componentServer.Name,
-				mcpServer:    componentServer,
+				mcpID:        srv.Name,
+				mcpServer:    srv,
 				serverConfig: config,
-			enabled:      isEnabled,
 			})
 		}
 
@@ -175,18 +174,13 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 	return nil
 }
 
-type serverContext struct {
+type messageContext struct {
+	compositeContext
 	userID, mcpID string
 	mcpServer     v1.MCPServer
 	serverConfig  mcp.ServerConfig
-	enabled       bool
-}
-
-type messageContext struct {
-	serverContext
-	compositeContext
-	req  *http.Request
-	resp http.ResponseWriter
+	req           *http.Request
+	resp          http.ResponseWriter
 }
 
 func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
@@ -206,7 +200,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		return
 	}
 
-	if m.serverConfig.Runtime == types.RuntimeComposite {
+	if m.mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 		h.onCompositeMessage(ctx, msg, m)
 		return
 	}

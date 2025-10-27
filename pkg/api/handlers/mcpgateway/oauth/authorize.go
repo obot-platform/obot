@@ -314,7 +314,7 @@ func (h *handler) callback(req api.Context) error {
 
 	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
 		// Check whether the MCP server needs authentication.
-		_, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID)
+		_, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID, h.oauthChecker.mcpSessionManager.TokenService(), h.baseURL)
 		if err != nil {
 			return err
 		}
@@ -341,7 +341,7 @@ func (h *handler) callback(req api.Context) error {
 
 // oauthCallback handles the second-level third-party OAuth for MCP servers.
 func (h *handler) oauthCallback(req api.Context) error {
-	oauthAuthRequestID, mcpID, err := h.oauthChecker.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
+	oauthAuthRequestID, mcpServerID, err := h.oauthChecker.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
 	if err != nil {
 		return types.NewErrHTTP(http.StatusBadRequest, err.Error())
 	}
@@ -370,8 +370,8 @@ func (h *handler) oauthCallback(req api.Context) error {
 	}
 
 	// Check if the MCP server is a component of a composite; only finalize if it's not
-	_, server, _, err := handlers.ServerForActionWithConnectID(req, mcpID)
-	if err != nil {
+	var server v1.MCPServer
+	if err := req.Get(&server, mcpServerID); err != nil {
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 			Code:        ErrServerError,
 			Description: err.Error(),

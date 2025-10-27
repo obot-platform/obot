@@ -50,7 +50,7 @@ func (sm *SessionManager) ClientForServer(ctx context.Context, userID, mcpServer
 func (sm *SessionManager) clientForServerWithScope(ctx context.Context, clientScope, userID, mcpServerDisplayName, mcpServerName string, serverConfig ServerConfig) (*Client, error) {
 	clientName := "Obot MCP Gateway"
 	var tokenStorage nmcp.TokenStorage
-	if (serverConfig.Runtime == types.RuntimeRemote || serverConfig.Runtime == types.RuntimeComposite) && strings.HasPrefix(serverConfig.URL, fmt.Sprintf("%s/mcp-connect/", sm.baseURL)) {
+	if (serverConfig.Runtime == types.RuntimeRemote) && strings.HasPrefix(serverConfig.URL, fmt.Sprintf("%s/mcp-connect/", sm.baseURL)) {
 		// If the URL points back to us (mcp-connect), then this is Obot chat. Ensure the client name reflects that.
 		clientName = "Obot Chat"
 	} else {
