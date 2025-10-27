@@ -40,6 +40,8 @@ func (in *MCPServerInstance) Get(field string) (value string) {
 		return in.Spec.PowerUserWorkspaceID
 	case "spec.template":
 		return strconv.FormatBool(in.Spec.Template)
+	case "spec.compositeName":
+		return in.Spec.CompositeName
 	}
 	return ""
 }
@@ -52,6 +54,7 @@ func (in *MCPServerInstance) FieldNames() []string {
 		"spec.mcpServerCatalogEntryName",
 		"spec.powerUserWorkspaceID",
 		"spec.template",
+		"spec.compositeName",
 	}
 }
 
@@ -73,10 +76,11 @@ type MCPServerInstanceSpec struct {
 	MCPServerCatalogEntryName string `json:"mcpServerCatalogEntryName,omitempty"`
 	// PowerUserWorkspaceID is the name of the PowerUserWorkspace that the server that this instance points to is owned by, if there is one.
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
-
 	// Template indicates whether this MCP server instance is a template instance.
 	// Template instances are hidden from user views and are used for creating copyable MCP server instances.
 	Template bool `json:"template,omitempty"`
+	// CompositeName is the name of the composite MCP server that this MCP server instance is a component of, if there is one.
+	CompositeName string `json:"compositeName,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

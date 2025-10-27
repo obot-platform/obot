@@ -10,6 +10,8 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -38,18 +40,74 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 		tokenStore:        globalTokenStore,
 	}
 }
-func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
-	if mcpServerConfig.Runtime != types.RuntimeRemote {
-		// OAuth is only support for remote MCP servers.
+func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
+	if mcpServerConfig.Runtime == types.RuntimeComposite {
+		var componentServers v1.MCPServerList
+		if err := f.client.List(req.Context(), &componentServers,
+			kclient.InNamespace(mcpServer.Namespace),
+			kclient.MatchingFields{"spec.compositeName": mcpServer.Name},
+		); err != nil {
+			return "", fmt.Errorf("failed to list component servers")
+		}
+
+		// Precompute disabled component set for quick lookup (by catalog entry ID only)
+		var disabled map[string]struct{}
+		if mcpServer.Spec.Manifest.CompositeConfig != nil {
+			disabled = make(map[string]struct{}, len(mcpServer.Spec.Manifest.CompositeConfig.ComponentServers))
+			for _, comp := range mcpServer.Spec.Manifest.CompositeConfig.ComponentServers {
+				if !comp.Enabled && comp.CatalogEntryID != "" {
+					disabled[comp.CatalogEntryID] = struct{}{}
+				}
+			}
+		}
+
+		for _, componentServer := range componentServers.Items {
+			// Skip disabled components defined in the composite server config using O(1) lookups
+			if _, ok := disabled[componentServer.Spec.MCPServerCatalogEntryName]; ok {
+				continue
+			}
+			if componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
+				// Only remote component servers can require OAuth
+				continue
+			}
+
+			componentConfig, err := handlers.ServerConfigForAction(req, componentServer)
+			if err != nil {
+				continue
+			}
+
+			u, err := f.CheckForMCPAuth(req, componentServer, componentConfig, userID, componentServer.Name, oauthAppAuthRequestID)
+			if err != nil {
+				if req.Context().Err() != nil {
+					return "", fmt.Errorf("failed to check component server OAuth: %w", req.Context().Err())
+				}
+			}
+
+			if u != "" {
+				// At least one component requires OAuth
+				log.Errorf("OAuth URL for component server %s: %s", componentServer.Name, u)
+				if oauthAppAuthRequestID != "" {
+					return fmt.Sprintf("%s/auth/mcp/composite/%s?oauth_auth_request=%s", f.baseURL, mcpID, oauthAppAuthRequestID), nil
+				}
+
+				return fmt.Sprintf("%s/auth/mcp/composite/%s", f.baseURL, mcpID), nil
+			}
+		}
+
+		// No component requires OAuth
+		return "", nil
+	} else if mcpServerConfig.Runtime != types.RuntimeRemote {
+		// Not a remote or composite server, no OAuth required
 		return "", nil
 	}
 
+	// Remote server, check for OAuth directly
 	oauthHandler := f.newMCPOAuthHandler(userID, mcpID, oauthAppAuthRequestID)
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(errChan)
-		_, err := f.mcpSessionManager.ClientForMCPServerWithOptions(ctx, userID, "Obot OAuth Check", mcpServer, mcpServerConfig, nmcp.ClientOption{
+		_, err := f.mcpSessionManager.ClientForMCPServerWithOptions(req.Context(), userID, "Obot OAuth Check", mcpServer, mcpServerConfig, nmcp.ClientOption{
 			ClientName:       "Obot MCP OAuth",
 			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback", f.baseURL),
 			OAuthClientName:  "Obot MCP Gateway",
@@ -67,8 +125,8 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(ctx context.Context, mcpServer 
 	select {
 	case err := <-errChan:
 		return "", err
-	case <-ctx.Done():
-		return "", fmt.Errorf("failed to check for MCP server OAuth: %w", ctx.Err())
+	case <-req.Context().Done():
+		return "", fmt.Errorf("failed to check for MCP server OAuth: %w", req.Context().Err())
 	case u := <-oauthHandler.URLChan():
 		return u, nil
 	}

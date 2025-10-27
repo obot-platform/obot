@@ -15,6 +15,7 @@ const (
 	RuntimeNPX           Runtime = "npx"
 	RuntimeContainerized Runtime = "containerized"
 	RuntimeRemote        Runtime = "remote"
+	RuntimeComposite     Runtime = "composite"
 )
 
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
@@ -54,6 +55,30 @@ type RemoteCatalogConfig struct {
 	Headers     []MCPHeader `json:"headers,omitempty"`     // Optional
 }
 
+// CompositeCatalogConfig represents configuration for composite servers in catalog entries.
+type CompositeCatalogConfig struct {
+	ComponentServers []CatalogComponentServer `json:"componentServers"`
+}
+
+// CatalogComponentServer represents a component server in a composite server catalog entry.
+type CatalogComponentServer struct {
+	CatalogEntryID string                        `json:"catalogEntryID"`
+	Manifest       MCPServerCatalogEntryManifest `json:"manifest"`
+	ToolOverrides  []ToolOverride                `json:"toolOverrides,omitempty"`
+	Enabled        bool                          `json:"enabled,omitempty"`
+}
+
+type CompositeRuntimeConfig struct {
+	ComponentServers []ComponentServer `json:"componentServers"`
+}
+
+type ComponentServer struct {
+	CatalogEntryID string            `json:"catalogEntryID"`
+	Manifest       MCPServerManifest `json:"manifest"`
+	ToolOverrides  []ToolOverride    `json:"toolOverrides,omitempty"`
+	Enabled        bool              `json:"enabled,omitempty"`
+}
+
 type MCPServerCatalogEntry struct {
 	Metadata
 	Manifest                  MCPServerCatalogEntryManifest `json:"manifest"`
@@ -83,8 +108,21 @@ type MCPServerCatalogEntryManifest struct {
 	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
+	CompositeConfig     *CompositeCatalogConfig     `json:"compositeConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
+}
+
+// ToolOverride defines how a single component tool is exposed by the composite server
+type ToolOverride struct {
+	// Name is the original tool name as returned by the component server
+	Name string `json:"name"`
+	// OverrideName is the tool name exposed by the composite server
+	OverrideName string `json:"overrideName"`
+	// Optional overrides for display
+	OverrideDescription string `json:"overrideDescription,omitempty"`
+	// Whether to include this tool (default true)
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 type MCPHeader struct {
@@ -124,6 +162,7 @@ type MCPServerManifest struct {
 	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
+	CompositeConfig     *CompositeRuntimeConfig     `json:"compositeConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
 
@@ -353,6 +392,40 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		// Copy headers from catalog entry
 		remoteConfig.Headers = catalogEntry.RemoteConfig.Headers
 		serverManifest.RemoteConfig = remoteConfig
+
+	case RuntimeComposite:
+		if catalogEntry.CompositeConfig == nil {
+			return serverManifest, RuntimeValidationError{
+				Runtime: RuntimeComposite,
+				Field:   "compositeConfig",
+				Message: "composite configuration is required for composite runtime",
+			}
+		}
+
+		// Convert CatalogComponentServer to ComponentServer
+		componentServers := make([]ComponentServer, len(catalogEntry.CompositeConfig.ComponentServers))
+		for i, catalogComponent := range catalogEntry.CompositeConfig.ComponentServers {
+			// Convert the component's catalog manifest to server manifest
+			componentServerManifest, err := MapCatalogEntryToServer(catalogComponent.Manifest, "")
+			if err != nil {
+				return serverManifest, RuntimeValidationError{
+					Runtime: RuntimeComposite,
+					Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+					Message: fmt.Sprintf("failed to convert component manifest: %v", err),
+				}
+			}
+
+			componentServers[i] = ComponentServer{
+				CatalogEntryID: catalogComponent.CatalogEntryID,
+				Manifest:       componentServerManifest,
+				ToolOverrides:  catalogComponent.ToolOverrides,
+				Enabled:        true,
+			}
+		}
+
+		serverManifest.CompositeConfig = &CompositeRuntimeConfig{
+			ComponentServers: componentServers,
+		}
 
 	default:
 		return serverManifest, RuntimeValidationError{

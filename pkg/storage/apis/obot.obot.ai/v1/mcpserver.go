@@ -44,6 +44,8 @@ func (in *MCPServer) Get(field string) (value string) {
 		return in.Spec.PowerUserWorkspaceID
 	case "spec.template":
 		return strconv.FormatBool(in.Spec.Template)
+	case "spec.compositeName":
+		return in.Spec.CompositeName
 	}
 	return ""
 }
@@ -56,6 +58,7 @@ func (in *MCPServer) FieldNames() []string {
 		"spec.mcpCatalogID",
 		"spec.powerUserWorkspaceID",
 		"spec.template",
+		"spec.compositeName",
 	}
 }
 
@@ -65,6 +68,7 @@ func (in *MCPServer) DeleteRefs() []Ref {
 		{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName},
 		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogID},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
+		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
 	}
 }
 
@@ -94,6 +98,8 @@ type MCPServerSpec struct {
 	// Template indicates whether this MCP server is a template server.
 	// Template servers are hidden from user views and are used for creating project instances.
 	Template bool `json:"template,omitempty"`
+	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
+	CompositeName string `json:"compositeName,omitempty"`
 }
 
 type MCPServerStatus struct {

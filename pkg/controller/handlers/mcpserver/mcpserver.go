@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -23,6 +24,8 @@ func New(baseURL string) *Handler {
 	}
 }
 
+// TODO(cmcp): Implement composite server drift detection
+
 func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 
@@ -35,7 +38,40 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	drifted, err := configurationHasDrifted(server.Spec.NeedsURL, server.Spec.Manifest, entry.Spec.Manifest)
+	var entryManifest types.MCPServerCatalogEntryManifest
+	if compositeName := server.Spec.CompositeName; compositeName != "" {
+		// The server belongs to a composite server, so we should get the entry from the runtime of the composite entry that this server was created with.
+		var compositeServer v1.MCPServer
+		if err := req.Get(&compositeServer, server.Namespace, compositeName); err != nil {
+			return fmt.Errorf("failed to get composite server %s: %w", compositeName, err)
+		}
+
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, compositeServer.Namespace, compositeServer.Spec.MCPServerCatalogEntryName); err != nil {
+			return fmt.Errorf("failed to get composite server catalog entry %s: %w", compositeServer.Spec.MCPServerCatalogEntryName, err)
+		}
+
+		var found bool
+		for _, component := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
+			if component.CatalogEntryID == server.Spec.MCPServerCatalogEntryName {
+				entryManifest = component.Manifest
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return fmt.Errorf("component server %s not found in composite server catalog entry %s", server.Spec.MCPServerCatalogEntryName, compositeServer.Spec.MCPServerCatalogEntryName)
+		}
+	} else {
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, server.Namespace, server.Spec.MCPServerCatalogEntryName); err != nil {
+			return err
+		}
+		entryManifest = entry.Spec.Manifest
+	}
+
+	drifted, err := configurationHasDrifted(server.Spec.NeedsURL, server.Spec.Manifest, entryManifest)
 	if err != nil {
 		return err
 	}
@@ -64,6 +100,8 @@ func configurationHasDrifted(needsURL bool, serverManifest types.MCPServerManife
 		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig)
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(needsURL, serverManifest.RemoteConfig, entryManifest.RemoteConfig)
+	case types.RuntimeComposite:
+		drifted = compositeConfigHasDrifted(serverManifest.CompositeConfig, entryManifest.CompositeConfig)
 	default:
 		return false, fmt.Errorf("unknown runtime type: %s", serverManifest.Runtime)
 	}
@@ -149,6 +187,52 @@ func remoteConfigHasDrifted(needsURL bool, serverConfig *types.RemoteRuntimeConf
 
 	// Check if headers have drifted
 	return !utils.SlicesEqualIgnoreOrder(serverConfig.Headers, entryConfig.Headers)
+}
+
+func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entryConfig *types.CompositeCatalogConfig) bool {
+	if serverConfig == nil && entryConfig == nil {
+		return false
+	}
+	if serverConfig == nil || entryConfig == nil {
+		return true
+	}
+
+	// Fast length check
+	if len(serverConfig.ComponentServers) != len(entryConfig.ComponentServers) {
+		return true
+	}
+
+	// Index entry components by catalogEntryID for quick lookup
+	entryByID := make(map[string]types.CatalogComponentServer, len(entryConfig.ComponentServers))
+	for _, entryComponent := range entryConfig.ComponentServers {
+		entryByID[entryComponent.CatalogEntryID] = entryComponent
+	}
+
+	for _, serverComponent := range serverConfig.ComponentServers {
+		entryComponent, ok := entryByID[serverComponent.CatalogEntryID]
+		if !ok {
+			// Component not present in catalog entry
+			return true
+		}
+
+		// Compare overrides (order-insensitive)
+		if hash.Digest(serverComponent.ToolOverrides) != hash.Digest(entryComponent.ToolOverrides) {
+			return true
+		}
+
+		// Compare manifests for non-remote components
+		switch serverComponent.Manifest.Runtime {
+		case types.RuntimeRemote:
+			// Skip remote manifest comparison in composites
+		default:
+			drifted, err := configurationHasDrifted(false, serverComponent.Manifest, entryComponent.Manifest)
+			if err != nil || drifted {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // EnsureMCPServerInstanceUserCount ensures that mcp server instance user count for multi-user MCP servers is up to date.

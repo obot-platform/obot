@@ -273,7 +273,8 @@ func (sm *SessionManager) CheckK8sSettingsStatus(ctx context.Context, serverConf
 }
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
-	if server.Runtime == otypes.RuntimeRemote {
+	switch server.Runtime {
+	case otypes.RuntimeRemote:
 		if server.URL == "" {
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", mcpServerDisplayName)
 		}
@@ -297,7 +298,10 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 				}
 			}
 		}
-		// This is a remote MCP server, so there is nothing to deploy.
+
+		return server, nil
+	case otypes.RuntimeComposite:
+		server.URL = fmt.Sprintf("%s/mcp-connect/%s", sm.baseURL, mcpServerName)
 		return server, nil
 	}
 

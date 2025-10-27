@@ -185,6 +185,7 @@ func (c *clientMessageHandler) handleMessage(ctx context.Context, msg nmcp.Messa
 
 	var ch <-chan nmcp.Message
 	if msg.ID != nil {
+		msg.ID = uuid.NewString()
 		ch = c.pendingRequests.WaitFor(msg.ID)
 		defer c.pendingRequests.Done(msg.ID)
 	}

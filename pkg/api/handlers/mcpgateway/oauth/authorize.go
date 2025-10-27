@@ -319,7 +319,7 @@ func (h *handler) callback(req api.Context) error {
 			return err
 		}
 
-		u, err := h.oauthChecker.CheckForMCPAuth(req.Context(), mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
+		u, err := h.oauthChecker.CheckForMCPAuth(req, mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
 		if err != nil {
 			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 				Code:        ErrServerError,
@@ -341,7 +341,7 @@ func (h *handler) callback(req api.Context) error {
 
 // oauthCallback handles the second-level third-party OAuth for MCP servers.
 func (h *handler) oauthCallback(req api.Context) error {
-	oauthAuthRequestID, err := h.oauthChecker.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
+	oauthAuthRequestID, mcpID, err := h.oauthChecker.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
 	if err != nil {
 		return types.NewErrHTTP(http.StatusBadRequest, err.Error())
 	}
@@ -369,6 +369,26 @@ func (h *handler) oauthCallback(req api.Context) error {
 		return nil
 	}
 
+	// Check if the MCP server is a component of a composite; only finalize if it's not
+	_, server, _, err := handlers.ServerForActionWithConnectID(req, mcpID)
+	if err != nil {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrServerError,
+			Description: err.Error(),
+		})
+		return nil
+	}
+
+	if server.Spec.CompositeName != "" {
+		// MCP server is a component of a composite.
+		// Redirect to login complete page; the checkCompositeAuth handler will redirect back
+		// to the 1st level OAuth redirect URL when all pending 2nd level OAuth for the composite server's
+		// component servers are completed.
+		http.Redirect(req.ResponseWriter, req.Request, "/login_complete", http.StatusFound)
+		return nil
+	}
+
+	// Not a component of a composite MCP server, redirect to complete 1st level OAuth
 	// Update the authorization code since we only saved the hash of it the first time.
 	code := strings.ToLower(rand.Text() + rand.Text())
 	oauthAppAuthRequest.Spec.HashedAuthCode = fmt.Sprintf("%x", sha256.Sum256([]byte(code)))
