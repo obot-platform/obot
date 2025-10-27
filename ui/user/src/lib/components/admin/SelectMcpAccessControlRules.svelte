@@ -1,13 +1,13 @@
 <script lang="ts">
-	import {
-		AdminService,
-		ChatService,
-		type AccessControlRule,
-		type AccessControlRuleResource,
-		type MCPCatalogEntry,
-		type MCPCatalogServer,
-		type OrgUser
-	} from '$lib/services';
+    import {
+        AdminService,
+        ChatService,
+        type AccessControlRule,
+        type AccessControlRuleResource,
+        type MCPCatalogEntry,
+        type MCPCatalogServer,
+        type OrgUser, type OrgGroup, type AccessControlRuleSubject
+    } from '$lib/services';
 	import { twMerge } from 'tailwind-merge';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
@@ -25,9 +25,11 @@
 	let { entry, onSubmit, entity = 'catalog', id }: Props = $props();
 
 	let users = $state<OrgUser[]>([]);
+    let groups = $state<OrgGroup[]>([]);
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let accessControlRules = $state<AccessControlRule[]>([]);
 	let userMap = $derived(new Map(users.map((user) => [user.id, user])));
+    let groupMap = $derived(new Map(groups.map((group) => [group.id, group])));
 
 	let selectedRules = $state<string[]>([]);
 	let savingRules = $state(false);
@@ -38,6 +40,7 @@
 				? await ChatService.listWorkspaceAccessControlRules(id)
 				: await AdminService.listAccessControlRules();
 		users = await AdminService.listUsers();
+        groups = await AdminService.listGroups();
 		dialog?.open();
 	}
 
@@ -81,11 +84,22 @@
 		close();
 	}
 
-	function convertToUserDisplayName(id: string) {
-		if (id === '*') return 'All Obot Users';
-		const user = userMap.get(id);
-		if (!user) return id;
-		return user.email ?? user.username ?? id;
+	function convertSubjectToDisplayName(subject: AccessControlRuleSubject | undefined): string {
+        if (!subject) return '';
+
+		if (subject.type === 'user') {
+            const user = userMap.get(subject.id);
+            if (!user) return subject.id;
+            return user.email ?? user.username ?? id;
+        } else if (subject.type === 'group') {
+            const group = groupMap.get(subject.id);
+            if (!group) return '';
+            return group.name ?? group.id ?? subject.id;
+        }
+
+        // subject.type === 'selector
+        if (subject.id === '*') return 'All Obot Users';
+        return '';
 	}
 
 	function handleCreateNewRule() {
@@ -146,7 +160,7 @@
 										)}
 									>
 										{#if rule.subjects && rule.subjects.length > 0}
-											{rule.subjects?.map((s) => convertToUserDisplayName(s.id)).join(', ')}
+											{rule.subjects?.map((s) => convertSubjectToDisplayName(s)).join(', ')}
 										{:else}
 											<i class="text-gray-400 dark:text-gray-600">(Empty)</i>
 										{/if}
