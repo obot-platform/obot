@@ -99,7 +99,6 @@
 			return group.name ?? group.id ?? subject.id;
 		}
 
-		// subject.type === 'selector
 		if (subject.id === '*') return 'All Obot Users';
 		return '';
 	}
