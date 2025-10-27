@@ -574,7 +574,12 @@
 		border-color: var(--color-blue-500);
 	}
 
-	.text-input-filled {
+	label.error {
+		color: var(--color-red-500);
+	}
+
+	.text-input-filled,
+	.input-text-filled {
 		width: 100%;
 		border-radius: 0.5rem;
 		border: 1px solid transparent;
@@ -602,11 +607,20 @@
 		}
 	}
 
-	label.error {
-		color: var(--color-red-500);
+	.input-description {
+		color: var(--color-gray-500);
+		font-size: var(--text-xs);
+		line-height: var(--text-xs--line-height);
 	}
 
-	.text-input {
+	.input-label {
+		font-size: var(--text-sm);
+		line-height: var(--tw-leading, var(--text-sm--line-height));
+		font-weight: var(--font-weight-light);
+	}
+
+	.text-input,
+	.input-text {
 		border-bottom-width: 1px;
 		border-color: var(--surface3);
 		background-color: transparent;
@@ -785,9 +799,25 @@
 		.dark &:hover {
 			background-color: var(--surface3);
 		}
-		@media (min-width: 768px) {
-			padding-top: 0.5rem;
-			padding-bottom: 0.5rem;
+	}
+
+	.paper {
+		display: flex;
+		height: fit-content;
+		width: 100%;
+		flex-direction: column;
+		gap: 1rem;
+		border-radius: 0.5rem;
+		border-width: 1px;
+		border-style: solid;
+		border-color: transparent;
+		background-color: white;
+		padding: 1.5rem;
+		box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+
+		.dark & {
+			background-color: var(--surface1, #f5f5f5);
+			border-color: var(--surface3, #d4d4d8);
 		}
 	}
 
