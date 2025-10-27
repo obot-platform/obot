@@ -6,6 +6,7 @@
 	import { type Component, type Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import {
+		AlarmClock,
 		Boxes,
 		Captions,
 		ChartBarDecreasing,
@@ -123,6 +124,13 @@
 								icon: GlobeLock,
 								label: 'Access Control',
 								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'server-scheduling',
+								href: '/admin/server-scheduling',
+								icon: AlarmClock,
+								label: 'Server Scheduling',
 								collapsible: false
 							}
 						]

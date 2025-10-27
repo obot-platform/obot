@@ -37,7 +37,8 @@ import type {
 	StorageCredentials,
 	AuditLogExport,
 	AuditLogExportInput,
-	ScheduledAuditLogExportInput
+	ScheduledAuditLogExportInput,
+	K8sSettings
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -963,4 +964,13 @@ export async function refreshCompositeComponents(
 		...response,
 		isCatalogEntry: true
 	};
+}
+
+export async function listK8sSettings(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/k8s-settings', opts)) as K8sSettings;
+	return response;
+}
+
+export async function updateK8sSettings(settings: K8sSettings, opts?: { fetch?: Fetcher }) {
+	return (await doPut('/k8s-settings', settings, opts)) as K8sSettings;
 }
