@@ -11,7 +11,7 @@
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
 	import { fly } from 'svelte/transition';
-	import type { LaunchFormData } from './CatalogConfigureForm.svelte';
+	import type { LaunchFormData, CompositeLaunchFormData } from './CatalogConfigureForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ChevronLeft, ChevronRight, Info, LoaderCircle, ServerIcon } from 'lucide-svelte';
 	import { tick, type Snippet } from 'svelte';
@@ -88,7 +88,7 @@
 
 	let container = $state<HTMLDivElement>();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let configureForm = $state<LaunchFormData>();
+	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
 	let showServerInfo = $state(false);
 	let editingServer = $state<ConnectedServer>();
 	let editAliasDialog = $state<ReturnType<typeof CatalogEditAliasForm>>();
@@ -292,33 +292,67 @@
 			launchProgress = 80;
 		}, 10000);
 
-		const url = (configureForm?.url || entry.manifest.remoteConfig?.fixedURL)?.trim();
+		// For composite: open form first to collect per-component URLs before creating
+		if (entry.manifest.runtime === 'composite') {
+			const components = entry.manifest?.compositeConfig?.componentServers || [];
+			const componentConfigs: any = {};
+			for (const c of components) {
+				const id = c.catalogEntryID;
+				const m = c.manifest;
+				componentConfigs[id] = {
+					name: m.name,
+					icon: m.icon,
+					hostname: m.remoteConfig?.hostname,
+					url: m.remoteConfig?.fixedURL ?? '',
+					enabled: true,
+					envs: (m.env ?? []).map((e: any) => ({ ...e, value: '' })),
+					headers: (m.remoteConfig?.headers ?? []).map((h: any) => ({ ...h, value: '' }))
+				};
+			}
+			configureForm = { componentConfigs } as CompositeLaunchFormData;
+			configDialog?.open();
+			clearTimeout(timeout1);
+			clearTimeout(timeout2);
+			clearTimeout(timeout3);
+			launching = false;
+			launchProgress = 0;
+			return;
+		}
+
+		const url =
+			entry.manifest.runtime === 'remote'
+				? (
+						(configureForm as LaunchFormData | undefined)?.url ||
+						entry.manifest.remoteConfig?.fixedURL
+					)?.trim()
+				: undefined;
 		const serverName = entry.manifest.name || '';
 
 		// Generate unique alias if there's a naming conflict
 		const aliasToUse = configureForm?.name || getUniqueAlias(serverName);
 
 		let response: MCPCatalogServer | undefined = undefined;
-		if (!retryingServer) {
-			try {
-				response = await ChatService.createSingleOrRemoteMcpServer({
-					catalogEntryID: entry.id,
-					manifest: url ? { remoteConfig: { url } } : {},
-					alias: aliasToUse
-				});
-			} catch (err) {
-				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
-			}
-		} else {
-			response = retryingServer;
+		try {
+			response = await ChatService.createSingleOrRemoteMcpServer({
+				catalogEntryID: entry.id,
+				manifest: url ? { remoteConfig: { url } } : {},
+				alias: aliasToUse
+			});
+		} catch (err) {
+			console.error('error: ', err);
+			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
 		}
 
 		if (response) {
 			try {
-				const secretValues = convertEnvHeadersToRecord(configureForm?.envs, configureForm?.headers);
+				// Composite handled earlier; non-composite proceeds below
+
+				// Non-composite: proceed with single/remote configure
+				const lf = configureForm as LaunchFormData | undefined;
+				const envs = convertEnvHeadersToRecord(lf?.envs, lf?.headers);
 				const configuredResponse = await ChatService.configureSingleOrRemoteMcpServer(
 					response.id,
-					secretValues
+					envs
 				);
 
 				const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
@@ -407,20 +441,40 @@
 	}
 
 	function initConfigureForm(item: Entry) {
-		configureForm = {
-			name: '',
-			envs: item.manifest?.env?.map((env) => ({
-				...env,
-				value: ''
-			})),
-			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
-				...header,
-				value: ''
-			})),
-			...(item.manifest?.remoteConfig?.hostname
-				? { hostname: item.manifest.remoteConfig?.hostname, url: '' }
-				: {})
-		};
+		// For composite servers, build CompositeLaunchFormData for CatalogConfigureForm
+		if (item.manifest?.runtime === 'composite') {
+			const components = item.manifest?.compositeConfig?.componentServers || [];
+			const componentConfigs: any = {};
+			for (const c of components) {
+				const id = c.catalogEntryID;
+				const m = c.manifest;
+				componentConfigs[id] = {
+					name: m.name,
+					icon: m.icon,
+					hostname: m.remoteConfig?.hostname,
+					url: m.remoteConfig?.fixedURL ?? '',
+					enabled: true,
+					envs: (m.env ?? []).map((e: any) => ({ ...e, value: '' })),
+					headers: (m.remoteConfig?.headers ?? []).map((h: any) => ({ ...h, value: '' }))
+				};
+			}
+			configureForm = { componentConfigs } as CompositeLaunchFormData;
+		} else {
+			configureForm = {
+				name: '',
+				envs: item.manifest?.env?.map((env) => ({
+					...env,
+					value: ''
+				})),
+				headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
+					...header,
+					value: ''
+				})),
+				...(item.manifest?.remoteConfig?.hostname
+					? { hostname: item.manifest.remoteConfig?.hostname, url: '' }
+					: {})
+			};
+		}
 	}
 
 	async function handleConfigureForm() {
@@ -440,25 +494,56 @@
 		}
 
 		try {
+			// Composite flow using CatalogConfigureForm data
+			if ('componentConfigs' in configureForm) {
+				const payload: Record<
+					string,
+					{ config: Record<string, string>; url?: string; enabled?: boolean }
+				> = {};
+				for (const [id, comp] of Object.entries(configureForm.componentConfigs)) {
+					const config: Record<string, string> = {};
+					for (const f of [...(comp.envs ?? ([] as any[])), ...(comp.headers ?? ([] as any[]))]) {
+						if ((f as any).value) config[(f as any).key] = (f as any).value as string;
+					}
+					payload[id] = {
+						config,
+						url: comp.url?.trim() || undefined,
+						enabled: comp.enabled ?? true
+					};
+				}
+
+				if ('server' in selectedEntryOrServer && selectedEntryOrServer.server?.id) {
+					await ChatService.configureCompositeMcpServer(
+						selectedEntryOrServer.server.id,
+						payload as any
+					);
+					configDialog?.close();
+					onUpdateConfigure?.();
+					return;
+				}
+
+				// Launch path now handled by creating with composite manifest (handled in this function below)
+			}
 			if ('server' in selectedEntryOrServer && selectedEntryOrServer.server?.id) {
+				const lf = configureForm as LaunchFormData;
 				if (
 					selectedEntryOrServer.parent &&
 					selectedEntryOrServer.parent.manifest.runtime === 'remote' &&
 					selectedEntryOrServer.parent.manifest.remoteConfig?.urlTemplate === undefined &&
-					selectedEntryOrServer.server.manifest.remoteConfig?.fixedURL !== undefined &&
-					configureForm.url
+					lf?.url
 				) {
 					await ChatService.updateRemoteMcpServerUrl(
 						selectedEntryOrServer.server.id,
-						configureForm.url.trim()
+						lf.url.trim()
 					);
 				}
 
-				const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
-				await ChatService.configureSingleOrRemoteMcpServer(
-					selectedEntryOrServer.server.id,
-					secretValues
-				);
+				if (selectedEntryOrServer.parent?.manifest.runtime === 'composite') {
+					return;
+				}
+
+				const envs = convertEnvHeadersToRecord(lf.envs, lf.headers);
+				await ChatService.configureSingleOrRemoteMcpServer(selectedEntryOrServer.server.id, envs);
 
 				const updatedServer = await ChatService.getSingleOrRemoteMcpServer(
 					selectedEntryOrServer.server.id
@@ -471,8 +556,69 @@
 				configDialog?.close();
 				onUpdateConfigure?.();
 			} else {
+				if ('componentConfigs' in configureForm) {
+					const entry = selectedEntryOrServer as Entry;
+					const aliasToUse =
+						(configureForm as any).name || getUniqueAlias(selectedManifest?.name || '');
+					const componentServersForCreate: any[] = [];
+					const payload: Record<
+						string,
+						{ config: Record<string, string>; url?: string; enabled?: boolean }
+					> = {};
+					for (const [id, comp] of Object.entries(configureForm.componentConfigs)) {
+						const url = comp.url?.trim();
+						componentServersForCreate.push({
+							catalogEntryID: id,
+							manifest: url
+								? { remoteConfig: { url: url.startsWith('http') ? url : `https://${url}` } }
+								: {}
+						});
+						const config: Record<string, string> = {};
+						for (const f of [...(comp.envs ?? ([] as any[])), ...(comp.headers ?? ([] as any[]))]) {
+							if ((f as any).value) config[(f as any).key] = (f as any).value as string;
+						}
+						payload[id] = { config, url, enabled: comp.enabled ?? true };
+					}
+
+					const manifest: any = {
+						compositeConfig: { componentServers: componentServersForCreate }
+					};
+					const created = await ChatService.createSingleOrRemoteMcpServer({
+						catalogEntryID: entry.id,
+						alias: aliasToUse,
+						manifest
+					});
+
+					const hasAnyConfig = Object.values(payload).some(
+						(v) => Object.keys(v.config || {}).length > 0
+					);
+					if (hasAnyConfig) {
+						await ChatService.configureCompositeMcpServer(created.id, payload as any);
+					}
+
+					const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
+						created.id
+					);
+					if (!launchResponse.success) {
+						await ChatService.deleteSingleOrRemoteMcpServer(created.id);
+						configDialog?.close();
+						return;
+					}
+
+					selectedEntryOrServer = {
+						server: created,
+						connectURL: created.connectURL,
+						instance: undefined,
+						parent: entry
+					} as ConnectedServer;
+					const ref = selectedEntryOrServer;
+					configDialog?.close();
+					onConnectServer?.(ref);
+					return;
+				}
+
+				// Non-composite new path
 				configDialog?.close();
-				// Add a small delay to ensure dialog is fully closed before handling launch
 				await new Promise((resolve) => setTimeout(resolve, 300));
 				await handleLaunch();
 			}
@@ -495,6 +641,45 @@
 			console.error('No user configured server for this entry found');
 			return;
 		}
+		if (connectedServer.parent?.manifest.runtime === 'composite') {
+			// Prefill composite configs using CatalogConfigureForm
+			let initial: Record<
+				string,
+				{ config: Record<string, string>; url?: string; enabled?: boolean }
+			> = {};
+			try {
+				const revealed = await ChatService.revealCompositeMcpServer(connectedServer.server.id, {
+					dontLogErrors: true
+				});
+				initial = (revealed as any).componentConfigs ?? {};
+			} catch (error) {
+				initial = {} as any;
+			}
+			selectedEntryOrServer = connectedServer;
+			const components = connectedServer.parent.manifest?.compositeConfig?.componentServers || [];
+			const componentConfigs: any = {};
+			for (const c of components) {
+				const id = c.catalogEntryID;
+				const m = c.manifest;
+				const init = initial?.[id];
+				componentConfigs[id] = {
+					name: m.name,
+					icon: m.icon,
+					hostname: m.remoteConfig?.hostname,
+					url: init?.url ?? m.remoteConfig?.fixedURL ?? '',
+					enabled: init?.enabled ?? true,
+					envs: (m.env ?? []).map((e: any) => ({ ...e, value: init?.config?.[e.key] ?? '' })),
+					headers: (m.remoteConfig?.headers ?? []).map((h: any) => ({
+						...h,
+						value: init?.config?.[h.key] ?? ''
+					}))
+				};
+			}
+			configureForm = { componentConfigs } as CompositeLaunchFormData;
+			configDialog?.open();
+			return;
+		}
+
 		let values: Record<string, string>;
 		try {
 			values = await ChatService.revealSingleOrRemoteMcpServer(connectedServer.server.id, {

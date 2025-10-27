@@ -5,7 +5,9 @@ import {
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
 	type ContainerizedRuntimeConfig,
-	type Task
+	type CompositeRuntimeConfig,
+	type Task,
+	type ToolOverride
 } from '../chat/types';
 
 export interface MCPCatalogManifest {
@@ -36,6 +38,16 @@ export interface RemoteCatalogConfigAdmin {
 	headers?: MCPCatalogEntryFieldManifest[];
 }
 
+export interface CompositeCatalogConfig {
+	componentServers: CatalogComponentServer[];
+}
+
+export interface CatalogComponentServer {
+	catalogEntryID: string;
+	manifest: MCPCatalogEntryServerManifest;
+	toolOverrides?: ToolOverride[];
+}
+
 export interface MCPCatalogEntryServerManifest {
 	icon?: string;
 	env?: MCPCatalogEntryFieldManifest[];
@@ -53,6 +65,7 @@ export interface MCPCatalogEntryServerManifest {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin;
+	compositeConfig?: CompositeCatalogConfig;
 }
 
 export interface MCPCatalogEntry {
@@ -102,6 +115,8 @@ export interface RuntimeFormData {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin; // For catalog entries
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
+	compositeConfig?: CompositeCatalogConfig; // For catalog entries
+	compositeServerConfig?: CompositeRuntimeConfig; // For servers
 }
 
 export interface MCPCatalogServerManifest {

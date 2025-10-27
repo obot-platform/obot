@@ -299,12 +299,15 @@ export async function generateMcpCatalogEntryToolPreviews(
 		config?: Record<string, string>;
 		url?: string;
 	},
-	opts?: { fetch?: Fetcher }
-): Promise<void> {
-	await doPost(`/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews`, body ?? {}, {
+	opts?: { fetch?: Fetcher; dryRun?: boolean }
+): Promise<MCPCatalogEntry | void> {
+	const path = `/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews`;
+	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
+	const resp = await doPost(url, body ?? {}, {
 		...opts,
 		dontLogErrors: true
 	});
+	return opts?.dryRun ? (resp as MCPCatalogEntry) : undefined;
 }
 
 export async function getMcpCatalogToolPreviewsOauth(
@@ -314,17 +317,15 @@ export async function getMcpCatalogToolPreviewsOauth(
 		config?: Record<string, string>;
 		url?: string;
 	},
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dryRun?: boolean }
 ): Promise<string> {
 	try {
-		const response = (await doPost(
-			`/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews/oauth-url`,
-			body ?? {},
-			{
-				...opts,
-				dontLogErrors: true
-			}
-		)) as {
+		const path = `/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews/oauth-url`;
+		const url = opts?.dryRun ? `${path}?dryRun=true` : path;
+		const response = (await doPost(url, body ?? {}, {
+			...opts,
+			dontLogErrors: true
+		})) as {
 			oauthURL: string;
 		};
 		return response.oauthURL;

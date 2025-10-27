@@ -73,6 +73,20 @@ export function convertEnvHeadersToRecord(
 }
 
 export function hasEditableConfiguration(item: MCPCatalogEntry) {
+	// For composite servers, check if any component has editable configuration
+	if (item.manifest?.runtime === 'composite') {
+		const componentServers = item.manifest?.compositeConfig?.componentServers || [];
+		return componentServers.some((component) => {
+			const hasEnvs = component.manifest?.env && component.manifest.env.length > 0;
+			const hasHeaders =
+				component.manifest?.remoteConfig?.headers &&
+				component.manifest.remoteConfig.headers.length > 0;
+			const hasUrlToFill =
+				!component.manifest?.remoteConfig?.fixedURL && component.manifest?.remoteConfig?.hostname;
+			return hasEnvs || hasHeaders || hasUrlToFill;
+		});
+	}
+
 	const hasUrlToFill =
 		!item.manifest?.remoteConfig?.fixedURL && item.manifest?.remoteConfig?.hostname;
 	const hasEnvsToFill = item.manifest?.env && item.manifest.env.length > 0;
@@ -110,7 +124,12 @@ function convertEntriesToTableData(
 				data: entry,
 				users: entry.userCount ?? 0,
 				editable: !entry.sourceURL,
-				type: entry.manifest.runtime === 'remote' ? 'remote' : 'single',
+				type:
+					entry.manifest.runtime === 'remote'
+						? 'remote'
+						: entry.manifest.runtime === 'composite'
+							? 'composite'
+							: 'single',
 				created: entry.created,
 				registry:
 					usersMap && entry.powerUserID

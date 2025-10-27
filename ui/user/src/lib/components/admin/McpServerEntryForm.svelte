@@ -33,13 +33,17 @@
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
 	import { getRegistryLabel, openUrl } from '$lib/utils';
-	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
+	import CatalogConfigureForm, {
+		type LaunchFormData,
+		type CompositeLaunchFormData,
+		type ComponentLaunchFormData
+	} from '../mcp/CatalogConfigureForm.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import { profile } from '$lib/stores';
 	import OverflowContainer from '../OverflowContainer.svelte';
 
-	type MCPType = 'single' | 'multi' | 'remote';
+	type MCPType = 'single' | 'multi' | 'remote' | 'composite';
 
 	interface Props {
 		id?: string;
@@ -114,7 +118,7 @@
 	let oauthURL = $state<string>();
 
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
-	let configureForm = $state<LaunchFormData>();
+	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
 	let saving = $state(false);
 	let error = $state<string>();
 	let showButtonInlineError = $state(false);
@@ -219,11 +223,32 @@
 	}
 
 	function compileTemporaryInstanceBody() {
+		if (configureForm && 'componentConfigs' in (configureForm as any)) {
+			const body: {
+				componentConfigs: Record<
+					string,
+					{ config: Record<string, string>; url: string; enabled: boolean }
+				>;
+			} = { componentConfigs: {} };
+			const composite = configureForm as CompositeLaunchFormData;
+			for (const [compId, comp] of Object.entries(composite.componentConfigs)) {
+				const cfg: Record<string, string> = {};
+				for (const f of comp.envs || []) if (f.value) cfg[f.key] = f.value;
+				for (const f of comp.headers || []) if (f.value) cfg[f.key] = f.value;
+				body.componentConfigs[compId] = {
+					config: cfg,
+					url: comp.url || '',
+					enabled: !!comp.enabled
+				};
+			}
+			return body;
+		}
 		return {
-			url: configureForm?.url,
-			config: [...(configureForm?.headers ?? []), ...(configureForm?.envs ?? [])].reduce<
-				Record<string, string>
-			>((acc, curr) => {
+			url: (configureForm as LaunchFormData)?.url,
+			config: [
+				...((configureForm as LaunchFormData)?.headers ?? []),
+				...((configureForm as LaunchFormData)?.envs ?? [])
+			].reduce<Record<string, string>>((acc, curr) => {
 				acc[curr.key] = curr.value;
 				return acc;
 			}, {})
@@ -257,7 +282,7 @@
 				entity === 'workspace'
 					? ChatService.generateWorkspaceMCPCatalogEntryToolPreviews
 					: AdminService.generateMcpCatalogEntryToolPreviews;
-			await generateToolsFn(id, entry.id, body);
+			await (generateToolsFn as any)(id, entry.id, body as any);
 			window.location.reload();
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -266,7 +291,7 @@
 					entity === 'workspace'
 						? ChatService.getWorkspaceMCPCatalogEntryToolPreviewsOauth
 						: AdminService.getMcpCatalogToolPreviewsOauth;
-				const oauthResponse = await getOauthFn(id, entry.id, body);
+				const oauthResponse = await (getOauthFn as any)(id, entry.id, body as any);
 				if (oauthResponse) {
 					configDialog?.close();
 					handleTemporaryInstanceOauth(oauthResponse);
@@ -282,6 +307,45 @@
 
 	function handleInitTemporaryInstance() {
 		if (!entry) return;
+
+		if (entry.manifest?.runtime === 'composite') {
+			const comps = entry.manifest?.compositeConfig?.componentServers || [];
+			const componentConfigs: Record<string, ComponentLaunchFormData> = {};
+			for (const c of comps) {
+				const rc: any = c.manifest?.remoteConfig;
+				const hasHostname = rc && 'hostname' in rc && rc.hostname;
+				componentConfigs[c.catalogEntryID] = {
+					envs: (c.manifest?.env || []).map((e) => ({ ...e, value: '' })),
+					headers: (c.manifest?.remoteConfig?.headers || []).map((h) => ({ ...h, value: '' })),
+					...(hasHostname ? { hostname: rc.hostname as string, url: '' } : {}),
+					name: c.manifest?.name || c.catalogEntryID,
+					icon: c.manifest?.icon,
+					enabled: true
+				};
+			}
+			configureForm = { componentConfigs } as CompositeLaunchFormData;
+
+			const needsCompositeConfig = comps.some((c) => {
+				const envs = c.manifest?.env || [];
+				const headers = c.manifest?.remoteConfig?.headers || [];
+				const hasReqEnv = envs.some((e) => e.required);
+				const hasReqHeader = headers.some((h) => h.required);
+				const rc: any = c.manifest?.remoteConfig;
+				const hasHostname = rc && 'hostname' in rc && rc.hostname;
+				const hasFixed = rc && 'fixedURL' in rc && rc.fixedURL;
+				const tmpl = rc && 'urlTemplate' in rc && rc.urlTemplate ? (rc.urlTemplate as string) : '';
+				const needsUrl = hasHostname && !hasFixed && !tmpl;
+				const needsTemplateVars = /\$\{[^}]+\}/.test(tmpl);
+				return hasReqEnv || hasReqHeader || needsUrl || needsTemplateVars;
+			});
+
+			if (needsCompositeConfig) {
+				configDialog?.open();
+			} else {
+				handleLaunchTemporaryInstance(true);
+			}
+			return;
+		}
 
 		const hostname =
 			entry?.manifest?.remoteConfig &&
@@ -304,7 +368,8 @@
 		const needsEnvValue = configureForm.envs?.some((env) => !env.value);
 		const needsHeaderValue = configureForm.headers?.some((header) => !header.value);
 		const hasConfigFields =
-			type !== 'multi' && (needsEnvValue || needsHeaderValue || configureForm.hostname);
+			type !== 'multi' &&
+			(needsEnvValue || needsHeaderValue || (configureForm as LaunchFormData).hostname);
 		if (hasConfigFields) {
 			configDialog?.open();
 		} else {

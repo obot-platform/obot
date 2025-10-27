@@ -37,7 +37,7 @@
 		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		users?: OrgUser[];
-		type?: 'single' | 'multi' | 'remote';
+		type?: 'single' | 'multi' | 'remote' | 'composite';
 	}
 
 	let { id, entity = 'catalog', entry, users = [], type }: Props = $props();

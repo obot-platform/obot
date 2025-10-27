@@ -78,7 +78,7 @@
 	});
 
 	function getAuditLogsUrl(d: Item) {
-		const isCatalogEntry = d.type === 'single' || d.type === 'remote';
+		const isCatalogEntry = d.type === 'single' || d.type === 'remote' || d.type === 'composite';
 		if (isCatalogEntry) {
 			return d.data.powerUserWorkspaceID
 				? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/c/${d.id}?view=audit-logs`
@@ -117,7 +117,7 @@
 			{filters}
 			onClickRow={(d, isCtrlClick) => {
 				let url = '';
-				if (d.type === 'single' || d.type === 'remote') {
+				if (d.type === 'single' || d.type === 'remote' || d.type === 'composite') {
 					url = d.data.powerUserWorkspaceID
 						? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/c/${d.id}`
 						: `/admin/mcp-servers/c/${d.id}`;
@@ -160,7 +160,13 @@
 						</p>
 					</div>
 				{:else if property === 'type'}
-					{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
+					{d.type === 'single'
+						? 'Single User'
+						: d.type === 'multi'
+							? 'Multi-User'
+							: d.type === 'remote'
+								? 'Remote'
+								: 'Composite'}
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
 				{:else}

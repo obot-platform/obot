@@ -85,14 +85,14 @@
 	);
 
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<'single' | 'multi' | 'remote'>();
+	let selectedServerType = $state<'single' | 'multi' | 'remote' | 'composite'>();
 	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
 
 	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
 
-	function selectServerType(type: 'single' | 'multi' | 'remote', updateUrl = true) {
+	function selectServerType(type: 'single' | 'multi' | 'remote' | 'composite', updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
 		showServerForm = true;

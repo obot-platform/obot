@@ -9,6 +9,9 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import { profile } from '$lib/stores/index.js';
 	import { page } from '$app/state';
+	import { initMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
+
+	initMcpServerAndEntries();
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -37,7 +40,11 @@
 
 		<McpServerEntryForm
 			entry={catalogEntry}
-			type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
+			type={catalogEntry?.manifest.runtime === 'composite'
+				? 'composite'
+				: catalogEntry?.manifest.runtime === 'remote'
+					? 'remote'
+					: 'single'}
 			readonly={isAdminReadonly || isSourcedEntry}
 			id={DEFAULT_MCP_CATALOG_ID}
 			onCancel={() => {
