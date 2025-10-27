@@ -621,7 +621,11 @@
 {#snippet messageContent()}
 	{#if msg.sent}
 		{#each content.split('\n') as line, i (i)}
-			<div class="text-md">{line}</div>
+			{#if line}
+				<div class="text-md">{line}</div>
+			{:else}
+				<br />
+			{/if}
 		{/each}
 		{@render explain()}
 	{:else}
