@@ -985,6 +985,22 @@
 		}
 	}
 
+	.pill-rounded {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		width: fit-content;
+		background-color: var(--surface3);
+		border-radius: 9999px;
+		padding: 0.25rem 0.75rem;
+		font-size: 0.75rem;
+		line-height: 1rem;
+
+		.dark & {
+			background-color: var(--surface2);
+		}
+	}
+
 	.pill-primary {
 		border-radius: var(--radius-sm);
 		background-color: color-mix(in oklab, var(--color-blue-500) /* #4f7ef3 */ 50%, transparent);
