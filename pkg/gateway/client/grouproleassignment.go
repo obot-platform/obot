@@ -7,6 +7,7 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"golang.org/x/exp/maps"
 	"gorm.io/gorm"
 )
 
@@ -129,4 +130,61 @@ func (c *Client) ResolveUserEffectiveRole(ctx context.Context, user *types.User,
 	}
 
 	return effectiveRole, nil
+}
+
+// ResolveUserEffectiveRolesBulk computes effective roles for multiple users efficiently.
+// It performs a single database query to fetch all group role assignments for all users' groups.
+// Returns a map of userID to their effective role.
+func (c *Client) ResolveUserEffectiveRolesBulk(ctx context.Context, users []types.User, userGroupMemberships map[uint][]string) (map[uint]types2.Role, error) {
+	effectiveRoles := make(map[uint]types2.Role, len(users))
+
+	// Collect all unique group IDs across all users
+	uniqueGroupIDs := make(map[string]struct{})
+	for _, groupIDs := range userGroupMemberships {
+		for _, groupID := range groupIDs {
+			uniqueGroupIDs[groupID] = struct{}{}
+		}
+	}
+
+	// If no groups at all, just return individual roles
+	if len(uniqueGroupIDs) == 0 {
+		for _, user := range users {
+			effectiveRoles[user.ID] = user.Role
+		}
+		return effectiveRoles, nil
+	}
+
+	// Fetch all group role assignments in one query
+	assignments, err := c.GetGroupRoleAssignmentsForGroups(ctx, maps.Keys(uniqueGroupIDs))
+	if err != nil {
+		// Don't fail - fall back to individual roles
+		for _, user := range users {
+			effectiveRoles[user.ID] = user.Role
+		}
+		return effectiveRoles, nil
+	}
+
+	// Build group -> role map for fast lookup
+	groupRoles := make(map[string]types2.Role)
+	for _, assignment := range assignments {
+		groupRoles[assignment.GroupName] = assignment.Role
+	}
+
+	// Compute effective role for each user
+	for _, user := range users {
+		effectiveRole := user.Role
+
+		// If user has groups, merge their roles
+		if userGroups, ok := userGroupMemberships[user.ID]; ok {
+			for _, groupID := range userGroups {
+				if groupRole, exists := groupRoles[groupID]; exists {
+					effectiveRole |= groupRole
+				}
+			}
+		}
+
+		effectiveRoles[user.ID] = effectiveRole
+	}
+
+	return effectiveRoles, nil
 }

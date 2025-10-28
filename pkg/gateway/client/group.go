@@ -129,6 +129,38 @@ func (c *Client) ListGroupIDsForUser(ctx context.Context, userID uint) ([]string
 	return groupIDs, nil
 }
 
+// GetUserGroupMemberships fetches group memberships for multiple users in a single query.
+// Returns a map of userID to slice of groupIDs.
+func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (map[uint][]string, error) {
+	if len(userIDs) == 0 {
+		return make(map[uint][]string), nil
+	}
+
+	type Result struct {
+		UserID  uint
+		GroupID string
+	}
+
+	var results []Result
+	err := c.db.WithContext(ctx).
+		Table("group_memberships").
+		Select("user_id, group_id").
+		Where("user_id IN ?", userIDs).
+		Find(&results).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch user group memberships: %w", err)
+	}
+
+	// Build map
+	memberships := make(map[uint][]string)
+	for _, r := range results {
+		memberships[r.UserID] = append(memberships[r.UserID], r.GroupID)
+	}
+
+	return memberships, nil
+}
+
 // ensureGroups ensures the groups that the identity is a member of exist and are up to date.
 func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.Identity) error {
 	if identity.AuthProviderName == "" || identity.AuthProviderNamespace == "" {

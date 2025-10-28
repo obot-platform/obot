@@ -61,24 +61,39 @@ func (s *Server) getUsers(apiContext api.Context) error {
 		return fmt.Errorf("failed to get users: %v", err)
 	}
 
-	items := make([]types2.User, 0, len(users))
+	// Filter out bootstrap user and collect valid users with their IDs
+	var validUsers []types.User
+	userIDs := make([]uint, 0, len(users))
 	for _, user := range users {
-		if user.Username != "bootstrap" && user.Email != "" { // Filter out the bootstrap admin
-			// Get user's groups and compute effective role
-			groupIDs, err := apiContext.GatewayClient.ListGroupIDsForUser(apiContext.Context(), user.ID)
-			if err != nil {
-				pkgLog.Warnf("failed to get groups for user %s: %v", user.Username, err)
-				groupIDs = nil
-			}
-
-			effectiveRole, err := apiContext.GatewayClient.ResolveUserEffectiveRole(apiContext.Context(), &user, groupIDs)
-			if err != nil {
-				pkgLog.Warnf("failed to resolve effective role for user %s: %v", user.Username, err)
-				effectiveRole = user.Role
-			}
-
-			items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole))
+		if user.Username != "bootstrap" && user.Email != "" {
+			validUsers = append(validUsers, user)
+			userIDs = append(userIDs, user.ID)
 		}
+	}
+
+	// Bulk fetch group memberships for all users (single query)
+	userGroupMemberships, err := apiContext.GatewayClient.GetUserGroupMemberships(apiContext.Context(), userIDs)
+	if err != nil {
+		pkgLog.Warnf("failed to get group memberships: %v", err)
+		userGroupMemberships = make(map[uint][]string)
+	}
+
+	// Bulk compute effective roles for all users (single query)
+	effectiveRoles, err := apiContext.GatewayClient.ResolveUserEffectiveRolesBulk(apiContext.Context(), validUsers, userGroupMemberships)
+	if err != nil {
+		pkgLog.Warnf("failed to resolve effective roles: %v", err)
+		effectiveRoles = make(map[uint]types2.Role)
+	}
+
+	// Build response with computed effective roles
+	items := make([]types2.User, 0, len(validUsers))
+	for _, user := range validUsers {
+		effectiveRole := user.Role
+		if role, ok := effectiveRoles[user.ID]; ok {
+			effectiveRole = role
+		}
+
+		items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole))
 	}
 
 	return apiContext.Write(types2.UserList{Items: items})
