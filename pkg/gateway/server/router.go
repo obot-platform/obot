@@ -41,9 +41,6 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	mux.HandleFunc("DELETE /api/users/{user_id}", wrap(s.deleteUser))
 	mux.HandleFunc("GET /api/active-users", wrap(s.activeUsers))
 
-	// Temporary for debugging main
-	mux.HandleFunc("GET /api/identities/{user_id}", wrap(s.listIdentitiesByUser))
-
 	mux.HandleFunc("GET /api/token-usage", wrap(s.systemTokenUsageByUser))
 	mux.HandleFunc("GET /api/total-token-usage", wrap(s.totalSystemTokenUsage))
 
