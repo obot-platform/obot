@@ -965,6 +965,7 @@
 
 		svg {
 			color: var(--color-blue-600);
+			flex-shrink: 0;
 		}
 
 		.dark & {

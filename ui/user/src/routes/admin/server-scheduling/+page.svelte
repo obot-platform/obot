@@ -95,18 +95,37 @@
 			<h1 class="text-2xl font-semibold">Server Scheduling</h1>
 			{#if k8sSettings}
 				{@const readonly = k8sSettings?.setViaHelm || isAdminReadonly}
-				{#if k8sSettings?.setViaHelm}
-					<div class="notification-info p-3 text-sm font-light">
-						<div class="flex items-center gap-3">
-							<Info class="size-6" />
-							<div>
-								These settings are currently managed by your Helm chart and are <b
-									class="font-semibold">read-only</b
-								> in the UI. To edit them, update your Helm values and redeploy.
+				<div class="flex flex-col gap-2">
+					{#if k8sSettings?.setViaHelm}
+						<div class="notification-info p-3 text-sm font-light">
+							<div class="flex items-center gap-3">
+								<Info class="size-6" />
+								<div>
+									These settings are currently managed by your Helm chart and are <b
+										class="font-semibold">read-only</b
+									> in the UI. To edit them, update your Helm values and redeploy.
+								</div>
 							</div>
 						</div>
+					{/if}
+
+					<div class="notification-info p-3 text-sm font-light">
+						<div class="flex items-center gap-2">
+							<Info class="size-6" />
+							<h4 class="font-semibold">Configuration Notes</h4>
+						</div>
+						<ul class="list-disc px-8 py-1 text-sm">
+							<li>
+								Node selectors, node names, and pod topology spread constraints are not supported at
+								this time.
+							</li>
+							<li>Resource configurations apply to all pods in the deployment.</li>
+							<li>Changes will take effect on the next deployment or pod restart.</li>
+							<li>Invalid YAML/JSON will be rejected during validation.</li>
+						</ul>
 					</div>
-				{/if}
+				</div>
+
 				<div class="paper mt-1">
 					<div>
 						{@render headerContent('Pod Affinity')}
@@ -124,6 +143,9 @@
 							class="text-input-filled dark:bg-black"
 							disabled={readonly}
 						></textarea>
+						<span class="input-description"
+							>Supports podAffinity, podAntiAffinity, and nodeAffinity configurations.</span
+						>
 					</div>
 				</div>
 				<div class="paper mt-1">
@@ -141,6 +163,9 @@
 							class="text-input-filled dark:bg-black"
 							disabled={readonly}
 						></textarea>
+						<span class="input-description"
+							>Define tolerations to allow scheduling on tainted nodes.</span
+						>
 					</div>
 				</div>
 				<div class="paper mt-1">
