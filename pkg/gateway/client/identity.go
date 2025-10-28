@@ -127,6 +127,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 
 	email := id.Email
 	providerUserID := id.ProviderUserID
+	providerUsername := id.ProviderUsername
 
 	if id.ProviderUserID != "" {
 		id.HashedProviderUserID = hash.String(id.ProviderUserID)
@@ -175,6 +176,18 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	}
 	if err := c.decryptIdentity(ctx, id); err != nil {
 		return nil, false, fmt.Errorf("failed to decrypt identity: %w", err)
+	}
+
+	var updateIdentity bool
+	// This corrects the provider user ID and name to correct a bug introduced when re-encrypting all users and identities
+	if id.Email != email || id.ProviderUserID != providerUserID || id.ProviderUsername != providerUsername {
+		id.Email = email
+		id.HashedEmail = hash.String(id.Email)
+		id.ProviderUserID = providerUserID
+		id.HashedProviderUserID = hash.String(id.ProviderUserID)
+		id.ProviderUsername = providerUsername
+
+		updateIdentity = true
 	}
 
 	user := &types.User{
@@ -303,13 +316,8 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	}
 
 	// Update the user ID saved on the identity if needed.
-	// This also corrects the provider user ID to correct a bug introduced when re-encrypting all users and identities
-	if id.Email != email || id.UserID != user.ID || id.ProviderUserID != providerUserID {
-		id.Email = email
-		id.HashedEmail = hash.String(id.Email)
+	if id.UserID != user.ID || updateIdentity {
 		id.UserID = user.ID
-		id.ProviderUserID = providerUserID
-		id.HashedProviderUserID = hash.String(id.ProviderUserID)
 
 		if err := c.encryptAndUpdateIdentity(ctx, tx, *id); err != nil {
 			return nil, false, err

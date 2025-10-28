@@ -349,6 +349,36 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 	})
 }
 
+// EncryptUsers will pull all users out of the database and ensure they are encrypted.
+func (c *Client) EncryptUsers(ctx context.Context, force bool) error {
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var users []types.User
+		if err := tx.Find(&users).Error; err != nil {
+			return err
+		}
+
+		for i := range users {
+			if !force && users[i].Encrypted {
+				continue
+			}
+
+			if err := c.decryptUser(ctx, &users[i]); err != nil {
+				return fmt.Errorf("failed to decrypt user: %w", err)
+			}
+
+			if err := c.encryptUser(ctx, &users[i]); err != nil {
+				return fmt.Errorf("failed to encrypt user: %w", err)
+			}
+
+			if err := tx.Updates(users[i]).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
 func (c *Client) fetchUserProfile(ctx context.Context, authProviderURL, accessToken string) (map[string]any, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, authProviderURL+"/obot-get-user-info", nil)
 	if err != nil {
