@@ -51,7 +51,7 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	if err != nil {
 		// Log error but don't fail authentication - fall back to individual role
 		// Note: In production, this would use a proper logger
-		// TODO(g-linville): actually log something here
+		log.Warnf("failed to resolve efffective role for user with ID %d: %s", gatewayUser.ID, err.Error())
 		effectiveRole = gatewayUser.Role
 	}
 
@@ -59,7 +59,7 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		Name:   gatewayUser.Username,
 		UID:    fmt.Sprintf("%d", gatewayUser.ID),
 		Extra:  extra,
-		Groups: append(resp.User.GetGroups(), effectiveRole.Groups()...), // TODO(g-linville): dedupe?
+		Groups: append(resp.User.GetGroups(), effectiveRole.Groups()...),
 	}
 	return resp, true, nil
 }
