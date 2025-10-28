@@ -885,7 +885,7 @@ func convertMCPCatalog(catalog v1.MCPCatalog) types.MCPCatalog {
 		},
 		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
 		SyncErrors: catalog.Status.SyncErrors,
-		IsSyncing:  catalog.Status.IsSyncing,
+		IsSyncing:  catalog.Status.IsSyncing || catalog.Annotations[v1.MCPCatalogSyncAnnotation] == "true",
 	}
 }
 
