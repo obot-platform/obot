@@ -63,6 +63,14 @@
 			return [{ href: '/admin/mcp-servers', label: 'MCP Servers' }];
 		}
 
+		if (type === 'audit-logs-exports') {
+			return [{ href: '/admin/audit-logs/exports', label: 'Audit Log Exports' }];
+		}
+
+		if (type === 'audit-logs') {
+			return [{ href: '/admin/audit-logs', label: 'Audit Logs' }];
+		}
+
 		return [];
 	}
 

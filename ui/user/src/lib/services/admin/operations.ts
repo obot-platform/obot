@@ -32,7 +32,12 @@ import type {
 	MCPFilter,
 	MCPFilterManifest,
 	ProjectTask,
-	TempUser
+	TempUser,
+	ScheduledAuditLogExport,
+	StorageCredentials,
+	AuditLogExport,
+	AuditLogExportInput,
+	ScheduledAuditLogExportInput
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -850,4 +855,88 @@ export async function cancelTempLogin() {
 			dontLogErrors: true
 		}
 	);
+}
+
+export async function getAuditLogExports(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/audit-log-exports', opts)) as PaginatedResponse<AuditLogExport>;
+	return response;
+}
+
+export async function getAuditLogExport(name: string, opts?: { fetch?: Fetcher }) {
+	const response = await doGet(`/audit-log-exports/${name}`, opts);
+	return response;
+}
+
+export async function createAuditLogExport(
+	request: AuditLogExportInput,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost('/audit-log-exports', request, opts);
+	return response;
+}
+
+export async function deleteAuditLogExport(name: string, opts?: { signal?: AbortSignal }) {
+	await doDelete(`/audit-log-exports/${name}`, { signal: opts?.signal });
+}
+
+// Scheduled Audit Log Exports
+export async function getScheduledAuditLogExports(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		'/scheduled-audit-log-exports',
+		opts
+	)) as PaginatedResponse<ScheduledAuditLogExport>;
+	return response;
+}
+
+export async function getScheduledAuditLogExport(
+	name: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ScheduledAuditLogExport> {
+	const response = await doGet(`/scheduled-audit-log-exports/${name}`, opts);
+	return response as ScheduledAuditLogExport;
+}
+
+export async function createScheduledAuditLogExport(
+	request: ScheduledAuditLogExportInput,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost('/scheduled-audit-log-exports', request, opts);
+	return response;
+}
+
+export async function updateScheduledAuditLogExport(
+	id: string,
+	request: Partial<ScheduledAuditLogExportInput>,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPut(`/scheduled-audit-log-exports/${id}`, request, opts);
+	return response;
+}
+
+export async function deleteScheduledAuditLogExport(name: string, opts?: { signal?: AbortSignal }) {
+	await doDelete(`/scheduled-audit-log-exports/${name}`, { signal: opts?.signal });
+}
+
+// Storage Credentials
+export async function getStorageCredentials() {
+	const response = (await doGet('/audit-log-exports/storage-credentials', {
+		dontLogErrors: true
+	})) as StorageCredentials;
+	return response;
+}
+
+export async function configureStorageCredentials(
+	request: StorageCredentials,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost('/audit-log-exports/storage-credentials', request, opts);
+	return response;
+}
+
+export async function testStorageCredentials(
+	request: StorageCredentials,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost('/audit-log-exports/storage-credentials/test', request, opts);
+	return response;
 }

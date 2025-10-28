@@ -7,7 +7,8 @@ import {
 	type ContainerizedRuntimeConfig,
 	type CompositeRuntimeConfig,
 	type Task,
-	type ToolOverride
+	type ToolOverride,
+	type Schedule
 } from '../chat/types';
 
 export interface MCPCatalogManifest {
@@ -506,4 +507,95 @@ export interface MCPFilter extends MCPFilterManifest {
 	metadata?: Record<string, string>;
 	type: string;
 	hasSecret: boolean;
+}
+
+export interface AuditLogExportInput {
+	name: string;
+	bucket: string;
+	startTime: string;
+	endTime: string;
+	filters: AuditLogExportFilters;
+}
+
+export interface AuditLogExport {
+	id: string;
+	name: string;
+	bucket: string;
+	keyPrefix?: string;
+	storageProvider: string;
+	startTime: string;
+	endTime: string;
+	state: 'pending' | 'running' | 'completed' | 'failed';
+	error?: string;
+	exportedRecords?: number;
+	exportSize?: number;
+	createdAt: string;
+	completedAt?: string;
+	filters: AuditLogFilters;
+}
+
+export type AuditLogExportFilters = {
+	userIDs?: string[];
+	mcpIDs?: string[];
+	mcpServerDisplayNames?: string[];
+	mcpServerCatalogEntryNames?: string[];
+	callTypes?: string[];
+	callIdentifiers?: string[];
+	responseStatuses?: string[];
+	sessionIDs?: string[];
+	clientNames?: string[];
+	clientVersions?: string[];
+	clientIPs?: string[];
+	query?: string;
+};
+
+export interface ScheduledAuditLogExportInput {
+	name: string;
+	enabled: boolean;
+	schedule: Schedule;
+	bucket: string;
+	retentionPeriodInDays: number;
+	filters: AuditLogExportFilters;
+}
+
+export interface ScheduledAuditLogExport {
+	id: string;
+	name: string;
+	enabled: boolean;
+	schedule: Schedule;
+	storageProvider: string;
+	format: string;
+	state: string;
+	createdAt: string;
+	lastRunAt: string;
+	bucket: string;
+	keyPrefix: string;
+	retentionPeriodInDays: number;
+	filters: AuditLogExportFilters;
+}
+
+export interface StorageCredentials {
+	provider: string;
+	useWorkloadIdentity: boolean;
+	s3Config?: {
+		region: string;
+		accessKeyID: string;
+		secretAccessKey: string;
+		sessionToken: string;
+	};
+	gcsConfig?: {
+		serviceAccountJSON: string;
+	};
+	azureConfig?: {
+		storageAccount: string;
+		clientID: string;
+		tenantID: string;
+		clientSecret: string;
+	};
+	customS3Config?: {
+		endpoint: string;
+		region: string;
+		accessKeyID: string;
+		secretAccessKey: string;
+	};
 }

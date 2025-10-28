@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/agents"
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
+	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cronjob"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgefile"
@@ -26,6 +27,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/retention"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runstates"
+	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/slackreceiver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/task"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
@@ -78,6 +80,8 @@ func (c *Controller) setupRoutes() {
 	mcpWebhookValidations := mcpwebhookvalidation.New()
 	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
 	adminWorkspaceHandler := adminworkspace.New(c.services.GatewayClient)
+	auditLogExportHandler := auditlogexport.NewHandler(c.services.StorageClient, c.services.GPTClient, c.services.GatewayClient, c.services.EncryptionConfig)
+	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler(c.services.StorageClient, c.services.GPTClient, c.services.GatewayClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -303,6 +307,14 @@ func (c *Controller) setupRoutes() {
 	// Project-based MCP Servers
 	root.Type(&v1.ProjectMCPServer{}).FinalizeFunc(v1.ProjectMCPServerFinalizer, credentialCleanup.ShutdownProjectMCP)
 	root.Type(&v1.ProjectMCPServer{}).HandlerFunc(cleanup.Cleanup)
+
+	// AuditLogExport
+	root.Type(&v1.AuditLogExport{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.AuditLogExport{}).HandlerFunc(auditLogExportHandler.ExportAuditLogs)
+
+	// ScheduledAuditLogExport
+	root.Type(&v1.ScheduledAuditLogExport{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.ScheduledAuditLogExport{}).HandlerFunc(scheduledAuditLogExportHandler.ScheduleExports)
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog

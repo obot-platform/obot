@@ -58,6 +58,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
+	auditLogExports := handlers.NewAuditLogExportHandler(services.StorageClient, services.GPTClient, services.EncryptionConfig)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL)
@@ -561,6 +562,25 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/mcp-audit-logs/{mcp_id}", mcpAuditLogs.ListAuditLogs)
 	mux.HandleFunc("GET /api/mcp-stats", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
+
+	// Audit Log Exports
+	mux.HandleFunc("POST /api/audit-log-exports", auditLogExports.CreateAuditLogExport)
+	mux.HandleFunc("GET /api/audit-log-exports", auditLogExports.ListAuditLogExports)
+	mux.HandleFunc("GET /api/audit-log-exports/{id}", auditLogExports.GetAuditLogExport)
+	mux.HandleFunc("DELETE /api/audit-log-exports/{id}", auditLogExports.DeleteAuditLogExport)
+
+	// Scheduled Audit Log Exports
+	mux.HandleFunc("POST /api/scheduled-audit-log-exports", auditLogExports.CreateScheduledAuditLogExport)
+	mux.HandleFunc("GET /api/scheduled-audit-log-exports", auditLogExports.ListScheduledAuditLogExports)
+	mux.HandleFunc("GET /api/scheduled-audit-log-exports/{id}", auditLogExports.GetScheduledAuditLogExport)
+	mux.HandleFunc("PUT /api/scheduled-audit-log-exports/{id}", auditLogExports.UpdateScheduledAuditLogExport)
+	mux.HandleFunc("DELETE /api/scheduled-audit-log-exports/{id}", auditLogExports.DeleteScheduledAuditLogExport)
+
+	// Storage Credentials Management
+	mux.HandleFunc("POST /api/audit-log-exports/storage-credentials", auditLogExports.ConfigureStorageCredentials)
+	mux.HandleFunc("GET /api/audit-log-exports/storage-credentials", auditLogExports.GetStorageCredentials)
+	mux.HandleFunc("DELETE /api/audit-log-exports/storage-credentials", auditLogExports.DeleteStorageCredentials)
+	mux.HandleFunc("POST /api/audit-log-exports/storage-credentials/test", auditLogExports.TestStorageCredentials)
 
 	// MCP Servers in projects
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", projectMCP.ListServer)
