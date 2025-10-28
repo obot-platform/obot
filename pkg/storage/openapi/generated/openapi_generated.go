@@ -58,6 +58,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderList":                      schema_obot_platform_obot_apiclient_types_FileScannerProviderList(ref),
 		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderManifest":                  schema_obot_platform_obot_apiclient_types_FileScannerProviderManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderStatus":                    schema_obot_platform_obot_apiclient_types_FileScannerProviderStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.Identity":                                     schema_obot_platform_obot_apiclient_types_Identity(ref),
+		"github.com/obot-platform/obot/apiclient/types.IdentityList":                                 schema_obot_platform_obot_apiclient_types_IdentityList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Item":                                         schema_obot_platform_obot_apiclient_types_Item(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettings":                                  schema_obot_platform_obot_apiclient_types_K8sSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettingsStatus":                            schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref),
@@ -2355,6 +2357,104 @@ func schema_obot_platform_obot_apiclient_types_FileScannerProviderStatus(ref com
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_Identity(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"authProviderName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"authProviderNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"providerUsername": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"providerUserID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"email": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"iconURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"Metadata", "authProviderName", "authProviderNamespace", "providerUsername", "providerUserID", "email", "userID", "iconURL"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_IdentityList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.Identity"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Identity"},
 	}
 }
 
