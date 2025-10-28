@@ -7,7 +7,6 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 )
 
@@ -20,35 +19,21 @@ func (c *Client) GetGroupRoleAssignments(ctx context.Context) ([]types.GroupRole
 	return assignments, nil
 }
 
-// GetGroupRoleAssignment returns a specific group role assignment by ID.
-func (c *Client) GetGroupRoleAssignment(ctx context.Context, id string) (*types.GroupRoleAssignment, error) {
-	var assignment types.GroupRoleAssignment
-	if err := c.db.WithContext(ctx).Where("id = ?", id).First(&assignment).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("group role assignment %s not found", id)
-		}
-		return nil, fmt.Errorf("failed to get group role assignment: %w", err)
-	}
-	return &assignment, nil
-}
-
-// GetGroupRoleAssignmentByGroupName returns assignment for a specific group name.
-// Returns nil if no assignment exists for this group (not an error).
-func (c *Client) GetGroupRoleAssignmentByGroupName(ctx context.Context, groupName string) (*types.GroupRoleAssignment, error) {
+// GetGroupRoleAssignment returns a specific group role assignment by group name.
+func (c *Client) GetGroupRoleAssignment(ctx context.Context, groupName string) (*types.GroupRoleAssignment, error) {
 	var assignment types.GroupRoleAssignment
 	if err := c.db.WithContext(ctx).Where("group_name = ?", groupName).First(&assignment).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil // No assignment for this group
+			return nil, fmt.Errorf("group role assignment %s not found", groupName)
 		}
 		return nil, fmt.Errorf("failed to get group role assignment: %w", err)
 	}
 	return &assignment, nil
 }
 
-// CreateGroupRoleAssignment creates a new group role assignment with a generated ID.
+// CreateGroupRoleAssignment creates a new group role assignment.
 func (c *Client) CreateGroupRoleAssignment(ctx context.Context, groupName string, role types2.Role, description string) (*types.GroupRoleAssignment, error) {
 	assignment := &types.GroupRoleAssignment{
-		ID:          c.getGroupRoleAssignmentID(groupName),
 		GroupName:   groupName,
 		Role:        role,
 		Description: description,
@@ -62,11 +47,11 @@ func (c *Client) CreateGroupRoleAssignment(ctx context.Context, groupName string
 }
 
 // UpdateGroupRoleAssignment updates an existing group role assignment.
-func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, id string, role types2.Role, description string) (*types.GroupRoleAssignment, error) {
+func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, groupName string, role types2.Role, description string) (*types.GroupRoleAssignment, error) {
 	var assignment types.GroupRoleAssignment
 
 	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("id = ?", id).First(&assignment).Error; err != nil {
+		if err := tx.Where("group_name = ?", groupName).First(&assignment).Error; err != nil {
 			return err
 		}
 
@@ -78,7 +63,7 @@ func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, id string, role 
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("group role assignment %s not found", id)
+			return nil, fmt.Errorf("group role assignment %s not found", groupName)
 		}
 		return nil, fmt.Errorf("failed to update group role assignment: %w", err)
 	}
@@ -86,21 +71,17 @@ func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, id string, role 
 	return &assignment, nil
 }
 
-// DeleteGroupRoleAssignment deletes a group role assignment by ID.
-func (c *Client) DeleteGroupRoleAssignment(ctx context.Context, id string) error {
-	result := c.db.WithContext(ctx).Where("id = ?", id).Delete(&types.GroupRoleAssignment{})
+// DeleteGroupRoleAssignment deletes a group role assignment by group name.
+func (c *Client) DeleteGroupRoleAssignment(ctx context.Context, groupName string) error {
+	result := c.db.WithContext(ctx).Where("group_name = ?", groupName).Delete(&types.GroupRoleAssignment{})
 	if result.Error != nil {
 		return fmt.Errorf("failed to delete group role assignment: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("group role assignment %s not found", id)
+		return fmt.Errorf("group role assignment %s not found", groupName)
 	}
 
 	return nil
-}
-
-func (c *Client) getGroupRoleAssignmentID(groupName string) string {
-	return system.GroupRoleAssignmentPrefix + groupName
 }
 
 // GetGroupRoleAssignmentsForGroups retrieves all role assignments for the given group names.

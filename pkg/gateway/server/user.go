@@ -64,7 +64,20 @@ func (s *Server) getUsers(apiContext api.Context) error {
 	items := make([]types2.User, 0, len(users))
 	for _, user := range users {
 		if user.Username != "bootstrap" && user.Email != "" { // Filter out the bootstrap admin
-			items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, ""))
+			// Get user's groups and compute effective role
+			groupIDs, err := apiContext.GatewayClient.ListGroupIDsForUser(apiContext.Context(), user.ID)
+			if err != nil {
+				pkgLog.Warnf("failed to get groups for user %s: %v", user.Username, err)
+				groupIDs = nil
+			}
+
+			effectiveRole, err := apiContext.GatewayClient.ResolveUserEffectiveRole(apiContext.Context(), &user, groupIDs)
+			if err != nil {
+				pkgLog.Warnf("failed to resolve effective role for user %s: %v", user.Username, err)
+				effectiveRole = user.Role
+			}
+
+			items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole))
 		}
 	}
 

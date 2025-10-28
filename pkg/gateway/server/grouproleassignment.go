@@ -30,15 +30,15 @@ func (s *Server) getGroupRoleAssignments(apiContext api.Context) error {
 
 // getGroupRoleAssignment returns a specific group role assignment.
 func (s *Server) getGroupRoleAssignment(apiContext api.Context) error {
-	id := apiContext.PathValue("id")
-	if id == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "id path parameter is required")
+	groupName := apiContext.PathValue("groupName")
+	if groupName == "" {
+		return types2.NewErrHTTP(http.StatusBadRequest, "groupName path parameter is required")
 	}
 
-	assignment, err := apiContext.GatewayClient.GetGroupRoleAssignment(apiContext.Context(), id)
+	assignment, err := apiContext.GatewayClient.GetGroupRoleAssignment(apiContext.Context(), groupName)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return types2.NewErrNotFound("group role assignment %s not found", id)
+			return types2.NewErrNotFound("group role assignment %s not found", groupName)
 		}
 		return fmt.Errorf("failed to get group role assignment: %v", err)
 	}
@@ -55,7 +55,7 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 
 	// Validation
 	if req.GroupName == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "groupName is required")
+		return types2.NewErrHTTP(http.StatusBadRequest, "ID is required")
 	}
 	if req.Role == types2.RoleUnknown {
 		return types2.NewErrHTTP(http.StatusBadRequest, "role is required")
@@ -97,9 +97,9 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 
 // updateGroupRoleAssignment updates an existing group role assignment.
 func (s *Server) updateGroupRoleAssignment(apiContext api.Context) error {
-	id := apiContext.PathValue("id")
-	if id == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "id path parameter is required")
+	groupName := apiContext.PathValue("groupName")
+	if groupName == "" {
+		return types2.NewErrHTTP(http.StatusBadRequest, "groupName path parameter is required")
 	}
 
 	var req types2.GroupRoleAssignment
@@ -113,23 +113,20 @@ func (s *Server) updateGroupRoleAssignment(apiContext api.Context) error {
 	}
 
 	validRoles := []types2.Role{
-		types2.RoleBasic,
-		types2.RoleOwner,
 		types2.RoleAdmin,
-		types2.RoleAuditor,
 		types2.RolePowerUserPlus,
 		types2.RolePowerUser,
 	}
 	if !slices.Contains(validRoles, req.Role) {
 		return types2.NewErrHTTP(http.StatusBadRequest,
-			"invalid role: must be one of Basic, Owner, Admin, Auditor, PowerUserPlus, PowerUser")
+			"invalid role: must be one of Admin, PowerUserPlus, PowerUser")
 	}
 
 	updated, err := apiContext.GatewayClient.UpdateGroupRoleAssignment(
-		apiContext.Context(), id, req.Role, req.Description)
+		apiContext.Context(), groupName, req.Role, req.Description)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return types2.NewErrNotFound("group role assignment %s not found", id)
+			return types2.NewErrNotFound("group role assignment %s not found", groupName)
 		}
 		return fmt.Errorf("failed to update group role assignment: %v", err)
 	}
@@ -139,14 +136,14 @@ func (s *Server) updateGroupRoleAssignment(apiContext api.Context) error {
 
 // deleteGroupRoleAssignment deletes a group role assignment.
 func (s *Server) deleteGroupRoleAssignment(apiContext api.Context) error {
-	id := apiContext.PathValue("id")
-	if id == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "id path parameter is required")
+	groupName := apiContext.PathValue("groupName")
+	if groupName == "" {
+		return types2.NewErrHTTP(http.StatusBadRequest, "groupName path parameter is required")
 	}
 
-	if err := apiContext.GatewayClient.DeleteGroupRoleAssignment(apiContext.Context(), id); err != nil {
+	if err := apiContext.GatewayClient.DeleteGroupRoleAssignment(apiContext.Context(), groupName); err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			return types2.NewErrNotFound("group role assignment %s not found", id)
+			return types2.NewErrNotFound("group role assignment %s not found", groupName)
 		}
 		return fmt.Errorf("failed to delete group role assignment: %v", err)
 	}
@@ -157,10 +154,6 @@ func (s *Server) deleteGroupRoleAssignment(apiContext api.Context) error {
 // convertGroupRoleAssignment converts database model to API type.
 func convertGroupRoleAssignment(assignment *types.GroupRoleAssignment) types2.GroupRoleAssignment {
 	return types2.GroupRoleAssignment{
-		Metadata: types2.Metadata{
-			ID:      assignment.ID,
-			Created: *types2.NewTime(assignment.CreatedAt),
-		},
 		GroupName:   assignment.GroupName,
 		Role:        assignment.Role,
 		Description: assignment.Description,

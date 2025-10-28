@@ -2,8 +2,6 @@ package types
 
 // GroupRoleAssignment represents a role assignment to an auth provider group.
 type GroupRoleAssignment struct {
-	Metadata
-
 	// GroupName is the name of the auth provider group
 	GroupName string `json:"groupName"`
 
