@@ -5,7 +5,8 @@
 		Group,
 		type K8sServerDetail,
 		type MCPCatalogEntry,
-		type OrgUser
+		type OrgUser,
+		type ServerK8sSettings
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import { formatTimeAgo } from '$lib/time';
@@ -55,7 +56,7 @@
 	}: Props = $props();
 
 	let listK8sInfo = $state<Promise<K8sServerDetail>>();
-	let listK8sSettingsStatus = $state<Promise<any>>();
+	let listK8sSettingsStatus = $state<Promise<ServerK8sSettings>>();
 	let revealServerValues = $state<Promise<Record<string, string>>>();
 	let messages = $state<string[]>([]);
 	let error = $state<string>();
