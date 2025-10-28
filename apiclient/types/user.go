@@ -81,6 +81,7 @@ type User struct {
 	Metadata
 	Username                   string   `json:"username,omitempty"`
 	Role                       Role     `json:"role,omitempty"`
+	EffectiveRole              Role     `json:"effectiveRole,omitempty"`
 	Groups                     []string `json:"groups,omitempty"`
 	ExplicitRole               bool     `json:"explicitRole,omitempty"`
 	Email                      string   `json:"email,omitempty"`

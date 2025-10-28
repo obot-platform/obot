@@ -69,6 +69,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderManifest":                    schema_obot_platform_obot_apiclient_types_FileScannerProviderManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderStatus":                      schema_obot_platform_obot_apiclient_types_FileScannerProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.GCSConfig":                                      schema_obot_platform_obot_apiclient_types_GCSConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment":                            schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref),
+		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignmentList":                        schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Item":                                           schema_obot_platform_obot_apiclient_types_Item(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettings":                                    schema_obot_platform_obot_apiclient_types_K8sSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettingsStatus":                              schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref),
@@ -3011,6 +3013,72 @@ func schema_obot_platform_obot_apiclient_types_GCSConfig(ref common.ReferenceCal
 				},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GroupRoleAssignment represents a role assignment to an auth provider group.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"groupName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GroupName is the name of the auth provider group",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"role": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Role is the role assigned to all members of this group",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description explains why this assignment exists",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"groupName", "role"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GroupRoleAssignmentList is a list of group role assignments.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment"},
 	}
 }
 
@@ -10132,6 +10200,12 @@ func schema_obot_platform_obot_apiclient_types_User(ref common.ReferenceCallback
 						},
 					},
 					"role": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"effectiveRole": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int32",
@@ -18302,8 +18376,9 @@ func schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref common.ReferenceCa
 					},
 					"newRole": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "deprecated and unused",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},

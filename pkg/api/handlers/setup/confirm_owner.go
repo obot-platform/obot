@@ -94,18 +94,17 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 		return fmt.Errorf("failed to clear temp user cache: %w", err)
 	}
 
+	// Create the UserRoleChange
 	if err := req.Create(&v1.UserRoleChange{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.UserRoleChangePrefix,
 			Namespace:    system.DefaultNamespace,
 		},
 		Spec: v1.UserRoleChangeSpec{
-			UserID:  user.ID,
-			OldRole: originalUserRole,
-			NewRole: user.Role,
+			UserID: user.ID,
 		},
 	}); err != nil {
-		log.Warnf("failed to create user role change for promoted owner %d: %v", user.ID, err)
+		log.Warnf("failed to create user role change for new owner %d: %v", user.ID, err)
 	}
 
 	return req.Write(ConfirmOwnerResponse{

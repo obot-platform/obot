@@ -12,8 +12,11 @@ import (
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -129,6 +132,38 @@ func (c *Client) ListGroupIDsForUser(ctx context.Context, userID uint) ([]string
 	return groupIDs, nil
 }
 
+// GetUserGroupMemberships fetches group memberships for multiple users in a single query.
+// Returns a map of userID to slice of groupIDs.
+func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (map[uint][]string, error) {
+	if len(userIDs) == 0 {
+		return make(map[uint][]string), nil
+	}
+
+	type Result struct {
+		UserID  uint
+		GroupID string
+	}
+
+	var results []Result
+	err := c.db.WithContext(ctx).
+		Table("group_memberships").
+		Select("user_id, group_id").
+		Where("user_id IN ?", userIDs).
+		Find(&results).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch user group memberships: %w", err)
+	}
+
+	// Build map
+	memberships := make(map[uint][]string)
+	for _, r := range results {
+		memberships[r.UserID] = append(memberships[r.UserID], r.GroupID)
+	}
+
+	return memberships, nil
+}
+
 // ensureGroups ensures the groups that the identity is a member of exist and are up to date.
 func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.Identity) error {
 	if identity.AuthProviderName == "" || identity.AuthProviderNamespace == "" {
@@ -192,15 +227,33 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 		}
 	}
 
-	if err := c.ensureGroupMemberships(ctx, tx, identity); err != nil {
+	membershipsChanged, err := c.ensureGroupMemberships(ctx, tx, identity)
+	if err != nil {
 		return fmt.Errorf("failed to update group memberships for identity: %w", err)
+	}
+
+	// If memberships changed, trigger reconciliation for this user
+	if membershipsChanged {
+		if err := c.storageClient.Create(ctx, &v1.UserRoleChange{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.UserRoleChangePrefix,
+				Namespace:    system.DefaultNamespace,
+			},
+			Spec: v1.UserRoleChangeSpec{
+				UserID: identity.UserID,
+			},
+		}); err != nil {
+			log.Warnf("failed to create user role change event for user %d: %v", identity.UserID, err)
+			// Don't fail authentication - membership update succeeded
+		}
 	}
 
 	return nil
 }
 
 // ensureGroupMemberships ensures the Identity is a member of the groups it references.
-func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identity *types.Identity) error {
+// Returns true if memberships changed (user joined or left any groups).
+func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identity *types.Identity) (bool, error) {
 	// Get the existing memberships for this identity
 	var memberships []types.GroupMemberships
 	if err := tx.WithContext(ctx).
@@ -208,7 +261,7 @@ func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identi
 		Where("group_memberships.user_id = ?", identity.UserID).
 		Where("groups.auth_provider_namespace = ? AND groups.auth_provider_name = ?", identity.AuthProviderNamespace, identity.AuthProviderName).
 		Find(&memberships).Error; err != nil {
-		return fmt.Errorf("failed to get existing group memberships: %w", err)
+		return false, fmt.Errorf("failed to get existing group memberships: %w", err)
 	}
 
 	existingMemberships := make(map[string]types.GroupMemberships, len(memberships))
@@ -233,7 +286,7 @@ func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identi
 	// Insert new memberships
 	if len(toInsert) > 0 {
 		if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&toInsert).Error; err != nil {
-			return fmt.Errorf("failed to create group memberships: %w", err)
+			return false, fmt.Errorf("failed to create group memberships: %w", err)
 		}
 	}
 
@@ -245,11 +298,13 @@ func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identi
 	if len(toDelete) > 0 {
 		// Delete memberships that are no longer in the identity's auth provider groups
 		if err := tx.WithContext(ctx).Delete(&toDelete).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return fmt.Errorf("failed to delete group memberships: %w", err)
+			return false, fmt.Errorf("failed to delete group memberships: %w", err)
 		}
 	}
 
-	return nil
+	// Return true if any memberships were added or removed
+	membershipsChanged := len(toInsert) > 0 || len(toDelete) > 0
+	return membershipsChanged, nil
 }
 
 // deleteGroupMembershipsForUser deletes all group memberships for the given user.
