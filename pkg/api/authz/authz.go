@@ -94,7 +94,6 @@ var (
 		"/api/user-default-role-settings",
 		"/api/setup/",
 		"/api/k8s-settings",
-		"/api/identities/",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,

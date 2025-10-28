@@ -1,11 +1,7 @@
 //nolint:revive
 package types
 
-import (
-	"time"
-
-	types2 "github.com/obot-platform/obot/apiclient/types"
-)
+import "time"
 
 type Identity struct {
 	AuthProviderName      string    `json:"authProviderName" gorm:"primaryKey;index:idx_user_auth_id"`
@@ -34,16 +30,4 @@ func (i Identity) GetAuthProviderGroupIDs() []string {
 	}
 
 	return ids
-}
-
-func ConvertIdentity(id Identity) types2.Identity {
-	return types2.Identity{
-		AuthProviderName:      id.AuthProviderName,
-		AuthProviderNamespace: id.AuthProviderNamespace,
-		ProviderUsername:      id.ProviderUsername,
-		ProviderUserID:        id.ProviderUserID,
-		Email:                 id.Email,
-		UserID:                id.UserID,
-		IconURL:               id.IconURL,
-	}
 }
