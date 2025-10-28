@@ -2,7 +2,7 @@
 	import { autoHeight } from '$lib/actions/textarea.js';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { Info, LoaderCircle } from 'lucide-svelte';
+	import { Info, LoaderCircle, Lock } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import { profile } from '$lib/stores/index.js';
 	import { AdminService } from '$lib/services';
@@ -107,98 +107,96 @@
 						</div>
 					</div>
 				{/if}
-				<div class="flex flex-col gap-1">
-					<div class="paper mt-1">
-						<div>
-							<h2 class="text-lg font-semibold">Pod Affinity</h2>
-							<p>Define pod affinity and anti-affinity rules to control pod placement on nodes.</p>
-						</div>
-						<div class="flex flex-col gap-1">
-							<label class="text-sm" for="affinity">Affinity Configuration</label>
-							<textarea
-								id="affinity"
-								rows={6}
-								use:autoHeight
-								bind:value={k8sSettings.affinity}
-								class="text-input-filled dark:bg-black"
-								disabled={readonly}
-							></textarea>
-						</div>
+				<div class="paper mt-1">
+					<div>
+						{@render headerContent('Pod Affinity')}
+						<p class="text-sm">
+							Define pod affinity and anti-affinity rules to control pod placement on nodes.
+						</p>
 					</div>
-					<div class="paper mt-1">
-						<div>
-							<h2 class="text-xl font-semibold">Tolerations</h2>
-							<p>Allow pods to schedule onto nodes with matching taints.</p>
-						</div>
-						<div class="flex flex-col gap-1">
-							<label class="text-sm" for="tolerations">Tolerations Configuration</label>
-							<textarea
-								id="tolerations"
-								rows={6}
-								use:autoHeight
-								bind:value={k8sSettings.tolerations}
-								class="text-input-filled dark:bg-black"
-								disabled={readonly}
-							></textarea>
-						</div>
+					<div class="flex flex-col gap-1">
+						<label class="text-sm" for="affinity">Affinity Configuration</label>
+						<textarea
+							id="affinity"
+							rows={6}
+							use:autoHeight
+							bind:value={k8sSettings.affinity}
+							class="text-input-filled dark:bg-black"
+							disabled={readonly}
+						></textarea>
 					</div>
 				</div>
-				<div class="flex flex-col gap-1">
-					<h2 class="text-xl font-semibold">Resource Limits & Requests</h2>
-					<p>Set CPU memory requests and limits in the deployment.</p>
+				<div class="paper mt-1">
+					<div>
+						{@render headerContent('Tolerations')}
+						<p class="text-sm">Allow pods to schedule onto nodes with matching taints.</p>
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="text-sm" for="tolerations">Tolerations Configuration</label>
+						<textarea
+							id="tolerations"
+							rows={6}
+							use:autoHeight
+							bind:value={k8sSettings.tolerations}
+							class="text-input-filled dark:bg-black"
+							disabled={readonly}
+						></textarea>
+					</div>
+				</div>
+				<div class="paper mt-1">
+					<div>
+						{@render headerContent('Resource Limits & Requests')}
+						<p class="text-sm">Set CPU memory requests and limits in the deployment.</p>
+					</div>
 
-					<div class="paper mt-1">
-						<h3 class="text-lg font-semibold">CPU Settings</h3>
-						<div class="flex gap-4">
-							<div class="flex flex-1 flex-col gap-1">
-								<label class="input-label" for="description">Request</label>
-								<input
-									type="text"
-									id="description"
-									bind:value={resourceInfo.requests.cpu}
-									class="text-input-filled dark:bg-black"
-									disabled={readonly}
-								/>
-								<span class="input-description">Minimum CPU guaranteed (e.g. 500m, 1, 2)</span>
-							</div>
-							<div class="flex flex-1 flex-col gap-1">
-								<label class="input-label" for="description">Limit</label>
-								<input
-									type="text"
-									id="description"
-									bind:value={resourceInfo.limits.cpu}
-									class="text-input-filled dark:bg-black"
-									disabled={readonly}
-								/>
-								<span class="input-description">Maximum CPU allowed (e.g. 1000m, 2, 4)</span>
-							</div>
+					<h3 class="text-lg font-semibold">CPU Settings</h3>
+					<div class="flex gap-4">
+						<div class="flex flex-1 flex-col gap-1">
+							<label class="input-label" for="description">Request</label>
+							<input
+								type="text"
+								id="description"
+								bind:value={resourceInfo.requests.cpu}
+								class="text-input-filled dark:bg-black"
+								disabled={readonly}
+							/>
+							<span class="input-description">Minimum CPU guaranteed (e.g. 500m, 1, 2)</span>
+						</div>
+						<div class="flex flex-1 flex-col gap-1">
+							<label class="input-label" for="description">Limit</label>
+							<input
+								type="text"
+								id="description"
+								bind:value={resourceInfo.limits.cpu}
+								class="text-input-filled dark:bg-black"
+								disabled={readonly}
+							/>
+							<span class="input-description">Maximum CPU allowed (e.g. 1000m, 2, 4)</span>
 						</div>
 					</div>
-					<div class="paper mt-1">
-						<h3 class="text-lg font-semibold">Memory Settings</h3>
-						<div class="flex gap-4">
-							<div class="flex flex-1 flex-col gap-1">
-								<label class="input-label" for="description">Request</label>
-								<input
-									type="text"
-									id="description"
-									bind:value={resourceInfo.requests.memory}
-									class="text-input-filled dark:bg-black"
-									disabled={readonly}
-								/>
-								<span class="input-description">Minimum memory guaranteed (e.g. 256Mi, 1Gi)</span>
-							</div>
-							<div class="flex flex-1 flex-col gap-1">
-								<label class="input-label" for="description">Limit</label>
-								<input
-									type="text"
-									id="description"
-									bind:value={resourceInfo.limits.memory}
-									class="text-input-filled dark:bg-black"
-									disabled={readonly}
-								/>
-								<span class="input-description">Maximum memory allowed (e.g. 1Gi, 4Gi)</span>
-							</div>
+					<h3 class="text-lg font-semibold">Memory Settings</h3>
+					<div class="flex gap-4">
+						<div class="flex flex-1 flex-col gap-1">
+							<label class="input-label" for="description">Request</label>
+							<input
+								type="text"
+								id="description"
+								bind:value={resourceInfo.requests.memory}
+								class="text-input-filled dark:bg-black"
+								disabled={readonly}
+							/>
+							<span class="input-description">Minimum memory guaranteed (e.g. 256Mi, 1Gi)</span>
+						</div>
+						<div class="flex flex-1 flex-col gap-1">
+							<label class="input-label" for="description">Limit</label>
+							<input
+								type="text"
+								id="description"
+								bind:value={resourceInfo.limits.memory}
+								class="text-input-filled dark:bg-black"
+								disabled={readonly}
+							/>
+							<span class="input-description">Maximum memory allowed (e.g. 1Gi, 4Gi)</span>
 						</div>
 					</div>
 				</div>
@@ -244,6 +242,17 @@
 		</div>
 	</div>
 </Layout>
+
+{#snippet headerContent(title: string)}
+	<h2 class="text-lg font-semibold">
+		{title}
+		{#if k8sSettings?.setViaHelm}
+			<span class="pill-rounded nowrap font-light">
+				<Lock class="size-3" /> Helm-Deployed
+			</span>
+		{/if}
+	</h2>
+{/snippet}
 
 <svelte:head>
 	<title>Obot | Chat Configuration</title>

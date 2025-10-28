@@ -420,11 +420,11 @@
 					/>
 				{/if}
 				<h1 class="text-2xl font-semibold capitalize">{entry.manifest.name || 'Unknown'}</h1>
-				<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
+				<div class="pill-rounded">
 					{type === 'single' ? 'Single User' : type === 'multi' ? 'Multi-User' : 'Remote'}
 				</div>
 				{#if registry}
-					<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
+					<div class="pill-rounded">
 						{registry}
 					</div>
 				{/if}
