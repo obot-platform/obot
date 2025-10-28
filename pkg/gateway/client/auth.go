@@ -43,13 +43,23 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}
 
 	extra := resp.User.GetExtra()
-	extra["auth_provider_groups"] = identity.GetAuthProviderGroupIDs()
+	authGroupIDs := identity.GetAuthProviderGroupIDs()
+	extra["auth_provider_groups"] = authGroupIDs
+
+	// Resolve effective role by merging individual + group roles
+	effectiveRole, err := u.client.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs)
+	if err != nil {
+		// Log error but don't fail authentication - fall back to individual role
+		// Note: In production, this would use a proper logger
+		// TODO(g-linville): actually log something here
+		effectiveRole = gatewayUser.Role
+	}
 
 	resp.User = &user.DefaultInfo{
 		Name:   gatewayUser.Username,
 		UID:    fmt.Sprintf("%d", gatewayUser.ID),
 		Extra:  extra,
-		Groups: append(resp.User.GetGroups(), gatewayUser.Role.Groups()...),
+		Groups: append(resp.User.GetGroups(), effectiveRole.Groups()...), // TODO(g-linville): dedupe?
 	}
 	return resp, true, nil
 }

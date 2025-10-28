@@ -78,6 +78,7 @@ func (db *DB) AutoMigrate() (err error) {
 		types.Identity{},
 		types.Group{},
 		types.GroupMemberships{},
+		types.GroupRoleAssignment{},
 		types.APIActivity{},
 		types.Image{},
 		types.RunState{},

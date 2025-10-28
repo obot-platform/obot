@@ -44,7 +44,15 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		}
 	}
 
-	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name))
+	// Get user's auth groups and compute effective role
+	authGroupStrs := apiContext.User.GetExtra()["auth_provider_groups"]
+	effectiveRole, err := apiContext.GatewayClient.ResolveUserEffectiveRole(apiContext.Context(), user, authGroupStrs)
+	if err != nil {
+		pkgLog.Warnf("failed to resolve effective role for user %s: %v", user.Username, err)
+		effectiveRole = user.Role
+	}
+
+	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name, effectiveRole))
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {
@@ -92,7 +100,20 @@ func (s *Server) getUser(apiContext api.Context) error {
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
-	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, ""))
+	// Get user's groups and compute effective role
+	groupIDs, err := apiContext.GatewayClient.ListGroupIDsForUser(apiContext.Context(), user.ID)
+	if err != nil {
+		pkgLog.Warnf("failed to get groups for user %s: %v", user.Username, err)
+		groupIDs = nil
+	}
+
+	effectiveRole, err := apiContext.GatewayClient.ResolveUserEffectiveRole(apiContext.Context(), user, groupIDs)
+	if err != nil {
+		pkgLog.Warnf("failed to resolve effective role for user %s: %v", user.Username, err)
+		effectiveRole = user.Role
+	}
+
+	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole))
 }
 
 func (s *Server) updateUser(apiContext api.Context) error {
