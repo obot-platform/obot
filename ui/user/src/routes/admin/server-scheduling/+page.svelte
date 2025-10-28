@@ -6,7 +6,6 @@
 	import { fade } from 'svelte/transition';
 	import { profile } from '$lib/stores/index.js';
 	import { AdminService } from '$lib/services';
-	import { limitShift } from '@floating-ui/dom';
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();
@@ -15,7 +14,15 @@
 	let saving = $state(false);
 	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
-	let resourceInfo = $derived(convertResourcesForInput(data.k8sSettings?.resources));
+	let resourceInfo = $state(convertResourcesForInput(data.k8sSettings?.resources));
+
+	function stripQuotes(value: string): string {
+		// Remove double quotes if the entire value is wrapped in them
+		if (value.startsWith('"') && value.endsWith('"')) {
+			return value.slice(1, -1);
+		}
+		return value;
+	}
 
 	function convertResourcesForInput(resources?: string) {
 		if (!resources)
@@ -35,12 +42,12 @@
 		const requestsIndex = segments.findIndex((segment) => segment.startsWith('requests:'));
 		return {
 			requests: {
-				cpu: segments[requestsIndex + 1]?.split('cpu:')[1]?.trim() ?? '',
-				memory: segments[requestsIndex + 2]?.split('memory:')[1]?.trim() ?? ''
+				cpu: stripQuotes(segments[requestsIndex + 1]?.split('cpu:')[1]?.trim() ?? ''),
+				memory: stripQuotes(segments[requestsIndex + 2]?.split('memory:')[1]?.trim() ?? '')
 			},
 			limits: {
-				cpu: segments[limitsIndex + 1]?.split('cpu:')[1]?.trim() ?? '',
-				memory: segments[limitsIndex + 2]?.split('memory:')[1]?.trim() ?? ''
+				cpu: stripQuotes(segments[limitsIndex + 1]?.split('cpu:')[1]?.trim() ?? ''),
+				memory: stripQuotes(segments[limitsIndex + 2]?.split('memory:')[1]?.trim() ?? '')
 			}
 		};
 	}
@@ -64,6 +71,7 @@
 			});
 			prevK8sSettings = k8sSettings;
 			k8sSettings = response;
+			resourceInfo = convertResourcesForInput(response.resources);
 			showSaved = true;
 			timeout = setTimeout(() => {
 				showSaved = false;
@@ -75,6 +83,10 @@
 			saving = false;
 		}
 	}
+
+	$effect(() => {
+		console.log(k8sSettings);
+	});
 </script>
 
 <Layout classes={{ container: 'pb-0' }}>
@@ -110,8 +122,7 @@
 								bind:value={k8sSettings.affinity}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
-							>
-							</textarea>
+							></textarea>
 						</div>
 					</div>
 					<div class="paper mt-1">
@@ -128,8 +139,7 @@
 								bind:value={k8sSettings.tolerations}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
-							>
-							</textarea>
+							></textarea>
 						</div>
 					</div>
 				</div>
@@ -192,43 +202,44 @@
 						</div>
 					</div>
 				</div>
-			{/if}
 
-			{#if !isAdminReadonly}
-				<div
-					class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
-				>
-					{#if showSaved}
-						<span
-							in:fade={{ duration: 200 }}
-							class="flex min-h-10 items-center px-4 text-sm font-extralight text-gray-500"
-						>
-							Your changes have been saved.
-						</span>
-					{/if}
-
-					<button
-						class="button hover:bg-surface3 flex items-center gap-1 bg-transparent"
-						onclick={() => {
-							k8sSettings = prevK8sSettings;
-						}}
+				{#if !readonly}
+					<div
+						class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
 					>
-						Reset
-					</button>
-					<button
-						class="button-primary flex items-center gap-1"
-						disabled={saving}
-						onclick={handleSave}
-					>
-						{#if saving}
-							<LoaderCircle class="size-4 animate-spin" />
-						{:else}
-							Save
+						{#if showSaved}
+							<span
+								in:fade={{ duration: 200 }}
+								class="flex min-h-10 items-center px-4 text-sm font-extralight text-gray-500"
+							>
+								Your changes have been saved.
+							</span>
 						{/if}
-					</button>
-				</div>
-			{:else}
-				<div class="h-4"></div>
+
+						<button
+							class="button hover:bg-surface3 flex items-center gap-1 bg-transparent"
+							onclick={() => {
+								k8sSettings = prevK8sSettings;
+								resourceInfo = convertResourcesForInput(prevK8sSettings?.resources);
+							}}
+						>
+							Reset
+						</button>
+						<button
+							class="button-primary flex items-center gap-1"
+							disabled={saving}
+							onclick={handleSave}
+						>
+							{#if saving}
+								<LoaderCircle class="size-4 animate-spin" />
+							{:else}
+								Save
+							{/if}
+						</button>
+					</div>
+				{:else}
+					<div class="h-4"></div>
+				{/if}
 			{/if}
 		</div>
 	</div>

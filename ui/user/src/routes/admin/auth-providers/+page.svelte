@@ -84,7 +84,12 @@
 
 	$effect(() => {
 		const configuredAuthProvider = authProviders.find((provider) => provider.configured);
-		if (configuredAuthProvider && !setupLoading && !setupTempLoginUrl) {
+		if (
+			configuredAuthProvider &&
+			!setupLoading &&
+			!setupTempLoginUrl &&
+			profile.current.isBootstrapUser?.()
+		) {
 			configuringAuthProvider = configuredAuthProvider;
 			handleOwnerSetup();
 		}

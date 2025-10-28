@@ -9,7 +9,14 @@
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import { formatTimeAgo } from '$lib/time';
-	import { AlertTriangle, Info, LoaderCircle, RotateCcw, RefreshCw } from 'lucide-svelte';
+	import {
+		AlertTriangle,
+		Info,
+		LoaderCircle,
+		RotateCcw,
+		RefreshCw,
+		CircleFadingArrowUp
+	} from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import Table from '../table/Table.svelte';
 	import Confirm from '../Confirm.svelte';
@@ -48,6 +55,7 @@
 	}: Props = $props();
 
 	let listK8sInfo = $state<Promise<K8sServerDetail>>();
+	let listK8sSettingsStatus = $state<Promise<any>>();
 	let revealServerValues = $state<Promise<Record<string, string>>>();
 	let messages = $state<string[]>([]);
 	let error = $state<string>();
@@ -56,6 +64,8 @@
 	let restarting = $state(false);
 	let refreshingEvents = $state(false);
 	let refreshingLogs = $state(false);
+	let showUpdateK8sSettingsConfirm = $state(false);
+	let updatingK8sSettings = $state(false);
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 
 	let logsUrl = $derived.by(() => {
@@ -69,6 +79,7 @@
 	});
 
 	const eventStream = new EventStreamService<string>();
+	const dontLogErrors = true;
 
 	function isScrolledToBottom(element: HTMLElement): boolean {
 		return Math.abs(element.scrollHeight - element.clientHeight - element.scrollTop) < 10;
@@ -94,10 +105,31 @@
 						entityId,
 						catalogEntry.id,
 						mcpServerId,
-						{ dontLogErrors: true }
+						{ dontLogErrors }
 					)
-				: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors: true })
-			: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors: true });
+				: ChatService.getWorkspaceK8sServerDetail(entityId, mcpServerId, { dontLogErrors })
+			: AdminService.getK8sServerDetail(mcpServerId, { dontLogErrors });
+	}
+
+	function getK8sSettingsStatus() {
+		return entity === 'workspace' && entityId
+			? catalogEntry?.id
+				? ChatService.getWorkspaceCatalogEntryServerK8sSettingsStatus(
+						entityId,
+						catalogEntry.id,
+						mcpServerId,
+						{
+							dontLogErrors
+						}
+					)
+				: ChatService.getWorkspaceK8sServerStatus(entityId, mcpServerId, {
+						dontLogErrors
+					})
+			: catalogEntry?.id
+				? AdminService.getMCPCatalogServerK8sSettingsStatus(catalogEntry.id, mcpServerId, {
+						dontLogErrors
+					})
+				: AdminService.getK8sSettingsStatus(mcpServerId, { dontLogErrors });
 	}
 
 	onMount(() => {
@@ -107,6 +139,7 @@
 				})
 			: Promise.resolve<Record<string, string>>({});
 		listK8sInfo = getK8sInfo();
+		listK8sSettingsStatus = getK8sSettingsStatus();
 		eventStream.connect(logsUrl, {
 			onMessage: (data) => {
 				messages = [...messages, data];
@@ -213,6 +246,28 @@
 			}
 		];
 		return details;
+	}
+
+	async function handleRedeployWithK8sSettings() {
+		updatingK8sSettings = true;
+		try {
+			await (entity === 'workspace' && entityId
+				? catalogEntry?.id
+					? ChatService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
+							entityId,
+							catalogEntry.id,
+							mcpServerId
+						)
+					: ChatService.redeployWorkspaceK8sServerWithK8sSettings(entityId, mcpServerId)
+				: catalogEntry?.id
+					? AdminService.redeployMCPCatalogServerWithK8sSettings(catalogEntry.id, mcpServerId)
+					: AdminService.redeployWithK8sSettings(mcpServerId));
+		} catch (err) {
+			console.error('Failed to update Kubernetes settings:', err);
+		} finally {
+			updatingK8sSettings = false;
+			showUpdateK8sSettingsConfirm = false;
+		}
 	}
 
 	function compileRevealedValues(
@@ -496,6 +551,23 @@
 						<RotateCcw class="size-3" />
 						Restart
 					</button>
+				{:else if id === 'kubernetes_deployments' && !readonly}
+					{#await listK8sSettingsStatus}
+						<div class="flex w-full justify-center">
+							<LoaderCircle class="size-6 animate-spin" />
+						</div>
+					{:then k8sSettingsStatus}
+						{#if k8sSettingsStatus?.needsK8sUpdate}
+							<button
+								class="flex items-center gap-2 rounded-md bg-yellow-500/75 px-3 py-1.5 text-xs font-medium text-white hover:bg-yellow-500 disabled:opacity-50"
+								disabled={readonly}
+								onclick={() => (showUpdateK8sSettingsConfirm = true)}
+							>
+								<CircleFadingArrowUp class="size-3" />
+								Redeploy with Latest Settings
+							</button>
+						{/if}
+					{/await}
 				{/if}
 			</div>
 		</div>
@@ -525,4 +597,12 @@
 	onsuccess={handleRestart}
 	oncancel={() => (showRestartConfirm = false)}
 	loading={restarting}
+/>
+
+<Confirm
+	show={showUpdateK8sSettingsConfirm}
+	msg="Are you sure you want to redeploy the server with the latest Kubernetes? This will cause a brief service interruption."
+	onsuccess={handleRedeployWithK8sSettings}
+	oncancel={() => (showUpdateK8sSettingsConfirm = false)}
+	loading={updatingK8sSettings}
 />
