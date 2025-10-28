@@ -281,7 +281,7 @@
 				bind:this={nav}
 			>
 				<div class="flex h-16 flex-shrink-0 items-center px-2">
-					<BetaLogo enterprise />
+					<BetaLogo enterprise={version.current.enterprise} />
 				</div>
 
 				<div
