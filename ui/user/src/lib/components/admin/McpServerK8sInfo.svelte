@@ -263,6 +263,7 @@
 				: catalogEntry?.id
 					? AdminService.redeployMCPCatalogServerWithK8sSettings(catalogEntry.id, mcpServerId)
 					: AdminService.redeployWithK8sSettings(mcpServerId));
+			listK8sSettingsStatus = getK8sSettingsStatus();
 		} catch (err) {
 			console.error('Failed to update Kubernetes settings:', err);
 		} finally {
