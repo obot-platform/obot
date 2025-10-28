@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -67,20 +66,11 @@ func (s *Server) getUsers(apiContext api.Context) error {
 func (s *Server) encryptAllUsersAndIdentities(apiContext api.Context) error {
 	force := apiContext.URL.Query().Get("force") == "true"
 
-	users, err := apiContext.GatewayClient.Users(apiContext.Context(), types.NewUserQuery(apiContext.URL.Query()))
-	if err != nil {
-		return fmt.Errorf("failed to get users: %v", err)
+	if err := apiContext.GatewayClient.EncryptUsers(apiContext.Context(), force); err != nil {
+		return fmt.Errorf("failed to encrypt users: %v", err)
 	}
 
-	for _, user := range users {
-		if force || !user.Encrypted {
-			if _, err = apiContext.GatewayClient.UpdateUser(apiContext.Context(), apiContext.UserIsAdmin(), &user, strconv.FormatUint(uint64(user.ID), 10)); err != nil {
-				return fmt.Errorf("failed to encrypt user with id %d: %v", user.ID, err)
-			}
-		}
-	}
-
-	if err = apiContext.GatewayClient.EncryptIdentities(apiContext.Context(), force); err != nil {
+	if err := apiContext.GatewayClient.EncryptIdentities(apiContext.Context(), force); err != nil {
 		return fmt.Errorf("failed to encrypt identities: %v", err)
 	}
 
