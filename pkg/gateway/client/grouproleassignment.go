@@ -41,7 +41,7 @@ func (c *Client) CreateGroupRoleAssignment(ctx context.Context, groupName string
 	}
 
 	if err := c.db.WithContext(ctx).Create(assignment).Error; err != nil {
-		return nil, fmt.Errorf("failed to create group role assignment: %w", err)
+		return nil, err
 	}
 
 	return assignment, nil

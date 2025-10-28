@@ -1,11 +1,13 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -82,10 +84,8 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 	)
 	if err != nil {
 		// Check for unique constraint violation
-		// TODO(g-linville): see if these can be replaces with proper errors.Is/As checks
-		if strings.Contains(err.Error(), "UNIQUE constraint") ||
-			strings.Contains(err.Error(), "duplicate key") ||
-			strings.Contains(err.Error(), "unique constraint") {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return types2.NewErrHTTP(http.StatusConflict,
 				fmt.Sprintf("group role assignment for group %q already exists", req.GroupName))
 		}
