@@ -753,16 +753,6 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 	return nil
 }
 
-func (k *kubernetesBackend) getDeployment(ctx context.Context, sessionID string) (*appsv1.Deployment, error) {
-	var deployment appsv1.Deployment
-	err := k.client.Get(ctx, kclient.ObjectKey{
-		Namespace: k.mcpNamespace,
-		Name:      sessionID,
-	}, &deployment)
-
-	return &deployment, err
-}
-
 // ComputeK8sSettingsHash computes a hash of K8s settings for change detection
 func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 	var buf bytes.Buffer
