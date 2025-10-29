@@ -492,3 +492,28 @@ export interface MCPFilter extends MCPFilterManifest {
 	type: string;
 	hasSecret: boolean;
 }
+
+export interface K8sSettings {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	type: string;
+	affinity?: string;
+	tolerations?: string;
+	resources?: string;
+	setViaHelm?: boolean;
+}
+
+export interface K8sSettingsManifest {
+	affinity?: string;
+	tolerations?: string;
+	resources?: string;
+}
+
+export interface ServerK8sSettings {
+	needsK8sUpdate: boolean;
+	currentSettings: K8sSettings;
+	deployedSettingsHash: string;
+}
