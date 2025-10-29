@@ -244,34 +244,6 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 	return sm.backend.restartServer(ctx, server.Scope)
 }
 
-// CheckK8sSettingsStatus checks if a server's deployment uses current K8s settings.
-// Returns true if the server needs to be redeployed with new K8s settings.
-func (sm *SessionManager) CheckK8sSettingsStatus(ctx context.Context, serverConfig ServerConfig) (needsUpdate bool, deployedHash string, err error) {
-	// Only Kubernetes backend supports this
-	kb, ok := sm.backend.(*kubernetesBackend)
-	if !ok {
-		return false, "", &ErrNotSupportedByBackend{Feature: "K8s settings check", Backend: "non-kubernetes"}
-	}
-
-	// Get current K8s settings
-	currentSettings, err := kb.getK8sSettings(ctx)
-	if err != nil {
-		return false, "", fmt.Errorf("failed to get current K8s settings: %w", err)
-	}
-
-	// Get deployment
-	deployment, err := kb.getDeployment(ctx, serverConfig.Scope)
-	if err != nil {
-		return false, "", fmt.Errorf("failed to get deployment: %w", err)
-	}
-
-	// Compare hashes
-	deployedHash = deployment.Annotations["obot.ai/k8s-settings-hash"]
-	currentHash := ComputeK8sSettingsHash(currentSettings)
-
-	return deployedHash != currentHash, deployedHash, nil
-}
-
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
 	if server.Runtime == otypes.RuntimeRemote {
 		if server.URL == "" {

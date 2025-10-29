@@ -2139,13 +2139,10 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 		return types.NewErrBadRequest("K8s settings check is not supported for remote servers")
 	}
 
-	// Check status
-	needsUpdate, deployedHash, err := m.mcpSessionManager.CheckK8sSettingsStatus(req.Context(), serverConfig)
-	if err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
-			return types.NewErrBadRequest("K8s settings check is only supported for Kubernetes runtime")
-		}
-		return err
+	// Check if server has K8sSettingsHash in Status (only populated for Kubernetes runtime)
+	deployedHash := server.Status.K8sSettingsHash
+	if deployedHash == "" {
+		return types.NewErrBadRequest("K8s settings check is only supported for Kubernetes runtime")
 	}
 
 	// Get current K8s settings
@@ -2156,6 +2153,12 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 	}, &k8sSettings); err != nil {
 		return err
 	}
+
+	// Compute current K8s settings hash
+	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+
+	// Compare deployed hash with current hash
+	needsUpdate := deployedHash != currentHash
 
 	currentSettings, err := convertK8sSettings(k8sSettings)
 	if err != nil {
@@ -2209,14 +2212,24 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		return types.NewErrBadRequest("Redeployment is not supported for remote servers")
 	}
 
-	// Check if server actually needs update
-	needsUpdate, _, err := m.mcpSessionManager.CheckK8sSettingsStatus(req.Context(), serverConfig)
-	if err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
-			return types.NewErrBadRequest("Redeployment is only supported for Kubernetes runtime")
-		}
+	// Check if server has K8sSettingsHash in Status (only populated for Kubernetes runtime)
+	deployedHash := server.Status.K8sSettingsHash
+	if deployedHash == "" {
+		return types.NewErrBadRequest("Redeployment is only supported for Kubernetes runtime")
+	}
+
+	// Get current K8s settings to compute current hash
+	var k8sSettings v1.K8sSettings
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
+		Namespace: req.Namespace(),
+		Name:      system.K8sSettingsName,
+	}, &k8sSettings); err != nil {
 		return err
 	}
+
+	// Compute current K8s settings hash and check if update is needed
+	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+	needsUpdate := deployedHash != currentHash
 
 	if !needsUpdate {
 		return types.NewErrBadRequest("Server is already using the current K8s settings")
