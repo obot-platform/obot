@@ -54,11 +54,18 @@
 	}
 
 	afterNavigate(() => {
-		const routesToShowChatLink = ['/mcp-servers', '/profile', '/mcp-publisher'];
+		const routesToShowChatLink = [
+			'/mcp-servers',
+			'/profile',
+			'/mcp-publisher',
+			'/mcp-publisher/access-control',
+			'/mcp-publisher/audit-logs',
+			'/mcp-publisher/usage'
+		];
 		inAdminRoute = window.location.pathname.includes('/admin');
 		showChatLink = routesToShowChatLink.includes(window.location.pathname) || inAdminRoute;
 		showMyMcpServersLink = window.location.pathname !== '/mcp-servers';
-		showMcpPublisherLink = window.location.pathname !== '/mcp-publisher';
+		showMcpPublisherLink = !window.location.pathname.startsWith('/mcp-publisher');
 	});
 
 	function navigateTo(path: string, asNewTab?: boolean) {
