@@ -2290,8 +2290,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateInCatalog(req api.Context) error
 	// List all servers in the catalog
 	var servers v1.MCPServerList
 	if err := req.List(&servers, &kclient.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("spec.mcpCatalogID", catalogID),
-		Namespace:     req.Namespace(),
+		Namespace: req.Namespace(),
 	}); err != nil {
 		return fmt.Errorf("failed to list servers: %w", err)
 	}
@@ -2299,6 +2298,18 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateInCatalog(req api.Context) error
 	// Filter servers that need K8s updates and build lightweight response
 	var serversNeedingUpdate []types.MCPServerNeedingK8sUpdate
 	for _, server := range servers.Items {
+		serverCatalogID := server.Spec.MCPCatalogID
+		if serverCatalogID == "" && server.Spec.MCPServerCatalogEntryName != "" {
+			var entry v1.MCPServerCatalogEntry
+			if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err == nil {
+				serverCatalogID = entry.Spec.MCPCatalogName
+			}
+		}
+
+		if serverCatalogID != catalogID {
+			continue
+		}
+
 		// Skip servers without K8s settings hash (non-K8s runtimes)
 		if server.Status.K8sSettingsHash == "" {
 			continue
