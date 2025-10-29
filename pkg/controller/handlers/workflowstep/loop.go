@@ -47,9 +47,16 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 	dataStep := defineDataStep(rootStep, fileName)
 	objects = append(objects, dataStep)
 
-	if _, errMsg, state, err := GetStateFromSteps(req.Ctx, req.Client, rootStep.Spec.WorkflowGeneration, dataStep); err != nil {
+	_, errMsg, warning, state, err := GetStateFromSteps(req.Ctx, req.Client, rootStep.Spec.WorkflowGeneration, dataStep)
+	if err != nil {
 		return err
-	} else if state.IsBlocked() {
+	}
+
+	if warning != "" && rootStep.Status.RunMessage == "" {
+		rootStep.Status.RunMessage = warning
+	}
+
+	if state.IsBlocked() {
 		rootStep.Status.State = state
 		rootStep.Status.Error = errMsg
 		return nil
@@ -79,9 +86,13 @@ func (h *Handler) RunLoop(req router.Request, _ router.Response) (err error) {
 		}
 	}
 
-	runName, errMsg, newState, err := GetStateFromSteps(req.Ctx, req.Client, rootStep.Spec.WorkflowGeneration, objects...)
+	runName, errMsg, warning, newState, err := GetStateFromSteps(req.Ctx, req.Client, rootStep.Spec.WorkflowGeneration, objects...)
 	if err != nil {
 		return err
+	}
+
+	if warning != "" && rootStep.Status.RunMessage == "" {
+		rootStep.Status.RunMessage = warning
 	}
 
 	if newState.IsBlocked() {

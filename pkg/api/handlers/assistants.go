@@ -101,6 +101,9 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 	defer resp.Close()
 
 	req.ResponseWriter.Header().Set("X-Obot-Thread-Id", resp.Thread.Name)
+	if resp.Message != "" {
+		resp.Message = "Your chat message was sent successfully. " + resp.Message
+	}
 	return req.WriteCreated(map[string]string{
 		"threadID": resp.Thread.Name,
 		"runID":    resp.Run.Name,

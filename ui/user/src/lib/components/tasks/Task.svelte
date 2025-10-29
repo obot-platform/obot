@@ -5,9 +5,17 @@
 		type Messages,
 		type Project,
 		type Task,
-		type TaskStep
+		type TaskStep,
+		type TaskRun
 	} from '$lib/services';
-	import { ChevronRight, MessageCircle, MessageCircleOff, Trash2, X } from 'lucide-svelte/icons';
+	import {
+		ChevronRight,
+		MessageCircle,
+		MessageCircleOff,
+		Trash2,
+		TriangleAlert,
+		X
+	} from 'lucide-svelte/icons';
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import Steps from '$lib/components/tasks/Steps.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -65,11 +73,13 @@
 	let observer: IntersectionObserver;
 
 	let taskRun: Task | undefined = $state(undefined);
+	let taskRunData: TaskRun | undefined = $state(undefined);
 
 	$effect(() => {
 		// Load task run data only in readonly mode; so that we can get the correct steps & loop steps related to the current task
 		if (readOnly && project && runID) {
 			getTaskRun(project.assistantID, project.id, task.id, runID).then((res) => {
+				taskRunData = res;
 				taskRun = res.task;
 			});
 		}
@@ -415,6 +425,15 @@
 					</div>
 				{/if}
 			</div>
+			{#if taskRunData?.warning}
+				<div class="notification-alert flex w-full flex-col gap-2">
+					<div class="flex items-center gap-2">
+						<TriangleAlert class="size-6 flex-shrink-0 self-start text-yellow-500" />
+						<p class="my-0.5 flex flex-col text-sm font-semibold">Warning</p>
+					</div>
+					<span class="text-sm font-light break-all">{taskRunData.warning}</span>
+				</div>
+			{/if}
 			<div class="flex w-full justify-center">
 				<div
 					class="flex w-full flex-col gap-4 rounded-xl bg-gray-50 p-4 shadow-inner md:max-w-[1200px] dark:bg-black"

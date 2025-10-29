@@ -89,6 +89,7 @@ func (in *WorkflowExecution) DeleteRefs() []Ref {
 type WorkflowExecutionStatus struct {
 	State              types.WorkflowState     `json:"state,omitempty"`
 	Output             string                  `json:"output,omitempty"`
+	Warning            string                  `json:"warning,omitempty"`
 	Error              string                  `json:"error,omitempty"`
 	ThreadName         string                  `json:"threadName,omitempty"`
 	WorkflowManifest   *types.WorkflowManifest `json:"workflowManifest,omitempty"`

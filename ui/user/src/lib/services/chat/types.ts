@@ -471,6 +471,7 @@ export interface TaskRun {
 	endTime?: string;
 	input?: string;
 	error?: string;
+	warning?: string;
 }
 
 export interface TaskRunList {

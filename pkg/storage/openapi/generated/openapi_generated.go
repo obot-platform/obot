@@ -7796,6 +7796,12 @@ func schema_obot_platform_obot_apiclient_types_TaskRun(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"warning": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata"},
 			},
@@ -9391,6 +9397,12 @@ func schema_obot_platform_obot_apiclient_types_WorkflowExecution(ref common.Refe
 						},
 					},
 					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"warning": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -17002,6 +17014,12 @@ func schema_storage_apis_obotobotai_v1_WorkflowExecutionStatus(ref common.Refere
 							Format: "",
 						},
 					},
+					"warning": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"error": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -17291,6 +17309,12 @@ func schema_storage_apis_obotobotai_v1_WorkflowStepStatus(ref common.ReferenceCa
 						},
 					},
 					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"runMessage": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

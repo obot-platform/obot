@@ -64,6 +64,7 @@ type TaskRun struct {
 	StartTime *Time        `json:"startTime,omitempty"`
 	EndTime   *Time        `json:"endTime,omitempty"`
 	Error     string       `json:"error,omitempty"`
+	Warning   string       `json:"warning,omitempty"`
 }
 
 type TaskRunList List[TaskRun]
