@@ -112,7 +112,7 @@
 					<div class="notification-info p-3 text-sm font-light">
 						<div class="flex items-center gap-2">
 							<Info class="size-6" />
-							<h4 class="font-semibold">Configuration Notes</h4>
+							<p class="text-md font-semibold">Configuration Notes</p>
 						</div>
 						<ul class="list-disc px-8 py-1 text-sm">
 							<li>
