@@ -415,7 +415,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 	}
 
 	if len(renderedAgent.MCPErrors) > 0 {
-		resp.Message = fmt.Sprintf("Your chat message was sent successfully. However, there were errors listing tools for some of the MCP servers:\n\n%s", strings.Join(renderedAgent.MCPErrors, "\n"))
+		resp.Message = fmt.Sprintf("There were errors listing tools for some of the MCP servers:\n\n%s", strings.Join(renderedAgent.MCPErrors, "\n"))
 	}
 
 	return resp, nil

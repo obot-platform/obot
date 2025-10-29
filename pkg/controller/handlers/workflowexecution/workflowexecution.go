@@ -145,9 +145,14 @@ func (h *Handler) Run(req router.Request, _ router.Response) error {
 		steps = append(steps, newStep)
 	}
 
-	_, output, newState, err := workflowstep.GetStateFromSteps(req.Ctx, req.Client, we.Spec.WorkflowGeneration, steps...)
+	_, output, warning, newState, err := workflowstep.GetStateFromSteps(req.Ctx, req.Client, we.Spec.WorkflowGeneration, steps...)
 	if err != nil {
 		return err
+	}
+
+	// Always set the warning if there is one.
+	if warning != "" {
+		we.Status.Warning = warning
 	}
 
 	if newState.IsBlocked() {

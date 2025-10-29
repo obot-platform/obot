@@ -184,7 +184,7 @@ func matchesStepID(step *v1.WorkflowStep, stepID string) bool {
 	return step.Spec.Step.ID == stepID
 }
 
-func GetStateFromSteps[T kclient.Object](ctx context.Context, client kclient.Client, generation int64, steps ...T) (lastRun string, output string, _ types.WorkflowState, _ error) {
+func GetStateFromSteps[T kclient.Object](ctx context.Context, client kclient.Client, generation int64, steps ...T) (lastRun string, output string, warning string, _ types.WorkflowState, _ error) {
 	var (
 		toCheck []*v1.WorkflowStep
 	)
@@ -197,9 +197,9 @@ func GetStateFromSteps[T kclient.Object](ctx context.Context, client kclient.Cli
 		if err := client.Get(ctx, kclient.ObjectKeyFromObject(step), step); apierrors.IsNotFound(err) {
 			toCheck = append(toCheck, nil)
 		} else if err != nil {
-			return "", "", "", err
+			return "", "", "", "", err
 		} else if step.Status.State.IsBlocked() {
-			return "", step.Status.Error, step.Status.State, nil
+			return "", step.Status.Error, step.Status.RunMessage, step.Status.State, nil
 		}
 		toCheck = append(toCheck, step)
 	}
@@ -207,20 +207,20 @@ func GetStateFromSteps[T kclient.Object](ctx context.Context, client kclient.Cli
 	for i, step := range toCheck {
 		if step == nil || step.Status.WorkflowGeneration != generation {
 			if i == 0 {
-				return "", "", types.WorkflowStatePending, nil
+				return "", "", "", types.WorkflowStatePending, nil
 			}
-			return "", "", types.WorkflowStateRunning, nil
+			return "", "", "", types.WorkflowStateRunning, nil
 		}
 		if i == len(steps)-1 && step.Status.State == types.WorkflowStateComplete {
 			var run v1.Run
 			if err := client.Get(ctx, router.Key(step.Namespace, step.Status.LastRunName), &run); err != nil {
-				return "", "", "", err
+				return "", "", "", "", err
 			}
-			return step.Status.LastRunName, run.Status.Output, types.WorkflowStateComplete, nil
+			return step.Status.LastRunName, run.Status.Output, step.Status.RunMessage, types.WorkflowStateComplete, nil
 		}
 	}
 
-	return "", "", types.WorkflowStateRunning, nil
+	return "", "", "", types.WorkflowStateRunning, nil
 }
 
 var replaceRegexp = regexp.MustCompile(`[{},=]+`)
