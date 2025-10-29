@@ -153,7 +153,7 @@
 						{/if}
 						<div class="flex grow flex-col">
 							{#if 'email' in item}
-								<p>{item.email}</p>
+								<p>{item.displayName ?? item.email}</p>
 								<p class="font-light text-gray-400 dark:text-gray-600">
 									{getUserRoleLabel(item.role)}
 								</p>

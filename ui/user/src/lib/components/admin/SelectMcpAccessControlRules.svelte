@@ -92,7 +92,7 @@
 		if (subject.type === 'user') {
 			const user = userMap.get(subject.id);
 			if (!user) return subject.id;
-			return user.email ?? user.username ?? id;
+			return user.displayName ?? user.email ?? user.username ?? id;
 		} else if (subject.type === 'group') {
 			const group = groupMap.get(subject.id);
 			if (!group) return '';
