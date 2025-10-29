@@ -64,30 +64,41 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 
-	$effect(() => {
-		if (profile.current.isBootstrapUser?.() && atLeastOneConfigured) {
-			const handleVisibilityChange = async () => {
-				if (document.visibilityState === 'visible' && !setupLoading && !setupTempLoginUrl) {
-					const configuredAuthProvider = authProviders.find((provider) => provider.configured);
-					configuringAuthProvider = configuredAuthProvider;
-					handleOwnerSetup();
-				}
-			};
-
-			document.addEventListener('visibilitychange', handleVisibilityChange);
-
-			return () => {
-				document.removeEventListener('visibilitychange', handleVisibilityChange);
-			};
-		}
-	});
-
-	$effect(() => {
+	const prepareOwnerSetup = async () => {
 		const configuredAuthProvider = authProviders.find((provider) => provider.configured);
-		if (configuredAuthProvider && !setupLoading && !setupTempLoginUrl) {
+		if (!configuredAuthProvider) return;
+
+		// Only proceed if user is bootstrap user (not yet a real owner) and has a configured provider
+		if (!setupLoading && !setupTempLoginUrl) {
 			configuringAuthProvider = configuredAuthProvider;
 			handleOwnerSetup();
 		}
+	};
+
+	$effect(() => {
+		const isBootstrapUser = profile.current.isBootstrapUser?.();
+		if (!isBootstrapUser) return;
+
+		prepareOwnerSetup();
+	});
+
+	$effect(() => {
+		const isBootstrapUser = profile.current.isBootstrapUser?.();
+		if (!isBootstrapUser) return;
+
+		if (!atLeastOneConfigured) return;
+
+		const handleVisibilityChange = async () => {
+			if (document.visibilityState === 'visible') {
+				prepareOwnerSetup();
+			}
+		};
+
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+
+		return () => {
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		};
 	});
 
 	async function handleOwnerSetup() {
@@ -298,7 +309,7 @@
 		{/if}
 
 		<div class="my-4 flex flex-col gap-2">
-			<a class="group button-auth" href={setupTempLoginUrl}>
+			<a class="button-auth group" href={setupTempLoginUrl}>
 				{#if configuringAuthProvider?.icon}
 					<img
 						class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-gray-600"
