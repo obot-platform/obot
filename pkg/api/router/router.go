@@ -53,7 +53,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler()
-	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
+	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.EphemeralTokenServer, oauthChecker, services.ServerURL)
 	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.EphemeralTokenServer, oauthChecker, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)
@@ -411,7 +411,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/all-mcps/servers/{mcp_server_id}/prompts", mcp.GetPrompts)
 	mux.HandleFunc("GET /api/all-mcps/servers/{mcp_server_id}/prompts/{prompt_name}", mcp.GetPrompt)
 
-	// User-Deployed MCP Servers (single-user and remote)
+	// User-Deployed MCP Servers (single-user, remote, and composite)
 	mux.HandleFunc("GET /api/mcp-servers", mcp.ListServer)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}", mcp.GetServer)
 	mux.HandleFunc("POST /api/mcp-servers", mcp.CreateServer)

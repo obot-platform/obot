@@ -247,6 +247,8 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 		} else {
 			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires remote config", mcpServer.Spec.Manifest.Runtime)
 		}
+	case types.RuntimeComposite:
+		return serverConfig, nil, nil
 	default:
 		return serverConfig, missingRequiredNames, fmt.Errorf("unknown runtime %s", mcpServer.Spec.Manifest.Runtime)
 	}
@@ -292,5 +294,22 @@ func ProjectServerToConfig(tokenService *ephemeral.TokenService, projectMCPServe
 		Scope:        fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
 		AllowedTools: allowedTools,
 		Runtime:      types.RuntimeRemote,
+	}, nil
+}
+
+func CompositeServerToConfig(tokenService *ephemeral.TokenService, mcpServerName, baseURL, userID, scope string) (ServerConfig, error) {
+	token, err := tokenService.NewToken(ephemeral.TokenContext{
+		UserID:     userID,
+		UserGroups: []string{types.GroupBasic},
+	})
+	if err != nil {
+		return ServerConfig{}, fmt.Errorf("failed to create token: %w", err)
+	}
+
+	return ServerConfig{
+		URL:     fmt.Sprintf("%s/mcp-connect/%s", baseURL, mcpServerName),
+		Headers: []string{fmt.Sprintf("Authorization=Bearer %s", token)},
+		Scope:   scope,
+		Runtime: types.RuntimeRemote,
 	}, nil
 }

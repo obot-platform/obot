@@ -269,7 +269,7 @@ export interface ToolReferenceList {
 	items: ToolReference[];
 }
 
-export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote';
+export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'composite';
 
 export interface UVXRuntimeConfig {
 	package: string;
@@ -301,6 +301,24 @@ export interface RemoteCatalogConfig {
 	fixedURL?: string;
 	hostname?: string;
 	headers?: MCPSubField[];
+}
+
+export interface CompositeRuntimeConfig {
+	componentServers: ComponentServer[];
+}
+
+export interface ComponentServer {
+	catalogEntryID: string;
+	manifest: MCPServer;
+	toolOverrides?: ToolOverride[];
+	enabled?: boolean;
+}
+
+export interface ToolOverride {
+	name: string;
+	overrideName?: string;
+	overrideDescription?: string;
+	enabled?: boolean;
 }
 
 export interface MCPSubField {
@@ -336,6 +354,7 @@ export interface MCPServer {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteRuntimeConfig;
+	compositeConfig?: CompositeRuntimeConfig;
 }
 
 export interface MCPServerTool {

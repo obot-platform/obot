@@ -486,7 +486,7 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 				return fmt.Errorf("failed to check if user %s has access to catalog entry %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, err)
 			}
 
-			if !hasAccess {
+			if !hasAccess && server.Spec.CompositeName == "" {
 				log.Infof("Deleting MCP server %q because it is no longer authorized to exist", server.Name)
 				if err := req.Delete(&server); err != nil {
 					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)

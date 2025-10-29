@@ -1430,8 +1430,34 @@ export async function configureSingleOrRemoteMcpServer(
 	return response;
 }
 
+export async function configureCompositeMcpServer(
+	id: string,
+	componentConfigs: Record<
+		string,
+		{ config: Record<string, string>; url?: string; disabled?: boolean }
+	>
+): Promise<MCPCatalogServer> {
+	const response = (await doPost(`/mcp-servers/${id}/configure`, {
+		componentConfigs
+	})) as MCPCatalogServer;
+	return response;
+}
+
 export async function deconfigureSingleOrRemoteMcpServer(id: string): Promise<void> {
 	await doPost(`/mcp-servers/${id}/deconfigure`, {});
+}
+
+export async function deconfigureCompositeMcpServer(id: string): Promise<void> {
+	return deconfigureSingleOrRemoteMcpServer(id);
+}
+
+// Update any MCP server manifest (used for composite skips)
+export async function updateMcpServerManifest(
+	id: string,
+	manifest: MCPCatalogServerManifest
+): Promise<MCPCatalogServer> {
+	const response = (await doPut(`/mcp-servers/${id}`, manifest)) as MCPCatalogServer;
+	return response;
 }
 
 export async function revealSingleOrRemoteMcpServer(
@@ -1439,6 +1465,23 @@ export async function revealSingleOrRemoteMcpServer(
 	opts?: { dontLogErrors?: boolean }
 ): Promise<Record<string, string>> {
 	return doPost(`/mcp-servers/${id}/reveal`, {}, opts) as Promise<Record<string, string>>;
+}
+
+export async function revealCompositeMcpServer(
+	id: string,
+	opts?: { dontLogErrors?: boolean }
+): Promise<{
+	componentConfigs: Record<
+		string,
+		{ config: Record<string, string>; url?: string; disabled?: boolean }
+	>;
+}> {
+	return doPost(`/mcp-servers/${id}/reveal`, {}, opts) as Promise<{
+		componentConfigs: Record<
+			string,
+			{ config: Record<string, string>; url?: string; disabled?: boolean }
+		>;
+	}>;
 }
 
 export async function listSingleOrRemoteMcpServerTools(id: string): Promise<MCPServerTool[]> {
@@ -2015,6 +2058,25 @@ export async function getWorkspaceCatalogEntryServerK8sDetails(
 		opts
 	)) as K8sServerDetail;
 	return response;
+}
+
+// Composite MCP OAuth helpers
+export type PendingCompositeAuth = {
+	catalogEntryID?: string;
+	mcpServerID: string;
+	authURL: string;
+};
+
+export async function checkCompositeOAuth(
+	compositeMcpId: string,
+	opts?: { oauthAuthRequestID?: string; signal?: AbortSignal }
+): Promise<PendingCompositeAuth[]> {
+	let url = `/oauth/composite/${compositeMcpId}`;
+	if (opts?.oauthAuthRequestID) {
+		url += `?oauth_auth_request=${opts.oauthAuthRequestID}`;
+	}
+	const response = await doGet(url, { signal: opts?.signal, dontLogErrors: true });
+	return Array.isArray(response) ? response : [];
 }
 
 export async function restartWorkspaceCatalogEntryServerDeployment(

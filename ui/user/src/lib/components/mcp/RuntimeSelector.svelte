@@ -4,7 +4,7 @@
 
 	interface Props {
 		runtime: Runtime;
-		serverType: 'single' | 'multi' | 'remote';
+		serverType: 'single' | 'multi' | 'remote' | 'composite';
 		readonly?: boolean;
 		onRuntimeChange?: (runtime: Runtime) => void;
 	}
@@ -16,6 +16,10 @@
 			return [{ id: 'remote', label: 'Remote' }];
 		}
 
+		if (serverType === 'composite') {
+			return [{ id: 'composite', label: 'Composite' }];
+		}
+
 		return [
 			{ id: 'npx', label: 'NPX' },
 			{ id: 'uvx', label: 'UVX' },
@@ -23,20 +27,30 @@
 		];
 	});
 
-	// Automatically set remote runtime for remote servers
+	// Automatically set runtime based on server type
 	$effect(() => {
 		if (serverType === 'remote' && runtime !== 'remote') {
 			runtime = 'remote';
 			onRuntimeChange?.('remote');
 		}
+
+		if (serverType === 'composite' && runtime !== 'composite') {
+			runtime = 'composite';
+			onRuntimeChange?.('composite');
+		}
 	});
 
-	// Validate runtime selection for non-remote servers
+	// Validate runtime selection
 	$effect(() => {
 		if (serverType !== 'remote' && runtime === 'remote') {
 			// Default to npx if remote is selected for non-remote server
 			runtime = 'npx';
 			onRuntimeChange?.('npx');
+		}
+
+		if (serverType !== 'composite' && runtime === 'composite') {
+			runtime = 'composite';
+			onRuntimeChange?.('composite');
 		}
 	});
 
@@ -49,7 +63,7 @@
 
 <div
 	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm {serverType ===
-	'remote'
+		'remote' || serverType === 'composite'
 		? 'hidden'
 		: ''}"
 >
