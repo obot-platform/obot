@@ -46,8 +46,18 @@
 
 	async function handleBootstrapLogout() {
 		try {
+			localStorage.removeItem('seenSplashDialog');
 			await AdminService.bootstrapLogout();
 			window.location.href = `/oauth2/sign_out?rd=${profile.current.isBootstrapUser?.() ? '/admin' : '/'}`;
+		} catch (err) {
+			console.error(err);
+		}
+	}
+
+	async function handleLogout() {
+		try {
+			localStorage.removeItem('seenSplashDialog');
+			window.location.href = '/oauth2/sign_out?rd=/';
 		} catch (err) {
 			console.error(err);
 		}
@@ -194,9 +204,9 @@
 				<a href="/profile" rel="external" role="menuitem" class="link"
 					><User class="size-4" /> My Account</a
 				>
-				<a href="/oauth2/sign_out?rd=/" rel="external" role="menuitem" class="link"
-					><LogOut class="size-4" /> Log out</a
-				>
+				<button class="link" onclick={handleLogout}>
+					<LogOut class="size-4" /> Log out
+				</button>
 			{/if}
 			{#if profile.current.isBootstrapUser?.()}
 				<button class="link" onclick={handleBootstrapLogout}>
