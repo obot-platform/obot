@@ -12493,6 +12493,20 @@ func schema_storage_apis_obotobotai_v1_MCPSessionSpec(ref common.ReferenceCallba
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"mcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"state": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -12500,7 +12514,7 @@ func schema_storage_apis_obotobotai_v1_MCPSessionSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"state"},
+				Required: []string{"mcpID", "userID", "state"},
 			},
 		},
 	}
