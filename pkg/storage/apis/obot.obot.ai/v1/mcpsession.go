@@ -14,7 +14,9 @@ type MCPSession struct {
 }
 
 type MCPSessionSpec struct {
-	State []byte `json:"state"`
+	MCPID  string `json:"mcpID"`
+	UserID string `json:"userID"`
+	State  []byte `json:"state"`
 }
 
 type MCPSessionStatus struct {

@@ -85,11 +85,13 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 		err = apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 
+	ss := newSessionStore(h, mcpID, req.User.GetUID())
+
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the MCP server is not found, remove the session.
 			if sessionID != "" {
-				session, found, err := h.LoadAndDelete(req.Context(), h, sessionID)
+				session, found, err := ss.LoadAndDelete(req.Context(), h, sessionID)
 				if err != nil {
 					return fmt.Errorf("failed to get mcp server config: %w", err)
 				}
@@ -112,7 +114,7 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 		resp:         req.ResponseWriter,
 	}))
 
-	nmcp.NewHTTPServer(nil, h, nmcp.HTTPServerOptions{SessionStore: h}).ServeHTTP(req.ResponseWriter, req.Request)
+	nmcp.NewHTTPServer(nil, h, nmcp.HTTPServerOptions{SessionStore: ss}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
 }
@@ -297,7 +299,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 				log.Errorf("Failed to shutdown server %s: %v", m.mcpServer.Name, err)
 			}
 
-			if _, _, err = h.LoadAndDelete(ctx, h, session.ID()); err != nil {
+			if _, _, err = newSessionStore(h, m.mcpID, m.userID).LoadAndDelete(ctx, h, session.ID()); err != nil {
 				log.Errorf("Failed to delete session %s: %v", session.ID(), err)
 			}
 		}(msg.Session)
@@ -430,6 +432,8 @@ func captureHeaders(headers http.Header) json.RawMessage {
 	return nil
 }
 
+// Webhook helpers
+
 func fireWebhooks(ctx context.Context, webhooks []mcp.Webhook, msg nmcp.Message, auditLog *gatewaytypes.MCPAuditLog, webhookType, userID, mcpID string) error {
 	signatures := make(map[string]string, len(webhooks))
 
@@ -514,4 +518,10 @@ func fireWebhook(ctx context.Context, httpClient *http.Client, body []byte, mcpI
 	}
 
 	return resp.Status, nil
+}
+
+// Pending request helpers
+func (h *Handler) pendingRequestsForSession(sessionID string) *nmcp.PendingRequests {
+	obj, _ := h.pendingRequests.LoadOrStore(sessionID, &nmcp.PendingRequests{})
+	return obj.(*nmcp.PendingRequests)
 }
