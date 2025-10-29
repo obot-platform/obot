@@ -59,6 +59,9 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 	replicas := deployment.Spec.Replicas
 	conditions := getDeploymentConditions(deployment)
 
+	// Extract K8s settings hash from deployment annotation (only for Kubernetes runtime)
+	k8sSettingsHash := deployment.Annotations["obot.ai/k8s-settings-hash"]
+
 	// Check if we need to update the MCPServer status
 	var needsUpdate bool
 	if mcpServer.Status.DeploymentStatus != deploymentStatus {
@@ -79,6 +82,12 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 	}
 	if !slices.Equal(mcpServer.Status.DeploymentConditions, conditions) {
 		mcpServer.Status.DeploymentConditions = conditions
+		needsUpdate = true
+	}
+	// Update K8s settings hash if it changed
+	// Note: k8sSettingsHash will be empty string for non-K8s runtimes or if annotation is missing
+	if mcpServer.Status.K8sSettingsHash != k8sSettingsHash {
+		mcpServer.Status.K8sSettingsHash = k8sSettingsHash
 		needsUpdate = true
 	}
 

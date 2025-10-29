@@ -479,6 +479,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/instances", serverInstances.ListServerInstancesForServer)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers-needing-k8s-update", mcp.ListServersNeedingK8sUpdateInCatalog)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/all-instances", mcp.ListServerInstances)
 
 	// Access Control Rules (admin only, scoped to catalogs)
@@ -541,6 +542,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/instances", serverInstances.ListServerInstancesForServer)
+	mux.HandleFunc("GET /api/workspaces/servers-needing-k8s-update", mcp.ListServersNeedingK8sUpdateAcrossWorkspaces)
 
 	// MCP Webhook Validations (admin only)
 	mux.HandleFunc("GET /api/mcp-webhook-validations", mcpWebhookValidations.List)
