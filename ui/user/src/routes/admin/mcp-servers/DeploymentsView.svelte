@@ -4,6 +4,7 @@
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
@@ -535,7 +536,7 @@
 	{/snippet}
 </Confirm>
 
-<Confirm
+<McpConfirmDelete
 	show={!!showDeleteConfirm}
 	onsuccess={async () => {
 		if (!showDeleteConfirm) return;
@@ -552,26 +553,7 @@
 	}}
 	oncancel={() => (showDeleteConfirm = undefined)}
 	loading={deleting}
->
-	{#snippet title()}
-		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
-			{`Delete ${showDeleteConfirm?.type === 'single' ? showDeleteConfirm.server.manifest.name : 'selected server(s)'}?`}
-		</h4>
-	{/snippet}
-	{#snippet note()}
-		{#if showDeleteConfirm?.type === 'multi'}
-			<p class="text-sm font-light">The following servers will be permanently deleted:</p>
-			<ul class="my-2 font-semibold">
-				{#each Object.values(selected) as s (s.id)}
-					<li>{s.manifest.name}</li>
-				{/each}
-			</ul>
-		{/if}
-
-		<p class="mb-8 text-sm font-light">
-			Are you sure you want to delete {showDeleteConfirm?.type === 'single'
-				? 'this server'
-				: 'these server(s)'}? They will be permanently deleted and cannot be recovered.
-		</p>
-	{/snippet}
-</Confirm>
+	names={showDeleteConfirm?.type === 'single'
+		? [showDeleteConfirm.server.manifest.name ?? '']
+		: Object.values(selected).map((s) => s.manifest.name ?? '')}
+/>
