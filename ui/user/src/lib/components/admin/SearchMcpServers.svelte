@@ -20,6 +20,8 @@
 		entity?: 'catalog' | 'workspace';
 		workspaceId?: string | null;
 		isAdminView?: boolean;
+		singleSelect?: boolean;
+		title?: string;
 	}
 
 	type SearchItem = {
@@ -38,6 +40,8 @@
 		type,
 		workspaceId,
 		isAdminView,
+		singleSelect,
+		title = 'Add MCP Server(s)',
 		entity = 'catalog',
 		all = ADMIN_ALL_OPTION
 	}: Props = $props();
@@ -147,7 +151,7 @@
 <ResponsiveDialog
 	bind:this={addMcpServerDialog}
 	{onClose}
-	title="Add MCP Server(s)"
+	{title}
 	class="h-full w-full overflow-visible p-0 md:h-[500px] md:max-w-md"
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit' }}
 >
@@ -174,6 +178,12 @@
 								selectedMap.has(item.id) && 'dark:bg-gray-920 bg-gray-50'
 							)}
 							onclick={() => {
+								if (singleSelect) {
+									selected = [item];
+									handleAdd();
+									return;
+								}
+
 								if (selectedMap.has(item.id)) {
 									const index = selected.findIndex((i) => i.id === item.id);
 									if (index !== -1) {
@@ -222,17 +232,19 @@
 		</div>
 	</div>
 	<div class="flex w-full flex-col justify-between gap-4 p-4 md:flex-row">
-		<div class="flex items-center gap-1 font-light">
-			{#if selected.length > 0}
-				<Server class="size-4" />
-				{selected.length} Selected
-			{/if}
-		</div>
-		<div class="flex items-center gap-2">
-			<button class="button w-full md:w-fit" onclick={() => addMcpServerDialog?.close()}>
-				Cancel
-			</button>
-			<button class="button-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
-		</div>
+		{#if !singleSelect}
+			<div class="flex items-center gap-1 font-light">
+				{#if selected.length > 0}
+					<Server class="size-4" />
+					{selected.length} Selected
+				{/if}
+			</div>
+			<div class="flex items-center gap-2">
+				<button class="button w-full md:w-fit" onclick={() => addMcpServerDialog?.close()}>
+					Cancel
+				</button>
+				<button class="button-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
+			</div>
+		{/if}
 	</div>
 </ResponsiveDialog>

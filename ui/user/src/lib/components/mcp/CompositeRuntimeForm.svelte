@@ -1,18 +1,29 @@
 <script lang="ts">
-	import { Plus, Server, Trash2, ChevronDown, ChevronUp, LoaderCircle } from 'lucide-svelte';
-	import SearchMcpServers from '../admin/SearchMcpServers.svelte';
+	import {
+		Plus,
+		Server,
+		Trash2,
+		ChevronDown,
+		ChevronUp,
+		LoaderCircle,
+		Pencil
+	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import {
 		AdminService,
-		ChatService,
 		type CompositeCatalogConfig,
 		type CompositeRuntimeConfig,
 		type MCPCatalogEntry,
-		type MCPCatalogServer
+		type MCPCatalogServer,
+		type CompositeServerToolRow
 	} from '$lib/services';
 	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import CatalogConfigureForm, { type LaunchFormData } from './CatalogConfigureForm.svelte';
-	import { hasEditableConfiguration, convertEnvHeadersToRecord } from '$lib/services/chat/mcp';
+	import CompositeToolsSetup from './composite/CompositeSelectServerAndToolsSetup.svelte';
+	import { slide } from 'svelte/transition';
+	import DotDotDot from '../DotDotDot.svelte';
+	import CompositeEditTools from './composite/CompositeEditTools.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
+	import Toggle from '../Toggle.svelte';
 
 	interface Props {
 		config: CompositeCatalogConfig | CompositeRuntimeConfig;
@@ -22,128 +33,23 @@
 	}
 
 	let { config = $bindable(), readonly, catalogId, mcpEntriesContextFn }: Props = $props();
-	let searchDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let componentEntries = $state<MCPCatalogEntry[]>([]);
-	let componentServers = $state<Map<string, MCPCatalogServer>>(new Map());
+	const componentServers = new SvelteMap<string, MCPCatalogServer>();
 	let expanded = $state<Record<string, boolean>>({});
 	let loading = $state(false);
 
-	type ToolRow = {
-		id: string;
-		originalName: string;
-		overrideName: string;
-		originalDescription?: string;
-		overrideDescription?: string;
-		enabled: boolean;
-	};
-	let toolsByEntry = $state<Record<string, ToolRow[]>>({});
+	let configuringEntry = $state<MCPCatalogEntry | MCPCatalogServer>();
+	let toolsByEntry = $state<Record<string, CompositeServerToolRow[]>>({});
 	let populatedByEntry = $state<Record<string, boolean>>({});
 	let loadingByEntry = $state<Record<string, boolean>>({});
+	let toolsToEdit = $state<CompositeServerToolRow[]>([]);
+
+	let compositeToolsSetupDialog = $state<ReturnType<typeof CompositeToolsSetup>>();
+	let editCurrentToolsDialog = $state<ReturnType<typeof CompositeEditTools>>();
 
 	// Helper to get unique ID for a component (catalogEntryID or mcpServerID)
 	function getComponentId(c: { catalogEntryID?: string; mcpServerID?: string }): string {
 		return c.catalogEntryID || c.mcpServerID || '';
-	}
-
-	function updateCompositeToolMappings() {
-		if (!config) return;
-		const componentServers = (config.componentServers || []).map((c) => {
-			const componentId = getComponentId(c);
-			const rows = toolsByEntry[componentId] || [];
-			const toolOverrides = rows.map((row) => ({
-				name: row.originalName,
-				overrideName: row.overrideName,
-				overrideDescription: row.overrideDescription,
-				enabled: row.enabled
-			}));
-			return {
-				catalogEntryID: c.catalogEntryID,
-				mcpServerID: c.mcpServerID,
-				manifest: c.manifest,
-				toolOverrides,
-				disabled: c.disabled
-			};
-		});
-		config.componentServers = componentServers as unknown as typeof config.componentServers;
-	}
-
-	// Per-entry configuration dialog state
-	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
-	let configureForm = $state<LaunchFormData>();
-	let configuringEntry = $state<MCPCatalogEntry>();
-
-	function initConfigureForm(entry: MCPCatalogEntry) {
-		configureForm = {
-			envs: entry.manifest?.env?.map((env) => ({ ...env, value: '' })),
-			headers: entry.manifest?.remoteConfig?.headers?.map((h) => ({ ...h, value: '' })),
-			...(entry.manifest?.remoteConfig?.hostname
-				? { hostname: entry.manifest.remoteConfig.hostname, url: '' }
-				: {})
-		};
-	}
-
-	async function runPreview(
-		entry: MCPCatalogEntry,
-		body: { config?: Record<string, string>; url?: string }
-	) {
-		if (!catalogId) return;
-		loadingByEntry[entry.id] = true;
-		try {
-			const resp = (await AdminService.generateMcpCatalogEntryToolPreviews(
-				catalogId!,
-				entry.id,
-				body,
-				{ dryRun: true }
-			)) as unknown as MCPCatalogEntry;
-			const preview = resp?.manifest?.toolPreview || [];
-			toolsByEntry[entry.id] = preview.map((t) => ({
-				id: `${entry.id}-${t.id || t.name}`,
-				originalName: t.name,
-				overrideName: t.name,
-				originalDescription: t.description,
-				overrideDescription: t.description,
-				enabled: true
-			}));
-			populatedByEntry[entry.id] = true;
-			updateCompositeToolMappings();
-		} catch (err: unknown) {
-			const msg = err instanceof Error ? err.message : String(err);
-			if (msg.includes('OAuth')) {
-				const oauthURL = await AdminService.getMcpCatalogToolPreviewsOauth(
-					catalogId!,
-					entry.id,
-					body,
-					{ dryRun: true }
-				);
-				if (oauthURL) window.open(oauthURL, '_blank');
-			} else {
-				throw err;
-			}
-		} finally {
-			loadingByEntry[entry.id] = false;
-		}
-	}
-
-	async function populateMultiUserServerTools(serverId: string) {
-		loadingByEntry[serverId] = true;
-		try {
-			const tools = await ChatService.listMcpCatalogServerTools(serverId);
-			toolsByEntry[serverId] = tools.map((t) => ({
-				id: `${serverId}-${t.id || t.name}`,
-				originalName: t.name,
-				overrideName: t.name,
-				originalDescription: t.description,
-				overrideDescription: t.description,
-				enabled: t.enabled !== false
-			}));
-			populatedByEntry[serverId] = true;
-			updateCompositeToolMappings();
-		} catch (err: unknown) {
-			console.error(`Failed to fetch tools for multi-user server ${serverId}:`, err);
-			throw err;
-		} finally {
-			loadingByEntry[serverId] = false;
-		}
 	}
 
 	// Pre-populate toolsByEntry from existing toolOverrides in config
@@ -165,7 +71,7 @@
 			// If overrides exist, only show those overrides (use preview to enrich descriptions when present)
 			// Preview of all tools should only be used when user explicitly populates for the first time
 			const previewMap = new Map((preview || []).map((t) => [t.name, t]));
-			const rows: ToolRow[] = overrides.map((o) => {
+			const rows: CompositeServerToolRow[] = overrides.map((o) => {
 				const t = previewMap.get(o.name);
 				return {
 					id: `${componentId}-${o.overrideName || o.name}`,
@@ -207,18 +113,17 @@
 				const entryIds = new Set(catalogComponents.map((c) => c.catalogEntryID!));
 				componentEntries = entries.filter((e) => entryIds.has(e.id));
 
-				const serverMap = new Map<string, MCPCatalogServer>();
+				componentServers.clear();
 				for (const component of multiUserComponents) {
 					const server = servers.find((s) => s.id === component.mcpServerID);
 					if (server) {
-						serverMap.set(component.mcpServerID!, server);
+						componentServers.set(component.mcpServerID!, server);
 					}
 				}
-				componentServers = serverMap;
 			} else {
 				// Unsaved composite: no catalog to fetch from
 				componentEntries = [];
-				componentServers = new Map<string, MCPCatalogServer>();
+				componentServers.clear();
 			}
 
 			// Pre-populate existing tool overrides after entries are loaded
@@ -231,49 +136,6 @@
 	onMount(() => {
 		loadComponentEntries();
 	});
-
-	async function handleAdd(
-		mcpCatalogEntryIds: string[],
-		mcpServerIds?: string[],
-		_otherSelectors?: string[]
-	) {
-		if (!config) {
-			config = { componentServers: [] } as unknown as
-				| CompositeCatalogConfig
-				| CompositeRuntimeConfig;
-		}
-		const existingIds = new Set((config.componentServers || []).map((c) => getComponentId(c)));
-
-		// Add catalog entry components
-		const newCatalogComponents = mcpCatalogEntryIds
-			.filter((id) => !existingIds.has(id))
-			.map((id) => ({
-				catalogEntryID: id,
-				manifest: {} as Record<string, unknown>,
-				toolOverrides: [],
-				disabled: false
-			}));
-
-		// Add multi-user server components
-		const newServerComponents =
-			mcpServerIds
-				?.filter((id) => !existingIds.has(id))
-				.map((id) => ({
-					mcpServerID: id,
-					toolOverrides: [],
-					disabled: false
-				})) || [];
-
-		const allNewComponents = [...newCatalogComponents, ...newServerComponents];
-		if (allNewComponents.length === 0) return;
-
-		config.componentServers = [
-			...(config.componentServers || []),
-			...allNewComponents
-		] as unknown as typeof config.componentServers;
-
-		await loadComponentEntries();
-	}
 
 	function removeServer(componentId: string) {
 		config.componentServers = (config.componentServers || []).filter(
@@ -294,8 +156,9 @@
 	<div class="flex flex-col gap-2">
 		{#if loading}
 			<div class="text-sm text-gray-500">Loading component servers...</div>
-		{:else if componentEntries.length > 0}
-			{#each componentEntries as entry (entry.id)}
+		{:else if config.componentServers.length > 0}
+			{#each config.componentServers as entry (getComponentId(entry))}
+				{@const componentId = getComponentId(entry)}
 				<div
 					class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-gray-200 bg-gray-50"
 				>
@@ -311,80 +174,79 @@
 						<button
 							type="button"
 							class="icon-button"
-							onclick={() => (expanded[entry.id] = !expanded[entry.id])}
-							aria-label={expanded[entry.id] ? 'Collapse' : 'Expand'}
+							onclick={() => (expanded[componentId] = !expanded[componentId])}
+							aria-label={expanded[componentId] ? 'Collapse' : 'Expand'}
 						>
-							{#if expanded[entry.id]}
+							{#if expanded[componentId]}
 								<ChevronUp class="size-4" />
 							{:else}
 								<ChevronDown class="size-4" />
 							{/if}
 						</button>
 						{#if !readonly}
-							<button
-								type="button"
-								onclick={() => removeServer(entry.id)}
-								class="text-red-500 hover:text-red-700"
-							>
+							<button class="icon-button text-red-500" onclick={() => removeServer(componentId)}>
 								<Trash2 class="size-4" />
 							</button>
 						{/if}
 					</div>
-					{#if expanded[entry.id]}
-						<div class="border-t border-gray-200 p-3">
-							<div class="flex items-center justify-center pb-2">
-								{#if !populatedByEntry[entry.id]}
+					{#if expanded[componentId]}
+						<div class="border-t border-gray-200 p-3" in:slide={{ axis: 'y' }}>
+							{#if !populatedByEntry[componentId]}
+								<div class="flex flex-col items-center justify-center pb-2">
+									<p class="text-sm font-light text-gray-500">All tools are enabled by default.</p>
+									<p class="mb-4 text-sm font-light text-gray-500">
+										Click below to further modify tool availability or details.
+									</p>
 									<button
 										type="button"
-										class="button-primary text-xs"
-										disabled={loadingByEntry[entry.id]}
+										class="button-primary text-sm"
+										disabled={loadingByEntry[componentId]}
 										onclick={async () => {
-											// Launch a temporary instance and fetch tool previews, with OAuth/config when required
-											if (hasEditableConfiguration(entry)) {
-												configuringEntry = entry;
-												initConfigureForm(entry);
-												configDialog?.open();
-												return;
+											const match =
+												componentServers.get(componentId) ||
+												componentEntries.find((e) => e.id === componentId);
+											if (match) {
+												configuringEntry = match;
 											}
-											await runPreview(entry, { config: {}, url: '' });
+											compositeToolsSetupDialog?.open();
 										}}
 									>
-										{#if loadingByEntry[entry.id]}
+										{#if loadingByEntry[componentId]}
 											<LoaderCircle class="size-4 animate-spin" />
 										{:else}
-											Populate Tools
+											Configure Tools
 										{/if}
 									</button>
-								{/if}
-							</div>
-							{#if toolsByEntry[entry.id]?.length}
+								</div>
+							{/if}
+							{#if entry.toolOverrides?.length}
 								<div class="flex flex-col gap-2">
-									{#each toolsByEntry[entry.id] as tool (tool.id)}
+									{#each entry.toolOverrides as tool, index (index)}
 										<div
-											class="dark:bg-surface2 dark:border-surface3 rounded border border-gray-200 bg-white p-2"
+											class="dark:bg-surface2 dark:border-surface3 flex gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
 										>
-											<div class="flex items-center gap-2">
+											<div class="flex grow flex-col gap-1">
 												<input
 													class="text-input-filled flex-1 text-sm"
 													bind:value={tool.overrideName}
-													oninput={() => updateCompositeToolMappings()}
-													placeholder="Tool name"
+													placeholder={tool.overrideName || tool.name}
 												/>
-												<label class="flex items-center gap-1 text-xs whitespace-nowrap">
-													<input
-														type="checkbox"
-														bind:checked={tool.enabled}
-														onchange={() => updateCompositeToolMappings()}
-													/> Enable
-												</label>
+
+												<textarea
+													class="text-input-filled mt-1 resize-none text-xs"
+													bind:value={tool.overrideDescription}
+													placeholder="Enter tool description..."
+													rows="2"
+												></textarea>
 											</div>
-											<textarea
-												class="text-input-filled resize-none text-xs"
-												bind:value={tool.overrideDescription}
-												oninput={() => updateCompositeToolMappings()}
-												placeholder="Tool description"
-												rows="2"
-											></textarea>
+
+											<Toggle
+												checked={tool.enabled ?? false}
+												onChange={(checked) => {
+													tool.enabled = checked;
+												}}
+												label="Enable/Disable Tool"
+											/>
 										</div>
 									{/each}
 								</div>
@@ -399,109 +261,15 @@
 				single server with aggregated tools and resources.
 			</div>
 		{/if}
-
-		{#if config?.componentServers}
-			{@const multiUserComponents = config.componentServers.filter((c) => c.mcpServerID)}
-			{#if multiUserComponents.length > 0}
-				{#each multiUserComponents as component (component.mcpServerID)}
-					<div
-						class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-gray-200 bg-gray-50"
-					>
-						<div class="flex items-center gap-3 p-3">
-							<Server class="size-8 text-blue-500" />
-							<div class="flex-1">
-								<div class="font-medium">
-									{componentServers.get(component.mcpServerID!)?.manifest?.name ||
-										component.mcpServerID}
-								</div>
-							</div>
-							<button
-								type="button"
-								class="icon-button"
-								onclick={() =>
-									(expanded[component.mcpServerID!] = !expanded[component.mcpServerID!])}
-								aria-label={expanded[component.mcpServerID!] ? 'Collapse' : 'Expand'}
-							>
-								{#if expanded[component.mcpServerID!]}
-									<ChevronUp class="size-4" />
-								{:else}
-									<ChevronDown class="size-4" />
-								{/if}
-							</button>
-							{#if !readonly}
-								<button
-									type="button"
-									onclick={() => removeServer(component.mcpServerID || '')}
-									class="text-red-500 hover:text-red-700"
-								>
-									<Trash2 class="size-4" />
-								</button>
-							{/if}
-						</div>
-						{#if expanded[component.mcpServerID!]}
-							<div class="border-t border-gray-200 p-3">
-								<div class="flex items-center justify-center pb-2">
-									{#if !populatedByEntry[component.mcpServerID!]}
-										<button
-											type="button"
-											class="button-primary text-xs"
-											disabled={loadingByEntry[component.mcpServerID!]}
-											onclick={async () => {
-												await populateMultiUserServerTools(component.mcpServerID!);
-											}}
-										>
-											{#if loadingByEntry[component.mcpServerID!]}
-												<LoaderCircle class="size-4 animate-spin" />
-											{:else}
-												Populate Tools
-											{/if}
-										</button>
-									{/if}
-								</div>
-								{#if toolsByEntry[component.mcpServerID!]?.length}
-									<div class="flex flex-col gap-2">
-										{#each toolsByEntry[component.mcpServerID!] as tool (tool.id)}
-											<div
-												class="dark:bg-surface2 dark:border-surface3 rounded border border-gray-200 bg-white p-2"
-											>
-												<div class="flex items-center gap-2">
-													<input
-														class="text-input-filled flex-1 text-sm"
-														bind:value={tool.overrideName}
-														oninput={() => updateCompositeToolMappings()}
-														placeholder="Tool name"
-													/>
-													<label class="flex items-center gap-1 text-xs whitespace-nowrap">
-														<input
-															type="checkbox"
-															bind:checked={tool.enabled}
-															onchange={() => updateCompositeToolMappings()}
-														/> Enable
-													</label>
-												</div>
-												<textarea
-													class="text-input-filled resize-none text-xs"
-													bind:value={tool.overrideDescription}
-													oninput={() => updateCompositeToolMappings()}
-													placeholder="Tool description"
-													rows="2"
-												></textarea>
-											</div>
-										{/each}
-									</div>
-								{/if}
-							</div>
-						{/if}
-					</div>
-				{/each}
-			{/if}
-		{/if}
 	</div>
 
 	{#if !readonly}
 		<button
 			type="button"
-			onclick={() => searchDialog?.open()}
+			onclick={() => {
+				configuringEntry = undefined;
+				compositeToolsSetupDialog?.open();
+			}}
 			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-sm font-medium hover:bg-gray-50"
 		>
 			<Plus class="size-4" />
@@ -510,32 +278,51 @@
 	{/if}
 </div>
 
-<SearchMcpServers
-	bind:this={searchDialog}
-	onAdd={(mcpCatalogEntryIds, mcpServerIds, otherSelectors) =>
-		handleAdd(mcpCatalogEntryIds, mcpServerIds, otherSelectors)}
-	exclude={['*', 'default', ...(config?.componentServers ?? []).map((c) => getComponentId(c))]}
-	type="filter"
+<CompositeToolsSetup
+	bind:this={compositeToolsSetupDialog}
 	{mcpEntriesContextFn}
+	{catalogId}
+	{configuringEntry}
+	onCancel={() => {
+		configuringEntry = undefined;
+	}}
+	onSuccess={(componentConfig, entry, tools) => {
+		console.log('onSuccess', componentConfig, entry, tools);
+		config.componentServers = [
+			...config.componentServers,
+			componentConfig
+		] as unknown as typeof config.componentServers;
+		const id = getComponentId(componentConfig);
+		if (tools) {
+			populatedByEntry[id] = true;
+			toolsByEntry[id] = tools;
+		}
+		if ('isCatalogEntry' in entry) {
+			componentEntries = [...componentEntries, entry];
+		} else {
+			componentServers.set(entry.id, entry);
+		}
+	}}
+	excluded={(config?.componentServers ?? []).map((c) => getComponentId(c))}
 />
 
-<!-- Inline configuration dialog for previewing tools on components that require config -->
-<CatalogConfigureForm
-	bind:this={configDialog}
-	bind:form={configureForm}
-	name={configuringEntry?.manifest?.name}
-	icon={configuringEntry?.manifest?.icon}
-	submitText="Continue"
-	onSave={async () => {
-		const configValues = convertEnvHeadersToRecord(configureForm?.envs, configureForm?.headers);
-		await runPreview(configuringEntry!, { config: configValues, url: configureForm?.url });
-		configDialog?.close();
+<CompositeEditTools
+	bind:this={editCurrentToolsDialog}
+	{configuringEntry}
+	tools={toolsToEdit}
+	onSuccess={() => {
+		if (!configuringEntry) return;
+		console.log('onSuccess', toolsToEdit);
+		config.componentServers = config.componentServers.map((c) => {
+			const id = getComponentId(c);
+			if (c.mcpServerID === id || c.catalogEntryID === id) {
+				return {
+					...c,
+					toolOverrides: toolsToEdit
+				};
+			}
+			return c;
+		}) as unknown as typeof config.componentServers;
+		toolsByEntry[configuringEntry.id] = toolsToEdit;
 	}}
-	onCancel={() => configDialog?.close()}
-	onClose={() => (configuringEntry = undefined)}
-	loading={false}
-	error={undefined}
-	isNew
-	disableOutsideClick
-	animate="slide"
 />
