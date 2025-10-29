@@ -111,6 +111,10 @@ type MCPServerStatus struct {
 	DeploymentReplicas *int32 `json:"deploymentReplicas,omitempty"`
 	// DeploymentConditions contains key deployment conditions that indicate deployment health.
 	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
+	// K8sSettingsHash contains the hash of K8s settings (affinity, tolerations, resources) this server was deployed with.
+	// This field is only populated for servers running in Kubernetes runtime.
+	// For Docker, local, or remote runtimes, this field is omitted entirely.
+	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
 }
 
 type DeploymentCondition struct {

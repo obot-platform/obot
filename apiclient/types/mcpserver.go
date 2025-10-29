@@ -178,6 +178,9 @@ type MCPServer struct {
 	// DeploymentConditions contains key deployment conditions that indicate deployment health.
 	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
 
+	// K8sSettingsHash contains the hash of K8s settings this server was deployed with
+	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
+
 	// Template indicates whether this MCP server is a template server.
 	// Template servers are hidden from user views and are used for creating project instances.
 	Template bool `json:"template,omitempty"`
@@ -241,6 +244,25 @@ type K8sSettingsStatus struct {
 
 	// DeployedSettingsHash is the hash of the K8s settings the server was deployed with
 	DeployedSettingsHash string `json:"deployedSettingsHash,omitempty"`
+}
+
+// MCPServerNeedingK8sUpdate represents a server that needs redeployment with new K8s settings
+type MCPServerNeedingK8sUpdate struct {
+	// MCPServerID is the ID of the MCP server that needs updating
+	MCPServerID string `json:"mcpServerId"`
+
+	// MCPServerCatalogEntryID is the ID of the catalog entry this server was created from, if applicable
+	// This field is empty for multi-user servers that were created directly (not from a catalog entry)
+	MCPServerCatalogEntryID string `json:"mcpServerCatalogEntryId,omitempty"`
+
+	// PowerUserWorkspaceID is the ID of the workspace this server belongs to, if applicable
+	// This field is empty for servers that belong to catalogs (not workspaces)
+	PowerUserWorkspaceID string `json:"powerUserWorkspaceId,omitempty"`
+}
+
+// MCPServersNeedingK8sUpdateList is a list of servers needing K8s updates
+type MCPServersNeedingK8sUpdateList struct {
+	Items []MCPServerNeedingK8sUpdate `json:"items"`
 }
 
 // RuntimeValidationError represents a validation error for runtime-specific configuration

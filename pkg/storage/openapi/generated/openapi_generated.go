@@ -3589,6 +3589,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							},
 						},
 					},
+					"k8sSettingsHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "K8sSettingsHash contains the hash of K8s settings this server was deployed with",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"template": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Template indicates whether this MCP server is a template server. Template servers are hidden from user views and are used for creating project instances.",
@@ -12382,6 +12389,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 									},
 								},
 							},
+						},
+					},
+					"k8sSettingsHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "K8sSettingsHash contains the hash of K8s settings (affinity, tolerations, resources) this server was deployed with. This field is only populated for servers running in Kubernetes runtime. For Docker, local, or remote runtimes, this field is omitted entirely.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

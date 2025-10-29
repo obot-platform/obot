@@ -342,7 +342,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	}
 
 	// Add K8s settings hash to annotations
-	annotations["obot.ai/k8s-settings-hash"] = computeK8sSettingsHash(k8sSettings)
+	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings)
 
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -683,7 +683,7 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 	}
 
 	// Compute K8s settings hash
-	k8sSettingsHash := computeK8sSettingsHash(k8sSettings)
+	k8sSettingsHash := ComputeK8sSettingsHash(k8sSettings)
 
 	// Build the patch with restart annotation and k8s settings hash
 	podAnnotations := map[string]string{
@@ -763,7 +763,8 @@ func (k *kubernetesBackend) getDeployment(ctx context.Context, sessionID string)
 	return &deployment, err
 }
 
-func computeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
+// ComputeK8sSettingsHash computes a hash of K8s settings for change detection
+func ComputeK8sSettingsHash(settings v1.K8sSettingsSpec) string {
 	var buf bytes.Buffer
 
 	// Hash affinity

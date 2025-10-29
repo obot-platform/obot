@@ -267,7 +267,7 @@ func (sm *SessionManager) CheckK8sSettingsStatus(ctx context.Context, serverConf
 
 	// Compare hashes
 	deployedHash = deployment.Annotations["obot.ai/k8s-settings-hash"]
-	currentHash := computeK8sSettingsHash(currentSettings)
+	currentHash := ComputeK8sSettingsHash(currentSettings)
 
 	return deployedHash != currentHash, deployedHash, nil
 }

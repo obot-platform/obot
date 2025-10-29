@@ -1779,6 +1779,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		DeploymentReadyReplicas:     server.Status.DeploymentReadyReplicas,
 		DeploymentReplicas:          server.Status.DeploymentReplicas,
 		DeploymentConditions:        conditions,
+		K8sSettingsHash:             server.Status.K8sSettingsHash,
 		Template:                    server.Spec.Template,
 	}
 }
@@ -2252,6 +2253,115 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	// Return updated server
 	converted := convertMCPServer(server, cred.Env, m.serverURL, slug)
 	return req.Write(converted)
+}
+
+// ListServersNeedingK8sUpdateInCatalog lists all servers in a catalog that need redeployment with new K8s settings
+func (m *MCPHandler) ListServersNeedingK8sUpdateInCatalog(req api.Context) error {
+	catalogID := req.PathValue("catalog_id")
+	if catalogID == "" {
+		return types.NewErrBadRequest("catalog_id is required")
+	}
+
+	// Get current K8s settings to compute current hash
+	var k8sSettings v1.K8sSettings
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
+		Namespace: req.Namespace(),
+		Name:      system.K8sSettingsName,
+	}, &k8sSettings); err != nil {
+		return fmt.Errorf("failed to get K8s settings: %w", err)
+	}
+
+	// Compute current K8s settings hash
+	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+
+	// List all servers in the catalog
+	var servers v1.MCPServerList
+	if err := req.List(&servers, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpCatalogID", catalogID),
+		Namespace:     req.Namespace(),
+	}); err != nil {
+		return fmt.Errorf("failed to list servers: %w", err)
+	}
+
+	// Filter servers that need K8s updates and build lightweight response
+	var serversNeedingUpdate []types.MCPServerNeedingK8sUpdate
+	for _, server := range servers.Items {
+		// Skip servers without K8s settings hash (non-K8s runtimes)
+		if server.Status.K8sSettingsHash == "" {
+			continue
+		}
+
+		// Check if hash differs from current settings
+		if server.Status.K8sSettingsHash != currentHash {
+			serversNeedingUpdate = append(serversNeedingUpdate, types.MCPServerNeedingK8sUpdate{
+				MCPServerID:             server.Name,
+				MCPServerCatalogEntryID: server.Spec.MCPServerCatalogEntryName,
+				PowerUserWorkspaceID:    server.Spec.PowerUserWorkspaceID,
+			})
+		}
+	}
+
+	return req.Write(types.MCPServersNeedingK8sUpdateList{Items: serversNeedingUpdate})
+}
+
+// ListServersNeedingK8sUpdateAcrossWorkspaces lists all servers across ALL workspaces that need redeployment with new K8s settings
+func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context) error {
+	// Get current K8s settings to compute current hash
+	var k8sSettings v1.K8sSettings
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
+		Namespace: req.Namespace(),
+		Name:      system.K8sSettingsName,
+	}, &k8sSettings); err != nil {
+		return fmt.Errorf("failed to get K8s settings: %w", err)
+	}
+
+	// Compute current K8s settings hash
+	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec)
+
+	// List all MCPServers (we'll filter for workspace servers below)
+	var servers v1.MCPServerList
+	if err := req.List(&servers, &kclient.ListOptions{
+		Namespace: req.Namespace(),
+	}); err != nil {
+		return fmt.Errorf("failed to list servers: %w", err)
+	}
+
+	// Filter servers that need K8s updates and build lightweight response
+	var serversNeedingUpdate []types.MCPServerNeedingK8sUpdate
+	for _, server := range servers.Items {
+		// Determine workspace ID - check both server and its catalog entry
+		workspaceID := server.Spec.PowerUserWorkspaceID
+
+		// If server doesn't have workspace ID directly, check if it was created from a workspace catalog entry
+		if workspaceID == "" && server.Spec.MCPServerCatalogEntryName != "" {
+			var entry v1.MCPServerCatalogEntry
+			if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err == nil {
+				workspaceID = entry.Spec.PowerUserWorkspaceID
+			}
+			// Ignore error - entry might not exist or might not be accessible
+		}
+
+		// Only include servers that belong to a workspace (directly or via catalog entry)
+		if workspaceID == "" {
+			continue
+		}
+
+		// Skip servers without K8s settings hash (non-K8s runtimes)
+		if server.Status.K8sSettingsHash == "" {
+			continue
+		}
+
+		// Check if hash differs from current settings
+		if server.Status.K8sSettingsHash != currentHash {
+			serversNeedingUpdate = append(serversNeedingUpdate, types.MCPServerNeedingK8sUpdate{
+				MCPServerID:             server.Name,
+				MCPServerCatalogEntryID: server.Spec.MCPServerCatalogEntryName,
+				PowerUserWorkspaceID:    workspaceID,
+			})
+		}
+	}
+
+	return req.Write(types.MCPServersNeedingK8sUpdateList{Items: serversNeedingUpdate})
 }
 
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
