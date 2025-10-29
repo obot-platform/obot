@@ -443,12 +443,9 @@ func fireWebhooks(ctx context.Context, webhooks []mcp.Webhook, msg nmcp.Message,
 	}
 
 	auditLog.WebhookStatuses = make([]gatewaytypes.MCPWebhookStatus, 0, len(webhooks))
-	var (
-		webhookStatus string
-		rpcError      *nmcp.RPCError
-	)
+	var rpcErrors []*nmcp.RPCError
 	for _, webhook := range webhooks {
-		webhookStatus, rpcError = fireWebhook(ctx, httpClient, body, mcpID, userID, webhook.URL, webhook.Secret, signatures)
+		webhookStatus, rpcError := fireWebhook(ctx, httpClient, body, mcpID, userID, webhook.URL, webhook.Secret, signatures)
 		if rpcError != nil {
 			auditLog.WebhookStatuses = append(auditLog.WebhookStatuses, gatewaytypes.MCPWebhookStatus{
 				Type:    webhookType,
@@ -456,7 +453,7 @@ func fireWebhooks(ctx context.Context, webhooks []mcp.Webhook, msg nmcp.Message,
 				Status:  webhookStatus,
 				Message: rpcError.Message,
 			})
-			return rpcError
+			rpcErrors = append(rpcErrors, rpcError)
 		}
 
 		auditLog.WebhookStatuses = append(auditLog.WebhookStatuses, gatewaytypes.MCPWebhookStatus{
@@ -466,7 +463,23 @@ func fireWebhooks(ctx context.Context, webhooks []mcp.Webhook, msg nmcp.Message,
 		})
 	}
 
-	return nil
+	switch len(rpcErrors) {
+	case 0:
+		return nil
+	case 1:
+		return rpcErrors[0]
+	default:
+		var message strings.Builder
+		message.WriteString("failed to fire webhooks: ")
+		for _, err := range rpcErrors {
+			message.WriteString(err.Message)
+			message.WriteString("; ")
+		}
+		return &nmcp.RPCError{
+			Code:    -32603,
+			Message: message.String()[:message.Len()-2],
+		}
+	}
 }
 
 func fireWebhook(ctx context.Context, httpClient *http.Client, body []byte, mcpID, userID, url, secret string, signatures map[string]string) (string, *nmcp.RPCError) {
@@ -508,7 +521,7 @@ func fireWebhook(ctx context.Context, httpClient *http.Client, body []byte, mcpI
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		return resp.Status, &nmcp.RPCError{
-			Code:    -32000,
+			Code:    -32603,
 			Message: fmt.Sprintf("webhook %s returned status code %d: %v", url, resp.StatusCode, string(respBody)),
 		}
 	}
