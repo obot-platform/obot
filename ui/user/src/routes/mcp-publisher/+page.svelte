@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -24,6 +23,7 @@
 	} from '$lib/context/poweruserWorkspace.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp.js';
+	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 
 	let { data } = $props();
 	let search = $state('');
@@ -258,8 +258,8 @@
 	</button>
 {/snippet}
 
-<Confirm
-	msg="Are you sure you want to delete this server?"
+<McpConfirmDelete
+	names={[deletingEntry?.manifest?.name ?? '']}
 	show={Boolean(deletingEntry)}
 	onsuccess={async () => {
 		if (!deletingEntry || !workspaceId) {
@@ -271,10 +271,12 @@
 		deletingEntry = undefined;
 	}}
 	oncancel={() => (deletingEntry = undefined)}
+	entity="entry"
+	entityPlural="entries"
 />
 
-<Confirm
-	msg="Are you sure you want to delete this server?"
+<McpConfirmDelete
+	names={[deletingServer?.manifest?.name ?? '']}
 	show={Boolean(deletingServer)}
 	onsuccess={async () => {
 		if (!deletingServer || !workspaceId) {
@@ -286,6 +288,8 @@
 		deletingServer = undefined;
 	}}
 	oncancel={() => (deletingServer = undefined)}
+	entity="entry"
+	entityPlural="entries"
 />
 
 <SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />

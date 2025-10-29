@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import {
 		fetchMcpServerAndEntries,
@@ -222,8 +222,8 @@
 	{/if}
 </div>
 
-<Confirm
-	msg="Are you sure you want to delete this server?"
+<McpConfirmDelete
+	names={[deletingEntry?.manifest?.name ?? '']}
 	show={Boolean(deletingEntry)}
 	onsuccess={async () => {
 		if (!deletingEntry || !catalog) {
@@ -242,10 +242,12 @@
 		deletingEntry = undefined;
 	}}
 	oncancel={() => (deletingEntry = undefined)}
+	entity="entry"
+	entityPlural="entries"
 />
 
-<Confirm
-	msg="Are you sure you want to delete this server?"
+<McpConfirmDelete
+	names={[deletingServer?.manifest?.name ?? '']}
 	show={Boolean(deletingServer)}
 	onsuccess={async () => {
 		if (!deletingServer || !catalog) {
@@ -264,10 +266,12 @@
 		deletingServer = undefined;
 	}}
 	oncancel={() => (deletingServer = undefined)}
+	entity="entry"
+	entityPlural="entries"
 />
 
-<Confirm
-	msg="Are you sure you want to delete these servers?"
+<McpConfirmDelete
+	names={Object.values(selected).map((s) => s.name)}
 	show={confirmBulkDelete}
 	onsuccess={async () => {
 		if (!catalog) return;
@@ -299,4 +303,6 @@
 	}}
 	oncancel={() => (confirmBulkDelete = false)}
 	loading={loadingBulkDelete}
+	entity="entry"
+	entityPlural="entries"
 />

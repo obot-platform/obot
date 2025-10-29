@@ -4,7 +4,7 @@
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { AdminService, type BootstrapStatus, type TempUser } from '$lib/services';
-	import { AlertCircle, Handshake, LoaderCircle } from 'lucide-svelte';
+	import { AlertCircle, Handshake, LoaderCircle, ShieldAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 
@@ -14,8 +14,8 @@
 	let bootstrapToken = $state('');
 	let error = $state('');
 	let showBootstrapLogin = $state(authProviders.length === 0);
-
-	let getTempUser = $state<Promise<TempUser>>();
+	let tempDataPromises =
+		$state<Promise<[TempUser, Awaited<ReturnType<typeof AdminService.listExplicitRoleEmails>>]>>();
 	let loadingCancelTempUser = $state(false);
 	let loadingConfirmTempUser = $state(false);
 	let showSuccessOwnerConfirmation = $state(false);
@@ -23,7 +23,10 @@
 	onMount(() => {
 		fetchBootstrapStatus = AdminService.getBootstrapStatus();
 		if (showSetupHandoff) {
-			getTempUser = AdminService.getTempUser();
+			tempDataPromises = Promise.all([
+				AdminService.getTempUser(),
+				AdminService.listExplicitRoleEmails()
+			]);
 		}
 	});
 
@@ -59,11 +62,13 @@
 </div>
 
 {#snippet setupView()}
-	{#await getTempUser}
+	{#await tempDataPromises}
 		<div class="size-10">
 			<LoaderCircle class="text-primary size-8 animate-spin" />
 		</div>
-	{:then tempUser}
+	{:then response}
+		{@const [tempUser, explicitRoles] = response ?? []}
+		{@const isExplicitAdmin = explicitRoles?.admins?.includes(tempUser?.email ?? '') ?? false}
 		{#if tempUser}
 			<div
 				class="dark:bg-surface2 dark:border-surface3 flex w-sm flex-col rounded-lg border border-transparent bg-white px-4 py-8 shadow-sm"
@@ -96,36 +101,50 @@
 				{:else}
 					<div class="my-6 flex w-full flex-col items-center justify-center gap-6 px-8">
 						<div class="flex items-center justify-center gap-2">
-							<Handshake class="size-6" />
-							<h3 class="text-xl font-semibold">Confirm Owner Addition</h3>
+							{#if isExplicitAdmin}
+								<ShieldAlert class="size-6" />
+								<h3 class="text-xl font-semibold">Explicit Admin Addition</h3>
+							{:else}
+								<Handshake class="size-6" />
+								<h3 class="text-xl font-semibold">Confirm Owner Addition</h3>
+							{/if}
 						</div>
+
 						<p class="text-md text-center font-light">
 							You're now logged in as <span class="font-semibold"
 								>{tempUser.email || tempUser.username}</span
 							>.
 						</p>
 
-						<p class="text-md text-center font-light">
-							Are you sure you wish to make this account an owner?
+						<p class="text-md text-center font-light" class:text-left={isExplicitAdmin}>
+							{#if isExplicitAdmin}
+								This account has been explicitly assigned the Admin role. It cannot be modified. Go
+								back and assign the Owner role to another account or adjust the explicit settings to
+								set this account as an owner.
+							{:else}
+								Are you sure you wish to make this account an owner?
+							{/if}
 						</p>
 					</div>
 					<div class="flex flex-col gap-2">
-						<button
-							class="button-primary place-items-center"
-							onclick={async () => {
-								loadingConfirmTempUser = true;
-								await AdminService.confirmTempUserAsOwner(tempUser.email);
-								loadingConfirmTempUser = false;
-								showSuccessOwnerConfirmation = true;
-							}}
-							disabled={loadingCancelTempUser || loadingConfirmTempUser}
-						>
-							{#if loadingConfirmTempUser}
-								<LoaderCircle class="size-4 animate-spin" />
-							{:else}
-								Yes, make this account an owner
-							{/if}
-						</button>
+						{#if !isExplicitAdmin}
+							<button
+								class="button-primary place-items-center"
+								onclick={async () => {
+									loadingConfirmTempUser = true;
+									await AdminService.confirmTempUserAsOwner(tempUser.email);
+									loadingConfirmTempUser = false;
+									showSuccessOwnerConfirmation = true;
+								}}
+								disabled={loadingCancelTempUser || loadingConfirmTempUser}
+							>
+								{#if loadingConfirmTempUser}
+									<LoaderCircle class="size-4 animate-spin" />
+								{:else}
+									Yes, make this account an owner
+								{/if}
+							</button>
+						{/if}
 						<button
 							class="button place-items-center"
 							onclick={async () => {
@@ -138,7 +157,7 @@
 							{#if loadingCancelTempUser}
 								<LoaderCircle class="size-4 animate-spin" />
 							{:else}
-								No, cancel & go back
+								{isExplicitAdmin ? 'Go Back' : 'No, cancel & go back'}
 							{/if}
 						</button>
 					</div>
