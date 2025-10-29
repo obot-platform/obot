@@ -88,7 +88,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServerInstanceList":                        schema_obot_platform_obot_apiclient_types_MCPServerInstanceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerList":                                schema_obot_platform_obot_apiclient_types_MCPServerList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerManifest":                            schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerNeedingK8sUpdate":                    schema_obot_platform_obot_apiclient_types_MCPServerNeedingK8sUpdate(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerTool":                                schema_obot_platform_obot_apiclient_types_MCPServerTool(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServersNeedingK8sUpdateList":               schema_obot_platform_obot_apiclient_types_MCPServersNeedingK8sUpdateList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStats":                             schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStatsItem":                         schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem":                             schema_obot_platform_obot_apiclient_types_MCPUsageStatItem(ref),
@@ -4227,6 +4229,42 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPServerNeedingK8sUpdate(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerNeedingK8sUpdate represents a server that needs redeployment with new K8s settings",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mcpServerId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerID is the ID of the MCP server that needs updating",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mcpServerCatalogEntryId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerCatalogEntryID is the ID of the catalog entry this server was created from, if applicable This field is empty for multi-user servers that were created directly (not from a catalog entry)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"powerUserWorkspaceId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PowerUserWorkspaceID is the ID of the workspace this server belongs to, if applicable This field is empty for servers that belong to catalogs (not workspaces)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"mcpServerId"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPServerTool(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4299,6 +4337,35 @@ func schema_obot_platform_obot_apiclient_types_MCPServerTool(ref common.Referenc
 				Required: []string{"id", "name", "enabled"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServersNeedingK8sUpdateList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServersNeedingK8sUpdateList is a list of servers needing K8s updates",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerNeedingK8sUpdate"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerNeedingK8sUpdate"},
 	}
 }
 
