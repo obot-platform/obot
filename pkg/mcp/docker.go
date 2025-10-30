@@ -233,7 +233,7 @@ eventLoop:
 }
 
 func (d *dockerBackend) restartServer(ctx context.Context, id string) error {
-	if err := d.client.ContainerRestart(ctx, id, container.StopOptions{Timeout: &[]int{30}[0]}); err != nil {
+	if err := d.client.ContainerRestart(ctx, id, container.StopOptions{}); err != nil {
 		return fmt.Errorf("failed to restart container %s: %w", id, err)
 	}
 
