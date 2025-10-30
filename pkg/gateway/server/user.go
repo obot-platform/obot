@@ -193,6 +193,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to update user: %v", err))
 	}
 
+	// Create UserRoleChange event to trigger reconciliation if personal role changed
 	if originalUser.Role != existingUser.Role {
 		if err = apiContext.Create(&v1.UserRoleChange{
 			ObjectMeta: metav1.ObjectMeta{
@@ -200,9 +201,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 				Namespace:    apiContext.Namespace(),
 			},
 			Spec: v1.UserRoleChangeSpec{
-				UserID:  existingUser.ID,
-				OldRole: originalUser.Role,
-				NewRole: existingUser.Role,
+				UserID: existingUser.ID,
 			},
 		}); err != nil {
 			return fmt.Errorf("failed to create user role change event: %v", err)

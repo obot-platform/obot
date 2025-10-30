@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,6 +12,9 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // getGroupRoleAssignments returns all group role assignments.
@@ -92,6 +96,12 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 		return fmt.Errorf("failed to create group role assignment: %v", err)
 	}
 
+	// Trigger reconciliation for all users in this group
+	if err := s.triggerReconciliationForGroup(apiContext.Context(), apiContext, req.GroupName); err != nil {
+		pkgLog.Warnf("failed to trigger reconciliation for group %s: %v", req.GroupName, err)
+		// Don't fail the request - assignment was created successfully
+	}
+
 	return apiContext.Write(convertGroupRoleAssignment(created))
 }
 
@@ -131,6 +141,12 @@ func (s *Server) updateGroupRoleAssignment(apiContext api.Context) error {
 		return fmt.Errorf("failed to update group role assignment: %v", err)
 	}
 
+	// Trigger reconciliation for all users in this group
+	if err := s.triggerReconciliationForGroup(apiContext.Context(), apiContext, groupName); err != nil {
+		pkgLog.Warnf("failed to trigger reconciliation for group %s: %v", groupName, err)
+		// Don't fail the request - assignment was updated successfully
+	}
+
 	return apiContext.Write(convertGroupRoleAssignment(updated))
 }
 
@@ -148,7 +164,41 @@ func (s *Server) deleteGroupRoleAssignment(apiContext api.Context) error {
 		return fmt.Errorf("failed to delete group role assignment: %v", err)
 	}
 
+	// Trigger reconciliation for all users in this group
+	if err := s.triggerReconciliationForGroup(apiContext.Context(), apiContext, groupName); err != nil {
+		pkgLog.Warnf("failed to trigger reconciliation for group %s: %v", groupName, err)
+		// Don't fail the request - assignment was deleted successfully
+	}
+
 	return apiContext.Write(types2.GroupRoleAssignment{})
+}
+
+// triggerReconciliationForGroup creates UserRoleChange events for all users in the given group
+// to trigger workspace reconciliation based on their current effective role.
+func (s *Server) triggerReconciliationForGroup(ctx context.Context, apiContext api.Context, groupName string) error {
+	// Get all users in this group
+	users, err := apiContext.GatewayClient.GetUsersInGroup(ctx, groupName)
+	if err != nil {
+		return fmt.Errorf("failed to get users in group %s: %w", groupName, err)
+	}
+
+	// Create UserRoleChange event for each user to trigger reconciliation
+	for _, user := range users {
+		if err := apiContext.Create(&v1.UserRoleChange{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.UserRoleChangePrefix,
+				Namespace:    apiContext.Namespace(),
+			},
+			Spec: v1.UserRoleChangeSpec{
+				UserID: user.ID,
+			},
+		}); err != nil {
+			pkgLog.Errorf("failed to create user role change event for user %d: %v", user.ID, err)
+			// Continue processing other users even if one fails
+		}
+	}
+
+	return nil
 }
 
 // convertGroupRoleAssignment converts database model to API type.

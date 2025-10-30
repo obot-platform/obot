@@ -132,6 +132,23 @@ func (c *Client) ResolveUserEffectiveRole(ctx context.Context, user *types.User,
 	return effectiveRole, nil
 }
 
+// GetUsersInGroup returns all users who are members of the given group.
+// This is used to find users affected by GroupRoleAssignment changes.
+func (c *Client) GetUsersInGroup(ctx context.Context, groupName string) ([]types.User, error) {
+	var users []types.User
+	err := c.db.WithContext(ctx).
+		Table("users").
+		Joins("JOIN group_memberships ON group_memberships.user_id = users.id").
+		Where("group_memberships.group_id = ?", groupName).
+		Find(&users).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get users in group %s: %w", groupName, err)
+	}
+
+	return users, nil
+}
+
 // ResolveUserEffectiveRolesBulk computes effective roles for multiple users efficiently.
 // It performs a single database query to fetch all group role assignments for all users' groups.
 // Returns a map of userID to their effective role.

@@ -17,8 +17,8 @@ type UserRoleChange struct {
 
 type UserRoleChangeSpec struct {
 	UserID  uint       `json:"userID,omitempty"`
-	OldRole types.Role `json:"oldRole,omitempty"`
-	NewRole types.Role `json:"newRole,omitempty"`
+	OldRole types.Role `json:"oldRole,omitempty"` // deprecated and unused
+	NewRole types.Role `json:"newRole,omitempty"` // deprecated and unused
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
