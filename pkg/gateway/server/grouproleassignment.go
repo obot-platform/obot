@@ -61,7 +61,7 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 
 	// Validation
 	if req.GroupName == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "ID is required")
+		return types2.NewErrHTTP(http.StatusBadRequest, "group name is required")
 	}
 	if req.Role == types2.RoleUnknown {
 		return types2.NewErrHTTP(http.StatusBadRequest, "role is required")
@@ -69,15 +69,13 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 
 	// Only allow assigning specific roles (not combined bitmasks)
 	validRoles := []types2.Role{
-		types2.RoleBasic,
-		types2.RoleOwner,
 		types2.RoleAdmin,
 		types2.RolePowerUserPlus,
 		types2.RolePowerUser,
 	}
 	if !slices.Contains(validRoles, req.Role) {
 		return types2.NewErrHTTP(http.StatusBadRequest,
-			"invalid role: must be one of Basic, Owner, Admin, PowerUserPlus, PowerUser")
+			"invalid role: must be one of Admin, PowerUserPlus, PowerUser")
 	}
 
 	created, err := apiContext.GatewayClient.CreateGroupRoleAssignment(
