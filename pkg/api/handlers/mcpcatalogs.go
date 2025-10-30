@@ -1022,23 +1022,56 @@ func normalizeMCPCatalogEntryName(name string) string {
 func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest *types.MCPServerCatalogEntryManifest, catalogName, workspaceID string) error {
 	// For each component server, fetch its catalog entry and populate the manifest
 	for i := range manifest.CompositeConfig.ComponentServers {
-		component := &manifest.CompositeConfig.ComponentServers[i]
-
-		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&entry, component.CatalogEntryID); err != nil {
-			return types.NewErrBadRequest("failed to get component catalog entry %s: %v", component.CatalogEntryID, err)
+		var (
+			component                    = &manifest.CompositeConfig.ComponentServers[i]
+			hasCatalogEntry, hasServerID = component.CatalogEntryID != "", component.MCPServerID != ""
+		)
+		// Validate that exactly one of CatalogEntryID or MCPServerID is set
+		if hasCatalogEntry && hasServerID {
+			return types.NewErrBadRequest("component cannot have both catalogEntryID and mcpServerID set")
+		}
+		if !hasCatalogEntry && !hasServerID {
+			return types.NewErrBadRequest("component must have either catalogEntryID or mcpServerID set")
 		}
 
-		// Verify the component entry belongs to the same scope
-		if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
-			return types.NewErrBadRequest("component entry %s does not belong to catalog %s", component.CatalogEntryID, catalogName)
-		}
-		if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
-			return types.NewErrBadRequest("component entry %s does not belong to workspace %s", component.CatalogEntryID, workspaceID)
-		}
+		if component.MCPServerID != "" {
+			// Multi-user server component
+			var server v1.MCPServer
+			if err := req.Get(&server, component.MCPServerID); err != nil {
+				return types.NewErrBadRequest("failed to get multi-user server %s: %v", component.MCPServerID, err)
+			}
 
-		// Populate the manifest
-		component.Manifest = entry.Spec.Manifest
+			// Verify this is actually a multi-user server
+			if server.Spec.MCPCatalogID == "" && server.Spec.PowerUserWorkspaceID == "" {
+				return types.NewErrBadRequest("server %s is not a multi-user server", component.MCPServerID)
+			}
+
+			// Verify the server belongs to the same scope
+			if catalogName != "" && server.Spec.MCPCatalogID != catalogName {
+				return types.NewErrBadRequest("multi-user server %s belongs to catalog %s, not %s", component.MCPServerID, server.Spec.MCPCatalogID, catalogName)
+			}
+			if workspaceID != "" && server.Spec.PowerUserWorkspaceID != workspaceID {
+				return types.NewErrBadRequest("multi-user server %s does not belong to workspace %s", component.MCPServerID, workspaceID)
+			}
+			// No manifest population needed - multi-user servers already have their manifest
+		} else {
+			// Catalog entry component
+			var entry v1.MCPServerCatalogEntry
+			if err := req.Get(&entry, component.CatalogEntryID); err != nil {
+				return types.NewErrBadRequest("failed to get component catalog entry %s: %v", component.CatalogEntryID, err)
+			}
+
+			// Verify the component entry belongs to the same scope
+			if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
+				return types.NewErrBadRequest("component entry %s does not belong to catalog %s", component.CatalogEntryID, catalogName)
+			}
+			if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
+				return types.NewErrBadRequest("component entry %s does not belong to workspace %s", component.CatalogEntryID, workspaceID)
+			}
+
+			// Populate the manifest
+			component.Manifest = entry.Spec.Manifest
+		}
 	}
 
 	return nil

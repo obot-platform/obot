@@ -308,6 +308,7 @@
 				}
 			> = {};
 			for (const c of components) {
+				if (!c.catalogEntryID || !c.manifest) continue;
 				const id = c.catalogEntryID;
 				const m = c.manifest;
 				componentConfigs[id] = {
@@ -476,6 +477,7 @@
 				}
 			> = {};
 			for (const c of components) {
+				if (!c.catalogEntryID || !c.manifest) continue;
 				const id = c.catalogEntryID;
 				const m = c.manifest;
 				componentConfigs[id] = {
@@ -724,6 +726,7 @@
 				}
 			> = {};
 			for (const c of components) {
+				if (!c.catalogEntryID || !c.manifest) continue;
 				const id = c.catalogEntryID;
 				const m = c.manifest;
 				const init = initial?.[id];

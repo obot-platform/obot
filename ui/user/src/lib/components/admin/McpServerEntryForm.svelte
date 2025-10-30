@@ -333,6 +333,7 @@
 			const comps = entry.manifest?.compositeConfig?.componentServers || [];
 			const componentConfigs: Record<string, ComponentLaunchFormData> = {};
 			for (const c of comps) {
+				if (!c.catalogEntryID) continue;
 				const rc = c.manifest?.remoteConfig as Record<string, unknown> | undefined;
 				const hasHostname = Boolean(rc && 'hostname' in rc && rc.hostname);
 				componentConfigs[c.catalogEntryID] = {

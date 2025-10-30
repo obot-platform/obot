@@ -42,9 +42,11 @@
 			componentInfos = componentServers.reduce(
 				(
 					acc: Record<string, { name?: string; icon?: string }>,
-					c: { catalogEntryID: string; manifest?: { name?: string; icon?: string } }
+					c: { catalogEntryID?: string; manifest?: { name?: string; icon?: string } }
 				) => {
-					acc[c.catalogEntryID] = {
+					const id = c.catalogEntryID;
+					if (!id) return acc;
+					acc[id] = {
 						name: c.manifest?.name,
 						icon: c.manifest?.icon
 					};

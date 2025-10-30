@@ -125,6 +125,15 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 			return fmt.Errorf("failed to list component servers for composite server %s: %v", mcpServer.Name, err)
 		}
 
+		var componentInstanceList v1.MCPServerInstanceList
+		if err := req.List(&componentInstanceList,
+			kclient.InNamespace(mcpServer.Namespace),
+			kclient.MatchingFields{
+				"spec.compositeName": mcpServer.Name,
+			}); err != nil {
+			return fmt.Errorf("failed to list component instances for composite server %s: %v", mcpServer.Name, err)
+		}
+
 		// Precompute disabled component IDs for quick lookup (default is enabled if not listed)
 		var compositeConfig types.CompositeRuntimeConfig
 		if mcpServer.Spec.Manifest.CompositeConfig != nil {
@@ -133,10 +142,16 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 
 		disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
 		for _, comp := range compositeConfig.ComponentServers {
-			disabledComponents[comp.CatalogEntryID] = comp.Disabled
+			if comp.CatalogEntryID != "" {
+				disabledComponents[comp.CatalogEntryID] = comp.Disabled
+			} else if comp.MCPServerID != "" {
+				disabledComponents[comp.MCPServerID] = comp.Disabled
+			}
 		}
 
-		componentServers := make([]messageContext, 0, len(componentServerList.Items))
+		componentServers := make([]messageContext, 0, len(componentServerList.Items)+len(componentInstanceList.Items))
+
+		// Add single-user component servers
 		for _, componentServer := range componentServerList.Items {
 			// Skip if explicitly disabled in composite config
 			if disabledComponents[componentServer.Spec.MCPServerCatalogEntryName] {
@@ -149,6 +164,33 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 			if err != nil {
 				// If the component isn't configured or can't be reached, skip it.
 				log.Warnf("Failed to get component server %s: %v", componentServer.Name, err)
+				continue
+			}
+
+			componentServers = append(componentServers, messageContext{
+				userID:       req.User.GetUID(),
+				mcpID:        srv.Name,
+				mcpServer:    srv,
+				serverConfig: config,
+			})
+		}
+
+		// Add multi-user component instances
+		for _, componentInstance := range componentInstanceList.Items {
+			var multiUserServer v1.MCPServer
+			if err := req.Get(&multiUserServer, componentInstance.Spec.MCPServerName); err != nil {
+				log.Warnf("Failed to get multi-user server %s for instance %s: %v", componentInstance.Spec.MCPServerName, componentInstance.Name, err)
+				continue
+			}
+
+			if disabledComponents[multiUserServer.Name] {
+				log.Debugf("Skipping component instance %s not enabled in composite config", componentInstance.Name)
+				continue
+			}
+
+			srv, config, err := handlers.ServerForAction(req, multiUserServer.Name, h.mcpSessionManager.TokenService(), h.baseURL)
+			if err != nil {
+				log.Warnf("Failed to get multi-user server %s: %v", multiUserServer.Name, err)
 				continue
 			}
 

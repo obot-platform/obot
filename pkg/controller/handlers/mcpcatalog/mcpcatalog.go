@@ -623,7 +623,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForCatalog(req router.Requ
 				return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 			}
 
-			if !hasAccess {
+			if !hasAccess && server.Spec.CompositeName == "" {
 				log.Infof("Deleting MCPServerInstance %q because it is no longer authorized to exist", instance.Name)
 				if err := req.Delete(&instance); err != nil {
 					return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
