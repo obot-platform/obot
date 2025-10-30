@@ -524,13 +524,13 @@ func fireWebhooks(ctx context.Context, webhooks []mcp.Webhook, msg nmcp.Message,
 				Message: rpcError.Message,
 			})
 			rpcErrors = append(rpcErrors, rpcError)
+		} else {
+			auditLog.WebhookStatuses = append(auditLog.WebhookStatuses, gatewaytypes.MCPWebhookStatus{
+				Type:   webhookType,
+				URL:    webhook.URL,
+				Status: webhookStatus,
+			})
 		}
-
-		auditLog.WebhookStatuses = append(auditLog.WebhookStatuses, gatewaytypes.MCPWebhookStatus{
-			Type:   webhookType,
-			URL:    webhook.URL,
-			Status: webhookStatus,
-		})
 	}
 
 	switch len(rpcErrors) {
