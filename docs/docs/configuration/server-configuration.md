@@ -35,10 +35,10 @@ The Obot server is configured via environment variables. The following configura
 
 ## Encryption Providers
 
-You can configure optional [encryption providers](99-encryption-providers/01-aws-kms.md) to ensure secrets are encrypted.
+You can configure optional [encryption providers](encryption-providers/aws-kms) to ensure secrets are encrypted.
 
 ## Model Providers
-You can configure additional models using [model providers](04-model-providers.md)
+You can configure additional models using [model providers](model-providers)
 
 ## Workspace Provider
-You can configure external storage for workspace files using a [workspace provider](05-workspace-provider.md)
+You can configure external storage for workspace files using a [workspace provider](workspace-provider)

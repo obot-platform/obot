@@ -64,7 +64,7 @@ resource "google_kms_crypto_key_iam_binding" "this" {
 }
 ```
 
-More information on the Google Cloud KMS setup can be found [here](../99-encryption-providers/03-google-cloud-kms.md).
+More information on the Google Cloud KMS setup can be found [here](../../configuration/encryption-providers/google-cloud-kms).
 
 
 Once you have these resources set up, install the Obot helm chart with:

@@ -7,6 +7,25 @@ const sidebars = {
     "architecture",
     {
       type: "category",
+      label: "Installation",
+      items: [
+        "installation/overview",
+        "installation/docker-deployment",
+        "installation/kubernetes-deployment",
+        "installation/enabling-authentication",
+        {
+          type: "category",
+          label: "Reference Architectures",
+          items: [
+            "installation/reference-architectures/gcp-gke",
+            "installation/reference-architectures/aws-eks",
+            "installation/reference-architectures/azure-aks",
+          ],
+        },
+      ],
+    },
+    {
+      type: "category",
       label: "Chat Interface",
       items: [
         "concepts/chat/overview",
@@ -37,43 +56,32 @@ const sidebars = {
     },
     {
       type: "category",
-      label: "Installation",
+      label: "Configuration",
       items: [
-        "installation/general",
+        "configuration/server-configuration",
+        "configuration/auth-providers",
+        "configuration/model-providers",
+        "configuration/workspace-provider",
         {
           type: "category",
-          label: "Configuration",
+          label: "Advanced Configuration",
           items: [
-            "configuration/server-configuration",
-            "configuration/chat-configuration",
-            "configuration/auth-providers",
-            "configuration/workspace-provider",
-            "configuration/model-providers",
             "configuration/oauth-configuration",
             "configuration/mcp-deployments-in-kubernetes",
-            {
-              type: "category",
-              label: "Reference Architectures",
-              items: [
-                "configuration/reference-architectures/gcp-gke",
-                "configuration/reference-architectures/aws-eks",
-                "configuration/reference-architectures/azure-aks",
-              ],
-            },
-            {
-              type: "category",
-              label: "Encryption Providers",
-              items: [
-                "configuration/encryption-providers/aws-kms",
-                "configuration/encryption-providers/azure-key-vault",
-                "configuration/encryption-providers/google-cloud-kms",
-              ],
-            },
           ],
         },
-        "enterprise",
+        {
+          type: "category",
+          label: "Encryption Providers",
+          items: [
+            "configuration/encryption-providers/aws-kms",
+            "configuration/encryption-providers/azure-key-vault",
+            "configuration/encryption-providers/google-cloud-kms",
+          ],
+        },
       ],
     },
+    "integrations/ide-client-integration",
     {
       type: "category",
       label: "Tutorials",
@@ -83,6 +91,8 @@ const sidebars = {
         "tutorials/slack-alerts-assistant",
       ],
     },
+    "enterprise/overview",
+    "faq",
   ],
 };
 
