@@ -244,6 +244,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.DeleteEntriesWithoutRuntime)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.UpdateManifestHashAndLastUpdated)
+	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.DetectCompositeDrift)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.EnsureUserCount)
 
 	// MCPServer
