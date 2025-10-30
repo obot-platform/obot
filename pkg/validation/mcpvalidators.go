@@ -439,22 +439,37 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 	// Check for duplicate component servers
 	componentServerIDs := make(map[string]struct{}, len(manifest.CompositeConfig.ComponentServers))
 	for _, component := range manifest.CompositeConfig.ComponentServers {
-		if component.CatalogEntryID == "" {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers.catalogEntryID",
-				Message: "catalogEntryID is required for each component server",
-			}
-		}
-
-		if _, ok := componentServerIDs[component.CatalogEntryID]; ok {
+		// Validate that exactly one of CatalogEntryID or MCPServerID is set
+		hasCatalogEntry, hasServerID := component.CatalogEntryID != "", component.MCPServerID != ""
+		if !hasCatalogEntry && !hasServerID {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
 				Field:   "compositeConfig.componentServers",
-				Message: fmt.Sprintf("duplicate component server: %s", component.CatalogEntryID),
+				Message: "each component server must have either catalogEntryID or mcpServerID set",
 			}
 		}
-		componentServerIDs[component.CatalogEntryID] = struct{}{}
+		if hasCatalogEntry && hasServerID {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers",
+				Message: "component server cannot have both catalogEntryID and mcpServerID set",
+			}
+		}
+
+		// Use whichever ID is set for duplicate checking
+		componentID := component.CatalogEntryID
+		if componentID == "" {
+			componentID = component.MCPServerID
+		}
+
+		if _, ok := componentServerIDs[componentID]; ok {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers",
+				Message: fmt.Sprintf("duplicate component server: %s", componentID),
+			}
+		}
+		componentServerIDs[componentID] = struct{}{}
 
 		// Validate tool overrides
 		if err := validateToolOverrides(component.ToolOverrides); err != nil {
@@ -485,22 +500,37 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 	// Check for duplicate component servers
 	componentServerIDs := make(map[string]struct{}, len(manifest.CompositeConfig.ComponentServers))
 	for _, component := range manifest.CompositeConfig.ComponentServers {
-		if component.CatalogEntryID == "" {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers.catalogEntryID",
-				Message: "catalogEntryID is required for each component server",
-			}
-		}
-
-		if _, ok := componentServerIDs[component.CatalogEntryID]; ok {
+		// Validate that exactly one of CatalogEntryID or MCPServerID is set
+		hasCatalogEntry, hasServerID := component.CatalogEntryID != "", component.MCPServerID != ""
+		if !hasCatalogEntry && !hasServerID {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
 				Field:   "compositeConfig.componentServers",
-				Message: fmt.Sprintf("duplicate component server: %s", component.CatalogEntryID),
+				Message: "each component server must have either catalogEntryID or mcpServerID set",
 			}
 		}
-		componentServerIDs[component.CatalogEntryID] = struct{}{}
+		if hasCatalogEntry && hasServerID {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers",
+				Message: "component server cannot have both catalogEntryID and mcpServerID set",
+			}
+		}
+
+		// Use whichever ID is set for duplicate checking
+		componentID := component.CatalogEntryID
+		if componentID == "" {
+			componentID = component.MCPServerID
+		}
+
+		if _, ok := componentServerIDs[componentID]; ok {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers",
+				Message: fmt.Sprintf("duplicate component server: %s", componentID),
+			}
+		}
+		componentServerIDs[componentID] = struct{}{}
 
 		// Validate tool overrides
 		if err := validateToolOverrides(component.ToolOverrides); err != nil {

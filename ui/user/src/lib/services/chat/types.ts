@@ -308,10 +308,11 @@ export interface CompositeRuntimeConfig {
 }
 
 export interface ComponentServer {
-	catalogEntryID: string;
-	manifest: MCPServer;
+	catalogEntryID?: string;
+	mcpServerID?: string;
+	manifest?: MCPServer;
 	toolOverrides?: ToolOverride[];
-	enabled?: boolean;
+	disabled?: boolean;
 }
 
 export interface ToolOverride {

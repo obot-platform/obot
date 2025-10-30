@@ -62,10 +62,13 @@ type CompositeCatalogConfig struct {
 
 // CatalogComponentServer represents a component server in a composite server catalog entry.
 type CatalogComponentServer struct {
-	CatalogEntryID string                        `json:"catalogEntryID"`
-	Manifest       MCPServerCatalogEntryManifest `json:"manifest"`
-	ToolOverrides  []ToolOverride                `json:"toolOverrides,omitempty"`
-	Disabled       bool                          `json:"disabled,omitempty"`
+	// CatalogEntryID references a catalog entry for single-user and remote components
+	CatalogEntryID string `json:"catalogEntryID,omitempty"`
+	// MCPServerID references a multi-user MCP server
+	MCPServerID   string                        `json:"mcpServerID,omitempty"`
+	Manifest      MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
+	ToolOverrides []ToolOverride                `json:"toolOverrides,omitempty"`
+	Disabled      bool                          `json:"disabled,omitempty"`
 }
 
 type CompositeRuntimeConfig struct {
@@ -73,10 +76,13 @@ type CompositeRuntimeConfig struct {
 }
 
 type ComponentServer struct {
-	CatalogEntryID string            `json:"catalogEntryID"`
-	Manifest       MCPServerManifest `json:"manifest"`
-	ToolOverrides  []ToolOverride    `json:"toolOverrides,omitempty"`
-	Disabled       bool              `json:"disabled,omitempty"`
+	// CatalogEntryID references a catalog entry for single-user and remote components
+	CatalogEntryID string `json:"catalogEntryID,omitempty"`
+	// MCPServerID references a multi-user MCP server
+	MCPServerID   string            `json:"mcpServerID,omitempty"`
+	Manifest      MCPServerManifest `json:"manifest,omitempty"`
+	ToolOverrides []ToolOverride    `json:"toolOverrides,omitempty"`
+	Disabled      bool              `json:"disabled,omitempty"`
 }
 
 type MCPServerCatalogEntry struct {
@@ -405,22 +411,26 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		// Convert CatalogComponentServer to ComponentServer
 		componentServers := make([]ComponentServer, len(catalogEntry.CompositeConfig.ComponentServers))
 		for i, catalogComponent := range catalogEntry.CompositeConfig.ComponentServers {
-			// Convert the component's catalog manifest to server manifest
-			componentServerManifest, err := MapCatalogEntryToServer(catalogComponent.Manifest, "")
-			if err != nil {
-				return serverManifest, RuntimeValidationError{
-					Runtime: RuntimeComposite,
-					Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
-					Message: fmt.Sprintf("failed to convert component manifest: %v", err),
-				}
-			}
-
-			componentServers[i] = ComponentServer{
+			componentServer := ComponentServer{
 				CatalogEntryID: catalogComponent.CatalogEntryID,
-				Manifest:       componentServerManifest,
+				MCPServerID:    catalogComponent.MCPServerID,
 				ToolOverrides:  catalogComponent.ToolOverrides,
 				Disabled:       false,
 			}
+
+			if catalogComponent.CatalogEntryID != "" {
+				componentServerManifest, err := MapCatalogEntryToServer(catalogComponent.Manifest, "")
+				if err != nil {
+					return serverManifest, RuntimeValidationError{
+						Runtime: RuntimeComposite,
+						Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+						Message: fmt.Sprintf("failed to convert component manifest: %v", err),
+					}
+				}
+				componentServer.Manifest = componentServerManifest
+			}
+
+			componentServers[i] = componentServer
 		}
 
 		serverManifest.CompositeConfig = &CompositeRuntimeConfig{

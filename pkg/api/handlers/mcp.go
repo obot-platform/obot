@@ -906,7 +906,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 			}
 
 			// Convert the catalog entry manifest to a server manifest. Treat the user as non-admin always.
-			manifest, err := serverManifestFromCatalogEntryManifest(false, entry.Spec.Manifest, types.MCPServerManifest{})
+			manifest, err := serverManifestFromCatalogEntryManifest(req, false, entry.Spec.Manifest, types.MCPServerManifest{})
 			if err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("user has not configured an MCP server for catalog entry %s", id)
 			}
@@ -1119,7 +1119,7 @@ func serverForActionWithCapabilities(req api.Context, sessionManager *mcp.Sessio
 	return server, serverConfig, caps, err
 }
 
-func serverManifestFromCatalogEntryManifest(isAdmin bool, entry types.MCPServerCatalogEntryManifest, input types.MCPServerManifest) (types.MCPServerManifest, error) {
+func serverManifestFromCatalogEntryManifest(req api.Context, isAdmin bool, entry types.MCPServerCatalogEntryManifest, input types.MCPServerManifest) (types.MCPServerManifest, error) {
 	if entry.Runtime == types.RuntimeComposite && entry.CompositeConfig != nil {
 		var result types.MCPServerManifest
 		result.Name = entry.Name
@@ -1140,6 +1140,22 @@ func serverManifestFromCatalogEntryManifest(isAdmin bool, entry types.MCPServerC
 		}
 
 		for i, c := range entry.CompositeConfig.ComponentServers {
+			if c.MCPServerID != "" {
+				// Enrich with manifest from the referenced multi-user server
+				var server v1.MCPServer
+				if err := req.Get(&server, c.MCPServerID); err != nil {
+					return types.MCPServerManifest{}, err
+				}
+				result.CompositeConfig.ComponentServers = append(result.CompositeConfig.ComponentServers, types.ComponentServer{
+					MCPServerID:   c.MCPServerID,
+					Manifest:      server.Spec.Manifest,
+					ToolOverrides: c.ToolOverrides,
+					Disabled:      c.Disabled,
+				})
+				continue
+			}
+
+			// Convert catalog entry manifest to server manifest
 			userURL := userURLByID[c.CatalogEntryID]
 			mapped, err := types.MapCatalogEntryToServer(c.Manifest, userURL)
 			if err != nil {
@@ -1308,7 +1324,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			return m.createCompositeServer(req, server, catalogEntry, input)
 		}
 
-		manifest, err := serverManifestFromCatalogEntryManifest(req.UserIsAdmin(), catalogEntry.Spec.Manifest, input.MCPServerManifest)
+		manifest, err := serverManifestFromCatalogEntryManifest(req, req.UserIsAdmin(), catalogEntry.Spec.Manifest, input.MCPServerManifest)
 		if err != nil {
 			return err
 		}
@@ -1363,6 +1379,7 @@ func (m *MCPHandler) createCompositeServer(
 ) error {
 	// Build the full composite manifest, propagating user-provided component URLs
 	manifest, err := serverManifestFromCatalogEntryManifest(
+		req,
 		req.UserIsAdmin(),
 		catalogEntry.Spec.Manifest,
 		input.MCPServerManifest,
@@ -1385,8 +1402,37 @@ func (m *MCPHandler) createCompositeServer(
 		return err
 	}
 
-	// Create component servers
+	// Create component servers and instances
 	for i, component := range compositeServer.Spec.Manifest.CompositeConfig.ComponentServers {
+		if component.MCPServerID != "" {
+			// Create an MCP server instance for multi-user components
+			var multiUserServer v1.MCPServer
+			if err := req.Get(&multiUserServer, component.MCPServerID); err != nil {
+				return fmt.Errorf("failed to get multi-user server %s for component %d: %w", component.MCPServerID, i, err)
+			}
+
+			instance := v1.MCPServerInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: system.MCPServerInstancePrefix,
+					Namespace:    compositeServer.Namespace,
+				},
+				Spec: v1.MCPServerInstanceSpec{
+					MCPServerName:        component.MCPServerID,
+					MCPCatalogName:       multiUserServer.Spec.MCPCatalogID,
+					PowerUserWorkspaceID: multiUserServer.Spec.PowerUserWorkspaceID,
+					UserID:               compositeServer.Spec.UserID,
+					CompositeName:        compositeServer.Name,
+				},
+			}
+
+			if err := req.Create(&instance); err != nil {
+				return fmt.Errorf("failed to create instance for multi-user component %d: %w", i, err)
+			}
+
+			continue
+		}
+
+		// Create a new MCP server for single-user and remote components
 		componentServer := v1.MCPServer{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: system.MCPServerPrefix,
@@ -3055,8 +3101,8 @@ func (m *MCPHandler) ListServerInstances(req api.Context) error {
 
 	var filteredInstances []v1.MCPServerInstance
 	for _, instance := range allInstances.Items {
-		if instance.Spec.Template {
-			// Hide template instances
+		if instance.Spec.Template || instance.Spec.CompositeName != "" {
+			// Hide template and component instances
 			continue
 		}
 		if _, exists := catalogServerNames[instance.Spec.MCPServerName]; exists {

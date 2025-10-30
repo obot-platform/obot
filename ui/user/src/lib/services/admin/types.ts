@@ -43,9 +43,11 @@ export interface CompositeCatalogConfig {
 }
 
 export interface CatalogComponentServer {
-	catalogEntryID: string;
-	manifest: MCPCatalogEntryServerManifest;
+	catalogEntryID?: string;
+	mcpServerID?: string;
+	manifest?: MCPCatalogEntryServerManifest;
 	toolOverrides?: ToolOverride[];
+	disabled?: boolean;
 }
 
 export interface MCPCatalogEntryServerManifest {

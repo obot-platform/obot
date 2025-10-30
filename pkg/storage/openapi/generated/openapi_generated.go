@@ -1461,9 +1461,16 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 				Properties: map[string]spec.Schema{
 					"catalogEntryID": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "CatalogEntryID references a catalog entry for single-user and remote components",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mcpServerID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerID references a multi-user MCP server",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"manifest": {
@@ -1492,7 +1499,6 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 						},
 					},
 				},
-				Required: []string{"catalogEntryID", "manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -1645,9 +1651,16 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 				Properties: map[string]spec.Schema{
 					"catalogEntryID": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "CatalogEntryID references a catalog entry for single-user and remote components",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mcpServerID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerID references a multi-user MCP server",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"manifest": {
@@ -1676,7 +1689,6 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 						},
 					},
 				},
-				Required: []string{"catalogEntryID", "manifest"},
 			},
 		},
 		Dependencies: []string{
