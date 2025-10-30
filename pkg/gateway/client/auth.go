@@ -50,7 +50,6 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	effectiveRole, err := u.client.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs)
 	if err != nil {
 		// Log error but don't fail authentication - fall back to individual role
-		// Note: In production, this would use a proper logger
 		log.Warnf("failed to resolve efffective role for user with ID %d: %s", gatewayUser.ID, err.Error())
 		effectiveRole = gatewayUser.Role
 	}
