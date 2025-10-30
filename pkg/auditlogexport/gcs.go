@@ -29,11 +29,6 @@ func (g *GCSProvider) Upload(ctx context.Context, config types.StorageConfig, bu
 	}
 	defer client.Close()
 
-	gcsConfig := config.GCSConfig
-	if gcsConfig == nil {
-		return fmt.Errorf("GCS configuration is required")
-	}
-
 	bucketHandle := client.Bucket(bucket)
 	obj := bucketHandle.Object(key)
 

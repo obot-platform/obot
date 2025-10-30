@@ -58,7 +58,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
-	auditLogExports := handlers.NewAuditLogExportHandler(services.StorageClient, services.GPTClient, services.EncryptionConfig)
+	auditLogExports := handlers.NewAuditLogExportHandler(services.GPTClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL)
@@ -573,7 +573,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/scheduled-audit-log-exports", auditLogExports.CreateScheduledAuditLogExport)
 	mux.HandleFunc("GET /api/scheduled-audit-log-exports", auditLogExports.ListScheduledAuditLogExports)
 	mux.HandleFunc("GET /api/scheduled-audit-log-exports/{id}", auditLogExports.GetScheduledAuditLogExport)
-	mux.HandleFunc("PUT /api/scheduled-audit-log-exports/{id}", auditLogExports.UpdateScheduledAuditLogExport)
+	mux.HandleFunc("PATCH /api/scheduled-audit-log-exports/{id}", auditLogExports.UpdateScheduledAuditLogExport)
 	mux.HandleFunc("DELETE /api/scheduled-audit-log-exports/{id}", auditLogExports.DeleteScheduledAuditLogExport)
 
 	// Storage Credentials Management

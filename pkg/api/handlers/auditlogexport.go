@@ -11,23 +11,16 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type AuditLogExportHandler struct {
-	client           kclient.Client
-	gptClient        *gptscript.GPTScript
-	credProvider     *auditlogexport.GPTScriptCredentialProvider
-	encryptionConfig *encryptionconfig.EncryptionConfiguration
+	credProvider *auditlogexport.GPTScriptCredentialProvider
 }
 
-func NewAuditLogExportHandler(client kclient.Client, gptClient *gptscript.GPTScript, encryptionConfig *encryptionconfig.EncryptionConfiguration) *AuditLogExportHandler {
+func NewAuditLogExportHandler(gptClient *gptscript.GPTScript) *AuditLogExportHandler {
 	return &AuditLogExportHandler{
-		client:           client,
-		gptClient:        gptClient,
-		credProvider:     auditlogexport.NewGPTScriptCredentialProvider(gptClient),
-		encryptionConfig: encryptionConfig,
+		credProvider: auditlogexport.NewGPTScriptCredentialProvider(gptClient),
 	}
 }
 
@@ -63,7 +56,7 @@ func (h *AuditLogExportHandler) CreateAuditLogExport(req api.Context) error {
 		},
 	}
 
-	if err := h.client.Create(req.Context(), export); err != nil {
+	if err := req.Storage.Create(req.Context(), export); err != nil {
 		return err
 	}
 
@@ -73,7 +66,7 @@ func (h *AuditLogExportHandler) CreateAuditLogExport(req api.Context) error {
 // ListAuditLogExports lists audit log exports
 func (h *AuditLogExportHandler) ListAuditLogExports(req api.Context) error {
 	var exports v1.AuditLogExportList
-	if err := h.client.List(req.Context(), &exports, &kclient.ListOptions{
+	if err := req.Storage.List(req.Context(), &exports, &kclient.ListOptions{
 		Namespace: req.Namespace(),
 	}); err != nil {
 		return err
@@ -98,7 +91,7 @@ func (h *AuditLogExportHandler) GetAuditLogExport(req api.Context) error {
 	}
 
 	var export v1.AuditLogExport
-	if err := h.client.Get(req.Context(), kclient.ObjectKey{
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
 		Name:      exportName,
 		Namespace: req.Namespace(),
 	}, &export); err != nil {
@@ -122,7 +115,7 @@ func (h *AuditLogExportHandler) DeleteAuditLogExport(req api.Context) error {
 		},
 	}
 
-	return h.client.Delete(req.Context(), export)
+	return req.Storage.Delete(req.Context(), export)
 }
 
 // CreateScheduledAuditLogExport creates a new scheduled audit log export
@@ -155,7 +148,7 @@ func (h *AuditLogExportHandler) CreateScheduledAuditLogExport(req api.Context) e
 		},
 	}
 
-	if err := h.client.Create(req.Context(), scheduledExport); err != nil {
+	if err := req.Storage.Create(req.Context(), scheduledExport); err != nil {
 		return err
 	}
 
@@ -165,7 +158,7 @@ func (h *AuditLogExportHandler) CreateScheduledAuditLogExport(req api.Context) e
 // ListScheduledAuditLogExports lists scheduled audit log exports
 func (h *AuditLogExportHandler) ListScheduledAuditLogExports(req api.Context) error {
 	var scheduledExports v1.ScheduledAuditLogExportList
-	if err := h.client.List(req.Context(), &scheduledExports, &kclient.ListOptions{
+	if err := req.Storage.List(req.Context(), &scheduledExports, &kclient.ListOptions{
 		Namespace: req.Namespace(),
 	}); err != nil {
 		return err
@@ -190,7 +183,7 @@ func (h *AuditLogExportHandler) GetScheduledAuditLogExport(req api.Context) erro
 	}
 
 	var scheduledExport v1.ScheduledAuditLogExport
-	if err := h.client.Get(req.Context(), kclient.ObjectKey{
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
 		Name:      exportName,
 		Namespace: req.Namespace(),
 	}, &scheduledExport); err != nil {
@@ -213,7 +206,7 @@ func (h *AuditLogExportHandler) UpdateScheduledAuditLogExport(req api.Context) e
 	}
 
 	var scheduledExport v1.ScheduledAuditLogExport
-	if err := h.client.Get(req.Context(), kclient.ObjectKey{
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
 		Name:      exportName,
 		Namespace: req.Namespace(),
 	}, &scheduledExport); err != nil {
@@ -243,7 +236,7 @@ func (h *AuditLogExportHandler) UpdateScheduledAuditLogExport(req api.Context) e
 		scheduledExport.Spec.Name = *updateReq.Name
 	}
 
-	if err := h.client.Update(req.Context(), &scheduledExport); err != nil {
+	if err := req.Storage.Update(req.Context(), &scheduledExport); err != nil {
 		return err
 	}
 
@@ -264,7 +257,7 @@ func (h *AuditLogExportHandler) DeleteScheduledAuditLogExport(req api.Context) e
 		},
 	}
 
-	return h.client.Delete(req.Context(), scheduledExport)
+	return req.Storage.Delete(req.Context(), scheduledExport)
 }
 
 // ConfigureStorageCredentials configures storage provider credentials

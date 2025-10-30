@@ -80,8 +80,8 @@ func (c *Controller) setupRoutes() {
 	mcpWebhookValidations := mcpwebhookvalidation.New()
 	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
 	adminWorkspaceHandler := adminworkspace.New(c.services.GatewayClient)
-	auditLogExportHandler := auditlogexport.NewHandler(c.services.StorageClient, c.services.GPTClient, c.services.GatewayClient, c.services.EncryptionConfig)
-	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler(c.services.StorageClient, c.services.GPTClient, c.services.GatewayClient)
+	auditLogExportHandler := auditlogexport.NewHandler(c.services.GPTClient, c.services.GatewayClient, c.services.EncryptionConfig)
+	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -309,11 +309,9 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ProjectMCPServer{}).HandlerFunc(cleanup.Cleanup)
 
 	// AuditLogExport
-	root.Type(&v1.AuditLogExport{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.AuditLogExport{}).HandlerFunc(auditLogExportHandler.ExportAuditLogs)
 
 	// ScheduledAuditLogExport
-	root.Type(&v1.ScheduledAuditLogExport{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.ScheduledAuditLogExport{}).HandlerFunc(scheduledAuditLogExportHandler.ScheduleExports)
 
 	c.toolRefHandler = toolRef

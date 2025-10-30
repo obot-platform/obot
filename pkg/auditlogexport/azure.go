@@ -29,12 +29,6 @@ func (a *AzureProvider) Upload(ctx context.Context, config types.StorageConfig, 
 		return err
 	}
 
-	azureConfig := config.AzureConfig
-	if azureConfig == nil {
-		return fmt.Errorf("azure configuration is required")
-	}
-
-	// Upload blob
 	options := &azblob.UploadStreamOptions{}
 
 	_, err = client.UploadStream(ctx, bucket, key, data, options)

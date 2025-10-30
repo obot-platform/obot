@@ -909,7 +909,7 @@ export async function updateScheduledAuditLogExport(
 	request: Partial<ScheduledAuditLogExportInput>,
 	opts?: { fetch?: Fetcher }
 ) {
-	const response = await doPut(`/scheduled-audit-log-exports/${id}`, request, opts);
+	const response = await doPatch(`/scheduled-audit-log-exports/${id}`, request, opts);
 	return response;
 }
 

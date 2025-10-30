@@ -13,6 +13,7 @@
 	import { browser } from '$app/environment';
 	import { profile } from '$lib/stores';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { AdminService } from '$lib/services';
 	import ExportsView from './ExportsView.svelte';
 	import ScheduledExportsView from './ScheduledExportsView.svelte';
 	import CreateAuditLogExportForm from '$lib/components/admin/audit-log-exports/CreateAuditLogExportForm.svelte';
@@ -57,9 +58,31 @@
 		replaceState(page.url, {});
 	}
 
-	function openForm(formType: FormType) {
-		showForm = formType;
-		goto(`/admin/audit-logs/exports?form=${formType}`, { replaceState: false });
+	async function openForm(formType: FormType) {
+		// If trying to open export or scheduled form, check if storage credentials are configured first
+		if (formType === 'export' || formType === 'scheduled') {
+			try {
+				const response = await AdminService.getStorageCredentials();
+				if (response.provider) {
+					// Storage is configured, proceed to the form
+					showForm = formType;
+					goto(`/admin/audit-logs/exports?form=${formType}`, { replaceState: false });
+				} else {
+					// No storage provider configured, redirect to storage form first
+					showForm = 'storage';
+					goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, { replaceState: false });
+				}
+			} catch (error) {
+				// Error getting storage credentials, assume not configured and redirect to storage form
+				console.error('Failed to get storage credentials:', error);
+				showForm = 'storage';
+				goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, { replaceState: false });
+			}
+		} else {
+			// For storage form, proceed directly
+			showForm = formType;
+			goto(`/admin/audit-logs/exports?form=${formType}`, { replaceState: false });
+		}
 	}
 
 	function closeForm() {

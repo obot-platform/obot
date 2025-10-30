@@ -17,20 +17,17 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Handler struct {
-	client           kclient.Client
 	gptClient        *gptscript.GPTScript
 	gatewayClient    *client.Client
 	credProvider     *auditlogexport.GPTScriptCredentialProvider
 	encryptionConfig *encryptionconfig.EncryptionConfiguration
 }
 
-func NewHandler(client kclient.Client, gptClient *gptscript.GPTScript, gatewayClient *client.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration) *Handler {
+func NewHandler(gptClient *gptscript.GPTScript, gatewayClient *client.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration) *Handler {
 	return &Handler{
-		client:           client,
 		gptClient:        gptClient,
 		gatewayClient:    gatewayClient,
 		credProvider:     auditlogexport.NewGPTScriptCredentialProvider(gptClient),
@@ -48,7 +45,7 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 	export.Status.State = types.AuditLogExportStateRunning
 	export.Status.StartedAt = &metav1.Time{Time: time.Now()}
 
-	if err := h.client.Status().Update(req.Ctx, export); err != nil {
+	if err := req.Client.Update(req.Ctx, export); err != nil {
 		return fmt.Errorf("failed to update export status: %w", err)
 	}
 
@@ -56,14 +53,14 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 		export.Status.State = types.AuditLogExportStateFailed
 		export.Status.Error = err.Error()
 
-		if statusErr := h.client.Status().Update(req.Ctx, export); statusErr != nil {
+		if statusErr := req.Client.Update(req.Ctx, export); statusErr != nil {
 			return fmt.Errorf("failed to update failed export status: %w", statusErr)
 		}
 
 		return fmt.Errorf("audit log export failed: %w", err)
 	}
 
-	return h.client.Status().Update(req.Ctx, export)
+	return req.Client.Update(req.Ctx, export)
 }
 
 func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) error {
@@ -84,6 +81,8 @@ func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) 
 		provider = types.StorageProviderAzureBlob
 	} else if storageConfig.CustomS3Config != nil {
 		provider = types.StorageProviderCustomS3
+	} else {
+		return fmt.Errorf("invalid storage config, no storage provider found")
 	}
 
 	// Create storage provider
@@ -199,7 +198,7 @@ func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport
 }
 
 func (h *Handler) formatLogs(logs []gatewaytypes.MCPAuditLog) ([]byte, error) {
-	var lines []string
+	lines := make([]string, 0, len(logs))
 
 	// Convert each log to a JSON line
 	for _, log := range logs {

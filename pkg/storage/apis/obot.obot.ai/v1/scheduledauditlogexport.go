@@ -50,10 +50,6 @@ func (*ScheduledAuditLogExport) GetColumns() [][]string {
 	}
 }
 
-func (s *ScheduledAuditLogExport) DeleteRefs() []Ref {
-	return []Ref{}
-}
-
 type ScheduledAuditLogExportSpec struct {
 	Name                   string                      `json:"name"`
 	Bucket                 string                      `json:"bucket"`

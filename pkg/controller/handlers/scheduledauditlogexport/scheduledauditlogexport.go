@@ -1,32 +1,21 @@
 package scheduledauditlogexport
 
 import (
-	"context"
 	"fmt"
 	"time"
 
 	"github.com/adhocore/gronx"
-	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
-	client "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Handler struct {
-	client        kclient.Client
-	gptClient     *gptscript.GPTScript
-	gatewayClient *client.Client
 }
 
-func NewHandler(client kclient.Client, gptClient *gptscript.GPTScript, gatewayClient *client.Client) *Handler {
-	return &Handler{
-		client:        client,
-		gptClient:     gptClient,
-		gatewayClient: gatewayClient,
-	}
+func NewHandler() *Handler {
+	return &Handler{}
 }
 
 func (h *Handler) ScheduleExports(req router.Request, resp router.Response) error {
@@ -42,20 +31,22 @@ func (h *Handler) ScheduleExports(req router.Request, resp router.Response) erro
 	}
 
 	if until := time.Until(next); until > 0 {
-		resp.RetryAfter(until)
+		if until < 10*time.Hour {
+			resp.RetryAfter(until)
+		}
 		return nil
 	}
 
-	if err := h.createExportFromSchedule(req.Ctx, scheduledExport, next); err != nil {
+	if err := h.createExportFromSchedule(req, scheduledExport, next); err != nil {
 		return err
 	}
 
 	scheduledExport.Status.LastRunAt = &[]metav1.Time{metav1.Now()}[0]
 
-	return h.client.Status().Update(req.Ctx, scheduledExport)
+	return req.Client.Update(req.Ctx, scheduledExport)
 }
 
-func (h *Handler) createExportFromSchedule(ctx context.Context, scheduledExport *v1.ScheduledAuditLogExport, nextRunAt time.Time) error {
+func (h *Handler) createExportFromSchedule(req router.Request, scheduledExport *v1.ScheduledAuditLogExport, nextRunAt time.Time) error {
 	var startTime time.Time
 	if scheduledExport.Spec.RetentionPeriodInDays < 0 {
 		startTime = time.Time{}
@@ -79,7 +70,7 @@ func (h *Handler) createExportFromSchedule(ctx context.Context, scheduledExport 
 		},
 	}
 
-	if err := h.client.Create(ctx, export); err != nil {
+	if err := req.Client.Create(req.Ctx, export); err != nil {
 		return fmt.Errorf("failed to create audit log export: %w", err)
 	}
 

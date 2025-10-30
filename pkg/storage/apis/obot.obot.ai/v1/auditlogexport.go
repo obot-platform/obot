@@ -10,7 +10,6 @@ import (
 
 var (
 	_ fields.Fields = (*AuditLogExport)(nil)
-	_ DeleteRefs    = (*AuditLogExport)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -47,10 +46,6 @@ func (*AuditLogExport) GetColumns() [][]string {
 		{"End Time", "{{.Spec.EndTime.Format \"2006-01-02 15:04:05\"}}"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}
-}
-
-func (a *AuditLogExport) DeleteRefs() []Ref {
-	return []Ref{}
 }
 
 type AuditLogExportSpec struct {

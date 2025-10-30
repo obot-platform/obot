@@ -164,10 +164,6 @@ func (g *GPTScriptCredentialProvider) StoreCredentials(ctx context.Context, conf
 		credentialData["provider"] = string(types.StorageProviderCustomS3)
 	}
 
-	if err := g.gptClient.DeleteCredential(ctx, storeageCredentialsContext, storageCredentialsName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return err
-	}
-
 	return g.gptClient.CreateCredential(ctx, gptscript.Credential{
 		Type:     gptscript.CredentialTypeTool,
 		Context:  storeageCredentialsContext,
@@ -177,7 +173,7 @@ func (g *GPTScriptCredentialProvider) StoreCredentials(ctx context.Context, conf
 }
 
 func (g *GPTScriptCredentialProvider) DeleteCredentials(ctx context.Context) error {
-	return g.gptClient.DeleteCredential(ctx, storeageCredentialsContext, storeageCredentialsContext)
+	return g.gptClient.DeleteCredential(ctx, storeageCredentialsContext, storageCredentialsName)
 }
 
 func (g *GPTScriptCredentialProvider) TestCredentials(ctx context.Context, config types.StorageConfig) error {

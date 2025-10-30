@@ -29,11 +29,6 @@ func (c *CustomS3Provider) Upload(ctx context.Context, config apitypes.StorageCo
 		return err
 	}
 
-	customS3Config := config.CustomS3Config
-	if customS3Config == nil {
-		return fmt.Errorf("custom S3 configuration is required")
-	}
-
 	input := &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
@@ -53,11 +48,6 @@ func (c *CustomS3Provider) Test(ctx context.Context, config apitypes.StorageConf
 	client, err := c.createClient(ctx, config)
 	if err != nil {
 		return fmt.Errorf("failed to create custom S3 client: %w", err)
-	}
-
-	customS3Config := config.CustomS3Config
-	if customS3Config == nil {
-		return fmt.Errorf("custom S3 configuration is required")
 	}
 
 	_, err = client.ListBuckets(ctx, &s3.ListBucketsInput{})

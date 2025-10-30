@@ -94,7 +94,6 @@ var (
 		"/api/user-default-role-settings",
 		"/api/setup/",
 		"/api/k8s-settings",
-		"/api/identities/",
 		"/api/audit-log-exports",
 		"/api/audit-log-exports/",
 		"/api/scheduled-audit-log-exports",

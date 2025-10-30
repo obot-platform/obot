@@ -32,11 +32,6 @@ func (s *S3Provider) Upload(ctx context.Context, config apitypes.StorageConfig, 
 		return err
 	}
 
-	s3Config := config.S3Config
-	if s3Config == nil {
-		return fmt.Errorf("S3 configuration is required")
-	}
-
 	input := &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
