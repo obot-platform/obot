@@ -19,7 +19,7 @@ docker run -d --name obot -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.s
 
 Then open your browser to [http://localhost:8080](http://localhost:8080) to access the Obot UI.
 
-> **Note:** The Docker command above is intended for local testing and evaluation only. For production deployments, we recommend running Obot on Kubernetes. See our [Installation Guide](/installation/general) for detailed production setup instructions.
+> **Note:** The Docker command above is intended for local testing and evaluation only. For production deployments, we recommend running Obot on Kubernetes. See our [Installation Guide](/installation/overview) for detailed production setup instructions.
 
 :::tip
 You need to replace `<API KEY>` with your [OpenAI API Key](https://platform.openai.com/api-keys).
@@ -88,7 +88,7 @@ These three components create a powerful, integrated AI platform:
 
 ## Next Steps
 
-- [Installation Guide](/installation/general)
+- [Installation Guide](/installation/overview)
 - [Chat Interface Concepts](/concepts/chat/overview)
 - [MCP Gateway Concepts](/concepts/mcp-gateway/overview)
 - [Admin Interface Concepts](/concepts/admin/overview)
