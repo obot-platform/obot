@@ -113,15 +113,19 @@
 				errors.append(err);
 			}
 		}
-		explicitOwners = (await AdminService.listExplicitRoleEmails())?.owners ?? [];
-		setupTempLoginUrl = (
-			await AdminService.initiateTempLogin(
-				configuringAuthProvider.id,
-				configuringAuthProvider.namespace
-			)
-		).redirectUrl;
-		setupLoading = false;
-		setupSignInDialog?.open();
+
+		try {
+			explicitOwners = (await AdminService.listExplicitRoleEmails())?.owners ?? [];
+			setupTempLoginUrl = (
+				await AdminService.initiateTempLogin(
+					configuringAuthProvider.id,
+					configuringAuthProvider.namespace
+				)
+			).redirectUrl;
+			setupLoading = false;
+			setupSignInDialog?.open();
+		} catch (err) {
+		}
 	}
 
 	async function handleAuthProviderConfigure(form: Record<string, string>) {
@@ -163,7 +167,7 @@
 						<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">No Auth Providers Configured!</p>
 					</div>
-					<span class="text-sm font-light break-all">
+					<span class="break-all text-sm font-light">
 						To finish setting up Obot, you'll need to configure an Auth Provider. Select one below
 						to get started!
 					</span>
