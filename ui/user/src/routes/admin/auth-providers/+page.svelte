@@ -129,7 +129,9 @@
 			).redirectUrl;
 			setupLoading = false;
 			setupSignInDialog?.open();
-		} catch (err) {}
+		} catch (_) {
+			// ignore
+		}
 	}
 
 	async function handleAuthProviderConfigure(form: Record<string, string>) {
