@@ -11,6 +11,11 @@ import (
 	"gorm.io/gorm"
 )
 
+var (
+	// ErrGroupRoleAssignmentNotFound is returned when a group role assignment is not found.
+	ErrGroupRoleAssignmentNotFound = errors.New("group role assignment not found")
+)
+
 // ListGroupRoleAssignments returns all group role assignments from the database.
 func (c *Client) ListGroupRoleAssignments(ctx context.Context) ([]types.GroupRoleAssignment, error) {
 	var assignments []types.GroupRoleAssignment
@@ -25,7 +30,7 @@ func (c *Client) GetGroupRoleAssignment(ctx context.Context, groupName string) (
 	var assignment types.GroupRoleAssignment
 	if err := c.db.WithContext(ctx).Where("group_name = ?", groupName).First(&assignment).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("group role assignment %s not found", groupName)
+			return nil, fmt.Errorf("%w: %s", ErrGroupRoleAssignmentNotFound, groupName)
 		}
 		return nil, fmt.Errorf("failed to get group role assignment: %w", err)
 	}
@@ -64,7 +69,7 @@ func (c *Client) UpdateGroupRoleAssignment(ctx context.Context, groupName string
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("group role assignment %s not found", groupName)
+			return nil, fmt.Errorf("%w: %s", ErrGroupRoleAssignmentNotFound, groupName)
 		}
 		return nil, fmt.Errorf("failed to update group role assignment: %w", err)
 	}
@@ -79,7 +84,7 @@ func (c *Client) DeleteGroupRoleAssignment(ctx context.Context, groupName string
 		return fmt.Errorf("failed to delete group role assignment: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		return fmt.Errorf("group role assignment %s not found", groupName)
+		return fmt.Errorf("%w: %s", ErrGroupRoleAssignmentNotFound, groupName)
 	}
 
 	return nil

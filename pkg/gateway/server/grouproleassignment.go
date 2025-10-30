@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strings"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -43,7 +43,7 @@ func (s *Server) getGroupRoleAssignment(apiContext api.Context) error {
 
 	assignment, err := apiContext.GatewayClient.GetGroupRoleAssignment(apiContext.Context(), groupName)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, client.ErrGroupRoleAssignmentNotFound) {
 			return types2.NewErrNotFound("group role assignment %s not found", groupName)
 		}
 		return fmt.Errorf("failed to get group role assignment: %v", err)
@@ -133,7 +133,7 @@ func (s *Server) updateGroupRoleAssignment(apiContext api.Context) error {
 	updated, err := apiContext.GatewayClient.UpdateGroupRoleAssignment(
 		apiContext.Context(), groupName, req.Role, req.Description)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, client.ErrGroupRoleAssignmentNotFound) {
 			return types2.NewErrNotFound("group role assignment %s not found", groupName)
 		}
 		return fmt.Errorf("failed to update group role assignment: %v", err)
@@ -156,7 +156,7 @@ func (s *Server) deleteGroupRoleAssignment(apiContext api.Context) error {
 	}
 
 	if err := apiContext.GatewayClient.DeleteGroupRoleAssignment(apiContext.Context(), groupName); err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, client.ErrGroupRoleAssignmentNotFound) {
 			return types2.NewErrNotFound("group role assignment %s not found", groupName)
 		}
 		return fmt.Errorf("failed to delete group role assignment: %v", err)
