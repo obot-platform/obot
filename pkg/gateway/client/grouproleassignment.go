@@ -119,9 +119,7 @@ func (c *Client) ResolveUserEffectiveRole(ctx context.Context, user *types.User,
 	// For GroupRoleAssignments, we'll match on the full group ID as the GroupName
 	assignments, err := c.GetGroupRoleAssignmentsForGroups(ctx, authGroupIDs)
 	if err != nil {
-		// Don't fail role resolution if query fails - fall back to individual role
-		// Note: We're returning nil error here because we don't want to fail authentication
-		return effectiveRole, nil
+		return effectiveRole, err
 	}
 
 	// Merge all group roles using bitwise OR
