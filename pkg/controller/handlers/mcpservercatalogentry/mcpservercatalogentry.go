@@ -5,8 +5,10 @@ import (
 
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,6 +63,69 @@ func UpdateManifestHashAndLastUpdated(req router.Request, _ router.Response) err
 		now := metav1.Now()
 		entry.Status.ManifestHash = currentHash
 		entry.Status.LastUpdated = &now
+		return req.Client.Status().Update(req.Ctx, entry)
+	}
+
+	return nil
+}
+
+// DetectCompositeDrift detects when a composite catalog entry's component snapshots have drifted
+// from their source catalog entries or multi-user servers
+func DetectCompositeDrift(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+
+	if entry.Spec.Manifest.Runtime != types.RuntimeComposite {
+		if entry.Status.NeedsUpdate {
+			entry.Status.NeedsUpdate = false
+			return req.Client.Status().Update(req.Ctx, entry)
+		}
+		return nil
+	}
+
+	// Check each component for drift
+	drifted := false
+	for _, component := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
+		// Handle multi-user component drift
+		if component.MCPServerID != "" {
+			var server v1.MCPServer
+			if err := req.Get(&server, entry.Namespace, component.MCPServerID); err != nil {
+				if apierrors.IsNotFound(err) {
+					drifted = true
+					break
+				}
+				return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
+			}
+
+			snapshotHash := hash.Digest(component.Manifest)
+			currentHash := hash.Digest(server.Spec.Manifest)
+
+			if snapshotHash != currentHash {
+				drifted = true
+				break
+			}
+		} else {
+			// Handle catalog entry component drift
+			var componentEntry v1.MCPServerCatalogEntry
+			if err := req.Get(&componentEntry, entry.Namespace, component.CatalogEntryID); err != nil {
+				if apierrors.IsNotFound(err) {
+					drifted = true
+					break
+				}
+				return fmt.Errorf("failed to get component catalog entry %s: %w", component.CatalogEntryID, err)
+			}
+
+			snapshotHash := hash.Digest(component.Manifest)
+			currentHash := hash.Digest(componentEntry.Spec.Manifest)
+
+			if snapshotHash != currentHash {
+				drifted = true
+				break
+			}
+		}
+	}
+
+	if entry.Status.NeedsUpdate != drifted {
+		entry.Status.NeedsUpdate = drifted
 		return req.Client.Status().Update(req.Ctx, entry)
 	}
 

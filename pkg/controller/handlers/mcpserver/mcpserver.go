@@ -200,20 +200,19 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 		return true
 	}
 
-	// Index entry components by catalogEntryID for quick lookup
-	entryByID := make(map[string]types.CatalogComponentServer, len(entryConfig.ComponentServers))
-	for _, entryComponent := range entryConfig.ComponentServers {
-		entryByID[entryComponent.CatalogEntryID] = entryComponent
-	}
+	// Compare components by index (works for both catalog and multi-user components)
+	for i, serverComponent := range serverConfig.ComponentServers {
+		entryComponent := entryConfig.ComponentServers[i]
 
-	for _, serverComponent := range serverConfig.ComponentServers {
-		entryComponent, ok := entryByID[serverComponent.CatalogEntryID]
-		if !ok {
-			// Component not present in catalog entry
+		// Verify same component (either same catalogEntryID or same mcpServerID)
+		if serverComponent.CatalogEntryID != entryComponent.CatalogEntryID {
+			return true
+		}
+		if serverComponent.MCPServerID != entryComponent.MCPServerID {
 			return true
 		}
 
-		// Compare overrides (order-insensitive)
+		// Compare toolOverrides
 		if hash.Digest(serverComponent.ToolOverrides) != hash.Digest(entryComponent.ToolOverrides) {
 			return true
 		}

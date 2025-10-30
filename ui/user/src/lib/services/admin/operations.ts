@@ -940,3 +940,27 @@ export async function testStorageCredentials(
 	const response = await doPost('/storage-credentials/test', request, opts);
 	return response;
 }
+
+export async function getMCPServer(
+	serverID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer> {
+	const response = (await doGet(`/mcp-servers/${serverID}`, opts)) as MCPCatalogServer;
+	return response;
+}
+
+export async function refreshCompositeComponents(
+	catalogID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogEntry> {
+	const response = (await doPost(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/refresh-components`,
+		{},
+		opts
+	)) as MCPCatalogEntry;
+	return {
+		...response,
+		isCatalogEntry: true
+	};
+}

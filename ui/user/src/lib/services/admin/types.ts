@@ -82,6 +82,7 @@ export interface MCPCatalogEntry {
 	powerUserID?: string;
 	powerUserWorkspaceID?: string;
 	isCatalogEntry: boolean;
+	needsUpdate?: boolean;
 }
 
 export interface MCPCatalogEntryFieldManifest {
