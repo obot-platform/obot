@@ -19,7 +19,7 @@ import (
 
 // getGroupRoleAssignments returns all group role assignments.
 func (s *Server) getGroupRoleAssignments(apiContext api.Context) error {
-	assignments, err := apiContext.GatewayClient.GetGroupRoleAssignments(apiContext.Context())
+	assignments, err := apiContext.GatewayClient.ListGroupRoleAssignments(apiContext.Context())
 	if err != nil {
 		return fmt.Errorf("failed to get group role assignments: %v", err)
 	}

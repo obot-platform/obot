@@ -11,8 +11,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// GetGroupRoleAssignments returns all group role assignments from the database.
-func (c *Client) GetGroupRoleAssignments(ctx context.Context) ([]types.GroupRoleAssignment, error) {
+// ListGroupRoleAssignments returns all group role assignments from the database.
+func (c *Client) ListGroupRoleAssignments(ctx context.Context) ([]types.GroupRoleAssignment, error) {
 	var assignments []types.GroupRoleAssignment
 	if err := c.db.WithContext(ctx).Order("group_name").Find(&assignments).Error; err != nil {
 		return nil, fmt.Errorf("failed to get group role assignments: %w", err)
