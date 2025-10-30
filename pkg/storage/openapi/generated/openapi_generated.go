@@ -16944,8 +16944,9 @@ func schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref common.ReferenceCa
 					},
 					"newRole": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
+							Description: "deprecated and unused",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},
