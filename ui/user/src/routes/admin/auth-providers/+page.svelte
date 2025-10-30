@@ -9,7 +9,7 @@
 	import { fade } from 'svelte/transition';
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
-	import { AdminService } from '$lib/services/index.js';
+	import { AdminService, Role } from '$lib/services/index.js';
 	import { AlertTriangle, Info } from 'lucide-svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -68,7 +68,12 @@
 		const configuredAuthProvider = authProviders.find((provider) => provider.configured);
 		if (!configuredAuthProvider) return;
 
-		// Only proceed if user is bootstrap user (not yet a real owner) and has a configured provider
+		const users = await AdminService.listUsers();
+		const isOwnerExist = users.some((user) => user.role === Role.OWNER);
+
+		if (isOwnerExist) return;
+
+		// Only proceed if user is bootstrap user (not yet a real owner) and has a configured provider and owner does not exist
 		if (!setupLoading && !setupTempLoginUrl) {
 			configuringAuthProvider = configuredAuthProvider;
 			handleOwnerSetup();
@@ -124,8 +129,7 @@
 			).redirectUrl;
 			setupLoading = false;
 			setupSignInDialog?.open();
-		} catch (err) {
-		}
+		} catch (err) {}
 	}
 
 	async function handleAuthProviderConfigure(form: Record<string, string>) {
@@ -167,7 +171,7 @@
 						<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">No Auth Providers Configured!</p>
 					</div>
-					<span class="break-all text-sm font-light">
+					<span class="text-sm font-light break-all">
 						To finish setting up Obot, you'll need to configure an Auth Provider. Select one below
 						to get started!
 					</span>
