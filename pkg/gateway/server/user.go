@@ -74,15 +74,13 @@ func (s *Server) getUsers(apiContext api.Context) error {
 	// Bulk fetch group memberships for all users (single query)
 	userGroupMemberships, err := apiContext.GatewayClient.GetUserGroupMemberships(apiContext.Context(), userIDs)
 	if err != nil {
-		pkgLog.Warnf("failed to get group memberships: %v", err)
-		userGroupMemberships = make(map[uint][]string)
+		return fmt.Errorf("failed to get user group memberships: %v", err)
 	}
 
 	// Bulk compute effective roles for all users (single query)
 	effectiveRoles, err := apiContext.GatewayClient.ResolveUserEffectiveRolesBulk(apiContext.Context(), validUsers, userGroupMemberships)
 	if err != nil {
-		pkgLog.Warnf("failed to resolve effective roles: %v", err)
-		effectiveRoles = make(map[uint]types2.Role)
+		return fmt.Errorf("failed to resolve effective roles: %v", err)
 	}
 
 	// Build response with computed effective roles
