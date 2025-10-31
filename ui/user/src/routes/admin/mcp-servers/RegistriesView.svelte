@@ -19,8 +19,9 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { Captions, Ellipsis, LoaderCircle, Server, Trash2 } from 'lucide-svelte';
+	import { AlertTriangle, Captions, Ellipsis, LoaderCircle, Server, Trash2 } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
+	import { slide } from 'svelte/transition';
 
 	type Item = ReturnType<typeof convertEntriesAndServersToTableData>[number];
 
@@ -110,6 +111,17 @@
 			{/if}
 		</div>
 	{:else}
+		{@const hasErrors = Object.keys(catalog?.syncErrors ?? {})}
+
+		{#if hasErrors && !catalog?.isSyncing}
+			<div class="w-full p-4" in:slide={{ axis: 'y' }} out:slide={{ axis: 'y', duration: 0 }}>
+				<div class="notification-alert flex w-full items-center gap-2 rounded-md p-3 text-sm">
+					<AlertTriangle class="size-" />
+					<p class="">Some servers failed to sync. See "Registry Sources" tab for more details.</p>
+				</div>
+			</div>
+		{/if}
+
 		<Table
 			data={filteredTableData}
 			fields={['name', 'type', 'users', 'created', 'registry']}
