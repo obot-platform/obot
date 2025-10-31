@@ -125,6 +125,19 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 		catalogName = entry.Spec.MCPCatalogName
 	}
 
+	var webhooks []mcp.Webhook
+	webhooks, err = h.webhookHelper.GetWebhooksForMCPServer(ctx, h.gptClient, m.mcpServer.Namespace, m.mcpServer.Name, m.mcpServer.Spec.MCPServerCatalogEntryName, catalogName, auditLog.CallType, auditLog.CallIdentifier)
+	if err != nil {
+		log.Errorf("Failed to get webhooks for server %s: %v", m.mcpServer.Name, err)
+		return
+	}
+
+	if err = fireWebhooks(ctx, webhooks, msg, &auditLog, "request", m.userID, m.mcpID); err != nil {
+		log.Errorf("Failed to fire webhooks for server %s: %v", m.mcpServer.Name, err)
+		auditLog.ResponseStatus = http.StatusFailedDependency
+		return
+	}
+
 	for _, componentServer := range m.componentServers {
 		var (
 			client       *mcp.Client
@@ -182,16 +195,7 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 			}
 		}
 
-		// All components responded, reply with the last result
-		if err = msg.Reply(ctx, result); err != nil {
-			log.Errorf("Failed to reply to composite server %s: %v", m.mcpID, err)
-			err = &nmcp.RPCError{
-				Code:    -32603,
-				Message: fmt.Sprintf("failed to reply to composite server %s: %v", m.mcpID, err),
-			}
-		}
-
-		return
+		// All components responded, reply will be handled after switch
 	case methodInitialize:
 		go func(session *nmcp.Session) {
 			session.Wait()
@@ -236,17 +240,7 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 			compositeResult = mergeInitializeResults(compositeResult, componentResult)
 		}
 
-		if err = msg.Reply(ctx, compositeResult); err != nil {
-			log.Errorf("Failed to reply to composite server %s: %v", m.mcpID, err)
-			err = &nmcp.RPCError{
-				Code:    -32603,
-				Message: fmt.Sprintf("failed to reply to composite server %s: %v", m.mcpID, err),
-			}
-			return
-		}
-
 		result = compositeResult
-		return
 
 	case methodPromptsList:
 		var compositePrompts []nmcp.Prompt
@@ -263,15 +257,7 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 		compositeResult := nmcp.ListPromptsResult{
 			Prompts: compositePrompts,
 		}
-		if err = msg.Reply(ctx, compositeResult); err != nil {
-			log.Errorf("Failed to reply to composite server %s: %v", m.mcpID, err)
-			err = &nmcp.RPCError{
-				Code:    -32603,
-				Message: fmt.Sprintf("failed to reply to composite server %s: %v", m.mcpID, err),
-			}
-		}
 		result = compositeResult
-		return
 	case methodPromptsGet:
 		var compositeRequest nmcp.GetPromptRequest
 		if err = json.Unmarshal(msg.Params, &compositeRequest); err != nil {
@@ -318,17 +304,7 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 			return
 		}
 
-		if err = msg.Reply(ctx, componentResult); err != nil {
-			log.Errorf("Failed to reply to composite server %s: %v", m.mcpID, err)
-			err = &nmcp.RPCError{
-				Code:    -32603,
-				Message: fmt.Sprintf("failed to reply to composite server %s: %v", m.mcpID, err),
-			}
-			return
-		}
-
 		result = componentResult
-		return
 	case methodToolsList:
 		var compositeTools []nmcp.Tool
 		for componentKey, client := range clients {
@@ -358,16 +334,7 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 		compositeResult := nmcp.ListToolsResult{
 			Tools: compositeTools,
 		}
-		if err = msg.Reply(ctx, compositeResult); err != nil {
-			log.Errorf("Failed to reply to composite server %s: %v", m.mcpID, err)
-			err = &nmcp.RPCError{
-				Code:    -32603,
-				Message: fmt.Sprintf("failed to reply to composite server %s: %v", m.mcpID, err),
-			}
-			return
-		}
 		result = compositeResult
-		return
 	case methodToolsCall:
 		var compositeRequest nmcp.CallToolRequest
 		if err = json.Unmarshal(msg.Params, &compositeRequest); err != nil {
@@ -426,17 +393,7 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 			return
 		}
 
-		if err = msg.Reply(ctx, componentResult); err != nil {
-			log.Errorf("Failed to reply to composite server %s: %v", m.mcpID, err)
-			err = &nmcp.RPCError{
-				Code:    -32603,
-				Message: fmt.Sprintf("failed to reply to composite server %s: %v", m.mcpID, err),
-			}
-			return
-		}
-
 		result = componentResult
-		return
 
 	case methodNotificationsProgress, methodNotificationsRootsListChanged, methodNotificationsCancelled, methodLoggingSetLevel:
 		// These methods don't require a result.
@@ -447,15 +404,6 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 				continue
 			}
 		}
-
-		if err = msg.Reply(ctx, result); err != nil {
-			log.Errorf("Failed to reply to composite server %s: %v", m.mcpID, err)
-			err = &nmcp.RPCError{
-				Code:    -32603,
-				Message: fmt.Sprintf("failed to reply to composite server %s: %v", m.mcpID, err),
-			}
-		}
-		return
 	default:
 		log.Errorf("Unknown method for server message: %s", msg.Method)
 		err = &nmcp.RPCError{
@@ -463,6 +411,12 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 			Message: "Method not allowed",
 		}
 	}
+
+	if err != nil {
+		return
+	}
+
+	err = replyWithWebhooks(ctx, msg, result, webhooks, &auditLog, m.userID, m.mcpID, m.mcpServer.Name)
 }
 
 func normalizeName(name string) string {
@@ -607,4 +561,35 @@ func (c *compositeContext) toComponentGetPromptRequest(componentKey string, requ
 	// Remove the component key prefix from the prompt name
 	request.Name = strings.TrimPrefix(request.Name, fmt.Sprintf("%s_", componentKey))
 	return request
+}
+
+func replyWithWebhooks(ctx context.Context, msg nmcp.Message, result any, webhooks []mcp.Webhook, auditLog *gatewaytypes.MCPAuditLog, userID, mcpID, serverName string) error {
+	// Marshal result
+	b, err := json.Marshal(result)
+	if err != nil {
+		log.Errorf("Failed to marshal result for server %s: %v", serverName, err)
+		return &nmcp.RPCError{
+			Code:    -32603,
+			Message: fmt.Sprintf("failed to marshal result for server %s: %v", serverName, err),
+		}
+	}
+	msg.Result = b
+
+	// Fire response webhooks
+	if err := fireWebhooks(ctx, webhooks, msg, auditLog, "response", userID, mcpID); err != nil {
+		log.Errorf("Failed to fire webhooks for server %s: %v", serverName, err)
+		auditLog.ResponseStatus = http.StatusFailedDependency
+		return err
+	}
+
+	// Reply to client
+	if err := msg.Reply(ctx, result); err != nil {
+		log.Errorf("Failed to reply to composite server %s: %v", mcpID, err)
+		return &nmcp.RPCError{
+			Code:    -32603,
+			Message: fmt.Sprintf("failed to reply to composite server %s: %v", mcpID, err),
+		}
+	}
+
+	return nil
 }
