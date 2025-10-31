@@ -26,8 +26,9 @@ func EnsureUserCount(req router.Request, _ router.Response) error {
 
 	uniqueUsers := make(map[string]struct{}, len(mcpServers.Items))
 	for _, server := range mcpServers.Items {
-		if server.Spec.UserID == "" {
+		if server.Spec.UserID == "" || !server.DeletionTimestamp.IsZero() {
 			// A server should always have a user ID, but if it doesn't, don't count it.
+			// Additionally, don't count servers that are being deleted.
 			continue
 		}
 

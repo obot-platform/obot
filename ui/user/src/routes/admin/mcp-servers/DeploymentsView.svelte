@@ -203,6 +203,9 @@
 	async function handleSingleDelete(server: MCPCatalogServer) {
 		if (server.catalogEntryID) {
 			await ChatService.deleteSingleOrRemoteMcpServer(server.id);
+			// Decrement the count of servers in the catalog
+			const entry = mcpServerAndEntries.entries.find((entry) => entry.id === server.catalogEntryID);
+			if (entry?.userCount) entry.userCount--;
 		} else {
 			// multi-user
 			if (server.powerUserWorkspaceID) {
@@ -210,6 +213,8 @@
 			} else {
 				await AdminService.deleteMCPCatalogServer(catalogId, server.id);
 			}
+			// Remove server from list
+			mcpServerAndEntries.servers = mcpServerAndEntries.servers.filter((s) => s.id !== server.id);
 		}
 	}
 
