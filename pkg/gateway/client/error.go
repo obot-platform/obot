@@ -6,6 +6,12 @@ func (e *LastAdminError) Error() string {
 	return "last admin"
 }
 
+type LastOwnerError struct{}
+
+func (e *LastOwnerError) Error() string {
+	return "last owner"
+}
+
 type AlreadyExistsError struct {
 	name string
 }

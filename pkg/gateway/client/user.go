@@ -135,17 +135,33 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) (*types.User, er
 			return fmt.Errorf("failed to decrypt user: %w", err)
 		}
 
-		if existingUser.Role.HasRole(types2.RoleAdmin) {
+		// Check if we're deleting a user with Owner or Admin role
+		// We filter out empty email users here, because that is the bootstrap user.
+		// Also exclude already soft-deleted users and the current user from the count.
+		if existingUser.Role.HasRole(types2.RoleOwner) {
+			// Can't delete the user if they're an owner and there are no other owners
+			var ownerCount int64
+			if err := tx.Model(new(types.User)).Where("id != ? AND role IN ? AND hashed_email != '' AND deleted_at IS NULL",
+				userID,
+				[]types2.Role{types2.RoleOwner, types2.RoleOwner | types2.RoleAuditor},
+			).Count(&ownerCount).Error; err != nil {
+				return err
+			}
+
+			if ownerCount == 0 {
+				return new(LastOwnerError)
+			}
+		} else if existingUser.Role.HasRole(types2.RoleAdmin) {
+			// Can't delete the user if they're an admin and there are no other owners or admins
 			var adminCount int64
-			// We filter out empty email users here, because that is the bootstrap user.
-			// Also exclude already soft-deleted users from the count.
-			if err := tx.Model(new(types.User)).Where("role IN ? AND hashed_email != '' AND deleted_at IS NULL",
+			if err := tx.Model(new(types.User)).Where("id != ? AND role IN ? AND hashed_email != '' AND deleted_at IS NULL",
+				userID,
 				[]types2.Role{types2.RoleOwner, types2.RoleAdmin, types2.RoleOwner | types2.RoleAuditor, types2.RoleAdmin | types2.RoleAuditor},
 			).Count(&adminCount).Error; err != nil {
 				return err
 			}
 
-			if adminCount <= 1 {
+			if adminCount == 0 {
 				return new(LastAdminError)
 			}
 		}
@@ -222,24 +238,45 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 		// Only admins can change user roles.
 		if actingUserCanChangeRole {
 			if updatedUser.Role > 0 {
-				if existingUser.Role.HasRole(types2.RoleAdmin) && !updatedUser.Role.HasRole(types2.RoleAdmin) ||
-					existingUser.Role.HasRole(types2.RoleOwner) && !updatedUser.Role.HasRole(types2.RoleOwner) {
-					// If this user has been explicitly marked as an admin, then don't allow changing the role.
+				// Check if we're removing the Owner role
+				removingOwner := existingUser.Role.HasRole(types2.RoleOwner) && !updatedUser.Role.HasRole(types2.RoleOwner)
+				// Check if we're removing the Admin role
+				removingAdmin := existingUser.Role.HasRole(types2.RoleAdmin) && !updatedUser.Role.HasRole(types2.RoleAdmin)
+
+				if removingOwner || removingAdmin {
+					// If this user has been explicitly marked as an admin or owner, then don't allow changing the role.
 					if c.HasExplicitRole(existingUser.Email) != types2.RoleUnknown {
 						return &ExplicitRoleError{email: existingUser.Email}
 					}
-					// If the role is being changed from owner/admin to not, then ensure that this isn't the last owner/admin.
-					// We filter out empty email users here, because that is the bootstrap user.
-					// Also exclude soft-deleted users from the count.
-					var adminCount int64
-					if err := tx.Model(new(types.User)).Where("role IN ? AND hashed_email != '' AND deleted_at IS NULL",
-						[]types2.Role{types2.RoleOwner, types2.RoleAdmin, types2.RoleOwner | types2.RoleAuditor, types2.RoleAdmin | types2.RoleAuditor},
-					).Count(&adminCount).Error; err != nil {
-						return err
-					}
 
-					if adminCount <= 1 {
-						return new(LastAdminError)
+					// We filter out empty email users here, because that is the bootstrap user.
+					// Also exclude soft-deleted users and the current user from the count.
+					if removingOwner {
+						// Can't change role from owner if there are no other owners
+						var ownerCount int64
+						if err := tx.Model(new(types.User)).Where("id != ? AND role IN ? AND hashed_email != '' AND deleted_at IS NULL",
+							userID,
+							[]types2.Role{types2.RoleOwner, types2.RoleOwner | types2.RoleAuditor},
+						).Count(&ownerCount).Error; err != nil {
+							return err
+						}
+
+						if ownerCount == 0 {
+							return new(LastOwnerError)
+						}
+					} else if removingAdmin {
+						// Can't change role from admin if there are no other owners or admins
+						var adminCount int64
+						if err := tx.Model(new(types.User)).Where("id != ? AND role IN ? AND hashed_email != '' AND deleted_at IS NULL",
+							userID,
+							[]types2.Role{types2.RoleOwner, types2.RoleAdmin, types2.RoleOwner | types2.RoleAuditor, types2.RoleAdmin | types2.RoleAuditor},
+						).Count(&adminCount).Error; err != nil {
+							return err
+						}
+
+						if adminCount == 0 {
+							return new(LastAdminError)
+						}
 					}
 				}
 
