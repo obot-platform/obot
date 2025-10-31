@@ -36,12 +36,18 @@ type User struct {
 	OriginalUsername string     `json:"-"`
 }
 
-func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User {
+func ConvertUser(u *User, roleFixed bool, authProviderName string, effectiveRole ...types2.Role) *types2.User {
 	if u == nil {
 		return nil
 	}
 
-	groups := u.Role.Groups()
+	// Determine which role to use for groups
+	role := u.Role
+	if len(effectiveRole) > 0 {
+		role = effectiveRole[0]
+	}
+
+	groups := role.Groups()
 	if authProviderName == "bootstrap" {
 		groups = []string{types2.GroupOwner, types2.GroupAdmin, types2.GroupBasic, types2.GroupAuthenticated}
 	}
@@ -55,6 +61,7 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 		Username:                   u.Username,
 		Email:                      u.Email,
 		Role:                       u.Role,
+		EffectiveRole:              role,
 		Groups:                     groups,
 		ExplicitRole:               roleFixed,
 		IconURL:                    u.IconURL,

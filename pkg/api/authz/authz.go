@@ -81,6 +81,8 @@ var (
 		"/api/workflows/",
 		"GET /api/users",
 		"GET /api/groups",
+		"/api/group-role-assignments",
+		"/api/group-role-assignments/",
 		"POST /api/encrypt-all-users",
 		"/api/users/",
 		"GET /api/active-users",
