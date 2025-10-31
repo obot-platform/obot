@@ -14,7 +14,6 @@
 	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
 	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
-	import { identity } from 'es-toolkit';
 
 	interface Props {
 		catalogId?: string;
@@ -69,10 +68,6 @@
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
 	});
-
-	function getComponentId(c: { catalogEntryID?: string; mcpServerID?: string }): string {
-		return c.catalogEntryID || c.mcpServerID || '';
-	}
 
 	function resetConfigureTool() {
 		ready = false;

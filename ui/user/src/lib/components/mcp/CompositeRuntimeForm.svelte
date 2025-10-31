@@ -1,13 +1,5 @@
 <script lang="ts">
-	import {
-		Plus,
-		Server,
-		Trash2,
-		ChevronDown,
-		ChevronUp,
-		LoaderCircle,
-		Pencil
-	} from 'lucide-svelte';
+	import { Plus, Server, Trash2, ChevronDown, ChevronUp, LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import {
 		AdminService,
@@ -20,7 +12,6 @@
 	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import CompositeToolsSetup from './composite/CompositeSelectServerAndToolsSetup.svelte';
 	import { slide } from 'svelte/transition';
-	import DotDotDot from '../DotDotDot.svelte';
 	import CompositeEditTools from './composite/CompositeEditTools.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import Toggle from '../Toggle.svelte';
