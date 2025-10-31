@@ -140,7 +140,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
 
-		servers = append(servers, convertMCPServer(server, credMap[server.Name], p.serverURL, slug))
+		servers = append(servers, convertMCPServer(req, server, credMap[server.Name], p.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{
@@ -240,7 +240,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
 
-		servers = append(servers, convertMCPServer(server, credMap[server.Name], p.serverURL, slug))
+		servers = append(servers, convertMCPServer(req, server, credMap[server.Name], p.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{
