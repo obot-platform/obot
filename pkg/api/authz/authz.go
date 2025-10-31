@@ -95,9 +95,11 @@ var (
 		"/api/setup/",
 		"/api/k8s-settings",
 		"/api/audit-log-exports",
-		"/api/audit-log-exports/",
+		"/api/audit-log-exports/{id}",
 		"/api/scheduled-audit-log-exports",
-		"/api/scheduled-audit-log-exports/",
+		"/api/scheduled-audit-log-exports/{id}",
+		"/api/storage-credentials",
+		"/api/storage-credentials/",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
@@ -130,6 +132,10 @@ var (
 			"GET /api/workspaces/",
 			"GET /api/projects/",
 			"GET /api/assistants/{assistant_id}/projects/",
+			"/api/audit-log-exports/",
+			"/api/audit-log-exports/{id}",
+			"/api/scheduled-audit-log-exports",
+			"/api/scheduled-audit-log-exports/{id}",
 		},
 		anyGroup: {
 			// Allow access to the oauth2 endpoints

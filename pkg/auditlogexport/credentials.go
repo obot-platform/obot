@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	storeageCredentialsContext = "audit-log-export-storage-global"
-	storageCredentialsName     = "audit-log-export-storage-credentials"
+	storageCredentialsContext = "audit-log-export-storage-global"
+	storageCredentialsName    = "audit-log-export-storage-credentials"
 )
 
 type GPTScriptCredentialProvider struct {
@@ -25,7 +25,7 @@ func NewGPTScriptCredentialProvider(gptClient *gptscript.GPTScript) *GPTScriptCr
 }
 
 func (g *GPTScriptCredentialProvider) GetStorageConfig(ctx context.Context) (*types.StorageConfig, error) {
-	credential, err := g.gptClient.RevealCredential(ctx, []string{storeageCredentialsContext}, storageCredentialsName)
+	credential, err := g.gptClient.RevealCredential(ctx, []string{storageCredentialsContext}, storageCredentialsName)
 	if err != nil {
 		return nil, err
 	}
@@ -70,8 +70,8 @@ func (g *GPTScriptCredentialProvider) StoreCredentials(ctx context.Context, conf
 	credentialData := make(map[string]string)
 	provider := config.Provider
 
-	existingCredentialData := make(map[string]string)
-	credential, err := g.gptClient.RevealCredential(ctx, []string{storeageCredentialsContext}, storageCredentialsName)
+	var existingCredentialData map[string]string
+	credential, err := g.gptClient.RevealCredential(ctx, []string{storageCredentialsContext}, storageCredentialsName)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return err
 	} else if err == nil {
@@ -166,14 +166,14 @@ func (g *GPTScriptCredentialProvider) StoreCredentials(ctx context.Context, conf
 
 	return g.gptClient.CreateCredential(ctx, gptscript.Credential{
 		Type:     gptscript.CredentialTypeTool,
-		Context:  storeageCredentialsContext,
+		Context:  storageCredentialsContext,
 		ToolName: storageCredentialsName,
 		Env:      credentialData,
 	})
 }
 
 func (g *GPTScriptCredentialProvider) DeleteCredentials(ctx context.Context) error {
-	return g.gptClient.DeleteCredential(ctx, storeageCredentialsContext, storageCredentialsName)
+	return g.gptClient.DeleteCredential(ctx, storageCredentialsContext, storageCredentialsName)
 }
 
 func (g *GPTScriptCredentialProvider) TestCredentials(ctx context.Context, config types.StorageConfig) error {
@@ -182,6 +182,12 @@ func (g *GPTScriptCredentialProvider) TestCredentials(ctx context.Context, confi
 		provider = types.StorageProviderS3
 	} else if config.GCSConfig != nil {
 		provider = types.StorageProviderGCS
+	} else if config.AzureConfig != nil {
+		provider = types.StorageProviderAzureBlob
+	} else if config.CustomS3Config != nil {
+		provider = types.StorageProviderCustomS3
+	} else {
+		return fmt.Errorf("invalid storage config, no storage provider found")
 	}
 
 	p, err := NewStorageProvider(provider, g)

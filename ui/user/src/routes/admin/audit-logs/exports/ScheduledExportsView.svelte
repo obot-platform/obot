@@ -11,8 +11,7 @@
 		Trash2,
 		PlayCircle,
 		PauseCircle,
-		CircleAlert,
-		Settings
+		CircleAlert
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import type { ScheduledAuditLogExport } from '$lib/services/admin/types';
@@ -250,16 +249,6 @@
 									Resume Schedule
 								</button>
 							{/if}
-							<button
-								class="menu-button"
-								onclick={(e) => {
-									e.stopPropagation();
-									// TODO: Open edit dialog
-									console.log('Edit scheduled export:', d.id);
-								}}
-							>
-								<Settings class="size-4" /> Edit Schedule
-							</button>
 							<button
 								class="menu-button-destructive"
 								onclick={(e) => {

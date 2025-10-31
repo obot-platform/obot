@@ -51,9 +51,6 @@ func (h *AuditLogExportHandler) CreateAuditLogExport(req api.Context) error {
 			Bucket:                 createReq.Bucket,
 			KeyPrefix:              createReq.KeyPrefix,
 		},
-		Status: v1.AuditLogExportStatus{
-			State: types.AuditLogExportStatePending,
-		},
 	}
 
 	if err := req.Storage.Create(req.Context(), export); err != nil {
@@ -211,6 +208,11 @@ func (h *AuditLogExportHandler) UpdateScheduledAuditLogExport(req api.Context) e
 		Namespace: req.Namespace(),
 	}, &scheduledExport); err != nil {
 		return err
+	}
+
+	// Disallow editing scheduled exports for non-auditors if the export is created by an auditor
+	if !req.UserIsAuditor() && scheduledExport.Spec.WithRequestAndResponse {
+		return types.NewErrForbidden("you are not authorized to edit this scheduled export")
 	}
 
 	// Update the spec based on the request

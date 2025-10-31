@@ -111,7 +111,6 @@ type StorageCredentialsResponse struct {
 type AuditLogExportState string
 
 const (
-	AuditLogExportStatePending   AuditLogExportState = "pending"
 	AuditLogExportStateRunning   AuditLogExportState = "running"
 	AuditLogExportStateCompleted AuditLogExportState = "completed"
 	AuditLogExportStateFailed    AuditLogExportState = "failed"

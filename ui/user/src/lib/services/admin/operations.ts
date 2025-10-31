@@ -898,7 +898,7 @@ export async function getScheduledAuditLogExport(
 
 export async function createScheduledAuditLogExport(
 	request: ScheduledAuditLogExportInput,
-	opts?: { fetch?: Fetcher }
+	opts?: { dontLogErrors?: boolean }
 ) {
 	const response = await doPost('/scheduled-audit-log-exports', request, opts);
 	return response;
@@ -907,7 +907,7 @@ export async function createScheduledAuditLogExport(
 export async function updateScheduledAuditLogExport(
 	id: string,
 	request: Partial<ScheduledAuditLogExportInput>,
-	opts?: { fetch?: Fetcher }
+	opts?: { dontLogErrors?: boolean }
 ) {
 	const response = await doPatch(`/scheduled-audit-log-exports/${id}`, request, opts);
 	return response;
@@ -919,7 +919,7 @@ export async function deleteScheduledAuditLogExport(name: string, opts?: { signa
 
 // Storage Credentials
 export async function getStorageCredentials() {
-	const response = (await doGet('/audit-log-exports/storage-credentials', {
+	const response = (await doGet('/storage-credentials', {
 		dontLogErrors: true
 	})) as StorageCredentials;
 	return response;
@@ -929,7 +929,7 @@ export async function configureStorageCredentials(
 	request: StorageCredentials,
 	opts?: { fetch?: Fetcher }
 ) {
-	const response = await doPost('/audit-log-exports/storage-credentials', request, opts);
+	const response = await doPost('/storage-credentials', request, opts);
 	return response;
 }
 
@@ -937,6 +937,6 @@ export async function testStorageCredentials(
 	request: StorageCredentials,
 	opts?: { fetch?: Fetcher }
 ) {
-	const response = await doPost('/audit-log-exports/storage-credentials/test', request, opts);
+	const response = await doPost('/storage-credentials/test', request, opts);
 	return response;
 }

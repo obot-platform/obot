@@ -143,9 +143,10 @@
 			<div class="flex items-center gap-2">
 				<h1 class="text-2xl font-semibold">Audit Log Exports</h1>
 			</div>
-			{#if !isAdminReadonly}
-				<div class="mt-4 w-full flex-shrink-0 md:mt-0 md:w-fit">
-					<div class="flex gap-2">
+
+			<div class="mt-4 w-full flex-shrink-0 md:mt-0 md:w-fit">
+				<div class="flex gap-2">
+					{#if !isAdminReadonly}
 						<button
 							class="button-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => openForm('storage')}
@@ -153,10 +154,10 @@
 							<Settings class="size-4" />
 							Configure Storage
 						</button>
-						{@render addButton()}
-					</div>
+					{/if}
+					{@render addButton()}
 				</div>
-			{/if}
+			</div>
 		</div>
 
 		<div class="bg-surface1 sticky top-16 left-0 z-20 w-full pb-1 dark:bg-black">

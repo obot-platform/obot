@@ -55,7 +55,33 @@
 			form.endTime = initialData.endTime ? new Date(initialData.endTime) : form.endTime;
 
 			if (initialData.filters) {
-				form.filters = initialData.filters;
+				form.filters = {
+					user_id: initialData.filters.userIDs ? initialData.filters.userIDs.join(',') : '',
+					mcp_id: initialData.filters.mcpIDs ? initialData.filters.mcpIDs.join(',') : '',
+					mcp_server_display_name: initialData.filters.mcpServerDisplayNames
+						? initialData.filters.mcpServerDisplayNames.join(',')
+						: '',
+					mcp_server_catalog_entry_name: initialData.filters.mcpServerCatalogEntryNames
+						? initialData.filters.mcpServerCatalogEntryNames.join(',')
+						: '',
+					call_type: initialData.filters.callTypes ? initialData.filters.callTypes.join(',') : '',
+					call_identifier: initialData.filters.callIdentifiers
+						? initialData.filters.callIdentifiers.join(',')
+						: '',
+					response_status: initialData.filters.responseStatuses
+						? initialData.filters.responseStatuses.join(',')
+						: '',
+					session_id: initialData.filters.sessionIDs
+						? initialData.filters.sessionIDs.join(',')
+						: '',
+					client_name: initialData.filters.clientNames
+						? initialData.filters.clientNames.join(',')
+						: '',
+					client_version: initialData.filters.clientVersions
+						? initialData.filters.clientVersions.join(',')
+						: '',
+					client_ip: initialData.filters.clientIPs ? initialData.filters.clientIPs.join(',') : ''
+				};
 				showAdvancedOptions = true;
 			}
 		} else if (mode === 'create') {

@@ -44,17 +44,7 @@ func (c *CustomS3Provider) Upload(ctx context.Context, config apitypes.StorageCo
 	return nil
 }
 
-func (c *CustomS3Provider) Test(ctx context.Context, config apitypes.StorageConfig) error {
-	client, err := c.createClient(ctx, config)
-	if err != nil {
-		return fmt.Errorf("failed to create custom S3 client: %w", err)
-	}
-
-	_, err = client.ListBuckets(ctx, &s3.ListBucketsInput{})
-	if err != nil {
-		return fmt.Errorf("failed to test custom S3 credentials: %w", err)
-	}
-
+func (c *CustomS3Provider) Test(context.Context, apitypes.StorageConfig) error {
 	return nil
 }
 

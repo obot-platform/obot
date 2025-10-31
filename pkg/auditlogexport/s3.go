@@ -43,16 +43,31 @@ func (s *S3Provider) Upload(ctx context.Context, config apitypes.StorageConfig, 
 	return err
 }
 
-func (s *S3Provider) Test(ctx context.Context, config apitypes.StorageConfig) error {
-	creds := aws.NewCredentialsCache(
-		credentials.NewStaticCredentialsProvider(config.S3Config.AccessKeyID, config.S3Config.SecretAccessKey, ""),
-	)
-	client := sts.NewFromConfig(aws.Config{
-		Region:      config.S3Config.Region,
-		Credentials: creds,
-	})
+func (s *S3Provider) Test(ctx context.Context, storageConfig apitypes.StorageConfig) error {
+	cfg, err := config.LoadDefaultConfig(ctx)
+	if err != nil {
+		return err
+	}
 
-	_, err := client.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
+	s3Config := storageConfig.S3Config
+	if s3Config == nil {
+		return fmt.Errorf("s3 configuration is required")
+	}
+
+	if s3Config.AccessKeyID != "" || s3Config.SecretAccessKey != "" {
+		cfg.Credentials = credentials.NewStaticCredentialsProvider(
+			s3Config.AccessKeyID,
+			s3Config.SecretAccessKey,
+			"",
+		)
+	}
+
+	if s3Config.Region != "" {
+		cfg.Region = s3Config.Region
+	}
+
+	client := sts.NewFromConfig(cfg)
+	_, err = client.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 	if err != nil {
 		return fmt.Errorf("failed to test S3 credentials: %w", err)
 	}

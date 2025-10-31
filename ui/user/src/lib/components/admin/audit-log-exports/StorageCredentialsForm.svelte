@@ -420,6 +420,7 @@
 							selected={form.provider}
 							onSelected={(value) => {
 								form.provider = value;
+								testResult = null; // Clear test result when provider changes
 
 								// Clear other provider configs and initialize selected one
 								if (value === 's3') {
@@ -662,19 +663,23 @@
 
 			<!-- Actions -->
 			<div class="flex justify-between pt-6">
-				<button
-					type="button"
-					class="button-secondary"
-					onclick={handleTest}
-					disabled={testing || saving}
-				>
-					{#if testing}
-						<LoaderCircle class="size-4 animate-spin" />
-						Testing...
-					{:else}
-						Test Connection
-					{/if}
-				</button>
+				{#if form.provider !== 'custom'}
+					<button
+						type="button"
+						class="button-secondary"
+						onclick={handleTest}
+						disabled={testing || saving}
+					>
+						{#if testing}
+							<LoaderCircle class="size-4 animate-spin" />
+							Testing...
+						{:else}
+							Test Connection
+						{/if}
+					</button>
+				{:else}
+					<div></div>
+				{/if}
 
 				<div class="flex gap-3">
 					<button type="button" class="button" onclick={onCancel} disabled={saving || testing}>

@@ -39,10 +39,18 @@ func (a *AzureProvider) Upload(ctx context.Context, config types.StorageConfig, 
 	return nil
 }
 
-func (a *AzureProvider) Test(_ context.Context, config types.StorageConfig) error {
-	_, err := a.createClient(config)
+func (a *AzureProvider) Test(ctx context.Context, config types.StorageConfig) error {
+	client, err := a.createClient(config)
 	if err != nil {
 		return fmt.Errorf("failed to create Azure Blob client: %w", err)
+	}
+
+	pager := client.NewListContainersPager(&azblob.ListContainersOptions{})
+	if pager.More() {
+		_, err = pager.NextPage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list containers: %w", err)
+		}
 	}
 
 	return nil

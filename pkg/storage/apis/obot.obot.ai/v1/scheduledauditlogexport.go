@@ -40,7 +40,7 @@ func (s *ScheduledAuditLogExport) Get(field string) (value string) {
 }
 
 func (s *ScheduledAuditLogExport) FieldNames() []string {
-	return []string{"spec.enabled", "spec.schedule.interval", "spec.storageProvider"}
+	return []string{"spec.enabled", "spec.schedule.interval"}
 }
 
 func (*ScheduledAuditLogExport) GetColumns() [][]string {

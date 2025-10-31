@@ -45,7 +45,7 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 	export.Status.State = types.AuditLogExportStateRunning
 	export.Status.StartedAt = &metav1.Time{Time: time.Now()}
 
-	if err := req.Client.Update(req.Ctx, export); err != nil {
+	if err := req.Client.Status().Update(req.Ctx, export); err != nil {
 		return fmt.Errorf("failed to update export status: %w", err)
 	}
 
@@ -53,14 +53,14 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 		export.Status.State = types.AuditLogExportStateFailed
 		export.Status.Error = err.Error()
 
-		if statusErr := req.Client.Update(req.Ctx, export); statusErr != nil {
+		if statusErr := req.Client.Status().Update(req.Ctx, export); statusErr != nil {
 			return fmt.Errorf("failed to update failed export status: %w", statusErr)
 		}
 
 		return fmt.Errorf("audit log export failed: %w", err)
 	}
 
-	return req.Client.Update(req.Ctx, export)
+	return req.Client.Status().Update(req.Ctx, export)
 }
 
 func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) error {
@@ -97,7 +97,7 @@ func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) 
 	exportPath := h.generateExportPath(export)
 
 	// Use streaming export with batching
-	_, exportSize, err := h.streamingExport(ctx, export, storageProvider, exportPath)
+	exportSize, err := h.streamingExport(ctx, export, storageProvider, exportPath)
 	if err != nil {
 		return fmt.Errorf("failed to perform streaming export: %w", err)
 	}
@@ -111,21 +111,21 @@ func (h *Handler) performExport(ctx context.Context, export *v1.AuditLogExport) 
 	return nil
 }
 
-func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport, storageProvider auditlogexport.StorageProvider, exportPath string) (int64, int64, error) {
+func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport, storageProvider auditlogexport.StorageProvider, exportPath string) (int64, error) {
 	storageConfig, err := h.credProvider.GetStorageConfig(ctx)
 	if err != nil {
-		return 0, 0, fmt.Errorf("failed to get storage config: %w", err)
+		return 0, fmt.Errorf("failed to get storage config: %w", err)
 	}
 
 	const batchSize = 10000 // Process 10,000 records per batch
 
-	var totalRecords int64
 	var totalSize int64
 	offset := 0
 	batchNumber := 0
 
 	pr, pw := io.Pipe()
 	defer pr.Close()
+	defer pw.Close()
 
 	uploadErrCh := make(chan error, 1)
 	go func() {
@@ -157,12 +157,10 @@ func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport
 		}
 
 		// Get batch of logs from gateway
-		logs, total, err := h.gatewayClient.GetMCPAuditLogs(ctx, opts)
+		logs, _, err := h.gatewayClient.GetMCPAuditLogs(ctx, opts)
 		if err != nil {
-			return 0, 0, fmt.Errorf("failed to get audit logs batch %d: %w", batchNumber, err)
+			return 0, fmt.Errorf("failed to get audit logs batch %d: %w", batchNumber, err)
 		}
-
-		totalRecords = total
 
 		// If no logs in this batch, we're done
 		if len(logs) == 0 {
@@ -172,12 +170,12 @@ func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport
 		// Convert logs to the desired format
 		batchData, err := h.formatLogs(logs)
 		if err != nil {
-			return 0, 0, fmt.Errorf("failed to format logs batch %d: %w", batchNumber, err)
+			return 0, fmt.Errorf("failed to format logs batch %d: %w", batchNumber, err)
 		}
 
 		_, err = pw.Write(batchData)
 		if err != nil {
-			return 0, 0, fmt.Errorf("failed to write to pipe: %w", err)
+			return 0, fmt.Errorf("failed to write to pipe: %w", err)
 		}
 
 		totalSize += int64(len(batchData))
@@ -186,15 +184,15 @@ func (h *Handler) streamingExport(ctx context.Context, export *v1.AuditLogExport
 	}
 
 	if err := pw.Close(); err != nil {
-		return totalRecords, totalSize, fmt.Errorf("failed to close pipe: %w", err)
+		return totalSize, fmt.Errorf("failed to close pipe: %w", err)
 	}
 
 	// Wait for upload to complete
 	if err := <-uploadErrCh; err != nil {
-		return totalRecords, totalSize, fmt.Errorf("upload failed: %w", err)
+		return totalSize, fmt.Errorf("upload failed: %w", err)
 	}
 
-	return totalRecords, totalSize, nil
+	return totalSize, nil
 }
 
 func (h *Handler) formatLogs(logs []gatewaytypes.MCPAuditLog) ([]byte, error) {

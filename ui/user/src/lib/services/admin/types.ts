@@ -531,7 +531,22 @@ export interface AuditLogExport {
 	exportSize?: number;
 	createdAt: string;
 	completedAt?: string;
-	filters: AuditLogFilters;
+	filters: AuditLogExportFilterResponse;
+}
+
+export interface AuditLogExportFilterResponse {
+	userIDs?: string[];
+	mcpIDs?: string[];
+	mcpServerDisplayNames?: string[];
+	mcpServerCatalogEntryNames?: string[];
+	callTypes?: string[];
+	callIdentifiers?: string[];
+	responseStatuses?: string[];
+	sessionIDs?: string[];
+	clientNames?: string[];
+	clientVersions?: string[];
+	clientIPs?: string[];
+	query?: string;
 }
 
 export type AuditLogExportFilters = {
@@ -571,7 +586,7 @@ export interface ScheduledAuditLogExport {
 	bucket: string;
 	keyPrefix: string;
 	retentionPeriodInDays: number;
-	filters: AuditLogExportFilters;
+	filters: AuditLogExportFilterResponse;
 }
 
 export interface StorageCredentials {

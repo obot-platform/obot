@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AdminService, type AuditLogExportFilters } from '$lib/services';
+	import { AdminService, type AuditLogURLFilters } from '$lib/services';
 	import { slide } from 'svelte/transition';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import { AlertTriangle, LoaderCircle, GlobeIcon, ChevronDown, ChevronUp } from 'lucide-svelte';
@@ -34,19 +34,19 @@
 		},
 		retentionPeriodInDays: 30,
 		filters: {
-			userIDs: [],
-			mcpIDs: [],
-			mcpServerDisplayNames: [],
-			mcpServerCatalogEntryNames: [],
-			callTypes: [],
-			callIdentifiers: [],
-			responseStatuses: [],
-			sessionIDs: [],
-			clientNames: [],
-			clientVersions: [],
-			clientIPs: [],
+			user_id: '',
+			mcp_id: '',
+			mcp_server_display_name: '',
+			mcp_server_catalog_entry_name: '',
+			call_type: '',
+			call_identifier: '',
+			client_name: '',
+			client_version: '',
+			client_ip: '',
+			response_status: '',
+			session_id: '',
 			query: ''
-		} as Partial<AuditLogExportFilters>
+		} as Partial<AuditLogURLFilters>
 	});
 
 	let creating = $state(false);
@@ -77,7 +77,33 @@
 
 			// Populate filters if they exist
 			if (initialData.filters) {
-				form.filters = initialData.filters;
+				form.filters = {
+					user_id: initialData.filters.userIDs ? initialData.filters.userIDs.join(',') : '',
+					mcp_id: initialData.filters.mcpIDs ? initialData.filters.mcpIDs.join(',') : '',
+					mcp_server_display_name: initialData.filters.mcpServerDisplayNames
+						? initialData.filters.mcpServerDisplayNames.join(',')
+						: '',
+					mcp_server_catalog_entry_name: initialData.filters.mcpServerCatalogEntryNames
+						? initialData.filters.mcpServerCatalogEntryNames.join(',')
+						: '',
+					call_type: initialData.filters.callTypes ? initialData.filters.callTypes.join(',') : '',
+					call_identifier: initialData.filters.callIdentifiers
+						? initialData.filters.callIdentifiers.join(',')
+						: '',
+					response_status: initialData.filters.responseStatuses
+						? initialData.filters.responseStatuses.join(',')
+						: '',
+					session_id: initialData.filters.sessionIDs
+						? initialData.filters.sessionIDs.join(',')
+						: '',
+					client_name: initialData.filters.clientNames
+						? initialData.filters.clientNames.join(',')
+						: '',
+					client_version: initialData.filters.clientVersions
+						? initialData.filters.clientVersions.join(',')
+						: '',
+					client_ip: initialData.filters.clientIPs ? initialData.filters.clientIPs.join(',') : ''
+				};
 				showAdvancedOptions = true;
 			}
 		} else if (mode === 'create') {
@@ -86,91 +112,47 @@
 
 			let hasFilters = false;
 			if (params.get('user_ids')) {
-				form.filters.userIDs =
-					params
-						.get('user_ids')
-						?.split(',')
-						.map((s) => s.trim()) || [];
+				form.filters.user_id = params.get('user_ids');
 				hasFilters = true;
 			}
 			if (params.get('mcp_ids')) {
-				form.filters.mcpIDs =
-					params
-						.get('mcp_ids')
-						?.split(',')
-						.map((s) => s.trim()) || [];
+				form.filters.mcp_id = params.get('mcp_ids');
 				hasFilters = true;
 			}
 			if (params.get('mcp_server_display_names')) {
-				form.filters.mcpServerDisplayNames =
-					params
-						.get('mcp_server_display_names')
-						?.split(',')
-						.map((s) => s.trim()) || [];
+				form.filters.mcp_server_display_name = params.get('mcp_server_display_names');
 				hasFilters = true;
 			}
 			if (params.get('mcp_server_catalog_entry_names')) {
-				form.filters.mcpServerCatalogEntryNames =
-					params
-						.get('mcp_server_catalog_entry_names')
-						?.split(',')
-						.map((s) => s.trim()) || [];
+				form.filters.mcp_server_catalog_entry_name = params.get('mcp_server_catalog_entry_names');
 				hasFilters = true;
 			}
 			if (params.get('call_types')) {
-				form.filters.callTypes =
-					params
-						.get('call_types')
-						?.split(',')
-						.map((s) => s.trim()) || [];
+				form.filters.call_type = params.get('call_types');
 				hasFilters = true;
 			}
 			if (params.get('call_identifiers')) {
-				form.filters.callIdentifiers =
-					params
-						.get('call_identifiers')
-						?.split(',')
-						.map((s) => s.trim()) || [];
+				form.filters.call_identifier = params.get('call_identifiers');
 				hasFilters = true;
 			}
 			if (params.get('response_statuses')) {
-				form.filters.responseStatuses =
-					params
-						.get('response_statuses')
-						?.split(',')
-						.map((s) => s.trim()) || [];
+				form.filters.response_status = params.get('response_statuses');
 				hasFilters = true;
 			}
 			if (params.get('session_ids')) {
-				form.filters.sessionIDs =
-					params
-						.get('session_ids')
-						?.split(',')
-						.map((s) => s.trim()) || [];
+				form.filters.session_id = params.get('session_ids');
 				hasFilters = true;
 			}
 			if (params.get('client_names')) {
-				form.filters.clientNames =
-					params
-						.get('client_names')
-						?.split(',')
-						.map((s) => s.trim()) || [];
+				form.filters.client_name = params.get('client_names');
 				hasFilters = true;
 			}
 			if (params.get('client_versions')) {
-				form.filters.clientVersions =
-					params
-						.get('client_versions')
-						?.split(',')
-						.map((s) => s.trim()) || [];
+				form.filters.client_version = params.get('client_versions');
 				hasFilters = true;
 			}
 			if (params.get('client_ips')) {
-				form.filters.clientIPs =
-					params
-						.get('client_ips')
-						?.split(',')
-						.map((s) => s.trim()) || [];
+				form.filters.client_ip = params.get('client_ips');
 				hasFilters = true;
 			}
 
@@ -202,15 +184,49 @@
 				enabled: form.enabled,
 				schedule: form.schedule,
 				retentionPeriodInDays: form.retentionPeriodInDays,
-				filters: form.filters
+				filters: {
+					userIDs: form.filters.user_id ? form.filters.user_id.split(',').map((s) => s.trim()) : [],
+					mcpIDs: form.filters.mcp_id ? form.filters.mcp_id.split(',').map((s) => s.trim()) : [],
+					mcpServerDisplayNames: form.filters.mcp_server_display_name
+						? form.filters.mcp_server_display_name.split(',').map((s) => s.trim())
+						: [],
+					mcpServerCatalogEntryNames: form.filters.mcp_server_catalog_entry_name
+						? form.filters.mcp_server_catalog_entry_name.split(',').map((s) => s.trim())
+						: [],
+					callTypes: form.filters.call_type
+						? form.filters.call_type.split(',').map((s) => s.trim())
+						: [],
+					callIdentifiers: form.filters.call_identifier
+						? form.filters.call_identifier.split(',').map((s) => s.trim())
+						: [],
+					responseStatuses: form.filters.response_status
+						? form.filters.response_status.split(',').map((s) => s.trim())
+						: [],
+					sessionIDs: form.filters.session_id
+						? form.filters.session_id.split(',').map((s) => s.trim())
+						: [],
+					clientNames: form.filters.client_name
+						? form.filters.client_name.split(',').map((s) => s.trim())
+						: [],
+					clientVersions: form.filters.client_version
+						? form.filters.client_version.split(',').map((s) => s.trim())
+						: [],
+					clientIPs: form.filters.client_ip
+						? form.filters.client_ip.split(',').map((s) => s.trim())
+						: []
+				}
 			};
 
 			if (mode === 'edit' && initialData?.id) {
 				// Update existing scheduled export
-				await AdminService.updateScheduledAuditLogExport(initialData.id, request);
+				await AdminService.updateScheduledAuditLogExport(initialData.id, request, {
+					dontLogErrors: true
+				});
 			} else {
 				// Create new scheduled export
-				await AdminService.createScheduledAuditLogExport(request);
+				await AdminService.createScheduledAuditLogExport(request, {
+					dontLogErrors: true
+				});
 			}
 			onSubmit();
 		} catch (err) {
@@ -493,7 +509,7 @@
 							<input
 								class="text-input-filled"
 								id="user_id"
-								bind:value={form.filters.userIDs}
+								bind:value={form.filters.user_id}
 								placeholder="user1,user2"
 								readonly={mode === 'view'}
 							/>
@@ -505,7 +521,7 @@
 							<input
 								class="text-input-filled"
 								id="mcp_id"
-								bind:value={form.filters.mcpIDs}
+								bind:value={form.filters.mcp_id}
 								placeholder="server1,server2"
 								readonly={mode === 'view'}
 							/>
@@ -517,7 +533,7 @@
 							<input
 								class="text-input-filled"
 								id="mcp_server_display_name"
-								bind:value={form.filters.mcpServerDisplayNames}
+								bind:value={form.filters.mcp_server_display_name}
 								placeholder="server-name-1,server-name-2"
 								readonly={mode === 'view'}
 							/>
@@ -529,7 +545,7 @@
 							<input
 								class="text-input-filled"
 								id="call_type"
-								bind:value={form.filters.callTypes}
+								bind:value={form.filters.call_type}
 								placeholder="tools/call,resources/read"
 								readonly={mode === 'view'}
 							/>
@@ -541,7 +557,7 @@
 							<input
 								class="text-input-filled"
 								id="client_name"
-								bind:value={form.filters.clientNames}
+								bind:value={form.filters.client_name}
 								placeholder="client1,client2"
 								readonly={mode === 'view'}
 							/>
@@ -553,7 +569,7 @@
 							<input
 								class="text-input-filled"
 								id="response_status"
-								bind:value={form.filters.responseStatuses}
+								bind:value={form.filters.response_status}
 								placeholder="200,400,500"
 								readonly={mode === 'view'}
 							/>
@@ -565,7 +581,7 @@
 							<input
 								class="text-input-filled"
 								id="session_id"
-								bind:value={form.filters.sessionIDs}
+								bind:value={form.filters.session_id}
 								placeholder="session1,session2"
 								readonly={mode === 'view'}
 							/>
@@ -577,7 +593,7 @@
 							<input
 								class="text-input-filled"
 								id="client_ip"
-								bind:value={form.filters.clientIPs}
+								bind:value={form.filters.client_ip}
 								placeholder="192.168.1.1,10.0.0.1"
 								readonly={mode === 'view'}
 							/>
@@ -590,7 +606,7 @@
 							<input
 								class="text-input-filled"
 								id="power_user_workspace_id"
-								bind:value={form.filters.mcpServerCatalogEntryNames}
+								bind:value={form.filters.mcp_server_catalog_entry_name}
 								placeholder="workspace-id-1,workspace-id-2"
 								readonly={mode === 'view'}
 							/>

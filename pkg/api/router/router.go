@@ -577,10 +577,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/scheduled-audit-log-exports/{id}", auditLogExports.DeleteScheduledAuditLogExport)
 
 	// Storage Credentials Management
-	mux.HandleFunc("POST /api/audit-log-exports/storage-credentials", auditLogExports.ConfigureStorageCredentials)
-	mux.HandleFunc("GET /api/audit-log-exports/storage-credentials", auditLogExports.GetStorageCredentials)
-	mux.HandleFunc("DELETE /api/audit-log-exports/storage-credentials", auditLogExports.DeleteStorageCredentials)
-	mux.HandleFunc("POST /api/audit-log-exports/storage-credentials/test", auditLogExports.TestStorageCredentials)
+	mux.HandleFunc("POST /api/storage-credentials", auditLogExports.ConfigureStorageCredentials)
+	mux.HandleFunc("GET /api/storage-credentials", auditLogExports.GetStorageCredentials)
+	mux.HandleFunc("DELETE /api/storage-credentials", auditLogExports.DeleteStorageCredentials)
+	mux.HandleFunc("POST /api/storage-credentials/test", auditLogExports.TestStorageCredentials)
 
 	// MCP Servers in projects
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", projectMCP.ListServer)
