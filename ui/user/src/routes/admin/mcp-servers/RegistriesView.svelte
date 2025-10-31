@@ -113,7 +113,7 @@
 	{:else}
 		{@const hasErrors = Object.keys(catalog?.syncErrors ?? {})}
 
-		{#if hasErrors && !catalog?.isSyncing}
+		{#if hasErrors.length && !catalog?.isSyncing}
 			<div class="w-full p-4" in:slide={{ axis: 'y' }} out:slide={{ axis: 'y', duration: 0 }}>
 				<div class="notification-alert flex w-full items-center gap-2 rounded-md p-3 text-sm">
 					<AlertTriangle class="size-" />
