@@ -22,7 +22,10 @@
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
-	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp.js';
+	import {
+		convertEntriesAndServersToTableData,
+		getServerTypeLabelByType
+	} from '$lib/services/chat/mcp.js';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 
 	let { data } = $props();
@@ -185,7 +188,7 @@
 								</p>
 							</div>
 						{:else if property === 'type'}
-							{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
+							{getServerTypeLabelByType(d.type)}
 						{:else if property === 'created'}
 							{formatTimeAgo(d.created).relativeTime}
 						{:else}
@@ -220,12 +223,7 @@
 {/snippet}
 
 {#snippet configureEntryScreen()}
-	{@const currentLabelType =
-		selectedServerType === 'single'
-			? 'Single User'
-			: selectedServerType === 'multi'
-				? 'Multi-User'
-				: 'Remote'}
+	{@const currentLabelType = getServerTypeLabelByType(selectedServerType)}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		<BackLink fromURL="mcp-publisher" currentLabel={`Create ${currentLabelType} Server`} />
 		<McpServerEntryForm

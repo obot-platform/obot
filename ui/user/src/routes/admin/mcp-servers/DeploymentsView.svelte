@@ -15,6 +15,7 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
+	import { getServerTypeLabel } from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
@@ -106,12 +107,7 @@
 				displayName: deployment.manifest.name ?? '',
 				userName: getUserDisplayName(usersMap, deployment.userID),
 				registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
-				type:
-					deployment.manifest.runtime === 'remote'
-						? 'Remote'
-						: deployment.catalogEntryID
-							? 'Single User'
-							: 'Multi-User',
+				type: getServerTypeLabel(deployment),
 				powerUserWorkspaceID
 			};
 		});

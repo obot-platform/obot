@@ -15,7 +15,10 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
-	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp';
+	import {
+		convertEntriesAndServersToTableData,
+		getServerTypeLabelByType
+	} from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
@@ -172,13 +175,7 @@
 						</p>
 					</div>
 				{:else if property === 'type'}
-					{d.type === 'single'
-						? 'Single User'
-						: d.type === 'multi'
-							? 'Multi-User'
-							: d.type === 'remote'
-								? 'Remote'
-								: 'Composite'}
+					{getServerTypeLabelByType(d.type)}
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
 				{:else}

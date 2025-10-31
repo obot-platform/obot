@@ -177,3 +177,25 @@ export function convertEntriesAndServersToTableData(
 	const serversTableData = convertServersToTableData(servers, usersMap);
 	return [...entriesTableData, ...serversTableData];
 }
+
+export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) {
+	if (!server) return '';
+	return server.manifest.runtime === 'remote'
+		? 'Remote'
+		: server.manifest.runtime === 'composite'
+			? 'Composite'
+			: 'catalogEntryID' in server || 'isCatalogEntry' in server
+				? 'Single User'
+				: 'Multi-User';
+}
+
+export function getServerTypeLabelByType(type?: string) {
+	if (!type) return '';
+	return type === 'single'
+		? 'Single User'
+		: type === 'multi'
+			? 'Multi-User'
+			: type === 'remote'
+				? 'Remote'
+				: 'Composite';
+}

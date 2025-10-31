@@ -33,6 +33,7 @@
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url';
+	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
@@ -283,14 +284,7 @@
 {/snippet}
 
 {#snippet configureEntryScreen()}
-	{@const currentLabelType =
-		selectedServerType === 'single'
-			? 'Single User'
-			: selectedServerType === 'multi'
-				? 'Multi-User'
-				: selectedServerType === 'remote'
-					? 'Remote'
-					: 'Composite'}
+	{@const currentLabelType = getServerTypeLabelByType(selectedServerType)}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		<BackLink fromURL="mcp-servers" currentLabel={`Create ${currentLabelType} Server`} />
 		<McpServerEntryForm

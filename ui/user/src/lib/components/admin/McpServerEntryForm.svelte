@@ -42,6 +42,7 @@
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import { profile } from '$lib/stores';
 	import OverflowContainer from '../OverflowContainer.svelte';
+	import { getServerTypeLabel } from '$lib/services/chat/mcp';
 
 	type MCPType = 'single' | 'multi' | 'remote' | 'composite';
 
@@ -421,7 +422,7 @@
 				{/if}
 				<h1 class="text-2xl font-semibold capitalize">{entry.manifest.name || 'Unknown'}</h1>
 				<div class="pill-rounded">
-					{type === 'single' ? 'Single User' : type === 'multi' ? 'Multi-User' : 'Remote'}
+					{getServerTypeLabel(entry)}
 				</div>
 				{#if registry}
 					<div class="pill-rounded">
