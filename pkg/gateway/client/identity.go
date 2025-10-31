@@ -423,8 +423,8 @@ func (c *Client) ensureNewPrivilegedUser(ctx context.Context, user *types.User) 
 		},
 		Spec: v1.UserRoleChangeSpec{
 			UserID:  user.ID,
-			OldRole: types2.RoleBasic, // New users start as basic
-			NewRole: defaultRole.Spec.Role,
+			OldRole: defaultRole.Spec.Role,
+			NewRole: user.Role,
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to create user role change event for new privileged user %d: %w", user.ID, err)
