@@ -9,7 +9,7 @@
 	import { fade } from 'svelte/transition';
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
-	import { AdminService } from '$lib/services/index.js';
+	import { AdminService, Role } from '$lib/services/index.js';
 	import { AlertTriangle, Info } from 'lucide-svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -68,7 +68,12 @@
 		const configuredAuthProvider = authProviders.find((provider) => provider.configured);
 		if (!configuredAuthProvider) return;
 
-		// Only proceed if user is bootstrap user (not yet a real owner) and has a configured provider
+		const users = await AdminService.listUsers();
+		const isOwnerExist = users.some((user) => user.role === Role.OWNER);
+
+		if (isOwnerExist) return;
+
+		// Only proceed if user is bootstrap user (not yet a real owner) and has a configured provider and owner does not exist
 		if (!setupLoading && !setupTempLoginUrl) {
 			configuringAuthProvider = configuredAuthProvider;
 			handleOwnerSetup();
@@ -113,15 +118,20 @@
 				errors.append(err);
 			}
 		}
-		explicitOwners = (await AdminService.listExplicitRoleEmails())?.owners ?? [];
-		setupTempLoginUrl = (
-			await AdminService.initiateTempLogin(
-				configuringAuthProvider.id,
-				configuringAuthProvider.namespace
-			)
-		).redirectUrl;
-		setupLoading = false;
-		setupSignInDialog?.open();
+
+		try {
+			explicitOwners = (await AdminService.listExplicitRoleEmails())?.owners ?? [];
+			setupTempLoginUrl = (
+				await AdminService.initiateTempLogin(
+					configuringAuthProvider.id,
+					configuringAuthProvider.namespace
+				)
+			).redirectUrl;
+			setupLoading = false;
+			setupSignInDialog?.open();
+		} catch (_) {
+			// ignore
+		}
 	}
 
 	async function handleAuthProviderConfigure(form: Record<string, string>) {
