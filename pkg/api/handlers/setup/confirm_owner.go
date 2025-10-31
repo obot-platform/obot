@@ -5,8 +5,14 @@ import (
 	"net/http"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var log = logger.Package()
 
 type ConfirmOwnerRequest struct {
 	Email string `json:"email"`
@@ -59,6 +65,8 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
+	originalUserRole := user.Role
+
 	// Check if the user has an explicit role from environment variables
 	explicitRole := req.GatewayClient.HasExplicitRole(user.Email)
 
@@ -84,6 +92,20 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 	// Clear the temporary cache
 	if err := req.GatewayClient.ClearTempUserCache(req.Context()); err != nil {
 		return fmt.Errorf("failed to clear temp user cache: %w", err)
+	}
+
+	if err := req.Create(&v1.UserRoleChange{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.UserRoleChangePrefix,
+			Namespace:    system.DefaultNamespace,
+		},
+		Spec: v1.UserRoleChangeSpec{
+			UserID:  user.ID,
+			OldRole: originalUserRole,
+			NewRole: user.Role,
+		},
+	}); err != nil {
+		log.Warnf("failed to create user role change for promoted owner %d: %v", user.ID, err)
 	}
 
 	return req.Write(ConfirmOwnerResponse{
