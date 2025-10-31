@@ -41,15 +41,17 @@ Deploy Obot on Kubernetes for production-grade reliability and scalability.
 
 👉 [Kubernetes Deployment Guide](kubernetes-deployment)
 
-### Cloud Platform Deployments
+### Cloud Platform Reference Architectures
 
-**Best for**: Cloud-native deployments with managed services
+**Best for**: Planning production deployments on cloud-managed Kubernetes
 
-Deploy Obot on major cloud platforms with platform-specific guidance.
+If you're planning to deploy Obot on cloud-managed Kubernetes services, these reference architectures provide infrastructure guidance and best practices.
 
-- **Cloud-specific integrations**: Use managed databases, key management, and storage services
+- **Infrastructure blueprints**: Pre-configured setups using cloud-native services
+- **Best practices**: Security, networking, and scalability recommendations
+- **Managed services integration**: Databases, storage, and key management
 
-For production-ready architectures on specific clouds:
+Reference architectures for cloud-managed Kubernetes:
 
 - [GCP GKE Reference Architecture](reference-architectures/gcp-gke)
 - [AWS EKS Reference Architecture](reference-architectures/aws-eks)
@@ -62,12 +64,6 @@ For production-ready architectures on specific clouds:
 - **CPU**: 1 cores
 - **RAM**: 2 GB
 - **Storage**: 10 GB
-
-### Recommended (Production)
-
-- **CPU**: 2+ cores per instance
-- **RAM**: 4+ GB per instance
-- **Storage**: 50+ GB
 
 ## Database Requirements
 
