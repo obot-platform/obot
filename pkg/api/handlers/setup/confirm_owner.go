@@ -5,8 +5,14 @@ import (
 	"net/http"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var log = logger.Package()
 
 type ConfirmOwnerRequest struct {
 	Email string `json:"email"`
@@ -84,6 +90,19 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 	// Clear the temporary cache
 	if err := req.GatewayClient.ClearTempUserCache(req.Context()); err != nil {
 		return fmt.Errorf("failed to clear temp user cache: %w", err)
+	}
+
+	// Create the UserRoleChange
+	if err := req.Create(&v1.UserRoleChange{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.UserRoleChangePrefix,
+			Namespace:    system.DefaultNamespace,
+		},
+		Spec: v1.UserRoleChangeSpec{
+			UserID: user.ID,
+		},
+	}); err != nil {
+		log.Warnf("failed to create user role change for new owner %d: %v", user.ID, err)
 	}
 
 	return req.Write(ConfirmOwnerResponse{
