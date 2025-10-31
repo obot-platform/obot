@@ -258,7 +258,7 @@ func (*Handler) EnsureMCPServerInstanceUserCount(req router.Request, _ router.Re
 
 	uniqueUsers := make(map[string]struct{}, len(mcpServerInstances.Items))
 	for _, instance := range mcpServerInstances.Items {
-		if userID := instance.Spec.UserID; userID != "" {
+		if userID := instance.Spec.UserID; userID != "" && instance.DeletionTimestamp.IsZero() {
 			uniqueUsers[userID] = struct{}{}
 		}
 	}
