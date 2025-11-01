@@ -110,50 +110,26 @@
 			// Populate from URL parameters for create mode
 			const params = page.url.searchParams;
 
+			const mappedField = {
+				user_ids: 'user_id',
+				mcp_ids: 'mcp_id',
+				mcp_server_display_names: 'mcp_server_display_name',
+				mcp_server_catalog_entry_names: 'mcp_server_catalog_entry_name',
+				call_types: 'call_type',
+				call_identifiers: 'call_identifier',
+				response_statuses: 'response_status',
+				session_ids: 'session_id',
+				client_names: 'client_name',
+				client_versions: 'client_version',
+				client_ips: 'client_ip'
+			} satisfies Record<string, keyof AuditLogURLFilters>;
+
 			let hasFilters = false;
-			if (params.get('user_ids')) {
-				form.filters.user_id = params.get('user_ids');
-				hasFilters = true;
-			}
-			if (params.get('mcp_ids')) {
-				form.filters.mcp_id = params.get('mcp_ids');
-				hasFilters = true;
-			}
-			if (params.get('mcp_server_display_names')) {
-				form.filters.mcp_server_display_name = params.get('mcp_server_display_names');
-				hasFilters = true;
-			}
-			if (params.get('mcp_server_catalog_entry_names')) {
-				form.filters.mcp_server_catalog_entry_name = params.get('mcp_server_catalog_entry_names');
-				hasFilters = true;
-			}
-			if (params.get('call_types')) {
-				form.filters.call_type = params.get('call_types');
-				hasFilters = true;
-			}
-			if (params.get('call_identifiers')) {
-				form.filters.call_identifier = params.get('call_identifiers');
-				hasFilters = true;
-			}
-			if (params.get('response_statuses')) {
-				form.filters.response_status = params.get('response_statuses');
-				hasFilters = true;
-			}
-			if (params.get('session_ids')) {
-				form.filters.session_id = params.get('session_ids');
-				hasFilters = true;
-			}
-			if (params.get('client_names')) {
-				form.filters.client_name = params.get('client_names');
-				hasFilters = true;
-			}
-			if (params.get('client_versions')) {
-				form.filters.client_version = params.get('client_versions');
-				hasFilters = true;
-			}
-			if (params.get('client_ips')) {
-				form.filters.client_ip = params.get('client_ips');
-				hasFilters = true;
+			for (const [key, value] of Object.entries(mappedField)) {
+				if (params.get(key)) {
+					form.filters[value] = params.get(key);
+					hasFilters = true;
+				}
 			}
 
 			// Show advanced options if there are filters from the URL

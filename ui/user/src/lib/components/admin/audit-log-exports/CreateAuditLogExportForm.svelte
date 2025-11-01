@@ -56,31 +56,17 @@
 
 			if (initialData.filters) {
 				form.filters = {
-					user_id: initialData.filters.userIDs ? initialData.filters.userIDs.join(',') : '',
-					mcp_id: initialData.filters.mcpIDs ? initialData.filters.mcpIDs.join(',') : '',
-					mcp_server_display_name: initialData.filters.mcpServerDisplayNames
-						? initialData.filters.mcpServerDisplayNames.join(',')
-						: '',
-					mcp_server_catalog_entry_name: initialData.filters.mcpServerCatalogEntryNames
-						? initialData.filters.mcpServerCatalogEntryNames.join(',')
-						: '',
-					call_type: initialData.filters.callTypes ? initialData.filters.callTypes.join(',') : '',
-					call_identifier: initialData.filters.callIdentifiers
-						? initialData.filters.callIdentifiers.join(',')
-						: '',
-					response_status: initialData.filters.responseStatuses
-						? initialData.filters.responseStatuses.join(',')
-						: '',
-					session_id: initialData.filters.sessionIDs
-						? initialData.filters.sessionIDs.join(',')
-						: '',
-					client_name: initialData.filters.clientNames
-						? initialData.filters.clientNames.join(',')
-						: '',
-					client_version: initialData.filters.clientVersions
-						? initialData.filters.clientVersions.join(',')
-						: '',
-					client_ip: initialData.filters.clientIPs ? initialData.filters.clientIPs.join(',') : ''
+					user_id: join(initialData.filters.userIDs),
+					mcp_id: join(initialData.filters.mcpIDs),
+					mcp_server_display_name: join(initialData.filters.mcpServerDisplayNames),
+					mcp_server_catalog_entry_name: join(initialData.filters.mcpServerCatalogEntryNames),
+					call_type: join(initialData.filters.callTypes),
+					call_identifier: join(initialData.filters.callIdentifiers),
+					response_status: join(initialData.filters.responseStatuses),
+					session_id: join(initialData.filters.sessionIDs),
+					client_name: join(initialData.filters.clientNames),
+					client_version: join(initialData.filters.clientVersions),
+					client_ip: join(initialData.filters.clientIPs)
 				};
 				showAdvancedOptions = true;
 			}
@@ -129,6 +115,14 @@
 		}
 	});
 
+	function join(array: string[] | undefined): string {
+		return array ? array.join(',') : '';
+	}
+
+	function split(value: string | null | undefined): string[] {
+		return value ? value.split(',').map((s) => s.trim()) : [];
+	}
+
 	async function handleSubmit() {
 		try {
 			creating = true;
@@ -150,35 +144,17 @@
 				startTime: form.startTime.toISOString(),
 				endTime: form.endTime.toISOString(),
 				filters: {
-					userIDs: form.filters.user_id ? form.filters.user_id.split(',').map((s) => s.trim()) : [],
-					mcpIDs: form.filters.mcp_id ? form.filters.mcp_id.split(',').map((s) => s.trim()) : [],
-					mcpServerDisplayNames: form.filters.mcp_server_display_name
-						? form.filters.mcp_server_display_name.split(',').map((s) => s.trim())
-						: [],
-					mcpServerCatalogEntryNames: form.filters.mcp_server_catalog_entry_name
-						? form.filters.mcp_server_catalog_entry_name.split(',').map((s) => s.trim())
-						: [],
-					callTypes: form.filters.call_type
-						? form.filters.call_type.split(',').map((s) => s.trim())
-						: [],
-					callIdentifiers: form.filters.call_identifier
-						? form.filters.call_identifier.split(',').map((s) => s.trim())
-						: [],
-					responseStatuses: form.filters.response_status
-						? form.filters.response_status.split(',').map((s) => s.trim())
-						: [],
-					sessionIDs: form.filters.session_id
-						? form.filters.session_id.split(',').map((s) => s.trim())
-						: [],
-					clientNames: form.filters.client_name
-						? form.filters.client_name.split(',').map((s) => s.trim())
-						: [],
-					clientVersions: form.filters.client_version
-						? form.filters.client_version.split(',').map((s) => s.trim())
-						: [],
-					clientIPs: form.filters.client_ip
-						? form.filters.client_ip.split(',').map((s) => s.trim())
-						: []
+					userIDs: split(form.filters.user_id),
+					mcpIDs: split(form.filters.mcp_id),
+					mcpServerDisplayNames: split(form.filters.mcp_server_display_name),
+					mcpServerCatalogEntryNames: split(form.filters.mcp_server_catalog_entry_name),
+					callTypes: split(form.filters.call_type),
+					callIdentifiers: split(form.filters.call_identifier),
+					responseStatuses: split(form.filters.response_status),
+					sessionIDs: split(form.filters.session_id),
+					clientNames: split(form.filters.client_name),
+					clientVersions: split(form.filters.client_version),
+					clientIPs: split(form.filters.client_ip)
 				}
 			};
 
