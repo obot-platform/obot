@@ -35,6 +35,7 @@
 {:else}
 	<button
 		use:ref
+		type="button"
 		onclick={() => {
 			toggle();
 		}}

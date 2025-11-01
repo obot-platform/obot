@@ -8,6 +8,7 @@
 		value?: string;
 		error?: boolean;
 		oninput?: () => void;
+		onfocus?: () => void;
 		textarea?: boolean;
 		disabled?: boolean;
 		growable?: boolean;
@@ -19,6 +20,7 @@
 		value = $bindable(''),
 		error,
 		oninput,
+		onfocus,
 		textarea,
 		disabled,
 		growable,
@@ -36,6 +38,10 @@
 		const input = ev.target as HTMLInputElement;
 		value = input.value;
 		oninput?.();
+	}
+
+	function handleFocus(_: FocusEvent) {
+		onfocus?.();
 	}
 
 	function toggleVisibility(ev: MouseEvent) {
@@ -80,6 +86,7 @@
 							oninput?.();
 						}
 					}
+					onfocus={handleFocus}
 				></div>
 			{:else}
 				<textarea
@@ -108,6 +115,7 @@
 							oninput?.();
 						}
 					}
+					onfocus={handleFocus}
 				></textarea>
 			{/if}
 
@@ -138,6 +146,7 @@
 			{value}
 			type={showSensitive ? 'text' : 'password'}
 			oninput={handleInput}
+			onfocus={handleFocus}
 			autocomplete="new-password"
 			{disabled}
 		/>
