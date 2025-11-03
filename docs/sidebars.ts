@@ -62,6 +62,7 @@ const sidebars = {
         "configuration/auth-providers",
         "configuration/model-providers",
         "configuration/workspace-provider",
+        "configuration/audit-log-export",
         {
           type: "category",
           label: "Advanced Configuration",
