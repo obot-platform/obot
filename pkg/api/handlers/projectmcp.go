@@ -41,7 +41,7 @@ func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontro
 	}
 }
 
-func convertProjectMCPServer(req api.Context, projectServer *v1.ProjectMCPServer, mcpServer *v1.MCPServer, cred map[string]string) types.ProjectMCPServer {
+func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.MCPServer, cred map[string]string, components ...types.MCPServer) types.ProjectMCPServer {
 	pmcp := types.ProjectMCPServer{
 		Metadata:                 MetadataFrom(projectServer),
 		ProjectMCPServerManifest: projectServer.Spec.Manifest,
@@ -58,11 +58,11 @@ func convertProjectMCPServer(req api.Context, projectServer *v1.ProjectMCPServer
 	pmcp.Alias = mcpServer.Spec.Alias
 
 	if mcpServer.Spec.MCPCatalogID == "" {
-		// For single-user servers, grab more status information from the MCP server.
+		// For single-user and composite servers, grab more status information from the MCP server.
 		// We don't show this for shared servers, because the user can't do anything about it
 		// if something is wrong with one of those; only the admin can.
 		// We don't care about the connect URL here, so passing empty string for both URL an slug.
-		convertedServer := convertMCPServer(req, *mcpServer, cred, "", "")
+		convertedServer := convertMCPServer(*mcpServer, cred, "", "", components...)
 		pmcp.Configured = convertedServer.Configured
 		pmcp.NeedsURL = convertedServer.NeedsURL
 		pmcp.NeedsUpdate = convertedServer.NeedsUpdate
@@ -150,7 +150,17 @@ func (p *ProjectMCPHandler) ListServer(req api.Context) error {
 		}
 		cred := credMap[mcpServer.Name]
 
-		items = append(items, convertProjectMCPServer(req, &server, &mcpServer, cred))
+		// Gather components for single-user composite servers
+		var components []types.MCPServer
+		if mcpServer.Spec.MCPCatalogID == "" && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+			if c, err := resolveCompositeComponents(req, mcpServer); err == nil {
+				components = c
+			} else {
+				log.Warnf("failed to resolve composite components for project server %s: %v", mcpServer.Name, err)
+			}
+		}
+
+		items = append(items, convertProjectMCPServer(&server, &mcpServer, cred, components...))
 	}
 
 	return req.Write(types.ProjectMCPServerList{Items: items})
@@ -218,7 +228,16 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 		return err
 	}
 
-	return req.WriteCreated(convertProjectMCPServer(req, &projectServer, mcpServer, cred))
+	// Gather components for single-user composite servers
+	var components []types.MCPServer
+	if mcpServer.Spec.MCPCatalogID == "" && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		if c, err := resolveCompositeComponents(req, *mcpServer); err == nil {
+			components = c
+		} else {
+			log.Warnf("failed to resolve composite components for project server %s: %v", mcpServer.Name, err)
+		}
+	}
+	return req.WriteCreated(convertProjectMCPServer(&projectServer, mcpServer, cred, components...))
 }
 
 func (p *ProjectMCPHandler) GetServer(req api.Context) error {
@@ -242,7 +261,16 @@ func (p *ProjectMCPHandler) GetServer(req api.Context) error {
 		cred = gptscriptCred.Env
 	}
 
-	return req.Write(convertProjectMCPServer(req, &projectServer, mcpServer, cred))
+	// Gather components for single-user composite servers
+	var components []types.MCPServer
+	if mcpServer.Spec.MCPCatalogID == "" && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		if c, err := resolveCompositeComponents(req, *mcpServer); err == nil {
+			components = c
+		} else {
+			log.Warnf("failed to resolve composite components for project server %s: %v", mcpServer.Name, err)
+		}
+	}
+	return req.Write(convertProjectMCPServer(&projectServer, mcpServer, cred, components...))
 }
 
 func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
@@ -274,7 +302,16 @@ func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
 		log.Warnf("failed to kick thread %s after project MCP server %s was deleted: %v", projectServer.Spec.ThreadName, projectServer.Name, err)
 	}
 
-	return req.Write(convertProjectMCPServer(req, &projectServer, mcpServer, cred))
+	// Gather components for single-user composite servers
+	var components []types.MCPServer
+	if mcpServer.Spec.MCPCatalogID == "" && mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		if c, err := resolveCompositeComponents(req, *mcpServer); err == nil {
+			components = c
+		} else {
+			log.Warnf("failed to resolve composite components for project server %s: %v", mcpServer.Name, err)
+		}
+	}
+	return req.Write(convertProjectMCPServer(&projectServer, mcpServer, cred, components...))
 }
 
 func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {

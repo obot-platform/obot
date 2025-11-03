@@ -470,7 +470,14 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
 
-		items = append(items, convertMCPServer(req, server, cred.Env, h.serverURL, slug))
+		var components []types.MCPServer
+		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
+			components, err = resolveCompositeComponents(req, server)
+			if err != nil {
+				return err
+			}
+		}
+		items = append(items, convertMCPServer(server, cred.Env, h.serverURL, slug, components...))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -542,7 +549,14 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
 
-		items = append(items, convertMCPServer(req, server, cred.Env, h.serverURL, slug))
+		var components []types.MCPServer
+		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
+			components, err = resolveCompositeComponents(req, server)
+			if err != nil {
+				return err
+			}
+		}
+		items = append(items, convertMCPServer(server, cred.Env, h.serverURL, slug, components...))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -611,7 +625,14 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
 
-		items = append(items, convertMCPServer(req, server, cred.Env, h.serverURL, slug))
+		var components []types.MCPServer
+		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
+			components, err = resolveCompositeComponents(req, server)
+			if err != nil {
+				return fmt.Errorf("failed to resolve composite components: %w", err)
+			}
+		}
+		items = append(items, convertMCPServer(server, cred.Env, h.serverURL, slug, components...))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -672,7 +693,15 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(convertMCPServer(req, server, cred.Env, h.serverURL, slug))
+	var components []types.MCPServer
+	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
+		components, err = resolveCompositeComponents(req, server)
+		if err != nil {
+			log.Warnf("failed to resolve composite components for catalog server %s: %v", server.Name, err)
+			return err
+		}
+	}
+	return req.Write(convertMCPServer(server, cred.Env, h.serverURL, slug, components...))
 }
 
 // GenerateToolPreviews launches a temporary instance of an MCP server from a catalog entry
@@ -1145,6 +1174,11 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 		return types.NewErrBadRequest("entry does not belong to catalog")
 	}
 
+	// Composites are not supported in power user workspaces yet; ensure this entry is not workspace-scoped
+	if entry.Spec.PowerUserWorkspaceID != "" {
+		return types.NewErrBadRequest("composite entries in power user workspaces are not supported")
+	}
+
 	if entry.Spec.Manifest.Runtime != types.RuntimeComposite {
 		return types.NewErrBadRequest("entry is not a composite catalog entry")
 	}
@@ -1154,8 +1188,11 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 
 	// Store old manifests to compare for changes
-	oldManifests := make(map[int]string)
-	for i, component := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
+	var (
+		componentServers = entry.Spec.Manifest.CompositeConfig.ComponentServers
+		oldManifests     = make(map[int]string, len(componentServers))
+	)
+	for i, component := range componentServers {
 		oldManifests[i] = hash.Digest(component.Manifest)
 	}
 
@@ -1165,10 +1202,12 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 
 	// Clear toolOverrides for components whose manifests changed
-	for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
-		component := &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
-		oldHash := oldManifests[i]
-		newHash := hash.Digest(component.Manifest)
+	for i := range componentServers {
+		var (
+			component = &componentServers[i]
+			oldHash   = oldManifests[i]
+			newHash   = hash.Digest(component.Manifest)
+		)
 
 		if oldHash != newHash {
 			component.ToolOverrides = nil

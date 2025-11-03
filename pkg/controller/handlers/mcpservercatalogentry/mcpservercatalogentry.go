@@ -83,7 +83,7 @@ func DetectCompositeDrift(req router.Request, _ router.Response) error {
 	}
 
 	// Check each component for drift
-	drifted := false
+	var drifted bool
 	for _, component := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
 		// Handle multi-user component drift
 		if component.MCPServerID != "" {
@@ -96,9 +96,10 @@ func DetectCompositeDrift(req router.Request, _ router.Response) error {
 				return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
 			}
 
-			snapshotHash := hash.Digest(component.Manifest)
-			currentHash := hash.Digest(server.Spec.Manifest)
-
+			var (
+				snapshotHash = hash.Digest(component.Manifest)
+				currentHash  = hash.Digest(server.Spec.Manifest)
+			)
 			if snapshotHash != currentHash {
 				drifted = true
 				break
@@ -114,9 +115,10 @@ func DetectCompositeDrift(req router.Request, _ router.Response) error {
 				return fmt.Errorf("failed to get component catalog entry %s: %w", component.CatalogEntryID, err)
 			}
 
-			snapshotHash := hash.Digest(component.Manifest)
-			currentHash := hash.Digest(componentEntry.Spec.Manifest)
-
+			var (
+				snapshotHash = hash.Digest(component.Manifest)
+				currentHash  = hash.Digest(componentEntry.Spec.Manifest)
+			)
 			if snapshotHash != currentHash {
 				drifted = true
 				break

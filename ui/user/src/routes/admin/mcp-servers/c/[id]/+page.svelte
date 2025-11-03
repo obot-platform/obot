@@ -116,11 +116,18 @@
 		if (!catalogEntry || upgrading) return;
 
 		upgrading = true;
+		// Optimistically clear the update flag to avoid waiting on backend reconcile
+		const prevNeedsUpdate = !!catalogEntry.needsUpdate;
+		catalogEntry = { ...catalogEntry, needsUpdate: false };
+
 		try {
 			const updated = await refreshCompositeComponents(DEFAULT_MCP_CATALOG_ID, catalogEntry.id);
-			catalogEntry = updated;
+			// Keep the flag cleared even if backend status lags
+			catalogEntry = { ...updated, needsUpdate: false };
 			showUpgradeConfirm = false;
 		} catch (error) {
+			// Restore on error
+			catalogEntry = { ...catalogEntry, needsUpdate: prevNeedsUpdate };
 			console.error('Failed to refresh composite components:', error);
 		} finally {
 			upgrading = false;
