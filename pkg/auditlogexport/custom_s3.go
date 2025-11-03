@@ -44,6 +44,7 @@ func (c *CustomS3Provider) Upload(ctx context.Context, config apitypes.StorageCo
 	return nil
 }
 
+// Test is a no-op for custom S3 storage as there is no way to test it without uploading a files
 func (c *CustomS3Provider) Test(context.Context, apitypes.StorageConfig) error {
 	return nil
 }
