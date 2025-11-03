@@ -317,9 +317,7 @@
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
 					<div class="flex flex-shrink-0 items-center gap-2">
-						<div
-							class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
-						>
+						<div class="icon">
 							{#if d.manifest.icon}
 								<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
 							{:else}

@@ -174,9 +174,7 @@
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'name'}
 							<div class="flex flex-shrink-0 items-center gap-2">
-								<div
-									class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
-								>
+								<div class="icon">
 									{#if d.icon}
 										<img src={d.icon} alt={d.name} class="size-6" />
 									{:else}

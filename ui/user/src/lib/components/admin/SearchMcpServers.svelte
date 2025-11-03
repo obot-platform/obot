@@ -195,17 +195,13 @@
 							}}
 						>
 							<div class="flex w-full items-center gap-2 overflow-hidden">
-								{#if item.icon}
-									<img
-										src={item.icon}
-										alt={item.name}
-										class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
-									/>
-								{:else}
-									<Server
-										class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
-									/>
-								{/if}
+								<div class="icon">
+									{#if item.icon}
+										<img src={item.icon} alt={item.name} class="size-8 flex-shrink-0" />
+									{:else}
+										<Server class="size-8 flex-shrink-0" />
+									{/if}
+								</div>
 								<div class="flex min-w-0 grow flex-col">
 									<div class="flex items-center gap-2">
 										<p class="truncate">{item.name}</p>
