@@ -363,7 +363,7 @@
 							{#if !readonly}
 								<button
 									class="menu-button-primary"
-									disabled={updating[d.id]?.inProgress || readonly}
+									disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
 									onclick={(e) => {
 										e.stopPropagation();
 										if (!d) return;
@@ -372,6 +372,13 @@
 											server: d
 										};
 									}}
+									use:tooltip={d.compositeName
+										? {
+												text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+												classes: ['w-md'],
+												disablePortal: true
+											}
+										: undefined}
 								>
 									{#if updating[d.id]?.inProgress}
 										<LoaderCircle class="size-4 animate-spin" />
@@ -435,6 +442,7 @@
 						{#if !readonly}
 							<button
 								class="menu-button-destructive"
+								disabled={!!d.compositeName}
 								onclick={async (e) => {
 									e.stopPropagation();
 									showDeleteConfirm = {
@@ -442,6 +450,13 @@
 										server: d
 									};
 								}}
+								use:tooltip={d.compositeName
+									? {
+											text: 'Cannot directly delete a descendant of a composite server.',
+											classes: ['w-md'],
+											disablePortal: true
+										}
+									: undefined}
 							>
 								<Trash2 class="size-4" /> Delete Server
 							</button>
