@@ -60,6 +60,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	"k8s.io/client-go/rest"
 	gocache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -120,6 +121,7 @@ type Config struct {
 }
 
 type Services struct {
+	EncryptionConfig           *encryptionconfig.EncryptionConfiguration
 	ToolRegistryURLs           []string
 	WorkspaceProviderType      string
 	ServerURL                  string
@@ -723,6 +725,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// For now, always auto-migrate the gateway database
 	return &Services{
+		EncryptionConfig:      encryptionConfig,
 		WorkspaceProviderType: config.WorkspaceProviderType,
 		ServerURL:             config.Hostname,
 		DevUIPort:             devPort,

@@ -3,11 +3,12 @@
 	import { fade, slide } from 'svelte/transition';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { flip } from 'svelte/animate';
-	import { X, ChevronLeft, ChevronRight, Funnel, Captions } from 'lucide-svelte';
+	import { X, ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from 'lucide-svelte';
 	import { debounce } from 'es-toolkit';
 	import { set, endOfDay, isBefore, subDays } from 'date-fns';
 	import { page } from '$app/state';
 	import { afterNavigate, goto, replaceState } from '$app/navigation';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { type DateRange } from '$lib/components/Calendar.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import {
@@ -73,6 +74,8 @@
 	let showFilters = $state(false);
 	let selectedAuditLog = $state<AuditLog & { user: string }>();
 	let rightSidebar = $state<HTMLDialogElement>();
+	let showFilterConfirmDialog = $state(false);
+	let pendingExportType = $state<'export' | 'scheduled' | null>(null);
 
 	// Supported filters for the audit logs
 	// These filters are used to filter the audit logs based on the URL parameters
@@ -381,6 +384,87 @@
 		goto(url.toString(), { noScroll: true });
 		pageIndexLocal.current = 0;
 	}
+
+	async function handleExportRequest(formType: 'export' | 'scheduled') {
+		// Check if there are any active filters
+		const hasActiveFilters = Object.keys(pillsSearchParamFilters).length > 0 || query;
+
+		if (hasActiveFilters) {
+			// Show confirmation dialog
+			pendingExportType = formType;
+			showFilterConfirmDialog = true;
+			return;
+		}
+
+		// No filters, proceed directly
+		await proceedWithExport(formType, false);
+	}
+
+	async function proceedWithExport(formType: 'export' | 'scheduled', includeFilters: boolean) {
+		try {
+			// Check if storage credentials are configured
+			const response = await AdminService.getStorageCredentials();
+
+			// Prepare URL with current filters and time range
+			const url = new URL(window.location.origin + `/admin/audit-logs/exports`);
+			url.searchParams.set('form', formType);
+
+			if (includeFilters) {
+				// Add current time range
+				url.searchParams.set('startTime', timeRangeFilters.startTime.toISOString());
+				url.searchParams.set('endTime', timeRangeFilters.endTime.toISOString());
+
+				// Add current filters (excluding time filters as they're handled separately)
+				Object.entries(pillsSearchParamFilters).forEach(([key, value]) => {
+					if (key !== 'start_time' && key !== 'end_time' && value) {
+						url.searchParams.set(key, value.toString());
+					}
+				});
+
+				// Add query if present
+				if (query) {
+					url.searchParams.set('query', query);
+				}
+			}
+
+			if (response.provider) {
+				goto(url.pathname + url.search);
+			} else {
+				url.searchParams.set('form', 'storage');
+				url.searchParams.set('next', formType);
+				goto(url.pathname + url.search);
+			}
+		} catch (error) {
+			console.error('Failed to get storage credentials:', error);
+			const url = new URL(window.location.origin + `/admin/audit-logs/exports`);
+			url.searchParams.set('form', 'storage');
+			url.searchParams.set('next', formType);
+
+			if (includeFilters) {
+				// Still add filters for when storage config is completed
+				url.searchParams.set('startTime', timeRangeFilters.startTime.toISOString());
+				url.searchParams.set('endTime', timeRangeFilters.endTime.toISOString());
+				Object.entries(pillsSearchParamFilters).forEach(([key, value]) => {
+					if (key !== 'start_time' && key !== 'end_time' && value) {
+						url.searchParams.set(key, value.toString());
+					}
+				});
+				if (query) {
+					url.searchParams.set('query', query);
+				}
+			}
+
+			goto(url.pathname + url.search);
+		}
+	}
+
+	function handleFilterConfirmation(includeFilters: boolean) {
+		showFilterConfirmDialog = false;
+		if (pendingExportType) {
+			proceedWithExport(pendingExportType, includeFilters);
+			pendingExportType = null;
+		}
+	}
 </script>
 
 {#if showLoadingSpinner}
@@ -398,31 +482,62 @@
 	</div>
 {/if}
 
-<div class="flex flex-col gap-4 md:flex-row">
-	<Search
-		class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
-		onChange={handleQueryChange}
-		placeholder="Search..."
-		value={query}
-	/>
-
-	<div class="flex gap-4 self-start md:self-end">
-		<AuditLogCalendar
-			start={timeRangeFilters.startTime}
-			end={timeRangeFilters.endTime}
-			onChange={handleDateChange}
+<div class="flex flex-col justify-end gap-2">
+	<div class="flex flex-col gap-4 md:flex-row">
+		<Search
+			class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+			onChange={handleQueryChange}
+			placeholder="Search..."
+			value={query}
 		/>
+
+		<div class="flex flex-col gap-2 self-start md:self-end">
+			<div class="flex gap-4">
+				<AuditLogCalendar
+					start={timeRangeFilters.startTime}
+					end={timeRangeFilters.endTime}
+					onChange={handleDateChange}
+				/>
+
+				<button
+					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
+					onclick={() => {
+						showFilters = true;
+						selectedAuditLog = undefined;
+						rightSidebar?.show();
+					}}
+				>
+					<Funnel class="size-4" />
+					Filters
+				</button>
+			</div>
+		</div>
+	</div>
+	<div class="mt-4 flex justify-end gap-2">
+		<DotDotDot class="button-primary w-fit text-sm" placement="bottom">
+			{#snippet icon()}
+				<span class="flex items-center justify-center gap-1">
+					<Plus class="size-4" /> Create Export
+				</span>
+			{/snippet}
+			<div class="default-dialog flex min-w-max flex-col p-2">
+				<button class="menu-button" onclick={() => handleExportRequest('export')}>
+					Create One-time Export
+				</button>
+				<button class="menu-button" onclick={() => handleExportRequest('scheduled')}>
+					Create Export Schedule
+				</button>
+			</div>
+		</DotDotDot>
 
 		<button
 			class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
 			onclick={() => {
-				showFilters = true;
-				selectedAuditLog = undefined;
-				rightSidebar?.show();
+				goto('/admin/audit-logs/exports');
 			}}
 		>
-			<Funnel class="size-4" />
-			Filters
+			<Settings class="size-4" />
+			Manage Exports
 		</button>
 	</div>
 </div>
@@ -606,3 +721,42 @@
 		</div>
 	{/if}
 {/snippet}
+
+<!-- Filter Confirmation Dialog -->
+{#if showFilterConfirmDialog}
+	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+		<div class="dark:bg-surface2 w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+			<h3 class="mb-4 text-lg font-semibold">Apply Current Filters to Export?</h3>
+			<p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+				You have active filters applied to the audit logs. Would you like to include these filters
+				in the export?
+			</p>
+
+			<!-- Show current filters -->
+			{#if Object.entries(pillsSearchParamFilters).length > 0 || query}
+				{@const entries = Object.entries(pillsSearchParamFilters) as [
+					keyof AuditLogURLFilters,
+					string
+				][]}
+				<div class="mb-4 rounded-md bg-gray-50 p-3 dark:bg-gray-800">
+					<h4 class="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">Active Filters:</h4>
+					<div class="space-y-1 text-xs text-gray-600 dark:text-gray-400">
+						{#if query}
+							<div class="break-words"><strong>Search:</strong> {query}</div>
+						{/if}
+						{#each entries as [key, value] (key)}
+							<div class="break-words"><strong>{getFilterDisplayLabel(key)}:</strong> {value}</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			<div class="flex justify-end gap-3">
+				<button class="button" onclick={() => handleFilterConfirmation(false)}> No </button>
+				<button class="button-primary" onclick={() => handleFilterConfirmation(true)}>
+					Yes, Include Filters
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
