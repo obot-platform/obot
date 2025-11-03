@@ -5,28 +5,43 @@
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, ChatService, type OrgUser } from '$lib/services/index.js';
 	import { Info } from 'lucide-svelte';
-	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { profile } from '$lib/stores/index.js';
 	import { page } from '$app/state';
 	import McpServerRemoteInfo from '$lib/components/admin/McpServerRemoteInfo.svelte';
+	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
+	import { onNavigate } from '$app/navigation';
+	import { onMount } from 'svelte';
 
 	let { data } = $props();
-	let { catalogEntry, mcpServerId } = data;
 	const duration = PAGE_TRANSITION_DURATION;
 	let connectedUsers = $state<OrgUser[]>([]);
 
-	let catalogEntryName = catalogEntry?.manifest?.name ?? 'Unknown';
+	// Make these reactive to data changes when navigating
+	let catalogEntry = $derived(data.catalogEntry);
+	let mcpServerId = $derived(data.mcpServerId);
+	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? 'Unknown');
 
 	async function fetchUserInfo() {
 		const mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
-		if (mcpServer.userID) {
+		const isSameUser =
+			connectedUsers.length === 1 ? connectedUsers[0].id === mcpServer.userID : false;
+		if (mcpServer.userID && !isSameUser) {
 			const user = await AdminService.getUser(mcpServer.userID);
 			connectedUsers = [user];
 		}
 	}
+
 	onMount(() => {
-		fetchUserInfo();
+		if (mcpServerId) {
+			fetchUserInfo();
+		}
+	});
+
+	onNavigate(() => {
+		if (mcpServerId) {
+			fetchUserInfo();
+		}
 	});
 </script>
 
@@ -35,12 +50,21 @@
 		{#if mcpServerId}
 			{@const currentLabel = mcpServerId ?? 'Server'}
 			{@const from = page.url.searchParams.get('from') ?? `/mcp-servers/${catalogEntry?.id}`}
-			<BackLink fromURL={from} {currentLabel} />
+			<BackLink fromURL={from} {currentLabel} ignoreId={catalogEntry?.id} />
 		{/if}
 
 		{#if mcpServerId}
 			{#if catalogEntry?.manifest.runtime === 'remote'}
 				<McpServerRemoteInfo
+					{mcpServerId}
+					name={catalogEntryName}
+					{connectedUsers}
+					entity="catalog"
+					entityId={DEFAULT_MCP_CATALOG_ID}
+					{catalogEntry}
+				/>
+			{:else if catalogEntry?.manifest.runtime === 'composite'}
+				<McpServerCompositeInfo
 					{mcpServerId}
 					name={catalogEntryName}
 					{connectedUsers}

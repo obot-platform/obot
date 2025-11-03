@@ -230,6 +230,9 @@ type MCPServer struct {
 	// Template indicates whether this MCP server is a template server.
 	// Template servers are hidden from user views and are used for creating project instances.
 	Template bool `json:"template,omitempty"`
+
+	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
+	CompositeName string `json:"compositeName,omitempty"`
 }
 
 type DeploymentCondition struct {

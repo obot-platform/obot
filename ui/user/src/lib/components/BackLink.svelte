@@ -7,9 +7,10 @@
 	interface Props {
 		fromURL?: string;
 		currentLabel: string;
+		ignoreId?: string;
 	}
 
-	let { fromURL, currentLabel }: Props = $props();
+	let { fromURL, currentLabel, ignoreId }: Props = $props();
 
 	let links = $state<{ href: string; label: string }[]>([]);
 
@@ -22,7 +23,7 @@
 		if (type === 'mcp-servers') {
 			return [
 				{ href: '/admin/mcp-servers', label: 'MCP Servers' },
-				...(id ? [convertToMcpLink(id, true)] : [])
+				...(id && id !== ignoreId ? [convertToMcpLink(id, true)] : [])
 			];
 		}
 
@@ -55,7 +56,7 @@
 					href: '/mcp-publisher',
 					label: 'MCP Servers'
 				},
-				...(id ? [convertToMcpLink(id, false)] : [])
+				...(id && id !== ignoreId ? [convertToMcpLink(id, false)] : [])
 			];
 		}
 
@@ -85,26 +86,34 @@
 		const json = JSON.parse(stringified ?? '{}');
 		const label = id === json.id ? json.name : 'Unknown';
 
+		if (json.serverId) {
+			let href = '';
+			if (isAdmin) {
+				href =
+					json.type !== 'multi'
+						? `/admin/mcp-servers/c/${id}/instance/${json.serverId}`
+						: `/admin/mcp-servers/s/${id}/details`;
+			} else {
+				href = json.type !== 'multi' ? `/mcp-publisher/c/${id}` : `/mcp-publisher/s/${id}`;
+			}
+			return { href, label };
+		}
+
 		if (json.entity === 'workspace') {
 			let href = '';
 			if (isAdmin) {
 				href =
-					json.type === 'single' || json.type === 'remote'
+					json.type !== 'multi'
 						? `/admin/mcp-servers/w/${json.entityId}/c/${id}`
 						: `/admin/mcp-servers/w/${json.entityId}/s/${id}`;
 			} else {
-				href =
-					json.type === 'single' || json.type === 'remote'
-						? `/mcp-publisher/c/${id}`
-						: `/mcp-publisher/s/${id}`;
+				href = json.type !== 'multi' ? `/mcp-publisher/c/${id}` : `/mcp-publisher/s/${id}`;
 			}
 			return { href, label };
 		}
 
 		const href =
-			json.type === 'single' || json.type === 'remote'
-				? `/admin/mcp-servers/c/${id}`
-				: `/admin/mcp-servers/s/${id}`;
+			json.type !== 'multi' ? `/admin/mcp-servers/c/${id}` : `/admin/mcp-servers/s/${id}`;
 		return { href, label };
 	}
 </script>

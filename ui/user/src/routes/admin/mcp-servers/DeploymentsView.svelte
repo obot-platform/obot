@@ -90,6 +90,15 @@
 		}, {})
 	);
 
+	let compositeNameMapping = $derived(
+		serversData
+			.filter((server) => 'compositeConfig' in server.manifest)
+			.reduce<Record<string, string>>((acc, server) => {
+				acc[server.id] = server.alias || server.manifest.name || '';
+				return acc;
+			}, {})
+	);
+
 	let tableData = $derived.by(() => {
 		const transformedData = serversData.map((deployment) => {
 			const powerUserWorkspaceID =
@@ -104,11 +113,13 @@
 					: undefined;
 			return {
 				...deployment,
-				displayName: deployment.manifest.name ?? '',
+				displayName: deployment.alias || deployment.manifest.name || '',
 				userName: getUserDisplayName(usersMap, deployment.userID),
 				registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
 				type: getServerTypeLabel(deployment),
-				powerUserWorkspaceID
+				powerUserWorkspaceID,
+				compositeParentName:
+					(deployment.compositeName && compositeNameMapping[deployment.compositeName]) ?? ''
 			};
 		});
 
@@ -315,8 +326,13 @@
 								<Server class="size-6" />
 							{/if}
 						</div>
-						<p class="flex items-center gap-1">
+						<p class="flex flex-col">
 							{d.displayName}
+							{#if d.compositeParentName}
+								<span class="text-xs text-gray-500">
+									({d.compositeParentName})
+								</span>
+							{/if}
 						</p>
 					</div>
 				{:else if property === 'created'}

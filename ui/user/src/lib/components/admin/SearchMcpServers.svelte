@@ -58,8 +58,6 @@
 		loading: false
 	};
 
-	$effect(() => console.log(mcpEntriesContextFn?.()));
-
 	let loading = $state(false);
 	let allData: SearchItem[] = $derived(
 		[
