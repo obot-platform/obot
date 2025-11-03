@@ -2,7 +2,6 @@
 	import { page } from '$app/state';
 	import {
 		AdminService,
-		ChatService,
 		Group,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
