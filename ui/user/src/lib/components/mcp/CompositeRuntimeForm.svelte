@@ -17,13 +17,14 @@
 	import Toggle from '../Toggle.svelte';
 
 	interface Props {
+		id?: string;
 		config: CompositeCatalogConfig | CompositeRuntimeConfig;
 		readonly?: boolean;
 		catalogId?: string;
 		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
 	}
 
-	let { config = $bindable(), readonly, catalogId, mcpEntriesContextFn }: Props = $props();
+	let { config = $bindable(), readonly, catalogId, mcpEntriesContextFn, id }: Props = $props();
 	let componentEntries = $state<MCPCatalogEntry[]>([]);
 	const componentServers = new SvelteMap<string, MCPCatalogServer>();
 	let expanded = $state<Record<string, boolean>>({});
@@ -37,6 +38,11 @@
 
 	let compositeToolsSetupDialog = $state<ReturnType<typeof CompositeToolsSetup>>();
 	let editCurrentToolsDialog = $state<ReturnType<typeof CompositeEditTools>>();
+
+	const excluded = $derived([
+		...(config?.componentServers ?? []).map((c) => getComponentId(c)),
+		...(id ? [id] : [])
+	]);
 
 	// Helper to get unique ID for a component (catalogEntryID or mcpServerID)
 	function getComponentId(c: { catalogEntryID?: string; mcpServerID?: string }): string {
@@ -278,7 +284,6 @@
 		configuringEntry = undefined;
 	}}
 	onSuccess={(componentConfig, entry, tools) => {
-		console.log('onSuccess', componentConfig, entry, tools);
 		config.componentServers = [
 			...config.componentServers,
 			componentConfig
@@ -294,7 +299,7 @@
 			componentServers.set(entry.id, entry);
 		}
 	}}
-	excluded={(config?.componentServers ?? []).map((c) => getComponentId(c))}
+	{excluded}
 />
 
 <CompositeEditTools
@@ -303,7 +308,6 @@
 	tools={toolsToEdit}
 	onSuccess={() => {
 		if (!configuringEntry) return;
-		console.log('onSuccess', toolsToEdit);
 		config.componentServers = config.componentServers.map((c) => {
 			const id = getComponentId(c);
 			if (c.mcpServerID === id || c.catalogEntryID === id) {

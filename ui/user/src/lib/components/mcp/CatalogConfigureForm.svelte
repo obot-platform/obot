@@ -72,10 +72,19 @@
 	let showConfirmClose = $state(false);
 	let initialFormJson = $state<string>('');
 	let resizing = $state(false);
+	let compositeInfoDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	let isOpen = $state(false);
 
 	export function open() {
+		if (isCompositeForm(form) && isNew) {
+			compositeInfoDialog?.open();
+		} else {
+			openConfig();
+		}
+	}
+
+	function openConfig() {
 		configDialog?.open();
 		if (!isNew) {
 			// store initial form data as jsonified string for comparison when not new
@@ -209,6 +218,42 @@
 </script>
 
 <ResponsiveDialog
+	bind:this={compositeInfoDialog}
+	{animate}
+	title="MCP Composite Server"
+	class="max-w-md"
+>
+	<p class="font-light">This MCP server is a composite of the following MCP servers:</p>
+	{#if form && 'componentConfigs' in form}
+		<div class="my-4 flex flex-col items-center justify-center gap-2">
+			{#each Object.entries(form.componentConfigs) as [compId, comp] (compId)}
+				<div class="flex items-center gap-2">
+					{#if comp.icon}
+						<img src={comp.icon} alt={comp.name || compId} class="size-6" />
+					{:else}
+						<Server class="size-6" />
+					{/if}
+					<div class="font-xs font-semibold">{comp.name}</div>
+				</div>
+			{/each}
+		</div>
+	{/if}
+	<p class="font-light">
+		The composite server may require configuring each of the MCP servers or disabling/enabling which
+		servers are included to match your needs.
+	</p>
+	<button
+		class="button mt-4"
+		onclick={() => {
+			compositeInfoDialog?.close();
+			openConfig();
+		}}
+	>
+		Continue
+	</button>
+</ResponsiveDialog>
+
+<ResponsiveDialog
 	bind:this={configDialog}
 	{animate}
 	onClose={() => {
@@ -225,6 +270,7 @@
 			isOpen = false;
 		}
 	}}
+	class={isCompositeForm(form) ? 'bg-surface1 dark:bg-black' : ''}
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
@@ -273,23 +319,23 @@
 
 					{#if 'componentConfigs' in form}
 						{#each Object.entries(form.componentConfigs) as [compId, comp] (compId)}
-							{#if componentHasConfig(comp)}
-								<div
-									class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-gray-200"
-								>
-									<div class="flex items-center gap-2 p-2">
-										{#if comp.icon}
-											<img src={comp.icon} alt={comp.name || compId} class="size-8" />
-										{/if}
-										<div class="font-medium">{comp.name || compId}</div>
-										<Toggle
-											checked={!form.componentConfigs[compId].disabled}
-											onChange={(checked) => (form.componentConfigs[compId].disabled = !checked)}
-											label="Enable"
-											labelInline
-											classes={{ label: 'text-sm gap-2' }}
-										/>
-									</div>
+							<div
+								class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-transparent bg-white shadow-sm"
+							>
+								<div class="flex items-center gap-2 p-2">
+									{#if comp.icon}
+										<img src={comp.icon} alt={comp.name || compId} class="size-8" />
+									{/if}
+									<div class="grow font-medium">{comp.name || compId}</div>
+									<Toggle
+										checked={!form.componentConfigs[compId].disabled}
+										onChange={(checked) => (form.componentConfigs[compId].disabled = !checked)}
+										label="Enable"
+										labelInline
+										classes={{ label: 'text-sm gap-2' }}
+									/>
+								</div>
+								{#if componentHasConfig(comp)}
 									<div class="border-t border-gray-200 p-3">
 										{#if comp.envs && comp.envs.length > 0}
 											{#each comp.envs as env, i (env.key)}
@@ -385,8 +431,8 @@
 											</span>
 										{/if}
 									</div>
-								</div>
-							{/if}
+								{/if}
+							</div>
 						{/each}
 					{:else}
 						{#if form.envs && form.envs.length > 0}

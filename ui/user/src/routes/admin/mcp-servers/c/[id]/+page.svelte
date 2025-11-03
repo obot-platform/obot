@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Component } from 'svelte';
+	import { onMount, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
@@ -9,7 +9,6 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import { profile } from '$lib/stores/index.js';
 	import { page } from '$app/state';
-	import { initMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import {
 		refreshCompositeComponents,
 		getMCPCatalogEntry,
@@ -20,6 +19,10 @@
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
 	import type { MCPServer, MCPCatalogServer } from '$lib/services/chat/types';
+	import {
+		fetchMcpServerAndEntries,
+		initMcpServerAndEntries
+	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 
 	initMcpServerAndEntries();
 
@@ -133,6 +136,12 @@
 			upgrading = false;
 		}
 	}
+
+	$effect(() => {
+		if (catalogEntry?.manifest.runtime === 'composite') {
+			fetchMcpServerAndEntries(DEFAULT_MCP_CATALOG_ID);
+		}
+	});
 </script>
 
 <Layout
