@@ -6,7 +6,7 @@
 	import { responsive } from '$lib/stores';
 
 	interface Props {
-		children: Snippet;
+		children: Snippet<[{ toggle: (newOpenValue?: boolean) => void }]>;
 		class?: string;
 		placement?: Placement;
 		icon?: Snippet;
@@ -34,7 +34,6 @@
 	class={clazz}
 	use:ref
 	onclick={(e) => {
-		toggle();
 		e.stopPropagation();
 		e.preventDefault();
 		onClick?.();
@@ -60,5 +59,5 @@
 	}}
 	class={responsive.isMobile ? 'bottom-0 left-0 w-full' : ''}
 >
-	{@render children()}
+	{@render children({ toggle })}
 </div>
