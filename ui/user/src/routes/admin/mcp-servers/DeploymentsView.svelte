@@ -470,7 +470,7 @@
 					(s) => s.manifest.runtime !== 'remote' && s.configured
 				).length}
 				{@const upgradeableCount = Object.values(currentSelected).filter(
-					(s) => s.needsUpdate
+					(s) => s.needsUpdate && !s.compositeName
 				).length}
 				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 					<button
