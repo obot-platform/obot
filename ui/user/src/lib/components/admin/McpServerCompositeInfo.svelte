@@ -50,15 +50,9 @@
 
 	function getAuditLogUrl(d: OrgUser) {
 		if (!catalogEntry?.id) return null;
-		if (isAdminUrl) {
-			if (!profile.current?.hasAdminAccess?.()) return null;
-			return entity === 'workspace'
-				? `/admin/mcp-servers/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-				: `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`;
-		}
-
-		if (!profile.current?.groups.includes(Group.POWERUSER)) return null;
-		return `/mcp-publisher/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`;
+		if (!isAdminUrl) return null;
+		if (!profile.current?.hasAdminAccess?.()) return null;
+		return `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`;
 	}
 </script>
 
