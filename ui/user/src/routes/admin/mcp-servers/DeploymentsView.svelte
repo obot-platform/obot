@@ -264,7 +264,7 @@
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
 	{:else if serversData.length === 0}
-		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
+		<div class="w-md my-12 flex flex-col items-center gap-4 self-center text-center">
 			<Server class="dark:text-surface3 size-24 text-gray-200" />
 			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
 				No current deployments.
@@ -589,6 +589,10 @@
 		deleting = true;
 		if (showDeleteConfirm.type === 'single') {
 			await handleSingleDelete(showDeleteConfirm.server);
+
+			await delay(1000);
+
+			showDeleteConfirm.onsuccess?.();
 		} else {
 			await handleBulkDelete();
 		}
