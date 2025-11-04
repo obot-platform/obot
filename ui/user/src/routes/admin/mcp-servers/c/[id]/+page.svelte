@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Component } from 'svelte';
+	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
@@ -9,17 +9,16 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import { profile } from '$lib/stores/index.js';
 	import { page } from '$app/state';
-	import { initMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import {
-		refreshCompositeComponents,
-		getMCPCatalogEntry,
-		getMCPServer
-	} from '$lib/services/admin/operations';
 	import { CircleFadingArrowUp, CircleAlert, Info, GitCompare } from 'lucide-svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
 	import type { MCPServer, MCPCatalogServer } from '$lib/services/chat/types';
+	import {
+		fetchMcpServerAndEntries,
+		initMcpServerAndEntries
+	} from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import { AdminService } from '$lib/services/index.js';
 
 	initMcpServerAndEntries();
 
@@ -71,13 +70,16 @@
 
 					if (component.mcpServerID) {
 						// Multi-user component
-						const server = await getMCPServer(component.mcpServerID);
+						const server = await AdminService.getMCPCatalogServer(
+							DEFAULT_MCP_CATALOG_ID,
+							component.mcpServerID
+						);
 						currentManifest = server.manifest;
 						componentName = server.manifest.name ?? component.mcpServerID ?? 'Unnamed Component';
 						componentType = 'Multi-User Server';
 					} else {
 						// Catalog entry component
-						const currentEntry = await getMCPCatalogEntry(
+						const currentEntry = await AdminService.getMCPCatalogEntry(
 							DEFAULT_MCP_CATALOG_ID,
 							component.catalogEntryID!
 						);
@@ -121,7 +123,10 @@
 		catalogEntry = { ...catalogEntry, needsUpdate: false };
 
 		try {
-			const updated = await refreshCompositeComponents(DEFAULT_MCP_CATALOG_ID, catalogEntry.id);
+			const updated = await AdminService.refreshCompositeComponents(
+				DEFAULT_MCP_CATALOG_ID,
+				catalogEntry.id
+			);
 			// Keep the flag cleared even if backend status lags
 			catalogEntry = { ...updated, needsUpdate: false };
 			showUpgradeConfirm = false;
@@ -133,6 +138,12 @@
 			upgrading = false;
 		}
 	}
+
+	$effect(() => {
+		if (catalogEntry?.manifest.runtime === 'composite') {
+			fetchMcpServerAndEntries(DEFAULT_MCP_CATALOG_ID);
+		}
+	});
 </script>
 
 <Layout
@@ -149,7 +160,7 @@
 		{/if}
 
 		{#if showUpgradeNotification}
-			<div class="flex items-center gap-3 rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
+			<div class="flex items-center gap-3 rounded-lg border border-blue-500 bg-blue-500/10 p-4">
 				<Info class="size-5 flex-shrink-0 text-blue-400" />
 				<div class="flex-1">
 					<p class="text-sm font-medium">Component updates available</p>
@@ -158,7 +169,7 @@
 					</p>
 				</div>
 				<button
-					class="button flex items-center gap-1.5 text-sm font-normal"
+					class="button-primary flex items-center gap-1.5 text-sm font-normal"
 					onclick={handleUpgradeClick}
 					disabled={upgrading}
 				>

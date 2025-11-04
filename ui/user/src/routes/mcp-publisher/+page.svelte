@@ -22,7 +22,10 @@
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
-	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp.js';
+	import {
+		convertEntriesAndServersToTableData,
+		getServerTypeLabelByType
+	} from '$lib/services/chat/mcp.js';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 
 	let { data } = $props();
@@ -171,9 +174,7 @@
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'name'}
 							<div class="flex flex-shrink-0 items-center gap-2">
-								<div
-									class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
-								>
+								<div class="icon">
 									{#if d.icon}
 										<img src={d.icon} alt={d.name} class="size-6" />
 									{:else}
@@ -185,7 +186,7 @@
 								</p>
 							</div>
 						{:else if property === 'type'}
-							{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
+							{getServerTypeLabelByType(d.type)}
 						{:else if property === 'created'}
 							{formatTimeAgo(d.created).relativeTime}
 						{:else}
@@ -220,12 +221,7 @@
 {/snippet}
 
 {#snippet configureEntryScreen()}
-	{@const currentLabelType =
-		selectedServerType === 'single'
-			? 'Single User'
-			: selectedServerType === 'multi'
-				? 'Multi-User'
-				: 'Remote'}
+	{@const currentLabelType = getServerTypeLabelByType(selectedServerType)}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		<BackLink fromURL="mcp-publisher" currentLabel={`Create ${currentLabelType} Server`} />
 		<McpServerEntryForm
@@ -292,7 +288,11 @@
 	entityPlural="entries"
 />
 
-<SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />
+<SelectServerType
+	bind:this={selectServerTypeDialog}
+	onSelectServerType={selectServerType}
+	entity="workspace"
+/>
 
 <svelte:head>
 	<title>Obot | MCP Publisher</title>

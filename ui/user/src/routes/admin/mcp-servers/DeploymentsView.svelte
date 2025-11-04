@@ -15,6 +15,7 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
+	import { getServerTypeLabel } from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
@@ -89,6 +90,15 @@
 		}, {})
 	);
 
+	let compositeNameMapping = $derived(
+		serversData
+			.filter((server) => 'compositeConfig' in server.manifest)
+			.reduce<Record<string, string>>((acc, server) => {
+				acc[server.id] = server.alias || server.manifest.name || '';
+				return acc;
+			}, {})
+	);
+
 	let tableData = $derived.by(() => {
 		const transformedData = serversData.map((deployment) => {
 			const powerUserWorkspaceID =
@@ -103,16 +113,13 @@
 					: undefined;
 			return {
 				...deployment,
-				displayName: deployment.manifest.name ?? '',
+				displayName: deployment.alias || deployment.manifest.name || '',
 				userName: getUserDisplayName(usersMap, deployment.userID),
 				registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
-				type:
-					deployment.manifest.runtime === 'remote'
-						? 'Remote'
-						: deployment.catalogEntryID
-							? 'Single User'
-							: 'Multi-User',
-				powerUserWorkspaceID
+				type: getServerTypeLabel(deployment),
+				powerUserWorkspaceID,
+				compositeParentName:
+					(deployment.compositeName && compositeNameMapping[deployment.compositeName]) ?? ''
 			};
 		});
 
@@ -136,7 +143,8 @@
 
 	async function handleBulkUpdate() {
 		for (const id of Object.keys(selected)) {
-			if (!selected[id].needsUpdate) {
+			// if doesn't need update or is child server of composite mcp
+			if (!selected[id].needsUpdate || (selected[id].needsUpdate && selected[id].compositeName)) {
 				continue;
 			}
 			updating[id] = { inProgress: true, error: '' };
@@ -310,17 +318,20 @@
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
 					<div class="flex flex-shrink-0 items-center gap-2">
-						<div
-							class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
-						>
+						<div class="icon">
 							{#if d.manifest.icon}
 								<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
 							{:else}
 								<Server class="size-6" />
 							{/if}
 						</div>
-						<p class="flex items-center gap-1">
+						<p class="flex flex-col">
 							{d.displayName}
+							{#if d.compositeParentName}
+								<span class="text-xs text-gray-500">
+									({d.compositeParentName})
+								</span>
+							{/if}
 						</p>
 					</div>
 				{:else if property === 'created'}
@@ -353,7 +364,7 @@
 							{#if !readonly}
 								<button
 									class="menu-button-primary"
-									disabled={updating[d.id]?.inProgress || readonly}
+									disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
 									onclick={(e) => {
 										e.stopPropagation();
 										if (!d) return;
@@ -362,6 +373,13 @@
 											server: d
 										};
 									}}
+									use:tooltip={d.compositeName
+										? {
+												text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+												classes: ['w-md'],
+												disablePortal: true
+											}
+										: undefined}
 								>
 									{#if updating[d.id]?.inProgress}
 										<LoaderCircle class="size-4 animate-spin" />
@@ -425,6 +443,7 @@
 						{#if !readonly}
 							<button
 								class="menu-button-destructive"
+								disabled={!!d.compositeName}
 								onclick={async (e) => {
 									e.stopPropagation();
 									showDeleteConfirm = {
@@ -432,6 +451,13 @@
 										server: d
 									};
 								}}
+								use:tooltip={d.compositeName
+									? {
+											text: 'Cannot directly delete a descendant of a composite server.',
+											classes: ['w-md'],
+											disablePortal: true
+										}
+									: undefined}
 							>
 								<Trash2 class="size-4" /> Delete Server
 							</button>
@@ -444,7 +470,7 @@
 					(s) => s.manifest.runtime !== 'remote' && s.configured
 				).length}
 				{@const upgradeableCount = Object.values(currentSelected).filter(
-					(s) => s.needsUpdate
+					(s) => s.needsUpdate && !s.compositeName
 				).length}
 				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 					<button

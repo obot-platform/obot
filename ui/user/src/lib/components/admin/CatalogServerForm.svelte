@@ -745,6 +745,7 @@
 		{readonly}
 		catalogId={id}
 		mcpEntriesContextFn={getAdminMcpServerAndEntries}
+		id={entry?.id}
 	/>
 {/if}
 

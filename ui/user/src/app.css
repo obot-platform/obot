@@ -1010,6 +1010,19 @@
 		font-size: 11px;
 		line-height: 1rem;
 	}
+
+	.icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background-color: var(--color-surface1);
+		border-radius: 0.125rem;
+		padding: 0.125rem;
+
+		.dark & {
+			background-color: var(--color-gray-600);
+		}
+	}
 }
 
 .milkdown-content {

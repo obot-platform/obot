@@ -206,21 +206,23 @@
 			{/if}
 			<Table
 				data={servers}
-				fields={type === 'single' ? ['userID', 'created'] : ['url', 'userID', 'created']}
+				fields={type === 'single' || type === 'composite'
+					? ['userID', 'created']
+					: ['url', 'userID', 'created']}
 				headers={[
 					{ title: 'User', property: 'userID' },
 					{ title: 'URL', property: 'url' }
 				]}
-				onClickRow={type === 'single'
+				onClickRow={type === 'single' || type === 'composite'
 					? (d, isCtrlClick) => {
 							setLastVisitedMcpServer();
 
 							const url =
 								entity === 'workspace'
 									? isAdminUrl
-										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}`
+										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}?from=/mcp-servers/${entry?.id}`
 										: `/mcp-publisher/c/${entry?.id}/instance/${d.id}`
-									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`;
+									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}?from=/mcp-servers/${entry?.id}`;
 							openUrl(url, isCtrlClick);
 						}
 					: undefined}
@@ -249,7 +251,7 @@
 							{:else}
 								{user?.email || user?.username || 'Unknown'}
 							{/if}
-							{#if type === 'single'}
+							{#if type === 'single' || type === 'composite'}
 								{#if d.needsUpdate}
 									<div
 										use:tooltip={{
@@ -295,7 +297,7 @@
 									</button>
 									<button
 										class="menu-button bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
-										disabled={updating[d.id]?.inProgress}
+										disabled={updating[d.id]?.inProgress || !!d.compositeName}
 										onclick={async (e) => {
 											e.stopPropagation();
 											showConfirm = {
@@ -303,6 +305,13 @@
 												server: d
 											};
 										}}
+										use:tooltip={d.compositeName
+											? {
+													text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+													classes: ['w-md'],
+													disablePortal: true
+												}
+											: undefined}
 									>
 										{#if updating[d.id]?.inProgress}
 											<LoaderCircle class="size-4 animate-spin" />

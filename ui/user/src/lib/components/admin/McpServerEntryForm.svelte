@@ -18,6 +18,7 @@
 		GlobeLock,
 		ListFilter,
 		LoaderCircle,
+		Server,
 		Trash2,
 		Users,
 		Wrench
@@ -42,6 +43,7 @@
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import { profile } from '$lib/stores';
 	import OverflowContainer from '../OverflowContainer.svelte';
+	import { getServerTypeLabel } from '$lib/services/chat/mcp';
 
 	type MCPType = 'single' | 'multi' | 'remote' | 'composite';
 
@@ -412,16 +414,20 @@
 	{#if entry}
 		<div class="flex items-center justify-between gap-4">
 			<div class="flex items-center gap-2">
-				{#if entry.manifest.icon}
-					<img
-						src={entry.manifest.icon}
-						alt={entry.manifest.name}
-						class="bg-surface1 size-10 rounded-md p-1 dark:bg-gray-600"
-					/>
-				{/if}
+				<div class="icon">
+					{#if entry.manifest.icon}
+						<img
+							src={entry.manifest.icon}
+							alt={entry.manifest.name}
+							class="size-10 flex-shrink-0"
+						/>
+					{:else}
+						<Server class="size-10" />
+					{/if}
+				</div>
 				<h1 class="text-2xl font-semibold capitalize">{entry.manifest.name || 'Unknown'}</h1>
 				<div class="pill-rounded">
-					{type === 'single' ? 'Single User' : type === 'multi' ? 'Multi-User' : 'Remote'}
+					{getServerTypeLabel(entry)}
 				</div>
 				{#if registry}
 					<div class="pill-rounded">

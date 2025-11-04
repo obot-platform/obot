@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
@@ -15,11 +16,22 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
-	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp';
+	import {
+		convertEntriesAndServersToTableData,
+		getServerTypeLabelByType
+	} from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { AlertTriangle, Captions, Ellipsis, LoaderCircle, Server, Trash2 } from 'lucide-svelte';
+	import {
+		AlertTriangle,
+		Captions,
+		CircleFadingArrowUp,
+		Ellipsis,
+		LoaderCircle,
+		Server,
+		Trash2
+	} from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
 
@@ -154,31 +166,34 @@
 			}}
 			validateSelect={(d) => d.editable}
 			disabledSelectMessage="This entry is managed by Git; changes cannot be made."
+			setRowClasses={(d) => ('needsUpdate' in d && d.needsUpdate ? 'bg-blue-500/10' : '')}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'name'}
 					<div class="flex flex-shrink-0 items-center gap-2">
-						<div
-							class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
-						>
+						<div class="icon">
 							{#if d.icon}
 								<img src={d.icon} alt={d.name} class="size-6" />
 							{:else}
 								<Server class="size-6" />
 							{/if}
 						</div>
-						<p class="flex items-center gap-1">
+						<p class="flex items-center gap-2">
 							{d.name}
+							{#if 'needsUpdate' in d && d.needsUpdate}
+								<span
+									use:tooltip={{
+										classes: ['border-blue-500', 'bg-blue-100', 'dark:bg-blue-500/50'],
+										text: 'An update requires your attention'
+									}}
+								>
+									<CircleFadingArrowUp class="size-4 text-blue-500" />
+								</span>
+							{/if}
 						</p>
 					</div>
 				{:else if property === 'type'}
-					{d.type === 'single'
-						? 'Single User'
-						: d.type === 'multi'
-							? 'Multi-User'
-							: d.type === 'remote'
-								? 'Remote'
-								: 'Composite'}
+					{getServerTypeLabelByType(d.type)}
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
 				{:else}

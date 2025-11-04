@@ -2310,6 +2310,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		DeploymentConditions:        conditions,
 		K8sSettingsHash:             server.Status.K8sSettingsHash,
 		Template:                    server.Spec.Template,
+		CompositeName:               server.Spec.CompositeName,
 	}
 
 	// For composite servers, also consider pre-converted component configuration if provided

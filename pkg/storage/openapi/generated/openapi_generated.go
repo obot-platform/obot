@@ -4259,6 +4259,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"compositeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CompositeName is the name of the composite server that this MCP server is a component of, if there is one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "manifest", "userID", "configured", "catalogEntryID", "powerUserWorkspaceID"},
 			},
