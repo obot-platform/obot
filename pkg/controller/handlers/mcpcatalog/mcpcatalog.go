@@ -126,7 +126,9 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	// Don't run prune if there are sync errors
 	if len(mcpCatalog.Status.SyncErrors) > 0 {
-		app.WithNoPrune()
+		app = app.WithNoPrune()
+	} else {
+		app = app.WithPruneTypes(&v1.MCPServerCatalogEntry{})
 	}
 
 	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
