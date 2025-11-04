@@ -141,6 +141,14 @@
 								src={item.iconURL}
 								alt={'username' in item ? item.username : item.name}
 								class="size-10 rounded-full"
+								loading="lazy"
+								onerror={(e) => {
+									const target = e.currentTarget as HTMLImageElement;
+									// Retry after delay or show fallback
+									setTimeout(() => {
+										target.src = item.iconURL ?? '';
+									}, 2000);
+								}}
 							/>
 						{:else if 'name' in item}
 							<div
