@@ -206,7 +206,9 @@
 			{/if}
 			<Table
 				data={servers}
-				fields={type === 'single' ? ['userID', 'created'] : ['url', 'userID', 'created']}
+				fields={type === 'single' || type === 'composite'
+					? ['userID', 'created']
+					: ['url', 'userID', 'created']}
 				headers={[
 					{ title: 'User', property: 'userID' },
 					{ title: 'URL', property: 'url' }
@@ -249,7 +251,7 @@
 							{:else}
 								{user?.email || user?.username || 'Unknown'}
 							{/if}
-							{#if type === 'single'}
+							{#if type === 'single' || type === 'composite'}
 								{#if d.needsUpdate}
 									<div
 										use:tooltip={{
