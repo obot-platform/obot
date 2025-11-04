@@ -71,7 +71,7 @@
 		{@const isExplicitAdmin = explicitRoles?.admins?.includes(tempUser?.email ?? '') ?? false}
 		{#if tempUser}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 flex w-sm flex-col rounded-lg border border-transparent bg-white px-4 py-8 shadow-sm"
+				class="dark:bg-surface2 dark:border-surface3 flex w-md max-w-full flex-col rounded-lg border border-transparent bg-white px-4 py-8 shadow-sm"
 			>
 				<BetaLogo class="self-center" />
 
@@ -103,7 +103,7 @@
 						<div class="flex items-center justify-center gap-2">
 							{#if isExplicitAdmin}
 								<ShieldAlert class="size-6" />
-								<h3 class="text-xl font-semibold">Explicit Admin Addition</h3>
+								<h3 class="text-xl font-semibold">Explicit Admin Already Set</h3>
 							{:else}
 								<Handshake class="size-6" />
 								<h3 class="text-xl font-semibold">Confirm Owner Addition</h3>
@@ -119,8 +119,14 @@
 						<p class="text-md text-center font-light" class:text-left={isExplicitAdmin}>
 							{#if isExplicitAdmin}
 								This account has been explicitly assigned the Admin role. It cannot be modified. Go
-								back and assign the Owner role to another account or adjust the explicit settings to
-								set this account as an owner.
+								back and assign the Owner role to another account or adjust the preconfiguration to
+								set this account as an owner instead. (See <a
+									class="text-link"
+									target="_blank"
+									rel="external"
+									href="https://docs.obot.ai/configuration/auth-providers#preconfiguring-owner--admin-users"
+									>Preconfiguring Owner & Admin Users</a
+								> for more information.)
 							{:else}
 								Are you sure you wish to make this account an owner?
 							{/if}
