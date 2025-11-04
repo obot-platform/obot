@@ -37,7 +37,9 @@ import type {
 	StorageCredentials,
 	AuditLogExport,
 	AuditLogExportInput,
-	ScheduledAuditLogExportInput
+	ScheduledAuditLogExportInput,
+	K8sSettings,
+	ServerK8sSettings
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -180,6 +182,31 @@ export async function listMcpCatalogServerInstances(
 		opts
 	)) as ItemsResponse<MCPServerInstance>;
 	return response.items ?? [];
+}
+
+export async function getMCPCatalogServerK8sSettingsStatus(
+	entryID: string,
+	serverID: string,
+	opts?: { dontLogErrors?: boolean }
+) {
+	const response = (await doGet(
+		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/entries/${entryID}/servers/${serverID}/k8s-settings-status`,
+		opts
+	)) as ServerK8sSettings;
+	return response;
+}
+
+export async function redeployMCPCatalogServerWithK8sSettings(
+	entryID: string,
+	serverID: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost(
+		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/entries/${entryID}/servers/${serverID}/redeploy-with-k8s-settings`,
+		{},
+		opts
+	);
+	return response;
 }
 
 export async function updateMCPCatalogServer(
@@ -714,6 +741,22 @@ export async function restartK8sDeployment(mcpServerId: string, opts?: { fetch?:
 	await doPost(`/mcp-servers/${mcpServerId}/restart`, {}, opts);
 }
 
+export async function getK8sSettingsStatus(
+	mcpServerId: string,
+	opts?: { dontLogErrors?: boolean }
+) {
+	const response = (await doGet(
+		`/mcp-servers/${mcpServerId}/k8s-settings-status`,
+		opts
+	)) as ServerK8sSettings;
+	return response;
+}
+
+export async function redeployWithK8sSettings(mcpServerId: string, opts?: { fetch?: Fetcher }) {
+	const response = await doPost(`/mcp-servers/${mcpServerId}/redeploy-with-k8s-settings`, {}, opts);
+	return response;
+}
+
 export async function getDefaultBaseAgent(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet('/agents', opts)) as ItemsResponse<BaseAgent>;
 	return response.items?.find((agent) => agent.default);
@@ -963,4 +1006,13 @@ export async function refreshCompositeComponents(
 		...response,
 		isCatalogEntry: true
 	};
+}
+
+export async function listK8sSettings(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/k8s-settings', opts)) as K8sSettings;
+	return response;
+}
+
+export async function updateK8sSettings(settings: K8sSettings, opts?: { fetch?: Fetcher }) {
+	return (await doPut('/k8s-settings', settings, opts)) as K8sSettings;
 }

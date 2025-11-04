@@ -7,7 +7,8 @@ import type {
 	K8sServerDetail,
 	MCPCatalogEntry,
 	MCPCatalogEntryServerManifest,
-	MCPCatalogServerManifest
+	MCPCatalogServerManifest,
+	ServerK8sSettings
 } from '../admin/types';
 import { baseURL, doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
 import {
@@ -2022,6 +2023,31 @@ export async function restartWorkspaceK8sServerDeployment(
 	await doPost(`/workspaces/${workspaceID}/servers/${mcpServerId}/restart`, {}, opts);
 }
 
+export async function getWorkspaceK8sServerStatus(
+	workspaceID: string,
+	mcpServerId: string,
+	opts?: { dontLogErrors?: boolean }
+) {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/servers/${mcpServerId}/k8s-settings-status`,
+		opts
+	)) as ServerK8sSettings;
+	return response;
+}
+
+export async function redeployWorkspaceK8sServerWithK8sSettings(
+	workspaceID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost(
+		`/workspaces/${workspaceID}/servers/${mcpServerId}/redeploy-with-k8s-settings`,
+		{},
+		opts
+	);
+	return response;
+}
+
 export async function getWorkspaceCatalogEntryServers(
 	workspaceID: string,
 	entryID: string,
@@ -2090,4 +2116,31 @@ export async function restartWorkspaceCatalogEntryServerDeployment(
 		{},
 		opts
 	);
+}
+
+export async function getWorkspaceCatalogEntryServerK8sSettingsStatus(
+	workspaceID: string,
+	entryID: string,
+	mcpServerId: string,
+	opts?: { dontLogErrors?: boolean }
+) {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/k8s-settings-status`,
+		opts
+	)) as ServerK8sSettings;
+	return response;
+}
+
+export async function redeployWorkspaceCatalogEntryServerWithK8sSettings(
+	workspaceID: string,
+	entryID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/redeploy-with-k8s-settings`,
+		{},
+		opts
+	);
+	return response;
 }

@@ -43,9 +43,7 @@
 	>
 		<h1 class="text-2xl font-semibold">User Roles</h1>
 
-		<div
-			class="dark:bg-surface1 dark:border-surface3 flex h-fit w-full flex-col gap-4 rounded-lg border border-transparent bg-white p-6 shadow-sm"
-		>
+		<div class="paper">
 			<div class="flex gap-6">
 				<div class="flex grow flex-col gap-4">
 					<div class="flex flex-col gap-1">
