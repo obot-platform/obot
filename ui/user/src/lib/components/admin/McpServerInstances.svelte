@@ -297,7 +297,7 @@
 									</button>
 									<button
 										class="menu-button bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
-										disabled={updating[d.id]?.inProgress}
+										disabled={updating[d.id]?.inProgress || !!d.compositeName}
 										onclick={async (e) => {
 											e.stopPropagation();
 											showConfirm = {
@@ -305,6 +305,13 @@
 												server: d
 											};
 										}}
+										use:tooltip={d.compositeName
+											? {
+													text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+													classes: ['w-md'],
+													disablePortal: true
+												}
+											: undefined}
 									>
 										{#if updating[d.id]?.inProgress}
 											<LoaderCircle class="size-4 animate-spin" />

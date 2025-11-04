@@ -143,7 +143,8 @@
 
 	async function handleBulkUpdate() {
 		for (const id of Object.keys(selected)) {
-			if (!selected[id].needsUpdate) {
+			// if doesn't need update or is child server of composite mcp
+			if (!selected[id].needsUpdate || (selected[id].needsUpdate && selected[id].compositeName)) {
 				continue;
 			}
 			updating[id] = { inProgress: true, error: '' };
