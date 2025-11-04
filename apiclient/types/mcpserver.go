@@ -96,6 +96,7 @@ type MCPServerCatalogEntry struct {
 	ToolPreviewsLastGenerated *Time                         `json:"toolPreviewsLastGenerated,omitempty"`
 	PowerUserWorkspaceID      string                        `json:"powerUserWorkspaceID,omitempty"`
 	PowerUserID               string                        `json:"powerUserID,omitempty"`
+	NeedsUpdate               bool                          `json:"needsUpdate,omitempty"`
 }
 
 type MCPServerCatalogEntryManifest struct {

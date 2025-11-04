@@ -148,6 +148,7 @@ func convertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 		ToolPreviewsLastGenerated: v1.NewTime(entry.Status.ToolPreviewsLastGenerated),
 		PowerUserWorkspaceID:      powerUserWorkspaceID,
 		PowerUserID:               powerUserID,
+		NeedsUpdate:               entry.Status.NeedsUpdate,
 	}
 }
 
@@ -258,7 +259,16 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
 
-		items = append(items, convertMCPServer(server, credMap[server.Name], m.serverURL, slug))
+		var components []types.MCPServer
+		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
+			components, err = resolveCompositeComponents(req, server)
+			if err != nil {
+				log.Warnf("failed to resolve composite components for server %s: %v", server.Name, err)
+				return err
+			}
+		}
+		converted := convertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
+		items = append(items, converted)
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -318,7 +328,16 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(convertMCPServer(server, cred.Env, m.serverURL, slug))
+	var components []types.MCPServer
+	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
+		components, err = resolveCompositeComponents(req, server)
+		if err != nil {
+			log.Warnf("failed to resolve composite components for server %s: %v", server.Name, err)
+			return err
+		}
+	}
+	converted := convertMCPServer(server, cred.Env, m.serverURL, slug, components...)
+	return req.Write(converted)
 }
 
 func (m *MCPHandler) DeleteServer(req api.Context) error {
@@ -2222,7 +2241,7 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 }
 
-func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL, slug string) types.MCPServer {
+func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL, slug string, components ...types.MCPServer) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
 
 	// Check for missing required env vars
@@ -2268,7 +2287,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		})
 	}
 
-	return types.MCPServer{
+	converted := types.MCPServer{
 		Metadata:                    MetadataFrom(&server),
 		Alias:                       server.Spec.Alias,
 		MissingRequiredEnvVars:      missingEnvVars,
@@ -2292,6 +2311,36 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		K8sSettingsHash:             server.Status.K8sSettingsHash,
 		Template:                    server.Spec.Template,
 	}
+
+	// For composite servers, also consider pre-converted component configuration if provided
+	if server.Spec.Manifest.Runtime == types.RuntimeComposite && len(components) > 0 {
+		// Build lookup for disabled components by CatalogEntryID or MCPServerID
+		var disabledComponents map[string]bool
+		if server.Spec.Manifest.CompositeConfig != nil {
+			componentServers := server.Spec.Manifest.CompositeConfig.ComponentServers
+			disabledComponents = make(map[string]bool, len(componentServers))
+			for _, comp := range componentServers {
+				if comp.CatalogEntryID != "" {
+					disabledComponents[comp.CatalogEntryID] = comp.Disabled
+				}
+				if comp.MCPServerID != "" {
+					disabledComponents[comp.MCPServerID] = comp.Disabled
+				}
+			}
+		}
+
+		for _, child := range components {
+			if child.CatalogEntryID != "" && disabledComponents[child.CatalogEntryID] {
+				continue
+			}
+			if !child.Configured || child.NeedsURL {
+				converted.Configured = false
+				break
+			}
+		}
+	}
+
+	return converted
 }
 
 func slugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPServer, userID, catalogID, workspaceID string) (string, error) {
@@ -2321,6 +2370,67 @@ func slugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPS
 	}
 
 	return slug, nil
+}
+
+// resolveAndConvertCompositeComponents lists component MCP servers of a composite parent,
+// reveals their credentials, computes slugs, and converts them to API types.
+// Returns the converted components or an error.
+func resolveCompositeComponents(
+	req api.Context,
+	composite v1.MCPServer,
+) ([]types.MCPServer, error) {
+	var (
+		componentServers    v1.MCPServerList
+		convertedComponents []types.MCPServer
+	)
+
+	if err := req.List(&componentServers, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", composite.Name),
+		Namespace:     composite.Namespace,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list composite child servers: %w", err)
+	}
+
+	var compositeConfig types.CompositeRuntimeConfig
+	if composite.Spec.Manifest.CompositeConfig != nil {
+		compositeConfig = *composite.Spec.Manifest.CompositeConfig
+	}
+
+	disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
+	for _, comp := range compositeConfig.ComponentServers {
+		if comp.CatalogEntryID != "" {
+			disabledComponents[comp.CatalogEntryID] = comp.Disabled
+		} else if comp.MCPServerID != "" {
+			disabledComponents[comp.MCPServerID] = comp.Disabled
+		}
+	}
+
+	for _, component := range componentServers.Items {
+		if disabledComponents[component.Spec.MCPServerCatalogEntryName] {
+			continue
+		}
+
+		var credCtx string
+		if component.Spec.MCPCatalogID != "" {
+			credCtx = fmt.Sprintf("%s-%s", component.Spec.MCPCatalogID, component.Name)
+		} else if component.Spec.PowerUserWorkspaceID != "" {
+			credCtx = fmt.Sprintf("%s-%s", component.Spec.PowerUserWorkspaceID, component.Name)
+		} else {
+			credCtx = fmt.Sprintf("%s-%s", component.Spec.UserID, component.Name)
+		}
+
+		ccred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, component.Name)
+		if err != nil {
+			if !errors.As(err, &gptscript.ErrNotFound{}) {
+				return nil, fmt.Errorf("failed to reveal credential for component %s: %w", component.Name, err)
+			}
+		}
+		addExtractedEnvVars(&component)
+		// No slug/URL needed; only Configured/NeedsURL are used from the component
+		convertedComponents = append(convertedComponents, convertMCPServer(component, ccred.Env, "", ""))
+	}
+
+	return convertedComponents, nil
 }
 
 func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
@@ -2415,7 +2525,17 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
 
-		mcpServers = append(mcpServers, convertMCPServer(server, credMap[server.Name], m.serverURL, slug))
+		// Resolve components via helper for composite servers
+		var components []types.MCPServer
+		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
+			components, err = resolveCompositeComponents(req, server)
+			if err != nil {
+				log.Warnf("failed to resolve composite components for server %s: %v", server.Name, err)
+				return err
+			}
+		}
+		parent := convertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
+		mcpServers = append(mcpServers, parent)
 	}
 
 	return req.Write(types.MCPServerList{Items: mcpServers})
@@ -2774,8 +2894,7 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	}
 
 	// Return updated server
-	converted := convertMCPServer(server, cred.Env, m.serverURL, slug)
-	return req.Write(converted)
+	return req.Write(convertMCPServer(server, cred.Env, m.serverURL, slug))
 }
 
 // ListServersNeedingK8sUpdateInCatalog lists all servers in a catalog that need redeployment with new K8s settings
@@ -3117,6 +3236,11 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server; use the UpdateServer endpoint instead")
 	}
 
+	// Reject component servers - must upgrade parent composite
+	if server.Spec.CompositeName != "" {
+		return types.NewErrBadRequest("cannot trigger update on a component server; upgrade the parent composite server instead")
+	}
+
 	if server.Spec.MCPServerCatalogEntryName == "" || !server.Status.NeedsUpdate {
 		return nil
 	}
@@ -3135,6 +3259,11 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		if entry.Spec.PowerUserWorkspaceID != workspaceID {
 			return types.NewErrNotFound("MCP server %s not found", server.Name)
 		}
+	}
+
+	// Branch for composite servers
+	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return m.triggerCompositeUpdate(req, server, entry)
 	}
 
 	oldServer := server.DeepCopy()
@@ -3198,6 +3327,204 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 
 	if err := req.Update(&server); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// triggerCompositeUpdate upgrades a composite server and all its component servers from the latest catalog entry
+func (m *MCPHandler) triggerCompositeUpdate(req api.Context, server v1.MCPServer, entry v1.MCPServerCatalogEntry) error {
+	// Load all existing component servers
+	var componentServers v1.MCPServerList
+	if err := req.List(&componentServers, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", server.Name),
+		Namespace:     server.Namespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list component servers: %w", err)
+	}
+
+	// Load all existing component instances (for multi-user components)
+	var componentInstances v1.MCPServerInstanceList
+	if err := req.List(&componentInstances, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", server.Name),
+		Namespace:     server.Namespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list component instances: %w", err)
+	}
+
+	// Build manifest with user-provided URLs preserved
+	var compositeConfig types.CompositeCatalogConfig
+	if entry.Spec.Manifest.CompositeConfig != nil {
+		compositeConfig = *entry.Spec.Manifest.CompositeConfig
+	}
+	userProvidedManifest := types.MCPServerManifest{
+		CompositeConfig: &types.CompositeRuntimeConfig{
+			ComponentServers: make([]types.ComponentServer, 0, len(compositeConfig.ComponentServers)),
+		},
+	}
+
+	// Preserve user-provided URLs from existing components
+	for _, existingComp := range componentServers.Items {
+		if existingComp.Spec.Manifest.RemoteConfig != nil && existingComp.Spec.Manifest.RemoteConfig.URL != "" {
+			userProvidedManifest.CompositeConfig.ComponentServers = append(
+				userProvidedManifest.CompositeConfig.ComponentServers,
+				types.ComponentServer{
+					CatalogEntryID: existingComp.Spec.MCPServerCatalogEntryName,
+					MCPServerID:    existingComp.Spec.MCPCatalogID, // For multi-user components
+					Manifest: types.MCPServerManifest{
+						RemoteConfig: &types.RemoteRuntimeConfig{
+							URL: existingComp.Spec.Manifest.RemoteConfig.URL,
+						},
+					},
+				},
+			)
+		}
+	}
+
+	// Build fresh manifest with user URLs applied
+	manifest, err := serverManifestFromCatalogEntryManifest(
+		req,
+		req.UserIsAdmin(),
+		entry.Spec.Manifest,
+		userProvidedManifest,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Validate the new manifest
+	if err := validation.ValidateServerManifest(manifest); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+
+	// Create index of existing catalog entry components by ID
+	existingByID := make(map[string]*v1.MCPServer)
+	for i := range componentServers.Items {
+		comp := &componentServers.Items[i]
+		if comp.Spec.MCPServerCatalogEntryName != "" {
+			existingByID[comp.Spec.MCPServerCatalogEntryName] = comp
+		}
+	}
+
+	// Create index of existing multi-user component instances by MCPServerID
+	existingInstancesByServerID := make(map[string]*v1.MCPServerInstance)
+	for i := range componentInstances.Items {
+		inst := &componentInstances.Items[i]
+		if inst.Spec.MCPServerName != "" {
+			existingInstancesByServerID[inst.Spec.MCPServerName] = inst
+		}
+	}
+
+	// Create index of new components by ID (either catalogEntryID or mcpServerID)
+	newByID := make(map[string]types.ComponentServer)
+	for _, newComp := range manifest.CompositeConfig.ComponentServers {
+		if newComp.CatalogEntryID != "" {
+			newByID[newComp.CatalogEntryID] = newComp
+		} else if newComp.MCPServerID != "" {
+			newByID[newComp.MCPServerID] = newComp
+		}
+	}
+
+	// Delete removed components
+	for catalogEntryID, existingComp := range existingByID {
+		if _, exists := newByID[catalogEntryID]; !exists {
+			// Component was removed, delete it
+			if err := req.Delete(existingComp); err != nil {
+				return fmt.Errorf("failed to delete removed component server %s: %w", existingComp.Name, err)
+			}
+		}
+	}
+
+	// Delete removed multi-user component instances
+	for mcpServerID, existingInst := range existingInstancesByServerID {
+		if _, exists := newByID[mcpServerID]; !exists {
+			// Instance was removed, delete it
+			if err := req.Delete(existingInst); err != nil {
+				return fmt.Errorf("failed to delete removed component instance %s: %w", existingInst.Name, err)
+			}
+		}
+	}
+
+	// Update existing components and create new ones
+	for _, newComp := range manifest.CompositeConfig.ComponentServers {
+		if newComp.MCPServerID != "" {
+			// Multi-user component - check if instance exists
+			if _, exists := existingInstancesByServerID[newComp.MCPServerID]; !exists {
+				// New multi-user component, create instance
+				var multiUserServer v1.MCPServer
+				if err := req.Get(&multiUserServer, newComp.MCPServerID); err != nil {
+					return fmt.Errorf("failed to get multi-user server %s: %w", newComp.MCPServerID, err)
+				}
+
+				instance := v1.MCPServerInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: system.MCPServerInstancePrefix,
+						Namespace:    server.Namespace,
+					},
+					Spec: v1.MCPServerInstanceSpec{
+						MCPServerName:        newComp.MCPServerID,
+						MCPCatalogName:       multiUserServer.Spec.MCPCatalogID,
+						PowerUserWorkspaceID: multiUserServer.Spec.PowerUserWorkspaceID,
+						UserID:               server.Spec.UserID,
+						CompositeName:        server.Name,
+					},
+				}
+
+				if err := req.Create(&instance); err != nil {
+					return fmt.Errorf("failed to create instance for multi-user component: %w", err)
+				}
+			}
+			// else: instance already exists, no update needed for multi-user components
+		} else if newComp.CatalogEntryID != "" {
+			// Catalog entry component
+			if existingComp, exists := existingByID[newComp.CatalogEntryID]; exists {
+				// Component exists, update it
+				if err := validation.ValidateServerManifest(newComp.Manifest); err != nil {
+					return types.NewErrBadRequest("validation failed for component %s: %v", newComp.CatalogEntryID, err)
+				}
+
+				existingComp.Spec.Manifest = newComp.Manifest
+				addExtractedEnvVars(existingComp)
+
+				if err := req.Update(existingComp); err != nil {
+					return fmt.Errorf("failed to update component server %s: %w", existingComp.Name, err)
+				}
+			} else {
+				// New component, create it
+				componentServer := v1.MCPServer{
+					ObjectMeta: metav1.ObjectMeta{
+						GenerateName: system.MCPServerPrefix,
+						Namespace:    server.Namespace,
+						Finalizers:   []string{v1.MCPServerFinalizer},
+					},
+					Spec: v1.MCPServerSpec{
+						CompositeName:             server.Name,
+						MCPServerCatalogEntryName: newComp.CatalogEntryID,
+						UserID:                    server.Spec.UserID,
+						Manifest:                  newComp.Manifest,
+					},
+				}
+
+				if err := validation.ValidateServerManifest(componentServer.Spec.Manifest); err != nil {
+					return types.NewErrBadRequest("validation failed for new component: %v", err)
+				}
+
+				addExtractedEnvVars(&componentServer)
+
+				if err := req.Create(&componentServer); err != nil {
+					return fmt.Errorf("failed to create new component server: %w", err)
+				}
+			}
+		}
+	}
+
+	// Update the composite server manifest
+	server.Spec.Manifest = manifest
+	server.Spec.UnsupportedTools = entry.Spec.UnsupportedTools
+	addExtractedEnvVars(&server)
+
+	if err := req.Update(&server); err != nil {
+		return fmt.Errorf("failed to update composite server: %w", err)
 	}
 
 	return nil

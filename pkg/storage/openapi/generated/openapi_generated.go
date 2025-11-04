@@ -4332,6 +4332,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Format: "",
 						},
 					},
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "manifest"},
 			},
@@ -13423,6 +13429,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref common.Re
 						SchemaProps: spec.SchemaProps{
 							Description: "ManifestHash is a SHA256 hash of the catalog entry configuration used to detect changes.",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NeedsUpdate indicates whether this composite catalog entry's component snapshots have drifted from their sources.",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},

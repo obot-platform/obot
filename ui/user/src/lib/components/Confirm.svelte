@@ -14,6 +14,7 @@
 		title?: Snippet;
 		classes?: {
 			confirm?: string;
+			dialog?: string;
 		};
 	}
 
@@ -43,7 +44,7 @@
 <dialog
 	bind:this={dialog}
 	use:clickOutside={() => oncancel()}
-	class="max-h-full w-full max-w-md bg-gray-50 dark:bg-gray-950"
+	class={twMerge('max-h-full w-full max-w-md bg-gray-50 dark:bg-gray-950', classes?.dialog)}
 >
 	<div class="relative">
 		<button

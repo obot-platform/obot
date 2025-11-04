@@ -74,6 +74,8 @@ type MCPServerCatalogEntryStatus struct {
 	ToolPreviewsLastGenerated *metav1.Time `json:"toolPreviewsLastGenerated,omitempty"`
 	// ManifestHash is a SHA256 hash of the catalog entry configuration used to detect changes.
 	ManifestHash string `json:"manifestHash,omitempty"`
+	// NeedsUpdate indicates whether this composite catalog entry's component snapshots have drifted from their sources.
+	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
