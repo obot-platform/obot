@@ -134,7 +134,8 @@ function convertEntriesToTableData(
 				registry:
 					usersMap && entry.powerUserID
 						? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
-						: 'Global Registry'
+						: 'Global Registry',
+				needsUpdate: entry.needsUpdate
 			};
 		});
 }
@@ -173,6 +174,7 @@ export function convertEntriesAndServersToTableData(
 	servers: MCPCatalogServer[],
 	usersMap?: Map<string, OrgUser>
 ) {
+	console.log(entries, servers);
 	const entriesTableData = convertEntriesToTableData(entries, usersMap);
 	const serversTableData = convertServersToTableData(servers, usersMap);
 	return [...entriesTableData, ...serversTableData];

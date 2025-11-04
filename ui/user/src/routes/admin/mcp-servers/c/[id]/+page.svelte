@@ -158,7 +158,7 @@
 		{/if}
 
 		{#if showUpgradeNotification}
-			<div class="flex items-center gap-3 rounded-lg border border-blue-500/20 bg-blue-500/10 p-4">
+			<div class="flex items-center gap-3 rounded-lg border border-blue-500 bg-blue-500/10 p-4">
 				<Info class="size-5 flex-shrink-0 text-blue-400" />
 				<div class="flex-1">
 					<p class="text-sm font-medium">Component updates available</p>
@@ -167,7 +167,7 @@
 					</p>
 				</div>
 				<button
-					class="button flex items-center gap-1.5 text-sm font-normal"
+					class="button-primary flex items-center gap-1.5 text-sm font-normal"
 					onclick={handleUpgradeClick}
 					disabled={upgrading}
 				>
