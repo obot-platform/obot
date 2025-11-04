@@ -2,11 +2,7 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import {
-		ADMIN_SESSION_STORAGE,
-		DEFAULT_MCP_CATALOG_ID,
-		PAGE_TRANSITION_DURATION
-	} from '$lib/constants';
+	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, ChatService, type OrgUser } from '$lib/services/index.js';
 	import { Info } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
@@ -16,7 +12,6 @@
 	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
 	import { onNavigate } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import { json } from 'd3';
 
 	let { data } = $props();
 	const duration = PAGE_TRANSITION_DURATION;
