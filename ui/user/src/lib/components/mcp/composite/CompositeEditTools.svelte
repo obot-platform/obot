@@ -62,6 +62,7 @@
 				classes={{
 					label: 'text-sm gap-2'
 				}}
+				disablePortal
 			/>
 		</div>
 		<Search
@@ -94,6 +95,7 @@
 						tool.enabled = checked;
 					}}
 					label="Enable/Disable Tool"
+					disablePortal
 				/>
 			</div>
 		{/each}

@@ -288,7 +288,11 @@
 	entityPlural="entries"
 />
 
-<SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />
+<SelectServerType
+	bind:this={selectServerTypeDialog}
+	onSelectServerType={selectServerType}
+	entity="workspace"
+/>
 
 <svelte:head>
 	<title>Obot | MCP Publisher</title>

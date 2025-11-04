@@ -82,7 +82,8 @@
 								type: 'composite',
 								entity: 'catalog',
 								entityId: DEFAULT_MCP_CATALOG_ID,
-								serverId: mcpServerId
+								serverId: mcpServerId,
+								prevFrom: page.url.searchParams.get('from')
 							})
 						);
 

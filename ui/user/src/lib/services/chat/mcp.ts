@@ -174,7 +174,6 @@ export function convertEntriesAndServersToTableData(
 	servers: MCPCatalogServer[],
 	usersMap?: Map<string, OrgUser>
 ) {
-	console.log(entries, servers);
 	const entriesTableData = convertEntriesToTableData(entries, usersMap);
 	const serversTableData = convertServersToTableData(servers, usersMap);
 	return [...entriesTableData, ...serversTableData];

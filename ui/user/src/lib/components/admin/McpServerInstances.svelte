@@ -213,16 +213,16 @@
 					{ title: 'User', property: 'userID' },
 					{ title: 'URL', property: 'url' }
 				]}
-				onClickRow={type === 'single'
+				onClickRow={type === 'single' || type === 'composite'
 					? (d, isCtrlClick) => {
 							setLastVisitedMcpServer();
 
 							const url =
 								entity === 'workspace'
 									? isAdminUrl
-										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}`
+										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}?from=/mcp-servers/${entry?.id}`
 										: `/mcp-publisher/c/${entry?.id}/instance/${d.id}`
-									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`;
+									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}?from=/mcp-servers/${entry?.id}`;
 							openUrl(url, isCtrlClick);
 						}
 					: undefined}

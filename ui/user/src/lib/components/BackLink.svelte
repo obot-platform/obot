@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onNavigate } from '$app/navigation';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { getSearchParamsFromLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
@@ -7,10 +8,9 @@
 	interface Props {
 		fromURL?: string;
 		currentLabel: string;
-		ignoreId?: string;
 	}
 
-	let { fromURL, currentLabel, ignoreId }: Props = $props();
+	let { fromURL, currentLabel }: Props = $props();
 
 	let links = $state<{ href: string; label: string }[]>([]);
 
@@ -23,7 +23,7 @@
 		if (type === 'mcp-servers') {
 			return [
 				{ href: '/admin/mcp-servers', label: 'MCP Servers' },
-				...(id && id !== ignoreId ? [convertToMcpLink(id, true)] : [])
+				...(id ? [convertToMcpLink(id, true)] : [])
 			];
 		}
 
@@ -56,7 +56,7 @@
 					href: '/mcp-publisher',
 					label: 'MCP Servers'
 				},
-				...(id && id !== ignoreId ? [convertToMcpLink(id, false)] : [])
+				...(id ? [convertToMcpLink(id, false)] : [])
 			];
 		}
 
@@ -81,6 +81,12 @@
 		}
 	});
 
+	onNavigate(() => {
+		if (fromURL) {
+			links = [...convertToHistory(fromURL)];
+		}
+	});
+
 	function convertToMcpLink(id: string, isAdmin: boolean) {
 		const stringified = sessionStorage.getItem(ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER);
 		const json = JSON.parse(stringified ?? '{}');
@@ -94,8 +100,16 @@
 						? `/admin/mcp-servers/c/${id}/instance/${json.serverId}`
 						: `/admin/mcp-servers/s/${id}/details`;
 			} else {
-				href = json.type !== 'multi' ? `/mcp-publisher/c/${id}` : `/mcp-publisher/s/${id}`;
+				href =
+					json.type !== 'multi'
+						? `/mcp-publisher/c/${id}/instance/${json.serverId}`
+						: `/mcp-publisher/s/${id}/details`;
 			}
+
+			if (json.prevFrom) {
+				href = `${href}?from=${json.prevFrom}`;
+			}
+			console.log({ href, label });
 			return { href, label };
 		}
 

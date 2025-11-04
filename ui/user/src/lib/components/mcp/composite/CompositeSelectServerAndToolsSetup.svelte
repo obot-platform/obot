@@ -233,6 +233,7 @@
 	type="filter"
 	{mcpEntriesContextFn}
 	singleSelect
+	skipComposite
 	title="Select MCP Server"
 />
 

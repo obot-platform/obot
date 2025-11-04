@@ -6,10 +6,11 @@
 
 	interface Props {
 		onSelectServerType: (type: 'single' | 'multi' | 'remote' | 'composite') => void;
+		entity?: 'catalog' | 'workspace';
 	}
 
 	let selectServerTypeDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let { onSelectServerType }: Props = $props();
+	let { onSelectServerType, entity = 'catalog' }: Props = $props();
 
 	export function open() {
 		selectServerTypeDialog?.open();
@@ -72,21 +73,23 @@
 				</span>
 			</div>
 		</button>
-		<button
-			class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
-			onclick={() => onSelectServerType('composite')}
-		>
-			<Layers
-				class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
-			/>
-			<div>
-				<p class="mb-1 text-sm font-semibold">Composite MCP Server</p>
-				<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
-					This option allows you to combine multiple MCP catalog entries into a single unified
-					server. Users will connect via a single URL that aggregates tools and resources from all
-					component servers.
-				</span>
-			</div>
-		</button>
+		{#if entity === 'catalog'}
+			<button
+				class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
+				onclick={() => onSelectServerType('composite')}
+			>
+				<Layers
+					class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
+				/>
+				<div>
+					<p class="mb-1 text-sm font-semibold">Composite MCP Server</p>
+					<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
+						This option allows you to combine multiple MCP catalog entries into a single unified
+						server. Users will connect via a single URL that aggregates tools and resources from all
+						component servers.
+					</span>
+				</div>
+			</button>
+		{/if}
 	</div>
 </ResponsiveDialog>
