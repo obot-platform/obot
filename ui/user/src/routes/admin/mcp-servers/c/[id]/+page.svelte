@@ -9,11 +9,6 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import { profile } from '$lib/stores/index.js';
 	import { page } from '$app/state';
-	import {
-		refreshCompositeComponents,
-		getMCPCatalogEntry,
-		getMCPServer
-	} from '$lib/services/admin/operations';
 	import { CircleFadingArrowUp, CircleAlert, Info, GitCompare } from 'lucide-svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
@@ -23,6 +18,7 @@
 		fetchMcpServerAndEntries,
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import { AdminService } from '$lib/services/index.js';
 
 	initMcpServerAndEntries();
 
@@ -74,13 +70,16 @@
 
 					if (component.mcpServerID) {
 						// Multi-user component
-						const server = await getMCPServer(component.mcpServerID);
+						const server = await AdminService.getMCPCatalogServer(
+							DEFAULT_MCP_CATALOG_ID,
+							component.mcpServerID
+						);
 						currentManifest = server.manifest;
 						componentName = server.manifest.name ?? component.mcpServerID ?? 'Unnamed Component';
 						componentType = 'Multi-User Server';
 					} else {
 						// Catalog entry component
-						const currentEntry = await getMCPCatalogEntry(
+						const currentEntry = await AdminService.getMCPCatalogEntry(
 							DEFAULT_MCP_CATALOG_ID,
 							component.catalogEntryID!
 						);
@@ -124,7 +123,10 @@
 		catalogEntry = { ...catalogEntry, needsUpdate: false };
 
 		try {
-			const updated = await refreshCompositeComponents(DEFAULT_MCP_CATALOG_ID, catalogEntry.id);
+			const updated = await AdminService.refreshCompositeComponents(
+				DEFAULT_MCP_CATALOG_ID,
+				catalogEntry.id
+			);
 			// Keep the flag cleared even if backend status lags
 			catalogEntry = { ...updated, needsUpdate: false };
 			showUpgradeConfirm = false;
