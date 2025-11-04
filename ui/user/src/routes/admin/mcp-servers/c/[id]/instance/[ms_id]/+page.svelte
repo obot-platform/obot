@@ -51,7 +51,7 @@
 			{@const currentLabel = mcpServerId ?? 'Server'}
 			{@const from = page.url.searchParams.get('from') ?? `/mcp-servers/${catalogEntry?.id}`}
 			{#key from}
-				<BackLink fromURL={from} {currentLabel} />
+				<BackLink fromURL={from} {currentLabel} serverId={mcpServerId} />
 			{/key}
 		{/if}
 

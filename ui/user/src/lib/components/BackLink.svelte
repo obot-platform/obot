@@ -8,9 +8,10 @@
 	interface Props {
 		fromURL?: string;
 		currentLabel: string;
+		serverId?: string;
 	}
 
-	let { fromURL, currentLabel }: Props = $props();
+	let { fromURL, currentLabel, serverId }: Props = $props();
 
 	let links = $state<{ href: string; label: string }[]>([]);
 
@@ -90,10 +91,12 @@
 	function convertToMcpLink(id: string, isAdmin: boolean) {
 		const stringified = sessionStorage.getItem(ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER);
 		const json = JSON.parse(stringified ?? '{}');
-		const label = id === json.id ? json.name : 'Unknown';
+		let label = id === json.id ? json.name : 'Unknown';
+		const useServerId = serverId ? json.serverId !== serverId : !!json.serverId;
+		let href = '';
 
-		if (json.serverId) {
-			let href = '';
+		if (json.serverId && useServerId) {
+			label = json.serverId;
 			if (isAdmin) {
 				href =
 					json.type !== 'multi'
@@ -105,16 +108,7 @@
 						? `/mcp-publisher/c/${id}/instance/${json.serverId}`
 						: `/mcp-publisher/s/${id}/details`;
 			}
-
-			if (json.prevFrom) {
-				href = `${href}?from=${json.prevFrom}`;
-			}
-			console.log({ href, label });
-			return { href, label };
-		}
-
-		if (json.entity === 'workspace') {
-			let href = '';
+		} else if (json.entity === 'workspace') {
 			if (isAdmin) {
 				href =
 					json.type !== 'multi'
@@ -123,11 +117,13 @@
 			} else {
 				href = json.type !== 'multi' ? `/mcp-publisher/c/${id}` : `/mcp-publisher/s/${id}`;
 			}
-			return { href, label };
+		} else {
+			href = json.type !== 'multi' ? `/admin/mcp-servers/c/${id}` : `/admin/mcp-servers/s/${id}`;
 		}
 
-		const href =
-			json.type !== 'multi' ? `/admin/mcp-servers/c/${id}` : `/admin/mcp-servers/s/${id}`;
+		if (json.prevFrom) {
+			href = `${href}?from=${json.prevFrom}`;
+		}
 		return { href, label };
 	}
 </script>
