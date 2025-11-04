@@ -2,7 +2,6 @@
 	import { page } from '$app/state';
 	import {
 		AdminService,
-		Group,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser
@@ -28,8 +27,7 @@
 		connectedUsers: OrgUser[];
 	}
 
-	let { name, connectedUsers, classes, entity, entityId, catalogEntry, mcpServerId }: Props =
-		$props();
+	let { name, connectedUsers, classes, entityId, catalogEntry, mcpServerId }: Props = $props();
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 	let servers = $state<MCPCatalogServer[]>([]);
 	let serversMap = $derived(new Map(servers.map((s) => [s.catalogEntryID || s.id, s])));
