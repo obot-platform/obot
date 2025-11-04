@@ -348,6 +348,14 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
+	// Prevent deletion of component servers that are part of a composite
+	if server.Spec.CompositeName != "" {
+		return types.NewErrForbidden(
+			"cannot delete component of composite %q; delete the composite server instead",
+			server.Spec.CompositeName,
+		)
+	}
+
 	if err := req.Delete(&server); err != nil {
 		return err
 	}
