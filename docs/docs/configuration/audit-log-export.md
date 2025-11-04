@@ -1,6 +1,6 @@
 # MCP Audit Log Exports
 
-Obot provides comprehensive MCP audit log export capabilities that allow you to export audit logs to various cloud storage providers for compliance, analysis, and long-term retention. This feature supports both one-time exports and scheduled recurring exports.
+Obot can export audit logs to various cloud storage providers for long-term retention. This feature supports both one-time exports and scheduled recurring exports.
 
 ## Overview
 
