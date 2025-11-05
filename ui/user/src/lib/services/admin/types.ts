@@ -186,6 +186,7 @@ export interface ProviderParameter {
 	description?: string;
 	sensitive?: boolean;
 	hidden?: boolean;
+	multiline?: boolean;
 }
 
 export interface BaseProvider {

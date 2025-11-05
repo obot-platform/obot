@@ -26,10 +26,20 @@
 	function onOpen() {
 		if (provider) {
 			for (const param of provider.requiredConfigurationParameters ?? []) {
-				form[param.name] = values?.[param.name] ? values?.[param.name] : '';
+				let value = values?.[param.name] ? values?.[param.name] : '';
+				// Convert literal \n to actual newlines for multiline fields
+				if (param.multiline && value) {
+					value = value.replace(/\\n/g, '\n');
+				}
+				form[param.name] = value;
 			}
 			for (const param of provider.optionalConfigurationParameters ?? []) {
-				form[param.name] = values?.[param.name] ? values?.[param.name] : '';
+				let value = values?.[param.name] ? values?.[param.name] : '';
+				// Convert literal \n to actual newlines for multiline fields
+				if (param.multiline && value) {
+					value = value.replace(/\\n/g, '\n');
+				}
+				form[param.name] = value;
 			}
 		}
 	}
@@ -55,7 +65,16 @@
 			showRequired = true;
 			return;
 		}
-		onConfigure(form);
+
+		// Convert multiline values to single line with literal \n
+		const processedForm = { ...form };
+		for (const param of [...(provider?.requiredConfigurationParameters ?? []), ...(provider?.optionalConfigurationParameters ?? [])]) {
+			if (param.multiline && processedForm[param.name]) {
+				processedForm[param.name] = processedForm[param.name].replace(/\n/g, '\\n');
+			}
+		}
+
+		onConfigure(processedForm);
 	}
 
 	const multipValuesInputs = new Set([
@@ -141,6 +160,8 @@
 											name={parameter.name}
 											bind:value={form[parameter.name]}
 											disabled={readonly}
+                                            textarea={parameter.multiline}
+                                            growable={parameter.multiline}
 										/>
 									{:else if multipValuesInputs.has(parameter.name)}
 										<MultiValueInput
@@ -153,6 +174,15 @@
 											placeholder={`Hit "Enter" to insert`.toString()}
 											disabled={readonly}
 										/>
+									{:else if parameter.multiline}
+										<textarea
+											id={parameter.name}
+											bind:value={form[parameter.name]}
+											class:error
+											class="text-input-filled min-h-[120px] resize-y"
+											disabled={readonly}
+											rows="5"
+										></textarea>
 									{:else}
 										<input
 											type="text"
@@ -186,6 +216,14 @@
 											placeholder={`Hit "Enter" to insert`.toString()}
 											disabled={readonly}
 										/>
+									{:else if parameter.multiline}
+										<textarea
+											id={parameter.name}
+											bind:value={form[parameter.name]}
+											class="text-input-filled min-h-[120px] resize-y"
+											disabled={readonly}
+											rows="5"
+										></textarea>
 									{:else}
 										<input
 											type="text"
