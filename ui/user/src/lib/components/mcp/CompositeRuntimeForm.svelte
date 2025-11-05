@@ -284,17 +284,32 @@
 		configuringEntry = undefined;
 	}}
 	onSuccess={(componentConfig, entry, tools) => {
-		config.componentServers = [
-			...config.componentServers,
-			componentConfig
-		] as unknown as typeof config.componentServers;
 		const id = getComponentId(componentConfig);
+		const idx = (config.componentServers || []).findIndex((c) => getComponentId(c) === id);
+
+		if (idx >= 0) {
+			const prev = config.componentServers[idx];
+			config.componentServers = [
+				...config.componentServers.slice(0, idx),
+				{ ...prev, ...componentConfig },
+				...config.componentServers.slice(idx + 1)
+			] as unknown as typeof config.componentServers;
+		} else {
+			config.componentServers = [
+				...config.componentServers,
+				componentConfig
+			] as unknown as typeof config.componentServers;
+		}
+
 		if (tools) {
 			populatedByEntry[id] = true;
 			toolsByEntry[id] = tools;
 		}
+
 		if ('isCatalogEntry' in entry) {
-			componentEntries = [...componentEntries, entry];
+			if (!componentEntries.find((e) => e.id === entry.id)) {
+				componentEntries = [...componentEntries, entry];
+			}
 		} else {
 			componentServers.set(entry.id, entry);
 		}
