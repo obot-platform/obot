@@ -209,6 +209,9 @@
 	}
 
 	async function handleSingleDelete(server: MCPCatalogServer) {
+		if (server.compositeName) {
+			return;
+		}
 		if (server.catalogEntryID) {
 			await ChatService.deleteSingleOrRemoteMcpServer(server.id);
 			// Decrement the count of servers in the catalog
@@ -228,6 +231,8 @@
 
 	async function handleBulkDelete() {
 		for (const id of Object.keys(selected)) {
+			// Skip descendants of composite servers; they cannot be deleted directly
+			if (selected[id].compositeName) continue;
 			await handleSingleDelete(selected[id]);
 		}
 		selected = {};
@@ -472,6 +477,9 @@
 				{@const upgradeableCount = Object.values(currentSelected).filter(
 					(s) => s.needsUpdate && !s.compositeName
 				).length}
+				{@const deletableCount = Object.values(currentSelected).filter(
+					(s) => !s.compositeName
+				).length}
 				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 					<button
 						class="button flex items-center gap-1 text-sm font-normal"
@@ -517,12 +525,12 @@
 								type: 'multi'
 							};
 						}}
-						disabled={readonly}
+						disabled={readonly || deletableCount === 0}
 					>
 						<Trash2 class="size-4" /> Delete
-						{#if !readonly}
+						{#if deletableCount > 0 && !readonly}
 							<span class="pill-primary">
-								{Object.keys(currentSelected).length}
+								{deletableCount}
 							</span>
 						{/if}
 					</button>
@@ -586,5 +594,7 @@
 	loading={deleting}
 	names={showDeleteConfirm?.type === 'single'
 		? [showDeleteConfirm.server.manifest.name ?? '']
-		: Object.values(selected).map((s) => s.manifest.name ?? '')}
+		: Object.values(selected)
+				.filter((s) => !s.compositeName)
+				.map((s) => s.manifest.name ?? '')}
 />
