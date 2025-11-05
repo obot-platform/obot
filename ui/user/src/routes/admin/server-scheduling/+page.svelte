@@ -1,16 +1,25 @@
 <script lang="ts">
-	import { autoHeight } from '$lib/actions/textarea.js';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { Info, LoaderCircle, Lock } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
 	import { profile } from '$lib/stores/index.js';
-	import { AdminService } from '$lib/services';
+	import { AdminService, type K8sSettings } from '$lib/services';
+	import YamlEditor from '$lib/components/admin/YamlEditor.svelte';
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();
 	let prevK8sSettings = $state(data.k8sSettings);
-	let k8sSettings = $state(data.k8sSettings);
+	let k8sSettings = $state<K8sSettings | undefined>({
+		id: data.k8sSettings?.id ?? '',
+		created: data.k8sSettings?.created ?? '',
+		type: data.k8sSettings?.type ?? '',
+		resources: data.k8sSettings?.resources ?? '',
+		setViaHelm: data.k8sSettings?.setViaHelm ?? false,
+		affinity: data.k8sSettings?.affinity ?? '',
+		tolerations: data.k8sSettings?.tolerations ?? '',
+		...data.k8sSettings
+	});
 	let saving = $state(false);
 	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
@@ -83,10 +92,6 @@
 			saving = false;
 		}
 	}
-
-	$effect(() => {
-		console.log(k8sSettings);
-	});
 </script>
 
 <Layout classes={{ container: 'pb-0' }}>
@@ -116,8 +121,8 @@
 						</div>
 						<ul class="list-disc px-8 py-1 text-sm">
 							<li>
-								Node selectors, node names, and pod topology spread constraints are not supported at
-								this time.
+								The below configuration maps directly to Kubernetes fields and functionality. <br />
+								Links have been provided to the relevant Kubernetes documentation inline below.
 							</li>
 							<li>Resource configurations apply to all pods in the deployment.</li>
 							<li>Changes will take effect on the next deployment or pod restart.</li>
@@ -128,50 +133,59 @@
 
 				<div class="paper mt-1">
 					<div>
-						{@render headerContent('Pod Affinity')}
+						{@render headerContent('Affinity')}
 						<p class="text-sm">
-							Define pod affinity and anti-affinity rules to control pod placement on nodes.
+							Define the affinity field for each pod in every MCP deployment. See <a
+								href="https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity"
+								target="_blank"
+								rel="external"
+								class="text-link">here</a
+							> for more information.
 						</p>
 					</div>
 					<div class="flex flex-col gap-1">
-						<label class="text-sm" for="affinity">Affinity Configuration</label>
-						<textarea
-							id="affinity"
-							rows={6}
-							use:autoHeight
+						<label class="text-sm font-light" for="affinity">Affinity Configuration</label>
+						<YamlEditor
 							bind:value={k8sSettings.affinity}
-							class="text-input-filled dark:bg-black"
 							disabled={readonly}
-						></textarea>
-						<span class="input-description"
-							>Supports podAffinity, podAntiAffinity, and nodeAffinity configurations.</span
-						>
+							placeholder=""
+							rows={6}
+						/>
 					</div>
 				</div>
 				<div class="paper mt-1">
 					<div>
 						{@render headerContent('Tolerations')}
-						<p class="text-sm">Allow pods to schedule onto nodes with matching taints.</p>
+						<p class="text-sm">
+							Define the tolerations field for each pod in every MCP server deployment. See <a
+								href="https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/"
+								target="_blank"
+								rel="external"
+								class="text-link">here</a
+							> for more information.
+						</p>
 					</div>
 					<div class="flex flex-col gap-1">
-						<label class="text-sm" for="tolerations">Tolerations Configuration</label>
-						<textarea
-							id="tolerations"
-							rows={6}
-							use:autoHeight
+						<label class="text-sm font-light" for="tolerations">Tolerations Configuration</label>
+						<YamlEditor
 							bind:value={k8sSettings.tolerations}
-							class="text-input-filled dark:bg-black"
 							disabled={readonly}
-						></textarea>
-						<span class="input-description"
-							>Define tolerations to allow scheduling on tainted nodes.</span
-						>
+							placeholder=""
+							rows={6}
+						/>
 					</div>
 				</div>
 				<div class="paper mt-1">
 					<div>
 						{@render headerContent('Resource Limits & Requests')}
-						<p class="text-sm">Set CPU memory requests and limits in the deployment.</p>
+						<p class="text-sm">
+							Set CPU memory requests and limits in the deployment. See <a
+								href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits"
+								class="text-link"
+								rel="external"
+								target="_blank">here</a
+							> for more information.
+						</p>
 					</div>
 
 					<h3 class="text-lg font-semibold">CPU Settings</h3>
@@ -184,8 +198,8 @@
 								bind:value={resourceInfo.requests.cpu}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
+								placeholder="Default: Unset"
 							/>
-							<span class="input-description">Minimum CPU guaranteed (e.g. 500m, 1, 2)</span>
 						</div>
 						<div class="flex flex-1 flex-col gap-1">
 							<label class="input-label" for="description">Limit</label>
@@ -195,8 +209,8 @@
 								bind:value={resourceInfo.limits.cpu}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
+								placeholder="Default: Unset"
 							/>
-							<span class="input-description">Maximum CPU allowed (e.g. 1000m, 2, 4)</span>
 						</div>
 					</div>
 					<h3 class="text-lg font-semibold">Memory Settings</h3>
@@ -209,8 +223,8 @@
 								bind:value={resourceInfo.requests.memory}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
+								placeholder="Default: 400Mi"
 							/>
-							<span class="input-description">Minimum memory guaranteed (e.g. 256Mi, 1Gi)</span>
 						</div>
 						<div class="flex flex-1 flex-col gap-1">
 							<label class="input-label" for="description">Limit</label>
@@ -220,8 +234,8 @@
 								bind:value={resourceInfo.limits.memory}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
+								placeholder="Default: Unset"
 							/>
-							<span class="input-description">Maximum memory allowed (e.g. 1Gi, 4Gi)</span>
 						</div>
 					</div>
 				</div>
