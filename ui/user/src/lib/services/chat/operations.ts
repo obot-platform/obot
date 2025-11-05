@@ -2102,6 +2102,13 @@ export async function checkCompositeOAuth(
 		url += `?oauth_auth_request=${opts.oauthAuthRequestID}`;
 	}
 	const response = await doGet(url, { signal: opts?.signal, dontLogErrors: true });
+
+	// If the server returns a redirect_uri, perform client-side redirect
+	if (response && typeof response === 'object' && 'redirect_uri' in response) {
+		window.location.href = (response as { redirect_uri: string }).redirect_uri;
+		return [];
+	}
+
 	return Array.isArray(response) ? response : [];
 }
 
