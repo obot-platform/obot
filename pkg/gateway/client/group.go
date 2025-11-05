@@ -5,11 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
-	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
@@ -45,12 +46,8 @@ func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProvid
 				u.RawQuery = q.Encode()
 			}
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, authProviderURL+"/obot-list-auth-groups", nil)
 			if err == nil {
-				if accessToken := accesstoken.GetAccessToken(ctx); accessToken != "" {
-					req.Header.Set("Authorization", "Bearer "+accessToken)
-				}
-
 				resp, err := http.DefaultClient.Do(req)
 				if err == nil {
 					defer resp.Body.Close()
@@ -138,11 +135,10 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 
 	var (
 		providerURL    = auth.ProviderURLFromContext(ctx)
-		token          = accesstoken.GetAccessToken(ctx)
 		now            = time.Now()
 		nextGroupCheck = identity.AuthProviderGroupsLastChecked.Add(groupCheckPeriod)
 	)
-	if nextGroupCheck.After(now) || providerURL == "" || token == "" {
+	if nextGroupCheck.After(now) || providerURL == "" {
 		groups, err := c.listUserGroups(ctx, tx, identity)
 		if err != nil {
 			return fmt.Errorf("failed to list user groups: %w", err)
@@ -152,8 +148,10 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 		return nil
 	}
 
+	fmt.Printf("obot: fetching groups for user from auth provider\n")
+
 	// Fetch groups from the auth provider
-	providerGroups, err := c.fetchGroups(ctx, providerURL, token, identity.AuthProviderNamespace, identity.AuthProviderName)
+	providerGroups, err := c.fetchGroups(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName, identity.Email)
 	if err != nil {
 		return fmt.Errorf("failed to list user groups from provider: %w", err)
 	}
@@ -286,25 +284,33 @@ func (*Client) listUserGroups(ctx context.Context, tx *gorm.DB, identity *types.
 	return groups, nil
 }
 
-// fetchGroups fetches the groups that the owner of the access token is a member of from the auth provider.
-func (*Client) fetchGroups(ctx context.Context, authProviderURL, accessToken, authProviderNamespace, authProviderName string) ([]types.Group, error) {
+// fetchGroups fetches the groups that the user is a member of from the auth provider.
+func (*Client) fetchGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName, providerUserID string) ([]types.Group, error) {
 	// Fetch groups from the auth provider, ignore errors so that auth providers that don't yet
 	// implement group support don't block the user from logging in.
-	providerGroups := []auth.GroupInfo{}
-	u, err := url.Parse(authProviderURL + "/obot-list-user-auth-groups")
-	if err == nil {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-		if err == nil {
-			req.Header.Set("Authorization", "Bearer "+accessToken)
+	var providerGroups []auth.GroupInfo
 
-			resp, err := http.DefaultClient.Do(req)
-			if err == nil {
-				defer resp.Body.Close()
-				if resp.StatusCode == http.StatusOK {
-					_ = json.NewDecoder(resp.Body).Decode(&providerGroups)
+	// Get the SerializableRequest from context
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authProviderURL+"/obot-list-user-auth-groups", strings.NewReader(providerUserID))
+	if err == nil {
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				_ = json.NewDecoder(resp.Body).Decode(&providerGroups)
+			} else {
+				fmt.Printf("obot: got status: %d\n", resp.StatusCode)
+				var body []byte
+				body, err = ioutil.ReadAll(resp.Body)
+				if err == nil {
+					fmt.Printf("obot: got body: %s\n", string(body))
 				}
 			}
+		} else {
+			fmt.Printf("failed to fetch groups: %s\n", err)
 		}
+	} else {
+		fmt.Printf("obot: failed to fetch groups: %s\n", err)
 	}
 
 	var userGroups []types.Group

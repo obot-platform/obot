@@ -2,9 +2,6 @@ package auth
 
 import (
 	"context"
-	"encoding/base64"
-	"net/http"
-	"strings"
 	"time"
 )
 
@@ -64,53 +61,6 @@ func ContextWithProviderURL(ctx context.Context, url string) context.Context {
 func ProviderURLFromContext(ctx context.Context) string {
 	url, _ := ctx.Value(authProviderURLKey{}).(string)
 	return url
-}
-
-// GetSessionIDFromCookieValue extracts the session ID from a cookie value string.
-// The cookie value should be an oauth2-proxy ticket cookie with three segments separated by pipes.
-func GetSessionIDFromCookieValue(cookieValue string) string {
-	// If the cookie is an oauth2-proxy ticket cookie, it should be three segments separated by pipes.
-	// The first one contains the session ID.
-	parts := strings.Split(cookieValue, "|")
-	if len(parts) != 3 {
-		return ""
-	}
-
-	firstPart, err := base64.StdEncoding.DecodeString(parts[0])
-	if err != nil {
-		return ""
-	}
-
-	// This first part, after decoding, is three parts, separated by dots.
-	// The middle one is the session ID encoded in base64.
-	parts = strings.Split(string(firstPart), ".")
-	if len(parts) != 3 {
-		return ""
-	}
-
-	// Strangely, the session ID is usually not quite complete.
-	// I think it gets truncated at some point. So we have to ignore errors when decoding.
-	// We will still get part of the decoded session ID, and it's a long enough prefix to work.
-	decodedID, _ := base64.StdEncoding.DecodeString(parts[1])
-	// If it's not at least 10 characters, we can't really use it.
-	// I've never seen this happen in testing, but it's best to be safe.
-	if len(decodedID) < 10 {
-		return ""
-	}
-
-	return string(decodedID)
-}
-
-// GetSessionInfoFromRequest extracts the session ID and cookie value from the request's obot access token cookie.
-func GetSessionInfoFromRequest(req *http.Request) (sessionID, sessionCookie string) {
-	cookie, err := req.Cookie(ObotAccessTokenCookie)
-	if err != nil {
-		return
-	}
-
-	sessionID = GetSessionIDFromCookieValue(cookie.Value)
-	sessionCookie = cookie.Value
-	return
 }
 
 // FirstExtraValue returns the first value for the given key in the extra map.
