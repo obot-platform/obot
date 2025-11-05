@@ -135,21 +135,31 @@
 					<div>
 						{@render headerContent('Affinity')}
 						<p class="text-sm">
-							Define the affinity field for each pod in every MCP deployment. See <a
+							Define the affinity field for the pods in every MCP deployment. This value will be
+							used to set the <code>spec.template.spec.affinity</code> field on Kubernetes
+							deployments and must be a valid
+							<a
+								class="text-link"
+								href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#affinity-v1-core"
+								rel="external"
+								target="_blank">Affinity object</a
+							>. See the Kubernetes
+							<a
 								href="https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity"
 								target="_blank"
 								rel="external"
-								class="text-link">here</a
-							> for more information.
+								class="text-link">affinity documentation</a
+							> for more details.
 						</p>
 					</div>
 					<div class="flex flex-col gap-1">
-						<label class="text-sm font-light" for="affinity">Affinity Configuration</label>
+						<div class="text-sm font-light">Affinity Configuration</div>
 						<YamlEditor
 							bind:value={k8sSettings.affinity}
 							disabled={readonly}
 							placeholder=""
 							rows={6}
+							autoHeight
 						/>
 					</div>
 				</div>
@@ -157,33 +167,46 @@
 					<div>
 						{@render headerContent('Tolerations')}
 						<p class="text-sm">
-							Define the tolerations field for each pod in every MCP server deployment. See <a
+							Define the tolerations field for the pods in every MCP deployment. This value will be
+							used to set the <code>spec.template.spec.tolerations</code> field on Kubernetes
+							deployments and must be a valid list of
+							<a
+								href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#toleration-v1-core"
+								class="text-link"
+								rel="external"
+								target="_blank">Toleration objects</a
+							>. See the Kubernetes
+							<a
 								href="https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/"
 								target="_blank"
 								rel="external"
-								class="text-link">here</a
-							> for more information.
+								class="text-link">taints and tolerations documentation</a
+							> for more details.
 						</p>
 					</div>
 					<div class="flex flex-col gap-1">
-						<label class="text-sm font-light" for="tolerations">Tolerations Configuration</label>
-						<YamlEditor
-							bind:value={k8sSettings.tolerations}
-							disabled={readonly}
-							placeholder=""
-							rows={6}
-						/>
+						<div class="text-sm font-light">Tolerations Configuration</div>
+						{#key k8sSettings.id}
+							<YamlEditor
+								bind:value={k8sSettings.tolerations}
+								disabled={readonly}
+								placeholder=""
+								rows={6}
+								autoHeight
+							/>
+						{/key}
 					</div>
 				</div>
 				<div class="paper mt-1">
 					<div>
 						{@render headerContent('Resource Limits & Requests')}
 						<p class="text-sm">
-							Set CPU memory requests and limits in the deployment. See <a
+							Define the CPU and memory requests and limits for pods in every MCP deployment. See
+							the Kubernetes <a
 								href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits"
 								class="text-link"
 								rel="external"
-								target="_blank">here</a
+								target="_blank">resource management documentation</a
 							> for more information.
 						</p>
 					</div>
@@ -191,10 +214,10 @@
 					<h3 class="text-lg font-semibold">CPU Settings</h3>
 					<div class="flex gap-4">
 						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="description">Request</label>
+							<label class="input-label" for="cpu-request">Request</label>
 							<input
 								type="text"
-								id="description"
+								id="cpu-request"
 								bind:value={resourceInfo.requests.cpu}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
@@ -202,10 +225,10 @@
 							/>
 						</div>
 						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="description">Limit</label>
+							<label class="input-label" for="cpu-limit">Limit</label>
 							<input
 								type="text"
-								id="description"
+								id="cpu-limit"
 								bind:value={resourceInfo.limits.cpu}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
@@ -216,10 +239,10 @@
 					<h3 class="text-lg font-semibold">Memory Settings</h3>
 					<div class="flex gap-4">
 						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="description">Request</label>
+							<label class="input-label" for="memory-request">Request</label>
 							<input
 								type="text"
-								id="description"
+								id="memory-request"
 								bind:value={resourceInfo.requests.memory}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
@@ -227,10 +250,10 @@
 							/>
 						</div>
 						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="description">Limit</label>
+							<label class="input-label" for="memory-limit">Limit</label>
 							<input
 								type="text"
-								id="description"
+								id="memory-limit"
 								bind:value={resourceInfo.limits.memory}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}

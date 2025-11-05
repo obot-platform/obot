@@ -91,7 +91,9 @@
 			...foldKeymap,
 			...completionKeymap,
 			...lintKeymap
-		])
+		]),
+		// Add custom class to scope styles
+		CMEditorView.editorAttributes.of({ class: 'markdown-input-editor' })
 	])();
 
 	onMount(() => {
@@ -241,7 +243,7 @@
 
 <style lang="postcss">
 	:global {
-		.cm-editor {
+		.cm-editor.markdown-input-editor {
 			font-size: var(--text-md);
 			background-color: transparent;
 			height: 100%;
@@ -249,21 +251,21 @@
 				display: none;
 			}
 		}
-		.cm-focused {
-			outline-style: none !important;
-		}
-		.cm-scroller {
+		.cm-editor.markdown-input-editor .cm-scroller {
 			height: inherit;
 			-ms-overflow-style: none; /* IE and Edge */
 			scrollbar-width: none; /* Firefox */
 			overflow: unset !important;
 		}
-		.cm-scroller::-webkit-scrollbar {
+		.cm-editor.markdown-input-editor .cm-scroller::-webkit-scrollbar {
 			display: none;
+		}
+		.cm-editor.markdown-input-editor.cm-focused {
+			outline-style: none !important;
 		}
 
 		/* Hide cursor when disabled but keep selection */
-		.disabled .cm-editor .cm-cursor {
+		.disabled .cm-editor.markdown-input-editor .cm-cursor {
 			display: none !important;
 		}
 	}

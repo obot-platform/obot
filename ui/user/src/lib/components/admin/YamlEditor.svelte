@@ -38,9 +38,19 @@
 		disabled?: boolean;
 		placeholder?: string;
 		rows?: number;
+		autoHeight?: boolean;
+		maxHeight?: string;
 	}
 
-	let { value = $bindable(''), class: klass, disabled, placeholder, rows = 6 }: Props = $props();
+	let {
+		value = $bindable(''),
+		class: klass,
+		disabled,
+		placeholder,
+		rows = 6,
+		autoHeight = false,
+		maxHeight
+	}: Props = $props();
 
 	let lastSetValue = '';
 	let focused = $state(false);
@@ -48,7 +58,7 @@
 	let setDarkMode: boolean;
 	let reload: () => void;
 
-	const basicSetup = (() => [
+	const getBasicSetup = () => [
 		lineNumbers(),
 		highlightActiveLineGutter(),
 		highlightSpecialChars(),
@@ -71,8 +81,29 @@
 			...completionKeymap,
 			...lintKeymap
 		]),
-		CMEditorView.lineWrapping
-	])();
+		CMEditorView.lineWrapping,
+		// Add custom class to scope styles
+		CMEditorView.editorAttributes.of({ class: 'yaml-editor' })
+	];
+
+	const getHeightConfig = () => {
+		if (autoHeight) {
+			return [
+				CMEditorView.editorAttributes.of({ class: 'yaml-editor-auto-height' }),
+				CMEditorView.theme({
+					'&': {
+						height: 'auto',
+						minHeight: `${rows * 1.5}rem`
+					},
+					'.cm-scroller': {
+						overflow: 'auto',
+						maxHeight: maxHeight || 'none'
+					}
+				})
+			];
+		}
+		return [];
+	};
 
 	$effect(() => {
 		if (setDarkMode !== darkMode.isDark) {
@@ -118,10 +149,11 @@
 			const newState = CMEditorState.create({
 				doc: state.doc,
 				extensions: [
-					basicSetup,
+					getBasicSetup(),
 					darkMode.isDark ? githubDark : githubLight,
 					updater,
 					yaml(),
+					...getHeightConfig(),
 					...(placeholder ? [cmPlaceholder(placeholder)] : []),
 					disabled ? CMEditorState.readOnly.of(true) : CMEditorState.readOnly.of(false)
 				]
@@ -148,7 +180,9 @@
 		disabled && 'disabled opacity-60',
 		klass
 	)}
-	style="height: {rows * 1.5}rem; min-height: {rows * 1.5}rem;"
+	style={autoHeight
+		? `min-height: ${rows * 1.5}rem;${maxHeight ? ` max-height: ${maxHeight};` : ''}`
+		: `height: ${rows * 1.5}rem; min-height: ${rows * 1.5}rem;`}
 >
 	<div
 		use:cmEditor
@@ -160,13 +194,13 @@
 
 <style lang="postcss">
 	:global {
-		.cm-editor {
+		.cm-editor.yaml-editor:not(.yaml-editor-auto-height) {
 			height: 100% !important;
 		}
-		.cm-scroller {
+		.cm-editor.yaml-editor .cm-scroller {
 			overflow: auto;
 		}
-		.cm-focused {
+		.cm-editor.yaml-editor.cm-focused {
 			outline-style: none !important;
 		}
 	}
