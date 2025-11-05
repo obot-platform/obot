@@ -136,29 +136,6 @@
 							}
 						}}
 					>
-						{#if item.iconURL}
-							<img
-								src={item.iconURL}
-								alt={'username' in item ? item.username : item.name}
-								class="size-10 rounded-full"
-								loading="lazy"
-								onerror={(e) => {
-									const target = e.currentTarget as HTMLImageElement;
-									// Retry after delay or show fallback
-									setTimeout(() => {
-										target.src = item.iconURL ?? '';
-									}, 2000);
-								}}
-							/>
-						{:else if 'name' in item}
-							<div
-								class="flex size-10 items-center justify-center rounded-full bg-blue-500 text-lg font-semibold text-white"
-							>
-								{item.name.charAt(0).toUpperCase()}
-							</div>
-						{:else}
-							<Users class="size-10 rounded-full p-2" />
-						{/if}
 						<div class="flex grow flex-col">
 							{#if 'email' in item}
 								<p>{item.displayName ?? item.email}</p>
