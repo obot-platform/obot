@@ -41,6 +41,7 @@
 		};
 		catalogEntry?: MCPCatalogEntry;
 		readonly?: boolean;
+		compositeParentName?: string;
 	}
 	const {
 		id: entityId,
@@ -51,6 +52,7 @@
 		title,
 		classes,
 		catalogEntry,
+		compositeParentName,
 		entity = 'catalog',
 		readonly
 	}: Props = $props();
@@ -318,6 +320,8 @@
 
 	function getAuditLogUrl(d: (typeof connectedUsers)[number]) {
 		const id = mcpServerId || mcpServerInstanceId;
+
+		if (compositeParentName) return null;
 
 		if (isAdminUrl) {
 			if (!profile.current?.hasAdminAccess?.()) return null;

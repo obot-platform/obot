@@ -20,12 +20,15 @@
 	// Make these reactive to data changes when navigating
 	let catalogEntry = $derived(data.catalogEntry);
 	let mcpServerId = $derived(data.mcpServerId);
+	let compositeParentName = $state<string | undefined>();
 	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? 'Unknown');
 
 	async function fetchUserInfo() {
 		const mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
 		const isSameUser =
 			connectedUsers.length === 1 ? connectedUsers[0].id === mcpServer.userID : false;
+		compositeParentName = mcpServer.compositeName;
+
 		if (mcpServer.userID && !isSameUser) {
 			const user = await AdminService.getUser(mcpServer.userID);
 			connectedUsers = [user];
@@ -64,6 +67,7 @@
 					entity="catalog"
 					entityId={DEFAULT_MCP_CATALOG_ID}
 					{catalogEntry}
+					{compositeParentName}
 				/>
 			{:else if catalogEntry?.manifest.runtime === 'composite'}
 				<McpServerCompositeInfo
@@ -81,6 +85,7 @@
 					{connectedUsers}
 					readonly={profile.current.isAdminReadonly?.()}
 					{catalogEntry}
+					{compositeParentName}
 				/>
 			{/if}
 		{:else}
