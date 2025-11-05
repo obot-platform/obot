@@ -83,10 +83,6 @@
 			saving = false;
 		}
 	}
-
-	$effect(() => {
-		console.log(k8sSettings);
-	});
 </script>
 
 <Layout classes={{ container: 'pb-0' }}>
