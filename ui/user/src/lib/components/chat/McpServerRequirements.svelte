@@ -6,10 +6,15 @@
 	import { onMount, tick } from 'svelte';
 	import { getLayout } from '$lib/context/chatLayout.svelte';
 	import CatalogConfigureForm, {
+		type CompositeLaunchFormData,
 		type LaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
-	import { convertEnvHeadersToRecord } from '$lib/services/chat/mcp';
+	import {
+		convertCompositeInfoToLaunchFormData,
+		convertCompositeLaunchFormDataToPayload,
+		convertEnvHeadersToRecord
+	} from '$lib/services/chat/mcp';
 
 	interface Props {
 		assistantId: string;
@@ -166,11 +171,24 @@
 		const { server, parent } = findServerAndParentByMcpId(req.mcpID);
 		if (!server) return;
 
-		await prepareConfigureForm(server, parent);
+		if (server.manifest?.runtime === 'composite') {
+			await prepareCompositeConfigureForm(server, parent);
+		} else {
+			await prepareConfigureForm(server, parent);
+		}
 		await tick();
 
 		currentConfigReq = req;
 		configDialog?.open();
+	}
+
+	async function prepareCompositeConfigureForm(server: MCPCatalogServer, parent?: MCPCatalogEntry) {
+		configError = '';
+		configuring = false;
+		configName = server.alias || server.manifest?.name || '';
+		configIcon = server.manifest?.icon || '';
+		configServerId = server.id;
+		configureForm = await convertCompositeInfoToLaunchFormData(server, parent);
 	}
 
 	async function prepareConfigureForm(server: MCPCatalogServer, parent?: MCPCatalogEntry) {
@@ -218,15 +236,29 @@
 			) {
 				await ChatService.updateRemoteMcpServerUrl(server.id, configureForm.url.trim());
 			}
-			const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
-			await ChatService.configureSingleOrRemoteMcpServer(server.id, secretValues);
-			configDialog?.close();
-			currentConfigReq = null;
-			try {
-				const refreshed = await ChatService.listProjectMCPs(assistantId, projectId);
-				projectMcps.items = await validateOauthProjectMcps(assistantId, projectId, refreshed, true);
-			} catch {
-				// ignore refresh errors
+
+			if (server.manifest.runtime === 'composite') {
+				const payload = convertCompositeLaunchFormDataToPayload(
+					configureForm as CompositeLaunchFormData
+				);
+				await ChatService.configureCompositeMcpServer(server.id, payload);
+				configDialog?.close();
+			} else {
+				const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
+				await ChatService.configureSingleOrRemoteMcpServer(server.id, secretValues);
+				configDialog?.close();
+				currentConfigReq = null;
+				try {
+					const refreshed = await ChatService.listProjectMCPs(assistantId, projectId);
+					projectMcps.items = await validateOauthProjectMcps(
+						assistantId,
+						projectId,
+						refreshed,
+						true
+					);
+				} catch {
+					// ignore refresh errors
+				}
 			}
 		} catch (error) {
 			configError = error instanceof Error ? error.message : 'Unknown error';

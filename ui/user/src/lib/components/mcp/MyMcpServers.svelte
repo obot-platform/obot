@@ -6,6 +6,8 @@
 		type MCPServerInstance
 	} from '$lib/services';
 	import {
+		convertCompositeInfoToLaunchFormData,
+		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		hasEditableConfiguration,
 		requiresUserUpdate
@@ -649,25 +651,7 @@
 		if (!server.server) return;
 		// Composite flow using CatalogConfigureForm data
 		if ('componentConfigs' in lf) {
-			const payload: Record<
-				string,
-				{ config: Record<string, string>; url?: string; disabled?: boolean }
-			> = {};
-			for (const [id, comp] of Object.entries(lf.componentConfigs)) {
-				const config: Record<string, string> = {};
-				for (const f of [
-					...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
-					...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
-				]) {
-					if (f.value) config[f.key] = f.value;
-				}
-				payload[id] = {
-					config,
-					url: comp.url?.trim() || undefined,
-					disabled: comp.disabled ?? false
-				};
-			}
-
+			const payload = convertCompositeLaunchFormDataToPayload(lf);
 			await ChatService.configureCompositeMcpServer(server.server.id, payload);
 			configDialog?.close();
 			onUpdateConfigure?.();
@@ -727,66 +711,11 @@
 			return;
 		}
 		if (connectedServer.parent?.manifest.runtime === 'composite') {
-			// Prefill composite configs using CatalogConfigureForm
-			let initial: Record<
-				string,
-				{ config: Record<string, string>; url?: string; disabled?: boolean }
-			> = {};
-			try {
-				const revealed = await ChatService.revealCompositeMcpServer(connectedServer.server.id, {
-					dontLogErrors: true
-				});
-				const rc = revealed as unknown as {
-					componentConfigs?: Record<
-						string,
-						{ config: Record<string, string>; url?: string; disabled?: boolean }
-					>;
-				};
-				initial = rc.componentConfigs ?? {};
-			} catch (_error) {
-				initial = {} as Record<
-					string,
-					{ config: Record<string, string>; url?: string; disabled?: boolean }
-				>;
-			}
+			configureForm = await convertCompositeInfoToLaunchFormData(
+				connectedServer.server,
+				connectedServer.parent
+			);
 			selectedEntryOrServer = connectedServer;
-			const components = connectedServer.parent.manifest?.compositeConfig?.componentServers || [];
-			const componentConfigs: Record<
-				string,
-				{
-					name?: string;
-					icon?: string;
-					hostname?: string;
-					url?: string;
-					disabled?: boolean;
-					envs?: Array<Record<string, unknown> & { key: string; value: string }>;
-					headers?: Array<Record<string, unknown> & { key: string; value: string }>;
-				}
-			> = {};
-			for (const c of components) {
-				if (!c.catalogEntryID || !c.manifest) continue;
-				const id = c.catalogEntryID;
-				const m = c.manifest;
-				const init = initial?.[id];
-				componentConfigs[id] = {
-					name: m.name,
-					icon: m.icon,
-					hostname: m.remoteConfig?.hostname,
-					url: init?.url ?? m.remoteConfig?.fixedURL ?? '',
-					disabled: init?.disabled ?? false,
-					envs: (m.env ?? []).map((e) => ({
-						...(e as unknown as Record<string, unknown>),
-						key: e.key,
-						value: init?.config?.[e.key] ?? ''
-					})),
-					headers: (m.remoteConfig?.headers ?? []).map((h) => ({
-						...(h as unknown as Record<string, unknown>),
-						key: h.key,
-						value: init?.config?.[h.key] ?? ''
-					}))
-				};
-			}
-			configureForm = { componentConfigs } as CompositeLaunchFormData;
 			configDialog?.open();
 			return;
 		}

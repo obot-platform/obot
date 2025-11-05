@@ -1,3 +1,4 @@
+import type { CompositeLaunchFormData } from '$lib/components/mcp/CatalogConfigureForm.svelte';
 import type { ConnectedServer } from '$lib/components/mcp/MyMcpServers.svelte';
 import { getUserDisplayName } from '$lib/utils';
 import {
@@ -199,4 +200,93 @@ export function getServerTypeLabelByType(type?: string) {
 			: type === 'remote'
 				? 'Remote'
 				: 'Composite';
+}
+
+export function convertCompositeLaunchFormDataToPayload(lf: CompositeLaunchFormData) {
+	const payload: Record<
+		string,
+		{ config: Record<string, string>; url?: string; disabled?: boolean }
+	> = {};
+	for (const [id, comp] of Object.entries(lf.componentConfigs)) {
+		const config: Record<string, string> = {};
+		for (const f of [
+			...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
+			...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
+		]) {
+			if (f.value) config[f.key] = f.value;
+		}
+		payload[id] = {
+			config,
+			url: comp.url?.trim() || undefined,
+			disabled: comp.disabled ?? false
+		};
+	}
+	return payload;
+}
+
+export async function convertCompositeInfoToLaunchFormData(
+	server: MCPCatalogServer,
+	parent?: MCPCatalogEntry
+) {
+	let initial: Record<
+		string,
+		{ config: Record<string, string>; url?: string; disabled?: boolean }
+	> = {};
+	try {
+		const revealed = await ChatService.revealCompositeMcpServer(server.id, {
+			dontLogErrors: true
+		});
+		const rc = revealed as unknown as {
+			componentConfigs?: Record<
+				string,
+				{ config: Record<string, string>; url?: string; disabled?: boolean }
+			>;
+		};
+		initial = rc.componentConfigs ?? {};
+	} catch (_error) {
+		initial = {} as Record<
+			string,
+			{ config: Record<string, string>; url?: string; disabled?: boolean }
+		>;
+	}
+	const components =
+		(parent && 'manifest' in parent
+			? parent?.manifest?.compositeConfig?.componentServers
+			: server?.manifest?.compositeConfig?.componentServers) || [];
+	const componentConfigs: Record<
+		string,
+		{
+			name?: string;
+			icon?: string;
+			hostname?: string;
+			url?: string;
+			disabled?: boolean;
+			envs?: Array<Record<string, unknown> & { key: string; value: string }>;
+			headers?: Array<Record<string, unknown> & { key: string; value: string }>;
+		}
+	> = {};
+	for (const c of components) {
+		const id = c.catalogEntryID || c.mcpServerID;
+		if (!c.manifest || !id) continue;
+		const m = c.manifest;
+		const init = initial?.[id];
+		componentConfigs[id] = {
+			name: m.name,
+			icon: m.icon,
+			hostname: m.remoteConfig && 'hostname' in m.remoteConfig ? m.remoteConfig.hostname : '',
+			url: init?.url ?? m.remoteConfig?.fixedURL ?? '',
+			disabled: init?.disabled ?? false,
+			envs: (m.env ?? []).map((e) => ({
+				...(e as unknown as Record<string, unknown>),
+				key: e.key,
+				value: init?.config?.[e.key] ?? ''
+			})),
+			headers: (m.remoteConfig?.headers ?? []).map((h) => ({
+				...(h as unknown as Record<string, unknown>),
+				key: h.key,
+				value: init?.config?.[h.key] ?? ''
+			}))
+		};
+	}
+	return { componentConfigs } as CompositeLaunchFormData;
 }
