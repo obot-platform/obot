@@ -16,7 +16,7 @@ Then open your browser to [http://localhost:8080](http://localhost:8080) to acce
 Alternatively, you can also launch Obot with Docker Compose by adding your [custom environment variables](https://docs.obot.ai/configuration/server-configuration) into `docker-compose.yaml` & running:
 
 ```
-docker compose up --build
+docker compose up
 ```
 
 > [!TIP]
