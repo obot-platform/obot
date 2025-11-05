@@ -38,7 +38,7 @@ supplied by `OBOT_BOOTSTRAP_TOKEN`), and all future server launches will use tha
 
 If you want to preconfigure owner or admin users, you can set the `OBOT_SERVER_AUTH_OWNER_EMAILS` or `OBOT_SERVER_AUTH_ADMIN_EMAILS` environment variable, respectively.
 This is a comma-separated list of email addresses that will be granted owner or admin access when they log in,
-regardless of which auth provider they used.
+regardless of which auth provider they used. Email matching is case-insensitive.
 
 Users can be given the administrator role by other owners or admins in the Users section of the UI.
 Users whose email addresses are in configured list will automatically have the administrator role,

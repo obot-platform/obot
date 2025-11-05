@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,11 +29,11 @@ type Client struct {
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int) *Client {
 	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
 	for _, email := range adminEmails {
-		explicitRoleEmailsSet[email] = types2.RoleAdmin
+		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
 	}
 	// If a user is explicitly both an admin and owner, they are an owner.
 	for _, email := range ownerEmails {
-		explicitRoleEmailsSet[email] = types2.RoleOwner
+		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleOwner
 	}
 	c := &Client{
 		db:                     db,
@@ -57,7 +58,7 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) HasExplicitRole(email string) types2.Role {
-	return c.emailsWithExplictRoles[email]
+	return c.emailsWithExplictRoles[strings.ToLower(email)]
 }
 
 // GetExplicitRoleEmails returns a copy of all emails with explicit roles.
