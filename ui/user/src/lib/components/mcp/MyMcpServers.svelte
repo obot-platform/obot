@@ -524,60 +524,20 @@
 	}
 
 	function initConfigureForm(item: Entry) {
-		// For composite servers, build CompositeLaunchFormData for CatalogConfigureForm
-		if (item.manifest?.runtime === 'composite') {
-			const components = item.manifest?.compositeConfig?.componentServers || [];
-			const componentConfigs: Record<
-				string,
-				{
-					name?: string;
-					icon?: string;
-					hostname?: string;
-					url?: string;
-					disabled?: boolean;
-					envs?: Array<Record<string, unknown> & { key: string; value: string }>;
-					headers?: Array<Record<string, unknown> & { key: string; value: string }>;
-				}
-			> = {};
-			for (const c of components) {
-				if (!c.catalogEntryID || !c.manifest) continue;
-				const id = c.catalogEntryID;
-				const m = c.manifest;
-				componentConfigs[id] = {
-					name: m.name,
-					icon: m.icon,
-					hostname: m.remoteConfig?.hostname,
-					url: m.remoteConfig?.fixedURL ?? '',
-					disabled: false,
-					envs: (m.env ?? []).map((e) => ({
-						...(e as unknown as Record<string, unknown>),
-						key: e.key,
-						value: ''
-					})),
-					headers: (m.remoteConfig?.headers ?? []).map((h) => ({
-						...(h as unknown as Record<string, unknown>),
-						key: h.key,
-						value: ''
-					}))
-				};
-			}
-			configureForm = { componentConfigs } as CompositeLaunchFormData;
-		} else {
-			configureForm = {
-				name: '',
-				envs: item.manifest?.env?.map((env) => ({
-					...env,
-					value: ''
-				})),
-				headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
-					...header,
-					value: ''
-				})),
-				...(item.manifest?.remoteConfig?.hostname
-					? { hostname: item.manifest.remoteConfig?.hostname, url: '' }
-					: {})
-			};
-		}
+		configureForm = {
+			name: '',
+			envs: item.manifest?.env?.map((env) => ({
+				...env,
+				value: ''
+			})),
+			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
+				...header,
+				value: ''
+			})),
+			...(item.manifest?.remoteConfig?.hostname
+				? { hostname: item.manifest.remoteConfig?.hostname, url: '' }
+				: {})
+		};
 	}
 
 	function initCompositeForm(entry: Entry) {
@@ -597,8 +557,8 @@
 				}
 			> = {};
 			for (const c of components) {
-				if (!c.catalogEntryID || !c.manifest) continue;
-				const id = c.catalogEntryID;
+				const id = c.catalogEntryID || c.mcpServerID;
+				if (!id || !c.manifest) continue;
 				const m = c.manifest;
 				componentConfigs[id] = {
 					name: m.name,
@@ -1040,11 +1000,11 @@
 						onclick={() => {
 							configureForm = undefined;
 							if ('isCatalogEntry' in item) {
-								if (hasEditableConfiguration(item) || userServerConfigureMap.has(item.id)) {
+								if (hasEditableConfiguration(item) && item.manifest?.runtime === 'composite') {
+									initCompositeForm(item);
+								} else if (hasEditableConfiguration(item) || userServerConfigureMap.has(item.id)) {
 									initConfigureForm(item);
 									configDialog?.open();
-								} else if (item.manifest?.runtime === 'composite') {
-									initCompositeForm(item);
 								} else {
 									handleLaunch();
 								}

@@ -434,17 +434,19 @@
 								{/if}
 							</button>
 						{/if}
-						<button
-							onclick={(e) => {
-								e.stopPropagation();
-								const isCtrlClick = e.ctrlKey || e.metaKey;
-								setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-								openUrl(auditLogsUrl, isCtrlClick);
-							}}
-							class="menu-button"
-						>
-							<Captions class="size-4" /> View Audit Logs
-						</button>
+						{#if !d.compositeName}
+							<button
+								onclick={(e) => {
+									e.stopPropagation();
+									const isCtrlClick = e.ctrlKey || e.metaKey;
+									setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+									openUrl(auditLogsUrl, isCtrlClick);
+								}}
+								class="menu-button"
+							>
+								<Captions class="size-4" /> View Audit Logs
+							</button>
+						{/if}
 						{#if !readonly}
 							<button
 								class="menu-button-destructive"
