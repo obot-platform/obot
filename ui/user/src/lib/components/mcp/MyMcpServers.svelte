@@ -433,12 +433,7 @@
 				manifest
 			});
 
-			const hasAnyConfig = Object.values(payload).some(
-				(v) => Object.keys(v.config || {}).length > 0
-			);
-			if (hasAnyConfig) {
-				await ChatService.configureCompositeMcpServer(created.id, payload);
-			}
+			await ChatService.configureCompositeMcpServer(created.id, payload);
 
 			const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(created.id);
 			if (!launchResponse.success) {
