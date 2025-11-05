@@ -186,15 +186,13 @@
 					</div>
 					<div class="flex flex-col gap-1">
 						<div class="text-sm font-light">Tolerations Configuration</div>
-						{#key k8sSettings.id}
-							<YamlEditor
-								bind:value={k8sSettings.tolerations}
-								disabled={readonly}
-								placeholder=""
-								rows={6}
-								autoHeight
-							/>
-						{/key}
+						<YamlEditor
+							bind:value={k8sSettings.tolerations}
+							disabled={readonly}
+							placeholder=""
+							rows={6}
+							autoHeight
+						/>
 					</div>
 				</div>
 				<div class="paper mt-1">

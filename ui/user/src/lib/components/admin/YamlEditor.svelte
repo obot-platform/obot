@@ -93,10 +93,12 @@
 				CMEditorView.theme({
 					'&': {
 						height: 'auto',
-						minHeight: `${rows * 1.5}rem`
+						minHeight: `${rows * 1.5}rem`,
+						'--yaml-editor-min-height': `${rows * 1.5}rem`
 					},
 					'.cm-scroller': {
 						overflow: 'auto',
+						minHeight: `${rows * 1.5}rem`,
 						maxHeight: maxHeight || 'none'
 					}
 				})
@@ -183,6 +185,19 @@
 	style={autoHeight
 		? `min-height: ${rows * 1.5}rem;${maxHeight ? ` max-height: ${maxHeight};` : ''}`
 		: `height: ${rows * 1.5}rem; min-height: ${rows * 1.5}rem;`}
+	role="textbox"
+	tabindex="-1"
+	onclick={() => {
+		if (cmView && !disabled && !cmView.hasFocus) {
+			cmView.focus();
+		}
+	}}
+	onkeydown={(e) => {
+		if (e.key === 'Enter' && cmView && !disabled && !cmView.hasFocus) {
+			e.preventDefault();
+			cmView.focus();
+		}
+	}}
 >
 	<div
 		use:cmEditor
@@ -202,6 +217,9 @@
 		}
 		.cm-editor.yaml-editor.cm-focused {
 			outline-style: none !important;
+		}
+		.cm-editor.yaml-editor-auto-height .cm-gutters {
+			min-height: var(--yaml-editor-min-height) !important;
 		}
 	}
 </style>
