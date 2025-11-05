@@ -2694,6 +2694,53 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 		return err
 	}
 
+	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
+		var compositeConfig types.CompositeRuntimeConfig
+		if server.Spec.Manifest.CompositeConfig != nil {
+			compositeConfig = *server.Spec.Manifest.CompositeConfig
+		}
+		disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
+		for _, comp := range compositeConfig.ComponentServers {
+			if comp.CatalogEntryID != "" {
+				disabledComponents[comp.CatalogEntryID] = comp.Disabled
+			}
+		}
+
+		// List child component servers
+		var componentServers v1.MCPServerList
+		if err := req.List(&componentServers,
+			kclient.InNamespace(server.Namespace),
+			kclient.MatchingFields{
+				"spec.compositeName": server.Name,
+			},
+		); err != nil {
+			return err
+		}
+
+		// Restart eligible component deployments (non-remote and not disabled)
+		for _, component := range componentServers.Items {
+			if disabledComponents[component.Spec.MCPServerCatalogEntryName] ||
+				component.Spec.Manifest.Runtime == types.RuntimeRemote {
+				continue
+			}
+
+			componentConfig, err := serverConfigForAction(req, component, m.tokenService, m.serverURL)
+			if err != nil {
+				return err
+			}
+
+			if err := m.mcpSessionManager.RestartServerDeployment(req.Context(), componentConfig); err != nil {
+				if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+					return types.NewErrNotFound(nse.Error())
+				}
+				return err
+			}
+		}
+
+		req.WriteHeader(http.StatusNoContent)
+		return nil
+	}
+
 	if serverConfig.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("cannot restart deployment for remote MCP server")
 	}
