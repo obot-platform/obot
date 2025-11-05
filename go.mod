@@ -24,7 +24,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/fatih/color v1.18.0
 	github.com/gen2brain/webp v0.5.4
-	github.com/go-git/go-git/v5 v5.13.2
+	github.com/go-git/go-git/v5 v5.16.3
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
@@ -107,7 +107,7 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/NYTimes/gziphandler v1.1.1 // indirect
-	github.com/ProtonMail/go-crypto v1.1.5 // indirect
+	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/STARRY-S/zip v0.2.1 // indirect
 	github.com/alecthomas/chroma/v2 v2.15.0 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
@@ -148,7 +148,7 @@ require (
 	github.com/charmbracelet/x/exp/golden v0.0.0-20241011142426-46044092ad91 // indirect
 	github.com/charmbracelet/x/term v0.2.1 // indirect
 	github.com/chzyer/readline v1.5.1 // indirect
-	github.com/cloudflare/circl v1.5.0 // indirect
+	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/containerd/console v1.0.4 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
@@ -274,7 +274,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/skeema/knownhosts v1.3.0 // indirect
+	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/sorairolake/lzip-go v0.3.5 // indirect
 	github.com/sourcegraph/go-diff-patch v0.0.0-20240223163233-798fd1e94a8e // indirect
 	github.com/spf13/pflag v1.0.7 // indirect
