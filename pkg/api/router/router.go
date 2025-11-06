@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
@@ -15,8 +16,21 @@ import (
 	"k8s.io/component-base/metrics/legacyregistry"
 )
 
-func Router(services *services.Services) (http.Handler, error) {
+func Router(ctx context.Context, services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
+
+	version, err := handlers.NewVersionHandler(ctx,
+		services.GatewayClient,
+		services.EmailServerName,
+		services.PostgresDSN,
+		services.MCPRuntimeBackend,
+		services.Distribution,
+		services.SupportDocker,
+		services.AuthEnabled,
+		services.ServerUpdateCheckInterval)
+	if err != nil {
+		return nil, err
+	}
 
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient, services.MCPOAuthTokenStorage)
 
@@ -42,7 +56,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	prompt := handlers.NewPromptHandler()
 	emailReceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
-	version := handlers.NewVersionHandler(services.EmailServerName, services.PostgresDSN, services.SupportDocker, services.AuthEnabled)
 	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker)
 	projectShare := handlers.NewProjectShareHandler()
 	templates := handlers.NewTemplateHandler()

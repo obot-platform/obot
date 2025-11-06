@@ -104,6 +104,7 @@ type Config struct {
 	StaticDir                  string   `usage:"The directory to serve static files from"`
 	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
 	DefaultMCPCatalogPath      string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
+	UpdateCheckIntervalMins    int      `usage:"The interval in minutes to check for version updates, <= 0 to disable checker" default:"1440"` // default 24 hours
 	// Sendgrid webhook
 	SendgridWebhookUsername           string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword           string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -177,6 +178,10 @@ type Services struct {
 
 	// Parsed settings from Helm for k8s to pass to controller
 	K8sSettingsFromHelm *v1.K8sSettingsSpec
+
+	ServerUpdateCheckInterval time.Duration
+	MCPRuntimeBackend         string
+	Distribution              string
 }
 
 const (
@@ -229,6 +234,32 @@ func buildLocalK8sConfig() (*rest.Config, error) {
 		kubeconfig = k
 	}
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
+}
+
+// isRunningInKubernetes detects if the application is running inside a Kubernetes cluster
+func isRunningInKubernetes() bool {
+	_, err := rest.InClusterConfig()
+	return err == nil
+}
+
+// isRunningInDocker detects if the application is running inside a Docker container
+func isRunningInDocker() bool {
+	// Check for .dockerenv file (most reliable method)
+	if _, err := os.Stat("/.dockerenv"); err == nil {
+		return true
+	}
+
+	// Check cgroup for docker/containerd patterns
+	if data, err := os.ReadFile("/proc/self/cgroup"); err == nil {
+		content := string(data)
+		if strings.Contains(content, "docker") ||
+			strings.Contains(content, "containerd") ||
+			strings.Contains(content, "/kubepods/") {
+			return true
+		}
+	}
+
+	return false
 }
 
 // unmarshalJSONStrict unmarshals JSON with strict validation that rejects unknown fields
@@ -778,11 +809,22 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			CodeChallengeMethodsSupported:     []string{"S256", "plain"},
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 		},
-		AccessControlRuleHelper: acrHelper,
-		WebhookHelper:           mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer()),
-		LocalK8sConfig:          localK8sConfig,
-		MCPServerNamespace:      config.MCPNamespace,
-		K8sSettingsFromHelm:     helmK8sSettings,
+		AccessControlRuleHelper:   acrHelper,
+		WebhookHelper:             mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer()),
+		LocalK8sConfig:            localK8sConfig,
+		MCPServerNamespace:        config.MCPNamespace,
+		K8sSettingsFromHelm:       helmK8sSettings,
+		ServerUpdateCheckInterval: time.Duration(config.UpdateCheckIntervalMins) * time.Minute,
+		Distribution: func() string {
+			if isRunningInKubernetes() {
+				return "kubernetes"
+			}
+			if isRunningInDocker() {
+				return "docker"
+			}
+			return "local"
+		}(),
+		MCPRuntimeBackend: config.MCPRuntimeBackend,
 	}, nil
 }
 
