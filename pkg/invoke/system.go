@@ -64,7 +64,7 @@ func (i *Invoker) EphemeralThreadTask(ctx context.Context, thread *v1.Thread, to
 					Env:    agent.Spec.Manifest.Env,
 				},
 			},
-		}, i.serverURL, render.AgentOptions{
+		}, i.serverURL, i.internalServerURL, render.AgentOptions{
 			Thread: thread,
 		})
 		if err != nil {

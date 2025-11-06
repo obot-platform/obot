@@ -20,7 +20,7 @@ func Router(services *services.Services) (http.Handler, error) {
 
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient, services.MCPOAuthTokenStorage)
 
-	agents := handlers.NewAgentHandler(services.EphemeralTokenServer, services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.ServerURL)
+	agents := handlers.NewAgentHandler(services.EphemeralTokenServer, services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.ServerURL, services.HTTPPort)
 	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.Invoker, services.Events, services.Router.Backend())
 	tools := handlers.NewToolHandler(services.Invoker)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events)
