@@ -61,6 +61,7 @@ func (in *MCPServerInstance) FieldNames() []string {
 func (in *MCPServerInstance) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: &MCPServer{}, Name: in.Spec.MCPServerName},
+		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 	}
 }
