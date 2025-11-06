@@ -99,6 +99,7 @@
 	let selectedManifest = $derived(getManifest(selectedEntryOrServer));
 	let search = $state('');
 	let saving = $state(false);
+	let updating = $state(false);
 	let error = $state<string>();
 
 	let launching = $state(false);
@@ -265,12 +266,7 @@
 		});
 	}
 
-	async function handleLaunchCatalogEntry(entry: Entry, _retryingServer?: MCPCatalogServer) {
-		if (!entry.manifest) {
-			console.error('No server manifest found');
-			return;
-		}
-
+	function initUpdatingOrLaunchProgress(existing?: boolean) {
 		if (launchLogsEventStream) {
 			// reset launch logs
 			launchLogsEventStream.disconnect();
@@ -280,7 +276,11 @@
 
 		launchError = undefined;
 		launchProgress = 0;
-		launching = true;
+		if (existing) {
+			updating = true;
+		} else {
+			launching = true;
+		}
 
 		let timeout1 = setTimeout(() => {
 			launchProgress = 10;
@@ -294,6 +294,16 @@
 			launchProgress = 80;
 		}, 10000);
 
+		return { timeout1, timeout2, timeout3 };
+	}
+
+	async function handleLaunchCatalogEntry(entry: Entry, _retryingServer?: MCPCatalogServer) {
+		if (!entry.manifest) {
+			console.error('No server manifest found');
+			return;
+		}
+
+		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
 		const url =
 			entry.manifest.runtime === 'remote'
 				? (
@@ -602,9 +612,6 @@
 			...selectedEntryOrServer,
 			server: updatedServer
 		} as ConnectedServer;
-
-		configDialog?.close();
-		onUpdateConfigure?.();
 	}
 
 	async function updateExistingComposite(lf: CompositeLaunchFormData, server: ConnectedServer) {
@@ -613,9 +620,6 @@
 		if ('componentConfigs' in lf) {
 			const payload = convertCompositeLaunchFormDataToPayload(lf);
 			await ChatService.configureCompositeMcpServer(server.server.id, payload);
-			configDialog?.close();
-			onUpdateConfigure?.();
-			return;
 		}
 	}
 
@@ -637,6 +641,8 @@
 
 		try {
 			if ('server' in selectedEntryOrServer && selectedEntryOrServer.server?.id) {
+				configDialog?.close();
+				const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress(true);
 				// updating existing
 				if (selectedEntryOrServer.parent?.manifest.runtime === 'composite') {
 					const lf = configureForm as CompositeLaunchFormData;
@@ -645,6 +651,15 @@
 					const lf = configureForm as LaunchFormData;
 					await updateExistingRemoteOrSingleUser(lf, selectedEntryOrServer);
 				}
+				launchProgress = 100;
+				clearTimeout(timeout1);
+				clearTimeout(timeout2);
+				clearTimeout(timeout3);
+				onUpdateConfigure?.();
+
+				setTimeout(() => {
+					updating = false;
+				}, 1000);
 			} else {
 				// launching new
 				configDialog?.close();
@@ -887,8 +902,8 @@
 
 <PageLoading
 	isProgressBar
-	show={launching}
-	text="Configuring and initializing server..."
+	show={launching || updating}
+	text={updating ? 'Updating server...' : 'Configuring and initializing server...'}
 	progress={launchProgress}
 	error={launchError}
 	errorClasses={{
