@@ -115,6 +115,11 @@
 
 	async function handleConfigureToolsInit() {
 		if (!configuringEntry) return;
+
+		if (presetConfiguringEntry) {
+			initConfigureToolsDialog?.close();
+		}
+
 		if ('isCatalogEntry' in configuringEntry && hasEditableConfiguration(configuringEntry)) {
 			choiceDialog?.close();
 			initConfigureForm(configuringEntry);
@@ -284,9 +289,6 @@
 	class="md:w-sm"
 	onClose={() => {
 		listeningOauthVisibility = false;
-		if (configuringEntry) {
-			onCancel?.();
-		}
 	}}
 >
 	{#if configuringEntry}
@@ -305,8 +307,7 @@
 						</p>
 					{:else if oauthURL}
 						<p>
-							In order to request tools from the server, some OAuth authentication is required
-							first.
+							In order to request tools from the server, OAuth authentication is required first.
 						</p>
 						<p class="mt-2">
 							<b>Note:</b> This will only be used to fetch the tools for this server; end users would
@@ -392,10 +393,18 @@
 		if (configuringEntry) {
 			onCancel?.();
 		}
+		configDialog?.close();
 	}}
 	{loading}
 	error={undefined}
 	isNew
 	disableOutsideClick
 	animate="slide"
-/>
+>
+	{#snippet loadingContent()}
+		<div class="mb-8 flex items-center justify-center gap-1">
+			<LoaderCircle class="size-4 animate-spin text-gray-500" />
+			<p class="text-sm font-light text-gray-500">Fetching tools...</p>
+		</div>
+	{/snippet}
+</CatalogConfigureForm>

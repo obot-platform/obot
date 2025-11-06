@@ -10,8 +10,6 @@
 	import { page } from '$app/state';
 	import McpServerRemoteInfo from '$lib/components/admin/McpServerRemoteInfo.svelte';
 	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
-	import { onNavigate } from '$app/navigation';
-	import { onMount } from 'svelte';
 
 	let { data } = $props();
 	const duration = PAGE_TRANSITION_DURATION;
@@ -20,25 +18,22 @@
 	// Make these reactive to data changes when navigating
 	let catalogEntry = $derived(data.catalogEntry);
 	let mcpServerId = $derived(data.mcpServerId);
+	let compositeParentName = $state<string | undefined>();
 	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? 'Unknown');
 
 	async function fetchUserInfo() {
 		const mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
 		const isSameUser =
 			connectedUsers.length === 1 ? connectedUsers[0].id === mcpServer.userID : false;
+		compositeParentName = mcpServer.compositeName;
+
 		if (mcpServer.userID && !isSameUser) {
 			const user = await AdminService.getUser(mcpServer.userID);
 			connectedUsers = [user];
 		}
 	}
 
-	onMount(() => {
-		if (mcpServerId) {
-			fetchUserInfo();
-		}
-	});
-
-	onNavigate(() => {
+	$effect(() => {
 		if (mcpServerId) {
 			fetchUserInfo();
 		}
@@ -64,6 +59,7 @@
 					entity="catalog"
 					entityId={DEFAULT_MCP_CATALOG_ID}
 					{catalogEntry}
+					{compositeParentName}
 				/>
 			{:else if catalogEntry?.manifest.runtime === 'composite'}
 				<McpServerCompositeInfo
@@ -81,6 +77,7 @@
 					{connectedUsers}
 					readonly={profile.current.isAdminReadonly?.()}
 					{catalogEntry}
+					{compositeParentName}
 				/>
 			{/if}
 		{:else}

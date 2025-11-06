@@ -24,10 +24,19 @@
 		};
 		name: string;
 		connectedUsers: OrgUser[];
+		compositeParentName?: string;
 	}
 
-	let { name, connectedUsers, classes, entity, entityId, catalogEntry, mcpServerId }: Props =
-		$props();
+	let {
+		name,
+		connectedUsers,
+		classes,
+		entity,
+		entityId,
+		catalogEntry,
+		mcpServerId,
+		compositeParentName
+	}: Props = $props();
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 	let mcpServer = $state<MCPCatalogServer>();
 	let revealedInfo = $state<Record<string, string>>({});
@@ -71,6 +80,7 @@
 
 	function getAuditLogUrl(d: OrgUser) {
 		if (!catalogEntry?.id) return null;
+		if (compositeParentName) return null;
 		if (isAdminUrl) {
 			if (!profile.current?.hasAdminAccess?.()) return null;
 			return entity === 'workspace'
