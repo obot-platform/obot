@@ -182,7 +182,7 @@
 		configDialog?.open();
 	}
 
-	async function prepareCompositeConfigureForm(server: MCPCatalogServer, parent?: MCPCatalogEntry) {
+	async function prepareCompositeConfigureForm(server: MCPCatalogServer) {
 		configError = '';
 		configuring = false;
 		configName = server.alias || server.manifest?.name || '';
