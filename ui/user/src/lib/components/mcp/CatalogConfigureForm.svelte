@@ -370,6 +370,7 @@
 														error={highlightRequired}
 														name={env.name}
 														bind:value={comp.envs[i].value}
+														disabled={form.componentConfigs[compId].disabled}
 														textarea={env.file}
 														growable
 													/>
@@ -377,6 +378,7 @@
 													<textarea
 														id={`${compId}-${env.key}`}
 														bind:value={comp.envs[i].value}
+														disabled={form.componentConfigs[compId].disabled}
 														class={twMerge(
 															'text-input-filled h-32 resize-y whitespace-pre-wrap',
 															highlightRequired &&
@@ -390,6 +392,7 @@
 														type="text"
 														id={`${compId}-${env.key}`}
 														bind:value={comp.envs[i].value}
+														disabled={form.componentConfigs[compId].disabled}
 														class={twMerge(
 															'text-input-filled',
 															highlightRequired &&
@@ -423,6 +426,7 @@
 													<SensitiveInput
 														name={header.name}
 														bind:value={comp.headers[i].value}
+														disabled={form.componentConfigs[compId].disabled}
 														error={highlightRequired}
 													/>
 												{:else}
@@ -430,6 +434,7 @@
 														type="text"
 														id={`${compId}-${header.key}`}
 														bind:value={comp.headers[i].value}
+														disabled={form.componentConfigs[compId].disabled}
 														class={twMerge(
 															'text-input-filled',
 															highlightRequired &&
@@ -447,6 +452,7 @@
 											type="text"
 											id={`${compId}-url`}
 											bind:value={comp.url}
+											disabled={form.componentConfigs[compId].disabled}
 											class="text-input-filled"
 										/>
 										<span class="font-light text-gray-400 dark:text-gray-600">
