@@ -120,6 +120,7 @@ type Services struct {
 	ToolRegistryURLs           []string
 	WorkspaceProviderType      string
 	ServerURL                  string
+	HTTPPort                   int
 	EmailServerName            string
 	DevUIPort                  int
 	UserUIPort                 int
@@ -670,6 +671,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	return &Services{
 		WorkspaceProviderType: config.WorkspaceProviderType,
 		ServerURL:             config.Hostname,
+		HTTPPort:              config.HTTPListenPort,
 		DevUIPort:             devPort,
 		UserUIPort:            config.UserUIPort,
 		ToolRegistryURLs:      config.ToolRegistries,
