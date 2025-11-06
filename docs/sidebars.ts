@@ -62,13 +62,13 @@ const sidebars = {
         "configuration/auth-providers",
         "configuration/model-providers",
         "configuration/workspace-provider",
-        "configuration/audit-log-export",
         {
           type: "category",
           label: "Advanced Configuration",
           items: [
             "configuration/oauth-configuration",
             "configuration/mcp-deployments-in-kubernetes",
+            "configuration/audit-log-export",
           ],
         },
         {
