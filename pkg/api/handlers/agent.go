@@ -34,12 +34,14 @@ type AgentHandler struct {
 	mcpSessionManager *mcp.SessionManager
 	invoker           *invoke.Invoker
 	dispatcher        *dispatcher.Dispatcher
+	internalServerURL string
 	serverURL         string
 }
 
-func NewAgentHandler(tokenService *ephemeral.TokenService, dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, serverURL string) *AgentHandler {
+func NewAgentHandler(tokenService *ephemeral.TokenService, dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, serverURL string, port int) *AgentHandler {
 	return &AgentHandler{
 		serverURL:         serverURL,
+		internalServerURL: fmt.Sprintf("http://localhost:%d", port),
 		invoker:           invoker,
 		dispatcher:        dispatcher,
 		tokenService:      tokenService,
@@ -819,7 +821,7 @@ func (a *AgentHandler) Script(req api.Context) error {
 		}
 	}
 
-	renderedAgent, err := render.Agent(req.Context(), a.tokenService, a.mcpSessionManager, req.Storage, &agent, a.serverURL, render.AgentOptions{
+	renderedAgent, err := render.Agent(req.Context(), a.tokenService, a.mcpSessionManager, req.Storage, &agent, a.serverURL, a.internalServerURL, render.AgentOptions{
 		Thread: thread,
 		UserID: req.User.GetUID(),
 	})
