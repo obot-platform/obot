@@ -87,11 +87,15 @@ Under Supported account types, ensure `Accounts in this organizational directory
 
 After completing the form, click Register.
 
-Next, go to the API permissions tab and add the following delegated permissions:
+Next, go to the API permissions tab and add the following **delegated** permissions:
 
 - `User.Read`
-- `GroupMember.Read.All` *requires admin approval*
 - `ProfilePhoto.Read.All` *requires admin approval*
+
+Then add the following **application** permissions:
+
+- `GroupMember.Read.All` *requires admin approval*
+- `User.Read.All` *requires admin approval*
 
 After all permissions are approved, your App's Configured permissions section should look something like this:
 
