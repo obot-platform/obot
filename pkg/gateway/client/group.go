@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -28,8 +27,7 @@ const (
 // It queries the auth provider for "live" group search from the auth provider, then combines the
 // results with cached groups from the database.
 // This allows admins to discover groups that authenticated users belong to for auth providers
-// limited group search capabilities; e.g. there's not an effective way to perform a fuzzy search for
-// GitHub teams or orgs by name.
+// limited group search capabilities.
 func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName, nameFilter string) ([]types.Group, error) {
 	// Fetch groups from the auth provider
 	var providerGroups []auth.GroupInfo
@@ -147,8 +145,6 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 		identity.AuthProviderGroups = groups
 		return nil
 	}
-
-	fmt.Printf("obot: fetching groups for user from auth provider\n")
 
 	// Fetch groups from the auth provider
 	providerGroups, err := c.fetchGroups(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName, identity.Email)
@@ -298,19 +294,8 @@ func (*Client) fetchGroups(ctx context.Context, authProviderURL, authProviderNam
 			defer resp.Body.Close()
 			if resp.StatusCode == http.StatusOK {
 				_ = json.NewDecoder(resp.Body).Decode(&providerGroups)
-			} else {
-				fmt.Printf("obot: got status: %d\n", resp.StatusCode)
-				var body []byte
-				body, err = ioutil.ReadAll(resp.Body)
-				if err == nil {
-					fmt.Printf("obot: got body: %s\n", string(body))
-				}
 			}
-		} else {
-			fmt.Printf("failed to fetch groups: %s\n", err)
 		}
-	} else {
-		fmt.Printf("obot: failed to fetch groups: %s\n", err)
 	}
 
 	var userGroups []types.Group
