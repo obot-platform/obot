@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -90,17 +91,29 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 	}
 
 	if oauthAuthRequestID != "" {
-		// All pending second level OAuth requests are complete, so produce a new authorization code and redirect back to the first-level client redirect. Complete first level OAuth by redirecting to the first level client URL.
+		// All pending second level OAuth requests are complete, so produce a new authorization code and return redirect URL as JSON for client-side redirect.
 		code := strings.ToLower(rand.Text() + rand.Text())
 		authRequest.Spec.HashedAuthCode = fmt.Sprintf("%x", sha256.Sum256([]byte(code)))
 		if err := req.Update(&authRequest); err != nil {
-			redirectWithAuthorizeError(req, authRequest.Spec.RedirectURI, Error{
+			redirectErr := Error{
 				Code:        ErrServerError,
 				Description: err.Error(),
+			}
+			return req.Write(map[string]string{
+				"redirect_uri": authRequest.Spec.RedirectURI + "?" + redirectErr.toQuery().Encode(),
 			})
-			return nil
 		}
-		redirectWithAuthorizeResponse(req, authRequest, code)
+
+		// Return redirect URL as JSON instead of performing server-side redirect
+		// This avoids CORS issues when called from JavaScript fetch
+		q := url.Values{
+			"code":  {code},
+			"state": {authRequest.Spec.State},
+		}
+		redirectURL := authRequest.Spec.RedirectURI + "?" + q.Encode()
+		return req.Write(map[string]string{
+			"redirect_uri": redirectURL,
+		})
 	}
 
 	return req.Write(pending)
