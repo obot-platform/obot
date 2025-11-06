@@ -172,7 +172,7 @@
 		if (!server) return;
 
 		if (server.manifest?.runtime === 'composite') {
-			await prepareCompositeConfigureForm(server, parent);
+			await prepareCompositeConfigureForm(server);
 		} else {
 			await prepareConfigureForm(server, parent);
 		}
