@@ -1212,7 +1212,7 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 
 	oldManifests := make(map[string]string, len(compositeConfig.ComponentServers))
 	for _, component := range compositeConfig.ComponentServers {
-		id, err := compositeComponentID(component)
+		id, err := h.compositeComponentID(component)
 		if err != nil {
 			return err
 		}
@@ -1232,7 +1232,7 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 		for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
 			var (
 				component = &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
-				id, err   = compositeComponentID(*component)
+				id, err   = h.compositeComponentID(*component)
 			)
 			if err != nil {
 				return err
@@ -1259,7 +1259,7 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	return req.Write(convertMCPServerCatalogEntry(entry))
 }
 
-func compositeComponentID(component types.CatalogComponentServer) (string, error) {
+func (*MCPCatalogHandler) compositeComponentID(component types.CatalogComponentServer) (string, error) {
 	if component.CatalogEntryID != "" {
 		return component.CatalogEntryID, nil
 	}
