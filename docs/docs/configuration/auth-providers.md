@@ -121,15 +121,22 @@ You can now return to Obot and finish configuring Entra. Use the table below to 
 
 ### Okta (Enterprise Only)
 
-Create an OAuth app in Okta following these [instructions](https://developer.okta.com/docs/guides/implement-oauth-for-okta/main/#create-an-oauth-2-0-app-in-okta).
+::note
+Only the org-level authorization server is supported (no custom authorization servers).
+:::
 
-Once your app is created, go to the Sign On tab and scroll to the OpenID Connect ID Token section. Click on Edit.
-Then, set the Group Claims Type to `Filter`, and the Groups Claim Filter to `groups Matches regex .*`. It should look like this:
+Create an OAuth app of type `OIDC` in Okta following these [instructions](https://developer.okta.com/docs/guides/implement-oauth-for-okta/main/#create-an-oauth-2-0-app-in-okta).
 
-![screenshot of Okta groups claim settings](/img/okta-group-claims.png)
+Take note of the Client ID and Client Secret. You will need to provide these to Obot.
 
-Next, click on the Okta API Scopes tab. Scroll down and find `okta.groups.read`, then click the `✓ Grant` button.
+Next, create another OAuth app, this time of type `API Services`. Grant it the API scopes `okta.users.read` and `okta.groups.read`.
+Assign an administrator role to this app that has, at a minimum, `okta.users.read` and `okta.groups.read` permissions.
+You can use an existing administrator role (such as Read-Only Administrator), or create a custom one.
 
-When configuring the Okta auth provider in Obot, be sure to set the Issuer URL to the Issuer URL for your org-level authorization server.
-Obot does not work with custom authorization servers in Okta, because they are unable to support the `okta.groups.read` scope.
-Typically, the Issuer URL for your org-level authorization server is simply the URL for your Okta workspace itself, with no path.
+Next, change the client authentication method on your API Services app from `Client secret` to `Public key / Private key`.
+Then, add a new key to your app. Ensure that your app has only one key in total. You can generate the key on your own,
+or have Okta do it for you. Make sure you save the private key in PEM format, as you will need to provide that to Obot,
+in addition to the Client ID for this app. When you are done with that, the `Client Credentials` section should look similar to this:
+
+![Okta API Services App Client Credentials configuration](/img/okta-client-credentials.png)
+
