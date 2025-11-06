@@ -1757,7 +1757,11 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	parentComps := map[string]int{}
 	if compositeServer.Spec.Manifest.CompositeConfig != nil {
 		for i, comp := range compositeServer.Spec.Manifest.CompositeConfig.ComponentServers {
-			parentComps[comp.CatalogEntryID] = i
+			id, err := m.compositeComponentID(comp)
+			if err != nil {
+				return err
+			}
+			parentComps[id] = i
 		}
 	}
 
@@ -1830,6 +1834,18 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 			Env:      componentConfig.Config,
 		}); err != nil {
 			return fmt.Errorf("failed to create credential for component %s: %w", component.Name, err)
+		}
+	}
+
+	// Apply disabled toggles for multi-user components (keyed by MCPServerID)
+	if compositeServer.Spec.Manifest.CompositeConfig != nil {
+		for key, cfg := range configRequest.ComponentConfigs {
+			if idx, ok := parentComps[key]; ok {
+				comp := &compositeServer.Spec.Manifest.CompositeConfig.ComponentServers[idx]
+				if comp.MCPServerID == key {
+					comp.Disabled = cfg.Disabled
+				}
+			}
 		}
 	}
 
@@ -2019,14 +2035,20 @@ func (m *MCPHandler) revealCompositeServer(req api.Context, compositeServer v1.M
 	// Build disabled set from parent composite
 	disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
 	for _, comp := range compositeConfig.ComponentServers {
-		disabledComponents[comp.CatalogEntryID] = comp.Disabled
+		id, err := m.compositeComponentID(comp)
+		if err != nil {
+			return err
+		}
+
+		disabledComponents[id] = comp.Disabled
 	}
 
-	result := map[string]struct {
+	type componentConfig struct {
 		Config   map[string]string `json:"config"`
 		URL      string            `json:"url"`
 		Disabled bool              `json:"disabled"`
-	}{}
+	}
+	result := make(map[string]componentConfig, len(disabledComponents))
 
 	// For each component, reveal its credential context and URL
 	for _, component := range componentServers.Items {
@@ -2049,14 +2071,20 @@ func (m *MCPHandler) revealCompositeServer(req api.Context, compositeServer v1.M
 		}
 
 		catalogEntryID := component.Spec.MCPServerCatalogEntryName
-		result[catalogEntryID] = struct {
-			Config   map[string]string `json:"config"`
-			URL      string            `json:"url"`
-			Disabled bool              `json:"disabled"`
-		}{
+		result[catalogEntryID] = componentConfig{
 			Config:   cfg,
 			URL:      url,
 			Disabled: disabledComponents[catalogEntryID],
+		}
+	}
+
+	// Include any components present only in the disabled set (e.g., multi-user components keyed by MCPServerID)
+	for key, disabled := range disabledComponents {
+		if _, exists := result[key]; exists {
+			continue
+		}
+		result[key] = componentConfig{
+			Disabled: disabled,
 		}
 	}
 
@@ -3655,4 +3683,14 @@ func (m *MCPHandler) ListServerInstances(req api.Context) error {
 	return req.Write(types.MCPServerInstanceList{
 		Items: convertedInstances,
 	})
+}
+
+func (*MCPHandler) compositeComponentID(component types.ComponentServer) (string, error) {
+	if component.CatalogEntryID != "" {
+		return component.CatalogEntryID, nil
+	}
+	if component.MCPServerID != "" {
+		return component.MCPServerID, nil
+	}
+	return "", fmt.Errorf("component has no ID")
 }
