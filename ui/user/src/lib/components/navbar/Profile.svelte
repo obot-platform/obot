@@ -240,8 +240,7 @@
 							rel="external"
 							target="_blank"
 							class="text-link"
-							href="https://github.com/obot-platform/obot/releases/tag/v0.12.0"
-							>latest release notes.</a
+							href="https://github.com/obot-platform/obot/releases/latest">latest release notes.</a
 						>
 					</p>
 				</div>
