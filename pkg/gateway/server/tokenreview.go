@@ -34,7 +34,7 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 		return nil, false, err
 	}
 
-	if err := populateContext(req, g.dispatcher, namespace, name, providerUserID); err != nil {
+	if err := populateContext(req, g.dispatcher, namespace, name); err != nil {
 		return nil, false, err
 	}
 
@@ -52,7 +52,7 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 	}, true, nil
 }
 
-func populateContext(req *http.Request, dispatcher *dispatcher.Dispatcher, namespace, name, providerUserID string) error {
+func populateContext(req *http.Request, dispatcher *dispatcher.Dispatcher, namespace, name string) error {
 	providerURL, err := dispatcher.URLForAuthProvider(req.Context(), namespace, name)
 	if err != nil {
 		return err
