@@ -19,6 +19,7 @@
 		initMcpServerAndEntries
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService } from '$lib/services/index.js';
+	import { parseErrorContent } from '$lib/errors';
 
 	initMcpServerAndEntries();
 
@@ -72,7 +73,8 @@
 						// Multi-user component
 						const server = await AdminService.getMCPCatalogServer(
 							DEFAULT_MCP_CATALOG_ID,
-							component.mcpServerID
+							component.mcpServerID,
+							{ dontLogErrors: true }
 						);
 						currentManifest = server.manifest;
 						componentName = server.manifest.name ?? component.mcpServerID ?? 'Unnamed Component';
@@ -81,7 +83,8 @@
 						// Catalog entry component
 						const currentEntry = await AdminService.getMCPCatalogEntry(
 							DEFAULT_MCP_CATALOG_ID,
-							component.catalogEntryID!
+							component.catalogEntryID!,
+							{ dontLogErrors: true }
 						);
 						currentManifest = currentEntry.manifest;
 						componentName =
@@ -102,8 +105,26 @@
 						});
 					}
 				} catch (error) {
-					// If we can't fetch the entry, it might have been deleted
-					console.warn(`Could not fetch component:`, error);
+					const { status } = parseErrorContent(error);
+					if (status === 404) {
+						const componentName =
+							component.manifest?.name ??
+							component.catalogEntryID ??
+							component.mcpServerID ??
+							'Unnamed Component';
+						const componentType = component.mcpServerID ? 'Multi-User Server' : 'Catalog Entry';
+						// Treat missing parent as empty manifest for diffing (indicates removal)
+						diffs.push({
+							id: component.catalogEntryID ?? component.mcpServerID ?? componentName,
+							name: componentName,
+							type: componentType,
+							oldManifest: component.manifest,
+							newManifest: undefined
+						});
+					} else {
+						// If we can't fetch the entry, it might have been deleted or another error occurred
+						console.warn(`Could not fetch component:`, error);
+					}
 				}
 			}
 
@@ -226,26 +247,37 @@
 						<div class="border-border/50 bg-secondary/20 rounded border p-3">
 							<div class="flex items-start justify-between">
 								<div class="flex-1">
-									<p class="mb-2 font-medium">{diff.name}</p>
+									<p class="mb-2 font-medium">
+										{diff.name}
+										{#if !diff.newManifest}
+											<span
+												class="ml-2 rounded bg-red-500/10 px-2 py-0.5 text-xs font-normal text-red-500"
+											>
+												Removed
+											</span>
+										{/if}
+									</p>
 									<p class="text-muted-foreground mb-1 text-xs">{diff.type}</p>
 									<p class="text-muted-foreground font-mono text-xs">{diff.id}</p>
 								</div>
-								<button
-									type="button"
-									class="flex items-center gap-1.5 rounded px-3 py-1.5 text-xs text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
-									onclick={() => {
-										selectedDiff = {
-											id: diff.id,
-											name: diff.name,
-											oldManifest: diff.oldManifest,
-											newManifest: diff.newManifest
-										};
-										diffDialog?.open();
-									}}
-								>
-									<GitCompare class="size-3.5" />
-									View Diff
-								</button>
+								{#if diff.newManifest}
+									<button
+										type="button"
+										class="flex items-center gap-1.5 rounded px-3 py-1.5 text-xs text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
+										onclick={() => {
+											selectedDiff = {
+												id: diff.id,
+												name: diff.name,
+												oldManifest: diff.oldManifest,
+												newManifest: diff.newManifest
+											};
+											diffDialog?.open();
+										}}
+									>
+										<GitCompare class="size-3.5" />
+										View Diff
+									</button>
+								{/if}
 							</div>
 						</div>
 					{/each}
