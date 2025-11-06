@@ -10,8 +10,6 @@
 	import { page } from '$app/state';
 	import McpServerRemoteInfo from '$lib/components/admin/McpServerRemoteInfo.svelte';
 	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
-	import { onNavigate } from '$app/navigation';
-	import { onMount } from 'svelte';
 
 	let { data } = $props();
 	const duration = PAGE_TRANSITION_DURATION;
@@ -35,13 +33,7 @@
 		}
 	}
 
-	onMount(() => {
-		if (mcpServerId) {
-			fetchUserInfo();
-		}
-	});
-
-	onNavigate(() => {
+	$effect(() => {
 		if (mcpServerId) {
 			fetchUserInfo();
 		}
