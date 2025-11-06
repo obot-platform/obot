@@ -65,8 +65,6 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
-	originalUserRole := user.Role
-
 	// Check if the user has an explicit role from environment variables
 	explicitRole := req.GatewayClient.HasExplicitRole(user.Email)
 
