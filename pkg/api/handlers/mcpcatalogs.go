@@ -20,6 +20,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -1050,6 +1051,7 @@ func normalizeMCPCatalogEntryName(name string) string {
 
 func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest *types.MCPServerCatalogEntryManifest, catalogName, workspaceID string) error {
 	// For each component server, fetch its catalog entry and populate the manifest
+	var componentServers []types.CatalogComponentServer
 	for i := range manifest.CompositeConfig.ComponentServers {
 		var (
 			component                    = &manifest.CompositeConfig.ComponentServers[i]
@@ -1067,6 +1069,10 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 			// Multi-user server component
 			var server v1.MCPServer
 			if err := req.Get(&server, component.MCPServerID); err != nil {
+				if apierrors.IsNotFound(err) {
+					// Skip components referencing servers that no longer exist
+					continue
+				}
 				return types.NewErrBadRequest("failed to get multi-user server %s: %v", component.MCPServerID, err)
 			}
 
@@ -1082,10 +1088,16 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 
 			// Populate the manifest snapshot from the multi-user server
 			component.Manifest = convertServerManifestToCatalogManifest(server.Spec.Manifest)
+			// Keep this component
+			componentServers = append(componentServers, *component)
 		} else {
 			// Catalog entry component
 			var entry v1.MCPServerCatalogEntry
 			if err := req.Get(&entry, component.CatalogEntryID); err != nil {
+				if apierrors.IsNotFound(err) {
+					// Skip components referencing catalog entries that no longer exist
+					continue
+				}
 				return types.NewErrBadRequest("failed to get component catalog entry %s: %v", component.CatalogEntryID, err)
 			}
 
@@ -1099,8 +1111,13 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 
 			// Populate the manifest
 			component.Manifest = entry.Spec.Manifest
+			// Keep this component
+			componentServers = append(componentServers, *component)
 		}
 	}
+
+	// Replace with filtered component list
+	manifest.CompositeConfig.ComponentServers = componentServers
 
 	return nil
 }
@@ -1188,29 +1205,49 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 
 	// Store old manifests to compare for changes
-	var (
-		componentServers = entry.Spec.Manifest.CompositeConfig.ComponentServers
-		oldManifests     = make(map[int]string, len(componentServers))
-	)
-	for i, component := range componentServers {
-		oldManifests[i] = hash.Digest(component.Manifest)
+	var compositeConfig types.CompositeCatalogConfig
+	if config := entry.Spec.Manifest.CompositeConfig; config != nil {
+		compositeConfig = *config
+	}
+
+	oldManifests := make(map[string]string, len(compositeConfig.ComponentServers))
+	for _, component := range compositeConfig.ComponentServers {
+		id, err := compositeComponentID(component)
+		if err != nil {
+			return err
+		}
+
+		oldManifests[id] = hash.Digest(component.Manifest)
 	}
 
 	// Refresh component manifests from their current sources
+	// This will populate the entry.Spec.Manifest.CompositeConfig.ComponentServers with the current manifests
+	// and remove components that no longer exist
 	if err := h.populateComponentManifests(req, &entry.Spec.Manifest, catalogName, ""); err != nil {
 		return err
 	}
 
 	// Clear toolOverrides for components whose manifests changed
-	for i := range componentServers {
-		var (
-			component = &componentServers[i]
-			oldHash   = oldManifests[i]
-			newHash   = hash.Digest(component.Manifest)
-		)
+	if entry.Spec.Manifest.CompositeConfig != nil {
+		for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
+			var (
+				component = &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
+				id, err   = compositeComponentID(*component)
+			)
+			if err != nil {
+				return err
+			}
 
-		if oldHash != newHash {
-			component.ToolOverrides = nil
+			oldDigest, ok := oldManifests[id]
+			if !ok {
+				// New component; leave ToolOverrides as-is
+				continue
+			}
+
+			newDigest := hash.Digest(component.Manifest)
+			if oldDigest != newDigest {
+				component.ToolOverrides = nil
+			}
 		}
 	}
 
@@ -1220,4 +1257,15 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 
 	return req.Write(convertMCPServerCatalogEntry(entry))
+}
+
+func compositeComponentID(component types.CatalogComponentServer) (string, error) {
+	if component.CatalogEntryID != "" {
+		return component.CatalogEntryID, nil
+	}
+	if component.MCPServerID != "" {
+		return component.MCPServerID, nil
+	}
+
+	return "", fmt.Errorf("component has no ID")
 }

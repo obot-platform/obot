@@ -98,7 +98,7 @@ export async function listMCPCatalogEntries(
 export async function getMCPCatalogEntry(
 	catalogID: string,
 	entryID: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<MCPCatalogEntry> {
 	const response = (await doGet(
 		`/mcp-catalogs/${catalogID}/entries/${entryID}`,
@@ -271,7 +271,7 @@ export async function revealMcpCatalogServer(
 export async function getMCPCatalogServer(
 	catalogID: string,
 	serverID: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<MCPCatalogServer> {
 	const response = (await doGet(
 		`/mcp-catalogs/${catalogID}/servers/${serverID}`,
