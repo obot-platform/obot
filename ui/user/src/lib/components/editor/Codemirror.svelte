@@ -100,7 +100,9 @@
 			...completionKeymap,
 			...lintKeymap
 		]),
-		cursorTooltipField
+		cursorTooltipField,
+		// Add custom class to scope styles
+		EditorView.editorAttributes.of({ class: 'code-editor' })
 	])();
 
 	$effect(() => {
@@ -324,16 +326,16 @@
 
 <style lang="postcss">
 	:global {
-		.cm-editor {
+		.cm-editor.code-editor {
 			height: 100%;
 		}
-		.ͼ2 .cm-tooltip {
+		.cm-editor.code-editor .ͼ2 .cm-tooltip {
 			border: none;
 		}
-		.ͼ14 {
+		.cm-editor.code-editor .ͼ14 {
 			background-color: #000000 !important;
 		}
-		.cm-focused {
+		.cm-editor.code-editor.cm-focused {
 			outline-style: none !important;
 		}
 	}
