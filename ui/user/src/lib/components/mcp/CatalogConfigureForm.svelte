@@ -392,9 +392,15 @@
 
 										{#if comp.headers && comp.headers.length > 0}
 											{#each comp.headers as header, i (header.key)}
+												{@const highlightRequired =
+													highlightedFields.has(`${compId}:${header.key}`) && !header.value}
+
 												<div class="flex flex-col gap-1">
 													<span class="flex items-center gap-2">
-														<label for={`${compId}-${header.key}`}>
+														<label
+															for={`${compId}-${header.key}`}
+															class={highlightRequired ? 'text-red-500' : ''}
+														>
 															{header.name}
 															{#if !header.required}
 																<span class="text-gray-400 dark:text-gray-600">(optional)</span>
@@ -403,13 +409,21 @@
 														<InfoTooltip text={header.description} />
 													</span>
 													{#if header.sensitive}
-														<SensitiveInput name={header.name} bind:value={comp.headers[i].value} />
+														<SensitiveInput
+															name={header.name}
+															bind:value={comp.headers[i].value}
+															error={highlightRequired}
+														/>
 													{:else}
 														<input
 															type="text"
 															id={`${compId}-${header.key}`}
 															bind:value={comp.headers[i].value}
-															class="text-input-filled"
+															class={twMerge(
+																'text-input-filled',
+																highlightRequired &&
+																	'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+															)}
 														/>
 													{/if}
 												</div>

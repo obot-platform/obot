@@ -11,8 +11,15 @@
 	import McpServerTools from './McpServerTools.svelte';
 	import McpOauth from './McpOauth.svelte';
 	import { AlertTriangle } from 'lucide-svelte';
-	import CatalogConfigureForm, { type LaunchFormData } from './CatalogConfigureForm.svelte';
-	import { convertEnvHeadersToRecord } from '$lib/services/chat/mcp';
+	import CatalogConfigureForm, {
+		type CompositeLaunchFormData,
+		type LaunchFormData
+	} from './CatalogConfigureForm.svelte';
+	import {
+		convertCompositeInfoToLaunchFormData,
+		convertCompositeLaunchFormDataToPayload,
+		convertEnvHeadersToRecord
+	} from '$lib/services/chat/mcp';
 
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -51,34 +58,46 @@
 	let saving = $state(false);
 	let configuringServer = $state<MCPCatalogServer>();
 
+	async function handleInitCompositeForm(server: MCPCatalogServer) {
+		configuringServer = server;
+		configureForm = await convertCompositeInfoToLaunchFormData(server);
+	}
+
+	async function handleInitSingleOrRemoteForm(server: MCPCatalogServer) {
+		let values: Record<string, string>;
+		try {
+			values = await ChatService.revealSingleOrRemoteMcpServer(server.id, {
+				dontLogErrors: true
+			});
+		} catch (error) {
+			if (error instanceof Error && !error.message.includes('404')) {
+				console.error('Failed to reveal user server values due to unexpected error', error);
+			}
+			values = {};
+		}
+		configuringServer = server;
+		configureForm = {
+			envs: server.manifest.env?.map((env) => ({
+				...env,
+				value: values[env.key] ?? ''
+			})),
+			headers: server.manifest.remoteConfig?.headers?.map((header) => ({
+				...header,
+				value: values[header.key] ?? ''
+			})),
+			url: server.manifest.remoteConfig?.url
+		};
+	}
+
 	async function handleInitConfigureForm() {
 		if (!entry) return;
 		if ('mcpID' in entry) {
 			const response = await ChatService.getSingleOrRemoteMcpServer(entry.mcpID);
-
-			let values: Record<string, string>;
-			try {
-				values = await ChatService.revealSingleOrRemoteMcpServer(response.id, {
-					dontLogErrors: true
-				});
-			} catch (error) {
-				if (error instanceof Error && !error.message.includes('404')) {
-					console.error('Failed to reveal user server values due to unexpected error', error);
-				}
-				values = {};
+			if (response?.manifest?.runtime === 'composite') {
+				await handleInitCompositeForm(response);
+			} else {
+				await handleInitSingleOrRemoteForm(response);
 			}
-			configuringServer = response;
-			configureForm = {
-				envs: response.manifest.env?.map((env) => ({
-					...env,
-					value: values[env.key] ?? ''
-				})),
-				headers: response.manifest.remoteConfig?.headers?.map((header) => ({
-					...header,
-					value: values[header.key] ?? ''
-				})),
-				url: response.manifest.remoteConfig?.url
-			};
 			configDialog?.open();
 		}
 	}
@@ -94,9 +113,16 @@
 				await ChatService.updateRemoteMcpServerUrl(configuringServer.id, configureForm.url.trim());
 			}
 
-			const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
-			await ChatService.configureSingleOrRemoteMcpServer(configuringServer.id, secretValues);
+			if (configuringServer.manifest.runtime === 'composite') {
+				const payload = convertCompositeLaunchFormDataToPayload(
+					configureForm as CompositeLaunchFormData
+				);
 
+				await ChatService.configureCompositeMcpServer(configuringServer.id, payload);
+			} else {
+				const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
+				await ChatService.configureSingleOrRemoteMcpServer(configuringServer.id, secretValues);
+			}
 			configDialog?.close();
 			onUpdate?.();
 		} catch (error) {
