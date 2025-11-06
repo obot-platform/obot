@@ -146,6 +146,7 @@ export interface Version {
 	obot?: string;
 	authEnabled?: boolean;
 	enterprise?: boolean;
+	upgradeAvailable?: boolean;
 }
 
 export interface Profile {
