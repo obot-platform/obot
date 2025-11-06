@@ -188,7 +188,7 @@
 		configName = server.alias || server.manifest?.name || '';
 		configIcon = server.manifest?.icon || '';
 		configServerId = server.id;
-		configureForm = await convertCompositeInfoToLaunchFormData(server, parent);
+		configureForm = await convertCompositeInfoToLaunchFormData(server);
 	}
 
 	async function prepareConfigureForm(server: MCPCatalogServer, parent?: MCPCatalogEntry) {

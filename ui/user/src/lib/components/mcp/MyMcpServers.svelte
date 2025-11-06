@@ -711,10 +711,7 @@
 			return;
 		}
 		if (connectedServer.parent?.manifest.runtime === 'composite') {
-			configureForm = await convertCompositeInfoToLaunchFormData(
-				connectedServer.server,
-				connectedServer.parent
-			);
+			configureForm = await convertCompositeInfoToLaunchFormData(connectedServer.server);
 			selectedEntryOrServer = connectedServer;
 			configDialog?.open();
 			return;

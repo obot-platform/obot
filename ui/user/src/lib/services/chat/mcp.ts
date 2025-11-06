@@ -249,10 +249,12 @@ export async function convertCompositeInfoToLaunchFormData(
 			{ config: Record<string, string>; url?: string; disabled?: boolean }
 		>;
 	}
+	// Prefer existing server's runtime composite manifest for edit flows;
+	// fall back to parent catalog entry only if server lacks composite config
 	const components =
-		(parent && 'manifest' in parent
-			? parent?.manifest?.compositeConfig?.componentServers
-			: server?.manifest?.compositeConfig?.componentServers) || [];
+		server?.manifest?.compositeConfig?.componentServers ||
+		(parent && 'manifest' in parent ? parent?.manifest?.compositeConfig?.componentServers : []) ||
+		[];
 	const componentConfigs: Record<
 		string,
 		{

@@ -60,10 +60,7 @@
 
 	async function handleInitCompositeForm(server: MCPCatalogServer) {
 		configuringServer = server;
-		configureForm = await convertCompositeInfoToLaunchFormData(
-			server,
-			parent && 'isCatalogEntry' in parent ? parent : undefined
-		);
+		configureForm = await convertCompositeInfoToLaunchFormData(server);
 	}
 
 	async function handleInitSingleOrRemoteForm(server: MCPCatalogServer) {
