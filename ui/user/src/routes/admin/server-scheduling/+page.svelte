@@ -46,23 +46,75 @@
 				}
 			};
 
+		const result = {
+			requests: {
+				cpu: '',
+				memory: ''
+			},
+			limits: {
+				cpu: '',
+				memory: ''
+			}
+		};
+
 		const segments = resources.split('\n').map((segment) => segment.trim());
 		const limitsIndex = segments.findIndex((segment) => segment.startsWith('limits:'));
 		const requestsIndex = segments.findIndex((segment) => segment.startsWith('requests:'));
-		return {
-			requests: {
-				cpu: stripQuotes(segments[requestsIndex + 1]?.split('cpu:')[1]?.trim() ?? ''),
-				memory: stripQuotes(segments[requestsIndex + 2]?.split('memory:')[1]?.trim() ?? '')
-			},
-			limits: {
-				cpu: stripQuotes(segments[limitsIndex + 1]?.split('cpu:')[1]?.trim() ?? ''),
-				memory: stripQuotes(segments[limitsIndex + 2]?.split('memory:')[1]?.trim() ?? '')
+
+		if (requestsIndex !== -1) {
+			const endIndex =
+				limitsIndex !== -1 && limitsIndex > requestsIndex ? limitsIndex : segments.length;
+
+			for (let i = requestsIndex + 1; i < endIndex; i++) {
+				const line = segments[i];
+				if (line.includes('cpu:')) {
+					result.requests.cpu = stripQuotes(line.split('cpu:')[1]?.trim() ?? '');
+				} else if (line.includes('memory:')) {
+					result.requests.memory = stripQuotes(line.split('memory:')[1]?.trim() ?? '');
+				}
 			}
-		};
+		}
+
+		if (limitsIndex !== -1) {
+			const endIndex =
+				requestsIndex !== -1 && requestsIndex > limitsIndex ? requestsIndex : segments.length;
+
+			for (let i = limitsIndex + 1; i < endIndex; i++) {
+				const line = segments[i];
+				if (line.includes('cpu:')) {
+					result.limits.cpu = stripQuotes(line.split('cpu:')[1]?.trim() ?? '');
+				} else if (line.includes('memory:')) {
+					result.limits.memory = stripQuotes(line.split('memory:')[1]?.trim() ?? '');
+				}
+			}
+		}
+
+		return result;
 	}
 
 	function convertResourcesForOutput(output: ReturnType<typeof convertResourcesForInput>) {
-		return `requests:\n  cpu: ${output.requests.cpu.toString()}\n  memory: ${output.requests.memory.toString()}\nlimits:\n  cpu: ${output.limits.cpu.toString()}\n  memory: ${output.limits.memory.toString()}`;
+		let outputString = '';
+		if (output.requests.cpu || output.requests.memory) {
+			outputString += `requests:\n  `;
+			if (output.requests.cpu) {
+				outputString += `cpu: ${output.requests.cpu.toString()}\n  `;
+			}
+			if (output.requests.memory) {
+				outputString += `memory: ${output.requests.memory.toString()}\n`;
+			}
+		}
+
+		if (output.limits.cpu || output.limits.memory) {
+			outputString += `limits:\n  `;
+			if (output.limits.cpu) {
+				outputString += `cpu: ${output.limits.cpu.toString()}\n  `;
+			}
+			if (output.limits.memory) {
+				outputString += `memory: ${output.limits.memory.toString()}\n`;
+			}
+		}
+
+		return outputString;
 	}
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
