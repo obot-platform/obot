@@ -93,6 +93,7 @@ type AuditLogExportFilters struct {
 
 // StorageCredentialsTestRequest represents a request to test storage credentials
 type StorageCredentialsTestRequest struct {
+	Provider StorageProviderType `json:"provider"`
 	StorageConfig
 }
 

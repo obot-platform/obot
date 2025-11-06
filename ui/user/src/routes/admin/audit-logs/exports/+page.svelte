@@ -187,7 +187,7 @@
 			</div>
 
 			{#if view === 'exports'}
-				<ExportsView bind:this={exportsViewRef} {query} readonly={isAdminReadonly} />
+				<ExportsView bind:this={exportsViewRef} {query} />
 			{:else if view === 'scheduled'}
 				<ScheduledExportsView
 					bind:this={scheduledExportsViewRef}
