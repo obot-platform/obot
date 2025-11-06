@@ -68,7 +68,10 @@
 
 		// Convert multiline values to single line with literal \n
 		const processedForm = { ...form };
-		for (const param of [...(provider?.requiredConfigurationParameters ?? []), ...(provider?.optionalConfigurationParameters ?? [])]) {
+		for (const param of [
+			...(provider?.requiredConfigurationParameters ?? []),
+			...(provider?.optionalConfigurationParameters ?? [])
+		]) {
 			if (param.multiline && processedForm[param.name]) {
 				processedForm[param.name] = processedForm[param.name].replace(/\n/g, '\\n');
 			}
@@ -160,8 +163,8 @@
 											name={parameter.name}
 											bind:value={form[parameter.name]}
 											disabled={readonly}
-                                            textarea={parameter.multiline}
-                                            growable={parameter.multiline}
+											textarea={parameter.multiline}
+											growable={parameter.multiline}
 										/>
 									{:else if multipValuesInputs.has(parameter.name)}
 										<MultiValueInput
