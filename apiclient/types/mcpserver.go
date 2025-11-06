@@ -270,10 +270,11 @@ type ProjectMCPServerManifest struct {
 type ProjectMCPServer struct {
 	Metadata
 	ProjectMCPServerManifest
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Icon        string `json:"icon"`
-	UserID      string `json:"userID"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Icon        string  `json:"icon"`
+	UserID      string  `json:"userID"`
+	Runtime     Runtime `json:"runtime,omitempty"`
 
 	// The following status fields are always copied from the MCPServer that this points to.
 	Configured  bool `json:"configured"`

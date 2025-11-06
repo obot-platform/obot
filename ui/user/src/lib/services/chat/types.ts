@@ -430,6 +430,7 @@ export interface ProjectMCP {
 	configured?: boolean;
 	needsUpdate?: boolean;
 	needsURL?: boolean;
+	runtime?: Runtime;
 }
 
 export interface Credential {
