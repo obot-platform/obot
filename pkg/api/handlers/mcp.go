@@ -1927,6 +1927,20 @@ func (m *MCPHandler) deconfigureCompositeServer(req api.Context, compositeServer
 		}
 	}
 
+	// Delete any component MCPServerInstances created for this composite
+	var componentInstances v1.MCPServerInstanceList
+	if err := req.List(&componentInstances,
+		kclient.InNamespace(compositeServer.Namespace),
+		kclient.MatchingFields{"spec.compositeName": compositeServer.Name},
+	); err != nil {
+		return fmt.Errorf("failed to list component instances: %w", err)
+	}
+	for _, inst := range componentInstances.Items {
+		if err := req.Delete(&inst); err != nil {
+			return fmt.Errorf("failed to delete component instance %s: %w", inst.Name, err)
+		}
+	}
+
 	addExtractedEnvVars(&compositeServer)
 
 	var (
