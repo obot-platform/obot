@@ -32,6 +32,14 @@
 	let inAdminRoute = $state(false);
 	let loadingChat = $state(false);
 
+	let showUpgradeAvailable = $derived(
+		version.current.authEnabled
+			? profile.current.isAdmin?.()
+				? version.current.upgradeAvailable
+				: false
+			: version.current.upgradeAvailable
+	);
+
 	function getLink(key: string, value: string | boolean) {
 		if (typeof value !== 'string') return;
 
@@ -111,7 +119,7 @@
 	{#snippet icon()}
 		<div class="relative">
 			<ProfileIcon />
-			{#if version.current.upgradeAvailable}
+			{#if showUpgradeAvailable}
 				<CircleFadingArrowUp
 					class="absolute -right-0.5 -bottom-0.5 z-10 size-3 rounded-full bg-white text-blue-500 dark:bg-black"
 				/>
@@ -231,7 +239,7 @@
 		</div>
 
 		{#if version.current.obot}
-			{#if version.current.upgradeAvailable}
+			{#if showUpgradeAvailable}
 				<div class="flex items-center gap-1 p-1 text-[11px] text-black dark:text-white">
 					<CircleFadingArrowUp class="size-4 flex-shrink-0 text-blue-500" />
 					<p>
