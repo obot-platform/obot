@@ -68,6 +68,7 @@ const sidebars = {
           items: [
             "configuration/oauth-configuration",
             "configuration/mcp-deployments-in-kubernetes",
+            "configuration/audit-log-export",
           ],
         },
         {
