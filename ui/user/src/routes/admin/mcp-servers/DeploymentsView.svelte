@@ -91,38 +91,58 @@
 		}, {})
 	);
 
-	let compositeNameMapping = $derived(
+	let compositeMapping = $derived(
 		serversData
 			.filter((server) => 'compositeConfig' in server.manifest)
-			.reduce<Record<string, string>>((acc, server) => {
-				acc[server.id] = server.alias || server.manifest.name || '';
+			.reduce<Record<string, MCPCatalogServer>>((acc, server) => {
+				acc[server.id] = server;
 				return acc;
 			}, {})
 	);
 
 	let tableData = $derived.by(() => {
-		const transformedData = serversData.map((deployment) => {
-			const powerUserWorkspaceID =
-				deployment.powerUserWorkspaceID ||
-				(deployment.catalogEntryID
-					? entriesMap[deployment.catalogEntryID]?.powerUserWorkspaceID
-					: undefined);
-			const powerUserID = deployment.catalogEntryID
-				? entriesMap[deployment.catalogEntryID]?.powerUserID
-				: powerUserWorkspaceID
-					? deployment.userID
-					: undefined;
-			return {
-				...deployment,
-				displayName: deployment.alias || deployment.manifest.name || '',
-				userName: getUserDisplayName(usersMap, deployment.userID),
-				registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
-				type: getServerTypeLabel(deployment),
-				powerUserWorkspaceID,
-				compositeParentName:
-					(deployment.compositeName && compositeNameMapping[deployment.compositeName]) ?? ''
-			};
-		});
+		function isCompositeDescendantDisabled(parent: MCPCatalogServer, id: string) {
+			const match = parent.manifest.compositeConfig?.componentServers.find(
+				(component) => component.catalogEntryID === id || component.mcpServerID === id
+			);
+			return match ? match.disabled : false;
+		}
+
+		const transformedData = serversData
+			.map((deployment) => {
+				const powerUserWorkspaceID =
+					deployment.powerUserWorkspaceID ||
+					(deployment.catalogEntryID
+						? entriesMap[deployment.catalogEntryID]?.powerUserWorkspaceID
+						: undefined);
+				const powerUserID = deployment.catalogEntryID
+					? entriesMap[deployment.catalogEntryID]?.powerUserID
+					: powerUserWorkspaceID
+						? deployment.userID
+						: undefined;
+
+				const compositeParent =
+					deployment.compositeName && compositeMapping[deployment.compositeName];
+				const compositeParentName = compositeParent
+					? compositeParent.alias || compositeParent.manifest.name
+					: '';
+				return {
+					...deployment,
+					displayName: deployment.alias || deployment.manifest.name || '',
+					userName: getUserDisplayName(usersMap, deployment.userID),
+					registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
+					type: getServerTypeLabel(deployment),
+					powerUserWorkspaceID,
+					compositeParentName,
+					disabled: compositeParent
+						? isCompositeDescendantDisabled(
+								compositeParent,
+								deployment.catalogEntryID || deployment.mcpCatalogID || deployment.id
+							)
+						: false
+				};
+			})
+			.filter((d) => !d.disabled);
 
 		return query
 			? transformedData.filter((d) => d.displayName.toLowerCase().includes(query.toLowerCase()))
@@ -322,12 +342,6 @@
 			{initSort}
 			sortable={['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
 			noDataMessage="No catalog servers added."
-			setRowClasses={(d) => {
-				if (d.needsUpdate) {
-					return 'bg-blue-500/10';
-				}
-				return '';
-			}}
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
 				thead: 'top-31'
@@ -391,6 +405,13 @@
 												server: d
 											};
 										}}
+										use:tooltip={d.compositeName
+											? {
+													text: 'This is a component of a composite server and cannot be updated independently; update the composite MCP server instead',
+													classes: ['w-md'],
+													disablePortal: true
+												}
+											: undefined}
 									>
 										{#if updating[d.id]?.inProgress}
 											<LoaderCircle class="size-4 animate-spin" />
@@ -435,13 +456,6 @@
 
 										toggle((restarting = false));
 									}}
-									use:tooltip={d.compositeName
-										? {
-												text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
-												classes: ['w-md'],
-												disablePortal: true
-											}
-										: undefined}
 								>
 									{#if restarting}
 										<LoaderCircle class="size-4 animate-spin" /> Restarting...
