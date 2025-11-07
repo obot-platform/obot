@@ -368,14 +368,19 @@
 								<Server class="size-6" />
 							{/if}
 						</div>
-						<p class="flex flex-col">
-							{d.displayName}
+						<div class="flex flex-col">
+							<p>
+								{d.displayName}
+								{#if d.disabled}
+									<i class="text-xs text-gray-500">Disabled</i>
+								{/if}
+							</p>
 							{#if d.compositeParentName}
 								<span class="text-xs text-gray-500">
 									({d.compositeParentName})
 								</span>
 							{/if}
-						</p>
+						</div>
 					</div>
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
