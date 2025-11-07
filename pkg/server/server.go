@@ -38,7 +38,7 @@ func Run(ctx context.Context, c services.Config) error {
 		}
 	}()
 
-	handler, err := router.Router(svcs)
+	handler, err := router.Router(ctx, svcs)
 	if err != nil {
 		return err
 	}
