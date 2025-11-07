@@ -93,8 +93,8 @@
 					form.customS3Config = {
 						endpoint: existingCredentials.customS3Config.endpoint || '',
 						region: existingCredentials.customS3Config.region || '',
-						accessKeyID: '••••••••••••••••',
-						secretAccessKey: '••••••••••••••••••••••••••••••••••••••••'
+						accessKeyID: existingCredentials.customS3Config.accessKeyID || '',
+						secretAccessKey: existingCredentials.customS3Config.secretAccessKey || ''
 					};
 					form.useWorkloadIdentity = false;
 					form.s3Config = undefined;
@@ -393,7 +393,11 @@
 						<div class="space-y-4">
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="access-key">Access Key ID</label>
-								<SensitiveInput name="access-key" bind:value={form.s3Config.accessKeyID} />
+								<input
+									name="access-key"
+									class="text-input-filled"
+									bind:value={form.s3Config.accessKeyID}
+								/>
 							</div>
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="secret-key">Secret Access Key</label>
@@ -425,11 +429,19 @@
 						<div class="space-y-4">
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="azure-client-id">Client ID</label>
-								<SensitiveInput name="azure-client-id" bind:value={form.azureConfig.clientID} />
+								<input
+									name="azure-client-id"
+									class="text-input-filled"
+									bind:value={form.azureConfig.clientID}
+								/>
 							</div>
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="azure-tenant-id">Tenant ID</label>
-								<SensitiveInput name="azure-tenant-id" bind:value={form.azureConfig.tenantID} />
+								<input
+									name="azure-tenant-id"
+									class="text-input-filled"
+									bind:value={form.azureConfig.tenantID}
+								/>
 							</div>
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="azure-client-secret">Client Secret</label>
@@ -465,8 +477,9 @@
 							</div>
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="custom-access-key">Access Key ID</label>
-								<SensitiveInput
+								<input
 									name="custom-access-key"
+									class="text-input-filled"
 									bind:value={form.customS3Config.accessKeyID}
 								/>
 							</div>

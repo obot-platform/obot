@@ -344,7 +344,33 @@ func (h *AuditLogExportHandler) TestStorageCredentials(req api.Context) error {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
 
-	err := h.credProvider.TestCredentials(req.Context(), storageConfigReq)
+	// when using test credentials, if user doesn't provide secret, use the existing secret
+	var existingStorageConfig types.StorageConfig
+	storageConfig, err := h.credProvider.GetStorageConfig(req.Context())
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to get storage credentials: %w", err)
+	} else if err == nil {
+		existingStorageConfig = *storageConfig
+	}
+	if storageConfigReq.Provider == types.StorageProviderS3 && storageConfigReq.S3Config.SecretAccessKey == "" {
+		if existingStorageConfig.S3Config != nil {
+			storageConfigReq.S3Config.SecretAccessKey = existingStorageConfig.S3Config.SecretAccessKey
+		}
+	} else if storageConfigReq.Provider == types.StorageProviderGCS && storageConfigReq.GCSConfig.ServiceAccountJSON == "" {
+		if existingStorageConfig.GCSConfig != nil {
+			storageConfigReq.GCSConfig.ServiceAccountJSON = existingStorageConfig.GCSConfig.ServiceAccountJSON
+		}
+	} else if storageConfigReq.Provider == types.StorageProviderAzureBlob && storageConfigReq.AzureConfig.ClientSecret == "" {
+		if existingStorageConfig.AzureConfig != nil {
+			storageConfigReq.AzureConfig.ClientSecret = existingStorageConfig.AzureConfig.ClientSecret
+		}
+	} else if storageConfigReq.Provider == types.StorageProviderCustomS3 && storageConfigReq.CustomS3Config.SecretAccessKey == "" {
+		if existingStorageConfig.CustomS3Config != nil {
+			storageConfigReq.CustomS3Config.SecretAccessKey = existingStorageConfig.CustomS3Config.SecretAccessKey
+		}
+	}
+
+	err = h.credProvider.TestCredentials(req.Context(), storageConfigReq)
 	if err != nil {
 		return req.Write(types.StorageCredentialsTestResponse{
 			Success: false,
