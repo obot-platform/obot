@@ -125,11 +125,11 @@
 					if (!form.s3Config?.accessKeyID) {
 						throw new Error('Access Key ID is required for S3');
 					}
-					if (!form.s3Config?.secretAccessKey) {
+					if (!form.s3Config?.secretAccessKey && !existingCredentials?.s3Config) {
 						throw new Error('Secret Access Key is required for S3');
 					}
 				} else if (form.provider === 'gcs') {
-					if (!form.gcsConfig?.serviceAccountJSON) {
+					if (!form.gcsConfig?.serviceAccountJSON && !existingCredentials?.gcsConfig) {
 						throw new Error('Service Account JSON is required for GCS');
 					}
 				} else if (form.provider === 'azure') {
@@ -142,7 +142,7 @@
 					if (!form.azureConfig?.tenantID) {
 						throw new Error('Tenant ID is required for Azure');
 					}
-					if (!form.azureConfig?.clientSecret) {
+					if (!form.azureConfig?.clientSecret && !existingCredentials?.azureConfig) {
 						throw new Error('Client Secret is required for Azure');
 					}
 				} else if (form.provider === 'custom') {
@@ -155,7 +155,7 @@
 					if (!form.customS3Config?.accessKeyID) {
 						throw new Error('Access Key ID is required for Custom S3');
 					}
-					if (!form.customS3Config?.secretAccessKey) {
+					if (!form.customS3Config?.secretAccessKey && !existingCredentials?.customS3Config) {
 						throw new Error('Secret Access Key is required for Custom S3');
 					}
 				}
