@@ -52,7 +52,7 @@ type VersionHandler struct {
 	upgradeLock      sync.RWMutex
 }
 
-func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled bool, serverUpdateCheckInterval time.Duration) (*VersionHandler, error) {
+func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled, disableUpdateCheck bool) (*VersionHandler, error) {
 	upgradeServerBaseURL := defaultUpgradeServerBaseURL
 	if os.Getenv("OBOT_UPGRADE_SERVER_URL") != "" {
 		upgradeServerBaseURL = os.Getenv("OBOT_UPGRADE_SERVER_URL")
@@ -71,8 +71,8 @@ func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailD
 	currentVersion, _, _ := strings.Cut(version.Get().String(), "+")
 	currentVersion, _, _ = strings.Cut(currentVersion, "-")
 
-	// Don't start the upgrade check if the interval is non-positive or if this is a development version.
-	if serverUpdateCheckInterval > 0 && (!strings.HasPrefix(currentVersion, "v0.0.0") || os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true") {
+	// Don't start the upgrade check if disabled or if this is a development version.
+	if !disableUpdateCheck && (!strings.HasPrefix(currentVersion, "v0.0.0") || os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true") {
 		p, err := gatewayClient.GetProperty(ctx, installationIDPropertyKey)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			p, err = gatewayClient.SetProperty(ctx, installationIDPropertyKey, uuid.NewString())
@@ -88,7 +88,8 @@ func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailD
 			distribution = "enterprise"
 		}
 
-		go v.startUpgradeCheck(ctx, p.Value, currentVersion, engine, distribution, serverUpdateCheckInterval)
+		// Check interval is fixed at 24 hours
+		go v.startUpgradeCheck(ctx, p.Value, currentVersion, engine, distribution, 24*time.Hour)
 	}
 
 	return v, nil
