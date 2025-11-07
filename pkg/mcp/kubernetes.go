@@ -714,28 +714,73 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 
 	// Add affinity if present
 	if k8sSettings.Affinity != nil {
-		templateSpec["affinity"] = k8sSettings.Affinity
+		// Use $patch: replace to completely replace the affinity field
+		// rather than merging with existing values
+		affinityMap := map[string]any{
+			"$patch": "replace",
+		}
+
+		// Set the actual affinity fields that are present
+		if k8sSettings.Affinity.NodeAffinity != nil {
+			affinityMap["nodeAffinity"] = k8sSettings.Affinity.NodeAffinity
+		}
+		if k8sSettings.Affinity.PodAffinity != nil {
+			affinityMap["podAffinity"] = k8sSettings.Affinity.PodAffinity
+		}
+		if k8sSettings.Affinity.PodAntiAffinity != nil {
+			affinityMap["podAntiAffinity"] = k8sSettings.Affinity.PodAntiAffinity
+		}
+
+		templateSpec["affinity"] = affinityMap
 	} else {
-		// Explicitly set to null to remove any existing affinity
-		templateSpec["affinity"] = nil
+		// Use $patch: delete to remove any existing affinity
+		templateSpec["affinity"] = map[string]any{
+			"$patch": "delete",
+		}
 	}
 
 	// Add tolerations if present
 	if len(k8sSettings.Tolerations) > 0 {
+		// For tolerations (an array), setting the value directly will replace the entire array
 		templateSpec["tolerations"] = k8sSettings.Tolerations
 	} else {
-		// Explicitly set to null to remove any existing tolerations
-		templateSpec["tolerations"] = nil
+		// Use $patch: delete to remove any existing tolerations
+		templateSpec["tolerations"] = map[string]any{
+			"$patch": "delete",
+		}
 	}
 
 	// Add resources to the container
 	if k8sSettings.Resources != nil {
+		// Use $patch: replace to completely replace the resources field
+		resourcesMap := map[string]any{
+			"$patch": "replace",
+		}
+
+		// Set the actual resource fields that are present
+		if k8sSettings.Resources.Limits != nil && len(k8sSettings.Resources.Limits) > 0 {
+			resourcesMap["limits"] = k8sSettings.Resources.Limits
+		}
+		if k8sSettings.Resources.Requests != nil && len(k8sSettings.Resources.Requests) > 0 {
+			resourcesMap["requests"] = k8sSettings.Resources.Requests
+		}
+
 		// Patch the container resources (container name is "mcp")
 		// Using strategic merge patch which can merge containers by name
 		templateSpec["containers"] = []map[string]any{
 			{
 				"name":      "mcp",
-				"resources": *k8sSettings.Resources,
+				"resources": resourcesMap,
+			},
+		}
+	} else {
+		// Use $patch: delete to remove any existing resources
+		templateSpec["containers"] = []map[string]any{
+			{
+				"name": "mcp",
+				"resources": map[string]any{
+					"$patch": "delete",
+				},
 			},
 		}
 	}
