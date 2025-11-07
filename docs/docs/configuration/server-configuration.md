@@ -36,7 +36,8 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_MCPRUNTIME_BACKEND` | The runtime backend to use for running MCP servers: docker, kubernetes, or local. | `kubernetes` in the helm chart, `docker` otherwise |
 | `OBOT_SERVER_MCPCLUSTER_DOMAIN` | The cluster domain to use for MCP services. Only matters if `OBOT_SERVER_MCPBASE_IMAGE` is set. | `cluster.local` |
 | `OBOT_SERVER_DISALLOW_LOCALHOST_MCP` | Disallow MCP servers that try to connect to localhost. | `false` |
-| `OBOT_SERVER_UPDATE_CHECK_INTERVAL_MINS` | The interval in minutes to check for Obot server updates. Set to 0 to disable. | `1440` minutes (1 day) |
+| `OBOT_SERVER_UPDATE_CHECK_INTERVAL_MINS` | The interval in minutes to check for Obot server updates. Set to 0 to disable. (Deprecated, will be removed in v0.14.0) | `1440` minutes (1 day) |
+| `OBOT_SERVER_DISABLE_UPDATE_CHECK` | Disable the Obot server update check. (v0.14.0+) | `false ` |
 
 ## Encryption Providers
 

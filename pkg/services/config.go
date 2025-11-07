@@ -104,7 +104,7 @@ type Config struct {
 	StaticDir                  string   `usage:"The directory to serve static files from"`
 	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
 	DefaultMCPCatalogPath      string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
-	UpdateCheckIntervalMins    int      `usage:"The interval in minutes to check for version updates, <= 0 to disable checker" default:"1440"` // default 24 hours
+	DisableUpdateCheck         bool     `usage:"Disable Obot server update checks"`
 	// Sendgrid webhook
 	SendgridWebhookUsername           string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword           string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -179,8 +179,8 @@ type Services struct {
 	// Parsed settings from Helm for k8s to pass to controller
 	K8sSettingsFromHelm *v1.K8sSettingsSpec
 
-	ServerUpdateCheckInterval time.Duration
-	MCPRuntimeBackend         string
+	DisableUpdateCheck bool
+	MCPRuntimeBackend  string
 }
 
 const (
@@ -782,13 +782,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			CodeChallengeMethodsSupported:     []string{"S256", "plain"},
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 		},
-		AccessControlRuleHelper:   acrHelper,
-		WebhookHelper:             mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer()),
-		LocalK8sConfig:            localK8sConfig,
-		MCPServerNamespace:        config.MCPNamespace,
-		K8sSettingsFromHelm:       helmK8sSettings,
-		ServerUpdateCheckInterval: time.Duration(config.UpdateCheckIntervalMins) * time.Minute,
-		MCPRuntimeBackend:         config.MCPRuntimeBackend,
+		AccessControlRuleHelper: acrHelper,
+		WebhookHelper:           mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer()),
+		LocalK8sConfig:          localK8sConfig,
+		MCPServerNamespace:      config.MCPNamespace,
+		K8sSettingsFromHelm:     helmK8sSettings,
+		DisableUpdateCheck:      config.DisableUpdateCheck,
+		MCPRuntimeBackend:       config.MCPRuntimeBackend,
 	}, nil
 }
 

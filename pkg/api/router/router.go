@@ -26,7 +26,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		services.MCPRuntimeBackend,
 		services.SupportDocker,
 		services.AuthEnabled,
-		services.ServerUpdateCheckInterval)
+		services.DisableUpdateCheck)
 	if err != nil {
 		return nil, err
 	}
