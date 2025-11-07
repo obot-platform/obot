@@ -169,6 +169,11 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			rw.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
 			rw.Header().Set("Pragma", "no-cache")
 			rw.Header().Set("Expires", "0")
+			rw.Header().Set("X-Content-Type-Options", "nosniff")
+
+			if rw.Header().Get("Content-Type") == "" {
+				rw.Header().Set("Content-Type", "application/json")
+			}
 		}
 
 		err = f(api.Context{
