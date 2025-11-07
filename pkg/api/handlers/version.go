@@ -52,7 +52,7 @@ type VersionHandler struct {
 	upgradeLock      sync.RWMutex
 }
 
-func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine, distribution string, supportDocker, authEnabled bool, serverUpdateCheckInterval time.Duration) (*VersionHandler, error) {
+func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled bool, serverUpdateCheckInterval time.Duration) (*VersionHandler, error) {
 	upgradeServerBaseURL := defaultUpgradeServerBaseURL
 	if os.Getenv("OBOT_UPGRADE_SERVER_URL") != "" {
 		upgradeServerBaseURL = os.Getenv("OBOT_UPGRADE_SERVER_URL")
@@ -81,6 +81,11 @@ func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailD
 			}
 		} else if err != nil {
 			return nil, fmt.Errorf("failed to get installation ID property: %w", err)
+		}
+
+		distribution := "oss"
+		if v.enterprise {
+			distribution = "enterprise"
 		}
 
 		go v.startUpgradeCheck(ctx, p.Value, currentVersion, engine, distribution, serverUpdateCheckInterval)

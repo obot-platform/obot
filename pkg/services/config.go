@@ -181,7 +181,6 @@ type Services struct {
 
 	ServerUpdateCheckInterval time.Duration
 	MCPRuntimeBackend         string
-	Distribution              string
 }
 
 const (
@@ -234,32 +233,6 @@ func buildLocalK8sConfig() (*rest.Config, error) {
 		kubeconfig = k
 	}
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
-}
-
-// isRunningInKubernetes detects if the application is running inside a Kubernetes cluster
-func isRunningInKubernetes() bool {
-	_, err := rest.InClusterConfig()
-	return err == nil
-}
-
-// isRunningInDocker detects if the application is running inside a Docker container
-func isRunningInDocker() bool {
-	// Check for .dockerenv file (most reliable method)
-	if _, err := os.Stat("/.dockerenv"); err == nil {
-		return true
-	}
-
-	// Check cgroup for docker/containerd patterns
-	if data, err := os.ReadFile("/proc/self/cgroup"); err == nil {
-		content := string(data)
-		if strings.Contains(content, "docker") ||
-			strings.Contains(content, "containerd") ||
-			strings.Contains(content, "/kubepods/") {
-			return true
-		}
-	}
-
-	return false
 }
 
 // unmarshalJSONStrict unmarshals JSON with strict validation that rejects unknown fields
@@ -815,16 +788,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPServerNamespace:        config.MCPNamespace,
 		K8sSettingsFromHelm:       helmK8sSettings,
 		ServerUpdateCheckInterval: time.Duration(config.UpdateCheckIntervalMins) * time.Minute,
-		Distribution: func() string {
-			if isRunningInKubernetes() {
-				return "kubernetes"
-			}
-			if isRunningInDocker() {
-				return "docker"
-			}
-			return "local"
-		}(),
-		MCPRuntimeBackend: config.MCPRuntimeBackend,
+		MCPRuntimeBackend:         config.MCPRuntimeBackend,
 	}, nil
 }
 
