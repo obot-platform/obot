@@ -256,6 +256,18 @@
 			})
 		);
 	}
+
+	function getAuditLogsUrl(d: MCPCatalogServer) {
+		const isMultiUser = !d.catalogEntryID;
+		const isComposite = !!d.compositeName;
+
+		if (isComposite) {
+			return `/admin/audit-logs?mcp_id=${d.compositeName}`;
+		}
+		return isMultiUser
+			? `/admin/audit-logs?mcp_server_display_name=${d.manifest.name}`
+			: `/admin/audit-logs?mcp_id=${d.id}`;
+	}
 </script>
 
 <div class="flex flex-col gap-2">
@@ -359,10 +371,8 @@
 			{/snippet}
 
 			{#snippet actions(d)}
-				{@const isMultiUser = !d.catalogEntryID}
-				{@const auditLogsUrl = isMultiUser
-					? `/admin/audit-logs?mcp_server_display_name=${d.manifest.name}`
-					: `/admin/audit-logs?mcp_id=${d.id}`}
+				{@const isComposite = !!d.compositeName}
+				{@const auditLogsUrl = getAuditLogsUrl(d)}
 				<DotDotDot class="icon-button hover:dark:bg-black/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
@@ -450,9 +460,14 @@
 									setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 									openUrl(auditLogsUrl, isCtrlClick);
 								}}
-								class="menu-button"
+								class="menu-button text-left"
 							>
-								<Captions class="size-4" /> View Audit Logs
+								<Captions class="size-4" />
+								{#if isComposite}
+									View Parent Server <br /> Audit Logs
+								{:else}
+									View Audit Logs
+								{/if}
 							</button>
 							{#if !readonly}
 								<button
@@ -475,6 +490,7 @@
 												disablePortal: true
 											}
 										: undefined}
+									disabled={!!d.compositeName}
 								>
 									<Trash2 class="size-4" /> Delete Server
 								</button>
