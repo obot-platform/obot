@@ -28,7 +28,7 @@ const (
 	SessionStoreCookie SessionStore = "cookie"
 
 	installationIDPropertyKey   = "installation_id"
-	defaultUpgradeServerBaseURL = "https://upgrade.obot.ai"
+	defaultUpgradeServerBaseURL = "https://upgrade-server.obot.ai"
 )
 
 func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
