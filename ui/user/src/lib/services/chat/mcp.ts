@@ -182,13 +182,15 @@ export function convertEntriesAndServersToTableData(
 
 export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) {
 	if (!server) return '';
-	return server.manifest.runtime === 'remote'
-		? 'Remote'
-		: server.manifest.runtime === 'composite'
-			? 'Composite'
-			: 'catalogEntryID' in server || 'isCatalogEntry' in server
-				? 'Single User'
-				: 'Multi-User';
+
+	const runtime = server.manifest.runtime;
+	if (runtime === 'remote') return 'Remote';
+	if (runtime === 'composite') return 'Composite';
+
+	if ('isCatalogEntry' in server) return 'Single User';
+
+	const catalogEntryId = 'catalogEntryID' in server ? server.catalogEntryID : undefined;
+	return catalogEntryId ? 'Single User' : 'Multi-User';
 }
 
 export function getServerTypeLabelByType(type?: string) {
