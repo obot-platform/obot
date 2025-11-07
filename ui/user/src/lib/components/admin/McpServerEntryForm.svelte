@@ -527,7 +527,7 @@
 								<button
 									class="button-primary flex items-center gap-1 text-sm"
 									onclick={handleInitTemporaryInstance}
-									disabled={saving}
+									disabled={saving || type === 'composite'}
 								>
 									{#if saving}
 										<LoaderCircle class="size-4 animate-spin" />
@@ -540,6 +540,9 @@
 										{#if type === 'remote'}
 											Click above to connect to the remote MCP server to populate capabilities and
 											tools.
+										{:else if type === 'composite'}
+											Support for populating composite MCP server capabilities and tools coming
+											soon.
 										{:else}
 											Click above to set up a temporary instance that will populate capabilities and
 											tools. Otherwise, tools will populate when the user first launches this
