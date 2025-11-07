@@ -256,7 +256,7 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", mcpServerDisplayName)
 		}
 
-		if !sm.allowLocalhostMCP && server.URL != "" {
+		if !sm.allowLocalhostMCP && !server.ProjectMCPServer && server.URL != "" {
 			// Ensure the URL is not a localhost URL.
 			u, err := url.Parse(server.URL)
 			if err != nil {
