@@ -77,6 +77,7 @@
 	let compositeInfoDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	let isOpen = $state(false);
+	let localError = $state<string | undefined>();
 
 	export function open() {
 		if (isCompositeForm(form) && isNew) {
@@ -88,6 +89,7 @@
 
 	function openConfig() {
 		configDialog?.open();
+		localError = undefined;
 		if (!isNew) {
 			// store initial form data as jsonified string for comparison when not new
 			initialFormJson = JSON.stringify(form);
@@ -108,6 +110,14 @@
 		return (
 			typeof f === 'object' && f !== null && 'componentConfigs' in (f as Record<string, unknown>)
 		);
+	}
+
+	function hasAtLeastOneEnabled(formAny?: LaunchFormData | CompositeLaunchFormData) {
+		if (!formAny) return false;
+		if (isCompositeForm(formAny)) {
+			return Object.values(formAny.componentConfigs || {}).some((c) => !c.disabled);
+		}
+		return true;
 	}
 
 	function keyFor(compId: string, k: string) {
@@ -179,6 +189,12 @@
 	function handleSave() {
 		if (!form) return;
 
+		localError = undefined;
+		if (!hasAtLeastOneEnabled(form)) {
+			localError = 'Please enable at least one component server.';
+			return;
+		}
+
 		if (missingRequiredFields(form)) {
 			highlightMissingRequiredFields(form);
 			return;
@@ -190,6 +206,7 @@
 	export function close() {
 		clearHighlights();
 		initialFormJson = '';
+		localError = undefined;
 		configDialog?.close();
 	}
 
@@ -260,6 +277,7 @@
 	{animate}
 	onClose={() => {
 		clearHighlights();
+		localError = undefined;
 		onClose?.();
 		isOpen = false;
 	}}
@@ -297,13 +315,13 @@
 </ResponsiveDialog>
 
 {#snippet content()}
-	{#if error}
+	{#if error || localError}
 		<div class="notification-error flex items-center gap-2">
 			<AlertCircle class="size-6 flex-shrink-0 text-red-500" />
 			<p class="flex flex-col text-sm font-light">
 				<span class="font-semibold">Error:</span>
 				<span>
-					{error}
+					{error || localError}
 				</span>
 			</p>
 		</div>
