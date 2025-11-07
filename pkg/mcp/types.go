@@ -34,6 +34,8 @@ type ServerConfig struct {
 	ContainerPort  int           `json:"containerPort"`
 	ContainerPath  string        `json:"containerPath"`
 	Runtime        types.Runtime `json:"runtime"`
+
+	ProjectMCPServer bool `json:"projectMCPServer"`
 }
 
 type File struct {
@@ -289,11 +291,12 @@ func ProjectServerToConfig(tokenService *ephemeral.TokenService, projectMCPServe
 	}
 
 	return ServerConfig{
-		URL:          projectMCPServer.ConnectURL(baseURL),
-		Headers:      []string{fmt.Sprintf("Authorization=Bearer %s", token)},
-		Scope:        fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
-		AllowedTools: allowedTools,
-		Runtime:      types.RuntimeRemote,
+		URL:              projectMCPServer.ConnectURL(baseURL),
+		Headers:          []string{fmt.Sprintf("Authorization=Bearer %s", token)},
+		Scope:            fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
+		AllowedTools:     allowedTools,
+		Runtime:          types.RuntimeRemote,
+		ProjectMCPServer: true,
 	}, nil
 }
 
