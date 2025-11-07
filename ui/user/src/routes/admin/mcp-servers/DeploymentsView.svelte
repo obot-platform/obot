@@ -345,12 +345,6 @@
 			{initSort}
 			sortable={['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
 			noDataMessage="No catalog servers added."
-			setRowClasses={(d) => {
-				if (d.needsUpdate) {
-					return 'bg-blue-500/10';
-				}
-				return '';
-			}}
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
 				thead: 'top-31'
