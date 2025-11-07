@@ -427,6 +427,13 @@
 
 										toggle((restarting = false));
 									}}
+									use:tooltip={d.compositeName
+										? {
+												text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+												classes: ['w-md'],
+												disablePortal: true
+											}
+										: undefined}
 								>
 									{#if restarting}
 										<LoaderCircle class="size-4 animate-spin" /> Restarting...
