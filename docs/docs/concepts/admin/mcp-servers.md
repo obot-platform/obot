@@ -11,7 +11,7 @@ The choice of server type depends on how the MCP server was developed. All serve
 
 ## Server types
 
-The system supports three distinct server types, each designed for specific deployment scenarios:
+The system supports four distinct server types, each designed for specific deployment scenarios:
 
 ### Single-user server
 
@@ -52,6 +52,17 @@ Choose this type when:
 - You are building MCP servers through existing CI/CD workflows or SaaS services
 
 Remote MCP servers that conform to the MCP spec authentication schema will work out of the box. Servers that do not conform to the spec may not work within the Gateway. Please open a GitHub issue if you run into issues with remote servers.
+
+### Composite server
+
+Composite servers let administrators combine one or more Single-user, Multi-user, and Remote servers into a single virtual MCP server. It also allows admins to control the names, descriptions, and availability of the tool set exposed to end-users.
+
+This type is useful when:
+
+- You want a single connection endpoint that aggregates tools from multiple servers
+- You need fine-grained tool RBAC without exposing entire servers
+- You want to fine-tune exposed tool names and descriptions
+- You want to create tool sets tailored to specific user groups and use cases
 
 ## Adding a server
 
@@ -189,6 +200,20 @@ For most remote server configurations, you'll typically only need to specify the
 
 
 Select **Save** to deploy the persist the server configuration.
+
+### Composite servers
+
+Configuration parameters for composite servers are inherited from the set of MCP servers they contain.
+
+When connecting to a composite MCP server, end-users will be prompted to provide arguments for each "component" MCP server in the composite.
+
+Each component can also be individually disabled by the end user during configuration, in which case, they will not need to provide configuration
+for the component, and its tools and prompts will not be made available in their launched instance. Disabled components can be re-enabled by end-users
+via the `Edit Config` dialog for their connected MCP server.
+
+If the composite server contains remote component servers that require OAuth, the user will be prompted to authenticate or skip authentication for each
+tool that requires OAuth. If OAuth is skipped for a component, the component MCP server is automatically disabled for the composite instance.
+
 
 ## Post-deployment management
 
