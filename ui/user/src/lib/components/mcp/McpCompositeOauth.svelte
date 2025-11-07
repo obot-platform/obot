@@ -26,6 +26,12 @@
 	let error = $state<string>('');
 
 	const allAuthenticated = $derived(pending.length === 0);
+	const componentServers = $derived(
+		compositeServer?.manifest?.compositeConfig?.componentServers || []
+	);
+	const enabledCount = $derived(
+		componentServers.filter((c) => (c?.disabled ?? false) === false).length
+	);
 
 	// trigger onComplete when done
 	$effect(() => {
@@ -85,6 +91,9 @@
 			const item = pending.find((p) => p.mcpServerID === id);
 			if (!item || !item.catalogEntryID) return;
 
+			// Prevent disabling the last enabled component (no banner; button is hidden/disabled)
+			if (enabledCount <= 1) return;
+
 			// Use configure endpoint to set disabled=true for this component
 			const payload: Record<string, { config: Record<string, string>; disabled: boolean }> = {
 				[item.catalogEntryID]: { config: {}, disabled: true }
@@ -92,6 +101,7 @@
 			await ChatService.configureCompositeMcpServer(compositeMcpId, payload);
 
 			// Re-check pending from server; item should disappear
+			await fetchParentAndMeta();
 			await fetchPending();
 		} catch (err) {
 			const { message } = parseErrorContent(err);
@@ -134,10 +144,12 @@
 			</h1>
 		</div>
 
-		<p class="mb-6 text-sm">
-			This composite MCP server requires authentication with multiple services. Please authenticate
-			with each service below.
-		</p>
+		{#if !allAuthenticated}
+			<p class="mb-6 text-sm">
+				This composite MCP server requires authentication with multiple services. Please
+				authenticate with each service below.
+			</p>
+		{/if}
 
 		{#if loading && pending.length === 0}
 			<div class="flex items-center justify-center gap-2 py-8">
@@ -172,17 +184,19 @@
 						</div>
 						<div class="flex items-center gap-2">
 							<a href={item.authURL} target="_blank" class="button-primary">Authenticate</a>
-							<button
-								class="button-text"
-								disabled={item.loading}
-								onclick={() => skip(item.mcpServerID)}
-							>
-								{#if item.loading}
-									<LoaderCircle class="size-4 animate-spin" />
-								{:else}
-									Skip
-								{/if}
-							</button>
+							{#if enabledCount > 1}
+								<button
+									class="button-text"
+									disabled={item.loading}
+									onclick={() => skip(item.mcpServerID)}
+								>
+									{#if item.loading}
+										<LoaderCircle class="size-4 animate-spin" />
+									{:else}
+										Skip
+									{/if}
+								</button>
+							{/if}
 						</div>
 					</div>
 				{/each}
@@ -190,9 +204,12 @@
 		{/if}
 
 		{#if allAuthenticated}
-			<div class="notification-info mt-6">
-				<div class="flex flex-col gap-2">
-					<p class="font-semibold">All services authenticated successfully!</p>
+			<div class="notification-info mt-6 flex justify-center">
+				<div class="flex flex-col items-center gap-2">
+					<p class="text-center font-semibold">All services authenticated successfully!</p>
+					<p class="text-center text-sm font-light">
+						You can close this window and return to the application.
+					</p>
 				</div>
 			</div>
 		{/if}
