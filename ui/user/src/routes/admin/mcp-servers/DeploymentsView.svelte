@@ -104,7 +104,6 @@
 
 	let tableData = $derived.by(() => {
 		function isCompositeDescendantDisabled(parent: MCPCatalogServer, id: string) {
-			console.log(parent, id);
 			const match = parent.manifest.compositeConfig?.componentServers.find(
 				(component) => component.catalogEntryID === id || component.mcpServerID === id
 			);
@@ -360,16 +359,14 @@
 								<Server class="size-6" />
 							{/if}
 						</div>
-						<div class="flex flex-col">
-							<p>
-								{d.displayName}
-							</p>
+						<p class="flex flex-col">
+							{d.displayName}
 							{#if d.compositeParentName}
 								<span class="text-xs text-gray-500">
 									({d.compositeParentName})
 								</span>
 							{/if}
-						</div>
+						</p>
 					</div>
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
