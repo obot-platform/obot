@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import Logo from '../Logo.svelte';
 
 	interface Props {
 		modelProviderConfigured?: boolean;
@@ -38,11 +39,7 @@
 			class="relative flex min-h-36 w-[calc(100%-4rem)] max-w-screen-md flex-row items-center justify-between gap-4 rounded-sm"
 		>
 			<div class="absolute opacity-5 md:top-[-1.75rem] md:left-[-3.0rem] md:opacity-45">
-				<img
-					src="/user/images/obot-icon-surprised-yellow.svg"
-					alt="obot alert"
-					class="md:h-[17.5rem] md:w-[17.5rem]"
-				/>
+				<Logo variant="warning" class="md:h-[17.5rem] md:w-[17.5rem]" />
 			</div>
 			<div class="relative z-10 flex flex-col gap-2 md:ml-64">
 				<h4 class="text-lg font-semibold">Wait! You've still got some setup to do!</h4>

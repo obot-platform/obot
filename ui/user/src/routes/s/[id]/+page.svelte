@@ -13,6 +13,7 @@
 	import { initHelperMode } from '$lib/context/helperMode.svelte';
 	import { initProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
+	import Logo from '$lib/components/Logo.svelte';
 
 	let { data }: PageProps = $props();
 	let showWarning = $state(false);
@@ -82,7 +83,7 @@
 			class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
 		>
 			<div class="flex shrink-0 items-center gap-2">
-				<img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" />
+				<Logo />
 			</div>
 			<div class="flex items-center">
 				<Profile />

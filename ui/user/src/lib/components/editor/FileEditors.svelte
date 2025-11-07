@@ -7,6 +7,7 @@
 	import Codemirror from '$lib/components/editor/Codemirror.svelte';
 	import MarkdownFile from './MarkdownFile.svelte';
 	import { fade } from 'svelte/transition';
+	import Logo from '../Logo.svelte';
 
 	interface Props {
 		onFileChanged: (name: string, contents: string) => void;
@@ -47,11 +48,7 @@
 
 {#snippet unsupportedFile()}
 	<div class="flex h-full w-full flex-col items-center justify-center">
-		<img
-			src="/user/images/obot-icon-surprised-yellow.svg"
-			alt="Surprised obot"
-			class="size-[200px] opacity-50"
-		/>
+		<Logo variant="warning" class="size-[200px] opacity-50" />
 		<p class="text-lg text-gray-500">This type of file cannot be opened in the editor</p>
 	</div>
 {/snippet}

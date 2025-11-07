@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type PageProps } from './$types';
 	import { browser } from '$app/environment';
-	import Logo from '$lib/components/navbar/Logo.svelte';
+	import Logo from '$lib/components/Logo.svelte';
 
 	let { data }: PageProps = $props();
 	let { authProviders, loggedIn } = data;
@@ -29,7 +29,7 @@
 	{@render unauthorizedContent()}
 {:else}
 	<div class="flex h-svh w-svw flex-col items-center justify-center">
-		<div class="flex items-center justify-center">
+		<div class="flex items-center justify-center gap-2">
 			<div class="animate-bounce">
 				<Logo />
 			</div>
@@ -46,7 +46,7 @@
 			<div
 				class="absolute top-1/2 left-1/2 flex w-md -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-4"
 			>
-				<img src="/user/images/obot-icon-blue.svg" class="h-16" alt="Obot logo" />
+				<Logo class="h-16" />
 				<h1 class="text-2xl font-semibold">Welcome to Obot</h1>
 				<p class="text-md mb-1 text-center font-light text-gray-400 dark:text-gray-600">
 					Log in or create your account to continue

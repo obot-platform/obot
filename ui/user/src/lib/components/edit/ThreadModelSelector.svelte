@@ -14,6 +14,7 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import { darkMode } from '$lib/stores';
 	import type { Assistant } from '$lib/services/chat/types';
+	import Logo from '../Logo.svelte';
 
 	interface Props {
 		threadId: string | undefined;
@@ -385,12 +386,7 @@
 												</div>
 
 												{#if isDefaultModel}
-													<img
-														class={twMerge(' size-4', !isModelSelected && 'grayscale-100')}
-														src="/user/images/obot-icon-blue.svg"
-														alt="Obot default model"
-														title="Obot default model"
-													/>
+													<Logo class={twMerge(' size-4', !isModelSelected && 'grayscale-100')} />
 												{/if}
 
 												{#if threadModelProvider === providerId && threadModel === modelId}

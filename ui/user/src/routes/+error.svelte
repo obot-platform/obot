@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
+	import Logo from '$lib/components/Logo.svelte';
 
 	const errorTitles = {
 		401: 'Unauthorized',
@@ -24,11 +25,7 @@
 <div class="flex h-dvh w-full flex-col items-center justify-center gap-4">
 	<div class="flex items-end justify-end gap-8">
 		<div>
-			<img
-				alt="Grumpy obot"
-				src="/user/images/obot-icon-grumpy-blue.svg"
-				class="h-[200px] w-[200px]"
-			/>
+			<Logo variant="error" class="h-[200px] w-[200px]" />
 		</div>
 		<div
 			class="speech-bubble bg-surface2 after:border-r-surface2 relative m-4 flex flex-col items-center justify-center rounded-md

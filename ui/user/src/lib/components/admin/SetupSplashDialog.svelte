@@ -2,7 +2,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import Logo from '../navbar/Logo.svelte';
+	import Logo from '../Logo.svelte';
 	import { AdminService, Group } from '$lib/services';
 	import { CircleCheckBig, LoaderCircle } from 'lucide-svelte';
 	import { page } from '$app/state';
