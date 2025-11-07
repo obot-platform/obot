@@ -66,9 +66,7 @@
 		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
 	>();
 	let showDeleteConfirm = $state<
-		| { type: 'multi'; onsuccess?: () => void }
-		| { type: 'single'; server: MCPCatalogServer; onsuccess?: () => void }
-		| undefined
+		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
 	>();
 	let selected = $state<Record<string, MCPCatalogServer>>({});
 	let updating = $state<Record<string, { inProgress: boolean; error: string }>>({});
@@ -476,12 +474,10 @@
 										e.stopPropagation();
 										showDeleteConfirm = {
 											type: 'single',
-											server: d,
-											onsuccess: async () => {
-												await delay(1000);
-												toggle((restarting = false));
-											}
+											server: d
 										};
+
+										toggle(false);
 									}}
 									use:tooltip={d.compositeName
 										? {
@@ -614,12 +610,9 @@
 			await handleSingleDelete(showDeleteConfirm.server);
 
 			await delay(1000);
-
-			showDeleteConfirm.onsuccess?.();
 		} else {
 			await handleBulkDelete();
 		}
-		showDeleteConfirm.onsuccess?.();
 		tableRef?.clearSelectAll();
 		await reload();
 		deleting = false;
