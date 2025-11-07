@@ -82,7 +82,7 @@
 					class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
 				/>
 				<div>
-					<p class="mb-1 text-sm font-semibold">Composite MCP Server</p>
+					<p class="mb-1 text-sm font-semibold">Composite Server</p>
 					<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
 						This option allows you to combine multiple MCP catalog entries into a single unified
 						server. Users will connect via a single URL that aggregates tools and resources from all
