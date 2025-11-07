@@ -93,16 +93,24 @@
 		}, {})
 	);
 
-	let compositeNameMapping = $derived(
+	let compositeMapping = $derived(
 		serversData
 			.filter((server) => 'compositeConfig' in server.manifest)
-			.reduce<Record<string, string>>((acc, server) => {
-				acc[server.id] = server.alias || server.manifest.name || '';
+			.reduce<Record<string, MCPCatalogServer>>((acc, server) => {
+				acc[server.id] = server;
 				return acc;
 			}, {})
 	);
 
 	let tableData = $derived.by(() => {
+		function isCompositeDescendantDisabled(parent: MCPCatalogServer, id: string) {
+			console.log(parent, id);
+			const match = parent.manifest.compositeConfig?.componentServers.find(
+				(component) => component.catalogEntryID === id || component.mcpServerID === id
+			);
+			return match ? match.disabled : false;
+		}
+
 		const transformedData = serversData.map((deployment) => {
 			const powerUserWorkspaceID =
 				deployment.powerUserWorkspaceID ||
@@ -114,6 +122,12 @@
 				: powerUserWorkspaceID
 					? deployment.userID
 					: undefined;
+
+			const compositeParent =
+				deployment.compositeName && compositeMapping[deployment.compositeName];
+			const compositeParentName = compositeParent
+				? compositeParent.alias || compositeParent.manifest.name
+				: '';
 			return {
 				...deployment,
 				displayName: deployment.alias || deployment.manifest.name || '',
@@ -121,8 +135,13 @@
 				registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
 				type: getServerTypeLabel(deployment),
 				powerUserWorkspaceID,
-				compositeParentName:
-					(deployment.compositeName && compositeNameMapping[deployment.compositeName]) ?? ''
+				compositeParentName,
+				disabled: compositeParent
+					? isCompositeDescendantDisabled(
+							compositeParent,
+							deployment.catalogEntryID || deployment.mcpCatalogID || deployment.id
+						)
+					: false
 			};
 		});
 
@@ -328,12 +347,16 @@
 				if (d.needsUpdate) {
 					return 'bg-blue-500/10';
 				}
+				if (d.disabled) {
+					return 'bg-gray-500/10 opacity-50';
+				}
 				return '';
 			}}
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
 				thead: 'top-31'
 			}}
+			validateSelect={(d) => !d.disabled}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
@@ -393,6 +416,13 @@
 												server: d
 											};
 										}}
+										use:tooltip={d.compositeName
+											? {
+													text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+													classes: ['w-md'],
+													disablePortal: true
+												}
+											: undefined}
 									>
 										{#if updating[d.id]?.inProgress}
 											<LoaderCircle class="size-4 animate-spin" />
@@ -420,7 +450,7 @@
 							{#if d.manifest.runtime !== 'remote' && !readonly}
 								<button
 									class="menu-button"
-									disabled={restarting}
+									disabled={restarting || d.disabled}
 									onclick={async (e) => {
 										e.stopPropagation();
 										restarting = true;
@@ -439,7 +469,7 @@
 									}}
 									use:tooltip={d.compositeName
 										? {
-												text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+												text: 'This descendant of a composite server is currently disabled and cannot be restarted.',
 												classes: ['w-md'],
 												disablePortal: true
 											}
@@ -502,7 +532,7 @@
 
 			{#snippet tableSelectActions(currentSelected)}
 				{@const restartableCount = Object.values(currentSelected).filter(
-					(s) => s.manifest.runtime !== 'remote' && s.configured
+					(s) => s.manifest.runtime !== 'remote' && s.configured && !s.disabled
 				).length}
 				{@const upgradeableCount = Object.values(currentSelected).filter(
 					(s) => s.needsUpdate && !s.compositeName
