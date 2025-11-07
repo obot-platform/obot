@@ -458,13 +458,6 @@
 
 										toggle((restarting = false));
 									}}
-									use:tooltip={d.compositeName
-										? {
-												text: 'This is a disabled component of a composite server disabled and cannot be restarted.',
-												classes: ['w-md'],
-												disablePortal: true
-											}
-										: undefined}
 								>
 									{#if restarting}
 										<LoaderCircle class="size-4 animate-spin" /> Restarting...
