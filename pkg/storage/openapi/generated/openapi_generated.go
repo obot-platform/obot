@@ -8595,6 +8595,13 @@ func schema_obot_platform_obot_apiclient_types_StorageCredentialsTestRequest(ref
 				Description: "StorageCredentialsTestRequest represents a request to test storage credentials",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"provider": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"StorageConfig": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -8602,7 +8609,7 @@ func schema_obot_platform_obot_apiclient_types_StorageCredentialsTestRequest(ref
 						},
 					},
 				},
-				Required: []string{"StorageConfig"},
+				Required: []string{"provider", "StorageConfig"},
 			},
 		},
 		Dependencies: []string{

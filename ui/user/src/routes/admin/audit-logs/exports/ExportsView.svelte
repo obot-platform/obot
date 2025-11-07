@@ -1,17 +1,9 @@
 <script lang="ts">
 	import { AdminService } from '$lib/services';
 	import Table from '$lib/components/table/Table.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { formatTimeAgo } from '$lib/time';
-	import {
-		FileArchive,
-		LoaderCircle,
-		Ellipsis,
-		Trash2,
-		CircleAlert,
-		AlertCircle
-	} from 'lucide-svelte';
+	import { FileArchive, LoaderCircle, CircleAlert, AlertCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import type { AuditLogExport } from '$lib/services/admin/types';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
@@ -19,10 +11,9 @@
 
 	interface Props {
 		query?: string;
-		readonly?: boolean;
 	}
 
-	let { query, readonly }: Props = $props();
+	let { query }: Props = $props();
 
 	let loading = $state(false);
 	let exports = $state<AuditLogExport[]>([]);
@@ -219,51 +210,6 @@
 				{:else}
 					{d[property as keyof typeof d]}
 				{/if}
-			{/snippet}
-			{#snippet actions(d)}
-				<DotDotDot class="icon-button hover:dark:bg-black/50">
-					{#snippet icon()}
-						<Ellipsis class="size-4" />
-					{/snippet}
-
-					<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-						{#if !readonly}
-							<button
-								class="menu-button-destructive"
-								onclick={(e) => {
-									e.stopPropagation();
-									showDeleteConfirm = {
-										type: 'single',
-										export: d
-									};
-								}}
-							>
-								<Trash2 class="size-4" /> Delete
-							</button>
-						{/if}
-					</div>
-				</DotDotDot>
-			{/snippet}
-			{#snippet tableSelectActions(currentSelected)}
-				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
-					<button
-						class="button flex items-center gap-1 text-sm font-normal"
-						onclick={() => {
-							selected = currentSelected;
-							showDeleteConfirm = {
-								type: 'multi'
-							};
-						}}
-						disabled={readonly}
-					>
-						<Trash2 class="size-4" /> Delete
-						{#if !readonly}
-							<span class="pill-primary">
-								{Object.keys(currentSelected).length}
-							</span>
-						{/if}
-					</button>
-				</div>
 			{/snippet}
 		</Table>
 	{/if}

@@ -45,29 +45,17 @@
 		}
 	});
 
-	// Track which fields have existing masked values
-	let maskedFields = $state({
-		s3AccessKeyID: false,
-		s3SecretAccessKey: false,
-		s3SessionToken: false,
-		gcsServiceAccountJSON: false,
-		azureClientID: false,
-		azureTenantID: false,
-		azureClientSecret: false,
-		customS3AccessKeyID: false,
-		customS3SecretAccessKey: false
-	});
-
 	let saving = $state(false);
 	let testing = $state(false);
 	let loading = $state(true);
 	let error = $state('');
 	let testResult = $state<{ success: boolean; message: string } | null>(null);
+	let existingCredentials = $state<StorageCredentials | null>(null);
 
 	// Load existing storage credentials on mount
 	onMount(async () => {
 		try {
-			const existingCredentials = await AdminService.getStorageCredentials();
+			existingCredentials = await AdminService.getStorageCredentials();
 			if (existingCredentials && existingCredentials.provider) {
 				// Populate form with existing data
 				form.provider = existingCredentials.provider;
@@ -81,17 +69,6 @@
 						sessionToken: existingCredentials.s3Config.sessionToken || ''
 					};
 
-					// Set masked values if credentials exist but values are empty (backend doesn't return actual values)
-					if (!existingCredentials.useWorkloadIdentity && existingCredentials.provider === 's3') {
-						if (!form.s3Config.accessKeyID) {
-							form.s3Config.accessKeyID = '••••••••••••••••';
-							maskedFields.s3AccessKeyID = true;
-						}
-						if (!form.s3Config.secretAccessKey) {
-							form.s3Config.secretAccessKey = '••••••••••••••••••••••••••••••••••••••••';
-							maskedFields.s3SecretAccessKey = true;
-						}
-					}
 					form.gcsConfig = undefined;
 					form.azureConfig = undefined;
 					form.customS3Config = undefined;
@@ -100,16 +77,6 @@
 					form.gcsConfig = {
 						serviceAccountJSON: existingCredentials.gcsConfig.serviceAccountJSON || ''
 					};
-
-					// Set masked values if credentials exist but values are empty
-					if (!existingCredentials.useWorkloadIdentity && existingCredentials.provider === 'gcs') {
-						if (!form.gcsConfig.serviceAccountJSON) {
-							form.gcsConfig.serviceAccountJSON =
-								'••••••••••••••••••••••••••••••••••••••••••••••••••••••••';
-							maskedFields.gcsServiceAccountJSON = true;
-						}
-					}
-
 					form.s3Config = undefined;
 					form.azureConfig = undefined;
 					form.customS3Config = undefined;
@@ -121,24 +88,6 @@
 						tenantID: existingCredentials.azureConfig.tenantID || '',
 						clientSecret: existingCredentials.azureConfig.clientSecret || ''
 					};
-
-					if (
-						!existingCredentials.useWorkloadIdentity &&
-						existingCredentials.provider === 'azure'
-					) {
-						if (!form.azureConfig.clientID) {
-							form.azureConfig.clientID = '••••••••••••••••';
-							maskedFields.azureClientID = true;
-						}
-						if (!form.azureConfig?.tenantID) {
-							form.azureConfig.tenantID = '••••••••••••••••';
-							maskedFields.azureTenantID = true;
-						}
-						if (!form.azureConfig?.clientSecret) {
-							form.azureConfig.clientSecret = '••••••••••••••••••••••••••••••••••••••••';
-							maskedFields.azureClientSecret = true;
-						}
-					}
 					useWorkloadIdentity = existingCredentials.useWorkloadIdentity;
 				} else if (existingCredentials.customS3Config) {
 					form.customS3Config = {
@@ -147,10 +96,7 @@
 						accessKeyID: '••••••••••••••••',
 						secretAccessKey: '••••••••••••••••••••••••••••••••••••••••'
 					};
-					maskedFields.customS3AccessKeyID = true;
-					maskedFields.customS3SecretAccessKey = true;
 					form.useWorkloadIdentity = false;
-
 					form.s3Config = undefined;
 					form.gcsConfig = undefined;
 					form.azureConfig = undefined;
@@ -165,63 +111,6 @@
 		}
 	});
 
-	// Functions to clear masked values when user starts typing
-	function handleS3AccessKeyIDFocus() {
-		if (maskedFields.s3AccessKeyID && form.s3Config) {
-			form.s3Config.accessKeyID = '';
-			maskedFields.s3AccessKeyID = false;
-		}
-	}
-
-	function handleS3SecretAccessKeyFocus() {
-		if (maskedFields.s3SecretAccessKey && form.s3Config) {
-			form.s3Config.secretAccessKey = '';
-			maskedFields.s3SecretAccessKey = false;
-		}
-	}
-
-	function handleGcsServiceAccountJSONFocus() {
-		if (maskedFields.gcsServiceAccountJSON && form.gcsConfig) {
-			form.gcsConfig.serviceAccountJSON = '';
-			maskedFields.gcsServiceAccountJSON = false;
-		}
-	}
-
-	function handleAzureClientIDFocus() {
-		if (maskedFields.azureClientID && form.azureConfig) {
-			form.azureConfig.clientID = '';
-			maskedFields.azureClientID = false;
-		}
-	}
-
-	function handleAzureTenantIDFocus() {
-		if (maskedFields.azureTenantID && form.azureConfig) {
-			form.azureConfig.tenantID = '';
-			maskedFields.azureTenantID = false;
-		}
-	}
-
-	function handleAzureClientSecretFocus() {
-		if (maskedFields.azureClientSecret && form.azureConfig) {
-			form.azureConfig.clientSecret = '';
-			maskedFields.azureClientSecret = false;
-		}
-	}
-
-	function handleCustomS3AccessKeyIDFocus() {
-		if (maskedFields.customS3AccessKeyID && form.customS3Config) {
-			form.customS3Config.accessKeyID = '';
-			maskedFields.customS3AccessKeyID = false;
-		}
-	}
-
-	function handleCustomS3SecretAccessKeyFocus() {
-		if (maskedFields.customS3SecretAccessKey && form.customS3Config) {
-			form.customS3Config.secretAccessKey = '';
-			maskedFields.customS3SecretAccessKey = false;
-		}
-	}
-
 	async function handleSubmit() {
 		try {
 			saving = true;
@@ -233,27 +122,27 @@
 					if (!form.s3Config?.region) {
 						throw new Error('Region is required for S3');
 					}
-					// Only validate credentials if they're not masked (user is providing new ones)
-					if (!maskedFields.s3AccessKeyID && !form.s3Config?.accessKeyID) {
+					if (!form.s3Config?.accessKeyID) {
 						throw new Error('Access Key ID is required for S3');
 					}
-					if (!maskedFields.s3SecretAccessKey && !form.s3Config?.secretAccessKey) {
+					if (!form.s3Config?.secretAccessKey) {
 						throw new Error('Secret Access Key is required for S3');
 					}
 				} else if (form.provider === 'gcs') {
-					// Only validate if not masked
-					if (!maskedFields.gcsServiceAccountJSON && !form.gcsConfig?.serviceAccountJSON) {
+					if (!form.gcsConfig?.serviceAccountJSON) {
 						throw new Error('Service Account JSON is required for GCS');
 					}
 				} else if (form.provider === 'azure') {
-					// Only validate if not masked
-					if (!maskedFields.azureClientID && !form.azureConfig?.clientID) {
+					if (!form.azureConfig?.storageAccount) {
+						throw new Error('Storage Account is required for Azure');
+					}
+					if (!form.azureConfig?.clientID) {
 						throw new Error('Client ID is required for Azure');
 					}
-					if (!maskedFields.azureTenantID && !form.azureConfig?.tenantID) {
+					if (!form.azureConfig?.tenantID) {
 						throw new Error('Tenant ID is required for Azure');
 					}
-					if (!maskedFields.azureClientSecret && !form.azureConfig?.clientSecret) {
+					if (!form.azureConfig?.clientSecret) {
 						throw new Error('Client Secret is required for Azure');
 					}
 				} else if (form.provider === 'custom') {
@@ -263,58 +152,19 @@
 					if (!form.customS3Config?.region) {
 						throw new Error('Region is required for Custom S3');
 					}
-					// Only validate credentials if not masked
-					if (!maskedFields.customS3AccessKeyID && !form.customS3Config?.accessKeyID) {
+					if (!form.customS3Config?.accessKeyID) {
 						throw new Error('Access Key ID is required for Custom S3');
 					}
-					if (!maskedFields.customS3SecretAccessKey && !form.customS3Config?.secretAccessKey) {
+					if (!form.customS3Config?.secretAccessKey) {
 						throw new Error('Secret Access Key is required for Custom S3');
 					}
 				}
 			}
 
-			// Prepare the request - clean masked fields
 			const request = {
 				...form,
 				useWorkloadIdentity
 			};
-
-			// Clean masked fields before sending
-			if (request.s3Config) {
-				request.s3Config = {
-					...request.s3Config,
-					accessKeyID: maskedFields.s3AccessKeyID ? '' : request.s3Config.accessKeyID,
-					secretAccessKey: maskedFields.s3SecretAccessKey ? '' : request.s3Config.secretAccessKey
-				};
-			}
-
-			if (request.gcsConfig) {
-				request.gcsConfig = {
-					...request.gcsConfig,
-					serviceAccountJSON: maskedFields.gcsServiceAccountJSON
-						? ''
-						: request.gcsConfig.serviceAccountJSON
-				};
-			}
-
-			if (request.azureConfig) {
-				request.azureConfig = {
-					...request.azureConfig,
-					clientID: maskedFields.azureClientID ? '' : request.azureConfig.clientID,
-					tenantID: maskedFields.azureTenantID ? '' : request.azureConfig.tenantID,
-					clientSecret: maskedFields.azureClientSecret ? '' : request.azureConfig.clientSecret
-				};
-			}
-
-			if (request.customS3Config) {
-				request.customS3Config = {
-					...request.customS3Config,
-					accessKeyID: maskedFields.customS3AccessKeyID ? '' : request.customS3Config.accessKeyID,
-					secretAccessKey: maskedFields.customS3SecretAccessKey
-						? ''
-						: request.customS3Config.secretAccessKey
-				};
-			}
 
 			await AdminService.configureStorageCredentials(request);
 			onSubmit();
@@ -341,36 +191,44 @@
 			if (request.s3Config) {
 				request.s3Config = {
 					...request.s3Config,
-					accessKeyID: maskedFields.s3AccessKeyID ? '' : request.s3Config.accessKeyID,
-					secretAccessKey: maskedFields.s3SecretAccessKey ? '' : request.s3Config.secretAccessKey
+					accessKeyID: request.s3Config.accessKeyID,
+					secretAccessKey: request.s3Config.secretAccessKey
 				};
+				if (useWorkloadIdentity) {
+					request.s3Config.accessKeyID = '';
+					request.s3Config.secretAccessKey = '';
+				}
 			}
 
 			if (request.gcsConfig) {
 				request.gcsConfig = {
 					...request.gcsConfig,
-					serviceAccountJSON: maskedFields.gcsServiceAccountJSON
-						? ''
-						: request.gcsConfig.serviceAccountJSON
+					serviceAccountJSON: request.gcsConfig.serviceAccountJSON
 				};
+				if (useWorkloadIdentity) {
+					request.gcsConfig.serviceAccountJSON = '';
+				}
 			}
 
 			if (request.azureConfig) {
 				request.azureConfig = {
 					...request.azureConfig,
-					clientID: maskedFields.azureClientID ? '' : request.azureConfig.clientID,
-					tenantID: maskedFields.azureTenantID ? '' : request.azureConfig.tenantID,
-					clientSecret: maskedFields.azureClientSecret ? '' : request.azureConfig.clientSecret
+					clientID: request.azureConfig.clientID,
+					tenantID: request.azureConfig.tenantID,
+					clientSecret: request.azureConfig.clientSecret
 				};
+				if (useWorkloadIdentity) {
+					request.azureConfig.clientID = '';
+					request.azureConfig.tenantID = '';
+					request.azureConfig.clientSecret = '';
+				}
 			}
 
 			if (request.customS3Config) {
 				request.customS3Config = {
 					...request.customS3Config,
-					accessKeyID: maskedFields.customS3AccessKeyID ? '' : request.customS3Config.accessKeyID,
-					secretAccessKey: maskedFields.customS3SecretAccessKey
-						? ''
-						: request.customS3Config.secretAccessKey
+					accessKeyID: request.customS3Config.accessKeyID,
+					secretAccessKey: request.customS3Config.secretAccessKey
 				};
 			}
 
@@ -427,46 +285,40 @@
 									form.gcsConfig = undefined;
 									form.azureConfig = undefined;
 									form.customS3Config = undefined;
-									if (!form.s3Config) {
-										form.s3Config = {
-											region: '',
-											accessKeyID: '',
-											secretAccessKey: '',
-											sessionToken: ''
-										};
-									}
+									form.s3Config = {
+										region: existingCredentials?.s3Config?.region || '',
+										accessKeyID: existingCredentials?.s3Config?.accessKeyID || '',
+										secretAccessKey: existingCredentials?.s3Config?.secretAccessKey || '',
+										sessionToken: existingCredentials?.s3Config?.sessionToken || ''
+									};
 									useWorkloadIdentity = false;
 								} else if (value === 'gcs') {
 									form.s3Config = undefined;
 									form.azureConfig = undefined;
 									form.customS3Config = undefined;
-									if (!form.gcsConfig) {
-										form.gcsConfig = { serviceAccountJSON: '' };
-									}
+									form.gcsConfig = {
+										serviceAccountJSON: existingCredentials?.gcsConfig?.serviceAccountJSON || ''
+									};
 								} else if (value === 'azure') {
 									form.s3Config = undefined;
 									form.gcsConfig = undefined;
 									form.customS3Config = undefined;
-									if (!form.azureConfig) {
-										form.azureConfig = {
-											storageAccount: '',
-											clientID: '',
-											tenantID: '',
-											clientSecret: ''
-										};
-									}
+									form.azureConfig = {
+										storageAccount: existingCredentials?.azureConfig?.storageAccount || '',
+										clientID: existingCredentials?.azureConfig?.clientID || '',
+										tenantID: existingCredentials?.azureConfig?.tenantID || '',
+										clientSecret: existingCredentials?.azureConfig?.clientSecret || ''
+									};
 								} else if (value === 'custom') {
 									form.s3Config = undefined;
 									form.gcsConfig = undefined;
 									form.azureConfig = undefined;
-									if (!form.customS3Config) {
-										form.customS3Config = {
-											endpoint: '',
-											region: '',
-											accessKeyID: '',
-											secretAccessKey: ''
-										};
-									}
+									form.customS3Config = {
+										endpoint: existingCredentials?.customS3Config?.endpoint || '',
+										region: existingCredentials?.customS3Config?.region || '',
+										accessKeyID: existingCredentials?.customS3Config?.accessKeyID || '',
+										secretAccessKey: existingCredentials?.customS3Config?.secretAccessKey || ''
+									};
 									useWorkloadIdentity = false;
 								}
 							}}
@@ -484,7 +336,7 @@
 								class="text-input-filled"
 								id="region"
 								bind:value={form.s3Config.region}
-								placeholder="us-east-1"
+								placeholder="e.g. us-east-1"
 							/>
 						</div>
 					</div>
@@ -541,18 +393,17 @@
 						<div class="space-y-4">
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="access-key">Access Key ID</label>
-								<SensitiveInput
-									name="access-key"
-									bind:value={form.s3Config.accessKeyID}
-									onfocus={handleS3AccessKeyIDFocus}
-								/>
+								<SensitiveInput name="access-key" bind:value={form.s3Config.accessKeyID} />
 							</div>
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="secret-key">Secret Access Key</label>
 								<SensitiveInput
 									name="secret-key"
 									bind:value={form.s3Config.secretAccessKey}
-									onfocus={handleS3SecretAccessKeyFocus}
+									placeholder={existingCredentials?.s3Config
+										? '••••••••••••••••••••••••••••••••••••••••'
+										: ''}
+									hideReveal
 								/>
 							</div>
 						</div>
@@ -563,7 +414,10 @@
 								name="service-account-json"
 								bind:value={form.gcsConfig.serviceAccountJSON}
 								textarea
-								onfocus={handleGcsServiceAccountJSONFocus}
+								placeholder={existingCredentials?.gcsConfig
+									? '••••••••••••••••••••••••••••••••••••••••'
+									: ''}
+								hideReveal
 							/>
 							<p class="text-xs text-gray-500">Complete JSON key file for the service account</p>
 						</div>
@@ -571,26 +425,21 @@
 						<div class="space-y-4">
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="azure-client-id">Client ID</label>
-								<SensitiveInput
-									name="azure-client-id"
-									bind:value={form.azureConfig.clientID}
-									onfocus={handleAzureClientIDFocus}
-								/>
+								<SensitiveInput name="azure-client-id" bind:value={form.azureConfig.clientID} />
 							</div>
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="azure-tenant-id">Tenant ID</label>
-								<SensitiveInput
-									name="azure-tenant-id"
-									bind:value={form.azureConfig.tenantID}
-									onfocus={handleAzureTenantIDFocus}
-								/>
+								<SensitiveInput name="azure-tenant-id" bind:value={form.azureConfig.tenantID} />
 							</div>
 							<div class="flex flex-col gap-1">
 								<label class="text-sm font-medium" for="azure-client-secret">Client Secret</label>
 								<SensitiveInput
 									name="azure-client-secret"
 									bind:value={form.azureConfig.clientSecret}
-									onfocus={handleAzureClientSecretFocus}
+									hideReveal
+									placeholder={existingCredentials?.azureConfig
+										? '••••••••••••••••••••••••••••••••••••••••'
+										: ''}
 								/>
 							</div>
 						</div>
@@ -611,7 +460,7 @@
 									class="text-input-filled"
 									id="custom-region"
 									bind:value={form.customS3Config.region}
-									placeholder="us-east-1"
+									placeholder="e.g. us-east-1"
 								/>
 							</div>
 							<div class="flex flex-col gap-1">
@@ -619,7 +468,6 @@
 								<SensitiveInput
 									name="custom-access-key"
 									bind:value={form.customS3Config.accessKeyID}
-									onfocus={handleCustomS3AccessKeyIDFocus}
 								/>
 							</div>
 							<div class="flex flex-col gap-1">
@@ -627,7 +475,10 @@
 								<SensitiveInput
 									name="custom-secret-key"
 									bind:value={form.customS3Config.secretAccessKey}
-									onfocus={handleCustomS3SecretAccessKeyFocus}
+									hideReveal
+									placeholder={existingCredentials?.customS3Config
+										? '••••••••••••••••••••••••••••••••••••••••'
+										: ''}
 								/>
 							</div>
 						</div>

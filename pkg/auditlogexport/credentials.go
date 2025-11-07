@@ -176,26 +176,15 @@ func (g *GPTScriptCredentialProvider) DeleteCredentials(ctx context.Context) err
 	return g.gptClient.DeleteCredential(ctx, storageCredentialsContext, storageCredentialsName)
 }
 
-func (g *GPTScriptCredentialProvider) TestCredentials(ctx context.Context, config types.StorageConfig) error {
-	var provider types.StorageProviderType
-	if config.S3Config != nil {
-		provider = types.StorageProviderS3
-	} else if config.GCSConfig != nil {
-		provider = types.StorageProviderGCS
-	} else if config.AzureConfig != nil {
-		provider = types.StorageProviderAzureBlob
-	} else if config.CustomS3Config != nil {
-		provider = types.StorageProviderCustomS3
-	} else {
-		return fmt.Errorf("invalid storage config, no storage provider found")
-	}
+func (g *GPTScriptCredentialProvider) TestCredentials(ctx context.Context, config types.StorageCredentialsTestRequest) error {
+	provider := config.Provider
 
 	p, err := NewStorageProvider(provider, g)
 	if err != nil {
 		return err
 	}
 
-	err = p.Test(ctx, config)
+	err = p.Test(ctx, config.StorageConfig)
 	if err != nil {
 		return err
 	}

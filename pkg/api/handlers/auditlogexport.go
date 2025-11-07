@@ -293,7 +293,6 @@ func (h *AuditLogExportHandler) GetStorageCredentials(req api.Context) error {
 	// remove any sensitive information from the storage config
 	if storageConfig.S3Config != nil {
 		if storageConfig.S3Config.AccessKeyID != "" || storageConfig.S3Config.SecretAccessKey != "" {
-			storageConfig.S3Config.AccessKeyID = ""
 			storageConfig.S3Config.SecretAccessKey = ""
 		} else {
 			result.UseWorkloadIdentity = true
@@ -310,8 +309,6 @@ func (h *AuditLogExportHandler) GetStorageCredentials(req api.Context) error {
 		result.GCSConfig = storageConfig.GCSConfig
 	} else if storageConfig.AzureConfig != nil {
 		if storageConfig.AzureConfig.ClientID != "" || storageConfig.AzureConfig.TenantID != "" || storageConfig.AzureConfig.ClientSecret != "" {
-			storageConfig.AzureConfig.ClientID = ""
-			storageConfig.AzureConfig.TenantID = ""
 			storageConfig.AzureConfig.ClientSecret = ""
 		} else {
 			result.UseWorkloadIdentity = true
@@ -320,7 +317,6 @@ func (h *AuditLogExportHandler) GetStorageCredentials(req api.Context) error {
 		result.AzureConfig = storageConfig.AzureConfig
 	} else if storageConfig.CustomS3Config != nil {
 		if storageConfig.CustomS3Config.AccessKeyID != "" || storageConfig.CustomS3Config.SecretAccessKey != "" {
-			storageConfig.CustomS3Config.AccessKeyID = ""
 			storageConfig.CustomS3Config.SecretAccessKey = ""
 		}
 		result.Provider = types.StorageProviderCustomS3
@@ -343,12 +339,12 @@ func (h *AuditLogExportHandler) DeleteStorageCredentials(req api.Context) error 
 
 // TestStorageCredentials tests storage provider credentials
 func (h *AuditLogExportHandler) TestStorageCredentials(req api.Context) error {
-	var storageConfig types.StorageCredentialsTestRequest
-	if err := req.Read(&storageConfig); err != nil {
+	var storageConfigReq types.StorageCredentialsTestRequest
+	if err := req.Read(&storageConfigReq); err != nil {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
 
-	err := h.credProvider.TestCredentials(req.Context(), storageConfig.StorageConfig)
+	err := h.credProvider.TestCredentials(req.Context(), storageConfigReq)
 	if err != nil {
 		return req.Write(types.StorageCredentialsTestResponse{
 			Success: false,

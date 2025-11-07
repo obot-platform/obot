@@ -13,6 +13,8 @@
 		disabled?: boolean;
 		growable?: boolean;
 		class?: string;
+		hideReveal?: boolean;
+		placeholder?: string;
 	}
 
 	let {
@@ -24,7 +26,9 @@
 		textarea,
 		disabled,
 		growable,
-		class: klass
+		class: klass,
+		hideReveal,
+		placeholder
 	}: Props = $props();
 	let showSensitive = $state(false);
 	let textareaElement = $state<HTMLElement>();
@@ -58,7 +62,7 @@
 	{#if textarea}
 		<div class="relative flex min-h-[60px] w-full flex-col leading-5">
 			{#if growable}
-				<input type="text" {name} {disabled} {value} hidden />
+				<input type="text" {name} {disabled} {value} {placeholder} hidden />
 				<div
 					bind:this={textareaElement}
 					data-1p-ignore
@@ -95,6 +99,7 @@
 					id={name}
 					{name}
 					{disabled}
+					{placeholder}
 					spellcheck="false"
 					class={twMerge(
 						'text-input-filled base min-h-full w-full flex-1 pr-10 font-mono',
@@ -149,26 +154,29 @@
 			onfocus={handleFocus}
 			autocomplete="new-password"
 			{disabled}
+			{placeholder}
 		/>
 	{/if}
 
-	<div
-		class="absolute top-1/2 right-4 z-10 grid -translate-y-1/2 grid-cols-1 grid-rows-1"
-		use:tooltip={{ disablePortal: true, text: showSensitive ? 'Hide' : 'Reveal' }}
-	>
-		<button
-			type="button"
-			class="cursor-pointer transition-colors duration-150"
-			class:text-red-500={error}
-			onclick={toggleVisibility}
+	{#if !hideReveal}
+		<div
+			class="absolute top-1/2 right-4 z-10 grid -translate-y-1/2 grid-cols-1 grid-rows-1"
+			use:tooltip={{ disablePortal: true, text: showSensitive ? 'Hide' : 'Reveal' }}
 		>
-			{#if showSensitive}
-				<EyeOff class="size-4" />
-			{:else}
-				<Eye class="size-4" />
-			{/if}
-		</button>
-	</div>
+			<button
+				type="button"
+				class="cursor-pointer transition-colors duration-150"
+				class:text-red-500={error}
+				onclick={toggleVisibility}
+			>
+				{#if showSensitive}
+					<EyeOff class="size-4" />
+				{:else}
+					<Eye class="size-4" />
+				{/if}
+			</button>
+		</div>
+	{/if}
 </div>
 
 <style>
