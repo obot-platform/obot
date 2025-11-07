@@ -251,7 +251,10 @@
 	<dialog
 		use:clickOutside={[() => calendarPopover?.close(), true]}
 		bind:this={calendarPopover}
-		class={twMerge('default-dialog absolute z-50 min-w-[320px] p-4', classes?.calendar)}
+		class={twMerge(
+			'default-dialog absolute left-13 z-50 min-w-[320px] -translate-x-full p-4',
+			classes?.calendar
+		)}
 	>
 		<!-- Calendar Header -->
 		<div class={twMerge('mb-4 flex items-center justify-between', classes?.header)}>
