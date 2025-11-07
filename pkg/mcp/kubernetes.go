@@ -758,10 +758,10 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, id string) error 
 		}
 
 		// Set the actual resource fields that are present
-		if k8sSettings.Resources.Limits != nil && len(k8sSettings.Resources.Limits) > 0 {
+		if len(k8sSettings.Resources.Limits) > 0 {
 			resourcesMap["limits"] = k8sSettings.Resources.Limits
 		}
-		if k8sSettings.Resources.Requests != nil && len(k8sSettings.Resources.Requests) > 0 {
+		if len(k8sSettings.Resources.Requests) > 0 {
 			resourcesMap["requests"] = k8sSettings.Resources.Requests
 		}
 
