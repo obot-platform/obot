@@ -48,7 +48,7 @@
 		server. It may affect the LLM's ability to understand the tool so be careful when adjusting
 		these values.
 	</p>
-	<div class="relative flex flex-col gap-2 px-0.5">
+	<div class="relative flex flex-col gap-2 overflow-x-hidden px-0.5">
 		<div class="flex w-full justify-end">
 			<Toggle
 				checked={allToolsEnabled}

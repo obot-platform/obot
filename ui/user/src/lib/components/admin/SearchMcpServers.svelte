@@ -169,6 +169,7 @@
 					<Search
 						class="dark:bg-surface1 dark:border-surface3 shadow-inner dark:border"
 						onChange={(val) => (search = val)}
+						value={search}
 						placeholder="Search by name..."
 					/>
 				</div>
