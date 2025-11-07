@@ -375,7 +375,11 @@
 	}
 
 	async function handleLaunchCompositeServer(entry: Entry) {
-		if (!configureForm || !('componentConfigs' in configureForm)) return;
+		// If no configureForm yet, initialize the composite form so user can enable/disable components.
+		if (!configureForm || !('componentConfigs' in configureForm)) {
+			initCompositeForm(entry);
+			return;
+		}
 
 		if (!entry.manifest) {
 			console.error('No server manifest found');
@@ -1086,7 +1090,10 @@
 
 {#snippet editConfigAction(connectedServer: ConnectedServer)}
 	{@const requiresUpdate = requiresUserUpdate(connectedServer)}
-	{@const canConfigure = connectedServer.parent && hasEditableConfiguration(connectedServer.parent)}
+	{@const canConfigure =
+		connectedServer.parent &&
+		(connectedServer.parent.manifest.runtime === 'composite' ||
+			hasEditableConfiguration(connectedServer.parent))}
 	{#if canConfigure}
 		<button
 			class={twMerge(
