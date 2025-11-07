@@ -111,39 +111,41 @@
 			return match ? match.disabled : false;
 		}
 
-		const transformedData = serversData.map((deployment) => {
-			const powerUserWorkspaceID =
-				deployment.powerUserWorkspaceID ||
-				(deployment.catalogEntryID
-					? entriesMap[deployment.catalogEntryID]?.powerUserWorkspaceID
-					: undefined);
-			const powerUserID = deployment.catalogEntryID
-				? entriesMap[deployment.catalogEntryID]?.powerUserID
-				: powerUserWorkspaceID
-					? deployment.userID
-					: undefined;
+		const transformedData = serversData
+			.map((deployment) => {
+				const powerUserWorkspaceID =
+					deployment.powerUserWorkspaceID ||
+					(deployment.catalogEntryID
+						? entriesMap[deployment.catalogEntryID]?.powerUserWorkspaceID
+						: undefined);
+				const powerUserID = deployment.catalogEntryID
+					? entriesMap[deployment.catalogEntryID]?.powerUserID
+					: powerUserWorkspaceID
+						? deployment.userID
+						: undefined;
 
-			const compositeParent =
-				deployment.compositeName && compositeMapping[deployment.compositeName];
-			const compositeParentName = compositeParent
-				? compositeParent.alias || compositeParent.manifest.name
-				: '';
-			return {
-				...deployment,
-				displayName: deployment.alias || deployment.manifest.name || '',
-				userName: getUserDisplayName(usersMap, deployment.userID),
-				registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
-				type: getServerTypeLabel(deployment),
-				powerUserWorkspaceID,
-				compositeParentName,
-				disabled: compositeParent
-					? isCompositeDescendantDisabled(
-							compositeParent,
-							deployment.catalogEntryID || deployment.mcpCatalogID || deployment.id
-						)
-					: false
-			};
-		});
+				const compositeParent =
+					deployment.compositeName && compositeMapping[deployment.compositeName];
+				const compositeParentName = compositeParent
+					? compositeParent.alias || compositeParent.manifest.name
+					: '';
+				return {
+					...deployment,
+					displayName: deployment.alias || deployment.manifest.name || '',
+					userName: getUserDisplayName(usersMap, deployment.userID),
+					registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
+					type: getServerTypeLabel(deployment),
+					powerUserWorkspaceID,
+					compositeParentName,
+					disabled: compositeParent
+						? isCompositeDescendantDisabled(
+								compositeParent,
+								deployment.catalogEntryID || deployment.mcpCatalogID || deployment.id
+							)
+						: false
+				};
+			})
+			.filter((d) => !d.disabled);
 
 		return query
 			? transformedData.filter((d) => d.displayName.toLowerCase().includes(query.toLowerCase()))
@@ -347,16 +349,12 @@
 				if (d.needsUpdate) {
 					return 'bg-blue-500/10';
 				}
-				if (d.disabled) {
-					return 'bg-gray-500/10 opacity-50';
-				}
 				return '';
 			}}
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
 				thead: 'top-31'
 			}}
-			validateSelect={(d) => !d.disabled}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
@@ -371,9 +369,6 @@
 						<div class="flex flex-col">
 							<p>
 								{d.displayName}
-								{#if d.disabled}
-									<i class="text-xs text-gray-500">Disabled</i>
-								{/if}
 							</p>
 							{#if d.compositeParentName}
 								<span class="text-xs text-gray-500">
@@ -423,7 +418,7 @@
 										}}
 										use:tooltip={d.compositeName
 											? {
-													text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+													text: 'This is a component of a composite server and cannot be updated independently; update the composite MCP server instead',
 													classes: ['w-md'],
 													disablePortal: true
 												}
@@ -455,7 +450,7 @@
 							{#if d.manifest.runtime !== 'remote' && !readonly}
 								<button
 									class="menu-button"
-									disabled={restarting || d.disabled}
+									disabled={restarting}
 									onclick={async (e) => {
 										e.stopPropagation();
 										restarting = true;
@@ -474,7 +469,7 @@
 									}}
 									use:tooltip={d.compositeName
 										? {
-												text: 'This descendant of a composite server is currently disabled and cannot be restarted.',
+												text: 'This is a disabled component of a composite server disabled and cannot be restarted.',
 												classes: ['w-md'],
 												disablePortal: true
 											}
@@ -537,7 +532,7 @@
 
 			{#snippet tableSelectActions(currentSelected)}
 				{@const restartableCount = Object.values(currentSelected).filter(
-					(s) => s.manifest.runtime !== 'remote' && s.configured && !s.disabled
+					(s) => s.manifest.runtime !== 'remote' && s.configured
 				).length}
 				{@const upgradeableCount = Object.values(currentSelected).filter(
 					(s) => s.needsUpdate && !s.compositeName
