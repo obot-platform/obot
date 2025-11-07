@@ -54,6 +54,10 @@ func (s *S3Provider) Test(ctx context.Context, storageConfig apitypes.StorageCon
 		return fmt.Errorf("s3 configuration is required")
 	}
 
+	if s3Config.Region == "" {
+		return fmt.Errorf("region is required")
+	}
+
 	if s3Config.AccessKeyID != "" || s3Config.SecretAccessKey != "" {
 		cfg.Credentials = credentials.NewStaticCredentialsProvider(
 			s3Config.AccessKeyID,
