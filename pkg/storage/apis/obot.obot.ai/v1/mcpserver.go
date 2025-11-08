@@ -63,13 +63,18 @@ func (in *MCPServer) FieldNames() []string {
 }
 
 func (in *MCPServer) DeleteRefs() []Ref {
-	return []Ref{
+	refs := []Ref{
 		{ObjType: &Thread{}, Name: in.Spec.ThreadName},
-		{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName},
 		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogID},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
 	}
+	if in.Spec.CompositeName == "" {
+		// Only garbage collect an MCP server when the catalog entry is deleted if it's not a component of a composite MCP server.
+		// Component MCP servers get their manifest from the composite catalog entry instead.
+		refs = append(refs, Ref{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName})
+	}
+	return refs
 }
 
 type MCPServerSpec struct {
