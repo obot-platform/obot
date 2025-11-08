@@ -191,7 +191,7 @@
 					class="bg-surface1 dark:bg-surface2 dark:border-surface3 flex-1 border border-transparent shadow-inner"
 					options={activeModelOptions
 						.map((model) => ({
-							label: SUGGESTED_MODEL_SELECTIONS[modelAlias.alias].includes(model.name)
+							label: SUGGESTED_MODEL_SELECTIONS[modelAlias.alias] === model.name
 								? `${model.name ?? ''} (Suggested)`
 								: (model.name ?? ''),
 							id: model.id
