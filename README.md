@@ -13,12 +13,6 @@ docker run -d --name obot -p 8080:8080 -v /var/run/docker.sock:/var/run/docker.s
 
 Then open your browser to [http://localhost:8080](http://localhost:8080) to access the Obot UI.
 
-Alternatively, you can also launch Obot with Docker Compose by adding your [custom environment variables](https://docs.obot.ai/configuration/server-configuration) into `docker-compose.yaml` & running:
-
-```
-docker compose up
-```
-
 > [!TIP]
 > You need to replace `<API KEY>` with your [OpenAI API Key](https://platform.openai.com/api-keys).
 >
@@ -29,6 +23,27 @@ docker compose up
 > Setting both is also supported, but OpenAI models will be set as the defaults.
 
 For more installation methods, see our [Installation Guide](https://docs.obot.ai/installation/general).
+
+## Run with Docker Compose
+
+> **Step 1** - Clone the '.env.example' file, add your API Keys to the cloned file and save the file as '.env'
+
+> **Step 2** - Within your terminal, run:
+
+```bash
+docker-compose up --build
+```
+
+If that doesn't work, try running it without the dash:
+```bash
+docker compose up --build
+```
+
+> **Step 3** - By default, Obot will now be running on localhost:8080
+
+Visit [http://localhost:8080](http://localhost:8080) and enjoy your new MCP Catalog!
+
+For a quickstart on how to setup Obot with Google OAuth, check out [this short tutorial video](https://www.youtube.com/watch?v=vkS1F8Tmckc).
 
 ## The Three Parts of Obot
 The platform consists of three main components that work together to deliver a comprehensive AI solution.
