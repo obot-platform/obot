@@ -13,13 +13,30 @@ if [ -f "$ENV_FILE" ]; then
     echo -e "${GREEN}Loading environment variables from .env file...${NC}"
     # Export variables from .env file, ignoring comments and empty lines
     # This handles KEY=VALUE format properly, even with special characters
+    # Strips surrounding quotes from values
     set -a
     while IFS= read -r line || [ -n "$line" ]; do
         # Skip comments and empty lines
         [[ "$line" =~ ^[[:space:]]*# ]] && continue
         [[ -z "${line// }" ]] && continue
-        # Export the variable
-        export "$line" 2>/dev/null || true
+        
+        # Extract key and value
+        if [[ "$line" =~ ^[[:space:]]*([^=]+)=(.*)$ ]]; then
+            key="${BASH_REMATCH[1]// /}"
+            value="${BASH_REMATCH[2]}"
+            
+            # Remove leading/trailing whitespace
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            
+            # Strip surrounding quotes (single or double)
+            if [[ "$value" =~ ^\".*\"$ ]] || [[ "$value" =~ ^\'.*\'$ ]]; then
+                value="${value:1:-1}"
+            fi
+            
+            # Export the variable
+            export "$key=$value" 2>/dev/null || true
+        fi
     done < "$ENV_FILE"
     set +a
     echo -e "${GREEN}Loaded environment variables from .env${NC}"
