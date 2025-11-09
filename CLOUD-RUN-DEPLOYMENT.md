@@ -266,3 +266,45 @@ For issues specific to:
 - **Cloud Run**: Check [Cloud Run documentation](https://cloud.google.com/run/docs)
 - **Cloud SQL**: Check [Cloud SQL documentation](https://cloud.google.com/sql/docs)
 
+## Encryption
+
+The script now:
+Only sets encryption provider to "gcp" if OBOT_GCP_KMS_KEY_URI is also provided
+Defaults to "none" if encryption provider is not set or if it's set to "gcp" without the KMS key URI
+Adds the KMS key URI to environment variables if provided
+You have two options:
+Option 1: Disable encryption (quickest fix)
+Remove or comment out OBOT_SERVER_ENCRYPTION_PROVIDER=gcp from your .env file, or set it to:
+
+```bash
+OBOT_SERVER_ENCRYPTION_PROVIDER=none
+```
+
+Option 2: Set up GCP KMS encryption (recommended for production)
+Create a KMS keyring and key:
+
+```bash
+gcloud kms keyrings create obot-keyring --location=global --project=adk-rag-472808
+gcloud kms keys create obot-key --location=global --keyring=obot-keyring --purpose=encryption --project=adk-rag-472808
+```
+
+Grant permissions to your service account:
+
+```bash
+gcloud kms keys add-iam-policy-binding obot-key \
+   --location=global \
+   --keyring=obot-keyring \
+   --member="serviceAccount:obot-cloud-run@adk-rag-472808.iam.gserviceaccount.com" \
+   --role=roles/cloudkms.cryptoKeyEncrypterDecrypter \
+   --project=adk-rag-472808
+```
+
+Add to your .env file:
+```bash
+OBOT_GCP_KMS_KEY_URI=projects/adk-rag-472808/locations/global/keyRings/obot-keyring/cryptoKeys/obot-key
+```
+
+After updating your .env file, redeploy:
+```bash
+./deploy-cloud-run.sh
+```

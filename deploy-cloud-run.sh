@@ -48,7 +48,8 @@ fi
 # Configuration
 # Note: PROJECT_ID and REGION will be set from .env file (GCP_PROJECT_ID and GCP_REGION)
 SERVICE_NAME="obot"
-IMAGE_NAME="ghcr.io/obot-platform/obot:latest"
+SOURCE_IMAGE="ghcr.io/obot-platform/obot:latest"
+ARTIFACT_REGISTRY_REPO="obot-images"
 
 # Check if gcloud is installed
 if ! command -v gcloud &> /dev/null; then
@@ -137,6 +138,7 @@ gcloud services enable \
     run.googleapis.com \
     secretmanager.googleapis.com \
     cloudbuild.googleapis.com \
+    artifactregistry.googleapis.com \
     --project="$PROJECT_ID"
 
 # Create service account if it doesn't exist
@@ -240,6 +242,41 @@ else
     echo -e "${YELLOW}OBOT_BOOTSTRAP_TOKEN not set or using placeholder. Skipping secret creation.${NC}"
 fi
 
+# Prepare container image for Cloud Run
+# Cloud Run doesn't support ghcr.io directly, so we need to use Artifact Registry
+echo -e "${YELLOW}Preparing container image...${NC}"
+
+ARTIFACT_REGISTRY_PATH="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REGISTRY_REPO}/obot:latest"
+IMAGE_NAME="$ARTIFACT_REGISTRY_PATH"
+
+# Check if Artifact Registry repository exists, create if not
+if ! gcloud artifacts repositories describe "$ARTIFACT_REGISTRY_REPO" \
+    --location="$REGION" \
+    --project="$PROJECT_ID" &>/dev/null; then
+    echo -e "${YELLOW}Creating Artifact Registry repository...${NC}"
+    gcloud artifacts repositories create "$ARTIFACT_REGISTRY_REPO" \
+        --repository-format=docker \
+        --location="$REGION" \
+        --project="$PROJECT_ID"
+fi
+
+# Check if image already exists in Artifact Registry
+if gcloud artifacts docker images describe "$IMAGE_NAME" --project="$PROJECT_ID" &>/dev/null 2>&1; then
+    echo -e "${GREEN}Image already exists in Artifact Registry${NC}"
+else
+    echo -e "${YELLOW}Image not found in Artifact Registry.${NC}"
+    echo -e "${YELLOW}You need to pull and push the image to Artifact Registry first.${NC}"
+    echo ""
+    echo -e "${GREEN}Run these commands:${NC}"
+    echo "  docker pull $SOURCE_IMAGE"
+    echo "  docker tag $SOURCE_IMAGE $IMAGE_NAME"
+    echo "  gcloud auth configure-docker ${REGION}-docker.pkg.dev"
+    echo "  docker push $IMAGE_NAME"
+    echo ""
+    echo -e "${RED}After pushing the image, rerun this script.${NC}"
+    exit 1
+fi
+
 # Deploy to Cloud Run
 echo -e "${YELLOW}Deploying to Cloud Run...${NC}"
 
@@ -262,11 +299,32 @@ if [ -n "$OBOT_SERVER_RETENTION_POLICY_HOURS" ]; then
     ENV_VARS="$ENV_VARS,OBOT_SERVER_RETENTION_POLICY_HOURS=$OBOT_SERVER_RETENTION_POLICY_HOURS"
 fi
 
-# Add OBOT_SERVER_ENCRYPTION_PROVIDER if set (default to gcp for Cloud Run)
+# Add OBOT_SERVER_ENCRYPTION_PROVIDER if set
+# Only set to "gcp" if OBOT_GCP_KMS_KEY_URI is also provided
 if [ -n "$OBOT_SERVER_ENCRYPTION_PROVIDER" ]; then
-    ENV_VARS="$ENV_VARS,OBOT_SERVER_ENCRYPTION_PROVIDER=$OBOT_SERVER_ENCRYPTION_PROVIDER"
+    if [ "$OBOT_SERVER_ENCRYPTION_PROVIDER" = "gcp" ] && [ -z "$OBOT_GCP_KMS_KEY_URI" ]; then
+        echo -e "${YELLOW}Warning: OBOT_SERVER_ENCRYPTION_PROVIDER is set to 'gcp' but OBOT_GCP_KMS_KEY_URI is not set.${NC}"
+        echo -e "${YELLOW}Setting encryption provider to 'none' to avoid startup failure.${NC}"
+        ENV_VARS="$ENV_VARS,OBOT_SERVER_ENCRYPTION_PROVIDER=none"
+    else
+        ENV_VARS="$ENV_VARS,OBOT_SERVER_ENCRYPTION_PROVIDER=$OBOT_SERVER_ENCRYPTION_PROVIDER"
+        # Add GCP KMS key URI if provided
+        if [ -n "$OBOT_GCP_KMS_KEY_URI" ]; then
+            ENV_VARS="$ENV_VARS,OBOT_GCP_KMS_KEY_URI=$OBOT_GCP_KMS_KEY_URI"
+        fi
+    fi
 else
-    ENV_VARS="$ENV_VARS,OBOT_SERVER_ENCRYPTION_PROVIDER=gcp"
+    # Default to "none" if not set (don't force gcp without KMS key)
+    ENV_VARS="$ENV_VARS,OBOT_SERVER_ENCRYPTION_PROVIDER=none"
+fi
+
+# Set MCP runtime backend to "local" for Cloud Run (Docker is not available)
+# Allow override from .env file if set
+if [ -n "$OBOT_SERVER_MCPRUNTIME_BACKEND" ]; then
+    ENV_VARS="$ENV_VARS,OBOT_SERVER_MCPRUNTIME_BACKEND=$OBOT_SERVER_MCPRUNTIME_BACKEND"
+else
+    # Default to "local" for Cloud Run since Docker is not available
+    ENV_VARS="$ENV_VARS,OBOT_SERVER_MCPRUNTIME_BACKEND=local"
 fi
 
 # Build secrets list (only include secrets that exist)
@@ -343,9 +401,23 @@ if [ -z "$OBOT_SERVER_HOSTNAME" ] || [ "$OBOT_SERVER_HOSTNAME" = "https://my-mcp
         UPDATED_ENV_VARS="$UPDATED_ENV_VARS,OBOT_SERVER_RETENTION_POLICY_HOURS=$OBOT_SERVER_RETENTION_POLICY_HOURS"
     fi
     if [ -n "$OBOT_SERVER_ENCRYPTION_PROVIDER" ]; then
-        UPDATED_ENV_VARS="$UPDATED_ENV_VARS,OBOT_SERVER_ENCRYPTION_PROVIDER=$OBOT_SERVER_ENCRYPTION_PROVIDER"
+        if [ "$OBOT_SERVER_ENCRYPTION_PROVIDER" = "gcp" ] && [ -z "$OBOT_GCP_KMS_KEY_URI" ]; then
+            UPDATED_ENV_VARS="$UPDATED_ENV_VARS,OBOT_SERVER_ENCRYPTION_PROVIDER=none"
+        else
+            UPDATED_ENV_VARS="$UPDATED_ENV_VARS,OBOT_SERVER_ENCRYPTION_PROVIDER=$OBOT_SERVER_ENCRYPTION_PROVIDER"
+            if [ -n "$OBOT_GCP_KMS_KEY_URI" ]; then
+                UPDATED_ENV_VARS="$UPDATED_ENV_VARS,OBOT_GCP_KMS_KEY_URI=$OBOT_GCP_KMS_KEY_URI"
+            fi
+        fi
     else
-        UPDATED_ENV_VARS="$UPDATED_ENV_VARS,OBOT_SERVER_ENCRYPTION_PROVIDER=gcp"
+        UPDATED_ENV_VARS="$UPDATED_ENV_VARS,OBOT_SERVER_ENCRYPTION_PROVIDER=none"
+    fi
+    
+    # Add MCP runtime backend
+    if [ -n "$OBOT_SERVER_MCPRUNTIME_BACKEND" ]; then
+        UPDATED_ENV_VARS="$UPDATED_ENV_VARS,OBOT_SERVER_MCPRUNTIME_BACKEND=$OBOT_SERVER_MCPRUNTIME_BACKEND"
+    else
+        UPDATED_ENV_VARS="$UPDATED_ENV_VARS,OBOT_SERVER_MCPRUNTIME_BACKEND=local"
     fi
     
     gcloud run services update "$SERVICE_NAME" \
