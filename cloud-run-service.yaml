@@ -1,0 +1,91 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: obot
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      annotations:
+        # Autoscaling configuration
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "10"
+        # Cloud SQL connection (update with your instance connection name)
+        run.googleapis.com/cloudsql-instances: "PROJECT_ID:REGION:INSTANCE_NAME"
+        # CPU allocation
+        run.googleapis.com/cpu-throttling: "false"
+    spec:
+      # Container configuration
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      serviceAccountName: obot-service-account@PROJECT_ID.iam.gserviceaccount.com
+      containers:
+      - image: ghcr.io/obot-platform/obot:latest
+        ports:
+        - name: http1
+          containerPort: 8080
+        env:
+        # Database configuration - use Cloud SQL
+        - name: OBOT_SERVER_DSN
+          value: "postgresql://USERNAME:PASSWORD@/DATABASE?host=/cloudsql/PROJECT_ID:REGION:INSTANCE_NAME"
+        # Server hostname (update with your Cloud Run service URL)
+        - name: OBOT_SERVER_HOSTNAME
+          value: "https://YOUR-SERVICE-URL.run.app"
+        # API Keys (set via Secret Manager or update values)
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: openai-api-key
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: anthropic-api-key
+        # Optional: GitHub token for rate limiting
+        - name: GITHUB_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: latest
+              name: github-auth-token
+        # Optional: Encryption provider for GCP
+        - name: OBOT_SERVER_ENCRYPTION_PROVIDER
+          value: "gcp"
+        # Optional: Authentication
+        - name: OBOT_SERVER_ENABLE_AUTHENTICATION
+          value: "true"
+        # Optional: Retention policy (90 days default)
+        - name: OBOT_SERVER_RETENTION_POLICY_HOURS
+          value: "2160"
+        # Resource limits
+        resources:
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+          requests:
+            cpu: "1"
+            memory: "2Gi"
+        # Health check
+        startupProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 30
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 3
+      # Traffic allocation
+  traffic:
+  - percent: 100
+    latestRevision: true
+
