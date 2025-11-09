@@ -308,3 +308,27 @@ After updating your .env file, redeploy:
 ```bash
 ./deploy-cloud-run.sh
 ```
+
+
+## Artifact Registry
+
+```bash
+docker pull ghcr.io/obot-platform/obot:latest 2>&1 | tail -5
+
+gcloud artifacts repositories list --location=asia-southeast1 --project=adk-rag-472808 2>&1
+
+gcloud artifacts docker images list asia-southeast1-docker.pkg.dev/adk-rag-472808/obot-images --project=adk-rag-472808 2>&1 | head -10
+
+docker images ghcr.io/obot-platform/obot:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.Size}}\t{{.CreatedAt}}"
+
+docker tag ghcr.io/obot-platform/obot:latest asia-southeast1-docker.pkg.dev/adk-rag-472808/obot-images/obot:latest && echo "Image tagged successfully"
+
+gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet 2>&1 | tail -3
+
+docker push asia-southeast1-docker.pkg.dev/adk-rag-472808/obot-images/obot:latest 2>&1 | tail -10
+
+gcloud artifacts repositories create obot-images --repository-format=docker --location=asia-southeast1 --project=adk-rag-472808 2>&1
+
+docker push asia-southeast1-docker.pkg.dev/adk-rag-472808/obot-images/obot:latest 2>&1 | tail -15
+```
+
