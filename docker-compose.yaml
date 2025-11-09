@@ -1,14 +1,13 @@
 services:
   obot:
-    image: ghcr.io/obot-platform/obot:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: obot
     ports:
-      - "8080:8080"
+      - "${OBOT_PORT:-8080}:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - OPENAI_API_KEY=<OPENAI_API_KEY>
-      - OBOT_SERVER_ENABLE_AUTHENTICATION=true
-      - OBOT_BOOTSTRAP_TOKEN=<create a custom token for admin 1st time login authentication>
-      - OBOT_SERVER_HOSTNAME=<optional custom domain>
+    env_file:
+      - .env
     restart: unless-stopped
