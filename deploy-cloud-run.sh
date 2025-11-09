@@ -115,6 +115,13 @@ fi
 PROJECT_ID="$GCP_PROJECT_ID"
 REGION="$GCP_REGION"
 
+# Strip zone suffix if present (e.g., asia-southeast1-a -> asia-southeast1)
+# Cloud Run uses regions, not zones
+if [[ "$REGION" =~ ^(.+)-[a-z]$ ]]; then
+    REGION="${BASH_REMATCH[1]}"
+    echo -e "${YELLOW}Converted zone to region: $GCP_REGION -> $REGION${NC}"
+fi
+
 echo -e "${GREEN}Using GCP_PROJECT_ID from .env: $PROJECT_ID${NC}"
 echo -e "${GREEN}Using GCP_REGION from .env: $REGION${NC}"
 echo -e "${GREEN}Using OBOT_SERVER_DSN from .env${NC}"
@@ -133,17 +140,47 @@ gcloud services enable \
     --project="$PROJECT_ID"
 
 # Create service account if it doesn't exist
-SERVICE_ACCOUNT="${SERVICE_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+# Service account ID must be 6-30 characters, so use a longer name
+SERVICE_ACCOUNT_ID="${SERVICE_NAME}-cloud-run"
+SERVICE_ACCOUNT="${SERVICE_ACCOUNT_ID}@${PROJECT_ID}.iam.gserviceaccount.com"
 if ! gcloud iam service-accounts describe "$SERVICE_ACCOUNT" --project="$PROJECT_ID" &>/dev/null; then
     echo -e "${YELLOW}Creating service account...${NC}"
-    gcloud iam service-accounts create "${SERVICE_NAME}" \
+    gcloud iam service-accounts create "${SERVICE_ACCOUNT_ID}" \
         --display-name="Obot Cloud Run Service Account" \
         --project="$PROJECT_ID"
     
-    # Grant necessary permissions
+    # Wait a moment for service account to propagate
+    echo -e "${YELLOW}Waiting for service account to propagate...${NC}"
+    sleep 5
+    
+    # Retry logic for IAM policy binding (service account might need time to propagate)
+    MAX_RETRIES=5
+    RETRY_COUNT=0
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+            --member="serviceAccount:$SERVICE_ACCOUNT" \
+            --role="roles/secretmanager.secretAccessor" \
+            --project="$PROJECT_ID" 2>/dev/null; then
+            echo -e "${GREEN}Granted Secret Manager access to service account${NC}"
+            break
+        else
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo -e "${YELLOW}Retrying IAM policy binding (attempt $RETRY_COUNT/$MAX_RETRIES)...${NC}"
+                sleep 3
+            else
+                echo -e "${YELLOW}Warning: Could not grant Secret Manager access. You may need to do this manually.${NC}"
+            fi
+        fi
+    done
+else
+    # Service account exists, ensure it has the necessary permissions
+    echo -e "${GREEN}Service account already exists. Ensuring permissions...${NC}"
     gcloud projects add-iam-policy-binding "$PROJECT_ID" \
         --member="serviceAccount:$SERVICE_ACCOUNT" \
-        --role="roles/secretmanager.secretAccessor"
+        --role="roles/secretmanager.secretAccessor" \
+        --project="$PROJECT_ID" \
+        --quiet &>/dev/null || true
 fi
 
 # Create secrets if they don't exist
