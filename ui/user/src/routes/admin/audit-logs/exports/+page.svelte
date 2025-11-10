@@ -8,7 +8,7 @@
 	import { fade, fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import { page } from '$app/state';
-	import { replaceState, goto } from '$app/navigation';
+	import { replaceState, goto, beforeNavigate } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { profile } from '$lib/stores';
@@ -23,6 +23,8 @@
 	type View = 'exports' | 'scheduled';
 	type FormType = 'export' | 'scheduled' | 'storage';
 
+	const RELOAD_DURATION_MS = 10 * 1000; // 10 seconds
+
 	let view = $state<View>((page.url.searchParams.get('view') as View) || 'exports');
 	let query = $state('');
 	let showForm = $state<FormType | null>(null);
@@ -32,6 +34,10 @@
 	let scheduledExportsViewRef = $state<ScheduledExportsView>();
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+
+	let createdExport = $state<Record<string, never> | null>(null);
+
+	let setTimeoutIds: number[] = [];
 
 	onMount(async () => {
 		// Check URL parameters for form state
@@ -52,10 +58,41 @@
 		}
 	});
 
+	beforeNavigate(cleanup);
+
+	function cleanup() {
+		setTimeoutIds.forEach(clearTimeout);
+		setTimeoutIds = [];
+	}
+
 	async function switchView(newView: View) {
 		view = newView;
 		page.url.searchParams.set('view', newView);
 		replaceState(page.url, {});
+	}
+
+	async function reload() {
+		if (view === 'exports') {
+			return exportsViewRef?.reload?.(false);
+		}
+
+		return scheduledExportsViewRef?.reload?.(false);
+	}
+
+	async function reloadAndCheckExportStatus() {
+		const exports = (await reload()) ?? [];
+
+		const exp = exports.find((d) => d.id === createdExport?.id);
+
+		if (exp && (exp.state === createdExport?.state || exp.state === 'running')) {
+			cleanup();
+
+			const id = setTimeout(() => {
+				reloadAndCheckExportStatus();
+			}, RELOAD_DURATION_MS);
+
+			setTimeoutIds.push(id);
+		}
 	}
 
 	async function openForm(formType: FormType) {
@@ -90,15 +127,20 @@
 		goto('/admin/audit-logs/exports', { replaceState: false });
 	}
 
-	function handleFormSuccess() {
+	function handleFormSuccess(item?: Record<string, never>) {
+		createdExport = item ? { ...item } : null;
+
 		showForm = null;
-		// Refresh the appropriate view
-		if (view === 'exports') {
-			exportsViewRef?.reload?.();
-		} else {
-			scheduledExportsViewRef?.reload?.();
-		}
+
 		goto('/admin/audit-logs/exports', { replaceState: false });
+
+		if (item) {
+			const id = setTimeout(() => {
+				reloadAndCheckExportStatus();
+			}, 1000);
+
+			setTimeoutIds.push(id);
+		}
 	}
 
 	function handleStorageSuccess() {

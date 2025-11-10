@@ -46,25 +46,28 @@
 			: transformedData;
 	});
 
-	onMount(() => {
-		loadExports();
-	});
+	onMount(reload);
 
 	// Export reload function for parent component
-	export function reload() {
-		loadExports();
+	export async function reload(hard = true) {
+		if (!hard) {
+			loading = true;
+		}
+
+		exports = await loadExports();
+
+		loading = false;
+
+		return exports;
 	}
 
 	async function loadExports() {
-		loading = true;
 		try {
 			const response = await AdminService.getAuditLogExports();
-			exports = response.items || [];
+			return response.items ?? [];
 		} catch (error) {
 			console.error('Failed to load exports:', error);
-			exports = [];
-		} finally {
-			loading = false;
+			return [];
 		}
 	}
 
@@ -179,7 +182,7 @@
 						</p>
 					</div>
 				{:else if property === 'statusDisplay'}
-					<div class="flex items-center gap-2">
+					<div class="flex items-center gap-1 leading-0">
 						<span class={getStatusBadgeClass(d.state)}>
 							{d.state}
 						</span>
@@ -203,6 +206,10 @@
 							>
 								<AlertCircle class="size-4" />
 							</button>
+						{:else if d.state === 'running'}
+							<div class="size-4">
+								<LoaderCircle class="size-full animate-spin duration-100" />
+							</div>
 						{/if}
 					</div>
 				{:else if property === 'created'}

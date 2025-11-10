@@ -51,25 +51,28 @@
 			: transformedData;
 	});
 
-	onMount(() => {
-		loadScheduledExports();
-	});
+	onMount(reload);
 
 	// Export reload function for parent component
-	export function reload() {
-		loadScheduledExports();
+	export async function reload(hard = true) {
+		if (!hard) {
+			loading = true;
+		}
+
+		scheduledExports = await loadScheduledExports();
+
+		loading = false;
+
+		return scheduledExports;
 	}
 
 	async function loadScheduledExports() {
-		loading = true;
 		try {
 			const response = await AdminService.getScheduledAuditLogExports();
-			scheduledExports = response.items || [];
+			return response.items ?? [];
 		} catch (error) {
 			console.error('Failed to load scheduled exports:', error);
-			scheduledExports = [];
-		} finally {
-			loading = false;
+			return [];
 		}
 	}
 
