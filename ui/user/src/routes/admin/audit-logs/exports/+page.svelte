@@ -127,12 +127,12 @@
 		goto('/admin/audit-logs/exports', { replaceState: false });
 	}
 
-	function handleFormSuccess(item?: Record<string, never>) {
+	async function handleFormSuccess(item?: Record<string, never>) {
 		createdExport = item ? { ...item } : null;
 
 		showForm = null;
 
-		goto('/admin/audit-logs/exports', { replaceState: false });
+		await goto('/admin/audit-logs/exports', { replaceState: false });
 
 		if (item) {
 			const id = setTimeout(() => {
