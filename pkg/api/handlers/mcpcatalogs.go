@@ -1251,6 +1251,11 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 		}
 	}
 
+	// Validate the refreshed manifest to ensure it's still valid
+	if err := validation.ValidateCatalogEntryManifest(entry.Spec.Manifest); err != nil {
+		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+	}
+
 	// Update the entry
 	if err := req.Update(&entry); err != nil {
 		return fmt.Errorf("failed to update entry: %w", err)
