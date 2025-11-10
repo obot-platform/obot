@@ -9,10 +9,7 @@ import (
 
 func removeGitHubGroups(tx *gorm.DB) error {
 	// Check if tables exist
-	if !tx.Migrator().HasTable(&types.GroupMemberships{}) {
-		return nil
-	}
-	if !tx.Migrator().HasTable(&types.Group{}) {
+	if !tx.Migrator().HasTable(&types.GroupMemberships{}) || !tx.Migrator().HasTable(&types.Group{}) {
 		return nil
 	}
 

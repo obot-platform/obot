@@ -44,7 +44,7 @@ func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProvid
 				u.RawQuery = q.Encode()
 			}
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, authProviderURL+"/obot-list-auth-groups", nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 			if err == nil {
 				resp, err := http.DefaultClient.Do(req)
 				if err == nil {
