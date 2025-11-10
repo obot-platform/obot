@@ -3020,12 +3020,12 @@ func schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref common.Re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "GroupRoleAssignment represents a role assignment to an auth provider group.",
+				Description: "GroupRoleAssignment represents a role assigned to all members of an authentication provider group. Roles can be combined using bitwise OR, e.g., Admin | Auditor.\n\nPermission levels:\n  - Owners can assign any role or combination: Owner, Auditor, Admin, PowerUserPlus, PowerUser\n  - Admins can assign: Admin, PowerUserPlus, PowerUser (NO Owner or Auditor)\n\nCommon role combinations (Owner-only):\n  - Admin | Auditor (48)\n  - PowerUserPlus | Auditor (96)\n  - PowerUser | Auditor (160)\n  - Owner | Auditor (40)",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"groupName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GroupName is the name of the auth provider group",
+							Description: "GroupName is the authentication provider group identifier (e.g., \"github:org/team\", \"entra:group-uuid\")",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -3033,7 +3033,7 @@ func schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref common.Re
 					},
 					"role": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Role is the role assigned to all members of this group",
+							Description: "Role is the role(s) assigned to all group members. Can be a single role or combination using bitwise OR. Valid values: Owner(8), Admin(16), Auditor(32), PowerUserPlus(64), PowerUser(128)",
 							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int32",
@@ -3041,7 +3041,7 @@ func schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref common.Re
 					},
 					"description": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Description explains why this assignment exists",
+							Description: "Description is an optional explanation for this role assignment",
 							Type:        []string{"string"},
 							Format:      "",
 						},
