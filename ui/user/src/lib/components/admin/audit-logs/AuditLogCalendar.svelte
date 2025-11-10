@@ -6,7 +6,7 @@
 	import { set, startOfDay, subDays, subHours } from 'date-fns';
 	import { twMerge } from 'tailwind-merge';
 
-	let { start, end, onChange } = $props();
+	let { start, end, disabled = false, onChange } = $props();
 
 	let quickAccessPopover = $state<HTMLDialogElement>();
 
@@ -89,7 +89,8 @@
 	<div class="relative flex items-center">
 		<button
 			type="button"
-			class="dark:border-surface3 dark:hover:bg-surface2/70 dark:active:bg-surface2 dark:bg-surface1 hover:bg-surface1/70 active:bg-surface1 flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-l-lg border border-r-0 border-transparent bg-white px-2 text-sm shadow-sm transition-colors duration-200"
+			class="dark:border-surface3 dark:hover:bg-surface2/70 dark:active:bg-surface2 dark:bg-surface1 hover:bg-surface1/70 active:bg-surface1 flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-l-lg border border-r-0 border-transparent bg-white px-2 text-sm shadow-sm transition-colors duration-200 disabled:opacity-50"
+			{disabled}
 			onpointerdown={() => {
 				if (quickAccessPopover?.open) {
 					quickAccessPopover?.close();
@@ -140,6 +141,7 @@
 		}}
 		{start}
 		{end}
+		{disabled}
 		{onChange}
 	/>
 </div>
