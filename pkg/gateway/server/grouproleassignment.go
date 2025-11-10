@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -61,21 +60,15 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 
 	// Validation
 	if req.GroupName == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "group name is required")
+		return types2.NewErrBadRequest("groupName is required")
 	}
 	if req.Role == types2.RoleUnknown {
-		return types2.NewErrHTTP(http.StatusBadRequest, "role is required")
+		return types2.NewErrBadRequest("role is required")
 	}
 
-	// Only allow assigning specific roles (not combined bitmasks)
-	validRoles := []types2.Role{
-		types2.RoleAdmin,
-		types2.RolePowerUserPlus,
-		types2.RolePowerUser,
-	}
-	if !slices.Contains(validRoles, req.Role) {
-		return types2.NewErrHTTP(http.StatusBadRequest,
-			"invalid role: must be one of Admin, PowerUserPlus, PowerUser")
+	// Validate that the requester is authorized to assign this role
+	if err := s.validateRoleForUser(apiContext, req.Role); err != nil {
+		return err
 	}
 
 	created, err := apiContext.GatewayClient.CreateGroupRoleAssignment(
@@ -112,22 +105,15 @@ func (s *Server) updateGroupRoleAssignment(apiContext api.Context) error {
 
 	var req types2.GroupRoleAssignment
 	if err := apiContext.Read(&req); err != nil {
-		return types2.NewErrHTTP(http.StatusBadRequest, "invalid request body")
+		return types2.NewErrBadRequest("failed to decode request: %v", err)
 	}
-
-	// Validation
 	if req.Role == types2.RoleUnknown {
-		return types2.NewErrHTTP(http.StatusBadRequest, "role is required")
+		return types2.NewErrBadRequest("role is required")
 	}
 
-	validRoles := []types2.Role{
-		types2.RoleAdmin,
-		types2.RolePowerUserPlus,
-		types2.RolePowerUser,
-	}
-	if !slices.Contains(validRoles, req.Role) {
-		return types2.NewErrHTTP(http.StatusBadRequest,
-			"invalid role: must be one of Admin, PowerUserPlus, PowerUser")
+	// Validate that the requester is authorized to assign this role
+	if err := s.validateRoleForUser(apiContext, req.Role); err != nil {
+		return err
 	}
 
 	updated, err := apiContext.GatewayClient.UpdateGroupRoleAssignment(
@@ -193,6 +179,64 @@ func (s *Server) triggerReconciliationForGroup(ctx context.Context, apiContext a
 		}); err != nil {
 			pkgLog.Errorf("failed to create user role change event for user %d: %v", user.ID, err)
 			// Continue processing other users even if one fails
+		}
+	}
+
+	return nil
+}
+
+// extractBaseRole removes the Auditor flag from a combined role to get the base role
+func extractBaseRole(role types2.Role) types2.Role {
+	return role &^ types2.RoleAuditor
+}
+
+// hasAuditorRole checks if the Auditor flag is set in the role
+func hasAuditorRole(role types2.Role) bool {
+	return role&types2.RoleAuditor != 0
+}
+
+// validateRoleForUser checks if the requester is authorized to assign the given role
+func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) error {
+	// Extract base role and auditor flag
+	baseRole := extractBaseRole(role)
+	hasAuditor := hasAuditorRole(role)
+
+	// If role includes Owner, only Owners can assign it
+	if baseRole == types2.RoleOwner {
+		if !apiContext.UserIsOwner() {
+			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the owner role to groups")
+		}
+	}
+
+	// If role includes Auditor (even by itself), only Owners can assign it
+	if hasAuditor {
+		if !apiContext.UserIsOwner() {
+			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the auditor role to groups")
+		}
+	}
+
+	// Validate base role is one of the allowed values (or zero if only Auditor)
+	if baseRole != 0 {
+		validBaseRoles := []types2.Role{
+			types2.RoleOwner,
+			types2.RoleAdmin,
+			types2.RolePowerUserPlus,
+			types2.RolePowerUser,
+		}
+
+		isValid := false
+		for _, validRole := range validBaseRoles {
+			if baseRole == validRole {
+				isValid = true
+				break
+			}
+		}
+
+		if !isValid {
+			return types2.NewErrBadRequest(
+				"base role must be one of: Owner (%d), Admin (%d), PowerUserPlus (%d), or PowerUser (%d)",
+				types2.RoleOwner, types2.RoleAdmin, types2.RolePowerUserPlus, types2.RolePowerUser,
+			)
 		}
 	}
 

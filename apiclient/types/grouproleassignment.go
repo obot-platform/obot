@@ -1,14 +1,26 @@
 package types
 
-// GroupRoleAssignment represents a role assignment to an auth provider group.
+// GroupRoleAssignment represents a role assigned to all members of an authentication provider group.
+// Roles can be combined using bitwise OR, e.g., Admin | Auditor.
+//
+// Permission levels:
+//   - Owners can assign any role or combination: Owner, Auditor, Admin, PowerUserPlus, PowerUser
+//   - Admins can assign: Admin, PowerUserPlus, PowerUser (NO Owner or Auditor)
+//
+// Common role combinations (Owner-only):
+//   - Admin | Auditor (48)
+//   - PowerUserPlus | Auditor (96)
+//   - PowerUser | Auditor (160)
+//   - Owner | Auditor (40)
 type GroupRoleAssignment struct {
-	// GroupName is the name of the auth provider group
+	// GroupName is the authentication provider group identifier (e.g., "github:org/team", "entra:group-uuid")
 	GroupName string `json:"groupName"`
 
-	// Role is the role assigned to all members of this group
+	// Role is the role(s) assigned to all group members. Can be a single role or combination using bitwise OR.
+	// Valid values: Owner(8), Admin(16), Auditor(32), PowerUserPlus(64), PowerUser(128)
 	Role Role `json:"role"`
 
-	// Description explains why this assignment exists
+	// Description is an optional explanation for this role assignment
 	Description string `json:"description,omitempty"`
 }
 

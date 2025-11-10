@@ -1,5 +1,21 @@
 package types
 
+// Role represents user privilege levels as bit flags that can be combined.
+//
+// Base roles (mutually exclusive):
+//   - RoleBasic (4): Basic authenticated user
+//   - RoleOwner (8): Full system owner
+//   - RoleAdmin (16): Administrative user
+//   - RolePowerUserPlus (64): Enhanced power user with ACL and MCP server management
+//   - RolePowerUser (128): Standard power user with workspace
+//
+// Orthogonal role:
+//   - RoleAuditor (32): Can view audit logs and sensitive data (can be combined with any base role)
+//
+// Examples of combined roles:
+//   - RoleAdmin | RoleAuditor (48): Admin with audit access
+//   - RolePowerUser | RoleAuditor (160): Power user with audit access
+//   - RoleOwner | RoleAuditor (40): Owner with audit access
 const (
 	// We're start with 4 here so that our old and new roles are mutually exclusive.
 	// This makes migrations and detecting when migrations are needed easier.
