@@ -6,7 +6,7 @@
 		query?: string;
 		selected?: string | number;
 		multiple?: boolean;
-		onSelect: (option: T, value?: string | number) => void;
+		onSelect?: (option: T, value?: string | number) => void;
 		class?: string;
 		classes?: {
 			root?: string;
@@ -263,6 +263,7 @@
 						isHighlighted && 'dark:bg-surface3 bg-surface3',
 						classes?.option
 					)}
+					type="button"
 					onclick={(e) => {
 						e.stopPropagation();
 						handleSelect(option);
