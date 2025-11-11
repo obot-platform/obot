@@ -19,6 +19,7 @@
 	let { onCancel, onSubmit, mode = 'create', initialData }: Props = $props();
 
 	let showAdvancedOptions = $state(false);
+	let isViewMode = $derived(mode === 'view');
 
 	// Form state
 	let form = $state({
@@ -206,8 +207,11 @@
 						placeholder="audit-export-2024"
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
+						disabled={isViewMode}
 					/>
-					<p class="text-xs text-gray-500">Unique name for this export</p>
+					{#if (isViewMode && form.name) || !isViewMode}
+						<p class="text-xs text-gray-500">Unique name for this export</p>
+					{/if}
 				</div>
 				<div class="flex flex-col gap-1">
 					<label class="text-sm font-medium" for="bucket">Bucket Name</label>
@@ -218,8 +222,11 @@
 						placeholder="my-audit-exports"
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
+						disabled={isViewMode}
 					/>
-					<p class="text-xs text-gray-500">Storage bucket name where exports will be saved</p>
+					{#if (isViewMode && form.bucket) || !isViewMode}
+						<p class="text-xs text-gray-500">Storage bucket name where exports will be saved</p>
+					{/if}
 				</div>
 			</div>
 
@@ -231,11 +238,14 @@
 					bind:value={form.keyPrefix}
 					placeholder="Leave empty for default: mcp-audit-logs/YYYY/MM/DD/"
 					readonly={mode === 'view'}
+					disabled={isViewMode}
 				/>
-				<p class="text-xs text-gray-500">
-					Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
-					based on current date.
-				</p>
+				{#if (isViewMode && form.keyPrefix) || !isViewMode}
+					<p class="text-xs text-gray-500">
+						Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
+						based on current date.
+					</p>
+				{/if}
 			</div>
 
 			<div class="flex flex-col gap-1">
@@ -244,6 +254,7 @@
 					start={form.startTime}
 					end={form.endTime}
 					onChange={mode === 'view' ? () => {} : handleDateChange}
+					disabled={isViewMode}
 				/>
 			</div>
 		</div>
@@ -275,13 +286,17 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="user_id">User IDs</label>
 							<input
-								class="text-input-filled"
+								class={['text-input-filled']}
 								id="user_id"
 								bind:value={form.filters.user_id}
 								placeholder="user1,user2"
 								readonly={mode === 'view'}
+								disabled={isViewMode}
 							/>
-							<p class="text-xs text-gray-500">Comma-separated user IDs</p>
+
+							{#if (isViewMode && form.filters.user_id) || !isViewMode}
+								<p class="text-xs text-gray-500">Comma-separated user IDs</p>
+							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -292,8 +307,11 @@
 								bind:value={form.filters.mcp_id}
 								placeholder="server1,server2"
 								readonly={mode === 'view'}
+								disabled={isViewMode}
 							/>
-							<p class="text-xs text-gray-500">Comma-separated server IDs</p>
+							{#if (isViewMode && form.filters.mcp_id) || !isViewMode}
+								<p class="text-xs text-gray-500">Comma-separated server IDs</p>
+							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -304,8 +322,11 @@
 								bind:value={form.filters.mcp_server_display_name}
 								placeholder="server-name-1,server-name-2"
 								readonly={mode === 'view'}
+								disabled={isViewMode}
 							/>
-							<p class="text-xs text-gray-500">Comma-separated server display names</p>
+							{#if (isViewMode && form.filters.mcp_server_display_name) || !isViewMode}
+								<p class="text-xs text-gray-500">Comma-separated server display names</p>
+							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -316,8 +337,11 @@
 								bind:value={form.filters.call_type}
 								placeholder="tools/call,resources/read"
 								readonly={mode === 'view'}
+								disabled={isViewMode}
 							/>
-							<p class="text-xs text-gray-500">Comma-separated call types</p>
+							{#if (isViewMode && form.filters.call_type) || !isViewMode}
+								<p class="text-xs text-gray-500">Comma-separated call types</p>
+							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -328,8 +352,11 @@
 								bind:value={form.filters.client_name}
 								placeholder="client1,client2"
 								readonly={mode === 'view'}
+								disabled={isViewMode}
 							/>
-							<p class="text-xs text-gray-500">Comma-separated client names</p>
+							{#if (isViewMode && form.filters.client_name) || !isViewMode}
+								<p class="text-xs text-gray-500">Comma-separated client names</p>
+							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -340,8 +367,11 @@
 								bind:value={form.filters.response_status}
 								placeholder="200,400,500"
 								readonly={mode === 'view'}
+								disabled={isViewMode}
 							/>
-							<p class="text-xs text-gray-500">Comma-separated HTTP status codes</p>
+							{#if (isViewMode && form.filters.response_status) || !isViewMode}
+								<p class="text-xs text-gray-500">Comma-separated HTTP status codes</p>
+							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -352,8 +382,11 @@
 								bind:value={form.filters.session_id}
 								placeholder="session1,session2"
 								readonly={mode === 'view'}
+								disabled={isViewMode}
 							/>
-							<p class="text-xs text-gray-500">Comma-separated session IDs</p>
+							{#if (isViewMode && form.filters.session_id) || !isViewMode}
+								<p class="text-xs text-gray-500">Comma-separated session IDs</p>
+							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -364,8 +397,11 @@
 								bind:value={form.filters.client_ip}
 								placeholder="192.168.1.1,10.0.0.1"
 								readonly={mode === 'view'}
+								disabled={isViewMode}
 							/>
-							<p class="text-xs text-gray-500">Comma-separated IP addresses</p>
+							{#if (isViewMode && form.filters.client_ip) || !isViewMode}
+								<p class="text-xs text-gray-500">Comma-separated IP addresses</p>
+							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="call_identifier">Call Identifier</label>
@@ -375,8 +411,11 @@
 								bind:value={form.filters.call_identifier}
 								placeholder="call-identifier-1,call-identifier-2"
 								readonly={mode === 'view'}
+								disabled={isViewMode}
 							/>
-							<p class="text-xs text-gray-500">Comma-separated call identifiers</p>
+							{#if (isViewMode && form.filters.call_identifier) || !isViewMode}
+								<p class="text-xs text-gray-500">Comma-separated call identifiers</p>
+							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_version">Client Versions</label>
@@ -386,8 +425,11 @@
 								bind:value={form.filters.client_version}
 								placeholder="client-version-1,client-version-2"
 								readonly={mode === 'view'}
+								disabled={isViewMode}
 							/>
-							<p class="text-xs text-gray-500">Comma-separated client versions</p>
+							{#if (isViewMode && form.filters.client_version) || !isViewMode}
+								<p class="text-xs text-gray-500">Comma-separated client versions</p>
+							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="power_user_workspace_id"
@@ -399,8 +441,11 @@
 								bind:value={form.filters.mcp_server_catalog_entry_name}
 								placeholder="workspace-id-1,workspace-id-2"
 								readonly={mode === 'view'}
+								disabled={isViewMode}
 							/>
-							<p class="text-xs text-gray-500">Comma-separated catalog entry names</p>
+							{#if (isViewMode && form.filters.mcp_server_catalog_entry_name) || !isViewMode}
+								<p class="text-xs text-gray-500">Comma-separated catalog entry names</p>
+							{/if}
 						</div>
 					</div>
 				</div>
