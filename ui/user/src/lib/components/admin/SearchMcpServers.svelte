@@ -72,14 +72,18 @@
 				registry: ''
 			},
 			...mcpServerAndEntries.entries
-				.filter((entry) =>
-					entity === 'catalog'
+				.filter((entry) => {
+					if (type === 'filter') {
+						return true;
+					}
+
+					return entity === 'catalog'
 						? !entry.powerUserWorkspaceID &&
-							(skipComposite ? entry.manifest.runtime !== 'composite' : true)
+								(skipComposite ? entry.manifest.runtime !== 'composite' : true)
 						: workspaceId
 							? entry.powerUserWorkspaceID === workspaceId
-							: !!entry.powerUserWorkspaceID
-				)
+							: !!entry.powerUserWorkspaceID;
+				})
 				.map((entry) => ({
 					icon: entry.manifest?.icon,
 					name: entry.manifest?.name || '',
@@ -92,13 +96,17 @@
 							: ''
 				})),
 			...mcpServerAndEntries.servers
-				.filter((server) =>
-					entity === 'catalog'
+				.filter((server) => {
+					if (type === 'filter') {
+						return true;
+					}
+
+					return entity === 'catalog'
 						? !server.powerUserWorkspaceID
 						: workspaceId
 							? server.powerUserWorkspaceID === workspaceId
-							: !!server.powerUserWorkspaceID
-				)
+							: !!server.powerUserWorkspaceID;
+				})
 				.map((server) => ({
 					icon: server.manifest.icon,
 					name: server.manifest.name || '',

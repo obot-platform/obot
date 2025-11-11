@@ -380,7 +380,7 @@
 												bind:value={selector.identifiers[identifierIndex]}
 												class="text-input-filled flex-1"
 												placeholder="e.g., tool name, resource URI"
-												disabled
+												disabled={readonly}
 											/>
 											{#if !readonly}
 												<button
