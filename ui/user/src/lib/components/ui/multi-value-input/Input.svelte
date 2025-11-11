@@ -118,6 +118,7 @@
 
 					break;
 				}
+				case ',':
 				case 'Enter': {
 					ev.preventDefault();
 					ev.stopPropagation();
