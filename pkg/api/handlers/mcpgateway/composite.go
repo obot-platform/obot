@@ -20,17 +20,6 @@ import (
 )
 
 func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m messageContext) {
-	// Determine PowerUserWorkspaceID: use server's workspace ID for multi-user servers,
-	// or look up catalog entry's workspace ID for single-user servers
-	powerUserWorkspaceID := m.mcpServer.Spec.PowerUserWorkspaceID
-	if powerUserWorkspaceID == "" && m.mcpServer.Spec.MCPServerCatalogEntryName != "" {
-		// This is a single-user server created from a catalog entry, look up the entry
-		var entry v1.MCPServerCatalogEntry
-		if err := h.storageClient.Get(ctx, kclient.ObjectKey{Namespace: m.mcpServer.Namespace, Name: m.mcpServer.Spec.MCPServerCatalogEntryName}, &entry); err == nil {
-			powerUserWorkspaceID = entry.Spec.PowerUserWorkspaceID
-		}
-	}
-
 	auditLog := gatewaytypes.MCPAuditLog{
 		CreatedAt:                 time.Now(),
 		UserID:                    m.userID,
@@ -112,21 +101,33 @@ func (h *Handler) onCompositeMessage(ctx context.Context, msg nmcp.Message, m me
 		h.gatewayClient.LogMCPAuditEntry(auditLog)
 	}()
 
-	catalogName := m.mcpServer.Spec.MCPCatalogID
-	if catalogName == "" {
-		catalogName = m.mcpServer.Spec.PowerUserWorkspaceID
+	var entry v1.MCPServerCatalogEntry
+	if err := h.storageClient.Get(
+		ctx,
+		kclient.ObjectKey{
+			Namespace: m.mcpServer.Namespace,
+			Name:      m.mcpServer.Spec.MCPServerCatalogEntryName,
+		},
+		&entry,
+	); err != nil {
+		log.Errorf("Failed to get catalog for composite server %s: %v", m.mcpServer.Name, err)
+		return
 	}
-	if catalogName == "" && m.mcpServer.Spec.MCPServerCatalogEntryName != "" {
-		var entry v1.MCPServerCatalogEntry
-		if err := h.storageClient.Get(ctx, kclient.ObjectKey{Namespace: m.mcpServer.Namespace, Name: m.mcpServer.Spec.MCPServerCatalogEntryName}, &entry); err != nil {
-			log.Errorf("Failed to get catalog for server %s: %v", m.mcpServer.Name, err)
-			return
-		}
-		catalogName = entry.Spec.MCPCatalogName
-	}
-
-	var webhooks []mcp.Webhook
-	webhooks, err = h.webhookHelper.GetWebhooksForMCPServer(ctx, h.gptClient, m.mcpServer.Namespace, m.mcpServer.Name, m.mcpServer.Spec.MCPServerCatalogEntryName, catalogName, auditLog.CallType, auditLog.CallIdentifier)
+	var (
+		catalogName          = entry.Spec.MCPCatalogName
+		powerUserWorkspaceID = entry.Spec.PowerUserWorkspaceID
+		webhooks             []mcp.Webhook
+	)
+	webhooks, err = h.webhookHelper.GetWebhooksForMCPServer(
+		ctx,
+		h.gptClient,
+		m.mcpServer.Namespace,
+		m.mcpServer.Name,
+		m.mcpServer.Spec.MCPServerCatalogEntryName,
+		catalogName,
+		auditLog.CallType,
+		auditLog.CallIdentifier,
+	)
 	if err != nil {
 		log.Errorf("Failed to get webhooks for server %s: %v", m.mcpServer.Name, err)
 		return

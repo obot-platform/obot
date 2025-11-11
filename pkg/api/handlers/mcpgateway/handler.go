@@ -141,12 +141,12 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 		}
 
 		disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
-		for _, comp := range compositeConfig.ComponentServers {
-			if comp.CatalogEntryID != "" {
-				disabledComponents[comp.CatalogEntryID] = comp.Disabled
-			} else if comp.MCPServerID != "" {
-				disabledComponents[comp.MCPServerID] = comp.Disabled
+		for _, component := range compositeConfig.ComponentServers {
+			id, err := component.ComponentID()
+			if err != nil {
+				return fmt.Errorf("failed to get component ID for component server %s: %w", component.Manifest.Name, err)
 			}
+			disabledComponents[id] = component.Disabled
 		}
 
 		componentServers := make([]messageContext, 0, len(componentServerList.Items)+len(componentInstanceList.Items))
