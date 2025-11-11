@@ -209,7 +209,7 @@
 						readonly={mode === 'view'}
 						disabled={isViewMode}
 					/>
-					{#if form.name}
+					{#if (isViewMode && form.name) || !isViewMode}
 						<p class="text-xs text-gray-500">Unique name for this export</p>
 					{/if}
 				</div>
@@ -224,7 +224,7 @@
 						readonly={mode === 'view'}
 						disabled={isViewMode}
 					/>
-					{#if form.bucket}
+					{#if (isViewMode && form.bucket) || !isViewMode}
 						<p class="text-xs text-gray-500">Storage bucket name where exports will be saved</p>
 					{/if}
 				</div>
@@ -240,7 +240,7 @@
 					readonly={mode === 'view'}
 					disabled={isViewMode}
 				/>
-				{#if form.keyPrefix}
+				{#if (isViewMode && form.keyPrefix) || !isViewMode}
 					<p class="text-xs text-gray-500">
 						Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
 						based on current date.
@@ -293,7 +293,8 @@
 								readonly={mode === 'view'}
 								disabled={isViewMode}
 							/>
-							{#if form.filters.user_id}
+
+							{#if (isViewMode && form.filters.user_id) || !isViewMode}
 								<p class="text-xs text-gray-500">Comma-separated user IDs</p>
 							{/if}
 						</div>
@@ -308,7 +309,7 @@
 								readonly={mode === 'view'}
 								disabled={isViewMode}
 							/>
-							{#if form.filters.mcp_id}
+							{#if (isViewMode && form.filters.mcp_id) || !isViewMode}
 								<p class="text-xs text-gray-500">Comma-separated server IDs</p>
 							{/if}
 						</div>
@@ -323,7 +324,7 @@
 								readonly={mode === 'view'}
 								disabled={isViewMode}
 							/>
-							{#if form.filters.mcp_server_display_name}
+							{#if (isViewMode && form.filters.mcp_server_display_name) || !isViewMode}
 								<p class="text-xs text-gray-500">Comma-separated server display names</p>
 							{/if}
 						</div>
@@ -338,7 +339,7 @@
 								readonly={mode === 'view'}
 								disabled={isViewMode}
 							/>
-							{#if form.filters.call_type}
+							{#if (isViewMode && form.filters.call_type) || !isViewMode}
 								<p class="text-xs text-gray-500">Comma-separated call types</p>
 							{/if}
 						</div>
@@ -353,7 +354,7 @@
 								readonly={mode === 'view'}
 								disabled={isViewMode}
 							/>
-							{#if form.filters.client_name}
+							{#if (isViewMode && form.filters.client_name) || !isViewMode}
 								<p class="text-xs text-gray-500">Comma-separated client names</p>
 							{/if}
 						</div>
@@ -368,7 +369,7 @@
 								readonly={mode === 'view'}
 								disabled={isViewMode}
 							/>
-							{#if form.filters.response_status}
+							{#if (isViewMode && form.filters.response_status) || !isViewMode}
 								<p class="text-xs text-gray-500">Comma-separated HTTP status codes</p>
 							{/if}
 						</div>
@@ -383,7 +384,7 @@
 								readonly={mode === 'view'}
 								disabled={isViewMode}
 							/>
-							{#if form.filters.session_id}
+							{#if (isViewMode && form.filters.session_id) || !isViewMode}
 								<p class="text-xs text-gray-500">Comma-separated session IDs</p>
 							{/if}
 						</div>
@@ -398,7 +399,7 @@
 								readonly={mode === 'view'}
 								disabled={isViewMode}
 							/>
-							{#if form.filters.client_ip}
+							{#if (isViewMode && form.filters.client_ip) || !isViewMode}
 								<p class="text-xs text-gray-500">Comma-separated IP addresses</p>
 							{/if}
 						</div>
@@ -412,7 +413,7 @@
 								readonly={mode === 'view'}
 								disabled={isViewMode}
 							/>
-							{#if form.filters.call_identifier}
+							{#if (isViewMode && form.filters.call_identifier) || !isViewMode}
 								<p class="text-xs text-gray-500">Comma-separated call identifiers</p>
 							{/if}
 						</div>
@@ -426,7 +427,7 @@
 								readonly={mode === 'view'}
 								disabled={isViewMode}
 							/>
-							{#if form.filters.client_version}
+							{#if (isViewMode && form.filters.client_version) || !isViewMode}
 								<p class="text-xs text-gray-500">Comma-separated client versions</p>
 							{/if}
 						</div>
@@ -442,7 +443,7 @@
 								readonly={mode === 'view'}
 								disabled={isViewMode}
 							/>
-							{#if form.filters.mcp_server_catalog_entry_name}
+							{#if (isViewMode && form.filters.mcp_server_catalog_entry_name) || !isViewMode}
 								<p class="text-xs text-gray-500">Comma-separated catalog entry names</p>
 							{/if}
 						</div>
