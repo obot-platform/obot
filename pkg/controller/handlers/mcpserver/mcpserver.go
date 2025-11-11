@@ -1,6 +1,8 @@
 package mcpserver
 
 import (
+	"cmp"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -277,6 +279,107 @@ func (h *Handler) DeleteServersWithoutRuntime(req router.Request, _ router.Respo
 	}
 
 	return nil
+}
+
+// DeleteOrphanedComponents deletes any component servers or instances that are not referenced in
+// by a composite servers composite config.
+// It also ensures that component servers and instances are deduplicated, keeping only the most
+// recently created object for each component.
+func (*Handler) DeleteOrphanedComponents(req router.Request, _ router.Response) error {
+	compositeServer := req.Object.(*v1.MCPServer)
+	if compositeServer.Spec.Manifest.Runtime != types.RuntimeComposite {
+		// Not a composite server, bail out
+		return nil
+	}
+
+	compositeConfig := compositeServer.Spec.Manifest.CompositeConfig
+	if compositeConfig == nil {
+		// No composite config, bail out.
+		// This will be garbage collected by DeleteServersWithoutRuntime.
+		return nil
+	}
+
+	validComponentIDs := make(map[string]struct{}, len(compositeConfig.ComponentServers))
+	for _, component := range compositeConfig.ComponentServers {
+		id, err := component.ComponentID()
+		if err != nil {
+			return fmt.Errorf("failed to get component ID for component server %s: %w", component.Manifest.Name, err)
+		}
+		validComponentIDs[id] = struct{}{}
+	}
+
+	var componentServers v1.MCPServerList
+	if err := req.List(&componentServers, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", compositeServer.Name),
+		Namespace:     compositeServer.Namespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list component servers: %w", err)
+	}
+
+	var componentServerInstances v1.MCPServerInstanceList
+	if err := req.List(&componentServerInstances, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", compositeServer.Name),
+		Namespace:     compositeServer.Namespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list component server instances: %w", err)
+	}
+
+	// Sort the component servers by catalog entry name and creation timestamp
+	// so that we can delete the oldest duplicate component servers.
+	slices.SortStableFunc(componentServers.Items, func(a, b v1.MCPServer) int {
+		if a.Spec.MCPServerCatalogEntryName != b.Spec.MCPServerCatalogEntryName {
+			return cmp.Compare(a.Spec.MCPServerCatalogEntryName, b.Spec.MCPServerCatalogEntryName)
+		}
+
+		return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
+	})
+
+	slices.SortStableFunc(componentServerInstances.Items, func(a, b v1.MCPServerInstance) int {
+		if a.Spec.MCPServerName != b.Spec.MCPServerName {
+			return cmp.Compare(a.Spec.MCPServerCatalogEntryName, b.Spec.MCPServerCatalogEntryName)
+		}
+
+		return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
+	})
+
+	var cleanupErr error
+	for _, component := range componentServers.Items {
+		if component.DeletionTimestamp.IsZero() {
+			// Skip deleted servers
+			continue
+		}
+
+		if _, valid := validComponentIDs[component.Spec.MCPServerCatalogEntryName]; valid {
+			// The component is the most recently created server that references a valid entry in the composite config, so don't add it to the list of servers to delete.
+			// Remove the component ID from the set of valid component IDs so that all older duplicate component servers get deleted.
+			delete(validComponentIDs, component.Spec.MCPServerCatalogEntryName)
+			continue
+		}
+
+		cleanupErr = errors.Join(
+			cleanupErr,
+			kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, &component)),
+		)
+	}
+
+	for _, component := range componentServerInstances.Items {
+		if component.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		if _, valid := validComponentIDs[component.Spec.MCPServerName]; valid {
+			delete(validComponentIDs, component.Spec.MCPServerName)
+			continue
+		}
+
+		cleanupErr = errors.Join(
+			cleanupErr,
+			kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, &component)),
+		)
+	}
+
+	return cleanupErr
+
 }
 
 func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router.Response) error {
