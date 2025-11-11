@@ -367,7 +367,7 @@
 							/>
 
 							{#if (isViewMode && form.filters.user_id) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated user IDs</p>
+								<p class="text-xs text-gray-500">List of user IDs</p>
 							{/if}
 						</div>
 
@@ -392,7 +392,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_id) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated server IDs</p>
+								<p class="text-xs text-gray-500">List of server IDs</p>
 							{/if}
 						</div>
 
@@ -421,7 +421,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_server_display_name) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated server display names</p>
+								<p class="text-xs text-gray-500">List of server display names</p>
 							{/if}
 						</div>
 
@@ -446,7 +446,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.call_type) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated call types</p>
+								<p class="text-xs text-gray-500">List of call types</p>
 							{/if}
 						</div>
 
@@ -471,7 +471,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.client_name) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated client names</p>
+								<p class="text-xs text-gray-500">List of client names</p>
 							{/if}
 						</div>
 
@@ -497,7 +497,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.response_status) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated HTTP status codes</p>
+								<p class="text-xs text-gray-500">List of HTTP status codes</p>
 							{/if}
 						</div>
 
@@ -522,7 +522,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.session_id) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated session IDs</p>
+								<p class="text-xs text-gray-500">List of session IDs</p>
 							{/if}
 						</div>
 
@@ -547,7 +547,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.client_ip) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated IP addresses</p>
+								<p class="text-xs text-gray-500">List of IP addresses</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
@@ -572,7 +572,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.call_identifier) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated call identifiers</p>
+								<p class="text-xs text-gray-500">List of call identifiers</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
@@ -597,7 +597,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.client_version) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated client versions</p>
+								<p class="text-xs text-gray-500">List of client versions</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
@@ -627,7 +627,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_server_catalog_entry_name) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated catalog entry names</p>
+								<p class="text-xs text-gray-500">List of catalog entry names</p>
 							{/if}
 						</div>
 					</div>
