@@ -379,7 +379,6 @@ func (*Handler) DeleteOrphanedComponents(req router.Request, _ router.Response) 
 	}
 
 	return cleanupErr
-
 }
 
 func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router.Response) error {
