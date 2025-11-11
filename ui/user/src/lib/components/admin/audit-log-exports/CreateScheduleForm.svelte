@@ -5,8 +5,9 @@
 	import { AlertTriangle, LoaderCircle, GlobeIcon, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import type { ScheduledAuditLogExport } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores';
+	import type { OrgUser, ScheduledAuditLogExport } from '$lib/services/admin/types';
+	import Select from '$lib/components/Select.svelte';
 
 	interface Props {
 		onCancel: () => void;
@@ -19,6 +20,8 @@
 
 	let defaultTimezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
 	let showAdvancedOptions = $state(false);
+	let isViewMode = $derived(mode === 'view');
+
 	// Form state
 	let form = $state({
 		name: '',
@@ -140,6 +143,39 @@
 				showAdvancedOptions = true;
 			}
 		}
+	});
+
+	let filtersIds = [
+		'mcp_id',
+		'user_id',
+		'mcp_server_catalog_entry_name',
+		'mcp_server_display_name',
+		'call_identifier',
+		'client_name',
+		'client_version',
+		'client_ip',
+		'call_type',
+		'session_id',
+		'response_status'
+	];
+
+	let usersMap = new Map<string, OrgUser>();
+	let filtersOptions: Record<string, string[]> = $state({});
+
+	$effect(() => {
+		AdminService.listUsers().then((res) => {
+			res.forEach((user) => {
+				usersMap.set(user.id, user);
+			});
+		});
+	});
+
+	$effect(() => {
+		filtersIds.forEach((id) => {
+			AdminService.listAuditLogFilterOptions(id).then((res) => {
+				filtersOptions[id] = res.options ?? [];
+			});
+		});
 	});
 
 	async function handleSubmit() {
@@ -499,96 +535,167 @@
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="user_id">User IDs</label>
-							<input
-								class="text-input-filled"
-								id="user_id"
-								bind:value={form.filters.user_id}
-								placeholder="user1,user2"
-								readonly={mode === 'view'}
+							<Select
+								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['user_id']?.map?.((d) => ({
+									id: d,
+									label: usersMap.get(d)?.displayName ?? d
+								})) ?? []}
+								bind:selected={
+									() => form.filters.user_id ?? '', (v) => (form.filters.user_id = v ?? '')
+								}
+								disabled={isViewMode}
+								multiple
 							/>
 							<p class="text-xs text-gray-500">Comma-separated user IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_id">Server IDs</label>
-							<input
-								class="text-input-filled"
-								id="mcp_id"
-								bind:value={form.filters.mcp_id}
-								placeholder="server1,server2"
-								readonly={mode === 'view'}
+							<Select
+								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['mcp_id']?.map?.((d) => ({ id: d, label: d })) ?? []}
+								bind:selected={
+									() => form.filters.mcp_id ?? '', (v) => (form.filters.mcp_id = v ?? '')
+								}
+								disabled={isViewMode}
+								multiple
 							/>
 							<p class="text-xs text-gray-500">Comma-separated server IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_server_display_name">Server Names</label>
-							<input
-								class="text-input-filled"
-								id="mcp_server_display_name"
-								bind:value={form.filters.mcp_server_display_name}
-								placeholder="server-name-1,server-name-2"
-								readonly={mode === 'view'}
+							<Select
+								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['mcp_server_display_name']?.map?.((d) => ({
+									id: d,
+									label: d
+								})) ?? []}
+								bind:selected={
+									() => form.filters.mcp_server_display_name ?? '',
+									(v) => (form.filters.mcp_server_display_name = v ?? '')
+								}
+								disabled={isViewMode}
+								multiple
 							/>
 							<p class="text-xs text-gray-500">Comma-separated server display names</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="call_type">Call Types</label>
-							<input
-								class="text-input-filled"
-								id="call_type"
-								bind:value={form.filters.call_type}
-								placeholder="tools/call,resources/read"
-								readonly={mode === 'view'}
+							<Select
+								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['call_type']?.map?.((d) => ({
+									id: d,
+									label: d
+								})) ?? []}
+								bind:selected={
+									() => form.filters.call_type ?? '', (v) => (form.filters.call_type = v ?? '')
+								}
+								disabled={isViewMode}
+								multiple
 							/>
 							<p class="text-xs text-gray-500">Comma-separated call types</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_name">Client Names</label>
-							<input
-								class="text-input-filled"
-								id="client_name"
-								bind:value={form.filters.client_name}
-								placeholder="client1,client2"
-								readonly={mode === 'view'}
+							<Select
+								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['client_name']?.map?.((d) => ({
+									id: d,
+									label: d
+								})) ?? []}
+								bind:selected={
+									() => form.filters.client_name ?? '', (v) => (form.filters.client_name = v ?? '')
+								}
+								disabled={isViewMode}
+								multiple
 							/>
 							<p class="text-xs text-gray-500">Comma-separated client names</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="response_status">Response Status</label>
-							<input
-								class="text-input-filled"
-								id="response_status"
-								bind:value={form.filters.response_status}
-								placeholder="200,400,500"
-								readonly={mode === 'view'}
+							<Select
+								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['response_status']?.map?.((d) => ({
+									id: d,
+									label: d
+								})) ?? []}
+								bind:selected={
+									() => form.filters.response_status ?? '',
+									(v) => (form.filters.response_status = v ?? '')
+								}
+								disabled={isViewMode}
+								multiple
 							/>
 							<p class="text-xs text-gray-500">Comma-separated HTTP status codes</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="session_id">Session IDs</label>
-							<input
-								class="text-input-filled"
-								id="session_id"
-								bind:value={form.filters.session_id}
-								placeholder="session1,session2"
-								readonly={mode === 'view'}
+							<Select
+								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['session_id']?.map?.((d) => ({
+									id: d,
+									label: d
+								})) ?? []}
+								bind:selected={
+									() => form.filters.session_id ?? '', (v) => (form.filters.session_id = v ?? '')
+								}
+								disabled={isViewMode}
+								multiple
 							/>
 							<p class="text-xs text-gray-500">Comma-separated session IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_ip">Client IPs</label>
-							<input
-								class="text-input-filled"
-								id="client_ip"
-								bind:value={form.filters.client_ip}
-								placeholder="192.168.1.1,10.0.0.1"
-								readonly={mode === 'view'}
+							<Select
+								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['client_ip']?.map?.((d) => ({
+									id: d,
+									label: d
+								})) ?? []}
+								bind:selected={
+									() => form.filters.client_ip ?? '', (v) => (form.filters.client_ip = v ?? '')
+								}
+								disabled={isViewMode}
+								multiple
 							/>
 							<p class="text-xs text-gray-500">Comma-separated IP addresses</p>
 						</div>
@@ -596,13 +703,24 @@
 							<label class="text-sm font-medium" for="power_user_workspace_id"
 								>Catalog Entry Names</label
 							>
-							<input
-								class="text-input-filled"
-								id="power_user_workspace_id"
-								bind:value={form.filters.mcp_server_catalog_entry_name}
-								placeholder="workspace-id-1,workspace-id-2"
-								readonly={mode === 'view'}
+							<Select
+								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['mcp_server_catalog_entry_name']?.map?.((d) => ({
+									id: d,
+									label: d
+								})) ?? []}
+								bind:selected={
+									() => form.filters.mcp_server_catalog_entry_name ?? '',
+									(v) => (form.filters.mcp_server_catalog_entry_name = v ?? '')
+								}
+								disabled={isViewMode}
+								multiple
 							/>
+
 							<p class="text-xs text-gray-500">Comma-separated catalog entry names</p>
 						</div>
 					</div>
