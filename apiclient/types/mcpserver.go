@@ -42,17 +42,17 @@ type ContainerizedRuntimeConfig struct {
 
 // RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)
 type RemoteRuntimeConfig struct {
-	URL        string      `json:"url"`               // Required: Full URL to remote MCP server
-	Headers    []MCPHeader `json:"headers,omitempty"` // Optional
-	IsTemplate bool        `json:"isTemplate"`        // Optional: Whether the URL is a template
+	RemoteCatalogConfig `json:",inline"`
+	URL                 string `json:"url"`        // Required: Full URL to remote MCP server
+	IsTemplate          bool   `json:"isTemplate"` // Optional: Whether the URL is a template
 }
 
 // RemoteCatalogConfig represents template configuration for remote servers in catalog entries
 type RemoteCatalogConfig struct {
-	FixedURL    string      `json:"fixedURL,omitempty"`    // Fixed URL for all instances
-	URLTemplate string      `json:"urlTemplate,omitempty"` // URL template for user URLs
-	Hostname    string      `json:"hostname,omitempty"`    // Required hostname for user URLs
-	Headers     []MCPHeader `json:"headers,omitempty"`     // Optional
+	FixedURL    string      `json:"fixedURL,omitempty"`
+	URLTemplate string      `json:"urlTemplate,omitempty"`
+	Hostname    string      `json:"hostname,omitempty"` // Required hostname for user URLs
+	Headers     []MCPHeader `json:"headers,omitempty"`
 }
 
 // CompositeCatalogConfig represents configuration for composite servers in catalog entries.
@@ -68,7 +68,16 @@ type CatalogComponentServer struct {
 	MCPServerID   string                        `json:"mcpServerID,omitempty"`
 	Manifest      MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
 	ToolOverrides []ToolOverride                `json:"toolOverrides,omitempty"`
-	Disabled      bool                          `json:"disabled,omitempty"`
+}
+
+func (c CatalogComponentServer) ComponentID() (string, error) {
+	if c.CatalogEntryID != "" {
+		return c.CatalogEntryID, nil
+	}
+	if c.MCPServerID != "" {
+		return c.MCPServerID, nil
+	}
+	return "", fmt.Errorf("component has no ID")
 }
 
 type CompositeRuntimeConfig struct {
@@ -83,6 +92,16 @@ type ComponentServer struct {
 	Manifest      MCPServerManifest `json:"manifest,omitempty"`
 	ToolOverrides []ToolOverride    `json:"toolOverrides,omitempty"`
 	Disabled      bool              `json:"disabled,omitempty"`
+}
+
+func (c ComponentServer) ComponentID() (string, error) {
+	if c.CatalogEntryID != "" {
+		return c.CatalogEntryID, nil
+	}
+	if c.MCPServerID != "" {
+		return c.MCPServerID, nil
+	}
+	return "", fmt.Errorf("component has no ID")
 }
 
 type MCPServerCatalogEntry struct {
@@ -328,6 +347,7 @@ func (e RuntimeValidationError) Error() string {
 
 // MapCatalogEntryToServer converts an MCPServerCatalogEntryManifest to an MCPServerManifest
 // For remote runtime, userURL is used when the catalog entry has a hostname constraint
+// Do not call this function with composite runtime, use serverManifestFromCatalogEntryManifest instead.
 func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string) (MCPServerManifest, error) {
 	serverManifest := MCPServerManifest{
 		// Copy common fields
@@ -394,8 +414,9 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 
-		remoteConfig := &RemoteRuntimeConfig{}
-
+		remoteConfig := &RemoteRuntimeConfig{
+			RemoteCatalogConfig: *catalogEntry.RemoteConfig,
+		}
 		if catalogEntry.RemoteConfig.FixedURL != "" {
 			// Use the fixed URL from catalog entry
 			remoteConfig.URL = catalogEntry.RemoteConfig.FixedURL
@@ -422,47 +443,8 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 
-		// Copy headers from catalog entry
-		remoteConfig.Headers = catalogEntry.RemoteConfig.Headers
+		// Copy the runtime config back to the server manifest
 		serverManifest.RemoteConfig = remoteConfig
-
-	case RuntimeComposite:
-		if catalogEntry.CompositeConfig == nil {
-			return serverManifest, RuntimeValidationError{
-				Runtime: RuntimeComposite,
-				Field:   "compositeConfig",
-				Message: "composite configuration is required for composite runtime",
-			}
-		}
-
-		// Convert CatalogComponentServer to ComponentServer
-		componentServers := make([]ComponentServer, len(catalogEntry.CompositeConfig.ComponentServers))
-		for i, catalogComponent := range catalogEntry.CompositeConfig.ComponentServers {
-			componentServer := ComponentServer{
-				CatalogEntryID: catalogComponent.CatalogEntryID,
-				MCPServerID:    catalogComponent.MCPServerID,
-				ToolOverrides:  catalogComponent.ToolOverrides,
-				Disabled:       false,
-			}
-
-			if catalogComponent.CatalogEntryID != "" {
-				componentServerManifest, err := MapCatalogEntryToServer(catalogComponent.Manifest, "")
-				if err != nil {
-					return serverManifest, RuntimeValidationError{
-						Runtime: RuntimeComposite,
-						Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
-						Message: fmt.Sprintf("failed to convert component manifest: %v", err),
-					}
-				}
-				componentServer.Manifest = componentServerManifest
-			}
-
-			componentServers[i] = componentServer
-		}
-
-		serverManifest.CompositeConfig = &CompositeRuntimeConfig{
-			ComponentServers: componentServers,
-		}
 
 	default:
 		return serverManifest, RuntimeValidationError{

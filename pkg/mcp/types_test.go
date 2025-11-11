@@ -217,8 +217,10 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 					Manifest: types.MCPServerManifest{
 						Runtime: types.RuntimeRemote,
 						RemoteConfig: &types.RemoteRuntimeConfig{
-							URL:     "https://example.com/mcp",
-							Headers: tt.headers,
+							RemoteCatalogConfig: types.RemoteCatalogConfig{
+								Headers: tt.headers,
+							},
+							URL: "https://example.com/mcp",
 						},
 					},
 				},
@@ -386,8 +388,10 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 					Manifest: types.MCPServerManifest{
 						Runtime: types.RuntimeRemote,
 						RemoteConfig: &types.RemoteRuntimeConfig{
-							URL:     "https://example.com/mcp",
-							Headers: tt.headers,
+							RemoteCatalogConfig: types.RemoteCatalogConfig{
+								Headers: tt.headers,
+							},
+							URL: "https://example.com/mcp",
 						},
 						Env: tt.env,
 					},
@@ -553,10 +557,12 @@ func TestServerToServerConfig_StaticHeaders_EdgeCases(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://example.com/mcp",
-					Headers: []types.MCPHeader{
-						{Key: "Authorization", Value: "Bearer token-with-special!@#$%^&*()characters"},
+					RemoteCatalogConfig: types.RemoteCatalogConfig{
+						Headers: []types.MCPHeader{
+							{Key: "Authorization", Value: "Bearer token-with-special!@#$%^&*()characters"},
+						},
 					},
+					URL: "https://example.com/mcp",
 				},
 			},
 			credEnv:         map[string]string{},

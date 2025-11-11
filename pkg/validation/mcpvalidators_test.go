@@ -627,11 +627,13 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://example.com/mcp",
-					Headers: []types.MCPHeader{
-						{Key: "Authorization", Value: "Bearer token"},
-						{Key: "Content-Type", Value: "application/json"},
+					RemoteCatalogConfig: types.RemoteCatalogConfig{
+						Headers: []types.MCPHeader{
+							{Key: "Authorization", Value: "Bearer token"},
+							{Key: "Content-Type", Value: "application/json"},
+						},
 					},
+					URL: "https://example.com/mcp",
 				},
 			},
 			expectError: false,
@@ -641,10 +643,12 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://example.com/mcp",
-					Headers: []types.MCPHeader{
-						{Key: "", Value: "some-value"},
+					RemoteCatalogConfig: types.RemoteCatalogConfig{
+						Headers: []types.MCPHeader{
+							{Key: "", Value: "some-value"},
+						},
 					},
+					URL: "https://example.com/mcp",
 				},
 			},
 			expectError: true,
@@ -656,10 +660,12 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://example.com/mcp",
-					Headers: []types.MCPHeader{
-						{Key: "   ", Value: "some-value"},
+					RemoteCatalogConfig: types.RemoteCatalogConfig{
+						Headers: []types.MCPHeader{
+							{Key: "   ", Value: "some-value"},
+						},
 					},
+					URL: "https://example.com/mcp",
 				},
 			},
 			expectError: true,
@@ -671,10 +677,12 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://example.com/mcp",
-					Headers: []types.MCPHeader{
-						{Key: "Authorization", Value: "Bearer token", Sensitive: true},
+					RemoteCatalogConfig: types.RemoteCatalogConfig{
+						Headers: []types.MCPHeader{
+							{Key: "Authorization", Value: "Bearer token", Sensitive: true},
+						},
 					},
+					URL: "https://example.com/mcp",
 				},
 			},
 			expectError: true,
@@ -686,10 +694,12 @@ func TestRemoteValidator_ValidateConfig_HeaderValidation(t *testing.T) {
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{
-					URL: "https://example.com/mcp",
-					Headers: []types.MCPHeader{
-						{Key: "API-Key", Value: "", Sensitive: true, Required: true},
+					RemoteCatalogConfig: types.RemoteCatalogConfig{
+						Headers: []types.MCPHeader{
+							{Key: "API-Key", Value: "", Sensitive: true, Required: true},
+						},
 					},
+					URL: "https://example.com/mcp",
 				},
 			},
 			expectError: false,
