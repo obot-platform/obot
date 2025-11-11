@@ -2,6 +2,7 @@ package poweruserworkspace
 
 import (
 	"context"
+	goerrors "errors"
 	"fmt"
 	"strconv"
 
@@ -12,6 +13,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -35,11 +37,17 @@ func (h *Handler) HandleRoleChange(req router.Request, _ router.Response) error 
 	// Get the user
 	user, err := h.gatewayClient.UserByID(req.Ctx, userIDStr)
 	if err != nil {
-		// User might have been deleted - clean up any workspaces
-		if err := h.deleteWorkspaceForUser(req.Ctx, req.Client, req.Namespace, userIDStr); err != nil {
-			return err
+		// Only clean up if the user is actually not found (deleted)
+		// For transient errors (network, DB connection, etc.), return the error to retry
+		if goerrors.Is(err, gorm.ErrRecordNotFound) {
+			// User has been deleted - clean up any workspaces
+			if err := h.deleteWorkspaceForUser(req.Ctx, req.Client, req.Namespace, userIDStr); err != nil {
+				return err
+			}
+			return req.Delete(roleChange)
 		}
-		return req.Delete(roleChange)
+		// For other errors, return them so the controller retries
+		return fmt.Errorf("failed to get user %s: %w", userIDStr, err)
 	}
 
 	// Compute current effective role
@@ -164,20 +172,8 @@ func (h *Handler) cleanupWorkspaceResources(ctx context.Context, client kclient.
 	namespace := workspace.Namespace
 
 	// Delete AccessControlRules in this workspace
-	var acrs v1.AccessControlRuleList
-	if err := client.List(ctx, &acrs, &kclient.ListOptions{
-		Namespace: namespace,
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.powerUserWorkspaceID": workspace.Name,
-		}),
-	}); err != nil {
+	if err := client.DeleteAllOf(ctx, &v1.AccessControlRule{}, kclient.MatchingLabels{"spec.powerUserWorkspaceID": workspace.Name}, kclient.InNamespace(namespace)); err != nil {
 		return err
-	}
-
-	for _, acr := range acrs.Items {
-		if err := client.Delete(ctx, &acr); err != nil && !errors.IsNotFound(err) {
-			return err
-		}
 	}
 
 	// Reset DefaultAccessControlRuleGenerated status
@@ -189,20 +185,8 @@ func (h *Handler) cleanupWorkspaceResources(ctx context.Context, client kclient.
 	}
 
 	// Delete all MCPServers in this workspace
-	var servers v1.MCPServerList
-	if err := client.List(ctx, &servers, &kclient.ListOptions{
-		Namespace: namespace,
-		FieldSelector: fields.SelectorFromSet(map[string]string{
-			"spec.powerUserWorkspaceID": workspace.Name,
-		}),
-	}); err != nil {
+	if err := client.DeleteAllOf(ctx, &v1.MCPServer{}, kclient.MatchingLabels{"spec.powerUserWorkspaceID": workspace.Name}, kclient.InNamespace(namespace)); err != nil {
 		return err
-	}
-
-	for _, server := range servers.Items {
-		if err := client.Delete(ctx, &server); err != nil && !errors.IsNotFound(err) {
-			return err
-		}
 	}
 
 	return nil

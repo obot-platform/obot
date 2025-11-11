@@ -62,7 +62,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 	}
 
 	// Filter out bootstrap user and collect valid users with their IDs
-	var validUsers []types.User
+	validUsers := make([]types.User, 0, len(users))
 	userIDs := make([]uint, 0, len(users))
 	for _, user := range users {
 		if user.Username != "bootstrap" && user.Email != "" {
