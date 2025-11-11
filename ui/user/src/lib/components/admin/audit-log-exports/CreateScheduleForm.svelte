@@ -9,7 +9,7 @@
 
 	interface Props {
 		onCancel: () => void;
-		onSubmit: (result?: Record<string, never>) => void;
+		onSubmit: (result?: ScheduledAuditLogExport) => void;
 		mode?: 'create' | 'view' | 'edit';
 		initialData?: ScheduledAuditLogExport;
 	}
@@ -193,13 +193,13 @@
 				}
 			};
 
-			let result: Record<string, never> | undefined = undefined;
+			let result: ScheduledAuditLogExport | undefined = undefined;
 
 			if (mode === 'edit' && initialData?.id) {
 				// Update existing scheduled export
 				result = (await AdminService.updateScheduledAuditLogExport(initialData.id, request, {
 					dontLogErrors: true
-				})) as typeof result;
+				})) as ScheduledAuditLogExport;
 			} else {
 				// Create new scheduled export
 				result = (await AdminService.createScheduledAuditLogExport(request, {

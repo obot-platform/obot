@@ -13,7 +13,7 @@
 	import { browser } from '$app/environment';
 	import { profile } from '$lib/stores';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { AdminService } from '$lib/services';
+	import { AdminService, type AuditLogExport, type ScheduledAuditLogExport } from '$lib/services';
 	import ExportsView from './ExportsView.svelte';
 	import ScheduledExportsView from './ScheduledExportsView.svelte';
 	import CreateAuditLogExportForm from '$lib/components/admin/audit-log-exports/CreateAuditLogExportForm.svelte';
@@ -35,7 +35,7 @@
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
-	let createdExport = $state<Record<string, never> | null>(null);
+	let createdExport = $state<AuditLogExport | ScheduledAuditLogExport | null>(null);
 
 	let setTimeoutIds: number[] = [];
 
@@ -127,7 +127,7 @@
 		goto('/admin/audit-logs/exports', { replaceState: false });
 	}
 
-	async function handleFormSuccess(item?: Record<string, never>) {
+	async function handleFormSuccess(item?: AuditLogExport | ScheduledAuditLogExport) {
 		createdExport = item ? { ...item } : null;
 
 		showForm = null;

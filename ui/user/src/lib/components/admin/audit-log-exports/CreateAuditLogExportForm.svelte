@@ -11,7 +11,7 @@
 
 	interface Props {
 		onCancel: () => void;
-		onSubmit: (result?: Record<string, never>) => void;
+		onSubmit: (result?: AuditLogExport) => void;
 		mode?: 'create' | 'view' | 'edit';
 		initialData?: AuditLogExport;
 	}
@@ -158,9 +158,7 @@
 				}
 			};
 
-			const result = (await AdminService.createAuditLogExport(request)) as
-				| Record<string, never>
-				| undefined;
+			const result = (await AdminService.createAuditLogExport(request)) as AuditLogExport;
 
 			onSubmit(result);
 		} catch (err) {
