@@ -70,14 +70,12 @@ type CatalogComponentServer struct {
 	ToolOverrides []ToolOverride                `json:"toolOverrides,omitempty"`
 }
 
-func (c CatalogComponentServer) ComponentID() (string, error) {
+func (c CatalogComponentServer) ComponentID() string {
 	if c.CatalogEntryID != "" {
-		return c.CatalogEntryID, nil
+		return c.CatalogEntryID
 	}
-	if c.MCPServerID != "" {
-		return c.MCPServerID, nil
-	}
-	return "", fmt.Errorf("component has no ID")
+
+	return c.MCPServerID
 }
 
 type CompositeRuntimeConfig struct {
@@ -94,14 +92,12 @@ type ComponentServer struct {
 	Disabled      bool              `json:"disabled,omitempty"`
 }
 
-func (c ComponentServer) ComponentID() (string, error) {
+func (c ComponentServer) ComponentID() string {
 	if c.CatalogEntryID != "" {
-		return c.CatalogEntryID, nil
+		return c.CatalogEntryID
 	}
-	if c.MCPServerID != "" {
-		return c.MCPServerID, nil
-	}
-	return "", fmt.Errorf("component has no ID")
+
+	return c.MCPServerID
 }
 
 type MCPServerCatalogEntry struct {
@@ -144,7 +140,7 @@ type ToolOverride struct {
 	// Name is the original tool name as returned by the component server
 	Name string `json:"name"`
 	// OverrideName is the tool name exposed by the composite server
-	OverrideName string `json:"overrideName"`
+	OverrideName string `json:"overrideName,omitempty"`
 	// Optional overrides for display
 	OverrideDescription string `json:"overrideDescription,omitempty"`
 	// Whether to include this tool (default true)
@@ -348,7 +344,7 @@ func (e RuntimeValidationError) Error() string {
 // MapCatalogEntryToServer converts an MCPServerCatalogEntryManifest to an MCPServerManifest
 // For remote runtime, userURL is used when the catalog entry has a hostname constraint
 // Do not call this function with composite runtime, use serverManifestFromCatalogEntryManifest instead.
-func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string) (MCPServerManifest, error) {
+func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string, disableHostnameValidation bool) (MCPServerManifest, error) {
 	serverManifest := MCPServerManifest{
 		// Copy common fields
 		Metadata:    catalogEntry.Metadata,
@@ -422,15 +418,17 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			remoteConfig.URL = catalogEntry.RemoteConfig.FixedURL
 		} else if catalogEntry.RemoteConfig.Hostname != "" {
 			// Validate that userURL uses the required hostname
-			if userURL == "" {
-				return serverManifest, RuntimeValidationError{
-					Runtime: RuntimeRemote,
-					Field:   "URL",
-					Message: "user URL is required when catalog entry specifies hostname constraint",
+			if !disableHostnameValidation {
+				if userURL == "" {
+					return serverManifest, RuntimeValidationError{
+						Runtime: RuntimeRemote,
+						Field:   "URL",
+						Message: "user URL is required when catalog entry specifies hostname constraint",
+					}
 				}
-			}
-			if err := ValidateURLHostname(userURL, catalogEntry.RemoteConfig.Hostname); err != nil {
-				return serverManifest, err
+				if err := ValidateURLHostname(userURL, catalogEntry.RemoteConfig.Hostname); err != nil {
+					return serverManifest, err
+				}
 			}
 			remoteConfig.URL = userURL
 		} else if catalogEntry.RemoteConfig.URLTemplate != "" {

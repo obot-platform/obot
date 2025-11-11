@@ -323,6 +323,12 @@ export interface ToolOverride {
 	enabled?: boolean;
 }
 
+export type ComponentServerConfig = {
+	envs?: Record<string, string>;
+	url?: string;
+	disabled?: boolean;
+}
+
 export interface MCPSubField {
 	description: string;
 	file?: boolean;
@@ -796,3 +802,4 @@ export type Workspace = {
 	role: number;
 	type: string;
 };
+

@@ -80,7 +80,12 @@ func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionMana
 func (h *Handler) StreamableHTTP(req api.Context) error {
 	sessionID := req.Request.Header.Get("Mcp-Session-Id")
 
-	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, req.PathValue("mcp_id"), h.mcpSessionManager.TokenService(), h.baseURL)
+	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(
+		req,
+		req.PathValue("mcp_id"),
+		h.mcpSessionManager.TokenService(),
+		h.baseURL,
+	)
 	if err == nil && mcpServer.Spec.Template {
 		// Prevent connections to MCP server templates by returning a 404.
 		err = apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
@@ -134,7 +139,7 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 			return fmt.Errorf("failed to list component instances for composite server %s: %v", mcpServer.Name, err)
 		}
 
-		// Precompute disabled component IDs for quick lookup (default is enabled if not listed)
+		// Precompute disabled component IDs for quick lookup
 		var compositeConfig types.CompositeRuntimeConfig
 		if mcpServer.Spec.Manifest.CompositeConfig != nil {
 			compositeConfig = *mcpServer.Spec.Manifest.CompositeConfig
@@ -142,11 +147,9 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 
 		disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
 		for _, component := range compositeConfig.ComponentServers {
-			id, err := component.ComponentID()
-			if err != nil {
-				return fmt.Errorf("failed to get component ID for component server %s: %w", component.Manifest.Name, err)
+			if id := component.ComponentID(); id != "" {
+				disabledComponents[id] = component.Disabled
 			}
-			disabledComponents[id] = component.Disabled
 		}
 
 		componentServers := make([]messageContext, 0, len(componentServerList.Items)+len(componentInstanceList.Items))
@@ -154,7 +157,7 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 		// Add single-user component servers
 		for _, componentServer := range componentServerList.Items {
 			// Skip if explicitly disabled in composite config
-			if disabledComponents[componentServer.Spec.MCPServerCatalogEntryName] {
+			if disabled, ok := disabledComponents[componentServer.Spec.MCPServerCatalogEntryName]; !ok || disabled {
 				log.Debugf("Skipping component server %s not enabled in composite config", componentServer.Name)
 				continue
 			}
@@ -183,7 +186,7 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 				continue
 			}
 
-			if disabledComponents[multiUserServer.Name] {
+			if disabled, ok := disabledComponents[multiUserServer.Name]; !ok || disabled {
 				log.Debugf("Skipping component instance %s not enabled in composite config", componentInstance.Name)
 				continue
 			}
@@ -202,10 +205,7 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 			})
 		}
 
-		if len(componentServers) < 1 {
-			return fmt.Errorf("composite server %s has no running component servers", mcpServer.Name)
-		}
-
+		// No composite servers is a valid configuration that returns no capabilities at all.
 		messageCtx.compositeContext = newCompositeContext(mcpServer.Spec.Manifest.CompositeConfig, componentServers)
 	}
 

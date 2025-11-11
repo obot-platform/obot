@@ -15,7 +15,7 @@ func TestMapCatalogEntryToServer_UVX(t *testing.T) {
 		},
 	}
 
-	result, err := MapCatalogEntryToServer(catalogEntry, "")
+	result, err := MapCatalogEntryToServer(catalogEntry, "", false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -48,7 +48,7 @@ func TestMapCatalogEntryToServer_NPX(t *testing.T) {
 		},
 	}
 
-	result, err := MapCatalogEntryToServer(catalogEntry, "")
+	result, err := MapCatalogEntryToServer(catalogEntry, "", false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -78,7 +78,7 @@ func TestMapCatalogEntryToServer_Containerized(t *testing.T) {
 		},
 	}
 
-	result, err := MapCatalogEntryToServer(catalogEntry, "")
+	result, err := MapCatalogEntryToServer(catalogEntry, "", false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestMapCatalogEntryToServer_RemoteFixedURL(t *testing.T) {
 		},
 	}
 
-	result, err := MapCatalogEntryToServer(catalogEntry, "")
+	result, err := MapCatalogEntryToServer(catalogEntry, "", false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestMapCatalogEntryToServer_RemoteHostname(t *testing.T) {
 	}
 
 	userURL := "https://api.example.com/custom/path"
-	result, err := MapCatalogEntryToServer(catalogEntry, userURL)
+	result, err := MapCatalogEntryToServer(catalogEntry, userURL, false)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -172,7 +172,7 @@ func TestMapCatalogEntryToServer_RemoteHostnameMismatch(t *testing.T) {
 	}
 
 	userURL := "https://wrong.example.com/custom/path"
-	_, err := MapCatalogEntryToServer(catalogEntry, userURL)
+	_, err := MapCatalogEntryToServer(catalogEntry, userURL, false)
 	if err == nil {
 		t.Fatal("Expected error for hostname mismatch")
 	}
@@ -199,7 +199,7 @@ func TestMapCatalogEntryToServer_MissingConfig(t *testing.T) {
 		// Missing UVXConfig
 	}
 
-	_, err := MapCatalogEntryToServer(catalogEntry, "")
+	_, err := MapCatalogEntryToServer(catalogEntry, "", false)
 	if err == nil {
 		t.Fatal("Expected error for missing config")
 	}

@@ -257,8 +257,10 @@ func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
 
 // CreateEntry creates a new entry for a catalog or workspace.
 func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
-	catalogName := req.PathValue("catalog_id")
-	workspaceID := req.PathValue("workspace_id")
+	var (
+		catalogName = req.PathValue("catalog_id")
+		workspaceID = req.PathValue("workspace_id")
+	)
 
 	// Verify the scope exists
 	if catalogName != "" {
@@ -278,18 +280,16 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
 
-	// Handle composite catalog entries
-	if manifest.Runtime == types.RuntimeComposite && manifest.CompositeConfig != nil {
-		if err := h.populateComponentManifests(req, &manifest, catalogName, workspaceID); err != nil {
-			return err
+	if manifest.Runtime == types.RuntimeComposite {
+		// Resolve the component config and fail instead of dropping missing components.
+		if err := resolveCompositeCatalogConfig(req, manifest.CompositeConfig, catalogName, false); err != nil {
+			return fmt.Errorf("failed to resolve composite catalog config: %w", err)
 		}
 	}
 
 	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
-
-	cleanName := normalizeMCPCatalogEntryName(manifest.Name)
 
 	entry := v1.MCPServerCatalogEntry{
 		ObjectMeta: metav1.ObjectMeta{
@@ -303,6 +303,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	}
 
 	// Set scope-specific fields
+	cleanName := normalizeMCPCatalogEntryName(manifest.Name)
 	if catalogName != "" {
 		entry.GenerateName = name.SafeHashConcatName(catalogName, cleanName)
 		entry.Spec.MCPCatalogName = catalogName
@@ -319,9 +320,11 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 }
 
 func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
-	catalogName := req.PathValue("catalog_id")
-	workspaceID := req.PathValue("workspace_id")
-	entryName := req.PathValue("entry_id")
+	var (
+		catalogName = req.PathValue("catalog_id")
+		workspaceID = req.PathValue("workspace_id")
+		entryName   = req.PathValue("entry_id")
+	)
 
 	// Verify the scope exists
 	if catalogName != "" {
@@ -357,15 +360,18 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
 
-	// Handle composite catalog entries
-	if manifest.Runtime == types.RuntimeComposite && manifest.CompositeConfig != nil {
-		if err := h.populateComponentManifests(req, &manifest, catalogName, workspaceID); err != nil {
-			return err
-		}
-	}
-
 	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+	}
+
+	if manifest.Runtime == types.RuntimeComposite {
+		if err := h.validateUpdatedCompositeComponents(
+			req,
+			entry.Spec.Manifest.CompositeConfig.ComponentServers,
+			manifest.CompositeConfig.ComponentServers,
+		); err != nil {
+			return types.NewErrBadRequest("failed to validate updated composite components: %v", err)
+		}
 	}
 
 	// Copy the tool previews over so that they don't get wiped out when updating the manifest
@@ -379,6 +385,40 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	}
 
 	return req.Write(convertMCPServerCatalogEntry(entry))
+}
+
+func (*MCPCatalogHandler) validateUpdatedCompositeComponents(
+	req api.Context,
+	existingComponents, updatedComponents []types.CatalogComponentServer,
+) error {
+	existing := make(map[string]struct{}, len(existingComponents))
+	for _, component := range existingComponents {
+		existing[component.ComponentID()] = struct{}{}
+	}
+
+	for _, updated := range updatedComponents {
+		if _, exists := existing[updated.ComponentID()]; exists {
+			// Allow updates to existing components, regardless of whether the upstream entry/mcp server exists.
+			// It may have already been removed, but admins should still be able to modify the tools overrides.
+			// TODO(njhale): validate that only tool overrides have changed.
+			continue
+		}
+
+		if updated.MCPServerID != "" {
+			// Ensure the targeted multi-user server exists
+			if err := req.Get(new(v1.MCPServer), updated.MCPServerID); err != nil {
+				return fmt.Errorf("failed to get multi-user component server %s: %w", updated.MCPServerID, err)
+			}
+			continue
+		}
+
+		// Ensure the targeted single-user/remote component entry exists
+		if err := req.Get(new(v1.MCPServerCatalogEntry), updated.CatalogEntryID); err != nil {
+			return fmt.Errorf("failed to get single-user/remote component entry %s: %w", updated.CatalogEntryID, err)
+		}
+	}
+
+	return nil
 }
 
 func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
@@ -812,74 +852,17 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 	// Read configuration from request body
 	var configRequest struct {
 		ComponentConfigs map[string]struct {
-			Config map[string]string `json:"config"`
-			URL    string            `json:"url"`
-			Skip   bool              `json:"skip"`
+			Config   map[string]string `json:"config"`
+			URL      string            `json:"url"`
+			Disabled bool              `json:"disabled"`
 		} `json:"componentConfigs"`
 	}
 	if err := req.Read(&configRequest); err != nil {
 		return types.NewErrBadRequest("failed to read configuration: %v", err)
 	}
 
-	compositeConfig := entry.Spec.Manifest.CompositeConfig
-	if compositeConfig == nil {
-		return types.NewErrBadRequest("composite configuration is required")
-	}
+	// TODO(njhale): Implement this.
 
-	compositeToolPreviews := make([]types.MCPServerTool, 0, len(compositeConfig.ComponentServers))
-	for _, componentEntry := range compositeConfig.ComponentServers {
-		config, ok := configRequest.ComponentConfigs[componentEntry.CatalogEntryID]
-		if ok && config.Skip {
-			// Skip configuring component if requested
-			continue
-		}
-
-		server, serverConfig, err := tempServerAndConfig(componentEntry.Manifest, config.Config, config.URL)
-		if err != nil {
-			return err
-		}
-
-		if serverConfig.Runtime == types.RuntimeRemote {
-			oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
-			if err != nil {
-				return fmt.Errorf("failed to check for MCP auth: %w", err)
-			}
-
-			if oauthURL != "" {
-				return types.NewErrBadRequest("MCP server requires OAuth authentication")
-			}
-
-			defer func() {
-				_ = h.gatewayClient.DeleteMCPOAuthToken(context.Background(), "system", server.Name)
-			}()
-		}
-
-		toolPreview, err := h.sessionManager.GenerateToolPreviews(req.Context(), server, serverConfig)
-		if err != nil {
-			return fmt.Errorf("failed to generate tool preview: %w", err)
-		}
-
-		compositeToolPreviews = append(compositeToolPreviews, toolPreview...)
-	}
-
-	// Set the tool preview on the catalog entry
-	entry.Spec.Manifest.ToolPreview = compositeToolPreviews
-	if dryRun {
-		// Don't update the entry, just return the entry with the new tool set
-		return req.Write(convertMCPServerCatalogEntry(entry))
-	}
-
-	if err := req.Update(&entry); err != nil {
-		return fmt.Errorf("failed to update catalog entry: %w", err)
-	}
-
-	now := metav1.Now()
-	entry.Status.ToolPreviewsLastGenerated = &now
-	if err := req.Storage.Status().Update(req.Context(), &entry); err != nil {
-		return fmt.Errorf("failed to update catalog entry: %w", err)
-	}
-
-	// Return the updated catalog entry
 	return req.Write(convertMCPServerCatalogEntry(entry))
 }
 
@@ -952,7 +935,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 
 func tempServerAndConfig(entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url string) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
-	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url)
+	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url, false)
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to convert catalog entry to server config: %w", err)
 	}
@@ -1049,14 +1032,19 @@ func normalizeMCPCatalogEntryName(name string) string {
 	return name
 }
 
-func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest *types.MCPServerCatalogEntryManifest, catalogName, workspaceID string) error {
+// resolveCompositeCatalogConfig resolves the component servers in the given CompositeCatalogConfig
+// from the referenced catalog entries and multi-user servers and populates it with the results.
+// If prune is true, referenced component no longer exist will be removed from the config.
+func resolveCompositeCatalogConfig(
+	req api.Context,
+	config *types.CompositeCatalogConfig,
+	catalogName string,
+	prune bool,
+) error {
 	// For each component server, fetch its catalog entry and populate the manifest
-	var componentServers []types.CatalogComponentServer
-	for i := range manifest.CompositeConfig.ComponentServers {
-		var (
-			component                    = &manifest.CompositeConfig.ComponentServers[i]
-			hasCatalogEntry, hasServerID = component.CatalogEntryID != "", component.MCPServerID != ""
-		)
+	componentServers := make([]types.CatalogComponentServer, 0, len(config.ComponentServers))
+	for _, component := range config.ComponentServers {
+		hasCatalogEntry, hasServerID := component.CatalogEntryID != "", component.MCPServerID != ""
 		// Validate that exactly one of CatalogEntryID or MCPServerID is set
 		if hasCatalogEntry && hasServerID {
 			return types.NewErrBadRequest("component cannot have both catalogEntryID and mcpServerID set")
@@ -1069,7 +1057,7 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 			// Multi-user server component
 			var server v1.MCPServer
 			if err := req.Get(&server, component.MCPServerID); err != nil {
-				if apierrors.IsNotFound(err) {
+				if prune && apierrors.IsNotFound(err) {
 					// Skip components referencing servers that no longer exist
 					continue
 				}
@@ -1087,94 +1075,60 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 			}
 
 			// Populate the manifest snapshot from the multi-user server
-			component.Manifest = convertServerManifestToCatalogManifest(server.Spec.Manifest)
-			// Keep this component
-			componentServers = append(componentServers, *component)
+			component.Manifest = types.MCPServerCatalogEntryManifest{
+				Metadata:    server.Spec.Manifest.Metadata,
+				Name:        server.Spec.Manifest.Name,
+				Description: server.Spec.Manifest.Description,
+				Icon:        server.Spec.Manifest.Icon,
+			}
 		} else {
 			// Catalog entry component
 			var entry v1.MCPServerCatalogEntry
 			if err := req.Get(&entry, component.CatalogEntryID); err != nil {
-				if apierrors.IsNotFound(err) {
+				if prune && apierrors.IsNotFound(err) {
 					// Skip components referencing catalog entries that no longer exist
 					continue
 				}
 				return types.NewErrBadRequest("failed to get component catalog entry %s: %v", component.CatalogEntryID, err)
 			}
 
-			// Verify the component entry belongs to the same scope
-			if catalogName != "" && entry.Spec.MCPCatalogName != catalogName {
+			// Verify the component entry belongs to the same scope (default catalog for now)
+			if entry.Spec.MCPCatalogName != catalogName {
 				return types.NewErrBadRequest("component entry %s does not belong to catalog %s", component.CatalogEntryID, catalogName)
-			}
-			if workspaceID != "" && entry.Spec.PowerUserWorkspaceID != workspaceID {
-				return types.NewErrBadRequest("component entry %s does not belong to workspace %s", component.CatalogEntryID, workspaceID)
 			}
 
 			// Populate the manifest
-			component.Manifest = entry.Spec.Manifest
-			// Keep this component
-			componentServers = append(componentServers, *component)
+			component.Manifest = types.MCPServerCatalogEntryManifest{
+				Metadata:            entry.Spec.Manifest.Metadata,
+				Name:                entry.Spec.Manifest.Name,
+				Description:         entry.Spec.Manifest.Description,
+				Icon:                entry.Spec.Manifest.Icon,
+				Runtime:             entry.Spec.Manifest.Runtime,
+				UVXConfig:           entry.Spec.Manifest.UVXConfig,
+				NPXConfig:           entry.Spec.Manifest.NPXConfig,
+				ContainerizedConfig: entry.Spec.Manifest.ContainerizedConfig,
+				RemoteConfig:        entry.Spec.Manifest.RemoteConfig,
+				Env:                 entry.Spec.Manifest.Env,
+			}
 		}
-	}
 
-	// Replace with filtered component list
-	manifest.CompositeConfig.ComponentServers = componentServers
+		// Clear component tool previews from the manifest.
+		// We don't want to store these on the component manifest since the flow for composites
+		// calls for tool previews to be generated to guarantee that overrides are applied through
+		// the same logic that clients hit (i.e. ListTools call against a configured composite server).
+		componentServers = append(componentServers, component)
+	}
 
 	return nil
 }
 
-// convertServerManifestToCatalogManifest converts an MCPServerManifest to MCPServerCatalogEntryManifest
-func convertServerManifestToCatalogManifest(serverManifest types.MCPServerManifest) types.MCPServerCatalogEntryManifest {
-	catalogManifest := types.MCPServerCatalogEntryManifest{
-		Metadata:    serverManifest.Metadata,
-		Name:        serverManifest.Name,
-		Description: serverManifest.Description,
-		Icon:        serverManifest.Icon,
-		Runtime:     serverManifest.Runtime,
-		Env:         serverManifest.Env,
-		ToolPreview: serverManifest.ToolPreview,
-	}
-
-	// Convert runtime-specific configs
-	switch serverManifest.Runtime {
-	case types.RuntimeUVX:
-		catalogManifest.UVXConfig = serverManifest.UVXConfig
-	case types.RuntimeNPX:
-		catalogManifest.NPXConfig = serverManifest.NPXConfig
-	case types.RuntimeContainerized:
-		catalogManifest.ContainerizedConfig = serverManifest.ContainerizedConfig
-	case types.RuntimeRemote:
-		if serverManifest.RemoteConfig != nil {
-			catalogManifest.RemoteConfig = &types.RemoteCatalogConfig{
-				FixedURL: serverManifest.RemoteConfig.URL,
-				Headers:  serverManifest.RemoteConfig.Headers,
-			}
-		}
-	case types.RuntimeComposite:
-		if serverManifest.CompositeConfig != nil {
-			// Convert CompositeRuntimeConfig to CompositeCatalogConfig
-			componentServers := make([]types.CatalogComponentServer, len(serverManifest.CompositeConfig.ComponentServers))
-			for i, comp := range serverManifest.CompositeConfig.ComponentServers {
-				componentServers[i] = types.CatalogComponentServer{
-					CatalogEntryID: comp.CatalogEntryID,
-					MCPServerID:    comp.MCPServerID,
-					Manifest:       convertServerManifestToCatalogManifest(comp.Manifest),
-					ToolOverrides:  comp.ToolOverrides,
-					Disabled:       comp.Disabled,
-				}
-			}
-			catalogManifest.CompositeConfig = &types.CompositeCatalogConfig{
-				ComponentServers: componentServers,
-			}
-		}
-	}
-
-	return catalogManifest
-}
-
-// RefreshCompositeComponents refreshes the component snapshots in a composite catalog entry
-func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
-	catalogName := req.PathValue("catalog_id")
-	entryName := req.PathValue("entry_id")
+// UpgradeCompositeEntry upgrades the component snapshots in a composite catalog entry from the
+// latest versions of the parent catalog entries and multi-user servers.
+func (h *MCPCatalogHandler) UpgradeCompositeEntry(req api.Context) error {
+	var (
+		catalogName = req.PathValue("catalog_id")
+		entryName   = req.PathValue("entry_id")
+	)
 
 	// Verify the catalog exists
 	if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
@@ -1212,19 +1166,13 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 
 	oldManifests := make(map[string]string, len(compositeConfig.ComponentServers))
 	for _, component := range compositeConfig.ComponentServers {
-		id, err := h.compositeComponentID(component)
-		if err != nil {
-			return err
-		}
-
-		oldManifests[id] = hash.Digest(component.Manifest)
+		oldManifests[component.ComponentID()] = hash.Digest(component.Manifest)
 	}
 
-	// Refresh component manifests from their current sources
-	// This will populate the entry.Spec.Manifest.CompositeConfig.ComponentServers with the current manifests
-	// and remove components that no longer exist
-	if err := h.populateComponentManifests(req, &entry.Spec.Manifest, catalogName, ""); err != nil {
-		return err
+	// Resolve component manifests from the referenced catalog entries and multi-user servers,
+	// and prune components that no longer exist.
+	if err := resolveCompositeCatalogConfig(req, entry.Spec.Manifest.CompositeConfig, catalogName, true); err != nil {
+		return fmt.Errorf("failed to resolve composite catalog config: %w", err)
 	}
 
 	// Clear toolOverrides for components whose manifests changed
@@ -1232,26 +1180,21 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 		for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
 			var (
 				component = &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
-				id, err   = h.compositeComponentID(*component)
 			)
-			if err != nil {
-				return err
-			}
 
-			oldDigest, ok := oldManifests[id]
+			oldDigest, ok := oldManifests[component.ComponentID()]
 			if !ok {
-				// New component; leave ToolOverrides as-is
+				// New component, leave ToolOverrides as-is
 				continue
 			}
 
-			newDigest := hash.Digest(component.Manifest)
-			if oldDigest != newDigest {
+			if oldDigest != hash.Digest(component.Manifest) {
 				component.ToolOverrides = nil
 			}
 		}
 	}
 
-	// Validate the refreshed manifest to ensure it's still valid
+	// Validate the updated manifest
 	if err := validation.ValidateCatalogEntryManifest(entry.Spec.Manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
@@ -1262,15 +1205,4 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 
 	return req.Write(convertMCPServerCatalogEntry(entry))
-}
-
-func (*MCPCatalogHandler) compositeComponentID(component types.CatalogComponentServer) (string, error) {
-	if component.CatalogEntryID != "" {
-		return component.CatalogEntryID, nil
-	}
-	if component.MCPServerID != "" {
-		return component.MCPServerID, nil
-	}
-
-	return "", fmt.Errorf("component has no ID")
 }

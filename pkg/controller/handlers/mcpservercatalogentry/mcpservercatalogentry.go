@@ -8,7 +8,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -70,7 +69,7 @@ func UpdateManifestHashAndLastUpdated(req router.Request, _ router.Response) err
 }
 
 // DetectCompositeDrift detects when a composite catalog entry's component snapshots have drifted
-// from their source catalog entries or multi-user servers
+// from their source catalog entries or multi-user servers.
 func DetectCompositeDrift(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
@@ -85,44 +84,64 @@ func DetectCompositeDrift(req router.Request, _ router.Response) error {
 	// Check each component for drift
 	var drifted bool
 	for _, component := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
-		// Handle multi-user component drift
+		var latestHash, currentHash string
 		if component.MCPServerID != "" {
-			var server v1.MCPServer
-			if err := req.Get(&server, entry.Namespace, component.MCPServerID); err != nil {
-				if apierrors.IsNotFound(err) {
-					drifted = true
-					break
-				}
+			var latestServer v1.MCPServer
+			if err := kclient.IgnoreNotFound(req.Get(&latestServer, entry.Namespace, component.MCPServerID)); err != nil {
 				return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
 			}
 
-			var (
-				snapshotHash = hash.Digest(component.Manifest)
-				currentHash  = hash.Digest(server.Spec.Manifest)
-			)
-			if snapshotHash != currentHash {
-				drifted = true
-				break
-			}
+			// Only compare the subset of fields that are relevant enough to warrant an upgrade.
+			// We don't track the runtime configuration for multi-user servers since composites
+			// reference existing multi-user servers, rather than standing one up.
+			latestHash = hash.Digest(types.MCPServerCatalogEntryManifest{
+				Metadata:    latestServer.Spec.Manifest.Metadata,
+				Name:        latestServer.Spec.Manifest.Name,
+				Description: latestServer.Spec.Manifest.Description,
+				Icon:        latestServer.Spec.Manifest.Icon,
+			})
+			currentHash = hash.Digest(types.MCPServerCatalogEntryManifest{
+				Metadata:    component.Manifest.Metadata,
+				Name:        component.Manifest.Name,
+				Description: component.Manifest.Description,
+				Icon:        component.Manifest.Icon,
+			})
 		} else {
 			// Handle catalog entry component drift
-			var componentEntry v1.MCPServerCatalogEntry
-			if err := req.Get(&componentEntry, entry.Namespace, component.CatalogEntryID); err != nil {
-				if apierrors.IsNotFound(err) {
-					drifted = true
-					break
-				}
+			var latestEntry v1.MCPServerCatalogEntry
+			if err := kclient.IgnoreNotFound(req.Get(&latestEntry, entry.Namespace, component.CatalogEntryID)); err != nil {
 				return fmt.Errorf("failed to get component catalog entry %s: %w", component.CatalogEntryID, err)
 			}
 
-			var (
-				snapshotHash = hash.Digest(component.Manifest)
-				currentHash  = hash.Digest(componentEntry.Spec.Manifest)
-			)
-			if snapshotHash != currentHash {
-				drifted = true
-				break
-			}
+			latestHash = hash.Digest(types.MCPServerCatalogEntryManifest{
+				Metadata:            latestEntry.Spec.Manifest.Metadata,
+				Name:                latestEntry.Spec.Manifest.Name,
+				Description:         latestEntry.Spec.Manifest.Description,
+				Icon:                latestEntry.Spec.Manifest.Icon,
+				Runtime:             latestEntry.Spec.Manifest.Runtime,
+				UVXConfig:           latestEntry.Spec.Manifest.UVXConfig,
+				NPXConfig:           latestEntry.Spec.Manifest.NPXConfig,
+				ContainerizedConfig: latestEntry.Spec.Manifest.ContainerizedConfig,
+				RemoteConfig:        latestEntry.Spec.Manifest.RemoteConfig,
+				Env:                 latestEntry.Spec.Manifest.Env,
+			})
+			currentHash = hash.Digest(types.MCPServerCatalogEntryManifest{
+				Metadata:            component.Manifest.Metadata,
+				Name:                component.Manifest.Name,
+				Description:         component.Manifest.Description,
+				Icon:                component.Manifest.Icon,
+				Runtime:             component.Manifest.Runtime,
+				UVXConfig:           component.Manifest.UVXConfig,
+				NPXConfig:           component.Manifest.NPXConfig,
+				ContainerizedConfig: component.Manifest.ContainerizedConfig,
+				RemoteConfig:        component.Manifest.RemoteConfig,
+				Env:                 component.Manifest.Env,
+			})
+		}
+
+		if latestHash != currentHash {
+			drifted = true
+			break
 		}
 	}
 

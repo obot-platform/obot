@@ -3,7 +3,8 @@
 		ChatService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
-		type MCPServerInstance
+		type MCPServerInstance,
+		type ComponentServerConfig
 	} from '$lib/services';
 	import {
 		convertCompositeInfoToLaunchFormData,
@@ -414,46 +415,52 @@
 			const aliasToUse =
 				(configureForm as { name?: string } | undefined)?.name ||
 				getUniqueAlias(selectedManifest?.name || '');
+
 			const componentServersForCreate: Array<{
 				catalogEntryID: string;
-				manifest: Record<string, unknown>;
+				disabled: boolean;
+				manifest?: { remoteConfig?: { url?: string } };
 			}> = [];
-			const payload: Record<
-				string,
-				{ config: Record<string, string>; url?: string; disabled?: boolean }
-			> = {};
-			for (const [id, comp] of Object.entries(configureForm.componentConfigs)) {
-				const url = comp.url?.trim();
+			const componentConfigs: Record<string, ComponentServerConfig> = {};
+
+			for (const [id, componentConfig] of Object.entries(configureForm.componentConfigs)) {
+				const url = componentConfig.url?.trim();
 				componentServersForCreate.push({
 					catalogEntryID: id,
-					manifest: url
-						? { remoteConfig: { url: url.startsWith('http') ? url : `https://${url}` } }
-						: {}
+					disabled: componentConfig.disabled ?? false,
+					manifest: url ? { remoteConfig: { url } } : undefined
 				});
-				const config: Record<string, string> = {};
+				const envs: Record<string, string> = {};
 				for (const f of [
-					...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
-					...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
+					...(componentConfig.envs ?? ([] as Array<{ key: string; value: string }>)),
+					...(componentConfig.headers ?? ([] as Array<{ key: string; value: string }>))
 				]) {
-					if (f.value) config[f.key] = f.value;
+					if (f.value) envs[f.key] = f.value;
 				}
-				payload[id] = { config, url, disabled: comp.disabled ?? false };
+				componentConfigs[id] = { envs, url, disabled: componentConfig.disabled ?? false };
 			}
 
-			const manifest: Record<string, unknown> = {
+			const manifest = {
 				compositeConfig: { componentServers: componentServersForCreate }
 			};
-			const created = await ChatService.createSingleOrRemoteMcpServer({
+			let created: MCPCatalogServer | undefined = undefined;
+			
+			const created = await ChatService.createCompositeMcpServer({
 				catalogEntryID: entry.id,
 				alias: aliasToUse,
 				manifest
 			});
 
-			await ChatService.configureCompositeMcpServer(created.id, payload);
+			const configuredResponse = await ChatService.configureCompositeMcpServer(
+				created.id,
+				componentConfigs,
+			);
 
 			const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(created.id);
 			if (!launchResponse.success) {
 				launchError = launchResponse.message;
+				// TODO(njhale): We should be able to list launch logs for composite servers if it has 
+
 			} else {
 				launchProgress = 100;
 			}

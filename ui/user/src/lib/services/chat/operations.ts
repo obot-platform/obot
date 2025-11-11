@@ -17,6 +17,7 @@ import {
 	type Assistants,
 	type AssistantToolList,
 	type ChatModelList,
+	type ComponentServerConfig,
 	type Files,
 	type InvokeInput,
 	type KnowledgeFile,
@@ -1397,6 +1398,26 @@ export async function getSingleOrRemoteMcpServer(
 	const response = (await doGet(`/mcp-servers/${id}`, opts)) as MCPCatalogServer;
 	return response;
 }
+export async function createCompositeMcpServer(server: {
+  catalogEntryID: string;
+  alias?: string;
+  manifest: {
+    compositeConfig: {
+      componentServers: Array<{
+        catalogEntryID: string;
+        disabled?: boolean;
+        manifest?: {
+          remoteConfig?: {
+            url?: string;
+          };
+        };
+      }>;
+    };
+  };
+}): Promise<MCPCatalogServer> {
+  const response = (await doPost('/mcp-servers', server)) as MCPCatalogServer;
+  return response;
+}
 
 export async function createSingleOrRemoteMcpServer(server: {
 	catalogEntryID?: string;
@@ -1433,14 +1454,9 @@ export async function configureSingleOrRemoteMcpServer(
 
 export async function configureCompositeMcpServer(
 	id: string,
-	componentConfigs: Record<
-		string,
-		{ config: Record<string, string>; url?: string; disabled?: boolean }
-	>
+	componentConfigs: Record<string, ComponentServerConfig>
 ): Promise<MCPCatalogServer> {
-	const response = (await doPost(`/mcp-servers/${id}/configure`, {
-		componentConfigs
-	})) as MCPCatalogServer;
+	const response = (await doPost(`/mcp-servers/${id}/configure`, componentConfigs)) as MCPCatalogServer;
 	return response;
 }
 
@@ -1471,18 +1487,10 @@ export async function revealSingleOrRemoteMcpServer(
 export async function revealCompositeMcpServer(
 	id: string,
 	opts?: { dontLogErrors?: boolean }
-): Promise<{
-	componentConfigs: Record<
-		string,
-		{ config: Record<string, string>; url?: string; disabled?: boolean }
+): Promise<Record<string, ComponentServerConfig>> {
+	return doPost(`/mcp-servers/${id}/reveal`, {}, opts) as Promise<
+		Record<string, ComponentServerConfig>
 	>;
-}> {
-	return doPost(`/mcp-servers/${id}/reveal`, {}, opts) as Promise<{
-		componentConfigs: Record<
-			string,
-			{ config: Record<string, string>; url?: string; disabled?: boolean }
-		>;
-	}>;
 }
 
 export async function listSingleOrRemoteMcpServerTools(id: string): Promise<MCPServerTool[]> {

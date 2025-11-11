@@ -301,11 +301,11 @@ func (*Handler) DeleteOrphanedComponents(req router.Request, _ router.Response) 
 
 	validComponentIDs := make(map[string]struct{}, len(compositeConfig.ComponentServers))
 	for _, component := range compositeConfig.ComponentServers {
-		id, err := component.ComponentID()
-		if err != nil {
-			return fmt.Errorf("failed to get component ID for component server %s: %w", component.Manifest.Name, err)
+		if id := component.ComponentID(); id == "" {
+			// The component doesn't have a valid ID, so we can skip it.
+			validComponentIDs[id] = struct{}{}
+			continue
 		}
-		validComponentIDs[id] = struct{}{}
 	}
 
 	var componentServers v1.MCPServerList

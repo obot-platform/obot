@@ -833,3 +833,130 @@ func TestRemoteValidator_ValidateCatalogConfig_HeaderValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateToolOverrides(t *testing.T) {
+	tests := []struct {
+		name        string
+		overrides   []types.ToolOverride
+		expectError bool
+		errorField  string
+		errorMsg    string
+	}{
+		{
+			name:        "nil overrides returns no error",
+			overrides:   nil,
+			expectError: false,
+		},
+		{
+			name:        "empty overrides returns no error",
+			overrides:   []types.ToolOverride{},
+			expectError: false,
+		},
+		{
+			name: "missing original name returns error",
+			overrides: []types.ToolOverride{
+				{
+					OverrideName: "custom-tool",
+					Enabled:      true,
+				},
+			},
+			expectError: true,
+			errorField:  "toolOverrides.name",
+			errorMsg:    "original tool name is required",
+		},
+		{
+			name: "missing override name returns error",
+			overrides: []types.ToolOverride{
+				{
+					Name:    "original-tool",
+					Enabled: true,
+				},
+			},
+			expectError: true,
+			errorField:  "toolOverrides.overrideName",
+			errorMsg:    "override tool name is required",
+		},
+		{
+			name: "duplicate original name returns error",
+			overrides: []types.ToolOverride{
+				{
+					Name:         "duplicate-tool",
+					OverrideName: "alias-one",
+					Enabled:      true,
+				},
+				{
+					Name:         "duplicate-tool",
+					OverrideName: "alias-two",
+					Enabled:      true,
+				},
+			},
+			expectError: true,
+			errorField:  "toolOverrides.name",
+			errorMsg:    "duplicate tool override for: duplicate-tool",
+		},
+		{
+			name: "duplicate override name when both enabled returns error",
+			overrides: []types.ToolOverride{
+				{
+					Name:         "tool-one",
+					OverrideName: "shared-alias",
+					Enabled:      true,
+				},
+				{
+					Name:         "tool-two",
+					OverrideName: "shared-alias",
+					Enabled:      true,
+				},
+			},
+			expectError: true,
+			errorField:  "toolOverrides.overrideName",
+			errorMsg:    "duplicate override name: shared-alias",
+		},
+		{
+			name: "distinct overrides pass validation",
+			overrides: []types.ToolOverride{
+				{
+					Name:         "tool-one",
+					OverrideName: "alias-one",
+					Enabled:      true,
+				},
+				{
+					Name:         "tool-two",
+					OverrideName: "alias-two",
+					Enabled:      true,
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateToolOverrides(tt.overrides)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+					return
+				}
+
+				var runtimeErr types.RuntimeValidationError
+				if errors.As(err, &runtimeErr) {
+					if runtimeErr.Runtime != types.RuntimeComposite {
+						t.Errorf("expected runtime %q, got %q", types.RuntimeComposite, runtimeErr.Runtime)
+					}
+
+					if runtimeErr.Field != tt.errorField {
+						t.Errorf("expected error field %q, got %q", tt.errorField, runtimeErr.Field)
+					}
+
+					if tt.errorMsg != "" && !strings.Contains(runtimeErr.Message, tt.errorMsg) {
+						t.Errorf("expected error message to contain %q, got %q", tt.errorMsg, runtimeErr.Message)
+					}
+				}
+			} else if err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+		})
+	}
+}
