@@ -258,8 +258,8 @@
 						id="name"
 						bind:value={form.name}
 						placeholder="audit-export-2024"
-						required={mode !== 'view'}
-						readonly={mode === 'view'}
+						required={!isViewMode}
+						readonly={isViewMode}
 						disabled={isViewMode}
 					/>
 					{#if (isViewMode && form.name) || !isViewMode}
@@ -276,8 +276,8 @@
 						id="bucket"
 						bind:value={form.bucket}
 						placeholder="my-audit-exports"
-						required={mode !== 'view'}
-						readonly={mode === 'view'}
+						required={!isViewMode}
+						readonly={isViewMode}
 						disabled={isViewMode}
 					/>
 					{#if (isViewMode && form.bucket) || !isViewMode}
@@ -296,7 +296,7 @@
 					id="keyPrefix"
 					bind:value={form.keyPrefix}
 					placeholder="Leave empty for default: mcp-audit-logs/YYYY/MM/DD/"
-					readonly={mode === 'view'}
+					readonly={isViewMode}
 					disabled={isViewMode}
 				/>
 				{#if (isViewMode && form.keyPrefix) || !isViewMode}
