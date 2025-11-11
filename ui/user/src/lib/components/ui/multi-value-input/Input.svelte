@@ -9,6 +9,7 @@
 		value?: string;
 		labels?: Record<string, string>;
 		disabled?: boolean;
+		readonly?: boolean;
 		class?: string;
 		classes?: {
 			chip?: string;
@@ -28,6 +29,7 @@
 	let {
 		id,
 		disabled,
+		readonly,
 		value = $bindable(''),
 		labels,
 		class: klass,
@@ -54,6 +56,7 @@
 	class={twMerge(
 		'dark:bg-surface1 text-md bg-surface-1 flex min-h-10 w-full grow resize-none flex-wrap items-center gap-2 rounded-lg px-2 py-2 text-left shadow-inner',
 		disabled && 'pointer-events-none cursor-default opacity-50',
+		readonly && 'pointer-events-none',
 		klass
 	)}
 >
@@ -101,6 +104,8 @@
 		bind:this={input}
 		bind:value={text}
 		type="text"
+		{disabled}
+		{readonly}
 		onkeydown={(ev) => {
 			if (ev.defaultPrevented) {
 				return;
