@@ -1922,12 +1922,6 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 							},
 						},
 					},
-					"disabled": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
 				},
 			},
 		},
@@ -7783,16 +7777,14 @@ func schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref common.Re
 					},
 					"urlTemplate": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Fixed URL for all instances",
-							Type:        []string{"string"},
-							Format:      "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"hostname": {
 						SchemaProps: spec.SchemaProps{
-							Description: "URL template for user URLs",
-							Type:        []string{"string"},
-							Format:      "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"headers": {
@@ -7824,16 +7816,27 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 				Description: "RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"url": {
+					"fixedURL": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"urlTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"headers": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Required: Full URL to remote MCP server",
+							Description: "Required hostname for user URLs",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -7845,9 +7848,16 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 							},
 						},
 					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"isTemplate": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Optional",
+							Description: "Required: Full URL to remote MCP server",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
