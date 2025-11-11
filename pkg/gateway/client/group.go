@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
-	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
@@ -27,8 +27,7 @@ const (
 // It queries the auth provider for "live" group search from the auth provider, then combines the
 // results with cached groups from the database.
 // This allows admins to discover groups that authenticated users belong to for auth providers
-// limited group search capabilities; e.g. there's not an effective way to perform a fuzzy search for
-// GitHub teams or orgs by name.
+// limited group search capabilities.
 func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName, nameFilter string) ([]types.Group, error) {
 	// Fetch groups from the auth provider
 	var providerGroups []auth.GroupInfo
@@ -47,10 +46,6 @@ func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProvid
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 			if err == nil {
-				if accessToken := accesstoken.GetAccessToken(ctx); accessToken != "" {
-					req.Header.Set("Authorization", "Bearer "+accessToken)
-				}
-
 				resp, err := http.DefaultClient.Do(req)
 				if err == nil {
 					defer resp.Body.Close()
@@ -138,11 +133,10 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 
 	var (
 		providerURL    = auth.ProviderURLFromContext(ctx)
-		token          = accesstoken.GetAccessToken(ctx)
 		now            = time.Now()
 		nextGroupCheck = identity.AuthProviderGroupsLastChecked.Add(groupCheckPeriod)
 	)
-	if nextGroupCheck.After(now) || providerURL == "" || token == "" {
+	if nextGroupCheck.After(now) || providerURL == "" {
 		groups, err := c.listUserGroups(ctx, tx, identity)
 		if err != nil {
 			return fmt.Errorf("failed to list user groups: %w", err)
@@ -153,7 +147,7 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 	}
 
 	// Fetch groups from the auth provider
-	providerGroups, err := c.fetchGroups(ctx, providerURL, token, identity.AuthProviderNamespace, identity.AuthProviderName)
+	providerGroups, err := c.fetchGroups(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName, identity.Email)
 	if err != nil {
 		return fmt.Errorf("failed to list user groups from provider: %w", err)
 	}
@@ -286,23 +280,20 @@ func (*Client) listUserGroups(ctx context.Context, tx *gorm.DB, identity *types.
 	return groups, nil
 }
 
-// fetchGroups fetches the groups that the owner of the access token is a member of from the auth provider.
-func (*Client) fetchGroups(ctx context.Context, authProviderURL, accessToken, authProviderNamespace, authProviderName string) ([]types.Group, error) {
+// fetchGroups fetches the groups that the user is a member of from the auth provider.
+func (*Client) fetchGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName, providerUserID string) ([]types.Group, error) {
 	// Fetch groups from the auth provider, ignore errors so that auth providers that don't yet
 	// implement group support don't block the user from logging in.
-	providerGroups := []auth.GroupInfo{}
-	u, err := url.Parse(authProviderURL + "/obot-list-user-auth-groups")
-	if err == nil {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-		if err == nil {
-			req.Header.Set("Authorization", "Bearer "+accessToken)
+	var providerGroups []auth.GroupInfo
 
-			resp, err := http.DefaultClient.Do(req)
-			if err == nil {
-				defer resp.Body.Close()
-				if resp.StatusCode == http.StatusOK {
-					_ = json.NewDecoder(resp.Body).Decode(&providerGroups)
-				}
+	// Get the SerializableRequest from context
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authProviderURL+"/obot-list-user-auth-groups", strings.NewReader(providerUserID))
+	if err == nil {
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				_ = json.NewDecoder(resp.Body).Decode(&providerGroups)
 			}
 		}
 	}

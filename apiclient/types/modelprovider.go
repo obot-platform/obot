@@ -22,6 +22,7 @@ type ProviderConfigurationParameter struct {
 	Description  string `json:"description,omitempty"`
 	Sensitive    bool   `json:"sensitive,omitempty"`
 	Hidden       bool   `json:"hidden,omitempty"`
+	Multiline    bool   `json:"multiline,omitempty"`
 }
 
 type ModelProvider struct {

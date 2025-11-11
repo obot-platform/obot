@@ -64,6 +64,14 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to migrate mcp_audit_log client info: %w", err)
 	}
 
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_session_cookies", dropSessionCookiesTable); err != nil {
+		return fmt.Errorf("failed to drop session_cookies table: %w", err)
+	}
+
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "remove_github_groups", removeGitHubGroups); err != nil {
+		return fmt.Errorf("failed to remove GitHub groups: %w", err)
+	}
+
 	if err := tx.AutoMigrate(&GptscriptCredential{}); err != nil {
 		return fmt.Errorf("failed to auto migrate GptscriptCredential: %w", err)
 	}
@@ -85,7 +93,6 @@ func (db *DB) AutoMigrate() (err error) {
 		types.RunTokenActivity{},
 		types.MCPOAuthToken{},
 		types.MCPAuditLog{},
-		types.SessionCookie{},
 		types.TempSetupUser{},
 		types.Property{},
 	); err != nil {

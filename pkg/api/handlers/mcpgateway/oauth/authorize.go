@@ -15,8 +15,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/auth"
-	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/hash"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -263,36 +261,15 @@ func (h *handler) callback(req api.Context) error {
 	}
 
 	authProviderName, authProviderNamespace := req.AuthProviderNameAndNamespace()
-	sessionID, sessionCookie := auth.GetSessionInfoFromRequest(req.Request)
-	hashedSessionID := hash.String(sessionID)
 
 	if !req.UserIsAuthenticated() ||
 		req.User.GetName() == "bootstrap" ||
 		authProviderName == "bootstrap" ||
-		authProviderNamespace == "bootstrap" ||
-		sessionID == "" ||
-		sessionCookie == "" {
+		authProviderNamespace == "bootstrap" {
 		// The user is either not authenticated or is authenticated as the bootstrap user.
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 			Code:        ErrAccessDenied,
 			Description: "user is not authenticated",
-		})
-		return nil
-	}
-
-	// Cache the Obot session cookie.
-	// We use this cached cookie to keep the auth groups for the user up-to-date when authenticating
-	// MCP server requests to Obot.
-	if err := h.gatewayClient.EnsureSessionCookie(req.Context(), gtypes.SessionCookie{
-		HashedSessionID:       hashedSessionID,
-		Cookie:                sessionCookie,
-		UserID:                req.UserID(),
-		AuthProviderNamespace: authProviderNamespace,
-		AuthProviderName:      authProviderName,
-	}); err != nil {
-		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
-			Code:        ErrServerError,
-			Description: err.Error(),
 		})
 		return nil
 	}
@@ -303,7 +280,6 @@ func (h *handler) callback(req api.Context) error {
 	oauthAppAuthRequest.Spec.AuthProviderUserID = auth.FirstExtraValue(req.User.GetExtra(), "auth_provider_user_id")
 	oauthAppAuthRequest.Spec.AuthProviderNamespace = authProviderNamespace
 	oauthAppAuthRequest.Spec.AuthProviderName = authProviderName
-	oauthAppAuthRequest.Spec.HashedSessionID = hashedSessionID
 	if err := req.Update(&oauthAppAuthRequest); err != nil {
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 			Code:        ErrServerError,

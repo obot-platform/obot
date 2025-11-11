@@ -19,7 +19,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
-	"github.com/obot-platform/obot/pkg/gateway/server"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
@@ -92,7 +91,6 @@ type TokenContext struct {
 	AuthProviderName      string
 	AuthProviderNamespace string
 	AuthProviderUserID    string
-	HashedSessionID       string
 }
 
 func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
@@ -104,12 +102,6 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	tokenContext, err := t.decodeToken(token)
 	if err != nil {
 		return nil, false, nil
-	}
-
-	if tokenContext.HashedSessionID != "" {
-		if err = server.HandleHashedSessionID(req, t.gatewayClient, t.dispatcher, tokenContext.HashedSessionID, tokenContext.AuthProviderNamespace, tokenContext.AuthProviderName); err != nil {
-			return nil, false, err
-		}
 	}
 
 	groups := tokenContext.UserGroups
@@ -181,7 +173,6 @@ func (t *TokenService) decodeToken(token string) (*TokenContext, error) {
 		AuthProviderName:      getStringClaim("AuthProviderName"),
 		AuthProviderNamespace: getStringClaim("AuthProviderNamespace"),
 		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
-		HashedSessionID:       getStringClaim("HashedSessionID"),
 		// These two fields were the latter names and changed the former.
 		// This makes this backwards compatible with older tokens.
 		UserName:  getStringClaim("name", "UserName"),
@@ -204,7 +195,6 @@ func (t *TokenService) NewToken(context TokenContext) (string, error) {
 		"AuthProviderName":      context.AuthProviderName,
 		"AuthProviderNamespace": context.AuthProviderNamespace,
 		"AuthProviderUserID":    context.AuthProviderUserID,
-		"HashedSessionID":       context.HashedSessionID,
 	}
 	if claims["aud"] == "" {
 		claims["aud"] = t.serverURL
