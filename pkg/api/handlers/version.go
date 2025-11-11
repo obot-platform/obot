@@ -29,6 +29,7 @@ const (
 
 	installationIDPropertyKey   = "installation_id"
 	defaultUpgradeServerBaseURL = "https://upgrade-server.obot.ai"
+	updateCheckInterval         = 24 * time.Hour
 )
 
 func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
@@ -52,7 +53,7 @@ type VersionHandler struct {
 	upgradeLock      sync.RWMutex
 }
 
-func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled bool, serverUpdateCheckInterval time.Duration) (*VersionHandler, error) {
+func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailDomain, postgresDSN, engine string, supportDocker, authEnabled, disableUpdateCheck bool) (*VersionHandler, error) {
 	upgradeServerBaseURL := defaultUpgradeServerBaseURL
 	if os.Getenv("OBOT_UPGRADE_SERVER_URL") != "" {
 		upgradeServerBaseURL = os.Getenv("OBOT_UPGRADE_SERVER_URL")
@@ -72,7 +73,7 @@ func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailD
 	currentVersion, _, _ = strings.Cut(currentVersion, "-")
 
 	// Don't start the upgrade check if the interval is non-positive or if this is a development version.
-	if serverUpdateCheckInterval > 0 && (!strings.HasPrefix(currentVersion, "v0.0.0") || os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true") {
+	if !disableUpdateCheck && (!strings.HasPrefix(currentVersion, "v0.0.0") || os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true") {
 		p, err := gatewayClient.GetProperty(ctx, installationIDPropertyKey)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			p, err = gatewayClient.SetProperty(ctx, installationIDPropertyKey, uuid.NewString())
@@ -88,7 +89,7 @@ func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailD
 			distribution = "enterprise"
 		}
 
-		go v.startUpgradeCheck(ctx, p.Value, currentVersion, engine, distribution, serverUpdateCheckInterval)
+		go v.startUpgradeCheck(ctx, p.Value, currentVersion, engine, distribution)
 	}
 
 	return v, nil
@@ -175,8 +176,8 @@ func simplifyModuleVersion(version string) string {
 	return strings.Join(components, "-")
 }
 
-func (v *VersionHandler) startUpgradeCheck(ctx context.Context, installationID, currentVersion, engine, distribution string, checkInterval time.Duration) {
-	timer := time.NewTimer(checkInterval)
+func (v *VersionHandler) startUpgradeCheck(ctx context.Context, installationID, currentVersion, engine, distribution string) {
+	timer := time.NewTimer(updateCheckInterval)
 	defer timer.Stop()
 
 	var err error
@@ -190,7 +191,7 @@ func (v *VersionHandler) startUpgradeCheck(ctx context.Context, installationID, 
 			log.Debugf("upgrade check context cancelled, exiting")
 			return
 		case <-timer.C:
-			timer.Reset(checkInterval)
+			timer.Reset(updateCheckInterval)
 		}
 	}
 }
