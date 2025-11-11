@@ -353,10 +353,10 @@
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
 								}}
-								options={filtersOptions['user_id'].map((d) => ({
+								options={filtersOptions['user_id']?.map?.((d) => ({
 									id: d,
 									label: usersMap.get(d)?.displayName ?? d
-								}))}
+								})) ?? []}
 								bind:selected={
 									() => form.filters.user_id ?? '', (v) => (form.filters.user_id = v ?? '')
 								}
@@ -382,7 +382,7 @@
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
 								}}
-								options={filtersOptions['mcp_id'].map((d) => ({ id: d, label: d }))}
+								options={filtersOptions['mcp_id']?.map?.((d) => ({ id: d, label: d })) ?? []}
 								bind:selected={
 									() => form.filters.mcp_id ?? '', (v) => (form.filters.mcp_id = v ?? '')
 								}
@@ -407,10 +407,10 @@
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
 								}}
-								options={filtersOptions['mcp_server_display_name'].map((d) => ({
+								options={filtersOptions['mcp_server_display_name']?.map?.((d) => ({
 									id: d,
 									label: d
-								}))}
+								})) ?? []}
 								bind:selected={
 									() => form.filters.mcp_server_display_name ?? '',
 									(v) => (form.filters.mcp_server_display_name = v ?? '')
@@ -436,7 +436,7 @@
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
 								}}
-								options={filtersOptions['call_type'].map((d) => ({ id: d, label: d }))}
+								options={filtersOptions['call_type']?.map?.((d) => ({ id: d, label: d })) ?? []}
 								bind:selected={
 									() => form.filters.call_type ?? '', (v) => (form.filters.call_type = v ?? '')
 								}
@@ -461,7 +461,7 @@
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
 								}}
-								options={filtersOptions['client_name'].map((d) => ({ id: d, label: d }))}
+								options={filtersOptions['client_name']?.map?.((d) => ({ id: d, label: d })) ?? []}
 								bind:selected={
 									() => form.filters.client_name ?? '', (v) => (form.filters.client_name = v ?? '')
 								}
@@ -486,7 +486,8 @@
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
 								}}
-								options={filtersOptions['response_status'].map((d) => ({ id: d, label: d }))}
+								options={filtersOptions['response_status']?.map?.((d) => ({ id: d, label: d })) ??
+									[]}
 								bind:selected={
 									() => form.filters.response_status ?? '',
 									(v) => (form.filters.response_status = v ?? '')
@@ -512,7 +513,7 @@
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
 								}}
-								options={filtersOptions['session_id'].map((d) => ({ id: d, label: d }))}
+								options={filtersOptions['session_id']?.map?.((d) => ({ id: d, label: d })) ?? []}
 								bind:selected={
 									() => form.filters.session_id ?? '', (v) => (form.filters.session_id = v ?? '')
 								}
@@ -537,7 +538,7 @@
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
 								}}
-								options={filtersOptions['client_ip'].map((d) => ({ id: d, label: d }))}
+								options={filtersOptions['client_ip']?.map?.((d) => ({ id: d, label: d })) ?? []}
 								bind:selected={
 									() => form.filters.client_ip ?? '', (v) => (form.filters.client_ip = v ?? '')
 								}
@@ -561,7 +562,8 @@
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
 								}}
-								options={filtersOptions['call_identifier'].map((d) => ({ id: d, label: d }))}
+								options={filtersOptions['call_identifier']?.map?.((d) => ({ id: d, label: d })) ??
+									[]}
 								bind:selected={
 									() => form.filters.call_identifier ?? '',
 									(v) => (form.filters.call_identifier = v ?? '')
@@ -586,7 +588,8 @@
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
 								}}
-								options={filtersOptions['client_version'].map((d) => ({ id: d, label: d }))}
+								options={filtersOptions['client_version']?.map?.((d) => ({ id: d, label: d })) ??
+									[]}
 								bind:selected={
 									() => form.filters.client_version ?? '',
 									(v) => (form.filters.client_version = v ?? '')
@@ -613,10 +616,10 @@
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
 								}}
-								options={filtersOptions['mcp_server_catalog_entry_name'].map((d) => ({
+								options={filtersOptions['mcp_server_catalog_entry_name']?.map?.((d) => ({
 									id: d,
 									label: d
-								}))}
+								})) ?? []}
 								bind:selected={
 									() => form.filters.mcp_server_catalog_entry_name ?? '',
 									(v) => (form.filters.mcp_server_catalog_entry_name = v ?? '')
