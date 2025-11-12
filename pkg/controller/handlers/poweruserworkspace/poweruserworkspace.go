@@ -172,8 +172,20 @@ func (h *Handler) cleanupWorkspaceResources(ctx context.Context, client kclient.
 	namespace := workspace.Namespace
 
 	// Delete AccessControlRules in this workspace
-	if err := client.DeleteAllOf(ctx, &v1.AccessControlRule{}, kclient.MatchingLabels{"spec.powerUserWorkspaceID": workspace.Name}, kclient.InNamespace(namespace)); err != nil {
+	var acrs v1.AccessControlRuleList
+	if err := client.List(ctx, &acrs, &kclient.ListOptions{
+		Namespace: namespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.powerUserWorkspaceID": workspace.Name,
+		}),
+	}); err != nil {
 		return err
+	}
+
+	for _, acr := range acrs.Items {
+		if err := client.Delete(ctx, &acr); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
 	}
 
 	// Reset DefaultAccessControlRuleGenerated status
@@ -185,8 +197,20 @@ func (h *Handler) cleanupWorkspaceResources(ctx context.Context, client kclient.
 	}
 
 	// Delete all MCPServers in this workspace
-	if err := client.DeleteAllOf(ctx, &v1.MCPServer{}, kclient.MatchingLabels{"spec.powerUserWorkspaceID": workspace.Name}, kclient.InNamespace(namespace)); err != nil {
+	var servers v1.MCPServerList
+	if err := client.List(ctx, &servers, &kclient.ListOptions{
+		Namespace: namespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.powerUserWorkspaceID": workspace.Name,
+		}),
+	}); err != nil {
 		return err
+	}
+
+	for _, server := range servers.Items {
+		if err := client.Delete(ctx, &server); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
 	}
 
 	return nil
