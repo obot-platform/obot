@@ -121,7 +121,7 @@ You can now return to Obot and finish configuring Entra. Use the table below to 
 
 ### Okta (Enterprise Only)
 
-::note
+:::note
 Only the org-level authorization server is supported (no custom authorization servers).
 :::
 
