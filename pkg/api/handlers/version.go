@@ -46,6 +46,7 @@ type VersionHandler struct {
 	authEnabled      bool
 	sessionStore     SessionStore
 	enterprise       bool
+	engine           string
 
 	upgradeServerURL string
 	upgradeAvailable bool
@@ -67,6 +68,7 @@ func NewVersionHandler(ctx context.Context, gatewayClient *client.Client, emailD
 		sessionStore:     sessionStoreFromPostgresDSN(postgresDSN),
 		enterprise:       os.Getenv("OBOT_ENTERPRISE") == "true",
 		upgradeServerURL: fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
+		engine:           engine,
 	}
 
 	currentVersion, _, _ := strings.Cut(version.Get().String(), "+")
@@ -124,6 +126,7 @@ func (v *VersionHandler) getVersionResponse() map[string]any {
 	values["authEnabled"] = v.authEnabled
 	values["sessionStore"] = v.sessionStore
 	values["enterprise"] = v.enterprise
+	values["engine"] = v.engine
 	v.upgradeLock.RLock()
 	values["upgradeAvailable"] = v.upgradeAvailable
 	values["latestVersion"] = v.latestVersion
