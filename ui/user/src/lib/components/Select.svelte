@@ -2,11 +2,12 @@
 	export interface SelectProps<T> {
 		id?: string;
 		disabled?: boolean;
+		readonly?: boolean;
 		options: T[];
 		query?: string;
 		selected?: string | number;
 		multiple?: boolean;
-		onSelect: (option: T, value?: string | number) => void;
+		onSelect?: (option: T, value?: string | number) => void;
 		class?: string;
 		classes?: {
 			root?: string;
@@ -35,6 +36,7 @@
 	let {
 		id,
 		disabled,
+		readonly,
 		options,
 		onSelect,
 		selected = $bindable(),
@@ -129,7 +131,7 @@
 	}
 </script>
 
-<div class={classes?.root}>
+<div class={twMerge(classes?.root, (readonly || disabled) && 'pointer-events-none')}>
 	<div bind:this={ref} class="relative flex w-full items-center">
 		<div
 			{id}
@@ -152,7 +154,7 @@
 				}
 			}}
 			role="button"
-			tabindex="0"
+			tabindex={readonly || disabled ? null : 0}
 		>
 			{#if multiple}
 				<div class="flex flex-wrap items-center justify-start gap-2 whitespace-break-spaces">
@@ -263,6 +265,7 @@
 						isHighlighted && 'dark:bg-surface3 bg-surface3',
 						classes?.option
 					)}
+					type="button"
 					onclick={(e) => {
 						e.stopPropagation();
 						handleSelect(option);
@@ -287,6 +290,8 @@
 		{placeholder}
 		bind:this={input}
 		bind:value={query}
+		{disabled}
+		{readonly}
 		oninput={onInput}
 		onkeydown={(e) => {
 			onKeyDown?.(e, { query: query, results: availableOptions });
