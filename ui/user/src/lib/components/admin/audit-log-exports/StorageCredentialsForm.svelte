@@ -3,10 +3,11 @@
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
-	import { AlertTriangle, LoaderCircle } from 'lucide-svelte';
+	import { AlertTriangle, LoaderCircle, Trash } from 'lucide-svelte';
 	import type { StorageCredentials } from '$lib/services/admin/types';
 	import Success from '$lib/components/Success.svelte';
 	import { onMount } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onCancel: () => void;
@@ -54,6 +55,11 @@
 
 	// Load existing storage credentials on mount
 	onMount(async () => {
+		loadStorageProvider();
+	});
+
+	async function loadStorageProvider() {
+		loading = true;
 		try {
 			existingCredentials = await AdminService.getStorageCredentials();
 			if (existingCredentials && existingCredentials.provider) {
@@ -109,7 +115,7 @@
 		} finally {
 			loading = false;
 		}
-	});
+	}
 
 	async function handleSubmit() {
 		try {
@@ -243,6 +249,17 @@
 			testing = false;
 		}
 	}
+
+	async function handleDeleteCredentials() {
+		try {
+			await AdminService.deleteStorageCredentials();
+
+			existingCredentials = null;
+			testResult = null;
+		} catch (err) {
+			console.error(err);
+		}
+	}
 </script>
 
 {#if loading}
@@ -255,304 +272,345 @@
 {:else}
 	<div class="dark:bg-surface2 rounded-md bg-white p-6 shadow-sm">
 		<form
-			class="space-y-8"
+			class="gap-8"
 			onsubmit={(e) => {
 				e.preventDefault();
 				handleSubmit();
 			}}
 		>
-			<!-- Provider Selection -->
-			<div class="space-y-4">
-				<h3 class="text-lg font-semibold">Storage Provider</h3>
-				<div class="flex flex-col gap-1">
-					<label class="text-sm font-medium" for="storage-provider">Provider</label>
-					<div>
-						<Dropdown
-							class="w-full md:w-1/3"
-							values={{
-								s3: 'Amazon S3',
-								gcs: 'Google Cloud Storage',
-								azure: 'Azure Blob Storage',
-								custom: 'Custom S3 Compatible'
-							}}
-							selected={form.provider}
-							onSelected={(value) => {
-								form.provider = value;
-								testResult = null; // Clear test result when provider changes
-
-								// Clear other provider configs and initialize selected one
-								if (value === 's3') {
-									form.gcsConfig = undefined;
-									form.azureConfig = undefined;
-									form.customS3Config = undefined;
-									form.s3Config = {
-										region: existingCredentials?.s3Config?.region || '',
-										accessKeyID: existingCredentials?.s3Config?.accessKeyID || '',
-										secretAccessKey: existingCredentials?.s3Config?.secretAccessKey || '',
-										sessionToken: existingCredentials?.s3Config?.sessionToken || ''
-									};
-									useWorkloadIdentity = false;
-								} else if (value === 'gcs') {
-									form.s3Config = undefined;
-									form.azureConfig = undefined;
-									form.customS3Config = undefined;
-									form.gcsConfig = {
-										serviceAccountJSON: existingCredentials?.gcsConfig?.serviceAccountJSON || ''
-									};
-								} else if (value === 'azure') {
-									form.s3Config = undefined;
-									form.gcsConfig = undefined;
-									form.customS3Config = undefined;
-									form.azureConfig = {
-										storageAccount: existingCredentials?.azureConfig?.storageAccount || '',
-										clientID: existingCredentials?.azureConfig?.clientID || '',
-										tenantID: existingCredentials?.azureConfig?.tenantID || '',
-										clientSecret: existingCredentials?.azureConfig?.clientSecret || ''
-									};
-								} else if (value === 'custom') {
-									form.s3Config = undefined;
-									form.gcsConfig = undefined;
-									form.azureConfig = undefined;
-									form.customS3Config = {
-										endpoint: existingCredentials?.customS3Config?.endpoint || '',
-										region: existingCredentials?.customS3Config?.region || '',
-										accessKeyID: existingCredentials?.customS3Config?.accessKeyID || '',
-										secretAccessKey: existingCredentials?.customS3Config?.secretAccessKey || ''
-									};
-									useWorkloadIdentity = false;
-								}
-
-								// Reset error message
-								error = '';
-							}}
-						/>
-					</div>
-				</div>
-			</div>
-
-			<div class="space-y-4">
-				{#if form.provider === 's3' && form.s3Config}
-					<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="region">Region</label>
-							<input
-								class="text-input-filled"
-								id="region"
-								bind:value={form.s3Config.region}
-								placeholder="e.g. us-east-1"
-							/>
-						</div>
-					</div>
-				{/if}
-				{#if form.provider === 'azure' && form.azureConfig}
-					<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="storage-account">Storage Account</label>
-							<input
-								class="text-input-filled"
-								id="storage-account"
-								bind:value={form.azureConfig.storageAccount}
-								placeholder="my-storage-account"
-							/>
-						</div>
-					</div>
-				{/if}
-			</div>
-
-			<!-- Authentication Method -->
-			{#if form.provider !== 'custom'}
-				<div class="space-y-4">
-					<h3 class="text-lg font-semibold">Authentication Method</h3>
-					<div class="flex flex-col gap-4">
-						<div class="flex items-center justify-between">
-							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="auth-method"
-									>Use credential associated with Obot</label
-								>
-							</div>
-							<Toggle
-								checked={useWorkloadIdentity}
-								onChange={(checked) => (useWorkloadIdentity = checked)}
-								label={useWorkloadIdentity ? 'Use workload identity' : 'Configure keys manually'}
-							/>
-						</div>
-						{#if useWorkloadIdentity}
-							<div class="rounded-md bg-blue-50 p-4 dark:bg-blue-950/50">
-								<p class="text-sm text-blue-700 dark:text-blue-300">
-									Using existing workload identity from Obot. No manual credentials required.
-								</p>
-							</div>
-						{/if}
+			{#if existingCredentials}
+				<div
+					class="mb-6 flex items-start gap-3 rounded-md border border-yellow-500 bg-yellow-500/10 p-4"
+				>
+					<AlertTriangle class="size-5 flex-shrink-0 text-yellow-500" />
+					<div class="flex-1 text-sm">
+						<p class="font-medium">Storage provider already configured</p>
+						<p class="mt-1 opacity-80">
+							A storage provider (<span class="uppercase">{existingCredentials.provider}</span>) is
+							already configured. To change providers, you must first delete the existing
+							configuration.
+						</p>
 					</div>
 				</div>
 			{/if}
 
-			<!-- Credentials -->
-			{#if !useWorkloadIdentity}
+			<div
+				class={twMerge(
+					'flex flex-col gap-8',
+					!!existingCredentials && 'pointer-events-none opacity-50'
+				)}
+			>
+				<!-- Provider Selection -->
 				<div class="space-y-4">
-					<h3 class="text-lg font-semibold">Credentials</h3>
+					<h3 class="text-lg font-semibold">Storage Provider</h3>
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium" for="storage-provider">Provider</label>
+						<div>
+							<Dropdown
+								class="w-full md:w-1/3"
+								values={{
+									s3: 'Amazon S3',
+									gcs: 'Google Cloud Storage',
+									azure: 'Azure Blob Storage',
+									custom: 'Custom S3 Compatible'
+								}}
+								selected={form.provider}
+								disabled={!!existingCredentials}
+								onSelected={(value) => {
+									form.provider = value;
+									testResult = null; // Clear test result when provider changes
 
-					{#if form.provider === 's3' && form.s3Config}
-						<div class="space-y-4">
-							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="access-key">Access Key ID</label>
-								<input
-									name="access-key"
-									class="text-input-filled"
-									bind:value={form.s3Config.accessKeyID}
-								/>
-							</div>
-							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="secret-key">Secret Access Key</label>
-								<SensitiveInput
-									name="secret-key"
-									bind:value={form.s3Config.secretAccessKey}
-									placeholder={existingCredentials?.s3Config
-										? '••••••••••••••••••••••••••••••••••••••••'
-										: ''}
-									hideReveal
-								/>
-							</div>
-						</div>
-					{:else if form.provider === 'gcs' && form.gcsConfig}
-						<div class="flex flex-col gap-1">
-							<label class="text-sm font-medium" for="service-account">Service Account JSON</label>
-							<SensitiveInput
-								name="service-account-json"
-								bind:value={form.gcsConfig.serviceAccountJSON}
-								textarea
-								placeholder={existingCredentials?.gcsConfig
-									? '••••••••••••••••••••••••••••••••••••••••'
-									: ''}
-								hideReveal
+									// Clear other provider configs and initialize selected one
+									if (value === 's3') {
+										form.gcsConfig = undefined;
+										form.azureConfig = undefined;
+										form.customS3Config = undefined;
+										form.s3Config = {
+											region: existingCredentials?.s3Config?.region || '',
+											accessKeyID: existingCredentials?.s3Config?.accessKeyID || '',
+											secretAccessKey: existingCredentials?.s3Config?.secretAccessKey || '',
+											sessionToken: existingCredentials?.s3Config?.sessionToken || ''
+										};
+										useWorkloadIdentity = false;
+									} else if (value === 'gcs') {
+										form.s3Config = undefined;
+										form.azureConfig = undefined;
+										form.customS3Config = undefined;
+										form.gcsConfig = {
+											serviceAccountJSON: existingCredentials?.gcsConfig?.serviceAccountJSON || ''
+										};
+									} else if (value === 'azure') {
+										form.s3Config = undefined;
+										form.gcsConfig = undefined;
+										form.customS3Config = undefined;
+										form.azureConfig = {
+											storageAccount: existingCredentials?.azureConfig?.storageAccount || '',
+											clientID: existingCredentials?.azureConfig?.clientID || '',
+											tenantID: existingCredentials?.azureConfig?.tenantID || '',
+											clientSecret: existingCredentials?.azureConfig?.clientSecret || ''
+										};
+									} else if (value === 'custom') {
+										form.s3Config = undefined;
+										form.gcsConfig = undefined;
+										form.azureConfig = undefined;
+										form.customS3Config = {
+											endpoint: existingCredentials?.customS3Config?.endpoint || '',
+											region: existingCredentials?.customS3Config?.region || '',
+											accessKeyID: existingCredentials?.customS3Config?.accessKeyID || '',
+											secretAccessKey: existingCredentials?.customS3Config?.secretAccessKey || ''
+										};
+										useWorkloadIdentity = false;
+									}
+								}}
 							/>
-							<p class="text-xs text-gray-500">Complete JSON key file for the service account</p>
 						</div>
-					{:else if form.provider === 'azure' && form.azureConfig}
-						<div class="space-y-4">
+					</div>
+				</div>
+
+				{#if form.provider === 's3' && form.s3Config}
+					<div class="space-y-4">
+						<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="azure-client-id">Client ID</label>
-								<input
-									name="azure-client-id"
-									class="text-input-filled"
-									bind:value={form.azureConfig.clientID}
-								/>
-							</div>
-							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="azure-tenant-id">Tenant ID</label>
-								<input
-									name="azure-tenant-id"
-									class="text-input-filled"
-									bind:value={form.azureConfig.tenantID}
-								/>
-							</div>
-							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="azure-client-secret">Client Secret</label>
-								<SensitiveInput
-									name="azure-client-secret"
-									bind:value={form.azureConfig.clientSecret}
-									hideReveal
-									placeholder={existingCredentials?.azureConfig
-										? '••••••••••••••••••••••••••••••••••••••••'
-										: ''}
-								/>
-							</div>
-						</div>
-					{:else if form.provider === 'custom' && form.customS3Config}
-						<div class="space-y-4">
-							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="custom-endpoint">Endpoint</label>
+								<label class="text-sm font-medium" for="region">Region</label>
 								<input
 									class="text-input-filled"
-									id="custom-endpoint"
-									bind:value={form.customS3Config.endpoint}
-									placeholder="https://s3.example.com"
-								/>
-							</div>
-							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="custom-region">Region</label>
-								<input
-									class="text-input-filled"
-									id="custom-region"
-									bind:value={form.customS3Config.region}
+									id="region"
+									bind:value={form.s3Config.region}
 									placeholder="e.g. us-east-1"
 								/>
 							</div>
+						</div>
+					</div>
+				{/if}
+
+				{#if form.provider === 'azure' && form.azureConfig}
+					<div class="space-y-4">
+						<div class="grid grid-cols-1 gap-6 md:grid-cols-2">
 							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="custom-access-key">Access Key ID</label>
+								<label class="text-sm font-medium" for="storage-account">Storage Account</label>
 								<input
-									name="custom-access-key"
 									class="text-input-filled"
-									bind:value={form.customS3Config.accessKeyID}
+									id="storage-account"
+									bind:value={form.azureConfig.storageAccount}
+									placeholder="my-storage-account"
 								/>
 							</div>
+						</div>
+					</div>
+				{/if}
+
+				<!-- Authentication Method -->
+				{#if form.provider !== 'custom'}
+					<div class="space-y-4">
+						<h3 class="text-lg font-semibold">Authentication Method</h3>
+						<div class="flex flex-col gap-4">
+							<div class="flex items-center justify-between">
+								<div class="flex flex-col gap-1">
+									<label class="text-sm font-medium" for="auth-method"
+										>Use credential associated with Obot</label
+									>
+								</div>
+								<Toggle
+									checked={useWorkloadIdentity}
+									onChange={(checked) => (useWorkloadIdentity = checked)}
+									label={useWorkloadIdentity ? 'Use workload identity' : 'Configure keys manually'}
+								/>
+							</div>
+							{#if useWorkloadIdentity}
+								<div class="rounded-md bg-blue-50 p-4 dark:bg-blue-950/50">
+									<p class="text-sm text-blue-700 dark:text-blue-300">
+										Using existing workload identity from Obot. No manual credentials required.
+									</p>
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
+				<!-- Credentials -->
+				{#if !useWorkloadIdentity}
+					<div class="space-y-4">
+						<h3 class="text-lg font-semibold">Credentials</h3>
+
+						{#if form.provider === 's3' && form.s3Config}
+							<div class="space-y-4">
+								<div class="flex flex-col gap-1">
+									<label class="text-sm font-medium" for="access-key">Access Key ID</label>
+									<input
+										name="access-key"
+										class="text-input-filled"
+										bind:value={form.s3Config.accessKeyID}
+									/>
+								</div>
+								<div class="flex flex-col gap-1">
+									<label class="text-sm font-medium" for="secret-key">Secret Access Key</label>
+									<SensitiveInput
+										name="secret-key"
+										bind:value={form.s3Config.secretAccessKey}
+										placeholder={existingCredentials?.s3Config
+											? '••••••••••••••••••••••••••••••••••••••••'
+											: ''}
+										hideReveal
+									/>
+								</div>
+							</div>
+						{:else if form.provider === 'gcs' && form.gcsConfig}
 							<div class="flex flex-col gap-1">
-								<label class="text-sm font-medium" for="custom-secret-key">Secret Access Key</label>
+								<label class="text-sm font-medium" for="service-account">Service Account JSON</label
+								>
 								<SensitiveInput
-									name="custom-secret-key"
-									bind:value={form.customS3Config.secretAccessKey}
-									hideReveal
-									placeholder={existingCredentials?.customS3Config
+									name="service-account-json"
+									bind:value={form.gcsConfig.serviceAccountJSON}
+									textarea
+									placeholder={existingCredentials?.gcsConfig
 										? '••••••••••••••••••••••••••••••••••••••••'
 										: ''}
+									hideReveal
 								/>
+								<p class="text-xs text-gray-500">Complete JSON key file for the service account</p>
 							</div>
-						</div>
-					{/if}
-				</div>
-			{/if}
+						{:else if form.provider === 'azure' && form.azureConfig}
+							<div class="space-y-4">
+								<div class="flex flex-col gap-1">
+									<label class="text-sm font-medium" for="azure-client-id">Client ID</label>
+									<input
+										name="azure-client-id"
+										class="text-input-filled"
+										bind:value={form.azureConfig.clientID}
+									/>
+								</div>
+								<div class="flex flex-col gap-1">
+									<label class="text-sm font-medium" for="azure-tenant-id">Tenant ID</label>
+									<input
+										name="azure-tenant-id"
+										class="text-input-filled"
+										bind:value={form.azureConfig.tenantID}
+									/>
+								</div>
+								<div class="flex flex-col gap-1">
+									<label class="text-sm font-medium" for="azure-client-secret">Client Secret</label>
+									<SensitiveInput
+										name="azure-client-secret"
+										bind:value={form.azureConfig.clientSecret}
+										hideReveal
+										placeholder={existingCredentials?.azureConfig
+											? '••••••••••••••••••••••••••••••••••••••••'
+											: ''}
+									/>
+								</div>
+							</div>
+						{:else if form.provider === 'custom' && form.customS3Config}
+							<div class="space-y-4">
+								<div class="flex flex-col gap-1">
+									<label class="text-sm font-medium" for="custom-endpoint">Endpoint</label>
+									<input
+										class="text-input-filled"
+										id="custom-endpoint"
+										bind:value={form.customS3Config.endpoint}
+										placeholder="https://s3.example.com"
+									/>
+								</div>
+								<div class="flex flex-col gap-1">
+									<label class="text-sm font-medium" for="custom-region">Region</label>
+									<input
+										class="text-input-filled"
+										id="custom-region"
+										bind:value={form.customS3Config.region}
+										placeholder="e.g. us-east-1"
+									/>
+								</div>
+								<div class="flex flex-col gap-1">
+									<label class="text-sm font-medium" for="custom-access-key">Access Key ID</label>
+									<input
+										name="custom-access-key"
+										class="text-input-filled"
+										bind:value={form.customS3Config.accessKeyID}
+									/>
+								</div>
+								<div class="flex flex-col gap-1">
+									<label class="text-sm font-medium" for="custom-secret-key"
+										>Secret Access Key</label
+									>
+									<SensitiveInput
+										name="custom-secret-key"
+										bind:value={form.customS3Config.secretAccessKey}
+										hideReveal
+										placeholder={existingCredentials?.customS3Config
+											? '••••••••••••••••••••••••••••••••••••••••'
+											: ''}
+									/>
+								</div>
+							</div>
+						{/if}
+					</div>
+				{/if}
 
-			<!-- Test Result -->
-			{#if testResult}
-				<div
-					class={`flex items-start gap-3 rounded-md p-4 ${testResult.success ? 'bg-green-50 dark:bg-green-950/50' : 'bg-red-50 dark:bg-red-950/50'}`}
-				>
-					{#if testResult.success}
-						<Success message={testResult.message} />
-					{:else}
+				<!-- Test Result -->
+				{#if testResult}
+					<div
+						class={`flex items-start gap-3 rounded-md p-4 ${testResult.success ? 'bg-green-50 dark:bg-green-950/50' : 'bg-red-50 dark:bg-red-950/50'}`}
+					>
+						{#if testResult.success}
+							<Success message={testResult.message} />
+						{:else}
+							<AlertTriangle class="size-5 text-red-600 dark:text-red-400" />
+							<div class="text-sm text-red-700 dark:text-red-300">
+								{testResult.message}
+							</div>
+						{/if}
+					</div>
+				{/if}
+
+				<!-- Error Display -->
+				{#if error}
+					<div class="flex items-start gap-3 rounded-md bg-red-50 p-4 dark:bg-red-950/50">
 						<AlertTriangle class="size-5 text-red-600 dark:text-red-400" />
 						<div class="text-sm text-red-700 dark:text-red-300">
-							{testResult.message}
+							{error}
 						</div>
-					{/if}
-				</div>
-			{/if}
-
-			<!-- Error Display -->
-			{#if error}
-				<div class="flex items-start gap-3 rounded-md bg-red-50 p-4 dark:bg-red-950/50">
-					<AlertTriangle class="size-5 text-red-600 dark:text-red-400" />
-					<div class="text-sm text-red-700 dark:text-red-300">
-						{error}
 					</div>
-				</div>
-			{/if}
+				{/if}
+			</div>
 
 			<!-- Actions -->
 			<div class="flex justify-between pt-6">
 				{#if form.provider !== 'custom'}
-					<button
-						type="button"
-						class="button-secondary"
-						onclick={handleTest}
-						disabled={testing || saving}
-					>
-						{#if testing}
-							<LoaderCircle class="size-4 animate-spin" />
-							Testing...
-						{:else}
-							Test Connection
-						{/if}
-					</button>
-				{:else}
-					<div></div>
+					{#if !!existingCredentials}
+						<button
+							type="button"
+							class="button-destructive"
+							onclick={handleDeleteCredentials}
+							disabled={testing || saving}
+						>
+							<Trash class="size-4" />
+							Delete Credentials
+						</button>
+					{:else}
+						<button
+							type="button"
+							class="button-secondary"
+							onclick={handleTest}
+							disabled={testing || saving}
+						>
+							{#if testing}
+								<LoaderCircle class="size-4 animate-spin" />
+								Testing...
+							{:else}
+								Test Connection
+							{/if}
+						</button>
+					{/if}
 				{/if}
 
-				<div class="flex gap-3">
+				<div class="ml-auto flex gap-3">
 					<button type="button" class="button" onclick={onCancel} disabled={saving || testing}>
 						Cancel
 					</button>
-					<button type="submit" class="button-primary" disabled={saving || testing}>
+					<button
+						type="submit"
+						class="button-primary"
+						disabled={!!existingCredentials || saving || testing}
+					>
 						{#if saving}
 							<LoaderCircle class="size-4 animate-spin" />
 							Saving...
