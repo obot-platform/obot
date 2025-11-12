@@ -28,6 +28,15 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/obot-platform/obot/tree/main/docs',
           routeBasePath: "/", // Serve the docs at the site's root
+
+          // Versioning configuration
+          lastVersion: 'current', // Will be updated to first stable version after release
+          versions: {
+            current: {
+              label: 'Next',
+              banner: 'unreleased',
+            },
+          },
         },
         theme: {
           customCss: './src/css/custom.css',
@@ -47,6 +56,11 @@ const config: Config = {
         srcDark: 'img/obot-logo-blue-white-text.svg',
       },
       items: [
+        {
+          type: 'docsVersionDropdown',
+          position: 'left',
+          dropdownActiveClassDisabled: true,
+        },
         {
           href: "https://github.com/obot-platform/obot",
           label: "GitHub",
