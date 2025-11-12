@@ -30,12 +30,8 @@ const config: Config = {
           routeBasePath: "/", // Serve the docs at the site's root
 
           // Versioning configuration
-          lastVersion: 'v0.13.0', // Will be updated to first stable version after release
+          lastVersion: 'v0.13.0',
           versions: {
-            'v0.13.0': {
-              label: 'v0.13.0',
-              banner: 'none',
-            },
           },
         },
         theme: {
