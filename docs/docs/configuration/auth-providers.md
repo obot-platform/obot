@@ -99,7 +99,7 @@ Then add the following **application** permissions:
 
 After all permissions are approved, your App's Configured permissions section should look something like this:
 
-![screenshot of Entra configured permissions](/img/entra-configured-permissions.png)
+![screenshot of Entra configured permissions](/img/entra-new-configured-permissions.png)
 
 Head to the Certificates & secrets tab and click New Client secret.
 Select a desired expiration date and click `Add`.
