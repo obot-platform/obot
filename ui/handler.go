@@ -79,6 +79,12 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/mcp-publisher", http.StatusFound)
 	} else if r.URL.Path == "/mcp-publisher" {
 		http.ServeFileFS(w, r, embedded, "user/build/mcp-publisher.html")
+	} else if strings.HasSuffix(r.URL.Path, "/") {
+		// Paths with trailing slashes should redirect to without slash to avoid directory listings
+		http.Redirect(w, r, strings.TrimSuffix(r.URL.Path, "/"), http.StatusFound)
+	} else if _, err := fs.Stat(embedded, userPath+".html"); err == nil {
+		// Try .html version first (for SvelteKit prerendered pages)
+		http.ServeFileFS(w, r, embedded, userPath+".html")
 	} else if _, err := fs.Stat(embedded, userPath); err == nil {
 		http.ServeFileFS(w, r, embedded, userPath)
 	} else if _, err := fs.Stat(embedded, adminPath); err == nil {
