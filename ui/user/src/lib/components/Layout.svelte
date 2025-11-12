@@ -126,14 +126,16 @@
 								disabled: isBootStrapUser,
 								collapsible: false
 							},
-							{
-								id: 'server-scheduling',
-								href: '/admin/server-scheduling',
-								icon: AlarmClock,
-								label: 'Server Scheduling',
-								collapsible: false
-							}
-						]
+							version.current.engine === 'kubernetes'
+								? {
+										id: 'server-scheduling',
+										href: '/admin/server-scheduling',
+										icon: AlarmClock,
+										label: 'Server Scheduling',
+										collapsible: false
+									}
+								: undefined
+						].filter(Boolean) as NavLink[]
 					},
 					{
 						id: 'obot-chat',
