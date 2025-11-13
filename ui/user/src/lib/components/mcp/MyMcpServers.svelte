@@ -387,107 +387,88 @@
 			return;
 		}
 
-		if (launchLogsEventStream) {
-			// reset launch logs
-			launchLogsEventStream.disconnect();
-			launchLogsEventStream = undefined;
-			launchLogs = [];
+		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
+
+		const componentServersForCreate: Array<{
+			catalogEntryID: string;
+			disabled: boolean;
+			manifest?: { remoteConfig?: { url?: string } };
+		}> = [];
+		const componentConfigs: Record<string, ComponentServerConfig> = {};
+		const aliasToUse =
+			(configureForm as { name?: string } | undefined)?.name ||
+			getUniqueAlias(selectedManifest?.name || '');
+
+		for (const [id, cf] of Object.entries(configureForm.componentConfigs)) {
+			const url = cf.url?.trim();
+			componentServersForCreate.push({
+				catalogEntryID: id,
+				disabled: cf.disabled ?? false,
+				manifest: url ? { remoteConfig: { url } } : undefined
+			});
+			const envs: Record<string, string> = {};
+			for (const f of [
+				...(cf.envs ?? ([] as Array<{ key: string; value: string }>)),
+				...(cf.headers ?? ([] as Array<{ key: string; value: string }>))
+			]) {
+				if (f.value) envs[f.key] = f.value;
+			}
+			componentConfigs[id] = { envs, url, disabled: cf.disabled ?? false };
 		}
 
-		launchError = undefined;
-		launchProgress = 0;
-		launching = true;
-
-		let timeout1 = setTimeout(() => {
-			launchProgress = 10;
-		}, 100);
-
-		let timeout2 = setTimeout(() => {
-			launchProgress = 30;
-		}, 3000);
-
-		let timeout3 = setTimeout(() => {
-			launchProgress = 80;
-		}, 10000);
-
+		let created: MCPCatalogServer | undefined = undefined;
 		try {
-			const entry = selectedEntryOrServer as Entry;
-			const aliasToUse =
-				(configureForm as { name?: string } | undefined)?.name ||
-				getUniqueAlias(selectedManifest?.name || '');
-
-			const componentServersForCreate: Array<{
-				catalogEntryID: string;
-				disabled: boolean;
-				manifest?: { remoteConfig?: { url?: string } };
-			}> = [];
-			const componentConfigs: Record<string, ComponentServerConfig> = {};
-
-			for (const [id, componentConfig] of Object.entries(configureForm.componentConfigs)) {
-				const url = componentConfig.url?.trim();
-				componentServersForCreate.push({
-					catalogEntryID: id,
-					disabled: componentConfig.disabled ?? false,
-					manifest: url ? { remoteConfig: { url } } : undefined
-				});
-				const envs: Record<string, string> = {};
-				for (const f of [
-					...(componentConfig.envs ?? ([] as Array<{ key: string; value: string }>)),
-					...(componentConfig.headers ?? ([] as Array<{ key: string; value: string }>))
-				]) {
-					if (f.value) envs[f.key] = f.value;
-				}
-				componentConfigs[id] = { envs, url, disabled: componentConfig.disabled ?? false };
-			}
-
-			const manifest = {
-				compositeConfig: { componentServers: componentServersForCreate }
-			};
-			let created: MCPCatalogServer | undefined = undefined;
-			
-			const created = await ChatService.createCompositeMcpServer({
+			created = await ChatService.createCompositeMcpServer({
 				catalogEntryID: entry.id,
 				alias: aliasToUse,
-				manifest
+				manifest: { compositeConfig: { componentServers: componentServersForCreate } }
 			});
-
-			const configuredResponse = await ChatService.configureCompositeMcpServer(
-				created.id,
-				componentConfigs,
-			);
-
-			const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(created.id);
-			if (!launchResponse.success) {
-				launchError = launchResponse.message;
-				// TODO(njhale): We should be able to list launch logs for composite servers if it has 
-
-			} else {
-				launchProgress = 100;
-			}
-
-			selectedEntryOrServer = {
-				server: created,
-				connectURL: created.connectURL,
-				instance: undefined,
-				parent: entry
-			} as ConnectedServer;
-
-			if (!launchError) {
-				const ref = selectedEntryOrServer;
-				setTimeout(() => {
-					launching = false;
-					launchProgress = 0;
-					onConnectServer?.(ref);
-				}, 1000);
-			}
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
-		} finally {
-			clearTimeout(timeout1);
-			clearTimeout(timeout2);
-			clearTimeout(timeout3);
+		}
 
-			relaunching = false;
+		if (created) {
+			try {
+				const configured = await ChatService.configureCompositeMcpServer(
+					created.id,
+					componentConfigs
+				);
+
+				const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
+					configured.id
+				);
+				if (!launchResponse.success) {
+					launchError = launchResponse.message;
+					// TODO(njhale): We should be able to list launch logs for composite servers if it has
+				} else {
+					launchProgress = 100;
+				}
+
+				selectedEntryOrServer = {
+					server: configured,
+					connectURL: configured.connectURL,
+					instance: undefined,
+					parent: entry
+				} as ConnectedServer;
+
+				if (!launchError) {
+					const ref = selectedEntryOrServer;
+					setTimeout(() => {
+						launching = false;
+						launchProgress = 0;
+						onConnectServer?.(ref);
+					}, 1000);
+				}
+			} catch (err) {
+				console.error('error: ', err);
+				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			} finally {
+				clearTimeout(timeout1);
+				clearTimeout(timeout2);
+				clearTimeout(timeout3);
+
+				relaunching = false;
+			}
 		}
 	}
 
@@ -798,7 +779,7 @@
 										<div class="flex items-center gap-1">
 											{@render connectedServerCardAction?.(connectedServer)}
 											<DotDotDot
-												class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
+												class="icon-button hover:bg-surface1 dark:hover:bg-surface2 min-h-auto min-w-auto size-6 flex-shrink-0 p-1 hover:text-blue-500"
 												{disablePortal}
 												el={container}
 											>
@@ -1051,7 +1032,7 @@
 						{connectSelectText}
 					</button>
 					<DotDotDot
-						class="icon-button size-10 min-h-auto min-w-auto flex-shrink-0 p-1"
+						class="icon-button min-h-auto min-w-auto size-10 flex-shrink-0 p-1"
 						{disablePortal}
 					>
 						<div class="default-dialog flex min-w-48 flex-col p-2">

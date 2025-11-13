@@ -70,6 +70,8 @@ type CatalogComponentServer struct {
 	ToolOverrides []ToolOverride                `json:"toolOverrides,omitempty"`
 }
 
+// ComponentID returns the ID of the component server.
+// It's used to uniquely identify a component server in a composite server.
 func (c CatalogComponentServer) ComponentID() string {
 	if c.CatalogEntryID != "" {
 		return c.CatalogEntryID
@@ -140,7 +142,7 @@ type ToolOverride struct {
 	// Name is the original tool name as returned by the component server
 	Name string `json:"name"`
 	// OverrideName is the tool name exposed by the composite server
-	OverrideName string `json:"overrideName,omitempty"`
+	OverrideName string `json:"overrideName"`
 	// Optional overrides for display
 	OverrideDescription string `json:"overrideDescription,omitempty"`
 	// Whether to include this tool (default true)
@@ -343,7 +345,6 @@ func (e RuntimeValidationError) Error() string {
 
 // MapCatalogEntryToServer converts an MCPServerCatalogEntryManifest to an MCPServerManifest
 // For remote runtime, userURL is used when the catalog entry has a hostname constraint
-// Do not call this function with composite runtime, use serverManifestFromCatalogEntryManifest instead.
 func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string, disableHostnameValidation bool) (MCPServerManifest, error) {
 	serverManifest := MCPServerManifest{
 		// Copy common fields

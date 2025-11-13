@@ -12,6 +12,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -43,9 +44,14 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		// The server belongs to a composite server, so we should get the entry from the runtime of the composite entry that this server was created with.
 		var compositeServer v1.MCPServer
 		if err := req.Get(&compositeServer, server.Namespace, compositeName); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
 			return fmt.Errorf("failed to get composite server %s: %w", compositeName, err)
 		}
 
+		// TODO(njhale): This needs to come from the composite server directly, not its catalog entry.
+		// Also, do we even care about detecting drift for running composite servers?
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, compositeServer.Namespace, compositeServer.Spec.MCPServerCatalogEntryName); err != nil {
 			return fmt.Errorf("failed to get composite server catalog entry %s: %w", compositeServer.Spec.MCPServerCatalogEntryName, err)
@@ -222,7 +228,7 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 		// Compare manifests for non-remote components
 		switch serverComponent.Manifest.Runtime {
 		case types.RuntimeRemote:
-			// Skip remote manifest comparison in composites
+			// TODO(njhale): I think we can fix this
 		default:
 			drifted, err := configurationHasDrifted(false, serverComponent.Manifest, entryComponent.Manifest)
 			if err != nil || drifted {
