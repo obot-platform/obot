@@ -108,12 +108,11 @@ func (c *Client) GetGroupRoleAssignmentsForGroups(ctx context.Context, groupName
 // ResolveUserEffectiveRole computes the effective role for a user by combining:
 // 1. Individual role from users table
 // 2. Group-based roles from GroupRoleAssignments
-// Returns the merged role with the highest permissions.
+// Returns the highest base role plus Auditor (if present).
 func (c *Client) ResolveUserEffectiveRole(ctx context.Context, user *types.User, authGroupIDs []string) (types2.Role, error) {
 	// Start with user's individual role
 	effectiveRole := user.Role
 
-	// If no auth provider groups, return individual role
 	if len(authGroupIDs) == 0 {
 		return effectiveRole, nil
 	}
@@ -132,7 +131,36 @@ func (c *Client) ResolveUserEffectiveRole(ctx context.Context, user *types.User,
 		effectiveRole |= assignment.Role
 	}
 
-	return effectiveRole, nil
+	// Normalize to keep only the highest base role + Auditor
+	return normalizeToHighestRole(effectiveRole), nil
+}
+
+// normalizeToHighestRole takes a combined role bitmap and returns only the highest
+// base role (Owner > Admin > PowerUserPlus > PowerUser > Basic) plus the Auditor bit if present.
+func normalizeToHighestRole(combinedRole types2.Role) types2.Role {
+	// Check if Auditor bit is set
+	hasAuditor := combinedRole.HasAuditorRole()
+
+	// Find the highest base role in descending order of privilege
+	var highestRole types2.Role
+	if combinedRole.HasRole(types2.RoleOwner) {
+		highestRole = types2.RoleOwner
+	} else if combinedRole.HasRole(types2.RoleAdmin) {
+		highestRole = types2.RoleAdmin
+	} else if combinedRole.HasRole(types2.RolePowerUserPlus) {
+		highestRole = types2.RolePowerUserPlus
+	} else if combinedRole.HasRole(types2.RolePowerUser) {
+		highestRole = types2.RolePowerUser
+	} else {
+		highestRole = types2.RoleBasic
+	}
+
+	// Add Auditor bit back if it was present
+	if hasAuditor {
+		highestRole = highestRole | types2.RoleAuditor
+	}
+
+	return highestRole
 }
 
 // GetUsersInGroup returns all users who are members of the given group.
@@ -203,7 +231,8 @@ func (c *Client) ResolveUserEffectiveRolesBulk(ctx context.Context, users []type
 			}
 		}
 
-		effectiveRoles[user.ID] = effectiveRole
+		// Normalize to keep only the highest base role + Auditor
+		effectiveRoles[user.ID] = normalizeToHighestRole(effectiveRole)
 	}
 
 	return effectiveRoles, nil
