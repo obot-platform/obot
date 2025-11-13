@@ -495,6 +495,8 @@
 											? '••••••••••••••••••••••••••••••••••••••••'
 											: ''}
 										hideReveal
+										textarea
+										growable
 									/>
 								</div>
 							</div>
@@ -505,11 +507,12 @@
 								<SensitiveInput
 									name="service-account-json"
 									bind:value={form.gcsConfig.serviceAccountJSON}
-									textarea
 									placeholder={existingCredentials?.gcsConfig
 										? '••••••••••••••••••••••••••••••••••••••••'
 										: ''}
 									hideReveal
+									textarea
+									growable
 								/>
 								<p class="text-xs text-gray-500">Complete JSON key file for the service account</p>
 							</div>
@@ -536,10 +539,12 @@
 									<SensitiveInput
 										name="azure-client-secret"
 										bind:value={form.azureConfig.clientSecret}
-										hideReveal
 										placeholder={existingCredentials?.azureConfig
 											? '••••••••••••••••••••••••••••••••••••••••'
 											: ''}
+										hideReveal
+										textarea
+										growable
 									/>
 								</div>
 							</div>
@@ -578,10 +583,12 @@
 									<SensitiveInput
 										name="custom-secret-key"
 										bind:value={form.customS3Config.secretAccessKey}
-										hideReveal
 										placeholder={existingCredentials?.customS3Config
 											? '••••••••••••••••••••••••••••••••••••••••'
 											: ''}
+										hideReveal
+										textarea
+										growable
 									/>
 								</div>
 							</div>
