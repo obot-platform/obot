@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -88,7 +87,7 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 	}
 
 	// Trigger reconciliation for all users in this group
-	if err := s.triggerReconciliationForGroup(apiContext.Context(), apiContext, req.GroupName); err != nil {
+	if err := s.triggerReconciliationForGroup(apiContext, req.GroupName); err != nil {
 		pkgLog.Warnf("failed to trigger reconciliation for group %s: %v", req.GroupName, err)
 		// Don't fail the request - assignment was created successfully
 	}
@@ -126,7 +125,7 @@ func (s *Server) updateGroupRoleAssignment(apiContext api.Context) error {
 	}
 
 	// Trigger reconciliation for all users in this group
-	if err := s.triggerReconciliationForGroup(apiContext.Context(), apiContext, groupName); err != nil {
+	if err := s.triggerReconciliationForGroup(apiContext, groupName); err != nil {
 		pkgLog.Warnf("failed to trigger reconciliation for group %s: %v", groupName, err)
 		// Don't fail the request - assignment was updated successfully
 	}
@@ -149,7 +148,7 @@ func (s *Server) deleteGroupRoleAssignment(apiContext api.Context) error {
 	}
 
 	// Trigger reconciliation for all users in this group
-	if err := s.triggerReconciliationForGroup(apiContext.Context(), apiContext, groupName); err != nil {
+	if err := s.triggerReconciliationForGroup(apiContext, groupName); err != nil {
 		pkgLog.Warnf("failed to trigger reconciliation for group %s: %v", groupName, err)
 		// Don't fail the request - assignment was deleted successfully
 	}
@@ -157,29 +156,20 @@ func (s *Server) deleteGroupRoleAssignment(apiContext api.Context) error {
 	return apiContext.Write(types2.GroupRoleAssignment{})
 }
 
-// triggerReconciliationForGroup creates UserRoleChange events for all users in the given group
-// to trigger workspace reconciliation based on their current effective role.
-func (s *Server) triggerReconciliationForGroup(ctx context.Context, apiContext api.Context, groupName string) error {
-	// Get all users in this group
-	users, err := apiContext.GatewayClient.GetUsersInGroup(ctx, groupName)
-	if err != nil {
-		return fmt.Errorf("failed to get users in group %s: %w", groupName, err)
-	}
-
-	// Create UserRoleChange event for each user to trigger reconciliation
-	for _, user := range users {
-		if err := apiContext.Create(&v1.UserRoleChange{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.UserRoleChangePrefix,
-				Namespace:    apiContext.Namespace(),
-			},
-			Spec: v1.UserRoleChangeSpec{
-				UserID: user.ID,
-			},
-		}); err != nil {
-			pkgLog.Errorf("failed to create user role change event for user %d: %v", user.ID, err)
-			// Continue processing other users even if one fails
-		}
+// triggerReconciliationForGroup creates a GroupRoleChange event for the given group
+// to trigger workspace reconciliation for all users in the group based on their current effective role.
+func (s *Server) triggerReconciliationForGroup(apiContext api.Context, groupName string) error {
+	// Create a single GroupRoleChange event that will trigger reconciliation for all users in the group
+	if err := apiContext.Create(&v1.GroupRoleChange{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: system.GroupRoleChangePrefix,
+			Namespace:    apiContext.Namespace(),
+		},
+		Spec: v1.GroupRoleChangeSpec{
+			GroupName: groupName,
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to create group role change event for group %s: %w", groupName, err)
 	}
 
 	return nil

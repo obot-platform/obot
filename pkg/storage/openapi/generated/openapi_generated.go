@@ -262,6 +262,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall":                  schema_storage_apis_obotobotai_v1_ExternalCall(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult":            schema_storage_apis_obotobotai_v1_ExternalCallResult(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResume":            schema_storage_apis_obotobotai_v1_ExternalCallResume(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChange":               schema_storage_apis_obotobotai_v1_GroupRoleChange(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeList":           schema_storage_apis_obotobotai_v1_GroupRoleChangeList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeSpec":           schema_storage_apis_obotobotai_v1_GroupRoleChangeSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettings":                   schema_storage_apis_obotobotai_v1_K8sSettings(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsList":               schema_storage_apis_obotobotai_v1_K8sSettingsList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsSpec":               schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref),
@@ -12202,6 +12205,118 @@ func schema_storage_apis_obotobotai_v1_ExternalCallResume(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_GroupRoleChange(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_GroupRoleChangeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChange"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChange", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_GroupRoleChangeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"groupName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 

@@ -300,6 +300,9 @@ func (c *Controller) setupRoutes() {
 	// UserRoleChange
 	root.Type(&v1.UserRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleRoleChange)
 
+	// GroupRoleChange
+	root.Type(&v1.GroupRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleGroupRoleChange)
+
 	// PowerUserWorkspace
 	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(powerUserWorkspaceHandler.CreateACR)
 	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServersForWorkspace)
