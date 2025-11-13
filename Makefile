@@ -86,4 +86,30 @@ no-changes:
 		exit 1; \
 	fi
 
-.PHONY: ui ui-admin ui-user build all clean dev dev-open lint lint-admin lint-api no-changes fmt tidy
+#cut a new version for release with items in docs/docs
+gen-docs-release:
+	if [ -z ${version} ]; then \
+  			echo "version not set (version=x.x)"; \
+    		exit 1 \
+    	;fi
+	if [ -z ${prev_version} ]; then \
+  			echo "prev_version not set (prev_version=x.x)"; \
+    		exit 1 \
+    	;fi
+	docker run --rm --workdir=/docs -v $${PWD}/docs:/docs node:24-bookworm yarn docusaurus docs:version ${version}
+	awk '/versions/&& ++c == 1 {print;print "\t\t\t\"${prev_version}\": {label: \"${prev_version}\", banner: \"none\", path: \"${prev_version}\"},";next}1' ./docs/docusaurus.config.ts > tmp.config.ts && mv tmp.config.ts ./docs/docusaurus.config.ts
+	sed -i.bak "s/lastVersion: '[^']*'/lastVersion: '${version}'/" ./docs/docusaurus.config.ts && rm -f ./docs/docusaurus.config.ts.bak
+
+# Completely remove doc version from docs site
+remove-docs-version:
+	if [ -z ${version} ]; then \
+  			echo "version not set (version=x.x)"; \
+    		exit 1 \
+    	;fi
+	echo "removing ${version} from documentation completely"
+	-rm  "./docs/versioned_sidebars/version-${version}-sidebars.json"
+	-rm  -r ./docs/versioned_docs/version-${version}
+	jq 'del(.[] | select(. == "${version}"))' ./docs/versions.json > tmp.json && mv tmp.json ./docs/versions.json
+	grep -v '"${version}": {label: "${version}", banner: "none", path: "${version}"},' ./docs/docusaurus.config.ts  > tmp.config.ts && mv tmp.config.ts ./docs/docusaurus.config.ts
+
+.PHONY: ui ui-admin ui-user build all clean dev dev-open lint lint-admin lint-api no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
