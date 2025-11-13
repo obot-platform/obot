@@ -8,6 +8,7 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import type { AuditLogExport } from '$lib/services/admin/types';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onCancel: () => void;
@@ -202,7 +203,10 @@
 				<div class="flex flex-col gap-1">
 					<label class="text-sm font-medium" for="name">Export Name</label>
 					<input
-						class="text-input-filled"
+						class={twMerge(
+							'text-input-filled',
+							isViewMode && '[color:currentColor] disabled:opacity-100'
+						)}
 						id="name"
 						bind:value={form.name}
 						placeholder="audit-export-2024"
@@ -217,7 +221,10 @@
 				<div class="flex flex-col gap-1">
 					<label class="text-sm font-medium" for="bucket">Bucket Name</label>
 					<input
-						class="text-input-filled"
+						class={twMerge(
+							'text-input-filled',
+							isViewMode && '[color:currentColor] disabled:opacity-100'
+						)}
 						id="bucket"
 						bind:value={form.bucket}
 						placeholder="my-audit-exports"
@@ -234,7 +241,10 @@
 			<div class="flex flex-col gap-1">
 				<label class="text-sm font-medium" for="keyPrefix">Key Prefix (Optional)</label>
 				<input
-					class="text-input-filled"
+					class={twMerge(
+						'text-input-filled',
+						isViewMode && '[color:currentColor] disabled:opacity-100'
+					)}
 					id="keyPrefix"
 					bind:value={form.keyPrefix}
 					placeholder="Leave empty for default: mcp-audit-logs/YYYY/MM/DD/"
@@ -287,7 +297,10 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="user_id">User IDs</label>
 							<input
-								class={['text-input-filled']}
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && '[color:currentColor] disabled:opacity-100'
+								)}
 								id="user_id"
 								bind:value={form.filters.user_id}
 								placeholder="user1,user2"
@@ -303,7 +316,10 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_id">Server IDs</label>
 							<input
-								class="text-input-filled"
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && '[color:currentColor] disabled:opacity-100'
+								)}
 								id="mcp_id"
 								bind:value={form.filters.mcp_id}
 								placeholder="server1,server2"
@@ -318,7 +334,10 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_server_display_name">Server Names</label>
 							<input
-								class="text-input-filled"
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && '[color:currentColor] disabled:opacity-100'
+								)}
 								id="mcp_server_display_name"
 								bind:value={form.filters.mcp_server_display_name}
 								placeholder="server-name-1,server-name-2"
@@ -333,7 +352,10 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="call_type">Call Types</label>
 							<input
-								class="text-input-filled"
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && '[color:currentColor] disabled:opacity-100'
+								)}
 								id="call_type"
 								bind:value={form.filters.call_type}
 								placeholder="tools/call,resources/read"
@@ -348,7 +370,10 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_name">Client Names</label>
 							<input
-								class="text-input-filled"
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && '[color:currentColor] disabled:opacity-100'
+								)}
 								id="client_name"
 								bind:value={form.filters.client_name}
 								placeholder="client1,client2"
@@ -363,7 +388,10 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="response_status">Response Status</label>
 							<input
-								class="text-input-filled"
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && '[color:currentColor] disabled:opacity-100'
+								)}
 								id="response_status"
 								bind:value={form.filters.response_status}
 								placeholder="200,400,500"
@@ -378,7 +406,10 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="session_id">Session IDs</label>
 							<input
-								class="text-input-filled"
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && '[color:currentColor] disabled:opacity-100'
+								)}
 								id="session_id"
 								bind:value={form.filters.session_id}
 								placeholder="session1,session2"
@@ -393,7 +424,10 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_ip">Client IPs</label>
 							<input
-								class="text-input-filled"
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && '[color:currentColor] disabled:opacity-100'
+								)}
 								id="client_ip"
 								bind:value={form.filters.client_ip}
 								placeholder="192.168.1.1,10.0.0.1"
@@ -407,7 +441,10 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="call_identifier">Call Identifier</label>
 							<input
-								class="text-input-filled"
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && '[color:currentColor] disabled:opacity-100'
+								)}
 								id="call_identifier"
 								bind:value={form.filters.call_identifier}
 								placeholder="call-identifier-1,call-identifier-2"
@@ -421,7 +458,10 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_version">Client Versions</label>
 							<input
-								class="text-input-filled"
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && '[color:currentColor] disabled:opacity-100'
+								)}
 								id="client_version"
 								bind:value={form.filters.client_version}
 								placeholder="client-version-1,client-version-2"
@@ -437,7 +477,10 @@
 								>Catalog Entry Names</label
 							>
 							<input
-								class="text-input-filled"
+								class={twMerge(
+									'text-input-filled',
+									isViewMode && '[color:currentColor] disabled:opacity-100'
+								)}
 								id="power_user_workspace_id"
 								bind:value={form.filters.mcp_server_catalog_entry_name}
 								placeholder="workspace-id-1,workspace-id-2"
