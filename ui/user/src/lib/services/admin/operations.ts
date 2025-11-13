@@ -976,6 +976,17 @@ export async function configureStorageCredentials(
 	return response;
 }
 
+export async function deleteStorageCredentials(
+	opts?:
+		| {
+				signal?: AbortSignal | undefined;
+		  }
+		| undefined
+) {
+	const response = await doDelete('/storage-credentials', opts);
+	return response;
+}
+
 export async function testStorageCredentials(
 	request: StorageCredentials,
 	opts?: { fetch?: Fetcher }
