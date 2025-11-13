@@ -15,6 +15,7 @@
 		class?: string;
 		hideReveal?: boolean;
 		placeholder?: string;
+		onkeydown?: (ev: KeyboardEvent) => void;
 	}
 
 	let {
@@ -28,7 +29,8 @@
 		growable,
 		class: klass,
 		hideReveal,
-		placeholder
+		placeholder,
+		onkeydown
 	}: Props = $props();
 	let showSensitive = $state(false);
 	let textareaElement = $state<HTMLElement>();
@@ -77,6 +79,8 @@
 						disabled && 'opacity-50',
 						!showSensitive ? 'hide' : ''
 					)}
+					role="textbox"
+					tabindex="0"
 					onscroll={(ev) => {
 						if (!showSensitive && maskedTextarea) {
 							maskedTextarea.scrollTop = ev.currentTarget.scrollTop;
@@ -91,7 +95,14 @@
 						}
 					}
 					onfocus={handleFocus}
+					{onkeydown}
 				></div>
+
+				{#if placeholder}
+					<div class="text-input-filled absolute inset-0 text-black/50">
+						{placeholder}
+					</div>
+				{/if}
 			{:else}
 				<textarea
 					bind:this={textareaElement}
@@ -121,6 +132,7 @@
 						}
 					}
 					onfocus={handleFocus}
+					{onkeydown}
 				></textarea>
 			{/if}
 
@@ -155,6 +167,7 @@
 			autocomplete="new-password"
 			{disabled}
 			{placeholder}
+			{onkeydown}
 		/>
 	{/if}
 
