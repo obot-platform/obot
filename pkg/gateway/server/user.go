@@ -52,7 +52,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		effectiveRole = user.Role
 	}
 
-	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name, effectiveRole))
+	return apiContext.Write(types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name, effectiveRole))
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {
@@ -91,7 +91,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 			effectiveRole = role
 		}
 
-		items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole))
+		items = append(items, *types.ConvertUserWithEffectiveRole(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole))
 	}
 
 	return apiContext.Write(types2.UserList{Items: items})
@@ -139,7 +139,7 @@ func (s *Server) getUser(apiContext api.Context) error {
 		effectiveRole = user.Role
 	}
 
-	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole))
+	return apiContext.Write(types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole))
 }
 
 func (s *Server) updateUser(apiContext api.Context) error {

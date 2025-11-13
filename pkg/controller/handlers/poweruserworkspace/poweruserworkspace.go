@@ -2,7 +2,7 @@ package poweruserworkspace
 
 import (
 	"context"
-	goerrors "errors"
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -14,7 +14,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,7 +39,7 @@ func (h *Handler) HandleRoleChange(req router.Request, _ router.Response) error 
 	if err != nil {
 		// Only clean up if the user is actually not found (deleted)
 		// For transient errors (network, DB connection, etc.), return the error to retry
-		if goerrors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// User has been deleted - clean up any workspaces
 			if err := h.deleteWorkspaceForUser(req.Ctx, req.Client, req.Namespace, userIDStr); err != nil {
 				return err
@@ -138,7 +138,7 @@ func (h *Handler) createWorkspaceWithRole(ctx context.Context, client kclient.Cl
 // deleteAllWorkspaces deletes all given workspaces.
 func (h *Handler) deleteAllWorkspaces(ctx context.Context, client kclient.Client, workspaces []v1.PowerUserWorkspace) error {
 	for _, workspace := range workspaces {
-		if err := client.Delete(ctx, &workspace); err != nil && !errors.IsNotFound(err) {
+		if err := client.Delete(ctx, &workspace); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -183,7 +183,7 @@ func (h *Handler) cleanupWorkspaceResources(ctx context.Context, client kclient.
 	}
 
 	for _, acr := range acrs.Items {
-		if err := client.Delete(ctx, &acr); err != nil && !errors.IsNotFound(err) {
+		if err := client.Delete(ctx, &acr); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -208,7 +208,7 @@ func (h *Handler) cleanupWorkspaceResources(ctx context.Context, client kclient.
 	}
 
 	for _, server := range servers.Items {
-		if err := client.Delete(ctx, &server); err != nil && !errors.IsNotFound(err) {
+		if err := client.Delete(ctx, &server); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -228,7 +228,7 @@ func (h *Handler) deleteWorkspaceForUser(ctx context.Context, client kclient.Cli
 	}
 
 	for _, workspace := range workspaces.Items {
-		if err := client.Delete(ctx, &workspace); err != nil && !errors.IsNotFound(err) {
+		if err := client.Delete(ctx, &workspace); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 	}

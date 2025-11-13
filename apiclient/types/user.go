@@ -66,6 +66,16 @@ func (u Role) SwitchBaseRole(role Role) Role {
 	return role | (u & RoleAuditor)
 }
 
+// ExtractBaseRole removes the Auditor flag from a role to get the base role
+func (u Role) ExtractBaseRole() Role {
+	return u &^ RoleAuditor
+}
+
+// HasAuditorRole checks if the Auditor flag is set in the role
+func (u Role) HasAuditorRole() bool {
+	return u&RoleAuditor != 0
+}
+
 func (u Role) Groups() []string {
 	var groups []string
 	if u.HasRole(RoleOwner) {

@@ -185,21 +185,11 @@ func (s *Server) triggerReconciliationForGroup(ctx context.Context, apiContext a
 	return nil
 }
 
-// extractBaseRole removes the Auditor flag from a combined role to get the base role
-func extractBaseRole(role types2.Role) types2.Role {
-	return role &^ types2.RoleAuditor
-}
-
-// hasAuditorRole checks if the Auditor flag is set in the role
-func hasAuditorRole(role types2.Role) bool {
-	return role&types2.RoleAuditor != 0
-}
-
 // validateRoleForUser checks if the requester is authorized to assign the given role
 func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) error {
 	// Extract base role and auditor flag
-	baseRole := extractBaseRole(role)
-	hasAuditor := hasAuditorRole(role)
+	baseRole := role.ExtractBaseRole()
+	hasAuditor := role.HasAuditorRole()
 
 	// If role includes Owner, only Owners can assign it
 	if baseRole == types2.RoleOwner {

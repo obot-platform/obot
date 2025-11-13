@@ -136,7 +136,7 @@ func (c *Client) ListGroupIDsForUser(ctx context.Context, userID uint) ([]string
 // Returns a map of userID to slice of groupIDs.
 func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (map[uint][]string, error) {
 	if len(userIDs) == 0 {
-		return make(map[uint][]string), nil
+		return nil, nil
 	}
 
 	type Result struct {
@@ -156,7 +156,7 @@ func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (m
 	}
 
 	// Build map
-	memberships := make(map[uint][]string)
+	memberships := make(map[uint][]string, len(userIDs))
 	for _, r := range results {
 		memberships[r.UserID] = append(memberships[r.UserID], r.GroupID)
 	}

@@ -185,7 +185,7 @@ func (c *Client) ResolveUserEffectiveRolesBulk(ctx context.Context, users []type
 	}
 
 	// Build group -> role map for fast lookup
-	groupRoles := make(map[string]types2.Role)
+	groupRoles := make(map[string]types2.Role, len(assignments))
 	for _, assignment := range assignments {
 		groupRoles[assignment.GroupName] = assignment.Role
 	}
