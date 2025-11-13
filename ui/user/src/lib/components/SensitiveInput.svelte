@@ -37,7 +37,7 @@
 	let maskedTextarea = $state<HTMLElement>();
 
 	function getMaskedValue(text: string): string {
-		return text.replace(/[^\s]/g, '•').replace(/\n/g, '<br>');
+		return text.replace(/[^\s]/g, '•').replaceAll(/\n/g, '<br>');
 	}
 
 	function handleInput(ev: Event) {
@@ -98,8 +98,10 @@
 					{onkeydown}
 				></div>
 
-				{#if placeholder}
-					<div class="text-input-filled absolute inset-0 text-black/50">
+				{#if placeholder && value.length === 0}
+					<div
+						class="text-input-filled pointer-events-none absolute inset-0 bg-transparent text-black/50"
+					>
 						{placeholder}
 					</div>
 				{/if}
