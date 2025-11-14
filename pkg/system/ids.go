@@ -46,6 +46,11 @@ const (
 	PowerUserWorkspacePrefix      = "puw1"
 	AuditLogExportPrefix          = "ael1"
 	ScheduledAuditLogExportPrefix = "sael1"
+	SystemMCPServerPrefix         = "sysms1"
+)
+
+const (
+	SystemMCPServerSourcesName = "system-mcp-server-sources"
 )
 
 func IsThreadID(id string) bool {

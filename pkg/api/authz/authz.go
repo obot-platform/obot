@@ -102,6 +102,9 @@ var (
 		"/api/scheduled-audit-log-exports/{id}",
 		"/api/storage-credentials",
 		"/api/storage-credentials/",
+		"/api/system-servers",
+		"/api/system-servers/",
+		"/api/system-server-sources",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,

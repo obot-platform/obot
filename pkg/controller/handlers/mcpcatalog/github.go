@@ -29,6 +29,12 @@ func isGitHubURL(catalogURL string) bool {
 	return err == nil && u.Host == "github.com"
 }
 
+// IsGitHubURL is the exported version for use by other packages
+func IsGitHubURL(catalogURL string) bool {
+	// TODO(g-linville): just export the other one
+	return isGitHubURL(catalogURL)
+}
+
 // checkRepoSize checks the repository size using GitHub API before cloning
 func checkRepoSize(org, repo string, maxSizeMB int) error {
 	if org == "obot-platform" {
@@ -205,4 +211,83 @@ func readGitHubCatalog(catalogURL string) ([]types.MCPServerCatalogEntryManifest
 	}
 
 	return readMCPCatalogDirectory(tempDir)
+}
+
+// CloneGitHubRepo clones a GitHub repository and returns the temporary directory path
+// Caller is responsible for cleaning up the directory with os.RemoveAll
+func CloneGitHubRepo(catalogURL string) (string, error) {
+	// TODO(g-linville): DRY this up by using it in the previous function
+	// Make sure we don't use plain HTTP
+	if strings.HasPrefix(catalogURL, "http://") {
+		return "", fmt.Errorf("only HTTPS is supported for GitHub repos")
+	}
+
+	// Normalize the URL to ensure HTTPS
+	if !strings.HasPrefix(catalogURL, "https://") {
+		catalogURL = "https://" + catalogURL
+	}
+
+	// Parse URL to ensure it's valid
+	u, err := url.Parse(catalogURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid GitHub URL: %w", err)
+	}
+
+	// Should not be possible, but check anyway.
+	if u.Host != "github.com" {
+		return "", fmt.Errorf("not a GitHub URL: %s", catalogURL)
+	}
+
+	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	if len(parts) < 2 {
+		return "", fmt.Errorf("invalid GitHub URL format, expected github.com/org/repo")
+	}
+	org, repo := parts[0], parts[1]
+	branch := "main"
+	if len(parts) > 2 {
+		branch = strings.Join(parts[2:], "/")
+		// Validate branch name for security
+		if err := validateBranchName(branch); err != nil {
+			return "", fmt.Errorf("invalid branch name: %w", err)
+		}
+	}
+
+	// Check repository size before cloning (limit to 100 MB)
+	const maxRepoSizeMB = 100
+	if err := checkRepoSize(org, repo, maxRepoSizeMB); err != nil {
+		return "", fmt.Errorf("repository size check failed: %w", err)
+	}
+
+	// Create temporary directory for cloning
+	tempDir, err := os.MkdirTemp("", "system-mcp-clone-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary directory: %w", err)
+	}
+
+	// Clone the repository
+	cloneURL := fmt.Sprintf("https://github.com/%s/%s.git", org, repo)
+
+	// Set up clone options
+	cloneOptions := &git.CloneOptions{
+		URL:           cloneURL,
+		Depth:         1,
+		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branch)),
+	}
+
+	// Set up git credentials if token is available
+	if githubToken != "" {
+		cloneOptions.Auth = &githttp.BasicAuth{
+			Username: "obot", // Use a dummy username. The username is ignored, but required to be non-empty.
+			Password: githubToken,
+		}
+	}
+
+	// Use go-git to clone the repository
+	_, err = git.PlainClone(tempDir, false, cloneOptions)
+	if err != nil {
+		os.RemoveAll(tempDir)
+		return "", fmt.Errorf("failed to clone repository: %w", err)
+	}
+
+	return tempDir, nil
 }

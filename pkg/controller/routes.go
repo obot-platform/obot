@@ -29,6 +29,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/runstates"
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/slackreceiver"
+	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserversources"
 	"github.com/obot-platform/obot/pkg/controller/handlers/task"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threadshare"
@@ -82,6 +83,7 @@ func (c *Controller) setupRoutes() {
 	adminWorkspaceHandler := adminworkspace.New(c.services.GatewayClient)
 	auditLogExportHandler := auditlogexport.NewHandler(c.services.GPTClient, c.services.GatewayClient, c.services.EncryptionConfig)
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
+	systemMCPServerSourcesHandler := systemmcpserversources.New()
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -243,6 +245,9 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.Sync)
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServersForCatalog)
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServerInstancesForCatalog)
+
+	// SystemMCPServerSources
+	root.Type(&v1.SystemMCPServerSources{}).HandlerFunc(systemMCPServerSourcesHandler.Sync)
 
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)

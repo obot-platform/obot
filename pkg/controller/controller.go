@@ -72,6 +72,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure K8s settings: %w", err)
 	}
 
+	if err := ensureSystemMCPServerSources(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to ensure system MCP server sources: %w", err)
+	}
+
 	if err := addCatalogIDToAccessControlRules(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to add catalog ID to access control rules: %w", err)
 	}
@@ -201,6 +205,29 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, helmSettings 
 	}
 
 	return nil
+}
+
+func ensureSystemMCPServerSources(ctx context.Context, client kclient.Client) error {
+	var sources v1.SystemMCPServerSources
+	err := client.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.SystemMCPServerSourcesName,
+	}, &sources)
+
+	if apierrors.IsNotFound(err) {
+		// Create default sources
+		sources = v1.SystemMCPServerSources{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      system.SystemMCPServerSourcesName,
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.SystemMCPServerSourcesSpec{
+				SourceURLs: []string{},
+			},
+		}
+		return client.Create(ctx, &sources)
+	}
+	return err
 }
 
 // createLocalK8sRouter creates a router for local Kubernetes resources
