@@ -268,7 +268,7 @@
 					<label class="text-sm font-medium" for="storage-provider">Provider</label>
 					<div>
 						<Dropdown
-							class="w-full md:w-1/3"
+							class="w-full whitespace-nowrap md:w-sm"
 							values={{
 								s3: 'Amazon S3',
 								gcs: 'Google Cloud Storage',
@@ -408,6 +408,8 @@
 										? '••••••••••••••••••••••••••••••••••••••••'
 										: ''}
 									hideReveal
+									textarea
+									growable
 								/>
 							</div>
 						</div>
@@ -417,11 +419,12 @@
 							<SensitiveInput
 								name="service-account-json"
 								bind:value={form.gcsConfig.serviceAccountJSON}
-								textarea
 								placeholder={existingCredentials?.gcsConfig
 									? '••••••••••••••••••••••••••••••••••••••••'
 									: ''}
 								hideReveal
+								textarea
+								growable
 							/>
 							<p class="text-xs text-gray-500">Complete JSON key file for the service account</p>
 						</div>
@@ -452,6 +455,8 @@
 									placeholder={existingCredentials?.azureConfig
 										? '••••••••••••••••••••••••••••••••••••••••'
 										: ''}
+									textarea
+									growable
 								/>
 							</div>
 						</div>
@@ -492,6 +497,8 @@
 									placeholder={existingCredentials?.customS3Config
 										? '••••••••••••••••••••••••••••••••••••••••'
 										: ''}
+									textarea
+									growable
 								/>
 							</div>
 						</div>
