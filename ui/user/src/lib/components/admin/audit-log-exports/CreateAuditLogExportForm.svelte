@@ -8,6 +8,7 @@
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import type { AuditLogExport } from '$lib/services/admin/types';
+	import { profile } from '$lib/stores';
 
 	interface Props {
 		onCancel: () => void;
@@ -20,6 +21,8 @@
 
 	let showAdvancedOptions = $state(false);
 	let isViewMode = $derived(mode === 'view');
+
+	const hasAuditorPermissions = $derived(profile.current.groups.includes('auditor'));
 
 	// Form state
 	let form = $state({
@@ -187,6 +190,17 @@
 			handleSubmit();
 		}}
 	>
+		{#if !hasAuditorPermissions}
+			<div
+				class="flex items-start gap-3 rounded-md border border-yellow-500 bg-yellow-500/10 p-4 dark:bg-yellow-500/10"
+			>
+				<AlertTriangle class="size-5 text-yellow-500 dark:text-yellow-500" />
+				<div class="text-sm">
+					Exported logs will not include request/response headers and body information. Auditor role
+					is required to access this data.
+				</div>
+			</div>
+		{/if}
 		<!-- Basic Information -->
 		<div class="flex flex-col gap-4">
 			<h3 class="text-lg font-semibold">
