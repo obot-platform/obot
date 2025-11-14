@@ -321,6 +321,9 @@
 									};
 									useWorkloadIdentity = false;
 								}
+
+								// Reset error message
+								error = '';
 							}}
 						/>
 					</div>
