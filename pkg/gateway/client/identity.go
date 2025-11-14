@@ -82,10 +82,8 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 			}
 		}
 
-		if user.Role.HasRole(types2.RolePowerUser) {
-			if err = c.ensureNewPrivilegedUser(ctx, user); err != nil {
-				return nil, err
-			}
+		if err = c.createUserRoleChangeForNewUser(ctx, user); err != nil {
+			return nil, err
 		}
 	}
 
@@ -411,24 +409,24 @@ func (c *Client) RemoveIdentityAndUser(ctx context.Context, id *types.Identity) 
 	})
 }
 
-func (c *Client) ensureNewPrivilegedUser(ctx context.Context, user *types.User) error {
+func (c *Client) createUserRoleChangeForNewUser(ctx context.Context, user *types.User) error {
 	var defaultRole v1.UserDefaultRoleSetting
 	if err := c.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultRoleSettingName}, &defaultRole); err != nil {
 		return fmt.Errorf("failed to get default role setting: %w", err)
 	}
 
+	// Always create UserRoleChange for new users to trigger reconciliation
+	// The handler will check effective role and create workspace if needed
 	if err := c.storageClient.Create(ctx, &v1.UserRoleChange{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.UserRoleChangePrefix,
 			Namespace:    system.DefaultNamespace,
 		},
 		Spec: v1.UserRoleChangeSpec{
-			UserID:  user.ID,
-			OldRole: defaultRole.Spec.Role,
-			NewRole: user.Role,
+			UserID: user.ID,
 		},
 	}); err != nil {
-		return fmt.Errorf("failed to create user role change event for new privileged user %d: %w", user.ID, err)
+		return fmt.Errorf("failed to create user role change event for new user %d: %w", user.ID, err)
 	}
 
 	return nil

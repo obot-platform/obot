@@ -69,6 +69,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderManifest":                    schema_obot_platform_obot_apiclient_types_FileScannerProviderManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.FileScannerProviderStatus":                      schema_obot_platform_obot_apiclient_types_FileScannerProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.GCSConfig":                                      schema_obot_platform_obot_apiclient_types_GCSConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment":                            schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref),
+		"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignmentList":                        schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref),
 		"github.com/obot-platform/obot/apiclient/types.Item":                                           schema_obot_platform_obot_apiclient_types_Item(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettings":                                    schema_obot_platform_obot_apiclient_types_K8sSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.K8sSettingsStatus":                              schema_obot_platform_obot_apiclient_types_K8sSettingsStatus(ref),
@@ -260,6 +262,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall":                  schema_storage_apis_obotobotai_v1_ExternalCall(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult":            schema_storage_apis_obotobotai_v1_ExternalCallResult(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResume":            schema_storage_apis_obotobotai_v1_ExternalCallResume(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChange":               schema_storage_apis_obotobotai_v1_GroupRoleChange(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeList":           schema_storage_apis_obotobotai_v1_GroupRoleChangeList(ref),
+		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeSpec":           schema_storage_apis_obotobotai_v1_GroupRoleChangeSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettings":                   schema_storage_apis_obotobotai_v1_K8sSettings(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsList":               schema_storage_apis_obotobotai_v1_K8sSettingsList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.K8sSettingsSpec":               schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref),
@@ -3011,6 +3016,72 @@ func schema_obot_platform_obot_apiclient_types_GCSConfig(ref common.ReferenceCal
 				},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_GroupRoleAssignment(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GroupRoleAssignment represents a role assigned to all members of an authentication provider group. Roles can be combined using bitwise OR, e.g., Admin | Auditor.\n\nPermission levels:\n  - Owners can assign any role or combination: Owner, Auditor, Admin, PowerUserPlus, PowerUser\n  - Admins can assign: Admin, PowerUserPlus, PowerUser (NO Owner or Auditor)\n\nCommon role combinations (Owner-only):\n  - Admin | Auditor (48)\n  - PowerUserPlus | Auditor (96)\n  - PowerUser | Auditor (160)\n  - Owner | Auditor (40)",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"groupName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GroupName is the authentication provider group identifier (e.g., \"github:org/team\", \"entra:group-uuid\")",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"role": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Role is the role(s) assigned to all group members. Can be a single role or combination using bitwise OR. Valid values: Owner(8), Admin(16), Auditor(32), PowerUserPlus(64), PowerUser(128)",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is an optional explanation for this role assignment",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"groupName", "role"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_GroupRoleAssignmentList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GroupRoleAssignmentList is a list of group role assignments.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.GroupRoleAssignment"},
 	}
 }
 
@@ -10143,6 +10214,12 @@ func schema_obot_platform_obot_apiclient_types_User(ref common.ReferenceCallback
 							Format: "int32",
 						},
 					},
+					"effectiveRole": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
 					"groups": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -12134,6 +12211,118 @@ func schema_storage_apis_obotobotai_v1_ExternalCallResume(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCall", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ExternalCallResult"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_GroupRoleChange(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.EmptyStatus", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChangeSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_GroupRoleChangeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChange"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.GroupRoleChange", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_GroupRoleChangeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"groupName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -18281,18 +18470,6 @@ func schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref common.ReferenceCa
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"userID": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-					"oldRole": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int32",
-						},
-					},
-					"newRole": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
 							Format: "int32",
