@@ -946,7 +946,14 @@
 			<span class="text-sm font-medium text-red-500">Fill out all required fields</span>
 		{/if}
 		<button class="button flex items-center gap-1" onclick={() => onCancel?.()}> Cancel </button>
-		<button class="button-primary flex items-center gap-1" onclick={handleSubmit}>
+		<button
+			class="button-primary flex items-center gap-1"
+			onclick={handleSubmit}
+			disabled={loading ||
+				(formData.runtime === 'composite' &&
+					(!formData.compositeConfig?.componentServers ||
+						formData.compositeConfig.componentServers.length === 0))}
+		>
 			{#if loading}
 				<LoaderCircle class="size-4 animate-spin" />
 			{:else}
