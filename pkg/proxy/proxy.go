@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"slices"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -106,18 +104,19 @@ func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Respon
 
 	if !found {
 		// Try the token with each configured auth provider to see if one of them recognizes the user.
-		configuredProviders := pm.dispatcher.ListConfiguredAuthProviders(system.DefaultNamespace)
-		for _, configuredProvider := range configuredProviders {
-			if proxy, err := pm.createProxy(req.Context(), system.DefaultNamespace+"/"+configuredProvider); err == nil {
-				if resp, good, err := proxy.authenticateRequest(req); good && err == nil {
-					pm.lock.Lock()
-					pm.tokenHashToProviderCache[tokenHash] = cacheObject{
-						provider:  system.DefaultNamespace + "/" + configuredProvider,
-						createdAt: time.Now(),
-					}
-					pm.lock.Unlock()
-					return resp, true, nil
+		configuredProvider, err := pm.dispatcher.GetConfiguredAuthProvider(req.Context())
+		if err != nil {
+			return nil, false, err
+		}
+		if proxy, err := pm.createProxy(req.Context(), system.DefaultNamespace+"/"+configuredProvider); err == nil {
+			if resp, good, err := proxy.authenticateRequest(req); good && err == nil {
+				pm.lock.Lock()
+				pm.tokenHashToProviderCache[tokenHash] = cacheObject{
+					provider:  system.DefaultNamespace + "/" + configuredProvider,
+					createdAt: time.Now(),
 				}
+				pm.lock.Unlock()
+				return resp, true, nil
 			}
 		}
 
@@ -186,8 +185,12 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 
 	// If no provider is set, just use the alphabetically first provider.
 	if provider == "" {
-		configuredProviders := pm.dispatcher.ListConfiguredAuthProviders(system.DefaultNamespace)
-		if len(configuredProviders) == 0 {
+		configuredProvider, err := pm.dispatcher.GetConfiguredAuthProvider(r.Context())
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to get configured auth provider: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if configuredProvider == "" {
 			// There aren't any auth providers configured. Return an error, unless the user is signing out, in which case, just redirect.
 			if r.URL.Path == "/oauth2/sign_out" {
 				http.Redirect(w, r, rdParam, http.StatusFound)
@@ -198,10 +201,7 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		sort.Slice(configuredProviders, func(i, j int) bool {
-			return configuredProviders[i] < configuredProviders[j]
-		})
-		provider = system.DefaultNamespace + "/" + configuredProviders[0]
+		provider = system.DefaultNamespace + "/" + configuredProvider
 	} else {
 		namespace, name, _ := strings.Cut(provider, "/")
 		if namespace == "" || name == "" {
@@ -210,15 +210,12 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 		}
 
 		// Check if the provider is configured.
-		configuredProviders := pm.dispatcher.ListConfiguredAuthProviders(namespace)
-
-		if !slices.Contains(configuredProviders, name) {
-			// The requested auth provider isn't configured. Return an error, unless the user is signing out, in which case, just redirect.
-			if r.URL.Path == "/oauth2/sign_out" {
-				http.Redirect(w, r, rdParam, http.StatusFound)
-				return
-			}
-
+		configuredProvider, err := pm.dispatcher.GetConfiguredAuthProvider(r.Context())
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to get configured auth provider: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if configuredProvider != name {
 			http.Error(w, "auth provider not configured: "+provider, http.StatusBadRequest)
 			return
 		}
