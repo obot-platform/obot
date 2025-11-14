@@ -327,7 +327,7 @@ export type ComponentServerConfig = {
 	envs?: Record<string, string>;
 	url?: string;
 	disabled?: boolean;
-}
+};
 
 export interface MCPSubField {
 	description: string;
@@ -802,4 +802,3 @@ export type Workspace = {
 	role: number;
 	type: string;
 };
-

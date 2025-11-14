@@ -1399,24 +1399,24 @@ export async function getSingleOrRemoteMcpServer(
 	return response;
 }
 export async function createCompositeMcpServer(server: {
-  catalogEntryID: string;
-  alias?: string;
-  manifest: {
-    compositeConfig: {
-      componentServers: Array<{
-        catalogEntryID: string;
-        disabled?: boolean;
-        manifest?: {
-          remoteConfig?: {
-            url?: string;
-          };
-        };
-      }>;
-    };
-  };
+	catalogEntryID: string;
+	alias?: string;
+	manifest: {
+		compositeConfig: {
+			componentServers: Array<{
+				catalogEntryID: string;
+				disabled?: boolean;
+				manifest?: {
+					remoteConfig?: {
+						url?: string;
+					};
+				};
+			}>;
+		};
+	};
 }): Promise<MCPCatalogServer> {
-  const response = (await doPost('/mcp-servers', server)) as MCPCatalogServer;
-  return response;
+	const response = (await doPost('/mcp-servers', server)) as MCPCatalogServer;
+	return response;
 }
 
 export async function createSingleOrRemoteMcpServer(server: {
@@ -1456,7 +1456,10 @@ export async function configureCompositeMcpServer(
 	id: string,
 	componentConfigs: Record<string, ComponentServerConfig>
 ): Promise<MCPCatalogServer> {
-	const response = (await doPost(`/mcp-servers/${id}/configure`, componentConfigs)) as MCPCatalogServer;
+	const response = (await doPost(
+		`/mcp-servers/${id}/configure`,
+		componentConfigs
+	)) as MCPCatalogServer;
 	return response;
 }
 

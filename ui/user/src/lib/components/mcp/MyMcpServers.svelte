@@ -779,7 +779,7 @@
 										<div class="flex items-center gap-1">
 											{@render connectedServerCardAction?.(connectedServer)}
 											<DotDotDot
-												class="icon-button hover:bg-surface1 dark:hover:bg-surface2 min-h-auto min-w-auto size-6 flex-shrink-0 p-1 hover:text-blue-500"
+												class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
 												{disablePortal}
 												el={container}
 											>
@@ -1032,7 +1032,7 @@
 						{connectSelectText}
 					</button>
 					<DotDotDot
-						class="icon-button min-h-auto min-w-auto size-10 flex-shrink-0 p-1"
+						class="icon-button size-10 min-h-auto min-w-auto flex-shrink-0 p-1"
 						{disablePortal}
 					>
 						<div class="default-dialog flex min-w-48 flex-col p-2">
