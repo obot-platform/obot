@@ -788,10 +788,6 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		return types.NewErrBadRequest("entry is not editable")
 	}
 
-	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
-		return h.generateCompositeToolPreviews(req, entry, dryRun)
-	}
-
 	// Read configuration from request body
 	var configRequest struct {
 		Config map[string]string `json:"config"`
@@ -845,24 +841,6 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	}
 
 	// Return the updated catalog entry
-	return req.Write(convertMCPServerCatalogEntry(entry))
-}
-
-func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry v1.MCPServerCatalogEntry, dryRun bool) error {
-	// Read configuration from request body
-	var configRequest struct {
-		ComponentConfigs map[string]struct {
-			Config   map[string]string `json:"config"`
-			URL      string            `json:"url"`
-			Disabled bool              `json:"disabled"`
-		} `json:"componentConfigs"`
-	}
-	if err := req.Read(&configRequest); err != nil {
-		return types.NewErrBadRequest("failed to read configuration: %v", err)
-	}
-
-	// TODO(njhale): Implement this.
-
 	return req.Write(convertMCPServerCatalogEntry(entry))
 }
 
@@ -1112,12 +1090,13 @@ func resolveCompositeCatalogConfig(
 			}
 		}
 
-		// Clear component tool previews from the manifest.
-		// We don't want to store these on the component manifest since the flow for composites
-		// calls for tool previews to be generated to guarantee that overrides are applied through
-		// the same logic that clients hit (i.e. ListTools call against a configured composite server).
 		componentServers = append(componentServers, component)
 	}
+
+	// We don't want to store these on the component manifest since the flow for composites
+	// calls for tool previews to be generated to guarantee that overrides are applied through
+	// the same logic that clients hit (i.e. ListTools call against a configured composite server).
+	config.ComponentServers = componentServers
 
 	return nil
 }
