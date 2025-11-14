@@ -456,10 +456,13 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 			}
 		}
 
-		// Use whichever ID is set for duplicate checking
-		componentID := component.CatalogEntryID
+		componentID := component.ComponentID()
 		if componentID == "" {
-			componentID = component.MCPServerID
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers",
+				Message: fmt.Sprintf("failed to get valid ID for component server %s", component.Manifest.Name),
+			}
 		}
 
 		if _, ok := componentServerIDs[componentID]; ok {
@@ -518,9 +521,13 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 		}
 
 		// Use whichever ID is set for duplicate checking
-		componentID := component.CatalogEntryID
+		componentID := component.ComponentID()
 		if componentID == "" {
-			componentID = component.MCPServerID
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers",
+				Message: fmt.Sprintf("failed to get valid ID for component server %s", component.Manifest.Name),
+			}
 		}
 
 		if _, ok := componentServerIDs[componentID]; ok {
@@ -542,8 +549,10 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 }
 
 func validateToolOverrides(overrides []types.ToolOverride) error {
-	toolNames := make(map[string]struct{}, len(overrides))
-	overrideNames := make(map[string]struct{}, len(overrides))
+	var (
+		toolNames     = make(map[string]struct{}, len(overrides))
+		overrideNames = make(map[string]struct{}, len(overrides))
+	)
 
 	for _, override := range overrides {
 		if override.Name == "" {

@@ -992,13 +992,13 @@ export async function getMCPServer(
 	return response;
 }
 
-export async function refreshCompositeComponents(
+export async function upgradeCompositeEntry(
 	catalogID: string,
 	entryID: string,
 	opts?: { fetch?: Fetcher }
 ): Promise<MCPCatalogEntry> {
 	const response = (await doPost(
-		`/mcp-catalogs/${catalogID}/entries/${entryID}/refresh-components`,
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/upgrade-composite`,
 		{},
 		opts
 	)) as MCPCatalogEntry;

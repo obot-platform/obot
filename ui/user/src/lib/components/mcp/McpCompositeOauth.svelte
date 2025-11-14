@@ -2,7 +2,7 @@
 	import { parseErrorContent } from '$lib/errors';
 	import { LoaderCircle, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { ChatService, type MCPCatalogServer } from '$lib/services';
+	import { ChatService, type ComponentServerConfig, type MCPCatalogServer } from '$lib/services';
 
 	interface Props {
 		compositeMcpId: string;
@@ -95,8 +95,8 @@
 			if (enabledCount <= 1) return;
 
 			// Use configure endpoint to set disabled=true for this component
-			const payload: Record<string, { config: Record<string, string>; disabled: boolean }> = {
-				[item.catalogEntryID]: { config: {}, disabled: true }
+			const payload: Record<string, ComponentServerConfig> = {
+				[item.catalogEntryID]: { disabled: true }
 			};
 			await ChatService.configureCompositeMcpServer(compositeMcpId, payload);
 

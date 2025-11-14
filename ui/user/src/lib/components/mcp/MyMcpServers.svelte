@@ -3,7 +3,8 @@
 		ChatService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
-		type MCPServerInstance
+		type MCPServerInstance,
+		type ComponentServerConfig
 	} from '$lib/services';
 	import {
 		convertCompositeInfoToLaunchFormData,
@@ -386,101 +387,88 @@
 			return;
 		}
 
-		if (launchLogsEventStream) {
-			// reset launch logs
-			launchLogsEventStream.disconnect();
-			launchLogsEventStream = undefined;
-			launchLogs = [];
+		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
+
+		const componentServersForCreate: Array<{
+			catalogEntryID: string;
+			disabled: boolean;
+			manifest?: { remoteConfig?: { url?: string } };
+		}> = [];
+		const componentConfigs: Record<string, ComponentServerConfig> = {};
+		const aliasToUse =
+			(configureForm as { name?: string } | undefined)?.name ||
+			getUniqueAlias(selectedManifest?.name || '');
+
+		for (const [id, cf] of Object.entries(configureForm.componentConfigs)) {
+			const url = cf.url?.trim();
+			componentServersForCreate.push({
+				catalogEntryID: id,
+				disabled: cf.disabled ?? false,
+				manifest: url ? { remoteConfig: { url } } : undefined
+			});
+			const envs: Record<string, string> = {};
+			for (const f of [
+				...(cf.envs ?? ([] as Array<{ key: string; value: string }>)),
+				...(cf.headers ?? ([] as Array<{ key: string; value: string }>))
+			]) {
+				if (f.value) envs[f.key] = f.value;
+			}
+			componentConfigs[id] = { envs, url, disabled: cf.disabled ?? false };
 		}
 
-		launchError = undefined;
-		launchProgress = 0;
-		launching = true;
-
-		let timeout1 = setTimeout(() => {
-			launchProgress = 10;
-		}, 100);
-
-		let timeout2 = setTimeout(() => {
-			launchProgress = 30;
-		}, 3000);
-
-		let timeout3 = setTimeout(() => {
-			launchProgress = 80;
-		}, 10000);
-
+		let created: MCPCatalogServer | undefined = undefined;
 		try {
-			const entry = selectedEntryOrServer as Entry;
-			const aliasToUse =
-				(configureForm as { name?: string } | undefined)?.name ||
-				getUniqueAlias(selectedManifest?.name || '');
-			const componentServersForCreate: Array<{
-				catalogEntryID: string;
-				manifest: Record<string, unknown>;
-			}> = [];
-			const payload: Record<
-				string,
-				{ config: Record<string, string>; url?: string; disabled?: boolean }
-			> = {};
-			for (const [id, comp] of Object.entries(configureForm.componentConfigs)) {
-				const url = comp.url?.trim();
-				componentServersForCreate.push({
-					catalogEntryID: id,
-					manifest: url
-						? { remoteConfig: { url: url.startsWith('http') ? url : `https://${url}` } }
-						: {}
-				});
-				const config: Record<string, string> = {};
-				for (const f of [
-					...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
-					...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
-				]) {
-					if (f.value) config[f.key] = f.value;
-				}
-				payload[id] = { config, url, disabled: comp.disabled ?? false };
-			}
-
-			const manifest: Record<string, unknown> = {
-				compositeConfig: { componentServers: componentServersForCreate }
-			};
-			const created = await ChatService.createSingleOrRemoteMcpServer({
+			created = await ChatService.createCompositeMcpServer({
 				catalogEntryID: entry.id,
 				alias: aliasToUse,
-				manifest
+				manifest: { compositeConfig: { componentServers: componentServersForCreate } }
 			});
-
-			await ChatService.configureCompositeMcpServer(created.id, payload);
-
-			const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(created.id);
-			if (!launchResponse.success) {
-				launchError = launchResponse.message;
-			} else {
-				launchProgress = 100;
-			}
-
-			selectedEntryOrServer = {
-				server: created,
-				connectURL: created.connectURL,
-				instance: undefined,
-				parent: entry
-			} as ConnectedServer;
-
-			if (!launchError) {
-				const ref = selectedEntryOrServer;
-				setTimeout(() => {
-					launching = false;
-					launchProgress = 0;
-					onConnectServer?.(ref);
-				}, 1000);
-			}
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
-		} finally {
-			clearTimeout(timeout1);
-			clearTimeout(timeout2);
-			clearTimeout(timeout3);
+		}
 
-			relaunching = false;
+		if (created) {
+			try {
+				const configured = await ChatService.configureCompositeMcpServer(
+					created.id,
+					componentConfigs
+				);
+
+				const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
+					configured.id
+				);
+				if (!launchResponse.success) {
+					launchError = launchResponse.message;
+					// TODO(njhale): We should be able to list launch logs for composite servers if it has
+				} else {
+					launchProgress = 100;
+				}
+
+				selectedEntryOrServer = {
+					server: configured,
+					connectURL: configured.connectURL,
+					instance: undefined,
+					parent: entry
+				} as ConnectedServer;
+
+				if (!launchError) {
+					const ref = selectedEntryOrServer;
+					setTimeout(() => {
+						launching = false;
+						launchProgress = 0;
+						onConnectServer?.(ref);
+					}, 1000);
+				}
+			} catch (err) {
+				console.error('error: ', err);
+				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			} finally {
+				clearTimeout(timeout1);
+				clearTimeout(timeout2);
+				clearTimeout(timeout3);
+
+				relaunching = false;
+			}
 		}
 	}
 

@@ -3,6 +3,7 @@ import type { ConnectedServer } from '$lib/components/mcp/MyMcpServers.svelte';
 import { getUserDisplayName } from '$lib/utils';
 import {
 	ChatService,
+	type ComponentServerConfig,
 	type MCPCatalogEntry,
 	type MCPCatalogServer,
 	type MCPServer,
@@ -205,20 +206,17 @@ export function getServerTypeLabelByType(type?: string) {
 }
 
 export function convertCompositeLaunchFormDataToPayload(lf: CompositeLaunchFormData) {
-	const payload: Record<
-		string,
-		{ config: Record<string, string>; url?: string; disabled?: boolean }
-	> = {};
+	const payload: Record<string, ComponentServerConfig> = {};
 	for (const [id, comp] of Object.entries(lf.componentConfigs)) {
-		const config: Record<string, string> = {};
+		const envs: Record<string, string> = {};
 		for (const f of [
 			...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
 			...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
 		]) {
-			if (f.value) config[f.key] = f.value;
+			if (f.value) envs[f.key] = f.value;
 		}
 		payload[id] = {
-			config,
+			envs: envs,
 			url: comp.url?.trim() || undefined,
 			disabled: comp.disabled ?? false
 		};
@@ -230,27 +228,17 @@ export async function convertCompositeInfoToLaunchFormData(
 	server: MCPCatalogServer,
 	parent?: MCPCatalogEntry
 ) {
-	let initial: Record<
-		string,
-		{ config: Record<string, string>; url?: string; disabled?: boolean }
-	> = {};
+	let initial: Record<string, ComponentServerConfig> = {};
 	try {
 		const revealed = await ChatService.revealCompositeMcpServer(server.id, {
 			dontLogErrors: true
 		});
-		const rc = revealed as unknown as {
-			componentConfigs?: Record<
-				string,
-				{ config: Record<string, string>; url?: string; disabled?: boolean }
-			>;
-		};
-		initial = rc.componentConfigs ?? {};
+		const rc = revealed as unknown as Record<string, ComponentServerConfig>;
+		initial = rc ?? {};
 	} catch (_error) {
-		initial = {} as Record<
-			string,
-			{ config: Record<string, string>; url?: string; disabled?: boolean }
-		>;
+		initial = {} as Record<string, ComponentServerConfig>;
 	}
+
 	// Prefer existing server's runtime composite manifest for edit flows;
 	// fall back to parent catalog entry only if server lacks composite config
 	const components =
@@ -283,12 +271,12 @@ export async function convertCompositeInfoToLaunchFormData(
 			envs: (m.env ?? []).map((e) => ({
 				...(e as unknown as Record<string, unknown>),
 				key: e.key,
-				value: init?.config?.[e.key] ?? ''
+				value: init?.envs?.[e.key] ?? ''
 			})),
 			headers: (m.remoteConfig?.headers ?? []).map((h) => ({
 				...(h as unknown as Record<string, unknown>),
 				key: h.key,
-				value: init?.config?.[h.key] ?? ''
+				value: init?.envs?.[h.key] ?? ''
 			}))
 		};
 	}

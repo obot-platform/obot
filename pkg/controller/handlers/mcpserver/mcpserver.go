@@ -1,6 +1,8 @@
 package mcpserver
 
 import (
+	"cmp"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -10,6 +12,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,9 +44,14 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		// The server belongs to a composite server, so we should get the entry from the runtime of the composite entry that this server was created with.
 		var compositeServer v1.MCPServer
 		if err := req.Get(&compositeServer, server.Namespace, compositeName); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
 			return fmt.Errorf("failed to get composite server %s: %w", compositeName, err)
 		}
 
+		// TODO(njhale): This needs to come from the composite server directly, not its catalog entry.
+		// Also, do we even care about detecting drift for running composite servers?
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, compositeServer.Namespace, compositeServer.Spec.MCPServerCatalogEntryName); err != nil {
 			return fmt.Errorf("failed to get composite server catalog entry %s: %w", compositeServer.Spec.MCPServerCatalogEntryName, err)
@@ -220,7 +228,7 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 		// Compare manifests for non-remote components
 		switch serverComponent.Manifest.Runtime {
 		case types.RuntimeRemote:
-			// Skip remote manifest comparison in composites
+			// TODO(njhale): I think we can fix this
 		default:
 			drifted, err := configurationHasDrifted(false, serverComponent.Manifest, entryComponent.Manifest)
 			if err != nil || drifted {
@@ -277,6 +285,106 @@ func (h *Handler) DeleteServersWithoutRuntime(req router.Request, _ router.Respo
 	}
 
 	return nil
+}
+
+// DeleteOrphanedComponents deletes any component servers or instances that are not referenced in
+// by a composite servers composite config.
+// It also ensures that component servers and instances are deduplicated, keeping only the most
+// recently created object for each component.
+func (*Handler) DeleteOrphanedComponents(req router.Request, _ router.Response) error {
+	compositeServer := req.Object.(*v1.MCPServer)
+	if compositeServer.Spec.Manifest.Runtime != types.RuntimeComposite {
+		// Not a composite server, bail out
+		return nil
+	}
+
+	compositeConfig := compositeServer.Spec.Manifest.CompositeConfig
+	if compositeConfig == nil {
+		// No composite config, bail out.
+		// This will be garbage collected by DeleteServersWithoutRuntime.
+		return nil
+	}
+
+	validComponentIDs := make(map[string]struct{}, len(compositeConfig.ComponentServers))
+	for _, component := range compositeConfig.ComponentServers {
+		if id := component.ComponentID(); id == "" {
+			// The component doesn't have a valid ID, so we can skip it.
+			validComponentIDs[id] = struct{}{}
+			continue
+		}
+	}
+
+	var componentServers v1.MCPServerList
+	if err := req.List(&componentServers, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", compositeServer.Name),
+		Namespace:     compositeServer.Namespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list component servers: %w", err)
+	}
+
+	var componentServerInstances v1.MCPServerInstanceList
+	if err := req.List(&componentServerInstances, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", compositeServer.Name),
+		Namespace:     compositeServer.Namespace,
+	}); err != nil {
+		return fmt.Errorf("failed to list component server instances: %w", err)
+	}
+
+	// Sort the component servers by catalog entry name and creation timestamp
+	// so that we can delete the oldest duplicate component servers.
+	slices.SortStableFunc(componentServers.Items, func(a, b v1.MCPServer) int {
+		if a.Spec.MCPServerCatalogEntryName != b.Spec.MCPServerCatalogEntryName {
+			return cmp.Compare(a.Spec.MCPServerCatalogEntryName, b.Spec.MCPServerCatalogEntryName)
+		}
+
+		return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
+	})
+
+	slices.SortStableFunc(componentServerInstances.Items, func(a, b v1.MCPServerInstance) int {
+		if a.Spec.MCPServerName != b.Spec.MCPServerName {
+			return cmp.Compare(a.Spec.MCPServerCatalogEntryName, b.Spec.MCPServerCatalogEntryName)
+		}
+
+		return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
+	})
+
+	var cleanupErr error
+	for _, component := range componentServers.Items {
+		if component.DeletionTimestamp.IsZero() {
+			// Skip deleted servers
+			continue
+		}
+
+		if _, valid := validComponentIDs[component.Spec.MCPServerCatalogEntryName]; valid {
+			// The component is the most recently created server that references a valid entry in the composite config, so don't add it to the list of servers to delete.
+			// Remove the component ID from the set of valid component IDs so that all older duplicate component servers get deleted.
+			delete(validComponentIDs, component.Spec.MCPServerCatalogEntryName)
+			continue
+		}
+
+		cleanupErr = errors.Join(
+			cleanupErr,
+			kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, &component)),
+		)
+	}
+
+	for _, component := range componentServerInstances.Items {
+		if component.DeletionTimestamp.IsZero() {
+			continue
+		}
+
+		if _, valid := validComponentIDs[component.Spec.MCPServerName]; valid {
+			delete(validComponentIDs, component.Spec.MCPServerName)
+			continue
+		}
+
+		cleanupErr = errors.Join(
+			cleanupErr,
+			kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, &component)),
+		)
+	}
+
+	return cleanupErr
 }
 
 func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router.Response) error {

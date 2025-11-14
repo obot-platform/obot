@@ -144,7 +144,7 @@
 		catalogEntry = { ...catalogEntry, needsUpdate: false };
 
 		try {
-			const updated = await AdminService.refreshCompositeComponents(
+			const updated = await AdminService.upgradeCompositeEntry(
 				DEFAULT_MCP_CATALOG_ID,
 				catalogEntry.id
 			);
