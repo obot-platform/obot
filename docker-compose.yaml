@@ -1,0 +1,13 @@
+services:
+  obot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: obot
+    ports:
+      - "${OBOT_PORT:-8080}:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    env_file:
+      - .env
+    restart: unless-stopped

@@ -95,6 +95,7 @@
 		// Create new AbortController for this request
 		abortController = new AbortController();
 		loading = true;
+		error = '';
 		try {
 			// Make a best effort attempt to load tools, prompts, and resources concurrently
 			let toolCall = project
@@ -106,6 +107,11 @@
 			selected = tools.filter((t) => t.enabled).map((t) => t.id);
 		} catch (err) {
 			console.error(err);
+			if (err instanceof Error) {
+				error = err.message;
+			} else {
+				error = 'Failed to load tools';
+			}
 		} finally {
 			loading = false;
 		}
