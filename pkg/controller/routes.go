@@ -248,6 +248,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.DeleteEntriesWithoutRuntime)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.UpdateManifestHashAndLastUpdated)
+	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.CleanupNestedCompositeEntries)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.DetectCompositeDrift)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.EnsureUserCount)
 
@@ -255,6 +256,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateSharedWithinMCPCatalogName)
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersWithoutRuntime)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.CleanupNestedCompositeServers)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectDrift)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerInstanceUserCount)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
