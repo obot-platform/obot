@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -25,16 +23,14 @@ import (
 )
 
 type AuthProviderHandler struct {
-	dispatcher    *dispatcher.Dispatcher
-	postgresDSN   string
-	configureLock *sync.Mutex
+	dispatcher  *dispatcher.Dispatcher
+	postgresDSN string
 }
 
 func NewAuthProviderHandler(dispatcher *dispatcher.Dispatcher, postgresDSN string) *AuthProviderHandler {
 	return &AuthProviderHandler{
-		dispatcher:    dispatcher,
-		postgresDSN:   postgresDSN,
-		configureLock: new(sync.Mutex),
+		dispatcher:  dispatcher,
+		postgresDSN: postgresDSN,
 	}
 }
 
@@ -139,20 +135,16 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return types.NewErrBadRequest("%q is not an auth provider", ref.Name)
 	}
 
-	// Check if another auth provider is already configured
-	ap.configureLock.Lock()
-	configuredProviders := ap.dispatcher.ListConfiguredAuthProviders(req.Namespace())
-	for _, configuredName := range configuredProviders {
-		// Allow reconfiguring the same provider
-		if configuredName != ref.Name {
-			ap.configureLock.Unlock()
-			return types.NewErrBadRequest(
-				"only one authentication provider can be configured at a time. Please deconfigure %q first",
-				configuredName,
-			)
-		}
+	configuredProvider, err := ap.dispatcher.GetConfiguredAuthProvider(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get configured auth provider: %w", err)
 	}
-	ap.configureLock.Unlock()
+	if configuredProvider != "" && configuredProvider != ref.Name {
+		return types.NewErrBadRequest(
+			"only one authentication provider can be configured at a time. Please deconfigure %q first",
+			configuredProvider,
+		)
+	}
 	var envVars map[string]string
 	if err := req.Read(&envVars); err != nil {
 		return err
@@ -189,26 +181,22 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to create credential for auth provider %q: %w", ref.Name, err)
 	}
 
-	ap.dispatcher.UpdateConfiguredAuthProviders(req.Context(), req.GPTClient)
 	ap.dispatcher.StopAuthProvider(ref.Namespace, ref.Name)
 
 	// Check to make sure that only this provider is configured.
 	// Deconfigure it if that is not the case, and return a 400.
-	ap.configureLock.Lock()
-	configuredProviders = ap.dispatcher.ListConfiguredAuthProviders(req.Namespace())
-	for _, configuredName := range configuredProviders {
-		if configuredName != ref.Name {
-			// Delete the credential we just configured
-			_ = req.GPTClient.DeleteCredential(req.Context(), string(ref.UID), ref.Name)
-			ap.dispatcher.UpdateConfiguredAuthProviders(req.Context(), req.GPTClient)
-			ap.configureLock.Unlock()
-			return types.NewErrBadRequest(
-				"only one authentication provider can be configured at a time. Please deconfigure %q first",
-				configuredName,
-			)
-		}
+	configuredProvider, err = ap.dispatcher.GetConfiguredAuthProvider(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get configured auth provider: %w", err)
 	}
-	ap.configureLock.Unlock()
+	if configuredProvider != "" && configuredProvider != ref.Name {
+		// Delete the credential we just configured
+		_ = req.GPTClient.DeleteCredential(req.Context(), string(ref.UID), ref.Name)
+		return types.NewErrBadRequest(
+			"only one authentication provider can be configured at a time. Please deconfigure %q first",
+			configuredProvider,
+		)
+	}
 	if ref.Annotations[v1.AuthProviderSyncAnnotation] == "" {
 		if ref.Annotations == nil {
 			ref.Annotations = make(map[string]string, 1)
@@ -239,10 +227,6 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 	} else if err = req.GPTClient.DeleteCredential(req.Context(), cred.Context, ref.Name); err != nil {
 		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
-
-	defer func() {
-		go ap.dispatcher.UpdateConfiguredAuthProviders(context.Background(), req.GPTClient)
-	}()
 
 	// Stop the auth provider so that the credential is completely removed from the system.
 	ap.dispatcher.StopAuthProvider(ref.Namespace, ref.Name)
