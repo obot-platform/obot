@@ -18,6 +18,12 @@ func newLocalBackend() backend {
 	return &localBackend{}
 }
 
+func (l *localBackend) deployServer(ctx context.Context, server ServerConfig, userID string, mcpServerDisplayName, mcpServerName string) error {
+	// The local backend's ensureServerDeployment function doesn't wait for readiness, so we can just return its result
+	_, err := l.ensureServerDeployment(ctx, server, userID, mcpServerDisplayName, mcpServerName)
+	return err
+}
+
 func (*localBackend) ensureServerDeployment(_ context.Context, server ServerConfig, _, _, _ string) (ServerConfig, error) {
 	if server.Runtime == types.RuntimeContainerized {
 		// The containerized runtime is not supported when running servers locally.

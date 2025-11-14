@@ -55,21 +55,29 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 	}
 }
 
-func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
+func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) error {
 	switch server.Runtime {
 	case types.RuntimeNPX, types.RuntimeUVX, types.RuntimeContainerized:
 	default:
-		return ServerConfig{}, fmt.Errorf("unsupported MCP runtime: %s", server.Runtime)
+		return fmt.Errorf("unsupported MCP runtime: %s", server.Runtime)
 	}
 
 	// Generate the Kubernetes deployment objects.
 	objs, err := k.k8sObjects(ctx, server, userID, mcpServerDisplayName, mcpServerName)
 	if err != nil {
-		return ServerConfig{}, fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.Scope, err)
+		return fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.Scope, err)
 	}
 
 	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).Apply(ctx, nil, objs...); err != nil {
-		return ServerConfig{}, fmt.Errorf("failed to create MCP deployment %s: %w", server.Scope, err)
+		return fmt.Errorf("failed to create MCP deployment %s: %w", server.Scope, err)
+	}
+
+	return nil
+}
+
+func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
+	if err := k.deployServer(ctx, server, userID, mcpServerDisplayName, mcpServerName); err != nil {
+		return ServerConfig{}, err
 	}
 
 	u := fmt.Sprintf("http://%s.%s.svc.%s", server.Scope, k.mcpNamespace, k.mcpClusterDomain)
