@@ -628,7 +628,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			ephemeralTokenServer,
 			events,
 		)
-		providerDispatcher = dispatcher.New(ctx, invoker, storageClient, gptscriptClient, gatewayClient, postgresDSN)
+		providerDispatcher = dispatcher.New(invoker, storageClient, gptscriptClient, gatewayClient, postgresDSN)
 
 		proxyManager *proxy.Manager
 	)
