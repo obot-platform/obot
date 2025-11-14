@@ -16,7 +16,10 @@ import (
 const defaultContainerPort = 8099
 
 type backend interface {
+	// ensureServerDeployment will deploy a server if it is not already deployed, and return the updated ServerConfig
 	ensureServerDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error)
+	// deployServer will deploy a server if it is not already deployed, and will not wait or do any readiness checks
+	deployServer(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) error
 	transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error)
 	streamServerLogs(ctx context.Context, id string) (io.ReadCloser, error)
 	getServerDetails(ctx context.Context, id string) (types.MCPServerDetails, error)
