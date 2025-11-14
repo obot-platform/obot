@@ -527,23 +527,19 @@
 
 			<!-- Actions -->
 			<div class="flex justify-between pt-6">
-				{#if form.provider !== 'custom'}
-					<button
-						type="button"
-						class="button-secondary"
-						onclick={handleTest}
-						disabled={testing || saving}
-					>
-						{#if testing}
-							<LoaderCircle class="size-4 animate-spin" />
-							Testing...
-						{:else}
-							Test Connection
-						{/if}
-					</button>
-				{:else}
-					<div></div>
-				{/if}
+				<button
+					type="button"
+					class="button-secondary"
+					onclick={handleTest}
+					disabled={testing || saving}
+				>
+					{#if testing}
+						<LoaderCircle class="size-4 animate-spin" />
+						Testing...
+					{:else}
+						Test Connection
+					{/if}
+				</button>
 
 				<div class="flex gap-3">
 					<button type="button" class="button" onclick={onCancel} disabled={saving || testing}>
