@@ -2,6 +2,7 @@ package mcpservercatalogentry
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
@@ -132,4 +133,35 @@ func DetectCompositeDrift(req router.Request, _ router.Response) error {
 	}
 
 	return nil
+}
+
+// CleanupNestedCompositeServers removes component servers with composite runtimes from composite catalog entries.
+// This handler cleans up entries that were created before API validation to prevent nested composite servers.
+func CleanupNestedCompositeEntries(req router.Request, _ router.Response) error {
+	var (
+		entry    = req.Object.(*v1.MCPServerCatalogEntry)
+		manifest = entry.Spec.Manifest
+	)
+
+	if manifest.Runtime != types.RuntimeComposite ||
+		manifest.CompositeConfig == nil {
+		return nil
+	}
+
+	// Remove all composite components from the server's manifest
+	var (
+		components    = manifest.CompositeConfig.ComponentServers
+		numComponents = len(components)
+	)
+	components = slices.DeleteFunc(components, func(component types.CatalogComponentServer) bool {
+		return component.Manifest.Runtime == types.RuntimeComposite
+	})
+
+	if numComponents == len(components) {
+		// No components were removed, so no need to update the manifest.
+		return nil
+	}
+
+	entry.Spec.Manifest.CompositeConfig.ComponentServers = components
+	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, entry))
 }

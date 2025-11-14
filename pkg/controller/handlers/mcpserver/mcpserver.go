@@ -290,3 +290,38 @@ func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router
 
 	return nil
 }
+
+// CleanupNestedCompositeServers removes component servers with composite runtimes from composite MCP servers.
+// This handler cleans up servers that were created before API validation to prevent nested composite servers.
+func (h *Handler) CleanupNestedCompositeServers(req router.Request, _ router.Response) error {
+	var (
+		server   = req.Object.(*v1.MCPServer)
+		manifest = server.Spec.Manifest
+	)
+
+	if manifest.Runtime != types.RuntimeComposite ||
+		manifest.CompositeConfig == nil {
+		return nil
+	}
+
+	// Delete component servers with composite runtimes
+	if server.Spec.CompositeName != "" {
+		return kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, server))
+	}
+
+	// Remove all composite components from the server's manifest
+	var (
+		components    = manifest.CompositeConfig.ComponentServers
+		numComponents = len(components)
+	)
+	components = slices.DeleteFunc(components, func(component types.ComponentServer) bool {
+		return component.Manifest.Runtime == types.RuntimeComposite
+	})
+
+	if numComponents == len(components) {
+		return nil
+	}
+
+	server.Spec.Manifest.CompositeConfig.ComponentServers = components
+	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, server))
+}

@@ -73,13 +73,16 @@
 			},
 			...mcpServerAndEntries.entries
 				.filter((entry) => {
+					if (skipComposite && entry.manifest.runtime === 'composite') {
+						return false;
+					}
+
 					if (type === 'filter') {
 						return true;
 					}
 
 					return entity === 'catalog'
-						? !entry.powerUserWorkspaceID &&
-								(skipComposite ? entry.manifest.runtime !== 'composite' : true)
+						? !entry.powerUserWorkspaceID
 						: workspaceId
 							? entry.powerUserWorkspaceID === workspaceId
 							: !!entry.powerUserWorkspaceID;

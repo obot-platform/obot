@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -420,11 +421,19 @@ func (v RemoteValidator) validateRemoteCatalogConfig(config types.RemoteCatalogC
 type CompositeValidator struct{}
 
 func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) error {
+	if manifest.Runtime != types.RuntimeComposite {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "runtime",
+			Message: "expected composite runtime",
+		}
+	}
+
 	if manifest.CompositeConfig == nil {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeComposite,
 			Field:   "compositeConfig",
-			Message: "composite configuration is required for composite runtime",
+			Message: "composite configuration is required",
 		}
 	}
 
@@ -432,28 +441,39 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeComposite,
 			Field:   "compositeConfig.componentServers",
-			Message: "at least one component server is required",
+			Message: "must contain at least one component server",
 		}
 	}
 
 	// Check for duplicate component servers
 	componentServerIDs := make(map[string]struct{}, len(manifest.CompositeConfig.ComponentServers))
-	for _, component := range manifest.CompositeConfig.ComponentServers {
-		// Validate that exactly one of CatalogEntryID or MCPServerID is set
+	for i, component := range manifest.CompositeConfig.ComponentServers {
+		// Ensure exactly one of CatalogEntryID or MCPServerID is set
 		hasCatalogEntry, hasServerID := component.CatalogEntryID != "", component.MCPServerID != ""
-		if !hasCatalogEntry && !hasServerID {
+		if (!hasCatalogEntry && !hasServerID) || (hasCatalogEntry && hasServerID) {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers",
-				Message: "each component server must have either catalogEntryID or mcpServerID set",
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+				Message: "must have one of catalogEntryID or mcpServerID set",
 			}
 		}
-		if hasCatalogEntry && hasServerID {
+
+		// Prevent composite MCP servers from being nested
+		if component.Manifest.Runtime == types.RuntimeComposite {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers",
-				Message: "component server cannot have both catalogEntryID and mcpServerID set",
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d].manifest.runtime", i),
+				Message: "runtime cannot be composite",
 			}
+		}
+
+		// Validate tool overrides
+		if err := validateToolOverrides(component.ToolOverrides); err != nil {
+			return errors.Join(types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+				Message: "tool overrides invalid",
+			}, err)
 		}
 
 		// Use whichever ID is set for duplicate checking
@@ -465,27 +485,30 @@ func (v CompositeValidator) ValidateConfig(manifest types.MCPServerManifest) err
 		if _, ok := componentServerIDs[componentID]; ok {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers",
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
 				Message: fmt.Sprintf("duplicate component server: %s", componentID),
 			}
 		}
 		componentServerIDs[componentID] = struct{}{}
-
-		// Validate tool overrides
-		if err := validateToolOverrides(component.ToolOverrides); err != nil {
-			return err
-		}
 	}
 
 	return nil
 }
 
 func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalogEntryManifest) error {
+	if manifest.Runtime != types.RuntimeComposite {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "runtime",
+			Message: "expected composite runtime",
+		}
+	}
+
 	if manifest.CompositeConfig == nil {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeComposite,
 			Field:   "compositeConfig",
-			Message: "composite configuration is required for composite runtime",
+			Message: "composite configuration is required",
 		}
 	}
 
@@ -493,28 +516,39 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeComposite,
 			Field:   "compositeConfig.componentServers",
-			Message: "at least one component server is required",
+			Message: "must contain at least one component server",
 		}
 	}
 
 	// Check for duplicate component servers
 	componentServerIDs := make(map[string]struct{}, len(manifest.CompositeConfig.ComponentServers))
-	for _, component := range manifest.CompositeConfig.ComponentServers {
-		// Validate that exactly one of CatalogEntryID or MCPServerID is set
+	for i, component := range manifest.CompositeConfig.ComponentServers {
+		// Ensure exactly one of CatalogEntryID or MCPServerID is set
 		hasCatalogEntry, hasServerID := component.CatalogEntryID != "", component.MCPServerID != ""
-		if !hasCatalogEntry && !hasServerID {
+		if (!hasCatalogEntry && !hasServerID) || (hasCatalogEntry && hasServerID) {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers",
-				Message: "each component server must have either catalogEntryID or mcpServerID set",
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+				Message: "must have one of catalogEntryID or mcpServerID set",
 			}
 		}
-		if hasCatalogEntry && hasServerID {
+
+		// Prevent composite MCP servers from being nested
+		if component.Manifest.Runtime == types.RuntimeComposite {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers",
-				Message: "component server cannot have both catalogEntryID and mcpServerID set",
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d].manifest.runtime", i),
+				Message: "runtime cannot be composite",
 			}
+		}
+
+		// Validate tool overrides
+		if err := validateToolOverrides(component.ToolOverrides); err != nil {
+			return errors.Join(types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+				Message: "tool overrides invalid",
+			}, err)
 		}
 
 		// Use whichever ID is set for duplicate checking
@@ -526,16 +560,11 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 		if _, ok := componentServerIDs[componentID]; ok {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers",
+				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
 				Message: fmt.Sprintf("duplicate component server: %s", componentID),
 			}
 		}
 		componentServerIDs[componentID] = struct{}{}
-
-		// Validate tool overrides
-		if err := validateToolOverrides(component.ToolOverrides); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -545,11 +574,11 @@ func validateToolOverrides(overrides []types.ToolOverride) error {
 	toolNames := make(map[string]struct{}, len(overrides))
 	overrideNames := make(map[string]struct{}, len(overrides))
 
-	for _, override := range overrides {
+	for i, override := range overrides {
 		if override.Name == "" {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides.name",
+				Field:   fmt.Sprintf("toolOverrides[%d].name", i),
 				Message: "original tool name is required",
 			}
 		}
@@ -557,7 +586,7 @@ func validateToolOverrides(overrides []types.ToolOverride) error {
 		if override.OverrideName == "" {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides.overrideName",
+				Field:   fmt.Sprintf("toolOverrides[%d].overrideName", i),
 				Message: "override tool name is required",
 			}
 		}
@@ -566,8 +595,8 @@ func validateToolOverrides(overrides []types.ToolOverride) error {
 		if _, ok := toolNames[override.Name]; ok {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides.name",
-				Message: fmt.Sprintf("duplicate tool override for: %s", override.Name),
+				Field:   fmt.Sprintf("toolOverrides[%d].name", i),
+				Message: fmt.Sprintf("duplicate tool name: %s", override.Name),
 			}
 		}
 		toolNames[override.Name] = struct{}{}
@@ -576,7 +605,7 @@ func validateToolOverrides(overrides []types.ToolOverride) error {
 		if _, ok := overrideNames[override.OverrideName]; ok && override.Enabled {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides.overrideName",
+				Field:   fmt.Sprintf("toolOverrides[%d].overrideName", i),
 				Message: fmt.Sprintf("duplicate override name: %s", override.OverrideName),
 			}
 		}

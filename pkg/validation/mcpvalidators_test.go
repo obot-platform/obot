@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
@@ -820,6 +821,336 @@ func TestRemoteValidator_ValidateCatalogConfig_HeaderValidation(t *testing.T) {
 					t.Errorf("unexpected error: %v", err)
 				}
 			}
+		})
+	}
+}
+
+func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
+	validator := CompositeValidator{}
+
+	tests := []struct {
+		name          string
+		manifest      types.MCPServerCatalogEntryManifest
+		expectedError error
+	}{
+		{
+			name: "non-composite runtime",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   "runtime",
+				Message: "expected composite runtime",
+			},
+		},
+		{
+			name: "missing composite config",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime:         types.RuntimeComposite,
+				CompositeConfig: nil,
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig",
+				Message: "composite configuration is required",
+			},
+		},
+		{
+			name: "no component servers",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers",
+				Message: "must contain at least one component server",
+			},
+		},
+		{
+			name: "component missing both IDs",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "",
+							MCPServerID:    "",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0]",
+				Message: "must have one of catalogEntryID or mcpServerID set",
+			},
+		},
+		{
+			name: "component with both IDs set",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							MCPServerID:    "server-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0]",
+				Message: "must have one of catalogEntryID or mcpServerID set",
+			},
+		},
+		{
+			name: "nested composite runtime not allowed in catalog",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeComposite,
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[0].manifest.runtime",
+				Message: "runtime cannot be composite",
+			},
+		},
+		{
+			name: "duplicate component servers detected in catalog",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+						},
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+						},
+					},
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "compositeConfig.componentServers[1]",
+				Message: "duplicate component server: entry-1",
+			},
+		},
+		{
+			name: "tool overrides invalid bubbles up in catalog",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{
+									Name:         "",
+									OverrideName: "tool-1-override",
+									Enabled:      true,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedError: errors.Join(
+				types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   "compositeConfig.componentServers[0]",
+					Message: "tool overrides invalid",
+				},
+				types.RuntimeValidationError{
+					Runtime: types.RuntimeComposite,
+					Field:   "toolOverrides[0].name",
+					Message: "original tool name is required",
+				},
+			),
+		},
+		{
+			name: "valid catalog composite configuration passes",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{
+						{
+							CatalogEntryID: "entry-1",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+							ToolOverrides: []types.ToolOverride{
+								{
+									Name:         "tool-1",
+									OverrideName: "tool-1",
+									Enabled:      true,
+								},
+							},
+						},
+						{
+							MCPServerID: "server-2",
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+							},
+						},
+					},
+				},
+			},
+			expectedError: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateCatalogConfig(tt.manifest)
+			require.Equal(t, tt.expectedError, err)
+		})
+	}
+}
+
+func TestValidateToolOverrides(t *testing.T) {
+	tests := []struct {
+		name          string
+		overrides     []types.ToolOverride
+		expectedError error
+	}{
+		{
+			name: "valid overrides",
+			overrides: []types.ToolOverride{
+				{
+					Name:         "tool-1",
+					OverrideName: "tool-1",
+					Enabled:      true,
+				},
+				{
+					Name:         "tool-2",
+					OverrideName: "tool-2-alias",
+					Enabled:      true,
+				},
+			},
+			expectedError: nil,
+		},
+		{
+			name: "missing original tool name",
+			overrides: []types.ToolOverride{
+				{
+					Name:         "",
+					OverrideName: "tool-1",
+					Enabled:      true,
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "toolOverrides[0].name",
+				Message: "original tool name is required",
+			},
+		},
+		{
+			name: "missing override name",
+			overrides: []types.ToolOverride{
+				{
+					Name:         "tool-1",
+					OverrideName: "",
+					Enabled:      true,
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "toolOverrides[0].overrideName",
+				Message: "override tool name is required",
+			},
+		},
+		{
+			name: "duplicate original tool name",
+			overrides: []types.ToolOverride{
+				{
+					Name:         "tool-1",
+					OverrideName: "tool-1",
+					Enabled:      true,
+				},
+				{
+					Name:         "tool-1",
+					OverrideName: "tool-1-alias",
+					Enabled:      true,
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "toolOverrides[1].name",
+				Message: "duplicate tool name: tool-1",
+			},
+		},
+		{
+			name: "duplicate override name when enabled",
+			overrides: []types.ToolOverride{
+				{
+					Name:         "tool-1",
+					OverrideName: "shared-alias",
+					Enabled:      true,
+				},
+				{
+					Name:         "tool-2",
+					OverrideName: "shared-alias",
+					Enabled:      true,
+				},
+			},
+			expectedError: types.RuntimeValidationError{
+				Runtime: types.RuntimeComposite,
+				Field:   "toolOverrides[1].overrideName",
+				Message: "duplicate override name: shared-alias",
+			},
+		},
+		{
+			name: "duplicate override name allowed when second is disabled",
+			overrides: []types.ToolOverride{
+				{
+					Name:         "tool-1",
+					OverrideName: "shared-alias",
+					Enabled:      true,
+				},
+				{
+					Name:         "tool-2",
+					OverrideName: "shared-alias",
+					Enabled:      false,
+				},
+			},
+			expectedError: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateToolOverrides(tt.overrides)
+			require.Equal(t, tt.expectedError, err)
 		})
 	}
 }
