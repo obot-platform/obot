@@ -621,6 +621,22 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
 	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)
 
+	// System MCP Servers (Admin/Owner only)
+	systemMCPServerHandler := handlers.NewSystemMCPServerHandler()
+	systemMCPServerSourcesHandler := handlers.NewSystemMCPServerSourcesHandler()
+
+	mux.HandleFunc("GET /api/system-servers", systemMCPServerHandler.List)
+	mux.HandleFunc("GET /api/system-servers/{id}", systemMCPServerHandler.Get)
+	mux.HandleFunc("POST /api/system-servers", systemMCPServerHandler.Create)
+	mux.HandleFunc("PUT /api/system-servers/{id}", systemMCPServerHandler.Update)
+	mux.HandleFunc("DELETE /api/system-servers/{id}", systemMCPServerHandler.Delete)
+	mux.HandleFunc("POST /api/system-servers/{id}/configure", systemMCPServerHandler.Configure)
+	mux.HandleFunc("POST /api/system-servers/{id}/deconfigure", systemMCPServerHandler.Deconfigure)
+
+	mux.HandleFunc("GET /api/system-server-sources", systemMCPServerSourcesHandler.Get)
+	mux.HandleFunc("PUT /api/system-server-sources", systemMCPServerSourcesHandler.Update)
+	mux.HandleFunc("POST /api/system-server-sources/refresh", systemMCPServerSourcesHandler.Refresh)
+
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
 	mux.HTTPHandle("GET /debug/triggers", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
