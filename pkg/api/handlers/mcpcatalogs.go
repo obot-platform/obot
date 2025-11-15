@@ -180,7 +180,7 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 	if (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
 		entries := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
 		for _, entry := range list.Items {
-			entries = append(entries, convertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
+			entries = append(entries, ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
 		}
 		return req.Write(types.MCPServerCatalogEntryList{Items: entries})
 	}
@@ -205,7 +205,7 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 		}
 
 		if hasAccess {
-			entries = append(entries, convertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
+			entries = append(entries, ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, powerUserID))
 		}
 	}
 
@@ -249,10 +249,10 @@ func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
 		if err := req.Get(&workspace, workspaceID); err != nil {
 			return fmt.Errorf("failed to get workspace for powerUserId: %w", err)
 		}
-		return req.Write(convertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, workspace.Spec.UserID))
+		return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, workspaceID, workspace.Spec.UserID))
 	}
 
-	return req.Write(convertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry))
 }
 
 // CreateEntry creates a new entry for a catalog or workspace.
@@ -315,7 +315,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		return fmt.Errorf("failed to create entry: %w", err)
 	}
 
-	return req.Write(convertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry))
 }
 
 func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
@@ -378,7 +378,7 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 		return fmt.Errorf("failed to update entry: %w", err)
 	}
 
-	return req.Write(convertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry))
 }
 
 func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
@@ -466,7 +466,7 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
 
-		slug, err := slugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
+		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
 		if err != nil {
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
@@ -478,7 +478,7 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 				return err
 			}
 		}
-		items = append(items, convertMCPServer(server, cred.Env, h.serverURL, slug, components...))
+		items = append(items, ConvertMCPServer(server, cred.Env, h.serverURL, slug, components...))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -545,7 +545,7 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
 
-		slug, err := slugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
+		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
 		if err != nil {
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
@@ -557,7 +557,7 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 				return err
 			}
 		}
-		items = append(items, convertMCPServer(server, cred.Env, h.serverURL, slug, components...))
+		items = append(items, ConvertMCPServer(server, cred.Env, h.serverURL, slug, components...))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -621,7 +621,7 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
 
-		slug, err := slugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
+		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
 		if err != nil {
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
@@ -633,7 +633,7 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 				return fmt.Errorf("failed to resolve composite components: %w", err)
 			}
 		}
-		items = append(items, convertMCPServer(server, cred.Env, h.serverURL, slug, components...))
+		items = append(items, ConvertMCPServer(server, cred.Env, h.serverURL, slug, components...))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -689,7 +689,7 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, server.Spec.UserID, catalogName, "")
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
@@ -702,7 +702,7 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 			return err
 		}
 	}
-	return req.Write(convertMCPServer(server, cred.Env, h.serverURL, slug, components...))
+	return req.Write(ConvertMCPServer(server, cred.Env, h.serverURL, slug, components...))
 }
 
 // GenerateToolPreviews launches a temporary instance of an MCP server from a catalog entry
@@ -791,7 +791,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	entry.Spec.Manifest.ToolPreview = toolPreviews
 	if dryRun {
 		// Don't update the entry, just return the entry with the new tool set
-		return req.Write(convertMCPServerCatalogEntry(entry))
+		return req.Write(ConvertMCPServerCatalogEntry(entry))
 	}
 
 	if err := req.Update(&entry); err != nil {
@@ -805,7 +805,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	}
 
 	// Return the updated catalog entry
-	return req.Write(convertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry))
 }
 
 func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry v1.MCPServerCatalogEntry, dryRun bool) error {
@@ -866,7 +866,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 	entry.Spec.Manifest.ToolPreview = compositeToolPreviews
 	if dryRun {
 		// Don't update the entry, just return the entry with the new tool set
-		return req.Write(convertMCPServerCatalogEntry(entry))
+		return req.Write(ConvertMCPServerCatalogEntry(entry))
 	}
 
 	if err := req.Update(&entry); err != nil {
@@ -880,7 +880,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 	}
 
 	// Return the updated catalog entry
-	return req.Write(convertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry))
 }
 
 func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error {
@@ -1261,7 +1261,7 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 		return fmt.Errorf("failed to update entry: %w", err)
 	}
 
-	return req.Write(convertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry))
 }
 
 func (*MCPCatalogHandler) compositeComponentID(component types.CatalogComponentServer) (string, error) {

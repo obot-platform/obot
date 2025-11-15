@@ -39,3 +39,12 @@ func (h *handler) oauthProtectedResource(req api.Context) error {
 	"bearer_methods_supported": ["header"]
 }`, h.baseURL))
 }
+
+func (h *handler) registryOAuthProtectedResource(req api.Context) error {
+	return req.Write(fmt.Sprintf(`{
+	"resource": "%s",
+	"authorization_servers": ["%[1]s"],
+	"scopes_supported": ["mcp-registry:read"],
+	"bearer_methods_supported": ["header"]
+}`, h.baseURL))
+}

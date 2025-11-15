@@ -200,7 +200,7 @@ func (h *handler) authorize(req api.Context) error {
 		}
 	}
 
-	if mcpID != "" {
+	if mcpID != "" && mcpID != "registry" {
 		id, err := handlers.MCPIDFromConnectURL(req, mcpID)
 		if err != nil {
 			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
@@ -288,7 +288,7 @@ func (h *handler) callback(req api.Context) error {
 		return nil
 	}
 
-	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
+	if mcpID := req.PathValue("mcp_id"); mcpID != "" && mcpID != "registry" {
 		// Check whether the MCP server needs authentication.
 		_, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID, h.oauthChecker.mcpSessionManager.TokenService(), h.baseURL)
 		if err != nil {

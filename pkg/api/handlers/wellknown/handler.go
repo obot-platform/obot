@@ -22,6 +22,8 @@ func SetupHandlers(baseURL string, config services.OAuthAuthorizationServerConfi
 	// This is the one we expect clients to hit.
 	mux.HandleFunc("GET /.well-known/oauth-authorization-server/mcp-connect/{mcp_id}", h.oauthAuthorization)
 
+	mux.HandleFunc("GET /.well-known/oauth-protected-resource/registry", h.registryOAuthProtectedResource)
+
 	// These will allow clients that don't follow the WWW-Authenticate header to connect to the MCP gateway.
 	// Such clients won't be able to do the second-level OAuth, but will be able to connect to all MCP servers
 	// that don't require second-level OAuth.

@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway/oauth"
+	"github.com/obot-platform/obot/pkg/api/handlers/registry"
 	"github.com/obot-platform/obot/pkg/api/handlers/sendgrid"
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
@@ -74,6 +75,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL)
+	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -568,6 +570,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	// MCP Gateway Endpoints
 	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.StreamableHTTP)
+
+	// Registry API
+	mux.HandleFunc("GET /v0/servers", registryHandler.ListServers)
+	mux.HandleFunc("GET /v0/servers/{serverName}/versions", registryHandler.ListServerVersions)
+	mux.HandleFunc("GET /v0/servers/{serverName}/versions/{version}", registryHandler.GetServerVersion)
 
 	// MCP Audit Logs
 	mux.HandleFunc("GET /api/mcp-audit-logs", mcpAuditLogs.ListAuditLogs)

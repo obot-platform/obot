@@ -157,6 +157,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.Prompt":                                         schema_obot_platform_obot_apiclient_types_Prompt(ref),
 		"github.com/obot-platform/obot/apiclient/types.PromptResponse":                                 schema_obot_platform_obot_apiclient_types_PromptResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":                 schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryIcon":                                   schema_obot_platform_obot_apiclient_types_RegistryIcon(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryMeta":                                   schema_obot_platform_obot_apiclient_types_RegistryMeta(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryMetadata":                               schema_obot_platform_obot_apiclient_types_RegistryMetadata(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryObotMeta":                               schema_obot_platform_obot_apiclient_types_RegistryObotMeta(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryRemote":                                 schema_obot_platform_obot_apiclient_types_RegistryRemote(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryRepository":                             schema_obot_platform_obot_apiclient_types_RegistryRepository(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryServerList":                             schema_obot_platform_obot_apiclient_types_RegistryServerList(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryServerResponse":                         schema_obot_platform_obot_apiclient_types_RegistryServerResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsage":                            schema_obot_platform_obot_apiclient_types_RemainingTokenUsage(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemainingTokenUsageList":                        schema_obot_platform_obot_apiclient_types_RemainingTokenUsageList(ref),
 		"github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig":                            schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref),
@@ -171,6 +179,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportListResponse":            schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportListResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportResponse":                schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ScheduledAuditLogExportUpdateRequest":           schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ServerDetail":                                   schema_obot_platform_obot_apiclient_types_ServerDetail(ref),
 		"github.com/obot-platform/obot/apiclient/types.SlackReceiver":                                  schema_obot_platform_obot_apiclient_types_SlackReceiver(ref),
 		"github.com/obot-platform/obot/apiclient/types.SlackReceiverList":                              schema_obot_platform_obot_apiclient_types_SlackReceiverList(ref),
 		"github.com/obot-platform/obot/apiclient/types.SlackReceiverManifest":                          schema_obot_platform_obot_apiclient_types_SlackReceiverManifest(ref),
@@ -7764,6 +7773,254 @@ func schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(re
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_RegistryIcon(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RegistryIcon represents an icon for display",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"src": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"mimeType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sizes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"theme": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"src"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_RegistryMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RegistryMeta contains registry-managed metadata",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ai.obot/server": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.RegistryObotMeta"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.RegistryObotMeta"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_RegistryMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RegistryMetadata contains pagination metadata",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nextCursor": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"count": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_RegistryObotMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RegistryObotMeta contains Obot-specific metadata",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"configurationRequired": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"configurationMessage": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_RegistryRemote(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RegistryRemote represents a remote server configuration All Obot servers are exposed as streamable-http remotes via mcp-connect",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Always \"streamable-http\" for configured Obot servers",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"type", "url"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_RegistryRepository(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RegistryRepository represents repository metadata",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"subfolder": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"url", "source"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_RegistryServerList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RegistryServerList represents the paginated list response from /v0/servers",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"servers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.RegistryServerResponse"),
+									},
+								},
+							},
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.RegistryMetadata"),
+						},
+					},
+				},
+				Required: []string{"servers"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.RegistryMetadata", "github.com/obot-platform/obot/apiclient/types.RegistryServerResponse"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_RegistryServerResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RegistryServerResponse wraps a server with registry metadata",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"server": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ServerDetail"),
+						},
+					},
+					"_meta": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.RegistryMeta"),
+						},
+					},
+				},
+				Required: []string{"server", "_meta"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.RegistryMeta", "github.com/obot-platform/obot/apiclient/types.ServerDetail"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_RemainingTokenUsage(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -8407,6 +8664,86 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequ
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ServerDetail(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ServerDetail matches the Registry API ServerDetail schema For Obot, configured servers always use Remotes (never Packages)",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"title": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"websiteUrl": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"icons": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.RegistryIcon"),
+									},
+								},
+							},
+						},
+					},
+					"remotes": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.RegistryRemote"),
+									},
+								},
+							},
+						},
+					},
+					"repository": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.RegistryRepository"),
+						},
+					},
+				},
+				Required: []string{"name", "description", "version"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.RegistryIcon", "github.com/obot-platform/obot/apiclient/types.RegistryRemote", "github.com/obot-platform/obot/apiclient/types.RegistryRepository"},
 	}
 }
 

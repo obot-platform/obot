@@ -154,6 +154,8 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 			if strings.HasPrefix(req.URL.Path, "/mcp-connect/") {
 				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"`, strings.TrimSuffix(s.baseURL, "/api"), req.URL.Path))
+			} else if strings.HasPrefix(req.URL.Path, "/v0") {
+				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", scope="mcp-registry:read", resource_metadata="%s/.well-known/oauth-protected-resource/registry"`, strings.TrimSuffix(s.baseURL, "/api")))
 			}
 
 			if slices.Contains(user.GetGroups(), authz.UnauthenticatedGroup) {
