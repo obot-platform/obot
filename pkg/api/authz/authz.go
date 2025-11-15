@@ -102,6 +102,14 @@ var (
 		"/api/scheduled-audit-log-exports/{id}",
 		"/api/storage-credentials",
 		"/api/storage-credentials/",
+
+		// This rule allows admins without an ACR to fetch tools for MCP servers in the default
+		// catalog (all catalogs really) via the UI. It goes to the same handler as /api/mcp-servers/{mcpserver_id}/tools,
+		// which admins already have access to from the rules above, so it's not exposing anything that
+		// wasn't already accessible to them.
+		// It's a bit of a hack, but it fixes the issue without refactoring the authz rules, changing the UI, or
+		// adding local authz checks to the handler (like the rest of the /api/all-mcps/ endpoints).
+		"GET /api/all-mcps/servers/{mcpserver_id}/tools",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
