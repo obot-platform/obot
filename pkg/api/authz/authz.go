@@ -229,6 +229,9 @@ var (
 			"GET /api/all-mcps/entries/{entry_id}",
 			"GET /api/all-mcps/servers",
 			"GET /api/all-mcps/servers/{mcp_server_id}",
+
+			"GET /v0.1",
+			"GET /v0.1/",
 		},
 
 		types.GroupPowerUserPlus: {

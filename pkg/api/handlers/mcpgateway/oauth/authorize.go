@@ -200,7 +200,7 @@ func (h *handler) authorize(req api.Context) error {
 		}
 	}
 
-	if mcpID != "" {
+	if mcpID != "" && mcpID != "registry" {
 		id, audience, err := handlers.MCPIDAndAudienceFromConnectURL(req, mcpID)
 		if err != nil {
 			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
@@ -294,7 +294,7 @@ func (h *handler) callback(req api.Context) error {
 		return nil
 	}
 
-	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
+	if mcpID := req.PathValue("mcp_id"); mcpID != "" && mcpID != "registry" {
 		// Check whether the MCP server needs authentication.
 		jwks, err := h.jwks(req.Context())
 		if err != nil {

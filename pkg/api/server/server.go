@@ -163,6 +163,10 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				})
 			}
 
+			if strings.HasPrefix(req.URL.Path, "/v0.1") {
+				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", scope="mcp-registry:read", resource_metadata="%s/.well-known/oauth-protected-resource/registry"`, strings.TrimSuffix(s.baseURL, "/api")))
+			}
+
 			if authenticated {
 				http.Error(rw, "forbidden", http.StatusForbidden)
 			} else {
