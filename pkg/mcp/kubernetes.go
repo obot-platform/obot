@@ -344,16 +344,24 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	// Add K8s settings hash to annotations
 	annotations["obot.ai/k8s-settings-hash"] = ComputeK8sSettingsHash(k8sSettings)
 
+	// Build labels - add system-mcp-server-name label for system servers
+	labels := map[string]string{
+		"app":             server.Scope,
+		"mcp-server-name": serverName,
+		"mcp-user-id":     userID,
+	}
+	// Check if this is a SystemMCPServer by looking at the prefix
+	if strings.HasPrefix(serverName, "sysms1") {
+		labels["system-mcp-server-name"] = serverName
+		labels["obot.ai/system-server"] = "true"
+	}
+
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        server.Scope,
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
-			Labels: map[string]string{
-				"app":             server.Scope,
-				"mcp-server-name": serverName,
-				"mcp-user-id":     userID,
-			},
+			Labels:      labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -364,11 +372,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: annotations,
-					Labels: map[string]string{
-						"app":             server.Scope,
-						"mcp-server-name": serverName,
-						"mcp-user-id":     userID,
-					},
+					Labels:      labels,
 				},
 				Spec: corev1.PodSpec{
 					Affinity:    k8sSettings.Affinity,

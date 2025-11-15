@@ -99,6 +99,76 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 	return nil
 }
 
+// UpdateSystemMCPServerStatus watches for Deployment changes and copies status information
+// to the corresponding SystemMCPServer object based on the "system-mcp-server-name" label
+func (h *Handler) UpdateSystemMCPServerStatus(req router.Request, _ router.Response) error {
+	// TODO(g-linville): DRY this up
+	deployment := req.Object.(*appsv1.Deployment)
+
+	// Get the system MCP server name from the deployment label
+	systemServerName, exists := deployment.Labels["system-mcp-server-name"]
+	if !exists {
+		// This deployment is not associated with a system MCP server, skip it
+		return nil
+	}
+
+	// Find the corresponding SystemMCPServer object by name using the storage client
+	var systemServer v1.SystemMCPServer
+	if err := h.storageClient.Get(req.Ctx, kclient.ObjectKey{
+		Name:      systemServerName,
+		Namespace: h.mcpNamespace,
+	}, &systemServer); apierrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get SystemMCPServer %s: %w", systemServerName, err)
+	}
+
+	// Extract deployment status information
+	deploymentStatus := getDeploymentStatus(deployment)
+	availableReplicas := deployment.Status.AvailableReplicas
+	readyReplicas := deployment.Status.ReadyReplicas
+	replicas := deployment.Spec.Replicas
+	conditions := getDeploymentConditions(deployment)
+
+	// Extract K8s settings hash from deployment annotation (only for Kubernetes runtime)
+	k8sSettingsHash := deployment.Annotations["obot.ai/k8s-settings-hash"]
+
+	// Check if we need to update the SystemMCPServer status
+	var needsUpdate bool
+	if systemServer.Status.DeploymentStatus != deploymentStatus {
+		systemServer.Status.DeploymentStatus = deploymentStatus
+		needsUpdate = true
+	}
+	if !int32PtrEqual(systemServer.Status.DeploymentAvailableReplicas, &availableReplicas) {
+		systemServer.Status.DeploymentAvailableReplicas = &availableReplicas
+		needsUpdate = true
+	}
+	if !int32PtrEqual(systemServer.Status.DeploymentReadyReplicas, &readyReplicas) {
+		systemServer.Status.DeploymentReadyReplicas = &readyReplicas
+		needsUpdate = true
+	}
+	if !int32PtrEqual(systemServer.Status.DeploymentReplicas, replicas) {
+		systemServer.Status.DeploymentReplicas = replicas
+		needsUpdate = true
+	}
+	if !slices.Equal(systemServer.Status.DeploymentConditions, conditions) {
+		systemServer.Status.DeploymentConditions = conditions
+		needsUpdate = true
+	}
+	// Update K8s settings hash if it changed
+	if systemServer.Status.K8sSettingsHash != k8sSettingsHash {
+		systemServer.Status.K8sSettingsHash = k8sSettingsHash
+		needsUpdate = true
+	}
+
+	// Update the SystemMCPServer status if needed
+	if needsUpdate {
+		return h.storageClient.Status().Update(req.Ctx, &systemServer)
+	}
+
+	return nil
+}
+
 // CleanupOldIDs will remove deployments with the old ID
 func (h *Handler) CleanupOldIDs(req router.Request, _ router.Response) error {
 	name := req.Object.GetName()

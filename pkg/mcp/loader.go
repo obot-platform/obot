@@ -249,6 +249,13 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 	return sm.backend.restartServer(ctx, server.Scope)
 }
 
+// EnsureDeployment ensures that the server deployment exists in the backend.
+// This is exposed publicly for use by controllers that need to manage deployments directly.
+func (sm *SessionManager) EnsureDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
+	// TODO(g-linville): just export the other function
+	return sm.ensureDeployment(ctx, server, userID, mcpServerDisplayName, mcpServerName)
+}
+
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
 	switch server.Runtime {
 	case otypes.RuntimeRemote:

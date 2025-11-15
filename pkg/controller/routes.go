@@ -29,6 +29,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/runstates"
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/slackreceiver"
+	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserversources"
 	"github.com/obot-platform/obot/pkg/controller/handlers/task"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
@@ -84,6 +85,7 @@ func (c *Controller) setupRoutes() {
 	auditLogExportHandler := auditlogexport.NewHandler(c.services.GPTClient, c.services.GatewayClient, c.services.EncryptionConfig)
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 	systemMCPServerSourcesHandler := systemmcpserversources.New()
+	systemMCPServerHandler := systemmcpserver.New(c.services.MCPLoader, c.services.GPTClient)
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -248,6 +250,10 @@ func (c *Controller) setupRoutes() {
 
 	// SystemMCPServerSources
 	root.Type(&v1.SystemMCPServerSources{}).HandlerFunc(systemMCPServerSourcesHandler.Sync)
+
+	// SystemMCPServer
+	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureDeployment)
+	root.Type(&v1.SystemMCPServer{}).FinalizeFunc(v1.SystemMCPServerFinalizer, systemMCPServerHandler.Cleanup)
 
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
