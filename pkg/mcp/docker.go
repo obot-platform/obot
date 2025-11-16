@@ -28,6 +28,7 @@ type dockerBackend struct {
 	client       *client.Client
 	containerEnv bool
 	baseImage    string
+	network      string
 }
 
 func newDockerBackend(ctx context.Context, baseImage string) (backend, error) {
@@ -40,10 +41,20 @@ func newDockerBackend(ctx context.Context, baseImage string) (backend, error) {
 		return nil, fmt.Errorf("failed to cleanup containers with old ID: %w", err)
 	}
 
+	containerEnv := os.Getenv("OBOT_CONTAINER_ENV") == "true"
+	network := "bridge"
+	if containerEnv {
+		network, err = detectCurrentNetwork(ctx, cli)
+		if err != nil {
+			return nil, fmt.Errorf("failed to detect current network: %w", err)
+		}
+	}
+
 	return &dockerBackend{
 		client:       cli,
-		containerEnv: os.Getenv("OBOT_CONTAINER_ENV") == "true",
+		containerEnv: containerEnv,
 		baseImage:    baseImage,
+		network:      network,
 	}, nil
 }
 
@@ -69,12 +80,36 @@ func cleanupContainersWithOldID(ctx context.Context, client *client.Client) erro
 	return nil
 }
 
+// detectCurrentNetwork detects the Docker network of the current container if running inside one.
+// Returns empty string if not running in a container or if detection fails.
+func detectCurrentNetwork(ctx context.Context, cli *client.Client) (string, error) {
+	// Read container ID from cgroup file
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "", fmt.Errorf("failed to get hostname: %w", err)
+	}
+
+	// Try to inspect container using hostname as container ID
+	inspect, err := cli.ContainerInspect(ctx, hostname)
+	if err != nil {
+		// Not running in a container or can't access Docker socket
+		return "", fmt.Errorf("failed to inspect container: %w", err)
+	}
+
+	// Get the first network (most containers are on a single network)
+	for networkName := range inspect.NetworkSettings.Networks {
+		return networkName, nil
+	}
+
+	return "bridge", nil
+}
+
 func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
 	configHash := clientID(server)
 	// Check if container already exists
 	existing, err := d.getContainer(ctx, server.Scope)
 	if err == nil && existing != nil {
-		if existing.Labels["mcp.config.hash"] != configHash {
+		if existing.Labels["mcp.config.hash"] != configHash || existing.NetworkSettings == nil || existing.NetworkSettings.Networks[d.network] == nil {
 			// Clear the state. The below logic will remove and recreate the container.
 			existing.State = ""
 		}
@@ -332,9 +367,9 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 			return ServerConfig{}, fmt.Errorf("container %s not found or has no network settings", c.ID)
 		}
 
-		n, ok := c.NetworkSettings.Networks["bridge"]
+		n, ok := c.NetworkSettings.Networks[d.network]
 		if !ok || n.IPAddress == "" {
-			return ServerConfig{}, fmt.Errorf("container %s is not connected to bridge network", c.ID)
+			return ServerConfig{}, fmt.Errorf("container %s is not connected to %s network", c.ID, d.network)
 		}
 
 		host = n.IPAddress
@@ -495,13 +530,21 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		return retConfig, fmt.Errorf("failed to ensure image exists: %w", err)
 	}
 
+	// Configure network
+	networkingConfig := &network.NetworkingConfig{}
+	if d.network != "" {
+		networkingConfig.EndpointsConfig = map[string]*network.EndpointSettings{
+			d.network: {},
+		}
+	}
+
 	var containerID string
 	// There seems to be a race condition in the Docker API where creating the container fails with a conflict,
 	// but getting the container with the name returns no results.
 	// This hack addresses this by retrying 3 times, waiting a second each time.
 	for range 3 {
 		// Create container
-		resp, err := d.client.ContainerCreate(ctx, config, hostConfig, &network.NetworkingConfig{}, nil, containerName)
+		resp, err := d.client.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, containerName)
 		if err != nil {
 			if !cerrdefs.IsConflict(err) && !cerrdefs.IsAlreadyExists(err) {
 				return retConfig, fmt.Errorf("failed to create container: %w", err)
@@ -590,9 +633,9 @@ func (d *dockerBackend) ensureServerReady(ctx context.Context, c *container.Summ
 			return fmt.Errorf("container %s not found or has no network settings", containerName)
 		}
 
-		n, ok := c.NetworkSettings.Networks["bridge"]
+		n, ok := c.NetworkSettings.Networks[d.network]
 		if !ok || n.IPAddress == "" {
-			return fmt.Errorf("container %s is not connected to bridge network", containerName)
+			return fmt.Errorf("container %s is not connected to %s network", containerName, d.network)
 		}
 
 		host = n.IPAddress
@@ -832,9 +875,17 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 		AutoRemove: true,
 	}
 
+	// Configure network (same as main containers)
+	initNetworkingConfig := &network.NetworkingConfig{}
+	if d.network != "" {
+		initNetworkingConfig.EndpointsConfig = map[string]*network.EndpointSettings{
+			d.network: {},
+		}
+	}
+
 	var initContainerID string
 	initContainerName := fmt.Sprintf("%s-nanobot-init", containerName)
-	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, &network.NetworkingConfig{}, nil, initContainerName)
+	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, initNetworkingConfig, nil, initContainerName)
 	if cerrdefs.IsConflict(err) || cerrdefs.IsAlreadyExists(err) {
 		// Container already exists, so get its ID
 		resp, err := d.client.ContainerList(ctx, container.ListOptions{
