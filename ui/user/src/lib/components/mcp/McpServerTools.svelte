@@ -107,11 +107,6 @@
 			selected = tools.filter((t) => t.enabled).map((t) => t.id);
 		} catch (err) {
 			console.error(err);
-			if (err instanceof Error) {
-				error = err.message;
-			} else {
-				error = 'Failed to load tools';
-			}
 		} finally {
 			loading = false;
 		}
