@@ -22,7 +22,7 @@ Then open your browser to [http://localhost:8080](http://localhost:8080) to acce
 >
 > Setting both is also supported, but OpenAI models will be set as the defaults.
 
-For more installation methods, see our [Installation Guide](https://docs.obot.ai/installation/general).
+For more installation methods, see our [Installation Guide](https://docs.obot.ai/installation/overview).
 
 ## Run with Docker Compose
 
