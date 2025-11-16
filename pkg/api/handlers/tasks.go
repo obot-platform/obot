@@ -380,6 +380,7 @@ func convertTaskRun(workflow *v1.Workflow, wfe *v1.WorkflowExecution) types.Task
 		StartTime: types.NewTime(wfe.CreationTimestamp.Time),
 		EndTime:   endTime,
 		Error:     wfe.Status.Error,
+		Warning:   wfe.Status.Warning,
 	}
 }
 

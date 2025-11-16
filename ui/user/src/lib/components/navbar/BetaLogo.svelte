@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { darkMode } from '$lib/stores';
+	import { twMerge } from 'tailwind-merge';
 	interface Props {
 		chat?: boolean;
 		enterprise?: boolean;
+		class?: string;
 	}
-	let { chat, enterprise }: Props = $props();
+	let { chat, enterprise, class: klass }: Props = $props();
 </script>
 
-<div class="flex flex-shrink-0">
+<div class={twMerge('flex flex-shrink-0', klass)}>
 	{#if darkMode.isDark}
 		{#if chat}
 			<img

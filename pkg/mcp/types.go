@@ -34,6 +34,8 @@ type ServerConfig struct {
 	ContainerPort  int           `json:"containerPort"`
 	ContainerPath  string        `json:"containerPath"`
 	Runtime        types.Runtime `json:"runtime"`
+
+	ProjectMCPServer bool `json:"projectMCPServer"`
 }
 
 type File struct {
@@ -247,6 +249,8 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 		} else {
 			return serverConfig, missingRequiredNames, fmt.Errorf("runtime %s requires remote config", mcpServer.Spec.Manifest.Runtime)
 		}
+	case types.RuntimeComposite:
+		return serverConfig, nil, nil
 	default:
 		return serverConfig, missingRequiredNames, fmt.Errorf("unknown runtime %s", mcpServer.Spec.Manifest.Runtime)
 	}
@@ -278,20 +282,37 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 }
 
 func ProjectServerToConfig(tokenService *ephemeral.TokenService, projectMCPServer v1.ProjectMCPServer, baseURL, userID string, allowedTools ...string) (ServerConfig, error) {
-	tokenContext := ephemeral.TokenContext{
+	token, err := tokenService.NewToken(ephemeral.TokenContext{
 		UserID:     userID,
 		UserGroups: []string{types.GroupBasic},
-	}
-	token, err := tokenService.NewToken(tokenContext)
+	})
 	if err != nil {
 		return ServerConfig{}, fmt.Errorf("failed to create token: %w", err)
 	}
 
 	return ServerConfig{
-		URL:          projectMCPServer.ConnectURL(baseURL),
-		Headers:      []string{fmt.Sprintf("Authorization=Bearer %s", token)},
-		Scope:        fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
-		AllowedTools: allowedTools,
-		Runtime:      types.RuntimeRemote,
+		URL:              projectMCPServer.ConnectURL(baseURL),
+		Headers:          []string{fmt.Sprintf("Authorization=Bearer %s", token)},
+		Scope:            fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
+		AllowedTools:     allowedTools,
+		Runtime:          types.RuntimeRemote,
+		ProjectMCPServer: true,
+	}, nil
+}
+
+func CompositeServerToConfig(tokenService *ephemeral.TokenService, mcpServerName, baseURL, userID, scope string) (ServerConfig, error) {
+	token, err := tokenService.NewToken(ephemeral.TokenContext{
+		UserID:     userID,
+		UserGroups: []string{types.GroupBasic},
+	})
+	if err != nil {
+		return ServerConfig{}, fmt.Errorf("failed to create token: %w", err)
+	}
+
+	return ServerConfig{
+		URL:     fmt.Sprintf("%s/mcp-connect/%s", baseURL, mcpServerName),
+		Headers: []string{fmt.Sprintf("Authorization=Bearer %s", token)},
+		Scope:   scope,
+		Runtime: types.RuntimeRemote,
 	}, nil
 }

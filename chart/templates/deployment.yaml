@@ -13,10 +13,13 @@ spec:
       {{- include "obot.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- if not .Values.config.existingSecret }}
       annotations:
+        {{- if not .Values.config.existingSecret }}
         checksum/config-secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
-      {{- end }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       labels:
         {{- include "obot.labels" . | nindent 8 }}
     spec:
@@ -50,6 +53,7 @@ spec:
                   - users.obot.obot.ai
                   - identities.obot.obot.ai
                   - mcpoauthtokens.obot.obot.ai
+                  - mcpauditlogs.obot.obot.ai
                 providers:
                   - aesgcm:
                       keys:

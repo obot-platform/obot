@@ -81,6 +81,8 @@ var (
 		"/api/workflows/",
 		"GET /api/users",
 		"GET /api/groups",
+		"/api/group-role-assignments",
+		"/api/group-role-assignments/",
 		"POST /api/encrypt-all-users",
 		"/api/users/",
 		"GET /api/active-users",
@@ -93,6 +95,13 @@ var (
 		"/api/file-scanner-config",
 		"/api/user-default-role-settings",
 		"/api/setup/",
+		"/api/k8s-settings",
+		"/api/audit-log-exports",
+		"/api/audit-log-exports/{id}",
+		"/api/scheduled-audit-log-exports",
+		"/api/scheduled-audit-log-exports/{id}",
+		"/api/storage-credentials",
+		"/api/storage-credentials/",
 	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
@@ -120,10 +129,15 @@ var (
 			"GET /api/agents",
 			"GET /api/default-model-aliases",
 			"GET /api/user-default-role-settings",
+			"GET /api/k8s-settings",
 			"POST /api/auth-providers/",
 			"GET /api/workspaces/",
 			"GET /api/projects/",
 			"GET /api/assistants/{assistant_id}/projects/",
+			"/api/audit-log-exports/",
+			"/api/audit-log-exports/{id}",
+			"/api/scheduled-audit-log-exports",
+			"/api/scheduled-audit-log-exports/{id}",
 		},
 		anyGroup: {
 			// Allow access to the oauth2 endpoints

@@ -1,4 +1,3 @@
-import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { getProfile } from '$lib/services/chat/operations';
 import { type Profile } from '$lib/services/chat/types';
 
@@ -16,7 +15,7 @@ const store = $state({
 async function init() {
 	try {
 		store.current = await getProfile();
-		if (store.current.username === BOOTSTRAP_USER_ID) {
+		if (store.current.isBootstrapUser?.()) {
 			store.current.displayName = 'Bootstrap';
 		}
 	} catch (e) {

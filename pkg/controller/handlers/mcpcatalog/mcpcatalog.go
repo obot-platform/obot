@@ -126,7 +126,9 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	// Don't run prune if there are sync errors
 	if len(mcpCatalog.Status.SyncErrors) > 0 {
-		app.WithNoPrune()
+		app = app.WithNoPrune()
+	} else {
+		app = app.WithPruneTypes(&v1.MCPServerCatalogEntry{})
 	}
 
 	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
@@ -486,7 +488,7 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 				return fmt.Errorf("failed to check if user %s has access to catalog entry %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, err)
 			}
 
-			if !hasAccess {
+			if !hasAccess && server.Spec.CompositeName == "" {
 				log.Infof("Deleting MCP server %q because it is no longer authorized to exist", server.Name)
 				if err := req.Delete(&server); err != nil {
 					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
@@ -623,7 +625,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForCatalog(req router.Requ
 				return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 			}
 
-			if !hasAccess {
+			if !hasAccess && instance.Spec.CompositeName == "" {
 				log.Infof("Deleting MCPServerInstance %q because it is no longer authorized to exist", instance.Name)
 				if err := req.Delete(&instance); err != nil {
 					return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
@@ -688,7 +690,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForWorkspace(req router.Re
 				return fmt.Errorf("failed to check if user %s has access to MCP server %s: %w", instance.Spec.UserID, instance.Spec.MCPServerName, err)
 			}
 
-			if !hasAccess {
+			if !hasAccess && instance.Spec.CompositeName == "" {
 				log.Infof("Deleting MCPServerInstance %q because it is no longer authorized to exist", instance.Name)
 				if err := req.Delete(&instance); err != nil {
 					return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)

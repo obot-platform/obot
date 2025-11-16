@@ -4,7 +4,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { BOOTSTRAP_USER_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { userRoleOptions } from '$lib/services/admin/constants.js';
 	import { Group, Role, type OrgUser } from '$lib/services/admin/types';
 	import { AdminService, ChatService } from '$lib/services/index.js';
@@ -17,15 +17,21 @@
 	import { debounce } from 'es-toolkit';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
-	import { onMount } from 'svelte';
-	import { clearUrlParams, setUrlParams } from '$lib/url.js';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		getTableUrlParamsSort,
+		setSortUrlParams,
+		setFilterUrlParams
+	} from '$lib/url.js';
 
 	let { data } = $props();
 	const { users: initialUsers } = data;
 
 	let users = $state<OrgUser[]>(initialUsers);
 	let query = $state('');
-	let urlFilters = $state<Record<string, (string | number)[]>>({});
+	let urlFilters = $derived(getTableUrlParamsFilters());
+	let initSort = $derived(getTableUrlParamsSort());
 
 	const tableData = $derived(
 		users
@@ -59,14 +65,6 @@
 		{ label: 'Basic User', id: Role.BASIC }
 	]);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-
-	onMount(() => {
-		if (page.url.searchParams.size > 0) {
-			page.url.searchParams.forEach((value, key) => {
-				urlFilters[key] = value.split(',');
-			});
-		}
-	});
 
 	function closeUpdateRoleDialog() {
 		updateRoleDialog?.close();
@@ -138,10 +136,12 @@
 					fields={['name', 'email', 'role', 'lastActiveDay']}
 					filterable={['name', 'email', 'role']}
 					filters={urlFilters}
-					onFilter={setUrlParams}
+					onFilter={setFilterUrlParams}
 					onClearAllFilters={clearUrlParams}
 					sortable={['name', 'email', 'role', 'lastActiveDay']}
 					headers={[{ title: 'Last Active', property: 'lastActiveDay' }]}
+					{initSort}
+					onSort={setSortUrlParams}
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'role'}
@@ -283,10 +283,7 @@
 				class="button-primary"
 				onclick={async () => {
 					if (!updatingRole) return;
-					if (
-						profile.current.username === BOOTSTRAP_USER_ID &&
-						updatingRole.roleId === Role.OWNER
-					) {
+					if (profile.current.isBootstrapUser?.() && updatingRole.roleId === Role.OWNER) {
 						updateRoleDialog?.close();
 						confirmHandoffToUser = updatingRole;
 						return;

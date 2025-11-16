@@ -5,7 +5,10 @@ import {
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
 	type ContainerizedRuntimeConfig,
-	type Task
+	type CompositeRuntimeConfig,
+	type Task,
+	type ToolOverride,
+	type Schedule
 } from '../chat/types';
 
 export interface MCPCatalogManifest {
@@ -36,6 +39,18 @@ export interface RemoteCatalogConfigAdmin {
 	headers?: MCPCatalogEntryFieldManifest[];
 }
 
+export interface CompositeCatalogConfig {
+	componentServers: CatalogComponentServer[];
+}
+
+export interface CatalogComponentServer {
+	catalogEntryID?: string;
+	mcpServerID?: string;
+	manifest?: MCPCatalogEntryServerManifest;
+	toolOverrides?: ToolOverride[];
+	disabled?: boolean;
+}
+
 export interface MCPCatalogEntryServerManifest {
 	icon?: string;
 	env?: MCPCatalogEntryFieldManifest[];
@@ -53,6 +68,7 @@ export interface MCPCatalogEntryServerManifest {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin;
+	compositeConfig?: CompositeCatalogConfig;
 }
 
 export interface MCPCatalogEntry {
@@ -66,6 +82,7 @@ export interface MCPCatalogEntry {
 	powerUserID?: string;
 	powerUserWorkspaceID?: string;
 	isCatalogEntry: boolean;
+	needsUpdate?: boolean;
 }
 
 export interface MCPCatalogEntryFieldManifest {
@@ -76,6 +93,7 @@ export interface MCPCatalogEntryFieldManifest {
 	sensitive: boolean;
 	value: string;
 	file?: boolean;
+	prefix?: string;
 }
 
 export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryServerManifest, 'metadata'> & {
@@ -101,6 +119,8 @@ export interface RuntimeFormData {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin; // For catalog entries
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
+	compositeConfig?: CompositeCatalogConfig; // For catalog entries
+	compositeServerConfig?: CompositeRuntimeConfig; // For servers
 }
 
 export interface MCPCatalogServerManifest {
@@ -124,6 +144,18 @@ export interface OrgUser {
 	deletedAt?: string;
 	originalEmail?: string;
 	originalUsername?: string;
+}
+
+export interface TempUser {
+	userId: number;
+	username: string;
+	email: string;
+	role: number;
+	groups: string[];
+	iconUrl: string;
+	authProviderName: string;
+	authProviderNamespace: string;
+	cachedAt: string;
 }
 
 export interface OrgGroup {
@@ -156,6 +188,7 @@ export interface ProviderParameter {
 	description?: string;
 	sensitive?: boolean;
 	hidden?: boolean;
+	multiline?: boolean;
 }
 
 export interface BaseProvider {
@@ -325,6 +358,12 @@ export interface AuditLog {
 		prompts?: Record<string, unknown>[];
 		resources?: Record<string, unknown>[];
 	};
+	webhookStatuses?: {
+		type?: string;
+		url: string;
+		status: string;
+		message?: string;
+	}[];
 	error?: string;
 	sessionID?: string;
 	requestID?: string;
@@ -473,3 +512,149 @@ export interface MCPFilter extends MCPFilterManifest {
 	type: string;
 	hasSecret: boolean;
 }
+
+export interface AuditLogExportInput {
+	name: string;
+	bucket: string;
+	startTime: string;
+	endTime: string;
+	filters: AuditLogExportFilters;
+}
+
+export interface AuditLogExport {
+	id: string;
+	name: string;
+	bucket: string;
+	keyPrefix?: string;
+	storageProvider: string;
+	startTime: string;
+	endTime: string;
+	state: 'pending' | 'running' | 'completed' | 'failed';
+	error?: string;
+	exportedRecords?: number;
+	exportSize?: number;
+	createdAt: string;
+	completedAt?: string;
+	filters: AuditLogExportFilterResponse;
+}
+
+export interface AuditLogExportFilterResponse {
+	userIDs?: string[];
+	mcpIDs?: string[];
+	mcpServerDisplayNames?: string[];
+	mcpServerCatalogEntryNames?: string[];
+	callTypes?: string[];
+	callIdentifiers?: string[];
+	responseStatuses?: string[];
+	sessionIDs?: string[];
+	clientNames?: string[];
+	clientVersions?: string[];
+	clientIPs?: string[];
+	query?: string;
+}
+
+export type AuditLogExportFilters = {
+	userIDs?: string[];
+	mcpIDs?: string[];
+	mcpServerDisplayNames?: string[];
+	mcpServerCatalogEntryNames?: string[];
+	callTypes?: string[];
+	callIdentifiers?: string[];
+	responseStatuses?: string[];
+	sessionIDs?: string[];
+	clientNames?: string[];
+	clientVersions?: string[];
+	clientIPs?: string[];
+	query?: string;
+};
+
+export interface ScheduledAuditLogExportInput {
+	name: string;
+	enabled: boolean;
+	schedule: Schedule;
+	bucket: string;
+	retentionPeriodInDays: number;
+	filters: AuditLogExportFilters;
+}
+
+export interface ScheduledAuditLogExport {
+	id: string;
+	name: string;
+	enabled: boolean;
+	schedule: Schedule;
+	storageProvider: string;
+	format: string;
+	state: string;
+	createdAt: string;
+	lastRunAt: string;
+	bucket: string;
+	keyPrefix: string;
+	retentionPeriodInDays: number;
+	filters: AuditLogExportFilterResponse;
+}
+
+export interface StorageCredentials {
+	provider: string;
+	useWorkloadIdentity: boolean;
+	s3Config?: {
+		region: string;
+		accessKeyID: string;
+		secretAccessKey: string;
+		sessionToken: string;
+	};
+	gcsConfig?: {
+		serviceAccountJSON: string;
+	};
+	azureConfig?: {
+		storageAccount: string;
+		clientID: string;
+		tenantID: string;
+		clientSecret: string;
+	};
+	customS3Config?: {
+		endpoint: string;
+		region: string;
+		accessKeyID: string;
+		secretAccessKey: string;
+	};
+}
+
+export interface K8sSettings {
+	id: string;
+	created: string;
+	deleted?: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	type: string;
+	affinity?: string;
+	tolerations?: string;
+	resources?: string;
+	setViaHelm?: boolean;
+}
+
+export interface K8sSettingsManifest {
+	affinity?: string;
+	tolerations?: string;
+	resources?: string;
+}
+
+export interface ServerK8sSettings {
+	needsK8sUpdate: boolean;
+	currentSettings: K8sSettings;
+	deployedSettingsHash: string;
+}
+export type CompositeServerParameterRow = {
+	id: string;
+	originalName: string;
+	overrideName: string;
+	originalDescription?: string;
+	overrideDescription?: string;
+};
+export type CompositeServerToolRow = {
+	id: string;
+	originalName: string;
+	overrideName: string;
+	originalDescription?: string;
+	overrideDescription?: string;
+	enabled: boolean;
+};

@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import Confirm from '$lib/components/Confirm.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import Table from '$lib/components/table/Table.svelte';
+	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import {
 		fetchMcpServerAndEntries,
 		getAdminMcpServerAndEntries
@@ -15,12 +16,24 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
-	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp';
+	import {
+		convertEntriesAndServersToTableData,
+		getServerTypeLabelByType
+	} from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { Captions, Ellipsis, LoaderCircle, Server, Trash2 } from 'lucide-svelte';
+	import {
+		AlertTriangle,
+		Captions,
+		CircleFadingArrowUp,
+		Ellipsis,
+		LoaderCircle,
+		Server,
+		Trash2
+	} from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
+	import { slide } from 'svelte/transition';
 
 	type Item = ReturnType<typeof convertEntriesAndServersToTableData>[number];
 
@@ -33,6 +46,8 @@
 		urlFilters?: Record<string, (string | number)[]>;
 		onFilter?: (property: string, values: string[]) => void;
 		onClearAllFilters?: () => void;
+		onSort?: InitSortFn;
+		initSort?: InitSort;
 	}
 
 	let {
@@ -43,7 +58,9 @@
 		query,
 		urlFilters: filters,
 		onFilter,
-		onClearAllFilters
+		onClearAllFilters,
+		onSort,
+		initSort
 	}: Props = $props();
 
 	let deletingEntry = $state<MCPCatalogEntry>();
@@ -74,7 +91,7 @@
 	});
 
 	function getAuditLogsUrl(d: Item) {
-		const isCatalogEntry = d.type === 'single' || d.type === 'remote';
+		const isCatalogEntry = d.type === 'single' || d.type === 'remote' || d.type === 'composite';
 		if (isCatalogEntry) {
 			return d.data.powerUserWorkspaceID
 				? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/c/${d.id}?view=audit-logs`
@@ -106,6 +123,17 @@
 			{/if}
 		</div>
 	{:else}
+		{@const hasErrors = Object.keys(catalog?.syncErrors ?? {})}
+
+		{#if hasErrors.length && !catalog?.isSyncing}
+			<div class="w-full p-4" in:slide={{ axis: 'y' }} out:slide={{ axis: 'y', duration: 0 }}>
+				<div class="notification-alert flex w-full items-center gap-2 rounded-md p-3 text-sm">
+					<AlertTriangle class="size-" />
+					<p class="">Some servers failed to sync. See "Registry Sources" tab for more details.</p>
+				</div>
+			</div>
+		{/if}
+
 		<Table
 			data={filteredTableData}
 			fields={['name', 'type', 'users', 'created', 'registry']}
@@ -113,7 +141,7 @@
 			{filters}
 			onClickRow={(d, isCtrlClick) => {
 				let url = '';
-				if (d.type === 'single' || d.type === 'remote') {
+				if (d.type === 'single' || d.type === 'remote' || d.type === 'composite') {
 					url = d.data.powerUserWorkspaceID
 						? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/c/${d.id}`
 						: `/admin/mcp-servers/c/${d.id}`;
@@ -126,8 +154,10 @@
 				setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 				openUrl(url, isCtrlClick);
 			}}
+			{initSort}
 			{onFilter}
 			{onClearAllFilters}
+			{onSort}
 			sortable={['name', 'type', 'users', 'created', 'registry']}
 			noDataMessage="No catalog servers added."
 			classes={{
@@ -136,25 +166,34 @@
 			}}
 			validateSelect={(d) => d.editable}
 			disabledSelectMessage="This entry is managed by Git; changes cannot be made."
+			setRowClasses={(d) => ('needsUpdate' in d && d.needsUpdate ? 'bg-blue-500/10' : '')}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'name'}
 					<div class="flex flex-shrink-0 items-center gap-2">
-						<div
-							class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
-						>
+						<div class="icon">
 							{#if d.icon}
 								<img src={d.icon} alt={d.name} class="size-6" />
 							{:else}
 								<Server class="size-6" />
 							{/if}
 						</div>
-						<p class="flex items-center gap-1">
+						<p class="flex items-center gap-2">
 							{d.name}
+							{#if 'needsUpdate' in d && d.needsUpdate}
+								<span
+									use:tooltip={{
+										classes: ['border-blue-500', 'bg-blue-100', 'dark:bg-blue-500/50'],
+										text: 'An update requires your attention'
+									}}
+								>
+									<CircleFadingArrowUp class="size-4 text-blue-500" />
+								</span>
+							{/if}
 						</p>
 					</div>
 				{:else if property === 'type'}
-					{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
+					{getServerTypeLabelByType(d.type)}
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
 				{:else}
@@ -169,9 +208,17 @@
 					{/snippet}
 
 					<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-						<a href={url} class="menu-button">
+						<button
+							onclick={(e) => {
+								e.stopPropagation();
+								const isCtrlClick = e.ctrlKey || e.metaKey;
+								setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+								openUrl(url, isCtrlClick);
+							}}
+							class="menu-button"
+						>
 							<Captions class="size-4" /> View Audit Logs
-						</a>
+						</button>
 						{#if d.editable && !readonly}
 							<button
 								class="menu-button-destructive"
@@ -208,8 +255,8 @@
 	{/if}
 </div>
 
-<Confirm
-	msg="Are you sure you want to delete this server?"
+<McpConfirmDelete
+	names={[deletingEntry?.manifest?.name ?? '']}
 	show={Boolean(deletingEntry)}
 	onsuccess={async () => {
 		if (!deletingEntry || !catalog) {
@@ -228,10 +275,12 @@
 		deletingEntry = undefined;
 	}}
 	oncancel={() => (deletingEntry = undefined)}
+	entity="entry"
+	entityPlural="entries"
 />
 
-<Confirm
-	msg="Are you sure you want to delete this server?"
+<McpConfirmDelete
+	names={[deletingServer?.manifest?.name ?? '']}
 	show={Boolean(deletingServer)}
 	onsuccess={async () => {
 		if (!deletingServer || !catalog) {
@@ -250,10 +299,12 @@
 		deletingServer = undefined;
 	}}
 	oncancel={() => (deletingServer = undefined)}
+	entity="entry"
+	entityPlural="entries"
 />
 
-<Confirm
-	msg="Are you sure you want to delete these servers?"
+<McpConfirmDelete
+	names={Object.values(selected).map((s) => s.name)}
 	show={confirmBulkDelete}
 	onsuccess={async () => {
 		if (!catalog) return;
@@ -285,4 +336,6 @@
 	}}
 	oncancel={() => (confirmBulkDelete = false)}
 	loading={loadingBulkDelete}
+	entity="entry"
+	entityPlural="entries"
 />

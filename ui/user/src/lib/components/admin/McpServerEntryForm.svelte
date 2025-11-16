@@ -18,6 +18,7 @@
 		GlobeLock,
 		ListFilter,
 		LoaderCircle,
+		Server,
 		Trash2,
 		Users,
 		Wrench
@@ -33,13 +34,18 @@
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
 	import { getRegistryLabel, openUrl } from '$lib/utils';
-	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
+	import CatalogConfigureForm, {
+		type LaunchFormData,
+		type CompositeLaunchFormData,
+		type ComponentLaunchFormData
+	} from '../mcp/CatalogConfigureForm.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import { profile } from '$lib/stores';
 	import OverflowContainer from '../OverflowContainer.svelte';
+	import { getServerTypeLabel } from '$lib/services/chat/mcp';
 
-	type MCPType = 'single' | 'multi' | 'remote';
+	type MCPType = 'single' | 'multi' | 'remote' | 'composite';
 
 	interface Props {
 		id?: string;
@@ -114,7 +120,7 @@
 	let oauthURL = $state<string>();
 
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
-	let configureForm = $state<LaunchFormData>();
+	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
 	let saving = $state(false);
 	let error = $state<string>();
 	let showButtonInlineError = $state(false);
@@ -219,11 +225,38 @@
 	}
 
 	function compileTemporaryInstanceBody() {
+		function isCompositeForm(
+			f: LaunchFormData | CompositeLaunchFormData | undefined
+		): f is CompositeLaunchFormData {
+			return Boolean(f && typeof f === 'object' && 'componentConfigs' in f);
+		}
+
+		if (isCompositeForm(configureForm)) {
+			const body: {
+				componentConfigs: Record<
+					string,
+					{ config: Record<string, string>; url: string; disabled: boolean }
+				>;
+			} = { componentConfigs: {} };
+			const composite = configureForm;
+			for (const [compId, comp] of Object.entries(composite.componentConfigs)) {
+				const cfg: Record<string, string> = {};
+				for (const f of comp.envs || []) if (f.value) cfg[f.key] = f.value;
+				for (const f of comp.headers || []) if (f.value) cfg[f.key] = f.value;
+				body.componentConfigs[compId] = {
+					config: cfg,
+					url: comp.url || '',
+					disabled: !!comp.disabled
+				};
+			}
+			return body;
+		}
 		return {
-			url: configureForm?.url,
-			config: [...(configureForm?.headers ?? []), ...(configureForm?.envs ?? [])].reduce<
-				Record<string, string>
-			>((acc, curr) => {
+			url: (configureForm as LaunchFormData)?.url,
+			config: [
+				...((configureForm as LaunchFormData)?.headers ?? []),
+				...((configureForm as LaunchFormData)?.envs ?? [])
+			].reduce<Record<string, string>>((acc, curr) => {
 				acc[curr.key] = curr.value;
 				return acc;
 			}, {})
@@ -253,20 +286,35 @@
 		saving = true;
 		const body = compileTemporaryInstanceBody();
 		try {
-			const generateToolsFn =
-				entity === 'workspace'
-					? ChatService.generateWorkspaceMCPCatalogEntryToolPreviews
-					: AdminService.generateMcpCatalogEntryToolPreviews;
-			await generateToolsFn(id, entry.id, body);
+			if (entity === 'workspace') {
+				await ChatService.generateWorkspaceMCPCatalogEntryToolPreviews(
+					id,
+					entry.id,
+					body as unknown as { config?: Record<string, string>; url?: string }
+				);
+			} else {
+				await AdminService.generateMcpCatalogEntryToolPreviews(
+					id,
+					entry.id,
+					body as unknown as { config?: Record<string, string>; url?: string }
+				);
+			}
 			window.location.reload();
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
 			if (errMessage.includes('MCP server requires OAuth authentication')) {
-				const getOauthFn =
+				const oauthResponse =
 					entity === 'workspace'
-						? ChatService.getWorkspaceMCPCatalogEntryToolPreviewsOauth
-						: AdminService.getMcpCatalogToolPreviewsOauth;
-				const oauthResponse = await getOauthFn(id, entry.id, body);
+						? await ChatService.getWorkspaceMCPCatalogEntryToolPreviewsOauth(
+								id,
+								entry.id,
+								body as unknown as { config?: Record<string, string>; url?: string }
+							)
+						: await AdminService.getMcpCatalogToolPreviewsOauth(
+								id,
+								entry.id,
+								body as unknown as { config?: Record<string, string>; url?: string }
+							);
 				if (oauthResponse) {
 					configDialog?.close();
 					handleTemporaryInstanceOauth(oauthResponse);
@@ -282,6 +330,48 @@
 
 	function handleInitTemporaryInstance() {
 		if (!entry) return;
+
+		if (entry.manifest?.runtime === 'composite') {
+			const comps = entry.manifest?.compositeConfig?.componentServers || [];
+			const componentConfigs: Record<string, ComponentLaunchFormData> = {};
+			for (const c of comps) {
+				if (!c.catalogEntryID) continue;
+				const rc = c.manifest?.remoteConfig as Record<string, unknown> | undefined;
+				const hasHostname = Boolean(rc && 'hostname' in rc && rc.hostname);
+				componentConfigs[c.catalogEntryID] = {
+					envs: (c.manifest?.env || []).map((e) => ({ ...e, value: '' })),
+					headers: (c.manifest?.remoteConfig?.headers || []).map((h) => ({ ...h, value: '' })),
+					...(hasHostname
+						? { hostname: (rc as Record<string, unknown>).hostname as string, url: '' }
+						: {}),
+					name: c.manifest?.name || c.catalogEntryID,
+					icon: c.manifest?.icon,
+					disabled: false
+				};
+			}
+			configureForm = { componentConfigs } as CompositeLaunchFormData;
+
+			const needsCompositeConfig = comps.some((c) => {
+				const envs = c.manifest?.env || [];
+				const headers = c.manifest?.remoteConfig?.headers || [];
+				const hasReqEnv = envs.some((e) => e.required);
+				const hasReqHeader = headers.some((h) => h.required);
+				const rc = c.manifest?.remoteConfig as Record<string, unknown> | undefined;
+				const hasHostname = Boolean(rc && 'hostname' in rc && rc.hostname);
+				const hasFixed = Boolean(rc && 'fixedURL' in rc && rc.fixedURL);
+				const tmpl = rc && 'urlTemplate' in rc && rc.urlTemplate ? (rc.urlTemplate as string) : '';
+				const needsUrl = hasHostname && !hasFixed && !tmpl;
+				const needsTemplateVars = /\$\{[^}]+\}/.test(tmpl);
+				return hasReqEnv || hasReqHeader || needsUrl || needsTemplateVars;
+			});
+
+			if (needsCompositeConfig) {
+				configDialog?.open();
+			} else {
+				handleLaunchTemporaryInstance(true);
+			}
+			return;
+		}
 
 		const hostname =
 			entry?.manifest?.remoteConfig &&
@@ -304,7 +394,8 @@
 		const needsEnvValue = configureForm.envs?.some((env) => !env.value);
 		const needsHeaderValue = configureForm.headers?.some((header) => !header.value);
 		const hasConfigFields =
-			type !== 'multi' && (needsEnvValue || needsHeaderValue || configureForm.hostname);
+			type !== 'multi' &&
+			(needsEnvValue || needsHeaderValue || (configureForm as LaunchFormData).hostname);
 		if (hasConfigFields) {
 			configDialog?.open();
 		} else {
@@ -323,19 +414,23 @@
 	{#if entry}
 		<div class="flex items-center justify-between gap-4">
 			<div class="flex items-center gap-2">
-				{#if entry.manifest.icon}
-					<img
-						src={entry.manifest.icon}
-						alt={entry.manifest.name}
-						class="bg-surface1 size-10 rounded-md p-1 dark:bg-gray-600"
-					/>
-				{/if}
+				<div class="icon">
+					{#if entry.manifest.icon}
+						<img
+							src={entry.manifest.icon}
+							alt={entry.manifest.name}
+							class="size-10 flex-shrink-0"
+						/>
+					{:else}
+						<Server class="size-10" />
+					{/if}
+				</div>
 				<h1 class="text-2xl font-semibold capitalize">{entry.manifest.name || 'Unknown'}</h1>
-				<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
-					{type === 'single' ? 'Single User' : type === 'multi' ? 'Multi-User' : 'Remote'}
+				<div class="pill-rounded">
+					{getServerTypeLabel(entry)}
 				</div>
 				{#if registry}
-					<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
+					<div class="pill-rounded">
 						{registry}
 					</div>
 				{/if}
@@ -432,7 +527,7 @@
 								<button
 									class="button-primary flex items-center gap-1 text-sm"
 									onclick={handleInitTemporaryInstance}
-									disabled={saving}
+									disabled={saving || type === 'composite'}
 								>
 									{#if saving}
 										<LoaderCircle class="size-4 animate-spin" />
@@ -445,6 +540,9 @@
 										{#if type === 'remote'}
 											Click above to connect to the remote MCP server to populate capabilities and
 											tools.
+										{:else if type === 'composite'}
+											Support for populating composite MCP server capabilities and tools coming
+											soon.
 										{:else}
 											Click above to set up a temporary instance that will populate capabilities and
 											tools. Otherwise, tools will populate when the user first launches this

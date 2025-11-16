@@ -78,6 +78,7 @@ type WorkflowStepStatus struct {
 	WorkflowGeneration int64               `json:"workflowGeneration,omitempty"`
 	State              types.WorkflowState `json:"state,omitempty"`
 	Error              string              `json:"message,omitempty"`
+	RunMessage         string              `json:"runMessage,omitempty"`
 	ThreadName         string              `json:"threadName,omitempty"`
 	RunNames           []string            `json:"runNames,omitempty"`
 	LastRunName        string              `json:"lastRunName,omitempty"`

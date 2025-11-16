@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/agents"
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
+	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cronjob"
 	"github.com/obot-platform/obot/pkg/controller/handlers/knowledgefile"
@@ -26,6 +27,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/retention"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runstates"
+	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/slackreceiver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/task"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
@@ -78,6 +80,8 @@ func (c *Controller) setupRoutes() {
 	mcpWebhookValidations := mcpwebhookvalidation.New()
 	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
 	adminWorkspaceHandler := adminworkspace.New(c.services.GatewayClient)
+	auditLogExportHandler := auditlogexport.NewHandler(c.services.GPTClient, c.services.GatewayClient, c.services.EncryptionConfig)
+	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -244,12 +248,15 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.DeleteEntriesWithoutRuntime)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.UpdateManifestHashAndLastUpdated)
+	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.CleanupNestedCompositeEntries)
+	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.DetectCompositeDrift)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpservercatalogentry.EnsureUserCount)
 
 	// MCPServer
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateSharedWithinMCPCatalogName)
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersWithoutRuntime)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.CleanupNestedCompositeServers)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DetectDrift)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerInstanceUserCount)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
@@ -295,6 +302,9 @@ func (c *Controller) setupRoutes() {
 	// UserRoleChange
 	root.Type(&v1.UserRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleRoleChange)
 
+	// GroupRoleChange
+	root.Type(&v1.GroupRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleGroupRoleChange)
+
 	// PowerUserWorkspace
 	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(powerUserWorkspaceHandler.CreateACR)
 	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServersForWorkspace)
@@ -303,6 +313,12 @@ func (c *Controller) setupRoutes() {
 	// Project-based MCP Servers
 	root.Type(&v1.ProjectMCPServer{}).FinalizeFunc(v1.ProjectMCPServerFinalizer, credentialCleanup.ShutdownProjectMCP)
 	root.Type(&v1.ProjectMCPServer{}).HandlerFunc(cleanup.Cleanup)
+
+	// AuditLogExport
+	root.Type(&v1.AuditLogExport{}).HandlerFunc(auditLogExportHandler.ExportAuditLogs)
+
+	// ScheduledAuditLogExport
+	root.Type(&v1.ScheduledAuditLogExport{}).HandlerFunc(scheduledAuditLogExportHandler.ScheduleExports)
 
 	c.toolRefHandler = toolRef
 	c.mcpCatalogHandler = mcpCatalog

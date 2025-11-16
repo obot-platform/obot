@@ -25,6 +25,9 @@ updateStrategy: "RollingUpdate"
 additionalLabels: {}
   # app: obot
 
+# -- Extra pod annotations to add.
+podAnnotations: {}
+
 service:
   # service.type -- Type of Kubernetes service to create
   type: ClusterIP
@@ -82,7 +85,7 @@ config:
   # config.KINM_DB_CONNECTIONS -- Advanced - the number of connections in the database pool for kinm
   KINM_DB_CONNECTIONS: "5"
 
-  # config.GITHUB_AUTH_TOKEN -- A github PAT, used to authenticate tool pulls to avoid github ratelimiting
+  # config.GITHUB_AUTH_TOKEN -- A github PAT, used to authenticate catalog and tool pulls to avoid github ratelimiting
   GITHUB_AUTH_TOKEN: ""
   # config.OBOT_SERVER_ENABLE_AUTHENTICATION -- Enables authentication for Obot
   OBOT_SERVER_ENABLE_AUTHENTICATION: false
@@ -140,6 +143,9 @@ config:
   OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS: ""
   # config.OBOT_SERVER_MCPAUDIT_LOGS_PERSIST_BATCH_SIZE -- The batch size to use when persisting MCP audit logs to the database. Defaults to 1000
   OBOT_SERVER_MCPAUDIT_LOGS_PERSIST_BATCH_SIZE: ""
+
+  # config.OBOT_SERVER_DISABLE_UPDATE_CHECK -- Disable the Obot server update check. Defaults to false.
+  OBOT_SERVER_DISABLE_UPDATE_CHECK: ""
 
 # extraEnv -- A map of additional environment variables to set
 extraEnv: {}
@@ -199,6 +205,56 @@ mcpNamespace:
   # mcpNamespace.annotation - Annotations to add to the mcp server namespace. Includes ArgoCD sync wave by default.
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
+
+# mcpServerDefaults -- Default Kubernetes configuration for all deployed MCP server pods
+mcpServerDefaults:
+  # mcpServerDefaults.affinity -- Affinity rules for MCP server pods (YAML format)
+  # When set via Helm, these settings cannot be updated through the API
+  affinity: {}
+  # Example:
+  # affinity:
+  #   nodeAffinity:
+  #     requiredDuringSchedulingIgnoredDuringExecution:
+  #       nodeSelectorTerms:
+  #       - matchExpressions:
+  #         - key: workload-type
+  #           operator: In
+  #           values:
+  #           - mcp
+  #   podAntiAffinity:
+  #     preferredDuringSchedulingIgnoredDuringExecution:
+  #     - weight: 100
+  #       podAffinityTerm:
+  #         labelSelector:
+  #           matchExpressions:
+  #           - key: mcp-server-name
+  #             operator: Exists
+  #         topologyKey: kubernetes.io/hostname
+
+  # mcpServerDefaults.tolerations -- Tolerations for MCP server pods (YAML list format)
+  # When set via Helm, these settings cannot be updated through the API
+  tolerations: []
+  # Example:
+  # tolerations:
+  #   - key: "mcp-workload"
+  #     operator: "Equal"
+  #     value: "true"
+  #     effect: "NoSchedule"
+  #   - key: "node-role.kubernetes.io/mcp"
+  #     operator: "Exists"
+  #     effect: "NoSchedule"
+
+  # mcpServerDefaults.resources -- Resource requests and limits for MCP server pods
+  # When set via Helm, these settings cannot be updated through the API
+  resources: {}
+  # Example:
+  # resources:
+  #   requests:
+  #     memory: "400Mi"
+  #     cpu: "100m"
+  #   limits:
+  #     memory: "1Gi"
+  #     cpu: "500m"
 
 # nodeSelector -- Configure node selector for pod assignment
 nodeSelector: {}

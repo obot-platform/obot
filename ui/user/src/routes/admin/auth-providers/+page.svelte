@@ -9,13 +9,14 @@
 	import { fade } from 'svelte/transition';
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
-	import { AdminService } from '$lib/services/index.js';
+	import { AdminService, Role } from '$lib/services/index.js';
 	import { AlertTriangle, Info } from 'lucide-svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { darkMode, profile } from '$lib/stores/index.js';
+	import { darkMode, errors, profile } from '$lib/stores/index.js';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 
 	let { data } = $props();
 	let { authProviders: initialAuthProviders } = data;
@@ -51,12 +52,87 @@
 	let configuringAuthProviderValues = $state<Record<string, string>>();
 	let atLeastOneConfigured = $derived(authProviders.some((provider) => provider.configured));
 
+	let setupLoading = $state(false);
+	let setupSignInDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let explicitOwners = $state<string[]>([]);
+	let setupTempLoginUrl = $state('');
+
 	let loading = $state(false);
 	let configureError = $state<string>();
 
 	let confirmDeconfigureAuthProvider = $state<AuthProvider>();
 
 	const duration = PAGE_TRANSITION_DURATION;
+
+	const prepareOwnerSetup = async () => {
+		const configuredAuthProvider = authProviders.find((provider) => provider.configured);
+		if (!configuredAuthProvider) return;
+
+		const users = await AdminService.listUsers();
+		const isOwnerExist = users.some((user) => user.role === Role.OWNER);
+
+		if (isOwnerExist) return;
+
+		// Only proceed if user is bootstrap user (not yet a real owner) and has a configured provider and owner does not exist
+		if (!setupLoading && !setupTempLoginUrl) {
+			configuringAuthProvider = configuredAuthProvider;
+			handleOwnerSetup();
+		}
+	};
+
+	$effect(() => {
+		const isBootstrapUser = profile.current.isBootstrapUser?.();
+		if (!isBootstrapUser) return;
+
+		prepareOwnerSetup();
+	});
+
+	$effect(() => {
+		const isBootstrapUser = profile.current.isBootstrapUser?.();
+		if (!isBootstrapUser) return;
+
+		if (!atLeastOneConfigured) return;
+
+		const handleVisibilityChange = async () => {
+			if (document.visibilityState === 'visible') {
+				prepareOwnerSetup();
+			}
+		};
+
+		document.addEventListener('visibilitychange', handleVisibilityChange);
+
+		return () => {
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		};
+	});
+
+	async function handleOwnerSetup() {
+		if (!configuringAuthProvider || setupLoading) return;
+		setupLoading = true;
+		try {
+			await AdminService.cancelTempLogin();
+		} catch (err) {
+			if (err instanceof Error && err.message.includes('404')) {
+				// ignore, no current temp login to cancel
+			} else {
+				errors.append(err);
+			}
+		}
+
+		try {
+			explicitOwners = (await AdminService.listExplicitRoleEmails())?.owners ?? [];
+			setupTempLoginUrl = (
+				await AdminService.initiateTempLogin(
+					configuringAuthProvider.id,
+					configuringAuthProvider.namespace
+				)
+			).redirectUrl;
+			setupLoading = false;
+			setupSignInDialog?.open();
+		} catch (_) {
+			// ignore
+		}
+	}
 
 	async function handleAuthProviderConfigure(form: Record<string, string>) {
 		if (configuringAuthProvider) {
@@ -67,6 +143,9 @@
 				authProviders = await AdminService.listAuthProviders();
 				adminConfigStore.updateAuthProviders(authProviders);
 				providerConfigure?.close();
+				if (profile.current.isBootstrapUser?.()) {
+					await handleOwnerSetup();
+				}
 			} catch (err: unknown) {
 				if (err instanceof Error) {
 					const errorMessageMatch = err.message.match(/{"error":\s*"(.*?)"}/);
@@ -117,6 +196,11 @@
 							// if 404, ignore, it means no credentials are set
 							if (err instanceof Error && !err.message.includes('404')) {
 								console.error('An error occurred while revealing auth provider credentials', err);
+							} else {
+								// no credentials set, set initial default value for allowed domains
+								configuringAuthProviderValues = {
+									OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
+								};
 							}
 						}
 						providerConfigure?.open();
@@ -204,6 +288,52 @@
 		</div>
 	{/snippet}
 </Confirm>
+
+<ResponsiveDialog bind:this={setupSignInDialog} class="w-md">
+	{#snippet titleContent()}
+		<h3 class="text-lg font-semibold">Next Step: Owner Login Setup</h3>
+	{/snippet}
+
+	<div class="flex flex-col gap-4">
+		{#if explicitOwners.length > 0}
+			<p>You'll need to continue setup with an owner account.</p>
+			<p>The following user(s) have been explicitly assigned the Owner role:</p>
+			<ul class="list-disc px-8">
+				{#each explicitOwners as owner (owner)}
+					<li>{owner}</li>
+				{/each}
+			</ul>
+			<p>
+				Log in into the system as one of the explicit owners -- you'll be redirected back to the
+				admin panel after authenticating.
+			</p>
+			<p>
+				Or log into a different account with your configured auth provider. After authentication,
+				you'll be asked to confirm the owner addition before proceeding.
+			</p>
+		{:else}
+			<p>
+				You'll need to set up an initial owner for the system. Login with your configured auth
+				provider to continue.
+			</p>
+		{/if}
+
+		<div class="my-4 flex flex-col gap-2">
+			<a class="button-auth group" href={setupTempLoginUrl}>
+				{#if configuringAuthProvider?.icon}
+					<img
+						class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-gray-600"
+						src={configuringAuthProvider.icon}
+						alt={configuringAuthProvider.name}
+					/>
+					<span class="text-center text-sm font-light">
+						Continue with {configuringAuthProvider.name}
+					</span>
+				{/if}
+			</a>
+		</div>
+	</div>
+</ResponsiveDialog>
 
 <svelte:head>
 	<title>Obot | Auth Providers</title>

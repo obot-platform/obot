@@ -146,6 +146,7 @@ export interface Version {
 	obot?: string;
 	authEnabled?: boolean;
 	enterprise?: boolean;
+	upgradeAvailable?: boolean;
 }
 
 export interface Profile {
@@ -158,6 +159,7 @@ export interface Profile {
 	hasAdminAccess?: () => boolean;
 	isAdmin?: () => boolean;
 	isAdminReadonly?: () => boolean;
+	isBootstrapUser?: () => boolean;
 	unauthorized?: boolean;
 	username: string;
 	currentAuthProvider?: string;
@@ -268,7 +270,7 @@ export interface ToolReferenceList {
 	items: ToolReference[];
 }
 
-export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote';
+export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'composite';
 
 export interface UVXRuntimeConfig {
 	package: string;
@@ -302,6 +304,25 @@ export interface RemoteCatalogConfig {
 	headers?: MCPSubField[];
 }
 
+export interface CompositeRuntimeConfig {
+	componentServers: ComponentServer[];
+}
+
+export interface ComponentServer {
+	catalogEntryID?: string;
+	mcpServerID?: string;
+	manifest?: MCPServer;
+	toolOverrides?: ToolOverride[];
+	disabled?: boolean;
+}
+
+export interface ToolOverride {
+	name: string;
+	overrideName?: string;
+	overrideDescription?: string;
+	enabled?: boolean;
+}
+
 export interface MCPSubField {
 	description: string;
 	file?: boolean;
@@ -310,6 +331,7 @@ export interface MCPSubField {
 	required: boolean;
 	sensitive: boolean;
 	value?: string;
+	prefix?: string;
 }
 
 export interface MCP {
@@ -334,6 +356,7 @@ export interface MCPServer {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteRuntimeConfig;
+	compositeConfig?: CompositeRuntimeConfig;
 }
 
 export interface MCPServerTool {
@@ -408,6 +431,7 @@ export interface ProjectMCP {
 	configured?: boolean;
 	needsUpdate?: boolean;
 	needsURL?: boolean;
+	runtime?: Runtime;
 }
 
 export interface Credential {
@@ -469,6 +493,7 @@ export interface TaskRun {
 	endTime?: string;
 	input?: string;
 	error?: string;
+	warning?: string;
 }
 
 export interface TaskRunList {
@@ -749,6 +774,7 @@ export interface MCPCatalogServer {
 	lastUpdated?: string;
 	powerUserWorkspaceID?: string;
 	deploymentStatus?: string;
+	compositeName?: string;
 }
 
 export interface MCPServerInstance {

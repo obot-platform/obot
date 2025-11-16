@@ -15,6 +15,7 @@ const (
 	RuntimeNPX           Runtime = "npx"
 	RuntimeContainerized Runtime = "containerized"
 	RuntimeRemote        Runtime = "remote"
+	RuntimeComposite     Runtime = "composite"
 )
 
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
@@ -54,6 +55,36 @@ type RemoteCatalogConfig struct {
 	Headers     []MCPHeader `json:"headers,omitempty"`     // Optional
 }
 
+// CompositeCatalogConfig represents configuration for composite servers in catalog entries.
+type CompositeCatalogConfig struct {
+	ComponentServers []CatalogComponentServer `json:"componentServers"`
+}
+
+// CatalogComponentServer represents a component server in a composite server catalog entry.
+type CatalogComponentServer struct {
+	// CatalogEntryID references a catalog entry for single-user and remote components
+	CatalogEntryID string `json:"catalogEntryID,omitempty"`
+	// MCPServerID references a multi-user MCP server
+	MCPServerID   string                        `json:"mcpServerID,omitempty"`
+	Manifest      MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
+	ToolOverrides []ToolOverride                `json:"toolOverrides,omitempty"`
+	Disabled      bool                          `json:"disabled,omitempty"`
+}
+
+type CompositeRuntimeConfig struct {
+	ComponentServers []ComponentServer `json:"componentServers"`
+}
+
+type ComponentServer struct {
+	// CatalogEntryID references a catalog entry for single-user and remote components
+	CatalogEntryID string `json:"catalogEntryID,omitempty"`
+	// MCPServerID references a multi-user MCP server
+	MCPServerID   string            `json:"mcpServerID,omitempty"`
+	Manifest      MCPServerManifest `json:"manifest,omitempty"`
+	ToolOverrides []ToolOverride    `json:"toolOverrides,omitempty"`
+	Disabled      bool              `json:"disabled,omitempty"`
+}
+
 type MCPServerCatalogEntry struct {
 	Metadata
 	Manifest                  MCPServerCatalogEntryManifest `json:"manifest"`
@@ -65,6 +96,7 @@ type MCPServerCatalogEntry struct {
 	ToolPreviewsLastGenerated *Time                         `json:"toolPreviewsLastGenerated,omitempty"`
 	PowerUserWorkspaceID      string                        `json:"powerUserWorkspaceID,omitempty"`
 	PowerUserID               string                        `json:"powerUserID,omitempty"`
+	NeedsUpdate               bool                          `json:"needsUpdate,omitempty"`
 }
 
 type MCPServerCatalogEntryManifest struct {
@@ -83,8 +115,21 @@ type MCPServerCatalogEntryManifest struct {
 	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
+	CompositeConfig     *CompositeCatalogConfig     `json:"compositeConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
+}
+
+// ToolOverride defines how a single component tool is exposed by the composite server
+type ToolOverride struct {
+	// Name is the original tool name as returned by the component server
+	Name string `json:"name"`
+	// OverrideName is the tool name exposed by the composite server
+	OverrideName string `json:"overrideName"`
+	// Optional overrides for display
+	OverrideDescription string `json:"overrideDescription,omitempty"`
+	// Whether to include this tool (default true)
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 type MCPHeader struct {
@@ -124,6 +169,7 @@ type MCPServerManifest struct {
 	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
+	CompositeConfig     *CompositeRuntimeConfig     `json:"compositeConfig,omitempty"`
 
 	Env []MCPEnv `json:"env,omitempty"`
 
@@ -178,9 +224,15 @@ type MCPServer struct {
 	// DeploymentConditions contains key deployment conditions that indicate deployment health.
 	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
 
+	// K8sSettingsHash contains the hash of K8s settings this server was deployed with
+	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
+
 	// Template indicates whether this MCP server is a template server.
 	// Template servers are hidden from user views and are used for creating project instances.
 	Template bool `json:"template,omitempty"`
+
+	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
+	CompositeName string `json:"compositeName,omitempty"`
 }
 
 type DeploymentCondition struct {
@@ -218,10 +270,11 @@ type ProjectMCPServerManifest struct {
 type ProjectMCPServer struct {
 	Metadata
 	ProjectMCPServerManifest
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Icon        string `json:"icon"`
-	UserID      string `json:"userID"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Icon        string  `json:"icon"`
+	UserID      string  `json:"userID"`
+	Runtime     Runtime `json:"runtime,omitempty"`
 
 	// The following status fields are always copied from the MCPServer that this points to.
 	Configured  bool `json:"configured"`
@@ -230,6 +283,37 @@ type ProjectMCPServer struct {
 }
 
 type ProjectMCPServerList List[ProjectMCPServer]
+
+// K8sSettingsStatus represents the K8s settings status of a deployed MCP server
+type K8sSettingsStatus struct {
+	// NeedsK8sUpdate indicates whether the server needs redeployment with new K8s settings
+	NeedsK8sUpdate bool `json:"needsK8sUpdate"`
+
+	// CurrentSettings are the current global K8s settings
+	CurrentSettings *K8sSettings `json:"currentSettings,omitempty"`
+
+	// DeployedSettingsHash is the hash of the K8s settings the server was deployed with
+	DeployedSettingsHash string `json:"deployedSettingsHash,omitempty"`
+}
+
+// MCPServerNeedingK8sUpdate represents a server that needs redeployment with new K8s settings
+type MCPServerNeedingK8sUpdate struct {
+	// MCPServerID is the ID of the MCP server that needs updating
+	MCPServerID string `json:"mcpServerId"`
+
+	// MCPServerCatalogEntryID is the ID of the catalog entry this server was created from, if applicable
+	// This field is empty for multi-user servers that were created directly (not from a catalog entry)
+	MCPServerCatalogEntryID string `json:"mcpServerCatalogEntryId,omitempty"`
+
+	// PowerUserWorkspaceID is the ID of the workspace this server belongs to, if applicable
+	// This field is empty for servers that belong to catalogs (not workspaces)
+	PowerUserWorkspaceID string `json:"powerUserWorkspaceId,omitempty"`
+}
+
+// MCPServersNeedingK8sUpdateList is a list of servers needing K8s updates
+type MCPServersNeedingK8sUpdateList struct {
+	Items []MCPServerNeedingK8sUpdate `json:"items"`
+}
 
 // RuntimeValidationError represents a validation error for runtime-specific configuration
 type RuntimeValidationError struct {
@@ -341,6 +425,44 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		// Copy headers from catalog entry
 		remoteConfig.Headers = catalogEntry.RemoteConfig.Headers
 		serverManifest.RemoteConfig = remoteConfig
+
+	case RuntimeComposite:
+		if catalogEntry.CompositeConfig == nil {
+			return serverManifest, RuntimeValidationError{
+				Runtime: RuntimeComposite,
+				Field:   "compositeConfig",
+				Message: "composite configuration is required for composite runtime",
+			}
+		}
+
+		// Convert CatalogComponentServer to ComponentServer
+		componentServers := make([]ComponentServer, len(catalogEntry.CompositeConfig.ComponentServers))
+		for i, catalogComponent := range catalogEntry.CompositeConfig.ComponentServers {
+			componentServer := ComponentServer{
+				CatalogEntryID: catalogComponent.CatalogEntryID,
+				MCPServerID:    catalogComponent.MCPServerID,
+				ToolOverrides:  catalogComponent.ToolOverrides,
+				Disabled:       false,
+			}
+
+			if catalogComponent.CatalogEntryID != "" {
+				componentServerManifest, err := MapCatalogEntryToServer(catalogComponent.Manifest, "")
+				if err != nil {
+					return serverManifest, RuntimeValidationError{
+						Runtime: RuntimeComposite,
+						Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
+						Message: fmt.Sprintf("failed to convert component manifest: %v", err),
+					}
+				}
+				componentServer.Manifest = componentServerManifest
+			}
+
+			componentServers[i] = componentServer
+		}
+
+		serverManifest.CompositeConfig = &CompositeRuntimeConfig{
+			ComponentServers: componentServers,
+		}
 
 	default:
 		return serverManifest, RuntimeValidationError{

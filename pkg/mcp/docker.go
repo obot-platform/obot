@@ -181,7 +181,7 @@ eventLoop:
 		select {
 		case event := <-eventMessages:
 			mcpEvents = append(mcpEvents, otypes.MCPServerEvent{
-				Time:         otypes.Time{Time: time.Unix(event.Time, event.TimeNano)},
+				Time:         otypes.Time{Time: time.Unix(event.Time, 0)},
 				Reason:       string(event.Action),
 				Message:      fmt.Sprintf("Container %s: %s", event.Actor.Attributes["name"], string(event.Action)),
 				EventType:    string(event.Type),
@@ -233,7 +233,7 @@ eventLoop:
 }
 
 func (d *dockerBackend) restartServer(ctx context.Context, id string) error {
-	if err := d.client.ContainerRestart(ctx, id, container.StopOptions{Timeout: &[]int{30}[0]}); err != nil {
+	if err := d.client.ContainerRestart(ctx, id, container.StopOptions{}); err != nil {
 		return fmt.Errorf("failed to restart container %s: %w", id, err)
 	}
 
@@ -748,6 +748,14 @@ func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotEx
 
 	reader, err := d.client.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {
+		if cerrdefs.IsUnauthorized(err) || cerrdefs.IsPermissionDenied(err) || cerrdefs.IsNotFound(err) || cerrdefs.IsInternal(err) && strings.HasSuffix(err.Error(), "unauthorized") {
+			// Check if image exists locally
+			_, err := d.client.ImageInspect(ctx, imageName)
+			if err == nil {
+				// Image exists locally
+				return nil
+			}
+		}
 		return fmt.Errorf("failed to pull image %s: %w", imageName, err)
 	}
 	defer reader.Close()

@@ -37,11 +37,15 @@ type User struct {
 }
 
 func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User {
+	return ConvertUserWithEffectiveRole(u, roleFixed, authProviderName, u.Role)
+}
+
+func ConvertUserWithEffectiveRole(u *User, roleFixed bool, authProviderName string, effectiveRole types2.Role) *types2.User {
 	if u == nil {
 		return nil
 	}
 
-	groups := u.Role.Groups()
+	groups := effectiveRole.Groups()
 	if authProviderName == "bootstrap" {
 		groups = []string{types2.GroupOwner, types2.GroupAdmin, types2.GroupBasic, types2.GroupAuthenticated}
 	}
@@ -55,6 +59,7 @@ func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User 
 		Username:                   u.Username,
 		Email:                      u.Email,
 		Role:                       u.Role,
+		EffectiveRole:              effectiveRole,
 		Groups:                     groups,
 		ExplicitRole:               roleFixed,
 		IconURL:                    u.IconURL,

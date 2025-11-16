@@ -136,24 +136,9 @@
 							}
 						}}
 					>
-						{#if item.iconURL}
-							<img
-								src={item.iconURL}
-								alt={'username' in item ? item.username : item.name}
-								class="size-10 rounded-full"
-							/>
-						{:else if 'name' in item}
-							<div
-								class="flex size-10 items-center justify-center rounded-full bg-blue-500 text-lg font-semibold text-white"
-							>
-								{item.name.charAt(0).toUpperCase()}
-							</div>
-						{:else}
-							<Users class="size-10 rounded-full p-2" />
-						{/if}
 						<div class="flex grow flex-col">
 							{#if 'email' in item}
-								<p>{item.email}</p>
+								<p>{item.displayName ?? item.email}</p>
 								<p class="font-light text-gray-400 dark:text-gray-600">
 									{getUserRoleLabel(item.role)}
 								</p>

@@ -43,6 +43,10 @@
 	let mcpServers = $state<ProjectMCP[]>([]);
 	let knowledgeFiles = $state<KnowledgeFile[]>([]);
 	let tasks = $state<Task[]>([]);
+	let sourceProjectMcpServers = $state<ProjectMCP[]>([]);
+	let hasCompositeServer = $derived(
+		sourceProjectMcpServers.some((mcp) => mcp.runtime === 'composite')
+	);
 
 	async function loadTemplate() {
 		loading = true;
@@ -71,6 +75,7 @@
 			// Convert template thread ID to project ID format (t1xxx -> p1xxx)
 			const templateProjectID = template.id.replace('t1', 'p1');
 			mcpServers = await listProjectMCPs(template.assistantID, templateProjectID);
+
 			// Load tasks for the template project
 			tasks = (await ChatService.listTasks(template.assistantID, templateProjectID)).items;
 
@@ -90,6 +95,14 @@
 	}
 
 	onMount(async () => {
+		// Load source project's MCP servers to check for composite
+		try {
+			sourceProjectMcpServers = await listProjectMCPs(assistantID, projectID);
+		} catch (error) {
+			console.error('Failed to load source project MCP servers:', error);
+			sourceProjectMcpServers = [];
+		}
+
 		loadTemplate();
 	});
 
@@ -209,7 +222,19 @@
 							version.
 						</p>
 					</div>
-					<button class="button-primary" onclick={createFromSnapshot}>Share This Project</button>
+					<button
+						class="button-primary"
+						onclick={createFromSnapshot}
+						disabled={hasCompositeServer}
+						use:tooltip={hasCompositeServer
+							? {
+									text: 'Projects with composite MCP servers cannot be shared. Remove composite servers to enable sharing.',
+									classes: ['w-md']
+								}
+							: undefined}
+					>
+						Share This Project
+					</button>
 				</div>
 			</div>
 		{:else}
@@ -230,7 +255,13 @@
 								<button
 									class="button-primary px-3 py-1 text-sm"
 									onclick={createFromSnapshot}
-									use:tooltip={'Update Project Share with current project state'}
+									disabled={hasCompositeServer}
+									use:tooltip={hasCompositeServer
+										? {
+												text: 'Projects with composite MCP servers cannot be shared. Remove composite servers to enable sharing.',
+												classes: ['w-md']
+											}
+										: 'Update Project Share with current project state'}
 								>
 									Update Project Share
 								</button>

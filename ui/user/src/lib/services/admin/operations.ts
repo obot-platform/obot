@@ -31,7 +31,15 @@ import type {
 	BaseAgent,
 	MCPFilter,
 	MCPFilterManifest,
-	ProjectTask
+	ProjectTask,
+	TempUser,
+	ScheduledAuditLogExport,
+	StorageCredentials,
+	AuditLogExport,
+	AuditLogExportInput,
+	ScheduledAuditLogExportInput,
+	K8sSettings,
+	ServerK8sSettings
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -90,7 +98,7 @@ export async function listMCPCatalogEntries(
 export async function getMCPCatalogEntry(
 	catalogID: string,
 	entryID: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<MCPCatalogEntry> {
 	const response = (await doGet(
 		`/mcp-catalogs/${catalogID}/entries/${entryID}`,
@@ -176,6 +184,31 @@ export async function listMcpCatalogServerInstances(
 	return response.items ?? [];
 }
 
+export async function getMCPCatalogServerK8sSettingsStatus(
+	entryID: string,
+	serverID: string,
+	opts?: { dontLogErrors?: boolean }
+) {
+	const response = (await doGet(
+		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/entries/${entryID}/servers/${serverID}/k8s-settings-status`,
+		opts
+	)) as ServerK8sSettings;
+	return response;
+}
+
+export async function redeployMCPCatalogServerWithK8sSettings(
+	entryID: string,
+	serverID: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost(
+		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/entries/${entryID}/servers/${serverID}/redeploy-with-k8s-settings`,
+		{},
+		opts
+	);
+	return response;
+}
+
 export async function updateMCPCatalogServer(
 	catalogID: string,
 	serverID: string,
@@ -238,7 +271,7 @@ export async function revealMcpCatalogServer(
 export async function getMCPCatalogServer(
 	catalogID: string,
 	serverID: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<MCPCatalogServer> {
 	const response = (await doGet(
 		`/mcp-catalogs/${catalogID}/servers/${serverID}`,
@@ -298,12 +331,15 @@ export async function generateMcpCatalogEntryToolPreviews(
 		config?: Record<string, string>;
 		url?: string;
 	},
-	opts?: { fetch?: Fetcher }
-): Promise<void> {
-	await doPost(`/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews`, body ?? {}, {
+	opts?: { fetch?: Fetcher; dryRun?: boolean }
+): Promise<MCPCatalogEntry | void> {
+	const path = `/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews`;
+	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
+	const resp = await doPost(url, body ?? {}, {
 		...opts,
 		dontLogErrors: true
 	});
+	return opts?.dryRun ? (resp as MCPCatalogEntry) : undefined;
 }
 
 export async function getMcpCatalogToolPreviewsOauth(
@@ -313,17 +349,15 @@ export async function getMcpCatalogToolPreviewsOauth(
 		config?: Record<string, string>;
 		url?: string;
 	},
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dryRun?: boolean }
 ): Promise<string> {
 	try {
-		const response = (await doPost(
-			`/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews/oauth-url`,
-			body ?? {},
-			{
-				...opts,
-				dontLogErrors: true
-			}
-		)) as {
+		const path = `/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews/oauth-url`;
+		const url = opts?.dryRun ? `${path}?dryRun=true` : path;
+		const response = (await doPost(url, body ?? {}, {
+			...opts,
+			dontLogErrors: true
+		})) as {
 			oauthURL: string;
 		};
 		return response.oauthURL;
@@ -707,6 +741,22 @@ export async function restartK8sDeployment(mcpServerId: string, opts?: { fetch?:
 	await doPost(`/mcp-servers/${mcpServerId}/restart`, {}, opts);
 }
 
+export async function getK8sSettingsStatus(
+	mcpServerId: string,
+	opts?: { dontLogErrors?: boolean }
+) {
+	const response = (await doGet(
+		`/mcp-servers/${mcpServerId}/k8s-settings-status`,
+		opts
+	)) as ServerK8sSettings;
+	return response;
+}
+
+export async function redeployWithK8sSettings(mcpServerId: string, opts?: { fetch?: Fetcher }) {
+	const response = await doPost(`/mcp-servers/${mcpServerId}/redeploy-with-k8s-settings`, {}, opts);
+	return response;
+}
+
 export async function getDefaultBaseAgent(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet('/agents', opts)) as ItemsResponse<BaseAgent>;
 	return response.items?.find((agent) => agent.default);
@@ -804,4 +854,165 @@ export async function updateDefaultUsersRoleSettings(role: number, opts?: { fetc
 export async function getDefaultUsersRoleSettings(opts?: { fetch?: Fetcher }) {
 	const response = (await doGet('/user-default-role-settings', opts)) as { role: number };
 	return response.role;
+}
+
+export async function listExplicitRoleEmails(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/setup/explicit-role-emails', opts)) as {
+		owners: string[] | null;
+		admins: string[] | null;
+	};
+	return response;
+}
+
+export async function initiateTempLogin(authProviderName: string, authProviderNamespace?: string) {
+	const response = (await doPost('/setup/initiate-temp-login', {
+		authProviderName,
+		authProviderNamespace
+	})) as {
+		redirectUrl: string;
+		tokenId: string;
+	};
+	return response;
+}
+
+export async function getTempUser() {
+	const response = (await doGet('/setup/temp-user')) as TempUser;
+	return response;
+}
+
+export async function confirmTempUserAsOwner(email: string) {
+	const response = (await doPost('/setup/confirm-owner', { email })) as {
+		success: boolean;
+		userId: number;
+		email: string;
+		message: string;
+	};
+	return response;
+}
+
+export async function cancelTempLogin() {
+	await doPost(
+		'/setup/cancel-temp-login',
+		{},
+		{
+			dontLogErrors: true
+		}
+	);
+}
+
+export async function getAuditLogExports(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/audit-log-exports', opts)) as PaginatedResponse<AuditLogExport>;
+	return response;
+}
+
+export async function getAuditLogExport(name: string, opts?: { fetch?: Fetcher }) {
+	const response = await doGet(`/audit-log-exports/${name}`, opts);
+	return response;
+}
+
+export async function createAuditLogExport(
+	request: AuditLogExportInput,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost('/audit-log-exports', request, opts);
+	return response;
+}
+
+export async function deleteAuditLogExport(name: string, opts?: { signal?: AbortSignal }) {
+	await doDelete(`/audit-log-exports/${name}`, { signal: opts?.signal });
+}
+
+// Scheduled Audit Log Exports
+export async function getScheduledAuditLogExports(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		'/scheduled-audit-log-exports',
+		opts
+	)) as PaginatedResponse<ScheduledAuditLogExport>;
+	return response;
+}
+
+export async function getScheduledAuditLogExport(
+	name: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ScheduledAuditLogExport> {
+	const response = await doGet(`/scheduled-audit-log-exports/${name}`, opts);
+	return response as ScheduledAuditLogExport;
+}
+
+export async function createScheduledAuditLogExport(
+	request: ScheduledAuditLogExportInput,
+	opts?: { dontLogErrors?: boolean }
+) {
+	const response = await doPost('/scheduled-audit-log-exports', request, opts);
+	return response;
+}
+
+export async function updateScheduledAuditLogExport(
+	id: string,
+	request: Partial<ScheduledAuditLogExportInput>,
+	opts?: { dontLogErrors?: boolean }
+) {
+	const response = await doPatch(`/scheduled-audit-log-exports/${id}`, request, opts);
+	return response;
+}
+
+export async function deleteScheduledAuditLogExport(name: string, opts?: { signal?: AbortSignal }) {
+	await doDelete(`/scheduled-audit-log-exports/${name}`, { signal: opts?.signal });
+}
+
+// Storage Credentials
+export async function getStorageCredentials() {
+	const response = (await doGet('/storage-credentials', {
+		dontLogErrors: true
+	})) as StorageCredentials;
+	return response;
+}
+
+export async function configureStorageCredentials(
+	request: StorageCredentials,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost('/storage-credentials', request, opts);
+	return response;
+}
+
+export async function testStorageCredentials(
+	request: StorageCredentials,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost('/storage-credentials/test', request, opts);
+	return response;
+}
+
+export async function getMCPServer(
+	serverID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer> {
+	const response = (await doGet(`/mcp-servers/${serverID}`, opts)) as MCPCatalogServer;
+	return response;
+}
+
+export async function refreshCompositeComponents(
+	catalogID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogEntry> {
+	const response = (await doPost(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/refresh-components`,
+		{},
+		opts
+	)) as MCPCatalogEntry;
+	return {
+		...response,
+		isCatalogEntry: true
+	};
+}
+
+export async function listK8sSettings(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/k8s-settings', opts)) as K8sSettings;
+	return response;
+}
+
+export async function updateK8sSettings(settings: K8sSettings, opts?: { fetch?: Fetcher }) {
+	return (await doPut('/k8s-settings', settings, opts)) as K8sSettings;
 }

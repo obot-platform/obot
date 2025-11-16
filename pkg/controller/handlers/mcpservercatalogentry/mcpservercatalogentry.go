@@ -2,11 +2,14 @@ package mcpservercatalogentry
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,12 +29,10 @@ func EnsureUserCount(req router.Request, _ router.Response) error {
 
 	uniqueUsers := make(map[string]struct{}, len(mcpServers.Items))
 	for _, server := range mcpServers.Items {
-		if server.Spec.UserID == "" {
-			// A server should always have a user ID, but if it doesn't, don't count it.
-			continue
+		// Don't count servers that don't have a user ID, are being deleted, or are part of a composite server.
+		if server.Spec.UserID != "" && server.DeletionTimestamp.IsZero() && server.Spec.CompositeName == "" {
+			uniqueUsers[server.Spec.UserID] = struct{}{}
 		}
-
-		uniqueUsers[server.Spec.UserID] = struct{}{}
 	}
 
 	if newUserCount := len(uniqueUsers); entry.Status.UserCount != newUserCount {
@@ -67,4 +68,100 @@ func UpdateManifestHashAndLastUpdated(req router.Request, _ router.Response) err
 	}
 
 	return nil
+}
+
+// DetectCompositeDrift detects when a composite catalog entry's component snapshots have drifted
+// from their source catalog entries or multi-user servers
+func DetectCompositeDrift(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+
+	if entry.Spec.Manifest.Runtime != types.RuntimeComposite {
+		if entry.Status.NeedsUpdate {
+			entry.Status.NeedsUpdate = false
+			return req.Client.Status().Update(req.Ctx, entry)
+		}
+		return nil
+	}
+
+	// Check each component for drift
+	var drifted bool
+	for _, component := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
+		// Handle multi-user component drift
+		if component.MCPServerID != "" {
+			var server v1.MCPServer
+			if err := req.Get(&server, entry.Namespace, component.MCPServerID); err != nil {
+				if apierrors.IsNotFound(err) {
+					drifted = true
+					break
+				}
+				return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
+			}
+
+			var (
+				snapshotHash = hash.Digest(component.Manifest)
+				currentHash  = hash.Digest(server.Spec.Manifest)
+			)
+			if snapshotHash != currentHash {
+				drifted = true
+				break
+			}
+		} else {
+			// Handle catalog entry component drift
+			var componentEntry v1.MCPServerCatalogEntry
+			if err := req.Get(&componentEntry, entry.Namespace, component.CatalogEntryID); err != nil {
+				if apierrors.IsNotFound(err) {
+					drifted = true
+					break
+				}
+				return fmt.Errorf("failed to get component catalog entry %s: %w", component.CatalogEntryID, err)
+			}
+
+			var (
+				snapshotHash = hash.Digest(component.Manifest)
+				currentHash  = hash.Digest(componentEntry.Spec.Manifest)
+			)
+			if snapshotHash != currentHash {
+				drifted = true
+				break
+			}
+		}
+	}
+
+	if entry.Status.NeedsUpdate != drifted {
+		entry.Status.NeedsUpdate = drifted
+		return req.Client.Status().Update(req.Ctx, entry)
+	}
+
+	return nil
+}
+
+// CleanupNestedCompositeServers removes component servers with composite runtimes from composite catalog entries.
+// This handler cleans up entries that were created before API validation to prevent nested composite servers.
+func CleanupNestedCompositeEntries(req router.Request, _ router.Response) error {
+	var (
+		entry    = req.Object.(*v1.MCPServerCatalogEntry)
+		manifest = entry.Spec.Manifest
+	)
+
+	if manifest.Runtime != types.RuntimeComposite ||
+		manifest.CompositeConfig == nil {
+		return nil
+	}
+
+	// Remove all composite components from the server's manifest
+	var (
+		components    = manifest.CompositeConfig.ComponentServers
+		numComponents = len(components)
+	)
+	components = slices.DeleteFunc(components, func(component types.CatalogComponentServer) bool {
+		return component.Manifest.Runtime == types.RuntimeComposite
+	})
+
+	if numComponents == len(components) {
+		// No components were removed, so no need to update the manifest.
+		return nil
+	}
+
+	entry.Spec.Manifest.CompositeConfig.ComponentServers = components
+	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, entry))
 }

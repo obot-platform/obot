@@ -89,6 +89,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&UserDeleteList{},
 		&UserRoleChange{},
 		&UserRoleChangeList{},
+		&GroupRoleChange{},
+		&GroupRoleChangeList{},
 		&MCPCatalog{},
 		&MCPCatalogList{},
 		&OAuthClient{},
@@ -107,6 +109,12 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&PowerUserWorkspaceList{},
 		&UserDefaultRoleSetting{},
 		&UserDefaultRoleSettingList{},
+		&K8sSettings{},
+		&K8sSettingsList{},
+		&AuditLogExport{},
+		&AuditLogExportList{},
+		&ScheduledAuditLogExport{},
+		&ScheduledAuditLogExportList{},
 	); err != nil {
 		return err
 	}

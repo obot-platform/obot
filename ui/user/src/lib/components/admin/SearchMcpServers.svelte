@@ -20,6 +20,9 @@
 		entity?: 'catalog' | 'workspace';
 		workspaceId?: string | null;
 		isAdminView?: boolean;
+		singleSelect?: boolean;
+		title?: string;
+		skipComposite?: boolean;
 	}
 
 	type SearchItem = {
@@ -38,6 +41,9 @@
 		type,
 		workspaceId,
 		isAdminView,
+		singleSelect,
+		skipComposite,
+		title = 'Add MCP Server(s)',
 		entity = 'catalog',
 		all = ADMIN_ALL_OPTION
 	}: Props = $props();
@@ -66,13 +72,21 @@
 				registry: ''
 			},
 			...mcpServerAndEntries.entries
-				.filter((entry) =>
-					entity === 'catalog'
+				.filter((entry) => {
+					if (skipComposite && entry.manifest.runtime === 'composite') {
+						return false;
+					}
+
+					if (type === 'filter') {
+						return true;
+					}
+
+					return entity === 'catalog'
 						? !entry.powerUserWorkspaceID
 						: workspaceId
 							? entry.powerUserWorkspaceID === workspaceId
-							: !!entry.powerUserWorkspaceID
-				)
+							: !!entry.powerUserWorkspaceID;
+				})
 				.map((entry) => ({
 					icon: entry.manifest?.icon,
 					name: entry.manifest?.name || '',
@@ -85,13 +99,17 @@
 							: ''
 				})),
 			...mcpServerAndEntries.servers
-				.filter((server) =>
-					entity === 'catalog'
+				.filter((server) => {
+					if (type === 'filter') {
+						return true;
+					}
+
+					return entity === 'catalog'
 						? !server.powerUserWorkspaceID
 						: workspaceId
 							? server.powerUserWorkspaceID === workspaceId
-							: !!server.powerUserWorkspaceID
-				)
+							: !!server.powerUserWorkspaceID;
+				})
 				.map((server) => ({
 					icon: server.manifest.icon,
 					name: server.manifest.name || '',
@@ -147,7 +165,7 @@
 <ResponsiveDialog
 	bind:this={addMcpServerDialog}
 	{onClose}
-	title="Add MCP Server(s)"
+	{title}
 	class="h-full w-full overflow-visible p-0 md:h-[500px] md:max-w-md"
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit' }}
 >
@@ -162,6 +180,7 @@
 					<Search
 						class="dark:bg-surface1 dark:border-surface3 shadow-inner dark:border"
 						onChange={(val) => (search = val)}
+						value={search}
 						placeholder="Search by name..."
 					/>
 				</div>
@@ -174,6 +193,12 @@
 								selectedMap.has(item.id) && 'dark:bg-gray-920 bg-gray-50'
 							)}
 							onclick={() => {
+								if (singleSelect) {
+									selected = [item];
+									handleAdd();
+									return;
+								}
+
 								if (selectedMap.has(item.id)) {
 									const index = selected.findIndex((i) => i.id === item.id);
 									if (index !== -1) {
@@ -185,17 +210,13 @@
 							}}
 						>
 							<div class="flex w-full items-center gap-2 overflow-hidden">
-								{#if item.icon}
-									<img
-										src={item.icon}
-										alt={item.name}
-										class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
-									/>
-								{:else}
-									<Server
-										class="bg-surface1 size-8 flex-shrink-0 rounded-sm p-0.5 dark:bg-gray-600"
-									/>
-								{/if}
+								<div class="icon">
+									{#if item.icon}
+										<img src={item.icon} alt={item.name} class="size-8 flex-shrink-0" />
+									{:else}
+										<Server class="size-8 flex-shrink-0" />
+									{/if}
+								</div>
 								<div class="flex min-w-0 grow flex-col">
 									<div class="flex items-center gap-2">
 										<p class="truncate">{item.name}</p>
@@ -222,17 +243,19 @@
 		</div>
 	</div>
 	<div class="flex w-full flex-col justify-between gap-4 p-4 md:flex-row">
-		<div class="flex items-center gap-1 font-light">
-			{#if selected.length > 0}
-				<Server class="size-4" />
-				{selected.length} Selected
-			{/if}
-		</div>
-		<div class="flex items-center gap-2">
-			<button class="button w-full md:w-fit" onclick={() => addMcpServerDialog?.close()}>
-				Cancel
-			</button>
-			<button class="button-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
-		</div>
+		{#if !singleSelect}
+			<div class="flex items-center gap-1 font-light">
+				{#if selected.length > 0}
+					<Server class="size-4" />
+					{selected.length} Selected
+				{/if}
+			</div>
+			<div class="flex items-center gap-2">
+				<button class="button w-full md:w-fit" onclick={() => addMcpServerDialog?.close()}>
+					Cancel
+				</button>
+				<button class="button-primary w-full md:w-fit" onclick={handleAdd}> Confirm </button>
+			</div>
+		{/if}
 	</div>
 </ResponsiveDialog>

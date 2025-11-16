@@ -54,7 +54,7 @@ type Invoker struct {
 	mcpSessionManager *mcp.SessionManager
 	events            *events.Emitter
 	serverURL         string
-	serverPort        int
+	internalServerURL string
 }
 
 func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClient *client.Client, mcpSessionManager *mcp.SessionManager, serverURL string, serverPort int, tokenService *ephemeral.TokenService, events *events.Emitter) *Invoker {
@@ -66,7 +66,7 @@ func NewInvoker(c kclient.WithWatch, gptClient *gptscript.GPTScript, gatewayClie
 		mcpSessionManager: mcpSessionManager,
 		events:            events,
 		serverURL:         serverURL,
-		serverPort:        serverPort,
+		internalServerURL: fmt.Sprintf("http://localhost:%d", serverPort),
 	}
 }
 
@@ -377,7 +377,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 		}
 	}
 
-	renderedAgent, err := render.Agent(ctx, i.tokenService, i.mcpSessionManager, c, agent, i.serverURL, render.AgentOptions{
+	renderedAgent, err := render.Agent(ctx, i.tokenService, i.mcpSessionManager, c, agent, i.serverURL, i.internalServerURL, render.AgentOptions{
 		Thread:          thread,
 		WorkflowStepID:  opt.WorkflowStepID,
 		UserID:          opt.UserUID,
@@ -415,7 +415,7 @@ func (i *Invoker) Agent(ctx context.Context, c kclient.WithWatch, agent *v1.Agen
 	}
 
 	if len(renderedAgent.MCPErrors) > 0 {
-		resp.Message = fmt.Sprintf("Your chat message was sent successfully. However, there were errors listing tools for some of the MCP servers:\n\n%s", strings.Join(renderedAgent.MCPErrors, "\n"))
+		resp.Message = fmt.Sprintf("There were errors listing tools for some of the MCP servers:\n\n%s", strings.Join(renderedAgent.MCPErrors, "\n"))
 	}
 
 	return resp, nil
@@ -684,10 +684,11 @@ func (i *Invoker) Resume(ctx context.Context, c kclient.WithWatch, thread *v1.Th
 	options := gptscript.Options{
 		GlobalOptions: gptscript.GlobalOptions{
 			Env: append(run.Spec.Env,
-				fmt.Sprintf("GPTSCRIPT_MODEL_PROVIDER_PROXY_URL=http://localhost:%d/api/llm-proxy", i.serverPort),
+				fmt.Sprintf("GPTSCRIPT_MODEL_PROVIDER_PROXY_URL=%s/api/llm-proxy", i.internalServerURL),
 				"GPTSCRIPT_MODEL_PROVIDER_PROXY_TOKEN="+token,
 				"GPTSCRIPT_MODEL_PROVIDER_TOKEN="+token,
-				"OBOT_SERVER_URL="+i.serverURL,
+				"OBOT_SERVER_PUBLIC_URL="+i.serverURL,
+				"OBOT_SERVER_URL="+i.internalServerURL,
 				"OBOT_TOKEN="+token,
 				"OBOT_RUN_ID="+run.Name,
 				"OBOT_THREAD_ID="+thread.Name,

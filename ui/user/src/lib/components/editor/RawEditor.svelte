@@ -99,7 +99,9 @@
 			...foldKeymap,
 			...completionKeymap,
 			...lintKeymap
-		])
+		]),
+		// Add custom class to scope styles
+		CMEditorView.editorAttributes.of({ class: 'raw-editor' })
 	])();
 
 	$effect(() => {
@@ -303,7 +305,7 @@
 
 <style lang="postcss">
 	:global {
-		.cm-editor {
+		.cm-editor.raw-editor {
 			font-size: var(--text-md);
 			background-color: transparent;
 			height: 100%;
@@ -311,21 +313,21 @@
 				display: none;
 			}
 		}
-		.cm-focused {
-			outline-style: none !important;
-		}
-		.cm-scroller {
+		.cm-editor.raw-editor .cm-scroller {
 			height: inherit;
 			-ms-overflow-style: none; /* IE and Edge */
 			scrollbar-width: none; /* Firefox */
 			overflow: unset !important;
 		}
-		.cm-scroller::-webkit-scrollbar {
+		.cm-editor.raw-editor .cm-scroller::-webkit-scrollbar {
 			display: none;
+		}
+		.cm-editor.raw-editor.cm-focused {
+			outline-style: none !important;
 		}
 
 		/* Hide cursor when disabled but keep selection */
-		.disabled .cm-editor .cm-cursor {
+		.disabled .cm-editor.raw-editor .cm-cursor {
 			display: none !important;
 		}
 

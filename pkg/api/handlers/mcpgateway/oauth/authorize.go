@@ -15,8 +15,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/auth"
-	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/hash"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -263,36 +261,15 @@ func (h *handler) callback(req api.Context) error {
 	}
 
 	authProviderName, authProviderNamespace := req.AuthProviderNameAndNamespace()
-	sessionID, sessionCookie := auth.GetSessionInfoFromRequest(req.Request)
-	hashedSessionID := hash.String(sessionID)
 
 	if !req.UserIsAuthenticated() ||
 		req.User.GetName() == "bootstrap" ||
 		authProviderName == "bootstrap" ||
-		authProviderNamespace == "bootstrap" ||
-		sessionID == "" ||
-		sessionCookie == "" {
+		authProviderNamespace == "bootstrap" {
 		// The user is either not authenticated or is authenticated as the bootstrap user.
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 			Code:        ErrAccessDenied,
 			Description: "user is not authenticated",
-		})
-		return nil
-	}
-
-	// Cache the Obot session cookie.
-	// We use this cached cookie to keep the auth groups for the user up-to-date when authenticating
-	// MCP server requests to Obot.
-	if err := h.gatewayClient.EnsureSessionCookie(req.Context(), gtypes.SessionCookie{
-		HashedSessionID:       hashedSessionID,
-		Cookie:                sessionCookie,
-		UserID:                req.UserID(),
-		AuthProviderNamespace: authProviderNamespace,
-		AuthProviderName:      authProviderName,
-	}); err != nil {
-		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
-			Code:        ErrServerError,
-			Description: err.Error(),
 		})
 		return nil
 	}
@@ -303,7 +280,6 @@ func (h *handler) callback(req api.Context) error {
 	oauthAppAuthRequest.Spec.AuthProviderUserID = auth.FirstExtraValue(req.User.GetExtra(), "auth_provider_user_id")
 	oauthAppAuthRequest.Spec.AuthProviderNamespace = authProviderNamespace
 	oauthAppAuthRequest.Spec.AuthProviderName = authProviderName
-	oauthAppAuthRequest.Spec.HashedSessionID = hashedSessionID
 	if err := req.Update(&oauthAppAuthRequest); err != nil {
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 			Code:        ErrServerError,
@@ -314,12 +290,12 @@ func (h *handler) callback(req api.Context) error {
 
 	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
 		// Check whether the MCP server needs authentication.
-		_, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID)
+		_, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID, h.oauthChecker.mcpSessionManager.TokenService(), h.baseURL)
 		if err != nil {
 			return err
 		}
 
-		u, err := h.oauthChecker.CheckForMCPAuth(req.Context(), mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
+		u, err := h.oauthChecker.CheckForMCPAuth(req, mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
 		if err != nil {
 			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 				Code:        ErrServerError,
@@ -341,7 +317,7 @@ func (h *handler) callback(req api.Context) error {
 
 // oauthCallback handles the second-level third-party OAuth for MCP servers.
 func (h *handler) oauthCallback(req api.Context) error {
-	oauthAuthRequestID, err := h.oauthChecker.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
+	oauthAuthRequestID, mcpServerID, err := h.oauthChecker.stateCache.createToken(req.Context(), req.URL.Query().Get("state"), req.URL.Query().Get("code"), req.URL.Query().Get("error"), req.URL.Query().Get("error_description"))
 	if err != nil {
 		return types.NewErrHTTP(http.StatusBadRequest, err.Error())
 	}
@@ -369,6 +345,26 @@ func (h *handler) oauthCallback(req api.Context) error {
 		return nil
 	}
 
+	// Check if the MCP server is a component of a composite; only finalize if it's not
+	var server v1.MCPServer
+	if err := req.Get(&server, mcpServerID); err != nil {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+			Code:        ErrServerError,
+			Description: err.Error(),
+		})
+		return nil
+	}
+
+	if server.Spec.CompositeName != "" {
+		// MCP server is a component of a composite.
+		// Redirect to login complete page; the checkCompositeAuth handler will redirect back
+		// to the 1st level OAuth redirect URL when all pending 2nd level OAuth for the composite server's
+		// component servers are completed.
+		http.Redirect(req.ResponseWriter, req.Request, "/login_complete", http.StatusFound)
+		return nil
+	}
+
+	// Not a component of a composite MCP server, redirect to complete 1st level OAuth
 	// Update the authorization code since we only saved the hash of it the first time.
 	code := strings.ToLower(rand.Text() + rand.Text())
 	oauthAppAuthRequest.Spec.HashedAuthCode = fmt.Sprintf("%x", sha256.Sum256([]byte(code)))

@@ -47,7 +47,7 @@ func (sm *stateCache) store(ctx context.Context, userID, mcpID, oauthAuthRequest
 	return nil
 }
 
-func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, errorDescription string) (string, error) {
+func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, errorDescription string) (string, string, error) {
 	sm.lock.Lock()
 	s, ok := sm.cache[state]
 	delete(sm.cache, state)
@@ -68,7 +68,7 @@ func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, er
 	} else {
 		token, err := sm.gatewayClient.GetMCPOAuthTokenByState(ctx, state)
 		if err != nil {
-			return "", fmt.Errorf("failed to get oauth state: %w", err)
+			return "", "", fmt.Errorf("failed to get oauth state: %w", err)
 		}
 
 		conf = &oauth2.Config{
@@ -92,13 +92,13 @@ func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, er
 	}
 
 	if errorStr != "" {
-		return "", fmt.Errorf("error returned from oauth server: %s, %s", errorStr, errorDescription)
+		return "", "", fmt.Errorf("error returned from oauth server: %s, %s", errorStr, errorDescription)
 	}
 
 	token, err := conf.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", verifier))
 	if err != nil {
-		return "", fmt.Errorf("failed to exchange code: %w", err)
+		return "", "", fmt.Errorf("failed to exchange code: %w", err)
 	}
 
-	return oauthAuthRequestID, sm.gatewayClient.ReplaceMCPOAuthToken(ctx, userID, mcpID, "", "", "", conf, token)
+	return oauthAuthRequestID, mcpID, sm.gatewayClient.ReplaceMCPOAuthToken(ctx, userID, mcpID, "", "", "", conf, token)
 }

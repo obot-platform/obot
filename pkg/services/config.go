@@ -1,7 +1,9 @@
 package services
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -54,9 +56,11 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	coordinationv1 "k8s.io/api/coordination/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/request/union"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	"k8s.io/client-go/rest"
 	gocache "k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
@@ -100,6 +104,7 @@ type Config struct {
 	StaticDir                  string   `usage:"The directory to serve static files from"`
 	RetentionPolicyHours       int      `usage:"The retention policy for the system. Set to 0 to disable retention." default:"2160"` // default 90 days
 	DefaultMCPCatalogPath      string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
+	DisableUpdateCheck         bool     `usage:"Disable Obot server update checks"`
 	// Sendgrid webhook
 	SendgridWebhookUsername           string `usage:"The username for the sendgrid webhook to authenticate with"`
 	SendgridWebhookPassword           string `usage:"The password for the sendgrid webhook to authenticate with"`
@@ -117,9 +122,11 @@ type Config struct {
 }
 
 type Services struct {
+	EncryptionConfig           *encryptionconfig.EncryptionConfiguration
 	ToolRegistryURLs           []string
 	WorkspaceProviderType      string
 	ServerURL                  string
+	HTTPPort                   int
 	EmailServerName            string
 	DevUIPort                  int
 	UserUIPort                 int
@@ -168,6 +175,12 @@ type Services struct {
 	// Local Kubernetes configuration for deployment monitoring
 	LocalK8sConfig     *rest.Config
 	MCPServerNamespace string
+
+	// Parsed settings from Helm for k8s to pass to controller
+	K8sSettingsFromHelm *v1.K8sSettingsSpec
+
+	DisableUpdateCheck bool
+	MCPRuntimeBackend  string
 }
 
 const (
@@ -220,6 +233,49 @@ func buildLocalK8sConfig() (*rest.Config, error) {
 		kubeconfig = k
 	}
 	return clientcmd.BuildConfigFromFlags("", kubeconfig)
+}
+
+// unmarshalJSONStrict unmarshals JSON with strict validation that rejects unknown fields
+func unmarshalJSONStrict(data []byte, v any) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(v)
+}
+
+func parseK8sSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, error) {
+	if (opts.MCPK8sSettingsAffinity == "" || opts.MCPK8sSettingsAffinity == "{}") &&
+		(opts.MCPK8sSettingsTolerations == "" || opts.MCPK8sSettingsTolerations == "[]") &&
+		(opts.MCPK8sSettingsResources == "" || opts.MCPK8sSettingsResources == "{}") {
+		return nil, nil
+	}
+
+	spec := &v1.K8sSettingsSpec{}
+
+	if opts.MCPK8sSettingsAffinity != "" {
+		var affinity corev1.Affinity
+		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsAffinity), &affinity); err != nil {
+			return nil, fmt.Errorf("failed to parse affinity from Helm: %w", err)
+		}
+		spec.Affinity = &affinity
+	}
+
+	if opts.MCPK8sSettingsTolerations != "" {
+		var tolerations []corev1.Toleration
+		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsTolerations), &tolerations); err != nil {
+			return nil, fmt.Errorf("failed to parse tolerations from Helm: %w", err)
+		}
+		spec.Tolerations = tolerations
+	}
+
+	if opts.MCPK8sSettingsResources != "" {
+		var resources corev1.ResourceRequirements
+		if err := unmarshalJSONStrict([]byte(opts.MCPK8sSettingsResources), &resources); err != nil {
+			return nil, fmt.Errorf("failed to parse resources from Helm: %w", err)
+		}
+		spec.Resources = &resources
+	}
+
+	return spec, nil
 }
 
 func newGPTScript(ctx context.Context,
@@ -387,7 +443,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		}
 	}
 
-	mcpLoader, err := mcp.NewSessionManager(ctx, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig)
+	// Parse Helm K8s settings
+	helmK8sSettings, err := parseK8sSettingsFromHelm(mcp.Options(config.MCPConfig))
+	if err != nil {
+		return nil, err
+	}
+
+	ephemeralTokenServer := &ephemeral.TokenService{}
+	mcpLoader, err := mcp.NewSessionManager(ctx, ephemeralTokenServer, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
 	if err != nil {
 		return nil, err
 	}
@@ -554,9 +617,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	var (
-		ephemeralTokenServer = &ephemeral.TokenService{}
-		events               = events.NewEmitter(storageClient, gatewayClient)
-		invoker              = invoke.NewInvoker(
+		events  = events.NewEmitter(storageClient, gatewayClient)
+		invoker = invoke.NewInvoker(
 			storageClient,
 			gptscriptClient,
 			gatewayClient,
@@ -668,8 +730,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// For now, always auto-migrate the gateway database
 	return &Services{
+		EncryptionConfig:      encryptionConfig,
 		WorkspaceProviderType: config.WorkspaceProviderType,
 		ServerURL:             config.Hostname,
+		HTTPPort:              config.HTTPListenPort,
 		DevUIPort:             devPort,
 		UserUIPort:            config.UserUIPort,
 		ToolRegistryURLs:      config.ToolRegistries,
@@ -722,6 +786,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		WebhookHelper:           mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer()),
 		LocalK8sConfig:          localK8sConfig,
 		MCPServerNamespace:      config.MCPNamespace,
+		K8sSettingsFromHelm:     helmK8sSettings,
+		DisableUpdateCheck:      config.DisableUpdateCheck,
+		MCPRuntimeBackend:       config.MCPRuntimeBackend,
 	}, nil
 }
 

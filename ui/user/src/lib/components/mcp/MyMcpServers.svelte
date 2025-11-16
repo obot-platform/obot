@@ -6,12 +6,14 @@
 		type MCPServerInstance
 	} from '$lib/services';
 	import {
+		convertCompositeInfoToLaunchFormData,
+		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		hasEditableConfiguration,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
 	import { fly } from 'svelte/transition';
-	import type { LaunchFormData } from './CatalogConfigureForm.svelte';
+	import type { LaunchFormData, CompositeLaunchFormData } from './CatalogConfigureForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ChevronLeft, ChevronRight, Info, LoaderCircle, ServerIcon } from 'lucide-svelte';
 	import { tick, type Snippet } from 'svelte';
@@ -25,6 +27,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import McpServerInfoAndTools from './McpServerInfoAndTools.svelte';
 	import PageLoading from '../PageLoading.svelte';
+	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 
 	type Entry = MCPCatalogEntry & {
 		categories: string[]; // categories for the entry
@@ -87,7 +90,7 @@
 
 	let container = $state<HTMLDivElement>();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let configureForm = $state<LaunchFormData>();
+	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
 	let showServerInfo = $state(false);
 	let editingServer = $state<ConnectedServer>();
 	let editAliasDialog = $state<ReturnType<typeof CatalogEditAliasForm>>();
@@ -96,11 +99,15 @@
 	let selectedManifest = $derived(getManifest(selectedEntryOrServer));
 	let search = $state('');
 	let saving = $state(false);
+	let updating = $state(false);
 	let error = $state<string>();
 
 	let launching = $state(false);
 	let launchError = $state<string>();
 	let launchProgress = $state<number>(0);
+	let launchLogsEventStream = $state<EventStreamService<string>>();
+	let launchLogs = $state<string[]>([]);
+	let relaunching = $state(false);
 
 	let deletingInstance = $state<MCPServerInstance>();
 	let deletingServer = $state<MCPCatalogServer>();
@@ -250,10 +257,140 @@
 		deletingServer = undefined;
 	}
 
-	async function handleLaunchCatalogEntry(entry: Entry) {
+	function listLaunchLogs(mcpServerId: string) {
+		launchLogsEventStream = new EventStreamService<string>();
+		launchLogsEventStream.connect(`/api/mcp-servers/${mcpServerId}/logs`, {
+			onMessage: (data) => {
+				launchLogs = [...launchLogs, data];
+			}
+		});
+	}
+
+	function initUpdatingOrLaunchProgress(existing?: boolean) {
+		if (launchLogsEventStream) {
+			// reset launch logs
+			launchLogsEventStream.disconnect();
+			launchLogsEventStream = undefined;
+			launchLogs = [];
+		}
+
+		launchError = undefined;
+		launchProgress = 0;
+		if (existing) {
+			updating = true;
+		} else {
+			launching = true;
+		}
+
+		let timeout1 = setTimeout(() => {
+			launchProgress = 10;
+		}, 100);
+
+		let timeout2 = setTimeout(() => {
+			launchProgress = 30;
+		}, 3000);
+
+		let timeout3 = setTimeout(() => {
+			launchProgress = 80;
+		}, 10000);
+
+		return { timeout1, timeout2, timeout3 };
+	}
+
+	async function handleLaunchCatalogEntry(entry: Entry, _retryingServer?: MCPCatalogServer) {
 		if (!entry.manifest) {
 			console.error('No server manifest found');
 			return;
+		}
+
+		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
+		const url =
+			entry.manifest.runtime === 'remote'
+				? (
+						(configureForm as LaunchFormData | undefined)?.url ||
+						entry.manifest.remoteConfig?.fixedURL
+					)?.trim()
+				: undefined;
+		const serverName = entry.manifest.name || '';
+
+		// Generate unique alias if there's a naming conflict
+		const aliasToUse = configureForm?.name || getUniqueAlias(serverName);
+
+		let response: MCPCatalogServer | undefined = undefined;
+		try {
+			response = await ChatService.createSingleOrRemoteMcpServer({
+				catalogEntryID: entry.id,
+				manifest: url ? { remoteConfig: { url } } : {},
+				alias: aliasToUse
+			});
+		} catch (err) {
+			console.error('error: ', err);
+			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+		}
+
+		if (response) {
+			try {
+				const lf = configureForm as LaunchFormData | undefined;
+				const envs = convertEnvHeadersToRecord(lf?.envs, lf?.headers);
+				const configuredResponse = await ChatService.configureSingleOrRemoteMcpServer(
+					response.id,
+					envs
+				);
+
+				const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
+					configuredResponse.id
+				);
+				if (!launchResponse.success) {
+					launchError = launchResponse.message;
+					listLaunchLogs(configuredResponse.id);
+				} else {
+					launchProgress = 100;
+				}
+
+				selectedEntryOrServer = {
+					server: configuredResponse,
+					connectURL: configuredResponse.connectURL,
+					instance: undefined,
+					parent: entry
+				} as ConnectedServer;
+
+				if (!launchError) {
+					const ref = selectedEntryOrServer;
+					setTimeout(() => {
+						launching = false;
+						launchProgress = 0;
+						onConnectServer?.(ref);
+					}, 1000);
+				}
+			} catch (err) {
+				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
+			} finally {
+				clearTimeout(timeout1);
+				clearTimeout(timeout2);
+				clearTimeout(timeout3);
+
+				relaunching = false;
+			}
+		}
+	}
+
+	async function handleLaunchCompositeServer(entry: Entry) {
+		// If no configureForm yet, initialize the composite form so user can enable/disable components.
+		if (!configureForm || !('componentConfigs' in configureForm)) {
+			initCompositeForm(entry);
+			return;
+		}
+
+		if (!entry.manifest) {
+			console.error('No server manifest found');
+			return;
+		}
+
+		if (launchLogsEventStream) {
+			// reset launch logs
+			launchLogsEventStream.disconnect();
+			launchLogsEventStream = undefined;
+			launchLogs = [];
 		}
 
 		launchError = undefined;
@@ -272,63 +409,78 @@
 			launchProgress = 80;
 		}, 10000);
 
-		const url = (configureForm?.url || entry.manifest.remoteConfig?.fixedURL)?.trim();
-		const serverName = entry.manifest.name || '';
-
-		// Generate unique alias if there's a naming conflict
-		const aliasToUse = configureForm?.name || getUniqueAlias(serverName);
-
-		let response: MCPCatalogServer | undefined = undefined;
 		try {
-			response = await ChatService.createSingleOrRemoteMcpServer({
+			const entry = selectedEntryOrServer as Entry;
+			const aliasToUse =
+				(configureForm as { name?: string } | undefined)?.name ||
+				getUniqueAlias(selectedManifest?.name || '');
+			const componentServersForCreate: Array<{
+				catalogEntryID: string;
+				manifest: Record<string, unknown>;
+			}> = [];
+			const payload: Record<
+				string,
+				{ config: Record<string, string>; url?: string; disabled?: boolean }
+			> = {};
+			for (const [id, comp] of Object.entries(configureForm.componentConfigs)) {
+				const url = comp.url?.trim();
+				componentServersForCreate.push({
+					catalogEntryID: id,
+					manifest: url
+						? { remoteConfig: { url: url.startsWith('http') ? url : `https://${url}` } }
+						: {}
+				});
+				const config: Record<string, string> = {};
+				for (const f of [
+					...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
+					...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
+				]) {
+					if (f.value) config[f.key] = f.value;
+				}
+				payload[id] = { config, url, disabled: comp.disabled ?? false };
+			}
+
+			const manifest: Record<string, unknown> = {
+				compositeConfig: { componentServers: componentServersForCreate }
+			};
+			const created = await ChatService.createSingleOrRemoteMcpServer({
 				catalogEntryID: entry.id,
-				manifest: url ? { remoteConfig: { url } } : {},
-				alias: aliasToUse
+				alias: aliasToUse,
+				manifest
 			});
+
+			await ChatService.configureCompositeMcpServer(created.id, payload);
+
+			const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(created.id);
+			if (!launchResponse.success) {
+				launchError = launchResponse.message;
+			} else {
+				launchProgress = 100;
+			}
+
+			selectedEntryOrServer = {
+				server: created,
+				connectURL: created.connectURL,
+				instance: undefined,
+				parent: entry
+			} as ConnectedServer;
+
+			if (!launchError) {
+				const ref = selectedEntryOrServer;
+				setTimeout(() => {
+					launching = false;
+					launchProgress = 0;
+					onConnectServer?.(ref);
+				}, 1000);
+			}
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
-		}
+		} finally {
+			clearTimeout(timeout1);
+			clearTimeout(timeout2);
+			clearTimeout(timeout3);
 
-		if (response) {
-			try {
-				const secretValues = convertEnvHeadersToRecord(configureForm?.envs, configureForm?.headers);
-				const configuredResponse = await ChatService.configureSingleOrRemoteMcpServer(
-					response.id,
-					secretValues
-				);
-
-				const launchResponse = await ChatService.validateSingleOrRemoteMcpServerLaunched(
-					configuredResponse.id
-				);
-				if (!launchResponse.success) {
-					// because something failed, go ahead and delete the server we created
-					launchError = launchResponse.message;
-					await ChatService.deleteSingleOrRemoteMcpServer(configuredResponse.id);
-				} else {
-					launchProgress = 100;
-
-					selectedEntryOrServer = {
-						server: configuredResponse,
-						connectURL: configuredResponse.connectURL,
-						instance: undefined,
-						parent: entry
-					} as ConnectedServer;
-
-					const ref = selectedEntryOrServer;
-					setTimeout(() => {
-						launching = false;
-						launchProgress = 0;
-						onConnectServer?.(ref);
-					}, 1000);
-				}
-			} catch (err) {
-				await ChatService.deleteSingleOrRemoteMcpServer(response.id);
-				launchError = err instanceof Error ? err.message : 'An unknown error occurred';
-			} finally {
-				clearTimeout(timeout1);
-				clearTimeout(timeout2);
-				clearTimeout(timeout3);
-			}
+			relaunching = false;
 		}
 	}
 
@@ -354,7 +506,12 @@
 		error = undefined;
 		saving = true;
 		try {
-			if ('isCatalogEntry' in selectedEntryOrServer) {
+			if (
+				'isCatalogEntry' in selectedEntryOrServer &&
+				selectedEntryOrServer.manifest?.runtime === 'composite'
+			) {
+				await handleLaunchCompositeServer(selectedEntryOrServer as Entry);
+			} else if ('isCatalogEntry' in selectedEntryOrServer) {
 				await handleLaunchCatalogEntry(selectedEntryOrServer as Entry);
 			} else {
 				await handleMultiUserServer(selectedEntryOrServer as Server);
@@ -397,49 +554,124 @@
 		};
 	}
 
+	function initCompositeForm(entry: Entry) {
+		// For composite: open form first to collect per-component URLs before creating
+		if (entry.manifest.runtime === 'composite') {
+			const components = entry.manifest?.compositeConfig?.componentServers || [];
+			const componentConfigs: Record<
+				string,
+				{
+					name?: string;
+					icon?: string;
+					hostname?: string;
+					url?: string;
+					disabled?: boolean;
+					envs?: Array<Record<string, unknown> & { key: string; value: string }>;
+					headers?: Array<Record<string, unknown> & { key: string; value: string }>;
+				}
+			> = {};
+			for (const c of components) {
+				const id = c.catalogEntryID || c.mcpServerID;
+				if (!id || !c.manifest) continue;
+				const m = c.manifest;
+				componentConfigs[id] = {
+					name: m.name,
+					icon: m.icon,
+					hostname: m.remoteConfig?.hostname,
+					url: m.remoteConfig?.fixedURL ?? '',
+					disabled: false,
+					envs: (m.env ?? []).map((e) => ({
+						...(e as unknown as Record<string, unknown>),
+						key: e.key,
+						value: ''
+					})),
+					headers: (m.remoteConfig?.headers ?? []).map((h) => ({
+						...(h as unknown as Record<string, unknown>),
+						key: h.key,
+						value: ''
+					}))
+				};
+			}
+			configureForm = { componentConfigs } as CompositeLaunchFormData;
+			configDialog?.open();
+		}
+	}
+
+	async function updateExistingRemoteOrSingleUser(lf: LaunchFormData, server: ConnectedServer) {
+		if (!server.server) return;
+		if (
+			server.parent &&
+			server.parent.manifest.runtime === 'remote' &&
+			server.parent.manifest.remoteConfig?.urlTemplate === undefined &&
+			lf?.url
+		) {
+			await ChatService.updateRemoteMcpServerUrl(server.server.id, lf.url.trim());
+		}
+
+		const envs = convertEnvHeadersToRecord(lf.envs, lf.headers);
+		await ChatService.configureSingleOrRemoteMcpServer(server.server.id, envs);
+
+		const updatedServer = await ChatService.getSingleOrRemoteMcpServer(server.server.id);
+		selectedEntryOrServer = {
+			...selectedEntryOrServer,
+			server: updatedServer
+		} as ConnectedServer;
+	}
+
+	async function updateExistingComposite(lf: CompositeLaunchFormData, server: ConnectedServer) {
+		if (!server.server) return;
+		// Composite flow using CatalogConfigureForm data
+		if ('componentConfigs' in lf) {
+			const payload = convertCompositeLaunchFormDataToPayload(lf);
+			await ChatService.configureCompositeMcpServer(server.server.id, payload);
+		}
+	}
+
 	async function handleConfigureForm() {
 		if (!selectedEntryOrServer) return;
 		if (!configureForm) return;
 
+		if (
+			relaunching &&
+			'parent' in selectedEntryOrServer &&
+			'server' in selectedEntryOrServer &&
+			selectedEntryOrServer.parent &&
+			selectedEntryOrServer.server
+		) {
+			configDialog?.close();
+			await handleLaunchCatalogEntry(selectedEntryOrServer.parent, selectedEntryOrServer.server);
+			return;
+		}
+
 		try {
 			if ('server' in selectedEntryOrServer && selectedEntryOrServer.server?.id) {
-				if (
-					selectedEntryOrServer.parent &&
-					selectedEntryOrServer.parent.manifest.runtime === 'remote' &&
-					selectedEntryOrServer.parent.manifest.remoteConfig?.urlTemplate === undefined &&
-					selectedEntryOrServer.server.manifest.remoteConfig?.fixedURL !== undefined &&
-					configureForm.url
-				) {
-					await ChatService.updateRemoteMcpServerUrl(
-						selectedEntryOrServer.server.id,
-						configureForm.url.trim()
-					);
+				configDialog?.close();
+				const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress(true);
+				// updating existing
+				if (selectedEntryOrServer.parent?.manifest.runtime === 'composite') {
+					const lf = configureForm as CompositeLaunchFormData;
+					await updateExistingComposite(lf, selectedEntryOrServer);
+				} else {
+					const lf = configureForm as LaunchFormData;
+					await updateExistingRemoteOrSingleUser(lf, selectedEntryOrServer);
 				}
-
-				const secretValues = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
-				await ChatService.configureSingleOrRemoteMcpServer(
-					selectedEntryOrServer.server.id,
-					secretValues
-				);
-
-				const updatedServer = await ChatService.getSingleOrRemoteMcpServer(
-					selectedEntryOrServer.server.id
-				);
-				selectedEntryOrServer = {
-					...selectedEntryOrServer,
-					server: updatedServer
-				} as ConnectedServer;
-
-				configDialog?.close();
+				launchProgress = 100;
+				clearTimeout(timeout1);
+				clearTimeout(timeout2);
+				clearTimeout(timeout3);
 				onUpdateConfigure?.();
+
+				setTimeout(() => {
+					updating = false;
+				}, 1000);
 			} else {
+				// launching new
 				configDialog?.close();
-				// Add a small delay to ensure dialog is fully closed before handling launch
 				await new Promise((resolve) => setTimeout(resolve, 300));
 				await handleLaunch();
 			}
-		} catch (error) {
-			console.error('Error during configuration:', error);
+		} catch (_error) {
+			console.error('Error during configuration:', _error);
 			configDialog?.close();
 		}
 	}
@@ -457,6 +689,13 @@
 			console.error('No user configured server for this entry found');
 			return;
 		}
+		if (connectedServer.parent?.manifest.runtime === 'composite') {
+			configureForm = await convertCompositeInfoToLaunchFormData(connectedServer.server);
+			selectedEntryOrServer = connectedServer;
+			configDialog?.open();
+			return;
+		}
+
 		let values: Record<string, string>;
 		try {
 			values = await ChatService.revealSingleOrRemoteMcpServer(connectedServer.server.id, {
@@ -482,6 +721,23 @@
 			hostname: connectedServer.parent?.manifest.remoteConfig?.hostname
 		};
 		configDialog?.open();
+	}
+
+	async function handleCancelLaunch() {
+		if (launchLogsEventStream) {
+			launchLogsEventStream.disconnect();
+		}
+		if (
+			selectedEntryOrServer &&
+			'server' in selectedEntryOrServer &&
+			selectedEntryOrServer.server
+		) {
+			await ChatService.deleteSingleOrRemoteMcpServer(selectedEntryOrServer.server.id);
+			selectedEntryOrServer = selectedEntryOrServer.parent;
+		}
+
+		launching = false;
+		launchError = undefined;
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -650,21 +906,66 @@
 
 <PageLoading
 	isProgressBar
-	show={launching}
-	text="Configuring and initializing server..."
+	show={launching || updating}
+	text={updating ? 'Updating server...' : 'Configuring and initializing server...'}
 	progress={launchProgress}
 	error={launchError}
-	onClose={() => {
-		launching = false;
+	errorClasses={{
+		root: 'md:w-[95vw]'
 	}}
+	onClose={handleCancelLaunch}
 >
 	{#snippet errorPreContent()}
 		<h4 class="text-xl font-semibold">MCP Server Launch Failed</h4>
 	{/snippet}
 	{#snippet errorPostContent()}
-		<p class="text-md self-start">An issue occurred while launching the MCP server.</p>
+		{@const hasConfigurableParent =
+			selectedEntryOrServer &&
+			'parent' in selectedEntryOrServer &&
+			selectedEntryOrServer.parent &&
+			hasEditableConfiguration(selectedEntryOrServer.parent)}
+		{#if launchLogs.length > 0}
+			<div
+				class="default-scrollbar-thin bg-surface1 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
+			>
+				{#each launchLogs as log, i (i)}
+					<div class="font-mono text-sm">
+						<span class="text-gray-600 dark:text-gray-400">{log}</span>
+					</div>
+				{/each}
+			</div>
+		{:else}
+			<p class="text-md self-start">An issue occurred while launching the MCP server.</p>
+		{/if}
 
-		<p class="text-md self-start">If the problem persists, please contact an administrator.</p>
+		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
+			{#if hasConfigurableParent}
+				<button
+					class="button-primary w-full md:w-1/2 md:flex-1"
+					onclick={() => {
+						launching = false;
+						launchError = undefined;
+						relaunching = true;
+						if (
+							selectedEntryOrServer &&
+							'parent' in selectedEntryOrServer &&
+							selectedEntryOrServer.parent
+						) {
+							if (hasEditableConfiguration(selectedEntryOrServer.parent)) {
+								configDialog?.open();
+							} else {
+								handleLaunch();
+							}
+						}
+					}}
+				>
+					Update Configuration and Try Again
+				</button>
+			{/if}
+			<button class="button w-full md:w-1/2 md:flex-1" onclick={handleCancelLaunch}>
+				Cancel and Delete Server
+			</button>
+		</div>
 	{/snippet}
 </PageLoading>
 
@@ -718,7 +1019,9 @@
 						onclick={() => {
 							configureForm = undefined;
 							if ('isCatalogEntry' in item) {
-								if (hasEditableConfiguration(item) || userServerConfigureMap.has(item.id)) {
+								if (hasEditableConfiguration(item) && item.manifest?.runtime === 'composite') {
+									initCompositeForm(item);
+								} else if (hasEditableConfiguration(item) || userServerConfigureMap.has(item.id)) {
 									initConfigureForm(item);
 									configDialog?.open();
 								} else {
@@ -787,7 +1090,10 @@
 
 {#snippet editConfigAction(connectedServer: ConnectedServer)}
 	{@const requiresUpdate = requiresUserUpdate(connectedServer)}
-	{@const canConfigure = connectedServer.parent && hasEditableConfiguration(connectedServer.parent)}
+	{@const canConfigure =
+		connectedServer.parent &&
+		(connectedServer.parent.manifest.runtime === 'composite' ||
+			hasEditableConfiguration(connectedServer.parent))}
 	{#if canConfigure}
 		<button
 			class={twMerge(

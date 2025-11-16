@@ -123,6 +123,16 @@ export function formatTimeRange(startTime: string, endTime: string): string {
 		return 'Last 7 Days';
 	}
 
+	//check if it's the last 30 days
+	const thirtyDayDurationInHours = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
+	const isLast30Days =
+		Math.abs(thirtyDayDurationInHours - 720) < 0.1 &&
+		Math.abs(end.getTime() - now.getTime()) < 24 * 60 * 60 * 1000;
+
+	if (isLast30Days) {
+		return 'Last 30 Days';
+	}
+
 	// Check if it's a whole day (start at 00:00 and end at 23:59 or next day 00:00)
 	const startHour = start.getHours();
 	const startMinute = start.getMinutes();

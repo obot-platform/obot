@@ -3,9 +3,10 @@
 	import { columnResize } from '$lib/actions/resize';
 	import { profile, responsive, version } from '$lib/stores';
 	import { initLayout, getLayout } from '$lib/context/layout.svelte';
-	import type { Component, Snippet } from 'svelte';
+	import { type Component, type Snippet } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import {
+		AlarmClock,
 		Boxes,
 		Captions,
 		ChartBarDecreasing,
@@ -26,14 +27,15 @@
 		Users
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 	import { twMerge } from 'tailwind-merge';
-	import { afterNavigate } from '$app/navigation';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
 	import { Render } from './ui/render';
 	import { Group } from '$lib/services';
+	import { page } from '$app/state';
+	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
+	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 
 	type NavLink = {
 		id: string;
@@ -72,9 +74,9 @@
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
-	let pathname = $state('');
+	let pathname = $derived(page.url.pathname);
 
-	let isBootStrapUser = $derived(profile.current.username === BOOTSTRAP_USER_ID);
+	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 	let navLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.() && !showUserLinks
@@ -122,6 +124,13 @@
 								icon: GlobeLock,
 								label: 'Access Control',
 								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'server-scheduling',
+								href: '/admin/server-scheduling',
+								icon: AlarmClock,
+								label: 'Server Scheduling',
 								collapsible: false
 							}
 						]
@@ -249,10 +258,6 @@
 		'/admin/auth-providers': 'Enable authentication to access this page.'
 	};
 
-	afterNavigate(() => {
-		pathname = window.location.pathname;
-	});
-
 	$effect(() => {
 		if (responsive.isMobile) {
 			layout.sidebarOpen = false;
@@ -260,6 +265,16 @@
 	});
 
 	const excludeConfigureBanner = ['/admin/model-providers', '/admin/auth-providers'];
+	const isAdminRoute = $derived(pathname.includes('/admin'));
+
+	$effect(() => {
+		const isAdminOrBootstrapUser =
+			profile.current.loaded &&
+			(profile.current.groups.includes(Group.ADMIN) || profile.current.isBootstrapUser?.());
+		if (isAdminOrBootstrapUser && isAdminRoute) {
+			adminConfigStore.initialize();
+		}
+	});
 
 	initLayout();
 	const layout = getLayout();
@@ -274,7 +289,7 @@
 				bind:this={nav}
 			>
 				<div class="flex h-16 flex-shrink-0 items-center px-2">
-					<BetaLogo enterprise />
+					<BetaLogo enterprise={version.current.enterprise} />
 				</div>
 
 				<div
@@ -409,7 +424,7 @@
 						classes?.childrenContainer ?? ''
 					)}
 				>
-					{#if pathname.includes('/admin') && !excludeConfigureBanner.includes(pathname)}
+					{#if isAdminRoute && !excludeConfigureBanner.includes(pathname)}
 						<ConfigureBanner />
 					{/if}
 					{@render children()}
@@ -430,6 +445,10 @@
 		</div>
 	{/if}
 </div>
+
+{#if isAdminRoute}
+	<SetupSplashDialog />
+{/if}
 
 <style lang="postcss">
 	.sidebar-link {

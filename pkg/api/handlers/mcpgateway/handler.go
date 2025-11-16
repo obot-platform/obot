@@ -18,6 +18,7 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/mvl"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -79,17 +80,19 @@ func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionMana
 func (h *Handler) StreamableHTTP(req api.Context) error {
 	sessionID := req.Request.Header.Get("Mcp-Session-Id")
 
-	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, req.PathValue("mcp_id"))
+	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, req.PathValue("mcp_id"), h.mcpSessionManager.TokenService(), h.baseURL)
 	if err == nil && mcpServer.Spec.Template {
 		// Prevent connections to MCP server templates by returning a 404.
 		err = apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 
+	ss := newSessionStore(h, mcpID, req.User.GetUID())
+
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			// If the MCP server is not found, remove the session.
 			if sessionID != "" {
-				session, found, err := h.LoadAndDelete(req.Context(), h, sessionID)
+				session, found, err := ss.LoadAndDelete(req.Context(), h, sessionID)
 				if err != nil {
 					return fmt.Errorf("failed to get mcp server config: %w", err)
 				}
@@ -103,21 +106,118 @@ func (h *Handler) StreamableHTTP(req api.Context) error {
 		return fmt.Errorf("failed to get mcp server config: %w", err)
 	}
 
-	req.Request = req.WithContext(withMessageContext(req.Context(), messageContext{
+	messageCtx := messageContext{
 		userID:       req.User.GetUID(),
 		mcpID:        mcpID,
-		serverConfig: mcpServerConfig,
 		mcpServer:    mcpServer,
+		serverConfig: mcpServerConfig,
 		req:          req.Request,
 		resp:         req.ResponseWriter,
-	}))
+	}
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		// List all component servers for the composite server.
+		var componentServerList v1.MCPServerList
+		if err := req.List(&componentServerList,
+			kclient.InNamespace(mcpServer.Namespace),
+			kclient.MatchingFields{
+				"spec.compositeName": mcpServer.Name,
+			}); err != nil {
+			return fmt.Errorf("failed to list component servers for composite server %s: %v", mcpServer.Name, err)
+		}
 
-	nmcp.NewHTTPServer(nil, h, nmcp.HTTPServerOptions{SessionStore: h}).ServeHTTP(req.ResponseWriter, req.Request)
+		var componentInstanceList v1.MCPServerInstanceList
+		if err := req.List(&componentInstanceList,
+			kclient.InNamespace(mcpServer.Namespace),
+			kclient.MatchingFields{
+				"spec.compositeName": mcpServer.Name,
+			}); err != nil {
+			return fmt.Errorf("failed to list component instances for composite server %s: %v", mcpServer.Name, err)
+		}
+
+		// Precompute disabled component IDs for quick lookup (default is enabled if not listed)
+		var compositeConfig types.CompositeRuntimeConfig
+		if mcpServer.Spec.Manifest.CompositeConfig != nil {
+			compositeConfig = *mcpServer.Spec.Manifest.CompositeConfig
+		}
+
+		disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
+		for _, comp := range compositeConfig.ComponentServers {
+			if comp.CatalogEntryID != "" {
+				disabledComponents[comp.CatalogEntryID] = comp.Disabled
+			} else if comp.MCPServerID != "" {
+				disabledComponents[comp.MCPServerID] = comp.Disabled
+			}
+		}
+
+		componentServers := make([]messageContext, 0, len(componentServerList.Items)+len(componentInstanceList.Items))
+
+		// Add single-user component servers
+		for _, componentServer := range componentServerList.Items {
+			// Skip if explicitly disabled in composite config
+			if disabledComponents[componentServer.Spec.MCPServerCatalogEntryName] {
+				log.Debugf("Skipping component server %s not enabled in composite config", componentServer.Name)
+				continue
+			}
+
+			// Resolve server and config using the higher-level API
+			srv, config, err := handlers.ServerForAction(req, componentServer.Name, h.mcpSessionManager.TokenService(), h.baseURL)
+			if err != nil {
+				// If the component isn't configured or can't be reached, skip it.
+				log.Warnf("Failed to get component server %s: %v", componentServer.Name, err)
+				continue
+			}
+
+			componentServers = append(componentServers, messageContext{
+				userID:       req.User.GetUID(),
+				mcpID:        srv.Name,
+				mcpServer:    srv,
+				serverConfig: config,
+			})
+		}
+
+		// Add multi-user component instances
+		for _, componentInstance := range componentInstanceList.Items {
+			var multiUserServer v1.MCPServer
+			if err := req.Get(&multiUserServer, componentInstance.Spec.MCPServerName); err != nil {
+				log.Warnf("Failed to get multi-user server %s for instance %s: %v", componentInstance.Spec.MCPServerName, componentInstance.Name, err)
+				continue
+			}
+
+			if disabledComponents[multiUserServer.Name] {
+				log.Debugf("Skipping component instance %s not enabled in composite config", componentInstance.Name)
+				continue
+			}
+
+			srv, config, err := handlers.ServerForAction(req, multiUserServer.Name, h.mcpSessionManager.TokenService(), h.baseURL)
+			if err != nil {
+				log.Warnf("Failed to get multi-user server %s: %v", multiUserServer.Name, err)
+				continue
+			}
+
+			componentServers = append(componentServers, messageContext{
+				userID:       req.User.GetUID(),
+				mcpID:        srv.Name,
+				mcpServer:    srv,
+				serverConfig: config,
+			})
+		}
+
+		if len(componentServers) < 1 {
+			return fmt.Errorf("composite server %s has no running component servers", mcpServer.Name)
+		}
+
+		messageCtx.compositeContext = newCompositeContext(mcpServer.Spec.Manifest.CompositeConfig, componentServers)
+	}
+
+	req.Request = req.WithContext(withMessageContext(req.Context(), messageCtx))
+
+	nmcp.NewHTTPServer(nil, h, nmcp.HTTPServerOptions{SessionStore: ss}).ServeHTTP(req.ResponseWriter, req.Request)
 
 	return nil
 }
 
 type messageContext struct {
+	compositeContext
 	userID, mcpID string
 	mcpServer     v1.MCPServer
 	serverConfig  mcp.ServerConfig
@@ -142,6 +242,15 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		return
 	}
 
+	if m.mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		h.onCompositeMessage(ctx, msg, m)
+		return
+	}
+
+	h.onMessage(ctx, msg, m)
+}
+
+func (h *Handler) onMessage(ctx context.Context, msg nmcp.Message, m messageContext) {
 	// Determine PowerUserWorkspaceID: use server's workspace ID for multi-user servers,
 	// or look up catalog entry's workspace ID for single-user servers
 	powerUserWorkspaceID := m.mcpServer.Spec.PowerUserWorkspaceID
@@ -193,7 +302,9 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 
 		if err != nil {
 			auditLog.Error = err.Error()
-			auditLog.ResponseStatus = http.StatusInternalServerError
+			if auditLog.ResponseStatus < http.StatusBadRequest {
+				auditLog.ResponseStatus = http.StatusInternalServerError
+			}
 
 			var oauthErr nmcp.AuthRequiredErr
 			if errors.As(err, &oauthErr) {
@@ -295,7 +406,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 				log.Errorf("Failed to shutdown server %s: %v", m.mcpServer.Name, err)
 			}
 
-			if _, _, err = h.LoadAndDelete(ctx, h, session.ID()); err != nil {
+			if _, _, err = newSessionStore(h, m.mcpID, m.userID).LoadAndDelete(ctx, h, session.ID()); err != nil {
 				log.Errorf("Failed to delete session %s: %v", session.ID(), err)
 			}
 		}(msg.Session)
@@ -341,6 +452,7 @@ func (h *Handler) OnMessage(ctx context.Context, msg nmcp.Message) {
 		return
 	}
 
+	// Send forward the message to the server and wait for the result
 	if err = client.Session.Exchange(ctx, msg.Method, &msg, &result); err != nil {
 		log.Errorf("Failed to send %s message to server %s: %v", msg.Method, m.mcpServer.Name, err)
 		return
@@ -428,6 +540,8 @@ func captureHeaders(headers http.Header) json.RawMessage {
 	return nil
 }
 
+// Webhook helpers
+
 func fireWebhooks(ctx context.Context, webhooks []mcp.Webhook, msg nmcp.Message, auditLog *gatewaytypes.MCPAuditLog, webhookType, userID, mcpID string) error {
 	signatures := make(map[string]string, len(webhooks))
 
@@ -441,12 +555,9 @@ func fireWebhooks(ctx context.Context, webhooks []mcp.Webhook, msg nmcp.Message,
 	}
 
 	auditLog.WebhookStatuses = make([]gatewaytypes.MCPWebhookStatus, 0, len(webhooks))
-	var (
-		webhookStatus string
-		rpcError      *nmcp.RPCError
-	)
+	var rpcErrors []*nmcp.RPCError
 	for _, webhook := range webhooks {
-		webhookStatus, rpcError = fireWebhook(ctx, httpClient, body, mcpID, userID, webhook.URL, webhook.Secret, signatures)
+		webhookStatus, rpcError := fireWebhook(ctx, httpClient, body, mcpID, userID, webhook.URL, webhook.Secret, signatures)
 		if rpcError != nil {
 			auditLog.WebhookStatuses = append(auditLog.WebhookStatuses, gatewaytypes.MCPWebhookStatus{
 				Type:    webhookType,
@@ -454,17 +565,33 @@ func fireWebhooks(ctx context.Context, webhooks []mcp.Webhook, msg nmcp.Message,
 				Status:  webhookStatus,
 				Message: rpcError.Message,
 			})
-			return rpcError
+			rpcErrors = append(rpcErrors, rpcError)
+		} else {
+			auditLog.WebhookStatuses = append(auditLog.WebhookStatuses, gatewaytypes.MCPWebhookStatus{
+				Type:   webhookType,
+				URL:    webhook.URL,
+				Status: webhookStatus,
+			})
 		}
-
-		auditLog.WebhookStatuses = append(auditLog.WebhookStatuses, gatewaytypes.MCPWebhookStatus{
-			Type:   webhookType,
-			URL:    webhook.URL,
-			Status: webhookStatus,
-		})
 	}
 
-	return nil
+	switch len(rpcErrors) {
+	case 0:
+		return nil
+	case 1:
+		return rpcErrors[0]
+	default:
+		var message strings.Builder
+		message.WriteString("failed to fire webhooks: ")
+		for _, err := range rpcErrors {
+			message.WriteString(err.Message)
+			message.WriteString("; ")
+		}
+		return &nmcp.RPCError{
+			Code:    -32603,
+			Message: message.String()[:message.Len()-2],
+		}
+	}
 }
 
 func fireWebhook(ctx context.Context, httpClient *http.Client, body []byte, mcpID, userID, url, secret string, signatures map[string]string) (string, *nmcp.RPCError) {
@@ -506,10 +633,16 @@ func fireWebhook(ctx context.Context, httpClient *http.Client, body []byte, mcpI
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
 		return resp.Status, &nmcp.RPCError{
-			Code:    -32000,
+			Code:    -32603,
 			Message: fmt.Sprintf("webhook %s returned status code %d: %v", url, resp.StatusCode, string(respBody)),
 		}
 	}
 
 	return resp.Status, nil
+}
+
+// Pending request helpers
+func (h *Handler) pendingRequestsForSession(sessionID string) *nmcp.PendingRequests {
+	obj, _ := h.pendingRequests.LoadOrStore(sessionID, &nmcp.PendingRequests{})
+	return obj.(*nmcp.PendingRequests)
 }

@@ -10,6 +10,7 @@ import (
 
 type StepOptions struct {
 	PreviousRunName string
+	IgnoreMCPErrors bool
 }
 
 func (i *Invoker) Step(ctx context.Context, c kclient.WithWatch, step *v1.WorkflowStep, opt StepOptions) (*Response, error) {
@@ -41,6 +42,7 @@ func (i *Invoker) Step(ctx context.Context, c kclient.WithWatch, step *v1.Workfl
 		WorkflowExecutionName: wfe.Name,
 		PreviousRunName:       opt.PreviousRunName,
 		ForceNoResume:         opt.PreviousRunName == "",
+		IgnoreMCPErrors:       opt.IgnoreMCPErrors,
 		ExtraEnv:              extraEnv,
 	})
 }

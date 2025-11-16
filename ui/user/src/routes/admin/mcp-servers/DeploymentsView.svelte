@@ -4,7 +4,8 @@
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import Table from '$lib/components/table/Table.svelte';
+	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import {
@@ -14,9 +15,11 @@
 		type MCPCatalogServer,
 		type OrgUser
 	} from '$lib/services';
+	import { getServerTypeLabel } from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
+	import { delay } from 'es-toolkit';
 	import {
 		Captions,
 		CircleAlert,
@@ -38,6 +41,8 @@
 		urlFilters?: Record<string, (string | number)[]>;
 		onFilter?: (property: string, values: string[]) => void;
 		onClearAllFilters?: () => void;
+		onSort?: InitSortFn;
+		initSort?: InitSort;
 	}
 
 	let {
@@ -47,7 +52,9 @@
 		query,
 		urlFilters: filters,
 		onFilter,
-		onClearAllFilters
+		onClearAllFilters,
+		onSort,
+		initSort
 	}: Props = $props();
 	let loading = $state(false);
 
@@ -64,8 +71,7 @@
 	let selected = $state<Record<string, MCPCatalogServer>>({});
 	let updating = $state<Record<string, { inProgress: boolean; error: string }>>({});
 	let deleting = $state(false);
-
-	let bulkRestarting = $state(false);
+	let restarting = $state(false);
 
 	let mcpServerAndEntries = getAdminMcpServerAndEntries();
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
@@ -85,32 +91,58 @@
 		}, {})
 	);
 
+	let compositeMapping = $derived(
+		serversData
+			.filter((server) => 'compositeConfig' in server.manifest)
+			.reduce<Record<string, MCPCatalogServer>>((acc, server) => {
+				acc[server.id] = server;
+				return acc;
+			}, {})
+	);
+
 	let tableData = $derived.by(() => {
-		const transformedData = serversData.map((deployment) => {
-			const powerUserWorkspaceID =
-				deployment.powerUserWorkspaceID ||
-				(deployment.catalogEntryID
-					? entriesMap[deployment.catalogEntryID]?.powerUserWorkspaceID
-					: undefined);
-			const powerUserID = deployment.catalogEntryID
-				? entriesMap[deployment.catalogEntryID]?.powerUserID
-				: powerUserWorkspaceID
-					? deployment.userID
-					: undefined;
-			return {
-				...deployment,
-				displayName: deployment.manifest.name ?? '',
-				userName: getUserDisplayName(usersMap, deployment.userID),
-				registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
-				type:
-					deployment.manifest.runtime === 'remote'
-						? 'Remote'
-						: deployment.catalogEntryID
-							? 'Single User'
-							: 'Multi-User',
-				powerUserWorkspaceID
-			};
-		});
+		function isCompositeDescendantDisabled(parent: MCPCatalogServer, id: string) {
+			const match = parent.manifest.compositeConfig?.componentServers.find(
+				(component) => component.catalogEntryID === id || component.mcpServerID === id
+			);
+			return match ? match.disabled : false;
+		}
+
+		const transformedData = serversData
+			.map((deployment) => {
+				const powerUserWorkspaceID =
+					deployment.powerUserWorkspaceID ||
+					(deployment.catalogEntryID
+						? entriesMap[deployment.catalogEntryID]?.powerUserWorkspaceID
+						: undefined);
+				const powerUserID = deployment.catalogEntryID
+					? entriesMap[deployment.catalogEntryID]?.powerUserID
+					: powerUserWorkspaceID
+						? deployment.userID
+						: undefined;
+
+				const compositeParent =
+					deployment.compositeName && compositeMapping[deployment.compositeName];
+				const compositeParentName = compositeParent
+					? compositeParent.alias || compositeParent.manifest.name
+					: '';
+				return {
+					...deployment,
+					displayName: deployment.alias || deployment.manifest.name || '',
+					userName: getUserDisplayName(usersMap, deployment.userID),
+					registry: powerUserID ? getUserDisplayName(usersMap, powerUserID) : 'Global Registry',
+					type: getServerTypeLabel(deployment),
+					powerUserWorkspaceID,
+					compositeParentName,
+					disabled: compositeParent
+						? isCompositeDescendantDisabled(
+								compositeParent,
+								deployment.catalogEntryID || deployment.mcpCatalogID || deployment.id
+							)
+						: false
+				};
+			})
+			.filter((d) => !d.disabled);
 
 		return query
 			? transformedData.filter((d) => d.displayName.toLowerCase().includes(query.toLowerCase()))
@@ -132,7 +164,8 @@
 
 	async function handleBulkUpdate() {
 		for (const id of Object.keys(selected)) {
-			if (!selected[id].needsUpdate) {
+			// if doesn't need update or is child server of composite mcp
+			if (!selected[id].needsUpdate || (selected[id].needsUpdate && selected[id].compositeName)) {
 				continue;
 			}
 			updating[id] = { inProgress: true, error: '' };
@@ -155,7 +188,7 @@
 	}
 
 	async function handleBulkRestart() {
-		bulkRestarting = true;
+		restarting = true;
 		try {
 			for (const id of Object.keys(selected)) {
 				if (selected[id].manifest.runtime === 'remote' || !selected[id].configured) {
@@ -174,7 +207,7 @@
 		} catch (err) {
 			console.error('Failed to restart deployments:', err);
 		} finally {
-			bulkRestarting = false;
+			restarting = false;
 			selected = {};
 			tableRef?.clearSelectAll();
 		}
@@ -197,8 +230,14 @@
 	}
 
 	async function handleSingleDelete(server: MCPCatalogServer) {
+		if (server.compositeName) {
+			return;
+		}
 		if (server.catalogEntryID) {
 			await ChatService.deleteSingleOrRemoteMcpServer(server.id);
+			// Decrement the count of servers in the catalog
+			const entry = mcpServerAndEntries.entries.find((entry) => entry.id === server.catalogEntryID);
+			if (entry?.userCount) entry.userCount--;
 		} else {
 			// multi-user
 			if (server.powerUserWorkspaceID) {
@@ -206,11 +245,15 @@
 			} else {
 				await AdminService.deleteMCPCatalogServer(catalogId, server.id);
 			}
+			// Remove server from list
+			mcpServerAndEntries.servers = mcpServerAndEntries.servers.filter((s) => s.id !== server.id);
 		}
 	}
 
 	async function handleBulkDelete() {
 		for (const id of Object.keys(selected)) {
+			// Skip descendants of composite servers; they cannot be deleted directly
+			if (selected[id].compositeName) continue;
 			await handleSingleDelete(selected[id]);
 		}
 		selected = {};
@@ -230,6 +273,18 @@
 				entityId: belongsToWorkspace ? item.powerUserWorkspaceID : catalogId
 			})
 		);
+	}
+
+	function getAuditLogsUrl(d: MCPCatalogServer) {
+		const isMultiUser = !d.catalogEntryID;
+		const isComposite = !!d.compositeName;
+
+		if (isComposite) {
+			return `/admin/audit-logs?mcp_id=${d.compositeName}`;
+		}
+		return isMultiUser
+			? `/admin/audit-logs?mcp_server_display_name=${d.manifest.name}`
+			: `/admin/audit-logs?mcp_id=${d.id}`;
 	}
 </script>
 
@@ -283,14 +338,10 @@
 			}}
 			{onFilter}
 			{onClearAllFilters}
+			{onSort}
+			{initSort}
 			sortable={['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
 			noDataMessage="No catalog servers added."
-			setRowClasses={(d) => {
-				if (d.needsUpdate) {
-					return 'bg-blue-500/10';
-				}
-				return '';
-			}}
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
 				thead: 'top-31'
@@ -299,17 +350,20 @@
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
 					<div class="flex flex-shrink-0 items-center gap-2">
-						<div
-							class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
-						>
+						<div class="icon">
 							{#if d.manifest.icon}
 								<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
 							{:else}
 								<Server class="size-6" />
 							{/if}
 						</div>
-						<p class="flex items-center gap-1">
+						<p class="flex flex-col">
 							{d.displayName}
+							{#if d.compositeParentName}
+								<span class="text-xs text-gray-500">
+									({d.compositeParentName})
+								</span>
+							{/if}
 						</p>
 					</div>
 				{:else if property === 'created'}
@@ -327,97 +381,144 @@
 					{d[property as keyof typeof d]}
 				{/if}
 			{/snippet}
+
 			{#snippet actions(d)}
-				{@const isMultiUser = !d.catalogEntryID}
-				{@const auditLogsUrl = isMultiUser
-					? `/admin/audit-logs?mcp_server_display_name=${d.manifest.name}`
-					: `/admin/audit-logs?mcp_id=${d.id}`}
+				{@const isComposite = !!d.compositeName}
+				{@const auditLogsUrl = getAuditLogsUrl(d)}
 				<DotDotDot class="icon-button hover:dark:bg-black/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}
 
-					<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-						{#if d.needsUpdate}
-							{#if !readonly}
+					{#snippet children({ toggle })}
+						<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
+							{#if d.needsUpdate}
+								{#if !readonly}
+									<button
+										class="menu-button-primary"
+										disabled={updating[d.id]?.inProgress || readonly}
+										onclick={(e) => {
+											e.stopPropagation();
+											if (!d) return;
+											showUpgradeConfirm = {
+												type: 'single',
+												server: d
+											};
+										}}
+										use:tooltip={d.compositeName
+											? {
+													text: 'This is a component of a composite server and cannot be updated independently; update the composite MCP server instead',
+													classes: ['w-md'],
+													disablePortal: true
+												}
+											: undefined}
+									>
+										{#if updating[d.id]?.inProgress}
+											<LoaderCircle class="size-4 animate-spin" />
+										{:else}
+											<CircleFadingArrowUp class="size-4" />
+										{/if}
+										Update Server
+									</button>
+								{/if}
 								<button
 									class="menu-button-primary"
-									disabled={updating[d.id]?.inProgress || readonly}
+									disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
 									onclick={(e) => {
 										e.stopPropagation();
-										if (!d) return;
-										showUpgradeConfirm = {
-											type: 'single',
-											server: d
-										};
+										if (!d.catalogEntryID) return;
+
+										existingServer = d;
+										updatedServer = entriesMap[d.catalogEntryID];
+										diffDialog?.open();
 									}}
 								>
-									{#if updating[d.id]?.inProgress}
-										<LoaderCircle class="size-4 animate-spin" />
+									<GitCompare class="size-4" /> View Diff
+								</button>
+							{/if}
+							{#if d.manifest.runtime !== 'remote' && !readonly}
+								<button
+									class="menu-button"
+									disabled={restarting}
+									onclick={async (e) => {
+										e.stopPropagation();
+										restarting = true;
+										if (d.powerUserWorkspaceID) {
+											await ChatService.restartWorkspaceK8sServerDeployment(
+												d.powerUserWorkspaceID,
+												d.id
+											);
+										} else {
+											await AdminService.restartK8sDeployment(d.id);
+										}
+
+										await delay(1000);
+
+										toggle((restarting = false));
+									}}
+								>
+									{#if restarting}
+										<LoaderCircle class="size-4 animate-spin" /> Restarting...
 									{:else}
-										<CircleFadingArrowUp class="size-4" />
+										<Power class="size-4" />
+										Restart Server
 									{/if}
-									Update Server
 								</button>
 							{/if}
 							<button
-								class="menu-button"
 								onclick={(e) => {
 									e.stopPropagation();
-									if (!d.catalogEntryID) return;
+									const isCtrlClick = e.ctrlKey || e.metaKey;
+									setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+									openUrl(auditLogsUrl, isCtrlClick);
+								}}
+								class="menu-button text-left"
+							>
+								<Captions class="size-4" />
+								{#if isComposite}
+									View Parent Server <br /> Audit Logs
+								{:else}
+									View Audit Logs
+								{/if}
+							</button>
+							{#if !readonly}
+								<button
+									class="menu-button-destructive"
+									onclick={async (e) => {
+										e.stopPropagation();
+										showDeleteConfirm = {
+											type: 'single',
+											server: d
+										};
 
-									existingServer = d;
-									updatedServer = entriesMap[d.catalogEntryID];
-									diffDialog?.open();
-								}}
-							>
-								<GitCompare class="size-4" /> View Diff
-							</button>
-						{/if}
-						{#if d.manifest.runtime !== 'remote' && !readonly}
-							<button
-								class="menu-button"
-								onclick={async (e) => {
-									e.stopPropagation();
-									if (d.powerUserWorkspaceID) {
-										await ChatService.restartWorkspaceK8sServerDeployment(
-											d.powerUserWorkspaceID,
-											d.id
-										);
-									} else {
-										await AdminService.restartK8sDeployment(d.id);
-									}
-								}}
-							>
-								<Power class="size-4" /> Restart Server
-							</button>
-						{/if}
-						<a href={auditLogsUrl} class="menu-button">
-							<Captions class="size-4" /> View Audit Logs
-						</a>
-						{#if !readonly}
-							<button
-								class="menu-button-destructive"
-								onclick={async (e) => {
-									e.stopPropagation();
-									showDeleteConfirm = {
-										type: 'single',
-										server: d
-									};
-								}}
-							>
-								<Trash2 class="size-4" /> Delete Server
-							</button>
-						{/if}
-					</div>
+										toggle(false);
+									}}
+									use:tooltip={d.compositeName
+										? {
+												text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+												classes: ['w-md'],
+												disablePortal: true
+											}
+										: undefined}
+									disabled={!!d.compositeName}
+								>
+									<Trash2 class="size-4" /> Delete Server
+								</button>
+							{/if}
+						</div>
+					{/snippet}
 				</DotDotDot>
 			{/snippet}
+
 			{#snippet tableSelectActions(currentSelected)}
 				{@const restartableCount = Object.values(currentSelected).filter(
 					(s) => s.manifest.runtime !== 'remote' && s.configured
 				).length}
 				{@const upgradeableCount = Object.values(currentSelected).filter(
-					(s) => s.needsUpdate
+					(s) => s.needsUpdate && !s.compositeName
+				).length}
+				{@const deletableCount = Object.values(currentSelected).filter(
+					(s) => !s.compositeName
 				).length}
 				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 					<button
@@ -426,17 +527,17 @@
 							selected = currentSelected;
 							handleBulkRestart();
 						}}
-						disabled={bulkRestarting || readonly || restartableCount === 0}
+						disabled={restarting || readonly || restartableCount === 0}
 					>
-						{#if bulkRestarting}
-							<LoaderCircle class="size-4 animate-spin" />
+						{#if restarting}
+							<LoaderCircle class="size-4 animate-spin self-center" /> Restarting...
 						{:else}
 							<Power class="size-4" /> Restart
-							{#if restartableCount > 0 && !readonly}
-								<span class="pill-primary">
-									{restartableCount}
-								</span>
-							{/if}
+						{/if}
+						{#if restartableCount > 0 && !readonly}
+							<span class="pill-primary">
+								{restartableCount}
+							</span>
 						{/if}
 					</button>
 					<button
@@ -464,12 +565,12 @@
 								type: 'multi'
 							};
 						}}
-						disabled={readonly}
+						disabled={readonly || deletableCount === 0}
 					>
 						<Trash2 class="size-4" /> Delete
-						{#if !readonly}
+						{#if deletableCount > 0 && !readonly}
 							<span class="pill-primary">
-								{Object.keys(currentSelected).length}
+								{deletableCount}
 							</span>
 						{/if}
 					</button>
@@ -514,16 +615,15 @@
 	{/snippet}
 </Confirm>
 
-<Confirm
-	msg={showDeleteConfirm?.type === 'single'
-		? 'Are you sure you want to delete this server?'
-		: 'Are you sure you want to delete the selected servers?'}
+<McpConfirmDelete
 	show={!!showDeleteConfirm}
 	onsuccess={async () => {
 		if (!showDeleteConfirm) return;
 		deleting = true;
 		if (showDeleteConfirm.type === 'single') {
 			await handleSingleDelete(showDeleteConfirm.server);
+
+			await delay(1000);
 		} else {
 			await handleBulkDelete();
 		}
@@ -534,20 +634,9 @@
 	}}
 	oncancel={() => (showDeleteConfirm = undefined)}
 	loading={deleting}
->
-	{#snippet title()}
-		<h4 class="mb-4 flex items-center justify-center gap-2 text-lg font-semibold">
-			<CircleAlert class="size-5" />
-			{`Delete ${showDeleteConfirm?.type === 'single' ? showDeleteConfirm.server.id : 'selected server(s)'}?`}
-		</h4>
-	{/snippet}
-	{#snippet note()}
-		<div class="mb-8 text-sm font-light">
-			The following servers will be permanently deleted: <span class="font-semibold"
-				>{Object.values(selected)
-					.map((s) => s.id)
-					.join(', ')}</span
-			>
-		</div>
-	{/snippet}
-</Confirm>
+	names={showDeleteConfirm?.type === 'single'
+		? [showDeleteConfirm.server.manifest.name ?? '']
+		: Object.values(selected)
+				.filter((s) => !s.compositeName)
+				.map((s) => s.manifest.name ?? '')}
+/>

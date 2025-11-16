@@ -221,6 +221,7 @@
 	<button
 		{id}
 		{disabled}
+		type="button"
 		class={twMerge(
 			'dark:bg-surface1 text-md flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg bg-white px-4 py-2 text-left shadow-sm',
 			disabled && 'cursor-default opacity-50',
@@ -251,7 +252,7 @@
 		use:clickOutside={[() => calendarPopover?.close(), true]}
 		bind:this={calendarPopover}
 		class={twMerge(
-			'default-dialog absolute top-full left-12 z-50 mt-1 min-w-[320px] -translate-x-full p-4',
+			'default-dialog absolute left-13 z-50 min-w-[320px] -translate-x-full p-4',
 			classes?.calendar
 		)}
 	>
@@ -333,8 +334,8 @@
 		{/if}
 
 		<div class="mt-4 flex justify-end gap-2">
-			<button class="button text-xs" onclick={handleCancel}>Cancel</button>
-			<button class="button-primary text-xs" onclick={handleApply}>Apply</button>
+			<button type="button" class="button text-xs" onclick={handleCancel}>Cancel</button>
+			<button type="button" class="button-primary text-xs" onclick={handleApply}>Apply</button>
 		</div>
 	</dialog>
 </div>

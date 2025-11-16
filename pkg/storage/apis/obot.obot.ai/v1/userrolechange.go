@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -16,9 +15,7 @@ type UserRoleChange struct {
 }
 
 type UserRoleChangeSpec struct {
-	UserID  uint       `json:"userID,omitempty"`
-	OldRole types.Role `json:"oldRole,omitempty"`
-	NewRole types.Role `json:"newRole,omitempty"`
+	UserID uint `json:"userID,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -35,7 +36,40 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	drifted, err := configurationHasDrifted(server.Spec.NeedsURL, server.Spec.Manifest, entry.Spec.Manifest)
+	var entryManifest types.MCPServerCatalogEntryManifest
+	if compositeName := server.Spec.CompositeName; compositeName != "" {
+		// The server belongs to a composite server, so we should get the entry from the runtime of the composite entry that this server was created with.
+		var compositeServer v1.MCPServer
+		if err := req.Get(&compositeServer, server.Namespace, compositeName); err != nil {
+			return fmt.Errorf("failed to get composite server %s: %w", compositeName, err)
+		}
+
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, compositeServer.Namespace, compositeServer.Spec.MCPServerCatalogEntryName); err != nil {
+			return fmt.Errorf("failed to get composite server catalog entry %s: %w", compositeServer.Spec.MCPServerCatalogEntryName, err)
+		}
+
+		var found bool
+		for _, component := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
+			if component.CatalogEntryID == server.Spec.MCPServerCatalogEntryName {
+				entryManifest = component.Manifest
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return fmt.Errorf("component server %s not found in composite server catalog entry %s", server.Spec.MCPServerCatalogEntryName, compositeServer.Spec.MCPServerCatalogEntryName)
+		}
+	} else {
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, server.Namespace, server.Spec.MCPServerCatalogEntryName); err != nil {
+			return err
+		}
+		entryManifest = entry.Spec.Manifest
+	}
+
+	drifted, err := configurationHasDrifted(server.Spec.NeedsURL, server.Spec.Manifest, entryManifest)
 	if err != nil {
 		return err
 	}
@@ -64,6 +98,8 @@ func configurationHasDrifted(needsURL bool, serverManifest types.MCPServerManife
 		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig)
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(needsURL, serverManifest.RemoteConfig, entryManifest.RemoteConfig)
+	case types.RuntimeComposite:
+		drifted = compositeConfigHasDrifted(serverManifest.CompositeConfig, entryManifest.CompositeConfig)
 	default:
 		return false, fmt.Errorf("unknown runtime type: %s", serverManifest.Runtime)
 	}
@@ -151,6 +187,51 @@ func remoteConfigHasDrifted(needsURL bool, serverConfig *types.RemoteRuntimeConf
 	return !utils.SlicesEqualIgnoreOrder(serverConfig.Headers, entryConfig.Headers)
 }
 
+func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entryConfig *types.CompositeCatalogConfig) bool {
+	if serverConfig == nil && entryConfig == nil {
+		return false
+	}
+	if serverConfig == nil || entryConfig == nil {
+		return true
+	}
+
+	// Fast length check
+	if len(serverConfig.ComponentServers) != len(entryConfig.ComponentServers) {
+		return true
+	}
+
+	// Compare components by index (works for both catalog and multi-user components)
+	for i, serverComponent := range serverConfig.ComponentServers {
+		entryComponent := entryConfig.ComponentServers[i]
+
+		// Verify same component (either same catalogEntryID or same mcpServerID)
+		if serverComponent.CatalogEntryID != entryComponent.CatalogEntryID {
+			return true
+		}
+		if serverComponent.MCPServerID != entryComponent.MCPServerID {
+			return true
+		}
+
+		// Compare toolOverrides
+		if hash.Digest(serverComponent.ToolOverrides) != hash.Digest(entryComponent.ToolOverrides) {
+			return true
+		}
+
+		// Compare manifests for non-remote components
+		switch serverComponent.Manifest.Runtime {
+		case types.RuntimeRemote:
+			// Skip remote manifest comparison in composites
+		default:
+			drifted, err := configurationHasDrifted(false, serverComponent.Manifest, entryComponent.Manifest)
+			if err != nil || drifted {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // EnsureMCPServerInstanceUserCount ensures that mcp server instance user count for multi-user MCP servers is up to date.
 func (*Handler) EnsureMCPServerInstanceUserCount(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
@@ -176,7 +257,7 @@ func (*Handler) EnsureMCPServerInstanceUserCount(req router.Request, _ router.Re
 
 	uniqueUsers := make(map[string]struct{}, len(mcpServerInstances.Items))
 	for _, instance := range mcpServerInstances.Items {
-		if userID := instance.Spec.UserID; userID != "" {
+		if userID := instance.Spec.UserID; userID != "" && instance.DeletionTimestamp.IsZero() {
 			uniqueUsers[userID] = struct{}{}
 		}
 	}
@@ -208,4 +289,39 @@ func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router
 	}
 
 	return nil
+}
+
+// CleanupNestedCompositeServers removes component servers with composite runtimes from composite MCP servers.
+// This handler cleans up servers that were created before API validation to prevent nested composite servers.
+func (h *Handler) CleanupNestedCompositeServers(req router.Request, _ router.Response) error {
+	var (
+		server   = req.Object.(*v1.MCPServer)
+		manifest = server.Spec.Manifest
+	)
+
+	if manifest.Runtime != types.RuntimeComposite ||
+		manifest.CompositeConfig == nil {
+		return nil
+	}
+
+	// Delete component servers with composite runtimes
+	if server.Spec.CompositeName != "" {
+		return kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, server))
+	}
+
+	// Remove all composite components from the server's manifest
+	var (
+		components    = manifest.CompositeConfig.ComponentServers
+		numComponents = len(components)
+	)
+	components = slices.DeleteFunc(components, func(component types.ComponentServer) bool {
+		return component.Manifest.Runtime == types.RuntimeComposite
+	})
+
+	if numComponents == len(components) {
+		return nil
+	}
+
+	server.Spec.Manifest.CompositeConfig.ComponentServers = components
+	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, server))
 }

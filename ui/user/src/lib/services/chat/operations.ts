@@ -1,3 +1,4 @@
+import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { Group } from '$lib/services/admin/types';
 import type {
 	AccessControlRule,
@@ -6,7 +7,8 @@ import type {
 	K8sServerDetail,
 	MCPCatalogEntry,
 	MCPCatalogEntryServerManifest,
-	MCPCatalogServerManifest
+	MCPCatalogServerManifest,
+	ServerK8sSettings
 } from '../admin/types';
 import { baseURL, doDelete, doGet, doPost, doPut, type Fetcher } from '../http';
 import {
@@ -67,6 +69,9 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	};
 	obj.isAdminReadonly = () => {
 		return !obj.groups.includes(Group.ADMIN) && obj.groups.includes(Group.AUDITOR);
+	};
+	obj.isBootstrapUser = () => {
+		return obj.username === BOOTSTRAP_USER_ID;
 	};
 	obj.loaded = true;
 	return obj;
@@ -1426,8 +1431,34 @@ export async function configureSingleOrRemoteMcpServer(
 	return response;
 }
 
+export async function configureCompositeMcpServer(
+	id: string,
+	componentConfigs: Record<
+		string,
+		{ config: Record<string, string>; url?: string; disabled?: boolean }
+	>
+): Promise<MCPCatalogServer> {
+	const response = (await doPost(`/mcp-servers/${id}/configure`, {
+		componentConfigs
+	})) as MCPCatalogServer;
+	return response;
+}
+
 export async function deconfigureSingleOrRemoteMcpServer(id: string): Promise<void> {
 	await doPost(`/mcp-servers/${id}/deconfigure`, {});
+}
+
+export async function deconfigureCompositeMcpServer(id: string): Promise<void> {
+	return deconfigureSingleOrRemoteMcpServer(id);
+}
+
+// Update any MCP server manifest (used for composite skips)
+export async function updateMcpServerManifest(
+	id: string,
+	manifest: MCPCatalogServerManifest
+): Promise<MCPCatalogServer> {
+	const response = (await doPut(`/mcp-servers/${id}`, manifest)) as MCPCatalogServer;
+	return response;
 }
 
 export async function revealSingleOrRemoteMcpServer(
@@ -1435,6 +1466,23 @@ export async function revealSingleOrRemoteMcpServer(
 	opts?: { dontLogErrors?: boolean }
 ): Promise<Record<string, string>> {
 	return doPost(`/mcp-servers/${id}/reveal`, {}, opts) as Promise<Record<string, string>>;
+}
+
+export async function revealCompositeMcpServer(
+	id: string,
+	opts?: { dontLogErrors?: boolean }
+): Promise<{
+	componentConfigs: Record<
+		string,
+		{ config: Record<string, string>; url?: string; disabled?: boolean }
+	>;
+}> {
+	return doPost(`/mcp-servers/${id}/reveal`, {}, opts) as Promise<{
+		componentConfigs: Record<
+			string,
+			{ config: Record<string, string>; url?: string; disabled?: boolean }
+		>;
+	}>;
 }
 
 export async function listSingleOrRemoteMcpServerTools(id: string): Promise<MCPServerTool[]> {
@@ -1584,6 +1632,17 @@ export async function triggerMcpServerUpdate(mcpServerId: string): Promise<MCPCa
 	return (await doPost(`/mcp-servers/${mcpServerId}/trigger-update`, {})) as MCPCatalogServer;
 }
 
+export async function triggerWorkspaceMcpServerUpdate(
+	workspaceID: string,
+	entryID: string,
+	mcpServerId: string
+): Promise<MCPCatalogServer> {
+	return (await doPost(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/trigger-update`,
+		{}
+	)) as MCPCatalogServer;
+}
+
 export async function validateSingleOrRemoteMcpServerLaunched(mcpServerId: string): Promise<{
 	success: boolean;
 	message?: string;
@@ -1619,6 +1678,13 @@ export async function validateSingleOrRemoteMcpServerLaunched(mcpServerId: strin
 
 		throw err;
 	}
+}
+
+export async function listSingleOrRemoteMcpServerLogs(mcpServerId: string): Promise<string[]> {
+	const response = (await doGet(`/mcp-servers/${mcpServerId}/logs`, {
+		dontLogErrors: true
+	})) as ItemsResponse<string>;
+	return response.items ?? [];
 }
 
 export async function listWorkspaces(opts?: { fetch?: Fetcher }): Promise<Workspace[]> {
@@ -1957,6 +2023,31 @@ export async function restartWorkspaceK8sServerDeployment(
 	await doPost(`/workspaces/${workspaceID}/servers/${mcpServerId}/restart`, {}, opts);
 }
 
+export async function getWorkspaceK8sServerStatus(
+	workspaceID: string,
+	mcpServerId: string,
+	opts?: { dontLogErrors?: boolean }
+) {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/servers/${mcpServerId}/k8s-settings-status`,
+		opts
+	)) as ServerK8sSettings;
+	return response;
+}
+
+export async function redeployWorkspaceK8sServerWithK8sSettings(
+	workspaceID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost(
+		`/workspaces/${workspaceID}/servers/${mcpServerId}/redeploy-with-k8s-settings`,
+		{},
+		opts
+	);
+	return response;
+}
+
 export async function getWorkspaceCatalogEntryServers(
 	workspaceID: string,
 	entryID: string,
@@ -1995,6 +2086,32 @@ export async function getWorkspaceCatalogEntryServerK8sDetails(
 	return response;
 }
 
+// Composite MCP OAuth helpers
+export type PendingCompositeAuth = {
+	catalogEntryID?: string;
+	mcpServerID: string;
+	authURL: string;
+};
+
+export async function checkCompositeOAuth(
+	compositeMcpId: string,
+	opts?: { oauthAuthRequestID?: string; signal?: AbortSignal }
+): Promise<PendingCompositeAuth[]> {
+	let url = `/oauth/composite/${compositeMcpId}`;
+	if (opts?.oauthAuthRequestID) {
+		url += `?oauth_auth_request=${opts.oauthAuthRequestID}`;
+	}
+	const response = await doGet(url, { signal: opts?.signal, dontLogErrors: true });
+
+	// If the server returns a redirect_uri, perform client-side redirect
+	if (response && typeof response === 'object' && 'redirect_uri' in response) {
+		window.location.href = (response as { redirect_uri: string }).redirect_uri;
+		return [];
+	}
+
+	return Array.isArray(response) ? response : [];
+}
+
 export async function restartWorkspaceCatalogEntryServerDeployment(
 	workspaceID: string,
 	entryID: string,
@@ -2006,4 +2123,31 @@ export async function restartWorkspaceCatalogEntryServerDeployment(
 		{},
 		opts
 	);
+}
+
+export async function getWorkspaceCatalogEntryServerK8sSettingsStatus(
+	workspaceID: string,
+	entryID: string,
+	mcpServerId: string,
+	opts?: { dontLogErrors?: boolean }
+) {
+	const response = (await doGet(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/k8s-settings-status`,
+		opts
+	)) as ServerK8sSettings;
+	return response;
+}
+
+export async function redeployWorkspaceCatalogEntryServerWithK8sSettings(
+	workspaceID: string,
+	entryID: string,
+	mcpServerId: string,
+	opts?: { fetch?: Fetcher }
+) {
+	const response = await doPost(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/redeploy-with-k8s-settings`,
+		{},
+		opts
+	);
+	return response;
 }

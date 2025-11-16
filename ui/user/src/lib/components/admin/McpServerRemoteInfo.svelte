@@ -24,10 +24,19 @@
 		};
 		name: string;
 		connectedUsers: OrgUser[];
+		compositeParentName?: string;
 	}
 
-	let { name, connectedUsers, classes, entity, entityId, catalogEntry, mcpServerId }: Props =
-		$props();
+	let {
+		name,
+		connectedUsers,
+		classes,
+		entity,
+		entityId,
+		catalogEntry,
+		mcpServerId,
+		compositeParentName
+	}: Props = $props();
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 	let mcpServer = $state<MCPCatalogServer>();
 	let revealedInfo = $state<Record<string, string>>({});
@@ -71,6 +80,7 @@
 
 	function getAuditLogUrl(d: OrgUser) {
 		if (!catalogEntry?.id) return null;
+		if (compositeParentName) return null;
 		if (isAdminUrl) {
 			if (!profile.current?.hasAdminAccess?.()) return null;
 			return entity === 'workspace'
@@ -78,7 +88,7 @@
 				: `/admin/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`;
 		}
 
-		if (!profile.current?.groups.includes(Group.POWERUSER_PLUS)) return null;
+		if (!profile.current?.groups.includes(Group.POWERUSER)) return null;
 		return `/mcp-publisher/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`;
 	}
 </script>
@@ -98,7 +108,7 @@
 				{#if headers.length > 0}
 					<div class="flex flex-col gap-2">
 						{#each headers as h (h.key)}
-							{@render status(h.key, h.value, h.sensitive)}
+							{@render status(h.key, h.prefix ? h.prefix + h.value : h.value, h.sensitive)}
 						{/each}
 					</div>
 				{:else}

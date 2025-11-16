@@ -16,15 +16,27 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *ephemeral.TokenService, projectMCPServer v1.ProjectMCPServer, userID, mcpServerDisplayName, serverURL string, allowedTools []string) ([]gptscript.ToolDef, error) {
+func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *ephemeral.TokenService, projectMCPServer v1.ProjectMCPServer, userID, mcpServerDisplayName, internalServerURL string, allowedTools []string) ([]gptscript.ToolDef, error) {
 	if mcpServerDisplayName == "" {
 		mcpServerDisplayName = projectMCPServer.Name
 	}
 
-	serverConfig, err := ProjectServerToConfig(tokenService, projectMCPServer, serverURL, userID, allowedTools...)
+	serverConfig, err := ProjectServerToConfig(tokenService, projectMCPServer, internalServerURL, userID, allowedTools...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert MCP server %s to server config: %w", mcpServerDisplayName, err)
 	}
+
+	// The headers here have an ephemeral token in them.
+	// It's not a big deal to keep it, but it's easy enough to remove it,
+	// and we have to create a new one if this metadata field is needed anyway.
+	headers := serverConfig.Headers
+	serverConfig.Headers = nil
+	serverConfigForMetadata, err := json.Marshal(serverConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal server config for metadata: %w", err)
+	}
+
+	serverConfig.Headers = headers
 
 	client, err := sm.ClientForServer(ctx, userID, mcpServerDisplayName, projectMCPServer.Name, serverConfig)
 	if err != nil {
@@ -67,12 +79,16 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *ephe
 			Description:  tool.Description,
 			Arguments:    &schema,
 			Instructions: fmt.Sprintf("%s%s %s default", types.MCPInvokePrefix, tool.Name, client.ID),
+			MetaData: map[string]string{
+				"obot-server-config":           string(serverConfigForMetadata),
+				"obot-user-id":                 userID,
+				"obot-server-display-name":     mcpServerDisplayName,
+				"obot-project-mcp-server-name": projectMCPServer.Name,
+			},
 		}
 
 		if string(annotations) != "{}" && string(annotations) != "null" {
-			toolDef.MetaData = map[string]string{
-				"mcp-tool-annotations": string(annotations),
-			}
+			toolDef.MetaData["mcp-tool-annotations"] = string(annotations)
 		}
 
 		if tool.Annotations != nil && tool.Annotations.Title != "" && !slices.Contains(strings.Fields(tool.Annotations.Title), "as") {
@@ -128,6 +144,14 @@ func findSpecialError(err error, mcpServerDisplayName string) (bool, error) {
 			return true, fmt.Errorf("no response from MCP server %s, this is likely due to a configuration error", mcpServerDisplayName)
 		case unwrappedErr == ErrHealthCheckFailed || unwrappedErr == ErrHealthCheckTimeout:
 			return true, fmt.Errorf("MCP server %s is unhealthy", mcpServerDisplayName)
+		case unwrappedErr == ErrPodCrashLoopBackOff:
+			return true, fmt.Errorf("MCP server %s pod is crashing", mcpServerDisplayName)
+		case unwrappedErr == ErrImagePullFailed:
+			return true, fmt.Errorf("failed to pull image for MCP server %s", mcpServerDisplayName)
+		case unwrappedErr == ErrPodSchedulingFailed:
+			return true, fmt.Errorf("MCP server %s pod could not be scheduled", mcpServerDisplayName)
+		case unwrappedErr == ErrPodConfigurationFailed:
+			return true, fmt.Errorf("MCP server %s has invalid configuration", mcpServerDisplayName)
 		default:
 			switch e := unwrappedErr.(type) {
 			case nmcp.AuthRequiredErr:

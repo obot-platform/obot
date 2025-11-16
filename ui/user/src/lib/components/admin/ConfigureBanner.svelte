@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { onMount } from 'svelte';
 
 	interface Props {
 		modelProviderConfigured?: boolean;
@@ -29,11 +28,6 @@
 	);
 
 	const loading = $derived(storeData.loading);
-
-	onMount(() => {
-		// Initialize the store if it hasn't been initialized yet
-		adminConfigStore.initialize();
-	});
 </script>
 
 {#if !loading && (!isModelProviderConfigured || !isAuthProviderConfigured)}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onNavigate } from '$app/navigation';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { getSearchParamsFromLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
@@ -7,9 +8,10 @@
 	interface Props {
 		fromURL?: string;
 		currentLabel: string;
+		serverId?: string;
 	}
 
-	let { fromURL, currentLabel }: Props = $props();
+	let { fromURL, currentLabel, serverId }: Props = $props();
 
 	let links = $state<{ href: string; label: string }[]>([]);
 
@@ -63,6 +65,14 @@
 			return [{ href: '/admin/mcp-servers', label: 'MCP Servers' }];
 		}
 
+		if (type === 'audit-logs-exports') {
+			return [{ href: '/admin/audit-logs/exports', label: 'Audit Log Exports' }];
+		}
+
+		if (type === 'audit-logs') {
+			return [{ href: '/admin/audit-logs', label: 'Audit Logs' }];
+		}
+
 		return [];
 	}
 
@@ -72,31 +82,48 @@
 		}
 	});
 
+	onNavigate(() => {
+		if (fromURL) {
+			links = [...convertToHistory(fromURL)];
+		}
+	});
+
 	function convertToMcpLink(id: string, isAdmin: boolean) {
 		const stringified = sessionStorage.getItem(ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER);
 		const json = JSON.parse(stringified ?? '{}');
-		const label = id === json.id ? json.name : 'Unknown';
+		let label = id === json.id ? json.name : 'Unknown';
+		const useServerId = serverId ? json.serverId !== serverId : !!json.serverId;
+		let href = '';
 
-		if (json.entity === 'workspace') {
-			let href = '';
+		if (json.serverId && useServerId) {
+			label = json.serverId;
 			if (isAdmin) {
 				href =
-					json.type === 'single' || json.type === 'remote'
+					json.type !== 'multi'
+						? `/admin/mcp-servers/c/${id}/instance/${json.serverId}`
+						: `/admin/mcp-servers/s/${id}/details`;
+			} else {
+				href =
+					json.type !== 'multi'
+						? `/mcp-publisher/c/${id}/instance/${json.serverId}`
+						: `/mcp-publisher/s/${id}/details`;
+			}
+		} else if (json.entity === 'workspace') {
+			if (isAdmin) {
+				href =
+					json.type !== 'multi'
 						? `/admin/mcp-servers/w/${json.entityId}/c/${id}`
 						: `/admin/mcp-servers/w/${json.entityId}/s/${id}`;
 			} else {
-				href =
-					json.type === 'single' || json.type === 'remote'
-						? `/mcp-publisher/c/${id}`
-						: `/mcp-publisher/s/${id}`;
+				href = json.type !== 'multi' ? `/mcp-publisher/c/${id}` : `/mcp-publisher/s/${id}`;
 			}
-			return { href, label };
+		} else {
+			href = json.type !== 'multi' ? `/admin/mcp-servers/c/${id}` : `/admin/mcp-servers/s/${id}`;
 		}
 
-		const href =
-			json.type === 'single' || json.type === 'remote'
-				? `/admin/mcp-servers/c/${id}`
-				: `/admin/mcp-servers/s/${id}`;
+		if (json.prevFrom) {
+			href = `${href}?from=${json.prevFrom}`;
+		}
 		return { href, label };
 	}
 </script>

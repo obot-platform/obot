@@ -15,13 +15,13 @@
 		X,
 		Server,
 		MessageCircle,
-		ServerCog
+		ServerCog,
+		CircleFadingArrowUp
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { AdminService, ChatService, EditorService } from '$lib/services';
-	import { BOOTSTRAP_USER_ID } from '$lib/constants';
 	import { afterNavigate, goto } from '$app/navigation';
 	import PageLoading from '../PageLoading.svelte';
 
@@ -31,6 +31,14 @@
 	let showMcpPublisherLink = $state(false);
 	let inAdminRoute = $state(false);
 	let loadingChat = $state(false);
+
+	let showUpgradeAvailable = $derived(
+		version.current.authEnabled
+			? profile.current.isAdmin?.()
+				? version.current.upgradeAvailable
+				: false
+			: version.current.upgradeAvailable
+	);
 
 	function getLink(key: string, value: string | boolean) {
 		if (typeof value !== 'string') return;
@@ -47,20 +55,36 @@
 
 	async function handleBootstrapLogout() {
 		try {
-			const isBootstrapUser = profile.current.username === BOOTSTRAP_USER_ID;
+			localStorage.removeItem('seenSplashDialog');
 			await AdminService.bootstrapLogout();
-			window.location.href = `/oauth2/sign_out?rd=${isBootstrapUser ? '/admin' : '/'}`;
+			window.location.href = `/oauth2/sign_out?rd=${profile.current.isBootstrapUser?.() ? '/admin' : '/'}`;
+		} catch (err) {
+			console.error(err);
+		}
+	}
+
+	async function handleLogout() {
+		try {
+			localStorage.removeItem('seenSplashDialog');
+			window.location.href = '/oauth2/sign_out?rd=/';
 		} catch (err) {
 			console.error(err);
 		}
 	}
 
 	afterNavigate(() => {
-		const routesToShowChatLink = ['/mcp-servers', '/profile', '/mcp-publisher'];
+		const routesToShowChatLink = [
+			'/mcp-servers',
+			'/profile',
+			'/mcp-publisher',
+			'/mcp-publisher/access-control',
+			'/mcp-publisher/audit-logs',
+			'/mcp-publisher/usage'
+		];
 		inAdminRoute = window.location.pathname.includes('/admin');
 		showChatLink = routesToShowChatLink.includes(window.location.pathname) || inAdminRoute;
 		showMyMcpServersLink = window.location.pathname !== '/mcp-servers';
-		showMcpPublisherLink = window.location.pathname !== '/mcp-publisher';
+		showMcpPublisherLink = !window.location.pathname.startsWith('/mcp-publisher');
 	});
 
 	function navigateTo(path: string, asNewTab?: boolean) {
@@ -93,7 +117,14 @@
 	}}
 >
 	{#snippet icon()}
-		<ProfileIcon />
+		<div class="relative">
+			<ProfileIcon />
+			{#if showUpgradeAvailable}
+				<CircleFadingArrowUp
+					class="absolute -right-0.5 -bottom-0.5 z-10 size-3 rounded-full bg-white text-blue-500 dark:bg-black"
+				/>
+			{/if}
+		</div>
 	{/snippet}
 	{#snippet header()}
 		<div class="flex w-full items-center justify-between gap-8 p-4">
@@ -196,11 +227,11 @@
 				<a href="/profile" rel="external" role="menuitem" class="link"
 					><User class="size-4" /> My Account</a
 				>
-				<a href="/oauth2/sign_out?rd=/" rel="external" role="menuitem" class="link"
-					><LogOut class="size-4" /> Log out</a
-				>
+				<button class="link" onclick={handleLogout}>
+					<LogOut class="size-4" /> Log out
+				</button>
 			{/if}
-			{#if profile.current.username === BOOTSTRAP_USER_ID}
+			{#if profile.current.isBootstrapUser?.()}
 				<button class="link" onclick={handleBootstrapLogout}>
 					<LogOut class="size-4" /> Log out
 				</button>
@@ -208,6 +239,20 @@
 		</div>
 
 		{#if version.current.obot}
+			{#if showUpgradeAvailable}
+				<div class="flex items-center gap-1 p-1 text-[11px] text-black dark:text-white">
+					<CircleFadingArrowUp class="size-4 flex-shrink-0 text-blue-500" />
+					<p>
+						Upgrade Available. <br /> Check out the
+						<a
+							rel="external"
+							target="_blank"
+							class="text-link"
+							href="https://github.com/obot-platform/obot/releases/latest">latest release notes.</a
+						>
+					</p>
+				</div>
+			{/if}
 			<div class="flex justify-end p-2 text-xs text-gray-500">
 				<div class="flex gap-2">
 					<a href={getLink('obot', version.current.obot)} target="_blank" rel="external">

@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
@@ -15,12 +16,24 @@ import (
 	"k8s.io/component-base/metrics/legacyregistry"
 )
 
-func Router(services *services.Services) (http.Handler, error) {
+func Router(ctx context.Context, services *services.Services) (http.Handler, error) {
 	mux := services.APIServer
+
+	version, err := handlers.NewVersionHandler(ctx,
+		services.GatewayClient,
+		services.EmailServerName,
+		services.PostgresDSN,
+		services.MCPRuntimeBackend,
+		services.SupportDocker,
+		services.AuthEnabled,
+		services.DisableUpdateCheck)
+	if err != nil {
+		return nil, err
+	}
 
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient, services.MCPOAuthTokenStorage)
 
-	agents := handlers.NewAgentHandler(services.EphemeralTokenServer, services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.ServerURL)
+	agents := handlers.NewAgentHandler(services.EphemeralTokenServer, services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.ServerURL, services.HTTPPort)
 	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.Invoker, services.Events, services.Router.Backend())
 	tools := handlers.NewToolHandler(services.Invoker)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events)
@@ -42,7 +55,6 @@ func Router(services *services.Services) (http.Handler, error) {
 	prompt := handlers.NewPromptHandler()
 	emailReceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
-	version := handlers.NewVersionHandler(services.EmailServerName, services.PostgresDSN, services.SupportDocker, services.AuthEnabled)
 	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker)
 	projectShare := handlers.NewProjectShareHandler()
 	templates := handlers.NewTemplateHandler()
@@ -53,14 +65,15 @@ func Router(services *services.Services) (http.Handler, error) {
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler()
-	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.ServerURL)
+	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.EphemeralTokenServer, oauthChecker, services.ServerURL)
 	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.EphemeralTokenServer, oauthChecker, services.ServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
 	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
+	auditLogExports := handlers.NewAuditLogExportHandler(services.GPTClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
-	setupHandler := setup.NewHandler()
+	setupHandler := setup.NewHandler(services.ServerURL)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -411,7 +424,7 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/all-mcps/servers/{mcp_server_id}/prompts", mcp.GetPrompts)
 	mux.HandleFunc("GET /api/all-mcps/servers/{mcp_server_id}/prompts/{prompt_name}", mcp.GetPrompt)
 
-	// User-Deployed MCP Servers (single-user and remote)
+	// User-Deployed MCP Servers (single-user, remote, and composite)
 	mux.HandleFunc("GET /api/mcp-servers", mcp.ListServer)
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}", mcp.GetServer)
 	mux.HandleFunc("POST /api/mcp-servers", mcp.CreateServer)
@@ -457,9 +470,12 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.UpdateEntry)
 	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.DeleteEntry)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/servers", mcpCatalogs.AdminListServersForEntryInCatalog)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/all-servers", mcpCatalogs.AdminListServersForAllEntriesInCatalog)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/generate-tool-previews", mcpCatalogs.GenerateToolPreviews)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateToolPreviewsOAuthURL)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/refresh-components", mcpCatalogs.RefreshCompositeComponents)
 
 	// MCPServers within the catalog (admin only, for multi-user MCP servers)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers", mcp.ListServer)
@@ -475,6 +491,9 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/reveal", mcp.Reveal)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/instances", serverInstances.ListServerInstancesForServer)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers-needing-k8s-update", mcp.ListServersNeedingK8sUpdateInCatalog)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/all-instances", mcp.ListServerInstances)
 
 	// Access Control Rules (admin only, scoped to catalogs)
@@ -513,6 +532,8 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/restart", mcp.RestartServerDeployment)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/trigger-update", mcp.TriggerUpdate)
+	mux.HandleFunc("GET /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews", mcpCatalogs.GenerateToolPreviews)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateToolPreviewsOAuthURL)
 
@@ -532,7 +553,10 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/details", mcp.GetServerDetails)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/restart", mcp.RestartServerDeployment)
+	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/instances", serverInstances.ListServerInstancesForServer)
+	mux.HandleFunc("GET /api/workspaces/servers-needing-k8s-update", mcp.ListServersNeedingK8sUpdateAcrossWorkspaces)
 
 	// MCP Webhook Validations (admin only)
 	mux.HandleFunc("GET /api/mcp-webhook-validations", mcpWebhookValidations.List)
@@ -551,6 +575,25 @@ func Router(services *services.Services) (http.Handler, error) {
 	mux.HandleFunc("GET /api/mcp-audit-logs/{mcp_id}", mcpAuditLogs.ListAuditLogs)
 	mux.HandleFunc("GET /api/mcp-stats", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
+
+	// Audit Log Exports
+	mux.HandleFunc("POST /api/audit-log-exports", auditLogExports.CreateAuditLogExport)
+	mux.HandleFunc("GET /api/audit-log-exports", auditLogExports.ListAuditLogExports)
+	mux.HandleFunc("GET /api/audit-log-exports/{id}", auditLogExports.GetAuditLogExport)
+	mux.HandleFunc("DELETE /api/audit-log-exports/{id}", auditLogExports.DeleteAuditLogExport)
+
+	// Scheduled Audit Log Exports
+	mux.HandleFunc("POST /api/scheduled-audit-log-exports", auditLogExports.CreateScheduledAuditLogExport)
+	mux.HandleFunc("GET /api/scheduled-audit-log-exports", auditLogExports.ListScheduledAuditLogExports)
+	mux.HandleFunc("GET /api/scheduled-audit-log-exports/{id}", auditLogExports.GetScheduledAuditLogExport)
+	mux.HandleFunc("PATCH /api/scheduled-audit-log-exports/{id}", auditLogExports.UpdateScheduledAuditLogExport)
+	mux.HandleFunc("DELETE /api/scheduled-audit-log-exports/{id}", auditLogExports.DeleteScheduledAuditLogExport)
+
+	// Storage Credentials Management
+	mux.HandleFunc("POST /api/storage-credentials", auditLogExports.ConfigureStorageCredentials)
+	mux.HandleFunc("GET /api/storage-credentials", auditLogExports.GetStorageCredentials)
+	mux.HandleFunc("DELETE /api/storage-credentials", auditLogExports.DeleteStorageCredentials)
+	mux.HandleFunc("POST /api/storage-credentials/test", auditLogExports.TestStorageCredentials)
 
 	// MCP Servers in projects
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers", projectMCP.ListServer)
@@ -572,6 +615,11 @@ func Router(services *services.Services) (http.Handler, error) {
 	// User Default Role Settings
 	mux.HandleFunc("GET /api/user-default-role-settings", userDefaultRoleSettings.Get)
 	mux.HandleFunc("POST /api/user-default-role-settings", userDefaultRoleSettings.Set)
+
+	// K8s Settings
+	k8sSettingsHandler := handlers.NewK8sSettingsHandler()
+	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
+	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)
 
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)

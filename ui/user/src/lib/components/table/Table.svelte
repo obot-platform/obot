@@ -13,6 +13,9 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 
+	export type InitSort = { property: string; order: 'asc' | 'desc' };
+	export type InitSortFn = (property: string, order: 'asc' | 'desc') => void;
+
 	interface Props<T> {
 		actions?: Snippet<[T]>;
 		classes?: {
@@ -28,13 +31,14 @@
 		onClearAllFilters?: () => void;
 		onRenderColumn?: Snippet<[string, T]>;
 		onRenderSubrowContent?: Snippet<[T]>;
+		onSort?: InitSortFn;
 		setRowClasses?: (row: T) => string;
 		noDataMessage?: string;
 		pageSize?: number;
 		sortable?: string[];
 		filterable?: string[];
 		filters?: Record<string, (string | number)[]>;
-		initSort?: { property: string; order: 'asc' | 'desc' };
+		initSort?: InitSort;
 		tableSelectActions?: Snippet<[Record<string, T>]>;
 		validateSelect?: (row: T) => boolean;
 		disabledSelectMessage?: string;
@@ -52,6 +56,7 @@
 		onFilter,
 		onRenderColumn,
 		onRenderSubrowContent,
+		onSort,
 		pageSize,
 		noDataMessage = 'No data',
 		setRowClasses,
@@ -102,6 +107,8 @@
 
 	let selected = $state<Record<string, T>>({});
 	let dataTableRef: HTMLTableElement | null = $state(null);
+	let headerScrollRef: HTMLDivElement | null = $state(null);
+	let bodyScrollRef: HTMLDivElement | null = $state(null);
 	let columnWidths = $state<number[]>([]);
 
 	let tableData = $derived.by(() => {
@@ -179,6 +186,8 @@
 		} else {
 			sortedBy.order = sortedBy.order === 'asc' ? 'desc' : 'asc';
 		}
+
+		onSort?.(property, sortedBy.order);
 	}
 
 	function handleFilter(property: string, values: string[]) {
@@ -208,8 +217,34 @@
 		selected = {};
 	}
 
+	function calculateConstrainedWidths(naturalWidths: number[], availableWidth: number): number[] {
+		const totalNaturalWidth = naturalWidths.reduce((sum, width) => sum + width, 0);
+
+		// If total width fits within available space, return natural widths
+		if (totalNaturalWidth <= availableWidth) {
+			return naturalWidths;
+		}
+
+		const minWidths = naturalWidths.map((width) => Math.max(width * 0.3, 100));
+		const totalMinWidth = minWidths.reduce((sum, width) => sum + width, 0);
+
+		if (totalMinWidth > availableWidth) {
+			return naturalWidths;
+		}
+
+		const excessWidth = totalNaturalWidth - availableWidth;
+		const reducibleWidth = totalNaturalWidth - totalMinWidth;
+		const scaleFactor = Math.max(0, (reducibleWidth - excessWidth) / reducibleWidth);
+
+		// scaling
+		return naturalWidths.map((width, index) => {
+			const scaledWidth = width * scaleFactor;
+			return Math.max(scaledWidth, minWidths[index]);
+		});
+	}
+
 	function measureColumnWidths() {
-		if (!dataTableRef || !tableSelectActions) return;
+		if (!dataTableRef) return;
 
 		// temp clear columnWidths to measure natural content width
 		const previousWidths = columnWidths;
@@ -224,7 +259,7 @@
 			}
 
 			const cells = firstRow.querySelectorAll('td');
-			const widths: number[] = [];
+			const naturalWidths: number[] = [];
 
 			cells.forEach((cell, index) => {
 				const contentDiv = cell.querySelector('div');
@@ -254,10 +289,15 @@
 					}
 				}
 
-				widths.push(width);
+				naturalWidths.push(width);
 			});
 
-			columnWidths = widths;
+			// Get parent container width
+			const parentContainer = dataTableRef?.closest('.default-scrollbar-thin') as HTMLElement;
+			const availableWidth = parentContainer ? parentContainer.clientWidth : 0;
+
+			// Apply width constraints
+			columnWidths = calculateConstrainedWidths(naturalWidths, availableWidth);
 		});
 	}
 
@@ -273,6 +313,31 @@
 			};
 		}
 	});
+
+	onMount(() => {
+		if (!headerScrollRef || !bodyScrollRef) return;
+
+		const handleHeaderScroll = () => syncScroll(headerScrollRef!, bodyScrollRef!);
+		const handleBodyScroll = () => syncScroll(bodyScrollRef!, headerScrollRef!);
+
+		headerScrollRef.addEventListener('scroll', handleHeaderScroll);
+		bodyScrollRef.addEventListener('scroll', handleBodyScroll);
+
+		return () => {
+			headerScrollRef?.removeEventListener('scroll', handleHeaderScroll);
+			bodyScrollRef?.removeEventListener('scroll', handleBodyScroll);
+		};
+	});
+
+	let isScrolling = false;
+	function syncScroll(source: HTMLDivElement, target: HTMLDivElement) {
+		if (isScrolling) return;
+		isScrolling = true;
+		target.scrollLeft = source.scrollLeft;
+		requestAnimationFrame(() => {
+			isScrolling = false;
+		});
+	}
 
 	$effect(() => {
 		if (dataTableRef && tableData.length > 0 && tableSelectActions) {
@@ -305,21 +370,23 @@
 					</div>
 				</div>
 			{:else}
-				<div class="default-scrollbar-thin w-full overflow-x-auto">
+				<div class="default-scrollbar-thin w-full overflow-x-auto" bind:this={headerScrollRef}>
 					<table class="w-full border-collapse" style="table-layout: fixed; width: 100%;">
-						<colgroup>
-							<col style="width: {columnWidths[0] || 57}px;" />
-							{#each fields as fieldName, index (fieldName)}
-								<col
-									style="width: {columnWidths[index + 1]
-										? columnWidths[index + 1] + 'px'
-										: 'auto'};"
-								/>
-							{/each}
-							{#if actions}
-								<col style="width: {columnWidths[columnWidths.length - 1] || 80}px;" />
-							{/if}
-						</colgroup>
+						{#if columnWidths.length > 0}
+							<colgroup>
+								<col style="width: {columnWidths[0] || 57}px;" />
+								{#each fields as fieldName, index (fieldName)}
+									<col
+										style="width: {columnWidths[index + 1]
+											? columnWidths[index + 1] + 'px'
+											: 'auto'};"
+									/>
+								{/each}
+								{#if actions}
+									<col style="width: {columnWidths[columnWidths.length - 1] || 80}px;" />
+								{/if}
+							</colgroup>
+						{/if}
 						{@render header()}
 					</table>
 				</div>
@@ -331,20 +398,23 @@
 			'dark:bg-surface2 default-scrollbar-thin relative overflow-hidden overflow-x-auto rounded-md bg-white shadow-sm',
 			classes?.root
 		)}
+		bind:this={bodyScrollRef}
 	>
 		<table
 			class="w-full border-collapse"
 			bind:this={dataTableRef}
-			style={tableSelectActions && columnWidths.length > 0
-				? 'table-layout: fixed; width: 100%;'
-				: ''}
+			style={columnWidths.length > 0 ? 'table-layout: fixed; width: 100%;' : ''}
 		>
-			{#if tableSelectActions && columnWidths.length > 0}
+			{#if columnWidths.length > 0}
 				<colgroup>
-					<col style="width: {columnWidths[0] || 57}px;" />
+					{#if tableSelectActions}
+						<col style="width: {columnWidths[0] || 57}px;" />
+					{/if}
 					{#each fields as fieldName, index (fieldName)}
 						<col
-							style="width: {columnWidths[index + 1] ? columnWidths[index + 1] + 'px' : 'auto'};"
+							style="width: {columnWidths[tableSelectActions ? index + 1 : index]
+								? columnWidths[tableSelectActions ? index + 1 : index] + 'px'
+								: 'auto'};"
 						/>
 					{/each}
 					{#if actions}
@@ -436,46 +506,49 @@
 				<Square class="size-5" />
 			{/if}
 		</button>
-		<DotDotDot class="text-gray-500">
-			{#snippet icon()}
-				<ChevronDown class="size-4" />
-			{/snippet}
+		{#if validateSelect}
+			<DotDotDot class="text-gray-500">
+				{#snippet icon()}
+					<ChevronDown class="size-4" />
+				{/snippet}
 
-			<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-				<button
-					class="menu-button"
-					onclick={() => {
-						sortedBy = {
-							property: 'selectable',
-							order: 'asc'
-						};
-					}}
-				>
-					Sort By Selectable Items
-				</button>
-				<button
-					class="menu-button"
-					onclick={async () => {
-						if (filteredBy?.['selectable']) {
-							delete filteredBy['selectable'];
-							filteredBy = { ...filteredBy };
-						} else {
-							filteredBy = {
-								...filteredBy,
-								selectable: ['true']
+				<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
+					<button
+						class="menu-button"
+						onclick={() => {
+							sortedBy = {
+								property: 'selectable',
+								order: 'asc'
 							};
-						}
-						onFilter?.('selectable', ['true']);
-					}}
-				>
-					{#if filteredBy?.['selectable']}
-						Show All Items
-					{:else}
-						Show Only Selectable Items
-					{/if}
-				</button>
-			</div>
-		</DotDotDot>
+							onSort?.('selectable', 'asc');
+						}}
+					>
+						Sort By Selectable Items
+					</button>
+					<button
+						class="menu-button"
+						onclick={async () => {
+							if (filteredBy?.['selectable']) {
+								delete filteredBy['selectable'];
+								filteredBy = { ...filteredBy };
+							} else {
+								filteredBy = {
+									...filteredBy,
+									selectable: ['true']
+								};
+							}
+							onFilter?.('selectable', ['true']);
+						}}
+					>
+						{#if filteredBy?.['selectable']}
+							Show All Items
+						{:else}
+							Show Only Selectable Items
+						{/if}
+					</button>
+				</div>
+			</DotDotDot>
+		{/if}
 	</div>
 {/snippet}
 

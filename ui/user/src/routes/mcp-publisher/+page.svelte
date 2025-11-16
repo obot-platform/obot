@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -23,7 +22,11 @@
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
-	import { convertEntriesAndServersToTableData } from '$lib/services/chat/mcp.js';
+	import {
+		convertEntriesAndServersToTableData,
+		getServerTypeLabelByType
+	} from '$lib/services/chat/mcp.js';
+	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 
 	let { data } = $props();
 	let search = $state('');
@@ -85,14 +88,14 @@
 	);
 
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<'single' | 'multi' | 'remote'>();
+	let selectedServerType = $state<'single' | 'multi' | 'remote' | 'composite'>();
 	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
 
 	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
 
-	function selectServerType(type: 'single' | 'multi' | 'remote', updateUrl = true) {
+	function selectServerType(type: 'single' | 'multi' | 'remote' | 'composite', updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
 		showServerForm = true;
@@ -171,9 +174,7 @@
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'name'}
 							<div class="flex flex-shrink-0 items-center gap-2">
-								<div
-									class="bg-surface1 flex items-center justify-center rounded-sm p-0.5 dark:bg-gray-600"
-								>
+								<div class="icon">
 									{#if d.icon}
 										<img src={d.icon} alt={d.name} class="size-6" />
 									{:else}
@@ -185,7 +186,7 @@
 								</p>
 							</div>
 						{:else if property === 'type'}
-							{d.type === 'single' ? 'Single User' : d.type === 'multi' ? 'Multi-User' : 'Remote'}
+							{getServerTypeLabelByType(d.type)}
 						{:else if property === 'created'}
 							{formatTimeAgo(d.created).relativeTime}
 						{:else}
@@ -220,12 +221,7 @@
 {/snippet}
 
 {#snippet configureEntryScreen()}
-	{@const currentLabelType =
-		selectedServerType === 'single'
-			? 'Single User'
-			: selectedServerType === 'multi'
-				? 'Multi-User'
-				: 'Remote'}
+	{@const currentLabelType = getServerTypeLabelByType(selectedServerType)}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		<BackLink fromURL="mcp-publisher" currentLabel={`Create ${currentLabelType} Server`} />
 		<McpServerEntryForm
@@ -258,8 +254,8 @@
 	</button>
 {/snippet}
 
-<Confirm
-	msg="Are you sure you want to delete this server?"
+<McpConfirmDelete
+	names={[deletingEntry?.manifest?.name ?? '']}
 	show={Boolean(deletingEntry)}
 	onsuccess={async () => {
 		if (!deletingEntry || !workspaceId) {
@@ -271,10 +267,12 @@
 		deletingEntry = undefined;
 	}}
 	oncancel={() => (deletingEntry = undefined)}
+	entity="entry"
+	entityPlural="entries"
 />
 
-<Confirm
-	msg="Are you sure you want to delete this server?"
+<McpConfirmDelete
+	names={[deletingServer?.manifest?.name ?? '']}
 	show={Boolean(deletingServer)}
 	onsuccess={async () => {
 		if (!deletingServer || !workspaceId) {
@@ -286,9 +284,15 @@
 		deletingServer = undefined;
 	}}
 	oncancel={() => (deletingServer = undefined)}
+	entity="entry"
+	entityPlural="entries"
 />
 
-<SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />
+<SelectServerType
+	bind:this={selectServerTypeDialog}
+	onSelectServerType={selectServerType}
+	entity="workspace"
+/>
 
 <svelte:head>
 	<title>Obot | MCP Publisher</title>

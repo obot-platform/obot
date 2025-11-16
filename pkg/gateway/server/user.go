@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -45,7 +44,15 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		}
 	}
 
-	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name))
+	// Get user's auth groups and compute effective role
+	authGroupStrs := apiContext.User.GetExtra()["auth_provider_groups"]
+	effectiveRole, err := apiContext.GatewayClient.ResolveUserEffectiveRole(apiContext.Context(), user, authGroupStrs)
+	if err != nil {
+		pkgLog.Warnf("failed to resolve effective role for user %s: %v", user.Username, err)
+		effectiveRole = user.Role
+	}
+
+	return apiContext.Write(types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name, effectiveRole))
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {
@@ -54,11 +61,37 @@ func (s *Server) getUsers(apiContext api.Context) error {
 		return fmt.Errorf("failed to get users: %v", err)
 	}
 
-	items := make([]types2.User, 0, len(users))
+	// Filter out bootstrap user and collect valid users with their IDs
+	validUsers := make([]types.User, 0, len(users))
+	userIDs := make([]uint, 0, len(users))
 	for _, user := range users {
-		if user.Username != "bootstrap" && user.Email != "" { // Filter out the bootstrap admin
-			items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, ""))
+		if user.Username != "bootstrap" && user.Email != "" {
+			validUsers = append(validUsers, user)
+			userIDs = append(userIDs, user.ID)
 		}
+	}
+
+	// Bulk fetch group memberships for all users (single query)
+	userGroupMemberships, err := apiContext.GatewayClient.GetUserGroupMemberships(apiContext.Context(), userIDs)
+	if err != nil {
+		return fmt.Errorf("failed to get user group memberships: %v", err)
+	}
+
+	// Bulk compute effective roles for all users (single query)
+	effectiveRoles, err := apiContext.GatewayClient.ResolveUserEffectiveRolesBulk(apiContext.Context(), validUsers, userGroupMemberships)
+	if err != nil {
+		return fmt.Errorf("failed to resolve effective roles: %v", err)
+	}
+
+	// Build response with computed effective roles
+	items := make([]types2.User, 0, len(validUsers))
+	for _, user := range validUsers {
+		effectiveRole := user.Role
+		if role, ok := effectiveRoles[user.ID]; ok {
+			effectiveRole = role
+		}
+
+		items = append(items, *types.ConvertUserWithEffectiveRole(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole))
 	}
 
 	return apiContext.Write(types2.UserList{Items: items})
@@ -67,20 +100,11 @@ func (s *Server) getUsers(apiContext api.Context) error {
 func (s *Server) encryptAllUsersAndIdentities(apiContext api.Context) error {
 	force := apiContext.URL.Query().Get("force") == "true"
 
-	users, err := apiContext.GatewayClient.Users(apiContext.Context(), types.NewUserQuery(apiContext.URL.Query()))
-	if err != nil {
-		return fmt.Errorf("failed to get users: %v", err)
+	if err := apiContext.GatewayClient.EncryptUsers(apiContext.Context(), force); err != nil {
+		return fmt.Errorf("failed to encrypt users: %v", err)
 	}
 
-	for _, user := range users {
-		if force || !user.Encrypted {
-			if _, err = apiContext.GatewayClient.UpdateUser(apiContext.Context(), apiContext.UserIsAdmin(), &user, strconv.FormatUint(uint64(user.ID), 10)); err != nil {
-				return fmt.Errorf("failed to encrypt user with id %d: %v", user.ID, err)
-			}
-		}
-	}
-
-	if err = apiContext.GatewayClient.EncryptIdentities(apiContext.Context(), force); err != nil {
+	if err := apiContext.GatewayClient.EncryptIdentities(apiContext.Context(), force); err != nil {
 		return fmt.Errorf("failed to encrypt identities: %v", err)
 	}
 
@@ -102,7 +126,20 @@ func (s *Server) getUser(apiContext api.Context) error {
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
-	return apiContext.Write(types.ConvertUser(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, ""))
+	// Get user's groups and compute effective role
+	groupIDs, err := apiContext.GatewayClient.ListGroupIDsForUser(apiContext.Context(), user.ID)
+	if err != nil {
+		pkgLog.Warnf("failed to get groups for user %s: %v", user.Username, err)
+		groupIDs = nil
+	}
+
+	effectiveRole, err := apiContext.GatewayClient.ResolveUserEffectiveRole(apiContext.Context(), user, groupIDs)
+	if err != nil {
+		pkgLog.Warnf("failed to resolve effective role for user %s: %v", user.Username, err)
+		effectiveRole = user.Role
+	}
+
+	return apiContext.Write(types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole))
 }
 
 func (s *Server) updateUser(apiContext api.Context) error {
@@ -146,6 +183,8 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			status = http.StatusNotFound
 		} else if lae := (*client.LastAdminError)(nil); errors.As(err, &lae) {
 			status = http.StatusBadRequest
+		} else if loe := (*client.LastOwnerError)(nil); errors.As(err, &loe) {
+			status = http.StatusBadRequest
 		} else if ea := (*client.ExplicitRoleError)(nil); errors.As(err, &ea) {
 			status = http.StatusBadRequest
 		} else if ae := (*client.AlreadyExistsError)(nil); errors.As(err, &ae) {
@@ -154,6 +193,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to update user: %v", err))
 	}
 
+	// Create UserRoleChange event to trigger reconciliation if personal role changed
 	if originalUser.Role != existingUser.Role {
 		if err = apiContext.Create(&v1.UserRoleChange{
 			ObjectMeta: metav1.ObjectMeta{
@@ -161,9 +201,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 				Namespace:    apiContext.Namespace(),
 			},
 			Spec: v1.UserRoleChangeSpec{
-				UserID:  existingUser.ID,
-				OldRole: originalUser.Role,
-				NewRole: existingUser.Role,
+				UserID: existingUser.ID,
 			},
 		}); err != nil {
 			return fmt.Errorf("failed to create user role change event: %v", err)
@@ -228,6 +266,8 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
 		} else if lae := (*client.LastAdminError)(nil); errors.As(err, &lae) {
+			status = http.StatusBadRequest
+		} else if loe := (*client.LastOwnerError)(nil); errors.As(err, &loe) {
 			status = http.StatusBadRequest
 		}
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to delete user: %v", err))

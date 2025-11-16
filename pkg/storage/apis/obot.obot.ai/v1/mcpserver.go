@@ -44,6 +44,8 @@ func (in *MCPServer) Get(field string) (value string) {
 		return in.Spec.PowerUserWorkspaceID
 	case "spec.template":
 		return strconv.FormatBool(in.Spec.Template)
+	case "spec.compositeName":
+		return in.Spec.CompositeName
 	}
 	return ""
 }
@@ -56,16 +58,23 @@ func (in *MCPServer) FieldNames() []string {
 		"spec.mcpCatalogID",
 		"spec.powerUserWorkspaceID",
 		"spec.template",
+		"spec.compositeName",
 	}
 }
 
 func (in *MCPServer) DeleteRefs() []Ref {
-	return []Ref{
+	refs := []Ref{
 		{ObjType: &Thread{}, Name: in.Spec.ThreadName},
-		{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName},
 		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogID},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
+		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
 	}
+	if in.Spec.CompositeName == "" {
+		// Only garbage collect an MCP server when the catalog entry is deleted if it's not a component of a composite MCP server.
+		// Component MCP servers get their manifest from the composite catalog entry instead.
+		refs = append(refs, Ref{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName})
+	}
+	return refs
 }
 
 type MCPServerSpec struct {
@@ -94,6 +103,8 @@ type MCPServerSpec struct {
 	// Template indicates whether this MCP server is a template server.
 	// Template servers are hidden from user views and are used for creating project instances.
 	Template bool `json:"template,omitempty"`
+	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
+	CompositeName string `json:"compositeName,omitempty"`
 }
 
 type MCPServerStatus struct {
@@ -111,6 +122,10 @@ type MCPServerStatus struct {
 	DeploymentReplicas *int32 `json:"deploymentReplicas,omitempty"`
 	// DeploymentConditions contains key deployment conditions that indicate deployment health.
 	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
+	// K8sSettingsHash contains the hash of K8s settings (affinity, tolerations, resources) this server was deployed with.
+	// This field is only populated for servers running in Kubernetes runtime.
+	// For Docker, local, or remote runtimes, this field is omitted entirely.
+	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
 }
 
 type DeploymentCondition struct {

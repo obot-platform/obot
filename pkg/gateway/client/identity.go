@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -50,7 +51,7 @@ func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]type
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
 func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string) (*types.User, error) {
-	return c.EnsureIdentityWithRole(ctx, id, timezone, c.emailsWithExplictRoles[id.Email])
+	return c.EnsureIdentityWithRole(ctx, id, timezone, c.emailsWithExplictRoles[strings.ToLower(id.Email)])
 }
 
 // EnsureIdentityWithRole ensures the given identity exists in the database with the at least the given role, and returns the user associated with it.
@@ -81,10 +82,8 @@ func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity,
 			}
 		}
 
-		if user.Role.HasRole(types2.RolePowerUser) {
-			if err = c.ensureNewPrivilegedUser(ctx, user); err != nil {
-				return nil, err
-			}
+		if err = c.createUserRoleChangeForNewUser(ctx, user); err != nil {
+			return nil, err
 		}
 	}
 
@@ -127,6 +126,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 
 	email := id.Email
 	providerUserID := id.ProviderUserID
+	providerUsername := id.ProviderUsername
 
 	if id.ProviderUserID != "" {
 		id.HashedProviderUserID = hash.String(id.ProviderUserID)
@@ -175,6 +175,18 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	}
 	if err := c.decryptIdentity(ctx, id); err != nil {
 		return nil, false, fmt.Errorf("failed to decrypt identity: %w", err)
+	}
+
+	var updateIdentity bool
+	// This corrects the provider user ID and name to correct a bug introduced when re-encrypting all users and identities
+	if id.Email != email || id.ProviderUserID != providerUserID || id.ProviderUsername != providerUsername {
+		id.Email = email
+		id.HashedEmail = hash.String(id.Email)
+		id.ProviderUserID = providerUserID
+		id.HashedProviderUserID = hash.String(id.ProviderUserID)
+		id.ProviderUsername = providerUsername
+
+		updateIdentity = true
 	}
 
 	user := &types.User{
@@ -303,13 +315,8 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	}
 
 	// Update the user ID saved on the identity if needed.
-	// This also corrects the provider user ID to correct a bug introduced when re-encrypting all users and identities
-	if id.Email != email || id.UserID != user.ID || id.ProviderUserID != providerUserID {
-		id.Email = email
-		id.HashedEmail = hash.String(id.Email)
+	if id.UserID != user.ID || updateIdentity {
 		id.UserID = user.ID
-		id.ProviderUserID = providerUserID
-		id.HashedProviderUserID = hash.String(id.ProviderUserID)
 
 		if err := c.encryptAndUpdateIdentity(ctx, tx, *id); err != nil {
 			return nil, false, err
@@ -402,24 +409,24 @@ func (c *Client) RemoveIdentityAndUser(ctx context.Context, id *types.Identity) 
 	})
 }
 
-func (c *Client) ensureNewPrivilegedUser(ctx context.Context, user *types.User) error {
+func (c *Client) createUserRoleChangeForNewUser(ctx context.Context, user *types.User) error {
 	var defaultRole v1.UserDefaultRoleSetting
 	if err := c.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultRoleSettingName}, &defaultRole); err != nil {
 		return fmt.Errorf("failed to get default role setting: %w", err)
 	}
 
+	// Always create UserRoleChange for new users to trigger reconciliation
+	// The handler will check effective role and create workspace if needed
 	if err := c.storageClient.Create(ctx, &v1.UserRoleChange{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.UserRoleChangePrefix,
 			Namespace:    system.DefaultNamespace,
 		},
 		Spec: v1.UserRoleChangeSpec{
-			UserID:  user.ID,
-			OldRole: types2.RoleBasic, // New users start as basic
-			NewRole: defaultRole.Spec.Role,
+			UserID: user.ID,
 		},
 	}); err != nil {
-		return fmt.Errorf("failed to create user role change event for new privileged user %d: %w", user.ID, err)
+		return fmt.Errorf("failed to create user role change event for new user %d: %w", user.ID, err)
 	}
 
 	return nil

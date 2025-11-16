@@ -34,6 +34,7 @@ func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
 	if len(step.Status.RunNames) == 0 {
 		invokeResp, err := h.invoker.Step(ctx, req.Client, step, invoke.StepOptions{
 			PreviousRunName: lastRunName,
+			IgnoreMCPErrors: true,
 		})
 		if err != nil {
 			return err
@@ -46,6 +47,7 @@ func (h *Handler) RunInvoke(req router.Request, _ router.Response) error {
 			}
 			step.Status.ThreadName = invokeResp.Thread.Name
 			step.Status.RunNames = []string{invokeResp.Run.Name}
+			step.Status.RunMessage = invokeResp.Message
 			return client.Status().Update(ctx, step)
 		})
 		if err != nil {

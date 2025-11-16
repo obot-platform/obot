@@ -12,6 +12,8 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
+	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,17 +32,28 @@ type Options struct {
 	DisallowLocalhostMCP bool     `usage:"Allow MCP containers to run on localhost"`
 	MCPRuntimeBackend    string   `usage:"The runtime backend to use for running MCP servers: docker, kubernetes, or local. Defaults to docker." default:"docker"`
 	MCPImagePullSecrets  []string `usage:"The name of the image pull secret to use for pulling MCP images"`
+
+	// Kubernetes settings from Helm
+	MCPK8sSettingsAffinity    string `usage:"Affinity rules for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_AFFINITY"`
+	MCPK8sSettingsTolerations string `usage:"Tolerations for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_TOLERATIONS"`
+	MCPK8sSettingsResources   string `usage:"Resource requests/limits for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_RESOURCES"`
 }
 
 type SessionManager struct {
-	backend           backend
-	contextLock       sync.Mutex
-	sessionCtx        context.Context
-	cancel            func()
-	sessions          sync.Map
-	tokenStorage      GlobalTokenStore
-	baseURL           string
-	allowLocalhostMCP bool
+	backend               backend
+	contextLock           sync.Mutex
+	sessionCtx            context.Context
+	cancel                func()
+	sessions              sync.Map
+	tokenStorage          GlobalTokenStore
+	ephemeralTokenService *ephemeral.TokenService
+	baseURL               string
+	allowLocalhostMCP     bool
+}
+
+// TokenService returns the ephemeral token service used by this session manager.
+func (sm *SessionManager) TokenService() *ephemeral.TokenService {
+	return sm.ephemeralTokenService
 }
 
 const streamableHTTPHealthcheckBody string = `{
@@ -57,7 +70,7 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseURL string, opts Options, localK8sConfig *rest.Config) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, ephemeralTokenService *ephemeral.TokenService, tokenStorage GlobalTokenStore, baseURL string, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
 	var backend backend
 
 	switch opts.MCPRuntimeBackend {
@@ -91,7 +104,7 @@ func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseU
 			return nil, err
 		}
 
-		backend = newKubernetesBackend(clientset, client, opts.MCPBaseImage, opts.MCPNamespace, opts.MCPClusterDomain, opts.MCPImagePullSecrets)
+		backend = newKubernetesBackend(clientset, client, opts.MCPBaseImage, opts.MCPNamespace, opts.MCPClusterDomain, opts.MCPImagePullSecrets, obotStorageClient)
 	case "local":
 		backend = newLocalBackend()
 	default:
@@ -99,10 +112,11 @@ func NewSessionManager(ctx context.Context, tokenStorage GlobalTokenStore, baseU
 	}
 
 	return &SessionManager{
-		backend:           backend,
-		tokenStorage:      tokenStorage,
-		baseURL:           baseURL,
-		allowLocalhostMCP: !opts.DisallowLocalhostMCP,
+		backend:               backend,
+		tokenStorage:          tokenStorage,
+		ephemeralTokenService: ephemeralTokenService,
+		baseURL:               baseURL,
+		allowLocalhostMCP:     !opts.DisallowLocalhostMCP,
 	}, nil
 }
 
@@ -236,12 +250,13 @@ func (sm *SessionManager) RestartServerDeployment(ctx context.Context, server Se
 }
 
 func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
-	if server.Runtime == otypes.RuntimeRemote {
+	switch server.Runtime {
+	case otypes.RuntimeRemote:
 		if server.URL == "" {
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", mcpServerDisplayName)
 		}
 
-		if !sm.allowLocalhostMCP && server.URL != "" {
+		if !sm.allowLocalhostMCP && !server.ProjectMCPServer && server.URL != "" {
 			// Ensure the URL is not a localhost URL.
 			u, err := url.Parse(server.URL)
 			if err != nil {
@@ -260,8 +275,15 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 				}
 			}
 		}
-		// This is a remote MCP server, so there is nothing to deploy.
+
 		return server, nil
+	case otypes.RuntimeComposite:
+		// Transform composite into a remote connection to the gateway with auth
+		remote, err := CompositeServerToConfig(sm.ephemeralTokenService, mcpServerName, sm.baseURL, userID, server.Scope)
+		if err != nil {
+			return ServerConfig{}, err
+		}
+		return remote, nil
 	}
 
 	return sm.backend.ensureServerDeployment(ctx, server, userID, mcpServerDisplayName, mcpServerName)

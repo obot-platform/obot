@@ -3,9 +3,11 @@ package setup
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/bootstrap"
 )
 
 // OAuthComplete handles the OAuth callback for setup flow.
@@ -15,6 +17,30 @@ import (
 // to confirm them as the first Owner.
 // Endpoint: GET /api/setup/oauth-complete
 func (h *Handler) OAuthComplete(req api.Context) error {
+	// If the user that just logged in is an Owner, then we can redirect them now.
+	// The setup routes will be disabled, so we can just send the owner through without caching them or anything.
+	if req.UserIsOwner() {
+		// Delete the bootstrap cookie so that there won't be two types of auth happening at once.
+		http.SetCookie(req.ResponseWriter, &http.Cookie{
+			Name:     bootstrap.ObotBootstrapCookie,
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   strings.HasPrefix(h.serverURL, "https://"),
+		})
+
+		// Redirect to the admin dashboard.
+		http.Redirect(
+			req.ResponseWriter,
+			req.Request,
+			"/admin",
+			http.StatusFound,
+		)
+
+		return nil
+	}
+
 	if err := h.requireBootstrapEnabled(req); err != nil {
 		return err
 	}
@@ -54,7 +80,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 	http.Redirect(
 		req.ResponseWriter,
 		req.Request,
-		"/admin?setup=complete",
+		"/oauth2/sign_out?rd=/admin?setup=complete",
 		http.StatusFound,
 	)
 
