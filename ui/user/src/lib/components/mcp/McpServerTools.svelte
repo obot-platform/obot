@@ -95,7 +95,6 @@
 		// Create new AbortController for this request
 		abortController = new AbortController();
 		loading = true;
-		error = '';
 		try {
 			// Make a best effort attempt to load tools, prompts, and resources concurrently
 			let toolCall = project
