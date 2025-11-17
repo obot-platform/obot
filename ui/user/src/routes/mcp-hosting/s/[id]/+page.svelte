@@ -13,6 +13,7 @@
 	let { data } = $props();
 	let { mcpServer: initialMcpServer, workspaceId } = data;
 	let mcpServer = $state(initialMcpServer);
+	let title = $derived(mcpServer?.manifest?.name ?? 'MCP Server');
 </script>
 
 <Layout
@@ -20,14 +21,13 @@
 		component: VirtualPageViewport as unknown as Component,
 		props: { class: '', as: 'main', itemHeight: 56, overscan: 5, disabled: true }
 	}}
-	showUserLinks
+	{title}
+	showBackButton={Boolean(mcpServer)}
+	onBackButtonClick={() => {
+		goto('/mcp-hosting');
+	}}
 >
 	<div class="mt-6 flex h-full flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
-		{#if mcpServer}
-			{@const currentLabel = mcpServer?.manifest?.name ?? 'MCP Server'}
-			<BackLink fromURL="mcp-publisher" {currentLabel} />
-		{/if}
-
 		{#if workspaceId && mcpServer}
 			<McpServerEntryForm
 				entry={mcpServer}
@@ -35,10 +35,10 @@
 				id={workspaceId}
 				entity="workspace"
 				onCancel={() => {
-					goto('/mcp-publisher');
+					goto('/mcp-hosting');
 				}}
 				onSubmit={async () => {
-					goto('/mcp-publisher');
+					goto('/mcp-hosting');
 				}}
 			/>
 		{/if}
@@ -46,5 +46,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {mcpServer?.manifest?.name ?? 'MCP Server'}</title>
+	<title>Obot | {title}</title>
 </svelte:head>

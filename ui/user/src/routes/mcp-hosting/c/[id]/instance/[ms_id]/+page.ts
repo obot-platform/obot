@@ -4,18 +4,26 @@ import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params, fetch }) => {
-	const { id } = params;
+	const catalogEntryId = params.id;
+	const mcpServerId = params.ms_id;
 	let workspaceId;
 	let catalogEntry;
 	try {
 		workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
-		catalogEntry = await ChatService.getWorkspaceMCPCatalogEntry(workspaceId, id, { fetch });
+		catalogEntry = await ChatService.getWorkspaceMCPCatalogEntry(workspaceId, catalogEntryId, {
+			fetch
+		});
 	} catch (err) {
-		handleRouteError(err, `/mcp-publisher/c/${id}`, profile.current);
+		handleRouteError(
+			err,
+			`/mcp-hosting/c/${catalogEntryId}/instance/${mcpServerId}`,
+			profile.current
+		);
 	}
 
 	return {
 		workspaceId,
-		catalogEntry
+		catalogEntry,
+		mcpServerId
 	};
 };

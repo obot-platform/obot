@@ -6,17 +6,19 @@ import type { PageLoad } from './$types';
 export const load: PageLoad = async ({ params, fetch }) => {
 	const { id } = params;
 
-	let accessControlRule;
+	let mcpServer;
 	let workspaceId;
 	try {
 		workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
-		accessControlRule = await ChatService.getWorkspaceAccessControlRule(workspaceId, id, { fetch });
+		mcpServer = await ChatService.getWorkspaceMCPCatalogServer(workspaceId, id, {
+			fetch
+		});
 	} catch (err) {
-		handleRouteError(err, `/mcp-publisher/access-control/${id}`, profile.current);
+		handleRouteError(err, `/mcp-hosting/s/${id}`, profile.current);
 	}
 
 	return {
-		accessControlRule,
+		mcpServer,
 		workspaceId
 	};
 };

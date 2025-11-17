@@ -2,10 +2,10 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { BookOpenText, ChevronLeft, Plus, Trash2 } from 'lucide-svelte';
+	import { BookOpenText, ChevronLeft, Plus, ServerCog, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { goto } from '$app/navigation';
-	import { type AccessControlRule } from '$lib/services/admin/types';
+	import { afterNavigate, goto } from '$app/navigation';
+	import { Group, type AccessControlRule } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
@@ -17,16 +17,17 @@
 		getPoweruserWorkspace,
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte.js';
-
-	let { data } = $props();
-	const { accessControlRules: initialRules, workspaceId } = data;
+	import { workspaceStore } from '$lib/stores/workspace.svelte.js';
+	import { profile } from '$lib/stores';
+	import { browser } from '$app/environment';
 
 	initMcpServerAndEntries();
 
 	const mcpServersAndEntries = getPoweruserWorkspace();
-	let accessControlRules = $state(initialRules);
 	let showCreateRule = $state(false);
 	let ruleToDelete = $state<AccessControlRule>();
+	let workspace = $derived($workspaceStore);
+	let hasAccessToCreateRegistry = $derived(profile.current?.groups?.includes(Group.POWERUSER_PLUS));
 
 	onMount(() => {
 		const url = new URL(window.location.href);
@@ -36,9 +37,20 @@
 		}
 	});
 
+	afterNavigate(({ to }) => {
+		if (browser && to?.url) {
+			const showCreate = to.url.searchParams.get('new') === 'true';
+			if (showCreate) {
+				showCreateRule = true;
+			} else {
+				showCreateRule = false;
+			}
+		}
+	});
+
 	async function navigateToCreated(rule: AccessControlRule) {
 		showCreateRule = false;
-		goto(`/mcp-publisher/access-control/${rule.id}`, { replaceState: false });
+		goto(`/mcp-registry/r/${rule.id}`, { replaceState: false });
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -46,14 +58,16 @@
 		mcpServersAndEntries.entries.length + mcpServersAndEntries.servers.length
 	);
 
-	onMount(async () => {
-		if (workspaceId) {
-			fetchMcpServerAndEntries(workspaceId);
+	$effect(() => {
+		if (workspace.id) {
+			fetchMcpServerAndEntries(workspace.id);
 		}
 	});
+
+	let title = $derived(showCreateRule ? 'Create New Registry' : 'Created by Me');
 </script>
 
-<Layout showUserLinks>
+<Layout {title} showBackButton={showCreateRule}>
 	<div
 		class="my-4 h-full w-full"
 		in:fly={{ x: 100, duration, delay: duration }}
@@ -67,33 +81,30 @@
 				in:fly={{ x: 100, delay: duration, duration }}
 				out:fly={{ x: -100, duration }}
 			>
-				<div class="flex items-center justify-between">
-					<h1 class="text-2xl font-semibold">Access Control</h1>
-					{#if accessControlRules.length > 0}
-						<div class="relative flex items-center gap-4">
-							{@render addRuleButton()}
-						</div>
-					{/if}
-				</div>
-				{#if accessControlRules.length === 0}
+				{#if workspace.rules.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<BookOpenText class="size-24 text-gray-200 dark:text-gray-900" />
+						<ServerCog class="size-24 text-gray-200 dark:text-gray-900" />
 						<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-							No created access control rules
+							No created registries
 						</h4>
 						<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-							Looks like you don't have any rules created yet. <br />
+							Looks like you don't have any registries created yet. <br />
 							Click the button below to get started.
 						</p>
 
-						{@render addRuleButton()}
+						<button
+							class="button-primary flex items-center gap-1 text-sm"
+							onclick={() => (showCreateRule = true)}
+						>
+							<Plus class="size-4" /> New Registry
+						</button>
 					</div>
 				{:else}
 					<Table
-						data={accessControlRules}
+						data={workspace.rules}
 						fields={['displayName', 'servers']}
 						onClickRow={(d, isCtrlClick) => {
-							const url = `/mcp-publisher/access-control/${d.id}`;
+							const url = `/mcp-registry/r/${d.id}`;
 							openUrl(url, isCtrlClick);
 						}}
 						headers={[
@@ -135,16 +146,19 @@
 			</div>
 		{/if}
 	</div>
-</Layout>
 
-{#snippet addRuleButton()}
-	<button
-		class="button-primary flex items-center gap-1 text-sm"
-		onclick={() => (showCreateRule = true)}
-	>
-		<Plus class="size-4" /> Add New Rule
-	</button>
-{/snippet}
+	{#snippet rightNavActions()}
+		{#if hasAccessToCreateRegistry && !showCreateRule}
+			<button
+				class="button-primary flex h-fit items-center gap-2 text-sm"
+				onclick={() => goto('/mcp-registry/created?new=true')}
+			>
+				<Plus class="size-4" />
+				New Registry
+			</button>
+		{/if}
+	{/snippet}
+</Layout>
 
 {#snippet createRuleScreen()}
 	<div
@@ -155,35 +169,25 @@
 		<AccessControlRuleForm
 			onCreate={navigateToCreated}
 			entity="workspace"
-			id={workspaceId}
+			id={workspace.id}
 			mcpEntriesContextFn={getPoweruserWorkspace}
 			all={MCP_PUBLISHER_ALL_OPTION}
-		>
-			{#snippet topContent()}
-				<button
-					onclick={() => (showCreateRule = false)}
-					class="button-text flex -translate-x-1 items-center gap-2 p-0 text-lg font-light"
-				>
-					<ChevronLeft class="size-6" />
-					Access Control
-				</button>
-			{/snippet}
-		</AccessControlRuleForm>
+		/>
 	</div>
 {/snippet}
 
 <Confirm
-	msg="Are you sure you want to delete this rule?"
+	msg="Are you sure you want to delete this registry?"
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
-		if (!ruleToDelete || !workspaceId) return;
-		await ChatService.deleteWorkspaceAccessControlRule(workspaceId, ruleToDelete.id);
-		accessControlRules = await ChatService.listWorkspaceAccessControlRules(workspaceId);
+		if (!ruleToDelete || !workspace.id) return;
+		await ChatService.deleteWorkspaceAccessControlRule(workspace.id, ruleToDelete.id);
+		await workspaceStore.fetchData(true);
 		ruleToDelete = undefined;
 	}}
 	oncancel={() => (ruleToDelete = undefined)}
 />
 
 <svelte:head>
-	<title>Obot | MCP Publisher | Access Control</title>
+	<title>Obot | Created by Me</title>
 </svelte:head>

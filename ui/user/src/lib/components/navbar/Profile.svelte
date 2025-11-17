@@ -2,7 +2,6 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile, responsive, darkMode } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { Group } from '$lib/services/admin/types';
 	import { getUserRoleLabel } from '$lib/utils';
 	import {
 		Book,
@@ -13,24 +12,16 @@
 		Sun,
 		BadgeInfo,
 		X,
-		Server,
-		MessageCircle,
-		ServerCog,
 		CircleFadingArrowUp
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { AdminService, ChatService, EditorService } from '$lib/services';
+	import { AdminService } from '$lib/services';
 	import { afterNavigate, goto } from '$app/navigation';
-	import PageLoading from '../PageLoading.svelte';
 
 	let versionDialog = $state<HTMLDialogElement>();
-	let showChatLink = $state(false);
-	let showMyMcpServersLink = $state(false);
-	let showMcpPublisherLink = $state(false);
 	let inAdminRoute = $state(false);
-	let loadingChat = $state(false);
 
 	let showUpgradeAvailable = $derived(
 		version.current.authEnabled
@@ -73,35 +64,8 @@
 	}
 
 	afterNavigate(() => {
-		const routesToShowChatLink = [
-			'/mcp-servers',
-			'/profile',
-			'/mcp-publisher',
-			'/mcp-publisher/access-control',
-			'/mcp-publisher/audit-logs',
-			'/mcp-publisher/usage'
-		];
 		inAdminRoute = window.location.pathname.includes('/admin');
-		showChatLink = routesToShowChatLink.includes(window.location.pathname) || inAdminRoute;
-		showMyMcpServersLink = window.location.pathname !== '/mcp-servers';
-		showMcpPublisherLink = !window.location.pathname.startsWith('/mcp-publisher');
 	});
-
-	function navigateTo(path: string, asNewTab?: boolean) {
-		if (asNewTab) {
-			// Create a temporary link element and click it; avoids Safari's popup blocker
-			const link = document.createElement('a');
-			link.href = path;
-			link.target = '_blank';
-			link.rel = 'noopener noreferrer';
-			link.style.display = 'none';
-			document.body.appendChild(link);
-			link.click();
-			document.body.removeChild(link);
-		} else {
-			goto(path);
-		}
-	}
 </script>
 
 <Menu
@@ -158,64 +122,9 @@
 		{@const canAccessAdmin = profile.current.hasAdminAccess?.()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
 			{#if canAccessAdmin && !inAdminRoute}
-				<button
-					onclick={(event) => {
-						const asNewTab = event?.ctrlKey || event?.metaKey;
-						navigateTo('/admin', asNewTab);
-					}}
-					class="link"
-					role="menuitem"
-				>
+				<a href="/admin" rel="external" target="_blank" class="link">
 					<LayoutDashboard class="size-4" />
 					Admin Dashboard
-				</button>
-			{/if}
-			{#if showMyMcpServersLink}
-				<button
-					onclick={(event) => {
-						const asNewTab = event?.ctrlKey || event?.metaKey;
-						navigateTo('/mcp-servers', asNewTab);
-					}}
-					class="link"
-					role="menuitem"
-				>
-					<Server class="size-4" />
-					My Connectors
-				</button>
-			{/if}
-			{#if showChatLink}
-				<button
-					class="link"
-					onclick={async (event) => {
-						const asNewTab = event?.ctrlKey || event?.metaKey;
-						loadingChat = true;
-						try {
-							const projects = (await ChatService.listProjects()).items.sort(
-								(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
-							);
-							const lastProject = projects[0];
-							let url: string;
-
-							if (lastProject) {
-								url = `/o/${lastProject.id}`;
-							} else {
-								const newProject = await EditorService.createObot();
-								url = `/o/${newProject.id}`;
-							}
-
-							navigateTo(url, asNewTab);
-						} finally {
-							loadingChat = false;
-						}
-					}}
-				>
-					<MessageCircle class="size-4" />
-					Chat
-				</button>
-			{/if}
-			{#if profile.current.groups.includes(Group.POWERUSER) && showMcpPublisherLink && version.current.authEnabled}
-				<a href="/mcp-publisher" rel="external" class="link">
-					<ServerCog class="size-4" /> MCP Publisher
 				</a>
 			{/if}
 			{#if responsive.isMobile}
@@ -303,8 +212,6 @@
 		{/each}
 	</div>
 </dialog>
-
-<PageLoading show={loadingChat} text="Loading chat..." />
 
 <style lang="postcss">
 	.link {

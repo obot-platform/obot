@@ -18,7 +18,7 @@ export const load: PageLoad = async ({ fetch }) => {
 			);
 		}
 	} catch (err) {
-		handleRouteError(err, `/admin/mcp-publisher`, profile.current);
+		handleRouteError(err, `/admin/mcp-hosting`, profile.current);
 	}
 
 	return {

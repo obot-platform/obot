@@ -117,13 +117,9 @@
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
 </script>
 
-<Layout>
+<Layout title="Users">
 	<div class="my-4" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
-			<div class="flex items-center justify-between">
-				<h1 class="text-2xl font-semibold">Users</h1>
-			</div>
-
 			<div class="flex flex-col gap-2">
 				<Search
 					value={query}

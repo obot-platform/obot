@@ -63,6 +63,7 @@
 		onSelectConnectedServer?: (connectedServer: ConnectedServer) => void;
 		onDisconnect?: () => void;
 		onUpdateConfigure?: () => void;
+		onSelectCard?: (item: Entry | Server | ConnectedServer) => void;
 		connectSelectText: string;
 		disablePortal?: boolean;
 	}
@@ -84,6 +85,7 @@
 		onSelectConnectedServer,
 		onDisconnect,
 		onUpdateConfigure,
+		onSelectCard,
 		connectSelectText,
 		disablePortal
 	}: Props = $props();
@@ -680,6 +682,7 @@
 		search = ''; // reset search
 		showServerInfo = true;
 		selectedEntryOrServer = item;
+		onSelectCard?.(item);
 		await tick();
 		document.getElementsByTagName('main')[0].scrollTo({ top: 0, behavior: 'instant' });
 	}
@@ -977,25 +980,6 @@
 			: (item as Entry | Server)
 		: undefined}
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
-		<div class="flex flex-wrap items-center">
-			<ChevronLeft class="mr-2 size-4" />
-			<button
-				onclick={() => {
-					selectedEntryOrServer = undefined;
-					showServerInfo = false;
-				}}
-				class="button-text flex items-center gap-2 p-0 text-lg font-light"
-			>
-				My Connectors
-			</button>
-			<ChevronLeft class="mx-2 size-4" />
-			<span class="text-lg font-light"
-				>{selectedEntryOrServer && 'server' in selectedEntryOrServer
-					? selectedEntryOrServer.server?.alias || manifest?.name
-					: manifest?.name}</span
-			>
-		</div>
-
 		<div class="flex items-center gap-2">
 			{#if manifest?.icon}
 				<img

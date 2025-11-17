@@ -5,20 +5,17 @@ import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params, fetch }) => {
 	const { id } = params;
-
-	let mcpServer;
 	let workspaceId;
+	let catalogEntry;
 	try {
 		workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
-		mcpServer = await ChatService.getWorkspaceMCPCatalogServer(workspaceId, id, {
-			fetch
-		});
+		catalogEntry = await ChatService.getWorkspaceMCPCatalogEntry(workspaceId, id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/mcp-publisher/s/${id}`, profile.current);
+		handleRouteError(err, `/mcp-hosting/c/${id}`, profile.current);
 	}
 
 	return {
-		mcpServer,
-		workspaceId
+		workspaceId,
+		catalogEntry
 	};
 };

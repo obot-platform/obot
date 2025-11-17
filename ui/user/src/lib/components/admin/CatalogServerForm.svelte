@@ -23,6 +23,7 @@
 	import Select from '../Select.svelte';
 	import { profile } from '$lib/stores';
 	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import { workspaceStore } from '$lib/stores/workspace.svelte';
 
 	interface Props {
 		id?: string;
@@ -580,7 +581,7 @@
 			if (isAtLeastPowerUserPlus) {
 				const existingRules =
 					entity === 'workspace'
-						? await ChatService.listWorkspaceAccessControlRules(id)
+						? await workspaceStore.listRules()
 						: await AdminService.listAccessControlRules();
 				const hasEverythingEveryoneRule = existingRules.some(
 					(rule) =>
@@ -610,13 +611,11 @@
 </script>
 
 {#if !hideTitle}
-	<h1 class="text-2xl font-semibold capitalize">
-		{#if entry}
+	{#if entry}
+		<h1 class="text-2xl font-semibold capitalize">
 			{formData.name}
-		{:else}
-			Create {type} Server
-		{/if}
-	</h1>
+		</h1>
+	{/if}
 {/if}
 
 <div

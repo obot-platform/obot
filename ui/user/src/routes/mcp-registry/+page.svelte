@@ -7,17 +7,30 @@
 	import {
 		ChatService,
 		EditorService,
+		Group,
+		type AccessControlRule,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance
 	} from '$lib/services/index.js';
-	import { ExternalLink, Server } from 'lucide-svelte';
+	import { ExternalLink, Plus, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
+	import { fly } from 'svelte/transition';
 	import PageLoading from '$lib/components/PageLoading.svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import MyMcpServers, { type ConnectedServer } from '$lib/components/mcp/MyMcpServers.svelte';
-	import { responsive } from '$lib/stores';
+	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
+	import {
+		fetchMcpServerAndEntries,
+		getPoweruserWorkspace,
+		initMcpServerAndEntries
+	} from '$lib/context/poweruserWorkspace.svelte';
+	import { profile } from '$lib/stores/index.js';
+	import { workspaceStore } from '$lib/stores/workspace.svelte.js';
+	import { browser } from '$app/environment';
+
+	initMcpServerAndEntries();
 
 	let userServerInstances = $state<MCPServerInstance[]>([]);
 	let userConfiguredServers = $state<MCPCatalogServer[]>([]);
@@ -29,6 +42,9 @@
 	let chatLoadingProgress = $state(0);
 	let chatLaunchError = $state<string>();
 
+	let showCreateRegistry = $state(false);
+	let selectedItemTitle = $state<string>('');
+
 	let connectToServer = $state<{
 		server?: MCPCatalogServer;
 		instance?: MCPServerInstance;
@@ -38,7 +54,9 @@
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let showAllServersConfigDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let myMcpServers = $state<ReturnType<typeof MyMcpServers>>();
-	let selectedCategory = $state('');
+
+	let hasAccessToCreateRegistry = $derived(profile.current?.groups?.includes(Group.POWERUSER_PLUS));
+	let workspace = $derived($workspaceStore);
 
 	let convertedEntries: (MCPCatalogEntry & { categories: string[] })[] = $derived(
 		entries.map((entry) => ({
@@ -57,15 +75,6 @@
 			...server,
 			categories: parseCategories(server)
 		}))
-	);
-
-	let categories = $derived(
-		[
-			...new Set([
-				...convertedEntries.flatMap((item) => item.categories),
-				...convertedServers.flatMap((item) => item.categories)
-			])
-		].sort((a, b) => a.localeCompare(b))
 	);
 
 	async function loadData(partialRefresh?: boolean) {
@@ -107,9 +116,20 @@
 		loadData();
 	});
 
-	afterNavigate(() => {
-		const url = new URL(window.location.href);
-		selectedCategory = url.searchParams.get('category') ?? '';
+	afterNavigate(({ to }) => {
+		if (browser && to?.url) {
+			const initialSelectedId = to.url.searchParams.get('id');
+			const showCreate = to.url.searchParams.get('new') === 'true';
+			if (showCreate) {
+				showCreateRegistry = true;
+				selectedItemTitle = '';
+				myMcpServers?.reset();
+			} else if (!initialSelectedId && (selectedItemTitle || showCreateRegistry)) {
+				showCreateRegistry = false;
+				selectedItemTitle = '';
+				myMcpServers?.reset();
+			}
+		}
 	});
 
 	async function handleSetupChat(connectedServer: typeof connectToServer) {
@@ -170,94 +190,140 @@
 			goto(`/o/${project?.id}`);
 		}, 1000);
 	}
+
+	function handleSelectCreateRegistry() {
+		if (workspace.id) {
+			fetchMcpServerAndEntries(workspace.id);
+		}
+		goto('/mcp-registry?new=true');
+	}
+
+	async function navigateToCreated(rule: AccessControlRule) {
+		workspaceStore.fetchData(true);
+		showCreateRegistry = false;
+		goto(`/mcp-registry/r/${rule.id}`, { replaceState: false });
+	}
+
+	function getCurrentTitle() {
+		if (selectedItemTitle) {
+			return selectedItemTitle;
+		}
+
+		if (showCreateRegistry) {
+			return 'Create New Registry';
+		}
+
+		return workspace.rules.length > 0 ? 'Shared with Me' : 'MCP Registry';
+	}
+
+	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout showUserLinks navLinks={[]} hideSidebar classes={{ container: 'pb-0' }}>
+<Layout
+	title={getCurrentTitle()}
+	showBackButton={showCreateRegistry || Boolean(selectedItemTitle)}
+	onBackButtonClick={() => {
+		goto('/mcp-registry');
+	}}
+>
 	<div class="flex h-full w-full">
-		{#if !responsive.isMobile}
-			<ul class="flex min-h-0 w-xs flex-shrink-0 grow flex-col p-4">
-				<li>
-					<button
-						class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
-						class:!border-blue-500={!selectedCategory}
-						onclick={() => {
-							selectedCategory = '';
-						}}
-					>
-						Browse All
-					</button>
-				</li>
-				{#each categories as category (category)}
-					<li>
-						<button
-							class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
-							class:!border-blue-500={category === selectedCategory}
-							onclick={() => {
-								selectedCategory = category;
-								myMcpServers?.reset();
-							}}
-						>
-							{category}
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-		<div class="flex w-full flex-col gap-8 px-2 pt-4" in:fade>
-			<h1 class="text-2xl font-semibold">
-				{selectedCategory ? selectedCategory : 'My Connectors'}
-			</h1>
-			<MyMcpServers
-				bind:this={myMcpServers}
-				{userServerInstances}
-				userConfiguredServers={convertedUserConfiguredServers}
-				servers={convertedServers}
-				entries={convertedEntries}
-				{loading}
-				onConnectServer={(connectedServer) => {
-					loadData(true);
-					connectToServer = connectedServer;
-					connectDialog?.open();
-				}}
-				onSelectConnectedServer={(connectedServer) => {
-					connectToServer = connectedServer;
-					connectDialog?.open();
-				}}
-				onDisconnect={() => {
-					loadData(true);
-				}}
-				connectSelectText="Connect"
-				onUpdateConfigure={() => {
-					loadData(true);
-				}}
-				{selectedCategory}
+		{#if showCreateRegistry}
+			{@render createRegistryScreen()}
+		{:else}
+			<div
+				class="w-full pt-4"
+				in:fly={{ x: 100, delay: duration, duration }}
+				out:fly={{ x: -100, duration }}
 			>
-				{#snippet appendConnectedServerTitle()}
-					<button class="button text-xs" onclick={() => showAllServersConfigDialog?.open()}>
-						Generate Configuration
-					</button>
-				{/snippet}
-				{#snippet additConnectedServerViewActions(connectedServer)}
-					{@render connectedActions(connectedServer)}
-				{/snippet}
-				{#snippet additConnectedServerCardActions(connectedServer)}
-					{@const requiresUpdate = requiresUserUpdate(connectedServer)}
-					{@render connectedActions(connectedServer)}
-					<button
-						class="menu-button"
-						onclick={async () => {
-							connectToServer = connectedServer;
-							connectDialog?.open();
-						}}
-						disabled={requiresUpdate}
-					>
-						Connect
-					</button>
-				{/snippet}
-			</MyMcpServers>
-		</div>
+				<MyMcpServers
+					bind:this={myMcpServers}
+					{userServerInstances}
+					userConfiguredServers={convertedUserConfiguredServers}
+					servers={convertedServers}
+					entries={convertedEntries}
+					{loading}
+					onConnectServer={(connectedServer) => {
+						loadData(true);
+						connectToServer = connectedServer;
+						connectDialog?.open();
+					}}
+					onSelectConnectedServer={(connectedServer) => {
+						connectToServer = connectedServer;
+						connectDialog?.open();
+					}}
+					onDisconnect={() => {
+						loadData(true);
+					}}
+					connectSelectText="Connect"
+					onUpdateConfigure={() => {
+						loadData(true);
+					}}
+					onSelectCard={(item) => {
+						selectedItemTitle =
+							'server' in item
+								? item.server?.alias || item.server?.manifest.name || ''
+								: 'manifest' in item
+									? item.manifest?.name || ''
+									: '';
+						const id = 'server' in item ? item.server?.id : 'manifest' in item ? item.id : '';
+						goto(`/mcp-registry?id=${id}`);
+					}}
+				>
+					{#snippet appendConnectedServerTitle()}
+						<button class="button text-xs" onclick={() => showAllServersConfigDialog?.open()}>
+							Generate Configuration
+						</button>
+					{/snippet}
+					{#snippet additConnectedServerViewActions(connectedServer)}
+						{@render connectedActions(connectedServer)}
+					{/snippet}
+					{#snippet additConnectedServerCardActions(connectedServer)}
+						{@const requiresUpdate = requiresUserUpdate(connectedServer)}
+						{@render connectedActions(connectedServer)}
+						<button
+							class="menu-button"
+							onclick={async () => {
+								connectToServer = connectedServer;
+								connectDialog?.open();
+							}}
+							disabled={requiresUpdate}
+						>
+							Connect
+						</button>
+					{/snippet}
+				</MyMcpServers>
+			</div>
+		{/if}
 	</div>
+
+	{#snippet rightNavActions()}
+		{#if hasAccessToCreateRegistry && !selectedItemTitle && !showCreateRegistry}
+			<button
+				class="button-primary flex h-fit items-center gap-2 text-sm"
+				onclick={handleSelectCreateRegistry}
+			>
+				<Plus class="size-4" />
+				New Registry
+			</button>
+		{/if}
+	{/snippet}
 </Layout>
+
+{#snippet createRegistryScreen()}
+	<div
+		class="h-full w-full pt-4"
+		in:fly={{ x: 100, delay: duration, duration }}
+		out:fly={{ x: -100, duration }}
+	>
+		<AccessControlRuleForm
+			onCreate={navigateToCreated}
+			entity="workspace"
+			id={workspace.id}
+			mcpEntriesContextFn={getPoweruserWorkspace}
+			all={MCP_PUBLISHER_ALL_OPTION}
+		/>
+	</div>
+{/snippet}
 
 {#snippet connectedActions(connectedServer: ConnectedServer)}
 	{@const requiresUpdate = requiresUserUpdate(connectedServer)}
@@ -359,5 +425,5 @@
 />
 
 <svelte:head>
-	<title>Obot | MCP Servers</title>
+	<title>Obot | MCP Registry</title>
 </svelte:head>

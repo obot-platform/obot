@@ -4,25 +4,32 @@
 	import { profile, responsive, version } from '$lib/stores';
 	import { initLayout, getLayout } from '$lib/context/layout.svelte';
 	import { type Component, type Snippet } from 'svelte';
-	import { fade, slide } from 'svelte/transition';
+	import { fade, fly, slide } from 'svelte/transition';
 	import {
 		AlarmClock,
+		BookText,
 		Boxes,
 		Captions,
 		ChartBarDecreasing,
 		ChevronDown,
+		ChevronLeft,
 		ChevronUp,
 		CircuitBoard,
 		Cpu,
+		Earth,
+		ExternalLink,
 		Funnel,
 		GlobeLock,
 		LockKeyhole,
 		MessageCircle,
 		MessageCircleMore,
+		RadioTower,
 		Server,
+		ServerCog,
 		Settings,
 		SidebarClose,
 		SidebarOpen,
+		SquareLibrary,
 		UserCog,
 		Users
 	} from 'lucide-svelte';
@@ -32,10 +39,13 @@
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
 	import { Render } from './ui/render';
-	import { Group } from '$lib/services';
+	import { ChatService, EditorService, Group } from '$lib/services';
 	import { page } from '$app/state';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import { workspaceStore } from '$lib/stores/workspace.svelte';
+	import { goto } from '$app/navigation';
+	import PageLoading from './PageLoading.svelte';
 
 	type NavLink = {
 		id: string;
@@ -54,206 +64,255 @@
 			navbar?: string;
 		};
 		children: Snippet;
-		showUserLinks?: boolean;
 		onRenderSubContent?: Snippet<[string]>;
 		hideSidebar?: boolean;
 		whiteBackground?: boolean;
 		main?: { component: Component; props?: Record<string, unknown> };
 		navLinks?: NavLink[];
+		rightNavActions?: Snippet;
+		title?: string;
+		showBackButton?: boolean;
+		onBackButtonClick?: () => void;
 	}
 
 	const {
 		classes,
 		children,
-		showUserLinks,
 		navLinks: overrideNavLinks,
 		onRenderSubContent,
 		hideSidebar,
 		whiteBackground,
-		main
+		main,
+		rightNavActions,
+		title,
+		showBackButton,
+		onBackButtonClick
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
+	let loadingChat = $state(false);
 	let pathname = $derived(page.url.pathname);
 
+	let workspace = $derived($workspaceStore);
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
-	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 	let navLinks = $derived<NavLink[]>(
-		profile.current.hasAdminAccess?.() && !showUserLinks
-			? [
-					{
-						id: 'mcp-server-management',
-						icon: Server,
-						label: 'MCP Server Management',
-						collapsible: true,
-						items: [
-							{
-								id: 'mcp-servers',
-								icon: Server,
-								href: '/admin/mcp-servers',
-								label: 'MCP Servers',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'audit-logs',
-								href: '/admin/audit-logs',
-								icon: Captions,
-								label: 'Audit Logs',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'usage',
-								href: '/admin/usage',
-								icon: ChartBarDecreasing,
-								label: 'Usage',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'filters',
-								href: '/admin/filters',
-								icon: Funnel,
-								label: 'Filters',
-								disabled: isBootStrapUser
-							},
-							{
-								id: 'access-control',
-								href: '/admin/access-control',
-								icon: GlobeLock,
-								label: 'Access Control',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							version.current.engine === 'kubernetes'
-								? {
-										id: 'server-scheduling',
-										href: '/admin/server-scheduling',
-										icon: AlarmClock,
-										label: 'Server Scheduling',
-										collapsible: false
-									}
-								: undefined
-						].filter(Boolean) as NavLink[]
-					},
-					{
-						id: 'obot-chat',
-						icon: MessageCircle,
-						label: 'Chat Management',
-						disabled: isBootStrapUser,
-						collapsible: true,
-						items: [
-							{
-								id: 'chat-threads',
-								href: '/admin/chat-threads',
-								icon: MessageCircleMore,
-								label: 'Chat Threads',
-								collapsible: false
-							},
-							{
-								id: 'tasks',
-								href: '/admin/tasks',
-								icon: Cpu,
-								label: 'Tasks',
-								disabled: isBootStrapUser
-							},
-							{
-								id: 'task-runs',
-								href: '/admin/task-runs',
-								icon: CircuitBoard,
-								label: 'Task Runs',
-								disabled: isBootStrapUser
-							},
-							{
-								id: 'chat-configuration',
-								href: '/admin/chat-configuration',
-								icon: Settings,
-								label: 'Chat Configuration',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'model-providers',
-								href: '/admin/model-providers',
-								icon: Boxes,
-								label: 'Model Providers',
-								collapsible: false
-							}
-						]
-					},
-					{
-						id: 'user-management',
-						icon: Users,
-						label: 'User Management',
-						disabled: false,
-						collapsible: true,
-						items: [
-							{
-								id: 'users',
-								href: '/admin/users',
-								icon: Users,
-								label: 'Users',
-								collapsible: false,
-								disabled: !version.current.authEnabled
-							},
-							{
-								id: 'user-roles',
-								href: '/admin/user-roles',
-								icon: UserCog,
-								label: 'User Roles',
-								collapsible: false,
-								disabled: !version.current.authEnabled
-							},
-							{
-								id: 'auth-providers',
-								href: '/admin/auth-providers',
-								icon: LockKeyhole,
-								label: 'Auth Providers',
-								disabled: !version.current.authEnabled,
-								collapsible: false
-							}
-						]
-					}
-				]
-			: (overrideNavLinks ?? [
-					{
-						id: 'mcp-publisher',
-						href: '/mcp-publisher',
-						icon: Server,
-						label: 'MCP Servers',
-						disabled: false,
-						collapsible: false
-					},
-					...(isAtLeastPowerUserPlus
-						? [
+		overrideNavLinks ?? [
+			...(workspace.rules.length > 0
+				? [
+						{
+							id: 'mcp-registries',
+							icon: SquareLibrary,
+							label: 'MCP Registries',
+							disabled: false,
+							collapsible: false,
+							items: [
 								{
-									id: 'access-control',
-									href: '/mcp-publisher/access-control',
-									icon: GlobeLock,
-									label: 'Access Control',
+									id: 'mcp-registry',
+									href: '/mcp-registry',
+									icon: Server,
+									label: 'Shared with Me',
+									disabled: false,
+									collapsible: false
+								},
+								{
+									id: 'mcp-registry-created',
+									href: '/mcp-registry/created',
+									icon: BookText,
+									label: 'Created by Me',
 									disabled: false,
 									collapsible: false
 								}
 							]
-						: []),
+						}
+					]
+				: [
+						{
+							id: 'mcp-registry',
+							href: '/mcp-registry',
+							icon: Server,
+							label: 'MCP Registry',
+							disabled: false,
+							collapsible: false
+						}
+					]),
+			{
+				id: 'mcp-hosting',
+				href: '/mcp-hosting',
+				icon: RadioTower,
+				label: 'MCP Hosting',
+				disabled: false,
+				collapsible: false
+			},
+			{
+				id: 'mcp-gateway',
+				icon: Earth,
+				label: 'MCP Gateway',
+				disabled: false,
+				collapsible: false,
+				items: [
 					{
 						id: 'audit-logs',
-						href: '/mcp-publisher/audit-logs',
+						href: '/mcp-gateway/audit-logs',
 						icon: Captions,
 						label: 'Audit Logs',
-						disabled: false,
+						disabled: isBootStrapUser,
 						collapsible: false
 					},
 					{
 						id: 'usage',
-						href: '/mcp-publisher/usage',
+						href: '/mcp-gateway/usage',
 						icon: ChartBarDecreasing,
 						label: 'Usage',
-						disabled: false,
+						disabled: isBootStrapUser,
 						collapsible: false
 					}
-				])
+				]
+			},
+			{
+				id: 'obot-chat',
+				href: '/chat',
+				icon: MessageCircle,
+				label: 'Obot Chat',
+				disabled: false,
+				collapsible: false
+			},
+			...(profile.current.hasAdminAccess?.()
+				? [
+						{
+							id: 'mcp-server-management',
+							icon: ServerCog,
+							label: 'MCP Server Management',
+							collapsible: true,
+							items: [
+								{
+									id: 'mcp-servers',
+									icon: Server,
+									href: '/admin/mcp-servers',
+									label: 'MCP Servers',
+									disabled: isBootStrapUser,
+									collapsible: false
+								},
+								{
+									id: 'audit-logs',
+									href: '/admin/audit-logs',
+									icon: Captions,
+									label: 'Audit Logs',
+									disabled: isBootStrapUser,
+									collapsible: false
+								},
+								{
+									id: 'usage',
+									href: '/admin/usage',
+									icon: ChartBarDecreasing,
+									label: 'Usage',
+									disabled: isBootStrapUser,
+									collapsible: false
+								},
+								{
+									id: 'filters',
+									href: '/admin/filters',
+									icon: Funnel,
+									label: 'Filters',
+									disabled: isBootStrapUser
+								},
+								{
+									id: 'access-control',
+									href: '/admin/access-control',
+									icon: GlobeLock,
+									label: 'Access Control',
+									disabled: isBootStrapUser,
+									collapsible: false
+								},
+								{
+									id: 'server-scheduling',
+									href: '/admin/server-scheduling',
+									icon: AlarmClock,
+									label: 'Server Scheduling',
+									collapsible: false
+								}
+							]
+						},
+						{
+							id: 'chat-management',
+							icon: MessageCircleMore,
+							label: 'Chat Management',
+							disabled: isBootStrapUser,
+							collapsible: true,
+							items: [
+								{
+									id: 'chat-threads',
+									href: '/admin/chat-threads',
+									icon: MessageCircleMore,
+									label: 'Chat Threads',
+									collapsible: false
+								},
+								{
+									id: 'tasks',
+									href: '/admin/tasks',
+									icon: Cpu,
+									label: 'Tasks',
+									disabled: isBootStrapUser
+								},
+								{
+									id: 'task-runs',
+									href: '/admin/task-runs',
+									icon: CircuitBoard,
+									label: 'Task Runs',
+									disabled: isBootStrapUser
+								},
+								{
+									id: 'chat-configuration',
+									href: '/admin/chat-configuration',
+									icon: Settings,
+									label: 'Chat Configuration',
+									disabled: isBootStrapUser,
+									collapsible: false
+								},
+								{
+									id: 'model-providers',
+									href: '/admin/model-providers',
+									icon: Boxes,
+									label: 'Model Providers',
+									collapsible: false
+								}
+							]
+						},
+						{
+							id: 'user-management',
+							icon: Users,
+							label: 'User Management',
+							disabled: false,
+							collapsible: true,
+							items: [
+								{
+									id: 'users',
+									href: '/admin/users',
+									icon: Users,
+									label: 'Users',
+									collapsible: false,
+									disabled: !version.current.authEnabled
+								},
+								{
+									id: 'user-roles',
+									href: '/admin/user-roles',
+									icon: UserCog,
+									label: 'User Roles',
+									collapsible: false,
+									disabled: !version.current.authEnabled
+								},
+								{
+									id: 'auth-providers',
+									href: '/admin/auth-providers',
+									icon: LockKeyhole,
+									label: 'Auth Providers',
+									disabled: !version.current.authEnabled,
+									collapsible: false
+								}
+							]
+						}
+					]
+				: [])
+		]
 	);
 
 	const tooltips = {
@@ -273,6 +332,8 @@
 		const isAdminOrBootstrapUser =
 			profile.current.loaded &&
 			(profile.current.groups.includes(Group.ADMIN) || profile.current.isBootstrapUser?.());
+
+		workspaceStore.initialize();
 		if (isAdminOrBootstrapUser && isAdminRoute) {
 			adminConfigStore.initialize();
 		}
@@ -280,6 +341,22 @@
 
 	initLayout();
 	const layout = getLayout();
+
+	function navigateTo(path: string, asNewTab?: boolean) {
+		if (asNewTab) {
+			// Create a temporary link element and click it; avoids Safari's popup blocker
+			const link = document.createElement('a');
+			link.href = path;
+			link.target = '_blank';
+			link.rel = 'noopener noreferrer';
+			link.style.display = 'none';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		} else {
+			goto(path);
+		}
+	}
 </script>
 
 <div class="flex min-h-dvh flex-col items-center">
@@ -295,7 +372,7 @@
 				</div>
 
 				<div
-					class="text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pt-8 pl-2 font-medium"
+					class="text-md scrollbar-default-thin flex max-h-[calc(100vh-64px)] grow flex-col gap-8 overflow-y-auto px-3 pb-4 pl-2 font-medium"
 				>
 					<div class="flex flex-col gap-1">
 						{#each navLinks as link (link.id)}
@@ -306,6 +383,39 @@
 											<link.icon class="size-5" />
 											{link.label}
 										</div>
+									{:else if link.id === 'obot-chat'}
+										<button
+											class={twMerge(
+												'sidebar-link',
+												link.href && link.href === pathname && 'bg-surface2',
+												!link.href && 'no-link'
+											)}
+											onclick={async () => {
+												loadingChat = true;
+												try {
+													const projects = (await ChatService.listProjects()).items.sort(
+														(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
+													);
+													const lastProject = projects[0];
+													let url: string;
+
+													if (lastProject) {
+														url = `/o/${lastProject.id}`;
+													} else {
+														const newProject = await EditorService.createObot();
+														url = `/o/${newProject.id}`;
+													}
+
+													navigateTo(url, true);
+												} finally {
+													loadingChat = false;
+												}
+											}}
+										>
+											<link.icon class="size-5" />
+											{link.label}
+											<ExternalLink class="size-3" />
+										</button>
 									{:else}
 										<a
 											href={link.href}
@@ -412,6 +522,18 @@
 						<BetaLogo />
 					{/if}
 				{/snippet}
+				{#snippet centerContent()}
+					{#if layout.sidebarOpen && !hideSidebar}
+						<div class="mx-8 flex w-full items-center gap-2" class:ml-4={showBackButton}>
+							{@render layoutHeaderContent()}
+						</div>
+					{/if}
+				{/snippet}
+				{#snippet rightContent()}
+					{#if rightNavActions && layout.sidebarOpen && !hideSidebar}
+						{@render rightNavActions()}
+					{/if}
+				{/snippet}
 			</Navbar>
 
 			<div
@@ -428,6 +550,16 @@
 				>
 					{#if isAdminRoute && !excludeConfigureBanner.includes(pathname)}
 						<ConfigureBanner />
+					{/if}
+					{#if !layout.sidebarOpen || hideSidebar}
+						<div class="flex w-full items-center justify-between gap-2">
+							{@render layoutHeaderContent()}
+							<div class="flex flex-shrink-0 items-center gap-2">
+								{#if rightNavActions}
+									{@render rightNavActions()}
+								{/if}
+							</div>
+						</div>
 					{/if}
 					{@render children()}
 				</div>
@@ -451,6 +583,28 @@
 {#if isAdminRoute}
 	<SetupSplashDialog />
 {/if}
+
+<PageLoading show={loadingChat} text="Loading chat..." />
+
+{#snippet layoutHeaderContent()}
+	{#if showBackButton}
+		<button
+			class="icon-button flex-shrink-0"
+			onclick={() => {
+				if (onBackButtonClick) {
+					onBackButtonClick();
+				} else {
+					history.back();
+				}
+			}}
+		>
+			<ChevronLeft class="size-6" />
+		</button>
+	{/if}
+	{#if title}
+		<h1 class="w-full text-xl font-semibold">{title}</h1>
+	{/if}
+{/snippet}
 
 <style lang="postcss">
 	.sidebar-link {

@@ -7,12 +7,10 @@
 	import { ChatService, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
 	import { Eye, LoaderCircle, Plus, Server, Trash2 } from 'lucide-svelte';
-	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { goto } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl } from '$lib/utils';
@@ -21,12 +19,12 @@
 		getPoweruserWorkspace,
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte';
-	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import {
 		convertEntriesAndServersToTableData,
 		getServerTypeLabelByType
 	} from '$lib/services/chat/mcp.js';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import { onMount } from 'svelte';
 
 	let { data } = $props();
 	let search = $state('');
@@ -37,35 +35,16 @@
 
 	onMount(async () => {
 		if (workspaceId) {
-			await fetchMcpServerAndEntries(workspaceId, mcpServerAndEntries, (entries, servers) => {
-				const serverId = new URL(window.location.href).searchParams.get('id');
-				if (serverId) {
-					const foundEntry = entries.find((e) => e.id === serverId);
-					const foundServer = servers.find((s) => s.id === serverId);
-					const found = foundEntry || foundServer;
-					if (found && selectedEntryServer?.id !== found.id) {
-						selectedEntryServer = found;
-						showServerForm = true;
-					} else if (!found && selectedEntryServer) {
-						selectedEntryServer = undefined;
-						showServerForm = false;
-					}
-				} else {
-					selectedEntryServer = undefined;
-					showServerForm = false;
-				}
-			});
+			await fetchMcpServerAndEntries(workspaceId, mcpServerAndEntries);
 		}
 	});
 
 	afterNavigate(({ to }) => {
 		if (browser && to?.url) {
-			const serverId = to.url.searchParams.get('id');
-			const createNewType = to.url.searchParams.get('new') as 'single' | 'multi' | 'remote';
+			const createNewType = to.url.searchParams.get('new') === 'true';
 			if (createNewType) {
-				selectServerType(createNewType, false);
-			} else if (!serverId && (selectedEntryServer || showServerForm)) {
-				selectedEntryServer = undefined;
+				selectServerType(false);
+			} else {
 				showServerForm = false;
 			}
 		}
@@ -87,34 +66,37 @@
 			})
 	);
 
-	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<'single' | 'multi' | 'remote' | 'composite'>();
-	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
-
 	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
 
-	function selectServerType(type: 'single' | 'multi' | 'remote' | 'composite', updateUrl = true) {
-		selectedServerType = type;
-		selectServerTypeDialog?.close();
+	function selectServerType(updateUrl = true) {
 		showServerForm = true;
 		if (updateUrl) {
-			goto(`/mcp-publisher?new=${type}`, { replaceState: false });
+			goto(`/mcp-hosting?new=true`, { replaceState: false });
 		}
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
+	let title = $derived(showServerForm ? `Add MCP Server` : 'MCP Hosting');
 </script>
 
-<Layout showUserLinks>
-	<div class="flex flex-col gap-8 pt-4 pb-8" in:fade>
+<Layout {title} showBackButton={showServerForm}>
+	<div class="flex flex-col gap-8 pb-8" in:fade>
 		{#if showServerForm}
 			{@render configureEntryScreen()}
 		{:else}
 			{@render mainContent()}
 		{/if}
 	</div>
+
+	{#snippet rightNavActions()}
+		{#if !showServerForm}
+			<div class="flex-shrink-0">
+				{@render addServerButton()}
+			</div>
+		{/if}
+	{/snippet}
 </Layout>
 
 {#snippet mainContent()}
@@ -123,15 +105,6 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<div class="flex flex-col items-center justify-start md:flex-row md:justify-between">
-			<h1 class="flex w-full items-center gap-2 text-2xl font-semibold">MCP Servers</h1>
-			{#if totalCount > 0}
-				<div class="mt-4 w-full flex-shrink-0 md:mt-0 md:w-fit">
-					{@render addServerButton()}
-				</div>
-			{/if}
-		</div>
-
 		<div class="flex flex-col gap-2">
 			<Search
 				class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
@@ -147,10 +120,10 @@
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 					<Server class="size-24 text-gray-200 dark:text-gray-900" />
 					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-						No created MCP servers
+						No Hosted MCP servers
 					</h4>
 					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-						Looks like you don't have any servers created yet. <br />
+						Looks like you haven't hosted any MCP servers yet. <br />
 						Click the button below to get started.
 					</p>
 
@@ -163,8 +136,8 @@
 					onClickRow={(d, isCtrlClick) => {
 						const url =
 							d.type === 'single' || d.type === 'remote'
-								? `/mcp-publisher/c/${d.id}`
-								: `/mcp-publisher/s/${d.id}`;
+								? `/mcp-hosting/c/${d.id}`
+								: `/mcp-hosting/s/${d.id}`;
 						openUrl(url, isCtrlClick);
 					}}
 					sortable={['name', 'type', 'users', 'created']}
@@ -221,23 +194,16 @@
 {/snippet}
 
 {#snippet configureEntryScreen()}
-	{@const currentLabelType = getServerTypeLabelByType(selectedServerType)}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
-		<BackLink fromURL="mcp-publisher" currentLabel={`Create ${currentLabelType} Server`} />
 		<McpServerEntryForm
-			type={selectedServerType}
+			type="multi"
 			id={workspaceId}
 			entity="workspace"
 			onCancel={() => {
-				selectedEntryServer = undefined;
-				showServerForm = false;
+				goto('/mcp-hosting');
 			}}
-			onSubmit={async (id, type) => {
-				if (type === 'single' || type === 'remote') {
-					goto(`/mcp-publisher/c/${id}`);
-				} else {
-					goto(`/mcp-publisher/s/${id}`);
-				}
+			onSubmit={async (id) => {
+				goto(`/mcp-hosting/s/${id}`);
 			}}
 		/>
 	</div>
@@ -246,9 +212,7 @@
 {#snippet addServerButton()}
 	<button
 		class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
-		onclick={() => {
-			selectServerTypeDialog?.open();
-		}}
+		onclick={() => selectServerType(true)}
 	>
 		<Plus class="size-4" /> Add MCP Server
 	</button>
@@ -286,12 +250,6 @@
 	oncancel={() => (deletingServer = undefined)}
 	entity="entry"
 	entityPlural="entries"
-/>
-
-<SelectServerType
-	bind:this={selectServerTypeDialog}
-	onSelectServerType={selectServerType}
-	entity="workspace"
 />
 
 <svelte:head>

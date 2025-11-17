@@ -39,24 +39,6 @@
 				</span>
 			</div>
 		</button>
-		{#if profile.current?.groups.includes(Group.POWERUSER_PLUS)}
-			<button
-				class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
-				onclick={() => onSelectServerType('multi')}
-			>
-				<Users
-					class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
-				/>
-				<div>
-					<p class="mb-1 text-sm font-semibold">Multi-User Server</p>
-					<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
-						This option is appropriate for servers designed to handle multiple user connections,
-						such as most Streamable HTTP servers. When you create this server, a running instance
-						will be deployed and any user with access to this catalog will be able to connect to it.
-					</span>
-				</div>
-			</button>
-		{/if}
 		<button
 			class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
 			onclick={() => onSelectServerType('remote')}
@@ -87,6 +69,25 @@
 						This option allows you to combine multiple MCP catalog entries into a single unified
 						server. Users will connect via a single URL that aggregates tools and resources from all
 						component servers.
+					</span>
+				</div>
+			</button>
+		{/if}
+		{#if profile.current?.groups.includes(Group.POWERUSER_PLUS)}
+			<button
+				class="dark:bg-surface2 hover:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 border-surface2 group flex cursor-pointer items-center gap-4 rounded-md border bg-white px-2 py-4 text-left transition-colors duration-300"
+				onclick={() => onSelectServerType('multi')}
+			>
+				<Users
+					class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
+				/>
+				<div>
+					<p class="mb-1 text-sm font-semibold">Add Existing Server(s)</p>
+					<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
+						<!-- This option is appropriate for servers designed to handle multiple user connections,
+						such as most Streamable HTTP servers. When you create this server, a running instance
+						will be deployed and any user with access to this catalog will be able to connect to it. -->
+						Select existing MCP servers you've created and hosted to add to your registry.
 					</span>
 				</div>
 			</button>

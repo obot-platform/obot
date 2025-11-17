@@ -129,18 +129,9 @@
 	}
 </script>
 
-<Layout>
+<Layout title="Model Providers">
 	<div class="my-4" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
-			<h1 class="flex items-center justify-between gap-4 text-2xl font-semibold">
-				Model Providers
-				<DefaultModels
-					bind:this={defaultModelsDialog}
-					availableModels={adminModels.items}
-					readonly={isAdminReadonly}
-				/>
-			</h1>
-
 			{#if !atLeastOneConfigured}
 				<div class="notification-alert flex flex-col gap-2">
 					<div class="flex items-center gap-2">
@@ -188,6 +179,14 @@
 			{/each}
 		</div>
 	</div>
+
+	{#snippet rightNavActions()}
+		<DefaultModels
+			bind:this={defaultModelsDialog}
+			availableModels={adminModels.items}
+			readonly={isAdminReadonly}
+		/>
+	{/snippet}
 </Layout>
 
 <ProviderConfigure

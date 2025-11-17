@@ -37,7 +37,7 @@
 	<div class="mt-6 flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServerId}
 			{@const currentLabel = mcpServerId ?? 'Server'}
-			<BackLink fromURL={`/mcp-publisher/${catalogEntry?.id}`} {currentLabel} />
+			<BackLink fromURL={`/mcp-hosting/${catalogEntry?.id}`} {currentLabel} />
 		{/if}
 
 		{#if mcpServerId && catalogEntry?.manifest.runtime !== 'remote'}

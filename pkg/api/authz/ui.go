@@ -27,8 +27,11 @@ var uiResources = []string{
 	"GET /i/{code}",
 	"GET /user/images/",
 	"GET /api/image/{id}",
-	"GET /mcp-publisher",
-	"GET /mcp-publisher/",
+	"GET /mcp-gateway",
+	"GET /mcp-gateway/",
+	"GET /mcp-hosting",
+	"GET /mcp-hosting/",
+	"GET /mcp-registry",
 }
 
 func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
@@ -55,10 +58,6 @@ func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
 		return slices.ContainsFunc(user.GetGroups(), func(group string) bool {
 			return group == types.GroupAdmin || group == types.GroupOwner || group == types.GroupAuditor
 		})
-	}
-
-	if strings.HasPrefix(req.URL.Path, "/mcp-publisher/") {
-		return slices.Contains(user.GetGroups(), types.GroupPowerUser)
 	}
 
 	// Matches and is not API

@@ -75,10 +75,14 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if r.URL.Path == "/admin/" {
 		// we have to redirect to /admin instead of serving the index.html file because ending slash will laod a different route for js files
 		http.Redirect(w, r, "/admin", http.StatusFound)
-	} else if r.URL.Path == "/mcp-publisher/" {
-		http.Redirect(w, r, "/mcp-publisher", http.StatusFound)
-	} else if r.URL.Path == "/mcp-publisher" {
-		http.ServeFileFS(w, r, embedded, "user/build/mcp-publisher.html")
+	} else if r.URL.Path == "/mcp-hosting/" {
+		http.Redirect(w, r, "/mcp-hosting", http.StatusFound)
+	} else if r.URL.Path == "/mcp-hosting" {
+		http.ServeFileFS(w, r, embedded, "user/build/mcp-hosting.html")
+	} else if r.URL.Path == "/mcp-registry/" {
+		http.Redirect(w, r, "/mcp-registry", http.StatusFound)
+	} else if r.URL.Path == "/mcp-registry" {
+		http.ServeFileFS(w, r, embedded, "user/build/mcp-registry.html")
 	} else if strings.HasSuffix(r.URL.Path, "/") {
 		// Paths with trailing slashes should redirect to without slash to avoid directory listings
 		http.Redirect(w, r, strings.TrimSuffix(r.URL.Path, "/"), http.StatusFound)

@@ -18,7 +18,7 @@
 	let accessControlRule = $state(initialRule);
 	const duration = PAGE_TRANSITION_DURATION;
 
-	const defaultRoute = '/mcp-publisher/access-control';
+	const defaultRoute = '/mcp-registry/created';
 	let fromURL = $state(defaultRoute);
 
 	onMount(() => {
@@ -35,30 +35,31 @@
 			fetchMcpServerAndEntries(workspaceId);
 		}
 	});
+
+	let title = $derived(accessControlRule?.displayName ?? 'Registry');
 </script>
 
-<Layout showUserLinks>
+<Layout
+	{title}
+	showBackButton
+	onBackButtonClick={() => {
+		goto('/mcp-registry');
+	}}
+>
 	<div class="my-4 h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
 		<AccessControlRuleForm
 			{accessControlRule}
 			onUpdate={() => {
-				goto('/mcp-publisher/access-control');
+				goto('/mcp-registry');
 			}}
 			entity="workspace"
 			id={workspaceId}
 			mcpEntriesContextFn={getPoweruserWorkspace}
 			all={MCP_PUBLISHER_ALL_OPTION}
-		>
-			{#snippet topContent()}
-				<BackLink
-					currentLabel={accessControlRule?.displayName ?? 'Access Control Rule'}
-					{fromURL}
-				/>
-			{/snippet}
-		</AccessControlRuleForm>
+		/>
 	</div>
 </Layout>
 
 <svelte:head>
-	<title>Obot | {accessControlRule?.displayName ?? 'Access Control Rule'}</title>
+	<title>Obot | {title}</title>
 </svelte:head>

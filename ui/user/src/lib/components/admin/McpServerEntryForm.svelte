@@ -44,6 +44,7 @@
 	import { profile } from '$lib/stores';
 	import OverflowContainer from '../OverflowContainer.svelte';
 	import { getServerTypeLabel } from '$lib/services/chat/mcp';
+	import { workspaceStore } from '$lib/stores/workspace.svelte';
 
 	type MCPType = 'single' | 'multi' | 'remote' | 'composite';
 
@@ -60,7 +61,6 @@
 	let { entry, id, entity = 'catalog', type, readonly, onCancel, onSubmit }: Props = $props();
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	let isAuditor = $derived(profile.current?.groups.includes(Group.AUDITOR));
-
 	const tabs = $derived(
 		entry
 			? entity === 'workspace' && !profile.current?.isAdmin?.()
@@ -139,7 +139,7 @@
 		if (selected === 'access-control') {
 			listAccessControlRules =
 				entity === 'workspace' && id
-					? ChatService.listWorkspaceAccessControlRules(id)
+					? workspaceStore.listRules()
 					: AdminService.listAccessControlRules();
 		} else if (selected === 'filters' && entity !== 'workspace') {
 			// add filters back in for workspace once supported for workspace
@@ -625,11 +625,11 @@
 					let url = '';
 					const from =
 						entity === 'workspace' && !isAdminRoute
-							? encodeURIComponent(`mcp-publisher/${entry.id}`)
+							? encodeURIComponent(`mcp-hosting/${entry.id}`)
 							: encodeURIComponent(`mcp-servers/${entry.id}`);
 					if (entity === 'workspace') {
 						url = !isAdminRoute
-							? `/mcp-publisher/access-control/${d.id}?from=${from}`
+							? `/mcp-registry/${d.id}?from=${from}`
 							: `/admin/access-control/w/${id}/r/${d.id}?from=${from}`;
 					} else {
 						url = `/admin/access-control/${d.id}?from=${from}`;
@@ -828,7 +828,7 @@
 					: AdminService.deleteMCPCatalogEntry;
 			await deleteCatalogEntryFn(id, entry.id);
 		}
-		goto(entity === 'workspace' ? '/mcp-publisher/mcp-servers' : '/admin/mcp-servers');
+		goto(entity === 'workspace' ? '/mcp-hosting' : '/admin/mcp-servers');
 	}}
 	oncancel={() => (deleteServer = false)}
 />
@@ -858,7 +858,7 @@
 
 		listAccessControlRules =
 			entity === 'workspace' && id
-				? ChatService.listWorkspaceAccessControlRules(id)
+				? workspaceStore.listRules()
 				: AdminService.listAccessControlRules();
 		deleteResourceFromRule = undefined;
 	}}

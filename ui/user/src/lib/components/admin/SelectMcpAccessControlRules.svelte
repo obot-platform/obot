@@ -16,6 +16,7 @@
 	import { Circle, CircleCheck, LoaderCircle } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
+	import { workspaceStore } from '$lib/stores/workspace.svelte';
 
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer;
@@ -39,7 +40,7 @@
 	export async function open() {
 		accessControlRules =
 			entity === 'workspace' && id
-				? await ChatService.listWorkspaceAccessControlRules(id)
+				? await workspaceStore.listRules()
 				: await AdminService.listAccessControlRules();
 		users = await AdminService.listUsers();
 		groups = await AdminService.listGroups();
@@ -190,7 +191,7 @@
 	{/if}
 	{#if accessControlRules.length > 0}
 		<div class="mt-auto flex justify-between gap-4">
-			<button class="button-primary" onclick={handleCreateNewRule}> Create New Rule </button>
+			<button class="button-primary" onclick={handleCreateNewRule}> Create New Registry </button>
 			<div class="flex items-center gap-4">
 				<button
 					class="button-primary flex items-center gap-1"
@@ -208,9 +209,7 @@
 	{:else}
 		<div class="mt-auto flex justify-end gap-4">
 			<button class="button" onclick={close}> Skip Step </button>
-			<button class="button-primary" onclick={handleCreateNewRule}>
-				Create Access Control Rule
-			</button>
+			<button class="button-primary" onclick={handleCreateNewRule}> Create New Registry </button>
 		</div>
 	{/if}
 </ResponsiveDialog>

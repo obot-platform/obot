@@ -336,8 +336,8 @@
 
 		if (!profile.current?.groups.includes(Group.POWERUSER)) return null;
 		return catalogEntry?.id
-			? `/mcp-publisher/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-			: `/mcp-publisher/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
+			? `/mcp-hosting/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+			: `/mcp-hosting/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
 	}
 </script>
 

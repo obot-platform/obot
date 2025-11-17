@@ -347,14 +347,16 @@
 		border-width: 2px;
 		padding: 0.5rem 1.25rem;
 		background-color: var(--surface3);
-		border-width: 0;
-		transition-property: color, background-color;
-		transition-duration: 200ms;
+		border-color: var(--surface3);
+		transition-property: all;
+		transition-duration: 300ms;
 		&:hover {
 			background-color: rgb(229 231 235 / 0.5);
+			border-color: rgb(229 231 235 / 0.5);
 		}
 		.dark &:hover {
 			background-color: var(--color-gray-700);
+			border-color: var(--color-gray-700);
 		}
 
 		&:disabled {

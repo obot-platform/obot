@@ -27,10 +27,12 @@
 	import type { PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
 	import { getRegistryLabel, getUserDisplayName } from '$lib/utils';
 	import { profile } from '$lib/stores';
+	import SelectServerType from '../mcp/SelectServerType.svelte';
 
 	interface Props {
 		topContent?: Snippet;
 		accessControlRule?: AccessControlRule;
+		onCancel?: () => void;
 		onCreate?: (accessControlRule: AccessControlRule) => void;
 		onUpdate?: (accessControlRule: AccessControlRule) => void;
 		entity?: 'workspace' | 'catalog';
@@ -44,6 +46,7 @@
 	let {
 		topContent,
 		accessControlRule: initialAccessControlRule,
+		onCancel,
 		onCreate,
 		onUpdate,
 		mcpEntriesContextFn,
@@ -70,7 +73,8 @@
 	let loadingUsersAndGroups = $state(false);
 
 	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
-	let addMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
+	let addExistingMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
+	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 
 	let deletingRule = $state(false);
 
@@ -157,7 +161,7 @@
 					];
 					redirect =
 						entity === 'workspace'
-							? `/mcp-publisher/mcp-servers/c/${entry.id}`
+							? `/mcp-hosting/c/${entry.id}`
 							: `/admin/mcp-servers/c/${entry.id}`;
 				} else {
 					const server = mcpServersMap.get(initialAdditionId);
@@ -168,7 +172,7 @@
 						];
 						redirect =
 							entity === 'workspace'
-								? `/mcp-publisher/mcp-servers/s/${server.id}`
+								? `/mcp-hosting/s/${server.id}`
 								: `/admin/mcp-servers/s/${server.id}`;
 					}
 				}
@@ -262,6 +266,15 @@
 
 		return rule.displayName.length > 0;
 	}
+
+	function handleSelectServerType(type: 'single' | 'multi' | 'remote' | 'composite') {
+		if (type === 'multi') {
+			selectServerTypeDialog?.close();
+			addExistingMcpServerDialog?.open();
+		} else {
+			//TODO:
+		}
+	}
 </script>
 
 <div
@@ -274,7 +287,7 @@
 			{@render topContent()}
 		{/if}
 		{#if accessControlRule.id}
-			<div class="flex w-full items-center justify-between gap-4">
+			<div class="mb-6 flex w-full items-center justify-between gap-4">
 				<div class="flex items-center gap-2">
 					<h1 class="flex items-center gap-4 text-2xl font-semibold">
 						{accessControlRule.displayName}
@@ -306,13 +319,11 @@
 					</button>
 				{/if}
 			</div>
-		{:else}
-			<h1 class="text-2xl font-semibold">Create Access Control Rule</h1>
 		{/if}
 
 		{#if !accessControlRule.id}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-transparent bg-white p-4"
+				class="dark:bg-surface2 dark:border-surface3 mb-6 rounded-lg border border-transparent bg-white p-4"
 			>
 				<div class="flex flex-col gap-6">
 					<div class="flex flex-col gap-2">
@@ -395,7 +406,7 @@
 						<button
 							class="button-primary flex items-center gap-1 text-sm"
 							onclick={() => {
-								addMcpServerDialog?.open();
+								selectServerTypeDialog?.open();
 							}}
 						>
 							<Plus class="size-4" /> Add MCP Server
@@ -435,7 +446,7 @@
 							if (redirect) {
 								goto(redirect);
 							} else {
-								goto('/admin/access-control');
+								onCancel?.();
 							}
 						}}
 					>
@@ -542,7 +553,7 @@
 />
 
 <SearchMcpServers
-	bind:this={addMcpServerDialog}
+	bind:this={addExistingMcpServerDialog}
 	type="acr"
 	exclude={accessControlRule.resources?.map((resource) => resource.id) ?? []}
 	onAdd={async (mcpCatalogEntryIds, mcpServerIds, otherSelectors) => {
@@ -578,4 +589,10 @@
 		goto('/admin/access-control');
 	}}
 	oncancel={() => (deletingRule = false)}
+/>
+
+<SelectServerType
+	bind:this={selectServerTypeDialog}
+	onSelectServerType={handleSelectServerType}
+	{entity}
 />

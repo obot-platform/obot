@@ -113,7 +113,7 @@
 	}
 </script>
 
-<Layout>
+<Layout title="Access Control">
 	<div
 		class="my-4 h-full w-full"
 		in:fly={{ x: 100, duration, delay: duration }}
@@ -127,14 +127,6 @@
 				in:fly={{ x: 100, delay: duration, duration }}
 				out:fly={{ x: -100, duration }}
 			>
-				<div class="flex items-center justify-between">
-					<h1 class="text-2xl font-semibold">Access Control</h1>
-					{#if accessControlRules.length > 0}
-						<div class="relative flex items-center gap-4">
-							{@render addRuleButton()}
-						</div>
-					{/if}
-				</div>
 				{#if accessControlRules.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 						<BookOpenText class="size-24 text-gray-200 dark:text-gray-900" />
@@ -164,6 +156,14 @@
 			</div>
 		{/if}
 	</div>
+
+	{#snippet rightNavActions()}
+		{#if accessControlRules.length > 0}
+			<div class="relative flex items-center gap-4">
+				{@render addRuleButton()}
+			</div>
+		{/if}
+	{/snippet}
 </Layout>
 
 {#snippet accessControlRuleTable(type: 'global' | 'user')}

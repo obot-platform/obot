@@ -48,15 +48,17 @@
 			return [{ href: '/admin/task-runs', label: 'Task Runs' }];
 		}
 
-		if (type === 'mcp-publisher') {
-			if (id === 'access-control') {
-				return [{ href: `/mcp-publisher/access-control`, label: 'Access Control' }];
+		if (type === 'mcp-registry') {
+			if (id === 'created') {
+				return [{ href: '/mcp-registry/created', label: 'Created by Me' }];
 			}
+
+			return [{ href: '/mcp-registry', label: 'MCP Registry' }];
+		}
+
+		if (type === 'mcp-hosting') {
 			return [
-				{
-					href: '/mcp-publisher',
-					label: 'MCP Servers'
-				},
+				{ href: '/mcp-hosting', label: 'MCP Hosting' },
 				...(id ? [convertToMcpLink(id, false)] : [])
 			];
 		}
@@ -105,8 +107,8 @@
 			} else {
 				href =
 					json.type !== 'multi'
-						? `/mcp-publisher/c/${id}/instance/${json.serverId}`
-						: `/mcp-publisher/s/${id}/details`;
+						? `/mcp-hosting/c/${id}/instance/${json.serverId}`
+						: `/mcp-hosting/s/${id}/details`;
 			}
 		} else if (json.entity === 'workspace') {
 			if (isAdmin) {
@@ -115,7 +117,7 @@
 						? `/admin/mcp-servers/w/${json.entityId}/c/${id}`
 						: `/admin/mcp-servers/w/${json.entityId}/s/${id}`;
 			} else {
-				href = json.type !== 'multi' ? `/mcp-publisher/c/${id}` : `/mcp-publisher/s/${id}`;
+				href = json.type !== 'multi' ? `/mcp-hosting/c/${id}` : `/mcp-hosting/s/${id}`;
 			}
 		} else {
 			href = json.type !== 'multi' ? `/admin/mcp-servers/c/${id}` : `/admin/mcp-servers/s/${id}`;

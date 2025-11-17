@@ -13,6 +13,7 @@
 	let { data } = $props();
 	let { workspaceId, catalogEntry: initialCatalogEntry } = data;
 	let catalogEntry = $state(initialCatalogEntry);
+	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
 </script>
 
 <Layout
@@ -20,14 +21,13 @@
 		component: VirtualPageViewport as unknown as Component,
 		props: { class: '', as: 'main', itemHeight: 56, overscan: 5, disabled: true }
 	}}
-	showUserLinks
+	showBackButton={Boolean(catalogEntry)}
+	{title}
+	onBackButtonClick={() => {
+		goto('/mcp-hosting');
+	}}
 >
 	<div class="flex h-full flex-col gap-6 pt-6" in:fly={{ x: 100, delay: duration, duration }}>
-		{#if catalogEntry}
-			{@const currentLabel = catalogEntry?.manifest?.name ?? 'MCP Server'}
-			<BackLink fromURL="mcp-publisher" {currentLabel} />
-		{/if}
-
 		{#if workspaceId && catalogEntry}
 			<McpServerEntryForm
 				entry={catalogEntry}
@@ -40,10 +40,10 @@
 				id={workspaceId}
 				entity="workspace"
 				onCancel={() => {
-					goto('/mcp-publisher');
+					goto('/mcp-hosting');
 				}}
 				onSubmit={async () => {
-					goto('/mcp-publisher');
+					goto('/mcp-hosting');
 				}}
 			/>
 		{/if}
@@ -51,5 +51,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {catalogEntry?.manifest?.name ?? 'MCP Server'}</title>
+	<title>Obot | {title}</title>
 </svelte:head>
