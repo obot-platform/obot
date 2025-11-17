@@ -147,6 +147,7 @@ export interface Version {
 	authEnabled?: boolean;
 	enterprise?: boolean;
 	upgradeAvailable?: boolean;
+	engine?: 'docker' | 'kubernetes' | 'local';
 }
 
 export interface Profile {
