@@ -37,6 +37,8 @@ func (in *MCPServerCatalogEntry) Get(field string) string {
 		return in.Spec.MCPCatalogName
 	case "spec.powerUserWorkspaceID":
 		return in.Spec.PowerUserWorkspaceID
+	case "spec.manifest.runtime":
+		return string(in.Spec.Manifest.Runtime)
 	}
 	return ""
 }
@@ -45,6 +47,7 @@ func (in *MCPServerCatalogEntry) FieldNames() []string {
 	return []string{
 		"spec.mcpCatalogName",
 		"spec.powerUserWorkspaceID",
+		"spec.manifest.runtime",
 	}
 }
 

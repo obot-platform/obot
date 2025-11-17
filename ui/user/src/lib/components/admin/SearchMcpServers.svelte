@@ -22,7 +22,6 @@
 		isAdminView?: boolean;
 		singleSelect?: boolean;
 		title?: string;
-		skipComposite?: boolean;
 	}
 
 	type SearchItem = {
@@ -42,7 +41,6 @@
 		workspaceId,
 		isAdminView,
 		singleSelect,
-		skipComposite,
 		title = 'Add MCP Server(s)',
 		entity = 'catalog',
 		all = ADMIN_ALL_OPTION
@@ -73,10 +71,6 @@
 			},
 			...mcpServerAndEntries.entries
 				.filter((entry) => {
-					if (skipComposite && entry.manifest.runtime === 'composite') {
-						return false;
-					}
-
 					if (type === 'filter') {
 						return true;
 					}

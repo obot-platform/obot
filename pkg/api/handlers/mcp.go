@@ -375,11 +375,111 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		)
 	}
 
+	// Prevent deletion of multi-user servers that are referenced by running composite MCP servers or catalog entries.
+	dependencies, err := m.listCompositeDeletionDependencies(req, server)
+	if err != nil {
+		return fmt.Errorf("failed to list composite deletion dependencies: %w", err)
+	}
+	if len(dependencies) > 0 {
+		return req.WriteCode(map[string]any{
+			"message":      "MCP server must be removed from all composite MCP servers before it can be deleted",
+			"dependencies": dependencies,
+		}, http.StatusConflict)
+	}
+
 	if err := req.Delete(&server); err != nil {
 		return err
 	}
 
 	return req.Write(convertMCPServer(server, nil, m.serverURL, slug))
+}
+
+// compositeDeletionDependency represents a composite MCP server or catalog entry that depends
+// on a given multi-user server and must be deleted before the multi-user server can be deleted.
+type compositeDeletionDependency struct {
+	// Name is the display name of the dependent composite MCP server.
+	Name string `json:"name"`
+	// Icon is the icon of the dependent composite MCP server.
+	Icon string `json:"icon"`
+	// MCPServerID is the ID of a running instance of a dependent composite MCP server.
+	MCPServerID string `json:"mcpServerID,omitempty"`
+	// CatalogEntryID is the catalog entry ID of the dependent composite MCP server.
+	CatalogEntryID string `json:"catalogEntryID"`
+}
+
+// listCompositeDeletionDependencies lists the composite MCP servers and catalog entries that depend on the given multi-user server.
+func (m *MCPHandler) listCompositeDeletionDependencies(req api.Context, server v1.MCPServer) ([]compositeDeletionDependency, error) {
+	if server.Spec.MCPServerCatalogEntryName != "" {
+		// Not a multi-user server, skip dependency check
+		return nil, nil
+	}
+
+	var compositeServers v1.MCPServerList
+	if err := req.List(&compositeServers,
+		kclient.InNamespace(server.Namespace),
+		kclient.MatchingFields{
+			"spec.manifest.runtime": string(types.RuntimeComposite),
+		},
+	); err != nil {
+		return nil, fmt.Errorf("failed to list composite servers: %w", err)
+	}
+
+	var compositeEntries v1.MCPServerCatalogEntryList
+	if err := req.List(&compositeEntries,
+		kclient.InNamespace(server.Namespace),
+		kclient.MatchingFields{
+			"spec.manifest.runtime": string(types.RuntimeComposite),
+		},
+	); err != nil {
+		return nil, fmt.Errorf("failed to list composite catalog entries: %w", err)
+	}
+
+	var dependencies []compositeDeletionDependency
+	for _, compositeServer := range compositeServers.Items {
+		var compositeConfig types.CompositeRuntimeConfig
+		if cfg := compositeServer.Spec.Manifest.CompositeConfig; cfg != nil {
+			compositeConfig = *cfg
+		}
+
+		components := compositeConfig.ComponentServers
+		for _, component := range components {
+			if component.MCPServerID == server.Name {
+				dependencies = append(dependencies, compositeDeletionDependency{
+					Name:           compositeServer.Spec.Manifest.Name,
+					Icon:           compositeServer.Spec.Manifest.Icon,
+					MCPServerID:    compositeServer.Name,
+					CatalogEntryID: compositeServer.Spec.MCPServerCatalogEntryName,
+				})
+				break
+			}
+		}
+	}
+
+	for _, compositeEntry := range compositeEntries.Items {
+		var compositeConfig types.CompositeCatalogConfig
+		if cfg := compositeEntry.Spec.Manifest.CompositeConfig; cfg != nil {
+			compositeConfig = *cfg
+		}
+
+		components := compositeConfig.ComponentServers
+		for _, component := range components {
+			if component.MCPServerID == server.Name {
+				dependencies = append(dependencies, compositeDeletionDependency{
+					Name:           compositeEntry.Spec.Manifest.Name,
+					Icon:           compositeEntry.Spec.Manifest.Icon,
+					CatalogEntryID: compositeEntry.Name,
+				})
+				break
+			}
+		}
+	}
+
+	// Sort by catalog entry ID to ensure consistent ordering
+	slices.SortFunc(dependencies, func(a, b compositeDeletionDependency) int {
+		return strings.Compare(a.CatalogEntryID, b.CatalogEntryID)
+	})
+
+	return dependencies, nil
 }
 
 func (m *MCPHandler) LaunchServer(req api.Context) error {

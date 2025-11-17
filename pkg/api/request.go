@@ -138,6 +138,10 @@ func (r *Context) Write(obj any) error {
 	return r.write(obj, http.StatusOK)
 }
 
+func (r *Context) WriteCode(obj any, code int) error {
+	return r.write(obj, code)
+}
+
 func (r *Context) write(obj any, code int) error {
 	if data, ok := obj.([]byte); ok {
 		r.ResponseWriter.Header().Set("Content-Type", "application/octet-stream")

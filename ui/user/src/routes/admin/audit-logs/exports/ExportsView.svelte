@@ -151,16 +151,16 @@
 		<Table
 			bind:this={tableRef}
 			data={tableData}
-			fields={['name', 'statusDisplay', 'storageProvider', 'sizeDisplay', 'created']}
-			filterable={['name', 'statusDisplay']}
+			fields={['name', 'state', 'storageProvider', 'sizeDisplay', 'created']}
+			filterable={['name', 'state']}
 			headers={[
 				{ title: 'Name', property: 'name' },
-				{ title: 'Status', property: 'statusDisplay' },
+				{ title: 'Status', property: 'state' },
 				{ title: 'Storage', property: 'storageProvider' },
 				{ title: 'Size', property: 'sizeDisplay' },
 				{ title: 'Created', property: 'created' }
 			]}
-			sortable={['name', 'statusDisplay', 'storageProvider', 'sizeDisplay', 'created']}
+			sortable={['name', 'state', 'storageProvider', 'sizeDisplay', 'created']}
 			noDataMessage="No exports found."
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
