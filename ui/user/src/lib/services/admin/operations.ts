@@ -369,19 +369,36 @@ export async function getMcpCatalogToolPreviewsOauth(
 	body?: {
 		config?: Record<string, string>;
 		url?: string;
+		componentConfigs?: Record<
+			string,
+			{
+				config?: Record<string, string>;
+				url?: string;
+				skip?: boolean;
+			}
+		>;
 	},
 	opts?: { fetch?: Fetcher; dryRun?: boolean }
-): Promise<string> {
+): Promise<string | Record<string, string>> {
 	try {
 		const path = `/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews/oauth-url`;
 		const url = opts?.dryRun ? `${path}?dryRun=true` : path;
 		const response = (await doPost(url, body ?? {}, {
 			...opts,
 			dontLogErrors: true
-		})) as {
-			oauthURL: string;
-		};
-		return response.oauthURL;
+		})) as
+			| {
+					oauthURL: string;
+			  }
+			| Record<string, string>;
+
+		// Check if response has oauthURL property (single server response)
+		if (response && typeof response === 'object' && 'oauthURL' in response) {
+			return response.oauthURL;
+		}
+
+		// Otherwise it's a map of component IDs to OAuth URLs
+		return response as Record<string, string>;
 	} catch (_err) {
 		return '';
 	}

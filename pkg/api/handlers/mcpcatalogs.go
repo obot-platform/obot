@@ -765,7 +765,17 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		return types.NewErrBadRequest("failed to read configuration: %v", err)
 	}
 
-	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GPTClient, req.Storage, entry.Namespace, entry.Name, entry.Spec.Manifest, configRequest.Config, h.serverURL, h.jwks())
+	server, serverConfig, err := tempServerAndConfig(
+		req.Context(),
+		req.GPTClient,
+		req.Storage,
+		entry.Namespace,
+		entry.Name,
+		entry.Spec.Manifest,
+		configRequest.Config,
+		h.serverURL,
+		h.jwks(),
+	)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -816,9 +826,9 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 	// Read configuration from request body
 	var configRequest struct {
 		ComponentConfigs map[string]struct {
-			Config map[string]string `json:"config"`
-			URL    string            `json:"url"`
-			Skip   bool              `json:"skip"`
+			Config   map[string]string `json:"config"`
+			URL      string            `json:"url"`
+			Disabled bool              `json:"disabled"`
 		} `json:"componentConfigs"`
 	}
 	if err := req.Read(&configRequest); err != nil {
@@ -832,19 +842,70 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 
 	compositeToolPreviews := make([]types.MCPServerTool, 0, len(compositeConfig.ComponentServers))
 	for _, componentEntry := range compositeConfig.ComponentServers {
-		config, ok := configRequest.ComponentConfigs[componentEntry.CatalogEntryID]
-		if ok && config.Skip {
-			// Skip configuring component if requested
+		// If this component references an existing MCPServer, list its tools directly
+		// (as we do for multi-user servers) instead of creating a temporary server.
+		if componentEntry.MCPServerID != "" {
+			var mcpServer v1.MCPServer
+			if err := req.Get(&mcpServer, componentEntry.MCPServerID); err != nil {
+				return fmt.Errorf("failed to get MCP server %q: %w", componentEntry.MCPServerID, err)
+			}
+
+			serverConfig, err := serverConfigForAction(req, mcpServer, h.jwks())
+			if err != nil {
+				return fmt.Errorf("failed to build server configuration for MCP server %q: %w", mcpServer.Name, err)
+			}
+
+			tools, err := toolsForServer(req.Context(), h.sessionManager, mcpServer, serverConfig, nil)
+			if err != nil {
+				return fmt.Errorf("failed to list tools for MCP server %q: %w", mcpServer.Name, err)
+			}
+
+			transformedTools := mcp.ApplyToolOverrides(tools, componentEntry.ToolOverrides)
+			compositeToolPreviews = append(compositeToolPreviews, transformedTools...)
 			continue
 		}
 
-		server, serverConfig, err := tempServerAndConfig(req.Context(), req.GPTClient, req.Storage, entry.Namespace, entry.Name, componentEntry.Manifest, config.Config, h.serverURL, h.jwks())
+		// CatalogEntry-based components still use a temporary server with the supplied config.
+		componentID := componentEntry.CatalogEntryID
+		if componentID == "" {
+			componentID = componentEntry.MCPServerID
+		}
+
+		config, ok := configRequest.ComponentConfigs[componentID]
+		if !ok {
+			// No config provided for this component, skip it
+			continue
+		}
+
+		// Skip disabled components when generating composite tool previews
+		if config.Disabled {
+			continue
+		}
+
+		server, serverConfig, err := tempServerAndConfig(
+			req.Context(),
+			req.GPTClient,
+			req.Storage,
+			entry.Namespace,
+			componentEntry.CatalogEntryID,
+			componentEntry.Manifest,
+			config.Config,
+			h.serverURL,
+			h.jwks(),
+		)
 		if err != nil {
 			return err
 		}
 
 		if serverConfig.Runtime == types.RuntimeRemote {
-			oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
+			oauthURL, err := h.oauthChecker.CheckForMCPAuth(
+				req,
+				server,
+				serverConfig,
+				"system",
+				server.Name,
+				"",
+			)
 			if err != nil {
 				return fmt.Errorf("failed to check for MCP auth: %w", err)
 			}
@@ -863,7 +924,10 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			return fmt.Errorf("failed to generate tool preview: %w", err)
 		}
 
-		compositeToolPreviews = append(compositeToolPreviews, toolPreview...)
+		// Apply tool overrides before aggregating
+		transformedTools := mcp.ApplyToolOverrides(toolPreview, componentEntry.ToolOverrides)
+
+		compositeToolPreviews = append(compositeToolPreviews, transformedTools...)
 	}
 
 	// Set the tool preview on the catalog entry
@@ -928,6 +992,11 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 		return types.NewErrBadRequest("entry is not editable")
 	}
 
+	// Handle composite servers
+	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return h.generateCompositeOAuthURLs(req, entry)
+	}
+
 	if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
 		return req.Write(map[string]string{"oauthURL": ""})
 	}
@@ -954,9 +1023,90 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	return req.Write(map[string]string{"oauthURL": oauthURL})
 }
 
+func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1.MCPServerCatalogEntry) error {
+	// Read configuration from request body (same as generateCompositeToolPreviews)
+	var configRequest struct {
+		ComponentConfigs map[string]struct {
+			Config   map[string]string `json:"config"`
+			URL      string            `json:"url"`
+			Disabled bool              `json:"disabled"`
+		} `json:"componentConfigs"`
+	}
+	if err := req.Read(&configRequest); err != nil {
+		return types.NewErrBadRequest("failed to read configuration: %v", err)
+	}
+
+	compositeConfig := entry.Spec.Manifest.CompositeConfig
+	if compositeConfig == nil {
+		return types.NewErrBadRequest("composite configuration is required")
+	}
+
+	// Collect OAuth URLs for each component
+	oauthURLs := make(map[string]string)
+
+	for _, componentEntry := range compositeConfig.ComponentServers {
+		if componentEntry.MCPServerID != "" {
+			// Skip multi-user server components when checking for OAuth URLs
+			continue
+		}
+
+		componentID := componentEntry.CatalogEntryID
+		if componentID == "" {
+			componentID = componentEntry.MCPServerID
+		}
+
+		config, ok := configRequest.ComponentConfigs[componentID]
+		if !ok {
+			// No config provided for this component, skip
+			continue
+		}
+
+		// Skip disabled components when generating OAuth URLs
+		if config.Disabled {
+			continue
+		}
+
+		// Only check OAuth for remote components
+		if componentEntry.Manifest.Runtime != types.RuntimeRemote {
+			delete(oauthURLs, componentID)
+			continue
+		}
+
+		server, serverConfig, err := tempServerAndConfig(
+			req.Context(),
+			req.GPTClient,
+			req.Storage,
+			entry.Namespace,
+			componentEntry.CatalogEntryID,
+			componentEntry.Manifest,
+			config.Config,
+			h.serverURL,
+			h.jwks(),
+		)
+		if err != nil {
+			// If we can't create server config, skip this component
+			delete(oauthURLs, componentID)
+			continue
+		}
+
+		// Check if OAuth is required
+		oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
+		if err != nil {
+			// On error, assume no OAuth needed
+			delete(oauthURLs, componentID)
+			continue
+		}
+
+		oauthURLs[componentID] = oauthURL
+	}
+
+	// Return map of component IDs to OAuth URLs
+	return req.Write(oauthURLs)
+}
+
 func tempServerAndConfig(ctx context.Context, gptClient *gptscript.GPTScript, client client.Client, namespace, catalogEntryName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, jwks string) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
-	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url)
+	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url, false)
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to convert catalog entry to server config: %w", err)
 	}
@@ -1194,6 +1344,7 @@ func convertServerManifestToCatalogManifest(serverManifest types.MCPServerManife
 		}
 	case types.RuntimeComposite:
 		if serverManifest.CompositeConfig != nil {
+			// TODO(njhale): Figure out if this can be removed
 			// Convert CompositeRuntimeConfig to CompositeCatalogConfig
 			componentServers := make([]types.CatalogComponentServer, len(serverManifest.CompositeConfig.ComponentServers))
 			for i, comp := range serverManifest.CompositeConfig.ComponentServers {
@@ -1202,7 +1353,6 @@ func convertServerManifestToCatalogManifest(serverManifest types.MCPServerManife
 					MCPServerID:    comp.MCPServerID,
 					Manifest:       convertServerManifestToCatalogManifest(comp.Manifest),
 					ToolOverrides:  comp.ToolOverrides,
-					Disabled:       comp.Disabled,
 				}
 			}
 			catalogManifest.CompositeConfig = &types.CompositeCatalogConfig{

@@ -1891,32 +1891,33 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CatalogComponentServer represents a component server in a composite server catalog entry.",
-				Type:        []string{"object"},
+				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"catalogEntryID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CatalogEntryID references a catalog entry for single-user and remote components",
+							Description: "CatalogEntryID if set, reference the catalog entry the component server is sourced from",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"mcpServerID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MCPServerID references a multi-user MCP server",
+							Description: "MCPServerID if set, reference the multi-user MCP server the component server proxies to",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
+							Description: "Manifest is the catalog entry manifest of the component server",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
 						},
 					},
 					"toolOverrides": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "ToolOverrides restrict the tools exposed by the component server",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -1925,12 +1926,6 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 									},
 								},
 							},
-						},
-					},
-					"disabled": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
 						},
 					},
 				},
@@ -2086,27 +2081,29 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 				Properties: map[string]spec.Schema{
 					"catalogEntryID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CatalogEntryID references a catalog entry for single-user and remote components",
+							Description: "CatalogEntryID if set, reference the catalog entry the component server is sourced from",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"mcpServerID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MCPServerID references a multi-user MCP server",
+							Description: "MCPServerID if set, reference the multi-user MCP server the component server proxies to",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerManifest"),
+							Description: "Manifest is the runtime manifest of the component server",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerManifest"),
 						},
 					},
 					"toolOverrides": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "ToolOverrides restrict the tools exposed by the component server",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -2119,8 +2116,9 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 					},
 					"disabled": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "Disabled indicates whether the component server should be included in the composite server at runtime",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},

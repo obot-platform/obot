@@ -121,6 +121,8 @@
 
 	let oauthDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let oauthURL = $state<string>();
+	let oauthURLs = $state<Record<string, string>>();
+	let authenticatedComponents = $state<Set<string>>(new Set());
 
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
@@ -155,6 +157,13 @@
 			setVirtualPageDisabled(false);
 		} else {
 			setVirtualPageDisabled(true);
+		}
+	});
+
+	// Auto-close OAuth dialog when all components are authenticated
+	$effect(() => {
+		if (oauthURLs !== undefined && Object.keys(oauthURLs).length === 0) {
+			oauthDialog?.close();
 		}
 	});
 
@@ -268,17 +277,52 @@
 
 	async function handleVisibilityChange() {
 		if (!entry || !id) return;
+		if (document.visibilityState !== 'visible') return;
+
+		// Composite OAuth case: check if all components have been clicked
+		if (oauthURLs && Object.keys(oauthURLs).length > 0) {
+			const pendingComponents = Object.keys(oauthURLs).filter(
+				(componentId) => !authenticatedComponents.has(componentId)
+			);
+
+			// If there are still components that haven't been clicked, keep waiting
+			if (pendingComponents.length > 0) {
+				return;
+			}
+
+			// All components have been clicked; stop listening and regenerate tool previews
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+			handleLaunchTemporaryInstance();
+			return;
+		}
+
+		// Single-server OAuth (string oauthURL) or non-composite case
 		document.removeEventListener('visibilitychange', handleVisibilityChange);
 		handleLaunchTemporaryInstance();
 	}
 
-	function handleTemporaryInstanceOauth(oauthUrlToUse: string) {
+	function handleTemporaryInstanceOauth(oauthUrlToUse: string | Record<string, string>) {
 		if (!oauthUrlToUse) return;
-		oauthURL = oauthUrlToUse;
+
+		// Check if it's a single OAuth URL (string) or multiple (map)
+		if (typeof oauthUrlToUse === 'string') {
+			oauthURL = oauthUrlToUse;
+			oauthURLs = undefined;
+		} else {
+			// It's a map of component IDs to OAuth URLs
+			oauthURLs = oauthUrlToUse;
+			oauthURL = undefined;
+		}
+
 		oauthDialog?.open();
 
 		// add visibility change listener
 		document.addEventListener('visibilitychange', handleVisibilityChange);
+	}
+
+	function markComponentAuthenticated(componentId: string) {
+		// Create new Set to trigger reactivity in Svelte 5
+		authenticatedComponents = new Set([...authenticatedComponents, componentId]);
 	}
 
 	async function handleLaunchTemporaryInstance(showInlineError = false) {
@@ -338,41 +382,41 @@
 			const comps = entry.manifest?.compositeConfig?.componentServers || [];
 			const componentConfigs: Record<string, ComponentLaunchFormData> = {};
 			for (const c of comps) {
-				if (!c.catalogEntryID) continue;
+				// Use catalogEntryID when present (catalog-based component), otherwise fall
+				// back to mcpServerID (multi-user server component). Skip only if we have
+				// neither identifier.
+				const id = c.catalogEntryID || c.mcpServerID;
+				if (!id) continue;
+
 				const rc = c.manifest?.remoteConfig as Record<string, unknown> | undefined;
 				const hasHostname = Boolean(rc && 'hostname' in rc && rc.hostname);
-				componentConfigs[c.catalogEntryID] = {
-					envs: (c.manifest?.env || []).map((e) => ({ ...e, value: '' })),
-					headers: (c.manifest?.remoteConfig?.headers || []).map((h) => ({ ...h, value: '' })),
-					...(hasHostname
-						? { hostname: (rc as Record<string, unknown>).hostname as string, url: '' }
-						: {}),
-					name: c.manifest?.name || c.catalogEntryID,
-					icon: c.manifest?.icon,
-					disabled: false
-				};
+				const isMultiUser = Boolean(c.mcpServerID && !c.catalogEntryID);
+				componentConfigs[id] = isMultiUser
+					? {
+							// Multi-user server components are configured at the org/admin level;
+							// for composite previews we only expose the enable/disable toggle.
+							name: c.manifest?.name || id,
+							icon: c.manifest?.icon,
+							disabled: false,
+							isMultiUser: true
+						}
+					: {
+							envs: (c.manifest?.env || []).map((e) => ({ ...e, value: '' })),
+							headers: (c.manifest?.remoteConfig?.headers || []).map((h) => ({ ...h, value: '' })),
+							...(hasHostname
+								? { hostname: (rc as Record<string, unknown>).hostname as string, url: '' }
+								: {}),
+							name: c.manifest?.name || id,
+							icon: c.manifest?.icon,
+							disabled: false
+						};
 			}
 			configureForm = { componentConfigs } as CompositeLaunchFormData;
 
-			const needsCompositeConfig = comps.some((c) => {
-				const envs = c.manifest?.env || [];
-				const headers = c.manifest?.remoteConfig?.headers || [];
-				const hasReqEnv = envs.some((e) => e.required);
-				const hasReqHeader = headers.some((h) => h.required);
-				const rc = c.manifest?.remoteConfig as Record<string, unknown> | undefined;
-				const hasHostname = Boolean(rc && 'hostname' in rc && rc.hostname);
-				const hasFixed = Boolean(rc && 'fixedURL' in rc && rc.fixedURL);
-				const tmpl = rc && 'urlTemplate' in rc && rc.urlTemplate ? (rc.urlTemplate as string) : '';
-				const needsUrl = hasHostname && !hasFixed && !tmpl;
-				const needsTemplateVars = /\$\{[^}]+\}/.test(tmpl);
-				return hasReqEnv || hasReqHeader || needsUrl || needsTemplateVars;
-			});
-
-			if (needsCompositeConfig) {
-				configDialog?.open();
-			} else {
-				handleLaunchTemporaryInstance(true);
-			}
+			// Always open the composite configuration dialog so the user can
+			// enable/disable individual components before generating previews,
+			// even if no component has required config fields.
+			configDialog?.open();
 			return;
 		}
 
@@ -530,7 +574,7 @@
 								<button
 									class="button-primary flex items-center gap-1 text-sm"
 									onclick={handleInitTemporaryInstance}
-									disabled={saving || type === 'composite'}
+									disabled={saving}
 								>
 									{#if saving}
 										<LoaderCircle class="size-4 animate-spin" />
@@ -543,9 +587,6 @@
 										{#if type === 'remote'}
 											Click above to connect to the remote MCP server to populate capabilities and
 											tools.
-										{:else if type === 'composite'}
-											Support for populating composite MCP server capabilities and tools coming
-											soon.
 										{:else}
 											Click above to set up a temporary instance that will populate capabilities and
 											tools. Otherwise, tools will populate when the user first launches this
@@ -896,7 +937,15 @@
 	isNew={false}
 />
 
-<ResponsiveDialog bind:this={oauthDialog} title="OAuthentication Required" class="w-md">
+<ResponsiveDialog
+	bind:this={oauthDialog}
+	title="Authentication Required"
+	class="w-md"
+	onClose={() => {
+		// Clean up when dialog closes
+		document.removeEventListener('visibilitychange', handleVisibilityChange);
+	}}
+>
 	{#if error}
 		{@render errorSnippet()}
 	{/if}
@@ -904,8 +953,42 @@
 		<div class="flex w-full justify-center">
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
-	{:else}
+	{:else if oauthURL}
+		<!-- Single server OAuth -->
 		<a href={oauthURL} target="_blank" class="button-primary text-center">Authenticate</a>
+	{:else if oauthURLs && Object.keys(oauthURLs).length > 0}
+		<!-- Composite server OAuth - multiple components -->
+		<div class="flex flex-col gap-3">
+			<p class="text-sm text-gray-600 dark:text-gray-400">
+				Multiple components require authentication. Please authenticate each component below:
+			</p>
+			{#each Object.entries(oauthURLs).filter(([id]) => !authenticatedComponents.has(id)) as [componentId, url] (componentId)}
+				{@const component = entry?.manifest?.compositeConfig?.componentServers?.find(
+					(c) => c.catalogEntryID === componentId || c.mcpServerID === componentId
+				)}
+				{@const componentName = component?.manifest?.name || componentId}
+				<div
+					class="flex items-center justify-between gap-2 rounded border border-gray-200 p-3 dark:border-gray-700"
+				>
+					<div class="flex items-center gap-2">
+						{#if component?.manifest?.icon}
+							<img src={component.manifest.icon} alt={componentName} class="size-6 flex-shrink-0" />
+						{/if}
+						<span class="text-sm font-medium">{componentName}</span>
+					</div>
+					<button
+						type="button"
+						class="button-primary text-sm"
+						onclick={() => {
+							markComponentAuthenticated(componentId);
+							window.open(url, '_blank');
+						}}
+					>
+						Authenticate
+					</button>
+				</div>
+			{/each}
+		</div>
 	{/if}
 </ResponsiveDialog>
 

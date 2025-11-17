@@ -63,3 +63,45 @@ func ConvertTools(tools []mcp.Tool, allowedTools, unsupportedTools []string) ([]
 
 	return convertedTools, nil
 }
+
+// ApplyToolOverrides applies ToolOverrides to a component's tool array,
+// filtering out disabled tools and applying name/description overrides.
+// If overrides are present, they act as an allowlist - only tools explicitly listed are included.
+func ApplyToolOverrides(tools []otypes.MCPServerTool, toolOverrides []otypes.ToolOverride) []otypes.MCPServerTool {
+	// Build lookup map: toolName -> ToolOverride
+	overrideMap := make(map[string]otypes.ToolOverride, len(toolOverrides))
+	for _, override := range toolOverrides {
+		overrideMap[override.Name] = override
+	}
+
+	hasOverrides := len(toolOverrides) > 0
+
+	transformedTools := make([]otypes.MCPServerTool, 0, len(tools))
+	for _, tool := range tools {
+		override, hasOverride := overrideMap[tool.Name]
+
+		// If overrides are defined, only include tools that are explicitly listed
+		if hasOverrides && !hasOverride {
+			continue
+		}
+
+		// If there's an override and the tool is explicitly disabled, skip it
+		if hasOverride && !override.Enabled {
+			continue
+		}
+
+		// Apply overrides
+		if hasOverride {
+			if override.OverrideName != "" {
+				tool.Name = override.OverrideName
+			}
+			if override.OverrideDescription != "" {
+				tool.Description = override.OverrideDescription
+			}
+		}
+
+		transformedTools = append(transformedTools, tool)
+	}
+
+	return transformedTools
+}
