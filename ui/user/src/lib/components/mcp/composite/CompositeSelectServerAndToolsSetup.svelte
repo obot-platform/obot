@@ -235,10 +235,19 @@
 	onAdd={(mcpCatalogEntryIds, mcpServerIds, otherSelectors) =>
 		handleAdd(mcpCatalogEntryIds, mcpServerIds, otherSelectors)}
 	exclude={['*', 'default', ...(excluded ?? [])]}
-	type="filter"
-	{mcpEntriesContextFn}
+	type="acr"
+	mcpEntriesContextFn={(): AdminMcpServerAndEntriesContext => {
+		const ctx = mcpEntriesContextFn?.() ?? {
+			entries: [],
+			servers: [],
+			loading: false
+		};
+		return {
+			...ctx,
+			entries: ctx.entries.filter((e) => e.manifest?.runtime !== 'composite')
+		};
+	}}
 	singleSelect
-	skipComposite
 	title="Select MCP Server"
 />
 
