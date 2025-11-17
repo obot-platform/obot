@@ -46,6 +46,8 @@ func (in *MCPServer) Get(field string) (value string) {
 		return strconv.FormatBool(in.Spec.Template)
 	case "spec.compositeName":
 		return in.Spec.CompositeName
+	case "spec.manifest.runtime":
+		return string(in.Spec.Manifest.Runtime)
 	}
 	return ""
 }
@@ -59,6 +61,7 @@ func (in *MCPServer) FieldNames() []string {
 		"spec.powerUserWorkspaceID",
 		"spec.template",
 		"spec.compositeName",
+		"spec.manifest.runtime",
 	}
 }
 
