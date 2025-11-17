@@ -103,7 +103,7 @@
 				{#each files as file, i (i)}
 					<li>
 						<div
-							class="text-md dark:bg-surface1 dark:border-surface3 flex gap-4 rounded-md border border-transparent bg-white shadow-sm"
+							class="text-md dark:bg-surface1 dark:border-surface3 bg-background flex gap-4 rounded-md border border-transparent shadow-sm"
 						>
 							<button
 								class="flex w-4/5 flex-1 items-center gap-1 truncate p-4 text-start"

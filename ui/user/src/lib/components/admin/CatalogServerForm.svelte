@@ -620,7 +620,7 @@
 {/if}
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-8 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<div class="flex flex-col gap-8">
 		{#if readonly && readonlyMessage}
@@ -753,7 +753,7 @@
 {#if !['remote', 'composite'].includes(formData.runtime)}
 	{#if !readonly || (readonly && formData.env && formData.env.length > 0)}
 		<div
-			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<h4 class="text-sm font-semibold">
 				{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}

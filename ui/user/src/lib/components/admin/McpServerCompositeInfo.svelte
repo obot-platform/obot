@@ -89,7 +89,7 @@
 
 						openUrl(url, isCtrlClick);
 					}}
-					class="dark:bg-surface1 dark:border-surface3 dark:hover:bg-surface2 flex items-center justify-between gap-2 rounded-lg border border-transparent bg-white p-2 pl-4 shadow-sm hover:bg-gray-50"
+					class="dark:bg-surface1 dark:border-surface3 dark:hover:bg-surface2 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 shadow-sm hover:bg-gray-50"
 				>
 					<div class="flex items-center gap-2">
 						<div class="icon">

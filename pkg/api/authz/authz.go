@@ -116,9 +116,12 @@ var (
 		// adding local authz checks to the handler (like the rest of the /api/all-mcps/ endpoints).
 		"GET /api/all-mcps/servers/{mcpserver_id}/tools",
 	}
+	ownerOnlyRules = []string{
+		"PUT /api/app-preferences",
+	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
-		types.GroupOwner: adminAndOwnerRules,
+		types.GroupOwner: append(adminAndOwnerRules, ownerOnlyRules...),
 		types.GroupAuditor: {
 			"GET /api/mcp-audit-logs",
 			"GET /api/mcp-audit-logs/filter-options/{filter}",
@@ -176,6 +179,8 @@ var (
 			"POST /api/sendgrid",
 
 			"GET /api/healthz",
+
+			"GET /api/app-preferences",
 
 			"GET /api/auth-providers",
 			"GET /api/auth-providers/{id}",

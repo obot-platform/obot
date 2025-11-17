@@ -375,7 +375,7 @@
 	{#if baseAgent}
 		<div class="mb-4 px-4">
 			<Search
-				class="dark:border-surface3 border border-transparent bg-white shadow-sm dark:bg-black"
+				class="dark:border-surface3 bg-background border border-transparent shadow-sm dark:bg-black"
 				onChange={(val) => (addModelsSearch = val)}
 				placeholder="Search models..."
 			/>

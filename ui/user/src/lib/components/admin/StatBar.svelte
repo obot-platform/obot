@@ -13,7 +13,7 @@
 
 {#if startTime && endTime}
 	<div
-		class="dark:bg-surface2 dark:border-surface3 flex h-12 w-fit flex-wrap gap-4 rounded-md border border-transparent bg-white px-6 py-2 text-black shadow-sm dark:text-white"
+		class="dark:bg-surface2 dark:border-surface3 bg-background text-on-background flex h-12 w-fit flex-wrap gap-4 rounded-md border border-transparent px-6 py-2 shadow-sm"
 	>
 		<p class="flex items-center text-sm font-semibold">
 			{formatTimeRange(startTime, endTime)}
@@ -23,7 +23,7 @@
 
 {#if totalCalls || uniqueUsers}
 	<div
-		class="dark:bg-surface2 dark:border-surface3 flex h-12 w-fit flex-wrap gap-4 rounded-md border border-transparent bg-white px-6 py-2 text-black shadow-sm dark:text-white"
+		class="dark:bg-surface2 dark:border-surface3 bg-background text-on-background flex h-12 w-fit flex-wrap gap-4 rounded-md border border-transparent px-6 py-2 shadow-sm"
 	>
 		{#if totalCalls}
 			<div class="flex items-center justify-between gap-4 text-sm">

@@ -160,7 +160,7 @@
 
 {#snippet status(title: string, value?: string, sensitive?: boolean)}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 flex flex-col rounded-lg border border-transparent bg-white px-4 py-1.5 shadow-sm"
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent px-4 py-1.5 shadow-sm"
 	>
 		<div class="grid grid-cols-12 items-center gap-4">
 			<p class="col-span-4 text-sm font-semibold">{title}</p>

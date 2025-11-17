@@ -26,8 +26,8 @@
 <div class="relative flex flex-col">
 	<button
 		class={twMerge(
-			'dark:bg-surface1 dark:border-surface3 flex h-full min-h-[120px] w-full flex-col rounded-lg border border-transparent bg-white p-3 text-left shadow-sm',
-			needsUpdate && 'border-yellow-500 bg-white dark:border-yellow-500 dark:bg-yellow-500/20'
+			'dark:bg-surface1 dark:border-surface3 bg-background flex h-full min-h-[120px] w-full flex-col rounded-lg border border-transparent p-3 text-left shadow-sm',
+			needsUpdate && 'bg-background border-yellow-500 dark:border-yellow-500 dark:bg-yellow-500/20'
 		)}
 		onclick={onClick}
 	>

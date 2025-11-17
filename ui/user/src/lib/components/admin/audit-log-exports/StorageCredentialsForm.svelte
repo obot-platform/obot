@@ -307,14 +307,14 @@
 </script>
 
 {#if loading}
-	<div class="dark:bg-surface2 rounded-md bg-white p-6 shadow-sm">
+	<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
 		<div class="flex items-center justify-center py-8">
 			<LoaderCircle class="text-primary size-6 animate-spin" />
 			<span class="ml-2 text-sm text-gray-600">Loading storage credentials...</span>
 		</div>
 	</div>
 {:else}
-	<div class="dark:bg-surface2 rounded-md bg-white p-6 shadow-sm">
+	<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
 		<form
 			class="gap-8"
 			onsubmit={(e) => {

@@ -472,7 +472,7 @@
 
 	<div class="flex flex-col gap-2">
 		<div
-			class="dark:bg-surface1 dark:border-surface3 flex flex-col rounded-lg border border-transparent bg-white p-4 shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<div class="grid grid-cols-2 gap-4">
 				<p class="text-sm font-semibold">Status</p>
@@ -504,7 +504,7 @@
 	</div>
 	<div
 		bind:this={logsContainer}
-		class="dark:bg-surface1 dark:border-surface3 default-scrollbar-thin flex max-h-84 min-h-64 flex-col overflow-y-auto rounded-lg border border-transparent bg-white p-4 shadow-sm"
+		class="dark:bg-surface1 dark:border-surface3 default-scrollbar-thin bg-background flex max-h-84 min-h-64 flex-col overflow-y-auto rounded-lg border border-transparent p-4 shadow-sm"
 	>
 		{#if messages.length > 0}
 			<div class="space-y-2">
@@ -542,7 +542,7 @@
 
 {#snippet detailRow(label: string, value: string, id: string)}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 flex flex-col rounded-lg border border-transparent bg-white p-4 shadow-sm"
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
 	>
 		<div class="grid grid-cols-12 gap-4">
 			<p class="col-span-4 text-sm font-semibold">{label}</p>
@@ -582,7 +582,7 @@
 
 {#snippet configurationRow(label: string, value: string, sensitive?: boolean)}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 flex flex-col rounded-lg border border-transparent bg-white px-4 py-1.5 shadow-sm"
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent px-4 py-1.5 shadow-sm"
 	>
 		<div class="grid grid-cols-12 items-center gap-4">
 			<p class="col-span-4 text-sm font-semibold">{label}</p>

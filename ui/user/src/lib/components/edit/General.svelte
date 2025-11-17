@@ -30,7 +30,7 @@
 				disabled={!project.editor}
 				type="text"
 				placeholder="Name"
-				class="dark:border-surface3 grow rounded-lg bg-white p-2 shadow-sm dark:border dark:bg-black"
+				class="dark:border-surface3 bg-background grow rounded-lg p-2 shadow-sm dark:border dark:bg-black"
 				bind:value={project.name}
 			/>
 		</div>

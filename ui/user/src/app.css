@@ -93,7 +93,6 @@
 	--color-green-500: oklch(72.3% 0.219 149.579);
 
 	--color-primary: var(--primary);
-	--color-primary-focus: var(--primary-focus);
 }
 
 /*
@@ -114,12 +113,8 @@
 	}
 
 	body {
-		background-color: white;
-		color: black;
-		.dark & {
-			background-color: black;
-			color: var(--color-gray-50);
-		}
+		background-color: var(--background);
+		color: var(--on-background);
 	}
 
 	dialog {
@@ -414,8 +409,8 @@
 		transition-property: all;
 		transition-duration: 300ms;
 		&:hover {
-			border-color: var(--color-primary-focus);
-			background-color: var(--color-primary-focus);
+			border-color: color-mix(in oklab, var(--color-primary) 75%, var(--color-background));
+			background-color: color-mix(in oklab, var(--color-primary) 75%, var(--color-background));
 		}
 		.dark & {
 			color: var(--color-gray-50);
@@ -445,7 +440,7 @@
 			outline: none;
 		}
 		.dark &:hover {
-			background-color:var(--color-gray-950);
+			background-color: var(--color-gray-950);
 		}
 		&:disabled:hover {
 			color: var(--color-gray);
@@ -564,7 +559,7 @@
 		.dark &:hover {
 			background-color: color-mix(
 				in oklab,
-				var(--color-surface3) /* var(--surface3) */ 50%,
+				var(--color-surface3) 50%,
 				transparent
 			);
 		}
@@ -813,7 +808,7 @@
 		border-width: 1px;
 		border-style: solid;
 		border-color: transparent;
-		background-color: white;
+		background-color: var(--background);
 		padding: 1.5rem;
 		box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 
@@ -962,7 +957,7 @@
 	.notification-info {
 		border-radius: 0.5rem;
 		border: 1px solid var(--color-primary);
-		background-color:  color-mix(in oklab, var(--color-primary) 10%, transparent);
+		background-color: color-mix(in oklab, var(--color-primary) 10%, transparent);
 		padding: 0.5rem 1rem;
 
 		svg {
@@ -1156,29 +1151,27 @@
 }
 
 .dark {
-	--background: var(--color-black);
-	--on-background: var(--color-gray-50);
-	--surface1: var(--color-gray-950);
-	--on-surface1: var(--color-gray-50);
-	--surface2: var(--color-gray-900);
-	--on-surface2: var(--color-gray-50);
-	--surface3: var(--color-gray-800);
-	--on-surface3: var(--color-gray-50);
-	--primary: var(--color-blue-500);
-	--primary-focus: var(--color-blue-400);
+	--background: var(--theme-background-dark, var(--color-black));
+	--on-background: var(--theme-on-surface-dark, var(--color-gray-50));
+	--surface1: var(--theme-surface1-dark, var(--color-gray-950));
+	--on-surface1: var(--theme-on-surface-dark, var(--color-gray-50));
+	--surface2: var(--theme-surface2-dark, var(--color-gray-900));
+	--on-surface2: var(--theme-on-surface-dark, var(--color-gray-50));
+	--surface3: var(--theme-surface3-dark, var(--color-gray-800));
+	--on-surface3: var(--theme-on-surface-dark, var(--color-gray-50));
+	--primary: var(--theme-primary-dark, var(--color-blue-500));
 }
 
 html {
-	--background: var(--color-white);
-	--on-background: var(--color-black);
-	--surface1: var(--color-gray-70);
-	--on-surface1: var(--color-black);
-	--surface2: var(--color-gray-100);
-	--on-surface2: var(--color-black);
-	--surface3: var(--color-gray-200);
-	--on-surface3: var(--color-black);
-	--primary: var(--color-blue-500);
-	--primary-focus: var(--color-blue-400);
+	--background: var(--theme-background-light, var(--color-white));
+	--on-background: var(--theme-on-surface-light, var(--color-black));
+	--surface1: var(--theme-surface1-light, var(--color-gray-70));
+	--on-surface1: var(--theme-on-surface-light, var(--color-black));
+	--surface2: var(--theme-surface2-light, var(--color-gray-100));
+	--on-surface2: var(--theme-on-surface-light, var(--color-black));
+	--surface3: var(--theme-surface3-light, var(--color-gray-200));
+	--on-surface3: var(--theme-on-surface-light, var(--color-black));
+	--primary: var(--theme-primary-light, var(--color-blue-500));
 }
 
 .scrollable {

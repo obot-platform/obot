@@ -217,7 +217,7 @@
 	}
 </script>
 
-<div class="dark:bg-surface2 rounded-md bg-white p-6 shadow-sm">
+<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
 	<form
 		class="space-y-8"
 		onsubmit={(e) => {

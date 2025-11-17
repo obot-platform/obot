@@ -145,7 +145,7 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<h4 class="text-md font-semibold">Component Servers</h4>
 
@@ -219,7 +219,7 @@
 								<div class="flex flex-col gap-2">
 									{#each entry.toolOverrides as tool, index (index)}
 										<div
-											class="dark:bg-surface2 dark:border-surface3 flex gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
+											class="dark:bg-surface2 dark:border-surface3 bg-background flex gap-2 rounded border border-transparent p-2 shadow-sm"
 										>
 											<div class="flex grow flex-col gap-1">
 												<input
@@ -266,7 +266,7 @@
 				configuringEntry = undefined;
 				compositeToolsSetupDialog?.open();
 			}}
-			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-sm font-medium hover:bg-gray-50"
+			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 bg-background flex items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-sm font-medium hover:bg-gray-50"
 		>
 			<Plus class="size-4" />
 			Add MCP Server

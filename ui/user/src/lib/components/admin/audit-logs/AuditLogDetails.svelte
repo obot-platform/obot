@@ -32,7 +32,7 @@
 	class="dark:bg-gray-990 h-full w-screen max-w-full bg-gray-50 md:w-lg md:max-w-[85vw] md:min-w-lg"
 	bind:this={container}
 >
-	<div class="dark:bg-surface1 relative flex w-full flex-col bg-white p-4 pl-5 shadow-xs">
+	<div class="dark:bg-surface1 bg-background relative flex w-full flex-col p-4 pl-5 shadow-xs">
 		<div
 			class={twMerge(
 				'absolute top-0 left-0 h-full w-1',
@@ -115,7 +115,7 @@
 					<p class="my-2 text-base font-semibold">Request Headers</p>
 
 					<div
-						class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
+						class="dark:bg-surface2 bg-background relative flex flex-col gap-2 overflow-hidden rounded-md p-4 pl-5"
 					>
 						<div class="bg-primary/50 absolute top-0 left-0 h-full w-1"></div>
 						<div class="flex flex-col gap-1">
@@ -171,7 +171,7 @@
 				{#if auditLog.responseHeaders}
 					<p class="mt-4 mb-2 text-base font-semibold">Response Headers</p>
 					<div
-						class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
+						class="dark:bg-surface2 bg-background relative flex flex-col gap-2 overflow-hidden rounded-md p-4 pl-5"
 					>
 						<div class="bg-primary/50 absolute top-0 left-0 h-full w-1"></div>
 						<div class="flex flex-col gap-1">

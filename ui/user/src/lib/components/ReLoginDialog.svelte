@@ -16,7 +16,7 @@
 
 <dialog
 	bind:this={dialog}
-	class="rounded-lg bg-white p-6 shadow-lg dark:bg-gray-900"
+	class="bg-background dark:bg-surface2 rounded-lg p-6 shadow-lg"
 	onclose={() => {
 		// Prevent closing by clicking outside
 		dialog.showModal();

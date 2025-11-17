@@ -207,7 +207,7 @@
 			</div>
 
 			<Search
-				class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+				class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
 				onChange={(val) => (search = val)}
 				placeholder="Search tools..."
 			/>
@@ -221,7 +221,7 @@
 				{#each displayTools as tool (tool.name)}
 					{@const hasContentDisplayed = allDescriptionsEnabled || expanded[tool.id]}
 					<div
-						class="border-surface2 dark:bg-surface1 dark:border-surface3 flex flex-col gap-2 rounded-md border bg-white p-3 shadow-sm"
+						class="border-surface2 dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-2 rounded-md border p-3 shadow-sm"
 						class:pb-2={hasContentDisplayed}
 					>
 						<div class="flex items-center justify-between gap-2">

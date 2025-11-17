@@ -41,7 +41,7 @@
 
 			<div
 				class={twMerge(
-					'flex w-full cursor-pointer items-start justify-between gap-1 rounded-md bg-white p-2 shadow-sm',
+					'bg-background flex w-full cursor-pointer items-start justify-between gap-1 rounded-md p-2 shadow-sm',
 					tool.builtin && 'bg-surface1/70 cursor-default'
 				)}
 				use:tt.ref

@@ -44,7 +44,7 @@
 	{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 	<!-- For catalog entries, show simple fixed URL when not in advanced mode -->
 	<div
-		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
 	>
 		<label
@@ -66,7 +66,7 @@
 {#if showAdvanced}
 	<div class="flex w-full flex-col gap-8" in:slide>
 		<div
-			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<div class="flex items-center gap-4 {readonly ? 'hidden' : ''}">
 				<label for="remote-type" class="flex-shrink-0 text-sm font-light"
@@ -204,7 +204,7 @@
 	</div>
 	<div class="flex w-full flex-col gap-8" in:slide>
 		<div
-			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<h4 class="text-sm font-semibold">Headers</h4>
 			<p class="text-xs font-light text-gray-400 dark:text-gray-600">

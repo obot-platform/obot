@@ -356,7 +356,7 @@
 				{#if 'componentConfigs' in form}
 					{#each Object.entries(form.componentConfigs) as [compId, comp] (compId)}
 						<div
-							class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-transparent bg-white shadow-sm"
+							class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent shadow-sm"
 						>
 							<div class="flex items-center gap-2 p-2">
 								{#if comp.icon}

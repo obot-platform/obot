@@ -763,7 +763,7 @@
 			</div>
 		{:else}
 			<Search
-				class="dark:bg-surface1 dark:border-surface3 bg-white shadow-sm dark:border"
+				class="dark:bg-surface1 dark:border-surface3 bg-background shadow-sm dark:border"
 				onChange={(val) => {
 					search = val;
 					page = 0;

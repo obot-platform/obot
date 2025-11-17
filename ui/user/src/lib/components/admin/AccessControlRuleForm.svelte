@@ -312,7 +312,7 @@
 
 		{#if !accessControlRule.id}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-transparent bg-white p-4"
+				class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
 			>
 				<div class="flex flex-col gap-6">
 					<div class="flex flex-col gap-2">

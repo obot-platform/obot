@@ -71,7 +71,7 @@
 		{@const isExplicitAdmin = explicitRoles?.admins?.includes(tempUser?.email ?? '') ?? false}
 		{#if tempUser}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 flex w-md max-w-full flex-col rounded-lg border border-transparent bg-white px-4 py-8 shadow-sm"
+				class="dark:bg-surface2 dark:border-surface3 bg-background flex w-md max-w-full flex-col rounded-lg border border-transparent px-4 py-8 shadow-sm"
 			>
 				<BetaLogo class="self-center" />
 
@@ -175,7 +175,7 @@
 
 {#snippet loginView(bootstrapStatus?: BootstrapStatus)}
 	<form
-		class="dark:bg-surface2 dark:border-surface3 flex w-sm flex-col rounded-lg border border-transparent bg-white px-4 py-8 shadow-sm"
+		class="dark:bg-surface2 dark:border-surface3 bg-background flex w-sm flex-col rounded-lg border border-transparent px-4 py-8 shadow-sm"
 		onsubmit={(e) => e.preventDefault()}
 	>
 		<BetaLogo class="self-center" />
@@ -211,7 +211,7 @@
 				<p class="text-md px-8 text-center font-light text-gray-500 md:px-8 dark:text-gray-300">
 					To access the admin panel, you need to sign in with an option below.
 				</p>
-				<h3 class="dark:bg-surface2 bg-white px-2 text-lg font-semibold">
+				<h3 class="dark:bg-surface2 bg-background px-2 text-lg font-semibold">
 					Sign in to Your Account
 				</h3>
 			</div>

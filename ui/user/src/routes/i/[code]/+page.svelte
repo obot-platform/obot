@@ -95,7 +95,7 @@
 	>
 		{#if invitation.status !== 'pending'}
 			<div
-				class="dark:bg-surface1 dark:border-surface3 w-full max-w-lg rounded-xl bg-white p-8 shadow-md dark:border"
+				class="dark:bg-surface1 dark:border-surface3 bg-background w-full max-w-lg rounded-xl p-8 shadow-md dark:border"
 			>
 				<div class="flex flex-col items-center gap-4">
 					<img src="/user/images/sharing-agent-expired.webp" alt="invitation" />
@@ -116,7 +116,7 @@
 			</div>
 		{:else if view === 'rejected'}
 			<div
-				class="dark:bg-surface1 dark:border-surface3 w-full max-w-lg rounded-xl bg-white p-8 shadow-md dark:border"
+				class="dark:bg-surface1 dark:border-surface3 bg-background w-full max-w-lg rounded-xl p-8 shadow-md dark:border"
 			>
 				<div class="flex flex-col items-center gap-4">
 					<img src="/user/images/sharing-agent-expired.webp" alt="invitation" />
@@ -136,7 +136,7 @@
 			</div>
 		{:else if view === 'joined'}
 			<div
-				class="dark:bg-surface1 dark:border-surface3 w-full max-w-lg rounded-xl bg-white p-8 shadow-md dark:border"
+				class="dark:bg-surface1 dark:border-surface3 bg-background w-full max-w-lg rounded-xl p-8 shadow-md dark:border"
 			>
 				<div class="flex flex-col items-center gap-4">
 					<img src="/user/images/sharing-agent.webp" alt="invitation" />
@@ -163,7 +163,7 @@
 			</div>
 		{:else}
 			<div
-				class="dark:bg-surface1 dark:border-surface3 w-full max-w-lg rounded-xl bg-white p-8 text-center shadow-md dark:border"
+				class="dark:bg-surface1 dark:border-surface3 bg-background w-full max-w-lg rounded-xl p-8 text-center shadow-md dark:border"
 			>
 				<div class="flex flex-col items-center gap-4">
 					<img src="/user/images/sharing-agent.webp" alt="invitation" />

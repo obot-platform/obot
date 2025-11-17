@@ -485,7 +485,7 @@
 <div class="flex flex-col justify-end gap-2">
 	<div class="flex flex-col gap-4 md:flex-row">
 		<Search
-			class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
 			onChange={handleQueryChange}
 			placeholder="Search..."
 			value={query}
@@ -500,7 +500,7 @@
 				/>
 
 				<button
-					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
+					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
 					onclick={() => {
 						showFilters = true;
 						selectedAuditLog = undefined;
@@ -531,7 +531,7 @@
 		</DotDotDot>
 
 		<button
-			class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
+			class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
 			onclick={() => {
 				goto('/admin/audit-logs/exports');
 			}}
@@ -547,7 +547,7 @@
 {#if auditLogsTotalItems > 0}
 	<!-- Timeline Graph (Placeholder) -->
 	<div
-		class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-transparent bg-white text-black shadow-sm dark:text-white"
+		class="dark:bg-surface2 dark:border-surface3 bg-background text-on-background rounded-lg border border-transparent shadow-sm"
 	>
 		<h3 class="mb-2 px-4 pt-4 text-lg font-medium">Timeline</h3>
 		<div class="px-4">
@@ -623,7 +623,7 @@
 	bind:this={rightSidebar}
 	use:clickOutside={[handleRightSidebarClose, true]}
 	use:dialogAnimation={{ type: 'drawer' }}
-	class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-dvh w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
+	class="dark:border-surface1 dark:bg-surface1 bg-background fixed! top-0! right-0! bottom-0! left-auto! z-40 h-dvh w-auto max-w-none rounded-none border-0 shadow-lg outline-none!"
 >
 	{#if selectedAuditLog}
 		<AuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
@@ -725,7 +725,7 @@
 <!-- Filter Confirmation Dialog -->
 {#if showFilterConfirmDialog}
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-		<div class="dark:bg-surface2 w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+		<div class="dark:bg-surface2 bg-background w-full max-w-2xl rounded-lg p-6 shadow-xl">
 			<h3 class="mb-4 text-lg font-semibold">Apply Current Filters to Export?</h3>
 			<p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
 				You have active filters applied to the audit logs. Would you like to include these filters

@@ -97,7 +97,7 @@
 				<span class="flex items-center gap-2">
 					<img
 						src={credential.icon}
-						class="size-6 rounded-md bg-white p-1"
+						class="bg-background size-6 rounded-md p-1"
 						alt="credential {credential.toolName} icon"
 					/>
 					{credential.toolName}

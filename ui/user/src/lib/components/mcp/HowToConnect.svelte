@@ -113,7 +113,7 @@
 					class={twMerge(
 						'dark:hover:bg-surface3 relative flex w-full items-center justify-center gap-1.5 rounded-t-xs border-b-2 border-transparent py-2 text-[13px] font-light transition-all duration-200 hover:bg-gray-50',
 						selected === option.key &&
-							'dark:bg-surface2 bg-white hover:bg-transparent dark:hover:bg-transparent'
+							'dark:bg-surface2 bg-background hover:bg-transparent dark:hover:bg-transparent'
 					)}
 					onclick={() => {
 						handleSelectionChange(option.key);

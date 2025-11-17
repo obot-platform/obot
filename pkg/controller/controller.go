@@ -72,6 +72,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure K8s settings: %w", err)
 	}
 
+	if err := ensureAppPreferences(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to ensure app preferences: %w", err)
+	}
+
 	if err := addCatalogIDToAccessControlRules(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to add catalog ID to access control rules: %w", err)
 	}
@@ -205,6 +209,28 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, helmSettings 
 	}
 
 	return nil
+}
+
+func ensureAppPreferences(ctx context.Context, client kclient.Client) error {
+	var appPrefs v1.AppPreferences
+	err := client.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.AppPreferencesName,
+	}, &appPrefs)
+	if apierrors.IsNotFound(err) {
+		// Create default preferences
+		appPrefs = v1.AppPreferences{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      system.AppPreferencesName,
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.AppPreferencesSpec{
+				// Set default empty preferences - admin can customize later
+			},
+		}
+		return client.Create(ctx, &appPrefs)
+	}
+	return err
 }
 
 // createLocalK8sRouter creates a router for local Kubernetes resources

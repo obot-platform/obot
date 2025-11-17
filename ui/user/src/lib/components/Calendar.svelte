@@ -223,7 +223,7 @@
 		{disabled}
 		type="button"
 		class={twMerge(
-			'dark:bg-surface1 text-md flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg bg-white px-4 py-2 text-left shadow-sm',
+			'dark:bg-surface1 text-md bg-background flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg px-4 py-2 text-left shadow-sm',
 			disabled && 'cursor-default opacity-50',
 			klass
 		)}

@@ -200,7 +200,7 @@
 				class={twMerge(
 					'px-4 py-2',
 					!showPreview &&
-						'dark:border-surface3 relative z-10 translate-y-[1px] border-r bg-white font-medium text-black dark:bg-black dark:text-white'
+						'dark:border-surface3 bg-background text-on-background relative z-10 translate-y-[1px] border-r font-medium'
 				)}
 				onclick={() => {
 					showPreview = false;
@@ -216,7 +216,7 @@
 				class={twMerge(
 					'px-4 py-2',
 					showPreview &&
-						'dark:border-surface3 relative z-10 translate-y-[1px] border-x bg-white font-medium text-black dark:bg-black dark:text-white'
+						'dark:border-surface3 bg-background text-on-background relative z-10 translate-y-[1px] border-x font-medium'
 				)}
 				onclick={() => (showPreview = true)}>Preview</button
 			>
@@ -224,14 +224,14 @@
 	{/if}
 	{#if !disablePreview && showPreview}
 		<div
-			class="milkdown-content default-scrollbar-thin max-h-[650px] min-h-48 overflow-y-auto bg-white p-4 dark:bg-black"
+			class="milkdown-content default-scrollbar-thin bg-background max-h-[650px] min-h-48 overflow-y-auto p-4"
 		>
 			{@html toHTMLFromMarkdownWithNewTabLinks(value)}
 		</div>
 	{:else}
 		<div
 			class={twMerge(
-				'default-scrollbar-thin max-h-[650px] min-h-48 overflow-y-auto bg-white p-4 dark:bg-black ',
+				'default-scrollbar-thin bg-background max-h-[650px] min-h-48 overflow-y-auto p-4 ',
 				classes?.input
 			)}
 			use:cmEditor

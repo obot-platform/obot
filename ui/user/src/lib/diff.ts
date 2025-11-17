@@ -29,7 +29,7 @@ export function formatJsonWithHighlighting(json: unknown): string {
 			if (stringContent) {
 				return stringContent;
 			}
-			return `<span class="text-black dark:text-white">${bracket}</span>`;
+			return `<span class="text-on-background">${bracket}</span>`;
 		});
 
 		return highlighted;
@@ -302,7 +302,7 @@ export function formatJsonWithDiffHighlighting(
 					if (stringContent) {
 						return stringContent;
 					}
-					return `<span class="text-black dark:text-white">${bracket}</span>`;
+					return `<span class="text-on-background">${bracket}</span>`;
 				}
 			);
 

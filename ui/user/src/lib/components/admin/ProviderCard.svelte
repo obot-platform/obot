@@ -31,7 +31,7 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 flex w-full flex-col items-center justify-center gap-4 rounded-lg border border-transparent bg-white p-4 pt-2 shadow-sm"
+	class="dark:bg-surface1 dark:border-surface3 bg-background flex w-full flex-col items-center justify-center gap-4 rounded-lg border border-transparent p-4 pt-2 shadow-sm"
 >
 	<div class="flex min-h-9 w-full items-center justify-between">
 		<div>

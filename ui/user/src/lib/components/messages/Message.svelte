@@ -262,7 +262,7 @@
 					return stringContent;
 				}
 				// If it's a bracket/brace outside of strings, wrap it
-				return `<span class="text-black dark:text-white">${bracket}</span>`;
+				return `<span class="text-on-background">${bracket}</span>`;
 			});
 
 			return formatted;
@@ -423,7 +423,7 @@
 		class:contents={!showBubble}
 		class:message-content={renderMarkdown}
 		class={twMerge(
-			'bg-gray-70 flex w-full flex-col rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white',
+			'bg-gray-70 text-on-background flex w-full flex-col rounded-2xl px-6 py-3 dark:bg-gray-950 ',
 			classes?.messageBody
 		)}
 	>
@@ -455,7 +455,7 @@
 	{#if msg.file}
 		<button
 			class={twMerge(
-				'my-2 flex w-[750px] w-md max-w-full cursor-pointer flex-col rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg md:w-[750px] dark:bg-black dark:text-gray-50',
+				'bg-background my-2 flex w-[750px] w-md max-w-full cursor-pointer flex-col rounded-3xl border border-gray-300 text-start text-black shadow-lg md:w-[750px] dark:text-gray-50',
 				!msg.file?.filename && !msg.aborted && !msg.done && 'cursor-wait'
 			)}
 			disabled={!msg.file?.filename}
@@ -508,13 +508,11 @@
 	{#if msg.explain}
 		<div
 			role="none"
-			class="-m-6 mt-2 -mb-4 flex flex-col
-		 divide-y divide-gray-300
-		 rounded-3xl border
-		 border-gray-300 bg-white
-		 text-black shadow-lg
-		   dark:bg-black
-		    dark:text-gray-50"
+			class="bg-background -m-6 mt-2 -mb-4 flex
+		 flex-col divide-y
+		 divide-gray-300 rounded-3xl
+		 border border-gray-300
+		 text-black shadow-lg dark:text-gray-50"
 		>
 			<div class="flex gap-2 px-5 py-4">
 				<Paperclip />
@@ -540,7 +538,7 @@
 		<p class="p-0 text-xs font-semibold">{title}</p>
 		<pre
 			transition:slide={{ duration: 300 }}
-			class="default-scrollbar-thin bg-surface1 mt-0! max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap text-black dark:text-white">{@html formatJson(
+			class="default-scrollbar-thin bg-surface1 text-on-background mt-0! max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap">{@html formatJson(
 				stringifiedJson ?? ''
 			)}</pre>
 	</div>
@@ -731,7 +729,7 @@
 							</div>
 						{:else}
 							<input
-								class="rounded-lg bg-white p-2 outline-hidden dark:bg-gray-900"
+								class="bg-background dark:bg-surface2 rounded-lg p-2 outline-hidden"
 								type={field.sensitive ? 'password' : 'text'}
 								name={field.name}
 								bind:value={promptCredentials[field.name]}

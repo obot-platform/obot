@@ -39,7 +39,7 @@
 {/if}
 
 {#snippet unauthorizedContent()}
-	<div class="relative flex h-dvh w-full flex-col text-black dark:text-white">
+	<div class="text-on-background relative flex h-dvh w-full flex-col">
 		<main
 			class="dark:from-surface2 to-surface1 mx-auto flex h-full w-full flex-col items-center justify-center gap-18 bg-radial-[at_50%_50%] from-gray-50 pb-6 md:gap-24 md:pb-12 dark:to-black"
 		>
@@ -53,7 +53,7 @@
 				</p>
 
 				<div
-					class="dark:border-surface3 dark:bg-gray-930 flex w-sm flex-col gap-4 rounded-xl border border-transparent bg-white p-4 shadow-sm"
+					class="dark:border-surface3 dark:bg-gray-930 bg-background flex w-sm flex-col gap-4 rounded-xl border border-transparent p-4 shadow-sm"
 				>
 					{#each authProviders as provider (provider.id)}
 						<button

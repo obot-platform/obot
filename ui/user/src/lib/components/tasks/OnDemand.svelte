@@ -32,8 +32,8 @@
 	</p>
 	<p class="text-gray text-sm">
 		You can reference these arguments in your steps using
-		<span class="font-mono text-black dark:text-white">$name</span> syntax, like “Crawl $website and
-		find pages it links to.”
+		<span class="text-on-background font-mono">$name</span> syntax, like “Crawl $website and find pages
+		it links to.”
 	</p>
 
 	{#if hasParams}

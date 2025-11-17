@@ -677,3 +677,59 @@ export class MCPCompositeDeletionDependencyError extends Error {
 		this.dependencies = dependencies;
 	}
 }
+
+export interface AppPreferencesManifest {
+	logos?: {
+		logoIcon?: string;
+		logoIconError?: string;
+		logoIconWarning?: string;
+		logoDefault?: string;
+		logoEnterprise?: string;
+		logoChat?: string;
+		darkLogoDefault?: string;
+		darkLogoChat?: string;
+		darkLogoEnterprise?: string;
+	};
+	theme?: {
+		backgroundColor?: string;
+		onSurfaceColor?: string;
+		surface1Color?: string;
+		surface2Color?: string;
+		surface3Color?: string;
+		primaryColor?: string;
+		darkBackgroundColor?: string;
+		darkOnSurfaceColor?: string;
+		darkSurface1Color?: string;
+		darkSurface2Color?: string;
+		darkSurface3Color?: string;
+		darkPrimaryColor?: string;
+	};
+}
+
+export interface AppPreferences {
+	logos: {
+		logoIcon: string;
+		logoIconError: string;
+		logoIconWarning: string;
+		logoDefault: string;
+		logoEnterprise: string;
+		logoChat: string;
+		darkLogoDefault: string;
+		darkLogoChat: string;
+		darkLogoEnterprise: string;
+	};
+	theme: {
+		backgroundColor: string;
+		onSurfaceColor: string;
+		surface1Color: string;
+		surface2Color: string;
+		surface3Color: string;
+		primaryColor: string;
+		darkBackgroundColor: string;
+		darkOnSurfaceColor: string;
+		darkSurface1Color: string;
+		darkSurface2Color: string;
+		darkSurface3Color: string;
+		darkPrimaryColor: string;
+	};
+}

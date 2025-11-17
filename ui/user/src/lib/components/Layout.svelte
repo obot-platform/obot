@@ -78,6 +78,7 @@
 
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
+	let isOwner = $derived(profile.current.groups.includes(Group.OWNER));
 	let navLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.() && !showUserLinks
 			? [
@@ -214,7 +215,19 @@
 								collapsible: false
 							}
 						]
-					}
+					},
+					...(isOwner
+						? [
+								{
+									id: 'app-preferences',
+									href: '/admin/app-preferences',
+									icon: Settings,
+									label: 'App Preferences',
+									disabled: false,
+									collapsible: false
+								}
+							]
+						: [])
 				]
 			: (overrideNavLinks ?? [
 					{
@@ -286,7 +299,7 @@
 	<div class="relative flex w-full grow">
 		{#if layout.sidebarOpen && !hideSidebar}
 			<div
-				class="dark:bg-gray-990 flex max-h-dvh w-dvh min-w-dvw flex-shrink-0 flex-col bg-white md:w-1/6 md:max-w-xl md:min-w-[300px]"
+				class="bg-background flex max-h-dvh w-dvh min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[300px]"
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
@@ -400,7 +413,7 @@
 		<Render
 			class={twMerge(
 				'default-scrollbar-thin relative flex h-svh w-full grow flex-col overflow-y-auto',
-				whiteBackground ? 'bg-white dark:bg-black' : 'bg-surface1 dark:bg-black'
+				whiteBackground ? 'bg-background' : 'bg-surface1 dark:bg-background'
 			)}
 			component={main?.component}
 			as="main"

@@ -33,7 +33,7 @@
 
 {#if !loading && (!isModelProviderConfigured || !isAuthProviderConfigured)}
 	<div
-		class="dark:bg-surface2 flex min-h-44 justify-center overflow-hidden rounded-xl bg-white py-4"
+		class="dark:bg-surface2 bg-background flex min-h-44 justify-center overflow-hidden rounded-xl py-4"
 	>
 		<div
 			class="relative flex min-h-36 w-[calc(100%-4rem)] max-w-screen-md flex-row items-center justify-between gap-4 rounded-sm"

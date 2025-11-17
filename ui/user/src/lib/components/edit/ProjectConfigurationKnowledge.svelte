@@ -73,7 +73,7 @@
 			<div class="flex flex-col gap-2">
 				{#if knowledgeFiles.length > 0}
 					<div
-						class="text-md dark:bg-surface1 dark:border-surface3 gap-4 rounded-md border border-transparent bg-white shadow-sm"
+						class="text-md dark:bg-surface1 dark:border-surface3 bg-background gap-4 rounded-md border border-transparent shadow-sm"
 					>
 						{#each knowledgeFiles as file (file.fileName)}
 							{#key file.fileName}
@@ -115,7 +115,7 @@
 			<div class="flex flex-col gap-2">
 				{#each project.websiteKnowledge.sites as _, i (i)}
 					<div
-						class="group dark:border-surface3 flex gap-2 rounded-md bg-white p-2 text-xs shadow-sm dark:border dark:bg-black"
+						class="group dark:border-surface3 bg-background flex gap-2 rounded-md p-2 text-xs shadow-sm dark:border"
 					>
 						<div class="flex grow flex-col gap-2">
 							<div>

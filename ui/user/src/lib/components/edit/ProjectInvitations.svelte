@@ -103,7 +103,7 @@
 			<div class="dark:bg-gray-980 flex flex-col gap-2 rounded-md bg-gray-50 p-2 shadow-inner">
 				{#each members as member (member.userID)}
 					<div
-						class="group dark:bg-surface1 dark:border-surface3 flex w-full items-center rounded-md bg-white p-2 shadow-sm dark:border"
+						class="group dark:bg-surface1 dark:border-surface3 bg-background flex w-full items-center rounded-md p-2 shadow-sm dark:border"
 					>
 						<div class="flex grow items-center gap-2">
 							<div class="size-10 overflow-hidden rounded-full bg-gray-50 dark:bg-gray-600">
@@ -173,7 +173,7 @@
 				<ul class="flex flex-col gap-4">
 					{#each invitations as invitation (invitation.code)}
 						<li
-							class="dark:bg-surface1 dark:border-surface3 flex items-center justify-between gap-4 rounded-md bg-white p-4 shadow-sm dark:border"
+							class="dark:bg-surface1 dark:border-surface3 bg-background flex items-center justify-between gap-4 rounded-md p-4 shadow-sm dark:border"
 						>
 							<div class="flex grow flex-col gap-2 md:gap-1">
 								<div class="line-clamp-1 overflow-x-auto text-sm font-medium break-all">

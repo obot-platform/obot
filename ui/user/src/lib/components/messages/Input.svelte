@@ -136,7 +136,7 @@
 		class="button-colors text-primary h-fit self-end rounded-full p-2 transition-all duration-100 hover:border-none"
 	>
 		{#if readonly}
-			<div class="m-1.5 h-3 w-3 place-self-center rounded-xs bg-white"></div>
+			<div class="bg-background m-1.5 h-3 w-3 place-self-center rounded-xs"></div>
 		{:else if pending}
 			<LoaderCircle class="animate-spin" />
 		{:else}

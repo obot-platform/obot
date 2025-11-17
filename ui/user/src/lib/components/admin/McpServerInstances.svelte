@@ -185,7 +185,7 @@
 		{#if servers.length > 0}
 			{#if numServerUpdatesNeeded}
 				<button
-					class="group mb-2 w-fit rounded-md bg-white dark:bg-black"
+					class="group bg-background mb-2 w-fit rounded-md"
 					onclick={() => {
 						// TODO: show all servers with upgrade & update all option
 					}}

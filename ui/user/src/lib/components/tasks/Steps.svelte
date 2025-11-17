@@ -251,7 +251,7 @@
 
 <div
 	bind:this={element}
-	class="task-steps dark:bg-surface1 dark:border-surface3 relative rounded-lg bg-white p-5 pb-10 shadow-sm dark:border"
+	class="task-steps dark:bg-surface1 dark:border-surface3 bg-background relative rounded-lg p-5 pb-10 shadow-sm dark:border"
 >
 	<div class="flex w-full items-center justify-between">
 		<h4 class="text-lg font-semibold">Steps</h4>

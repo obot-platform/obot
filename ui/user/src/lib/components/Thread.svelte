@@ -520,7 +520,7 @@
 				{#if showLoadOlderButton}
 					<div class="mb-4 flex justify-center">
 						<button
-							class="border-surface3 hover:bg-surface2 rounded-full border bg-white px-4 py-2 text-sm font-light transition-all duration-300 dark:bg-black"
+							class="border-surface3 hover:bg-surface2 bg-background rounded-full border px-4 py-2 text-sm font-light transition-all duration-300"
 							onclick={loadOlderMessages}
 							disabled={loadingOlderMessages}
 						>
@@ -562,7 +562,7 @@
 
 		<div
 			class={twMerge(
-				'sticky z-30 flex w-full justify-center bg-white pb-2 transition-transform duration-300 dark:bg-black',
+				'bg-background sticky z-30 flex w-full justify-center pb-2 transition-transform duration-300',
 				centerInput ? 'absolute top-1/2 -translate-y-[50%]' : 'bottom-0 -translate-y-[0%]'
 			)}
 		>

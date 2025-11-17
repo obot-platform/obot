@@ -625,6 +625,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	eulaHandler := handlers.NewEulaHandler()
 	mux.HandleFunc("GET /api/eula", eulaHandler.Get)
 	mux.HandleFunc("PUT /api/eula", eulaHandler.Update)
+	
+	// App Preferences
+	appPrefsHandler := handlers.NewAppPreferencesHandler()
+	mux.HandleFunc("GET /api/app-preferences", appPrefsHandler.Get)
+	mux.HandleFunc("PUT /api/app-preferences", appPrefsHandler.Update)
 
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)

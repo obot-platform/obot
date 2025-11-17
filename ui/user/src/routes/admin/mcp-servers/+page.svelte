@@ -271,14 +271,14 @@
 		<div class="bg-surface1 sticky top-16 left-0 z-20 w-full pb-1 dark:bg-black">
 			<div class="mb-2">
 				<Search
-					class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
 					value={query}
 					onChange={updateSearchQuery}
 					placeholder={view !== 'urls' ? 'Search servers...' : 'Search sources...'}
 				/>
 			</div>
 		</div>
-		<div class="dark:bg-surface2 rounded-t-md bg-white shadow-sm">
+		<div class="dark:bg-surface2 bg-background rounded-t-md shadow-sm">
 			<div class="flex">
 				<button
 					class={twMerge('page-tab', view === 'registry' && 'page-tab-active')}

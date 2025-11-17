@@ -366,7 +366,7 @@
 				onclick={() => (showAvailableTools = !showAvailableTools)}
 				class="h-inherit border-surface1 dark:border-surface3 flex min-h-0 w-8 flex-col items-center justify-center gap-2 border-l bg-transparent px-2"
 			>
-				<ChevronsRight class="size-6 text-black dark:text-white" />
+				<ChevronsRight class="text-on-background size-6" />
 			</button>
 		{/if}
 
@@ -400,7 +400,7 @@
 					onclick={() => (showAvailableTools = !showAvailableTools)}
 					class="text:border-black h-inherit dark:border-surface3 border-surface1 flex min-h-0 w-8 flex-col items-center justify-center gap-2 border-l px-2"
 				>
-					<ChevronsLeft class="size-6 text-black dark:text-white" />
+					<ChevronsLeft class="text-on-background size-6" />
 				</button>
 			{/if}
 		{/if}
@@ -450,7 +450,7 @@
 {#snippet toolInfo(tool: ToolReference, headerLabel?: string, headerLabelClass?: string)}
 	{#if tool.metadata?.icon}
 		<img
-			class="size-8 flex-shrink-0 rounded-md bg-white p-1 dark:bg-gray-600"
+			class="bg-background dark:bg- size-8 flex-shrink-0 rounded-md p-1"
 			src={tool.metadata?.icon}
 			alt="message icon"
 		/>
@@ -573,7 +573,7 @@
 		class={twMerge(
 			'group flex grow items-center gap-2 p-2 px-4 transition-opacity duration-200',
 			readOnly && 'cursor-default',
-			!readOnly && 'dark:bg-surface2 hover:bg-surface2 dark:hover:bg-surface3 bg-white'
+			!readOnly && 'dark:bg-surface2 hover:bg-surface2 dark:hover:bg-surface3 bg-background'
 		)}
 	>
 		{#if !isEnabled && !readOnly}

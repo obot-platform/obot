@@ -176,14 +176,14 @@
 	<div class="dark:bg-gray-980 flex w-full items-center bg-gray-50">
 		<div class="mx-auto flex h-full w-full flex-col gap-4 p-4 md:max-w-[1200px]">
 			<div class="flex flex-col gap-2">
-				<div class="flex flex-col gap-4 rounded-xl bg-white p-4 shadow-sm dark:bg-black">
+				<div class="bg-background flex flex-col gap-4 rounded-xl p-4 shadow-sm">
 					<h3 class="text-lg font-semibold">Configure Slack Integration</h3>
 					{@render steps()}
 				</div>
 			</div>
 		</div>
 	</div>
-	<div class="flex w-full items-center bg-white dark:bg-black">
+	<div class="bg-background flex w-full items-center">
 		<div class="mx-auto flex h-full w-full flex-col gap-4 p-4 md:max-w-[1200px]">
 			<div class="flex justify-end gap-3">
 				{#if project.capabilities?.onSlackMessage}

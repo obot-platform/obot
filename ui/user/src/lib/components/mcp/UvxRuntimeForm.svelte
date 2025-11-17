@@ -67,7 +67,7 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<h4 class="text-sm font-semibold">UVX Runtime Configuration</h4>
 	<p class="text-xs text-gray-500 dark:text-gray-400">Only STDIO servers are supported.</p>

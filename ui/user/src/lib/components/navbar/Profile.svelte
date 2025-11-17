@@ -121,7 +121,7 @@
 			<ProfileIcon />
 			{#if showUpgradeAvailable}
 				<CircleFadingArrowUp
-					class="text-primary absolute -right-0.5 -bottom-0.5 z-10 size-3 rounded-full bg-white dark:bg-black"
+					class="text-primary bg-background absolute -right-0.5 -bottom-0.5 z-10 size-3 rounded-full"
 				/>
 			{/if}
 		</div>
@@ -240,7 +240,7 @@
 
 		{#if version.current.obot}
 			{#if showUpgradeAvailable}
-				<div class="flex items-center gap-1 p-1 text-[11px] text-black dark:text-white">
+				<div class="text-on-background flex items-center gap-1 p-1 text-[11px]">
 					<CircleFadingArrowUp class="text-primary size-4 flex-shrink-0" />
 					<p>
 						Upgrade Available. <br /> Check out the

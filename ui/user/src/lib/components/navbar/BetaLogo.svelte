@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { darkMode } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
-	import { LOGO_CONFIG } from '$lib/config/logos';
+	import appPreferences from '$lib/stores/appPreferences.svelte';
 
 	interface Props {
 		chat?: boolean;
@@ -10,14 +10,27 @@
 	}
 	let { chat, enterprise, class: klass }: Props = $props();
 
+	let logos = $derived({
+		dark: {
+			chat: appPreferences.current.logos?.darkLogoChat,
+			enterprise: appPreferences.current.logos?.darkLogoEnterprise,
+			default: appPreferences.current.logos?.darkLogoDefault
+		},
+		light: {
+			chat: appPreferences.current.logos?.logoChat,
+			enterprise: appPreferences.current.logos?.logoEnterprise,
+			default: appPreferences.current.logos?.logoDefault
+		}
+	});
+
 	const logoSrc = $derived.by(() => {
 		const theme = darkMode.isDark ? 'dark' : 'light';
 		if (chat) {
-			return LOGO_CONFIG.beta[theme].chat;
+			return logos[theme].chat;
 		} else if (enterprise) {
-			return LOGO_CONFIG.beta[theme].enterprise;
+			return logos[theme].enterprise;
 		}
-		return LOGO_CONFIG.beta[theme].default;
+		return logos[theme].default;
 	});
 
 	const heightClass = $derived(chat ? 'h-[43px]' : 'h-12');

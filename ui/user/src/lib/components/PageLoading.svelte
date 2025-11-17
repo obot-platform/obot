@@ -85,7 +85,7 @@
 		{#if error}
 			<div
 				class={twMerge(
-					'dark:bg-surface2 dark:border-surface3 relative flex w-full flex-col items-center gap-4 rounded-lg bg-white p-4 dark:border',
+					'dark:bg-surface2 dark:border-surface3 bg-background relative flex w-full flex-col items-center gap-4 rounded-lg p-4 dark:border',
 					errorClasses?.root
 				)}
 				use:clickOutside={() => onClose?.()}
@@ -141,7 +141,7 @@
 			</div>
 		{:else}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 flex flex-col items-center rounded-xl bg-white px-4 py-2 shadow-sm dark:border"
+				class="dark:bg-surface2 dark:border-surface3 bg-background flex flex-col items-center rounded-xl px-4 py-2 shadow-sm dark:border"
 			>
 				<div class="flex items-center gap-2">
 					<LoaderCircle class="size-8 animate-spin " />

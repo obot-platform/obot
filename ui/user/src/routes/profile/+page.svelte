@@ -51,9 +51,7 @@
 	>
 		<div class="mt-8 flex w-full flex-col gap-8">
 			<div class="flex w-full flex-col gap-4">
-				<div
-					class="sticky top-0 z-30 flex items-center gap-4 bg-white px-4 py-4 md:px-12 dark:bg-black"
-				>
+				<div class="bg-background sticky top-0 z-30 flex items-center gap-4 px-4 py-4 md:px-12">
 					<h3 class="flex flex-shrink-0 text-2xl font-semibold">My Account</h3>
 				</div>
 				<div class="bg-surface1 mx-auto w-full max-w-lg rounded-xl p-6 shadow-md">
