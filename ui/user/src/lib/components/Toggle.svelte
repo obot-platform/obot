@@ -100,7 +100,7 @@
 		}
 
 		.slider.checked {
-			background-color: var(--color-blue-500);
+			background-color: var(--color-primary);
 		}
 
 		.slider.checked:before {
@@ -110,7 +110,7 @@
 		}
 
 		input:focus + .slider {
-			box-shadow: 0 0 1px var(--color-blue-500);
+			box-shadow: 0 0 1px var(--color-primary);
 		}
 	}
 </style>

@@ -133,7 +133,7 @@
 	<button
 		type="submit"
 		onclick={() => submit()}
-		class="button-colors text-blue h-fit self-end rounded-full p-2 transition-all duration-100 hover:border-none"
+		class="button-colors text-primary h-fit self-end rounded-full p-2 transition-all duration-100 hover:border-none"
 	>
 		{#if readonly}
 			<div class="m-1.5 h-3 w-3 place-self-center rounded-xs bg-white"></div>
@@ -152,7 +152,7 @@
 	{/if}
 
 	<div
-		class=" focus-within:ring-blue bg-surface1 mt-4 flex h-fit max-h-[80svh] rounded-2xl focus-within:shadow-md focus-within:ring-1"
+		class=" focus-within:ring-primary bg-surface1 mt-4 flex h-fit max-h-[80svh] rounded-2xl focus-within:shadow-md focus-within:ring-1"
 	>
 		<div class="flex min-h-full w-full flex-col" {id}>
 			<label for="chat" class="sr-only">Your messages</label>

@@ -300,7 +300,7 @@
 							{:else if property === 'isDefault'}
 								<div class="flex w-full items-center justify-center gap-2">
 									{#if d.isDefault}
-										<Check class="size-5 text-blue-500" />
+										<Check class="text-primary size-5" />
 									{:else}
 										<div class="size-5"></div>
 									{/if}
@@ -411,7 +411,7 @@
 							>
 								{model.name}
 								{#if addModelsSelected[model.id]}
-									<Check class="size-4 text-blue-500" />
+									<Check class="text-primary size-4" />
 								{/if}
 							</button>
 						{/each}

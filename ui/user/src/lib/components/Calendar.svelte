@@ -198,15 +198,15 @@
 		}
 
 		if (isStartDate(date) || isEndDate(date)) {
-			return twMerge(baseClasses, 'bg-blue-500 text-white font-medium');
+			return twMerge(baseClasses, 'bg-primary text-white font-medium');
 		}
 
 		if (isInRange(date)) {
-			return twMerge(baseClasses, 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300');
+			return twMerge(baseClasses, 'bg-primary/10 text-primary');
 		}
 
 		if (isToday(date)) {
-			return twMerge(baseClasses, 'border border-blue-500 text-blue-600 dark:text-blue-400');
+			return twMerge(baseClasses, 'border border-primary text-primary bg-primary/10');
 		}
 
 		if (!isCurrentMonth(date)) {

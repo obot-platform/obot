@@ -324,7 +324,7 @@
 		{/if}
 		{#if !readOnly && !isTaskFromIntegration(task)}
 			<button
-				class="bg-blue flex items-center justify-center gap-2 rounded-2xl px-12 py-2 text-white transition-all duration-200 hover:bg-blue-400"
+				class="bg-primary hover:bg-primary/50 flex items-center justify-center gap-2 rounded-2xl px-12 py-2 text-white transition-all duration-200"
 				onclick={click}
 				class:grow={responsive.isMobile}
 			>
@@ -350,7 +350,7 @@
 		class:h-16={!isTaskInfoVisible}
 	>
 		<div class="flex h-16 w-full items-center justify-between gap-8 md:max-w-[1200px]">
-			<h4 class="border-blue grow truncate border-l-4 pl-2 text-lg font-semibold md:text-xl">
+			<h4 class="border-primary grow truncate border-l-4 pl-2 text-lg font-semibold md:text-xl">
 				{task.name}
 			</h4>
 			{@render mainActions()}
@@ -371,8 +371,8 @@
 		>
 			<div class="w-full self-center md:max-w-[1200px]">
 				<div class="mt-8 mb-4 flex w-full justify-between gap-8 pb-0">
-					<div class="border-blue flex grow flex-col gap-1 border-l-4 pl-4">
-						<strong class="text-blue text-xs">TASK</strong>
+					<div class="border-primary flex grow flex-col gap-1 border-l-4 pl-4">
+						<strong class="text-primary text-xs">TASK</strong>
 
 						{#if readOnly}
 							<h1 class="my-2 border-b border-transparent text-2xl font-semibold">{task.name}</h1>

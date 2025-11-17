@@ -182,7 +182,7 @@
 		bind:this={containerElement}
 		class={twMerge(
 			'draggable-inner-element relative isolate z-[1] flex justify-start gap-2 rounded-sm border border-transparent transition-colors duration-200',
-			isPointerEntered && 'border-blue bg-blue/5',
+			isPointerEntered && 'border-primary bg-primary/5',
 			!isActive && isDragOver && 'bg-surface2 pointer-events-none',
 			klass
 		)}

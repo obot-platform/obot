@@ -137,7 +137,7 @@
 						<button
 							class={twMerge(
 								'flex w-full items-center gap-2 rounded-md border border-transparent p-2 text-left transition-colors duration-200',
-								selectedRules.includes(rule.id) && 'border-blue-500',
+								selectedRules.includes(rule.id) && 'border-primary',
 								!hasEverything && 'dark:hover:bg-surface1 hover:bg-surface2'
 							)}
 							onclick={() => {
@@ -175,7 +175,7 @@
 												text="This server will be available by default to everyone in this rule."
 											/>
 										{:else if selectedRules.includes(rule.id)}
-											<CircleCheck class="size-4 text-blue-500" />
+											<CircleCheck class="text-primary size-4" />
 										{:else}
 											<Circle class="size-4 text-gray-400 dark:text-gray-600" />
 										{/if}

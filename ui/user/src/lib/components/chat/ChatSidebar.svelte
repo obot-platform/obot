@@ -109,7 +109,7 @@
 							class="absolute top-0 right-0 flex h-4 w-4 animate-[pulse_2s_ease-in-out_5] items-center
                    justify-center rounded-full"
 						>
-							<CircleFadingArrowUp class="size-4 text-blue-500" />
+							<CircleFadingArrowUp class="text-primary size-4" />
 						</span>
 					{/if}
 				</button>

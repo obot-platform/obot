@@ -129,13 +129,13 @@
 					{#if selected === option.key}
 						<div
 							class={twMerge(
-								'absolute right-0 bottom-0 left-0 h-0.5 origin-left bg-blue-500',
+								'bg-primary absolute right-0 bottom-0 left-0 h-0.5 origin-left',
 								isAnimating && selected === option.key ? 'border-slide-in' : ''
 							)}
 						></div>
 					{:else if isAnimating && previousSelected === option.key}
 						<div
-							class="border-slide-out absolute right-0 bottom-0 left-0 h-0.5 origin-left bg-blue-500"
+							class="border-slide-out bg-primary absolute right-0 bottom-0 left-0 h-0.5 origin-left"
 						></div>
 					{/if}
 				</button>

@@ -549,9 +549,9 @@
 		)}
 	>
 		{#if isEnabled}
-			<ChevronsRight class="text-blue/65 animate-bounce-x size-6" />
+			<ChevronsRight class="text-primary/65 animate-bounce-x size-6" />
 		{:else}
-			<ChevronsLeft class="text-blue/65 animate-bounce-x size-6" />
+			<ChevronsLeft class="text-primary/65 animate-bounce-x size-6" />
 		{/if}
 	</span>
 {/snippet}

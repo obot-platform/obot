@@ -179,7 +179,7 @@
 				<li>
 					<button
 						class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
-						class:!border-blue-500={!selectedCategory}
+						class:!border-primary={!selectedCategory}
 						onclick={() => {
 							selectedCategory = '';
 						}}
@@ -191,7 +191,7 @@
 					<li>
 						<button
 							class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
-							class:!border-blue-500={category === selectedCategory}
+							class:!border-primary={category === selectedCategory}
 							onclick={() => {
 								selectedCategory = category;
 								myMcpServers?.reset();
@@ -306,7 +306,7 @@
 						showTextLeft
 						text={url}
 						classes={{
-							button: 'flex-shrink-0 flex items-center gap-1 text-xs font-light hover:text-blue-500'
+							button: 'flex-shrink-0 flex items-center gap-1 text-xs font-light hover:text-primary'
 						}}
 					/>
 				</div>

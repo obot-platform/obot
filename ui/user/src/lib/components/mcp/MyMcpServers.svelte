@@ -798,7 +798,7 @@
 										<div class="flex items-center gap-1">
 											{@render connectedServerCardAction?.(connectedServer)}
 											<DotDotDot
-												class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
+												class="icon-button hover:bg-surface1 dark:hover:bg-surface2 hover:text-primary size-6 min-h-auto min-w-auto flex-shrink-0 p-1"
 												{disablePortal}
 												el={container}
 											>

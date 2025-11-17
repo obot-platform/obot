@@ -181,7 +181,7 @@
 								<li>
 									<button
 										class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
-										class:!border-blue-500={!selectedCategory}
+										class:!border-primary={!selectedCategory}
 										onclick={() => {
 											myMcpServers?.reset();
 											selectedCategory = undefined;
@@ -194,7 +194,7 @@
 									<li>
 										<button
 											class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
-											class:!border-blue-500={category === selectedCategory}
+											class:!border-primary={category === selectedCategory}
 											onclick={() => {
 												myMcpServers?.reset();
 												selectedCategory = category;
@@ -244,7 +244,7 @@
 							{@const requiresUpdate = requiresUserUpdate(d)}
 							{#if !requiresUpdate}
 								<button
-									class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
+									class="icon-button hover:bg-surface1 dark:hover:bg-surface2 hover:text-primary size-6 min-h-auto min-w-auto flex-shrink-0 p-1"
 									onclick={() => {
 										setupProjectMcp(d);
 									}}

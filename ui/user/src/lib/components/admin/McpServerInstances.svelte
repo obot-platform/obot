@@ -191,10 +191,10 @@
 					}}
 				>
 					<div
-						class="flex items-center gap-1 rounded-md border border-blue-500 bg-blue-500/10 px-4 py-2 transition-colors duration-300 group-hover:bg-blue-500/20 dark:bg-blue-500/30 dark:group-hover:bg-blue-500/40"
+						class="border-primary bg-primary/10 group-hover:bg-primary/20 dark:bg-primary/30 dark:group-hover:bg-primary/40 flex items-center gap-1 rounded-md border px-4 py-2 transition-colors duration-300"
 					>
-						<CircleFadingArrowUp class="size-4 text-blue-500" />
-						<p class="text-sm font-light text-blue-500">
+						<CircleFadingArrowUp class="text-primary size-4" />
+						<p class="text-primary text-sm font-light">
 							{#if numServerUpdatesNeeded === 1}
 								1 instance has an update available.
 							{:else}
@@ -238,7 +238,7 @@
 										classes: ['break-words', 'w-58']
 									}}
 								>
-									<CircleFadingArrowUp class="size-4 text-blue-500" />
+									<CircleFadingArrowUp class="text-primary size-4" />
 								</div>
 							{/if}
 						</span>
@@ -259,7 +259,7 @@
 											classes: ['break-words', 'w-58']
 										}}
 									>
-										<CircleFadingArrowUp class="size-4 text-blue-500" />
+										<CircleFadingArrowUp class="text-primary size-4" />
 									</div>
 								{/if}
 							{/if}
@@ -296,7 +296,7 @@
 										<GitCompare class="size-4" /> View Diff
 									</button>
 									<button
-										class="menu-button bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
+										class="menu-button bg-primary/10 text-primary hover:bg-primary/20"
 										disabled={updating[d.id]?.inProgress || !!d.compositeName}
 										onclick={async (e) => {
 											e.stopPropagation();
@@ -419,7 +419,7 @@
 	}}
 	oncancel={() => (showConfirm = undefined)}
 	classes={{
-		confirm: 'bg-blue-500 hover:bg-blue-400 transition-colors duration-200'
+		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
 	}}
 >
 	{#snippet title()}

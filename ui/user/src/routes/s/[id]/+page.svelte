@@ -126,7 +126,7 @@
 	{:else}
 		<div class="flex grow items-center justify-center">
 			<div class="size-6">
-				<LoaderCircle class="text-blue size-6 animate-spin" />
+				<LoaderCircle class="text-primary size-6 animate-spin" />
 			</div>
 		</div>
 	{/if}

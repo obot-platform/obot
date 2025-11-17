@@ -160,7 +160,7 @@
 						<li
 							class={twMerge(
 								'border-l-4 border-transparent',
-								selected === header.id && 'border-blue-500'
+								selected === header.id && 'border-primary'
 							)}
 						>
 							<button

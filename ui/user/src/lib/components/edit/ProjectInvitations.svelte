@@ -164,7 +164,7 @@
 			{:else if isLoading}
 				<div class="flex grow items-center justify-center">
 					<div
-						class="size-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"
+						class="border-t-primary size-6 animate-spin rounded-full border-2 border-gray-300"
 					></div>
 				</div>
 			{:else if invitations.length === 0}

@@ -36,7 +36,7 @@
 	<div class="flex min-h-9 w-full items-center justify-between">
 		<div>
 			{#if recommended}
-				<span class="rounded-md bg-blue-500 px-2 py-1 text-[11px] font-semibold text-white"
+				<span class="bg-primary rounded-md px-2 py-1 text-[11px] font-semibold text-white"
 					>Recommended</span
 				>
 			{/if}

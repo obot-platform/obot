@@ -212,7 +212,7 @@
 		{#if loading}
 			<div in:fade class="flex justify-center py-10">
 				<div
-					class="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"
+					class="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent"
 				></div>
 			</div>
 		{:else if memories.length === 0 && !preview}
@@ -391,7 +391,7 @@
 
 <style lang="postcss">
 	.memory {
-		border-left: 5px solid var(--color-blue);
+		border-left: 5px solid var(--color-primary);
 		background-color: var(--color-white);
 		color: black;
 		font-size: 0.8em;

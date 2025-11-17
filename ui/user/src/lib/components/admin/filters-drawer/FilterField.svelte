@@ -57,7 +57,7 @@
 						id: 'reset',
 						label: 'Reset',
 						onclick: () => onReset?.(),
-						class: 'text-blue-500 opacity-80 hover:opacity-90 active:opacity-100'
+						class: 'text-primary opacity-80 hover:opacity-90 active:opacity-100'
 					}
 				: undefined,
 			shouldShowClearButton

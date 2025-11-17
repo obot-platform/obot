@@ -4,22 +4,16 @@ export function formatJsonWithHighlighting(json: unknown): string {
 		const formatted = JSON.stringify(json, null, 2);
 
 		// Replace decimal numbers
-		let highlighted = formatted.replace(
-			/: (\d+\.\d+)/g,
-			': <span class="text-blue-600 dark:text-blue-400">$1</span>'
-		);
+		let highlighted = formatted.replace(/: (\d+\.\d+)/g, ': <span class="text-primary">$1</span>');
 
 		// Replace integer numbers
 		highlighted = highlighted.replace(
 			/: (\d+)(?!\d*\.)/g,
-			': <span class="text-blue-600 dark:text-blue-400">$1</span>'
+			': <span class="text-primary">$1</span>'
 		);
 
 		// Replace keys
-		highlighted = highlighted.replace(
-			/"([^"]+)":/g,
-			'<span class="text-blue-600 dark:text-blue-400">"$1"</span>:'
-		);
+		highlighted = highlighted.replace(/"([^"]+)":/g, '<span class="text-primary">"$1"</span>:');
 
 		// Replace string values
 		highlighted = highlighted.replace(
@@ -274,19 +268,19 @@ export function formatJsonWithDiffHighlighting(
 			// Replace decimal numbers
 			highlightedLine = highlightedLine.replace(
 				/: (\d+\.\d+)/g,
-				': <span class="text-blue-600 dark:text-blue-400">$1</span>'
+				': <span class="text-primary">$1</span>'
 			);
 
 			// Replace integer numbers
 			highlightedLine = highlightedLine.replace(
 				/: (\d+)(?!\d*\.)/g,
-				': <span class="text-blue-600 dark:text-blue-400">$1</span>'
+				': <span class="text-primary">$1</span>'
 			);
 
 			// Replace keys
 			highlightedLine = highlightedLine.replace(
 				/"([^"]+)":/g,
-				'<span class="text-blue-600 dark:text-blue-400">"$1"</span>:'
+				'<span class="text-primary">"$1"</span>:'
 			);
 
 			// Replace string values

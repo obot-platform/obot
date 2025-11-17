@@ -73,7 +73,7 @@
 
 <div class="relative" bind:this={dropdown} use:clickOutside={handleClickOutside}>
 	<div
-		class="flex min-h-[38px] w-full flex-wrap items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+		class="focus-within:border-primary focus-within:ring-primary flex min-h-[38px] w-full flex-wrap items-center gap-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm focus-within:ring-1 dark:border-gray-600 dark:bg-gray-700"
 		onclick={focusInput}
 		onkeydown={(e) => e.key === 'Enter' && focusInput()}
 		role="button"

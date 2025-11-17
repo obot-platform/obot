@@ -595,7 +595,7 @@
 		out:fade|global={{ duration: 300, delay: 500 }}
 	>
 		<div
-			class="bg-surface3/50 border-surface3 flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 text-blue-500 shadow-md backdrop-blur-[1px] dark:text-blue-500"
+			class="bg-surface3/50 border-surface3 text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 		>
 			<Loading class="size-32 stroke-1" />
 			<div class="text-2xl font-semibold">Loading stats...</div>
@@ -753,7 +753,7 @@
 				{@const isClearable = Object.keys(propsFilters).every((d) => d !== filterKey)}
 
 				<div
-					class="flex items-center gap-1 rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-blue-600 dark:text-blue-300"
+					class="border-primary/50 bg-primary/10 text-primary flex items-center gap-1 rounded-lg border px-4 py-2"
 					animate:flip={{ duration: 100 }}
 				>
 					<div class="text-xs font-semibold">
@@ -776,7 +776,7 @@
 
 					{#if isClearable}
 						<button
-							class="rounded-full p-1 transition-colors duration-200 hover:bg-blue-500/25"
+							class="hover:bg-primary/25 rounded-full p-1 transition-colors duration-200"
 							onclick={() => {
 								const url = page.url;
 								url.searchParams.set(filterKey, '');

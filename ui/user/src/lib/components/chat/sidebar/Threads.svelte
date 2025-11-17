@@ -372,7 +372,7 @@
 						<span class="truncate">{thread.name || 'New Chat'}</span>
 						{#if isThreadPinned(thread.id)}
 							<span transition:fade={{ duration: 100 }}>
-								<Pin class="h-3 w-3 shrink-0 text-blue-500" />
+								<Pin class="text-primary h-3 w-3 shrink-0" />
 							</span>
 						{/if}
 					</button>

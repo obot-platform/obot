@@ -13,7 +13,7 @@
 			layout.projectEditorOpen = false;
 		}}
 		use:tooltip={'Close Advanced Editor'}
-		class="border-blue bg-blue relative flex items-center rounded-full border p-2 text-xs text-white transition-[background-color] duration-200"
+		class="border-primary bg-primary relative flex items-center rounded-full border p-2 text-xs text-white transition-[background-color] duration-200"
 	>
 		<X class="size-5" />
 	</button>

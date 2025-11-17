@@ -357,7 +357,7 @@
 							<div class="flex flex-col gap-2">
 								{#each template.projectSnapshot.starterMessages as message (message)}
 									<div
-										class="w-fit max-w-[90%] rounded-lg rounded-tl-none bg-blue-50 p-2 text-xs whitespace-pre-wrap text-gray-700 dark:bg-gray-700 dark:text-gray-300"
+										class="bg-primary/10 w-fit max-w-[90%] rounded-lg rounded-tl-none p-2 text-xs whitespace-pre-wrap text-gray-700 dark:bg-gray-700 dark:text-gray-300"
 									>
 										{message}
 									</div>

@@ -394,7 +394,7 @@
 			</div>
 
 			{#if provider.configured}
-				<CheckCircleIcon class="text-blue ml-auto aspect-square h-5" />
+				<CheckCircleIcon class="text-primary ml-auto aspect-square h-5" />
 			{/if}
 		</div>
 	</div>
@@ -599,7 +599,7 @@
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 0 }}
 						type="button"
-						class="button bg-blue/10 text-blue hover:bg-blue/15 active:bg-blue/20 rounded-full border-none px-4 py-2 text-sm transition-colors duration-100"
+						class="button bg-primary/10 text-primary hover:bg-primary/15 active:bg-primary/20 rounded-full border-none px-4 py-2 text-sm transition-colors duration-100"
 						disabled={!isDirty}
 						onclick={(ev) => saveHandler(ev)}
 					>

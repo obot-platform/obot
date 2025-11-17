@@ -156,7 +156,7 @@
 
 				{#if loading}
 					<div class="flex w-full justify-center py-12">
-						<LoaderCircle class="size-8 animate-spin text-blue-600" />
+						<LoaderCircle class="text-primary size-8 animate-spin" />
 					</div>
 				{:else if tasks.length === 0}
 					<div class="flex w-full flex-col items-center justify-center py-12 text-center">
@@ -203,7 +203,7 @@
 					>
 						{#snippet actions()}
 							<button
-								class={twMerge('icon-button hover:text-blue-500')}
+								class={twMerge('icon-button hover:text-primary')}
 								title="View Task"
 								use:tooltip={{
 									text: 'View Task'
@@ -223,7 +223,7 @@
 								<a
 									onclick={(e) => e.stopPropagation()}
 									href={`/admin/task-runs?task=${task.id}`}
-									class="text-sm font-semibold text-blue-500 hover:underline"
+									class="text-primary text-sm font-semibold hover:underline"
 								>
 									{taskRunsCount[task.id] || 0}
 									{taskRunsCount[task.id] === 1 ? 'Run' : 'Runs'}

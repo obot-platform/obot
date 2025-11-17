@@ -41,7 +41,7 @@
 	<div class="flex min-h-full flex-col gap-8 pt-4" in:fade>
 		{#if loading}
 			<div class="flex items-center justify-center py-8">
-				<LoaderCircle class="size-8 animate-spin text-blue-500" />
+				<LoaderCircle class="text-primary size-8 animate-spin" />
 				<span class="ml-2 text-lg">Loading scheduled export details...</span>
 			</div>
 		{:else if error}

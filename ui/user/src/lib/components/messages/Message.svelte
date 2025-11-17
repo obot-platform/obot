@@ -241,19 +241,13 @@
 			let formatted = JSON.stringify(parsed, null, 2).trim();
 
 			// Replace decimal numbers (must come before integer replacement)
-			formatted = formatted.replace(
-				/: (\d+\.\d+)/g,
-				': <span class="text-blue-600 dark:text-blue-400">$1</span>'
-			);
+			formatted = formatted.replace(/: (\d+\.\d+)/g, ': <span class="text-primary">$1</span>');
 
 			// Replace integer numbers
-			formatted = formatted.replace(
-				/: (\d+)(?!\d*\.)/g,
-				': <span class="text-blue-600 dark:text-blue-400">$1</span>'
-			);
+			formatted = formatted.replace(/: (\d+)(?!\d*\.)/g, ': <span class="text-primary">$1</span>');
 
 			// Replace keys
-			formatted = formatted.replace(/"([^"]+)":/g, '<span class="text-blue">"$1"</span>:');
+			formatted = formatted.replace(/"([^"]+)":/g, '<span class="text-primary">"$1"</span>:');
 
 			// Replace string values (must come after keys)
 			formatted = formatted.replace(/: "([^"]+)"/g, ': <span class="text-gray-500">"$1"</span>');
@@ -671,7 +665,7 @@
 	<a
 		href={msg.oauthURL}
 		class={twMerge(
-			'bg-blue rounded-xl p-4 text-center text-white transition-colors duration-300 hover:bg-blue-400 hover:text-white',
+			'bg-primary hover:bg-primary/50 rounded-xl p-4 text-center text-white transition-colors duration-300 hover:text-white',
 			classes?.oauth
 		)}
 		target="_blank"

@@ -227,7 +227,7 @@
 							</div>
 							<div class="flex size-6 items-center justify-center">
 								{#if selectedMap.has(item.id)}
-									<Check class="size-6 text-blue-500" />
+									<Check class="text-primary size-6" />
 								{/if}
 							</div>
 						</button>

@@ -348,7 +348,7 @@
 													<div
 														class={twMerge(
 															'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
-															item.href === pathname && 'bg-blue-500'
+															item.href === pathname && 'bg-primary'
 														)}
 													></div>
 													{#if item.disabled}

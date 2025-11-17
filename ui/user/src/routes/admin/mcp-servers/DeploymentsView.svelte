@@ -386,7 +386,7 @@
 						{d.deploymentStatus || '--'}
 						{#if d.needsUpdate && !d.compositeName}
 							<div use:tooltip={'Upgrade available'}>
-								<CircleFadingArrowUp class="size-4 text-blue-500" />
+								<CircleFadingArrowUp class="text-primary size-4" />
 							</div>
 						{/if}
 					</div>
@@ -608,7 +608,7 @@
 	}}
 	oncancel={() => (showUpgradeConfirm = undefined)}
 	classes={{
-		confirm: 'bg-blue-500 hover:bg-blue-400 transition-colors duration-200'
+		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
 	}}
 	loading={Object.values(updating).some((u) => u.inProgress)}
 >

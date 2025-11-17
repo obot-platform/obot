@@ -124,7 +124,7 @@
 
 				<div class="h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
 					<div
-						class={twMerge('h-full rounded-full bg-blue-500 transition-all duration-500 ease-out')}
+						class={twMerge('bg-primary h-full rounded-full transition-all duration-500 ease-out')}
 						style="width: {progress ?? 0}%"
 					></div>
 				</div>

@@ -273,7 +273,7 @@
 		class={twMerge(
 			'hover:bg-surface2/50 active:bg-surface2/80 flex h-10 items-center gap-3 rounded-full px-2  py-1 text-xs text-gray-600 md:px-4 lg:px-6',
 			(isDefaultModelSelected || (!threadModel && defaultModel)) &&
-				'text-blue hover:bg-blue/10 active:bg-blue/15 bg-transparent'
+				'text-primary hover:bg-primary/10 active:bg-primary/15 bg-transparent'
 		)}
 		onclick={(e) => {
 			e.stopPropagation();
@@ -372,7 +372,7 @@
 												class={twMerge(
 													'hover:bg-surface1/70 active:bg-surface1/80 focus:bg-surface1/70 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors duration-200 focus:outline-none',
 													isModelSelected &&
-														'text-blue bg-blue/10 hover:bg-blue/15 active:bg-blue/20'
+														'text-primary bg-primary/10 hover:bg-primary/15 active:bg-primary/20'
 												)}
 												onclick={() => {
 													setThreadModel(model.id, '');
@@ -390,7 +390,7 @@
 												{/if}
 
 												{#if threadModelProvider === providerId && threadModel === modelId}
-													<div class="ml-auto text-xs text-blue-500">✓</div>
+													<div class="text-primary ml-auto text-xs">✓</div>
 												{/if}
 											</button>
 										{/if}

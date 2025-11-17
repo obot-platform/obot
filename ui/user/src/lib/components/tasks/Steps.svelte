@@ -341,7 +341,7 @@
 				class={twMerge(
 					'bg-surface2 pointer-events-auto sticky right-0 bottom-4 box-border flex aspect-square h-8 items-center justify-center rounded-lg transition-colors duration-200',
 					isFollowModeActive &&
-						'bg-blue/0 text-blue/70 hover:bg-blue/10 active:bg-blue/20 border border-current'
+						'bg-primary/0 text-primary/70 hover:bg-primary/10 active:bg-primary/20 border border-current'
 				)}
 				onclick={onNavigationClick}
 				in:fade={{ duration: 100, delay: 0, easing: linear }}

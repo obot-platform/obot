@@ -169,7 +169,7 @@
 
 				{#if loading}
 					<div class="flex w-full justify-center py-12">
-						<LoaderCircle class="size-8 animate-spin text-blue-600" />
+						<LoaderCircle class="text-primary size-8 animate-spin" />
 					</div>
 				{:else if filteredThreads.length === 0}
 					<div class="flex w-full flex-col items-center justify-center py-12 text-center">
@@ -218,7 +218,7 @@
 							<button
 								class={twMerge(
 									'icon-button',
-									isAuditor && 'hover:text-blue-500',
+									isAuditor && 'hover:text-primary',
 									!isAuditor && 'opacity-50 hover:bg-transparent dark:hover:bg-transparent'
 								)}
 								title="View Thread"

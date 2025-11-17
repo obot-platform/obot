@@ -36,7 +36,7 @@
 		<div
 			class={twMerge(
 				'absolute top-0 left-0 h-full w-1',
-				auditLog.responseStatus >= 400 ? 'bg-red-500' : 'bg-blue-500'
+				auditLog.responseStatus >= 400 ? 'bg-red-500' : 'bg-primary'
 			)}
 		></div>
 		<h3 class="text-lg font-semibold">
@@ -117,7 +117,7 @@
 					<div
 						class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
 					>
-						<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
+						<div class="bg-primary/50 absolute top-0 left-0 h-full w-1"></div>
 						<div class="flex flex-col gap-1">
 							{#each Object.entries(auditLog.requestHeaders ?? {}) as [key, value] (key)}
 								<p>
@@ -159,7 +159,7 @@
 					<p
 						class={twMerge(
 							'w-fit rounded-full px-3 py-1 text-xs font-semibold text-white',
-							auditLog.responseStatus >= 400 ? 'bg-red-500' : 'bg-blue-500'
+							auditLog.responseStatus >= 400 ? 'bg-red-500' : 'bg-primary'
 						)}
 					>
 						{auditLog.responseStatus}
@@ -173,7 +173,7 @@
 					<div
 						class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
 					>
-						<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
+						<div class="bg-primary/50 absolute top-0 left-0 h-full w-1"></div>
 						<div class="flex flex-col gap-1">
 							{#each Object.entries(auditLog.responseHeaders ?? {}) as [key, value] (key)}
 								<p>

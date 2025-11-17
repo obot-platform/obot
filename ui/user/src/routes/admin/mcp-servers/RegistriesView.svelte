@@ -169,7 +169,7 @@
 			}}
 			validateSelect={(d) => d.editable}
 			disabledSelectMessage="This entry is managed by Git; changes cannot be made."
-			setRowClasses={(d) => ('needsUpdate' in d && d.needsUpdate ? 'bg-blue-500/10' : '')}
+			setRowClasses={(d) => ('needsUpdate' in d && d.needsUpdate ? 'bg-primary/10' : '')}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'name'}
@@ -186,11 +186,11 @@
 							{#if 'needsUpdate' in d && d.needsUpdate}
 								<span
 									use:tooltip={{
-										classes: ['border-blue-500', 'bg-blue-100', 'dark:bg-blue-500/50'],
+										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
 										text: 'An update requires your attention'
 									}}
 								>
-									<CircleFadingArrowUp class="size-4 text-blue-500" />
+									<CircleFadingArrowUp class="text-primary size-4" />
 								</span>
 							{/if}
 						</p>

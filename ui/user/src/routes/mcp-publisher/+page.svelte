@@ -210,7 +210,7 @@
 								<Trash2 class="size-4" />
 							</button>
 						{/if}
-						<button class="icon-button hover:text-blue-500" use:tooltip={'View Entry'}>
+						<button class="icon-button hover:text-primary" use:tooltip={'View Entry'}>
 							<Eye class="size-4" />
 						</button>
 					{/snippet}

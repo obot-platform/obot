@@ -149,7 +149,7 @@
 						</div>
 						<div class="flex items-center justify-center">
 							{#if selectedUsersMap.has(item.id)}
-								<Check class="size-6 text-blue-500" />
+								<Check class="text-primary size-6" />
 							{/if}
 						</div>
 					</button>

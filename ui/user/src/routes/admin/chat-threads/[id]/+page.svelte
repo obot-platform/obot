@@ -257,13 +257,13 @@
 								{:else}
 									<div
 										class="flex gap-3 rounded-lg p-4 {msg.sent
-											? 'bg-blue-50 dark:bg-blue-900/20'
+											? 'bg-primary/10'
 											: 'bg-gray-50 dark:bg-gray-900/20'}"
 									>
 										<div class="flex-shrink-0">
 											{#if msg.sent}
 												<div
-													class="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-sm font-medium text-white"
+													class="bg-primary flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium text-white"
 												>
 													U
 												</div>
@@ -312,7 +312,7 @@
 					{:else if loadingMessages}
 						<div class="flex items-center justify-center py-12 text-center">
 							<div class="text-gray-500">
-								<LoaderCircle class="mx-auto mb-4 size-8 animate-spin text-blue-600" />
+								<LoaderCircle class="text-primary mx-auto mb-4 size-8 animate-spin" />
 								<h3 class="mb-2 text-lg font-medium">Loading Messages...</h3>
 								<p class="text-sm">Please wait while we load the thread messages.</p>
 							</div>

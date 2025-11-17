@@ -62,7 +62,7 @@
 					type="text"
 					bind:value={username2}
 					oninput={(e) => (username2 = (e.target as HTMLInputElement).value)}
-					class="mt-1 block w-full rounded-3xl border border-gray-300 px-4 py-2 transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+					class="focus:border-primary focus:ring-primary mt-1 block w-full rounded-3xl border border-gray-300 px-4 py-2 transition focus:ring-2 focus:outline-none"
 				/>
 			</div>
 			<button

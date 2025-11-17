@@ -319,7 +319,7 @@
 					bind:value={searchQuery}
 					type="text"
 					placeholder="Search by connector or resource name..."
-					class="w-full rounded-lg border border-gray-300 bg-white py-2 pr-4 pl-10 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-blue-400"
+					class="focus:border-primary focus:ring-primary dark:focus:border-primary/50 w-full rounded-lg border border-gray-300 bg-white py-2 pr-4 pl-10 text-sm focus:ring-1 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
 				/>
 			</div>
 		</div>

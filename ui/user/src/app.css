@@ -92,11 +92,8 @@
 	--color-yellow-500: oklch(79.5% 0.184 86.047);
 	--color-green-500: oklch(72.3% 0.219 149.579);
 
-	--color-primary: var(--color-blue-500);
-	--color-surface-100: var(--color-surface1);
-	--color-surface-200: var(--color-surface2);
-	--color-surface-300: var(--color-surface3);
-	--color-surface-content: var(--color-on-surface1);
+	--color-primary: var(--primary);
+	--color-primary-focus: var(--primary-focus);
 }
 
 /*
@@ -148,6 +145,7 @@
 
 	textarea,
 	input {
+		accent-color: var(--color-primary);
 		background-color: var(--background);
 		color: var(--on-background);
 
@@ -410,23 +408,25 @@
 		border-radius: 1.5rem; /* rounded-3xl */
 		border-width: 2px; /* border-2 */
 		padding: 0.5rem 1.25rem; /* px-5 py-2 */
-		border-color: var(--color-blue);
-		background-color: var(--color-blue);
+		border-color: var(--color-primary);
+		background-color: var(--color-primary);
 		color: white;
 		transition-property: all;
 		transition-duration: 300ms;
 		&:hover {
-			border-color: var(--color-blue-400);
-			background-color: var(--color-blue-400);
+			border-color: var(--color-primary-focus);
+			background-color: var(--color-primary-focus);
 		}
 		.dark & {
 			color: var(--color-gray-50);
 		}
 		&:disabled {
-			background-color: rgba(79, 126, 243, 0.5); /* bg-blue-500/50 */
-			border-color: transparent; /* border-blue-50/50 */
 			cursor: default;
 			opacity: 0.5;
+		}
+		&:disabled:hover {
+			border-color: var(--color-primary);
+			background-color: var(--color-primary);
 		}
 	}
 
@@ -438,14 +438,18 @@
 		padding: 0.5rem; /* p-2 */
 		color: var(--color-gray);
 		&:hover {
-			color: var(--color-blue);
+			color: var(--color-primary);
 			background-color: var(--color-gray-100);
 		}
 		&:focus {
 			outline: none;
 		}
 		.dark &:hover {
-			background-color: rgb(55 65 81 / 0.3); /* bg-gray-700/30 */
+			background-color:var(--color-gray-950);
+		}
+		&:disabled:hover {
+			color: var(--color-gray);
+			background-color: transparent;
 		}
 	}
 
@@ -533,7 +537,7 @@
 			background-color: rgb(55 65 81 / 0.3); /* bg-gray-700/30 */
 		}
 		&:hover {
-			color: var(--color-blue);
+			color: var(--color-primary);
 			background-color: transparent;
 		}
 	}
@@ -571,7 +575,7 @@
 	}
 
 	.page-tab-active {
-		border-color: var(--color-blue-500);
+		border-color: var(--color-primary);
 	}
 
 	label.error {
@@ -593,7 +597,7 @@
 		&:focus {
 			--tw-ring-shadow: var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width))
 				var(--tw-ring-color, currentColor);
-			--tw-ring-color: var(--color-blue);
+			--tw-ring-color: var(--color-primary);
 		}
 		.dark & {
 			background-color: var(--surface1);
@@ -631,7 +635,7 @@
 		transition-duration: 300ms;
 		&:focus,
 		&:active {
-			border-color: var(--color-blue);
+			border-color: var(--color-primary);
 		}
 	}
 
@@ -866,11 +870,11 @@
 		font-size: 0.875rem;
 		transition-property: all;
 		transition-duration: 200ms;
-		background-color: color-mix(in oklab, var(--color-blue-500) /* #4f7ef3 */ 10%, transparent);
-		color: var(--color-blue-500);
+		background-color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 10%, transparent);
+		color: var(--color-primary);
 
 		&:hover {
-			background-color: color-mix(in oklab, var(--color-blue-500) /* #4f7ef3 */ 20%, transparent);
+			background-color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 20%, transparent);
 		}
 
 		&:disabled {
@@ -878,7 +882,7 @@
 			cursor: default;
 		}
 		&:disabled:hover {
-			background-color: color-mix(in oklab, var(--color-blue-500) /* #4f7ef3 */ 10%, transparent);
+			background-color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 10%, transparent);
 		}
 
 		@media (min-width: 768px) {
@@ -927,7 +931,7 @@
 			left: 0;
 			width: 100%;
 			height: 4px;
-			background-color: var(--color-blue);
+			background-color: var(--color-primary);
 			opacity: 0;
 			transition: opacity 0.3s ease;
 		}
@@ -957,24 +961,18 @@
 
 	.notification-info {
 		border-radius: 0.5rem;
-		border: 1px solid var(--color-blue-500);
-		background-color: rgb(59 130 246 / 0.15);
+		border: 1px solid var(--color-primary);
+		background-color:  color-mix(in oklab, var(--color-primary) 10%, transparent);
 		padding: 0.5rem 1rem;
 
 		svg {
-			color: var(--color-blue-600);
+			color: var(--color-primary);
 			flex-shrink: 0;
-		}
-
-		.dark & {
-			svg {
-				color: var(--color-blue-400);
-			}
 		}
 	}
 
 	.text-link {
-		color: var(--color-blue);
+		color: var(--color-blue-500);
 		text-decoration: underline;
 		font-weight: 500;
 		transition-property: all;
@@ -1002,7 +1000,7 @@
 
 	.pill-primary {
 		border-radius: var(--radius-sm);
-		background-color: color-mix(in oklab, var(--color-blue-500) /* #4f7ef3 */ 50%, transparent);
+		background-color: color-mix(in oklab, var(--color-primary) /* #4f7ef3 */ 50%, transparent);
 		color: var(--color-white);
 		padding: 0.125rem 0.25rem;
 		font-size: 11px;
@@ -1166,6 +1164,8 @@
 	--on-surface2: var(--color-gray-50);
 	--surface3: var(--color-gray-800);
 	--on-surface3: var(--color-gray-50);
+	--primary: var(--color-blue-500);
+	--primary-focus: var(--color-blue-400);
 }
 
 html {
@@ -1177,6 +1177,8 @@ html {
 	--on-surface2: var(--color-black);
 	--surface3: var(--color-gray-200);
 	--on-surface3: var(--color-black);
+	--primary: var(--color-blue-500);
+	--primary-focus: var(--color-blue-400);
 }
 
 .scrollable {

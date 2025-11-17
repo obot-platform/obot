@@ -57,7 +57,7 @@
 <div class="flex" bind:this={container} use:ref>
 	<button
 		class={twMerge(
-			'hover:bg-surface3 relative  z-10 flex min-h-10 grow items-center justify-between gap-2 truncate bg-blue-500/10 py-2 pr-6 pl-2 transition-colors duration-200',
+			'hover:bg-surface3 bg-primary/10  relative z-10 flex min-h-10 grow items-center justify-between gap-2 truncate py-2 pr-6 pl-2 transition-colors duration-200',
 			classes?.button
 		)}
 		class:hover:bg-surface2={!disabled}
@@ -75,7 +75,7 @@
 			class="text-on-background text-md flex w-full max-w-[100%-24px] flex-col truncate text-left"
 		>
 			<span class="text-[11px] font-normal">Project</span>
-			<p class="text-base font-semibold text-blue-500">{project.name || DEFAULT_PROJECT_NAME}</p>
+			<p class="text-primary text-base font-semibold">{project.name || DEFAULT_PROJECT_NAME}</p>
 		</div>
 		{#if !disabled}
 			<div
@@ -107,7 +107,7 @@
 		{@render LoadMoreButton(projects.length, limit)}
 
 		<button
-			class="flex h-14 w-full items-center justify-center gap-1 py-2 text-sm font-medium text-blue-500 hover:bg-blue-500/10"
+			class="text-primary hover:bg-primary/10 flex h-14 w-full items-center justify-center gap-1 py-2 text-sm font-medium"
 			onclick={() => {
 				closeAll(layout);
 				onCreateProject?.();
@@ -142,7 +142,7 @@
 			</div>
 		</a>
 		<button
-			class="icon-button flex-shrink-0 opacity-0 group-hover:opacity-100 hover:text-blue-500"
+			class="icon-button hover:text-primary flex-shrink-0 opacity-0 group-hover:opacity-100"
 			onclick={() => {
 				goto(`/o/${p.id}?edit=true`);
 			}}
@@ -156,7 +156,7 @@
 {#snippet LoadMoreButton(totalLength: number, limit: number)}
 	{#if totalLength > limit}
 		<button
-			class="hover:bg-surface2 mt-1 w-full rounded-sm py-1 text-sm text-blue-500"
+			class="hover:bg-surface2 text-primary mt-1 w-full rounded-sm py-1 text-sm"
 			onclick={(e) => {
 				e.stopPropagation();
 				loadMore();

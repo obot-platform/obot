@@ -9,4 +9,4 @@
 	let { class: klass = '' }: Props = $props();
 </script>
 
-<LoaderCircle class={twMerge('text-blue h-5 w-5 animate-spin', klass)} />
+<LoaderCircle class={twMerge('text-primary h-5 w-5 animate-spin', klass)} />

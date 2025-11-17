@@ -301,7 +301,7 @@
 					<div class="flex items-start">
 						<button
 							class="icon-button"
-							class:text-blue={isLoopStep}
+							class:text-primary={isLoopStep}
 							data-testid="step-loop-btn"
 							onclick={toggleLoop}
 							use:tooltip={isLoopStep
@@ -431,7 +431,7 @@
 				<div
 					class="transition-height relative my-3 -ml-4 box-content flex min-h-6 flex-col gap-4 overflow-hidden rounded-lg bg-white p-5 dark:bg-black"
 					class:outline-2={shouldShowOutline}
-					class:outline-blue={shouldShowOutline}
+					class:outline-primary={shouldShowOutline}
 					transition:slide={{
 						duration: 200,
 						easing: linear
