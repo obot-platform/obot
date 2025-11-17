@@ -204,7 +204,9 @@
 			{/if}
 
 			{#if multiple}
-				{@render searchInput()}
+				{#if !readonly}
+					{@render searchInput()}
+				{/if}
 			{:else}
 				{#if buttonStartContent}
 					{@render buttonStartContent()}
@@ -213,7 +215,7 @@
 					<div class="w-full items-center gap-2 truncate">
 						{selectedOptions[0]?.label ?? ''}
 					</div>
-				{:else}
+				{:else if !readonly}
 					{@render searchInput()}
 				{/if}
 			{/if}
