@@ -65,7 +65,16 @@ export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 	return await resp.json();
 }
 
-export async function doDelete(path: string, opts?: { signal?: AbortSignal }): Promise<unknown> {
+type ResponseHandler = (
+	resp: Response,
+	path: string,
+	opts?: { dontLogErrors?: boolean }
+) => Promise<unknown>;
+
+export async function doDelete(
+	path: string,
+	opts?: { signal?: AbortSignal; dontLogErrors?: boolean; responseHandler?: ResponseHandler }
+): Promise<unknown> {
 	const resp = await fetch(baseURL + path, {
 		method: 'DELETE',
 		signal: opts?.signal
@@ -74,7 +83,7 @@ export async function doDelete(path: string, opts?: { signal?: AbortSignal }): P
 	if (!resp.ok && resp.status === 401) {
 		handle401Redirect();
 	}
-	return handleResponse(resp, path);
+	return opts?.responseHandler?.(resp, path, opts) ?? handleResponse(resp, path, opts);
 }
 
 export async function doPut(
@@ -89,7 +98,7 @@ export async function doPut(
 	return await doWithBody('PUT', path, input, opts);
 }
 
-async function handleResponse(
+export async function handleResponse(
 	resp: Response,
 	path: string,
 	opts?: {

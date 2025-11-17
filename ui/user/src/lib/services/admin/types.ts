@@ -85,6 +85,15 @@ export interface MCPCatalogEntry {
 	needsUpdate?: boolean;
 }
 
+// Matches the backend compositeDeletionDependency struct used when preventing
+// deletion of multi-user MCP servers that are still referenced by composites.
+export interface MCPCompositeDeletionDependency {
+	name: string;
+	icon: string;
+	mcpServerID?: string;
+	catalogEntryID: string;
+}
+
 export interface MCPCatalogEntryFieldManifest {
 	key: string;
 	description: string;
@@ -658,3 +667,14 @@ export type CompositeServerToolRow = {
 	overrideDescription?: string;
 	enabled: boolean;
 };
+
+export class MCPCompositeDeletionDependencyError extends Error {
+	constructor(
+		message: string,
+		public dependencies: MCPCompositeDeletionDependency[]
+	) {
+		super(message);
+		this.name = 'MCPDeleteConflictError';
+		this.dependencies = dependencies;
+	}
+}

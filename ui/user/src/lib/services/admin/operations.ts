@@ -6,7 +6,7 @@ import type {
 	MCPServerInstance,
 	Model
 } from '../chat/types';
-import { doDelete, doGet, doPatch, doPost, doPut, type Fetcher } from '../http';
+import { doDelete, doGet, doPatch, doPost, doPut, handleResponse, type Fetcher } from '../http';
 import type {
 	FileScannerConfig,
 	FileScannerProvider,
@@ -39,8 +39,10 @@ import type {
 	AuditLogExportInput,
 	ScheduledAuditLogExportInput,
 	K8sSettings,
-	ServerK8sSettings
+	ServerK8sSettings,
+	MCPCompositeDeletionDependency
 } from './types';
+import { MCPCompositeDeletionDependencyError } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
 export type PaginatedResponse<T> = {
@@ -224,7 +226,26 @@ export async function updateMCPCatalogServer(
 }
 
 export async function deleteMCPCatalogServer(catalogID: string, serverID: string): Promise<void> {
-	await doDelete(`/mcp-catalogs/${catalogID}/servers/${serverID}`);
+	await doDelete(`/mcp-catalogs/${catalogID}/servers/${serverID}`, {
+		responseHandler: async (resp, path, opts) => {
+			if (resp.status === 409 && resp.headers.get('Content-Type')?.includes('application/json')) {
+				const body = (await resp.json()) as {
+					message?: string;
+					dependencies: MCPCompositeDeletionDependency[];
+				};
+
+				if (body.dependencies && body.dependencies.length > 0) {
+					throw new MCPCompositeDeletionDependencyError(
+						body.message ??
+							'All dependencies on this MCP server must be removed before it can be deleted',
+						body.dependencies
+					);
+				}
+			}
+
+			return handleResponse(resp, path, opts);
+		}
+	});
 }
 
 export async function listMCPCatalogServers(

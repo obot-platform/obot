@@ -5,6 +5,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
@@ -13,7 +14,8 @@
 		ChatService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
-		type OrgUser
+		type OrgUser,
+		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
 	import { getServerTypeLabel } from '$lib/services/chat/mcp';
 	import { formatTimeAgo } from '$lib/time';
@@ -72,6 +74,8 @@
 	let updating = $state<Record<string, { inProgress: boolean; error: string }>>({});
 	let deleting = $state(false);
 	let restarting = $state(false);
+
+	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
 
 	let mcpServerAndEntries = getAdminMcpServerAndEntries();
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
@@ -240,13 +244,22 @@
 			if (entry?.userCount) entry.userCount--;
 		} else {
 			// multi-user
-			if (server.powerUserWorkspaceID) {
-				await ChatService.deleteWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
-			} else {
-				await AdminService.deleteMCPCatalogServer(catalogId, server.id);
+			try {
+				if (server.powerUserWorkspaceID) {
+					await ChatService.deleteWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
+				} else {
+					await AdminService.deleteMCPCatalogServer(catalogId, server.id);
+				}
+				// Remove server from list
+				mcpServerAndEntries.servers = mcpServerAndEntries.servers.filter((s) => s.id !== server.id);
+			} catch (error) {
+				if (error instanceof MCPCompositeDeletionDependencyError) {
+					deleteConflictError = error;
+					return;
+				}
+
+				throw error;
 			}
-			// Remove server from list
-			mcpServerAndEntries.servers = mcpServerAndEntries.servers.filter((s) => s.id !== server.id);
 		}
 	}
 
@@ -639,4 +652,12 @@
 		: Object.values(selected)
 				.filter((s) => !s.compositeName)
 				.map((s) => s.manifest.name ?? '')}
+/>
+
+<McpMultiDeleteBlockedDialog
+	show={!!deleteConflictError}
+	error={deleteConflictError}
+	onClose={() => {
+		deleteConflictError = undefined;
+	}}
 />

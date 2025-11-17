@@ -3,6 +3,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import {
 		fetchMcpServerAndEntries,
@@ -14,7 +15,8 @@
 		type MCPCatalog,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
-		type OrgUser
+		type OrgUser,
+		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
 	import {
 		convertEntriesAndServersToTableData,
@@ -68,6 +70,7 @@
 	let selected = $state<Record<string, Item>>({});
 	let confirmBulkDelete = $state(false);
 	let loadingBulkDelete = $state(false);
+	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
 
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
 	let tableData = $derived(
@@ -287,16 +290,25 @@
 			return;
 		}
 
-		if (deletingServer.powerUserWorkspaceID) {
-			await ChatService.deleteWorkspaceMCPCatalogServer(
-				deletingServer.powerUserWorkspaceID,
-				deletingServer.id
-			);
-		} else {
-			await AdminService.deleteMCPCatalogServer(catalog.id, deletingServer.id);
+		try {
+			if (deletingServer.powerUserWorkspaceID) {
+				await ChatService.deleteWorkspaceMCPCatalogServer(
+					deletingServer.powerUserWorkspaceID,
+					deletingServer.id
+				);
+			} else {
+				await AdminService.deleteMCPCatalogServer(catalog.id, deletingServer.id);
+			}
+			await fetchMcpServerAndEntries(catalog.id, mcpServerAndEntries);
+			deletingServer = undefined;
+		} catch (error) {
+			if (error instanceof MCPCompositeDeletionDependencyError) {
+				deleteConflictError = error;
+				return;
+			}
+
+			throw error;
 		}
-		await fetchMcpServerAndEntries(catalog.id, mcpServerAndEntries);
-		deletingServer = undefined;
 	}}
 	oncancel={() => (deletingServer = undefined)}
 	entity="entry"
@@ -309,33 +321,54 @@
 	onsuccess={async () => {
 		if (!catalog) return;
 		loadingBulkDelete = true;
-		for (const item of Object.values(selected)) {
-			if (item.type === 'multi') {
-				if (item.data.powerUserWorkspaceID) {
-					await ChatService.deleteWorkspaceMCPCatalogServer(
-						item.data.powerUserWorkspaceID,
-						item.data.id
-					);
+		try {
+			for (const item of Object.values(selected)) {
+				if (item.type === 'multi') {
+					try {
+						if (item.data.powerUserWorkspaceID) {
+							await ChatService.deleteWorkspaceMCPCatalogServer(
+								item.data.powerUserWorkspaceID,
+								item.data.id
+							);
+						} else {
+							await AdminService.deleteMCPCatalogServer(catalog.id, item.data.id);
+						}
+					} catch (error) {
+						if (error instanceof MCPCompositeDeletionDependencyError) {
+							deleteConflictError = error;
+							// Stop processing further deletes; user must resolve dependencies first.
+							break;
+						}
+
+						throw error;
+					}
 				} else {
-					await AdminService.deleteMCPCatalogServer(catalog.id, item.data.id);
-				}
-			} else {
-				if (item.data.powerUserWorkspaceID) {
-					await ChatService.deleteWorkspaceMCPCatalogEntry(
-						item.data.powerUserWorkspaceID,
-						item.data.id
-					);
-				} else {
-					await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
+					if (item.data.powerUserWorkspaceID) {
+						await ChatService.deleteWorkspaceMCPCatalogEntry(
+							item.data.powerUserWorkspaceID,
+							item.data.id
+						);
+					} else {
+						await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
+					}
 				}
 			}
+			await fetchMcpServerAndEntries(catalog.id, mcpServerAndEntries);
+		} finally {
+			confirmBulkDelete = false;
+			loadingBulkDelete = false;
 		}
-		await fetchMcpServerAndEntries(catalog.id, mcpServerAndEntries);
-		confirmBulkDelete = false;
-		loadingBulkDelete = false;
 	}}
 	oncancel={() => (confirmBulkDelete = false)}
 	loading={loadingBulkDelete}
 	entity="entry"
 	entityPlural="entries"
+/>
+
+<McpMultiDeleteBlockedDialog
+	show={!!deleteConflictError}
+	error={deleteConflictError}
+	onClose={() => {
+		deleteConflictError = undefined;
+	}}
 />
