@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AdminService, type AuditLogURLFilters } from '$lib/services';
+	import { AdminService, Group, type AuditLogURLFilters } from '$lib/services';
 	import { slide } from 'svelte/transition';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import { AlertTriangle, LoaderCircle, GlobeIcon, ChevronDown, ChevronUp } from 'lucide-svelte';
@@ -53,7 +53,7 @@
 	let creating = $state(false);
 	let error = $state('');
 
-	const hasAuditorPermissions = $derived(profile.current.groups.includes('auditor'));
+	const hasAuditorPermissions = $derived(profile.current.groups.includes(Group.AUDITOR));
 
 	// Populate form from URL parameters (from audit logs page) or initialData
 	onMount(async () => {

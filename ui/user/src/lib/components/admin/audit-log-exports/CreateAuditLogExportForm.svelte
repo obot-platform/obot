@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { AdminService, type AuditLogURLFilters } from '$lib/services';
+	import { AdminService, Group, type AuditLogURLFilters } from '$lib/services';
 	import { subDays, set } from 'date-fns';
 	import { slide } from 'svelte/transition';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
@@ -22,7 +22,7 @@
 	let showAdvancedOptions = $state(false);
 	let isViewMode = $derived(mode === 'view');
 
-	const hasAuditorPermissions = $derived(profile.current.groups.includes('auditor'));
+	const hasAuditorPermissions = $derived(profile.current.groups.includes(Group.AUDITOR));
 
 	// Form state
 	let form = $state({
