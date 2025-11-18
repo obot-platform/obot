@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { AdminService, type AuditLogURLFilters } from '$lib/services';
+	import { AdminService, Group, type AuditLogURLFilters } from '$lib/services';
 	import { slide } from 'svelte/transition';
 	import Dropdown from '$lib/components/tasks/Dropdown.svelte';
 	import { AlertTriangle, LoaderCircle, GlobeIcon, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import type { ScheduledAuditLogExport } from '$lib/services/admin/types';
+	import { profile } from '$lib/stores';
 
 	interface Props {
 		onCancel: () => void;
@@ -51,6 +52,8 @@
 
 	let creating = $state(false);
 	let error = $state('');
+
+	const hasAuditorPermissions = $derived(profile.current.groups.includes(Group.AUDITOR));
 
 	// Populate form from URL parameters (from audit logs page) or initialData
 	onMount(async () => {
@@ -226,6 +229,18 @@
 			handleSubmit();
 		}}
 	>
+		{#if !hasAuditorPermissions}
+			<div
+				class="flex items-start gap-3 rounded-md border border-yellow-500 bg-yellow-500/10 p-4 dark:bg-yellow-500/10"
+			>
+				<AlertTriangle class="size-5 text-yellow-500 dark:text-yellow-500" />
+				<div class="text-sm">
+					Exported logs will not include request/response headers and body information. Auditor role
+					is required to access this data.
+				</div>
+			</div>
+		{/if}
+
 		<!-- Basic Information -->
 		<div class="space-y-4">
 			<h3 class="text-lg font-semibold">
