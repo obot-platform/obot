@@ -1,5 +1,5 @@
 import { AdminService, ChatService, getProfile, type AuthProvider } from '$lib/services';
-import { Group, type BootstrapStatus } from '$lib/services/admin/types';
+import { type BootstrapStatus } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -18,7 +18,6 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	}
 
 	const loggedIn = profile?.loaded ?? false;
-	const isAdmin = profile?.groups.includes(Group.ADMIN);
 
 	if (loggedIn) {
 		const redirectRoute = url.searchParams.get('rd');
@@ -27,7 +26,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 		}
 
 		// Redirect to appropriate dashboard
-		throw redirect(302, isAdmin ? '/admin' : '/mcp-registry');
+		throw redirect(302, '/mcp-registry');
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {

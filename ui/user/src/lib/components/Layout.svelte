@@ -103,49 +103,20 @@
 			...(workspace.rules.length > 0 || hasAdminAccess
 				? [
 						{
-							id: 'mcp-registries',
-							icon: SquareLibrary,
-							label: 'MCP Registries',
+							id: 'mcp-registry',
+							href: '/mcp-registry',
+							icon: Server,
+							label: 'MCP Registry',
 							disabled: isBootStrapUser,
-							collapsible: hasAdminAccess,
-							items: [
-								...(hasAdminAccess
-									? [
-											{
-												id: 'mcp-registry-global',
-												href: '/admin/mcp-servers',
-												icon: TowerControl,
-												label: 'Global',
-												disabled: isBootStrapUser,
-												collapsible: false
-											},
-											{
-												id: 'mcp-registry-users',
-												href: '/admin/access-control',
-												icon: Blocks,
-												label: 'User Registries',
-												disabled: isBootStrapUser,
-												collapsible: false
-											}
-										]
-									: []),
-								{
-									id: 'mcp-registry',
-									href: '/mcp-registry',
-									icon: Server,
-									label: 'Shared with Me',
-									disabled: isBootStrapUser,
-									collapsible: false
-								},
-								{
-									id: 'mcp-registry-created',
-									href: '/mcp-registry/created',
-									icon: BookText,
-									label: 'Created by Me',
-									disabled: isBootStrapUser,
-									collapsible: false
-								}
-							]
+							collapsible: false
+						},
+						{
+							id: 'mcp-registry-management',
+							icon: SquareLibrary,
+							label: 'MCP Registry Management',
+							disabled: isBootStrapUser,
+							collapsible: false,
+							href: hasAdminAccess ? '/admin/access-control' : '/mcp-registry/created'
 						}
 					]
 				: [
@@ -160,24 +131,34 @@
 					]),
 			{
 				id: 'mcp-hosting',
-				href: '/mcp-hosting',
 				icon: RadioTower,
 				label: 'MCP Hosting',
 				disabled: isBootStrapUser,
-				collapsible: false,
-				items:
-					hasAdminAccess && version.current.engine === 'kubernetes'
-						? [
-								{
-									id: 'server-scheduling',
-									href: '/admin/server-scheduling',
-									icon: AlarmClock,
-									label: 'Server Scheduling',
-									collapsible: false,
-									disabled: isBootStrapUser
-								}
-							]
-						: []
+				collapsible: hasAdminAccess,
+				items: hasAdminAccess
+					? [
+							{
+								id: 'servers',
+								icon: Blocks,
+								href: '/mcp-hosting',
+								label: 'Servers',
+								collapsible: false,
+								disabled: isBootStrapUser
+							},
+							...(version.current.engine === 'kubernetes'
+								? [
+										{
+											id: 'server-scheduling',
+											href: '/admin/server-scheduling',
+											icon: AlarmClock,
+											label: 'Server Scheduling',
+											collapsible: false,
+											disabled: isBootStrapUser
+										}
+									]
+								: [])
+						]
+					: []
 			},
 			{
 				id: 'mcp-gateway',
@@ -229,14 +210,6 @@
 								collapsible: false
 							}
 						]
-			},
-			{
-				id: 'obot-chat',
-				href: '/chat',
-				icon: MessageCircle,
-				label: 'Obot Chat',
-				disabled: false,
-				collapsible: false
 			},
 			...(profile.current.hasAdminAccess?.()
 				? [
@@ -371,7 +344,7 @@
 	<div class="relative flex w-full grow">
 		{#if layout.sidebarOpen && !hideSidebar}
 			<div
-				class="dark:bg-gray-990 flex max-h-dvh w-dvh min-w-dvw flex-shrink-0 flex-col bg-white md:w-1/6 md:max-w-xl md:min-w-[300px]"
+				class="dark:bg-gray-990 flex max-h-dvh w-dvh min-w-dvw flex-shrink-0 flex-col bg-white md:w-1/6 md:max-w-xl md:min-w-[320px]"
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>

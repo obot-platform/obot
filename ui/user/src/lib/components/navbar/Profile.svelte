@@ -12,16 +12,21 @@
 		Sun,
 		BadgeInfo,
 		X,
+		MessageCircle,
 		CircleFadingArrowUp
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { AdminService } from '$lib/services';
+	import { AdminService, ChatService, EditorService } from '$lib/services';
 	import { afterNavigate, goto } from '$app/navigation';
+	import PageLoading from '../PageLoading.svelte';
 
 	let versionDialog = $state<HTMLDialogElement>();
+	let showChatLink = $state(false);
+	let showAppLink = $state(false);
 	let inAdminRoute = $state(false);
+	let loadingChat = $state(false);
 
 	let showUpgradeAvailable = $derived(
 		version.current.authEnabled
@@ -64,8 +69,33 @@
 	}
 
 	afterNavigate(() => {
+		const routesToShowChatLink = [
+			'/mcp-servers',
+			'/profile',
+			'/mcp-hosting',
+			'/mcp-gateway',
+			'/mcp-registry'
+		];
 		inAdminRoute = window.location.pathname.includes('/admin');
+		showChatLink = routesToShowChatLink.includes(window.location.pathname) || inAdminRoute;
+		showAppLink = window.location.pathname.startsWith('/o');
 	});
+
+	function navigateTo(path: string, asNewTab?: boolean) {
+		if (asNewTab) {
+			// Create a temporary link element and click it; avoids Safari's popup blocker
+			const link = document.createElement('a');
+			link.href = path;
+			link.target = '_blank';
+			link.rel = 'noopener noreferrer';
+			link.style.display = 'none';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		} else {
+			goto(path);
+		}
+	}
 </script>
 
 <Menu
@@ -119,13 +149,49 @@
 		</div>
 	{/snippet}
 	{#snippet body()}
-		{@const canAccessAdmin = profile.current.hasAdminAccess?.()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
-			{#if canAccessAdmin && !inAdminRoute}
-				<a href="/admin" rel="external" target="_blank" class="link">
+			{#if showAppLink}
+				<button
+					onclick={(event) => {
+						const asNewTab = event?.ctrlKey || event?.metaKey;
+						navigateTo('/', asNewTab);
+					}}
+					class="link"
+					role="menuitem"
+				>
 					<LayoutDashboard class="size-4" />
-					Admin Dashboard
-				</a>
+					My Dashboard
+				</button>
+			{/if}
+			{#if showChatLink}
+				<button
+					class="link"
+					onclick={async (event) => {
+						const asNewTab = event?.ctrlKey || event?.metaKey;
+						loadingChat = true;
+						try {
+							const projects = (await ChatService.listProjects()).items.sort(
+								(a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
+							);
+							const lastProject = projects[0];
+							let url: string;
+
+							if (lastProject) {
+								url = `/o/${lastProject.id}`;
+							} else {
+								const newProject = await EditorService.createObot();
+								url = `/o/${newProject.id}`;
+							}
+
+							navigateTo(url, asNewTab);
+						} finally {
+							loadingChat = false;
+						}
+					}}
+				>
+					<MessageCircle class="size-4" />
+					Chat
+				</button>
 			{/if}
 			{#if responsive.isMobile}
 				<a href="https://docs.obot.ai" rel="external" target="_blank" class="link"
@@ -212,6 +278,8 @@
 		{/each}
 	</div>
 </dialog>
+
+<PageLoading show={loadingChat} text="Loading chat..." />
 
 <style lang="postcss">
 	.link {

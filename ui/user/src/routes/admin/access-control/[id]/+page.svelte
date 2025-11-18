@@ -34,9 +34,10 @@
 	onMount(async () => {
 		fetchMcpServerAndEntries(defaultCatalogId);
 	});
+	const title = $derived(accessControlRule?.displayName ?? 'Access Control Rule');
 </script>
 
-<Layout>
+<Layout showBackButton {title}>
 	<div class="my-4 h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
 		<AccessControlRuleForm
 			{accessControlRule}
@@ -45,17 +46,10 @@
 			}}
 			mcpEntriesContextFn={getAdminMcpServerAndEntries}
 			readonly={profile.current.isAdminReadonly?.()}
-		>
-			{#snippet topContent()}
-				<BackLink
-					currentLabel={accessControlRule?.displayName ?? 'Access Control Rule'}
-					{fromURL}
-				/>
-			{/snippet}
-		</AccessControlRuleForm>
+		/>
 	</div>
 </Layout>
 
 <svelte:head>
-	<title>Obot | {accessControlRule?.displayName ?? 'Access Control Rule'}</title>
+	<title>Obot | {title}</title>
 </svelte:head>

@@ -64,7 +64,7 @@
 		}
 	});
 
-	let title = $derived(showCreateRule ? 'Create New Registry' : 'Created by Me');
+	let title = $derived(showCreateRule ? 'Create New Registry' : 'MCP Registry Management');
 </script>
 
 <Layout {title} showBackButton={showCreateRule}>
@@ -189,5 +189,5 @@
 />
 
 <svelte:head>
-	<title>Obot | Created by Me</title>
+	<title>Obot | MCP Registry Management</title>
 </svelte:head>

@@ -113,7 +113,13 @@
 	}
 </script>
 
-<Layout title="Access Control">
+<Layout
+	title="MCP Registry Management"
+	showBackButton={showCreateRule}
+	onBackButtonClick={() => {
+		showCreateRule = false;
+	}}
+>
 	<div
 		class="my-4 h-full w-full"
 		in:fly={{ x: 100, duration, delay: duration }}
@@ -143,22 +149,14 @@
 						{@render addRuleButton()}
 					</div>
 				{:else}
-					<div class="flex flex-col gap-2">
-						<h2 class="text-xl font-semibold">Global Access Control Rules</h2>
-						{@render accessControlRuleTable('global')}
-					</div>
-
-					<div class="flex flex-col gap-2">
-						<h2 class="text-xl font-semibold">User Created Access Control Rules</h2>
-						{@render accessControlRuleTable('user')}
-					</div>
+					{@render accessControlRuleTable('user')}
 				{/if}
 			</div>
 		{/if}
 	</div>
 
 	{#snippet rightNavActions()}
-		{#if accessControlRules.length > 0}
+		{#if accessControlRules.length > 0 && !showCreateRule}
 			<div class="relative flex items-center gap-4">
 				{@render addRuleButton()}
 			</div>
@@ -167,12 +165,10 @@
 </Layout>
 
 {#snippet accessControlRuleTable(type: 'global' | 'user')}
-	{@const data = type === 'user' ? userAccessControlRules : globalAccessControlRules}
+	{@const data = [...userAccessControlRules, ...globalAccessControlRules]}
 	<Table
 		{data}
-		fields={type === 'user'
-			? ['displayName', 'serversCount', 'owner']
-			: ['displayName', 'serversCount']}
+		fields={['displayName', 'serversCount', 'owner']}
 		onClickRow={(d, isCtrlClick) => {
 			const url = d.powerUserWorkspaceID
 				? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
@@ -222,7 +218,7 @@
 			class="button-primary flex items-center gap-1 text-sm"
 			onclick={() => (showCreateRule = true)}
 		>
-			<Plus class="size-4" /> Add New Rule
+			<Plus class="size-4" /> New Registry
 		</button>
 	{/if}
 {/snippet}
@@ -236,22 +232,12 @@
 		<AccessControlRuleForm
 			onCreate={navigateToCreated}
 			mcpEntriesContextFn={getAdminMcpServerAndEntries}
-		>
-			{#snippet topContent()}
-				<button
-					onclick={() => (showCreateRule = false)}
-					class="button-text flex -translate-x-1 items-center gap-2 p-0 text-lg font-light"
-				>
-					<ChevronLeft class="size-6" />
-					Access Control
-				</button>
-			{/snippet}
-		</AccessControlRuleForm>
+		/>
 	</div>
 {/snippet}
 
 <Confirm
-	msg="Are you sure you want to delete this rule?"
+	msg="Are you sure you want to delete this registry?"
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
 		if (!ruleToDelete) return;
@@ -271,5 +257,5 @@
 />
 
 <svelte:head>
-	<title>Obot | Access Control</title>
+	<title>Obot | MCP Registry Management</title>
 </svelte:head>

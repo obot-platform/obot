@@ -209,10 +209,6 @@
 			return selectedItemTitle;
 		}
 
-		if (showCreateRegistry) {
-			return 'Create New Registry';
-		}
-
 		return workspace.rules.length > 0 ? 'Shared with Me' : 'MCP Registry';
 	}
 
@@ -295,18 +291,6 @@
 			</div>
 		{/if}
 	</div>
-
-	{#snippet rightNavActions()}
-		{#if hasAccessToCreateRegistry && !selectedItemTitle && !showCreateRegistry}
-			<button
-				class="button-primary flex h-fit items-center gap-2 text-sm"
-				onclick={handleSelectCreateRegistry}
-			>
-				<Plus class="size-4" />
-				New Registry
-			</button>
-		{/if}
-	{/snippet}
 </Layout>
 
 {#snippet createRegistryScreen()}
