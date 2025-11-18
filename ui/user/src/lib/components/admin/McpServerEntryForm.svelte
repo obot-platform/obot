@@ -4,7 +4,8 @@
 		type MCPFilter,
 		type MCPCatalogServer,
 		ChatService,
-		Group
+		Group,
+		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { twMerge } from 'tailwind-merge';
@@ -39,6 +40,7 @@
 		type CompositeLaunchFormData,
 		type ComponentLaunchFormData
 	} from '../mcp/CatalogConfigureForm.svelte';
+	import McpMultiDeleteBlockedDialog from '../mcp/McpMultiDeleteBlockedDialog.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import { profile } from '$lib/stores';
@@ -101,6 +103,7 @@
 	});
 
 	let deleteServer = $state(false);
+	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
 	let deleteResourceFromRule = $state<{
 		rule: AccessControlRule;
 		resourceId: string;
@@ -820,17 +823,33 @@
 				entity === 'workspace'
 					? ChatService.deleteWorkspaceMCPCatalogServer
 					: AdminService.deleteMCPCatalogServer;
-			await deleteServerFn(id, entry.id);
+			try {
+				await deleteServerFn(id, entry.id);
+			} catch (error) {
+				if (error instanceof MCPCompositeDeletionDependencyError) {
+					deleteConflictError = error;
+					return;
+				}
+				throw error;
+			}
 		} else {
 			const deleteCatalogEntryFn =
 				entity === 'workspace'
 					? ChatService.deleteWorkspaceMCPCatalogEntry
 					: AdminService.deleteMCPCatalogEntry;
 			await deleteCatalogEntryFn(id, entry.id);
+			goto(entity === 'workspace' ? '/mcp-publisher/mcp-servers' : '/admin/mcp-servers');
 		}
-		goto(entity === 'workspace' ? '/mcp-publisher/mcp-servers' : '/admin/mcp-servers');
 	}}
 	oncancel={() => (deleteServer = false)}
+/>
+
+<McpMultiDeleteBlockedDialog
+	show={!!deleteConflictError}
+	error={deleteConflictError}
+	onClose={() => {
+		deleteConflictError = undefined;
+	}}
 />
 
 <Confirm
