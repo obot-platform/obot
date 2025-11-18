@@ -81,7 +81,7 @@ const config: Config = {
           to: "https://discord.gg/9sSf4UyAMC",
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Acorn Labs, Inc`,
+      copyright: `Copyright © ${new Date().getFullYear()} Obot AI, Inc`,
     },
     prism: {
       theme: prismThemes.github,
