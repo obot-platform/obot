@@ -371,7 +371,7 @@
 				{:else if property === 'deploymentStatus'}
 					<div class="flex items-center gap-2">
 						{d.deploymentStatus || '--'}
-						{#if d.needsUpdate}
+						{#if d.needsUpdate && !d.compositeName}
 							<div use:tooltip={'Upgrade available'}>
 								<CircleFadingArrowUp class="size-4 text-blue-500" />
 							</div>
@@ -396,7 +396,7 @@
 								{#if !readonly}
 									<button
 										class="menu-button-primary"
-										disabled={updating[d.id]?.inProgress || readonly}
+										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
 										onclick={(e) => {
 											e.stopPropagation();
 											if (!d) return;
