@@ -44,10 +44,13 @@ func newDockerBackend(ctx context.Context, baseImage string) (backend, error) {
 	containerEnv := os.Getenv("OBOT_CONTAINER_ENV") == "true"
 	network := "bridge"
 	if containerEnv {
-		network, err = detectCurrentNetwork(ctx, cli)
-		if err != nil {
-			return nil, fmt.Errorf("failed to detect current network: %w", err)
+		detectedNetwork, detectErr := detectCurrentNetwork(ctx, cli)
+		if detectErr != nil {
+			// Log warning but continue with detected network (may be "bridge" fallback)
+			log.Warnf("Network detection warning: %v", detectErr)
 		}
+		network = detectedNetwork
+		log.Infof("Detected Docker network: %s (containerEnv=%v)", network, containerEnv)
 	}
 
 	return &dockerBackend{
@@ -81,24 +84,73 @@ func cleanupContainersWithOldID(ctx context.Context, client *client.Client) erro
 }
 
 // detectCurrentNetwork detects the Docker network of the current container if running inside one.
-// Returns empty string if not running in a container or if detection fails.
+// Returns the network name or "bridge" as fallback if detection fails.
 func detectCurrentNetwork(ctx context.Context, cli *client.Client) (string, error) {
-	// Read container ID from cgroup file
-	hostname, err := os.Hostname()
-	if err != nil {
-		return "", fmt.Errorf("failed to get hostname: %w", err)
+	// Try multiple methods to get the container ID
+	var containerID string
+	
+	// Method 1: Try reading from /proc/self/cgroup (most reliable)
+	if cgroupData, err := os.ReadFile("/proc/self/cgroup"); err == nil {
+		// Parse cgroup to extract container ID
+		// Format: .../docker/<container-id> or .../<container-id>
+		lines := strings.Split(string(cgroupData), "\n")
+		for _, line := range lines {
+			if strings.Contains(line, "docker") {
+				parts := strings.Split(line, "/")
+				for i, part := range parts {
+					if part == "docker" && i+1 < len(parts) {
+						containerID = parts[i+1]
+						// Container ID is typically 64 chars, but we can use shorter prefix
+						if len(containerID) > 12 {
+							containerID = containerID[:12]
+						}
+						break
+					}
+				}
+				if containerID != "" {
+					break
+				}
+			}
+		}
+	}
+	
+	// Method 2: Fall back to hostname (works in Docker Compose where hostname = container name)
+	if containerID == "" {
+		hostname, err := os.Hostname()
+		if err == nil {
+			containerID = hostname
+		}
+	}
+	
+	if containerID == "" {
+		return "bridge", fmt.Errorf("could not determine container ID, falling back to bridge network")
 	}
 
-	// Try to inspect container using hostname as container ID
-	inspect, err := cli.ContainerInspect(ctx, hostname)
+	// Try to inspect container using container ID or name
+	inspect, err := cli.ContainerInspect(ctx, containerID)
 	if err != nil {
-		// Not running in a container or can't access Docker socket
-		return "", fmt.Errorf("failed to inspect container: %w", err)
+		// If inspection fails, try using hostname as container name
+		if hostname, hostErr := os.Hostname(); hostErr == nil && hostname != containerID {
+			inspect, err = cli.ContainerInspect(ctx, hostname)
+		}
+		if err != nil {
+			// Not running in a container or can't access Docker socket
+			return "bridge", fmt.Errorf("failed to inspect container %s: %w (falling back to bridge network)", containerID, err)
+		}
 	}
 
 	// Get the first network (most containers are on a single network)
+	// Prefer non-bridge networks if available
+	var detectedNetwork string
 	for networkName := range inspect.NetworkSettings.Networks {
-		return networkName, nil
+		if networkName != "bridge" {
+			return networkName, nil
+		}
+		detectedNetwork = networkName
+	}
+
+	if detectedNetwork != "" {
+		return detectedNetwork, nil
 	}
 
 	return "bridge", nil
@@ -733,9 +785,17 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 		AutoRemove: true,
 	}
 
+	// Configure network (same as main containers)
+	initNetworkingConfig := &network.NetworkingConfig{}
+	if d.network != "" {
+		initNetworkingConfig.EndpointsConfig = map[string]*network.EndpointSettings{
+			d.network: {},
+		}
+	}
+
 	var initContainerID string
 	initContainerName := fmt.Sprintf("%s-init", containerName)
-	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, &network.NetworkingConfig{}, nil, initContainerName)
+	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, initNetworkingConfig, nil, initContainerName)
 	if cerrdefs.IsConflict(err) || cerrdefs.IsAlreadyExists(err) {
 		// Init container already exists, get its containerID
 		resp, err := d.client.ContainerList(ctx, container.ListOptions{
