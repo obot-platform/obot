@@ -7,6 +7,7 @@
 	import { fade, fly, slide } from 'svelte/transition';
 	import {
 		AlarmClock,
+		Blocks,
 		BookText,
 		Boxes,
 		Captions,
@@ -30,6 +31,7 @@
 		SidebarClose,
 		SidebarOpen,
 		SquareLibrary,
+		TowerControl,
 		UserCog,
 		Users
 	} from 'lucide-svelte';
@@ -95,23 +97,44 @@
 
 	let workspace = $derived($workspaceStore);
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
+	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 	let navLinks = $derived<NavLink[]>(
 		overrideNavLinks ?? [
-			...(workspace.rules.length > 0
+			...(workspace.rules.length > 0 || hasAdminAccess
 				? [
 						{
 							id: 'mcp-registries',
 							icon: SquareLibrary,
 							label: 'MCP Registries',
-							disabled: false,
-							collapsible: false,
+							disabled: isBootStrapUser,
+							collapsible: hasAdminAccess,
 							items: [
+								...(hasAdminAccess
+									? [
+											{
+												id: 'mcp-registry-global',
+												href: '/admin/mcp-servers',
+												icon: TowerControl,
+												label: 'Global',
+												disabled: isBootStrapUser,
+												collapsible: false
+											},
+											{
+												id: 'mcp-registry-users',
+												href: '/admin/access-control',
+												icon: Blocks,
+												label: 'User Registries',
+												disabled: isBootStrapUser,
+												collapsible: false
+											}
+										]
+									: []),
 								{
 									id: 'mcp-registry',
 									href: '/mcp-registry',
 									icon: Server,
 									label: 'Shared with Me',
-									disabled: false,
+									disabled: isBootStrapUser,
 									collapsible: false
 								},
 								{
@@ -119,7 +142,7 @@
 									href: '/mcp-registry/created',
 									icon: BookText,
 									label: 'Created by Me',
-									disabled: false,
+									disabled: isBootStrapUser,
 									collapsible: false
 								}
 							]
@@ -131,7 +154,7 @@
 							href: '/mcp-registry',
 							icon: Server,
 							label: 'MCP Registry',
-							disabled: false,
+							disabled: isBootStrapUser,
 							collapsible: false
 						}
 					]),
@@ -140,33 +163,72 @@
 				href: '/mcp-hosting',
 				icon: RadioTower,
 				label: 'MCP Hosting',
-				disabled: false,
-				collapsible: false
+				disabled: isBootStrapUser,
+				collapsible: false,
+				items:
+					hasAdminAccess && version.current.engine === 'kubernetes'
+						? [
+								{
+									id: 'server-scheduling',
+									href: '/admin/server-scheduling',
+									icon: AlarmClock,
+									label: 'Server Scheduling',
+									collapsible: false,
+									disabled: isBootStrapUser
+								}
+							]
+						: []
 			},
 			{
 				id: 'mcp-gateway',
 				icon: Earth,
 				label: 'MCP Gateway',
-				disabled: false,
-				collapsible: false,
-				items: [
-					{
-						id: 'audit-logs',
-						href: '/mcp-gateway/audit-logs',
-						icon: Captions,
-						label: 'Audit Logs',
-						disabled: isBootStrapUser,
-						collapsible: false
-					},
-					{
-						id: 'usage',
-						href: '/mcp-gateway/usage',
-						icon: ChartBarDecreasing,
-						label: 'Usage',
-						disabled: isBootStrapUser,
-						collapsible: false
-					}
-				]
+				disabled: isBootStrapUser,
+				collapsible: hasAdminAccess,
+				items: hasAdminAccess
+					? [
+							{
+								id: 'audit-logs',
+								href: '/admin/audit-logs',
+								icon: Captions,
+								label: 'Audit Logs',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'usage',
+								href: '/admin/usage',
+								icon: ChartBarDecreasing,
+								label: 'Usage',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'filters',
+								href: '/admin/filters',
+								icon: Funnel,
+								label: 'Filters',
+								disabled: isBootStrapUser
+							}
+						]
+					: [
+							{
+								id: 'audit-logs',
+								href: '/mcp-gateway/audit-logs',
+								icon: Captions,
+								label: 'Audit Logs',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'usage',
+								href: '/mcp-gateway/usage',
+								icon: ChartBarDecreasing,
+								label: 'Usage',
+								disabled: isBootStrapUser,
+								collapsible: false
+							}
+						]
 			},
 			{
 				id: 'obot-chat',
@@ -178,60 +240,6 @@
 			},
 			...(profile.current.hasAdminAccess?.()
 				? [
-						{
-							id: 'mcp-server-management',
-							icon: ServerCog,
-							label: 'MCP Server Management',
-							collapsible: true,
-							items: [
-								{
-									id: 'mcp-servers',
-									icon: Server,
-									href: '/admin/mcp-servers',
-									label: 'MCP Servers',
-									disabled: isBootStrapUser,
-									collapsible: false
-								},
-								{
-									id: 'audit-logs',
-									href: '/admin/audit-logs',
-									icon: Captions,
-									label: 'Audit Logs',
-									disabled: isBootStrapUser,
-									collapsible: false
-								},
-								{
-									id: 'usage',
-									href: '/admin/usage',
-									icon: ChartBarDecreasing,
-									label: 'Usage',
-									disabled: isBootStrapUser,
-									collapsible: false
-								},
-								{
-									id: 'filters',
-									href: '/admin/filters',
-									icon: Funnel,
-									label: 'Filters',
-									disabled: isBootStrapUser
-								},
-								{
-									id: 'access-control',
-									href: '/admin/access-control',
-									icon: GlobeLock,
-									label: 'Access Control',
-									disabled: isBootStrapUser,
-									collapsible: false
-								},
-								{
-									id: 'server-scheduling',
-									href: '/admin/server-scheduling',
-									icon: AlarmClock,
-									label: 'Server Scheduling',
-									collapsible: false
-								}
-							]
-						},
 						{
 							id: 'chat-management',
 							icon: MessageCircleMore,
