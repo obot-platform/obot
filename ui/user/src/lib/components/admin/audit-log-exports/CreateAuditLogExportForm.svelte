@@ -6,7 +6,7 @@
 	import { subDays, set } from 'date-fns';
 	import { AlertTriangle, LoaderCircle, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { page } from '$app/state';
-	import { AdminService, type AuditLogURLFilters } from '$lib/services';
+	import { AdminService, Group, type AuditLogURLFilters } from '$lib/services';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import type { AuditLogExport, OrgUser } from '$lib/services/admin/types';
