@@ -28,7 +28,9 @@
 	const mcpServersAndEntries = getAdminMcpServerAndEntries();
 	let accessControlRules = $state(initialRules);
 	let showCreateRule = $state(false);
+	let showingSubForm = $state(false);
 	let ruleToDelete = $state<AccessControlRule>();
+	let accessControlRuleForm = $state<any>();
 
 	let users = $state<OrgUser[]>([]);
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
@@ -114,10 +116,14 @@
 </script>
 
 <Layout
-	title="MCP Registry Management"
+	title={showCreateRule ? (showingSubForm ? 'Add Custom Server Entry' : 'New Registry') : 'MCP Registry Management'}
 	showBackButton={showCreateRule}
 	onBackButtonClick={() => {
-		showCreateRule = false;
+		if (showingSubForm) {
+			accessControlRuleForm?.cancelSubForm();
+		} else {
+			showCreateRule = false;
+		}
 	}}
 >
 	<div
@@ -230,8 +236,12 @@
 		out:fly={{ x: -100, duration }}
 	>
 		<AccessControlRuleForm
+			bind:this={accessControlRuleForm}
 			onCreate={navigateToCreated}
 			mcpEntriesContextFn={getAdminMcpServerAndEntries}
+			onFormStateChange={(isShowingSubForm) => {
+				showingSubForm = isShowingSubForm;
+			}}
 		/>
 	</div>
 {/snippet}

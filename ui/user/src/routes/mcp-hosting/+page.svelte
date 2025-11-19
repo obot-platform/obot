@@ -4,7 +4,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { ChatService, type MCPCatalogServer } from '$lib/services';
+	import { ChatService, type MCPCatalogServer, type MCPServerInstance } from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
 	import { Eye, LoaderCircle, Plus, Server, Trash2 } from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
@@ -21,14 +21,22 @@
 	} from '$lib/context/poweruserWorkspace.svelte';
 	import {
 		convertEntriesAndServersToTableData,
-		getServerTypeLabelByType
+		getServerTypeLabelByType,
+		parseCategories
 	} from '$lib/services/chat/mcp.js';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import SelectServerTypeHosting from '$lib/components/mcp/SelectServerTypeHosting.svelte';
+	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
+	import MyMcpServers from '$lib/components/mcp/MyMcpServers.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import { onMount } from 'svelte';
+	import { profile } from '$lib/stores';
 
 	let { data } = $props();
 	let search = $state('');
 	let workspaceId = $derived(data.workspace?.id);
+	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
+	let entity = $derived<'catalog' | 'workspace'>(hasAdminAccess ? 'catalog' : 'workspace');
 
 	initMcpServerAndEntries();
 	const mcpServerAndEntries = getPoweruserWorkspace();
@@ -43,7 +51,7 @@
 		if (browser && to?.url) {
 			const createNewType = to.url.searchParams.get('new') === 'true';
 			if (createNewType) {
-				selectServerType(false);
+				showServerForm = true;
 			} else {
 				showServerForm = false;
 			}
@@ -67,18 +75,56 @@
 	);
 
 	let showServerForm = $state(false);
+	let serverFormType = $state<'multi' | 'remote'>('multi');
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
+	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerTypeHosting>>();
+	let addExistingMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
+	let catalogGridDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
-	function selectServerType(updateUrl = true) {
-		showServerForm = true;
-		if (updateUrl) {
+	// For the catalog grid view
+	let catalogServers = $state<MCPCatalogServer[]>([]);
+	let catalogEntries = $state<MCPCatalogEntry[]>([]);
+	let catalogLoading = $state(false);
+
+	function handleAddServerClick() {
+		selectServerTypeDialog?.open();
+	}
+
+	async function handleSelectServerType(type: 'single' | 'multi' | 'remote' | 'composite' | 'registry' | 'custom') {
+		selectServerTypeDialog?.close();
+
+		if (type === 'registry') {
+			// Load catalog data and show grid view
+			catalogLoading = true;
+			catalogGridDialog?.open();
+			try {
+				const [entriesResult, serversResult] = await Promise.all([
+					ChatService.listMCPs(),
+					ChatService.listMCPCatalogServers()
+				]);
+				catalogEntries = entriesResult;
+				catalogServers = serversResult;
+			} catch (error) {
+				console.error('Failed to load catalog:', error);
+			} finally {
+				catalogLoading = false;
+			}
+		} else if (type === 'custom') {
+			// Launch custom server form with multi type
+			serverFormType = 'multi';
+			showServerForm = true;
+			goto(`/mcp-hosting?new=true`, { replaceState: false });
+		} else {
+			// Handle remote, composite
+			serverFormType = type as 'multi' | 'remote';
+			showServerForm = true;
 			goto(`/mcp-hosting?new=true`, { replaceState: false });
 		}
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
-	let title = $derived(showServerForm ? `Add MCP Server` : 'MCP Hosting');
+	let title = $derived(showServerForm ? `Add MCP Server` : 'MCP Servers');
 </script>
 
 <Layout {title} showBackButton={showServerForm}>
@@ -196,14 +242,16 @@
 {#snippet configureEntryScreen()}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		<McpServerEntryForm
-			type="multi"
+			type={serverFormType}
 			id={workspaceId}
-			entity="workspace"
+			{entity}
 			onCancel={() => {
 				goto('/mcp-hosting');
 			}}
 			onSubmit={async (id) => {
-				goto(`/mcp-hosting/s/${id}`);
+				// Multi-user servers use /s/, remote servers use /c/
+				const url = serverFormType === 'multi' ? `/mcp-hosting/s/${id}` : `/mcp-hosting/c/${id}`;
+				goto(url);
 			}}
 		/>
 	</div>
@@ -212,7 +260,7 @@
 {#snippet addServerButton()}
 	<button
 		class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
-		onclick={() => selectServerType(true)}
+		onclick={handleAddServerClick}
 	>
 		<Plus class="size-4" /> Add MCP Server
 	</button>
@@ -251,6 +299,47 @@
 	entity="entry"
 	entityPlural="entries"
 />
+
+<SelectServerTypeHosting bind:this={selectServerTypeDialog} onSelectServerType={handleSelectServerType} {entity} />
+
+<SearchMcpServers
+	bind:this={addExistingMcpServerDialog}
+	type="acr"
+	exclude={[]}
+	onAdd={async (mcpCatalogEntryIds, mcpServerIds) => {
+		// Add selected servers to workspace
+		if (!workspaceId) return;
+
+		// Refresh the server list after adding
+		await fetchMcpServerAndEntries(workspaceId, mcpServerAndEntries);
+	}}
+	mcpEntriesContextFn={getPoweruserWorkspace}
+	{entity}
+	workspaceId={workspaceId}
+/>
+
+<ResponsiveDialog
+	bind:this={catalogGridDialog}
+	title="Add From Registry"
+	class="h-full w-full md:h-[80vh] md:max-w-6xl"
+>
+	<div class="h-full overflow-y-auto">
+		<MyMcpServers
+			userServerInstances={[]}
+			userConfiguredServers={[]}
+			servers={catalogServers.map(s => ({ ...s, categories: parseCategories(s) }))}
+			entries={catalogEntries.map(e => ({ ...e, categories: parseCategories(e) }))}
+			loading={catalogLoading}
+			onConnectServer={async (connectedServer) => {
+				// Handle adding the server
+				if (!workspaceId) return;
+				catalogGridDialog?.close();
+				await fetchMcpServerAndEntries(workspaceId, mcpServerAndEntries);
+			}}
+			connectSelectText="Add"
+		/>
+	</div>
+</ResponsiveDialog>
 
 <svelte:head>
 	<title>Obot | MCP Publisher</title>

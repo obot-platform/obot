@@ -28,6 +28,7 @@
 	import { getRegistryLabel, getUserDisplayName } from '$lib/utils';
 	import { profile } from '$lib/stores';
 	import SelectServerType from '../mcp/SelectServerType.svelte';
+	import McpServerEntryForm from './McpServerEntryForm.svelte';
 
 	interface Props {
 		topContent?: Snippet;
@@ -41,6 +42,7 @@
 		all?: { label: string; description: string };
 		readonly?: boolean;
 		isAdminView?: boolean;
+		onFormStateChange?: (isShowingSubForm: boolean) => void;
 	}
 
 	let {
@@ -54,7 +56,8 @@
 		isAdminView,
 		all = ADMIN_ALL_OPTION,
 		id = DEFAULT_MCP_CATALOG_ID,
-		entity = 'catalog'
+		entity = 'catalog',
+		onFormStateChange
 	}: Props = $props();
 	const duration = PAGE_TRANSITION_DURATION;
 	let accessControlRule = $state(
@@ -75,6 +78,7 @@
 	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
 	let addExistingMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
+	let showCreateEntryForm = $state(false);
 
 	let deletingRule = $state(false);
 
@@ -271,21 +275,57 @@
 		if (type === 'multi') {
 			selectServerTypeDialog?.close();
 			addExistingMcpServerDialog?.open();
+		} else if (type === 'single') {
+			selectServerTypeDialog?.close();
+			showCreateEntryForm = true;
+			onFormStateChange?.(true);
 		} else {
 			//TODO:
 		}
 	}
+
+	function handleCancelEntryForm() {
+		showCreateEntryForm = false;
+		onFormStateChange?.(false);
+	}
+
+	function handleSubmitEntryForm(entryId: string) {
+		// Add the newly created entry to the access control rule
+		accessControlRule.resources = [
+			...(accessControlRule.resources ?? []),
+			{ id: entryId, type: 'mcpServerCatalogEntry' }
+		];
+		showCreateEntryForm = false;
+		onFormStateChange?.(false);
+	}
+
+	export function cancelSubForm() {
+		if (showCreateEntryForm) {
+			handleCancelEntryForm();
+		}
+	}
 </script>
 
-<div
-	class="flex h-full w-full flex-col gap-4"
-	out:fly={{ x: 100, duration }}
-	in:fly={{ x: 100, delay: duration }}
->
-	<div class="flex grow flex-col gap-4" out:fly={{ x: -100, duration }} in:fly={{ x: -100 }}>
-		{#if topContent}
-			{@render topContent()}
-		{/if}
+{#if showCreateEntryForm}
+	<div class="flex h-full w-full flex-col gap-4" in:fly={{ x: 100, delay: duration }}>
+		<McpServerEntryForm
+			type="single"
+			{id}
+			{entity}
+			onCancel={handleCancelEntryForm}
+			onSubmit={handleSubmitEntryForm}
+		/>
+	</div>
+{:else}
+	<div
+		class="flex h-full w-full flex-col gap-4"
+		out:fly={{ x: 100, duration }}
+		in:fly={{ x: 100, delay: duration }}
+	>
+		<div class="flex grow flex-col gap-4" out:fly={{ x: -100, duration }} in:fly={{ x: -100 }}>
+			{#if topContent}
+				{@render topContent()}
+			{/if}
 		{#if accessControlRule.id}
 			<div class="mb-6 flex w-full items-center justify-between gap-4">
 				<div class="flex items-center gap-2">
@@ -525,7 +565,8 @@
 			</div>
 		</div>
 	{/if}
-</div>
+	</div>
+{/if}
 
 <SearchUsers
 	bind:this={addUserGroupDialog}

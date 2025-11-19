@@ -16,8 +16,10 @@ func (s *Server) AddRoutes(mux *server.Server) {
 	// Health endpoint
 	mux.HTTPHandle("GET /api/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := s.db.Check(r.Context()); err != nil {
+			logger.Errorf("healthz check failed on DB check: %v", err)
 			http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		} else if !router.GetHealthy() {
+			logger.Errorf("healthz check failed on controller check: %v", err)
 			http.Error(w, "controllers not ready", http.StatusServiceUnavailable)
 		} else {
 			_, _ = w.Write([]byte("ok"))

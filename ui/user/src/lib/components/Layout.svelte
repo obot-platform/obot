@@ -100,116 +100,74 @@
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 	let navLinks = $derived<NavLink[]>(
 		overrideNavLinks ?? [
-			...(workspace.rules.length > 0 || hasAdminAccess
-				? [
-						{
-							id: 'mcp-registry',
-							href: '/mcp-registry',
-							icon: Server,
-							label: 'MCP Registry',
-							disabled: isBootStrapUser,
-							collapsible: false
-						},
-						{
-							id: 'mcp-registry-management',
-							icon: SquareLibrary,
-							label: 'MCP Registry Management',
-							disabled: isBootStrapUser,
-							collapsible: false,
-							href: hasAdminAccess ? '/admin/access-control' : '/mcp-registry/created'
-						}
-					]
-				: [
-						{
-							id: 'mcp-registry',
-							href: '/mcp-registry',
-							icon: Server,
-							label: 'MCP Registry',
-							disabled: isBootStrapUser,
-							collapsible: false
-						}
-					]),
 			{
-				id: 'mcp-hosting',
+				id: 'mcp-management',
 				icon: RadioTower,
-				label: 'MCP Hosting',
+				label: 'MCP Management',
 				disabled: isBootStrapUser,
-				collapsible: hasAdminAccess,
-				items: hasAdminAccess
-					? [
-							{
-								id: 'servers',
-								icon: Blocks,
-								href: '/mcp-hosting',
-								label: 'Servers',
-								collapsible: false,
-								disabled: isBootStrapUser
-							},
-							...(version.current.engine === 'kubernetes'
-								? [
-										{
-											id: 'server-scheduling',
-											href: '/admin/server-scheduling',
-											icon: AlarmClock,
-											label: 'Server Scheduling',
-											collapsible: false,
-											disabled: isBootStrapUser
-										}
-									]
-								: [])
-						]
-					: []
-			},
-			{
-				id: 'mcp-gateway',
-				icon: Earth,
-				label: 'MCP Gateway',
-				disabled: isBootStrapUser,
-				collapsible: hasAdminAccess,
-				items: hasAdminAccess
-					? [
-							{
-								id: 'audit-logs',
-								href: '/admin/audit-logs',
-								icon: Captions,
-								label: 'Audit Logs',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'usage',
-								href: '/admin/usage',
-								icon: ChartBarDecreasing,
-								label: 'Usage',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'filters',
-								href: '/admin/filters',
-								icon: Funnel,
-								label: 'Filters',
-								disabled: isBootStrapUser
-							}
-						]
-					: [
-							{
-								id: 'audit-logs',
-								href: '/mcp-gateway/audit-logs',
-								icon: Captions,
-								label: 'Audit Logs',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'usage',
-								href: '/mcp-gateway/usage',
-								icon: ChartBarDecreasing,
-								label: 'Usage',
-								disabled: isBootStrapUser,
-								collapsible: false
-							}
-						]
+				collapsible: true,
+				items: [
+					{
+						id: 'mcp-servers',
+						href: '/mcp-hosting',
+						icon: Server,
+						label: 'MCP Servers',
+						disabled: isBootStrapUser,
+						collapsible: false
+					},
+					...(workspace.rules.length > 0 || hasAdminAccess
+						? [
+								{
+									id: 'mcp-registries',
+									icon: SquareLibrary,
+									label: 'MCP Registries',
+									disabled: isBootStrapUser,
+									collapsible: false,
+									href: hasAdminAccess ? '/admin/access-control' : '/mcp-registry/created'
+								}
+							]
+						: []),
+					{
+						id: 'audit-logs',
+						href: hasAdminAccess ? '/admin/audit-logs' : '/mcp-gateway/audit-logs',
+						icon: Captions,
+						label: 'Audit Logs',
+						disabled: isBootStrapUser,
+						collapsible: false
+					},
+					{
+						id: 'usage',
+						href: hasAdminAccess ? '/admin/usage' : '/mcp-gateway/usage',
+						icon: ChartBarDecreasing,
+						label: 'Usage',
+						disabled: isBootStrapUser,
+						collapsible: false
+					},
+					...(hasAdminAccess
+						? [
+								{
+									id: 'filters',
+									href: '/admin/filters',
+									icon: Funnel,
+									label: 'Filters',
+									disabled: isBootStrapUser,
+									collapsible: false
+								}
+							]
+						: []),
+					...(hasAdminAccess && version.current.engine === 'kubernetes'
+						? [
+								{
+									id: 'server-scheduling',
+									href: '/admin/server-scheduling',
+									icon: AlarmClock,
+									label: 'Server Scheduling',
+									collapsible: false,
+									disabled: isBootStrapUser
+								}
+							]
+						: [])
+				]
 			},
 			...(profile.current.hasAdminAccess?.()
 				? [

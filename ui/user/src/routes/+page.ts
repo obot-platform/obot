@@ -26,7 +26,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 		}
 
 		// Redirect to appropriate dashboard
-		throw redirect(302, '/mcp-registry');
+		throw redirect(302, '/mcp-hosting');
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {
