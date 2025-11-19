@@ -14,7 +14,7 @@
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { goto, replaceState } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import BackLink from '$lib/components/BackLink.svelte';
@@ -34,13 +34,24 @@
 		setFilterUrlParams
 	} from '$lib/url';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
+	import { localState } from '$lib/runes/localState.svelte';
+	import { debounce } from 'es-toolkit';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
 	let view = $state<View>((page.url.searchParams.get('view') as View) || 'registry');
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 
+	const query = $derived(page.url.searchParams.get('query') || '');
+
+	type LocalStorageViewQuery = Record<View, string>;
+	const localStorageViewQuery = localState<LocalStorageViewQuery>(
+		'@obot/admin/mcp-servers/search-query',
+		{ [view]: query } as LocalStorageViewQuery
+	);
+
 	initMcpServerAndEntries();
+
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
 	let users = $state<OrgUser[]>([]);
 	let urlFilters = $state(getTableUrlParamsFilters());
@@ -92,7 +103,7 @@
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let selectedServerType = $state<'single' | 'multi' | 'remote' | 'composite'>();
 	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
-	let query = $state('');
+	// let query = $state('');
 
 	let showServerForm = $state(false);
 	let saving = $state(false);
@@ -146,11 +157,40 @@
 		}
 	}
 
+	// Helper function to update URL search params
+	function setUrlParam(url: URL, key: string, value: string | null): void {
+		if (value) {
+			url.searchParams.set(key, value);
+		} else {
+			url.searchParams.delete(key);
+		}
+	}
+
+	// Helper function to persist query to local storage
+	function persistQueryToLocalStorage(view: View, queryValue: string): void {
+		if (!localStorageViewQuery.current) {
+			localStorageViewQuery.current = { registry: '', deployments: '', urls: '' };
+		}
+
+		localStorageViewQuery.current[view] = queryValue;
+	}
+
+	// Helper function to navigate with consistent options
+	function navigateWithState(url: URL): void {
+		goto(url.toString(), { replaceState: true, noScroll: true, keepFocus: true });
+	}
+
 	async function switchView(newView: View) {
 		clearUrlParams();
 		view = newView;
-		page.url.searchParams.set('view', newView);
-		replaceState(page.url, {});
+
+		const savedQuery = localStorageViewQuery.current?.[newView] || '';
+
+		const newUrl = new URL(page.url);
+		setUrlParam(newUrl, 'view', newView);
+		setUrlParam(newUrl, 'query', savedQuery || null);
+
+		navigateWithState(newUrl);
 	}
 
 	onDestroy(() => {
@@ -160,6 +200,15 @@
 	});
 
 	const duration = PAGE_TRANSITION_DURATION;
+
+	const updateSearchQuery = debounce((value: string) => {
+		const newUrl = new URL(page.url);
+
+		setUrlParam(newUrl, 'query', value || null);
+
+		persistQueryToLocalStorage(view, value);
+		navigateWithState(newUrl);
+	}, 100);
 </script>
 
 <Layout classes={{ navbar: 'bg-surface1' }}>
@@ -204,7 +253,8 @@
 			<div class="mb-2">
 				<Search
 					class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
-					onChange={(val) => (query = val)}
+					value={query}
+					onChange={updateSearchQuery}
 					placeholder={view !== 'urls' ? 'Search servers...' : 'Search sources...'}
 				/>
 			</div>
@@ -247,7 +297,7 @@
 					bind:catalog={defaultCatalog}
 					readonly={isAdminReadonly}
 					{usersMap}
-					{query}
+					query={localStorageViewQuery.current?.['registry'] || ''}
 					{urlFilters}
 					onFilter={handleFilter}
 					onClearAllFilters={handleClearAllFilters}
@@ -262,7 +312,7 @@
 				<SourceUrlsView
 					catalog={defaultCatalog}
 					readonly={isAdminReadonly}
-					{query}
+					query={localStorageViewQuery.current?.['urls'] || ''}
 					{syncing}
 					onSync={sync}
 				/>
@@ -271,7 +321,7 @@
 					catalogId={defaultCatalogId}
 					readonly={isAdminReadonly}
 					{usersMap}
-					{query}
+					query={localStorageViewQuery.current?.['deployments'] || ''}
 					{urlFilters}
 					onFilter={handleFilter}
 					onClearAllFilters={handleClearAllFilters}
