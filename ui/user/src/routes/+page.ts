@@ -12,7 +12,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 		profile = await getProfile({ fetch });
 	} catch (_err) {
 		[bootstrapStatus, authProviders] = await Promise.all([
-			AdminService.getBootstrapStatus(),
+			AdminService.getBootstrapStatus({ fetch }),
 			ChatService.listAuthProviders({ fetch })
 		]);
 	}

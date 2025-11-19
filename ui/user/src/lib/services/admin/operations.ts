@@ -622,8 +622,8 @@ export async function deconfigureAuthProvider(
 	await doPost(`/auth-providers/${authProviderID}/deconfigure`, {}, opts);
 }
 
-export async function getBootstrapStatus(): Promise<BootstrapStatus> {
-	return (await doGet('/bootstrap')) as BootstrapStatus;
+export async function getBootstrapStatus(opts?: { fetch?: Fetcher }): Promise<BootstrapStatus> {
+	return (await doGet('/bootstrap', opts)) as BootstrapStatus;
 }
 
 export async function bootstrapLogin(token: string) {

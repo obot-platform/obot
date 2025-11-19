@@ -2,11 +2,18 @@ import { UNAUTHORIZED_PATHS } from '$lib/constants';
 import { profile } from '$lib/stores';
 import errors from '$lib/stores/errors.svelte';
 
-export let baseURL = 'http://localhost:8080/api';
-
-if (typeof window !== 'undefined') {
-	baseURL = baseURL.replace('http://localhost:8080', window.location.origin);
+// For server-side rendering (SSR), use environment variable or default to localhost
+// For client-side, use the current origin
+let apiHost = 'http://localhost:8080';
+if (typeof window === 'undefined') {
+	// Server-side: use environment variable if set (for Docker Compose networking)
+	apiHost = process.env.VITE_API_SERVER_URL || process.env.API_SERVER_URL || 'http://localhost:8080';
+} else {
+	// Client-side: use the current origin
+	apiHost = window.location.origin;
 }
+
+export let baseURL = `${apiHost}/api`;
 
 interface GetOptions {
 	blob?: boolean;
