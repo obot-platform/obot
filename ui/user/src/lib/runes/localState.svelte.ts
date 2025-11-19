@@ -1,11 +1,11 @@
 import { untrack } from 'svelte';
 
-function defaultParser<T = string>(raw: T | null) {
+function defaultParser<T = string>(raw: string | null) {
 	return raw as T;
 }
 
 type LocalStateParams<T = string> = {
-	parse?: (raw: T | null) => T;
+	parse?: (raw: string | null) => T;
 };
 export function localState<T = string>(
 	key: string,
