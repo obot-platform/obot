@@ -77,14 +77,16 @@
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 
 	// Server type for both single and multi types (not used for 'remote' or 'composite')
-	type ServerType = 'stdio' | 'http-streamable' | 'remote-proxy';
+	type ServerType = 'stdio' | 'http-streamable' | 'remote-proxy' | 'composite';
 	let serverType = $state<ServerType | undefined>(
 		entry && (type === 'single' || type === 'multi')
-			? formData.runtime === 'remote'
-				? 'remote-proxy'
-				: formData.runtime === 'containerized'
-					? 'http-streamable'
-					: 'stdio'
+			? formData.runtime === 'composite'
+				? 'composite'
+				: formData.runtime === 'remote'
+					? 'remote-proxy'
+					: formData.runtime === 'containerized'
+						? 'http-streamable'
+						: 'stdio'
 			: undefined
 	);
 
@@ -316,6 +318,9 @@
 		if (newServerType === 'remote-proxy') {
 			// Remote proxy only has one option, so auto-select
 			handleRuntimeChange('remote');
+		} else if (newServerType === 'composite') {
+			// Composite only has one option, so auto-select
+			handleRuntimeChange('composite');
 		} else {
 			// For stdio and http-streamable, clear the runtime selection
 			formData.runtime = undefined as any;
@@ -1080,7 +1085,8 @@
 				options={[
 					{ label: 'HTTP Streamable', id: 'http-streamable' },
 					{ label: 'Remote Proxy', id: 'remote-proxy' },
-					{ label: 'STDIO', id: 'stdio' }
+					{ label: 'STDIO', id: 'stdio' },
+					{ label: 'Composite', id: 'composite' }
 				]}
 				selected={serverType}
 				onSelect={(option) => handleServerTypeChange(option.id as ServerType)}
@@ -1144,6 +1150,15 @@
 				{readonly}
 				{showRequired}
 				onFieldChange={updateRequired}
+			/>
+		{:else if serverType === 'composite' && formData.compositeConfig}
+			<!-- Composite Server Configuration -->
+			<CompositeRuntimeForm
+				bind:config={formData.compositeConfig}
+				{readonly}
+				catalogId={id}
+				mcpEntriesContextFn={getAdminMcpServerAndEntries}
+				id={entry?.id}
 			/>
 		{/if}
 	</div>
