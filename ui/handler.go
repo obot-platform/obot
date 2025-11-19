@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
