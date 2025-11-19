@@ -70,7 +70,17 @@ func (s *Server) redirect(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
-	tr, err := s.verifyState(apiContext.Context(), apiContext.FormValue("state"))
+	// Get state from query parameters (OAuth providers redirect with state as query param)
+	state := apiContext.URL.Query().Get("state")
+	if state == "" {
+		// Fallback to form value in case it's a POST request
+		state = apiContext.FormValue("state")
+	}
+	if state == "" {
+		return types2.NewErrHTTP(http.StatusBadRequest, "missing state parameter")
+	}
+
+	tr, err := s.verifyState(apiContext.Context(), state)
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid state: %v", err))
 	}

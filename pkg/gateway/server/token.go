@@ -151,11 +151,18 @@ func (s *Server) createState(ctx context.Context, id string) (string, error) {
 }
 
 func (s *Server) verifyState(ctx context.Context, state string) (*types.TokenRequest, error) {
+	if state == "" {
+		return nil, fmt.Errorf("state parameter is empty")
+	}
+	
 	tr := new(types.TokenRequest)
 	return tr, s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("state = ?", state).First(tr).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return fmt.Errorf("state not found in database (may have expired or already been used)")
+			}
 			if tr.ID == "" {
-				return err
+				return fmt.Errorf("failed to lookup state: %w", err)
 			}
 			tr.Error = err.Error()
 		}
