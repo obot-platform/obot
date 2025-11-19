@@ -22,7 +22,7 @@ import (
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/gz"
 	"github.com/obot-platform/obot/pkg/hash"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
+	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	"github.com/obot-platform/obot/pkg/render"
@@ -49,13 +49,13 @@ const (
 type Invoker struct {
 	uncached          kclient.WithWatch
 	gatewayClient     *client.Client
-	tokenService      *ephemeral.TokenService
+	tokenService      *persistent.TokenService
 	events            *events.Emitter
 	serverURL         string
 	internalServerURL string
 }
 
-func NewInvoker(c kclient.WithWatch, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *ephemeral.TokenService, events *events.Emitter) *Invoker {
+func NewInvoker(c kclient.WithWatch, gatewayClient *client.Client, serverURL string, serverPort int, tokenService *persistent.TokenService, events *events.Emitter) *Invoker {
 	return &Invoker{
 		uncached:          c,
 		gatewayClient:     gatewayClient,
@@ -651,7 +651,11 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		return fmt.Errorf("failed to get root project: %w", err)
 	}
 
-	token, err := i.tokenService.NewToken(ephemeral.TokenContext{
+	now := time.Now()
+	token, err := i.tokenService.NewToken(ctx, persistent.TokenContext{
+		Audience:          i.serverURL,
+		IssuedAt:          now,
+		ExpiresAt:         now.Add(time.Hour * 24),
 		Namespace:         run.Namespace,
 		RunID:             run.Name,
 		ThreadID:          thread.Name,
@@ -667,6 +671,7 @@ func (i *Invoker) Resume(ctx context.Context, gptClient *gptscript.GPTScript, c 
 		UserName:          userName,
 		UserEmail:         userEmail,
 		UserGroups:        userGroups,
+		TokenType:         persistent.TokenTypeRun,
 	})
 	if err != nil {
 		return err

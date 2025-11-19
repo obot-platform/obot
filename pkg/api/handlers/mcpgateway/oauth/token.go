@@ -214,7 +214,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		AuthProviderUserID:    oauthAuthRequest.Spec.AuthProviderUserID,
 		MCPID:                 oauthAuthRequest.Spec.MCPID,
 	}
-	tkn, err := h.tokenService.NewToken(tknCtx)
+	tkn, err := h.tokenService.NewToken(req.Context(), tknCtx)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
@@ -307,7 +307,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		AuthProviderUserID:    oauthToken.Spec.AuthProviderUserID,
 		MCPID:                 oauthToken.Spec.MCPID,
 	}
-	tkn, err := h.tokenService.NewToken(tknCtx)
+	tkn, err := h.tokenService.NewToken(req.Context(), tknCtx)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
@@ -438,7 +438,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				tokenCtx.MCPID = componentMCPID
 				tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audienceID)
 
-				token, err = h.tokenService.NewToken(*tokenCtx)
+				token, err = h.tokenService.NewToken(req.Context(), *tokenCtx)
 				if err != nil {
 					log.Errorf("failed to create token for component MCP server %s: %v", componentMCPID, err)
 					return types.NewErrBadRequest("%v", Error{

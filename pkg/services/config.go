@@ -44,7 +44,6 @@ import (
 	"github.com/obot-platform/obot/pkg/gemini"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/invoke"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -135,7 +134,6 @@ type Services struct {
 	Router                     *router.Router
 	GPTClient                  *gptscript.GPTScript
 	Invoker                    *invoke.Invoker
-	EphemeralTokenServer       *ephemeral.TokenService
 	PersistentTokenServer      *persistent.TokenService
 	APIServer                  *server.Server
 	Started                    chan struct{}
@@ -452,7 +450,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	ephemeralTokenServer := &ephemeral.TokenService{}
 	events := events.NewEmitter(storageClient, gatewayClient)
 
 	var postgresDSN string
@@ -460,24 +457,25 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		postgresDSN = config.DSN
 	}
 
+	credOnlyGPTscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient, credOnlyGPTscriptClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
+	}
+
 	invoker := invoke.NewInvoker(
 		storageClient,
 		gatewayClient,
 		config.Hostname,
 		config.HTTPListenPort,
-		ephemeralTokenServer,
+		persistentTokenServer,
 		events,
 	)
-	credOnlyGPTscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, nil)
-	if err != nil {
-		return nil, err
-	}
 	providerDispatcher := dispatcher.New(invoker, storageClient, credOnlyGPTscriptClient, gatewayClient, postgresDSN)
-
-	persistentTokenServer, err := persistent.NewTokenService(ctx, config.Hostname, gatewayClient, providerDispatcher, credOnlyGPTscriptClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
-	}
 
 	mcpSessionManager, err := mcp.NewSessionManager(ctx, persistentTokenServer, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
 	if err != nil {
@@ -646,7 +644,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	gatewayServer, err := gserver.New(ctx, gatewayDB, ephemeralTokenServer, providerDispatcher, gserver.Options(config.GatewayConfig))
+	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -661,8 +659,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)
-		// Add token auth
-		authenticators = union.NewFailOnError(authenticators, ephemeralTokenServer)
 		// Add bootstrap auth
 		authenticators = union.NewFailOnError(authenticators, bootstrapper)
 		if config.BearerToken != "" {
@@ -759,7 +755,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			rateLimiter,
 			config.Hostname,
 		),
-		EphemeralTokenServer:       ephemeralTokenServer,
 		PersistentTokenServer:      persistentTokenServer,
 		Invoker:                    invoker,
 		GatewayServer:              gatewayServer,

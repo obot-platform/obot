@@ -64,6 +64,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to apply data: %w", err)
 	}
 
+	if err := c.services.PersistentTokenServer.EnsureJWK(ctx); err != nil {
+		return fmt.Errorf("failed to ensure JWK: %w", err)
+	}
+
 	if err := ensureDefaultUserRoleSetting(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to ensure default user role setting: %w", err)
 	}

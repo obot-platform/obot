@@ -18,7 +18,6 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
-	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -30,28 +29,52 @@ type TokenService struct {
 	jwks              json.RawMessage
 	gatewayClient     *client.Client
 	credOnlyGPTClient *gptscript.GPTScript
-	dispatcher        *dispatcher.Dispatcher
 	serverURL         string
 }
 
-func NewTokenService(ctx context.Context, serverURL string, gatewayClient *client.Client, dispatcher *dispatcher.Dispatcher, credOnlyGPTClient *gptscript.GPTScript) (*TokenService, error) {
-	key, err := ensureJWK(ctx, credOnlyGPTClient)
-	if err != nil {
-		return nil, err
-	}
-
+func NewTokenService(serverURL string, gatewayClient *client.Client, credOnlyGPTClient *gptscript.GPTScript) (*TokenService, error) {
 	t := &TokenService{
 		gatewayClient:     gatewayClient,
 		credOnlyGPTClient: credOnlyGPTClient,
-		dispatcher:        dispatcher,
 		serverURL:         serverURL,
 	}
+	return t, nil
+}
 
-	if err = t.replaceKey(ctx, key); err != nil {
-		return nil, err
+type TokenType string
+
+const (
+	TokenTypeRun TokenType = "run"
+)
+
+// EnsureJWK ensures that the JWK is created and stored in the GPTScript client. It should only be called in a controller pre-start hook which only allows one to be run at a time.
+func (t *TokenService) EnsureJWK(ctx context.Context) error {
+	_, err := ensureJWK(ctx, t.credOnlyGPTClient)
+	return err
+}
+
+// SetJWK sets the JWK in the GPTScript client. It should be called after the JWK is created and stored in the GPTScript client.
+func (t *TokenService) setJWK(ctx context.Context) error {
+	cred, err := t.credOnlyGPTClient.RevealCredential(ctx, []string{system.JWKCredentialContext}, system.JWKCredentialContext)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return err
 	}
 
-	return t, nil
+	value, ok := cred.Env[keyEnvVar]
+	if !ok || value == "" {
+		return fmt.Errorf("JWK not found in credential")
+	}
+
+	key, err := base64.StdEncoding.DecodeString(value)
+	if err != nil {
+		return fmt.Errorf("failed to decode JWK: %w", err)
+	}
+
+	if err := t.replaceKey(ctx, key); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (t *TokenService) ReplaceJWK(req api.Context) error {
@@ -93,6 +116,21 @@ type TokenContext struct {
 	AuthProviderUserID    string
 
 	MCPID string
+
+	// The following fields are for runs
+	Namespace         string
+	RunID             string
+	ThreadID          string
+	ProjectID         string
+	TopLevelProjectID string
+	ModelProvider     string
+	Model             string
+	AgentID           string
+	WorkflowID        string
+	WorkflowStepID    string
+	Scope             string
+
+	TokenType TokenType
 }
 
 func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
@@ -101,25 +139,52 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
+	if t.privateKey == nil {
+		if err := t.setJWK(req.Context()); err != nil {
+			return nil, false, err
+		}
+	}
+
 	tokenContext, err := t.DecodeToken(token)
 	if err != nil {
 		return nil, false, nil
 	}
 
-	return &authenticator.Response{
-		User: &user.DefaultInfo{
-			UID:    tokenContext.UserID,
-			Name:   tokenContext.UserName,
-			Groups: tokenContext.UserGroups,
-			Extra: map[string][]string{
-				"email":                   {tokenContext.UserEmail},
-				"auth_provider_name":      {tokenContext.AuthProviderName},
-				"auth_provider_namespace": {tokenContext.AuthProviderNamespace},
-				"mcp_id":                  {tokenContext.MCPID},
-				"resource":                {tokenContext.Audience},
+	switch tokenContext.TokenType {
+	case TokenTypeRun:
+		return &authenticator.Response{
+			User: &user.DefaultInfo{
+				UID:    tokenContext.UserID,
+				Name:   tokenContext.Scope,
+				Groups: tokenContext.UserGroups,
+				Extra: map[string][]string{
+					"obot:runID":             {tokenContext.RunID},
+					"obot:threadID":          {tokenContext.ThreadID},
+					"obot:topLevelProjectID": {tokenContext.TopLevelProjectID},
+					"obot:projectID":         {tokenContext.ProjectID},
+					"obot:agentID":           {tokenContext.AgentID},
+					"obot:userID":            {tokenContext.UserID},
+					"obot:userName":          {tokenContext.UserName},
+					"obot:userEmail":         {tokenContext.UserEmail},
+				},
 			},
-		},
-	}, true, nil
+		}, true, nil
+	default:
+		return &authenticator.Response{
+			User: &user.DefaultInfo{
+				UID:    tokenContext.AuthProviderUserID,
+				Name:   tokenContext.UserName,
+				Groups: tokenContext.UserGroups,
+				Extra: map[string][]string{
+					"email":                   {tokenContext.UserEmail},
+					"auth_provider_name":      {tokenContext.AuthProviderName},
+					"auth_provider_namespace": {tokenContext.AuthProviderNamespace},
+					"mcp_id":                  {tokenContext.MCPID},
+					"resource":                {tokenContext.Audience},
+				},
+			},
+		}, true, nil
+	}
 }
 
 func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
@@ -170,6 +235,18 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 		AuthProviderNamespace: getStringClaim("AuthProviderNamespace"),
 		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
 		MCPID:                 getStringClaim("MCPID"),
+		Namespace:             getStringClaim("Namespace"),
+		RunID:                 getStringClaim("RunID"),
+		ThreadID:              getStringClaim("ThreadID"),
+		ProjectID:             getStringClaim("ProjectID"),
+		TopLevelProjectID:     getStringClaim("TopLevelProjectID"),
+		ModelProvider:         getStringClaim("ModelProvider"),
+		Model:                 getStringClaim("Model"),
+		AgentID:               getStringClaim("AgentID"),
+		Scope:                 getStringClaim("Scope"),
+		WorkflowID:            getStringClaim("WorkflowID"),
+		WorkflowStepID:        getStringClaim("WorkflowStepID"),
+		TokenType:             TokenType(getStringClaim("TokenType")),
 		// These two fields were the latter names and changed the former.
 		// This makes this backwards compatible with older tokens.
 		UserName:  getStringClaim("name", "UserName"),
@@ -177,7 +254,13 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 	}, nil
 }
 
-func (t *TokenService) NewToken(context TokenContext) (string, error) {
+func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (string, error) {
+	if t.privateKey == nil {
+		if err := t.setJWK(ctx); err != nil {
+			return "", err
+		}
+	}
+
 	claims := jwt.MapClaims{
 		"aud":                   context.Audience,
 		"exp":                   float64(context.ExpiresAt.Unix()),
@@ -191,6 +274,18 @@ func (t *TokenService) NewToken(context TokenContext) (string, error) {
 		"AuthProviderNamespace": context.AuthProviderNamespace,
 		"AuthProviderUserID":    context.AuthProviderUserID,
 		"MCPID":                 context.MCPID,
+		"Namespace":             context.Namespace,
+		"RunID":                 context.RunID,
+		"ThreadID":              context.ThreadID,
+		"ProjectID":             context.ProjectID,
+		"TopLevelProjectID":     context.TopLevelProjectID,
+		"ModelProvider":         context.ModelProvider,
+		"Model":                 context.Model,
+		"AgentID":               context.AgentID,
+		"Scope":                 context.Scope,
+		"WorkflowID":            context.WorkflowID,
+		"WorkflowStepID":        context.WorkflowStepID,
+		"TokenType":             string(context.TokenType),
 	}
 
 	_, s, err := t.NewTokenWithClaims(claims)
