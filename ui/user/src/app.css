@@ -340,14 +340,17 @@
 		border-width: 2px;
 		padding: 0.5rem 1.25rem;
 		background-color: var(--surface3);
-		border-width: 0;
-		transition-property: color, background-color;
+		border-color: var(--surface3);
+		transition-property: all;
 		transition-duration: 200ms;
 		&:hover {
-			background-color: rgb(229 231 235 / 0.5);
+			background-color: color-mix(in oklab, var(--surface3) 90%, var(--color-black));
+			border-color: color-mix(in oklab, var(--surface3) 90%, var(--color-black));
 		}
+
 		.dark &:hover {
-			background-color: var(--color-gray-700);
+			background-color: color-mix(in oklab, var(--surface3) 90%, var(--color-white));
+			border-color: color-mix(in oklab, var(--surface3) 90%, var(--color-white));
 		}
 
 		&:disabled {
@@ -355,6 +358,7 @@
 		}
 		&:disabled:hover {
 			background-color: var(--surface3);
+			border-color: var(--surface3);
 		}
 	}
 
@@ -372,10 +376,12 @@
 		transition-duration: 200ms;
 
 		&:hover {
-			background-color: rgb(229 231 235 / 0.5);
+			background-color: color-mix(in oklab, var(--surface3) 90%, var(--color-black));
+			border-color: color-mix(in oklab, var(--surface3) 90%, var(--color-black));
 		}
+
 		.dark &:hover {
-			background-color: var(--color-gray-700);
+			background-color: color-mix(in oklab, var(--surface3) 90%, var(--color-white));
 		}
 	}
 
@@ -410,7 +416,6 @@
 		transition-duration: 300ms;
 		&:hover {
 			border-color: color-mix(in oklab, var(--color-primary) 75%, var(--color-background));
-			background-color: color-mix(in oklab, var(--color-primary) 75%, var(--color-background));
 		}
 		.dark & {
 			color: var(--color-gray-50);

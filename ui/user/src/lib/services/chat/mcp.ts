@@ -107,10 +107,7 @@ export function requiresUserUpdate(mcpServer?: ConnectedServer) {
 		: false;
 }
 
-function convertEntriesToTableData(
-	entries: MCPCatalogEntry[] | undefined,
-	usersMap?: Map<string, OrgUser>
-) {
+function convertEntriesToTableData(entries?: MCPCatalogEntry[], usersMap?: Map<string, OrgUser>) {
 	if (!entries) {
 		return [];
 	}
@@ -141,10 +138,7 @@ function convertEntriesToTableData(
 		});
 }
 
-function convertServersToTableData(
-	servers: MCPCatalogServer[] | undefined,
-	usersMap?: Map<string, OrgUser>
-) {
+function convertServersToTableData(servers?: MCPCatalogServer[], usersMap?: Map<string, OrgUser>) {
 	if (!servers) {
 		return [];
 	}
@@ -170,14 +164,54 @@ function convertServersToTableData(
 		});
 }
 
+function convertUserConfiguredServersToTableData(
+	servers?: MCPCatalogServer[],
+	entries?: MCPCatalogEntry[]
+) {
+	if (!servers) {
+		return [];
+	}
+
+	const catalogEntryMap = entries ? new Map(entries.map((entry) => [entry.id, entry])) : undefined;
+
+	return servers
+		.filter((server) => server.catalogEntryID && !server.deleted)
+		.map((server) => {
+			const catalogEntry = catalogEntryMap?.get(server.catalogEntryID);
+			const type = catalogEntry
+				? catalogEntry.manifest.runtime === 'remote' ||
+					catalogEntry.manifest.runtime === 'composite'
+					? catalogEntry.manifest.runtime
+					: 'single'
+				: 'multi';
+			return {
+				id: server.id,
+				name: server.alias || server.manifest.name || '',
+				icon: server.manifest.icon,
+				source: 'manual',
+				type,
+				data: server,
+				users: server.mcpServerInstanceUserCount ?? 0,
+				editable: true,
+				created: server.created,
+				registry: 'My Registry'
+			};
+		});
+}
+
 export function convertEntriesAndServersToTableData(
 	entries: MCPCatalogEntry[],
 	servers: MCPCatalogServer[],
-	usersMap?: Map<string, OrgUser>
+	usersMap?: Map<string, OrgUser>,
+	userConfiguredServers?: MCPCatalogServer[]
 ) {
+	const userConfiguredServersTableData = convertUserConfiguredServersToTableData(
+		userConfiguredServers,
+		entries
+	);
 	const entriesTableData = convertEntriesToTableData(entries, usersMap);
 	const serversTableData = convertServersToTableData(servers, usersMap);
-	return [...entriesTableData, ...serversTableData];
+	return [...userConfiguredServersTableData, ...entriesTableData, ...serversTableData];
 }
 
 export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) {

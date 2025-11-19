@@ -7,13 +7,12 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout>
+<Layout title="Usage">
 	<div
 		class="my-4 flex h-dvh min-h-full flex-col gap-8 pb-8"
 		in:fade={{ duration }}
 		out:fade={{ duration }}
 	>
-		<h1 class="text-2xl font-semibold">Usage</h1>
 		<UsageGraphs />
 	</div>
 </Layout>

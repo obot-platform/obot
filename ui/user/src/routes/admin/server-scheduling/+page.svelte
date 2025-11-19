@@ -146,10 +146,9 @@
 	}
 </script>
 
-<Layout classes={{ container: 'pb-0' }}>
+<Layout classes={{ container: 'pb-0' }} title="Server Scheduling">
 	<div class="relative mt-4 h-full w-full" transition:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
-			<h1 class="text-2xl font-semibold">Server Scheduling</h1>
 			{#if k8sSettings}
 				{@const readonly = k8sSettings?.setViaHelm || isAdminReadonly}
 				<div class="flex flex-col gap-2">

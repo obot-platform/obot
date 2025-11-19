@@ -7,9 +7,8 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout classes={{ container: '', childrenContainer: 'max-w-none' }} showUserLinks>
-	<div class="my-4 flex h-dvh min-h-full flex-col gap-8 pb-8" in:fade={{ duration }}>
-		<h1 class="text-2xl font-semibold">Usage</h1>
+<Layout classes={{ container: '', childrenContainer: 'max-w-none' }} showUserLinks title="Usage">
+	<div class="mb-4 flex h-dvh min-h-full flex-col gap-8 pb-8" in:fade={{ duration }}>
 		<UsageGraphs mcpId={null} mcpServerCatalogEntryName={null} mcpServerDisplayName={null} />
 	</div>
 </Layout>

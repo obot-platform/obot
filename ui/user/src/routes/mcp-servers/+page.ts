@@ -11,14 +11,8 @@ export const load: PageLoad = async ({ fetch }) => {
 			: await ChatService.getProfile({ fetch });
 		const workspaces = await ChatService.listWorkspaces({ fetch });
 		workspace = workspaces.find((w) => w.userID === currentProfile.id) ?? null;
-
-		if (!workspace) {
-			throw new Error(
-				'404 Workspace not found. If this problem persists, please contact an administrator.'
-			);
-		}
 	} catch (err) {
-		handleRouteError(err, `/admin/mcp-publisher`, profile.current);
+		handleRouteError(err, `/mcp-servers`, profile.current);
 	}
 
 	return {

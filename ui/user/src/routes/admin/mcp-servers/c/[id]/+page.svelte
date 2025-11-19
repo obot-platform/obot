@@ -5,10 +5,8 @@
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Layout from '$lib/components/Layout.svelte';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import { profile } from '$lib/stores/index.js';
-	import { page } from '$app/state';
 	import { CircleFadingArrowUp, CircleAlert, Info, GitCompare } from 'lucide-svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
@@ -169,6 +167,8 @@
 			fetchMcpServerAndEntries(DEFAULT_MCP_CATALOG_ID);
 		}
 	});
+
+	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
 </script>
 
 <Layout
@@ -176,14 +176,10 @@
 		component: VirtualPageViewport as unknown as Component,
 		props: { class: '', as: 'main', itemHeight: 56, overscan: 5, disabled: true }
 	}}
+	{title}
+	showBackButton
 >
-	<div class="flex h-full flex-col gap-6 pt-6" in:fly={{ x: 100, delay: duration, duration }}>
-		{#if catalogEntry}
-			{@const currentLabel = catalogEntry?.manifest?.name ?? 'MCP Server'}
-			{@const from = page.url.searchParams.get('from') || `/mcp-servers`}
-			<BackLink fromURL={from} {currentLabel} />
-		{/if}
-
+	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if showUpgradeNotification}
 			<div class="border-primary bg-primary/10 flex items-center gap-3 rounded-lg border p-4">
 				<Info class="text-primary size-5 flex-shrink-0" />

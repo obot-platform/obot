@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, ChatService, type MCPServerInstance, type OrgUser } from '$lib/services';
@@ -24,16 +22,12 @@
 		users = await AdminService.listUsersIncludeDeleted();
 		loading = false;
 	});
+
+	let title = $derived(mcpServer?.manifest?.name ?? 'MCP Server Details');
 </script>
 
-<Layout>
-	<div class="mt-6 flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: PAGE_TRANSITION_DURATION }}>
-		{#if mcpServer?.id}
-			{@const currentLabel = mcpServer?.manifest.name ?? 'Server'}
-			{@const from = page.url.searchParams.get('from') ?? `/deployed-servers`}
-			<BackLink fromURL={from} {currentLabel} />
-		{/if}
-
+<Layout {title} showBackButton>
+	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: PAGE_TRANSITION_DURATION }}>
 		{#if loading}
 			<div class="flex w-full justify-center">
 				<LoaderCircle class="size-6 animate-spin" />
@@ -66,5 +60,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {mcpServer?.manifest.name}</title>
+	<title>Obot | {title}</title>
 </svelte:head>

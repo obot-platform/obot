@@ -16,7 +16,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	} catch (err) {
 		handleRouteError(
 			err,
-			`/mcp-publisher/c/${catalogEntryId}/instance/${mcpServerId}`,
+			`/mcp-servers/c/${catalogEntryId}/instance/${mcpServerId}`,
 			profile.current
 		);
 	}

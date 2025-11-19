@@ -609,16 +609,6 @@
 	}
 </script>
 
-{#if !hideTitle}
-	<h1 class="text-2xl font-semibold capitalize">
-		{#if entry}
-			{formData.name}
-		{:else}
-			Create {type} Server
-		{/if}
-	</h1>
-{/if}
-
 <div
 	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
 >

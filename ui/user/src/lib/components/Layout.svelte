@@ -11,6 +11,7 @@
 		Captions,
 		ChartBarDecreasing,
 		ChevronDown,
+		ChevronLeft,
 		ChevronUp,
 		CircuitBoard,
 		Cpu,
@@ -19,10 +20,12 @@
 		LockKeyhole,
 		MessageCircle,
 		MessageCircleMore,
+		RadioTower,
 		Server,
 		Settings,
 		SidebarClose,
 		SidebarOpen,
+		SquareLibrary,
 		UserCog,
 		Users
 	} from 'lucide-svelte';
@@ -61,6 +64,10 @@
 		whiteBackground?: boolean;
 		main?: { component: Component; props?: Record<string, unknown> };
 		navLinks?: NavLink[];
+		rightNavActions?: Snippet;
+		title?: string;
+		showBackButton?: boolean;
+		onBackButtonClick?: () => void;
 	}
 
 	const {
@@ -71,7 +78,11 @@
 		onRenderSubContent,
 		hideSidebar,
 		whiteBackground,
-		main
+		main,
+		rightNavActions,
+		title,
+		showBackButton,
+		onBackButtonClick
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let collapsed = $state<Record<string, boolean>>({});
@@ -79,13 +90,14 @@
 
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
+	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 	let navLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.() && !showUserLinks
 			? [
 					{
 						id: 'mcp-server-management',
-						icon: Server,
-						label: 'MCP Server Management',
+						icon: RadioTower,
+						label: 'MCP Management',
 						collapsible: true,
 						items: [
 							{
@@ -93,6 +105,14 @@
 								icon: Server,
 								href: '/admin/mcp-servers',
 								label: 'MCP Servers',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'access-control',
+								icon: SquareLibrary,
+								href: '/admin/access-control',
+								label: 'Access Control',
 								disabled: isBootStrapUser,
 								collapsible: false
 							},
@@ -118,14 +138,6 @@
 								icon: Funnel,
 								label: 'Filters',
 								disabled: isBootStrapUser
-							},
-							{
-								id: 'access-control',
-								href: '/admin/access-control',
-								icon: GlobeLock,
-								label: 'Access Control',
-								disabled: isBootStrapUser,
-								collapsible: false
 							},
 							version.current.engine === 'kubernetes'
 								? {
@@ -227,40 +239,53 @@
 				]
 			: (overrideNavLinks ?? [
 					{
-						id: 'mcp-publisher',
-						href: '/mcp-publisher',
-						icon: Server,
-						label: 'MCP Servers',
+						id: 'mcp-server-management',
+						icon: RadioTower,
+						label: 'MCP Management',
+						collapsible: false,
 						disabled: false,
-						collapsible: false
-					},
-					...(isAtLeastPowerUserPlus
-						? [
-								{
-									id: 'access-control',
-									href: '/mcp-publisher/access-control',
-									icon: GlobeLock,
-									label: 'Access Control',
-									disabled: false,
-									collapsible: false
-								}
-							]
-						: []),
-					{
-						id: 'audit-logs',
-						href: '/mcp-publisher/audit-logs',
-						icon: Captions,
-						label: 'Audit Logs',
-						disabled: false,
-						collapsible: false
-					},
-					{
-						id: 'usage',
-						href: '/mcp-publisher/usage',
-						icon: ChartBarDecreasing,
-						label: 'Usage',
-						disabled: false,
-						collapsible: false
+						items: [
+							{
+								id: 'mcp-servers',
+								href: '/mcp-servers',
+								icon: Server,
+								label: 'MCP Servers',
+								disabled: false,
+								collapsible: false
+							},
+							...(isAtLeastPowerUserPlus
+								? [
+										{
+											id: 'access-control',
+											href: '/access-control',
+											icon: GlobeLock,
+											label: 'Access Control',
+											disabled: false,
+											collapsible: false
+										}
+									]
+								: []),
+							...(isAtLeastPowerUser
+								? [
+										{
+											id: 'audit-logs',
+											href: '/audit-logs',
+											icon: Captions,
+											label: 'Audit Logs',
+											disabled: false,
+											collapsible: false
+										},
+										{
+											id: 'usage',
+											href: '/usage',
+											icon: ChartBarDecreasing,
+											label: 'Usage',
+											disabled: false,
+											collapsible: false
+										}
+									]
+								: [])
+						]
 					}
 				])
 	);
@@ -432,6 +457,18 @@
 						<BetaLogo />
 					{/if}
 				{/snippet}
+				{#snippet centerContent()}
+					{#if layout.sidebarOpen && !hideSidebar}
+						<div class="mx-6 flex w-full items-center gap-2" class:ml-4={showBackButton}>
+							{@render layoutHeaderContent()}
+						</div>
+					{/if}
+				{/snippet}
+				{#snippet rightContent()}
+					{#if rightNavActions && layout.sidebarOpen && !hideSidebar}
+						{@render rightNavActions()}
+					{/if}
+				{/snippet}
 			</Navbar>
 
 			<div
@@ -448,6 +485,16 @@
 				>
 					{#if isAdminRoute && !excludeConfigureBanner.includes(pathname)}
 						<ConfigureBanner />
+					{/if}
+					{#if !layout.sidebarOpen || hideSidebar}
+						<div class="flex w-full items-center justify-between gap-2">
+							{@render layoutHeaderContent()}
+							<div class="flex flex-shrink-0 items-center gap-2">
+								{#if rightNavActions}
+									{@render rightNavActions()}
+								{/if}
+							</div>
+						</div>
 					{/if}
 					{@render children()}
 				</div>
@@ -471,6 +518,26 @@
 {#if isAdminRoute}
 	<SetupSplashDialog />
 {/if}
+
+{#snippet layoutHeaderContent()}
+	{#if showBackButton}
+		<button
+			class="icon-button flex-shrink-0"
+			onclick={() => {
+				if (onBackButtonClick) {
+					onBackButtonClick();
+				} else {
+					history.back();
+				}
+			}}
+		>
+			<ChevronLeft class="size-6" />
+		</button>
+	{/if}
+	{#if title}
+		<h1 class="w-full text-xl font-semibold">{title}</h1>
+	{/if}
+{/snippet}
 
 <style lang="postcss">
 	.sidebar-link {

@@ -1,6 +1,5 @@
 import { browser } from '$app/environment';
 import type { AppPreferences } from '$lib/services';
-import { listAppPreferences } from '$lib/services/admin/operations';
 
 export const DEFAULT_LOGOS = {
 	// Logo.svelte variants
@@ -101,29 +100,6 @@ function initialize(preferences: AppPreferences) {
 	if (browser) {
 		store.setThemeColors(store.current.theme);
 	}
-}
-
-async function init() {
-	// Skip if already loaded (e.g., from SSR)
-	if (store.loaded) {
-		console.log('App Preferences already initialized from SSR');
-		return;
-	}
-
-	try {
-		const preferences = await listAppPreferences();
-		store.current = compileAppPreferences(preferences);
-		store.loaded = true;
-		store.setThemeColors(store.current.theme);
-		console.log('App Preferences initialized from client');
-	} catch {
-		store.current = compileAppPreferences();
-		console.log('App Preferences initialized with defaults');
-	}
-}
-
-if (browser) {
-	init();
 }
 
 export default store;

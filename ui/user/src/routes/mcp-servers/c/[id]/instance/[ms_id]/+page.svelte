@@ -1,5 +1,4 @@
 <script lang="ts">
-	import BackLink from '$lib/components/BackLink.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -31,15 +30,11 @@
 	onMount(() => {
 		fetchUserInfo();
 	});
+	let title = $derived(`${catalogEntryName} | ${mcpServerId}`);
 </script>
 
-<Layout>
-	<div class="mt-6 flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
-		{#if mcpServerId}
-			{@const currentLabel = mcpServerId ?? 'Server'}
-			<BackLink fromURL={`/mcp-publisher/${catalogEntry?.id}`} {currentLabel} />
-		{/if}
-
+<Layout {title} showBackButton>
+	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServerId && catalogEntry?.manifest.runtime !== 'remote'}
 			<McpServerK8sInfo
 				id={workspaceId}
@@ -66,5 +61,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {catalogEntryName} | {mcpServerId}</title>
+	<title>Obot | {title}</title>
 </svelte:head>

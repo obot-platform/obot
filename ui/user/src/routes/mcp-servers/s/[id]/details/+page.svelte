@@ -2,26 +2,23 @@
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { AdminService, type MCPServerInstance, type OrgUser } from '$lib/services';
+	import { AdminService, ChatService, type MCPServerInstance, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
 	import { LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	let { mcpServer } = data;
+	let { mcpServer, workspaceId } = data;
 	let loading = $state(false);
 	let users = $state<OrgUser[]>([]);
 	let instances = $state<MCPServerInstance[]>([]);
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 
 	onMount(async () => {
-		if (!mcpServer) return;
+		if (!mcpServer || !workspaceId) return;
 		loading = true;
-		instances = await AdminService.listMcpCatalogServerInstances(
-			DEFAULT_MCP_CATALOG_ID,
-			mcpServer.id
-		);
+		instances = await ChatService.listWorkspaceMcpCatalogServerInstances(workspaceId, mcpServer.id);
 		users = await AdminService.listUsersIncludeDeleted();
 		loading = false;
 	});
@@ -36,10 +33,10 @@
 			</div>
 		{:else}
 			<div class="flex flex-col gap-6">
-				{#if mcpServer}
+				{#if mcpServer && workspaceId}
 					<McpServerK8sInfo
-						id={DEFAULT_MCP_CATALOG_ID}
-						entity="catalog"
+						id={workspaceId}
+						entity="workspace"
 						mcpServerId={mcpServer.id}
 						name={mcpServer.manifest.name || ''}
 						connectedUsers={(instances ?? []).map((instance) => {

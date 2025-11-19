@@ -5,17 +5,24 @@ import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params, fetch }) => {
 	const { id } = params;
+
+	let mcpServer;
 	let workspaceId;
-	let catalogEntry;
 	try {
 		workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
-		catalogEntry = await ChatService.getWorkspaceMCPCatalogEntry(workspaceId, id, { fetch });
+	} catch (_err) {
+		// may not have a workspace id if basic user atm
+		workspaceId = undefined;
+	}
+
+	try {
+		mcpServer = await ChatService.getMcpCatalogServer(id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/mcp-publisher/c/${id}`, profile.current);
+		handleRouteError(err, `/mcp-servers/s/${id}`, profile.current);
 	}
 
 	return {
-		workspaceId,
-		catalogEntry
+		mcpServer,
+		workspaceId
 	};
 };

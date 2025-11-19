@@ -150,15 +150,13 @@
 	}
 </script>
 
-<Layout>
+<Layout title="Task Runs">
 	<div
-		class="my-4 h-full w-full"
+		class="h-full w-full"
 		in:fly={{ x: 100, duration: 300, delay: 150 }}
 		out:fly={{ x: -100, duration: 300 }}
 	>
 		<div class="flex flex-col gap-8 pb-8">
-			<h1 class="text-2xl font-semibold">Task Runs</h1>
-
 			<div class="flex flex-col gap-2">
 				<Search
 					value={query}
