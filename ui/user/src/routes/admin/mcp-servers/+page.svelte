@@ -14,7 +14,7 @@
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { goto } from '$app/navigation';
+	import { beforeNavigate, goto } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import BackLink from '$lib/components/BackLink.svelte';
@@ -47,7 +47,7 @@
 	type LocalStorageViewQuery = Record<View, string>;
 	const localStorageViewQuery = localState<LocalStorageViewQuery>(
 		'@obot/admin/mcp-servers/search-query',
-		{ [view]: query } as LocalStorageViewQuery
+		{} as LocalStorageViewQuery
 	);
 
 	initMcpServerAndEntries();
@@ -92,6 +92,12 @@
 				selectedEntryServer = undefined;
 				showServerForm = false;
 			}
+		}
+	});
+
+	beforeNavigate(({ to }) => {
+		if (browser && !to?.url.pathname.startsWith('/admin/mcp-servers')) {
+			clearQueryFromLocalStorage();
 		}
 	});
 
@@ -173,6 +179,16 @@
 		}
 
 		localStorageViewQuery.current[view] = queryValue;
+	}
+
+	function clearQueryFromLocalStorage(view?: View): void {
+		if (view) {
+			if (localStorageViewQuery.current) {
+				localStorageViewQuery.current[view] = '';
+			}
+		} else {
+			localStorageViewQuery.current = { registry: '', deployments: '', urls: '' };
+		}
 	}
 
 	// Helper function to navigate with consistent options
