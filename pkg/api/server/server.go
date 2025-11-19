@@ -78,6 +78,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
+		start := time.Now()
+		log.Debugf("Handling request: method %s, path %s", req.Method, req.URL.Path)
+		
 		ctx, span := tracer.Start(req.Context(), req.Pattern)
 		defer span.End()
 		req = req.WithContext(ctx)
@@ -181,12 +184,23 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			User:           user,
 			APIBaseURL:     s.baseURL,
 		})
+		duration := time.Since(start)
 		if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
+			log.Errorf("Request failed: method %s, path %s, status %d, duration %v, error: %s", req.Method, req.URL.Path, errHTTP.Code, duration, errHTTP.Message)
 			http.Error(rw, errHTTP.Message, errHTTP.Code)
 		} else if errStatus := (*apierrors.StatusError)(nil); errors.As(err, &errStatus) {
+			log.Errorf("Request failed: method %s, path %s, status %d, duration %v, error: %s", req.Method, req.URL.Path, int(errStatus.ErrStatus.Code), duration, errStatus.Error())
 			http.Error(rw, errStatus.Error(), int(errStatus.ErrStatus.Code))
 		} else if err != nil {
+			log.Errorf("Request failed: method %s, path %s, duration %v, error: %v", req.Method, req.URL.Path, duration, err)
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
+		} else {
+			// Get status code from response writer if available
+			if respWriter, ok := rw.(*responseWriter); ok {
+				log.Debugf("Handled request: method %s, path %s, status %d, duration %v", req.Method, req.URL.Path, respWriter.auditEntry.ResponseCode, duration)
+			} else {
+				log.Debugf("Handled request: method %s, path %s, duration %v", req.Method, req.URL.Path, duration)
+			}
 		}
 	}
 }

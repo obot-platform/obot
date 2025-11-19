@@ -733,7 +733,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 			uiBasePath = wd
 		}
 	}
-	services.APIServer.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort, uiBasePath))
+	services.APIServer.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort, uiBasePath, services.AdminUIHost, services.UserUIHost))
 
 	return services.APIServer, nil
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/runtime"
 	apiclienttypes "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
@@ -84,6 +85,8 @@ type Config struct {
 	DevMode                    bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
 	DevUIPort                  int      `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
 	UserUIPort                 int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
+	AdminUIHost                string   `usage:"The hostname for the admin UI service (for docker-compose networking)" env:"OBOT_SERVER_ADMIN_UI_HOST"`
+	UserUIHost                 string   `usage:"The hostname for the user UI service (for docker-compose networking)" env:"OBOT_SERVER_USER_UI_HOST"`
 	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
 	ToolRegistries             []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools"`
 	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
@@ -130,6 +133,8 @@ type Services struct {
 	EmailServerName            string
 	DevUIPort                  int
 	UserUIPort                 int
+	AdminUIHost                string
+	UserUIHost                 string
 	Events                     *events.Emitter
 	StorageClient              storage.Client
 	Router                     *router.Router
@@ -736,6 +741,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		HTTPPort:              config.HTTPListenPort,
 		DevUIPort:             devPort,
 		UserUIPort:            config.UserUIPort,
+		AdminUIHost:           config.AdminUIHost,
+		UserUIHost:            config.UserUIHost,
 		ToolRegistryURLs:      config.ToolRegistries,
 		Events:                events,
 		StorageClient:         storageClient,
@@ -819,4 +826,5 @@ func startDevMode(ctx context.Context, storageClient storage.Client) {
 			Namespace: "kube-system",
 		},
 	})
+	logger.SetDebug()
 }

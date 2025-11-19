@@ -11,27 +11,39 @@ import (
 	"github.com/obot-platform/obot/pkg/oauth"
 )
 
-func Handler(devPort, userOnlyPort int, uiBasePath string) http.Handler {
+func Handler(devPort, userOnlyPort int, uiBasePath, adminUIHost, userUIHost string) http.Handler {
 	server := &uiServer{
 		uiBasePath: uiBasePath,
 	}
 
 	if userOnlyPort != 0 {
+		host := userUIHost
+		if host == "" {
+			host = "localhost"
+		}
 		server.rp = &httputil.ReverseProxy{
 			Director: func(r *http.Request) {
 				r.URL.Scheme = "http"
-				r.URL.Host = fmt.Sprintf("localhost:%d", userOnlyPort)
+				r.URL.Host = fmt.Sprintf("%s:%d", host, userOnlyPort)
 			},
 		}
 		server.userOnly = true
 	} else if devPort != 0 {
+		adminHost := adminUIHost
+		userHost := userUIHost
+		if adminHost == "" {
+			adminHost = "localhost"
+		}
+		if userHost == "" {
+			userHost = "localhost"
+		}
 		server.rp = &httputil.ReverseProxy{
 			Director: func(r *http.Request) {
 				r.URL.Scheme = "http"
 				if strings.HasPrefix(r.URL.Path, "/legacy-admin") {
-					r.URL.Host = fmt.Sprintf("localhost:%d", devPort)
+					r.URL.Host = fmt.Sprintf("%s:%d", adminHost, devPort)
 				} else {
-					r.URL.Host = fmt.Sprintf("localhost:%d", devPort+1)
+					r.URL.Host = fmt.Sprintf("%s:%d", userHost, devPort+1)
 				}
 			},
 		}

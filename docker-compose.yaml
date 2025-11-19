@@ -10,4 +10,53 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     env_file:
       - .env
+    environment:
+      - OBOT_SERVER_ADMIN_UI_HOST=admin-ui
+      - OBOT_SERVER_USER_UI_HOST=user-ui
+      - OBOT_DEV_MODE=true
+    depends_on:
+      - admin-ui
+      - user-ui
     restart: unless-stopped
+    networks:
+      - obot-network
+
+  admin-ui:
+    build:
+      context: ./ui/admin
+      dockerfile: Dockerfile.dev
+    container_name: admin-ui
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./ui/admin:/app
+      - /app/node_modules
+    working_dir: /app
+    command: sh -c "pnpm install && pnpm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      - VITE_API_IN_BROWSER=true
+    restart: unless-stopped
+    networks:
+      - obot-network
+
+  user-ui:
+    build:
+      context: ./ui/user
+      dockerfile: Dockerfile.dev
+    container_name: user-ui
+    ports:
+      - "5174:5174"
+    volumes:
+      - ./ui/user:/app
+      - /app/node_modules
+    working_dir: /app
+    command: sh -c "pnpm install && pnpm run dev --host 0.0.0.0 --port 5174"
+    environment:
+      - VITE_API_IN_BROWSER=true
+    restart: unless-stopped
+    networks:
+      - obot-network
+
+networks:
+  obot-network:
+    driver: bridge
