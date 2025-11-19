@@ -13,6 +13,11 @@ export default defineConfig({
 	server: {
 		host: process.env.VITE_SERVER_HOST || "0.0.0.0",
 		port: parseInt(process.env.VITE_SERVER_PORT || "5173", 10),
+		allowedHosts: [
+			"mcp-catalog.emboldened.ai",
+			"localhost",
+			".emboldened.ai",
+		],
 		watch: {
 			// Exclude test files from HMR
 			ignored: !process.env.VITEST
