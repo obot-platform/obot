@@ -6,6 +6,7 @@
 	import { AlertTriangle, LoaderCircle, Trash } from 'lucide-svelte';
 	import type { StorageCredentials } from '$lib/services/admin/types';
 	import Success from '$lib/components/Success.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -49,6 +50,8 @@
 	let saving = $state(false);
 	let testing = $state(false);
 	let loading = $state(true);
+	let deleting = $state(false);
+	let showDeleteConfirm = $state(false);
 	let error = $state('');
 	let testResult = $state<{ success: boolean; message: string } | null>(null);
 	let existingCredentials = $state<StorageCredentials | null>(null);
@@ -250,14 +253,55 @@
 		}
 	}
 
+	function confirmDeleteCredentials() {
+		showDeleteConfirm = true;
+	}
+
 	async function handleDeleteCredentials() {
 		try {
+			deleting = true;
+			error = '';
+			showDeleteConfirm = false;
+
 			await AdminService.deleteStorageCredentials();
 
 			existingCredentials = null;
-			testResult = null;
+			testResult = {
+				success: true,
+				message: 'Storage credentials deleted successfully'
+			};
+
+			// Reset form to default state
+			form = {
+				provider: 's3',
+				useWorkloadIdentity: false,
+				s3Config: {
+					region: '',
+					accessKeyID: '',
+					secretAccessKey: '',
+					sessionToken: ''
+				},
+				gcsConfig: {
+					serviceAccountJSON: ''
+				},
+				azureConfig: {
+					storageAccount: '',
+					clientID: '',
+					tenantID: '',
+					clientSecret: ''
+				},
+				customS3Config: {
+					endpoint: '',
+					region: '',
+					accessKeyID: '',
+					secretAccessKey: ''
+				}
+			};
+			useWorkloadIdentity = false;
 		} catch (err) {
-			console.error(err);
+			error = err instanceof Error ? err.message : 'Failed to delete credentials';
+		} finally {
+			deleting = false;
 		}
 	}
 </script>
@@ -579,11 +623,16 @@
 						<button
 							type="button"
 							class="button-destructive"
-							onclick={handleDeleteCredentials}
-							disabled={testing || saving}
+							onclick={confirmDeleteCredentials}
+							disabled={testing || saving || deleting}
 						>
-							<Trash class="size-4" />
-							Delete Credentials
+							{#if deleting}
+								<LoaderCircle class="size-4 animate-spin" />
+								Deleting...
+							{:else}
+								<Trash class="size-4" />
+								Delete Credentials
+							{/if}
 						</button>
 					{:else}
 						<button
@@ -623,3 +672,11 @@
 		</form>
 	</div>
 {/if}
+
+<Confirm
+	show={showDeleteConfirm}
+	msg="Are you sure you want to delete the storage credentials? This action cannot be undone."
+	onsuccess={handleDeleteCredentials}
+	oncancel={() => (showDeleteConfirm = false)}
+	loading={deleting}
+/>
