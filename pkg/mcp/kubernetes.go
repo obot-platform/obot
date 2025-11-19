@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -306,8 +307,6 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		server.Args = args
 	}
 
-	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvStringData) + hash.Digest(secretVolumeStringData) + hash.Digest(webhooks))
-
 	// Set this environment variable for our nanobot image to read
 	secretEnvStringData["NANOBOT_META_ENV"] = strings.Join(metaEnv, ",")
 
@@ -325,7 +324,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	secretEnvStringData["NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_ID"] = server.TokenExchangeClientID
 	secretEnvStringData["NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_SECRET"] = server.TokenExchangeClientSecret
 	secretEnvStringData["NANOBOT_RUN_TOKEN_EXCHANGE_ENDPOINT"] = server.TokenExchangeEndpoint
-	secretEnvStringData["NANOBOT_DISABLE_HEALTH_CHECKER"] = "false"
+	secretEnvStringData["NANOBOT_DISABLE_HEALTH_CHECKER"] = strconv.FormatBool(server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite)
+
+	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvStringData) + hash.Digest(secretVolumeStringData) + hash.Digest(webhooks))
 
 	// Fetch K8s settings
 	k8sSettings, err := k.getK8sSettings(ctx)
@@ -408,8 +409,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	})
 
 	if server.Runtime != types.RuntimeRemote {
-		// If this is a containerized runtime, then we need to add a shim container.
-		nanobotFileString, err := constructNanobotYAMLForServer(server.MCPServerDisplayName+" Shim", fmt.Sprintf("http://localhost:%d/%s", server.ContainerPort, strings.TrimPrefix(server.ContainerPath, "/")), "", nil, nil, nil, webhooks)
+		// If this is anything other than a remote runtime, then we need to add a special shim container.
+		// The remote runtime will just be the shim and is deployed as the "real" container.
+		nanobotFileString, err := constructNanobotYAMLForServer(server.MCPServerDisplayName+" Shim", fmt.Sprintf("http://localhost:%d/%s", port, strings.TrimPrefix(server.ContainerPath, "/")), "", nil, nil, nil, webhooks)
 		if err != nil {
 			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
 		}
@@ -436,10 +438,14 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				for k, v := range secretEnvStringData {
 					if k == "NANOBOT_DISABLE_HEALTH_CHECKER" {
 						vars[k] = "true"
-						delete(secretEnvStringData, k)
+						if server.Runtime != types.RuntimeComposite {
+							delete(secretEnvStringData, k)
+						}
 					} else if strings.HasPrefix(k, "NANOBOT_") {
 						vars[k] = v
-						delete(secretEnvStringData, k)
+						if k != "NANOBOT_RUN_HEALTHZ_PATH" && server.Runtime != types.RuntimeComposite {
+							delete(secretEnvStringData, k)
+						}
 					}
 				}
 
@@ -490,29 +496,22 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 
 		// Reset the portName so that the service points to the shim.
 		portName = ""
+		// Remove the webhooks because those are in the shim.
+		webhooks = nil
 
-		if server.Command != "" {
-			command = []string{expandEnvVars(server.Command, fileMapping, nil)}
+		if server.Runtime == types.RuntimeContainerized {
+			if server.Command != "" {
+				command = []string{expandEnvVars(server.Command, fileMapping, nil)}
+			}
+
+			if server.ContainerImage != "" {
+				image = expandEnvVars(server.ContainerImage, fileMapping, nil)
+			}
+
+			if server.Args != nil {
+				args = server.Args
+			}
 		}
-
-		image = expandEnvVars(server.ContainerImage, fileMapping, nil)
-		args = server.Args
-	} else {
-		nanobotFileString, err := constructNanobotYAMLForServer(server.MCPServerDisplayName, server.URL, server.Command, server.Args, secretEnvStringData, headerData, webhooks)
-		if err != nil {
-			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
-		}
-
-		objs = append(objs, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        name.SafeConcatName(server.MCPServerName, "run"),
-				Namespace:   k.mcpNamespace,
-				Annotations: annotations,
-			},
-			StringData: map[string]string{
-				"nanobot.yaml": nanobotFileString,
-			},
-		})
 	}
 
 	objs = append(objs, &corev1.Secret{
@@ -524,6 +523,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		StringData: secretEnvStringData,
 	})
 
+	// This is the "real" MCP container.
 	containers = append(containers, corev1.Container{
 		Name:            "mcp",
 		Image:           image,
@@ -626,6 +626,28 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	}
 
 	if server.Runtime != types.RuntimeContainerized {
+		// Setup the nanobot config file and add it to the last container in the deployment.
+		var nanobotFileString string
+		if server.Runtime == types.RuntimeComposite {
+			nanobotFileString, err = constructNanobotYAMLForCompositeServer(server.Components)
+		} else {
+			nanobotFileString, err = constructNanobotYAMLForServer(server.MCPServerDisplayName, server.URL, server.Command, server.Args, secretEnvStringData, headerData, webhooks)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
+		}
+
+		objs = append(objs, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        name.SafeConcatName(server.MCPServerName, "run"),
+				Namespace:   k.mcpNamespace,
+				Annotations: annotations,
+			},
+			StringData: map[string]string{
+				"nanobot.yaml": nanobotFileString,
+			},
+		})
+
 		dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts = append(dep.Spec.Template.Spec.Containers[len(containers)-1].VolumeMounts, corev1.VolumeMount{
 			Name:      "run-file",
 			MountPath: "/run",

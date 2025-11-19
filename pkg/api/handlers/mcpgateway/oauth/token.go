@@ -403,6 +403,7 @@ func (h *handler) doTokenExchange(req api.Context, resource, subjectToken, subje
 					Description: "failed to retrieve composite MCP server",
 				})
 			}
+
 			tokenCtx.MCPID = componentMCPID
 			tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, componentMCPID)
 

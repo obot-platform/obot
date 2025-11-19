@@ -327,18 +327,22 @@ func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
 	}
 
 	if serverConfig.Runtime != types.RuntimeRemote {
-		if _, err = p.mcpSessionManager.ListTools(req.Context(), serverConfig); err != nil {
-			if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-				return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
-			}
-			if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-				return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-			}
-			if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
-				return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
-			}
-			return fmt.Errorf("failed to launch MCP server: %w", err)
+		_, err = p.mcpSessionManager.ListTools(req.Context(), serverConfig)
+	} else {
+		// Don't use ListTools for remote MCP servers in case they need OAuth.
+		_, err = p.mcpSessionManager.PingServer(req.Context(), serverConfig)
+	}
+	if _, err = p.mcpSessionManager.ListTools(req.Context(), serverConfig); err != nil {
+		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
 		}
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
+		return fmt.Errorf("failed to launch MCP server: %w", err)
 	}
 
 	return nil

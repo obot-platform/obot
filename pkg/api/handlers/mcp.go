@@ -522,8 +522,7 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 
 		for _, component := range componentServers.Items {
 			// Skip if disabled in composite config
-			if disabledComponents[component.Spec.MCPServerCatalogEntryName] ||
-				component.Spec.Manifest.Runtime == types.RuntimeRemote {
+			if disabledComponents[component.Spec.MCPServerCatalogEntryName] {
 				continue
 			}
 
@@ -532,7 +531,13 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 				return fmt.Errorf("failed to get config for component server %s: %w", component.Name, err)
 			}
 
-			if _, err = m.mcpSessionManager.ListTools(req.Context(), config); err != nil {
+			if server.Spec.Manifest.Runtime != types.RuntimeRemote {
+				_, err = m.mcpSessionManager.ListTools(req.Context(), config)
+			} else {
+				// Don't use ListTools for remote MCP servers in case they need OAuth.
+				_, err = m.mcpSessionManager.PingServer(req.Context(), config)
+			}
+			if err != nil {
 				if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 					return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("Component MCP server %s is not healthy, check configuration for errors", component.Name))
 				}
@@ -546,11 +551,9 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 				return fmt.Errorf("failed to launch component MCP server %s: %w", component.Name, err)
 			}
 		}
-
-		return nil
 	}
 
-	if server.Spec.Manifest.Runtime != types.RuntimeRemote {
+	if server.Spec.Manifest.Runtime != types.RuntimeRemote && server.Spec.Manifest.Runtime != types.RuntimeComposite {
 		_, err = m.mcpSessionManager.ListTools(req.Context(), serverConfig)
 	} else {
 		// Don't use ListTools for remote MCP servers in case they need OAuth.
