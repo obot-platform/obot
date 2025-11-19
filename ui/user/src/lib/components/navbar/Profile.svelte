@@ -6,14 +6,12 @@
 	import { getUserRoleLabel } from '$lib/utils';
 	import {
 		Book,
-		LayoutDashboard,
 		User,
 		LogOut,
 		Moon,
 		Sun,
 		BadgeInfo,
 		X,
-		Server,
 		MessageCircle,
 		ServerCog,
 		CircleFadingArrowUp
@@ -27,8 +25,7 @@
 
 	let versionDialog = $state<HTMLDialogElement>();
 	let showChatLink = $state(false);
-	let showMyMcpServersLink = $state(false);
-	let showMcpPublisherLink = $state(false);
+	let showMcpManagement = $state(false);
 	let inAdminRoute = $state(false);
 	let loadingChat = $state(false);
 
@@ -73,18 +70,9 @@
 	}
 
 	afterNavigate(() => {
-		const routesToShowChatLink = [
-			'/mcp-servers',
-			'/profile',
-			'/mcp-publisher',
-			'/mcp-publisher/access-control',
-			'/mcp-publisher/audit-logs',
-			'/mcp-publisher/usage'
-		];
 		inAdminRoute = window.location.pathname.includes('/admin');
-		showChatLink = routesToShowChatLink.includes(window.location.pathname) || inAdminRoute;
-		showMyMcpServersLink = window.location.pathname !== '/mcp-servers';
-		showMcpPublisherLink = !window.location.pathname.startsWith('/mcp-publisher');
+		showChatLink = !window.location.pathname.startsWith('/o') || inAdminRoute;
+		showMcpManagement = window.location.pathname.startsWith('/o');
 	});
 
 	function navigateTo(path: string, asNewTab?: boolean) {
@@ -155,34 +143,7 @@
 		</div>
 	{/snippet}
 	{#snippet body()}
-		{@const canAccessAdmin = profile.current.hasAdminAccess?.()}
 		<div class="flex flex-col gap-2 px-2 pb-4">
-			{#if canAccessAdmin && !inAdminRoute}
-				<button
-					onclick={(event) => {
-						const asNewTab = event?.ctrlKey || event?.metaKey;
-						navigateTo('/admin', asNewTab);
-					}}
-					class="link"
-					role="menuitem"
-				>
-					<LayoutDashboard class="size-4" />
-					Admin Dashboard
-				</button>
-			{/if}
-			{#if showMyMcpServersLink}
-				<button
-					onclick={(event) => {
-						const asNewTab = event?.ctrlKey || event?.metaKey;
-						navigateTo('/mcp-servers', asNewTab);
-					}}
-					class="link"
-					role="menuitem"
-				>
-					<Server class="size-4" />
-					My Connectors
-				</button>
-			{/if}
 			{#if showChatLink}
 				<button
 					class="link"
@@ -213,9 +174,13 @@
 					Chat
 				</button>
 			{/if}
-			{#if profile.current.groups.includes(Group.POWERUSER) && showMcpPublisherLink && version.current.authEnabled}
-				<a href="/mcp-publisher" rel="external" class="link">
-					<ServerCog class="size-4" /> MCP Publisher
+			{#if showMcpManagement && version.current.authEnabled}
+				<a
+					href={profile.current.hasAdminAccess?.() ? '/admin/mcp-servers' : '/mcp-servers'}
+					rel="external"
+					class="link"
+				>
+					<ServerCog class="size-4" /> MCP Management
 				</a>
 			{/if}
 			{#if responsive.isMobile}

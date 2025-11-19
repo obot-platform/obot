@@ -4,7 +4,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { BookOpenText, ChevronLeft, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
@@ -90,6 +90,16 @@
 		}
 	});
 
+	afterNavigate(() => {
+		const url = new URL(window.location.href);
+		const queryParams = new URLSearchParams(url.search);
+		if (queryParams.get('new')) {
+			showCreateRule = true;
+		} else {
+			showCreateRule = false;
+		}
+	});
+
 	async function navigateToCreated(rule: AccessControlRule) {
 		showCreateRule = false;
 		goto(`/admin/access-control/${rule.id}`, { replaceState: false });
@@ -111,11 +121,13 @@
 			mcpEntries.filter((entry) => entry.powerUserWorkspaceID === powerUserWorkspaceID).length
 		);
 	}
+
+	let title = $derived(showCreateRule ? 'Create Access Control Rule' : 'Access Control');
 </script>
 
-<Layout>
+<Layout {title} showBackButton={showCreateRule}>
 	<div
-		class="my-4 h-full w-full"
+		class="h-full w-full"
 		in:fly={{ x: 100, duration, delay: duration }}
 		out:fly={{ x: -100, duration }}
 	>
@@ -127,20 +139,12 @@
 				in:fly={{ x: 100, delay: duration, duration }}
 				out:fly={{ x: -100, duration }}
 			>
-				<div class="flex items-center justify-between">
-					<h1 class="text-2xl font-semibold">Access Control</h1>
-					{#if accessControlRules.length > 0}
-						<div class="relative flex items-center gap-4">
-							{@render addRuleButton()}
-						</div>
-					{/if}
-				</div>
 				{#if accessControlRules.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 						<BookOpenText class="text-on-surface1 size-24 opacity-25" />
 						<h4 class="text-on-surface1 text-lg font-semibold">No created access control rules</h4>
 						<p class="text-on-surface1 text-sm font-light">
-							Looks like you don't have any rules created yet. <br />
+							Looks like you don't have any access control rules created yet. <br />
 							{#if !isReadonly}
 								Click the button below to get started.
 							{/if}
@@ -149,28 +153,26 @@
 						{@render addRuleButton()}
 					</div>
 				{:else}
-					<div class="flex flex-col gap-2">
-						<h2 class="text-xl font-semibold">Global Access Control Rules</h2>
-						{@render accessControlRuleTable('global')}
-					</div>
-
-					<div class="flex flex-col gap-2">
-						<h2 class="text-xl font-semibold">User Created Access Control Rules</h2>
-						{@render accessControlRuleTable('user')}
-					</div>
+					{@render accessControlRuleTable()}
 				{/if}
 			</div>
 		{/if}
 	</div>
+
+	{#snippet rightNavActions()}
+		{#if !showCreateRule}
+			<div class="relative flex items-center gap-4">
+				{@render addRuleButton()}
+			</div>
+		{/if}
+	{/snippet}
 </Layout>
 
-{#snippet accessControlRuleTable(type: 'global' | 'user')}
-	{@const data = type === 'user' ? userAccessControlRules : globalAccessControlRules}
+{#snippet accessControlRuleTable()}
+	{@const data = [...userAccessControlRules, ...globalAccessControlRules]}
 	<Table
 		{data}
-		fields={type === 'user'
-			? ['displayName', 'serversCount', 'owner']
-			: ['displayName', 'serversCount']}
+		fields={['displayName', 'serversCount', 'owner']}
 		onClickRow={(d, isCtrlClick) => {
 			const url = d.powerUserWorkspaceID
 				? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
@@ -218,7 +220,9 @@
 	{#if !profile.current.isAdminReadonly?.()}
 		<button
 			class="button-primary flex items-center gap-1 text-sm"
-			onclick={() => (showCreateRule = true)}
+			onclick={() => {
+				goto(`/admin/access-control?new=true`);
+			}}
 		>
 			<Plus class="size-4" /> Add New Rule
 		</button>
@@ -234,17 +238,7 @@
 		<AccessControlRuleForm
 			onCreate={navigateToCreated}
 			mcpEntriesContextFn={getAdminMcpServerAndEntries}
-		>
-			{#snippet topContent()}
-				<button
-					onclick={() => (showCreateRule = false)}
-					class="button-text flex -translate-x-1 items-center gap-2 p-0 text-lg font-light"
-				>
-					<ChevronLeft class="size-6" />
-					Access Control
-				</button>
-			{/snippet}
-		</AccessControlRuleForm>
+		/>
 	</div>
 {/snippet}
 

@@ -1,362 +1,235 @@
 <script lang="ts">
-	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
-	import CopyButton from '$lib/components/CopyButton.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import { createProjectMcp, parseCategories, requiresUserUpdate } from '$lib/services/chat/mcp';
-	import {
-		ChatService,
-		EditorService,
-		type MCPCatalogEntry,
-		type MCPCatalogServer,
-		type MCPServerInstance
-	} from '$lib/services/index.js';
-	import { ExternalLink, Server } from 'lucide-svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { ChatService, Group, type MCPCatalogServer } from '$lib/services';
+	import type { MCPCatalogEntry } from '$lib/services/admin/types';
+	import { LoaderCircle, Plus, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { fade } from 'svelte/transition';
-	import PageLoading from '$lib/components/PageLoading.svelte';
-	import { afterNavigate, goto } from '$app/navigation';
-	import MyMcpServers, { type ConnectedServer } from '$lib/components/mcp/MyMcpServers.svelte';
-	import { responsive } from '$lib/stores';
+	import { fade, fly } from 'svelte/transition';
+	import { goto } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import Search from '$lib/components/Search.svelte';
+	import SelectServerType, {
+		type SelectServerOption
+	} from '$lib/components/mcp/SelectServerType.svelte';
+	import { getServerTypeLabelByType } from '$lib/services/chat/mcp.js';
+	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		getTableUrlParamsSort,
+		setFilterUrlParams,
+		setSortUrlParams
+	} from '$lib/url';
+	import { profile } from '$lib/stores/index.js';
+	import {
+		fetchUserMcpServerAndEntries,
+		getUserMcpServerAndEntries,
+		initUserMcpServerAndEntries
+	} from '$lib/context/mcpServerAndEntries.svelte.js';
+	import RegistriesView from '$lib/components/mcp/RegistriesView.svelte';
 
-	let userServerInstances = $state<MCPServerInstance[]>([]);
-	let userConfiguredServers = $state<MCPCatalogServer[]>([]);
-	let servers = $state<MCPCatalogServer[]>([]);
-	let entries = $state<MCPCatalogEntry[]>([]);
-	let loading = $state(true);
+	let { data } = $props();
+	let query = $state('');
+	let workspaceId = $derived(data.workspace?.id);
+	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 
-	let chatLoading = $state(false);
-	let chatLoadingProgress = $state(0);
-	let chatLaunchError = $state<string>();
-
-	let connectToServer = $state<{
-		server?: MCPCatalogServer;
-		instance?: MCPServerInstance;
-		connectURL?: string;
-		parent?: MCPCatalogEntry;
-	}>();
-	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let showAllServersConfigDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let myMcpServers = $state<ReturnType<typeof MyMcpServers>>();
-	let selectedCategory = $state('');
-
-	let convertedEntries: (MCPCatalogEntry & { categories: string[] })[] = $derived(
-		entries.map((entry) => ({
-			...entry,
-			categories: parseCategories(entry)
-		}))
-	);
-	let convertedServers: (MCPCatalogServer & { categories: string[] })[] = $derived(
-		servers.map((server) => ({
-			...server,
-			categories: parseCategories(server)
-		}))
-	);
-	let convertedUserConfiguredServers: (MCPCatalogServer & { categories: string[] })[] = $derived(
-		userConfiguredServers.map((server) => ({
-			...server,
-			categories: parseCategories(server)
-		}))
-	);
-
-	let categories = $derived(
-		[
-			...new Set([
-				...convertedEntries.flatMap((item) => item.categories),
-				...convertedServers.flatMap((item) => item.categories)
-			])
-		].sort((a, b) => a.localeCompare(b))
-	);
-
-	async function loadData(partialRefresh?: boolean) {
-		loading = true;
-		try {
-			if (partialRefresh) {
-				const [singleOrRemoteUserServers, serverInstances] = await Promise.all([
-					ChatService.listSingleOrRemoteMcpServers(),
-					ChatService.listMcpServerInstances()
-				]);
-
-				userConfiguredServers = singleOrRemoteUserServers;
-				userServerInstances = serverInstances;
-			} else {
-				const [singleOrRemoteUserServers, entriesResult, serversResult, serverInstances] =
-					await Promise.all([
-						ChatService.listSingleOrRemoteMcpServers(),
-						ChatService.listMCPs(),
-						ChatService.listMCPCatalogServers(),
-						ChatService.listMcpServerInstances()
-					]);
-
-				userConfiguredServers = singleOrRemoteUserServers;
-				entries = entriesResult;
-				servers = serversResult;
-				userServerInstances = serverInstances;
-			}
-			userConfiguredServers = userConfiguredServers.filter(
-				(server) => !server.deleted && !server.powerUserWorkspaceID
-			);
-		} catch (error) {
-			console.error('Failed to load data:', error);
-		} finally {
-			loading = false;
-		}
-	}
+	initUserMcpServerAndEntries();
+	const mcpServerAndEntries = getUserMcpServerAndEntries();
 
 	onMount(() => {
-		loadData();
+		fetchUserMcpServerAndEntries(mcpServerAndEntries);
 	});
 
-	afterNavigate(() => {
-		const url = new URL(window.location.href);
-		selectedCategory = url.searchParams.get('category') ?? '';
-	});
-
-	async function handleSetupChat(connectedServer: typeof connectToServer) {
-		if (!connectedServer || !connectedServer.server) return;
-		connectDialog?.close();
-		chatLaunchError = undefined;
-		chatLoading = true;
-		chatLoadingProgress = 0;
-
-		let timeout1 = setTimeout(() => {
-			chatLoadingProgress = 10;
-		}, 1000);
-		let timeout2 = setTimeout(() => {
-			chatLoadingProgress = 50;
-		}, 5000);
-		let timeout3 = setTimeout(() => {
-			chatLoadingProgress = 80;
-		}, 10000);
-
-		const projects = await ChatService.listProjects();
-		const name = [
-			connectedServer.server?.alias || connectedServer.server?.manifest.name || '',
-			connectedServer.server.id
-		].join(' - ');
-		const match = projects.items.find((project) => project.name === name);
-
-		let project = match;
-		if (!match) {
-			// if no project match, create a new one w/ mcp server connected to it
-			project = await EditorService.createObot({
-				name: name
-			});
-		}
-
-		try {
-			const mcpId = connectedServer.instance
-				? connectedServer.instance.id
-				: connectedServer.server.id;
-			if (
-				project &&
-				!(await ChatService.listProjectMCPs(project.assistantID, project.id)).find(
-					(mcp) => mcp.mcpID === mcpId
-				)
-			) {
-				await createProjectMcp(project, mcpId);
+	afterNavigate(({ to }) => {
+		if (browser && to?.url) {
+			const serverId = to.url.searchParams.get('id');
+			const createNewType = to.url.searchParams.get('new') as 'single' | 'multi' | 'remote';
+			if (createNewType) {
+				selectServerType(createNewType, false);
+			} else if (!serverId && (selectedEntryServer || showServerForm)) {
+				selectedEntryServer = undefined;
+				showServerForm = false;
 			}
-		} catch (err) {
-			chatLaunchError = err instanceof Error ? err.message : 'An unknown error occurred';
-		} finally {
-			clearTimeout(timeout1);
-			clearTimeout(timeout2);
-			clearTimeout(timeout3);
 		}
+	});
 
-		chatLoadingProgress = 100;
-		setTimeout(() => {
-			chatLoading = false;
-			goto(`/o/${project?.id}`);
-		}, 1000);
+	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
+	let selectedServerType = $state<SelectServerOption>();
+	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
+
+	let showServerForm = $state(false);
+	let deletingEntry = $state<MCPCatalogEntry>();
+	let deletingServer = $state<MCPCatalogServer>();
+
+	let urlFilters = $state(getTableUrlParamsFilters());
+	let initSort = $derived(getTableUrlParamsSort());
+
+	function selectServerType(type: SelectServerOption, updateUrl = true) {
+		selectedServerType = type;
+		selectServerTypeDialog?.close();
+		showServerForm = true;
+		if (updateUrl) {
+			goto(`/mcp-servers?new=${type}`, { replaceState: false });
+		}
 	}
+
+	function handleFilter(property: string, values: string[]) {
+		urlFilters[property] = values;
+		setFilterUrlParams(property, values);
+	}
+
+	function handleClearAllFilters() {
+		urlFilters = {};
+		clearUrlParams();
+	}
+
+	const duration = PAGE_TRANSITION_DURATION;
+	let title = $derived(
+		showServerForm ? `Create ${getServerTypeLabelByType(selectedServerType)} Server` : 'MCP Servers'
+	);
 </script>
 
-<Layout showUserLinks navLinks={[]} hideSidebar classes={{ container: 'pb-0' }}>
-	<div class="flex h-full w-full">
-		{#if !responsive.isMobile}
-			<ul class="flex min-h-0 w-xs flex-shrink-0 grow flex-col p-4">
-				<li>
-					<button
-						class="text-md border-surface3 border-l-3 px-4 py-2 text-left font-light transition-colors duration-300"
-						class:!border-primary={!selectedCategory}
-						onclick={() => {
-							selectedCategory = '';
-						}}
-					>
-						Browse All
-					</button>
-				</li>
-				{#each categories as category (category)}
-					<li>
-						<button
-							class="text-md border-surface3 border-l-3 px-4 py-2 text-left font-light transition-colors duration-300"
-							class:!border-primary={category === selectedCategory}
-							onclick={() => {
-								selectedCategory = category;
-								myMcpServers?.reset();
-							}}
-						>
-							{category}
-						</button>
-					</li>
-				{/each}
-			</ul>
+<Layout showUserLinks {title} showBackButton={showServerForm}>
+	<div class="flex flex-col gap-8 pt-4 pb-8" in:fade>
+		{#if showServerForm}
+			{@render configureEntryScreen()}
+		{:else}
+			{@render mainContent()}
 		{/if}
-		<div class="flex w-full flex-col gap-8 px-2 pt-4" in:fade>
-			<h1 class="text-2xl font-semibold">
-				{selectedCategory ? selectedCategory : 'My Connectors'}
-			</h1>
-			<MyMcpServers
-				bind:this={myMcpServers}
-				{userServerInstances}
-				userConfiguredServers={convertedUserConfiguredServers}
-				servers={convertedServers}
-				entries={convertedEntries}
-				{loading}
-				onConnectServer={(connectedServer) => {
-					loadData(true);
-					connectToServer = connectedServer;
-					connectDialog?.open();
-				}}
-				onSelectConnectedServer={(connectedServer) => {
-					connectToServer = connectedServer;
-					connectDialog?.open();
-				}}
-				onDisconnect={() => {
-					loadData(true);
-				}}
-				connectSelectText="Connect"
-				onUpdateConfigure={() => {
-					loadData(true);
-				}}
-				{selectedCategory}
-			>
-				{#snippet appendConnectedServerTitle()}
-					<button class="button text-xs" onclick={() => showAllServersConfigDialog?.open()}>
-						Generate Configuration
-					</button>
-				{/snippet}
-				{#snippet additConnectedServerViewActions(connectedServer)}
-					{@render connectedActions(connectedServer)}
-				{/snippet}
-				{#snippet additConnectedServerCardActions(connectedServer)}
-					{@const requiresUpdate = requiresUserUpdate(connectedServer)}
-					{@render connectedActions(connectedServer)}
-					<button
-						class="menu-button"
-						onclick={async () => {
-							connectToServer = connectedServer;
-							connectDialog?.open();
-						}}
-						disabled={requiresUpdate}
-					>
-						Connect
-					</button>
-				{/snippet}
-			</MyMcpServers>
-		</div>
 	</div>
+
+	{#snippet rightNavActions()}
+		{#if isAtLeastPowerUser}
+			{@render addServerButton()}
+		{/if}
+	{/snippet}
 </Layout>
 
-{#snippet connectedActions(connectedServer: ConnectedServer)}
-	{@const requiresUpdate = requiresUserUpdate(connectedServer)}
+{#snippet mainContent()}
+	<div
+		class="flex flex-col gap-4 md:gap-8"
+		in:fly={{ x: 100, delay: duration, duration }}
+		out:fly={{ x: -100, duration }}
+	>
+		<div class="flex flex-col gap-2">
+			<Search
+				class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
+				onChange={(val) => (query = val)}
+				placeholder="Search servers..."
+			/>
+
+			{#if mcpServerAndEntries.loading}
+				<div class="my-2 flex items-center justify-center">
+					<LoaderCircle class="size-6 animate-spin" />
+				</div>
+			{:else}
+				<RegistriesView
+					entity="workspace"
+					id={workspaceId}
+					{query}
+					{urlFilters}
+					onFilter={handleFilter}
+					onClearAllFilters={handleClearAllFilters}
+					onSort={setSortUrlParams}
+					{initSort}
+					classes={{
+						tableHeader: 'top-16'
+					}}
+				>
+					{#snippet noDataContent()}
+						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+							<Server class="text-on-surface1 size-24 opacity-25" />
+							<h4 class="text-on-surface1 text-lg font-semibold">No created MCP servers</h4>
+							{#if isAtLeastPowerUser}
+								<p class="text-on-surface1 text-sm font-light">
+									Looks like you don't have any servers created yet. <br />
+									Click the button below to get started.
+								</p>
+
+								{@render addServerButton()}
+							{:else}
+								<p class="text-on-surface1 text-sm font-light">
+									Looks like there aren't any servers available to connect to yet! <br />
+								</p>
+							{/if}
+						</div>
+					{/snippet}
+				</RegistriesView>
+			{/if}
+		</div>
+	</div>
+{/snippet}
+
+{#snippet configureEntryScreen()}
+	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
+		<McpServerEntryForm
+			type={selectedServerType}
+			id={workspaceId}
+			entity="workspace"
+			onCancel={() => {
+				selectedEntryServer = undefined;
+				showServerForm = false;
+			}}
+			onSubmit={async (id, type) => {
+				if (type === 'single' || type === 'remote') {
+					goto(`/mcp-servers/c/${id}`);
+				} else {
+					goto(`/mcp-servers/s/${id}`);
+				}
+			}}
+		/>
+	</div>
+{/snippet}
+
+{#snippet addServerButton()}
 	<button
-		class="menu-button justify-between"
-		disabled={requiresUpdate}
+		class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
 		onclick={() => {
-			if (!connectedServer) return;
-			handleSetupChat(connectedServer);
+			selectServerTypeDialog?.open();
 		}}
 	>
-		Chat
+		<Plus class="size-4" /> Add MCP Server
 	</button>
 {/snippet}
 
-<ResponsiveDialog bind:this={connectDialog} animate="slide">
-	{#snippet titleContent()}
-		{#if connectToServer}
-			{@const nameToShow =
-				connectToServer.server?.alias || connectToServer.server?.manifest.name || ''}
-			{@const icon = connectToServer.server?.manifest.icon ?? ''}
+<McpConfirmDelete
+	names={[deletingEntry?.manifest?.name ?? '']}
+	show={Boolean(deletingEntry)}
+	onsuccess={async () => {
+		if (!deletingEntry || !workspaceId) {
+			return;
+		}
 
-			<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
-				{#if icon}
-					<img src={icon} alt={nameToShow} class="size-8" />
-				{:else}
-					<Server class="size-8" />
-				{/if}
-			</div>
-			{nameToShow}
-		{/if}
-	{/snippet}
-
-	{#if connectToServer}
-		{@const url = connectToServer.connectURL}
-		{@const nameToShow =
-			connectToServer.server?.alias || connectToServer.server?.manifest.name || ''}
-		<div class="flex items-center gap-4">
-			<div class="mb-4 flex grow flex-col gap-1">
-				<label for="connectURL" class="font-light">Connection URL</label>
-				<div class="mock-input-btn flex w-full items-center justify-between gap-2 shadow-inner">
-					<p>
-						{url}
-					</p>
-					<CopyButton
-						showTextLeft
-						text={url}
-						classes={{
-							button: 'flex-shrink-0 flex items-center gap-1 text-xs font-light hover:text-primary'
-						}}
-					/>
-				</div>
-			</div>
-			<div class="w-32">
-				<button
-					class="button-primary flex h-fit w-full grow items-center justify-center gap-2 text-sm"
-					onclick={() => handleSetupChat(connectToServer)}
-				>
-					Chat <ExternalLink class="size-4" />
-				</button>
-			</div>
-		</div>
-
-		{#if url}
-			<HowToConnect servers={[{ url, name: nameToShow }]} />
-		{/if}
-	{/if}
-</ResponsiveDialog>
-
-<ResponsiveDialog bind:this={showAllServersConfigDialog}>
-	{#snippet titleContent()}
-		Connect to Your Servers
-	{/snippet}
-
-	<p class="text-md mb-8">
-		Select your preferred AI tooling below and copy & paste the configuration to get set up with all
-		your connected servers.
-	</p>
-
-	<HowToConnect
-		servers={userConfiguredServers.map((server) => ({
-			url: server.connectURL ?? '',
-			name: (server.alias || server.manifest.name) ?? ''
-		}))}
-	/>
-</ResponsiveDialog>
-
-<PageLoading
-	show={chatLoading}
-	isProgressBar
-	progress={chatLoadingProgress}
-	text="Loading chat..."
-	error={chatLaunchError}
-	longLoadMessage="Connecting MCP Server to chat..."
-	longLoadDuration={10000}
-	onClose={() => {
-		chatLoading = false;
+		await ChatService.deleteWorkspaceMCPCatalogEntry(workspaceId, deletingEntry.id);
+		await fetchUserMcpServerAndEntries(mcpServerAndEntries);
+		deletingEntry = undefined;
 	}}
+	oncancel={() => (deletingEntry = undefined)}
+	entity="entry"
+	entityPlural="entries"
 />
+
+<McpConfirmDelete
+	names={[deletingServer?.manifest?.name ?? '']}
+	show={Boolean(deletingServer)}
+	onsuccess={async () => {
+		if (!deletingServer || !workspaceId) {
+			return;
+		}
+
+		await ChatService.deleteWorkspaceMCPCatalogServer(workspaceId, deletingServer.id);
+		await fetchUserMcpServerAndEntries(mcpServerAndEntries);
+		deletingServer = undefined;
+	}}
+	oncancel={() => (deletingServer = undefined)}
+	entity="entry"
+	entityPlural="entries"
+/>
+
+<SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />
 
 <svelte:head>
 	<title>Obot | MCP Servers</title>

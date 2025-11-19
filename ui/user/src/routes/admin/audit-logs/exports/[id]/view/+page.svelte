@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { AdminService } from '$lib/services';
@@ -26,9 +25,10 @@
 	});
 
 	const duration = PAGE_TRANSITION_DURATION;
+	let title = $derived(exportData?.name ?? 'View Export');
 </script>
 
-<Layout classes={{ navbar: 'bg-surface1' }}>
+<Layout classes={{ navbar: 'bg-surface1' }} {title} showBackButton>
 	<div class="flex min-h-full flex-col gap-8 pt-4" in:fade>
 		{#if loading}
 			<div class="flex items-center justify-center py-8">
@@ -37,7 +37,6 @@
 			</div>
 		{:else if error}
 			<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
-				<BackLink fromURL="audit-logs-exports" currentLabel="Export Details" />
 				<div class="rounded-md bg-red-50 p-4 dark:bg-red-950/50">
 					<div class="flex items-center gap-2">
 						<svg class="size-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
@@ -56,7 +55,6 @@
 			</div>
 		{:else if exportData}
 			<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
-				<BackLink fromURL="audit-logs-exports" currentLabel="View Export: {exportData.name}" />
 				<CreateAuditLogExportForm
 					mode="view"
 					initialData={exportData}
@@ -69,5 +67,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | View Export</title>
+	<title>Obot | {title}</title>
 </svelte:head>

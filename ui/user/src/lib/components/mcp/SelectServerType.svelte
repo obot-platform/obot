@@ -4,8 +4,9 @@
 	import { profile } from '$lib/stores';
 	import { Group } from '$lib/services';
 
+	export type SelectServerOption = 'single' | 'multi' | 'remote' | 'composite';
 	interface Props {
-		onSelectServerType: (type: 'single' | 'multi' | 'remote' | 'composite') => void;
+		onSelectServerType: (type: SelectServerOption) => void;
 		entity?: 'catalog' | 'workspace';
 	}
 

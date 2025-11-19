@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { Plus, Settings } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -162,7 +161,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout classes={{ navbar: 'bg-surface1' }}>
+<Layout classes={{ navbar: 'bg-surface1' }} showBackButton title="Audit Log Exports">
 	<div class="flex min-h-full flex-col gap-8 pt-4" in:fade>
 		{#if showForm}
 			{@render formScreen()}
@@ -173,7 +172,6 @@
 </Layout>
 
 {#snippet mainContent()}
-	<BackLink fromURL="audit-logs" currentLabel="Audit Log Exports" />
 	<div
 		class="flex min-h-full flex-col"
 		in:fly={{ x: 100, delay: duration, duration }}
@@ -242,14 +240,7 @@
 {/snippet}
 
 {#snippet formScreen()}
-	{@const currentLabel =
-		showForm === 'export'
-			? 'Create Export'
-			: showForm === 'scheduled'
-				? 'Create Export Schedule'
-				: 'Configure Storage Credentials'}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
-		<BackLink fromURL="audit-logs-exports" {currentLabel} />
 		{#if showForm === 'export'}
 			<CreateAuditLogExportForm onCancel={closeForm} onSubmit={handleFormSuccess} />
 		{:else if showForm === 'scheduled'}

@@ -65,26 +65,22 @@
 
 	const tabs = $derived(
 		entry
-			? entity === 'workspace' && !profile.current?.isAdmin?.()
-				? [
-						{ label: 'Overview', view: 'overview' },
-						{ label: 'Server Details', view: 'server-instances' },
-						{ label: 'Tools', view: 'tools' },
-						{ label: 'Configuration', view: 'configuration' },
-						{ label: 'Usage', view: 'usage' },
-						{ label: 'Audit Logs', view: 'audit-logs' },
-						...(isAtLeastPowerUserPlus ? [{ label: 'Access Control', view: 'access-control' }] : [])
-					]
-				: [
-						{ label: 'Overview', view: 'overview' },
-						{ label: 'Server Details', view: 'server-instances' },
-						{ label: 'Tools', view: 'tools' },
-						{ label: 'Configuration', view: 'configuration' },
-						{ label: 'Usage', view: 'usage' },
-						{ label: 'Audit Logs', view: 'audit-logs' },
-						{ label: 'Access Control', view: 'access-control' },
-						{ label: 'Filters', view: 'filters' }
-					]
+			? [
+					{ label: 'Overview', view: 'overview' },
+					...(profile.current?.groups.includes(Group.POWERUSER)
+						? [{ label: 'Server Details', view: 'server-instances' }]
+						: []),
+					{ label: 'Tools', view: 'tools' },
+					...(profile.current?.groups.includes(Group.POWERUSER)
+						? [
+								{ label: 'Configuration', view: 'configuration' },
+								{ label: 'Audit Logs', view: 'audit-logs' },
+								{ label: 'Usage', view: 'usage' }
+							]
+						: []),
+					...(isAtLeastPowerUserPlus ? [{ label: 'Access Control', view: 'access-control' }] : []),
+					...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
+				]
 			: []
 	);
 
@@ -667,16 +663,12 @@
 					const isAdminRoute = window.location.pathname.includes('/admin/');
 
 					let url = '';
-					const from =
-						entity === 'workspace' && !isAdminRoute
-							? encodeURIComponent(`mcp-publisher/${entry.id}`)
-							: encodeURIComponent(`mcp-servers/${entry.id}`);
 					if (entity === 'workspace') {
 						url = !isAdminRoute
-							? `/mcp-publisher/access-control/${d.id}?from=${from}`
-							: `/admin/access-control/w/${id}/r/${d.id}?from=${from}`;
+							? `/access-control/${d.id}`
+							: `/admin/access-control/w/${id}/r/${d.id}`;
 					} else {
-						url = `/admin/access-control/${d.id}?from=${from}`;
+						url = `/admin/access-control/${d.id}`;
 					}
 					openUrl(url, isCtrlClick);
 				}}
@@ -811,7 +803,7 @@
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						setLastVisitedMcpServer();
-						const url = `/admin/filters/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry?.id}`)}`;
+						const url = `/admin/filters/${d.id}`;
 						openUrl(url, isCtrlClick);
 					}}
 				>
@@ -873,7 +865,7 @@
 					? ChatService.deleteWorkspaceMCPCatalogEntry
 					: AdminService.deleteMCPCatalogEntry;
 			await deleteCatalogEntryFn(id, entry.id);
-			goto(entity === 'workspace' ? '/mcp-publisher/mcp-servers' : '/admin/mcp-servers');
+			goto(entity === 'workspace' ? '/mcp-servers' : '/admin/mcp-servers');
 		}
 	}}
 	oncancel={() => (deleteServer = false)}

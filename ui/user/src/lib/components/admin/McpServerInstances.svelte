@@ -139,7 +139,7 @@
 		}
 
 		return profile.current?.groups.includes(Group.POWERUSER)
-			? `/mcp-publisher/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
+			? `/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
 			: null;
 	}
 </script>
@@ -220,9 +220,9 @@
 							const url =
 								entity === 'workspace'
 									? isAdminUrl
-										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}?from=/mcp-servers/${entry?.id}`
-										: `/mcp-publisher/c/${entry?.id}/instance/${d.id}`
-									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}?from=/mcp-servers/${entry?.id}`;
+										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}`
+										: `/mcp-servers/c/${entry?.id}/instance/${d.id}`
+									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`;
 							openUrl(url, isCtrlClick);
 						}
 					: undefined}

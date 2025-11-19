@@ -89,9 +89,9 @@
 	});
 </script>
 
-<Layout>
+<Layout title="Filters">
 	<div
-		class="my-4 h-full w-full"
+		class="h-full w-full"
 		in:fly={{ x: 100, duration, delay: duration }}
 		out:fly={{ x: -100, duration }}
 	>
@@ -103,17 +103,6 @@
 				in:fly={{ x: 100, delay: duration, duration }}
 				out:fly={{ x: -100, duration }}
 			>
-				<div class="flex items-center justify-between">
-					<h1 class="text-2xl font-semibold">Filters</h1>
-					<div class="relative flex items-center gap-4">
-						{#if loading}
-							<LoaderCircle class="size-4 animate-spin" />
-						{/if}
-						{#if !profile.current.isAdminReadonly?.()}
-							{@render addFilterButton()}
-						{/if}
-					</div>
-				</div>
 				<div class="flex flex-col gap-2">
 					<Search
 						value={query}
@@ -194,6 +183,15 @@
 			</div>
 		{/if}
 	</div>
+
+	{#snippet rightNavActions()}
+		{#if loading}
+			<LoaderCircle class="size-4 animate-spin" />
+		{/if}
+		{#if !profile.current.isAdminReadonly?.()}
+			{@render addFilterButton()}
+		{/if}
+	{/snippet}
 </Layout>
 
 {#snippet addFilterButton()}

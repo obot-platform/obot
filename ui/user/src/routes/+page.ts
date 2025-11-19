@@ -27,7 +27,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 		}
 
 		// Redirect to appropriate dashboard
-		throw redirect(302, isAdmin ? '/admin' : '/chat');
+		throw redirect(302, isAdmin ? '/admin/mcp-servers' : '/mcp-servers');
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {

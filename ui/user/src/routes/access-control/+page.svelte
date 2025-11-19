@@ -4,7 +4,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { BookOpenText, ChevronLeft, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { type AccessControlRule } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
@@ -38,7 +38,7 @@
 
 	async function navigateToCreated(rule: AccessControlRule) {
 		showCreateRule = false;
-		goto(`/mcp-publisher/access-control/${rule.id}`, { replaceState: false });
+		goto(`/access-control/${rule.id}`, { replaceState: false });
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -51,11 +51,23 @@
 			fetchMcpServerAndEntries(workspaceId);
 		}
 	});
+
+	afterNavigate(() => {
+		const url = new URL(window.location.href);
+		const queryParams = new URLSearchParams(url.search);
+		if (queryParams.get('new')) {
+			showCreateRule = true;
+		} else {
+			showCreateRule = false;
+		}
+	});
+
+	let title = $derived(showCreateRule ? 'Create Access Control Rule' : 'Access Control');
 </script>
 
-<Layout showUserLinks>
+<Layout showUserLinks {title} showBackButton={showCreateRule}>
 	<div
-		class="my-4 h-full w-full"
+		class="h-full w-full"
 		in:fly={{ x: 100, duration, delay: duration }}
 		out:fly={{ x: -100, duration }}
 	>
@@ -67,20 +79,12 @@
 				in:fly={{ x: 100, delay: duration, duration }}
 				out:fly={{ x: -100, duration }}
 			>
-				<div class="flex items-center justify-between">
-					<h1 class="text-2xl font-semibold">Access Control</h1>
-					{#if accessControlRules.length > 0}
-						<div class="relative flex items-center gap-4">
-							{@render addRuleButton()}
-						</div>
-					{/if}
-				</div>
 				{#if accessControlRules.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<BookOpenText class="text-on-surface1 size-24 opacity-50" />
-						<h4 class="text-on-surface1 text-lg font-semibold">No created access control rules</h4>
+						<BookOpenText class="text-on-surface1 size-24 opacity-25" />
+						<h4 class="text-on-surface1 text-lg font-semibold">No created access control rules.</h4>
 						<p class="text-on-surface1 text-sm font-light">
-							Looks like you don't have any rules created yet. <br />
+							Looks like you don't have any access control rules created yet. <br />
 							Click the button below to get started.
 						</p>
 
@@ -91,7 +95,7 @@
 						data={accessControlRules}
 						fields={['displayName', 'servers']}
 						onClickRow={(d, isCtrlClick) => {
-							const url = `/mcp-publisher/access-control/${d.id}`;
+							const url = `/access-control/${d.id}`;
 							openUrl(url, isCtrlClick);
 						}}
 						headers={[
@@ -138,7 +142,9 @@
 {#snippet addRuleButton()}
 	<button
 		class="button-primary flex items-center gap-1 text-sm"
-		onclick={() => (showCreateRule = true)}
+		onclick={() => {
+			goto(`/access-control?new=true`);
+		}}
 	>
 		<Plus class="size-4" /> Add New Rule
 	</button>
@@ -156,22 +162,12 @@
 			id={workspaceId}
 			mcpEntriesContextFn={getPoweruserWorkspace}
 			all={MCP_PUBLISHER_ALL_OPTION}
-		>
-			{#snippet topContent()}
-				<button
-					onclick={() => (showCreateRule = false)}
-					class="button-text flex -translate-x-1 items-center gap-2 p-0 text-lg font-light"
-				>
-					<ChevronLeft class="size-6" />
-					Access Control
-				</button>
-			{/snippet}
-		</AccessControlRuleForm>
+		/>
 	</div>
 {/snippet}
 
 <Confirm
-	msg="Are you sure you want to delete this rule?"
+	msg="Are you sure you want to delete this access control rule?"
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
 		if (!ruleToDelete || !workspaceId) return;
@@ -183,5 +179,5 @@
 />
 
 <svelte:head>
-	<title>Obot | MCP Publisher | Access Control</title>
+	<title>Obot | Access Control</title>
 </svelte:head>

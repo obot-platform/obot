@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import {
@@ -11,21 +10,19 @@
 	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalog, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
-	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, X } from 'lucide-svelte';
+	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import BackLink from '$lib/components/BackLink.svelte';
-	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
+	import SelectServerType, {
+		type SelectServerOption
+	} from '$lib/components/mcp/SelectServerType.svelte';
 	import { profile } from '$lib/stores';
 	import { page } from '$app/state';
-	import { twMerge } from 'tailwind-merge';
-	import RegistriesView from './RegistriesView.svelte';
-	import DeploymentsView from './DeploymentsView.svelte';
+	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import SourceUrlsView from './SourceUrlsView.svelte';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -36,6 +33,10 @@
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
 	import { debounce } from 'es-toolkit';
 	import { localState } from '$lib/runes/localState.svelte';
+	import RegistriesView from '$lib/components/mcp/RegistriesView.svelte';
+	import SourceUrlsView from './SourceUrlsView.svelte';
+	import { twMerge } from 'tailwind-merge';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
@@ -106,7 +107,7 @@
 	let editingSource = $state<{ index: number; value: string }>();
 	let sourceDialog = $state<HTMLDialogElement>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<'single' | 'multi' | 'remote' | 'composite'>();
+	let selectedServerType = $state<SelectServerOption>();
 	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
 
 	let showServerForm = $state(false);
@@ -116,11 +117,8 @@
 	let syncInterval = $state<ReturnType<typeof setInterval>>();
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let totalCount = $derived(
-		mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length
-	);
 
-	function selectServerType(type: 'single' | 'multi' | 'remote' | 'composite', updateUrl = true) {
+	function selectServerType(type: SelectServerOption, updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
 		showServerForm = true;
@@ -229,7 +227,13 @@
 	}, 100);
 </script>
 
-<Layout classes={{ navbar: 'bg-surface1' }}>
+<Layout
+	classes={{ navbar: 'bg-surface1' }}
+	title={showServerForm
+		? `Create ${getServerTypeLabelByType(selectedServerType)} Server`
+		: 'MCP Servers'}
+	showBackButton={showServerForm}
+>
 	<div class="flex min-h-full flex-col gap-8 pt-4" in:fade>
 		{#if showServerForm}
 			{@render configureEntryScreen()}
@@ -237,6 +241,19 @@
 			{@render mainContent()}
 		{/if}
 	</div>
+	{#snippet rightNavActions()}
+		{#if !isAdminReadonly}
+			<button class="button flex items-center gap-1 text-sm" onclick={sync}>
+				{#if syncing}
+					<LoaderCircle class="size-4 animate-spin" /> Syncing...
+				{:else}
+					<RefreshCcw class="size-4" />
+					Sync
+				{/if}
+			</button>
+			{@render addServerButton()}
+		{/if}
+	{/snippet}
 </Layout>
 
 {#snippet mainContent()}
@@ -245,28 +262,6 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<div
-			class="mb-4 flex flex-col items-center justify-start md:mb-8 md:flex-row md:justify-between"
-		>
-			<div class="flex items-center gap-2">
-				<h1 class="text-2xl font-semibold">MCP Servers</h1>
-				{#if !isAdminReadonly}
-					<button class="button-small flex items-center gap-1 text-xs font-normal" onclick={sync}>
-						{#if syncing}
-							<LoaderCircle class="size-4 animate-spin" /> Syncing...
-						{:else}
-							<RefreshCcw class="size-4" />
-							Sync
-						{/if}
-					</button>
-				{/if}
-			</div>
-			{#if totalCount > 0 && !isAdminReadonly}
-				<div class="mt-4 w-full flex-shrink-0 md:mt-0 md:w-fit">
-					{@render addServerButton()}
-				</div>
-			{/if}
-		</div>
 		<div class="bg-surface1 dark:bg-background sticky top-16 left-0 z-20 w-full pb-1">
 			<div class="mb-2">
 				<Search
@@ -321,10 +316,11 @@
 					onClearAllFilters={handleClearAllFilters}
 					onSort={setSortUrlParams}
 					{initSort}
+					classes={{
+						tableHeader: 'top-31'
+					}}
 				>
-					{#snippet emptyContentButton()}
-						{@render addServerButton()}
-					{/snippet}
+					{#snippet noDataContent()}{@render displayNoData()}{/snippet}
 				</RegistriesView>
 			{:else if view === 'urls'}
 				<SourceUrlsView
@@ -345,16 +341,29 @@
 					onClearAllFilters={handleClearAllFilters}
 					onSort={setSortUrlParams}
 					{initSort}
-				/>
+				>
+					{#snippet noDataContent()}{@render displayNoData()}{/snippet}
+				</DeploymentsView>
 			{/if}
 		</div>
 	</div>
 {/snippet}
 
+{#snippet displayNoData()}
+	<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
+		<Server class="text-on-surface1 size-24 opacity-25" />
+		<h4 class="text-on-surface1 text-lg font-semibold">No created MCP servers</h4>
+		<p class="text-on-surface1 text-sm font-light">
+			Looks like you don't have any servers created yet. <br />
+			Click the button below to get started.
+		</p>
+
+		{@render addServerButton()}
+	</div>
+{/snippet}
+
 {#snippet configureEntryScreen()}
-	{@const currentLabelType = getServerTypeLabelByType(selectedServerType)}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
-		<BackLink fromURL="mcp-servers" currentLabel={`Create ${currentLabelType} Server`} />
 		<McpServerEntryForm
 			type={selectedServerType}
 			id={defaultCatalogId}

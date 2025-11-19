@@ -1,5 +1,4 @@
 <script lang="ts">
-	import BackLink from '$lib/components/BackLink.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -7,7 +6,6 @@
 	import { Info } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { profile } from '$lib/stores/index.js';
-	import { page } from '$app/state';
 	import McpServerRemoteInfo from '$lib/components/admin/McpServerRemoteInfo.svelte';
 	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
 
@@ -38,18 +36,12 @@
 			fetchUserInfo();
 		}
 	});
+
+	let title = $derived(`${catalogEntryName} | ${mcpServerId}`);
 </script>
 
-<Layout>
-	<div class="mt-6 flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
-		{#if mcpServerId}
-			{@const currentLabel = mcpServerId ?? 'Server'}
-			{@const from = page.url.searchParams.get('from') ?? `/mcp-servers/${catalogEntry?.id}`}
-			{#key from}
-				<BackLink fromURL={from} {currentLabel} serverId={mcpServerId} />
-			{/key}
-		{/if}
-
+<Layout {title} showBackButton>
+	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServerId}
 			{#if catalogEntry?.manifest.runtime === 'remote'}
 				<McpServerRemoteInfo
@@ -96,5 +88,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {catalogEntryName} | {mcpServerId}</title>
+	<title>Obot | {title}</title>
 </svelte:head>

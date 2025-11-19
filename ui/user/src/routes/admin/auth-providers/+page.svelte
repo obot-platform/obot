@@ -163,10 +163,9 @@
 	}
 </script>
 
-<Layout>
+<Layout title="Auth Providers">
 	<div class="my-4" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
-			<h1 class="text-2xl font-semibold">Auth Providers</h1>
 			{#if !atLeastOneConfigured}
 				<div class="notification-alert flex flex-col gap-2">
 					<div class="flex items-center gap-2">

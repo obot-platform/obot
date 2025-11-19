@@ -9,15 +9,18 @@
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import { getUserMcpServerAndEntries } from '$lib/context/mcpServerAndEntries.svelte';
 	import {
 		AdminService,
 		ChatService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
-		MCPCompositeDeletionDependencyError
+		MCPCompositeDeletionDependencyError,
+		type MCPServerInstance
 	} from '$lib/services';
 	import { getServerTypeLabel } from '$lib/services/chat/mcp';
+	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
@@ -33,11 +36,12 @@
 		Server,
 		Trash2
 	} from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 
 	interface Props {
 		usersMap?: Map<string, OrgUser>;
-		catalogId: string;
+		entity?: 'workspace' | 'catalog';
+		catalogId?: string;
 		readonly?: boolean;
 		query?: string;
 		urlFilters?: Record<string, (string | number)[]>;
@@ -48,6 +52,7 @@
 	}
 
 	let {
+		entity = 'catalog',
 		usersMap = new Map(),
 		catalogId,
 		readonly,
@@ -77,14 +82,21 @@
 
 	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
 
-	let mcpServerAndEntries = getAdminMcpServerAndEntries();
+	let mcpServerAndEntries =
+		entity === 'workspace' ? getUserMcpServerAndEntries() : getAdminMcpServerAndEntries();
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
-	let serversData = $derived([
-		...deployedCatalogEntryServers.filter((server) => !server.deleted),
-		...deployedWorkspaceCatalogEntryServers.filter((server) => !server.deleted),
-		...mcpServerAndEntries.servers.filter((server) => !server.deleted)
-	]);
+	let serversData = $derived(
+		entity === 'workspace'
+			? mcpServerAndEntries.servers.filter((server) => !server.deleted)
+			: [
+					...deployedCatalogEntryServers.filter((server) => !server.deleted),
+					...deployedWorkspaceCatalogEntryServers.filter((server) => !server.deleted),
+					...mcpServerAndEntries.servers.filter((server) => !server.deleted)
+				]
+	);
+
+	let instances = $state<MCPServerInstance[]>([]);
 
 	let tableRef = $state<ReturnType<typeof Table>>();
 
@@ -159,10 +171,14 @@
 
 	async function reload() {
 		loading = true;
-		deployedCatalogEntryServers =
-			await AdminService.listAllCatalogDeployedSingleRemoteServers(catalogId);
-		deployedWorkspaceCatalogEntryServers =
-			await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
+
+		if (entity === 'catalog' && profile.current.hasAdminAccess?.() && catalogId) {
+			deployedCatalogEntryServers =
+				await AdminService.listAllCatalogDeployedSingleRemoteServers(catalogId);
+			deployedWorkspaceCatalogEntryServers =
+				await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
+		}
+		instances = await ChatService.listMcpServerInstances();
 		loading = false;
 	}
 
@@ -247,7 +263,7 @@
 			try {
 				if (server.powerUserWorkspaceID) {
 					await ChatService.deleteWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
-				} else {
+				} else if (profile.current.hasAdminAccess?.() && catalogId) {
 					await AdminService.deleteMCPCatalogServer(catalogId, server.id);
 				}
 				// Remove server from list
@@ -299,6 +315,29 @@
 			? `/admin/audit-logs?mcp_server_display_name=${d.manifest.name}`
 			: `/admin/audit-logs?mcp_id=${d.id}`;
 	}
+
+	function getServerUrl(d: MCPCatalogServer) {
+		const belongsToWorkspace = d.powerUserWorkspaceID ? true : false;
+		const isMulti = !d.catalogEntryID;
+
+		let url = '';
+		if (entity === 'catalog' && profile.current.hasAdminAccess?.()) {
+			if (isMulti) {
+				url = belongsToWorkspace
+					? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/s/${d.id}/details`
+					: `/admin/mcp-servers/s/${d.id}/details`;
+			} else {
+				url = belongsToWorkspace
+					? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
+					: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`;
+			}
+		} else {
+			url = isMulti
+				? `/mcp-servers/s/${d.id}/details`
+				: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`;
+		}
+		return url;
+	}
 </script>
 
 <div class="flex flex-col gap-2">
@@ -319,7 +358,9 @@
 		<Table
 			bind:this={tableRef}
 			data={tableData}
-			fields={['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
+			fields={entity === 'workspace'
+				? ['displayName', 'type', 'deploymentStatus', 'created']
+				: ['displayName', 'type', 'deploymentStatus', 'userName', 'registry', 'created']}
 			filterable={['displayName', 'type', 'deploymentStatus', 'userName', 'registry']}
 			{filters}
 			headers={[
@@ -328,21 +369,9 @@
 				{ title: 'Status', property: 'deploymentStatus' }
 			]}
 			onClickRow={(d, isCtrlClick) => {
-				const isMulti = !d.catalogEntryID;
 				setLastVisitedMcpServer(d);
 
-				const belongsToWorkspace = d.powerUserWorkspaceID ? true : false;
-
-				let url = '';
-				if (isMulti) {
-					url = belongsToWorkspace
-						? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/s/${d.id}/details`
-						: `/admin/mcp-servers/s/${d.id}/details`;
-				} else {
-					url = belongsToWorkspace
-						? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}?from=deployed-servers`
-						: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}?from=deployed-servers`;
-				}
+				const url = getServerUrl(d);
 
 				setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 				openUrl(url, isCtrlClick);
