@@ -15,7 +15,7 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/go-build \
   --mount=type=cache,target=/root/.cache/uv \
   --mount=type=cache,target=/root/go/pkg/mod \
-  make all
+  make build
 
 FROM cgr.dev/chainguard/wolfi-base:latest AS final-base
 ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt

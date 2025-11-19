@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"net/http"
+	"os"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
@@ -724,7 +725,15 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)
 
-	services.APIServer.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort))
+	// Get the working directory for UI files (empty if proxying to separate processes)
+	var uiBasePath string
+	if services.DevUIPort == 0 && services.UserUIPort == 0 {
+		// Try to find UI files relative to the binary
+		if wd, err := os.Getwd(); err == nil {
+			uiBasePath = wd
+		}
+	}
+	services.APIServer.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort, uiBasePath))
 
 	return services.APIServer, nil
 }

@@ -1,22 +1,21 @@
 package ui
 
 import (
-	"embed"
 	"fmt"
-	"io/fs"
 	"net/http"
 	"net/http/httputil"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/oauth"
 )
 
-//go:embed all:admin/*build all:user/*build
-var embedded embed.FS
-
-func Handler(devPort, userOnlyPort int) http.Handler {
-	server := &uiServer{}
+func Handler(devPort, userOnlyPort int, uiBasePath string) http.Handler {
+	server := &uiServer{
+		uiBasePath: uiBasePath,
+	}
 
 	if userOnlyPort != 0 {
 		server.rp = &httputil.ReverseProxy{
@@ -43,8 +42,9 @@ func Handler(devPort, userOnlyPort int) http.Handler {
 }
 
 type uiServer struct {
-	rp       *httputil.ReverseProxy
-	userOnly bool
+	rp         *httputil.ReverseProxy
+	userOnly   bool
+	uiBasePath string
 }
 
 func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -60,38 +60,47 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// If no base path is provided and no proxy is set, return 404
+	if s.uiBasePath == "" {
+		http.NotFound(w, r)
+		return
+	}
+
 	if !strings.Contains(strings.ToLower(r.UserAgent()), "mozilla") {
 		http.NotFound(w, r)
 		return
 	}
 
-	userPath := path.Join("user/build/", r.URL.Path)
-	adminPath := path.Join("admin/build/client", strings.TrimPrefix(r.URL.Path, "/legacy-admin"))
+	userBuildPath := filepath.Join(s.uiBasePath, "ui", "user", "build")
+	adminBuildPath := filepath.Join(s.uiBasePath, "ui", "admin", "build", "client")
+
+	userPath := filepath.Join(userBuildPath, r.URL.Path)
+	adminPath := filepath.Join(adminBuildPath, strings.TrimPrefix(r.URL.Path, "/legacy-admin"))
 
 	if r.URL.Path == "/" {
-		http.ServeFileFS(w, r, embedded, "user/build/index.html")
+		http.ServeFile(w, r, filepath.Join(userBuildPath, "index.html"))
 	} else if r.URL.Path == "/admin" {
-		http.ServeFileFS(w, r, embedded, "user/build/admin.html")
+		http.ServeFile(w, r, filepath.Join(userBuildPath, "admin.html"))
 	} else if r.URL.Path == "/admin/" {
 		// we have to redirect to /admin instead of serving the index.html file because ending slash will laod a different route for js files
 		http.Redirect(w, r, "/admin", http.StatusFound)
 	} else if r.URL.Path == "/mcp-publisher/" {
 		http.Redirect(w, r, "/mcp-publisher", http.StatusFound)
 	} else if r.URL.Path == "/mcp-publisher" {
-		http.ServeFileFS(w, r, embedded, "user/build/mcp-publisher.html")
+		http.ServeFile(w, r, filepath.Join(userBuildPath, "mcp-publisher.html"))
 	} else if strings.HasSuffix(r.URL.Path, "/") {
 		// Paths with trailing slashes should redirect to without slash to avoid directory listings
 		http.Redirect(w, r, strings.TrimSuffix(r.URL.Path, "/"), http.StatusFound)
-	} else if _, err := fs.Stat(embedded, userPath+".html"); err == nil {
+	} else if _, err := os.Stat(userPath + ".html"); err == nil {
 		// Try .html version first (for SvelteKit prerendered pages)
-		http.ServeFileFS(w, r, embedded, userPath+".html")
-	} else if _, err := fs.Stat(embedded, userPath); err == nil {
-		http.ServeFileFS(w, r, embedded, userPath)
-	} else if _, err := fs.Stat(embedded, adminPath); err == nil {
-		http.ServeFileFS(w, r, embedded, adminPath)
+		http.ServeFile(w, r, userPath+".html")
+	} else if _, err := os.Stat(userPath); err == nil {
+		http.ServeFile(w, r, userPath)
+	} else if _, err := os.Stat(adminPath); err == nil {
+		http.ServeFile(w, r, adminPath)
 	} else if strings.HasPrefix(r.URL.Path, "/legacy-admin") {
-		http.ServeFileFS(w, r, embedded, "admin/build/client/index.html")
+		http.ServeFile(w, r, filepath.Join(adminBuildPath, "index.html"))
 	} else {
-		http.ServeFileFS(w, r, embedded, "user/build/fallback.html")
+		http.ServeFile(w, r, filepath.Join(userBuildPath, "fallback.html"))
 	}
 }
