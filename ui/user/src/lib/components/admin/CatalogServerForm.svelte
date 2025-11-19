@@ -8,7 +8,6 @@
 	} from '$lib/services/admin/types';
 	import type { Runtime } from '$lib/services/chat/types';
 	import { Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
-	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
@@ -77,10 +76,10 @@
 	let categories = $derived([...remoteCategories, ...(formData?.categories ?? [])]);
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 
-	// Server type for catalog entries (type="single")
+	// Server type for both single and multi types (not used for 'remote' or 'composite')
 	type ServerType = 'stdio' | 'http-streamable' | 'remote-proxy';
 	let serverType = $state<ServerType | undefined>(
-		entry && type === 'single'
+		entry && (type === 'single' || type === 'multi')
 			? formData.runtime === 'remote'
 				? 'remote-proxy'
 				: formData.runtime === 'containerized'
@@ -113,7 +112,7 @@
 				description: '',
 				env: [],
 				icon: '',
-				runtime: (type === 'single' ? undefined : 'npx') as Runtime,
+				runtime: (type === 'single' || type === 'multi' ? undefined : 'npx') as Runtime,
 				npxConfig: undefined,
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
@@ -293,8 +292,13 @@
 				};
 				break;
 			case 'remote':
-				// For remote servers (catalog entries), use remoteConfig
-				formData.remoteConfig = { fixedURL: '', headers: [] };
+				// For catalog entries (single/remote types), use remoteConfig
+				// For multi-user servers (multi type), use remoteServerConfig
+				if (type === 'single' || type === 'remote') {
+					formData.remoteConfig = { fixedURL: '', headers: [] };
+				} else if (type === 'multi') {
+					formData.remoteServerConfig = { url: '', headers: [] };
+				}
 				break;
 			case 'composite':
 				formData.compositeConfig = { componentServers: [] };
@@ -1064,55 +1068,88 @@
 		{/if}
 	</div>
 {:else}
-	<!-- Runtime Selection for Multi-User Servers -->
-	<RuntimeSelector
-		bind:runtime={formData.runtime}
-		serverType={type}
-		{readonly}
-		onRuntimeChange={handleRuntimeChange}
-	/>
+	<!-- Consolidated Runtime Configuration for Multi-User Servers -->
+	<div
+		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-8 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+	>
+		<!-- Server Type Selection for Multi-User Servers -->
+		<div class="flex flex-col gap-1">
+			<label for="server-type-multi" class="text-sm font-semibold capitalize">Server Type</label>
+			<Select
+				class="text-input-filled dark:bg-black"
+				options={[
+					{ label: 'HTTP Streamable', id: 'http-streamable' },
+					{ label: 'Remote Proxy', id: 'remote-proxy' },
+					{ label: 'STDIO', id: 'stdio' }
+				]}
+				selected={serverType}
+				onSelect={(option) => handleServerTypeChange(option.id as ServerType)}
+				{readonly}
+				id="server-type-multi"
+				placeholder="Select server type..."
+			/>
+		</div>
 
-	<!-- Runtime-specific Forms -->
-	{#if formData.runtime === 'npx' && formData.npxConfig}
-		<NpxRuntimeForm
-			bind:config={formData.npxConfig}
-			{readonly}
-			{showRequired}
-			onFieldChange={updateRequired}
-		/>
-	{:else if formData.runtime === 'uvx' && formData.uvxConfig}
-		<UvxRuntimeForm
-			bind:config={formData.uvxConfig}
-			{readonly}
-			{showRequired}
-			onFieldChange={updateRequired}
-		/>
-	{:else if formData.runtime === 'containerized' && formData.containerizedConfig}
-		<ContainerizedRuntimeForm
-			bind:config={formData.containerizedConfig}
-			{readonly}
-			{showRequired}
-			onFieldChange={updateRequired}
-		/>
-	{:else if formData.runtime === 'remote' && formData.remoteServerConfig}
-		<RemoteRuntimeForm
-			bind:config={formData.remoteServerConfig}
-			{readonly}
-			{showRequired}
-			onFieldChange={updateRequired}
-		/>
-	{:else if formData.runtime === 'composite' && formData.compositeConfig}
-		<CompositeRuntimeForm
-			bind:config={formData.compositeConfig}
-			{readonly}
-			catalogId={id}
-			mcpEntriesContextFn={getAdminMcpServerAndEntries}
-			id={entry?.id}
-		/>
-	{/if}
+		{#if serverType === 'stdio' || serverType === 'http-streamable'}
+			<!-- Runtime Selection -->
+			<div class="flex flex-col gap-1">
+				<label for="runtime-multi" class="text-sm font-semibold capitalize">Runtime</label>
+				<Select
+					class="text-input-filled dark:bg-black"
+					options={serverType === 'stdio'
+						? [
+								{ label: 'NPX', id: 'npx' },
+								{ label: 'UVX', id: 'uvx' }
+							]
+						: [
+								{ label: 'NPX', id: 'npx' },
+								{ label: 'UVX', id: 'uvx' },
+								{ label: 'Containerized', id: 'containerized' }
+							]}
+					selected={formData.runtime}
+					onSelect={(option) => handleRuntimeChange(option.id as Runtime)}
+					{readonly}
+					id="runtime-multi"
+					placeholder="Select runtime..."
+				/>
+			</div>
 
-	<!-- Environment Variables Section for Multi-User Servers -->
-	{#if !['remote', 'composite'].includes(formData.runtime)}
+			<!-- Runtime-specific Forms - Only show when runtime is selected -->
+			{#if formData.runtime === 'npx' && formData.npxConfig}
+				<NpxRuntimeForm
+					bind:config={formData.npxConfig}
+					{readonly}
+					{showRequired}
+					onFieldChange={updateRequired}
+				/>
+			{:else if formData.runtime === 'uvx' && formData.uvxConfig}
+				<UvxRuntimeForm
+					bind:config={formData.uvxConfig}
+					{readonly}
+					{showRequired}
+					onFieldChange={updateRequired}
+				/>
+			{:else if formData.runtime === 'containerized' && formData.containerizedConfig}
+				<ContainerizedRuntimeForm
+					bind:config={formData.containerizedConfig}
+					{readonly}
+					{showRequired}
+					onFieldChange={updateRequired}
+				/>
+			{/if}
+		{:else if serverType === 'remote-proxy' && formData.remoteServerConfig}
+			<!-- Remote Proxy Configuration -->
+			<RemoteRuntimeForm
+				bind:config={formData.remoteServerConfig}
+				{readonly}
+				{showRequired}
+				onFieldChange={updateRequired}
+			/>
+		{/if}
+	</div>
+
+	<!-- Configuration Section for Multi-User Servers - Only show after runtime is selected -->
+	{#if formData.runtime && !['remote', 'composite'].includes(formData.runtime)}
 		{#if !readonly || (readonly && formData.env && formData.env.length > 0)}
 			<div
 				class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
