@@ -3,7 +3,8 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
 	server: {
-		port: 5174,
+		host: process.env.VITE_SERVER_HOST || '0.0.0.0',
+		port: parseInt(process.env.VITE_SERVER_PORT || '5174', 10),
 		proxy: {
 			'/api': 'http://localhost:8080',
 			'/legacy-admin': 'http://localhost:8080',
