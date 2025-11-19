@@ -1,12 +1,13 @@
 import { untrack } from 'svelte';
 
-function defaultParser<T = string>(raw: string | null) {
-	return raw as T;
+function defaultParser<T = string>(value: string | null): T | null {
+	return value ? JSON.parse(value) : null;
 }
 
 type LocalStateParams<T = string> = {
-	parse?: (raw: string | null) => T;
+	parse?: (value: string | null) => T | null;
 };
+
 export function localState<T = string>(
 	key: string,
 	defaultValue: T,
@@ -18,11 +19,11 @@ export function localState<T = string>(
 	let shouldCaptureUpdates = false;
 
 	$effect(() => {
-		const storedValue = get();
+		const local = localStorage.getItem(key);
 
 		untrack(() => {
-			if (storedValue) {
-				value = parse(storedValue);
+			if (local) {
+				value = parse(local);
 			} else {
 				value = set(defaultValue);
 			}
@@ -50,16 +51,6 @@ export function localState<T = string>(
 			return isReady;
 		}
 	};
-
-	function get() {
-		const local = localStorage.getItem(key);
-
-		if (local) {
-			return JSON.parse(local) as T;
-		}
-
-		return local as null;
-	}
 
 	function set(value: T | undefined | null) {
 		if (value === undefined || value === null) {
