@@ -1,15 +1,16 @@
 <script lang="ts">
-	import { AdminService, Group, type AuditLogURLFilters } from '$lib/services';
-	import { subDays, set } from 'date-fns';
-	import { slide } from 'svelte/transition';
-	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
-	import { AlertTriangle, LoaderCircle, ChevronDown, ChevronUp } from 'lucide-svelte';
-	import type { DateRange } from '$lib/components/Calendar.svelte';
-	import { page } from '$app/state';
 	import { onMount } from 'svelte';
-	import type { AuditLogExport } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores';
 	import { twMerge } from 'tailwind-merge';
+	import { slide } from 'svelte/transition';
+	import { subDays, set } from 'date-fns';
+	import { AlertTriangle, LoaderCircle, ChevronDown, ChevronUp } from 'lucide-svelte';
+	import { page } from '$app/state';
+	import { AdminService, Group, type AuditLogURLFilters } from '$lib/services';
+	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import type { DateRange } from '$lib/components/Calendar.svelte';
+	import type { AuditLogExport, OrgUser } from '$lib/services/admin/types';
+	import Select from '$lib/components/Select.svelte';
 
 	interface Props {
 		onCancel: () => void;
@@ -50,6 +51,23 @@
 
 	let creating = $state(false);
 	let error = $state('');
+
+	let filtersIds = [
+		'mcp_id',
+		'user_id',
+		'mcp_server_catalog_entry_name',
+		'mcp_server_display_name',
+		'call_identifier',
+		'client_name',
+		'client_version',
+		'client_ip',
+		'call_type',
+		'session_id',
+		'response_status'
+	];
+
+	let usersMap = new Map<string, OrgUser>();
+	let filtersOptions: Record<string, string[]> = $state({});
 
 	onMount(async () => {
 		if (initialData && (mode === 'view' || mode === 'edit')) {
@@ -118,6 +136,22 @@
 				showAdvancedOptions = true;
 			}
 		}
+	});
+
+	$effect(() => {
+		AdminService.listUsers().then((res) => {
+			res.forEach((user) => {
+				usersMap.set(user.id, user);
+			});
+		});
+	});
+
+	$effect(() => {
+		filtersIds.forEach((id) => {
+			AdminService.listAuditLogFilterOptions(id).then((res) => {
+				filtersOptions[id] = res.options ?? [];
+			});
+		});
 	});
 
 	function join(array: string[] | undefined): string {
@@ -224,8 +258,8 @@
 						id="name"
 						bind:value={form.name}
 						placeholder="audit-export-2024"
-						required={mode !== 'view'}
-						readonly={mode === 'view'}
+						required={!isViewMode}
+						readonly={isViewMode}
 						disabled={isViewMode}
 					/>
 					{#if (isViewMode && form.name) || !isViewMode}
@@ -242,8 +276,8 @@
 						id="bucket"
 						bind:value={form.bucket}
 						placeholder="my-audit-exports"
-						required={mode !== 'view'}
-						readonly={mode === 'view'}
+						required={!isViewMode}
+						readonly={isViewMode}
 						disabled={isViewMode}
 					/>
 					{#if (isViewMode && form.bucket) || !isViewMode}
@@ -262,7 +296,7 @@
 					id="keyPrefix"
 					bind:value={form.keyPrefix}
 					placeholder="Leave empty for default: mcp-audit-logs/YYYY/MM/DD/"
-					readonly={mode === 'view'}
+					readonly={isViewMode}
 					disabled={isViewMode}
 				/>
 				{#if (isViewMode && form.keyPrefix) || !isViewMode}
@@ -310,199 +344,293 @@
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="user_id">User IDs</label>
-							<input
+							<Select
 								class={twMerge(
-									'text-input-filled',
+									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
-								id="user_id"
-								bind:value={form.filters.user_id}
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['user_id']?.map?.((d) => ({
+									id: d,
+									label: usersMap.get(d)?.displayName ?? d
+								})) ?? []}
+								bind:selected={
+									() => form.filters.user_id ?? '', (v) => (form.filters.user_id = v ?? '')
+								}
 								placeholder="user1,user2"
-								readonly={mode === 'view'}
 								disabled={isViewMode}
+								readonly={isViewMode}
+								multiple
 							/>
 
 							{#if (isViewMode && form.filters.user_id) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated user IDs</p>
+								<p class="text-xs text-gray-500">List of user IDs</p>
 							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_id">Server IDs</label>
-							<input
+							<Select
 								class={twMerge(
-									'text-input-filled',
+									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
-								id="mcp_id"
-								bind:value={form.filters.mcp_id}
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['mcp_id']?.map?.((d) => ({ id: d, label: d })) ?? []}
+								bind:selected={
+									() => form.filters.mcp_id ?? '', (v) => (form.filters.mcp_id = v ?? '')
+								}
 								placeholder="server1,server2"
-								readonly={mode === 'view'}
 								disabled={isViewMode}
+								readonly={isViewMode}
+								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_id) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated server IDs</p>
+								<p class="text-xs text-gray-500">List of server IDs</p>
 							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_server_display_name">Server Names</label>
-							<input
+							<Select
 								class={twMerge(
-									'text-input-filled',
+									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
-								id="mcp_server_display_name"
-								bind:value={form.filters.mcp_server_display_name}
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['mcp_server_display_name']?.map?.((d) => ({
+									id: d,
+									label: d
+								})) ?? []}
+								bind:selected={
+									() => form.filters.mcp_server_display_name ?? '',
+									(v) => (form.filters.mcp_server_display_name = v ?? '')
+								}
 								placeholder="server-name-1,server-name-2"
-								readonly={mode === 'view'}
 								disabled={isViewMode}
+								readonly={isViewMode}
+								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_server_display_name) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated server display names</p>
+								<p class="text-xs text-gray-500">List of server display names</p>
 							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="call_type">Call Types</label>
-							<input
+							<Select
 								class={twMerge(
-									'text-input-filled',
+									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
-								id="call_type"
-								bind:value={form.filters.call_type}
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['call_type']?.map?.((d) => ({ id: d, label: d })) ?? []}
+								bind:selected={
+									() => form.filters.call_type ?? '', (v) => (form.filters.call_type = v ?? '')
+								}
 								placeholder="tools/call,resources/read"
-								readonly={mode === 'view'}
 								disabled={isViewMode}
+								readonly={isViewMode}
+								multiple
 							/>
 							{#if (isViewMode && form.filters.call_type) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated call types</p>
+								<p class="text-xs text-gray-500">List of call types</p>
 							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_name">Client Names</label>
-							<input
+							<Select
 								class={twMerge(
-									'text-input-filled',
+									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
-								id="client_name"
-								bind:value={form.filters.client_name}
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['client_name']?.map?.((d) => ({ id: d, label: d })) ?? []}
+								bind:selected={
+									() => form.filters.client_name ?? '', (v) => (form.filters.client_name = v ?? '')
+								}
 								placeholder="client1,client2"
-								readonly={mode === 'view'}
 								disabled={isViewMode}
+								readonly={isViewMode}
+								multiple
 							/>
 							{#if (isViewMode && form.filters.client_name) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated client names</p>
+								<p class="text-xs text-gray-500">List of client names</p>
 							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="response_status">Response Status</label>
-							<input
+							<Select
 								class={twMerge(
-									'text-input-filled',
+									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
-								id="response_status"
-								bind:value={form.filters.response_status}
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['response_status']?.map?.((d) => ({ id: d, label: d })) ??
+									[]}
+								bind:selected={
+									() => form.filters.response_status ?? '',
+									(v) => (form.filters.response_status = v ?? '')
+								}
 								placeholder="200,400,500"
-								readonly={mode === 'view'}
 								disabled={isViewMode}
+								readonly={isViewMode}
+								multiple
 							/>
 							{#if (isViewMode && form.filters.response_status) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated HTTP status codes</p>
+								<p class="text-xs text-gray-500">List of HTTP status codes</p>
 							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="session_id">Session IDs</label>
-							<input
+							<Select
 								class={twMerge(
-									'text-input-filled',
+									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
-								id="session_id"
-								bind:value={form.filters.session_id}
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['session_id']?.map?.((d) => ({ id: d, label: d })) ?? []}
+								bind:selected={
+									() => form.filters.session_id ?? '', (v) => (form.filters.session_id = v ?? '')
+								}
 								placeholder="session1,session2"
-								readonly={mode === 'view'}
 								disabled={isViewMode}
+								readonly={isViewMode}
+								multiple
 							/>
 							{#if (isViewMode && form.filters.session_id) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated session IDs</p>
+								<p class="text-xs text-gray-500">List of session IDs</p>
 							{/if}
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_ip">Client IPs</label>
-							<input
+							<Select
 								class={twMerge(
-									'text-input-filled',
+									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
-								id="client_ip"
-								bind:value={form.filters.client_ip}
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['client_ip']?.map?.((d) => ({ id: d, label: d })) ?? []}
+								bind:selected={
+									() => form.filters.client_ip ?? '', (v) => (form.filters.client_ip = v ?? '')
+								}
 								placeholder="192.168.1.1,10.0.0.1"
-								readonly={mode === 'view'}
 								disabled={isViewMode}
+								readonly={isViewMode}
+								multiple
 							/>
 							{#if (isViewMode && form.filters.client_ip) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated IP addresses</p>
+								<p class="text-xs text-gray-500">List of IP addresses</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="call_identifier">Call Identifier</label>
-							<input
+							<Select
 								class={twMerge(
-									'text-input-filled',
+									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
-								id="call_identifier"
-								bind:value={form.filters.call_identifier}
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['call_identifier']?.map?.((d) => ({ id: d, label: d })) ??
+									[]}
+								bind:selected={
+									() => form.filters.call_identifier ?? '',
+									(v) => (form.filters.call_identifier = v ?? '')
+								}
 								placeholder="call-identifier-1,call-identifier-2"
-								readonly={mode === 'view'}
 								disabled={isViewMode}
+								readonly={isViewMode}
+								multiple
 							/>
 							{#if (isViewMode && form.filters.call_identifier) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated call identifiers</p>
+								<p class="text-xs text-gray-500">List of call identifiers</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_version">Client Versions</label>
-							<input
+							<Select
 								class={twMerge(
-									'text-input-filled',
+									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
-								id="client_version"
-								bind:value={form.filters.client_version}
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['client_version']?.map?.((d) => ({ id: d, label: d })) ??
+									[]}
+								bind:selected={
+									() => form.filters.client_version ?? '',
+									(v) => (form.filters.client_version = v ?? '')
+								}
 								placeholder="client-version-1,client-version-2"
-								readonly={mode === 'view'}
 								disabled={isViewMode}
+								readonly={isViewMode}
+								multiple
 							/>
 							{#if (isViewMode && form.filters.client_version) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated client versions</p>
+								<p class="text-xs text-gray-500">List of client versions</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="power_user_workspace_id"
 								>Catalog Entry Names</label
 							>
-							<input
+							<Select
 								class={twMerge(
-									'text-input-filled',
+									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
-								id="power_user_workspace_id"
-								bind:value={form.filters.mcp_server_catalog_entry_name}
+								classes={{
+									root: 'w-full',
+									clear: 'hover:bg-surface3 bg-transparent'
+								}}
+								options={filtersOptions['mcp_server_catalog_entry_name']?.map?.((d) => ({
+									id: d,
+									label: d
+								})) ?? []}
+								bind:selected={
+									() => form.filters.mcp_server_catalog_entry_name ?? '',
+									(v) => (form.filters.mcp_server_catalog_entry_name = v ?? '')
+								}
 								placeholder="workspace-id-1,workspace-id-2"
-								readonly={mode === 'view'}
 								disabled={isViewMode}
+								readonly={isViewMode}
+								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_server_catalog_entry_name) || !isViewMode}
-								<p class="text-xs text-gray-500">Comma-separated catalog entry names</p>
+								<p class="text-xs text-gray-500">List of catalog entry names</p>
 							{/if}
 						</div>
 					</div>
