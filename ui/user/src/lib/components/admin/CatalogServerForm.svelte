@@ -77,6 +77,25 @@
 	let categories = $derived([...remoteCategories, ...(formData?.categories ?? [])]);
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 
+	// Server type for catalog entries (type="single")
+	type ServerType = 'stdio' | 'http-streamable' | 'remote-proxy';
+	let serverType = $state<ServerType | undefined>(
+		entry && type === 'single'
+			? formData.runtime === 'remote'
+				? 'remote-proxy'
+				: formData.runtime === 'containerized'
+					? 'http-streamable'
+					: 'stdio'
+			: undefined
+	);
+
+	// Initialize runtime to 'remote' when type is 'remote'
+	$effect(() => {
+		if (type === 'remote' && !entry && formData.runtime !== 'remote') {
+			handleRuntimeChange('remote');
+		}
+	});
+
 	onMount(() => {
 		if (!id || entity === 'workspace') return;
 		// TODO: do we have categories for workspace catalog?
@@ -94,8 +113,8 @@
 				description: '',
 				env: [],
 				icon: '',
-				runtime: 'npx' as Runtime,
-				npxConfig: { package: '', args: [] },
+				runtime: (type === 'single' ? undefined : 'npx') as Runtime,
+				npxConfig: undefined,
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
@@ -280,6 +299,22 @@
 			case 'composite':
 				formData.compositeConfig = { componentServers: [] };
 				break;
+		}
+	}
+
+	// Server type change handler for catalog entries
+	function handleServerTypeChange(newServerType: ServerType | undefined) {
+		serverType = newServerType;
+
+		if (!newServerType) return;
+
+		// Clear runtime when server type changes to force user to select
+		if (newServerType === 'remote-proxy') {
+			// Remote proxy only has one option, so auto-select
+			handleRuntimeChange('remote');
+		} else {
+			// For stdio and http-streamable, clear the runtime selection
+			formData.runtime = undefined as any;
 		}
 	}
 
@@ -701,62 +736,388 @@
 	</div>
 </div>
 
-<!-- Runtime Selection -->
-<RuntimeSelector
-	bind:runtime={formData.runtime}
-	serverType={type}
-	{readonly}
-	onRuntimeChange={handleRuntimeChange}
-/>
+{#if type === 'remote'}
+	<!-- Remote Proxy Server Form (from MCP Servers page) - Simple version -->
+	<div
+		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-8 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+	>
+		{#if formData.remoteConfig}
+			<!-- URL Field -->
+			<div class="flex flex-col gap-1">
+				<label
+					for="remote-url"
+					class={twMerge('text-sm font-light', showRequired.fixedURL && 'error')}>URL</label
+				>
+				<input
+					id="remote-url"
+					class={twMerge('text-input-filled dark:bg-black', showRequired.fixedURL && 'error')}
+					bind:value={formData.remoteConfig.fixedURL}
+					disabled={readonly}
+					placeholder="e.g. https://custom.mcpserver.example.com"
+					oninput={() => {
+						updateRequired('fixedURL');
+					}}
+				/>
+			</div>
 
-<!-- Runtime-specific Forms -->
-{#if formData.runtime === 'npx' && formData.npxConfig}
-	<NpxRuntimeForm
-		bind:config={formData.npxConfig}
-		{readonly}
-		{showRequired}
-		onFieldChange={updateRequired}
-	/>
-{:else if formData.runtime === 'uvx' && formData.uvxConfig}
-	<UvxRuntimeForm
-		bind:config={formData.uvxConfig}
-		{readonly}
-		{showRequired}
-		onFieldChange={updateRequired}
-	/>
-{:else if formData.runtime === 'containerized' && formData.containerizedConfig}
-	<ContainerizedRuntimeForm
-		bind:config={formData.containerizedConfig}
-		{readonly}
-		{showRequired}
-		onFieldChange={updateRequired}
-	/>
-{:else if formData.runtime === 'remote' && formData.remoteConfig}
-	<RemoteRuntimeForm
-		bind:config={formData.remoteConfig}
-		{readonly}
-		{showRequired}
-		onFieldChange={updateRequired}
-	/>
-{:else if formData.runtime === 'composite' && formData.compositeConfig}
-	<CompositeRuntimeForm
-		bind:config={formData.compositeConfig}
-		{readonly}
-		catalogId={id}
-		mcpEntriesContextFn={getAdminMcpServerAndEntries}
-		id={entry?.id}
-	/>
-{/if}
+			<!-- Headers Section -->
+			<div class="flex flex-col gap-4">
+				<h4 class="text-sm font-semibold">Headers (Optional)</h4>
 
-<!-- Environment Variables Section -->
-{#if !['remote', 'composite'].includes(formData.runtime)}
-	{#if !readonly || (readonly && formData.env && formData.env.length > 0)}
-		<div
-			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
-		>
-			<h4 class="text-sm font-semibold">
-				{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
-			</h4>
+				{#if formData.remoteConfig.headers}
+					{#each formData.remoteConfig.headers as _, i (i)}
+						<div
+							class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
+						>
+							<div class="flex w-full flex-col gap-4">
+								<div class="flex w-full flex-col gap-1">
+									<label for={`header-key-${i}`} class="text-sm font-light">Key</label>
+									<input
+										id={`header-key-${i}`}
+										class="text-input-filled w-full"
+										bind:value={formData.remoteConfig.headers[i].key}
+										placeholder="e.g. Authorization"
+										disabled={readonly}
+									/>
+								</div>
+								<div class="flex w-full flex-col gap-1">
+									<label for={`header-value-${i}`} class="text-sm font-light">Value</label>
+									<input
+										id={`header-value-${i}`}
+										class="text-input-filled w-full"
+										bind:value={formData.remoteConfig.headers[i].value}
+										placeholder="e.g. Bearer token123"
+										disabled={readonly}
+										type={formData.remoteConfig.headers[i].sensitive ? 'password' : 'text'}
+									/>
+								</div>
+								<div class="flex w-full gap-4">
+									<label class="flex items-center gap-2">
+										<input
+											type="checkbox"
+											bind:checked={formData.remoteConfig.headers[i].sensitive}
+											disabled={readonly}
+										/>
+										<span class="text-sm">Sensitive</span>
+									</label>
+								</div>
+							</div>
+
+							{#if !readonly}
+								<button
+									class="icon-button"
+									onclick={() => {
+										formData.remoteConfig?.headers?.splice(i, 1);
+									}}
+								>
+									<Trash2 class="size-4" />
+								</button>
+							{/if}
+						</div>
+					{/each}
+				{/if}
+
+				{#if !readonly}
+					<div class="flex justify-end">
+						<button
+							class="button flex items-center gap-1 text-xs"
+							onclick={() => {
+								if (!formData.remoteConfig?.headers) {
+									formData.remoteConfig.headers = [];
+								}
+								formData.remoteConfig?.headers?.push({
+									key: '',
+									description: '',
+									name: '',
+									value: '',
+									required: false,
+									sensitive: false,
+									file: false
+								});
+							}}
+						>
+							<Plus class="size-4" />
+							Header
+						</button>
+					</div>
+				{/if}
+			</div>
+		{/if}
+	</div>
+{:else if type === 'single'}
+	<!-- Consolidated Runtime Configuration for Catalog Entries -->
+	<div
+		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-8 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+	>
+		<!-- Server Type Selection for Catalog Entries -->
+		<div class="flex flex-col gap-1">
+			<label for="server-type" class="text-sm font-semibold capitalize">Server Type</label>
+			<Select
+				class="text-input-filled dark:bg-black"
+				options={[
+					{ label: 'HTTP Streamable', id: 'http-streamable' },
+					{ label: 'Remote Proxy', id: 'remote-proxy' },
+					{ label: 'STDIO', id: 'stdio' }
+				]}
+				selected={serverType}
+				onSelect={(option) => handleServerTypeChange(option.id as ServerType)}
+				{readonly}
+				id="server-type"
+				placeholder="Select server type..."
+			/>
+		</div>
+
+		{#if serverType === 'stdio' || serverType === 'http-streamable'}
+			<!-- Runtime Selection -->
+			<div class="flex flex-col gap-1">
+				<label for="runtime" class="text-sm font-semibold capitalize">Runtime</label>
+				<Select
+					class="text-input-filled dark:bg-black"
+					options={serverType === 'stdio'
+						? [
+								{ label: 'NPX', id: 'npx' },
+								{ label: 'UVX', id: 'uvx' }
+							]
+						: [
+								{ label: 'NPX', id: 'npx' },
+								{ label: 'UVX', id: 'uvx' },
+								{ label: 'Containerized', id: 'containerized' }
+							]}
+					selected={formData.runtime}
+					onSelect={(option) => handleRuntimeChange(option.id as Runtime)}
+					{readonly}
+					id="runtime"
+					placeholder="Select runtime..."
+				/>
+			</div>
+
+			<!-- Runtime-specific Forms - Only show when runtime is selected -->
+			{#if formData.runtime === 'npx' && formData.npxConfig}
+				<NpxRuntimeForm
+					bind:config={formData.npxConfig}
+					{readonly}
+					{showRequired}
+					onFieldChange={updateRequired}
+				/>
+			{:else if formData.runtime === 'uvx' && formData.uvxConfig}
+				<UvxRuntimeForm
+					bind:config={formData.uvxConfig}
+					{readonly}
+					{showRequired}
+					onFieldChange={updateRequired}
+				/>
+			{:else if formData.runtime === 'containerized' && formData.containerizedConfig}
+				<ContainerizedRuntimeForm
+					bind:config={formData.containerizedConfig}
+					{readonly}
+					{showRequired}
+					onFieldChange={updateRequired}
+				/>
+			{/if}
+
+			<!-- User Supplied Configuration - Only show after runtime is selected -->
+			{#if formData.runtime && (!readonly || (readonly && formData.env && formData.env.length > 0))}
+				<div class="flex flex-col gap-4">
+					<h4 class="text-sm font-semibold">User Supplied Configuration</h4>
+
+					{#if formData.env}
+						{#each formData.env as _, i (i)}
+							<div
+								class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
+							>
+								<div class="flex w-full flex-col gap-4">
+									<div class="flex w-full flex-col gap-1">
+										<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
+										<Select
+											class="bg-surface1 dark:border-surface3 dark:bg-surface1 border border-transparent shadow-inner"
+											classes={{
+												root: 'flex grow'
+											}}
+											options={[
+												{ label: 'Environment Variable', id: 'environment_variable_type' },
+												{ label: 'File', id: 'file_type' }
+											]}
+											disabled={readonly}
+											selected={formData.env[i].file ? 'file_type' : 'environment_variable_type'}
+											onSelect={(option) => {
+												if (option.id === 'file_type') {
+													formData.env[i].file = true;
+												} else {
+													formData.env[i].file = false;
+												}
+											}}
+											id={`env-type-${i}`}
+										/>
+									</div>
+
+									<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+										{#if formData.env[i].file}
+											The value the user supplies will be written to a file. An environment variable
+											will be created using the name you specify in the Key field and its value will
+											be the path to that file. This environment variable will be set inside your MCP
+											server and you can reference it in the arguments section above using the syntax
+											${'{KEY_NAME}'}.
+										{:else}
+											The value the user supplies will be set as an environment variable using the
+											name you specify in the Key field. This environment variable will be set inside
+											your MCP server and you can reference it in the arguments section above using
+											the syntax ${'{KEY_NAME}'}.
+										{/if}
+									</p>
+
+									<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+										The Name and Description fields will be displayed to the user when configuring
+										this server. The Key field will not.
+									</p>
+									<div class="flex w-full flex-col gap-1">
+										<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
+										<input
+											id={`env-name-${i}`}
+											class="text-input-filled w-full"
+											bind:value={formData.env[i].name}
+											disabled={readonly}
+										/>
+									</div>
+									<div class="flex w-full flex-col gap-1">
+										<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
+										<input
+											id={`env-description-${i}`}
+											class="text-input-filled w-full"
+											bind:value={formData.env[i].description}
+											disabled={readonly}
+										/>
+									</div>
+									<div class="flex w-full flex-col gap-1">
+										<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
+										<input
+											id={`env-key-${i}`}
+											class="text-input-filled w-full"
+											bind:value={formData.env[i].key}
+											placeholder="e.g. CUSTOM_API_KEY"
+											disabled={readonly}
+										/>
+									</div>
+									<div class="flex gap-8">
+										<label class="flex items-center gap-2">
+											<input
+												type="checkbox"
+												bind:checked={formData.env[i].sensitive}
+												disabled={readonly}
+											/>
+											<span class="text-sm">Sensitive</span>
+										</label>
+										<label class="flex items-center gap-2">
+											<input
+												type="checkbox"
+												bind:checked={formData.env[i].required}
+												disabled={readonly}
+											/>
+											<span class="text-sm">Required</span>
+										</label>
+									</div>
+								</div>
+
+								{#if !readonly}
+									<button
+										class="icon-button"
+										onclick={() => {
+											formData.env.splice(i, 1);
+										}}
+									>
+										<Trash2 class="size-4" />
+									</button>
+								{/if}
+							</div>
+						{/each}
+					{/if}
+
+					{#if !readonly}
+						<div class="flex justify-end">
+							<button
+								class="button flex items-center gap-1 text-xs"
+								onclick={() =>
+									formData.env.push({
+										key: '',
+										description: '',
+										name: '',
+										value: '',
+										required: false,
+										sensitive: false,
+										file: false
+									})}
+							>
+								<Plus class="size-4" />
+								User Configuration
+							</button>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		{:else if serverType === 'remote-proxy' && formData.remoteConfig}
+			<!-- Remote Proxy Configuration -->
+			<RemoteRuntimeForm
+				bind:config={formData.remoteConfig}
+				{readonly}
+				{showRequired}
+				onFieldChange={updateRequired}
+			/>
+		{/if}
+	</div>
+{:else}
+	<!-- Runtime Selection for Multi-User Servers -->
+	<RuntimeSelector
+		bind:runtime={formData.runtime}
+		serverType={type}
+		{readonly}
+		onRuntimeChange={handleRuntimeChange}
+	/>
+
+	<!-- Runtime-specific Forms -->
+	{#if formData.runtime === 'npx' && formData.npxConfig}
+		<NpxRuntimeForm
+			bind:config={formData.npxConfig}
+			{readonly}
+			{showRequired}
+			onFieldChange={updateRequired}
+		/>
+	{:else if formData.runtime === 'uvx' && formData.uvxConfig}
+		<UvxRuntimeForm
+			bind:config={formData.uvxConfig}
+			{readonly}
+			{showRequired}
+			onFieldChange={updateRequired}
+		/>
+	{:else if formData.runtime === 'containerized' && formData.containerizedConfig}
+		<ContainerizedRuntimeForm
+			bind:config={formData.containerizedConfig}
+			{readonly}
+			{showRequired}
+			onFieldChange={updateRequired}
+		/>
+	{:else if formData.runtime === 'remote' && formData.remoteServerConfig}
+		<RemoteRuntimeForm
+			bind:config={formData.remoteServerConfig}
+			{readonly}
+			{showRequired}
+			onFieldChange={updateRequired}
+		/>
+	{:else if formData.runtime === 'composite' && formData.compositeConfig}
+		<CompositeRuntimeForm
+			bind:config={formData.compositeConfig}
+			{readonly}
+			catalogId={id}
+			mcpEntriesContextFn={getAdminMcpServerAndEntries}
+			id={entry?.id}
+		/>
+	{/if}
+
+	<!-- Environment Variables Section for Multi-User Servers -->
+	{#if !['remote', 'composite'].includes(formData.runtime)}
+		{#if !readonly || (readonly && formData.env && formData.env.length > 0)}
+			<div
+				class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+			>
+				<h4 class="text-sm font-semibold">Configuration</h4>
 
 			{#if formData.env}
 				{#each formData.env as _, i (i)}
@@ -790,113 +1151,54 @@
 
 							<p class="text-xs font-light text-gray-400 dark:text-gray-600">
 								{#if formData.env[i].file}
-									The value {type === 'single' ? 'the user supplies' : 'you provide'} will be written
-									to a file. An environment variable will be created using the name you specify in the
-									Key field and its value will be the path to that file. This environment variable will
-									be set inside your MCP server and you can reference it in the arguments section above
-									using the syntax ${'{KEY_NAME}'}.
+									The value you provide will be written to a file. An environment variable will be
+									created using the name you specify in the Key field and its value will be the path to
+									that file. This environment variable will be set inside your MCP server and you can
+									reference it in the arguments section above using the syntax ${'{KEY_NAME}'}.
 								{:else}
-									{type === 'single' ? 'The value the user supplies' : 'The value you provide'} will
-									be set as an environment variable using the name you specify in the Key field. This
-									environment variable will be set inside your MCP server and you can reference it in
-									the arguments section above using the syntax ${'{KEY_NAME}'}.
+									The value you provide will be set as an environment variable using the name you
+									specify in the Key field. This environment variable will be set inside your MCP server
+									and you can reference it in the arguments section above using the syntax ${'{KEY_NAME}'}.
 								{/if}
 							</p>
 
-							{#if type === 'single'}
-								<p class="text-xs font-light text-gray-400 dark:text-gray-600">
-									The Name and Description fields will be displayed to the user when configuring
-									this server. The Key field will not.
-								</p>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
-									<input
-										id={`env-name-${i}`}
-										class="text-input-filled w-full"
-										bind:value={formData.env[i].name}
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
+								<input
+									id={`env-key-${i}`}
+									class="text-input-filled w-full"
+									bind:value={formData.env[i].key}
+									placeholder="e.g. CUSTOM_API_KEY"
+									disabled={readonly}
+								/>
+							</div>
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
+								{#if formData.env[i].file}
+									<textarea
+										id={`env-value-${i}`}
+										class="text-input-filled min-h-24 w-full resize-y"
+										bind:value={formData.env[i].value}
 										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
+										rows={formData.env[i].value.split('\n').length + 1}
+									></textarea>
+								{:else}
 									<input
-										id={`env-description-${i}`}
+										id={`env-value-${i}`}
 										class="text-input-filled w-full"
-										bind:value={formData.env[i].description}
+										bind:value={formData.env[i].value}
+										placeholder="e.g. 123abcdef456"
 										disabled={readonly}
+										type={formData.env[i].sensitive ? 'password' : 'text'}
 									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
-									<input
-										id={`env-key-${i}`}
-										class="text-input-filled w-full"
-										bind:value={formData.env[i].key}
-										placeholder="e.g. CUSTOM_API_KEY"
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex gap-8">
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											bind:checked={formData.env[i].sensitive}
-											disabled={readonly}
-										/>
-										<span class="text-sm">Sensitive</span>
-									</label>
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											bind:checked={formData.env[i].required}
-											disabled={readonly}
-										/>
-										<span class="text-sm">Required</span>
-									</label>
-								</div>
-							{:else}
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
-									<input
-										id={`env-key-${i}`}
-										class="text-input-filled w-full"
-										bind:value={formData.env[i].key}
-										placeholder="e.g. CUSTOM_API_KEY"
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
-									{#if formData.env[i].file}
-										<textarea
-											id={`env-value-${i}`}
-											class="text-input-filled min-h-24 w-full resize-y"
-											bind:value={formData.env[i].value}
-											disabled={readonly}
-											rows={formData.env[i].value.split('\n').length + 1}
-										></textarea>
-									{:else}
-										<input
-											id={`env-value-${i}`}
-											class="text-input-filled w-full"
-											bind:value={formData.env[i].value}
-											placeholder="e.g. 123abcdef456"
-											disabled={readonly}
-											type={formData.env[i].sensitive ? 'password' : 'text'}
-										/>
-									{/if}
-								</div>
-								<div class="flex w-full gap-4">
-									<label class="flex items-center gap-2">
-										<input
-											type="checkbox"
-											bind:checked={formData.env[i].sensitive}
-											disabled={readonly}
-										/>
-										<span class="text-sm">Sensitive</span>
-									</label>
-								</div>
-							{/if}
+								{/if}
+							</div>
+							<div class="flex w-full gap-4">
+								<label class="flex items-center gap-2">
+									<input type="checkbox" bind:checked={formData.env[i].sensitive} disabled={readonly} />
+									<span class="text-sm">Sensitive</span>
+								</label>
+							</div>
 						</div>
 
 						{#if !readonly}
@@ -929,11 +1231,12 @@
 							})}
 					>
 						<Plus class="size-4" />
-						{type === 'single' ? 'User Configuration' : 'Configuration'}
+						Configuration
 					</button>
 				</div>
 			{/if}
-		</div>
+			</div>
+		{/if}
 	{/if}
 {/if}
 

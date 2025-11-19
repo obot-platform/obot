@@ -178,8 +178,8 @@
 								<p>
 									Use <code class="rounded bg-gray-100 px-1 py-0.5 dark:bg-gray-800"
 										>${'{VARIABLE_NAME}'}</code
-									> syntax in your URL template. Variables can be populated from header values that users
-									provide during setup.
+									> syntax in your URL template. Variables can be populated from the User Supplied
+									Configuration section below.
 								</p>
 								<p class="text-xs">
 									Example: <code class="rounded bg-gray-100 px-1 py-0.5 text-xs dark:bg-gray-800"
@@ -202,123 +202,56 @@
 			{/if}
 		</div>
 	</div>
+	<!-- Static Headers Section -->
 	<div class="flex w-full flex-col gap-8" in:slide>
 		<div
 			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
 		>
-			<h4 class="text-sm font-semibold">Headers</h4>
+			<h4 class="text-sm font-semibold">Static Headers</h4>
 			<p class="text-xs font-light text-gray-400 dark:text-gray-600">
-				{#if selectedType === 'urlTemplate'}
-					Header values will be supplied with the URL to configure the MCP server. Their values can
-					be supplied by the user during initial setup or as static provided values. Only values
-					provided by the user will be used in URL template interpolation.
-				{:else}
-					Header values will be supplied with the URL to configure the MCP server. Their values can
-					be supplied by the user during initial setup or as static provided values.
-				{/if}
+				Header values that you provide now and will be sent with every request to the MCP server.
 			</p>
 			{#if config.headers}
-				{#each config.headers as header, i (i)}
+				{@const staticHeaders = config.headers.filter((h) => !h.required)}
+				{#each staticHeaders as header, idx (header)}
+					{@const i = config.headers.indexOf(header)}
 					<div
 						class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
 					>
 						<div class="flex w-full flex-col gap-4">
 							<div class="flex w-full flex-col gap-1">
-								<label for={`header-key-${i}`} class="text-sm font-light">Key</label>
+								<label for={`static-header-key-${i}`} class="text-sm font-light">Key</label>
 								<input
-									id={`header-key-${i}`}
+									id={`static-header-key-${i}`}
 									class="text-input-filled w-full"
 									bind:value={config.headers[i].key}
-									placeholder="e.g. CUSTOM_HEADER_KEY"
+									placeholder="e.g. Authorization"
 									disabled={readonly}
 								/>
 							</div>
 							<div class="flex w-full flex-col gap-1">
-								<label for={`env-type-${i}`} class="text-sm font-light">Value</label>
-								<Select
-									class="bg-surface1 dark:border-surface3 dark:bg-surface1 border border-transparent shadow-inner"
-									classes={{
-										root: 'flex grow'
-									}}
-									options={[
-										{ label: 'Static', id: 'static' },
-										{ label: 'User-Supplied', id: 'user_supplied' }
-									]}
-									selected={config.headers[i].required ? 'user_supplied' : 'static'}
-									onSelect={(option) => {
-										if (!config.headers?.[i]) return;
-										if (option.id === 'user_supplied') {
-											config.headers[i].required = true;
-										} else {
-											config.headers[i].required = false;
-											config.headers[i].name = '';
-											config.headers[i].description = '';
-											config.headers[i].sensitive = false;
-										}
-										config.headers[i].value = '';
-									}}
-									id={`env-type-${i}`}
-								/>
-							</div>
-							{#if config.headers[i].required}
-								<div class="flex w-full flex-col gap-1">
-									<label for={`header-name-${i}`} class="text-sm font-light">Name</label>
-									<input
-										id={`header-name-${i}`}
-										class="text-input-filled w-full"
-										bind:value={config.headers[i].name}
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label for={`header-description-${i}`} class="text-sm font-light"
-										>Description</label
-									>
-									<input
-										id={`header-description-${i}`}
-										class="text-input-filled w-full"
-										bind:value={config.headers[i].description}
-										disabled={readonly}
-									/>
-								</div>
-								<div class="flex w-full flex-col gap-1">
-									<label
-										for={`header-prefix]-${i}`}
-										class="flex items-center gap-1 text-sm font-light"
-									>
-										Value Prefix
-										<InfoTooltip
-											text="A constant prepended value that will be added to the user-supplied value. Ex. 'Bearer ' in 'Bearer [USER_SUPPLIED_VALUE]'."
-											popoverWidth="lg"
-										/>
-									</label>
-									<input
-										id={`header-prefix-${i}`}
-										class="text-input-filled w-full"
-										bind:value={config.headers[i].prefix}
-										disabled={readonly}
-									/>
-								</div>
-								<Toggle
-									classes={{ label: 'text-sm text-inherit' }}
-									disabled={readonly}
-									label="Sensitive"
-									labelInline
-									checked={!!header.sensitive}
-									onChange={(checked) => {
-										if (config.headers?.[i]) {
-											config.headers[i].sensitive = checked;
-										}
-									}}
-								/>
-							{:else}
+								<label for={`static-header-value-${i}`} class="text-sm font-light">Value</label>
 								<input
-									id={`header-description-${i}`}
+									id={`static-header-value-${i}`}
 									class="text-input-filled w-full"
 									bind:value={config.headers[i].value}
+									placeholder="e.g. Bearer token123"
 									disabled={readonly}
+									type={config.headers[i].sensitive ? 'password' : 'text'}
 								/>
-							{/if}
+							</div>
+							<Toggle
+								classes={{ label: 'text-sm text-inherit' }}
+								disabled={readonly}
+								label="Sensitive"
+								labelInline
+								checked={!!header.sensitive}
+								onChange={(checked) => {
+									if (config.headers?.[i]) {
+										config.headers[i].sensitive = checked;
+									}
+								}}
+							/>
 						</div>
 
 						{#if !readonly}
@@ -355,7 +288,133 @@
 						}}
 					>
 						<Plus class="size-4" />
-						Header
+						Static Header
+					</button>
+				</div>
+			{/if}
+		</div>
+	</div>
+
+	<!-- User Supplied Configuration Section -->
+	<div class="flex w-full flex-col gap-8" in:slide>
+		<div
+			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+		>
+			<h4 class="text-sm font-semibold">User Supplied Configuration</h4>
+			<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+				{#if selectedType === 'urlTemplate'}
+					Header values that will be provided by users during initial setup. These values can be used
+					in URL template interpolation.
+				{:else}
+					Header values that will be provided by users during initial setup and sent with every
+					request to the MCP server.
+				{/if}
+			</p>
+			{#if config.headers}
+				{@const userSuppliedHeaders = config.headers.filter((h) => h.required)}
+				{#each userSuppliedHeaders as header, idx (header)}
+					{@const i = config.headers.indexOf(header)}
+					<div
+						class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
+					>
+						<div class="flex w-full flex-col gap-4">
+							<div class="flex w-full flex-col gap-1">
+								<label for={`user-header-key-${i}`} class="text-sm font-light">Key</label>
+								<input
+									id={`user-header-key-${i}`}
+									class="text-input-filled w-full"
+									bind:value={config.headers[i].key}
+									placeholder="e.g. CUSTOM_HEADER_KEY"
+									disabled={readonly}
+								/>
+							</div>
+							<div class="flex w-full flex-col gap-1">
+								<label for={`user-header-name-${i}`} class="text-sm font-light">Name</label>
+								<input
+									id={`user-header-name-${i}`}
+									class="text-input-filled w-full"
+									bind:value={config.headers[i].name}
+									placeholder="Display name shown to users"
+									disabled={readonly}
+								/>
+							</div>
+							<div class="flex w-full flex-col gap-1">
+								<label for={`user-header-description-${i}`} class="text-sm font-light"
+									>Description</label
+								>
+								<input
+									id={`user-header-description-${i}`}
+									class="text-input-filled w-full"
+									bind:value={config.headers[i].description}
+									placeholder="Help text shown to users"
+									disabled={readonly}
+								/>
+							</div>
+							<div class="flex w-full flex-col gap-1">
+								<label for={`user-header-prefix-${i}`} class="flex items-center gap-1 text-sm font-light">
+									Value Prefix
+									<InfoTooltip
+										text="A constant prepended value that will be added to the user-supplied value. Ex. 'Bearer ' in 'Bearer [USER_SUPPLIED_VALUE]'."
+										popoverWidth="lg"
+									/>
+								</label>
+								<input
+									id={`user-header-prefix-${i}`}
+									class="text-input-filled w-full"
+									bind:value={config.headers[i].prefix}
+									placeholder="e.g. Bearer "
+									disabled={readonly}
+								/>
+							</div>
+							<Toggle
+								classes={{ label: 'text-sm text-inherit' }}
+								disabled={readonly}
+								label="Sensitive"
+								labelInline
+								checked={!!header.sensitive}
+								onChange={(checked) => {
+									if (config.headers?.[i]) {
+										config.headers[i].sensitive = checked;
+									}
+								}}
+							/>
+						</div>
+
+						{#if !readonly}
+							<button
+								class="icon-button"
+								onclick={() => {
+									config.headers?.splice(i, 1);
+								}}
+								use:tooltip={'Delete Header'}
+							>
+								<Trash2 class="size-4" />
+							</button>
+						{/if}
+					</div>
+				{/each}
+			{/if}
+			{#if !readonly}
+				<div class="flex justify-end">
+					<button
+						class="button flex items-center gap-1 text-xs"
+						onclick={() => {
+							if (!config.headers) {
+								config.headers = [];
+							}
+							config.headers?.push({
+								key: '',
+								description: '',
+								name: '',
+								value: '',
+								required: true,
+								sensitive: false,
+								file: false
+							});
+						}}
+					>
+						<Plus class="size-4" />
+						User Configuration
 					</button>
 				</div>
 			{/if}
