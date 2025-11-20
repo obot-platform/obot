@@ -326,11 +326,11 @@ func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
 		return err
 	}
 
-	if serverConfig.Runtime != types.RuntimeRemote {
+	if serverConfig.Runtime != types.RuntimeRemote && serverConfig.Runtime != types.RuntimeComposite {
 		_, err = p.mcpSessionManager.ListTools(req.Context(), serverConfig)
 	} else {
 		// Don't use ListTools for remote MCP servers in case they need OAuth.
-		_, err = p.mcpSessionManager.PingServer(req.Context(), serverConfig)
+		_, err = p.mcpSessionManager.LaunchServer(req.Context(), serverConfig)
 	}
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
