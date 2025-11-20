@@ -557,11 +557,7 @@
 		}
 
 		.dark &:hover {
-			background-color: color-mix(
-				in oklab,
-				var(--color-surface3) 50%,
-				transparent
-			);
+			background-color: color-mix(in oklab, var(--color-surface3) 50%, transparent);
 		}
 
 		@media (max-width: 768px) {
