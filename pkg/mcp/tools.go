@@ -9,11 +9,10 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 	"github.com/nanobot-ai/nanobot/pkg/mcp"
 	otypes "github.com/obot-platform/obot/apiclient/types"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) ListTools(ctx context.Context, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig) ([]mcp.Tool, error) {
-	client, err := sm.ClientForMCPServer(ctx, userID, mcpServer, serverConfig)
+func (sm *SessionManager) ListTools(ctx context.Context, serverConfig ServerConfig) ([]mcp.Tool, error) {
+	client, err := sm.clientForMCPServer(ctx, serverConfig)
 	if err != nil {
 		return nil, err
 	}

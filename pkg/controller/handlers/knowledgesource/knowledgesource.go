@@ -271,7 +271,7 @@ func (k *Handler) Sync(req router.Request, _ router.Response) error {
 		return nil
 	}
 
-	task, err := k.invoker.SystemTask(req.Ctx, thread, toolReferenceName, source.Spec.Manifest.KnowledgeSourceInput, invokeOpts)
+	task, err := k.invoker.SystemTask(req.Ctx, k.gptClient, thread, toolReferenceName, source.Spec.Manifest.KnowledgeSourceInput, invokeOpts)
 	if err != nil {
 		return err
 	}

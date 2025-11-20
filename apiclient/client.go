@@ -31,10 +31,7 @@ func NewClientFromEnv() *Client {
 	if url == "" {
 		url = "http://localhost:8080/api"
 	} else if !strings.HasSuffix(url, "/api") {
-		if strings.HasSuffix(url, "/") {
-			url = url[:len(url)-1]
-		}
-		url += "/api"
+		url += strings.TrimSuffix(url, "/") + "/api"
 	}
 	token := os.Getenv("OBOT_TOKEN")
 	return &Client{

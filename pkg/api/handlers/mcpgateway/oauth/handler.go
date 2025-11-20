@@ -2,26 +2,28 @@ package oauth
 
 import (
 	"github.com/obot-platform/obot/pkg/api/server"
-	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/services"
 )
 
 type handler struct {
-	gatewayClient *client.Client
-	oauthChecker  *MCPOAuthHandlerFactory
-	tokenService  *persistent.TokenService
-	oauthConfig   services.OAuthAuthorizationServerConfig
-	baseURL       string
+	oauthChecker *MCPOAuthHandlerFactory
+	tokenService *persistent.TokenService
+	oauthConfig  services.OAuthAuthorizationServerConfig
+	tokenStore   mcp.GlobalTokenStore
+	jwks         func() string
+	baseURL      string
 }
 
-func SetupHandlers(gatewayClient *client.Client, oauthChecker *MCPOAuthHandlerFactory, tokenService *persistent.TokenService, oauthConfig services.OAuthAuthorizationServerConfig, baseURL string, mux *server.Server) {
+func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig services.OAuthAuthorizationServerConfig, jwks func() string, baseURL string, mux *server.Server) {
 	h := &handler{
-		gatewayClient: gatewayClient,
-		tokenService:  tokenService,
-		oauthConfig:   oauthConfig,
-		baseURL:       baseURL,
-		oauthChecker:  oauthChecker,
+		tokenStore:   tokenStore,
+		tokenService: tokenService,
+		oauthConfig:  oauthConfig,
+		jwks:         jwks,
+		baseURL:      baseURL,
+		oauthChecker: oauthChecker,
 	}
 
 	mux.HandleFunc("POST /oauth/register/{mcp_id}", h.register)

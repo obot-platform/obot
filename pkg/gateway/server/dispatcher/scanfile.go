@@ -7,20 +7,22 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/gptscript-ai/go-gptscript"
 )
 
 type fileScanRequest struct {
 	Contents []byte `json:"contents"`
 }
 
-func (d *Dispatcher) ScanFile(ctx context.Context, contents []byte) (bool, error) {
+func (d *Dispatcher) ScanFile(ctx context.Context, gptClient *gptscript.GPTScript, contents []byte) (bool, error) {
 	config, err := d.gatewayClient.GetVirusScannerConfig(ctx)
 	if err != nil || config.ProviderName == "" || config.ProviderNamespace == "" {
 		// If the provider name or namespace is not set, then virus scanning is essentially disabled.
 		return true, err
 	}
 
-	u, err := d.urlForFileScannerProvider(ctx, config.ProviderNamespace, config.ProviderName)
+	u, err := d.urlForFileScannerProvider(ctx, gptClient, config.ProviderNamespace, config.ProviderName)
 	if err != nil {
 		return false, err
 	}

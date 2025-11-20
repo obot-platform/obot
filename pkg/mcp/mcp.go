@@ -12,33 +12,25 @@ import (
 	"github.com/gptscript-ai/gptscript/pkg/types"
 	"github.com/modelcontextprotocol/go-sdk/jsonschema"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *ephemeral.TokenService, projectMCPServer v1.ProjectMCPServer, userID, mcpServerDisplayName, internalServerURL string, allowedTools []string) ([]gptscript.ToolDef, error) {
+func (sm *SessionManager) GPTScriptTools(ctx context.Context, projectMCPServer v1.ProjectMCPServer, userID, mcpServerDisplayName, internalServerURL, serverURL string, allowedTools []string) ([]gptscript.ToolDef, error) {
 	if mcpServerDisplayName == "" {
 		mcpServerDisplayName = projectMCPServer.Name
 	}
 
-	serverConfig, err := ProjectServerToConfig(tokenService, projectMCPServer, internalServerURL, userID, allowedTools...)
+	serverConfig, err := ProjectServerToConfig(projectMCPServer, serverURL, internalServerURL, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert MCP server %s to server config: %w", mcpServerDisplayName, err)
 	}
 
-	// The headers here have an ephemeral token in them.
-	// It's not a big deal to keep it, but it's easy enough to remove it,
-	// and we have to create a new one if this metadata field is needed anyway.
-	headers := serverConfig.Headers
-	serverConfig.Headers = nil
 	serverConfigForMetadata, err := json.Marshal(serverConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal server config for metadata: %w", err)
 	}
 
-	serverConfig.Headers = headers
-
-	client, err := sm.ClientForServer(ctx, userID, mcpServerDisplayName, projectMCPServer.Name, serverConfig)
+	client, err := sm.clientForServer(ctx, serverConfig)
 	if err != nil {
 		return nil, determineError(err, mcpServerDisplayName)
 	}
@@ -80,10 +72,8 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, tokenService *ephe
 			Arguments:    &schema,
 			Instructions: fmt.Sprintf("%s%s %s default", types.MCPInvokePrefix, tool.Name, client.ID),
 			MetaData: map[string]string{
-				"obot-server-config":           string(serverConfigForMetadata),
-				"obot-user-id":                 userID,
-				"obot-server-display-name":     mcpServerDisplayName,
-				"obot-project-mcp-server-name": projectMCPServer.Name,
+				"obot-server-config": string(serverConfigForMetadata),
+				"obot-user-id":       userID,
 			},
 		}
 

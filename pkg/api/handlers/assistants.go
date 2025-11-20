@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/invoke"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -26,18 +27,20 @@ import (
 var log = logger.Package()
 
 type AssistantHandler struct {
-	invoker      *invoke.Invoker
-	events       *events.Emitter
-	dispatcher   *dispatcher.Dispatcher
-	cachedClient kclient.WithWatch
+	invoker           *invoke.Invoker
+	mcpSessionManager *mcp.SessionManager
+	events            *events.Emitter
+	dispatcher        *dispatcher.Dispatcher
+	cachedClient      kclient.WithWatch
 }
 
-func NewAssistantHandler(dispatcher *dispatcher.Dispatcher, invoker *invoke.Invoker, events *events.Emitter, cachedClient kclient.WithWatch) *AssistantHandler {
+func NewAssistantHandler(dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, events *events.Emitter, cachedClient kclient.WithWatch) *AssistantHandler {
 	return &AssistantHandler{
-		invoker:      invoker,
-		events:       events,
-		dispatcher:   dispatcher,
-		cachedClient: cachedClient,
+		invoker:           invoker,
+		mcpSessionManager: mcpSessionManager,
+		events:            events,
+		dispatcher:        dispatcher,
+		cachedClient:      cachedClient,
 	}
 }
 
@@ -90,7 +93,7 @@ func (a *AssistantHandler) Invoke(req api.Context) error {
 		return err
 	}
 
-	resp, err := a.invoker.Thread(req.Context(), a.cachedClient, &thread, string(input), invoke.Options{
+	resp, err := a.invoker.Thread(req.Context(), a.mcpSessionManager, req.GPTClient, a.cachedClient, &thread, string(input), invoke.Options{
 		GenerateName:    system.ChatRunPrefix,
 		UserUID:         req.User.GetUID(),
 		IgnoreMCPErrors: true,

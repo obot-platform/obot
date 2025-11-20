@@ -35,8 +35,8 @@ type tokenStore struct {
 	userID, mcpID string
 }
 
-func (t *tokenStore) GetTokenConfig(ctx context.Context, _ string) (*oauth2.Config, *oauth2.Token, error) {
-	mcpToken, err := t.gatewayClient.GetMCPOAuthToken(ctx, t.userID, t.mcpID)
+func (t *tokenStore) GetTokenConfig(ctx context.Context, mcpURL string) (*oauth2.Config, *oauth2.Token, error) {
+	mcpToken, err := t.gatewayClient.GetMCPOAuthToken(ctx, t.userID, t.mcpID, mcpURL)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil, nil
@@ -67,6 +67,6 @@ func (t *tokenStore) GetTokenConfig(ctx context.Context, _ string) (*oauth2.Conf
 	}, nil
 }
 
-func (t *tokenStore) SetTokenConfig(ctx context.Context, _ string, config *oauth2.Config, token *oauth2.Token) error {
-	return t.gatewayClient.ReplaceMCPOAuthToken(ctx, t.userID, t.mcpID, "", "", "", config, token)
+func (t *tokenStore) SetTokenConfig(ctx context.Context, mcpURL string, config *oauth2.Config, token *oauth2.Token) error {
+	return t.gatewayClient.ReplaceMCPOAuthToken(ctx, t.userID, t.mcpID, mcpURL, "", "", "", config, token)
 }

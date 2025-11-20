@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gptscript-ai/gptscript/pkg/engine"
 	gtypes "github.com/gptscript-ai/gptscript/pkg/types"
-	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 )
 
 // Run is responsible for calling MCP tools when the LLM requests their execution. This method is called by GPTScript.
@@ -45,12 +45,18 @@ func (sm *SessionManager) Run(ctx engine.Context, _ chan<- gtypes.CompletionStat
 			return "", fmt.Errorf("session not found for MCP server %s, %s", id, clientScope)
 		}
 
-		userID := tool.MetaData["obot-user-id"]
-
-		// Ephemeral tokens "expire" every time Obot restarts. Create a new one.
-		token, err := sm.ephemeralTokenService.NewToken(ephemeral.TokenContext{
-			UserID:     userID,
-			UserGroups: []string{types.GroupBasic},
+		now := time.Now().Add(-time.Second)
+		// TODO(thedadams): This needs to be fixed before user information headers can be passed to the MCP server.
+		_, token, err := sm.tokenService.NewTokenWithClaims(jwt.MapClaims{
+			"aud": gtypes.FirstSet(serverConfig.Audiences...),
+			"exp": float64(now.Add(time.Hour + 15*time.Minute).Unix()),
+			"iat": float64(now.Unix()),
+			"sub": serverConfig.UserID,
+			// "name":       server.UserName,
+			// "email":      server.UserEmail,
+			// "picture":    server.Picture,
+			// "UserGroups": strings.Join(server.UserGroups, ","),
+			"MCPID": serverConfig.MCPServerName,
 		})
 		if err != nil {
 			log.Errorf("failed to create token: %v", err)
@@ -59,7 +65,7 @@ func (sm *SessionManager) Run(ctx engine.Context, _ chan<- gtypes.CompletionStat
 
 		serverConfig.Headers = []string{fmt.Sprintf("Authorization=Bearer %s", token)}
 
-		session, err = sm.ClientForServer(ctx.Ctx, userID, tool.MetaData["obot-server-display-name"], tool.MetaData["obot-project-mcp-server-name"], serverConfig)
+		session, err = sm.clientForServer(ctx.Ctx, serverConfig)
 		if err != nil {
 			log.Errorf("failed to create session for MCP server %s, %s: %v", id, clientScope, err)
 			return "", fmt.Errorf("session not found for MCP server %s, %s", id, clientScope)

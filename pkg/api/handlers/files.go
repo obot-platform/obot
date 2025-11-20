@@ -337,7 +337,7 @@ func uploadFileToWorkspace(req api.Context, dispatcher *dispatcher.Dispatcher, w
 		return 0, fmt.Errorf("failed to read request body: %w", err)
 	}
 
-	if fromProvider, err := dispatcher.ScanFile(req.Context(), contents); err != nil {
+	if fromProvider, err := dispatcher.ScanFile(req.Context(), req.GPTClient, contents); err != nil {
 		if fromProvider {
 			return 0, types.NewErrBadRequest("file is infected with virus: %v", err)
 		}

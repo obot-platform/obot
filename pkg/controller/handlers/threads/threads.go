@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/create"
 	"github.com/obot-platform/obot/pkg/invoke"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -24,12 +25,17 @@ import (
 )
 
 type Handler struct {
-	gptScript *gptscript.GPTScript
-	invoker   *invoke.Invoker
+	gptScript         *gptscript.GPTScript
+	invoker           *invoke.Invoker
+	mcpSessionManager *mcp.SessionManager
 }
 
-func NewHandler(gptScript *gptscript.GPTScript, invoker *invoke.Invoker) *Handler {
-	return &Handler{gptScript: gptScript, invoker: invoker}
+func NewHandler(gptScript *gptscript.GPTScript, invoker *invoke.Invoker, mcpSessionManager *mcp.SessionManager) *Handler {
+	return &Handler{
+		gptScript:         gptScript,
+		invoker:           invoker,
+		mcpSessionManager: mcpSessionManager,
+	}
 }
 
 func (t *Handler) WorkflowState(req router.Request, _ router.Response) error {
@@ -374,7 +380,7 @@ func (t *Handler) GenerateName(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	result, err := t.invoker.EphemeralThreadTask(req.Ctx, thread, gptscript.ToolDef{
+	result, err := t.invoker.EphemeralThreadTask(req.Ctx, t.mcpSessionManager, t.gptScript, thread, gptscript.ToolDef{
 		Instructions: `Generate a concise (3 to 4 words) and descriptive thread name that encapsulates the main topic or theme of the following conversation starter. Do not enclose the title in quotes.`,
 	}, fmt.Sprintf("User Input: %s\n\nLLM Response: %s", run.Spec.Input, run.Status.Output))
 	if err != nil {

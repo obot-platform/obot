@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/invoke"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	threadmodel "github.com/obot-platform/obot/pkg/thread"
@@ -24,14 +25,16 @@ import (
 )
 
 type ProjectsHandler struct {
-	cachedClient kclient.Client
-	invoker      *invoke.Invoker
+	cachedClient      kclient.Client
+	mcpSessionManager *mcp.SessionManager
+	invoker           *invoke.Invoker
 }
 
-func NewProjectsHandler(cachedClient kclient.Client, invoker *invoke.Invoker) *ProjectsHandler {
+func NewProjectsHandler(cachedClient kclient.Client, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker) *ProjectsHandler {
 	return &ProjectsHandler{
-		cachedClient: cachedClient,
-		invoker:      invoker,
+		cachedClient:      cachedClient,
+		mcpSessionManager: mcpSessionManager,
+		invoker:           invoker,
 	}
 }
 
@@ -838,7 +841,7 @@ func (h *ProjectsHandler) authenticate(req api.Context, local bool) (err error) 
 	if local {
 		credContext = thread.Name + "-local"
 	}
-	resp, err := runAuthForAgent(req, h.invoker, &agent, credContext, tools, req.User.GetUID(), thread.Name)
+	resp, err := runAuthForAgent(req, h.mcpSessionManager, h.invoker, &agent, credContext, tools, req.User.GetUID(), thread.Name)
 	if err != nil {
 		return err
 	}

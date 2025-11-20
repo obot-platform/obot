@@ -13,63 +13,67 @@ import (
 )
 
 type WebhookHelper struct {
-	indexer cache.Indexer
+	indexer          cache.Indexer
+	defaultBaseImage string
 }
 
-func NewWebhookHelper(indexer cache.Indexer) *WebhookHelper {
+func NewWebhookHelper(indexer cache.Indexer, defaultBaseImage string) *WebhookHelper {
 	return &WebhookHelper{
-		indexer: indexer,
+		indexer:          indexer,
+		defaultBaseImage: defaultBaseImage,
 	}
 }
 
 type Webhook struct {
-	URL, Secret string
+	Name, DisplayName  string
+	URL, Secret, Image string
+	Definitions        []string
 }
 
-func (wh *WebhookHelper) GetWebhooksForMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, mcpServerNamespace, mcpServerName, mcpServerCatalogEntryName, mcpServerCatalogName, method, identifier string) ([]Webhook, error) {
+func (wh *WebhookHelper) GetWebhooksForMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, serverConfig ServerConfig) ([]Webhook, error) {
 	var result []Webhook
 	webhookSeen := make(map[string]struct{})
 
-	objs, err := wh.indexer.ByIndex("server-names", mcpServerName)
+	objs, err := wh.indexer.ByIndex("server-names", serverConfig.MCPServerName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from MCP server index: %w", err)
 	}
 
-	result = appendWebhooks(ctx, gptClient, mcpServerNamespace, method, identifier, objs, webhookSeen, result)
+	result = wh.appendWebhooks(ctx, gptClient, serverConfig.MCPServerNamespace, objs, webhookSeen, result)
 
-	objs, err = wh.indexer.ByIndex("catalog-entry-names", mcpServerCatalogEntryName)
+	objs, err = wh.indexer.ByIndex("catalog-entry-names", serverConfig.MCPCatalogEntryName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from catalog entry index: %w", err)
 	}
 
-	result = appendWebhooks(ctx, gptClient, mcpServerNamespace, method, identifier, objs, webhookSeen, result)
+	result = wh.appendWebhooks(ctx, gptClient, serverConfig.MCPServerNamespace, objs, webhookSeen, result)
 
 	objs, err = wh.indexer.ByIndex("selectors", "*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from selector index: %w", err)
 	}
 
-	result = appendWebhooks(ctx, gptClient, mcpServerNamespace, method, identifier, objs, webhookSeen, result)
+	result = wh.appendWebhooks(ctx, gptClient, serverConfig.MCPServerNamespace, objs, webhookSeen, result)
 
-	objs, err = wh.indexer.ByIndex("catalog-names", mcpServerCatalogName)
+	objs, err = wh.indexer.ByIndex("catalog-names", serverConfig.MCPCatalogName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from catalog index: %w", err)
 	}
 
-	result = appendWebhooks(ctx, gptClient, mcpServerNamespace, method, identifier, objs, webhookSeen, result)
+	result = wh.appendWebhooks(ctx, gptClient, serverConfig.MCPServerNamespace, objs, webhookSeen, result)
 
 	return result, nil
 }
 
-func appendWebhooks(ctx context.Context, gptClient *gptscript.GPTScript, namespace, method, identifier string, objs []any, seen map[string]struct{}, result []Webhook) []Webhook {
+func (wh *WebhookHelper) appendWebhooks(ctx context.Context, gptClient *gptscript.GPTScript, namespace string, objs []any, seen map[string]struct{}, result []Webhook) []Webhook {
 	var credEnv map[string]string
 	result = slices.Grow(result, len(objs))
 
 	for _, mwv := range objs {
 		res, ok := mwv.(*v1.MCPWebhookValidation)
-		if ok && res.Namespace == namespace {
+		if ok && res.Namespace == namespace && !res.Spec.Manifest.Disabled {
 			url := res.Spec.Manifest.URL
-			if _, seen := seen[url]; seen || !res.Spec.Manifest.Selectors.Matches(method, identifier) {
+			if _, seen := seen[url]; seen {
 				continue
 			}
 
@@ -83,13 +87,23 @@ func appendWebhooks(ctx context.Context, gptClient *gptscript.GPTScript, namespa
 
 				credEnv = cred.Env
 				if credEnv == nil {
+					// Set this to something non-nil so we don't fetch the credential again.
 					credEnv = make(map[string]string)
 				}
 			}
 
+			displayName := res.Spec.Manifest.Name
+			if displayName == "" {
+				displayName = res.Name
+			}
+
 			result = append(result, Webhook{
-				URL:    url,
-				Secret: credEnv["secret"],
+				Name:        res.Name,
+				DisplayName: displayName,
+				URL:         url,
+				Secret:      credEnv["secret"],
+				Image:       wh.defaultBaseImage,
+				Definitions: res.Spec.Manifest.Selectors.Strings(),
 			})
 		}
 	}

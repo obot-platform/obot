@@ -132,11 +132,15 @@ config:
 
   # config.OBOT_SERVER_MCPBASE_IMAGE -- Deploy MCP servers in the cluster using this base image. OBOT_SERVER_MCPNAMESPACE is automatically added to the secret if config.OBOT_SERVER_MCPBASE_IMAGE is set.
   OBOT_SERVER_MCPBASE_IMAGE: "ghcr.io/obot-platform/mcp-images/phat:main"
+  # config.OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE -- Deploy MCP remote shim servers in the cluster using this base image.
+  OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE: "ghcr.io/obot-platform/mcp-images/nanobot:main"
+  # config.OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE -- Deploy MCP HTTP webhook servers in the cluster using this base image.
+  OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE: "ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:main"
   # config.OBOT_SERVER_MCPCLUSTER_DOMAIN -- The cluster domain to use for MCP services. Defaults to cluster.local. Only matters if the above image is set.
   OBOT_SERVER_MCPCLUSTER_DOMAIN: ""
   # config.OBOT_SERVER_DISALLOW_LOCALHOST_MCP -- disallow MCP servers that try to connect to localhost. Defaults to false.
   OBOT_SERVER_DISALLOW_LOCALHOST_MCP: ""
-  # config.OBOT_SERVER_MCPRUNTIME_BACKEND -- The runtime backend to use for MCP servers. Can be 'local', 'docker', or 'kubernetes'. Defaults to 'docker'. Setting this to 'kubernetes' will also create the necessary service account, role and rolebinding.
+  # config.OBOT_SERVER_MCPRUNTIME_BACKEND -- The runtime backend to use for MCP servers. Can be 'docker' or 'kubernetes'. Defaults to 'docker'. Setting this to 'kubernetes' will also create the necessary service account, role and rolebinding.
   OBOT_SERVER_MCPRUNTIME_BACKEND: "kubernetes"
 
   # config.OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS -- The interval in seconds to persist MCP audit logs to the database. Defaults to 5 seconds.

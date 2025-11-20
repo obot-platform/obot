@@ -94,7 +94,7 @@ func TestLegacyServerToServerConfig_StaticHeaders(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := legacyServerToServerConfig(mcpServer, "test-scope", tt.credEnv, map[string]struct{}{})
+			config, missing, err := legacyServerToServerConfig(mcpServer, "test-user-id", "test-scope", tt.credEnv, nil)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -126,6 +126,7 @@ func TestLegacyServerToServerConfig_StaticHeaders(t *testing.T) {
 }
 
 func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
+	baseURL := "http://localhost:8080"
 	tests := []struct {
 		name            string
 		headers         []types.MCPHeader
@@ -225,7 +226,7 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := ServerToServerConfig(mcpServer, "test-scope", tt.credEnv)
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "", "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -262,11 +263,28 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 			if config.Runtime != types.RuntimeRemote {
 				t.Errorf("expected runtime %v, got %v", types.RuntimeRemote, config.Runtime)
 			}
+
+			if config.Issuer != baseURL {
+				t.Errorf("expected issuer %s, got %s", baseURL, config.Issuer)
+			}
+
+			// Verify the audiences were set correctly
+			expectedAudiences := mcpServer.ValidConnectURLs(baseURL)
+			if len(config.Audiences) != len(expectedAudiences) {
+				t.Errorf("expected %d audiences, got %d: expected %v, got %v", len(expectedAudiences), len(config.Audiences), expectedAudiences, config.Audiences)
+			} else {
+				for i, expected := range expectedAudiences {
+					if config.Audiences[i] != expected {
+						t.Errorf("audience %d: expected %s, got %s", i, expected, config.Audiences[i])
+					}
+				}
+			}
 		})
 	}
 }
 
 func TestServerToServerConfig_WithPrefix(t *testing.T) {
+	baseURL := "http://localhost:8080"
 	tests := []struct {
 		name            string
 		headers         []types.MCPHeader
@@ -395,7 +413,7 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := ServerToServerConfig(mcpServer, "test-scope", tt.credEnv)
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "", "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -497,7 +515,7 @@ func TestLegacyServerToServerConfig_WithPrefix(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := legacyServerToServerConfig(mcpServer, "test-scope", tt.credEnv, map[string]struct{}{})
+			config, missing, err := legacyServerToServerConfig(mcpServer, "test-user-id", "test-scope", tt.credEnv, map[string]struct{}{})
 
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
@@ -540,6 +558,7 @@ func TestLegacyServerToServerConfig_WithPrefix(t *testing.T) {
 }
 
 func TestServerToServerConfig_StaticHeaders_EdgeCases(t *testing.T) {
+	baseURL := "http://localhost:8080"
 	tests := []struct {
 		name            string
 		manifest        types.MCPServerManifest
@@ -584,7 +603,7 @@ func TestServerToServerConfig_StaticHeaders_EdgeCases(t *testing.T) {
 			}
 			mcpServer.Name = "test-server"
 
-			config, missing, err := ServerToServerConfig(mcpServer, "test-scope", tt.credEnv)
+			config, missing, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, "", "test-user-id", "test-scope", "test-catalog", tt.credEnv, nil)
 
 			if tt.expectError {
 				if err == nil {

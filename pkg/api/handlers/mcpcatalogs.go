@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"net/url"
@@ -20,6 +21,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
+	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,9 +36,10 @@ type MCPCatalogHandler struct {
 	oauthChecker       MCPOAuthChecker
 	gatewayClient      *gclient.Client
 	acrHelper          *accesscontrolrule.Helper
+	jwks               func() string
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, jwks func() string) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		defaultCatalogPath: defaultCatalogPath,
 		serverURL:          serverURL,
@@ -44,6 +47,7 @@ func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionMa
 		oauthChecker:       oauthChecker,
 		gatewayClient:      gatewayClient,
 		acrHelper:          acrHelper,
+		jwks:               jwks,
 	}
 }
 
@@ -761,7 +765,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		return types.NewErrBadRequest("failed to read configuration: %v", err)
 	}
 
-	server, serverConfig, err := tempServerAndConfig(entry.Spec.Manifest, configRequest.Config, configRequest.URL)
+	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GPTClient, req.Storage, entry.Namespace, entry.Name, entry.Spec.Manifest, configRequest.Config, h.serverURL, h.jwks())
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -777,7 +781,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		}
 
 		defer func() {
-			_ = h.gatewayClient.DeleteMCPOAuthToken(context.Background(), "system", server.Name)
+			_ = h.gatewayClient.DeleteMCPOAuthTokens(context.Background(), "system", server.Name)
 		}()
 	}
 
@@ -834,7 +838,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			continue
 		}
 
-		server, serverConfig, err := tempServerAndConfig(componentEntry.Manifest, config.Config, config.URL)
+		server, serverConfig, err := tempServerAndConfig(req.Context(), req.GPTClient, req.Storage, entry.Namespace, entry.Name, componentEntry.Manifest, config.Config, h.serverURL, h.jwks())
 		if err != nil {
 			return err
 		}
@@ -850,7 +854,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			}
 
 			defer func() {
-				_ = h.gatewayClient.DeleteMCPOAuthToken(context.Background(), "system", server.Name)
+				_ = h.gatewayClient.DeleteMCPOAuthTokens(context.Background(), "system", server.Name)
 			}()
 		}
 
@@ -937,7 +941,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 		return types.NewErrBadRequest("failed to read configuration: %v", err)
 	}
 
-	server, serverConfig, err := tempServerAndConfig(entry.Spec.Manifest, configRequest.Config, configRequest.URL)
+	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GPTClient, req.Storage, entry.Namespace, entry.Name, entry.Spec.Manifest, configRequest.Config, h.serverURL, h.jwks())
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -950,7 +954,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	return req.Write(map[string]string{"oauthURL": oauthURL})
 }
 
-func tempServerAndConfig(entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url string) (v1.MCPServer, mcp.ServerConfig, error) {
+func tempServerAndConfig(ctx context.Context, gptClient *gptscript.GPTScript, client client.Client, namespace, catalogEntryName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, jwks string) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
 	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url)
 	if err != nil {
@@ -968,7 +972,47 @@ func tempServerAndConfig(entryManifest types.MCPServerCatalogEntryManifest, conf
 		},
 	}
 
-	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, "temp", config)
+	// Generate a temporary OAuth Client
+	clientID := system.OAuthClientPrefix + strings.ToLower(rand.Text())
+	clientSecret := strings.ToLower(rand.Text() + rand.Text())
+	hashedClientSecretHash, err := bcrypt.GenerateFromPassword([]byte(clientSecret), bcrypt.DefaultCost)
+	if err != nil {
+		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to hash client secret: %w", err)
+	}
+
+	tokenExchangeEnv := map[string]string{
+		"TOKEN_EXCHANGE_CLIENT_ID":     fmt.Sprintf("%s:%s", namespace, clientID),
+		"TOKEN_EXCHANGE_CLIENT_SECRET": clientSecret,
+	}
+	if err := gptClient.CreateCredential(ctx, gptscript.Credential{
+		Context:  tempMCPServer.Name,
+		ToolName: tempMCPServer.Name,
+		Type:     gptscript.CredentialTypeTool,
+		Env:      tokenExchangeEnv,
+	}); err != nil {
+		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create credential: %w", err)
+	}
+
+	oauthClient := v1.OAuthClient{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       clientID,
+			Namespace:  namespace,
+			Finalizers: []string{v1.OAuthClientFinalizer},
+		},
+		Spec: v1.OAuthClientSpec{
+			Manifest: types.OAuthClientManifest{
+				GrantTypes: []string{"urn:ietf:params:oauth:grant-type:token-exchange"},
+			},
+			ClientSecretHash: hashedClientSecretHash,
+			Ephemeral:        true,
+		},
+	}
+
+	if err := client.Create(ctx, &oauthClient); err != nil {
+		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create OAuth client: %w", err)
+	}
+
+	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, tempMCPServer.ValidConnectURLs(url), url, jwks, "temp", "temp", catalogEntryName, config, tokenExchangeEnv)
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create server config: %w", err)
 	}
@@ -996,8 +1040,7 @@ func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
 	for _, entry := range list.Items {
 		if categories := entry.Spec.Manifest.Metadata["categories"]; categories != "" {
 			// Handle both comma-separated and single categories
-			categoryList := strings.Split(categories, ",")
-			for _, category := range categoryList {
+			for category := range strings.SplitSeq(categories, ",") {
 				trimmed := strings.TrimSpace(category)
 				if trimmed != "" {
 					categoriesSet[trimmed] = struct{}{}

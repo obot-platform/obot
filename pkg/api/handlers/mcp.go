@@ -17,7 +17,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -25,6 +24,8 @@ import (
 	"github.com/obot-platform/obot/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,16 +40,16 @@ type MCPHandler struct {
 	mcpSessionManager *mcp.SessionManager
 	mcpOAuthChecker   MCPOAuthChecker
 	acrHelper         *accesscontrolrule.Helper
-	tokenService      *ephemeral.TokenService
+	jwks              func() string
 	serverURL         string
 }
 
-func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, tokenService *ephemeral.TokenService, mcpOAuthChecker MCPOAuthChecker, serverURL string) *MCPHandler {
+func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, jwks func() string, serverURL string) *MCPHandler {
 	return &MCPHandler{
 		mcpSessionManager: mcpLoader,
 		mcpOAuthChecker:   mcpOAuthChecker,
 		acrHelper:         acrHelper,
-		tokenService:      tokenService,
+		jwks:              jwks,
 		serverURL:         serverURL,
 	}
 }
@@ -486,7 +487,7 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := serverForAction(req, m.tokenService, m.serverURL)
+	server, serverConfig, err := serverForAction(req, m.jwks())
 	if err != nil {
 		return err
 	}
@@ -521,17 +522,22 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 
 		for _, component := range componentServers.Items {
 			// Skip if disabled in composite config
-			if disabledComponents[component.Spec.MCPServerCatalogEntryName] ||
-				component.Spec.Manifest.Runtime == types.RuntimeRemote {
+			if disabledComponents[component.Spec.MCPServerCatalogEntryName] {
 				continue
 			}
 
-			config, err := serverConfigForAction(req, component, m.tokenService, m.serverURL)
+			config, err := serverConfigForAction(req, component, m.jwks())
 			if err != nil {
 				return fmt.Errorf("failed to get config for component server %s: %w", component.Name, err)
 			}
 
-			if _, err = m.mcpSessionManager.ListTools(req.Context(), req.User.GetUID(), component, config); err != nil {
+			if config.Runtime != types.RuntimeRemote {
+				_, err = m.mcpSessionManager.ListTools(req.Context(), config)
+			} else {
+				// Don't use ListTools for remote MCP servers in case they need OAuth.
+				_, err = m.mcpSessionManager.LaunchServer(req.Context(), config)
+			}
+			if err != nil {
 				if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 					return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("Component MCP server %s is not healthy, check configuration for errors", component.Name))
 				}
@@ -550,18 +556,22 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 	}
 
 	if server.Spec.Manifest.Runtime != types.RuntimeRemote {
-		if _, err = m.mcpSessionManager.ListTools(req.Context(), req.User.GetUID(), server, serverConfig); err != nil {
-			if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-				return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
-			}
-			if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-				return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-			}
-			if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
-				return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
-			}
-			return fmt.Errorf("failed to launch MCP server: %w", err)
+		_, err = m.mcpSessionManager.ListTools(req.Context(), serverConfig)
+	} else {
+		// Don't use ListTools for remote MCP servers in case they need OAuth.
+		_, err = m.mcpSessionManager.LaunchServer(req.Context(), serverConfig)
+	}
+	if err != nil {
+		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
 		}
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
+		return fmt.Errorf("failed to launch MCP server: %w", err)
 	}
 
 	return nil
@@ -571,7 +581,7 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := serverForAction(req, m.tokenService, m.serverURL)
+	server, serverConfig, err := serverForAction(req, m.jwks())
 	if err != nil {
 		return err
 	}
@@ -583,9 +593,9 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
-	if server.Spec.Manifest.Runtime == types.RuntimeRemote {
+	if serverConfig.Runtime == types.RuntimeRemote {
 		var are nmcp.AuthRequiredErr
-		if _, err = m.mcpSessionManager.PingServer(req.Context(), req.User.GetUID(), server, serverConfig); err != nil {
+		if _, err = m.mcpSessionManager.PingServer(req.Context(), serverConfig); err != nil {
 			if !errors.As(err, &are) {
 				return fmt.Errorf("failed to ping MCP server: %w", err)
 			}
@@ -600,7 +610,7 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := serverForAction(req, m.tokenService, m.serverURL)
+	server, serverConfig, err := serverForAction(req, m.jwks())
 	if err != nil {
 		return err
 	}
@@ -621,7 +631,7 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 }
 
 func (m *MCPHandler) GetTools(req api.Context) error {
-	server, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.tokenService, m.serverURL)
+	server, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.jwks())
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -656,7 +666,7 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 		allowedTools = thread.Spec.Manifest.AllowedMCPTools[server.Name]
 	}
 
-	tools, err := toolsForServer(req.Context(), m.mcpSessionManager, req.User.GetUID(), server, serverConfig, allowedTools)
+	tools, err := toolsForServer(req.Context(), m.mcpSessionManager, server, serverConfig, allowedTools)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -706,7 +716,39 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
-	serverConfig, missingRequiredNames, err := mcp.ServerToServerConfig(mcpServer, project.Name, cred.Env, tools...)
+
+	catalogName := mcpServer.Spec.MCPCatalogID
+	if catalogName == "" && mcpServer.Spec.MCPServerCatalogEntryName != "" {
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, mcpServer.Spec.MCPServerCatalogEntryName); err != nil {
+			return fmt.Errorf("failed to get MCP server catalog entry: %w", err)
+		}
+		catalogName = entry.Spec.MCPCatalogName
+	}
+
+	tokenExchangeCred, err := req.GPTClient.RevealCredential(req.Context(), []string{mcpServer.Name}, mcpServer.Name)
+	if err != nil {
+		return fmt.Errorf("failed to find token exchange credential: %w", err)
+	}
+
+	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
+	var (
+		serverConfig         mcp.ServerConfig
+		missingRequiredNames []string
+	)
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		var componentServers v1.MCPServerList
+		if err = req.List(&componentServers,
+			kclient.InNamespace(mcpServer.Namespace),
+			kclient.MatchingFields{"spec.compositeName": mcpServer.Name},
+		); err != nil {
+			return fmt.Errorf("failed to list component servers: %w", err)
+		}
+
+		serverConfig, missingRequiredNames, err = mcp.CompositeServerToServerConfig(mcpServer, componentServers.Items, mcpServer.ValidConnectURLs(baseURL), baseURL, m.jwks(), req.User.GetUID(), project.Name, catalogName, cred.Env, tokenExchangeCred.Env)
+	} else {
+		serverConfig, missingRequiredNames, err = mcp.ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, m.jwks(), req.User.GetUID(), project.Name, catalogName, cred.Env, tokenExchangeCred.Env)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to get server config: %w", err)
 	}
@@ -715,7 +757,7 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 		return types.NewErrBadRequest("MCP server %s is missing required parameters: %s", mcpServer.Name, strings.Join(missingRequiredNames, ", "))
 	}
 
-	mcpTools, err := toolsForServer(req.Context(), m.mcpSessionManager, req.User.GetUID(), mcpServer, serverConfig, tools)
+	mcpTools, err := toolsForServer(req.Context(), m.mcpSessionManager, mcpServer, serverConfig, tools)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -755,7 +797,7 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 }
 
 func (m *MCPHandler) GetResources(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.tokenService, m.serverURL)
+	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.jwks())
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -773,7 +815,7 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
 	}
 
-	resources, err := m.mcpSessionManager.ListResources(req.Context(), req.User.GetUID(), mcpServer, serverConfig)
+	resources, err := m.mcpSessionManager.ListResources(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -799,7 +841,7 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 }
 
 func (m *MCPHandler) ReadResource(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.tokenService, m.serverURL)
+	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.jwks())
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -817,7 +859,7 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
 	}
 
-	contents, err := m.mcpSessionManager.ReadResource(req.Context(), req.User.GetUID(), mcpServer, serverConfig, req.PathValue("resource_uri"))
+	contents, err := m.mcpSessionManager.ReadResource(req.Context(), serverConfig, req.PathValue("resource_uri"))
 	if err != nil {
 		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
@@ -840,7 +882,7 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompts(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.tokenService, m.serverURL)
+	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.jwks())
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -858,7 +900,7 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
 	}
 
-	prompts, err := m.mcpSessionManager.ListPrompts(req.Context(), req.User.GetUID(), mcpServer, serverConfig)
+	prompts, err := m.mcpSessionManager.ListPrompts(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -884,7 +926,7 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 }
 
 func (m *MCPHandler) GetPrompt(req api.Context) error {
-	mcpServer, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.tokenService, m.serverURL)
+	_, serverConfig, caps, err := serverForActionWithCapabilities(req, m.mcpSessionManager, m.jwks())
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -907,7 +949,7 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 		return fmt.Errorf("failed to read args: %w", err)
 	}
 
-	messages, description, err := m.mcpSessionManager.GetPrompt(req.Context(), req.User.GetUID(), mcpServer, serverConfig, req.PathValue("prompt_name"), args)
+	messages, description, err := m.mcpSessionManager.GetPrompt(req.Context(), serverConfig, req.PathValue("prompt_name"), args)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -954,6 +996,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 					"spec.mcpServerName": id,
 					"spec.userID":        req.User.GetUID(),
 					"spec.template":      "false",
+					"spec.compositeName": "",
 				}),
 			}); err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, err
@@ -966,11 +1009,9 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 						Namespace:    server.Namespace,
 					},
 					Spec: v1.MCPServerInstanceSpec{
-						MCPServerName:             id,
-						MCPCatalogName:            server.Spec.MCPCatalogID,
-						MCPServerCatalogEntryName: server.Spec.MCPServerCatalogEntryName,
-						PowerUserWorkspaceID:      server.Spec.PowerUserWorkspaceID,
-						UserID:                    req.User.GetUID(),
+						MCPServerName:  id,
+						MCPCatalogName: server.Spec.MCPCatalogID,
+						UserID:         req.User.GetUID(),
 					},
 				}
 				if err := req.Create(&instance); err != nil {
@@ -1003,6 +1044,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 				"spec.mcpServerCatalogEntryName": id,
 				"spec.userID":                    req.User.GetUID(),
 				"spec.template":                  "false",
+				"spec.compositeName":             "",
 			}),
 		}); err != nil {
 			return v1.MCPServer{}, v1.MCPServerInstance{}, err
@@ -1082,7 +1124,7 @@ func MCPIDFromConnectURL(req api.Context, id string) (string, error) {
 	}
 }
 
-func ServerForActionWithConnectID(req api.Context, id string, tokenService *ephemeral.TokenService, serverURL string) (string, v1.MCPServer, mcp.ServerConfig, error) {
+func ServerForActionWithConnectID(req api.Context, id, jwks string) (string, v1.MCPServer, mcp.ServerConfig, error) {
 	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id)
 	if err != nil {
 		return "", v1.MCPServer{}, mcp.ServerConfig{}, err
@@ -1090,17 +1132,17 @@ func ServerForActionWithConnectID(req api.Context, id string, tokenService *ephe
 
 	switch {
 	case instance.Name != "":
-		server, config, err := serverFromMCPServerInstance(req, instance)
+		server, config, err := serverFromMCPServerInstance(req, instance, jwks)
 		return instance.Name, server, config, err
 	case server.Name != "":
-		config, err := serverConfigForAction(req, server, tokenService, serverURL)
+		config, err := serverConfigForAction(req, server, jwks)
 		return server.Name, server, config, err
 	default:
 		return "", v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("unknown MCP server ID %s", id)
 	}
 }
 
-func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance) (v1.MCPServer, mcp.ServerConfig, error) {
+func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance, jwks string) (v1.MCPServer, mcp.ServerConfig, error) {
 	var server v1.MCPServer
 	if err := req.Get(&server, instance.Spec.MCPServerName); err != nil {
 		return server, mcp.ServerConfig{}, err
@@ -1129,7 +1171,22 @@ func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance)
 		return server, mcp.ServerConfig{}, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	serverConfig, missingConfig, err := mcp.ServerToServerConfig(server, scope, cred.Env)
+	catalogName := server.Spec.MCPCatalogID
+	if catalogName == "" && server.Spec.MCPServerCatalogEntryName != "" {
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+			return server, mcp.ServerConfig{}, fmt.Errorf("failed to get MCP server catalog entry: %w", err)
+		}
+		catalogName = entry.Spec.MCPCatalogName
+	}
+
+	tokenExchangeCred, err := req.GPTClient.RevealCredential(req.Context(), []string{server.Name}, server.Name)
+	if err != nil {
+		return server, mcp.ServerConfig{}, fmt.Errorf("failed to find token exchange credential: %w", err)
+	}
+
+	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
+	serverConfig, missingConfig, err := mcp.ServerToServerConfig(server, instance.ValidConnectURLs(baseURL), baseURL, jwks, req.User.GetUID(), scope, catalogName, cred.Env, tokenExchangeCred.Env)
 	if err != nil {
 		return server, mcp.ServerConfig{}, err
 	}
@@ -1141,13 +1198,13 @@ func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance)
 	return server, serverConfig, nil
 }
 
-func ServerForAction(req api.Context, id string, tokenService *ephemeral.TokenService, serverURL string) (v1.MCPServer, mcp.ServerConfig, error) {
+func ServerForAction(req api.Context, id string, jwks string) (v1.MCPServer, mcp.ServerConfig, error) {
 	var server v1.MCPServer
 	if err := req.Get(&server, id); err != nil {
 		return server, mcp.ServerConfig{}, err
 	}
 
-	serverConfig, err := serverConfigForAction(req, server, tokenService, serverURL)
+	serverConfig, err := serverConfigForAction(req, server, jwks)
 	return server, serverConfig, err
 }
 
@@ -1155,26 +1212,9 @@ func ServerForAction(req api.Context, id string, tokenService *ephemeral.TokenSe
 // For composite servers, it uses the tokenService to create an ephemeral token and constructs
 // a remote MCP server config pointing to the gateway. For non-composite servers, it retrieves
 // credentials and builds the appropriate server configuration.
-func serverConfigForAction(req api.Context, server v1.MCPServer, tokenService *ephemeral.TokenService, serverURL string) (mcp.ServerConfig, error) {
+func serverConfigForAction(req api.Context, server v1.MCPServer, jwks string) (mcp.ServerConfig, error) {
 	if server.Spec.NeedsURL {
 		return mcp.ServerConfig{}, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
-	}
-
-	// Handle composite servers with dedicated auth
-	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-		// Determine scope using same logic as serverConfigForAction
-		var scope string
-		if server.Spec.MCPCatalogID != "" {
-			scope = server.Spec.MCPCatalogID
-		} else if server.Spec.PowerUserWorkspaceID != "" {
-			scope = server.Spec.PowerUserWorkspaceID
-		} else if server.Spec.ThreadName != "" {
-			scope = server.Spec.ThreadName
-		} else {
-			scope = server.Spec.UserID
-		}
-
-		return mcp.CompositeServerToConfig(tokenService, server.Name, serverURL, req.User.GetUID(), scope)
 	}
 
 	var (
@@ -1215,7 +1255,51 @@ func serverConfigForAction(req api.Context, server v1.MCPServer, tokenService *e
 		return mcp.ServerConfig{}, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	serverConfig, missingConfig, err := mcp.ServerToServerConfig(server, scope, cred.Env)
+	catalogName := server.Spec.MCPCatalogID
+	if catalogName == "" && server.Spec.MCPServerCatalogEntryName != "" {
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+			return mcp.ServerConfig{}, fmt.Errorf("failed to get MCP server catalog entry: %w", err)
+		}
+		catalogName = entry.Spec.MCPCatalogName
+	}
+
+	var (
+		tokenExchangeCred gptscript.Credential
+		tokenCredErr      error
+	)
+	if err = retry.OnError(wait.Backoff{
+		Steps:    10,
+		Duration: 100 * time.Millisecond,
+		Factor:   5.0,
+		Jitter:   0.1,
+	}, func(err error) bool {
+		return errors.As(err, &gptscript.ErrNotFound{})
+	}, func() error {
+		tokenExchangeCred, tokenCredErr = req.GPTClient.RevealCredential(req.Context(), []string{server.Name}, server.Name)
+		return tokenCredErr
+	}); err != nil {
+		return mcp.ServerConfig{}, fmt.Errorf("failed to find token exchange credential: %w", tokenCredErr)
+	}
+
+	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
+	var (
+		serverConfig  mcp.ServerConfig
+		missingConfig []string
+	)
+	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
+		var componentServers v1.MCPServerList
+		if err = req.List(&componentServers,
+			kclient.InNamespace(server.Namespace),
+			kclient.MatchingFields{"spec.compositeName": server.Name},
+		); err != nil {
+			return mcp.ServerConfig{}, fmt.Errorf("failed to list component servers: %w", err)
+		}
+
+		serverConfig, missingConfig, err = mcp.CompositeServerToServerConfig(server, componentServers.Items, server.ValidConnectURLs(baseURL), baseURL, jwks, req.User.GetUID(), scope, catalogName, cred.Env, tokenExchangeCred.Env)
+	} else {
+		serverConfig, missingConfig, err = mcp.ServerToServerConfig(server, server.ValidConnectURLs(baseURL), baseURL, jwks, req.User.GetUID(), scope, catalogName, cred.Env, tokenExchangeCred.Env)
+	}
 	if err != nil {
 		return mcp.ServerConfig{}, err
 	}
@@ -1227,22 +1311,23 @@ func serverConfigForAction(req api.Context, server v1.MCPServer, tokenService *e
 	return serverConfig, nil
 }
 
-func serverForAction(req api.Context, tokenService *ephemeral.TokenService, serverURL string) (v1.MCPServer, mcp.ServerConfig, error) {
-	return ServerForAction(req, req.PathValue("mcp_server_id"), tokenService, serverURL)
-}
-
-func serverForActionWithCapabilities(req api.Context, sessionManager *mcp.SessionManager, tokenService *ephemeral.TokenService, serverURL string) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
+func serverForAction(req api.Context, jwks string) (v1.MCPServer, mcp.ServerConfig, error) {
 	var server v1.MCPServer
 	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
-		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, err
+		return server, mcp.ServerConfig{}, err
 	}
 
-	serverConfig, err := serverConfigForAction(req, server, tokenService, serverURL)
+	serverConfig, err := serverConfigForAction(req, server, jwks)
+	return server, serverConfig, err
+}
+
+func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager, jwks string) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
+	server, serverConfig, err := serverForAction(req, jwks)
 	if err != nil {
-		return server, mcp.ServerConfig{}, nmcp.ServerCapabilities{}, err
+		return server, serverConfig, nmcp.ServerCapabilities{}, err
 	}
 
-	caps, err := sessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
+	caps, err := mcpSessionManager.ServerCapabilities(req.Context(), serverConfig)
 	return server, serverConfig, caps, err
 }
 
@@ -1645,11 +1730,11 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 
 	// Shutdown the server, even if there is no credential
 	if catalogID != "" {
-		err = m.removeMCPServer(req.Context(), existing, catalogID, cred.Env)
+		err = m.removeMCPServer(req.Context(), existing)
 	} else if workspaceID != "" {
-		err = m.removeMCPServer(req.Context(), existing, workspaceID, cred.Env)
+		err = m.removeMCPServer(req.Context(), existing)
 	} else {
-		err = m.removeMCPServer(req.Context(), existing, req.User.GetUID(), cred.Env)
+		err = m.removeMCPServer(req.Context(), existing)
 	}
 	if err != nil {
 		return err
@@ -1777,20 +1862,17 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		}
 	}
 
-	var credCtx, scope string
+	var credCtx string
 	if catalogID != "" {
 		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
-		scope = catalogID
 	} else if workspaceID != "" {
 		credCtx = fmt.Sprintf("%s-%s", workspaceID, mcpServer.Name)
-		scope = workspaceID
 	} else {
 		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
-		scope = req.User.GetUID()
 	}
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, mcpServer, scope, []string{credCtx}); err != nil {
+	if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, mcpServer, []string{credCtx}); err != nil {
 		return err
 	}
 
@@ -1874,13 +1956,9 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		}
 
 		// Calculate credential context for this component (after manifest update)
-		var (
-			credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), component.Name)
-			scope   = req.User.GetUID()
-		)
-
+		credCtx := fmt.Sprintf("%s-%s", req.User.GetUID(), component.Name)
 		// Remove existing credential and shutdown server to allow update
-		if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, component, scope, []string{credCtx}); err != nil {
+		if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, component, []string{credCtx}); err != nil {
 			return err
 		}
 
@@ -1999,19 +2077,16 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&mcpServer)
 
-	var credCtx, scope string
+	var credCtx string
 	if catalogID != "" {
 		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
-		scope = catalogID
 	} else if workspaceID != "" {
 		credCtx = fmt.Sprintf("%s-%s", workspaceID, mcpServer.Name)
-		scope = workspaceID
 	} else {
 		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
-		scope = req.User.GetUID()
 	}
 
-	if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, mcpServer, scope, []string{credCtx}); err != nil {
+	if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, mcpServer, []string{credCtx}); err != nil {
 		return err
 	}
 
@@ -2034,11 +2109,8 @@ func (m *MCPHandler) deconfigureCompositeServer(req api.Context, compositeServer
 
 	for _, component := range componentServers.Items {
 		addExtractedEnvVars(&component)
-		var (
-			credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), component.Name)
-			scope   = req.User.GetUID()
-		)
-		if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, component, scope, []string{credCtx}); err != nil {
+
+		if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, component, []string{fmt.Sprintf("%s-%s", req.User.GetUID(), component.Name)}); err != nil {
 			return err
 		}
 	}
@@ -2063,7 +2135,7 @@ func (m *MCPHandler) deconfigureCompositeServer(req api.Context, compositeServer
 		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), compositeServer.Name)
 		scope   = req.User.GetUID()
 	)
-	if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, compositeServer, scope, []string{credCtx}); err != nil {
+	if err := m.removeMCPServerAndCred(req.Context(), req.GPTClient, compositeServer, []string{credCtx}); err != nil {
 		return err
 	}
 
@@ -2191,11 +2263,11 @@ func (m *MCPHandler) revealCompositeServer(req api.Context, compositeServer v1.M
 	return req.Write(map[string]any{"componentConfigs": result})
 }
 
-func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, userID string, server v1.MCPServer, serverConfig mcp.ServerConfig, allowedTools []string) ([]types.MCPServerTool, error) {
+func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, server v1.MCPServer, serverConfig mcp.ServerConfig, allowedTools []string) ([]types.MCPServerTool, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	gTools, err := mcpSessionManager.ListTools(ctx, userID, server, serverConfig)
+	gTools, err := mcpSessionManager.ListTools(ctx, serverConfig)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, nil
@@ -2212,35 +2284,27 @@ func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, 
 	return mcp.ConvertTools(gTools, allowedTools, server.Spec.UnsupportedTools)
 }
 
-func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer, scope string, credEnv map[string]string) error {
-	serverConfig, _, err := mcp.ServerToServerConfig(mcpServer, scope, credEnv)
-	if err != nil {
-		return err
-	}
-
-	if err = m.mcpSessionManager.ShutdownServer(ctx, serverConfig); err != nil {
+func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer) error {
+	if err := m.mcpSessionManager.ShutdownServer(ctx, mcpServer.Name); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 
 	return nil
 }
 
-func (m *MCPHandler) removeMCPServerAndCred(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, scope string, credCtx []string) error {
+func (m *MCPHandler) removeMCPServerAndCred(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, credCtx []string) error {
 	cred, err := gptClient.RevealCredential(ctx, credCtx, mcpServer.Name)
 	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
-	}
-
-	// Shutdown the server, even if there is no credential
-	if err := m.removeMCPServer(ctx, mcpServer, scope, cred.Env); err != nil {
-		return fmt.Errorf("failed to shutdown server: %w", err)
-	}
-
-	// If revealing the credential was successful, remove it.
-	if err == nil {
+	} else if err == nil {
 		if err = gptClient.DeleteCredential(ctx, cred.Context, mcpServer.Name); err != nil {
 			return fmt.Errorf("failed to remove existing credential: %w", err)
 		}
+	}
+
+	// Shutdown the server, even if there is no credential
+	if err := m.removeMCPServer(ctx, mcpServer); err != nil {
+		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 
 	return nil
@@ -2414,7 +2478,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	// Only single-user servers get a connect URL.
 	// Multi-user servers have connect URLs on the MCPServerInstances instead.
 	if server.Spec.MCPCatalogID == "" {
-		connectURL = fmt.Sprintf("%s/mcp-connect/%s", serverURL, slug)
+		connectURL = system.MCPConnectURL(serverURL, slug)
 	}
 
 	conditions := make([]types.DeploymentCondition, 0, len(server.Status.DeploymentConditions))
@@ -2495,6 +2559,7 @@ func slugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPS
 				"spec.mcpServerCatalogEntryName": server.Spec.MCPServerCatalogEntryName,
 				"spec.userID":                    userID,
 				"spec.template":                  "false",
+				"spec.compositeName":             "",
 			}),
 		}); err != nil {
 			return "", fmt.Errorf("failed to find MCP server catalog entry for server: %w", err)
@@ -2769,7 +2834,7 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 	if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		return types.NewErrNotFound("MCP server not found")
 	}
-	if err := req.GatewayClient.DeleteMCPOAuthToken(req.Context(), req.User.GetUID(), server.Name); err != nil {
+	if err := req.GatewayClient.DeleteMCPOAuthTokenForURL(req.Context(), req.User.GetUID(), server.Name, server.Spec.Manifest.URL); err != nil {
 		return fmt.Errorf("failed to delete OAuth credentials: %v", err)
 	}
 
@@ -2778,7 +2843,7 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 }
 
 func (m *MCPHandler) GetServerDetails(req api.Context) error {
-	server, serverConfig, err := serverForAction(req, m.tokenService, m.serverURL)
+	server, serverConfig, err := serverForAction(req, m.jwks())
 	if err != nil {
 		return err
 	}
@@ -2814,12 +2879,10 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		}
 	}
 
-	mcpServerDisplayName := server.Spec.Manifest.Name
-	if mcpServerDisplayName == "" {
-		mcpServerDisplayName = server.Name
-	}
+	// Use the user ID from the server rather than from the request.
+	serverConfig.UserID = server.Spec.UserID
 
-	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), server.Spec.UserID, mcpServerDisplayName, server.Name, serverConfig)
+	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
 	if err != nil {
 		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
 			return types.NewErrNotFound(nse.Error())
@@ -2831,7 +2894,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 }
 
 func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
-	server, serverConfig, err := serverForAction(req, m.tokenService, m.serverURL)
+	server, serverConfig, err := serverForAction(req, m.jwks())
 	if err != nil {
 		return err
 	}
@@ -2866,7 +2929,7 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 				continue
 			}
 
-			componentConfig, err := serverConfigForAction(req, component, m.tokenService, m.serverURL)
+			componentConfig, err := serverConfigForAction(req, component, m.jwks())
 			if err != nil {
 				return err
 			}
@@ -2927,7 +2990,7 @@ func (m *MCPHandler) CheckK8sSettingsStatus(req api.Context) error {
 	workspaceID := req.PathValue("workspace_id")
 	entryID := req.PathValue("entry_id")
 
-	server, serverConfig, err := serverForAction(req, m.tokenService, m.serverURL)
+	server, serverConfig, err := serverForAction(req, m.jwks())
 	if err != nil {
 		return err
 	}
@@ -3000,7 +3063,7 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	workspaceID := req.PathValue("workspace_id")
 	entryID := req.PathValue("entry_id")
 
-	server, serverConfig, err := serverForAction(req, m.tokenService, m.serverURL)
+	server, serverConfig, err := serverForAction(req, m.jwks())
 	if err != nil {
 		return err
 	}
@@ -3208,7 +3271,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 }
 
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
-	server, serverConfig, err := serverForAction(req, m.tokenService, m.serverURL)
+	server, serverConfig, err := serverForAction(req, m.jwks())
 	if err != nil {
 		return err
 	}
@@ -3244,12 +3307,10 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		}
 	}
 
-	mcpServerDisplayName := server.Spec.Manifest.Name
-	if mcpServerDisplayName == "" {
-		mcpServerDisplayName = server.Name
-	}
+	// Use the user ID from the server rather than from the request.
+	serverConfig.UserID = server.Spec.UserID
 
-	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), server.Spec.UserID, mcpServerDisplayName, server.Name, serverConfig)
+	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig)
 	if err != nil {
 		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
 			return types.NewErrNotFound(nse.Error())
@@ -3504,14 +3565,8 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		server.Spec.Manifest.RemoteConfig = nil
 	}
 
-	// Shutdown any server that is using the default credentials.
-	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)}, server.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return fmt.Errorf("failed to find credential: %w", err)
-	}
-
 	// Shutdown the server, even if there is no credential
-	if err := m.removeMCPServer(req.Context(), *oldServer, server.Spec.UserID, cred.Env); err != nil {
+	if err := m.removeMCPServer(req.Context(), *oldServer); err != nil {
 		return err
 	}
 

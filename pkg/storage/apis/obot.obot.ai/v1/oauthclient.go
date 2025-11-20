@@ -5,6 +5,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var _ DeleteRefs = (*OAuthClient)(nil)
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type OAuthClient struct {
@@ -12,6 +14,15 @@ type OAuthClient struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	Spec              OAuthClientSpec   `json:"spec,omitempty"`
 	Status            OAuthClientStatus `json:"status,omitempty"`
+}
+
+func (o *OAuthClient) DeleteRefs() []Ref {
+	return []Ref{
+		{
+			ObjType: &MCPServer{},
+			Name:    o.Spec.MCPServerName,
+		},
+	}
 }
 
 type OAuthClientSpec struct {
@@ -22,6 +33,10 @@ type OAuthClientSpec struct {
 	RegistrationTokenHash      []byte                    `json:"registrationTokenHash"`
 	RegistrationTokenIssuedAt  metav1.Time               `json:"registration_token_issued_at"`
 	RegistrationTokenExpiresAt metav1.Time               `json:"registration_token_expires_at"`
+	MCPServerName              string                    `json:"mcp_server_name"`
+	// Ephemeral indicates that the OAuth client is temporary and will be deleted after a certain period of time.
+	// This is used for generating tool previews for example.
+	Ephemeral bool `json:"ephemeral"`
 }
 
 type OAuthClientStatus struct{}

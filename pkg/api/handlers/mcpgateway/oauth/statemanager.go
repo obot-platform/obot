@@ -12,9 +12,9 @@ import (
 )
 
 type stateObj struct {
-	verifier, userID, mcpID, oauthAuthRequestID string
-	conf                                        *oauth2.Config
-	ch                                          chan<- nmcp.CallbackPayload
+	verifier, userID, mcpID, mcpURL, oauthAuthRequestID string
+	conf                                                *oauth2.Config
+	ch                                                  chan<- nmcp.CallbackPayload
 }
 type stateCache struct {
 	lock          sync.Mutex
@@ -29,8 +29,8 @@ func newStateCache(gatewayClient *client.Client) *stateCache {
 	}
 }
 
-func (sm *stateCache) store(ctx context.Context, userID, mcpID, oauthAuthRequestID, state, verifier string, conf *oauth2.Config, ch chan<- nmcp.CallbackPayload) error {
-	if err := sm.gatewayClient.ReplaceMCPOAuthToken(ctx, userID, mcpID, oauthAuthRequestID, state, verifier, conf, &oauth2.Token{}); err != nil {
+func (sm *stateCache) store(ctx context.Context, userID, mcpID, mcpURL, oauthAuthRequestID, state, verifier string, conf *oauth2.Config, ch chan<- nmcp.CallbackPayload) error {
+	if err := sm.gatewayClient.ReplaceMCPOAuthToken(ctx, userID, mcpID, mcpURL, oauthAuthRequestID, state, verifier, conf, &oauth2.Token{}); err != nil {
 		return fmt.Errorf("failed to persist state: %w", err)
 	}
 
@@ -40,6 +40,7 @@ func (sm *stateCache) store(ctx context.Context, userID, mcpID, oauthAuthRequest
 		verifier:           verifier,
 		userID:             userID,
 		mcpID:              mcpID,
+		mcpURL:             mcpURL,
 		oauthAuthRequestID: oauthAuthRequestID,
 		ch:                 ch,
 	}
@@ -54,13 +55,14 @@ func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, er
 	sm.lock.Unlock()
 
 	var (
-		userID, mcpID, verifier, oauthAuthRequestID string
-		conf                                        *oauth2.Config
+		userID, mcpID, mcpURL, verifier, oauthAuthRequestID string
+		conf                                                *oauth2.Config
 	)
 	if ok {
 		defer close(s.ch)
 
 		mcpID = s.mcpID
+		mcpURL = s.mcpURL
 		userID = s.userID
 		oauthAuthRequestID = s.oauthAuthRequestID
 		verifier = s.verifier
@@ -88,6 +90,7 @@ func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, er
 		oauthAuthRequestID = token.OAuthAuthRequestID
 		userID = token.UserID
 		mcpID = token.MCPID
+		mcpURL = token.URL
 		verifier = token.Verifier
 	}
 
@@ -100,5 +103,5 @@ func (sm *stateCache) createToken(ctx context.Context, state, code, errorStr, er
 		return "", "", fmt.Errorf("failed to exchange code: %w", err)
 	}
 
-	return oauthAuthRequestID, mcpID, sm.gatewayClient.ReplaceMCPOAuthToken(ctx, userID, mcpID, "", "", "", conf, token)
+	return oauthAuthRequestID, mcpID, sm.gatewayClient.ReplaceMCPOAuthToken(ctx, userID, mcpID, mcpURL, "", "", "", conf, token)
 }

@@ -3,7 +3,9 @@ package invoke
 import (
 	"context"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -13,7 +15,7 @@ type StepOptions struct {
 	IgnoreMCPErrors bool
 }
 
-func (i *Invoker) Step(ctx context.Context, c kclient.WithWatch, step *v1.WorkflowStep, opt StepOptions) (*Response, error) {
+func (i *Invoker) Step(ctx context.Context, mcpSessionManager *mcp.SessionManager, gptClient *gptscript.GPTScript, c kclient.WithWatch, step *v1.WorkflowStep, opt StepOptions) (*Response, error) {
 	input, err := i.getInput(step)
 	if err != nil {
 		return nil, err
@@ -34,7 +36,7 @@ func (i *Invoker) Step(ctx context.Context, c kclient.WithWatch, step *v1.Workfl
 		extraEnv = []string{"OBOT_TASK_BREAD_CRUMB=" + wfe.Spec.TaskBreakCrumb}
 	}
 
-	return i.Thread(ctx, c, &thread, input, Options{
+	return i.Thread(ctx, mcpSessionManager, gptClient, c, &thread, input, Options{
 		UserUID:               thread.Spec.UserID,
 		WorkflowName:          wfe.Spec.WorkflowName,
 		WorkflowStepName:      step.Name,

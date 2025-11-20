@@ -18,13 +18,15 @@ type Handler struct {
 	invoker       *invoke.Invoker
 	backend       backend.Backend
 	gatewayClient *gclient.Client
+	gptClient     *gptscript.GPTScript
 }
 
-func New(invoker *invoke.Invoker, backend backend.Backend, gatewayClient *gclient.Client) *Handler {
+func New(invoker *invoke.Invoker, backend backend.Backend, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript) *Handler {
 	return &Handler{
 		invoker:       invoker,
 		backend:       backend,
 		gatewayClient: gatewayClient,
+		gptClient:     gptClient,
 	}
 }
 
@@ -81,7 +83,7 @@ func (h *Handler) Resume(req router.Request, _ router.Response) error {
 		return nil
 	}
 
-	return h.invoker.Resume(req.Ctx, req.Client, &thread, run)
+	return h.invoker.Resume(req.Ctx, h.gptClient, req.Client, &thread, run)
 }
 
 func (h *Handler) DeleteFinished(req router.Request, _ router.Response) error {

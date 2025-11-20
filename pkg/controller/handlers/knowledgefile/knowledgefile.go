@@ -209,7 +209,7 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 	// Clean website content (remove headers, footers, etc.)
 	if source.Spec.Manifest.GetType() == types.KnowledgeSourceTypeWebsite && strings.HasSuffix(inputName, ".html") {
 		mdOutput := cleanInput(file.Spec.FileName) + ".md"
-		task, err := h.invoker.SystemTask(ctx, thread, system.WebsiteCleanTool, map[string]any{
+		task, err := h.invoker.SystemTask(ctx, h.gptScript, thread, system.WebsiteCleanTool, map[string]any{
 			"input":  inputName,
 			"output": mdOutput,
 		})
@@ -231,7 +231,7 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 		inputName = mdOutput
 	}
 
-	loadTask, err := h.invoker.SystemTask(ctx, thread, system.KnowledgeLoadTool, map[string]any{
+	loadTask, err := h.invoker.SystemTask(ctx, h.gptScript, thread, system.KnowledgeLoadTool, map[string]any{
 		"input":  inputName,
 		"output": OutputFile(file.Spec.FileName),
 	}, invoke.SystemTaskOptions{
@@ -256,7 +256,7 @@ func (h *Handler) ingest(ctx context.Context, client kclient.Client, file *v1.Kn
 		return &unsupportedErr
 	}
 
-	ingestTask, err := h.invoker.SystemTask(ctx, thread, system.KnowledgeIngestTool, map[string]any{
+	ingestTask, err := h.invoker.SystemTask(ctx, h.gptScript, thread, system.KnowledgeIngestTool, map[string]any{
 		"input":   OutputFile(file.Spec.FileName),
 		"dataset": ks.Namespace + "/" + ks.Name,
 		"metadata_json": map[string]string{
@@ -329,7 +329,7 @@ func (h *Handler) Unapproved(req router.Request, _ router.Response) error {
 		return kclient.IgnoreNotFound(err)
 	}
 
-	task, err := h.invoker.SystemTask(req.Ctx, thread, system.KnowledgeDeleteFileTool, map[string]any{
+	task, err := h.invoker.SystemTask(req.Ctx, h.gptScript, thread, system.KnowledgeDeleteFileTool, map[string]any{
 		"file":    OutputFile(file.Spec.FileName),
 		"dataset": ks.Namespace + "/" + ks.Name,
 	})
@@ -408,7 +408,7 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 		return kclient.IgnoreNotFound(err)
 	}
 
-	task, err := h.invoker.SystemTask(req.Ctx, thread, system.KnowledgeDeleteFileTool, map[string]any{
+	task, err := h.invoker.SystemTask(req.Ctx, h.gptScript, thread, system.KnowledgeDeleteFileTool, map[string]any{
 		"file":    OutputFile(file.Spec.FileName),
 		"dataset": ks.Namespace + "/" + ks.Name,
 	})

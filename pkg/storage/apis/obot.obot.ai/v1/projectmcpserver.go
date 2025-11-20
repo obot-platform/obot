@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"fmt"
 	"slices"
 
 	"github.com/obot-platform/nah/pkg/fields"
@@ -56,7 +55,7 @@ func (in *ProjectMCPServer) DeleteRefs() []Ref {
 }
 
 func (in *ProjectMCPServer) ConnectURL(base string) string {
-	return fmt.Sprintf("%s/mcp-connect/%s", base, in.Spec.Manifest.MCPID)
+	return system.MCPConnectURL(base, in.Spec.Manifest.MCPID)
 }
 
 type ProjectMCPServerSpec struct {

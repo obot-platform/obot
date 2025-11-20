@@ -170,7 +170,7 @@ func (h *ServerInstancesHandler) ClearOAuthCredentials(req api.Context) error {
 		return err
 	}
 
-	if err := req.GatewayClient.DeleteMCPOAuthToken(req.Context(), req.User.GetUID(), mcpServerInstance.Name); err != nil {
+	if err := req.GatewayClient.DeleteMCPOAuthTokens(req.Context(), req.User.GetUID(), mcpServerInstance.Name); err != nil {
 		return fmt.Errorf("failed to delete OAuth credentials: %v", err)
 	}
 
@@ -241,6 +241,7 @@ func slugForMCPServerInstance(ctx context.Context, client kclient.Client, instan
 			"spec.mcpServerName": instance.Spec.MCPServerName,
 			"spec.userID":        instance.Spec.UserID,
 			"spec.template":      "false",
+			"spec.compositeName": "",
 		}),
 	}); err != nil {
 		return "", fmt.Errorf("failed to find MCP server catalog entry for server: %w", err)

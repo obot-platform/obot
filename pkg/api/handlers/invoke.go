@@ -4,18 +4,21 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/invoke"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type InvokeHandler struct {
-	invoker *invoke.Invoker
+	invoker           *invoke.Invoker
+	mcpSessionManager *mcp.SessionManager
 }
 
-func NewInvokeHandler(invoker *invoke.Invoker) *InvokeHandler {
+func NewInvokeHandler(invoker *invoke.Invoker, mcpSessionManager *mcp.SessionManager) *InvokeHandler {
 	return &InvokeHandler{
-		invoker: invoker,
+		invoker:           invoker,
+		mcpSessionManager: mcpSessionManager,
 	}
 }
 
@@ -58,7 +61,7 @@ func (i *InvokeHandler) Invoke(req api.Context) error {
 		return err
 	}
 
-	resp, err := i.invoker.Agent(req.Context(), req.Storage, &agent, string(input), invoke.Options{
+	resp, err := i.invoker.Agent(req.Context(), i.mcpSessionManager, req.GPTClient, req.Storage, &agent, string(input), invoke.Options{
 		GenerateName: system.ChatRunPrefix,
 		ThreadName:   threadID,
 		Synchronous:  synchronous,

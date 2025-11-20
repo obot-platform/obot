@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	"github.com/nanobot-ai/nanobot/pkg/mcp"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) ListPrompts(ctx context.Context, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig) ([]mcp.Prompt, error) {
-	client, err := sm.ClientForMCPServer(ctx, userID, mcpServer, serverConfig)
+func (sm *SessionManager) ListPrompts(ctx context.Context, serverConfig ServerConfig) ([]mcp.Prompt, error) {
+	client, err := sm.clientForMCPServer(ctx, serverConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -22,8 +21,8 @@ func (sm *SessionManager) ListPrompts(ctx context.Context, userID string, mcpSer
 	return resp.Prompts, nil
 }
 
-func (sm *SessionManager) GetPrompt(ctx context.Context, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig, name string, args map[string]string) ([]mcp.PromptMessage, string, error) {
-	client, err := sm.ClientForMCPServer(ctx, userID, mcpServer, serverConfig)
+func (sm *SessionManager) GetPrompt(ctx context.Context, serverConfig ServerConfig, name string, args map[string]string) ([]mcp.PromptMessage, string, error) {
+	client, err := sm.clientForMCPServer(ctx, serverConfig)
 	if err != nil {
 		return nil, "", err
 	}

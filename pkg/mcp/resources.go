@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	"github.com/nanobot-ai/nanobot/pkg/mcp"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) ListResources(ctx context.Context, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig) ([]mcp.Resource, error) {
-	client, err := sm.ClientForMCPServer(ctx, userID, mcpServer, serverConfig)
+func (sm *SessionManager) ListResources(ctx context.Context, serverConfig ServerConfig) ([]mcp.Resource, error) {
+	client, err := sm.clientForMCPServer(ctx, serverConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -22,8 +21,8 @@ func (sm *SessionManager) ListResources(ctx context.Context, userID string, mcpS
 	return resp.Resources, nil
 }
 
-func (sm *SessionManager) ReadResource(ctx context.Context, userID string, mcpServer v1.MCPServer, serverConfig ServerConfig, uri string) ([]mcp.ResourceContent, error) {
-	client, err := sm.ClientForMCPServer(ctx, userID, mcpServer, serverConfig)
+func (sm *SessionManager) ReadResource(ctx context.Context, serverConfig ServerConfig, uri string) ([]mcp.ResourceContent, error) {
+	client, err := sm.clientForMCPServer(ctx, serverConfig)
 	if err != nil {
 		return nil, err
 	}

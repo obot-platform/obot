@@ -9,6 +9,20 @@ import (
 
 func OAuthClients(req router.Request, resp router.Response) error {
 	o := req.Object.(*v1.OAuthClient)
+
+	// Client for MCP server token exchange will be cleaned up when the MCP server is deleted.
+	if o.Spec.MCPServerName != "" {
+		return nil
+	}
+
+	if o.Spec.Ephemeral {
+		if since := time.Since(o.CreationTimestamp.Time); since < 15*time.Minute {
+			resp.RetryAfter(15*time.Minute - since)
+			return nil
+		}
+		return req.Delete(o)
+	}
+
 	if until := time.Until(o.Spec.RegistrationTokenExpiresAt.Time); until <= 0 {
 		// Expired. Delete it.
 		return req.Delete(o)

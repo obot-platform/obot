@@ -59,6 +59,18 @@ func (f MCPSelectors) Matches(method, identifier string) bool {
 	return f == nil
 }
 
+func (f MCPSelectors) Strings() []string {
+	if len(f) == 0 {
+		return []string{"message:"}
+	}
+
+	var result []string
+	for _, filter := range f {
+		result = append(result, filter.Strings()...)
+	}
+	return result
+}
+
 type MCPSelector struct {
 	Method      string   `json:"method,omitempty"`
 	Identifiers []string `json:"identifiers,omitempty"`
@@ -77,4 +89,22 @@ func (f *MCPSelector) Matches(method, identifier string) bool {
 
 	// Empty identifiers means everything.
 	return f.Identifiers == nil
+}
+
+func (f MCPSelector) Strings() []string {
+	s := "message:"
+	if f.Method != "" && f.Method != "*" {
+		s += f.Method
+	}
+
+	if f.Identifiers == nil {
+		return []string{s}
+	}
+
+	result := make([]string, 0, len(f.Identifiers))
+	for _, id := range f.Identifiers {
+		result = append(result, fmt.Sprintf("%s?name=%s", s, id))
+	}
+
+	return result
 }

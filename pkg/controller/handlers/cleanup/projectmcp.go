@@ -11,12 +11,12 @@ import (
 func (c *Credentials) ShutdownProjectMCP(req router.Request, _ router.Response) error {
 	projectServer := req.Object.(*v1.ProjectMCPServer)
 
-	config, err := mcp.ProjectServerToConfig(c.tokenService, *projectServer, c.serverURL, projectServer.Spec.UserID)
+	config, err := mcp.ProjectServerToConfig(*projectServer, c.serverURL, c.internalServerURL, projectServer.Spec.UserID)
 	if err != nil {
 		return fmt.Errorf("failed to convert project server to config: %w", err)
 	}
 
-	if err = c.mcpSessionManager.ShutdownServer(req.Ctx, config); err != nil {
+	if err = c.mcpSessionManager.CloseClient(req.Ctx, config, "default"); err != nil {
 		return fmt.Errorf("failed to shutdown project server: %w", err)
 	}
 

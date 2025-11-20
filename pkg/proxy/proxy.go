@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/api"
@@ -43,13 +44,15 @@ type cacheObject struct {
 
 type Manager struct {
 	dispatcher               *dispatcher.Dispatcher
+	gptClient                *gptscript.GPTScript
 	tokenHashToProviderCache map[string]cacheObject
 	lock                     sync.RWMutex
 }
 
-func NewProxyManager(ctx context.Context, dispatcher *dispatcher.Dispatcher) *Manager {
+func NewProxyManager(ctx context.Context, dispatcher *dispatcher.Dispatcher, gptClient *gptscript.GPTScript) *Manager {
 	m := &Manager{
 		dispatcher:               dispatcher,
+		gptClient:                gptClient,
 		tokenHashToProviderCache: make(map[string]cacheObject),
 		lock:                     sync.RWMutex{},
 	}
@@ -108,7 +111,7 @@ func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Respon
 		// Try the token with each configured auth provider to see if one of them recognizes the user.
 		configuredProviders := pm.dispatcher.ListConfiguredAuthProviders(system.DefaultNamespace)
 		for _, configuredProvider := range configuredProviders {
-			if proxy, err := pm.createProxy(req.Context(), system.DefaultNamespace+"/"+configuredProvider); err == nil {
+			if proxy, err := pm.createProxy(req.Context(), pm.gptClient, system.DefaultNamespace+"/"+configuredProvider); err == nil {
 				if resp, good, err := proxy.authenticateRequest(req); good && err == nil {
 					pm.lock.Lock()
 					pm.tokenHashToProviderCache[tokenHash] = cacheObject{
@@ -125,7 +128,7 @@ func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Respon
 		return nil, false, ErrInvalidSession
 	}
 
-	proxy, err := pm.createProxy(req.Context(), cached.provider)
+	proxy, err := pm.createProxy(req.Context(), pm.gptClient, cached.provider)
 	if err != nil {
 		return nil, false, err
 	}
@@ -224,7 +227,7 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	proxy, err := pm.createProxy(r.Context(), provider)
+	proxy, err := pm.createProxy(r.Context(), pm.gptClient, provider)
 	if err != nil {
 		if r.URL.Path != "/oauth2/sign_out" {
 			http.Error(w, fmt.Sprintf("failed to create proxy: %v", err), http.StatusInternalServerError)
@@ -252,13 +255,13 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 	proxy.serveHTTP(w, r)
 }
 
-func (pm *Manager) createProxy(ctx context.Context, provider string) (*Proxy, error) {
+func (pm *Manager) createProxy(ctx context.Context, gptClient *gptscript.GPTScript, provider string) (*Proxy, error) {
 	parts := strings.Split(provider, "/")
 	if len(parts) != 2 {
 		return nil, fmt.Errorf("invalid provider: %s", provider)
 	}
 
-	providerURL, err := pm.dispatcher.URLForAuthProvider(ctx, parts[0], parts[1])
+	providerURL, err := pm.dispatcher.URLForAuthProvider(ctx, gptClient, parts[0], parts[1])
 	if err != nil {
 		return nil, err
 	}

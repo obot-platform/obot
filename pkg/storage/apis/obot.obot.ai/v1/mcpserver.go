@@ -6,6 +6,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,6 +81,14 @@ func (in *MCPServer) DeleteRefs() []Ref {
 	return refs
 }
 
+func (in *MCPServer) ValidConnectURLs(base string) []string {
+	var urls []string
+	if in.Spec.MCPServerCatalogEntryName != "" {
+		urls = append(urls, system.MCPConnectURL(base, in.Spec.MCPServerCatalogEntryName))
+	}
+	return append(urls, system.MCPConnectURL(base, in.Name))
+}
+
 type MCPServerSpec struct {
 	Manifest types.MCPServerManifest `json:"manifest"`
 	// List of tool names that are known to not work well in Obot.
@@ -111,6 +120,8 @@ type MCPServerSpec struct {
 }
 
 type MCPServerStatus struct {
+	// OAuthClientName is the OAuth client for this MCP server for token exchange.
+	OAuthClientName string `json:"oauthClientName,omitempty"`
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
