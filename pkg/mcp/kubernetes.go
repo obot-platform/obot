@@ -73,6 +73,10 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 		return fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.MCPServerName, err)
 	}
 
+	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil {
+		return fmt.Errorf("failed to cleanup old MCP deployment %s: %w", server.MCPServerName, err)
+	}
+
 	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.MCPServerName).Apply(ctx, nil, objs...); err != nil {
 		return fmt.Errorf("failed to create MCP deployment %s: %w", server.MCPServerName, err)
 	}
