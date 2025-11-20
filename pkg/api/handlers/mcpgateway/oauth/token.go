@@ -124,7 +124,7 @@ func (h *handler) token(req api.Context) error {
 	case "refresh_token":
 		return h.doRefreshToken(req, client, req.FormValue("refresh_token"))
 	case "urn:ietf:params:oauth:grant-type:token-exchange":
-		return h.doTokenExchange(req, req.FormValue("resource"), req.FormValue("subject_token"), req.FormValue("subject_token_type"), req.FormValue("requested_token_type"))
+		return h.doTokenExchange(req, client, req.FormValue("resource"), req.FormValue("subject_token"), req.FormValue("subject_token_type"), req.FormValue("requested_token_type"))
 	default:
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
@@ -327,7 +327,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 	})
 }
 
-func (h *handler) doTokenExchange(req api.Context, resource, subjectToken, subjectTokenType, requestedTokenType string) error {
+func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, resource, subjectToken, subjectTokenType, requestedTokenType string) error {
 	if subjectToken == "" {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
@@ -383,47 +383,50 @@ func (h *handler) doTokenExchange(req api.Context, resource, subjectToken, subje
 		})
 	}
 
-	var mcpServer v1.MCPServer
-	if err := req.Get(&mcpServer, mcpID); err != nil {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "failed to retrieve MCP server",
-		})
-	}
-
-	if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
-		_, componentMCPID, ok := strings.Cut(resource, "/mcp-connect/")
-		token := subjectToken
-		if ok {
-			// Ensure this MCP server belongs to this composite MCP server.
-			var composite v1.MCPServer
-			if err := req.Get(&composite, componentMCPID); err != nil || composite.Spec.CompositeName != mcpServer.Name {
-				return types.NewErrBadRequest("%v", Error{
-					Code:        ErrInvalidRequest,
-					Description: "failed to retrieve composite MCP server",
-				})
-			}
-
-			tokenCtx.MCPID = componentMCPID
-			tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, componentMCPID)
-
-			token, err = h.tokenService.NewToken(*tokenCtx)
-			if err != nil {
-				log.Errorf("failed to create token for component MCP server %s: %v", componentMCPID, err)
-				return types.NewErrBadRequest("%v", Error{
-					Code:        ErrServerError,
-					Description: "failed to create token",
-				})
-			}
+	// Ephemeral OAuth clients don't have an MCP server in the database. They are for generating tool previews.
+	if !oauthClient.Spec.Ephemeral {
+		var mcpServer v1.MCPServer
+		if err := req.Get(&mcpServer, mcpID); err != nil {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "failed to retrieve MCP server",
+			})
 		}
-		// For composite MCP servers, return the subject subject.
-		// This ensures it gets passed to the component MCP servers so they can do token exchange.
-		return req.Write(TokenExchangeResponse{
-			AccessToken:     token,
-			IssuedTokenType: tokenTypeAccessToken,
-			TokenType:       "Bearer",
-			ExpiresIn:       max(int(time.Until(tokenCtx.ExpiresAt).Seconds()), 0),
-		})
+
+		if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+			_, componentMCPID, ok := strings.Cut(resource, "/mcp-connect/")
+			token := subjectToken
+			if ok {
+				// Ensure this MCP server belongs to this composite MCP server.
+				var composite v1.MCPServer
+				if err := req.Get(&composite, componentMCPID); err != nil || composite.Spec.CompositeName != mcpServer.Name {
+					return types.NewErrBadRequest("%v", Error{
+						Code:        ErrInvalidRequest,
+						Description: "failed to retrieve composite MCP server",
+					})
+				}
+
+				tokenCtx.MCPID = componentMCPID
+				tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, componentMCPID)
+
+				token, err = h.tokenService.NewToken(*tokenCtx)
+				if err != nil {
+					log.Errorf("failed to create token for component MCP server %s: %v", componentMCPID, err)
+					return types.NewErrBadRequest("%v", Error{
+						Code:        ErrServerError,
+						Description: "failed to create token",
+					})
+				}
+			}
+			// For composite MCP servers, return the subject subject.
+			// This ensures it gets passed to the component MCP servers so they can do token exchange.
+			return req.Write(TokenExchangeResponse{
+				AccessToken:     token,
+				IssuedTokenType: tokenTypeAccessToken,
+				TokenType:       "Bearer",
+				ExpiresIn:       max(int(time.Until(tokenCtx.ExpiresAt).Seconds()), 0),
+			})
+		}
 	}
 
 	// Get the token store for this user and MCP

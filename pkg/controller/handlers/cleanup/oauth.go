@@ -15,6 +15,14 @@ func OAuthClients(req router.Request, resp router.Response) error {
 		return nil
 	}
 
+	if o.Spec.Ephemeral {
+		if since := time.Since(o.CreationTimestamp.Time); since < 15*time.Minute {
+			resp.RetryAfter(15*time.Minute - since)
+			return nil
+		}
+		return req.Delete(o)
+	}
+
 	if until := time.Until(o.Spec.RegistrationTokenExpiresAt.Time); until <= 0 {
 		// Expired. Delete it.
 		return req.Delete(o)

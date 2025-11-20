@@ -34,6 +34,9 @@ type OAuthClientSpec struct {
 	RegistrationTokenIssuedAt  metav1.Time               `json:"registration_token_issued_at"`
 	RegistrationTokenExpiresAt metav1.Time               `json:"registration_token_expires_at"`
 	MCPServerName              string                    `json:"mcp_server_name"`
+	// Ephemeral indicates that the OAuth client is temporary and will be deleted after a certain period of time.
+	// This is used for generating tool previews for example.
+	Ephemeral bool `json:"ephemeral"`
 }
 
 type OAuthClientStatus struct{}
