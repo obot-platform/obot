@@ -996,6 +996,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 					"spec.mcpServerName": id,
 					"spec.userID":        req.User.GetUID(),
 					"spec.template":      "false",
+					"spec.compositeName": "",
 				}),
 			}); err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, err
@@ -1043,6 +1044,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 				"spec.mcpServerCatalogEntryName": id,
 				"spec.userID":                    req.User.GetUID(),
 				"spec.template":                  "false",
+				"spec.compositeName":             "",
 			}),
 		}); err != nil {
 			return v1.MCPServer{}, v1.MCPServerInstance{}, err
@@ -2557,6 +2559,7 @@ func slugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPS
 				"spec.mcpServerCatalogEntryName": server.Spec.MCPServerCatalogEntryName,
 				"spec.userID":                    userID,
 				"spec.template":                  "false",
+				"spec.compositeName":             "",
 			}),
 		}); err != nil {
 			return "", fmt.Errorf("failed to find MCP server catalog entry for server: %w", err)
