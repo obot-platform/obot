@@ -658,10 +658,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 		// Token Auth + OAuth auth
 		authenticators = union.New(authenticators, proxyManager)
-		// Persistent Token Auth
-		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add gateway user info
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
+		// Persistent Token Auth
+		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add token auth
 		authenticators = union.New(authenticators, ephemeralTokenServer)
 		// Add bootstrap auth

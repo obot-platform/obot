@@ -108,7 +108,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
-			UID:    tokenContext.AuthProviderUserID,
+			UID:    tokenContext.UserID,
 			Name:   tokenContext.UserName,
 			Groups: tokenContext.UserGroups,
 			Extra: map[string][]string{
@@ -180,8 +180,8 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 func (t *TokenService) NewToken(context TokenContext) (string, error) {
 	claims := jwt.MapClaims{
 		"aud":                   context.Audience,
-		"exp":                   context.ExpiresAt.Unix(),
-		"iat":                   context.IssuedAt.Unix(),
+		"exp":                   float64(context.ExpiresAt.Unix()),
+		"iat":                   float64(context.IssuedAt.Unix()),
 		"sub":                   context.UserID,
 		"name":                  context.UserName,
 		"email":                 context.UserEmail,

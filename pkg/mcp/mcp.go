@@ -25,17 +25,10 @@ func (sm *SessionManager) GPTScriptTools(ctx context.Context, projectMCPServer v
 		return nil, fmt.Errorf("failed to convert MCP server %s to server config: %w", mcpServerDisplayName, err)
 	}
 
-	// The headers here have an ephemeral token in them.
-	// It's not a big deal to keep it, but it's easy enough to remove it,
-	// and we have to create a new one if this metadata field is needed anyway.
-	headers := serverConfig.Headers
-	serverConfig.Headers = nil
 	serverConfigForMetadata, err := json.Marshal(serverConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal server config for metadata: %w", err)
 	}
-
-	serverConfig.Headers = headers
 
 	client, err := sm.clientForServer(ctx, serverConfig)
 	if err != nil {

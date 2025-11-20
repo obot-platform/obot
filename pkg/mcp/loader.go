@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -202,6 +203,10 @@ func (sm *SessionManager) closeClient(server ServerConfig, clientScope string) {
 
 // LaunchServer will ensure that the server is deployed
 func (sm *SessionManager) LaunchServer(ctx context.Context, serverConfig ServerConfig) (string, error) {
+	if serverConfig.ProjectMCPServer {
+		return "", errors.New("cannot launch project MCP server")
+	}
+
 	c, err := sm.ensureDeployment(ctx, serverConfig, true)
 	return c.URL, err
 }

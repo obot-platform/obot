@@ -39,7 +39,6 @@ func (h *Handler) Proxy(req api.Context) error {
 
 	mcpURL, err := h.ensureServerIsDeployed(req)
 	if err != nil {
-		// Same here regarding JSONRPC errors.
 		return fmt.Errorf("failed to ensure server is deployed: %v", err)
 	}
 
@@ -71,9 +70,5 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (string, error) {
 		return "", apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 
-	// Use the user ID from the server rather than from the request.
-	mcpServerConfig.UserID = mcpServer.Spec.UserID
-
-	u, err := h.mcpSessionManager.LaunchServer(req.Context(), mcpServerConfig)
-	return u, err
+	return h.mcpSessionManager.LaunchServer(req.Context(), mcpServerConfig)
 }

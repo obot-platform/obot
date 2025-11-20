@@ -91,6 +91,7 @@ func (sm *SessionManager) loadSession(server ServerConfig, clientScope string, c
 		}
 
 		c.Close(false)
+		clientSessions.Delete(clientScope)
 	}
 
 	sm.contextLock.Lock()
@@ -110,11 +111,12 @@ func (sm *SessionManager) loadSession(server ServerConfig, clientScope string, c
 			err   error
 		)
 
-		// TODO(thedadams): fix this.
+		now := time.Now().Add(-time.Second)
+		// TODO(thedadams): This needs to be fixed before user information headers can be passed to the MCP server.
 		jwtToken, token, err = sm.tokenService.NewTokenWithClaims(jwt.MapClaims{
 			"aud": gtypes.FirstSet(server.Audiences...),
-			"exp": time.Now().Add(time.Hour).Unix(),
-			"iat": time.Now().Unix(),
+			"exp": float64(now.Add(time.Hour + 15*time.Minute).Unix()),
+			"iat": float64(now.Unix()),
 			"sub": server.UserID,
 			// "name":       server.UserName,
 			// "email":      server.UserEmail,
@@ -149,15 +151,15 @@ func (sm *SessionManager) loadSession(server ServerConfig, clientScope string, c
 
 	res, ok := clientSessions.LoadOrStore(clientScope, result)
 	if ok {
-		c := res.(*Client)
-		if c.hasValidToken() {
-			c.Session.Close(true)
-			return c, nil
+		existing := res.(*Client)
+		if existing.hasValidToken() {
+			result.Close(true)
+			return existing, nil
 		}
 
 		// Swap the existing client with the new one and close the old one.
 		clientSessions.Swap(clientScope, result)
-		c.Close(false)
+		existing.Close(false)
 	}
 
 	return result, nil
