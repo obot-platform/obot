@@ -103,7 +103,8 @@ func (d *dockerBackend) cleanupContainersWithOldID(ctx context.Context) error {
 	}
 
 	for _, c := range containers {
-		if id := c.Labels["mcp.server.id"]; id != "" && c.Labels["mcp.config.hash"] == "" {
+		id := c.Labels["mcp.server.id"]
+		if _, ok := c.Labels["mcp.deployment.id"]; !ok && id != "" {
 			if err := d.removeObjectsForContainer(ctx, &c, id); err != nil {
 				return fmt.Errorf("failed to remove container with old ID %s: %w", c.ID, err)
 			}
