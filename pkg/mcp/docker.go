@@ -124,7 +124,7 @@ func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig, _
 		return nil
 	}
 
-	_, _, err = d.createAndStartContainer(ctx, server, "", configHash, true, nil)
+	_, _, err = d.createAndStartContainer(ctx, server, "", configHash, nil)
 	return err
 }
 
@@ -555,7 +555,7 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 }
 
 func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash string, containerEnv bool, webhooks []Webhook) (retConfig ServerConfig, retErr error) {
-	containerID, containerPort, err := d.createAndStartContainer(ctx, server, mcpServerName, configHash, containerEnv, webhooks)
+	containerID, containerPort, err := d.createAndStartContainer(ctx, server, mcpServerName, configHash, webhooks)
 	if err != nil {
 		return ServerConfig{}, err
 	}
@@ -577,7 +577,7 @@ func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, s
 	return d.buildServerConfig(server, c, containerPort, containerEnv)
 }
 
-func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash string, containerEnv bool, webhooks []Webhook) (string, int, error) {
+func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash string, webhooks []Webhook) (string, int, error) {
 	var (
 		volumeMounts  []mount.Mount
 		entrypoint    []string

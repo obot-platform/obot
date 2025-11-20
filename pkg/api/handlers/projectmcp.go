@@ -332,7 +332,7 @@ func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
 		// Don't use ListTools for remote MCP servers in case they need OAuth.
 		_, err = p.mcpSessionManager.PingServer(req.Context(), serverConfig)
 	}
-	if _, err = p.mcpSessionManager.ListTools(req.Context(), serverConfig); err != nil {
+	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
 		}

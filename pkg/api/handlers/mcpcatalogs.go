@@ -25,7 +25,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var dnsLabelRegex = regexp.MustCompile("[^a-z0-9-]+")
@@ -955,7 +954,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	return req.Write(map[string]string{"oauthURL": oauthURL})
 }
 
-func tempServerAndConfig(ctx context.Context, gptClient *gptscript.GPTScript, client kclient.Client, namespace, catalogEntryName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, jwks string) (v1.MCPServer, mcp.ServerConfig, error) {
+func tempServerAndConfig(ctx context.Context, gptClient *gptscript.GPTScript, client client.Client, namespace, catalogEntryName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, jwks string) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
 	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url)
 	if err != nil {
