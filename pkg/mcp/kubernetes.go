@@ -60,15 +60,29 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 	}
 }
 
-func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
+func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfig, webhooks []Webhook) error {
+	switch server.Runtime {
+	case types.RuntimeNPX, types.RuntimeUVX, types.RuntimeContainerized:
+	default:
+		return fmt.Errorf("unsupported MCP runtime: %s", server.Runtime)
+	}
+
 	// Generate the Kubernetes deployment objects.
 	objs, err := k.k8sObjects(ctx, server, webhooks)
 	if err != nil {
-		return ServerConfig{}, fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.MCPServerName, err)
+		return fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.MCPServerName, err)
 	}
 
 	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.MCPServerName).Apply(ctx, nil, objs...); err != nil {
-		return ServerConfig{}, fmt.Errorf("failed to create MCP deployment %s: %w", server.MCPServerName, err)
+		return fmt.Errorf("failed to create MCP deployment %s: %w", server.MCPServerName, err)
+	}
+
+	return nil
+}
+
+func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
+	if err := k.deployServer(ctx, server, webhooks); err != nil {
+		return ServerConfig{}, err
 	}
 
 	u := fmt.Sprintf("http://%s.%s.svc.%s", server.MCPServerName, k.mcpNamespace, k.mcpClusterDomain)

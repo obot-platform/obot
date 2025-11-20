@@ -113,6 +113,21 @@ func (d *dockerBackend) cleanupContainersWithOldID(ctx context.Context) error {
 	return nil
 }
 
+// deployServer will deploy the underlying container for the server. It will not deploy any shims or webhooks.
+// This is only to give users the opportunity to view logs and debug the server they are trying to deploy.
+func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig, _ []Webhook) error {
+	configHash := clientID(server)
+	// Check if container already exists
+	existing, err := d.getContainer(ctx, server.MCPServerName)
+	if err == nil && existing != nil {
+		// Server is already deployed; nothing to do
+		return nil
+	}
+
+	_, _, err = d.createAndStartContainer(ctx, server, "", configHash, true, nil)
+	return err
+}
+
 func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
 	serverName := server.MCPServerName
 	// Copy the webhooks so we can change the URL without that affecting the original slice.
@@ -236,7 +251,7 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 	}
 
 	// Create new container
-	return d.createAndStartContainer(ctx, server, mcpServerName, configHash, containerEnv, webhooks)
+	return d.createAndStartAndWaitForContainer(ctx, server, mcpServerName, configHash, containerEnv, webhooks)
 }
 
 func (d *dockerBackend) transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error) {
@@ -539,7 +554,30 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 	}, nil
 }
 
-func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash string, containerEnv bool, webhooks []Webhook) (retConfig ServerConfig, retErr error) {
+func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash string, containerEnv bool, webhooks []Webhook) (retConfig ServerConfig, retErr error) {
+	containerID, containerPort, err := d.createAndStartContainer(ctx, server, mcpServerName, configHash, containerEnv, webhooks)
+	if err != nil {
+		return ServerConfig{}, err
+	}
+
+	// Wait for container to be running and healthy
+	if err := d.waitForContainer(ctx, containerID); err != nil {
+		return retConfig, fmt.Errorf("container failed to become ready: %w", err)
+	}
+
+	c, err := d.getContainer(ctx, server.MCPServerName)
+	if err != nil {
+		return retConfig, fmt.Errorf("failed to get container after starting: %w", err)
+	}
+
+	if err = d.ensureServerReady(ctx, c, server, containerPort); err != nil {
+		return retConfig, fmt.Errorf("server readiness check failed: %w", err)
+	}
+
+	return d.buildServerConfig(server, c, containerPort, containerEnv)
+}
+
+func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash string, containerEnv bool, webhooks []Webhook) (string, int, error) {
 	var (
 		volumeMounts  []mount.Mount
 		entrypoint    []string
@@ -552,7 +590,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	// Prepare file volumes and environment variables
 	fileVolumeName, fileEnvVars, err := d.prepareContainerFiles(ctx, server, mcpServerName)
 	if err != nil {
-		return retConfig, fmt.Errorf("failed to prepare container files: %w", err)
+		return "", 0, fmt.Errorf("failed to prepare container files: %w", err)
 	}
 	if fileVolumeName != "" {
 		volumeMounts = append(volumeMounts, mount.Mount{
@@ -606,7 +644,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		// Prepare nanobot configuration
 		nanobotVolumeName, err := d.prepareNanobotConfig(ctx, server, fileEnvVars, webhooks)
 		if err != nil {
-			return retConfig, fmt.Errorf("failed to prepare nanobot config: %w", err)
+			return "", 0, fmt.Errorf("failed to prepare nanobot config: %w", err)
 		}
 
 		volumeMounts = append(volumeMounts, mount.Mount{
@@ -624,7 +662,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	case otypes.RuntimeContainerized:
 		// Use specified container image or base image
 		if server.ContainerImage == "" {
-			return retConfig, fmt.Errorf("container image must be specified for containerized runtime")
+			return "", 0, fmt.Errorf("container image must be specified for containerized runtime")
 		}
 
 		image = server.ContainerImage
@@ -652,7 +690,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 
 		env = append(env, fmt.Sprintf("NANOBOT_META_ENV=%s", strings.Join(metaEnvVar, ",")))
 	default:
-		return retConfig, fmt.Errorf("unsupported runtime: %s", server.Runtime)
+		return "", 0, fmt.Errorf("unsupported runtime: %s", server.Runtime)
 	}
 
 	// Prepare port binding
@@ -690,7 +728,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	}
 
 	if err := d.pullImage(ctx, image, false); err != nil {
-		return retConfig, fmt.Errorf("failed to ensure image exists: %w", err)
+		return "", 0, fmt.Errorf("failed to ensure image exists: %w", err)
 	}
 
 	// Configure network
@@ -710,12 +748,12 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		resp, err := d.client.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, server.MCPServerName)
 		if err != nil {
 			if !cerrdefs.IsConflict(err) && !cerrdefs.IsAlreadyExists(err) {
-				return retConfig, fmt.Errorf("failed to create container: %w", err)
+				return "", 0, fmt.Errorf("failed to create container: %w", err)
 			}
 
 			cont, getErr := d.getContainer(ctx, server.MCPServerName)
 			if getErr != nil {
-				return retConfig, fmt.Errorf("failed to create container: %w", err)
+				return "", 0, fmt.Errorf("failed to create container: %w", err)
 			}
 			if cont == nil {
 				time.Sleep(time.Second)
@@ -728,29 +766,15 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		}
 	}
 	if containerID == "" {
-		return retConfig, fmt.Errorf("failed to create container")
+		return "", 0, fmt.Errorf("failed to create container")
 	}
 
 	// Start container
 	if err := d.client.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
-		return retConfig, fmt.Errorf("failed to start container: %w", err)
+		return "", 0, fmt.Errorf("failed to start container: %w", err)
 	}
 
-	// Wait for container to be running and healthy
-	if err := d.waitForContainer(ctx, containerID); err != nil {
-		return retConfig, fmt.Errorf("container failed to become ready: %w", err)
-	}
-
-	c, err := d.getContainer(ctx, server.MCPServerName)
-	if err != nil {
-		return retConfig, fmt.Errorf("failed to get container after starting: %w", err)
-	}
-
-	if err = d.ensureServerReady(ctx, c, server, containerPort); err != nil {
-		return retConfig, fmt.Errorf("server readiness check failed: %w", err)
-	}
-
-	return d.buildServerConfig(server, c, containerPort, containerEnv)
+	return containerID, containerPort, nil
 }
 
 func (d *dockerBackend) waitForContainer(ctx context.Context, containerID string) error {
