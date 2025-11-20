@@ -15,12 +15,12 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-func (sm *SessionManager) GPTScriptTools(ctx context.Context, projectMCPServer v1.ProjectMCPServer, userID, mcpServerDisplayName, serverURL string, allowedTools []string) ([]gptscript.ToolDef, error) {
+func (sm *SessionManager) GPTScriptTools(ctx context.Context, projectMCPServer v1.ProjectMCPServer, userID, mcpServerDisplayName, internalServerURL, serverURL string, allowedTools []string) ([]gptscript.ToolDef, error) {
 	if mcpServerDisplayName == "" {
 		mcpServerDisplayName = projectMCPServer.Name
 	}
 
-	serverConfig, err := ProjectServerToConfig(projectMCPServer, serverURL, userID)
+	serverConfig, err := ProjectServerToConfig(projectMCPServer, serverURL, internalServerURL, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert MCP server %s to server config: %w", mcpServerDisplayName, err)
 	}

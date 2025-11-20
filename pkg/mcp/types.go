@@ -388,16 +388,15 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, jw
 	return serverConfig, missingRequiredNames, nil
 }
 
-func ProjectServerToConfig(projectMCPServer v1.ProjectMCPServer, baseURL, userID string) (ServerConfig, error) {
-	url := projectMCPServer.ConnectURL(baseURL)
+func ProjectServerToConfig(projectMCPServer v1.ProjectMCPServer, publicBaseURL, internalBaseURL, userID string) (ServerConfig, error) {
 	return ServerConfig{
-		URL:                url,
+		URL:                projectMCPServer.ConnectURL(internalBaseURL),
 		UserID:             userID,
 		MCPServerNamespace: projectMCPServer.Namespace,
 		MCPServerName:      projectMCPServer.Spec.Manifest.MCPID,
 		Scope:              fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
 		Runtime:            types.RuntimeRemote,
-		Audiences:          []string{url},
+		Audiences:          []string{projectMCPServer.ConnectURL(publicBaseURL)},
 		ProjectMCPServer:   true,
 	}, nil
 }

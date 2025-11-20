@@ -36,10 +36,10 @@ type AgentHandler struct {
 	serverURL         string
 }
 
-func NewAgentHandler(dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, serverURL string, port int) *AgentHandler {
+func NewAgentHandler(dispatcher *dispatcher.Dispatcher, mcpSessionManager *mcp.SessionManager, invoker *invoke.Invoker, serverURL, internalServerURL string) *AgentHandler {
 	return &AgentHandler{
 		serverURL:         serverURL,
-		internalServerURL: fmt.Sprintf("http://localhost:%d", port),
+		internalServerURL: internalServerURL,
 		invoker:           invoker,
 		dispatcher:        dispatcher,
 		mcpSessionManager: mcpSessionManager,

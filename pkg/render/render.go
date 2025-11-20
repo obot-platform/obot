@@ -172,7 +172,7 @@ func Agent(ctx context.Context, mcpSessionManager *mcp.SessionManager, db kclien
 				mcpDisplayName = mcpServer.Spec.Alias
 			}
 
-			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, projectMCPServer, opts.UserID, mcpDisplayName, internalServerURL, allowedTools)
+			toolDefs, err := mcpSessionManager.GPTScriptTools(ctx, projectMCPServer, opts.UserID, mcpDisplayName, internalServerURL, serverURL, allowedTools)
 			if err != nil {
 				if !opts.IgnoreMCPErrors {
 					return renderedAgent, fmt.Errorf("failed to populate tools for MCP server %q: %w", mcpDisplayName, err)

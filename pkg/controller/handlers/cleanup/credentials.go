@@ -21,14 +21,16 @@ type Credentials struct {
 	gatewayClient     *gateway.Client
 	mcpSessionManager *mcp.SessionManager
 	serverURL         string
+	internalServerURL string
 }
 
-func NewCredentials(gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, serverURL string) *Credentials {
+func NewCredentials(gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, serverURL, internalServerURL string) *Credentials {
 	return &Credentials{
 		gClient:           gClient,
 		gatewayClient:     gatewayClient,
 		mcpSessionManager: mcpSessionManager,
 		serverURL:         serverURL,
+		internalServerURL: internalServerURL,
 	}
 }
 

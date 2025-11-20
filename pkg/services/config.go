@@ -126,7 +126,7 @@ type Services struct {
 	ToolRegistryURLs           []string
 	WorkspaceProviderType      string
 	ServerURL                  string
-	HTTPPort                   int
+	InternalServerURL          string
 	EmailServerName            string
 	DevUIPort                  int
 	UserUIPort                 int
@@ -741,7 +741,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		EncryptionConfig:      encryptionConfig,
 		WorkspaceProviderType: config.WorkspaceProviderType,
 		ServerURL:             config.Hostname,
-		HTTPPort:              config.HTTPListenPort,
+		InternalServerURL:     fmt.Sprintf("http://localhost:%d", config.HTTPListenPort),
 		DevUIPort:             devPort,
 		UserUIPort:            config.UserUIPort,
 		ToolRegistryURLs:      config.ToolRegistries,
