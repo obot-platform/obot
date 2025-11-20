@@ -235,7 +235,7 @@ func (h *handler) authorize(req api.Context) error {
 			CodeChallenge:       codeChallenge,
 			CodeChallengeMethod: codeChallengeMethod,
 			GrantType:           "authorization_code",
-			MCPID:               mcpID,
+			MCPID:               strings.TrimPrefix(mcpID, "/"),
 		},
 	}
 

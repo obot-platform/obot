@@ -389,7 +389,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		if err := req.Get(&mcpServer, mcpID); err != nil {
 			return types.NewErrBadRequest("%v", Error{
 				Code:        ErrInvalidRequest,
-				Description: "failed to retrieve MCP server",
+				Description: "failed to retrieve MCP server " + mcpID,
 			})
 		}
 
@@ -402,7 +402,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				if err := req.Get(&composite, componentMCPID); err != nil || composite.Spec.CompositeName != mcpServer.Name {
 					return types.NewErrBadRequest("%v", Error{
 						Code:        ErrInvalidRequest,
-						Description: "failed to retrieve composite MCP server",
+						Description: "failed to retrieve composite MCP server " + componentMCPID,
 					})
 				}
 
