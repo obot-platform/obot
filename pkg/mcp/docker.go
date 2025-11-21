@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"maps"
@@ -248,7 +249,18 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 			return d.buildServerConfig(server, existing, containerPort, containerEnv)
 		default:
 			// Container exists but not running, remove it and recreate
-			if err := d.client.ContainerRemove(ctx, existing.ID, container.RemoveOptions{Force: true}); err != nil {
+			if err := d.client.ContainerRemove(ctx, existing.ID, container.RemoveOptions{Force: true}); cerrdefs.IsConflict(err) {
+				// The container is already being removed, wait for it to finish
+				statusCh, errCh := d.client.ContainerWait(ctx, existing.ID, container.WaitConditionRemoved)
+				select {
+				case err := <-errCh:
+					// It's OK if the container is already gone.
+					if err != nil && !cerrdefs.IsNotFound(err) {
+						return ServerConfig{}, fmt.Errorf("error waiting for stopped container to be removed: %w", err)
+					}
+				case <-statusCh:
+				}
+			} else if err != nil {
 				return ServerConfig{}, fmt.Errorf("failed to remove stopped container: %w", err)
 			}
 		}
@@ -925,37 +937,18 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 		AutoRemove: true,
 	}
 
-	var initContainerID string
-	initContainerName := fmt.Sprintf("%s-init", containerName)
-	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, &network.NetworkingConfig{}, nil, initContainerName)
-	if cerrdefs.IsConflict(err) || cerrdefs.IsAlreadyExists(err) {
-		// Init container already exists, get its containerID
-		resp, err := d.client.ContainerList(ctx, container.ListOptions{
-			All: true,
-			Filters: filters.NewArgs(
-				filters.Arg("name", initContainerName),
-			),
-		})
-		if err != nil {
-			return "", nil, fmt.Errorf("failed to inspect nanobot init container: %w", err)
-		}
-		if len(resp) == 0 {
-			return "", nil, fmt.Errorf("failed to find existing nanobot init container")
-		}
-
-		initContainerID = resp[0].ID
-	} else if err != nil {
+	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, &network.NetworkingConfig{}, nil, fmt.Sprintf("%s-init-%s", containerName, strings.ToLower(rand.Text())))
+	if err != nil {
 		return "", nil, fmt.Errorf("failed to create init container: %w", err)
-	} else {
-		initContainerID = resp.ID
-		// Start and wait for init container to complete
-		if err := d.client.ContainerStart(ctx, initContainerID, container.StartOptions{}); err != nil {
-			return "", nil, fmt.Errorf("failed to start init container: %w", err)
-		}
+	}
+
+	// Start and wait for init container to complete
+	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return "", nil, fmt.Errorf("failed to start init container: %w", err)
 	}
 
 	// Wait for init container to complete
-	statusCh, errCh := d.client.ContainerWait(ctx, initContainerID, container.WaitConditionNotRunning)
+	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
 		// It's OK if the container is already gone.
@@ -1085,37 +1078,18 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 		}
 	}
 
-	var initContainerID string
-	initContainerName := fmt.Sprintf("%s-nanobot-init", server.MCPServerName)
-	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, initNetworkingConfig, nil, initContainerName)
-	if cerrdefs.IsConflict(err) || cerrdefs.IsAlreadyExists(err) {
-		// Container already exists, so get its ID
-		resp, err := d.client.ContainerList(ctx, container.ListOptions{
-			All: true,
-			Filters: filters.NewArgs(
-				filters.Arg("name", initContainerName),
-			),
-		})
-		if err != nil {
-			return "", fmt.Errorf("failed to inspect nanobot init container: %w", err)
-		}
-		if len(resp) == 0 {
-			return "", fmt.Errorf("failed to find existing nanobot init container")
-		}
-
-		initContainerID = resp[0].ID
-	} else if err != nil {
+	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, initNetworkingConfig, nil, fmt.Sprintf("%s-nanobot-init-%s", server.MCPServerName, strings.ToLower(rand.Text())))
+	if err != nil {
 		return "", fmt.Errorf("failed to create nanobot init container: %w", err)
-	} else {
-		initContainerID = resp.ID
-		// Start and wait for init container to complete
-		if err := d.client.ContainerStart(ctx, initContainerID, container.StartOptions{}); err != nil {
-			return "", fmt.Errorf("failed to start init container: %w", err)
-		}
+	}
+
+	// Start and wait for init container to complete
+	if err := d.client.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return "", fmt.Errorf("failed to start init container: %w", err)
 	}
 
 	// Wait for init container to complete
-	statusCh, errCh := d.client.ContainerWait(ctx, initContainerID, container.WaitConditionNotRunning)
+	statusCh, errCh := d.client.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
 	select {
 	case err := <-errCh:
 		if err != nil && !cerrdefs.IsNotFound(err) {
