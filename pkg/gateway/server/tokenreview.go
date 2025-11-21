@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -33,7 +35,9 @@ func (g *gatewayTokenReview) AuthenticateRequest(req *http.Request) (*authentica
 	}
 
 	u, namespace, name, providerUserID, groupIDs, err := g.gatewayClient.UserFromToken(req.Context(), bearer)
-	if err != nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, false, nil
+	} else if err != nil {
 		return nil, false, err
 	}
 
