@@ -315,7 +315,8 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 }
 
 func clientID(server ServerConfig) string {
-	// The allowed tools aren't part of the client ID.
+	// The user ID and scope is not part of the client ID.
+	server.UserID = ""
 	return "mcp" + hash.Digest(server)
 }
 
