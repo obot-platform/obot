@@ -657,21 +657,21 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		proxyManager = proxy.NewProxyManager(ctx, providerDispatcher, gptscriptClient)
 
 		// Token Auth + OAuth auth
-		authenticators = union.New(authenticators, proxyManager)
+		authenticators = union.NewFailOnError(authenticators, proxyManager)
 		// Add gateway user info
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add token auth
-		authenticators = union.New(authenticators, ephemeralTokenServer)
+		authenticators = union.NewFailOnError(authenticators, ephemeralTokenServer)
 		// Add bootstrap auth
-		authenticators = union.New(authenticators, bootstrapper)
+		authenticators = union.NewFailOnError(authenticators, bootstrapper)
 		if config.BearerToken != "" {
 			// Add otel metrics auth
 			authenticators = union.New(authenticators, authn.NewToken(config.BearerToken, "metrics", authz.MetricsGroup))
 		}
 		// Add anonymous user authenticator
-		authenticators = union.New(authenticators, authn.Anonymous{})
+		authenticators = union.NewFailOnError(authenticators, authn.Anonymous{})
 
 		// Clean up "nobody" user from previous "Authentication Disabled" runs.
 		// This reduces the chance that someone could authenticate as "nobody" and get admin access once authentication
