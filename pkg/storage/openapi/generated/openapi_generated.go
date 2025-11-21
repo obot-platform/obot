@@ -13978,13 +13978,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"oauthClientName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "OAuthClientName is the OAuth client for this MCP server for token exchange.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"needsUpdate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",

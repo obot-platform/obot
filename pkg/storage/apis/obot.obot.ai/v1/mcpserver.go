@@ -120,8 +120,6 @@ type MCPServerSpec struct {
 }
 
 type MCPServerStatus struct {
-	// OAuthClientName is the OAuth client for this MCP server for token exchange.
-	OAuthClientName string `json:"oauthClientName,omitempty"`
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
