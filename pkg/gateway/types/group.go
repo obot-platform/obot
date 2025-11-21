@@ -22,9 +22,6 @@ type Group struct {
 
 	// IconURL is the URL of the group's icon.
 	IconURL *string `json:"iconURL"`
-
-	// CreatedAt is the time the group was created.
-	CreatedAt time.Time `json:"createdAt" gorm:"autoCreateTime"`
 }
 
 // GroupMemberships represents a user's membership in a group.
