@@ -174,7 +174,7 @@
 	// Helper function to persist query to local storage
 	function persistQueryToLocalStorage(view: View, queryValue: string): void {
 		if (!localStorageViewQuery.current) {
-			// Do nothing if local value has not loaded yets
+			// Do nothing if local value has not loaded yet
 			return;
 		}
 
@@ -183,6 +183,7 @@
 
 	function clearQueryFromLocalStorage(view?: View): void {
 		if (!localStorageViewQuery.current) {
+			// Do nothing if local value has not loaded yet
 			return;
 		}
 
