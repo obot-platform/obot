@@ -201,7 +201,7 @@ func (h *handler) authorize(req api.Context) error {
 	}
 
 	if mcpID != "" {
-		id, err := handlers.MCPIDFromConnectURL(req, mcpID)
+		id, audience, err := handlers.MCPIDAndAudienceFromConnectURL(req, mcpID)
 		if err != nil {
 			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
 				redirectWithAuthorizeError(req, redirectURI, Error{
@@ -219,7 +219,12 @@ func (h *handler) authorize(req api.Context) error {
 			return nil
 		}
 
+		audience = "/" + audience
 		mcpID = "/" + id
+		if resource == "" || !strings.HasSuffix(resource, audience) {
+			// Ensure the audience is what the server expects.
+			resource = fmt.Sprintf("%s/mcp-connect%s", h.baseURL, audience)
+		}
 	}
 
 	oauthAppAuthRequest := v1.OAuthAuthRequest{

@@ -24,6 +24,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/oauthclients"
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projectinvitation"
+	"github.com/obot-platform/obot/pkg/controller/handlers/projectmcpserver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/projects"
 	"github.com/obot-platform/obot/pkg/controller/handlers/retention"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
@@ -84,6 +85,7 @@ func (c *Controller) setupRoutes() {
 	auditLogExportHandler := auditlogexport.NewHandler(c.services.GPTClient, c.services.GatewayClient, c.services.EncryptionConfig)
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 	oauthclients := oauthclients.NewHandler(c.services.GPTClient)
+	projectMCPServerHandler := projectmcpserver.NewHandler()
 
 	// Runs
 	root.Type(&v1.Run{}).FinalizeFunc(v1.RunFinalizer, runs.DeleteRunState)
@@ -316,6 +318,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServerInstancesForWorkspace)
 
 	// Project-based MCP Servers
+	root.Type(&v1.ProjectMCPServer{}).HandlerFunc(projectMCPServerHandler.EnsureMCPServerName)
 	root.Type(&v1.ProjectMCPServer{}).FinalizeFunc(v1.ProjectMCPServerFinalizer, credentialCleanup.ShutdownProjectMCP)
 	root.Type(&v1.ProjectMCPServer{}).HandlerFunc(cleanup.Cleanup)
 

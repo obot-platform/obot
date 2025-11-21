@@ -197,6 +197,8 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 		return err
 	}
 
+	projectServer.Spec.MCPServerName = mcpServer.Name
+
 	if !req.UserIsAdmin() && mcpServer.Spec.UserID != req.User.GetUID() {
 		var (
 			hasAccess bool

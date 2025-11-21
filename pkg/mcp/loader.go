@@ -163,6 +163,11 @@ func (sm *SessionManager) Close() error {
 
 // CloseClient will close the client for this MCP server, but leave the deployment running.
 func (sm *SessionManager) CloseClient(ctx context.Context, server ServerConfig, clientScope string) error {
+	if server.ProjectMCPServer {
+		sm.closeClient(server, clientScope)
+		return nil
+	}
+
 	serverConfig, err := sm.backend.transformConfig(ctx, server)
 	if err != nil {
 		return fmt.Errorf("failed to transform MCP server config: %w", err)

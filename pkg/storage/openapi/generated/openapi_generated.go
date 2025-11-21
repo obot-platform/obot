@@ -15877,6 +15877,12 @@ func schema_storage_apis_obotobotai_v1_ProjectMCPServerSpec(ref common.Reference
 							Format: "",
 						},
 					},
+					"mcpServerName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},

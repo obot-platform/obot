@@ -396,7 +396,7 @@ func ProjectServerToConfig(projectMCPServer v1.ProjectMCPServer, publicBaseURL, 
 		MCPServerName:      projectMCPServer.Spec.Manifest.MCPID,
 		Scope:              fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
 		Runtime:            types.RuntimeRemote,
-		Audiences:          []string{projectMCPServer.ConnectURL(publicBaseURL)},
+		Audiences:          []string{projectMCPServer.Audience(publicBaseURL)},
 		ProjectMCPServer:   true,
 	}, nil
 }

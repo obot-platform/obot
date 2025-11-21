@@ -68,11 +68,10 @@ func (in *MCPServerInstance) DeleteRefs() []Ref {
 }
 
 func (in *MCPServerInstance) ValidConnectURLs(base string) []string {
-	var urls []string
 	if in.Spec.MCPServerName != "" {
-		urls = append(urls, system.MCPConnectURL(base, in.Spec.MCPServerName))
+		return []string{system.MCPConnectURL(base, in.Spec.MCPServerName)}
 	}
-	return append(urls, system.MCPConnectURL(base, in.Name))
+	return []string{system.MCPConnectURL(base, in.Name)}
 }
 
 type MCPServerInstanceSpec struct {

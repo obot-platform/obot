@@ -58,10 +58,15 @@ func (in *ProjectMCPServer) ConnectURL(base string) string {
 	return system.MCPConnectURL(base, in.Spec.Manifest.MCPID)
 }
 
+func (in *ProjectMCPServer) Audience(base string) string {
+	return system.MCPConnectURL(base, in.Spec.MCPServerName)
+}
+
 type ProjectMCPServerSpec struct {
-	Manifest   types.ProjectMCPServerManifest `json:"manifest,omitempty"`
-	ThreadName string                         `json:"threadName,omitempty"`
-	UserID     string                         `json:"userID,omitempty"`
+	Manifest      types.ProjectMCPServerManifest `json:"manifest,omitempty"`
+	ThreadName    string                         `json:"threadName,omitempty"`
+	UserID        string                         `json:"userID,omitempty"`
+	MCPServerName string                         `json:"mcpServerName,omitempty"`
 }
 
 type ProjectMCPServerStatus struct{}

@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
+	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/crypto/bcrypt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -277,6 +278,20 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		})
 	}
 
+	// If this is an MCP server instance and the resource isn't the MCP server, then update it to the MCP server.
+	if system.IsMCPServerInstanceID(oauthToken.Spec.MCPID) && strings.HasSuffix(oauthToken.Spec.Resource, "/"+oauthToken.Spec.MCPID) {
+		// If this is an MCP server instance ID, we need to get the MCP server ID
+		var mcpServerInstance v1.MCPServerInstance
+		if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: oauthClient.Namespace, Name: oauthToken.Spec.MCPID}, &mcpServerInstance); err != nil {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "invalid MCP server",
+			})
+		}
+
+		oauthToken.Spec.Resource = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, mcpServerInstance.Spec.MCPServerName)
+	}
+
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
 		Audience:              oauthToken.Spec.Resource,
@@ -384,7 +399,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 	}
 
 	// Ephemeral OAuth clients don't have an MCP server in the database. They are for generating tool previews.
-	if !oauthClient.Spec.Ephemeral {
+	if !oauthClient.Spec.Ephemeral && system.IsMCPServerID(mcpID) {
 		var mcpServer v1.MCPServer
 		if err := req.Get(&mcpServer, mcpID); err != nil {
 			return types.NewErrBadRequest("%v", Error{
@@ -427,6 +442,8 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				ExpiresIn:       max(int(time.Until(tokenCtx.ExpiresAt).Seconds()), 0),
 			})
 		}
+	} else if system.IsMCPServerInstanceID(mcpID) {
+		return types.NewErrNotFound("no token exchange for %s", resource)
 	}
 
 	// Get the token store for this user and MCP
