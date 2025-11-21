@@ -208,7 +208,10 @@ func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfi
 	// Check if container already exists
 	existing, err := d.getContainer(ctx, server.MCPServerName)
 	if err == nil && existing != nil {
-		if existing.Labels["mcp.config.hash"] != configHash || existing.NetworkSettings == nil || existing.NetworkSettings.Networks[d.network] == nil {
+		if existing.Labels["mcp.config.hash"] != configHash ||
+			existing.NetworkSettings == nil ||
+			existing.NetworkSettings.Networks[d.network] == nil ||
+			(server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite) && existing.Image != d.remoteShimBaseImage {
 			// Clear the state. The below logic will remove and recreate the container.
 			existing.State = ""
 		}
