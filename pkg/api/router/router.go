@@ -621,6 +621,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
 	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)
 
+	// EULA
+	eulaHandler := handlers.NewEulaHandler()
+	mux.HandleFunc("GET /api/eula", eulaHandler.Get)
+	mux.HandleFunc("PUT /api/eula", eulaHandler.Update)
+
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
 	mux.HTTPHandle("GET /debug/triggers", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

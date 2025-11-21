@@ -61,6 +61,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest":                          schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.EnvVar":                                         schema_obot_platform_obot_apiclient_types_EnvVar(ref),
 		"github.com/obot-platform/obot/apiclient/types.ErrHTTP":                                        schema_obot_platform_obot_apiclient_types_ErrHTTP(ref),
+		"github.com/obot-platform/obot/apiclient/types.EulaStatus":                                     schema_obot_platform_obot_apiclient_types_EulaStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.Field":                                          schema_obot_platform_obot_apiclient_types_Field(ref),
 		"github.com/obot-platform/obot/apiclient/types.File":                                           schema_obot_platform_obot_apiclient_types_File(ref),
 		"github.com/obot-platform/obot/apiclient/types.FileList":                                       schema_obot_platform_obot_apiclient_types_FileList(ref),
@@ -2789,6 +2790,28 @@ func schema_obot_platform_obot_apiclient_types_ErrHTTP(ref common.ReferenceCallb
 					},
 				},
 				Required: []string{"Code", "Message"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EulaStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EulaStatus represents the user's EULA acceptance status",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"accepted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Accepted indicates whether the user has accepted the EULA",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"accepted"},
 			},
 		},
 	}
