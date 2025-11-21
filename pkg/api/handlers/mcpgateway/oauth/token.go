@@ -50,7 +50,7 @@ func (h *handler) token(req api.Context) error {
 	var clientSecret string
 	clientID := req.FormValue("client_id")
 	if clientID == "" {
-		creds := strings.Trim(req.Request.Header.Get("Authorization"), "Basic ")
+		creds := strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Basic ")
 		if creds == "" {
 			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
 		}
