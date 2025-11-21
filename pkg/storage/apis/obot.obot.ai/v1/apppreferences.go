@@ -62,4 +62,3 @@ type AppPreferencesList struct {
 
 	Items []AppPreferences `json:"items"`
 }
-

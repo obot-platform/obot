@@ -84,4 +84,3 @@ func convertAppPreferences(prefs v1.AppPreferences) types.AppPreferences {
 		Metadata: MetadataFrom(&prefs),
 	}
 }
-
