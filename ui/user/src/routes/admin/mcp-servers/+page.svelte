@@ -183,7 +183,7 @@
 	}
 
 	function clearQueryFromLocalStorage(view?: View): void {
-		if(!localStorageViewQuery.current){
+		if (!localStorageViewQuery.current) {
 			return;
 		}
 
