@@ -64,10 +64,6 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to apply data: %w", err)
 	}
 
-	if err := c.services.PersistentTokenServer.EnsureJWK(ctx); err != nil {
-		return fmt.Errorf("failed to ensure JWK: %w", err)
-	}
-
 	if err := ensureDefaultUserRoleSetting(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to ensure default user role setting: %w", err)
 	}
@@ -100,6 +96,10 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	}
 	if err != nil {
 		panic(fmt.Errorf("failed to ensure openai env credential and defaults: %w", err))
+	}
+
+	if err := c.services.PersistentTokenServer.EnsureJWK(ctx); err != nil {
+		panic(fmt.Errorf("failed to ensure JWK: %w", err))
 	}
 
 	if err = c.toolRefHandler.EnsureAnthropicCredentialAndDefaults(ctx, client); err != nil {

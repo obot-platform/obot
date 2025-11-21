@@ -49,8 +49,39 @@ const (
 
 // EnsureJWK ensures that the JWK is created and stored in the GPTScript client. It should only be called in a controller pre-start hook which only allows one to be run at a time.
 func (t *TokenService) EnsureJWK(ctx context.Context) error {
-	_, err := ensureJWK(ctx, t.credOnlyGPTClient)
-	return err
+	// Read the credential, if it exists, then use it.
+	cred, err := t.credOnlyGPTClient.RevealCredential(ctx, []string{system.JWKCredentialContext}, system.JWKCredentialContext)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return err
+	}
+
+	var configuredKey ed25519.PrivateKey
+	if keyData := cred.Env[keyEnvVar]; keyData != "" {
+		configuredKey, err = base64.StdEncoding.DecodeString(keyData)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Create a key.
+		_, configuredKey, err = ed25519.GenerateKey(nil)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Write the key to the JWK Set storage.
+	if err := t.credOnlyGPTClient.CreateCredential(ctx, gptscript.Credential{
+		Context:  system.JWKCredentialContext,
+		ToolName: system.JWKCredentialContext,
+		Type:     gptscript.CredentialTypeTool,
+		Env: map[string]string{
+			keyEnvVar: base64.StdEncoding.EncodeToString(configuredKey),
+		},
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // SetJWK sets the JWK in the GPTScript client. It should be called after the JWK is created and stored in the GPTScript client.
@@ -318,42 +349,6 @@ func (t *TokenService) EncodedJWKS() string {
 }
 
 const keyEnvVar = "JWK_KEY"
-
-func ensureJWK(ctx context.Context, gptClient *gptscript.GPTScript) (ed25519.PrivateKey, error) {
-	// Read the credential, if it exists, then use it.
-	cred, err := gptClient.RevealCredential(ctx, []string{system.JWKCredentialContext}, system.JWKCredentialContext)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return nil, err
-	}
-
-	var configuredKey ed25519.PrivateKey
-	if keyData := cred.Env[keyEnvVar]; keyData != "" {
-		configuredKey, err = base64.StdEncoding.DecodeString(keyData)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// Create a key.
-		_, configuredKey, err = ed25519.GenerateKey(nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// Write the key to the JWK Set storage.
-	if err := gptClient.CreateCredential(ctx, gptscript.Credential{
-		Context:  system.JWKCredentialContext,
-		ToolName: system.JWKCredentialContext,
-		Type:     gptscript.CredentialTypeTool,
-		Env: map[string]string{
-			keyEnvVar: base64.StdEncoding.EncodeToString(configuredKey),
-		},
-	}); err != nil {
-		return nil, err
-	}
-
-	return configuredKey, nil
-}
 
 func (t *TokenService) replaceKey(ctx context.Context, key ed25519.PrivateKey) error {
 	jwk, err := jwkset.NewJWKFromKey(key, jwkset.JWKOptions{
