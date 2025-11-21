@@ -47,7 +47,7 @@
 	type LocalStorageViewQuery = Record<View, string>;
 	const localStorageViewQuery = localState<LocalStorageViewQuery>(
 		'@obot/admin/mcp-servers/search-query',
-		{} as LocalStorageViewQuery
+		{ registry: '', deployments: '', urls: '' }
 	);
 
 	initMcpServerAndEntries();
