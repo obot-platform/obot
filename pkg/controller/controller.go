@@ -98,6 +98,10 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 		panic(fmt.Errorf("failed to ensure openai env credential and defaults: %w", err))
 	}
 
+	if err := c.services.PersistentTokenServer.EnsureJWK(ctx); err != nil {
+		panic(fmt.Errorf("failed to ensure JWK: %w", err))
+	}
+
 	if err = c.toolRefHandler.EnsureAnthropicCredentialAndDefaults(ctx, client); err != nil {
 		panic(fmt.Errorf("failed to ensure anthropic credential and defaults: %w", err))
 	}
