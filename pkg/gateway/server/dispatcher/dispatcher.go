@@ -24,33 +24,31 @@ import (
 )
 
 type Dispatcher struct {
-	invoker                     *invoke.Invoker
-	client                      kclient.Client
-	gatewayClient               *client.Client
-	authLock                    *sync.RWMutex
-	authURLs                    map[string]url.URL
-	authProviderExtraEnv        []string
-	modelLock                   *sync.RWMutex
-	modelURLs                   map[string]url.URL
-	fileScannerLock             *sync.RWMutex
-	fileScannerURLs             map[string]url.URL
-	configuredAuthProvidersLock *sync.RWMutex
-	configuredAuthProviders     []string
+	invoker              *invoke.Invoker
+	client               kclient.Client
+	gptscriptClient      *gptscript.GPTScript
+	gatewayClient        *client.Client
+	authLock             *sync.RWMutex
+	authURLs             map[string]url.URL
+	authProviderExtraEnv []string
+	modelLock            *sync.RWMutex
+	modelURLs            map[string]url.URL
+	fileScannerLock      *sync.RWMutex
+	fileScannerURLs      map[string]url.URL
 }
 
-func New(invoker *invoke.Invoker, c kclient.Client, gatewayClient *client.Client, postgresDSN string) *Dispatcher {
+func New(invoker *invoke.Invoker, c kclient.Client, gptscriptClient *gptscript.GPTScript, gatewayClient *client.Client, postgresDSN string) *Dispatcher {
 	d := &Dispatcher{
-		invoker:                     invoker,
-		client:                      c,
-		gatewayClient:               gatewayClient,
-		modelLock:                   new(sync.RWMutex),
-		modelURLs:                   make(map[string]url.URL),
-		authLock:                    new(sync.RWMutex),
-		authURLs:                    make(map[string]url.URL),
-		fileScannerLock:             new(sync.RWMutex),
-		fileScannerURLs:             make(map[string]url.URL),
-		configuredAuthProvidersLock: new(sync.RWMutex),
-		configuredAuthProviders:     make([]string, 0),
+		invoker:         invoker,
+		client:          c,
+		gatewayClient:   gatewayClient,
+		gptscriptClient: gptscriptClient,
+		modelLock:       new(sync.RWMutex),
+		modelURLs:       make(map[string]url.URL),
+		authLock:        new(sync.RWMutex),
+		authURLs:        make(map[string]url.URL),
+		fileScannerLock: new(sync.RWMutex),
+		fileScannerURLs: make(map[string]url.URL),
 	}
 
 	if postgresDSN != "" {
@@ -203,22 +201,7 @@ func (d *Dispatcher) TransformRequest(u url.URL, credEnv map[string]string) func
 	}
 }
 
-func (d *Dispatcher) ListConfiguredAuthProviders(namespace string) []string {
-	// For now, the only supported namespace for auth providers is the default namespace.
-	if namespace != system.DefaultNamespace {
-		return nil
-	}
-
-	d.configuredAuthProvidersLock.RLock()
-	defer d.configuredAuthProvidersLock.RUnlock()
-
-	return d.configuredAuthProviders
-}
-
-func (d *Dispatcher) UpdateConfiguredAuthProviders(ctx context.Context, gptscriptClient *gptscript.GPTScript) {
-	d.configuredAuthProvidersLock.Lock()
-	defer d.configuredAuthProvidersLock.Unlock()
-
+func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, error) {
 	var authProviders v1.ToolReferenceList
 	if err := d.client.List(ctx, &authProviders, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,
@@ -226,18 +209,16 @@ func (d *Dispatcher) UpdateConfiguredAuthProviders(ctx context.Context, gptscrip
 			"spec.type": string(types.ToolReferenceTypeAuthProvider),
 		}),
 	}); err != nil {
-		fmt.Printf("WARNING: dispatcher failed to list auth providers: %v\n", err)
-		return
+		return "", fmt.Errorf("failed to list auth providers: %w", err)
 	}
 
-	var result []string
 	for _, authProvider := range authProviders.Items {
-		if d.isAuthProviderConfigured(ctx, gptscriptClient, []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider) {
-			result = append(result, authProvider.Name)
+		if d.isAuthProviderConfigured(ctx, d.gptscriptClient, []string{string(authProvider.UID), system.GenericAuthProviderCredentialContext}, authProvider) {
+			return authProvider.Name, nil
 		}
 	}
 
-	d.configuredAuthProviders = result
+	return "", nil
 }
 
 // isAuthProviderConfigured checks an auth provider to see if all of its required environment variables are set.

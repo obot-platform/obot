@@ -468,11 +468,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ephemeralTokenServer,
 		events,
 	)
-	providerDispatcher := dispatcher.New(invoker, storageClient, gatewayClient, postgresDSN)
 	credOnlyGPTscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, nil)
 	if err != nil {
 		return nil, err
 	}
+	providerDispatcher := dispatcher.New(invoker, storageClient, credOnlyGPTscriptClient, gatewayClient, postgresDSN)
 
 	persistentTokenServer, err := persistent.NewTokenService(ctx, config.Hostname, gatewayClient, providerDispatcher, credOnlyGPTscriptClient)
 	if err != nil {
@@ -488,7 +488,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, err
 	}
-	providerDispatcher.UpdateConfiguredAuthProviders(ctx, gptscriptClient)
 
 	if strings.HasPrefix(config.DSN, "postgres://") {
 		if err := gptscriptClient.CreateCredential(ctx, gptscript.Credential{
