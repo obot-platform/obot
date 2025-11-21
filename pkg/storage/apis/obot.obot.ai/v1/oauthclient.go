@@ -1,11 +1,17 @@
 package v1
 
 import (
+	"slices"
+
+	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ DeleteRefs = (*OAuthClient)(nil)
+var (
+	_ DeleteRefs    = (*OAuthClient)(nil)
+	_ fields.Fields = (*OAuthClient)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -23,6 +29,22 @@ func (o *OAuthClient) DeleteRefs() []Ref {
 			Name:    o.Spec.MCPServerName,
 		},
 	}
+}
+
+func (o *OAuthClient) Has(field string) bool {
+	return slices.Contains(o.FieldNames(), field)
+}
+
+func (o *OAuthClient) Get(field string) (value string) {
+	switch field {
+	case "spec.mcpServerName":
+		return o.Spec.MCPServerName
+	}
+	return ""
+}
+
+func (*OAuthClient) FieldNames() []string {
+	return []string{"spec.mcpServerName"}
 }
 
 type OAuthClientSpec struct {

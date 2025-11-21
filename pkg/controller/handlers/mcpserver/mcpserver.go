@@ -9,12 +9,12 @@ import (
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -301,13 +301,24 @@ func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router
 
 func (h *Handler) EnsureOAuthClient(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
-	if server.Status.OAuthClientName != "" {
-		var oauthClient v1.OAuthClient
-		if err := req.Get(&oauthClient, req.Namespace, server.Status.OAuthClientName); err == nil {
-			return nil
-		} else if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to get OAuth client: %w", err)
-		}
+
+	fieldSelector := fields.SelectorFromSet(map[string]string{
+		"spec.mcpServerName": server.Name,
+	})
+	var oauthClients v1.OAuthClientList
+	if err := req.List(&oauthClients, &kclient.ListOptions{
+		Namespace:     req.Namespace,
+		FieldSelector: fieldSelector,
+	}); err != nil || len(oauthClients.Items) > 0 {
+		return err
+	}
+
+	// If listing with the cache doesn't return anything, double-check with the uncached listing
+	if err := req.List(untriggered.UncachedList(&oauthClients), &kclient.ListOptions{
+		Namespace:     req.Namespace,
+		FieldSelector: fieldSelector,
+	}); err != nil || len(oauthClients.Items) > 0 {
+		return err
 	}
 
 	clientID := system.OAuthClientPrefix + strings.ToLower(rand.Text())
@@ -342,11 +353,6 @@ func (h *Handler) EnsureOAuthClient(req router.Request, _ router.Response) error
 			ClientSecretHash: hashedClientSecretHash,
 			MCPServerName:    server.Name,
 		},
-	}
-
-	server.Status.OAuthClientName = clientID
-	if err := req.Client.Status().Update(req.Ctx, server); err != nil {
-		return fmt.Errorf("failed to update server status: %w", err)
 	}
 
 	if err := req.Client.Create(req.Ctx, &oauthClient); err != nil {
