@@ -47,7 +47,7 @@ const (
 	TokenTypeRun TokenType = "run"
 )
 
-// EnsureJWK ensures that the JWK is created and stored in the GPTScript client. It should only be called in a controller pre-start hook which only allows one to be run at a time.
+// EnsureJWK ensures that the JWK is created and stored in the GPTScript client. It should only be called in a controller post-start hook which only allows one to be run at a time.
 func (t *TokenService) EnsureJWK(ctx context.Context) error {
 	// Read the credential, if it exists, then use it.
 	cred, err := t.credOnlyGPTClient.RevealCredential(ctx, []string{system.JWKCredentialContext}, system.JWKCredentialContext)
