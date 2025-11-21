@@ -87,14 +87,12 @@
 					? {
 							catalogEntryID: configuringEntry.id,
 							manifest: configuringEntry.manifest,
-							toolOverrides: [],
-							disabled: false
+							toolOverrides: []
 						}
 					: ({
 							mcpServerID: configuringEntry.id,
 							manifest: configuringEntry.manifest,
-							toolOverrides: [],
-							disabled: false
+							toolOverrides: []
 						} as CatalogComponentServer);
 			runPreview();
 			initConfigureToolsDialog?.open();
@@ -177,7 +175,7 @@
 		} catch (err: unknown) {
 			const msg = err instanceof Error ? err.message : String(err);
 			if (msg.includes('OAuth')) {
-				oauthURL = await AdminService.getMcpCatalogToolPreviewsOauth(
+				const oauthResponse = await AdminService.getMcpCatalogToolPreviewsOauth(
 					catalogId!,
 					configuringEntry.id,
 					body,
@@ -185,6 +183,12 @@
 						dryRun: true
 					}
 				);
+
+				if (typeof oauthResponse === 'string') {
+					oauthURL = oauthResponse;
+				} else if (oauthResponse) {
+					oauthURL = undefined;
+				}
 
 				if (oauthURL) {
 					listeningOauthVisibility = true;
@@ -217,8 +221,7 @@
 				? {
 						catalogEntryID: configuringEntry.id,
 						manifest: configuringEntry.manifest,
-						toolOverrides: [],
-						disabled: false
+						toolOverrides: []
 					}
 				: ({
 						mcpServerID: configuringEntry.id,

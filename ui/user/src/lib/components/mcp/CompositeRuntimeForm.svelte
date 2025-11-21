@@ -4,7 +4,6 @@
 	import {
 		AdminService,
 		type CompositeCatalogConfig,
-		type CompositeRuntimeConfig,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type CompositeServerToolRow
@@ -18,7 +17,7 @@
 
 	interface Props {
 		id?: string;
-		config: CompositeCatalogConfig | CompositeRuntimeConfig;
+		config: CompositeCatalogConfig;
 		readonly?: boolean;
 		catalogId?: string;
 		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;

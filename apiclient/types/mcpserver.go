@@ -60,15 +60,25 @@ type CompositeCatalogConfig struct {
 	ComponentServers []CatalogComponentServer `json:"componentServers"`
 }
 
-// CatalogComponentServer represents a component server in a composite server catalog entry.
 type CatalogComponentServer struct {
-	// CatalogEntryID references a catalog entry for single-user and remote components
+	// CatalogEntryID if set, reference the catalog entry the component server is sourced from
 	CatalogEntryID string `json:"catalogEntryID,omitempty"`
-	// MCPServerID references a multi-user MCP server
-	MCPServerID   string                        `json:"mcpServerID,omitempty"`
-	Manifest      MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
-	ToolOverrides []ToolOverride                `json:"toolOverrides,omitempty"`
-	Disabled      bool                          `json:"disabled,omitempty"`
+	// MCPServerID if set, reference the multi-user MCP server the component server proxies to
+	MCPServerID string `json:"mcpServerID,omitempty"`
+	// Manifest is the catalog entry manifest of the component server
+	Manifest MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
+	// ToolOverrides restrict the tools exposed by the component server
+	ToolOverrides []ToolOverride `json:"toolOverrides,omitempty"`
+}
+
+// ComponentID returns the ID of the component server.
+// It's used to uniquely identify a component server in a composite server.
+func (c CatalogComponentServer) ComponentID() string {
+	if c.CatalogEntryID != "" {
+		return c.CatalogEntryID
+	}
+
+	return c.MCPServerID
 }
 
 type CompositeRuntimeConfig struct {
@@ -76,13 +86,26 @@ type CompositeRuntimeConfig struct {
 }
 
 type ComponentServer struct {
-	// CatalogEntryID references a catalog entry for single-user and remote components
+	// CatalogEntryID if set, reference the catalog entry the component server is sourced from
 	CatalogEntryID string `json:"catalogEntryID,omitempty"`
-	// MCPServerID references a multi-user MCP server
-	MCPServerID   string            `json:"mcpServerID,omitempty"`
-	Manifest      MCPServerManifest `json:"manifest,omitempty"`
-	ToolOverrides []ToolOverride    `json:"toolOverrides,omitempty"`
-	Disabled      bool              `json:"disabled,omitempty"`
+	// MCPServerID if set, reference the multi-user MCP server the component server proxies to
+	MCPServerID string `json:"mcpServerID,omitempty"`
+	// Manifest is the runtime manifest of the component server
+	Manifest MCPServerManifest `json:"manifest,omitempty"`
+	// ToolOverrides restrict the tools exposed by the component server
+	ToolOverrides []ToolOverride `json:"toolOverrides,omitempty"`
+	// Disabled indicates whether the component server should be included in the composite server at runtime
+	Disabled bool `json:"disabled,omitempty"`
+}
+
+// ComponentID returns the ID of the component server.
+// It's used to uniquely identify a component server in a composite server.
+func (c ComponentServer) ComponentID() string {
+	if c.CatalogEntryID != "" {
+		return c.CatalogEntryID
+	}
+
+	return c.MCPServerID
 }
 
 type MCPServerCatalogEntry struct {
@@ -328,7 +351,10 @@ func (e RuntimeValidationError) Error() string {
 
 // MapCatalogEntryToServer converts an MCPServerCatalogEntryManifest to an MCPServerManifest
 // For remote runtime, userURL is used when the catalog entry has a hostname constraint
-func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string) (MCPServerManifest, error) {
+// If disableHostnameValidation is true, the hostname constraint is not validated.
+// This option exists to allow mapping disabled remote components of a composite server, which may
+// not have a user URL set until they are enabled.
+func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string, disableHostnameValidation bool) (MCPServerManifest, error) {
 	serverManifest := MCPServerManifest{
 		// Copy common fields
 		Metadata:    catalogEntry.Metadata,
@@ -396,25 +422,27 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 
 		remoteConfig := &RemoteRuntimeConfig{}
 
-		if catalogEntry.RemoteConfig.FixedURL != "" {
-			// Use the fixed URL from catalog entry
+		switch {
+		case catalogEntry.RemoteConfig.FixedURL != "":
 			remoteConfig.URL = catalogEntry.RemoteConfig.FixedURL
-		} else if catalogEntry.RemoteConfig.Hostname != "" {
-			// Validate that userURL uses the required hostname
-			if userURL == "" {
-				return serverManifest, RuntimeValidationError{
-					Runtime: RuntimeRemote,
-					Field:   "URL",
-					Message: "user URL is required when catalog entry specifies hostname constraint",
+		case catalogEntry.RemoteConfig.Hostname != "":
+			if !disableHostnameValidation {
+				if userURL == "" {
+					return serverManifest, RuntimeValidationError{
+						Runtime: RuntimeRemote,
+						Field:   "URL",
+						Message: "user URL is required when catalog entry specifies hostname constraint",
+					}
+				}
+				if err := ValidateURLHostname(userURL, catalogEntry.RemoteConfig.Hostname); err != nil {
+					return serverManifest, err
 				}
 			}
-			if err := ValidateURLHostname(userURL, catalogEntry.RemoteConfig.Hostname); err != nil {
-				return serverManifest, err
-			}
+
 			remoteConfig.URL = userURL
-		} else if catalogEntry.RemoteConfig.URLTemplate != "" {
+		case catalogEntry.RemoteConfig.URLTemplate != "":
 			remoteConfig.IsTemplate = true
-		} else {
+		default:
 			return serverManifest, RuntimeValidationError{
 				Runtime: RuntimeRemote,
 				Field:   "remoteConfig",
@@ -425,45 +453,6 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		// Copy headers from catalog entry
 		remoteConfig.Headers = catalogEntry.RemoteConfig.Headers
 		serverManifest.RemoteConfig = remoteConfig
-
-	case RuntimeComposite:
-		if catalogEntry.CompositeConfig == nil {
-			return serverManifest, RuntimeValidationError{
-				Runtime: RuntimeComposite,
-				Field:   "compositeConfig",
-				Message: "composite configuration is required for composite runtime",
-			}
-		}
-
-		// Convert CatalogComponentServer to ComponentServer
-		componentServers := make([]ComponentServer, len(catalogEntry.CompositeConfig.ComponentServers))
-		for i, catalogComponent := range catalogEntry.CompositeConfig.ComponentServers {
-			componentServer := ComponentServer{
-				CatalogEntryID: catalogComponent.CatalogEntryID,
-				MCPServerID:    catalogComponent.MCPServerID,
-				ToolOverrides:  catalogComponent.ToolOverrides,
-				Disabled:       false,
-			}
-
-			if catalogComponent.CatalogEntryID != "" {
-				componentServerManifest, err := MapCatalogEntryToServer(catalogComponent.Manifest, "")
-				if err != nil {
-					return serverManifest, RuntimeValidationError{
-						Runtime: RuntimeComposite,
-						Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
-						Message: fmt.Sprintf("failed to convert component manifest: %v", err),
-					}
-				}
-				componentServer.Manifest = componentServerManifest
-			}
-
-			componentServers[i] = componentServer
-		}
-
-		serverManifest.CompositeConfig = &CompositeRuntimeConfig{
-			ComponentServers: componentServers,
-		}
-
 	default:
 		return serverManifest, RuntimeValidationError{
 			Runtime: catalogEntry.Runtime,
