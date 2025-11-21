@@ -99,7 +99,7 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 		if err != nil {
 			return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
 		}
-		if configuredProvider != "" && configuredProvider != name {
+		if configuredProvider != name {
 			return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", name))
 		}
 	}
