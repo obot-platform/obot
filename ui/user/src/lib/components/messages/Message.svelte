@@ -9,10 +9,18 @@
 		Brain,
 		FileSymlink,
 		Download,
-		TriangleAlert
+		TriangleAlert,
+		LoaderCircle,
+		Code
 	} from 'lucide-svelte/icons';
 	import { Tween } from 'svelte/motion';
-	import { ChatService, type Message, type Project } from '$lib/services';
+	import {
+		AdminService,
+		ChatService,
+		type CallFrame,
+		type Message,
+		type Project
+	} from '$lib/services';
 	import highlight from 'highlight.js';
 	import { toHTMLFromMarkdown } from '$lib/markdown.js';
 	import { Paperclip } from 'lucide-svelte';
@@ -29,6 +37,7 @@
 	import { linear } from 'svelte/easing';
 	import { twMerge } from 'tailwind-merge';
 	import { isTextFile } from '$lib/utils';
+	import { profile } from '$lib/stores';
 
 	interface Props {
 		msg: Message;
@@ -54,6 +63,7 @@
 			prompt?: string;
 		};
 		compactFilePreview?: boolean;
+		onDebugMessageRun?: (runId: string, frames: Record<string, CallFrame>) => void;
 	}
 
 	let {
@@ -68,7 +78,8 @@
 		noMemoryTool,
 		clearable = false,
 		classes,
-		compactFilePreview
+		compactFilePreview,
+		onDebugMessageRun
 	}: Props = $props();
 
 	let content = $derived(
@@ -116,6 +127,8 @@
 			msg.sourceName === 'Update Memory' ||
 			msg.sourceName === 'Delete Memory'
 	);
+
+	let loadingDebug = $state(false);
 
 	$effect(() => {
 		if (!shouldAnimate) return;
@@ -387,6 +400,25 @@
 					</button>
 				{/if}
 			</div>
+		{/if}
+
+		{#if onDebugMessageRun && profile.current.hasAdminAccess?.()}
+			<button
+				class="button-icon"
+				onclick={async () => {
+					loadingDebug = true;
+					const response = await AdminService.listCallFramesForDebugRunById(msg.runID);
+					onDebugMessageRun(msg.runID, response);
+					loadingDebug = false;
+				}}
+				use:tooltip={'Debug Message Run'}
+			>
+				{#if loadingDebug}
+					<LoaderCircle class="size-4 animate-spin" />
+				{:else}
+					<Code class="size-4" />
+				{/if}
+			</button>
 		{/if}
 	</div>
 {/snippet}
