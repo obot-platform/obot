@@ -566,6 +566,7 @@
 					hostname?: string;
 					url?: string;
 					disabled?: boolean;
+					isMultiUser?: boolean;
 					envs?: Array<Record<string, unknown> & { key: string; value: string }>;
 					headers?: Array<Record<string, unknown> & { key: string; value: string }>;
 				}
@@ -574,22 +575,28 @@
 				const id = c.catalogEntryID || c.mcpServerID;
 				if (!id || !c.manifest) continue;
 				const m = c.manifest;
+				const isMultiUser = !!c.mcpServerID && !c.catalogEntryID;
 				componentConfigs[id] = {
 					name: m.name,
 					icon: m.icon,
-					hostname: m.remoteConfig?.hostname,
-					url: m.remoteConfig?.fixedURL ?? '',
+					hostname: isMultiUser ? undefined : m.remoteConfig?.hostname,
+					url: isMultiUser ? undefined : (m.remoteConfig?.fixedURL ?? ''),
 					disabled: false,
-					envs: (m.env ?? []).map((e) => ({
-						...(e as unknown as Record<string, unknown>),
-						key: e.key,
-						value: ''
-					})),
-					headers: (m.remoteConfig?.headers ?? []).map((h) => ({
-						...(h as unknown as Record<string, unknown>),
-						key: h.key,
-						value: ''
-					}))
+					isMultiUser,
+					envs: isMultiUser
+						? []
+						: (m.env ?? []).map((e) => ({
+								...(e as unknown as Record<string, unknown>),
+								key: e.key,
+								value: ''
+							})),
+					headers: isMultiUser
+						? []
+						: (m.remoteConfig?.headers ?? []).map((h) => ({
+								...(h as unknown as Record<string, unknown>),
+								key: h.key,
+								value: ''
+							}))
 				};
 			}
 			configureForm = { componentConfigs } as CompositeLaunchFormData;
