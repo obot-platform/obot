@@ -109,7 +109,6 @@
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let selectedServerType = $state<'single' | 'multi' | 'remote' | 'composite'>();
 	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
-	// let query = $state('');
 
 	let showServerForm = $state(false);
 	let saving = $state(false);
