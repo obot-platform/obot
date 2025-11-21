@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { CallFrame } from '$lib/services';
+	import type { CallFrame, ToolReference } from '$lib/services';
 	import { ChevronDown, ChevronUp, Code, Download, Maximize2, Minimize2 } from 'lucide-svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import JsonTreeView from '../JsonTreeView.svelte';
@@ -156,7 +156,7 @@
 		<div class="my-2 ml-5">
 			{#if call?.tool?.source?.location && call.tool.source.location !== 'inline'}
 				<div class="mb-2 text-sm text-gray-400 dark:text-gray-600">
-					Source:{' '}
+					Source:
 					<a
 						href={call.tool.source.location}
 						target="_blank"
@@ -197,7 +197,7 @@
 									</details>
 								</li>
 							{:else if output.subCalls}
-								{#each Object.entries(output.subCalls) as [subCallKey, subCall]}
+								{#each Object.entries(output.subCalls) as [subCallKey, subCall] (subCallKey)}
 									<li class="mb-2">
 										<details open={expandAll}>
 											<summary class="cursor-pointer">
@@ -315,16 +315,16 @@
 	{/if}
 {/snippet}
 
-{#snippet toolMappingContent(toolMapping: Record<string, any>)}
+{#snippet toolMappingContent(toolMapping: Record<string, ToolReference[]>)}
 	{#each Object.entries(toolMapping) as [key, value] (key)}
 		<div class="mb-2">
-			{#if value.some((item: any) => item.toolID !== key)}
+			{#if value.some((item) => item.id !== key)}
 				{key}:
 				<ul class="ml-5 list-none">
-					{#each value as item (item.toolID)}
+					{#each value as item (item.id)}
 						<li class="mb-2">
 							<p class="ml-5 whitespace-pre-wrap">{item.reference}</p>
-							<p class="ml-5 whitespace-pre-wrap">{item.toolID}</p>
+							<p class="ml-5 whitespace-pre-wrap">{item.id}</p>
 						</li>
 					{/each}
 				</ul>

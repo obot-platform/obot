@@ -411,7 +411,7 @@
 					onDebugMessageRun(msg.runID, response);
 					loadingDebug = false;
 				}}
-				use:tooltip={'Debug Message Run'}
+				use:tooltip={'Debug Message Information'}
 			>
 				{#if loadingDebug}
 					<LoaderCircle class="size-4 animate-spin" />
