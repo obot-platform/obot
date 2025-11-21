@@ -175,17 +175,20 @@
 	// Helper function to persist query to local storage
 	function persistQueryToLocalStorage(view: View, queryValue: string): void {
 		if (!localStorageViewQuery.current) {
-			localStorageViewQuery.current = { registry: '', deployments: '', urls: '' };
+			// Do nothing if local value has not loaded yets
+			return;
 		}
 
 		localStorageViewQuery.current[view] = queryValue;
 	}
 
 	function clearQueryFromLocalStorage(view?: View): void {
+		if(!localStorageViewQuery.current){
+			return;
+		}
+
 		if (view) {
-			if (localStorageViewQuery.current) {
-				localStorageViewQuery.current[view] = '';
-			}
+			localStorageViewQuery.current[view] = '';
 		} else {
 			localStorageViewQuery.current = { registry: '', deployments: '', urls: '' };
 		}
