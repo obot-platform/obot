@@ -182,7 +182,7 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, userID, scope string, cr
 	return serverConfig, missingRequiredNames, nil
 }
 
-func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, audiences []string, issuer, jwks, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
+func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, issuer, jwks, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
 	config, missing, err := ServerToServerConfig(mcpServer, audiences, issuer, jwks, userID, scope, mcpCatalogName, credEnv, tokenExchangeCredEnv)
 	if err != nil {
 		return config, missing, err
@@ -190,10 +190,14 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 
 	overrides := make(map[string]types.ComponentServer, len(mcpServer.Spec.Manifest.CompositeConfig.ComponentServers))
 	for _, component := range mcpServer.Spec.Manifest.CompositeConfig.ComponentServers {
-		overrides[component.CatalogEntryID] = component
+		if component.CatalogEntryID != "" {
+			overrides[component.CatalogEntryID] = component
+		} else if component.MCPServerID != "" {
+			overrides[component.MCPServerID] = component
+		}
 	}
 
-	config.Components = make([]ComponentServer, 0, len(components))
+	config.Components = make([]ComponentServer, 0, len(components)+len(instances))
 	for _, component := range components {
 		name := component.Spec.Manifest.Name
 		if name == "" {
@@ -201,14 +205,13 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 		}
 
 		override := overrides[component.Spec.MCPServerCatalogEntryName]
+		if override.Disabled {
+			continue
+		}
+
 		tools := make([]types.ToolOverride, 0, len(override.ToolOverrides))
 		for _, tool := range override.ToolOverrides {
-			if !tool.Enabled {
-				tools = append(tools, types.ToolOverride{
-					Name:    tool.Name,
-					Enabled: tool.Enabled,
-				})
-			} else {
+			if tool.Enabled {
 				tools = append(tools, types.ToolOverride{
 					Name:                tool.Name,
 					OverrideName:        tool.OverrideName,
@@ -221,6 +224,31 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 		config.Components = append(config.Components, ComponentServer{
 			Name:  name,
 			URL:   system.MCPConnectURL(issuer, component.Name),
+			Tools: tools,
+		})
+	}
+
+	for _, instance := range instances {
+		override := overrides[instance.Spec.MCPServerName]
+		if override.Disabled {
+			continue
+		}
+
+		tools := make([]types.ToolOverride, 0, len(override.ToolOverrides))
+		for _, tool := range override.ToolOverrides {
+			if tool.Enabled {
+				tools = append(tools, types.ToolOverride{
+					Name:                tool.Name,
+					OverrideName:        tool.OverrideName,
+					OverrideDescription: tool.OverrideDescription,
+					Enabled:             tool.Enabled,
+				})
+			}
+		}
+
+		config.Components = append(config.Components, ComponentServer{
+			Name:  instance.Name,
+			URL:   system.MCPConnectURL(issuer, instance.Name),
 			Tools: tools,
 		})
 	}

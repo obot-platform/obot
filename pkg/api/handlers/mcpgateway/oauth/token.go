@@ -411,18 +411,32 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 			_, componentMCPID, ok := strings.Cut(resource, "/mcp-connect/")
 			token := subjectToken
+			audienceID := componentMCPID
 			if ok {
-				// Ensure this MCP server belongs to this composite MCP server.
-				var composite v1.MCPServer
-				if err := req.Get(&composite, componentMCPID); err != nil || composite.Spec.CompositeName != mcpServer.Name {
-					return types.NewErrBadRequest("%v", Error{
-						Code:        ErrInvalidRequest,
-						Description: "failed to retrieve composite MCP server " + componentMCPID,
-					})
+				if system.IsMCPServerInstanceID(componentMCPID) {
+					// Ensure this MCP server instance belongs to this composite MCP server.
+					var component v1.MCPServerInstance
+					if err := req.Get(&component, componentMCPID); err != nil || component.Spec.CompositeName != mcpServer.Name {
+						return types.NewErrBadRequest("%v", Error{
+							Code:        ErrInvalidRequest,
+							Description: "failed to retrieve composite MCP server " + componentMCPID,
+						})
+					}
+
+					audienceID = component.Spec.MCPServerName
+				} else {
+					// Ensure this MCP server belongs to this composite MCP server.
+					var component v1.MCPServer
+					if err := req.Get(&component, componentMCPID); err != nil || component.Spec.CompositeName != mcpServer.Name {
+						return types.NewErrBadRequest("%v", Error{
+							Code:        ErrInvalidRequest,
+							Description: "failed to retrieve composite MCP server " + componentMCPID,
+						})
+					}
 				}
 
 				tokenCtx.MCPID = componentMCPID
-				tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, componentMCPID)
+				tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audienceID)
 
 				token, err = h.tokenService.NewToken(*tokenCtx)
 				if err != nil {

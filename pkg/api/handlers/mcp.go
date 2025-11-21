@@ -745,7 +745,15 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 			return fmt.Errorf("failed to list component servers: %w", err)
 		}
 
-		serverConfig, missingRequiredNames, err = mcp.CompositeServerToServerConfig(mcpServer, componentServers.Items, mcpServer.ValidConnectURLs(baseURL), baseURL, m.jwks(), req.User.GetUID(), project.Name, catalogName, cred.Env, tokenExchangeCred.Env)
+		var componentInstances v1.MCPServerInstanceList
+		if err = req.List(&componentInstances,
+			kclient.InNamespace(mcpServer.Namespace),
+			kclient.MatchingFields{"spec.compositeName": mcpServer.Name},
+		); err != nil {
+			return fmt.Errorf("failed to list component servers instances: %w", err)
+		}
+
+		serverConfig, missingRequiredNames, err = mcp.CompositeServerToServerConfig(mcpServer, componentServers.Items, componentInstances.Items, mcpServer.ValidConnectURLs(baseURL), baseURL, m.jwks(), req.User.GetUID(), project.Name, catalogName, cred.Env, tokenExchangeCred.Env)
 	} else {
 		serverConfig, missingRequiredNames, err = mcp.ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs(baseURL), baseURL, m.jwks(), req.User.GetUID(), project.Name, catalogName, cred.Env, tokenExchangeCred.Env)
 	}
@@ -1296,7 +1304,15 @@ func serverConfigForAction(req api.Context, server v1.MCPServer, jwks string) (m
 			return mcp.ServerConfig{}, fmt.Errorf("failed to list component servers: %w", err)
 		}
 
-		serverConfig, missingConfig, err = mcp.CompositeServerToServerConfig(server, componentServers.Items, server.ValidConnectURLs(baseURL), baseURL, jwks, req.User.GetUID(), scope, catalogName, cred.Env, tokenExchangeCred.Env)
+		var componentInstances v1.MCPServerInstanceList
+		if err = req.List(&componentInstances,
+			kclient.InNamespace(server.Namespace),
+			kclient.MatchingFields{"spec.compositeName": server.Name},
+		); err != nil {
+			return mcp.ServerConfig{}, fmt.Errorf("failed to list component servers instances: %w", err)
+		}
+
+		serverConfig, missingConfig, err = mcp.CompositeServerToServerConfig(server, componentServers.Items, componentInstances.Items, server.ValidConnectURLs(baseURL), baseURL, jwks, req.User.GetUID(), scope, catalogName, cred.Env, tokenExchangeCred.Env)
 	} else {
 		serverConfig, missingConfig, err = mcp.ServerToServerConfig(server, server.ValidConnectURLs(baseURL), baseURL, jwks, req.User.GetUID(), scope, catalogName, cred.Env, tokenExchangeCred.Env)
 	}
