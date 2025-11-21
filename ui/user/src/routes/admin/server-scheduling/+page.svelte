@@ -271,7 +271,7 @@
 								bind:value={resourceInfo.requests.cpu}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
-								placeholder="Default: Unset"
+								placeholder="example: 500m"
 							/>
 						</div>
 						<div class="flex flex-1 flex-col gap-1">
@@ -282,7 +282,7 @@
 								bind:value={resourceInfo.limits.cpu}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
-								placeholder="Default: Unset"
+								placeholder="example: 1"
 							/>
 						</div>
 					</div>
@@ -296,7 +296,7 @@
 								bind:value={resourceInfo.requests.memory}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
-								placeholder="Default: 400Mi"
+								placeholder="example: 512Mi"
 							/>
 						</div>
 						<div class="flex flex-1 flex-col gap-1">
@@ -307,7 +307,7 @@
 								bind:value={resourceInfo.limits.memory}
 								class="text-input-filled dark:bg-black"
 								disabled={readonly}
-								placeholder="Default: Unset"
+								placeholder="example: 1Gi"
 							/>
 						</div>
 					</div>
