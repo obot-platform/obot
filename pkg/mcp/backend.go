@@ -176,16 +176,18 @@ func webhookToServerConfig(webhook Webhook, baseImage, mcpServerName, userID, sc
 
 func constructNanobotYAMLForCompositeServer(servers []ComponentServer) (string, error) {
 	mcpServers := make(map[string]nanobotConfigMCPServer, len(servers))
-	tools := make(map[string]toolOverride, len(servers))
 	names := make([]string, 0, len(servers))
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
 
 	for _, component := range servers {
+		tools := make(map[string]toolOverride, len(component.Tools))
 		for _, tool := range component.Tools {
+			if !tool.Enabled {
+				continue
+			}
 			tools[tool.Name] = toolOverride{
 				Name:        tool.OverrideName,
 				Description: tool.OverrideDescription,
-				Disabled:    !tool.Enabled,
 			}
 		}
 
@@ -276,5 +278,4 @@ type nanobotConfigMCPServer struct {
 type toolOverride struct {
 	Name        string `json:"name,omitempty"`
 	Description string `json:"description,omitempty"`
-	Disabled    bool   `json:"disabled,omitempty"`
 }
