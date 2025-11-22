@@ -61,12 +61,6 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 }
 
 func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfig, webhooks []Webhook) error {
-	switch server.Runtime {
-	case types.RuntimeNPX, types.RuntimeUVX, types.RuntimeContainerized:
-	default:
-		return fmt.Errorf("unsupported MCP runtime: %s", server.Runtime)
-	}
-
 	// Generate the Kubernetes deployment objects.
 	objs, err := k.k8sObjects(ctx, server, webhooks)
 	if err != nil {
