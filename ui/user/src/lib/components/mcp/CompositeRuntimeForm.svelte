@@ -1,5 +1,13 @@
 <script lang="ts">
-	import { Plus, Server, Trash2, ChevronDown, ChevronUp, LoaderCircle } from 'lucide-svelte';
+	import {
+		Plus,
+		Server,
+		Trash2,
+		ChevronDown,
+		ChevronUp,
+		LoaderCircle,
+		RefreshCcw
+	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import {
 		AdminService,
@@ -14,6 +22,7 @@
 	import CompositeEditTools from './composite/CompositeEditTools.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import Toggle from '../Toggle.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		id?: string;
@@ -46,6 +55,18 @@
 	// Helper to get unique ID for a component (catalogEntryID or mcpServerID)
 	function getComponentId(c: { catalogEntryID?: string; mcpServerID?: string }): string {
 		return c.catalogEntryID || c.mcpServerID || '';
+	}
+
+	// Open the tools configuration / refresh flow for a specific component
+	function openToolsConfigurator(componentId: string) {
+		const match =
+			componentServers.get(componentId) || componentEntries.find((e) => e.id === componentId);
+		if (match) {
+			configuringEntry = match;
+		}
+		loadingByEntry[componentId] = true;
+		toolsToEdit = toolsByEntry[componentId] ?? [];
+		compositeToolsSetupDialog?.open();
 	}
 
 	// Pre-populate toolsByEntry from existing toolOverrides in config
@@ -167,6 +188,17 @@
 						<div class="flex-1">
 							<div class="font-medium">{entry.manifest?.name || 'Unnamed Server'}</div>
 						</div>
+						{#if entry.toolOverrides?.length && !readonly}
+							<button
+								type="button"
+								class="icon-button"
+								use:tooltip={'Refresh tool overrides'}
+								disabled={loadingByEntry[componentId]}
+								onclick={() => openToolsConfigurator(componentId)}
+							>
+								<RefreshCcw class={`size-4 ${loadingByEntry[componentId] ? 'animate-spin' : ''}`} />
+							</button>
+						{/if}
 						<button
 							type="button"
 							class="icon-button"
@@ -197,15 +229,7 @@
 										type="button"
 										class="button-primary text-sm"
 										disabled={loadingByEntry[componentId]}
-										onclick={async () => {
-											const match =
-												componentServers.get(componentId) ||
-												componentEntries.find((e) => e.id === componentId);
-											if (match) {
-												configuringEntry = match;
-											}
-											compositeToolsSetupDialog?.open();
-										}}
+										onclick={() => openToolsConfigurator(componentId)}
 									>
 										{#if loadingByEntry[componentId]}
 											<LoaderCircle class="size-4 animate-spin" />
@@ -264,6 +288,7 @@
 			type="button"
 			onclick={() => {
 				configuringEntry = undefined;
+				toolsToEdit = [];
 				compositeToolsSetupDialog?.open();
 			}}
 			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-sm font-medium hover:bg-gray-50"
@@ -279,7 +304,11 @@
 	{mcpEntriesContextFn}
 	{catalogId}
 	{configuringEntry}
+	existingTools={toolsToEdit}
 	onCancel={() => {
+		if (configuringEntry) {
+			loadingByEntry[configuringEntry.id] = false;
+		}
 		configuringEntry = undefined;
 	}}
 	onSuccess={(componentConfig, entry, tools) => {
@@ -304,6 +333,8 @@
 			populatedByEntry[id] = true;
 			toolsByEntry[id] = tools;
 		}
+
+		loadingByEntry[id] = false;
 
 		if ('isCatalogEntry' in entry) {
 			if (!componentEntries.find((e) => e.id === entry.id)) {

@@ -26,6 +26,7 @@
 		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
 		configuringEntry?: MCPCatalogEntry | MCPCatalogServer;
 		excluded?: string[];
+		existingTools?: CompositeServerToolRow[];
 	}
 
 	let {
@@ -34,7 +35,8 @@
 		onSuccess,
 		mcpEntriesContextFn,
 		excluded,
-		configuringEntry: presetConfiguringEntry
+		configuringEntry: presetConfiguringEntry,
+		existingTools
 	}: Props = $props();
 	let searchDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let choiceDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -166,10 +168,31 @@
 		if (!catalogId || !configuringEntry) return;
 		loading = true;
 		try {
-			tools =
+			let previewTools =
 				'isCatalogEntry' in configuringEntry
 					? await fetchSingleRemoteTools(configuringEntry.id, catalogId, body)
 					: await fetchMultiServerTools(configuringEntry.id);
+
+			// If we already have tool overrides for this component, preserve the user's
+			// override settings (name, description, enabled) for tools that still exist.
+			if (existingTools && existingTools.length > 0) {
+				const existingByName = new Map(
+					existingTools.map((t) => [t.originalName || t.overrideName, t])
+				);
+				previewTools = previewTools.map((t) => {
+					const existing = existingByName.get(t.originalName || t.overrideName);
+					return existing
+						? {
+								...t,
+								overrideName: existing.overrideName,
+								overrideDescription: existing.overrideDescription,
+								enabled: existing.enabled
+							}
+						: t;
+				});
+			}
+
+			tools = previewTools;
 			initConfigureToolsDialog?.close();
 			modifyToolsDialog?.open();
 		} catch (err: unknown) {
