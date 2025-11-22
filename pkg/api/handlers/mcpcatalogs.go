@@ -1397,51 +1397,11 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 		return types.NewErrBadRequest("composite entry has no component configuration")
 	}
 
-	// Store old manifests to compare for changes
-	var compositeConfig types.CompositeCatalogConfig
-	if config := entry.Spec.Manifest.CompositeConfig; config != nil {
-		compositeConfig = *config
-	}
-
-	oldManifests := make(map[string]string, len(compositeConfig.ComponentServers))
-	for _, component := range compositeConfig.ComponentServers {
-		id, err := h.compositeComponentID(component)
-		if err != nil {
-			return err
-		}
-
-		oldManifests[id] = hash.Digest(component.Manifest)
-	}
-
 	// Refresh component manifests from their current sources
 	// This will populate the entry.Spec.Manifest.CompositeConfig.ComponentServers with the current manifests
 	// and remove components that no longer exist
 	if err := h.populateComponentManifests(req, &entry.Spec.Manifest, catalogName, ""); err != nil {
 		return err
-	}
-
-	// Clear toolOverrides for components whose manifests changed
-	if entry.Spec.Manifest.CompositeConfig != nil {
-		for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
-			var (
-				component = &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
-				id, err   = h.compositeComponentID(*component)
-			)
-			if err != nil {
-				return err
-			}
-
-			oldDigest, ok := oldManifests[id]
-			if !ok {
-				// New component; leave ToolOverrides as-is
-				continue
-			}
-
-			newDigest := hash.Digest(component.Manifest)
-			if oldDigest != newDigest {
-				component.ToolOverrides = nil
-			}
-		}
 	}
 
 	// Validate the refreshed manifest to ensure it's still valid
@@ -1455,15 +1415,4 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 	}
 
 	return req.Write(convertMCPServerCatalogEntry(entry))
-}
-
-func (*MCPCatalogHandler) compositeComponentID(component types.CatalogComponentServer) (string, error) {
-	if component.CatalogEntryID != "" {
-		return component.CatalogEntryID, nil
-	}
-	if component.MCPServerID != "" {
-		return component.MCPServerID, nil
-	}
-
-	return "", fmt.Errorf("component has no ID")
 }
