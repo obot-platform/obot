@@ -363,6 +363,25 @@ export async function generateMcpCatalogEntryToolPreviews(
 	return opts?.dryRun ? (resp as MCPCatalogEntry) : undefined;
 }
 
+export async function generateMcpCompositeComponentToolPreviews(
+	catalogID: string,
+	compositeEntryID: string,
+	componentID: string,
+	body?: {
+		config?: Record<string, string>;
+		url?: string;
+	},
+	opts?: { fetch?: Fetcher; dryRun?: boolean }
+): Promise<MCPCatalogEntry | void> {
+	const path = `/mcp-catalogs/${catalogID}/entries/${compositeEntryID}/${componentID}/generate-tool-previews`;
+	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
+	const resp = await doPost(url, body ?? {}, {
+		...opts,
+		dontLogErrors: true
+	});
+	return opts?.dryRun ? (resp as MCPCatalogEntry) : undefined;
+}
+
 export async function getMcpCatalogToolPreviewsOauth(
 	catalogID: string,
 	entryID: string,
@@ -399,6 +418,31 @@ export async function getMcpCatalogToolPreviewsOauth(
 
 		// Otherwise it's a map of component IDs to OAuth URLs
 		return response as Record<string, string>;
+	} catch (_err) {
+		return '';
+	}
+}
+
+export async function getMcpCompositeComponentToolPreviewsOauth(
+	catalogID: string,
+	compositeEntryID: string,
+	componentID: string,
+	body?: {
+		config?: Record<string, string>;
+		url?: string;
+	},
+	opts?: { fetch?: Fetcher; dryRun?: boolean }
+): Promise<string> {
+	try {
+		const path = `/mcp-catalogs/${catalogID}/entries/${compositeEntryID}/${componentID}/generate-tool-previews/oauth-url`;
+		const url = opts?.dryRun ? `${path}?dryRun=true` : path;
+		const response = (await doPost(url, body ?? {}, {
+			...opts,
+			dontLogErrors: true
+		})) as {
+			oauthURL: string;
+		};
+		return response.oauthURL;
 	} catch (_err) {
 		return '';
 	}
