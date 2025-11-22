@@ -361,13 +361,6 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
 
-	// Handle composite catalog entries
-	if manifest.Runtime == types.RuntimeComposite && manifest.CompositeConfig != nil {
-		if err := h.populateComponentManifests(req, &manifest, catalogName, workspaceID); err != nil {
-			return err
-		}
-	}
-
 	if err := validation.ValidateCatalogEntryManifest(manifest); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
@@ -1046,6 +1039,218 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GPTClient, req.Storage, entry.Namespace, catalogName, entry.Spec.Manifest, configRequest.Config, h.serverURL, jwks)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
+	}
+
+	oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
+	if err != nil {
+		return types.NewErrBadRequest("failed to check for MCP auth: %v", err)
+	}
+
+	return req.Write(map[string]string{"oauthURL": oauthURL})
+}
+
+// GenerateComponentToolPreviews generates tool previews for a single component of a composite
+// catalog entry using the manifest snapshot embedded in the composite entry. This is used by
+// the composite \"Configure Tools\" flow so that previews are based on the composite's
+// stored manifest, not on any newer version of the standalone MCP catalog entry.
+func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error {
+	var (
+		catalogName = req.PathValue("catalog_id")
+		compositeID = req.PathValue("entry_id")
+		componentID = req.PathValue("component_id")
+	)
+
+	if catalogName == "" {
+		return types.NewErrBadRequest("catalog_id is required")
+	}
+
+	// Verify catalog exists
+	if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	// Load the composite catalog entry
+	var composite v1.MCPServerCatalogEntry
+	if err := req.Get(&composite, compositeID); err != nil {
+		return fmt.Errorf("failed to get composite catalog entry: %w", err)
+	}
+
+	if composite.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	}
+
+	if composite.Spec.Manifest.Runtime != types.RuntimeComposite {
+		return types.NewErrBadRequest("entry is not a composite catalog entry")
+	}
+
+	if composite.Spec.Manifest.CompositeConfig == nil {
+		return types.NewErrBadRequest("composite entry has no component configuration")
+	}
+
+	// Find the referenced component in the composite's configuration.
+	var component *types.CatalogComponentServer
+	for i := range composite.Spec.Manifest.CompositeConfig.ComponentServers {
+		c := &composite.Spec.Manifest.CompositeConfig.ComponentServers[i]
+		if c.CatalogEntryID == componentID {
+			component = c
+			break
+		}
+	}
+
+	if component == nil {
+		return types.NewErrBadRequest("component not found in composite entry")
+	}
+
+	// Multi-user components use the multi-user tools API and should not call this endpoint.
+	if component.MCPServerID != "" {
+		return types.NewErrBadRequest("multi-user server components are not supported by this endpoint")
+	}
+
+	// Read configuration from request body
+	var configRequest struct {
+		Config map[string]string `json:"config"`
+		URL    string            `json:"url"`
+	}
+	if err := req.Read(&configRequest); err != nil {
+		return types.NewErrBadRequest("failed to read configuration: %v", err)
+	}
+
+	jwks, err := h.jwks(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get JWKS: %w", err)
+	}
+
+	// Use the manifest snapshot embedded in the composite entry for this component.
+	server, serverConfig, err := tempServerAndConfig(
+		req.Context(),
+		req.GPTClient,
+		req.Storage,
+		composite.Namespace,
+		component.CatalogEntryID,
+		component.Manifest,
+		configRequest.Config,
+		h.serverURL,
+		jwks,
+	)
+	if err != nil {
+		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
+	}
+
+	if serverConfig.Runtime == types.RuntimeRemote {
+		oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
+		if err != nil {
+			return fmt.Errorf("failed to check for MCP auth: %w", err)
+		}
+
+		if oauthURL != "" {
+			return types.NewErrBadRequest("MCP server requires OAuth authentication")
+		}
+
+		defer func() {
+			_ = h.gatewayClient.DeleteMCPOAuthTokens(context.Background(), "system", server.Name)
+		}()
+	}
+
+	toolPreviews, err := h.sessionManager.GenerateToolPreviews(req.Context(), server, serverConfig)
+	if err != nil {
+		return fmt.Errorf("failed to generate tool preview: %w", err)
+	}
+
+	// Load the standalone catalog entry for shape / metadata and attach the preview.
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, componentID); err != nil {
+		return fmt.Errorf("failed to get component catalog entry: %w", err)
+	}
+	entry.Spec.Manifest.ToolPreview = toolPreviews
+
+	return req.Write(convertMCPServerCatalogEntry(entry))
+}
+
+// GenerateComponentToolPreviewsOAuthURL returns an OAuth URL for a single component of a
+// composite catalog entry, using the component manifest snapshot embedded in the composite.
+func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Context) error {
+	var (
+		catalogName = req.PathValue("catalog_id")
+		compositeID = req.PathValue("entry_id")
+		componentID = req.PathValue("component_id")
+	)
+
+	if catalogName == "" {
+		return types.NewErrBadRequest("catalog_id is required")
+	}
+
+	// Verify catalog exists
+	if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	// Load the composite catalog entry
+	var composite v1.MCPServerCatalogEntry
+	if err := req.Get(&composite, compositeID); err != nil {
+		return fmt.Errorf("failed to get composite catalog entry: %w", err)
+	}
+
+	if composite.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	}
+
+	if composite.Spec.Manifest.Runtime != types.RuntimeComposite {
+		return types.NewErrBadRequest("entry is not a composite catalog entry")
+	}
+
+	if composite.Spec.Manifest.CompositeConfig == nil {
+		return types.NewErrBadRequest("composite entry has no component configuration")
+	}
+
+	// Find the referenced component in the composite's configuration.
+	var component *types.CatalogComponentServer
+	for i := range composite.Spec.Manifest.CompositeConfig.ComponentServers {
+		c := &composite.Spec.Manifest.CompositeConfig.ComponentServers[i]
+		if c.CatalogEntryID == componentID {
+			component = c
+			break
+		}
+	}
+
+	if component == nil {
+		return types.NewErrBadRequest("component not found in composite entry")
+	}
+
+	if component.MCPServerID != "" {
+		return types.NewErrBadRequest("multi-user server components are not supported by this endpoint")
+	}
+
+	// Read configuration from request body
+	var configRequest struct {
+		Config map[string]string `json:"config"`
+		URL    string            `json:"url"`
+	}
+	if err := req.Read(&configRequest); err != nil {
+		return types.NewErrBadRequest("failed to read configuration: %v", err)
+	}
+
+	jwks, err := h.jwks(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get JWKS: %w", err)
+	}
+
+	server, serverConfig, err := tempServerAndConfig(
+		req.Context(),
+		req.GPTClient,
+		req.Storage,
+		composite.Namespace,
+		component.CatalogEntryID,
+		component.Manifest,
+		configRequest.Config,
+		h.serverURL,
+		jwks,
+	)
+	if err != nil {
+		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
+	}
+
+	if serverConfig.Runtime != types.RuntimeRemote {
+		return req.Write(map[string]string{"oauthURL": ""})
 	}
 
 	oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
