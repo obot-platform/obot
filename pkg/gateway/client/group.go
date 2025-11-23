@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -23,6 +24,17 @@ const (
 	// groupCheckPeriod defines how often the system checks for updates to group information from the auth provider.
 	groupCheckPeriod = time.Minute * 10
 )
+
+// FetchUserGroupsError represents an error that occurs when fetching user groups from the auth provider.
+// This error indicates a configuration issue with the auth provider that requires administrator intervention.
+type FetchUserGroupsError struct {
+	ProviderUserID string
+	Message        string
+}
+
+func (e *FetchUserGroupsError) Error() string {
+	return fmt.Sprintf("auth provider failed to check groups for user with ID %s: %s", e.ProviderUserID, e.Message)
+}
 
 // ListAuthGroups lists the auth provider groups for the given auth provider.
 //
@@ -184,7 +196,7 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 	// Fetch groups from the auth provider
 	providerGroups, err := c.fetchGroups(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName, identity.Email)
 	if err != nil {
-		return fmt.Errorf("failed to list user groups from provider: %w", err)
+		return err
 	}
 
 	identity.AuthProviderGroups = providerGroups
@@ -343,13 +355,38 @@ func (*Client) fetchGroups(ctx context.Context, authProviderURL, authProviderNam
 
 	// Get the SerializableRequest from context
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authProviderURL+"/obot-list-user-auth-groups", strings.NewReader(providerUserID))
-	if err == nil {
-		resp, err := http.DefaultClient.Do(req)
-		if err == nil {
-			defer resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				_ = json.NewDecoder(resp.Body).Decode(&providerGroups)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, &FetchUserGroupsError{
+			ProviderUserID: providerUserID,
+			Message:        fmt.Sprintf("failed to fetch groups for user with ID %s: %v", providerUserID, err),
+		}
+	}
+
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		if err := json.NewDecoder(resp.Body).Decode(&providerGroups); err != nil {
+			return nil, &FetchUserGroupsError{
+				ProviderUserID: providerUserID,
+				Message:        fmt.Sprintf("failed to decode groups for user with ID %s: %v", providerUserID, err),
 			}
+		}
+	} else if resp.StatusCode != http.StatusNotFound {
+		body, _ := io.ReadAll(resp.Body)
+		if len(body) != 0 {
+			return nil, &FetchUserGroupsError{
+				ProviderUserID: providerUserID,
+				Message:        string(body),
+			}
+		}
+
+		return nil, &FetchUserGroupsError{
+			ProviderUserID: providerUserID,
+			Message:        resp.Status,
 		}
 	}
 

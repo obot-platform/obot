@@ -3,16 +3,22 @@ package mcp
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/golang-jwt/jwt/v5"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 type GlobalTokenStore interface {
 	ForUserAndMCP(userID, mcpID string) nmcp.TokenStorage
+}
+
+type TokenService interface {
+	NewTokenWithClaims(claims jwt.MapClaims) (*jwt.Token, string, error)
 }
 
 type Config struct {
@@ -20,27 +26,55 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	DisableInstruction bool     `json:"disableInstruction"`
-	Command            string   `json:"command"`
-	Args               []string `json:"args"`
-	Env                []string `json:"env"`
-	URL                string   `json:"url"`
-	Headers            []string `json:"headers"`
-	Scope              string   `json:"scope"`
-	AllowedTools       []string `json:"allowedTools"`
+	Runtime types.Runtime `json:"runtime"`
 
-	Files          []File        `json:"files"`
-	ContainerImage string        `json:"containerImage"`
-	ContainerPort  int           `json:"containerPort"`
-	ContainerPath  string        `json:"containerPath"`
-	Runtime        types.Runtime `json:"runtime"`
+	// uvx/npx based configuration.
+	Command string   `json:"command"`
+	Args    []string `json:"args"`
+	Env     []string `json:"env"`
+	Files   []File   `json:"files"`
 
-	ProjectMCPServer bool `json:"projectMCPServer"`
+	// Remote configuration.
+	URL     string   `json:"url"`
+	Headers []string `json:"headers"`
+
+	// Containerized configuration.
+	ContainerImage string `json:"containerImage"`
+	ContainerPort  int    `json:"containerPort"`
+	ContainerPath  string `json:"containerPath"`
+
+	// Composite configuration.
+	Components []ComponentServer `json:"components"`
+
+	Scope                string `json:"scope"`
+	UserID               string `json:"userID"`
+	MCPServerNamespace   string `json:"mcpServerNamespace"`
+	MCPServerName        string `json:"mcpServerName"`
+	MCPCatalogName       string `json:"mcpCatalogName"`
+	MCPCatalogEntryName  string `json:"mcpCatalogEntryName"`
+	MCPServerDisplayName string `json:"mcpServerDisplayName"`
+
+	ProjectMCPServer   bool `json:"projectMCPServer"`
+	ComponentMCPServer bool `json:"componentMCPServer"`
+
+	Issuer    string   `json:"issuer"`
+	JWKS      string   `json:"jwks"`
+	Audiences []string `json:"audiences"`
+
+	TokenExchangeEndpoint     string `json:"tokenExchangeEndpoint"`
+	TokenExchangeClientID     string `json:"tokenExchangeClientID"`
+	TokenExchangeClientSecret string `json:"tokenExchangeClientSecret"`
 }
 
 type File struct {
 	Data   string `json:"data"`
 	EnvKey string `json:"envKey"`
+}
+
+type ComponentServer struct {
+	Name  string               `json:"name"`
+	URL   string               `json:"url"`
+	Tools []types.ToolOverride `json:"tools"`
 }
 
 var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
@@ -72,7 +106,7 @@ func applyPrefix(value, prefix string) string {
 	return prefix + value
 }
 
-func legacyServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]string, fileEnvVars map[string]struct{}, allowedTools ...string) (ServerConfig, []string, error) {
+func legacyServerToServerConfig(mcpServer v1.MCPServer, userID, scope string, credEnv map[string]string, fileEnvVars map[string]struct{}) (ServerConfig, []string, error) {
 	// Expand environment variables in command, args, and URL
 	command := expandEnvVars(mcpServer.Spec.Manifest.Command, credEnv, fileEnvVars)
 	url := expandEnvVars(mcpServer.Spec.Manifest.URL, credEnv, fileEnvVars)
@@ -83,13 +117,13 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv ma
 	}
 
 	serverConfig := ServerConfig{
-		Command:      command,
-		Args:         args,
-		Env:          make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
-		URL:          url,
-		Headers:      make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
-		Scope:        fmt.Sprintf("%s-%s", mcpServer.Name, scope),
-		AllowedTools: allowedTools,
+		Command: command,
+		Args:    args,
+		Env:     make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
+		URL:     url,
+		UserID:  userID,
+		Headers: make([]string, 0, len(mcpServer.Spec.Manifest.Headers)),
+		Scope:   fmt.Sprintf("%s-%s", mcpServer.Name, scope),
 	}
 
 	var missingRequiredNames []string
@@ -148,7 +182,91 @@ func legacyServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv ma
 	return serverConfig, missingRequiredNames, nil
 }
 
-func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[string]string, allowedTools ...string) (ServerConfig, []string, error) {
+func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, issuer, jwks, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
+	config, missing, err := ServerToServerConfig(mcpServer, audiences, issuer, jwks, userID, scope, mcpCatalogName, credEnv, tokenExchangeCredEnv)
+	if err != nil {
+		return config, missing, err
+	}
+
+	overrides := make(map[string]types.ComponentServer, len(mcpServer.Spec.Manifest.CompositeConfig.ComponentServers))
+	for _, component := range mcpServer.Spec.Manifest.CompositeConfig.ComponentServers {
+		if component.CatalogEntryID != "" {
+			overrides[component.CatalogEntryID] = component
+		} else if component.MCPServerID != "" {
+			overrides[component.MCPServerID] = component
+		}
+	}
+
+	config.Components = make([]ComponentServer, 0, len(components)+len(instances))
+	for _, component := range components {
+		name := component.Spec.Manifest.Name
+		if name == "" {
+			name = component.Name
+		}
+
+		override := overrides[component.Spec.MCPServerCatalogEntryName]
+		if override.Disabled {
+			continue
+		}
+
+		tools := make([]types.ToolOverride, 0, len(override.ToolOverrides))
+		for _, tool := range override.ToolOverrides {
+			if tool.Enabled {
+				tools = append(tools, types.ToolOverride{
+					Name:                tool.Name,
+					OverrideName:        tool.OverrideName,
+					OverrideDescription: tool.OverrideDescription,
+					Enabled:             tool.Enabled,
+				})
+			}
+		}
+
+		config.Components = append(config.Components, ComponentServer{
+			Name:  name,
+			URL:   system.MCPConnectURL(issuer, component.Name),
+			Tools: tools,
+		})
+	}
+
+	for _, instance := range instances {
+		override := overrides[instance.Spec.MCPServerName]
+		if override.Disabled {
+			continue
+		}
+
+		tools := make([]types.ToolOverride, 0, len(override.ToolOverrides))
+		for _, tool := range override.ToolOverrides {
+			if tool.Enabled {
+				tools = append(tools, types.ToolOverride{
+					Name:                tool.Name,
+					OverrideName:        tool.OverrideName,
+					OverrideDescription: tool.OverrideDescription,
+					Enabled:             tool.Enabled,
+				})
+			}
+		}
+
+		config.Components = append(config.Components, ComponentServer{
+			Name:  instance.Name,
+			URL:   system.MCPConnectURL(issuer, instance.Name),
+			Tools: tools,
+		})
+	}
+
+	slices.SortFunc(config.Components, func(a, b ComponentServer) int {
+		if a.Name < b.Name {
+			return -1
+		}
+		if a.Name > b.Name {
+			return 1
+		}
+		return 0
+	})
+
+	return config, missing, err
+}
+
+func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, jwks, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
 	fileEnvVars := make(map[string]struct{})
 	for _, file := range mcpServer.Spec.Manifest.Env {
 		if file.File {
@@ -156,14 +274,31 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 		}
 	}
 	if string(mcpServer.Spec.Manifest.Runtime) == "" {
-		return legacyServerToServerConfig(mcpServer, scope, credEnv, fileEnvVars, allowedTools...)
+		return legacyServerToServerConfig(mcpServer, userID, scope, credEnv, fileEnvVars)
+	}
+
+	displayName := mcpServer.Spec.Manifest.Name
+	if displayName == "" {
+		displayName = mcpServer.Name
 	}
 
 	serverConfig := ServerConfig{
-		Env:          make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
-		Scope:        fmt.Sprintf("%s-%s", mcpServer.Name, scope),
-		AllowedTools: allowedTools,
-		Runtime:      mcpServer.Spec.Manifest.Runtime,
+		Env:                       make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
+		UserID:                    userID,
+		Scope:                     fmt.Sprintf("%s-%s", mcpServer.Name, scope),
+		MCPServerNamespace:        mcpServer.Namespace,
+		MCPServerName:             mcpServer.Name,
+		MCPCatalogName:            mcpCatalogName,
+		MCPCatalogEntryName:       mcpServer.Spec.MCPServerCatalogEntryName,
+		MCPServerDisplayName:      displayName,
+		Runtime:                   mcpServer.Spec.Manifest.Runtime,
+		JWKS:                      jwks,
+		Issuer:                    issuer,
+		Audiences:                 audiences,
+		TokenExchangeClientID:     tokenExchangeCredEnv["TOKEN_EXCHANGE_CLIENT_ID"],
+		TokenExchangeClientSecret: tokenExchangeCredEnv["TOKEN_EXCHANGE_CLIENT_SECRET"],
+		TokenExchangeEndpoint:     fmt.Sprintf("%s/oauth/token", issuer),
+		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
 	}
 
 	var missingRequiredNames []string
@@ -281,38 +416,15 @@ func ServerToServerConfig(mcpServer v1.MCPServer, scope string, credEnv map[stri
 	return serverConfig, missingRequiredNames, nil
 }
 
-func ProjectServerToConfig(tokenService *ephemeral.TokenService, projectMCPServer v1.ProjectMCPServer, baseURL, userID string, allowedTools ...string) (ServerConfig, error) {
-	token, err := tokenService.NewToken(ephemeral.TokenContext{
-		UserID:     userID,
-		UserGroups: []string{types.GroupBasic},
-	})
-	if err != nil {
-		return ServerConfig{}, fmt.Errorf("failed to create token: %w", err)
-	}
-
+func ProjectServerToConfig(projectMCPServer v1.ProjectMCPServer, publicBaseURL, internalBaseURL, userID string) (ServerConfig, error) {
 	return ServerConfig{
-		URL:              projectMCPServer.ConnectURL(baseURL),
-		Headers:          []string{fmt.Sprintf("Authorization=Bearer %s", token)},
-		Scope:            fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
-		AllowedTools:     allowedTools,
-		Runtime:          types.RuntimeRemote,
-		ProjectMCPServer: true,
-	}, nil
-}
-
-func CompositeServerToConfig(tokenService *ephemeral.TokenService, mcpServerName, baseURL, userID, scope string) (ServerConfig, error) {
-	token, err := tokenService.NewToken(ephemeral.TokenContext{
-		UserID:     userID,
-		UserGroups: []string{types.GroupBasic},
-	})
-	if err != nil {
-		return ServerConfig{}, fmt.Errorf("failed to create token: %w", err)
-	}
-
-	return ServerConfig{
-		URL:     fmt.Sprintf("%s/mcp-connect/%s", baseURL, mcpServerName),
-		Headers: []string{fmt.Sprintf("Authorization=Bearer %s", token)},
-		Scope:   scope,
-		Runtime: types.RuntimeRemote,
+		URL:                projectMCPServer.ConnectURL(internalBaseURL),
+		UserID:             userID,
+		MCPServerNamespace: projectMCPServer.Namespace,
+		MCPServerName:      projectMCPServer.Spec.Manifest.MCPID,
+		Scope:              fmt.Sprintf("%s-%s", projectMCPServer.Name, userID),
+		Runtime:            types.RuntimeRemote,
+		Audiences:          []string{projectMCPServer.Audience(publicBaseURL)},
+		ProjectMCPServer:   true,
 	}, nil
 }

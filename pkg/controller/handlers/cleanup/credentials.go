@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -21,17 +20,17 @@ type Credentials struct {
 	gClient           *gptscript.GPTScript
 	gatewayClient     *gateway.Client
 	mcpSessionManager *mcp.SessionManager
-	tokenService      *ephemeral.TokenService
 	serverURL         string
+	internalServerURL string
 }
 
-func NewCredentials(gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, tokenService *ephemeral.TokenService, serverURL string) *Credentials {
+func NewCredentials(gClient *gptscript.GPTScript, mcpSessionManager *mcp.SessionManager, gatewayClient *gateway.Client, serverURL, internalServerURL string) *Credentials {
 	return &Credentials{
 		gClient:           gClient,
 		gatewayClient:     gatewayClient,
 		mcpSessionManager: mcpSessionManager,
-		tokenService:      tokenService,
 		serverURL:         serverURL,
+		internalServerURL: internalServerURL,
 	}
 }
 
@@ -84,9 +83,7 @@ func (c *Credentials) Remove(req router.Request, _ router.Response) error {
 	return nil
 }
 
-func (c *Credentials) removeMCPCredentialsForProject(req router.Request, _ router.Response) error {
-	mcpServer := req.Object.(*v1.MCPServer)
-
+func (c *Credentials) removeMCPCredentialsForProject(req router.Request, mcpServer *v1.MCPServer) error {
 	var projects v1.ThreadList
 	if err := req.List(&projects, &kclient.ListOptions{
 		FieldSelector: fields.SelectorFromSet(map[string]string{
@@ -117,34 +114,12 @@ func (c *Credentials) removeMCPCredentialsForProject(req router.Request, _ route
 		}
 
 		for _, cred := range creds {
-			// Have to reveal the credential to get the values
-			cred, err = c.gClient.RevealCredential(req.Ctx, []string{cred.Context}, cred.ToolName)
-			if err != nil {
-				return err
-			}
-
-			// Shutdown the server
-			serverConfig, _, err := mcp.ServerToServerConfig(*mcpServer, projectName, cred.Env)
-			if err != nil {
-				return fmt.Errorf("failed to create server config: %w", err)
-			}
-
-			if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
-				return fmt.Errorf("failed to shutdown server: %w", err)
-			}
-
 			if err = c.gClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 				return err
 			}
 		}
 
-		// Shutdown a potential server running without any configuration. We wouldn't detect its existence with a credential.
-		serverConfig, _, err := mcp.ServerToServerConfig(*mcpServer, projectName, nil)
-		if err != nil {
-			return fmt.Errorf("failed to create server config: %w", err)
-		}
-
-		if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
+		if err = c.mcpSessionManager.ShutdownServer(req.Ctx, mcpServer.Name); err != nil {
 			return fmt.Errorf("failed to shutdown server: %w", err)
 		}
 	}
@@ -152,27 +127,24 @@ func (c *Credentials) removeMCPCredentialsForProject(req router.Request, _ route
 	return nil
 }
 
-func (c *Credentials) RemoveMCPCredentials(req router.Request, resp router.Response) error {
+func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response) error {
 	mcpServer := req.Object.(*v1.MCPServer)
 
-	if err := c.gatewayClient.DeleteMCPOAuthTokenForAllUsers(req.Ctx, req.Object.GetName()); err != nil {
+	if err := c.gatewayClient.DeleteMCPOAuthTokenForAllUsers(req.Ctx, mcpServer.Name); err != nil {
 		return err
 	}
 
 	if mcpServer.Spec.ThreadName != "" {
-		return c.removeMCPCredentialsForProject(req, resp)
+		return c.removeMCPCredentialsForProject(req, mcpServer)
 	}
 
-	var credCtx, scope string
+	var credCtx string
 	if mcpServer.Spec.MCPCatalogID != "" {
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.MCPCatalogID, mcpServer.Name)
-		scope = mcpServer.Spec.MCPCatalogID
 	} else if mcpServer.Spec.PowerUserWorkspaceID != "" {
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Name)
-		scope = mcpServer.Spec.PowerUserWorkspaceID
 	} else {
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)
-		scope = mcpServer.Spec.UserID
 	}
 
 	creds, err := c.gClient.ListCredentials(req.Ctx, gptscript.ListCredentialsOptions{
@@ -183,34 +155,12 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, resp router.Respo
 	}
 
 	for _, cred := range creds {
-		// Have to reveal the credential to get the values
-		cred, err = c.gClient.RevealCredential(req.Ctx, []string{cred.Context}, cred.ToolName)
-		if err != nil {
-			return err
-		}
-
-		// Shutdown the server
-		serverConfig, _, err := mcp.ServerToServerConfig(*mcpServer, scope, cred.Env)
-		if err != nil {
-			return fmt.Errorf("failed to create server config: %w", err)
-		}
-
-		if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
-			return fmt.Errorf("failed to shutdown server: %w", err)
-		}
-
 		if err = c.gClient.DeleteCredential(req.Ctx, cred.Context, cred.ToolName); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
 			return err
 		}
 	}
 
-	// Shutdown a potential server running without any configuration. We wouldn't detect its existence with a credential.
-	serverConfig, _, err := mcp.ServerToServerConfig(*mcpServer, scope, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create server config: %w", err)
-	}
-
-	if err = c.mcpSessionManager.ShutdownServer(req.Ctx, serverConfig); err != nil {
+	if err = c.mcpSessionManager.ShutdownServer(req.Ctx, mcpServer.Name); err != nil {
 		return fmt.Errorf("failed to shutdown server: %w", err)
 	}
 

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
 
@@ -67,7 +66,11 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 	if reqObj.ProviderName == "" || reqObj.ProviderNamespace == "" {
 		return types2.NewErrHTTP(http.StatusBadRequest, "provider name and namespace are required")
 	}
-	if providerList := s.dispatcher.ListConfiguredAuthProviders(reqObj.ProviderNamespace); !slices.Contains(providerList, reqObj.ProviderName) {
+	configuredProvider, err := s.dispatcher.GetConfiguredAuthProvider(apiContext.Context())
+	if err != nil {
+		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
+	}
+	if configuredProvider != reqObj.ProviderName {
 		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", reqObj.ProviderName))
 	}
 
@@ -92,7 +95,11 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 	name := apiContext.PathValue("name")
 
 	if namespace != "" && name != "" {
-		if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
+		configuredProvider, err := s.dispatcher.GetConfiguredAuthProvider(apiContext.Context())
+		if err != nil {
+			return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
+		}
+		if configuredProvider != name {
 			return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", name))
 		}
 	}
@@ -151,18 +158,11 @@ func (s *Server) createState(ctx context.Context, id string) (string, error) {
 }
 
 func (s *Server) verifyState(ctx context.Context, state string) (*types.TokenRequest, error) {
-	if state == "" {
-		return nil, fmt.Errorf("state parameter is empty")
-	}
-	
 	tr := new(types.TokenRequest)
 	return tr, s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("state = ?", state).First(tr).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return fmt.Errorf("state not found in database (may have expired or already been used)")
-			}
 			if tr.ID == "" {
-				return fmt.Errorf("failed to lookup state: %w", err)
+				return err
 			}
 			tr.Error = err.Error()
 		}

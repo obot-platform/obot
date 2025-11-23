@@ -3,7 +3,6 @@ package router
 import (
 	"context"
 	"net/http"
-	"os"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
@@ -32,20 +31,20 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		return nil, err
 	}
 
-	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient, services.MCPOAuthTokenStorage)
+	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient, services.MCPOAuthTokenStorage, services.PersistentTokenServer.EncodedJWKS)
 
-	agents := handlers.NewAgentHandler(services.EphemeralTokenServer, services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.ServerURL, services.HTTPPort)
-	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.Invoker, services.Events, services.Router.Backend())
+	agents := handlers.NewAgentHandler(services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.ServerURL, services.InternalServerURL)
+	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.Events, services.Router.Backend())
 	tools := handlers.NewToolHandler(services.Invoker)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events)
-	invoker := handlers.NewInvokeHandler(services.Invoker)
+	invoker := handlers.NewInvokeHandler(services.Invoker, services.MCPLoader)
 	threads := handlers.NewThreadHandler(services.ProviderDispatcher, services.Events)
 	runs := handlers.NewRunHandler(services.Events)
 	toolRefs := handlers.NewToolReferenceHandler()
 	webhooks := handlers.NewWebhookHandler()
 	cronJobs := handlers.NewCronJobHandler()
 	models := handlers.NewModelHandler()
-	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPLoader, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper)
+	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPLoader, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper, services.PersistentTokenServer.EncodedJWKS)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL, services.AccessControlRuleHelper)
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler()
@@ -56,7 +55,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	prompt := handlers.NewPromptHandler()
 	emailReceiver := handlers.NewEmailReceiverHandler(services.EmailServerName)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
-	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.Invoker)
+	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.MCPLoader, services.Invoker)
 	projectShare := handlers.NewProjectShareHandler()
 	templates := handlers.NewTemplateHandler()
 	files := handlers.NewFilesHandler(services.ProviderDispatcher)
@@ -66,10 +65,10 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	sendgridWebhookHandler := sendgrid.NewInboundWebhookHandler(services.StorageClient, services.EmailServerName, services.SendgridWebhookUsername, services.SendgridWebhookPassword)
 	images := handlers.NewImageHandler(services.GeminiClient)
 	slackHandler := handlers.NewSlackHandler()
-	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.EphemeralTokenServer, oauthChecker, services.ServerURL)
-	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, services.EphemeralTokenServer, oauthChecker, services.ServerURL)
+	mcp := handlers.NewMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.PersistentTokenServer.EncodedJWKS, services.ServerURL)
+	projectMCP := handlers.NewProjectMCPHandler(services.MCPLoader, services.AccessControlRuleHelper, oauthChecker, services.PersistentTokenServer.EncodedJWKS, services.ServerURL, services.InternalServerURL)
 	projectInvitations := handlers.NewProjectInvitationHandler()
-	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.MCPOAuthTokenStorage, services.GatewayClient, services.GPTClient, services.ServerURL)
+	mcpGateway := mcpgateway.NewHandler(services.StorageClient, services.MCPLoader, services.WebhookHelper, services.PersistentTokenServer.EncodedJWKS)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GPTClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
@@ -568,7 +567,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("DELETE /api/mcp-webhook-validations/{mcp_webhook_validation_id}/secret", mcpWebhookValidations.RemoveSecret)
 
 	// MCP Gateway Endpoints
-	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.StreamableHTTP)
+	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
 
 	// MCP Audit Logs
 	mux.HandleFunc("GET /api/mcp-audit-logs", mcpAuditLogs.ListAuditLogs)
@@ -621,6 +620,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	k8sSettingsHandler := handlers.NewK8sSettingsHandler()
 	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
 	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)
+
+	// EULA
+	eulaHandler := handlers.NewEulaHandler()
+	mux.HandleFunc("GET /api/eula", eulaHandler.Get)
+	mux.HandleFunc("PUT /api/eula", eulaHandler.Update)
 
 	// Debug
 	mux.HTTPHandle("GET /debug/pprof/", http.DefaultServeMux)
@@ -720,20 +724,12 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, mux)
 
 	// Obot OAuth
-	oauth.SetupHandlers(services.GatewayClient, oauthChecker, services.PersistentTokenServer, services.OAuthServerConfig, services.ServerURL, mux)
+	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.PersistentTokenServer.EncodedJWKS, services.ServerURL, mux)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)
 
-	// Get the working directory for UI files (empty if proxying to separate processes)
-	var uiBasePath string
-	if services.DevUIPort == 0 && services.UserUIPort == 0 {
-		// Try to find UI files relative to the binary
-		if wd, err := os.Getwd(); err == nil {
-			uiBasePath = wd
-		}
-	}
-	services.APIServer.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort, uiBasePath, services.AdminUIHost, services.UserUIHost))
+	services.APIServer.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort))
 
 	return services.APIServer, nil
 }

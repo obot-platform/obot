@@ -1,8 +1,16 @@
 package v1
 
 import (
+	"slices"
+
+	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+var (
+	_ DeleteRefs    = (*OAuthClient)(nil)
+	_ fields.Fields = (*OAuthClient)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -14,6 +22,31 @@ type OAuthClient struct {
 	Status            OAuthClientStatus `json:"status,omitempty"`
 }
 
+func (o *OAuthClient) DeleteRefs() []Ref {
+	return []Ref{
+		{
+			ObjType: &MCPServer{},
+			Name:    o.Spec.MCPServerName,
+		},
+	}
+}
+
+func (o *OAuthClient) Has(field string) bool {
+	return slices.Contains(o.FieldNames(), field)
+}
+
+func (o *OAuthClient) Get(field string) (value string) {
+	switch field {
+	case "spec.mcpServerName":
+		return o.Spec.MCPServerName
+	}
+	return ""
+}
+
+func (*OAuthClient) FieldNames() []string {
+	return []string{"spec.mcpServerName"}
+}
+
 type OAuthClientSpec struct {
 	Manifest                   types.OAuthClientManifest `json:"manifest"`
 	ClientSecretHash           []byte                    `json:"clientSecretHash"`
@@ -22,6 +55,10 @@ type OAuthClientSpec struct {
 	RegistrationTokenHash      []byte                    `json:"registrationTokenHash"`
 	RegistrationTokenIssuedAt  metav1.Time               `json:"registration_token_issued_at"`
 	RegistrationTokenExpiresAt metav1.Time               `json:"registration_token_expires_at"`
+	MCPServerName              string                    `json:"mcp_server_name"`
+	// Ephemeral indicates that the OAuth client is temporary and will be deleted after a certain period of time.
+	// This is used for generating tool previews for example.
+	Ephemeral bool `json:"ephemeral"`
 }
 
 type OAuthClientStatus struct{}

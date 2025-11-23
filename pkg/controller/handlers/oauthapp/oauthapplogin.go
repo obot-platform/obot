@@ -17,12 +17,14 @@ import (
 
 type LoginHandler struct {
 	invoker   *invoke.Invoker
+	gptClient *gptscript.GPTScript
 	serverURL string
 }
 
-func NewLogin(invoker *invoke.Invoker, serverURL string) *LoginHandler {
+func NewLogin(invoker *invoke.Invoker, gptClient *gptscript.GPTScript, serverURL string) *LoginHandler {
 	return &LoginHandler{
 		invoker:   invoker,
+		gptClient: gptClient,
 		serverURL: serverURL,
 	}
 }
@@ -58,7 +60,7 @@ func (h *LoginHandler) RunTool(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	task, err := h.invoker.SystemTask(req.Ctx, &thread, []gptscript.ToolDef{
+	task, err := h.invoker.SystemTask(req.Ctx, h.gptClient, &thread, []gptscript.ToolDef{
 		{
 			Credentials:  credentialTools,
 			Instructions: "#!sys.echo DONE",

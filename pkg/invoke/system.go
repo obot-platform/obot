@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/render"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +33,7 @@ func complete(opts []SystemTaskOptions) (result SystemTaskOptions) {
 	return
 }
 
-func (i *Invoker) EphemeralThreadTask(ctx context.Context, thread *v1.Thread, tool, input any, opts ...SystemTaskOptions) (string, error) {
+func (i *Invoker) EphemeralThreadTask(ctx context.Context, mcpSessionManager *mcp.SessionManager, gptClient *gptscript.GPTScript, thread *v1.Thread, tool, input any, opts ...SystemTaskOptions) (string, error) {
 	opt := complete(opts)
 
 	inputString, err := inputToString(input)
@@ -53,7 +55,7 @@ func (i *Invoker) EphemeralThreadTask(ctx context.Context, thread *v1.Thread, to
 			}
 		}
 
-		renderedAgent, err := render.Agent(ctx, i.tokenService, i.mcpSessionManager, i.uncached, &v1.Agent{
+		renderedAgent, err := render.Agent(ctx, mcpSessionManager, i.uncached, &v1.Agent{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: thread.Namespace,
 			},
@@ -86,7 +88,7 @@ func (i *Invoker) EphemeralThreadTask(ctx context.Context, thread *v1.Thread, to
 		credContexts = append(credContexts, thread.Namespace)
 	}
 
-	resp, err := i.createRun(ctx, i.uncached, thread, tool, inputString, runOptions{
+	resp, err := i.createRun(ctx, gptClient, i.uncached, thread, tool, inputString, runOptions{
 		Ephemeral:            true,
 		Env:                  append(opt.Env, extraEnv...),
 		CredentialContextIDs: append(opt.CredentialContextIDs, credContexts...),
@@ -130,7 +132,7 @@ func inputToString(input any) (string, error) {
 	return inputString, nil
 }
 
-func (i *Invoker) SystemTask(ctx context.Context, thread *v1.Thread, tool, input any, opts ...SystemTaskOptions) (*Response, error) {
+func (i *Invoker) SystemTask(ctx context.Context, gptClient *gptscript.GPTScript, thread *v1.Thread, tool, input any, opts ...SystemTaskOptions) (*Response, error) {
 	opt := complete(opts)
 
 	inputString, err := inputToString(input)
@@ -148,7 +150,7 @@ func (i *Invoker) SystemTask(ctx context.Context, thread *v1.Thread, tool, input
 	}
 	credContexts = append(opt.CredentialContextIDs, credContexts...)
 
-	return i.createRun(ctx, i.uncached, thread, tool, inputString, runOptions{
+	return i.createRun(ctx, gptClient, i.uncached, thread, tool, inputString, runOptions{
 		Env:                  opt.Env,
 		CredentialContextIDs: credContexts,
 		Synchronous:          true,

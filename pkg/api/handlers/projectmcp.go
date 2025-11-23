@@ -13,7 +13,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/projects"
@@ -27,17 +26,19 @@ type ProjectMCPHandler struct {
 	mcpSessionManager *mcp.SessionManager
 	mcpOAuthChecker   MCPOAuthChecker
 	acrHelper         *accesscontrolrule.Helper
-	tokenService      *ephemeral.TokenService
+	jwks              func() string
 	serverURL         string
+	internalServerURL string
 }
 
-func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, tokenService *ephemeral.TokenService, mcpOAuthChecker MCPOAuthChecker, serverURL string) *ProjectMCPHandler {
+func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, jwks func() string, serverURL, internalServerURL string) *ProjectMCPHandler {
 	return &ProjectMCPHandler{
 		mcpSessionManager: mcpLoader,
 		mcpOAuthChecker:   mcpOAuthChecker,
 		acrHelper:         acrHelper,
-		tokenService:      tokenService,
+		jwks:              jwks,
 		serverURL:         serverURL,
+		internalServerURL: internalServerURL,
 	}
 }
 
@@ -196,6 +197,8 @@ func (p *ProjectMCPHandler) CreateServer(req api.Context) error {
 		return err
 	}
 
+	projectServer.Spec.MCPServerName = mcpServer.Name
+
 	if !req.UserIsAdmin() && mcpServer.Spec.UserID != req.User.GetUID() {
 		var (
 			hasAccess bool
@@ -322,24 +325,28 @@ func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
 		return err
 	}
 
-	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.tokenService, p.serverURL)
+	_, _, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.jwks())
 	if err != nil {
 		return err
 	}
 
-	if server.Spec.Manifest.Runtime != types.RuntimeRemote {
-		if _, err = p.mcpSessionManager.ListTools(req.Context(), req.User.GetUID(), server, serverConfig); err != nil {
-			if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-				return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
-			}
-			if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-				return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-			}
-			if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
-				return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
-			}
-			return fmt.Errorf("failed to launch MCP server: %w", err)
+	if serverConfig.Runtime != types.RuntimeRemote && serverConfig.Runtime != types.RuntimeComposite {
+		_, err = p.mcpSessionManager.ListTools(req.Context(), serverConfig)
+	} else {
+		// Don't use ListTools for remote MCP servers in case they need OAuth.
+		_, err = p.mcpSessionManager.LaunchServer(req.Context(), serverConfig)
+	}
+	if err != nil {
+		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
 		}
+		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
+			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
+		}
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
+		return fmt.Errorf("failed to launch MCP server: %w", err)
 	}
 
 	return nil
@@ -352,14 +359,14 @@ func (p *ProjectMCPHandler) CheckOAuth(req api.Context) error {
 		return err
 	}
 
-	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.tokenService, p.serverURL)
+	_, _, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.jwks())
 	if err != nil {
 		return err
 	}
 
-	if server.Spec.Manifest.Runtime == types.RuntimeRemote {
+	if serverConfig.Runtime == types.RuntimeRemote {
 		var are nmcp.AuthRequiredErr
-		if _, err = p.mcpSessionManager.PingServer(req.Context(), req.User.GetUID(), server, serverConfig); err != nil {
+		if _, err = p.mcpSessionManager.PingServer(req.Context(), serverConfig); err != nil {
 			if !errors.As(err, &are) {
 				return fmt.Errorf("failed to ping MCP server: %w", err)
 			}
@@ -377,7 +384,7 @@ func (p *ProjectMCPHandler) GetOAuthURL(req api.Context) error {
 		return err
 	}
 
-	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.tokenService, p.serverURL)
+	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.jwks())
 	if err != nil {
 		return err
 	}
@@ -416,12 +423,12 @@ func (p *ProjectMCPHandler) GetTools(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
+	serverConfig, err := mcp.ProjectServerToConfig(projectServer, p.serverURL, p.internalServerURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
-	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
+	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -454,7 +461,7 @@ func (p *ProjectMCPHandler) GetTools(req api.Context) error {
 
 	allowedTools = thread.Spec.Manifest.AllowedMCPTools[projectServer.Name]
 
-	tools, err := toolsForServer(req.Context(), p.mcpSessionManager, req.User.GetUID(), server, serverConfig, allowedTools)
+	tools, err := toolsForServer(req.Context(), p.mcpSessionManager, server, serverConfig, allowedTools)
 	if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 		return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
 	}
@@ -501,12 +508,12 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
+	serverConfig, err := mcp.ProjectServerToConfig(projectServer, p.serverURL, p.internalServerURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
-	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
+	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -529,7 +536,7 @@ func (p *ProjectMCPHandler) SetTools(req api.Context) error {
 		return err
 	}
 
-	mcpTools, err := toolsForServer(req.Context(), p.mcpSessionManager, req.User.GetUID(), server, serverConfig, tools)
+	mcpTools, err := toolsForServer(req.Context(), p.mcpSessionManager, server, serverConfig, tools)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -594,12 +601,12 @@ func (p *ProjectMCPHandler) GetResources(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
+	serverConfig, err := mcp.ProjectServerToConfig(projectServer, p.serverURL, p.internalServerURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
-	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
+	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -617,7 +624,7 @@ func (p *ProjectMCPHandler) GetResources(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
 	}
 
-	resources, err := p.mcpSessionManager.ListResources(req.Context(), req.User.GetUID(), server, serverConfig)
+	resources, err := p.mcpSessionManager.ListResources(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -668,12 +675,12 @@ func (p *ProjectMCPHandler) ReadResource(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
+	serverConfig, err := mcp.ProjectServerToConfig(projectServer, p.serverURL, p.internalServerURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
-	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
+	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -691,7 +698,7 @@ func (p *ProjectMCPHandler) ReadResource(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
 	}
 
-	contents, err := p.mcpSessionManager.ReadResource(req.Context(), req.User.GetUID(), server, serverConfig, req.PathValue("resource_uri"))
+	contents, err := p.mcpSessionManager.ReadResource(req.Context(), serverConfig, req.PathValue("resource_uri"))
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -739,12 +746,12 @@ func (p *ProjectMCPHandler) GetPrompts(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
+	serverConfig, err := mcp.ProjectServerToConfig(projectServer, p.serverURL, p.internalServerURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
-	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
+	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -759,7 +766,7 @@ func (p *ProjectMCPHandler) GetPrompts(req api.Context) error {
 		return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
 	}
 
-	prompts, err := p.mcpSessionManager.ListPrompts(req.Context(), req.User.GetUID(), server, serverConfig)
+	prompts, err := p.mcpSessionManager.ListPrompts(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -807,12 +814,12 @@ func (p *ProjectMCPHandler) GetPrompt(req api.Context) error {
 		return err
 	}
 
-	serverConfig, err := mcp.ProjectServerToConfig(p.tokenService, projectServer, p.serverURL, req.User.GetUID())
+	serverConfig, err := mcp.ProjectServerToConfig(projectServer, p.serverURL, p.internalServerURL, req.User.GetUID())
 	if err != nil {
 		return fmt.Errorf("failed to get project server config: %w", err)
 	}
 
-	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), req.User.GetUID(), server, serverConfig)
+	caps, err := p.mcpSessionManager.ServerCapabilities(req.Context(), serverConfig)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")
@@ -832,7 +839,7 @@ func (p *ProjectMCPHandler) GetPrompt(req api.Context) error {
 		return fmt.Errorf("failed to read args: %w", err)
 	}
 
-	messages, description, err := p.mcpSessionManager.GetPrompt(req.Context(), req.User.GetUID(), server, serverConfig, req.PathValue("prompt_name"), args)
+	messages, description, err := p.mcpSessionManager.GetPrompt(req.Context(), serverConfig, req.PathValue("prompt_name"), args)
 	if err != nil {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP server is not healthy, check configuration for errors")

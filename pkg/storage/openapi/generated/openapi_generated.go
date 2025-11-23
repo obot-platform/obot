@@ -61,6 +61,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.EmailReceiverManifest":                          schema_obot_platform_obot_apiclient_types_EmailReceiverManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.EnvVar":                                         schema_obot_platform_obot_apiclient_types_EnvVar(ref),
 		"github.com/obot-platform/obot/apiclient/types.ErrHTTP":                                        schema_obot_platform_obot_apiclient_types_ErrHTTP(ref),
+		"github.com/obot-platform/obot/apiclient/types.EulaStatus":                                     schema_obot_platform_obot_apiclient_types_EulaStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.Field":                                          schema_obot_platform_obot_apiclient_types_Field(ref),
 		"github.com/obot-platform/obot/apiclient/types.File":                                           schema_obot_platform_obot_apiclient_types_File(ref),
 		"github.com/obot-platform/obot/apiclient/types.FileList":                                       schema_obot_platform_obot_apiclient_types_FileList(ref),
@@ -1891,32 +1892,33 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CatalogComponentServer represents a component server in a composite server catalog entry.",
-				Type:        []string{"object"},
+				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"catalogEntryID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CatalogEntryID references a catalog entry for single-user and remote components",
+							Description: "CatalogEntryID if set, reference the catalog entry the component server is sourced from",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"mcpServerID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MCPServerID references a multi-user MCP server",
+							Description: "MCPServerID if set, reference the multi-user MCP server the component server proxies to",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
+							Description: "Manifest is the catalog entry manifest of the component server",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
 						},
 					},
 					"toolOverrides": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "ToolOverrides restrict the tools exposed by the component server",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -1925,12 +1927,6 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 									},
 								},
 							},
-						},
-					},
-					"disabled": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
 						},
 					},
 				},
@@ -2086,27 +2082,29 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 				Properties: map[string]spec.Schema{
 					"catalogEntryID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CatalogEntryID references a catalog entry for single-user and remote components",
+							Description: "CatalogEntryID if set, reference the catalog entry the component server is sourced from",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"mcpServerID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MCPServerID references a multi-user MCP server",
+							Description: "MCPServerID if set, reference the multi-user MCP server the component server proxies to",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerManifest"),
+							Description: "Manifest is the runtime manifest of the component server",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerManifest"),
 						},
 					},
 					"toolOverrides": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "ToolOverrides restrict the tools exposed by the component server",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -2119,8 +2117,9 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 					},
 					"disabled": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "Disabled indicates whether the component server should be included in the composite server at runtime",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
@@ -2789,6 +2788,28 @@ func schema_obot_platform_obot_apiclient_types_ErrHTTP(ref common.ReferenceCallb
 					},
 				},
 				Required: []string{"Code", "Message"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EulaStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EulaStatus represents the user's EULA acceptance status",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"accepted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Accepted indicates whether the user has accepted the EULA",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"accepted"},
 			},
 		},
 	}
@@ -15060,6 +15081,13 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 							Format:  "int32",
 						},
 					},
+					"mcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"authProviderUserID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -15082,7 +15110,7 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "codeChallengeMethod", "grantType", "resource", "hashedAuthCode", "userID", "authProviderUserID", "authProviderNamespace", "authProviderName"},
+				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "codeChallengeMethod", "grantType", "resource", "hashedAuthCode", "userID", "mcpID", "authProviderUserID", "authProviderNamespace", "authProviderName"},
 			},
 		},
 	}
@@ -15268,8 +15296,23 @@ func schema_storage_apis_obotobotai_v1_OAuthClientSpec(ref common.ReferenceCallb
 							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
+					"mcp_server_name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"ephemeral": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ephemeral indicates that the OAuth client is temporary and will be deleted after a certain period of time. This is used for generating tool previews for example.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"manifest", "clientSecretHash", "client_secret_issued_at", "client_secret_expires_at", "registrationTokenHash", "registration_token_issued_at", "registration_token_expires_at"},
+				Required: []string{"manifest", "clientSecretHash", "client_secret_issued_at", "client_secret_expires_at", "registrationTokenHash", "registration_token_issued_at", "registration_token_expires_at", "mcp_server_name", "ephemeral"},
 			},
 		},
 		Dependencies: []string{
@@ -15409,6 +15452,13 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref common.ReferenceCallba
 							Format:  "int32",
 						},
 					},
+					"mcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"authProviderUserID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -15431,7 +15481,7 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"resource", "clientID", "userID", "authProviderUserID", "authProviderName", "authProviderNamespace"},
+				Required: []string{"resource", "clientID", "userID", "mcpID", "authProviderUserID", "authProviderName", "authProviderNamespace"},
 			},
 		},
 	}
@@ -15836,6 +15886,12 @@ func schema_storage_apis_obotobotai_v1_ProjectMCPServerSpec(ref common.Reference
 						},
 					},
 					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"mcpServerName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

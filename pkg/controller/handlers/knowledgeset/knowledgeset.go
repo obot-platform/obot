@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -18,12 +19,14 @@ import (
 )
 
 type Handler struct {
-	invoker *invoke.Invoker
+	invoker   *invoke.Invoker
+	gptClient *gptscript.GPTScript
 }
 
-func New(invoker *invoke.Invoker) *Handler {
+func New(invoker *invoke.Invoker, gptClient *gptscript.GPTScript) *Handler {
 	return &Handler{
-		invoker: invoker,
+		invoker:   invoker,
+		gptClient: gptClient,
 	}
 }
 
@@ -246,7 +249,7 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	task, err := h.invoker.SystemTask(req.Ctx, &thread, system.KnowledgeDeleteTool, ks.Namespace+"/"+ks.Name)
+	task, err := h.invoker.SystemTask(req.Ctx, h.gptClient, &thread, system.KnowledgeDeleteTool, ks.Namespace+"/"+ks.Name)
 	if err != nil {
 		return err
 	}

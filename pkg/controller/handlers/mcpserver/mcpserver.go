@@ -1,26 +1,34 @@
 package mcpserver
 
 import (
+	"crypto/rand"
 	"fmt"
 	"slices"
+	"strings"
 
+	"github.com/gptscript-ai/go-gptscript"
 	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
+	"golang.org/x/crypto/bcrypt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Handler struct {
-	baseURL string
+	gptClient *gptscript.GPTScript
+	baseURL   string
 }
 
-func New(baseURL string) *Handler {
+func New(gptClient *gptscript.GPTScript, baseURL string) *Handler {
 	return &Handler{
-		baseURL: baseURL,
+		gptClient: gptClient,
+		baseURL:   baseURL,
 	}
 }
 
@@ -286,6 +294,69 @@ func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router
 		server.Spec.MCPCatalogID = server.Spec.SharedWithinMCPCatalogName
 		server.Spec.SharedWithinMCPCatalogName = ""
 		return req.Client.Update(req.Ctx, server)
+	}
+
+	return nil
+}
+
+func (h *Handler) EnsureOAuthClient(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+
+	fieldSelector := fields.SelectorFromSet(map[string]string{
+		"spec.mcpServerName": server.Name,
+	})
+	var oauthClients v1.OAuthClientList
+	if err := req.List(&oauthClients, &kclient.ListOptions{
+		Namespace:     req.Namespace,
+		FieldSelector: fieldSelector,
+	}); err != nil || len(oauthClients.Items) > 0 {
+		return err
+	}
+
+	// If listing with the cache doesn't return anything, double-check with the uncached listing
+	if err := req.List(untriggered.UncachedList(&oauthClients), &kclient.ListOptions{
+		Namespace:     req.Namespace,
+		FieldSelector: fieldSelector,
+	}); err != nil || len(oauthClients.Items) > 0 {
+		return err
+	}
+
+	clientID := system.OAuthClientPrefix + strings.ToLower(rand.Text())
+	clientSecret := strings.ToLower(rand.Text() + rand.Text())
+	hashedClientSecretHash, err := bcrypt.GenerateFromPassword([]byte(clientSecret), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash client secret: %w", err)
+	}
+
+	if err := h.gptClient.CreateCredential(req.Ctx, gptscript.Credential{
+		Context:  server.Name,
+		ToolName: server.Name,
+		Type:     gptscript.CredentialTypeTool,
+		Env: map[string]string{
+			"TOKEN_EXCHANGE_CLIENT_ID":     fmt.Sprintf("%s:%s", req.Namespace, clientID),
+			"TOKEN_EXCHANGE_CLIENT_SECRET": clientSecret,
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to create credential: %w", err)
+	}
+
+	oauthClient := v1.OAuthClient{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       clientID,
+			Namespace:  req.Namespace,
+			Finalizers: []string{v1.OAuthClientFinalizer},
+		},
+		Spec: v1.OAuthClientSpec{
+			Manifest: types.OAuthClientManifest{
+				GrantTypes: []string{"urn:ietf:params:oauth:grant-type:token-exchange"},
+			},
+			ClientSecretHash: hashedClientSecretHash,
+			MCPServerName:    server.Name,
+		},
+	}
+
+	if err := req.Client.Create(req.Ctx, &oauthClient); err != nil {
+		return fmt.Errorf("failed to create OAuth client: %w", err)
 	}
 
 	return nil

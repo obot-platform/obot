@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"slices"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -27,7 +26,11 @@ func (s *Server) oauth(apiContext api.Context) error {
 	}
 
 	// Check to make sure this auth provider exists.
-	if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
+	configuredProvider, err := s.dispatcher.GetConfiguredAuthProvider(apiContext.Context())
+	if err != nil {
+		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
+	}
+	if configuredProvider != "" && configuredProvider != name {
 		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
@@ -65,22 +68,15 @@ func (s *Server) redirect(apiContext api.Context) error {
 	}
 
 	// Check to make sure this auth provider exists.
-
-	if providerList := s.dispatcher.ListConfiguredAuthProviders(namespace); !slices.Contains(providerList, name) {
+	configuredProvider, err := s.dispatcher.GetConfiguredAuthProvider(apiContext.Context())
+	if err != nil {
+		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
+	}
+	if configuredProvider != "" && configuredProvider != name {
 		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
-	// Get state from query parameters (OAuth providers redirect with state as query param)
-	state := apiContext.URL.Query().Get("state")
-	if state == "" {
-		// Fallback to form value in case it's a POST request
-		state = apiContext.FormValue("state")
-	}
-	if state == "" {
-		return types2.NewErrHTTP(http.StatusBadRequest, "missing state parameter")
-	}
-
-	tr, err := s.verifyState(apiContext.Context(), state)
+	tr, err := s.verifyState(apiContext.Context(), apiContext.FormValue("state"))
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid state: %v", err))
 	}

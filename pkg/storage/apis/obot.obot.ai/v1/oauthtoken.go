@@ -23,6 +23,7 @@ type OAuthTokenSpec struct {
 	Resource              string `json:"resource"`
 	ClientID              string `json:"clientID"`
 	UserID                uint   `json:"userID"`
+	MCPID                 string `json:"mcpID"`
 	AuthProviderUserID    string `json:"authProviderUserID"`
 	AuthProviderName      string `json:"authProviderName"`
 	AuthProviderNamespace string `json:"authProviderNamespace"`

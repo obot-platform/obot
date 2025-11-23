@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -17,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
+	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/crypto/bcrypt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -25,17 +27,30 @@ import (
 
 var log = logger.Package()
 
-const tokenExpiration = 10 * time.Minute
+const (
+	tokenExpiration         = 10 * time.Minute
+	tokenTypeJWT            = "urn:ietf:params:oauth:token-type:jwt"
+	tokenTypeAccessToken    = "urn:ietf:params:oauth:token-type:access_token"
+	ErrUnsupportedGrantType = ErrorCode("unsupported_grant_type")
+)
+
+// TokenExchangeResponse represents an RFC 8693 token exchange response
+type TokenExchangeResponse struct {
+	AccessToken     string `json:"access_token"`
+	IssuedTokenType string `json:"issued_token_type"`
+	TokenType       string `json:"token_type"`
+	ExpiresIn       int    `json:"expires_in"`
+}
 
 func (h *handler) token(req api.Context) error {
 	if err := req.ParseForm(); err != nil {
-		return err
+		return types.NewErrBadRequest("failed to parse request body: %v", err)
 	}
 
 	var clientSecret string
 	clientID := req.FormValue("client_id")
 	if clientID == "" {
-		creds := strings.Trim(req.Request.Header.Get("Authorization"), "Basic ")
+		creds := strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Basic ")
 		if creds == "" {
 			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
 		}
@@ -45,7 +60,7 @@ func (h *handler) token(req api.Context) error {
 			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
 		}
 
-		idx := strings.LastIndex(string(c), ":")
+		idx := bytes.LastIndex(c, []byte{':'})
 		if idx == -1 {
 			return types.NewErrHTTP(http.StatusUnauthorized, "Invalid client credentials")
 		}
@@ -104,11 +119,19 @@ func (h *handler) token(req api.Context) error {
 		})
 	}
 
-	if grantType == "authorization_code" {
+	switch grantType {
+	case "authorization_code":
 		return h.doAuthorizationCode(req, client, req.FormValue("code"), req.FormValue("code_verifier"))
+	case "refresh_token":
+		return h.doRefreshToken(req, client, req.FormValue("refresh_token"))
+	case "urn:ietf:params:oauth:grant-type:token-exchange":
+		return h.doTokenExchange(req, client, req.FormValue("resource"), req.FormValue("subject_token"), req.FormValue("subject_token_type"), req.FormValue("requested_token_type"))
+	default:
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: fmt.Sprintf("grant_type must be one of %s, not %s", strings.Join(h.oauthConfig.GrantTypesSupported, ", "), grantType),
+		})
 	}
-
-	return h.doRefreshToken(req, client, req.FormValue("refresh_token"))
 }
 
 func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClient, code, codeVerifier string) error {
@@ -180,7 +203,6 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	tknCtx := persistent.TokenContext{
 		Audience:              oauthAuthRequest.Spec.Resource,
 		IssuedAt:              now,
-		NotBefore:             now,
 		ExpiresAt:             now.Add(tokenExpiration),
 		UserID:                userID,
 		UserName:              user.Username,
@@ -190,8 +212,9 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
 		AuthProviderUserID:    oauthAuthRequest.Spec.AuthProviderUserID,
+		MCPID:                 oauthAuthRequest.Spec.MCPID,
 	}
-	tkn, err := h.tokenService.NewToken(tknCtx)
+	tkn, err := h.tokenService.NewToken(req.Context(), tknCtx)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
@@ -210,6 +233,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 			AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
 			AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
 			AuthProviderUserID:    oauthAuthRequest.Spec.AuthProviderUserID,
+			MCPID:                 oauthAuthRequest.Spec.MCPID,
 		},
 	}
 
@@ -254,11 +278,24 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		})
 	}
 
+	// If this is an MCP server instance and the resource isn't the MCP server, then update it to the MCP server.
+	if system.IsMCPServerInstanceID(oauthToken.Spec.MCPID) && strings.HasSuffix(oauthToken.Spec.Resource, "/"+oauthToken.Spec.MCPID) {
+		// If this is an MCP server instance ID, we need to get the MCP server ID
+		var mcpServerInstance v1.MCPServerInstance
+		if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: oauthClient.Namespace, Name: oauthToken.Spec.MCPID}, &mcpServerInstance); err != nil {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "invalid MCP server",
+			})
+		}
+
+		oauthToken.Spec.Resource = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, mcpServerInstance.Spec.MCPServerName)
+	}
+
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
 		Audience:              oauthToken.Spec.Resource,
 		IssuedAt:              now,
-		NotBefore:             now,
 		ExpiresAt:             now.Add(tokenExpiration),
 		UserID:                userID,
 		UserName:              user.Username,
@@ -268,8 +305,9 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		AuthProviderName:      oauthToken.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
 		AuthProviderUserID:    oauthToken.Spec.AuthProviderUserID,
+		MCPID:                 oauthToken.Spec.MCPID,
 	}
-	tkn, err := h.tokenService.NewToken(tknCtx)
+	tkn, err := h.tokenService.NewToken(req.Context(), tknCtx)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
@@ -288,6 +326,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 			AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
 			AuthProviderName:      oauthToken.Spec.AuthProviderName,
 			AuthProviderUserID:    oauthToken.Spec.AuthProviderUserID,
+			MCPID:                 oauthToken.Spec.MCPID,
 		},
 	}
 
@@ -300,5 +339,164 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		TokenType:    "bearer",
 		ExpiresIn:    int(time.Until(tknCtx.ExpiresAt).Milliseconds() / 1000),
 		RefreshToken: refreshToken,
+	})
+}
+
+func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, resource, subjectToken, subjectTokenType, requestedTokenType string) error {
+	if subjectToken == "" {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "subject_token is required",
+		})
+	}
+
+	if subjectTokenType != tokenTypeJWT {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "subject_token_type must be urn:ietf:params:oauth:token-type:jwt",
+		})
+	}
+
+	// Validate optional requested_token_type parameter
+	if requestedTokenType != "" && requestedTokenType != tokenTypeAccessToken {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "requested_token_type must be urn:ietf:params:oauth:token-type:access_token",
+		})
+	}
+
+	if resource == "" {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "resource is required",
+		})
+	}
+
+	// Parse the subject token JWT
+	tokenCtx, err := h.tokenService.DecodeToken(subjectToken)
+	if err != nil {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "invalid subject_token",
+		})
+	}
+
+	// Use the mcp_id claim from the parsed token
+	mcpID := tokenCtx.MCPID
+	if mcpID == "" {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "subject_token missing mcp_id claim",
+		})
+	}
+
+	userID := tokenCtx.UserID
+	if userID == "" {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "subject_token missing sub claim",
+		})
+	}
+
+	// Ephemeral OAuth clients don't have an MCP server in the database. They are for generating tool previews.
+	if !oauthClient.Spec.Ephemeral && system.IsMCPServerID(mcpID) {
+		var mcpServer v1.MCPServer
+		if err := req.Get(&mcpServer, mcpID); err != nil {
+			return types.NewErrBadRequest("%v", Error{
+				Code:        ErrInvalidRequest,
+				Description: "failed to retrieve MCP server " + mcpID,
+			})
+		}
+
+		if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+			_, componentMCPID, ok := strings.Cut(resource, "/mcp-connect/")
+			token := subjectToken
+			audienceID := componentMCPID
+			if ok {
+				if system.IsMCPServerInstanceID(componentMCPID) {
+					// Ensure this MCP server instance belongs to this composite MCP server.
+					var component v1.MCPServerInstance
+					if err := req.Get(&component, componentMCPID); err != nil || component.Spec.CompositeName != mcpServer.Name {
+						return types.NewErrBadRequest("%v", Error{
+							Code:        ErrInvalidRequest,
+							Description: "failed to retrieve composite MCP server " + componentMCPID,
+						})
+					}
+
+					audienceID = component.Spec.MCPServerName
+				} else {
+					// Ensure this MCP server belongs to this composite MCP server.
+					var component v1.MCPServer
+					if err := req.Get(&component, componentMCPID); err != nil || component.Spec.CompositeName != mcpServer.Name {
+						return types.NewErrBadRequest("%v", Error{
+							Code:        ErrInvalidRequest,
+							Description: "failed to retrieve composite MCP server " + componentMCPID,
+						})
+					}
+				}
+
+				tokenCtx.MCPID = componentMCPID
+				tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audienceID)
+
+				token, err = h.tokenService.NewToken(req.Context(), *tokenCtx)
+				if err != nil {
+					log.Errorf("failed to create token for component MCP server %s: %v", componentMCPID, err)
+					return types.NewErrBadRequest("%v", Error{
+						Code:        ErrServerError,
+						Description: "failed to create token",
+					})
+				}
+			}
+			// For composite MCP servers, return the subject subject.
+			// This ensures it gets passed to the component MCP servers so they can do token exchange.
+			return req.Write(TokenExchangeResponse{
+				AccessToken:     token,
+				IssuedTokenType: tokenTypeAccessToken,
+				TokenType:       "Bearer",
+				ExpiresIn:       max(int(time.Until(tokenCtx.ExpiresAt).Seconds()), 0),
+			})
+		}
+	} else if system.IsMCPServerInstanceID(mcpID) {
+		return types.NewErrNotFound("no token exchange for %s", resource)
+	}
+
+	// Get the token store for this user and MCP
+	store := h.tokenStore.ForUserAndMCP(userID, mcpID)
+
+	// Retrieve the OAuth configuration and token
+	config, token, err := store.GetTokenConfig(req.Context(), resource)
+	if err != nil {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "failed to retrieve token configuration",
+		})
+	}
+
+	if config == nil || token == nil {
+		return types.NewErrNotFound("no token to exchange for %s", resource)
+	}
+
+	// Refresh the token if needed
+	tok, err := config.TokenSource(req.Context(), token).Token()
+	if err != nil {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidRequest,
+			Description: "failed to refresh token",
+		})
+	}
+
+	// Store the refreshed token if it changed
+	if tok.AccessToken != token.AccessToken || tok.RefreshToken != token.RefreshToken || tok.Expiry.Unix() != token.Expiry.Unix() {
+		if err = store.SetTokenConfig(req.Context(), resource, config, tok); err != nil {
+			return fmt.Errorf("failed to store token: %w", err)
+		}
+	}
+
+	// Return RFC 8693 compliant response
+	return req.Write(TokenExchangeResponse{
+		AccessToken:     tok.AccessToken,
+		IssuedTokenType: tokenTypeAccessToken,
+		TokenType:       "Bearer",
+		ExpiresIn:       max(int(time.Until(tok.Expiry).Seconds()), 0),
 	})
 }

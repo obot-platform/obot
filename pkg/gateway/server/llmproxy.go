@@ -90,7 +90,7 @@ func (s *Server) llmProxy(req api.Context) error {
 	req.Request.Body = io.NopCloser(bytes.NewReader(b))
 	req.ContentLength = int64(len(b))
 
-	u, err := s.dispatcher.URLForModelProvider(req.Context(), token.Namespace, modelProvider)
+	u, err := s.dispatcher.URLForModelProvider(req.Context(), req.GPTClient, token.Namespace, modelProvider)
 	if err != nil {
 		return fmt.Errorf("failed to get model provider: %w", err)
 	}

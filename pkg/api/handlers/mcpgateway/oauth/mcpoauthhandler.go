@@ -28,9 +28,10 @@ type MCPOAuthHandlerFactory struct {
 	gptscript         *gptscript.GPTScript
 	stateCache        *stateCache
 	tokenStore        mcp.GlobalTokenStore
+	jwks              func() string
 }
 
-func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gptClient *gptscript.GPTScript, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore) *MCPOAuthHandlerFactory {
+func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gptClient *gptscript.GPTScript, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, jwks func() string) *MCPOAuthHandlerFactory {
 	return &MCPOAuthHandlerFactory{
 		baseURL:           baseURL,
 		mcpSessionManager: sessionManager,
@@ -38,8 +39,10 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 		gptscript:         gptClient,
 		stateCache:        newStateCache(gatewayClient),
 		tokenStore:        globalTokenStore,
+		jwks:              jwks,
 	}
 }
+
 func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
 	if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
 		var componentServers v1.MCPServerList
@@ -68,7 +71,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 				continue
 			}
 
-			_, componentConfig, err := handlers.ServerForAction(req, componentServer.Name, f.mcpSessionManager.TokenService(), f.baseURL)
+			_, componentConfig, err := handlers.ServerForAction(req, componentServer.Name, f.jwks())
 			if err != nil {
 				continue
 			}
@@ -98,12 +101,12 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	}
 
 	// Remote server, check for OAuth directly
-	oauthHandler := f.newMCPOAuthHandler(userID, mcpID, oauthAppAuthRequestID)
+	oauthHandler := f.newMCPOAuthHandler(userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID)
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(errChan)
-		_, err := f.mcpSessionManager.ClientForMCPServerWithOptions(req.Context(), userID, "Obot OAuth Check", mcpServer, mcpServerConfig, nmcp.ClientOption{
+		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), "Obot OAuth Check", mcpServerConfig, nmcp.ClientOption{
 			ClientName:       "Obot MCP OAuth",
 			OAuthRedirectURL: fmt.Sprintf("%s/oauth/mcp/callback", f.baseURL),
 			OAuthClientName:  "Obot MCP Gateway",
@@ -133,18 +136,20 @@ type mcpOAuthHandler struct {
 	gptscript          *gptscript.GPTScript
 	stateCache         *stateCache
 	mcpID              string
+	mcpURL             string
 	userID             string
 	oauthAuthRequestID string
 	urlChan            chan string
 }
 
-func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(userID, mcpID, oauthAuthRequestID string) *mcpOAuthHandler {
+func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(userID, mcpID, mcpURL, oauthAuthRequestID string) *mcpOAuthHandler {
 	return &mcpOAuthHandler{
 		client:             f.client,
 		gptscript:          f.gptscript,
 		stateCache:         f.stateCache,
 		userID:             userID,
 		mcpID:              mcpID,
+		mcpURL:             mcpURL,
 		oauthAuthRequestID: oauthAuthRequestID,
 		urlChan:            make(chan string, 1),
 	}
@@ -169,7 +174,7 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, ver
 	state := strings.ToLower(rand.Text())
 
 	ch := make(chan nmcp.CallbackPayload)
-	return state, ch, m.stateCache.store(ctx, m.userID, m.mcpID, m.oauthAuthRequestID, state, verifier, conf, ch)
+	return state, ch, m.stateCache.store(ctx, m.userID, m.mcpID, m.mcpURL, m.oauthAuthRequestID, state, verifier, conf, ch)
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context, authServerURL string) (string, string, error) {

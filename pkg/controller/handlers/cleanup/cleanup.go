@@ -50,7 +50,7 @@ func Cleanup(req router.Request, _ router.Response) error {
 
 		if err := req.Get(objType, namespace, ref.Name); apierrors.IsNotFound(err) {
 			if err := req.Get(untriggered.UncachedGet(objType), namespace, ref.Name); apierrors.IsNotFound(err) {
-				log.Infof("Deleting %s/%s due to missing %s", namespace, req.Name, ref.Name)
+				log.Infof("Deleting %s %s/%s due to missing %T %s", req.GVK.String(), namespace, req.Name, objType, ref.Name)
 				return req.Delete(req.Object)
 			}
 		}

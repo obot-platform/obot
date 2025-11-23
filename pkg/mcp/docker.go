@@ -7,6 +7,7 @@ import (
 	"maps"
 	"os"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -25,47 +26,76 @@ import (
 )
 
 type dockerBackend struct {
-	client       *client.Client
-	containerEnv bool
-	baseImage    string
-	network      string
+	client                 *client.Client
+	containerEnv           bool
+	network                string
+	hostBaseURL            string
+	containerizedBaseImage string
+	webhookBaseImage       string
+	remoteShimBaseImage    string
 }
 
-func newDockerBackend(ctx context.Context, baseImage string) (backend, error) {
+func newDockerBackend(ctx context.Context, containerizedBaseImage, webhookBaseImage, remoteShimBaseImage string) (backend, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
 	}
 
-	if err = cleanupContainersWithOldID(ctx, cli); err != nil {
+	containerEnv := os.Getenv("OBOT_CONTAINER_ENV") == "true"
+	network := "bridge"
+	ipAddress := "host.docker.internal"
+	if containerEnv {
+		network, ipAddress, err = detectCurrentNetworkAndIP(ctx, cli)
+		if err != nil {
+			return nil, fmt.Errorf("failed to detect current network: %w", err)
+		}
+	}
+
+	d := &dockerBackend{
+		client:                 cli,
+		containerEnv:           containerEnv,
+		network:                network,
+		hostBaseURL:            "http://" + ipAddress,
+		containerizedBaseImage: containerizedBaseImage,
+		webhookBaseImage:       webhookBaseImage,
+		remoteShimBaseImage:    remoteShimBaseImage,
+	}
+	if err = d.cleanupContainersWithOldID(ctx); err != nil {
 		return nil, fmt.Errorf("failed to cleanup containers with old ID: %w", err)
 	}
 
-	containerEnv := os.Getenv("OBOT_CONTAINER_ENV") == "true"
-	network := "bridge"
-	if containerEnv {
-		detectedNetwork, detectErr := detectCurrentNetwork(ctx, cli)
-		if detectErr != nil {
-			// Log warning but continue with detected network (may be "bridge" fallback)
-			log.Warnf("Network detection warning: %v", detectErr)
-		}
-		network = detectedNetwork
-		log.Infof("Detected Docker network: %s (containerEnv=%v)", network, containerEnv)
+	return d, nil
+}
+
+// detectCurrentNetworkAndIP detects the Docker network and IP of the current container if running inside one.
+// Returns empty string if not running in a container or if detection fails.
+func detectCurrentNetworkAndIP(ctx context.Context, cli *client.Client) (string, string, error) {
+	// Read container ID from cgroup file
+	hostname, err := os.Hostname()
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get hostname: %w", err)
 	}
 
-	return &dockerBackend{
-		client:       cli,
-		containerEnv: containerEnv,
-		baseImage:    baseImage,
-		network:      network,
-	}, nil
+	// Try to inspect container using hostname as container ID
+	inspect, err := cli.ContainerInspect(ctx, hostname)
+	if err != nil {
+		// Not running in a container or can't access Docker socket
+		return "", "", fmt.Errorf("failed to inspect container: %w", err)
+	}
+
+	// Get the first network (most containers are on a single network)
+	for networkName, networkSettings := range inspect.NetworkSettings.Networks {
+		return networkName, networkSettings.IPAddress, nil
+	}
+
+	return "bridge", "", nil
 }
 
 // cleanupContainersWithOldID removes containers with old ID and no config hash label.
 // This is a migration for simplifying the container names and updating existing containers
 // when configuration changes instead of possibly orphaning them.
-func cleanupContainersWithOldID(ctx context.Context, client *client.Client) error {
-	containers, err := client.ContainerList(ctx, container.ListOptions{
+func (d *dockerBackend) cleanupContainersWithOldID(ctx context.Context) error {
+	containers, err := d.client.ContainerList(ctx, container.ListOptions{
 		All: true,
 	})
 	if err != nil {
@@ -73,8 +103,9 @@ func cleanupContainersWithOldID(ctx context.Context, client *client.Client) erro
 	}
 
 	for _, c := range containers {
-		if id := c.Labels["mcp.server.id"]; id != "" && c.Labels["mcp.config.hash"] == "" {
-			if err := removeObjectsForContainer(ctx, client, &c, id); err != nil {
+		id := c.Labels["mcp.server.id"]
+		if _, ok := c.Labels["mcp.deployment.id"]; !ok && id != "" {
+			if err := d.removeObjectsForContainer(ctx, &c, id); err != nil {
 				return fmt.Errorf("failed to remove container with old ID %s: %w", c.ID, err)
 			}
 		}
@@ -83,85 +114,104 @@ func cleanupContainersWithOldID(ctx context.Context, client *client.Client) erro
 	return nil
 }
 
-// detectCurrentNetwork detects the Docker network of the current container if running inside one.
-// Returns the network name or "bridge" as fallback if detection fails.
-func detectCurrentNetwork(ctx context.Context, cli *client.Client) (string, error) {
-	// Try multiple methods to get the container ID
-	var containerID string
-	
-	// Method 1: Try reading from /proc/self/cgroup (most reliable)
-	if cgroupData, err := os.ReadFile("/proc/self/cgroup"); err == nil {
-		// Parse cgroup to extract container ID
-		// Format: .../docker/<container-id> or .../<container-id>
-		lines := strings.Split(string(cgroupData), "\n")
-		for _, line := range lines {
-			if strings.Contains(line, "docker") {
-				parts := strings.Split(line, "/")
-				for i, part := range parts {
-					if part == "docker" && i+1 < len(parts) {
-						containerID = parts[i+1]
-						// Container ID is typically 64 chars, but we can use shorter prefix
-						if len(containerID) > 12 {
-							containerID = containerID[:12]
-						}
-						break
-					}
-				}
-				if containerID != "" {
-					break
-				}
-			}
-		}
-	}
-	
-	// Method 2: Fall back to hostname (works in Docker Compose where hostname = container name)
-	if containerID == "" {
-		hostname, err := os.Hostname()
-		if err == nil {
-			containerID = hostname
-		}
-	}
-	
-	if containerID == "" {
-		return "bridge", fmt.Errorf("could not determine container ID, falling back to bridge network")
-	}
-
-	// Try to inspect container using container ID or name
-	inspect, err := cli.ContainerInspect(ctx, containerID)
-	if err != nil {
-		// If inspection fails, try using hostname as container name
-		if hostname, hostErr := os.Hostname(); hostErr == nil && hostname != containerID {
-			inspect, err = cli.ContainerInspect(ctx, hostname)
-		}
-		if err != nil {
-			// Not running in a container or can't access Docker socket
-			return "bridge", fmt.Errorf("failed to inspect container %s: %w (falling back to bridge network)", containerID, err)
-		}
-	}
-
-	// Get the first network (most containers are on a single network)
-	// Prefer non-bridge networks if available
-	var detectedNetwork string
-	for networkName := range inspect.NetworkSettings.Networks {
-		if networkName != "bridge" {
-			return networkName, nil
-		}
-		detectedNetwork = networkName
-	}
-
-	if detectedNetwork != "" {
-		return detectedNetwork, nil
-	}
-
-	return "bridge", nil
-}
-
-func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, userID, mcpServerDisplayName, mcpServerName string) (ServerConfig, error) {
+// deployServer will deploy the underlying container for the server. It will not deploy any shims or webhooks.
+// This is only to give users the opportunity to view logs and debug the server they are trying to deploy.
+func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig, _ []Webhook) error {
 	configHash := clientID(server)
 	// Check if container already exists
-	existing, err := d.getContainer(ctx, server.Scope)
+	existing, err := d.getContainer(ctx, server.MCPServerName)
 	if err == nil && existing != nil {
-		if existing.Labels["mcp.config.hash"] != configHash || existing.NetworkSettings == nil || existing.NetworkSettings.Networks[d.network] == nil {
+		// Server is already deployed; nothing to do
+		return nil
+	}
+
+	_, _, err = d.createAndStartContainer(ctx, server, "", configHash, nil)
+	return err
+}
+
+func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
+	serverName := server.MCPServerName
+	// Copy the webhooks so we can change the URL without that affecting the original slice.
+	transformedWebhooks := slices.Clone(webhooks)
+
+	// List the currently deployed webhooks so we can delete any that are no longer needed.
+	currentWebhooks, err := d.getWebhookContainers(ctx, server.MCPServerName)
+	if err != nil {
+		return ServerConfig{}, fmt.Errorf("failed to list webhooks: %w", err)
+	}
+
+	existingWebhooks := make(map[string]struct{}, len(currentWebhooks))
+	for _, webhook := range currentWebhooks {
+		existingWebhooks[strings.TrimPrefix(webhook.Names[0], "/")] = struct{}{}
+	}
+
+	for i, webhook := range transformedWebhooks {
+		c, err := webhookToServerConfig(webhook, d.webhookBaseImage, server.MCPServerName, server.UserID, server.Scope, defaultContainerPort)
+		if err != nil {
+			return ServerConfig{}, fmt.Errorf("failed to ensure webhook deployment: %w", err)
+		} else if c, err = d.ensureDeployment(ctx, c, server.MCPServerName, d.containerEnv, nil); err != nil {
+			return ServerConfig{}, fmt.Errorf("failed to ensure server deployment: %w", err)
+		} else if existing, err := d.getContainer(ctx, c.MCPServerName); err != nil {
+			return ServerConfig{}, fmt.Errorf("failed to build server config: %w", err)
+		} else if existing == nil {
+			return ServerConfig{}, fmt.Errorf("failed to ensure webhook deployment for %s", c.MCPServerName)
+		} else if c, err = d.buildServerConfig(c, existing, c.ContainerPort, true); err != nil {
+			return ServerConfig{}, fmt.Errorf("failed to build server config: %w", err)
+		}
+
+		webhook.URL = c.URL
+		transformedWebhooks[i] = webhook
+
+		delete(existingWebhooks, c.MCPServerName)
+	}
+
+	for name := range existingWebhooks {
+		if err := d.shutdownServer(ctx, name); err != nil {
+			return ServerConfig{}, fmt.Errorf("failed to delete webhook container %s: %w", name, err)
+		}
+	}
+
+	if server.Runtime != otypes.RuntimeRemote {
+		// For non-remote runtimes, we deploy a shim that handles webhooks.
+		server, err = d.ensureDeployment(ctx, server, "", true, nil)
+		if err != nil {
+			return ServerConfig{}, err
+		}
+
+		server.MCPServerName += "-shim"
+	}
+
+	server, err = d.ensureDeployment(ctx, server, "", d.containerEnv, transformedWebhooks)
+	// Ensure the name is the same as what it was when we started.
+	server.MCPServerName = serverName
+	return server, err
+}
+
+func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool, webhooks []Webhook) (ServerConfig, error) {
+	if strings.HasPrefix(server.TokenExchangeEndpoint, "http://localhost") {
+		server.TokenExchangeEndpoint = strings.Replace(server.TokenExchangeEndpoint, "http://localhost", d.hostBaseURL, 1)
+	}
+
+	for i, component := range server.Components {
+		if strings.HasPrefix(component.URL, "http://localhost") {
+			component.URL = strings.Replace(component.URL, "http://localhost", d.hostBaseURL, 1)
+			server.Components[i] = component
+		}
+	}
+
+	configHash := clientID(server)
+	if len(webhooks) > 0 {
+		// Include webhooks in the config hash so that changes to webhooks trigger a redeployment
+		configHash += hash.Digest(webhooks)
+	}
+
+	// Check if container already exists
+	existing, err := d.getContainer(ctx, server.MCPServerName)
+	if err == nil && existing != nil {
+		if existing.Labels["mcp.config.hash"] != configHash ||
+			existing.NetworkSettings == nil ||
+			existing.NetworkSettings.Networks[d.network] == nil ||
+			(server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite) && existing.Image != d.remoteShimBaseImage {
 			// Clear the state. The below logic will remove and recreate the container.
 			existing.State = ""
 		}
@@ -178,7 +228,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 				return ServerConfig{}, fmt.Errorf("failed to wait for container: %w", err)
 			}
 
-			existing, err = d.getContainer(ctx, server.Scope)
+			existing, err = d.getContainer(ctx, server.MCPServerName)
 			if err != nil {
 				return ServerConfig{}, fmt.Errorf("failed to get running container: %w", err)
 			}
@@ -191,11 +241,11 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 				containerPort = defaultContainerPort
 			}
 
-			if err = d.ensureServerReady(ctx, existing, server, containerPort, server.Scope); err != nil {
+			if err = d.ensureServerReady(ctx, existing, server, containerPort); err != nil {
 				return ServerConfig{}, fmt.Errorf("server running, but readiness check failed: %w", err)
 			}
 
-			return d.buildServerConfig(server, existing, containerPort)
+			return d.buildServerConfig(server, existing, containerPort, containerEnv)
 		default:
 			// Container exists but not running, remove it and recreate
 			if err := d.client.ContainerRemove(ctx, existing.ID, container.RemoveOptions{Force: true}); err != nil {
@@ -205,11 +255,17 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	// Create new container
-	return d.createAndStartContainer(ctx, server, userID, server.Scope, mcpServerDisplayName, mcpServerName, configHash)
+	return d.createAndStartAndWaitForContainer(ctx, server, mcpServerName, configHash, containerEnv, webhooks)
 }
 
 func (d *dockerBackend) transformConfig(ctx context.Context, serverConfig ServerConfig) (*ServerConfig, error) {
-	existing, err := d.getContainer(ctx, serverConfig.Scope)
+	containerName := serverConfig.MCPServerName
+	if serverConfig.Runtime == otypes.RuntimeContainerized {
+		// For containerized runtimes, we want to communicate with the shim.
+		containerName += "-shim"
+	}
+
+	existing, err := d.getContainer(ctx, containerName)
 	if err != nil || existing == nil || existing.State != "running" {
 		// Container doesn't exist or isn't running, config can't be transformed
 		return nil, nil
@@ -220,7 +276,7 @@ func (d *dockerBackend) transformConfig(ctx context.Context, serverConfig Server
 		containerPort = defaultContainerPort
 	}
 
-	transformed, err := d.buildServerConfig(serverConfig, existing, containerPort)
+	transformed, err := d.buildServerConfig(serverConfig, existing, containerPort, d.containerEnv)
 	return &transformed, err
 }
 
@@ -333,20 +389,44 @@ func (d *dockerBackend) shutdownServer(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to get container %s for shutdown: %w", id, err)
 	}
 
-	return removeObjectsForContainer(ctx, d.client, c, id)
+	if err := d.removeObjectsForContainer(ctx, c, id); err != nil {
+		return fmt.Errorf("failed to remove objects for container %s: %w", id, err)
+	}
+
+	c, err = d.getContainer(ctx, id+"-shim")
+	if err != nil && !cerrdefs.IsNotFound(err) {
+		return fmt.Errorf("failed to check for shim container %s for shutdown: %w", id, err)
+	} else if err == nil {
+		if err = d.removeObjectsForContainer(ctx, c, id+"-shim"); err != nil {
+			return fmt.Errorf("failed to remove objects for shim container %s: %w", id+"-shim", err)
+		}
+	}
+
+	webhookContainers, err := d.getWebhookContainers(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get webhook containers: %w", err)
+	}
+
+	for _, webhookContainer := range webhookContainers {
+		if err := d.removeObjectsForContainer(ctx, &webhookContainer, webhookContainer.ID); err != nil {
+			return fmt.Errorf("failed to remove objects for webhook container %s: %w", webhookContainer.ID, err)
+		}
+	}
+
+	return nil
 }
 
-func removeObjectsForContainer(ctx context.Context, client *client.Client, c *container.Summary, id string) error {
+func (d *dockerBackend) removeObjectsForContainer(ctx context.Context, c *container.Summary, id string) error {
 	var volumeNames []string
 	if c != nil {
 		// Get container inspection to find volumes
-		inspect, err := client.ContainerInspect(ctx, c.ID)
+		inspect, err := d.client.ContainerInspect(ctx, c.ID)
 		if err == nil {
 			// Clean up volumes associated with this container
 			for _, mount := range inspect.Mounts {
 				if mount.Type == "volume" {
 					// Check if this is our volume based on labels
-					volumeInspect, err := client.VolumeInspect(ctx, mount.Name)
+					volumeInspect, err := d.client.VolumeInspect(ctx, mount.Name)
 					if err == nil {
 						if serverID, exists := volumeInspect.Labels["mcp.server.id"]; exists && serverID == id {
 							// This is our volume, remove it
@@ -359,18 +439,18 @@ func removeObjectsForContainer(ctx context.Context, client *client.Client, c *co
 	}
 
 	// Stop and remove the container
-	if err := client.ContainerStop(ctx, id, container.StopOptions{Timeout: &[]int{30}[0]}); err != nil && !cerrdefs.IsNotFound(err) {
+	if err := d.client.ContainerStop(ctx, id, container.StopOptions{}); err != nil && !cerrdefs.IsNotFound(err) {
 		// If container doesn't exist, that's fine
 		return fmt.Errorf("failed to stop container %s: %w", id, err)
 	}
 
-	if err := client.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil && !cerrdefs.IsNotFound(err) {
+	if err := d.client.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil && !cerrdefs.IsNotFound(err) {
 		// If container doesn't exist, that's fine
 		return fmt.Errorf("failed to remove container %s: %w", id, err)
 	}
 
 	for _, volumeName := range volumeNames {
-		if err := client.VolumeRemove(ctx, volumeName, true); err != nil && !cerrdefs.IsNotFound(err) {
+		if err := d.client.VolumeRemove(ctx, volumeName, true); err != nil && !cerrdefs.IsNotFound(err) {
 			log.Warnf("Failed to remove volume %s: %v", volumeName, err)
 		}
 	}
@@ -403,6 +483,21 @@ func (d *dockerBackend) getContainer(ctx context.Context, name string) (*contain
 	return nil, nil
 }
 
+func (d *dockerBackend) getWebhookContainers(ctx context.Context, mcpContainerName string) ([]container.Summary, error) {
+	containers, err := d.client.ContainerList(ctx, container.ListOptions{
+		All: true,
+		Filters: filters.NewArgs(filters.KeyValuePair{
+			Key:   "label",
+			Value: fmt.Sprintf("mcp.deployment.id=%s", mcpContainerName),
+		}),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return containers, nil
+}
+
 func (d *dockerBackend) getHostPort(container *container.Summary, containerPort int) (int, error) {
 	for _, port := range container.Ports {
 		if port.PrivatePort == uint16(containerPort) && port.PublicPort != 0 {
@@ -412,9 +507,13 @@ func (d *dockerBackend) getHostPort(container *container.Summary, containerPort 
 	return 0, fmt.Errorf("no public port found for container port %d", containerPort)
 }
 
-func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summary, port int) (ServerConfig, error) {
-	var host string
-	if d.containerEnv {
+func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summary, containerPort int, containerEnv bool) (ServerConfig, error) {
+	var (
+		host string
+		port = containerPort
+	)
+
+	if containerEnv {
 		if c == nil || c.NetworkSettings == nil {
 			return ServerConfig{}, fmt.Errorf("container %s not found or has no network settings", c.ID)
 		}
@@ -429,7 +528,7 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		host = "localhost"
 
 		var err error
-		port, err = d.getHostPort(c, port)
+		port, err = d.getHostPort(c, containerPort)
 		if err != nil {
 			return ServerConfig{}, fmt.Errorf("failed to get host port: %w", err)
 		}
@@ -441,14 +540,48 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 	}
 
 	return ServerConfig{
-		URL:          url,
-		Scope:        c.ID,
-		AllowedTools: server.AllowedTools,
-		Runtime:      otypes.RuntimeRemote,
+		URL:                       url,
+		MCPServerNamespace:        server.MCPServerNamespace,
+		MCPServerName:             server.MCPServerName,
+		MCPServerDisplayName:      server.MCPServerDisplayName,
+		Scope:                     c.ID,
+		UserID:                    server.UserID,
+		Runtime:                   otypes.RuntimeRemote,
+		Audiences:                 server.Audiences,
+		Issuer:                    server.Issuer,
+		JWKS:                      server.JWKS,
+		TokenExchangeEndpoint:     server.TokenExchangeEndpoint,
+		TokenExchangeClientID:     server.TokenExchangeClientID,
+		TokenExchangeClientSecret: server.TokenExchangeClientSecret,
+		ContainerPort:             containerPort,
+		ContainerPath:             server.ContainerPath,
 	}, nil
 }
 
-func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, userID, containerName, displayName, serverName, configHash string) (retConfig ServerConfig, retErr error) {
+func (d *dockerBackend) createAndStartAndWaitForContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash string, containerEnv bool, webhooks []Webhook) (retConfig ServerConfig, retErr error) {
+	containerID, containerPort, err := d.createAndStartContainer(ctx, server, mcpServerName, configHash, webhooks)
+	if err != nil {
+		return ServerConfig{}, err
+	}
+
+	// Wait for container to be running and healthy
+	if err := d.waitForContainer(ctx, containerID); err != nil {
+		return retConfig, fmt.Errorf("container failed to become ready: %w", err)
+	}
+
+	c, err := d.getContainer(ctx, server.MCPServerName)
+	if err != nil {
+		return retConfig, fmt.Errorf("failed to get container after starting: %w", err)
+	}
+
+	if err = d.ensureServerReady(ctx, c, server, containerPort); err != nil {
+		return retConfig, fmt.Errorf("server readiness check failed: %w", err)
+	}
+
+	return d.buildServerConfig(server, c, containerPort, containerEnv)
+}
+
+func (d *dockerBackend) createAndStartContainer(ctx context.Context, server ServerConfig, mcpServerName, configHash string, webhooks []Webhook) (string, int, error) {
 	var (
 		volumeMounts  []mount.Mount
 		entrypoint    []string
@@ -459,9 +592,9 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	)
 
 	// Prepare file volumes and environment variables
-	fileVolumeName, fileEnvVars, err := d.prepareContainerFiles(ctx, server, containerName)
+	fileVolumeName, fileEnvVars, err := d.prepareContainerFiles(ctx, server, mcpServerName)
 	if err != nil {
-		return retConfig, fmt.Errorf("failed to prepare container files: %w", err)
+		return "", 0, fmt.Errorf("failed to prepare container files: %w", err)
 	}
 	if fileVolumeName != "" {
 		volumeMounts = append(volumeMounts, mount.Mount{
@@ -493,15 +626,29 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 
 	// Configure based on runtime
 	switch server.Runtime {
-	case otypes.RuntimeUVX, otypes.RuntimeNPX:
+	case otypes.RuntimeUVX, otypes.RuntimeNPX, otypes.RuntimeRemote, otypes.RuntimeComposite:
 		// Use base image with nanobot
-		image = d.baseImage
+		image = d.containerizedBaseImage
+		if server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite {
+			image = d.remoteShimBaseImage
+			// Set nanobot environment variables
+			env = []string{
+				"NANOBOT_RUN_TRUSTED_ISSUER=" + server.Issuer,
+				"NANOBOT_RUN_TRUSTED_AUDIENCES=" + strings.Join(server.Audiences, ","),
+				"NANOBOT_RUN_JWKS=" + server.JWKS,
+				"NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_ID=" + server.TokenExchangeClientID,
+				"NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_SECRET=" + server.TokenExchangeClientSecret,
+				"NANOBOT_RUN_TOKEN_EXCHANGE_ENDPOINT=" + server.TokenExchangeEndpoint,
+				"NANOBOT_DISABLE_HEALTH_CHECKER=true",
+			}
+		}
+
 		containerPort = defaultContainerPort
 
 		// Prepare nanobot configuration
-		nanobotVolumeName, err := d.prepareNanobotConfig(ctx, server, displayName, fileEnvVars, containerName)
+		nanobotVolumeName, err := d.prepareNanobotConfig(ctx, server, fileEnvVars, webhooks)
 		if err != nil {
-			return retConfig, fmt.Errorf("failed to prepare nanobot config: %w", err)
+			return "", 0, fmt.Errorf("failed to prepare nanobot config: %w", err)
 		}
 
 		volumeMounts = append(volumeMounts, mount.Mount{
@@ -511,15 +658,15 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		})
 
 		// Use nanobot command
-		cmd = []string{"run", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "/run/nanobot.yaml"}
+		cmd = []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "/run/nanobot.yaml"}
 
 		// Set nanobot environment variables
-		env = []string{"NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true"}
+		env = append(env, "NANOBOT_RUN_HEALTHZ_PATH=/healthz", "OBOT_KUBERNETES_MODE=true")
 
 	case otypes.RuntimeContainerized:
 		// Use specified container image or base image
 		if server.ContainerImage == "" {
-			return retConfig, fmt.Errorf("container image must be specified for containerized runtime")
+			return "", 0, fmt.Errorf("container image must be specified for containerized runtime")
 		}
 
 		image = server.ContainerImage
@@ -547,7 +694,7 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 
 		env = append(env, fmt.Sprintf("NANOBOT_META_ENV=%s", strings.Join(metaEnvVar, ",")))
 	default:
-		return retConfig, fmt.Errorf("unsupported runtime: %s", server.Runtime)
+		return "", 0, fmt.Errorf("unsupported runtime: %s", server.Runtime)
 	}
 
 	// Prepare port binding
@@ -561,10 +708,10 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		Entrypoint:   entrypoint,
 		Cmd:          cmd,
 		Labels: map[string]string{
-			"mcp.server.displayName": displayName,
-			"mcp.server.name":        serverName,
-			"mcp.server.id":          containerName,
-			"mcp.user.id":            userID,
+			"mcp.server.displayName": server.MCPServerDisplayName,
+			"mcp.deployment.id":      mcpServerName,
+			"mcp.server.id":          server.MCPServerName,
+			"mcp.user.id":            server.UserID,
 			"mcp.config.hash":        configHash,
 		},
 	}
@@ -578,8 +725,14 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		},
 	}
 
+	if os.Getenv("OBOT_DOCKER_INTERNAL_ADD_HOST") == "true" && strings.HasPrefix(server.TokenExchangeEndpoint, "http://host.docker.internal") {
+		// On some systems (like Docker on Linux), we need to add the host-gateway entry to the container's /etc/hosts file.
+		// For Docker Desktop or Rancher Desktop, this isn't necessary.
+		hostConfig.ExtraHosts = []string{"host.docker.internal:host-gateway"}
+	}
+
 	if err := d.pullImage(ctx, image, false); err != nil {
-		return retConfig, fmt.Errorf("failed to ensure image exists: %w", err)
+		return "", 0, fmt.Errorf("failed to ensure image exists: %w", err)
 	}
 
 	// Configure network
@@ -596,15 +749,15 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 	// This hack addresses this by retrying 3 times, waiting a second each time.
 	for range 3 {
 		// Create container
-		resp, err := d.client.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, containerName)
+		resp, err := d.client.ContainerCreate(ctx, config, hostConfig, networkingConfig, nil, server.MCPServerName)
 		if err != nil {
 			if !cerrdefs.IsConflict(err) && !cerrdefs.IsAlreadyExists(err) {
-				return retConfig, fmt.Errorf("failed to create container: %w", err)
+				return "", 0, fmt.Errorf("failed to create container: %w", err)
 			}
 
-			cont, getErr := d.getContainer(ctx, containerName)
+			cont, getErr := d.getContainer(ctx, server.MCPServerName)
 			if getErr != nil {
-				return retConfig, fmt.Errorf("failed to create container: %w", err)
+				return "", 0, fmt.Errorf("failed to create container: %w", err)
 			}
 			if cont == nil {
 				time.Sleep(time.Second)
@@ -617,29 +770,15 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 		}
 	}
 	if containerID == "" {
-		return retConfig, fmt.Errorf("failed to create container")
+		return "", 0, fmt.Errorf("failed to create container")
 	}
 
 	// Start container
 	if err := d.client.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
-		return retConfig, fmt.Errorf("failed to start container: %w", err)
+		return "", 0, fmt.Errorf("failed to start container: %w", err)
 	}
 
-	// Wait for container to be running and healthy
-	if err := d.waitForContainer(ctx, containerID); err != nil {
-		return retConfig, fmt.Errorf("container failed to become ready: %w", err)
-	}
-
-	c, err := d.getContainer(ctx, containerName)
-	if err != nil {
-		return retConfig, fmt.Errorf("failed to get container after starting: %w", err)
-	}
-
-	if err = d.ensureServerReady(ctx, c, server, containerPort, containerName); err != nil {
-		return retConfig, fmt.Errorf("server readiness check failed: %w", err)
-	}
-
-	return d.buildServerConfig(server, c, containerPort)
+	return containerID, containerPort, nil
 }
 
 func (d *dockerBackend) waitForContainer(ctx context.Context, containerID string) error {
@@ -674,7 +813,7 @@ func (d *dockerBackend) waitForContainer(ctx context.Context, containerID string
 	}
 }
 
-func (d *dockerBackend) ensureServerReady(ctx context.Context, c *container.Summary, server ServerConfig, containerPort int, containerName string) error {
+func (d *dockerBackend) ensureServerReady(ctx context.Context, c *container.Summary, server ServerConfig, containerPort int) error {
 	var (
 		host string
 		err  error
@@ -682,12 +821,12 @@ func (d *dockerBackend) ensureServerReady(ctx context.Context, c *container.Summ
 	)
 	if d.containerEnv {
 		if c == nil || c.NetworkSettings == nil {
-			return fmt.Errorf("container %s not found or has no network settings", containerName)
+			return fmt.Errorf("container %s not found or has no network settings", server.MCPServerName)
 		}
 
 		n, ok := c.NetworkSettings.Networks[d.network]
 		if !ok || n.IPAddress == "" {
-			return fmt.Errorf("container %s is not connected to %s network", containerName, d.network)
+			return fmt.Errorf("container %s is not connected to %s network", server.MCPServerName, d.network)
 		}
 
 		host = n.IPAddress
@@ -708,12 +847,12 @@ func (d *dockerBackend) ensureServerReady(ctx context.Context, c *container.Summ
 }
 
 // prepareContainerFiles creates a volume for server.Files and returns volume name and env vars
-func (d *dockerBackend) prepareContainerFiles(ctx context.Context, server ServerConfig, containerName string) (string, map[string]string, error) {
+func (d *dockerBackend) prepareContainerFiles(ctx context.Context, server ServerConfig, mcpServerName string) (string, map[string]string, error) {
 	if len(server.Files) == 0 {
 		return "", nil, nil
 	}
 
-	volumeName, envVars, err := d.createVolumeWithFiles(ctx, server.Files, containerName)
+	volumeName, envVars, err := d.createVolumeWithFiles(ctx, server.Files, server.MCPServerName, mcpServerName)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create volume with files: %w", err)
 	}
@@ -722,7 +861,7 @@ func (d *dockerBackend) prepareContainerFiles(ctx context.Context, server Server
 }
 
 // createVolumeWithFiles creates an anonymous volume and populates it with file data using an init container
-func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File, containerName string) (string, map[string]string, error) {
+func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File, containerName, mcpServerName string) (string, map[string]string, error) {
 	if len(files) == 0 {
 		return "", nil, nil
 	}
@@ -732,8 +871,9 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	// Create anonymous volume
 	_, err := d.client.VolumeCreate(ctx, volume.CreateOptions{
 		Labels: map[string]string{
-			"mcp.server.id": containerName,
-			"mcp.purpose":   "files",
+			"mcp.server.id":     containerName,
+			"mcp.deployment.id": mcpServerName,
+			"mcp.purpose":       "files",
 		},
 		Name: volumeName,
 	})
@@ -785,17 +925,9 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 		AutoRemove: true,
 	}
 
-	// Configure network (same as main containers)
-	initNetworkingConfig := &network.NetworkingConfig{}
-	if d.network != "" {
-		initNetworkingConfig.EndpointsConfig = map[string]*network.EndpointSettings{
-			d.network: {},
-		}
-	}
-
 	var initContainerID string
 	initContainerName := fmt.Sprintf("%s-init", containerName)
-	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, initNetworkingConfig, nil, initContainerName)
+	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, &network.NetworkingConfig{}, nil, initContainerName)
 	if cerrdefs.IsConflict(err) || cerrdefs.IsAlreadyExists(err) {
 		// Init container already exists, get its containerID
 		resp, err := d.client.ContainerList(ctx, container.ListOptions{
@@ -872,9 +1004,10 @@ func (d *dockerBackend) pullImage(ctx context.Context, imageName string, ifNotEx
 }
 
 // prepareNanobotConfig creates a volume with nanobot YAML configuration for UVX/NPX runtimes
-func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerConfig, displayName string, envVars map[string]string, containerName string) (string, error) {
+func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerConfig, envVars map[string]string, webhooks []Webhook) (string, error) {
 	// Create all environment variables map
-	allEnvVars := make(map[string]string, len(server.Env)+len(envVars)+2)
+	allEnvVars := make(map[string]string, len(server.Env)+len(envVars))
+	headers := make(map[string]string, len(server.Headers))
 
 	// Add server environment variables
 	for _, env := range server.Env {
@@ -882,24 +1015,33 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 			allEnvVars[k] = v
 		}
 	}
-
 	maps.Copy(allEnvVars, envVars)
 
-	// Add nanobot-specific environment variables
-	allEnvVars["OBOT_KUBERNETES_MODE"] = "true"
-	allEnvVars["NANOBOT_RUN_HEALTHZ_PATH"] = "/healthz"
+	// Add server headers
+	for _, header := range server.Headers {
+		if k, v, ok := strings.Cut(header, "="); ok {
+			headers[k] = v
+		}
+	}
 
-	// Generate nanobot YAML using the existing function from loader.go
-	nanobotYAML, err := constructNanobotYAML(displayName, server.Command, server.Args, allEnvVars)
+	var (
+		nanobotYAML string
+		err         error
+	)
+	if server.Runtime == otypes.RuntimeComposite {
+		nanobotYAML, err = constructNanobotYAMLForCompositeServer(server.Components)
+	} else {
+		nanobotYAML, err = constructNanobotYAMLForServer(server.MCPServerDisplayName, server.URL, server.Command, server.Args, allEnvVars, headers, webhooks)
+	}
 	if err != nil {
 		return "", fmt.Errorf("failed to construct nanobot YAML: %w", err)
 	}
 
-	volumeName := containerName + "-nanobot-config"
+	volumeName := server.MCPServerName + "-nanobot-config"
 	// Create volume for nanobot config
 	_, err = d.client.VolumeCreate(ctx, volume.CreateOptions{
 		Labels: map[string]string{
-			"mcp.server.id": containerName,
+			"mcp.server.id": server.MCPServerName,
 			"mcp.purpose":   "nanobot-config",
 		},
 		Name: volumeName,
@@ -944,7 +1086,7 @@ func (d *dockerBackend) prepareNanobotConfig(ctx context.Context, server ServerC
 	}
 
 	var initContainerID string
-	initContainerName := fmt.Sprintf("%s-nanobot-init", containerName)
+	initContainerName := fmt.Sprintf("%s-nanobot-init", server.MCPServerName)
 	resp, err := d.client.ContainerCreate(ctx, initConfig, initHostConfig, initNetworkingConfig, nil, initContainerName)
 	if cerrdefs.IsConflict(err) || cerrdefs.IsAlreadyExists(err) {
 		// Container already exists, so get its ID

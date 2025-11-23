@@ -229,7 +229,7 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 		return fmt.Errorf("failed to create thread: %w", err)
 	}
 
-	task, err := mp.invoker.SystemTask(req.Context(), thread, "validate from "+ref.Spec.Reference, "", invoke.SystemTaskOptions{Env: envs})
+	task, err := mp.invoker.SystemTask(req.Context(), req.GPTClient, thread, "validate from "+ref.Spec.Reference, "", invoke.SystemTaskOptions{Env: envs})
 	if err != nil {
 		return err
 	}

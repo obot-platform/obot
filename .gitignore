@@ -1,6 +1,5 @@
 # Ignore binary files
 bin/
-.pnpm-store/
 
 # Random TLS files
 apiserver.local.config/
@@ -67,3 +66,5 @@ catalog.json
 .claude/
 CLAUDE.md
 thoughts/
+.pnpm-store/
+gke-mcp

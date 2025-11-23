@@ -6,6 +6,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/system"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,6 +79,14 @@ func (in *MCPServer) DeleteRefs() []Ref {
 		refs = append(refs, Ref{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName})
 	}
 	return refs
+}
+
+func (in *MCPServer) ValidConnectURLs(base string) []string {
+	var urls []string
+	if in.Spec.MCPServerCatalogEntryName != "" {
+		urls = append(urls, system.MCPConnectURL(base, in.Spec.MCPServerCatalogEntryName))
+	}
+	return append(urls, system.MCPConnectURL(base, in.Name))
 }
 
 type MCPServerSpec struct {

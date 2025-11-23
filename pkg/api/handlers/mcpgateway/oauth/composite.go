@@ -68,7 +68,7 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 			continue
 		}
 
-		_, serverConfig, err := handlers.ServerForAction(req, componentServer.Name, h.oauthChecker.mcpSessionManager.TokenService(), h.baseURL)
+		_, serverConfig, err := handlers.ServerForAction(req, componentServer.Name, h.jwks())
 		if err != nil {
 			return fmt.Errorf("failed to get server config: %w", err)
 		}

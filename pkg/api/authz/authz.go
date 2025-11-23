@@ -102,6 +102,8 @@ var (
 		"/api/scheduled-audit-log-exports/{id}",
 		"/api/storage-credentials",
 		"/api/storage-credentials/",
+		"GET /api/eula",
+		"PUT /api/eula",
 
 		// This rule allows admins without an ACR to fetch tools for MCP servers in the default
 		// catalog (all catalogs really) via the UI. It goes to the same handler as /api/mcp-servers/{mcpserver_id}/tools,
@@ -192,6 +194,8 @@ var (
 			"POST /oauth/token",
 			"GET /oauth/callback/{oauth_request_id}",
 			"GET /oauth/jwks.json",
+
+			"/mcp-connect/",
 		},
 
 		types.GroupBasic: {

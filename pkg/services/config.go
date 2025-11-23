@@ -25,7 +25,6 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/runtime"
 	apiclienttypes "github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
@@ -45,7 +44,6 @@ import (
 	"github.com/obot-platform/obot/pkg/gemini"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/invoke"
-	"github.com/obot-platform/obot/pkg/jwt/ephemeral"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -85,8 +83,6 @@ type Config struct {
 	DevMode                    bool     `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
 	DevUIPort                  int      `usage:"The port on localhost running the dev instance of the UI" default:"5173"`
 	UserUIPort                 int      `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
-	AdminUIHost                string   `usage:"The hostname for the admin UI service (for docker-compose networking)" env:"OBOT_SERVER_ADMIN_UI_HOST"`
-	UserUIHost                 string   `usage:"The hostname for the user UI service (for docker-compose networking)" env:"OBOT_SERVER_USER_UI_HOST"`
 	AllowedOrigin              string   `usage:"Allowed origin for CORS"`
 	ToolRegistries             []string `usage:"The remote tool references to the set of gptscript tool registries to use" default:"github.com/obot-platform/tools"`
 	WorkspaceProviderType      string   `usage:"The type of workspace provider to use for non-knowledge workspaces" default:"directory" env:"OBOT_WORKSPACE_PROVIDER_TYPE"`
@@ -129,18 +125,15 @@ type Services struct {
 	ToolRegistryURLs           []string
 	WorkspaceProviderType      string
 	ServerURL                  string
-	HTTPPort                   int
+	InternalServerURL          string
 	EmailServerName            string
 	DevUIPort                  int
 	UserUIPort                 int
-	AdminUIHost                string
-	UserUIHost                 string
 	Events                     *events.Emitter
 	StorageClient              storage.Client
 	Router                     *router.Router
 	GPTClient                  *gptscript.GPTScript
 	Invoker                    *invoke.Invoker
-	EphemeralTokenServer       *ephemeral.TokenService
 	PersistentTokenServer      *persistent.TokenService
 	APIServer                  *server.Server
 	Started                    chan struct{}
@@ -323,8 +316,10 @@ func newGPTScript(ctx context.Context,
 		return nil, err
 	}
 
-	if err := os.Setenv("GPTSCRIPT_URL", url); err != nil {
-		return nil, err
+	if mcpSessionManager != nil {
+		if err := os.Setenv("GPTSCRIPT_URL", url); err != nil {
+			return nil, err
+		}
 	}
 
 	if os.Getenv("WORKSPACE_PROVIDER_DATA_HOME") == "" {
@@ -436,7 +431,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.AuthOwnerEmails,
 		config.AuthAdminEmails,
 		time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second,
-		config.MCPAuditLogsPersistBatchSize)
+		config.MCPAuditLogsPersistBatchSize,
+	)
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
 
 	// Build local Kubernetes config for deployment monitoring (optional)
@@ -454,13 +450,39 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	ephemeralTokenServer := &ephemeral.TokenService{}
-	mcpLoader, err := mcp.NewSessionManager(ctx, ephemeralTokenServer, mcpOAuthTokenStorage, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
+	events := events.NewEmitter(storageClient, gatewayClient)
+
+	var postgresDSN string
+	if strings.HasPrefix(config.DSN, "postgres://") {
+		postgresDSN = config.DSN
+	}
+
+	credOnlyGPTscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpLoader)
+	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient, credOnlyGPTscriptClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
+	}
+
+	invoker := invoke.NewInvoker(
+		storageClient,
+		gatewayClient,
+		config.Hostname,
+		config.HTTPListenPort,
+		persistentTokenServer,
+		events,
+	)
+	providerDispatcher := dispatcher.New(invoker, storageClient, credOnlyGPTscriptClient, gatewayClient, postgresDSN)
+
+	mcpSessionManager, err := mcp.NewSessionManager(ctx, persistentTokenServer, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
+	if err != nil {
+		return nil, err
+	}
+
+	gptscriptClient, err := newGPTScript(ctx, config.EnvKeys, credStore, credStoreEnv, mcpSessionManager)
 	if err != nil {
 		return nil, err
 	}
@@ -616,62 +638,35 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
 	apply.AddValidOwnerChange("mcpcatalogentries", "catalog-default")
 
-	var postgresDSN string
-	if strings.HasPrefix(config.DSN, "postgres://") {
-		postgresDSN = config.DSN
-	}
-
-	var (
-		events  = events.NewEmitter(storageClient, gatewayClient)
-		invoker = invoke.NewInvoker(
-			storageClient,
-			gptscriptClient,
-			gatewayClient,
-			mcpLoader,
-			config.Hostname,
-			config.HTTPListenPort,
-			ephemeralTokenServer,
-			events,
-		)
-		providerDispatcher = dispatcher.New(ctx, invoker, storageClient, gptscriptClient, gatewayClient, postgresDSN)
-
-		proxyManager *proxy.Manager
-	)
-
-	persistentTokenServer, err := persistent.NewTokenService(ctx, config.Hostname, gatewayClient, providerDispatcher, gptscriptClient)
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
-	}
-
+	var proxyManager *proxy.Manager
 	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, gptscriptClient, config.EnableAuthentication, config.ForceEnableBootstrap)
 	if err != nil {
 		return nil, err
 	}
 
-	gatewayServer, err := gserver.New(ctx, gatewayDB, ephemeralTokenServer, providerDispatcher, gserver.Options(config.GatewayConfig))
+	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}
 
-	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient, providerDispatcher)
-	authenticators = union.New(authenticators, persistentTokenServer)
+	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient, gptscriptClient, providerDispatcher)
 	if config.EnableAuthentication {
-		proxyManager = proxy.NewProxyManager(ctx, providerDispatcher)
+		proxyManager = proxy.NewProxyManager(ctx, providerDispatcher, gptscriptClient)
 
 		// Token Auth + OAuth auth
-		authenticators = union.New(authenticators, proxyManager)
+		authenticators = union.NewFailOnError(authenticators, proxyManager)
 		// Add gateway user info
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
-		// Add token auth
-		authenticators = union.New(authenticators, ephemeralTokenServer)
+		// Persistent Token Auth
+		authenticators = union.New(authenticators, persistentTokenServer)
 		// Add bootstrap auth
-		authenticators = union.New(authenticators, bootstrapper)
+		authenticators = union.NewFailOnError(authenticators, bootstrapper)
 		if config.BearerToken != "" {
 			// Add otel metrics auth
 			authenticators = union.New(authenticators, authn.NewToken(config.BearerToken, "metrics", authz.MetricsGroup))
 		}
 		// Add anonymous user authenticator
-		authenticators = union.New(authenticators, authn.Anonymous{})
+		authenticators = union.NewFailOnError(authenticators, authn.Anonymous{})
 
 		// Clean up "nobody" user from previous "Authentication Disabled" runs.
 		// This reduces the chance that someone could authenticate as "nobody" and get admin access once authentication
@@ -733,16 +728,17 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	retentionPolicy := time.Duration(config.RetentionPolicyHours) * time.Hour
 
+	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.MCPHTTPWebhookBaseImage)
+
+	mcpSessionManager.Init(gptscriptClient, webhookHelper)
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		EncryptionConfig:      encryptionConfig,
 		WorkspaceProviderType: config.WorkspaceProviderType,
 		ServerURL:             config.Hostname,
-		HTTPPort:              config.HTTPListenPort,
+		InternalServerURL:     fmt.Sprintf("http://localhost:%d", config.HTTPListenPort),
 		DevUIPort:             devPort,
 		UserUIPort:            config.UserUIPort,
-		AdminUIHost:           config.AdminUIHost,
-		UserUIHost:            config.UserUIHost,
 		ToolRegistryURLs:      config.ToolRegistries,
 		Events:                events,
 		StorageClient:         storageClient,
@@ -759,7 +755,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			rateLimiter,
 			config.Hostname,
 		),
-		EphemeralTokenServer:       ephemeralTokenServer,
 		PersistentTokenServer:      persistentTokenServer,
 		Invoker:                    invoker,
 		GatewayServer:              gatewayServer,
@@ -780,17 +775,17 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		PostgresDSN:                postgresDSN,
 		RetentionPolicy:            retentionPolicy,
 		DefaultMCPCatalogPath:      config.DefaultMCPCatalogPath,
-		MCPLoader:                  mcpLoader,
+		MCPLoader:                  mcpSessionManager,
 		MCPOAuthTokenStorage:       mcpOAuthTokenStorage,
 		OAuthServerConfig: OAuthAuthorizationServerConfig{
 			JWKSURI:                           config.Hostname + "/oauth/jwks.json",
 			ResponseTypesSupported:            []string{"code"},
-			GrantTypesSupported:               []string{"authorization_code", "refresh_token"},
+			GrantTypesSupported:               []string{"authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"},
 			CodeChallengeMethodsSupported:     []string{"S256", "plain"},
 			TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "none"},
 		},
 		AccessControlRuleHelper: acrHelper,
-		WebhookHelper:           mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer()),
+		WebhookHelper:           webhookHelper,
 		LocalK8sConfig:          localK8sConfig,
 		MCPServerNamespace:      config.MCPNamespace,
 		K8sSettingsFromHelm:     helmK8sSettings,
@@ -826,5 +821,4 @@ func startDevMode(ctx context.Context, storageClient storage.Client) {
 			Namespace: "kube-system",
 		},
 	})
-	logger.SetDebug()
 }
