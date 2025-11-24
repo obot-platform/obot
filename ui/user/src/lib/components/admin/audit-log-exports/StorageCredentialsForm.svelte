@@ -494,7 +494,6 @@
 										placeholder={existingCredentials?.s3Config
 											? '••••••••••••••••••••••••••••••••••••••••'
 											: ''}
-										hideReveal
 										textarea
 										growable
 									/>
@@ -510,9 +509,9 @@
 									placeholder={existingCredentials?.gcsConfig
 										? '••••••••••••••••••••••••••••••••••••••••'
 										: ''}
-									hideReveal
 									textarea
 									growable
+									hideReveal
 								/>
 								<p class="text-xs text-gray-500">Complete JSON key file for the service account</p>
 							</div>
@@ -543,8 +542,6 @@
 											? '••••••••••••••••••••••••••••••••••••••••'
 											: ''}
 										hideReveal
-										textarea
-										growable
 									/>
 								</div>
 							</div>
@@ -587,8 +584,6 @@
 											? '••••••••••••••••••••••••••••••••••••••••'
 											: ''}
 										hideReveal
-										textarea
-										growable
 									/>
 								</div>
 							</div>
