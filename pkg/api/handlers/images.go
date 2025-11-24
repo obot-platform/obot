@@ -14,9 +14,10 @@ import (
 )
 
 var allowedUploadedImageMIMETypes = map[string]bool{
-	"image/png":  true,
-	"image/jpeg": true,
-	"image/webp": true,
+	"image/svg+xml": true,
+	"image/png":     true,
+	"image/jpeg":    true,
+	"image/webp":    true,
 }
 
 const maxUploadSize = 2 * 1024 * 1024 // 2MB
@@ -96,14 +97,8 @@ func (h *ImageHandler) UploadImage(req api.Context) error {
 		return apierrors.NewInternalError(fmt.Errorf("failed to read image data: %w", err))
 	}
 
-	// Convert PNG/JPEG to WebP
-	data, err = convertToWebP(data)
-	if err != nil {
-		return apierrors.NewInternalError(fmt.Errorf("failed to convert image to WebP: %w", err))
-	}
-
 	// Store image in gateway
-	stored, err := req.GatewayClient.CreateImage(req.Context(), data, "image/webp")
+	stored, err := req.GatewayClient.CreateImage(req.Context(), data, mimeType)
 	if err != nil {
 		return apierrors.NewInternalError(fmt.Errorf("failed to store uploaded image: %w", err))
 	}
