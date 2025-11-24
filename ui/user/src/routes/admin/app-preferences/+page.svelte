@@ -12,6 +12,7 @@
 	import { browser } from '$app/environment';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import { invalidateAll } from '$app/navigation';
+	import UploadImage from '$lib/components/UploadImage.svelte';
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();
@@ -25,6 +26,7 @@
 	let selectedIconTab = $state<'light' | 'dark'>('light');
 
 	let editUrlDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let uploadImage = $state<ReturnType<typeof UploadImage>>();
 	let selectedImageField = $state<keyof AppPreferences['logos']>();
 	let editImageUrl = $state<string>('');
 
@@ -394,7 +396,14 @@
 	bind:this={editUrlDialog}
 	title={editImageUrl ? 'Edit Image URL' : 'Add Image URL'}
 >
-	<input type="text" class="text-input-filled w-full" bind:value={editImageUrl} />
+	<UploadImage
+		label="Upload Image"
+		onUpload={(imageUrl: string) => {
+			editImageUrl = imageUrl;
+		}}
+		variant="preview"
+		bind:this={uploadImage}
+	/>
 	<div class="flex grow"></div>
 	<div class="flex justify-end gap-2">
 		<button
@@ -409,6 +418,7 @@
 				editImageUrl = '';
 				selectedImageField = undefined;
 				editUrlDialog?.close();
+				uploadImage?.clearPreview();
 			}}>Apply</button
 		>
 	</div>

@@ -4,7 +4,7 @@
 	import type { Project } from '$lib/services';
 	import { responsive } from '$lib/stores';
 	import GenerateIcon from '$lib/components/edit/GenerateIcon.svelte';
-	import UploadIcon from '$lib/components/edit/UploadIcon.svelte';
+	import UploadImage from '$lib/components/UploadImage.svelte';
 	import { ChevronRight, CircleX, Pencil } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -126,7 +126,7 @@
 			<GenerateIcon {project} />
 
 			<div class="mt-4 flex w-full flex-col items-center justify-center gap-4 md:flex-row">
-				<UploadIcon
+				<UploadImage
 					label="Upload Icon"
 					onUpload={(imageUrl: string) => {
 						project.icons = {
