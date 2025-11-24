@@ -81,7 +81,7 @@
 		{/if}
 
 		<p class="pt-4">
-			By continuing, you are choosing to accept Obot AI's <a
+			By continuing, you agree to Obot's <a
 				href="https://obot.ai/eul"
 				rel="external"
 				target="_blank"
