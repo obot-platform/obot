@@ -462,7 +462,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient, credOnlyGPTscriptClient)
+	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient, credOnlyGPTscriptClient, config.EnableAuthentication)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
 	}

@@ -30,13 +30,15 @@ type TokenService struct {
 	gatewayClient     *client.Client
 	credOnlyGPTClient *gptscript.GPTScript
 	serverURL         string
+	authEnabled       bool
 }
 
-func NewTokenService(serverURL string, gatewayClient *client.Client, credOnlyGPTClient *gptscript.GPTScript) (*TokenService, error) {
+func NewTokenService(serverURL string, gatewayClient *client.Client, credOnlyGPTClient *gptscript.GPTScript, authEnabled bool) (*TokenService, error) {
 	t := &TokenService{
 		gatewayClient:     gatewayClient,
 		credOnlyGPTClient: credOnlyGPTClient,
 		serverURL:         serverURL,
+		authEnabled:       authEnabled,
 	}
 	return t, nil
 }
