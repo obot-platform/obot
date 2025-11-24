@@ -123,7 +123,11 @@
 			onclick={() => {
 				handleAcceptEula();
 				localStorage.setItem('seenSplashDialog', new Date().toISOString());
-				goto('/admin/model-providers');
+				if (storeData.modelProviderConfigured) {
+					dialog?.close();
+				} else {
+					goto('/admin/model-providers');
+				}
 			}}
 		>
 			Continue
