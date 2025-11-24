@@ -684,6 +684,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Add gateway user info if token auth worked
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
 
+		// Persistent Token Auth
+		authenticators = union.New(authenticators, persistentTokenServer)
+
 		// Add no auth authenticator
 		authenticators = union.New(authenticators, authn.NewNoAuth(gatewayClient))
 	}
