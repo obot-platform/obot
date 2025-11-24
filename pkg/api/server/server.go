@@ -84,15 +84,6 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 		user, err := s.authenticator.Authenticate(req)
 		if err != nil {
-			// Check if this is a FetchUserGroupsError which indicates an auth provider configuration issue
-			var fetchGroupsErr *gclient.FetchUserGroupsError
-			if errors.As(err, &fetchGroupsErr) {
-				http.Error(rw, fmt.Sprintf("Authentication provider configuration error: %s. Please contact an administrator to fix the auth provider configuration.", err.Error()), http.StatusInternalServerError)
-				return
-			}
-
-			http.Error(rw, err.Error(), http.StatusUnauthorized)
-
 			if errors.Is(err, proxy.ErrInvalidSession) {
 				// The session is invalid, so tell the browser to delete the cookie so that it won't try it again.
 				http.SetCookie(rw, &http.Cookie{
@@ -101,7 +92,17 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 					Path:   "/",
 					MaxAge: -1,
 				})
+				return
 			}
+
+			// Check if this is a FetchUserGroupsError which indicates an auth provider configuration issue
+			var fetchGroupsErr *gclient.FetchUserGroupsError
+			if errors.As(err, &fetchGroupsErr) {
+				http.Error(rw, fmt.Sprintf("Authentication provider configuration error: %s. Please contact an administrator to fix the auth provider configuration.", err.Error()), http.StatusInternalServerError)
+				return
+			}
+
+			http.Error(rw, err.Error(), http.StatusUnauthorized)
 			return
 		}
 
