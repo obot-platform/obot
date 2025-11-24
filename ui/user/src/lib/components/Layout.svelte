@@ -78,7 +78,6 @@
 
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
-	let isOwner = $derived(profile.current.groups.includes(Group.OWNER));
 	let navLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.() && !showUserLinks
 			? [
@@ -216,18 +215,14 @@
 							}
 						]
 					},
-					...(isOwner
-						? [
-								{
-									id: 'app-preferences',
-									href: '/admin/app-preferences',
-									icon: Settings,
-									label: 'App Preferences',
-									disabled: false,
-									collapsible: false
-								}
-							]
-						: [])
+					{
+						id: 'app-preferences',
+						href: '/admin/app-preferences',
+						icon: Settings,
+						label: 'App Preferences',
+						disabled: false,
+						collapsible: false
+					}
 				]
 			: (overrideNavLinks ?? [
 					{

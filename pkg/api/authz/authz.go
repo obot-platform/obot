@@ -104,6 +104,7 @@ var (
 		"/api/storage-credentials/",
 		"GET /api/eula",
 		"PUT /api/eula",
+		"PUT /api/app-preferences",
 
 		// Allow admins to upload custom images
 		"POST /api/image/upload",
@@ -116,12 +117,9 @@ var (
 		// adding local authz checks to the handler (like the rest of the /api/all-mcps/ endpoints).
 		"GET /api/all-mcps/servers/{mcpserver_id}/tools",
 	}
-	ownerOnlyRules = []string{
-		"PUT /api/app-preferences",
-	}
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
-		types.GroupOwner: append(adminAndOwnerRules, ownerOnlyRules...),
+		types.GroupOwner: adminAndOwnerRules,
 		types.GroupAuditor: {
 			"GET /api/mcp-audit-logs",
 			"GET /api/mcp-audit-logs/filter-options/{filter}",
