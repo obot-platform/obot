@@ -32,6 +32,7 @@
 		placeholder,
 		onkeydown
 	}: Props = $props();
+
 	let showSensitive = $state(false);
 	let textareaElement = $state<HTMLElement>();
 	let maskedTextarea = $state<HTMLElement>();
@@ -49,6 +50,7 @@
 	function handleResizeStart(ev: MouseEvent) {
 		ev.preventDefault();
 		ev.stopPropagation();
+
 		if (!scrollableWrapper) return;
 
 		isResizing = true;
@@ -64,7 +66,7 @@
 
 		const deltaY = ev.clientY - startY;
 		const newHeight = Math.max(60, startHeight + deltaY); // Min height 60px
-		scrollableWrapper.style.height = `${newHeight}px`;
+		scrollableWrapper.style.maxHeight = `${newHeight}px`;
 		scrollableWrapper.style.minHeight = 'auto';
 	}
 
