@@ -21,16 +21,18 @@ type LogoPreferences struct {
 
 type ThemePreferences struct {
 	BackgroundColor     string `json:"backgroundColor,omitempty"`
+	OnBackgroundColor   string `json:"onBackgroundColor,omitempty"`
 	OnSurfaceColor      string `json:"onSurfaceColor,omitempty"`
 	Surface1Color       string `json:"surface1Color,omitempty"`
 	Surface2Color       string `json:"surface2Color,omitempty"`
 	Surface3Color       string `json:"surface3Color,omitempty"`
 	PrimaryColor        string `json:"primaryColor,omitempty"`
-	DarkBackgroundColor string `json:"darkBackgroundColor,omitempty"`
-	DarkOnSurfaceColor  string `json:"darkOnSurfaceColor,omitempty"`
-	DarkSurface1Color   string `json:"darkSurface1Color,omitempty"`
-	DarkSurface2Color   string `json:"darkSurface2Color,omitempty"`
-	DarkSurface3Color   string `json:"darkSurface3Color,omitempty"`
-	DarkPrimaryColor    string `json:"darkPrimaryColor,omitempty"`
+	DarkBackgroundColor     string `json:"darkBackgroundColor,omitempty"`
+	DarkOnBackgroundColor   string `json:"darkOnBackgroundColor,omitempty"`
+	DarkOnSurfaceColor      string `json:"darkOnSurfaceColor,omitempty"`
+	DarkSurface1Color       string `json:"darkSurface1Color,omitempty"`
+	DarkSurface2Color       string `json:"darkSurface2Color,omitempty"`
+	DarkSurface3Color       string `json:"darkSurface3Color,omitempty"`
+	DarkPrimaryColor        string `json:"darkPrimaryColor,omitempty"`
 }
 

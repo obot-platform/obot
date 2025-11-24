@@ -119,8 +119,12 @@
 				label: 'Background'
 			},
 			{
+				id: 'onBackgroundColor',
+				label: 'Primary Text'
+			},
+			{
 				id: 'onSurfaceColor',
-				label: 'On Surface'
+				label: 'Secondary Text'
 			}
 		],
 		[
@@ -152,8 +156,12 @@
 				label: 'Background'
 			},
 			{
+				id: 'darkOnBackgroundColor',
+				label: 'Primary Text'
+			},
+			{
 				id: 'darkOnSurfaceColor',
-				label: 'On Surface'
+				label: 'Secondary Text'
 			}
 		],
 		[

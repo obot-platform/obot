@@ -40,13 +40,15 @@ export function compileAppPreferences(preferences?: AppPreferences): AppPreferen
 		},
 		theme: {
 			backgroundColor: preferences?.theme?.backgroundColor ?? 'hsl(0 0 100)',
-			onSurfaceColor: preferences?.theme?.onSurfaceColor ?? 'hsl(0 0 0)',
+			onBackgroundColor: preferences?.theme?.onBackgroundColor ?? 'hsl(0 0 0)',
+			onSurfaceColor: preferences?.theme?.onSurfaceColor ?? 'hsl(0 0 calc(2.5 + 60))',
 			surface1Color: preferences?.theme?.surface1Color ?? 'hsl(0 0 calc(2.5 + 93))',
 			surface2Color: preferences?.theme?.surface2Color ?? 'hsl(0 0 calc(2.5 + 90))',
 			surface3Color: preferences?.theme?.surface3Color ?? 'hsl(0 0 calc(2.5 + 80))',
 			primaryColor: preferences?.theme?.primaryColor ?? '#4f7ef3',
 			darkBackgroundColor: preferences?.theme?.darkBackgroundColor ?? 'hsl(0 0 0)',
-			darkOnSurfaceColor: preferences?.theme?.darkOnSurfaceColor ?? 'hsl(0 0 calc(2.5 + 95))',
+			darkOnBackgroundColor: preferences?.theme?.darkOnBackgroundColor ?? 'hsl(0 0 calc(2.5 + 95))',
+			darkOnSurfaceColor: preferences?.theme?.darkOnSurfaceColor ?? 'hsl(0 0 calc(2.5 + 40))',
 			darkSurface1Color: preferences?.theme?.darkSurface1Color ?? 'hsl(0 0 calc(2.5 + 5))',
 			darkSurface2Color: preferences?.theme?.darkSurface2Color ?? 'hsl(0 0 calc(2.5 + 10))',
 			darkSurface3Color: preferences?.theme?.darkSurface3Color ?? 'hsl(0 0 calc(2.5 + 20))',
@@ -70,6 +72,10 @@ const store = $state<{
 function setThemeColors(colors: AppPreferences['theme']) {
 	// Set light theme colors
 	document.documentElement.style.setProperty('--theme-background-light', colors.backgroundColor);
+	document.documentElement.style.setProperty(
+		'--theme-on-background-light',
+		colors.onBackgroundColor
+	);
 	document.documentElement.style.setProperty('--theme-on-surface-light', colors.onSurfaceColor);
 	document.documentElement.style.setProperty('--theme-surface1-light', colors.surface1Color);
 	document.documentElement.style.setProperty('--theme-surface2-light', colors.surface2Color);
@@ -78,6 +84,10 @@ function setThemeColors(colors: AppPreferences['theme']) {
 
 	// Set dark theme colors
 	document.documentElement.style.setProperty('--theme-background-dark', colors.darkBackgroundColor);
+	document.documentElement.style.setProperty(
+		'--theme-on-background-dark',
+		colors.darkOnBackgroundColor
+	);
 	document.documentElement.style.setProperty('--theme-on-surface-dark', colors.darkOnSurfaceColor);
 	document.documentElement.style.setProperty('--theme-surface1-dark', colors.darkSurface1Color);
 	document.documentElement.style.setProperty('--theme-surface2-dark', colors.darkSurface2Color);

@@ -692,12 +692,14 @@ export interface AppPreferencesManifest {
 	};
 	theme?: {
 		backgroundColor?: string;
+		onBackgroundColor?: string;
 		onSurfaceColor?: string;
 		surface1Color?: string;
 		surface2Color?: string;
 		surface3Color?: string;
 		primaryColor?: string;
 		darkBackgroundColor?: string;
+		darkOnBackgroundColor?: string;
 		darkOnSurfaceColor?: string;
 		darkSurface1Color?: string;
 		darkSurface2Color?: string;
@@ -720,12 +722,14 @@ export interface AppPreferences {
 	};
 	theme: {
 		backgroundColor: string;
+		onBackgroundColor: string;
 		onSurfaceColor: string;
 		surface1Color: string;
 		surface2Color: string;
 		surface3Color: string;
 		primaryColor: string;
 		darkBackgroundColor: string;
+		darkOnBackgroundColor: string;
 		darkOnSurfaceColor: string;
 		darkSurface1Color: string;
 		darkSurface2Color: string;

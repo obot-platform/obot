@@ -1148,9 +1148,9 @@
 
 .dark {
 	--background: var(--theme-background-dark, var(--color-black));
-	--on-background: var(--theme-on-surface-dark, var(--color-gray-50));
+	--on-background: var(--theme-on-background-dark, var(--color-gray-50));
 	--surface1: var(--theme-surface1-dark, var(--color-gray-950));
-	--on-surface1: var(--theme-on-surface-dark, var(--color-gray-50));
+	--on-surface1: var(--theme-on-surface-dark, var(--color-gray-600));
 	--surface2: var(--theme-surface2-dark, var(--color-gray-900));
 	--on-surface2: var(--theme-on-surface-dark, var(--color-gray-50));
 	--surface3: var(--theme-surface3-dark, var(--color-gray-800));
@@ -1160,9 +1160,9 @@
 
 html {
 	--background: var(--theme-background-light, var(--color-white));
-	--on-background: var(--theme-on-surface-light, var(--color-black));
+	--on-background: var(--theme-on-background-light, var(--color-black));
 	--surface1: var(--theme-surface1-light, var(--color-gray-70));
-	--on-surface1: var(--theme-on-surface-light, var(--color-black));
+	--on-surface1: var(--theme-on-surface-light, var(--color-gray-400));
 	--surface2: var(--theme-surface2-light, var(--color-gray-100));
 	--on-surface2: var(--theme-on-surface-light, var(--color-black));
 	--surface3: var(--theme-surface3-light, var(--color-gray-200));
