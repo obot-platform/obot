@@ -141,9 +141,9 @@
 		</div>
 	{:else if exports.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<FileArchive class="dark:text-surface3 size-24 text-gray-200" />
-			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No exports found.</h4>
-			<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+			<FileArchive class="text-surface3 size-24 opacity-25" />
+			<h4 class="text-on-surface1 text-lg font-semibold">No exports found.</h4>
+			<p class="text-on-surface1 text-sm font-light">
 				Create your first audit log export to get started.
 			</p>
 		</div>

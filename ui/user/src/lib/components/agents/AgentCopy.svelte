@@ -30,7 +30,7 @@
 				{template.projectSnapshot.name || 'Unnamed Project'}
 			</h3>
 			{#if template.projectSnapshotLastUpgraded}
-				<div class="mt-0.5 text-[12px] text-gray-500">
+				<div class="text-on-surface1 mt-0.5 text-[12px]">
 					Last Updated: {new Date(template.projectSnapshotLastUpgraded).toLocaleString(undefined, {
 						year: 'numeric',
 						month: 'short',
@@ -51,7 +51,7 @@
 		{/if}
 
 		<div class="mt-2 flex flex-col gap-4 border-t border-gray-100 pt-4 dark:border-gray-700">
-			<p class="px-2 text-sm font-light text-gray-400">
+			<p class="text-on-surface1 px-2 text-sm font-light">
 				This project was shared by a user and may include instructions, Connectors, knowledge files,
 				and task definitions that were not reviewed or verified by our team. It could interact with
 				external systems, access additional data sources, or behave in unexpected ways. By clicking

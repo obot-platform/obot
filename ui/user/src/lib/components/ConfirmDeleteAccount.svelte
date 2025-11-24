@@ -38,24 +38,20 @@
 <dialog
 	bind:this={dialog}
 	use:clickOutside={() => oncancel()}
-	class="max-h-full w-full max-w-md bg-gray-50 dark:bg-gray-950"
+	class="dark:bg-surface1 bg-background max-h-full w-full max-w-md"
 >
 	<div class="relative">
-		<button
-			type="button"
-			onclick={oncancel}
-			class="text-on-background absolute end-2.5 top-3 ms-auto inline-flex h-8 w-8 items-center justify-center rounded-lg bg-transparent text-sm hover:bg-gray-200 dark:hover:bg-gray-600"
-		>
+		<button type="button" onclick={oncancel} class="icon-button absolute end-2.5 top-3 ms-auto">
 			<X class="h-5 w-5" />
 			<span class="sr-only">Close modal</span>
 		</button>
 		<div class="p-4 text-center md:p-5">
-			<CircleAlert class="mx-auto mb-4 h-12 w-12 text-gray-400 dark:text-gray-100" />
-			<h3 class="mb-5 text-lg font-normal break-words text-black dark:text-gray-100">
+			<CircleAlert class="text-on-background mx-auto mb-4 h-12 w-12" />
+			<h3 class="text-on-background mb-5 text-lg font-normal break-words">
 				{msg}
 			</h3>
 			<div class="mb-4">
-				<p class="mb-3 text-sm font-normal text-black dark:text-gray-100">
+				<p class="text-on-background mb-3 text-sm font-normal">
 					To confirm, type <strong>{username}</strong> in the box below
 				</p>
 				<input

@@ -285,7 +285,7 @@
 					{#if showSaved}
 						<span
 							in:fade={{ duration: 200 }}
-							class="flex min-h-10 items-center px-4 text-sm font-extralight text-gray-500"
+							class="text-on-surface1 flex min-h-10 items-center px-4 text-sm font-extralight"
 						>
 							Your changes have been saved.
 						</span>
@@ -325,7 +325,7 @@
 		<div class="grid grid-cols-3 gap-4">
 			{#each fieldset as field (field.id)}
 				<div class="flex flex-col items-center justify-center gap-1">
-					<label class="text-xs text-gray-500" for={field.id}>{field.label}</label>
+					<label class="text-on-surface1 text-xs" for={field.id}>{field.label}</label>
 					<div class="relative">
 						<div
 							class="size-8 rounded-full border dark:border-white"
@@ -383,7 +383,7 @@
 					editUrlDialog?.open();
 				}}
 			>
-				<p class="text-sm text-gray-500">{field.label}</p>
+				<p class="text-on-surface1 text-sm">{field.label}</p>
 				<img
 					src={form.logos[field.id]}
 					alt={field.label}
@@ -393,7 +393,7 @@
 					)}
 				/>
 				<Pencil
-					class="absolute top-2 right-2 size-6 text-gray-500 opacity-0 transition-opacity group-hover:opacity-100"
+					class="text-on-surface1 absolute top-2 right-2 size-6 opacity-0 transition-opacity group-hover:opacity-100"
 				/>
 			</button>
 		{/each}

@@ -22,7 +22,7 @@ export function formatJsonWithHighlighting(json: unknown): string {
 		);
 
 		// Replace null
-		highlighted = highlighted.replace(/: (null)/g, ': <span class="text-gray-500">$1</span>');
+		highlighted = highlighted.replace(/: (null)/g, ': <span class="text-on-surface1">$1</span>');
 
 		// Replace brackets and braces
 		highlighted = highlighted.replace(/(".*?")|([{}[\]])/g, (match, stringContent, bracket) => {
@@ -292,7 +292,7 @@ export function formatJsonWithDiffHighlighting(
 			// Replace null
 			highlightedLine = highlightedLine.replace(
 				/: (null)/g,
-				': <span class="text-gray-500">$1</span>'
+				': <span class="text-on-surface1">$1</span>'
 			);
 
 			// Replace brackets and braces

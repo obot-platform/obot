@@ -253,7 +253,7 @@
 		style={`top: ${popoverPlacement?.y ?? 0}px; left: ${popoverPlacement?.x ?? 0}px; width: ${ref?.clientWidth}px`}
 	>
 		{#if availableOptions.length === 0}
-			<div class="px-4 py-2 font-light text-gray-400 dark:text-gray-600">No options available</div>
+			<div class="text-on-surface1 px-4 py-2 font-light">No options available</div>
 		{:else}
 			{#each availableOptions as option, index (option.id)}
 				{@const isSelected = selectedValues.some((d) => d === option.id)}

@@ -511,7 +511,9 @@
 										: ''}
 									hideReveal
 								/>
-								<p class="text-xs text-gray-500">Complete JSON key file for the service account</p>
+								<p class="text-on-surface1 text-xs">
+									Complete JSON key file for the service account
+								</p>
 							</div>
 						{:else if form.provider === 'azure' && form.azureConfig}
 							<div class="space-y-4">

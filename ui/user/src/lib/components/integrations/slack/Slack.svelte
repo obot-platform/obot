@@ -228,7 +228,7 @@
 	<div class="modal-box">
 		<div class="p-4">
 			<h3 class="text-lg font-medium">Disable Slack Integration</h3>
-			<p class="mt-2 text-sm text-gray-500">
+			<p class="text-on-surface1 mt-2 text-sm">
 				Are you sure you want to disable Slack integration? This will remove the Slack trigger from
 				this project.
 			</p>
@@ -280,7 +280,7 @@
 	<div class="modal-box">
 		<div class="p-4">
 			<h3 class="text-lg font-medium">Task Created</h3>
-			<p class="mt-2 text-sm text-gray-500">
+			<p class="text-on-surface1 mt-2 text-sm">
 				Task "{task?.name}" has been created from the Slack integration.
 			</p>
 
@@ -313,13 +313,13 @@
 
 {#snippet steps()}
 	<div class="space-y-6">
-		<p class="text-sm font-light text-gray-500">
+		<p class="text-on-surface1 text-sm font-light">
 			To message your project from Slack, you'll need to create a Slack App and complete this
 			configuration. You must be an administrator in your Slack Workspace.
 		</p>
 		<div>
 			<h4 class="font-semibold">Step 1: Create a Slack App</h4>
-			<ul class="my-2 list-disc space-y-3 pl-4 text-sm font-light text-gray-500">
+			<ul class="text-on-surface1 my-2 list-disc space-y-3 pl-4 text-sm font-light">
 				<li>
 					From the <a
 						href="https://api.slack.com/apps"
@@ -334,7 +334,7 @@
 
 		<div>
 			<h4 class="font-medium">Step 2: Copy App Credentials</h4>
-			<ul class="my-2 list-disc space-y-3 pl-4 text-sm font-light text-gray-500">
+			<ul class="text-on-surface1 my-2 list-disc space-y-3 pl-4 text-sm font-light">
 				<li>
 					After completing the previous step, you'll be presented with your App Credentials under
 					the Basic Information section. Copy the values to the corresponding fields below.
@@ -347,7 +347,7 @@
 
 		<div>
 			<h4 class="font-medium">Step 3: Configure OAuth</h4>
-			<ul class="my-2 list-disc space-y-3 pl-4 text-sm font-light text-gray-500">
+			<ul class="text-on-surface1 my-2 list-disc space-y-3 pl-4 text-sm font-light">
 				<li>
 					From the left navigation of your Slack App, navigate to the "OAuth & Permissions" section.
 				</li>
@@ -429,7 +429,7 @@
 
 		<div>
 			<h4 class="font-medium">Step 4: Enable Events</h4>
-			<div class="text-sm text-gray-500">
+			<div class="text-on-surface1 text-sm">
 				<p>
 					You can subscribe to Slack events using one of two approaches:
 					<strong> Slack Events API</strong> or <strong>Socket Mode</strong>. Use the Events API if
@@ -452,7 +452,7 @@
 			</div>
 
 			<h5 class="mt-4 font-medium">Using Socket Mode</h5>
-			<div class="my-2 text-sm font-light text-gray-500">
+			<div class="text-on-surface1 my-2 text-sm font-light">
 				<li>
 					Go to your Slack App's settings page. Under the "Settings" section, select <strong
 						>Socket Mode</strong
@@ -464,10 +464,10 @@
 			</div>
 
 			<h5 class="mt-4 font-medium">Using Events API</h5>
-			<li class="font-light text-gray-500">
+			<li class="text-on-surface1 font-light">
 				From the left navigation, go to the "Event Subscriptions" section.
 			</li>
-			<li class="font-light text-gray-500">
+			<li class="text-on-surface1 font-light">
 				Enter the following Request URL:
 				<div class="copy-link">
 					<CopyButton text={eventUrl} />

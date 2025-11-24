@@ -300,7 +300,7 @@
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
 					/>
-					<p class="text-xs text-gray-500">Unique name for this export schedule</p>
+					<p class="text-on-surface1 text-xs">Unique name for this export schedule</p>
 				</div>
 				<div class="flex flex-col gap-1">
 					<label class="text-sm font-medium" for="bucket">Bucket Name</label>
@@ -312,7 +312,7 @@
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
 					/>
-					<p class="text-xs text-gray-500">Storage bucket name where exports will be saved</p>
+					<p class="text-on-surface1 text-xs">Storage bucket name where exports will be saved</p>
 				</div>
 			</div>
 
@@ -325,7 +325,7 @@
 					placeholder="Leave empty for default: mcp-audit-logs/YYYY/MM/DD/"
 					readonly={mode === 'view'}
 				/>
-				<p class="text-xs text-gray-500">
+				<p class="text-on-surface1 text-xs">
 					Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
 					based on current date.
 				</p>
@@ -551,7 +551,7 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated user IDs</p>
+							<p class="text-on-surface1 text-xs">Comma-separated user IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -569,7 +569,7 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated server IDs</p>
+							<p class="text-on-surface1 text-xs">Comma-separated server IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -591,7 +591,7 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated server display names</p>
+							<p class="text-on-surface1 text-xs">Comma-separated server display names</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -612,7 +612,7 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated call types</p>
+							<p class="text-on-surface1 text-xs">Comma-separated call types</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -633,7 +633,7 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated client names</p>
+							<p class="text-on-surface1 text-xs">Comma-separated client names</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -655,7 +655,7 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated HTTP status codes</p>
+							<p class="text-on-surface1 text-xs">Comma-separated HTTP status codes</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -676,7 +676,7 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated session IDs</p>
+							<p class="text-on-surface1 text-xs">Comma-separated session IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
@@ -697,7 +697,7 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated IP addresses</p>
+							<p class="text-on-surface1 text-xs">Comma-separated IP addresses</p>
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="power_user_workspace_id"
@@ -721,7 +721,7 @@
 								multiple
 							/>
 
-							<p class="text-xs text-gray-500">Comma-separated catalog entry names</p>
+							<p class="text-on-surface1 text-xs">Comma-separated catalog entry names</p>
 						</div>
 					</div>
 				</div>

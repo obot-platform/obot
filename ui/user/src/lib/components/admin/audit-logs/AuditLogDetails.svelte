@@ -53,7 +53,7 @@
 				})
 				.replace(/,/g, '')}
 		</h3>
-		<p class="text-xs font-light text-gray-400">
+		<p class="text-on-surface1 text-xs font-light">
 			{auditLog.requestID}
 		</p>
 		<button onclick={onClose} class="icon-button absolute top-1/2 right-4 -translate-y-1/2">
@@ -237,7 +237,7 @@
 
 {#snippet noAuditorAccessInfo(name: string)}
 	<p class="mt-4 mb-2 text-base font-semibold">{name}</p>
-	<div class="text-xs text-gray-400 dark:text-gray-600">
+	<div class="text-on-surface1 text-xs">
 		<i>Details are hidden; auditor role is required to access this information.</i>
 	</div>
 {/snippet}

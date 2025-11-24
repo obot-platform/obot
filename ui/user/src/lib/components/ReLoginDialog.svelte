@@ -24,7 +24,7 @@
 >
 	<div class="flex flex-col items-center gap-4">
 		<h2 class="text-xl font-semibold">Session Expired</h2>
-		<p class="text-center text-gray-600 dark:text-gray-400">
+		<p class="text-on-surface1 text-center">
 			Your session has expired. Please log in again to continue.
 		</p>
 		<button onclick={handleLogin} class="button-primary w-full"> Log In </button>

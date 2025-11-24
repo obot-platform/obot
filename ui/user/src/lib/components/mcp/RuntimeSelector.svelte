@@ -84,8 +84,6 @@
 	</div>
 
 	{#if !readonly && serverType !== 'remote'}
-		<p class="text-xs text-gray-500 dark:text-gray-400">
-			Choose the runtime environment for your MCP server.
-		</p>
+		<p class="text-on-surface1 text-xs">Choose the runtime environment for your MCP server.</p>
 	{/if}
 </div>

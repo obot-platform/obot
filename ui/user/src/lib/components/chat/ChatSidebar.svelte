@@ -105,7 +105,7 @@
 					onclick={() => (layout.sidebarConfig = 'project-configuration')}
 					use:tooltip={upgradeAvailable ? 'Upgrade available' : 'Configure Project'}
 				>
-					<Settings class="size-6 text-gray-500" />
+					<Settings class="text-on-surface1 size-6" />
 					{#if upgradeAvailable}
 						<span
 							class="absolute top-0 right-0 flex h-4 w-4 animate-[pulse_2s_ease-in-out_5] items-center
@@ -118,7 +118,7 @@
 			</div>
 			{#if !shared}
 				<button class="icon-button" onclick={openTemplatePanel} use:tooltip={'Project Sharing'}>
-					<Share class="size-6 text-gray-500" />
+					<Share class="text-on-surface1 size-6" />
 				</button>
 			{/if}
 		</div>

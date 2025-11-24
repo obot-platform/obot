@@ -845,7 +845,7 @@
 						>
 							<ChevronLeft class="size-4" /> Previous
 						</button>
-						<span class="text-sm text-gray-400 dark:text-gray-600">
+						<span class="text-on-surface1 text-sm">
 							{page + 1} of {Math.ceil(filteredEntriesData.length / pageSize)}
 						</span>
 						<button
@@ -937,7 +937,7 @@
 			>
 				{#each launchLogs as log, i (i)}
 					<div class="font-mono text-sm">
-						<span class="text-gray-600 dark:text-gray-400">{log}</span>
+						<span class="text-on-surface1">{log}</span>
 					</div>
 				{/each}
 			</div>

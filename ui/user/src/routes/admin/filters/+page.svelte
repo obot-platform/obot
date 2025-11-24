@@ -123,11 +123,9 @@
 					/>
 					{#if filters.length === 0}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-							<BookOpenText class="size-24 text-gray-200 dark:text-gray-900" />
-							<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-								No created filters
-							</h4>
-							<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+							<BookOpenText class="text-on-surface1 size-24 opacity-50" />
+							<h4 class="text-on-surface1 text-lg font-semibold">No created filters</h4>
+							<p class="text-on-surface1 text-sm font-light">
 								Looks like you don't have any filters created yet. <br />
 								Click the "Add New Filter" button above to get started.
 							</p>

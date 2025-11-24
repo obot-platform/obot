@@ -194,7 +194,7 @@
 >
 	{#if !disablePreview}
 		<div
-			class="dark:border-surface3 dark:bg-surface2 flex items-center border-b text-sm font-light text-gray-500"
+			class="dark:border-surface3 dark:bg-surface2 text-on-surface1 flex items-center border-b text-sm font-light"
 		>
 			<button
 				class={twMerge(

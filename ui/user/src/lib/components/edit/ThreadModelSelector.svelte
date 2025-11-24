@@ -411,7 +411,7 @@
 					</div>
 				{/if}
 			{:else}
-				<p class="truncate text-sm text-gray-400">See "Configuration" for more options</p>
+				<p class="text-on-surface1 truncate text-sm">See "Configuration" for more options</p>
 			{/if}
 		</div>
 	{/if}

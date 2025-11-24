@@ -44,14 +44,10 @@
 <dialog
 	bind:this={dialog}
 	use:clickOutside={() => oncancel()}
-	class={twMerge('max-h-full w-full max-w-md bg-gray-50 dark:bg-gray-950', classes?.dialog)}
+	class={twMerge('dark:bg-surface1 bg-background max-h-full w-full max-w-md', classes?.dialog)}
 >
 	<div class="relative">
-		<button
-			type="button"
-			onclick={oncancel}
-			class="text-on-background absolute end-2.5 top-3 ms-auto inline-flex h-8 w-8 items-center justify-center rounded-lg bg-transparent text-sm hover:bg-gray-200 dark:hover:bg-gray-600"
-		>
+		<button type="button" onclick={oncancel} class="icon-button absolute end-2.5 top-3 ms-auto">
 			<X class="h-5 w-5" />
 			<span class="sr-only">Close modal</span>
 		</button>
@@ -59,8 +55,8 @@
 			{#if title}
 				{@render title()}
 			{:else}
-				<CircleAlert class="mx-auto mb-4 h-12 w-12 text-gray-400 dark:text-gray-100" />
-				<h3 class="mb-5 text-lg font-normal break-words text-black dark:text-gray-100">{msg}</h3>
+				<CircleAlert class="text-on-background mx-auto mb-4 h-12 w-12" />
+				<h3 class="text-on-background mb-5 text-lg font-normal break-words">{msg}</h3>
 			{/if}
 			{#if note}
 				{@render note()}
@@ -81,12 +77,7 @@
 						Yes, I'm sure
 					{/if}
 				</button>
-				<button
-					onclick={oncancel}
-					type="button"
-					class="ms-3 rounded-3xl bg-gray-100 px-5 py-2.5 text-sm font-medium text-black hover:bg-gray-200 dark:bg-gray-800
-					 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white">No, cancel</button
-				>
+				<button onclick={oncancel} type="button" class="button ms-3">No, cancel</button>
 			</div>
 		</div>
 	</div>

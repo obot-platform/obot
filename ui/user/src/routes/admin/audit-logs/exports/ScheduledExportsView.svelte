@@ -164,11 +164,9 @@
 		</div>
 	{:else if scheduledExports.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Calendar class="dark:text-surface3 size-24 text-gray-200" />
-			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-				No export schedules found.
-			</h4>
-			<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+			<Calendar class="text-surface3 size-24 opacity-50" />
+			<h4 class="text-on-surface1 text-lg font-semibold">No export schedules found.</h4>
+			<p class="text-on-surface1 text-sm font-light">
 				Create your first export schedule to automate your audit log exports.
 			</p>
 		</div>

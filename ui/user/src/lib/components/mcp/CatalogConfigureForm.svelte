@@ -344,7 +344,7 @@
 					<div class="flex flex-col gap-1">
 						<span class="flex items-center gap-2">
 							<label for="name"> Server Alias </label>
-							<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+							<span class="text-on-surface1">(optional)</span>
 							<InfoTooltip
 								text="Uses server name as default. Duplicate instances default to a number increment added at the end of name."
 							/>
@@ -385,7 +385,7 @@
 													>
 														{env.name}
 														{#if !env.required}
-															<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+															<span class="text-on-surface1">(optional)</span>
 														{/if}
 													</label>
 													<InfoTooltip text={env.description} />
@@ -442,7 +442,7 @@
 													>
 														{header.name}
 														{#if !header.required}
-															<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+															<span class="text-on-surface1">(optional)</span>
 														{/if}
 													</label>
 													<InfoTooltip text={header.description} />
@@ -480,7 +480,7 @@
 											disabled={form.componentConfigs[compId].disabled}
 											class="text-input-filled"
 										/>
-										<span class="font-light text-gray-400 dark:text-gray-600">
+										<span class="text-on-surface1 font-light">
 											The URL must contain the hostname: <b class="font-semibold">{comp.hostname}</b
 											>
 										</span>
@@ -498,7 +498,7 @@
 									<label for={env.key} class={highlightRequired ? 'text-red-500' : ''}>
 										{env.name}
 										{#if !env.required}
-											<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+											<span class="text-on-surface1">(optional)</span>
 										{/if}
 									</label>
 									<InfoTooltip text={env.description} />
@@ -544,7 +544,7 @@
 										<label for={header.key}>
 											{header.name}
 											{#if !header.required}
-												<span class="text-gray-400 dark:text-gray-600">(optional)</span>
+												<span class="text-on-surface1">(optional)</span>
 											{/if}
 										</label>
 										<InfoTooltip text={header.description} />
@@ -571,7 +571,7 @@
 							bind:value={form.url}
 							class="text-input-filled"
 						/>
-						<span class="font-light text-gray-400 dark:text-gray-600">
+						<span class="text-on-surface1 font-light">
 							The URL must contain the hostname: <b class="font-semibold">
 								{form.hostname}
 							</b>
@@ -607,7 +607,7 @@
 	oncancel={() => (showConfirmClose = false)}
 >
 	{#snippet title()}
-		<h3 class="mb-5 text-lg font-semibold break-words text-black dark:text-gray-100">
+		<h3 class="text-on-background mb-5 text-lg font-semibold break-words">
 			Are you sure you want to exit?
 		</h3>
 	{/snippet}

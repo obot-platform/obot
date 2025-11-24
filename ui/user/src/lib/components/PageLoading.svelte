@@ -122,7 +122,7 @@
 					{Math.round(displayedProgress ?? 0)}%
 				</div>
 
-				<div class="h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+				<div class="bg-surface3 h-3 w-full overflow-hidden rounded-full">
 					<div
 						class={twMerge('bg-primary h-full rounded-full transition-all duration-500 ease-out')}
 						style="width: {progress ?? 0}%"
@@ -148,7 +148,7 @@
 					<p class="text-xl font-semibold">{text ?? 'Loading...'}</p>
 				</div>
 				{#if isLongLoad && longLoadMessage}
-					<p in:fade class="text-md mt-4 font-light text-gray-500">
+					<p in:fade class="text-md text-on-surface1 mt-4 font-light">
 						{longLoadMessage}
 					</p>
 				{/if}

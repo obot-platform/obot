@@ -150,20 +150,15 @@
 							}}
 						>
 							<div class="grid w-full grid-cols-2 items-center gap-2">
-								<p class={twMerge('truncate', hasEverything && 'text-gray-400 dark:text-gray-600')}>
+								<p class={twMerge('truncate', hasEverything && 'text-on-surface1')}>
 									{rule.displayName}
 								</p>
 								<div class="flex grow items-center justify-between">
-									<p
-										class={twMerge(
-											'line-clamp-2 text-xs',
-											hasEverything && 'text-gray-400 dark:text-gray-600'
-										)}
-									>
+									<p class={twMerge('line-clamp-2 text-xs', hasEverything && 'text-on-surface1')}>
 										{#if rule.subjects && rule.subjects.length > 0}
 											{rule.subjects?.map((s) => convertSubjectToDisplayName(s)).join(', ')}
 										{:else}
-											<i class="text-gray-400 dark:text-gray-600">(Empty)</i>
+											<i class="text-on-surface1">(Empty)</i>
 										{/if}
 									</p>
 									<div class="flex-shrink-0">
@@ -177,7 +172,7 @@
 										{:else if selectedRules.includes(rule.id)}
 											<CircleCheck class="text-primary size-4" />
 										{:else}
-											<Circle class="size-4 text-gray-400 dark:text-gray-600" />
+											<Circle class="text-on-surface1 size-4" />
 										{/if}
 									</div>
 								</div>

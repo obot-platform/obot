@@ -320,7 +320,7 @@
 						{#if showSaved}
 							<span
 								in:fade={{ duration: 200 }}
-								class="flex min-h-10 items-center px-4 text-sm font-extralight text-gray-500"
+								class="text-on-surface1 flex min-h-10 items-center px-4 text-sm font-extralight"
 							>
 								Your changes have been saved.
 							</span>

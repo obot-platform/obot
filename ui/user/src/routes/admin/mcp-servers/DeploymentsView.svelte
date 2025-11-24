@@ -308,11 +308,9 @@
 		</div>
 	{:else if serversData.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Server class="dark:text-surface3 size-24 text-gray-200" />
-			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-				No current deployments.
-			</h4>
-			<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+			<Server class="text-surface3 size-24" />
+			<h4 class="text-on-surface1 text-lg font-semibold">No current deployments.</h4>
+			<p class="text-on-surface1 text-sm font-light">
 				Once a server has been deployed, its <br />
 				information will be quickly accessible here.
 			</p>
@@ -373,7 +371,7 @@
 						<p class="flex flex-col">
 							{d.displayName}
 							{#if d.compositeParentName}
-								<span class="text-xs text-gray-500">
+								<span class="text-on-surface1 text-xs">
 									({d.compositeParentName})
 								</span>
 							{/if}

@@ -496,7 +496,7 @@
 								</div>
 							{:else}
 								<div
-									class="w-full h-full flex items-center justify-center text-gray-400 text-lg font-semibold rounded-lg absolute inset-0 p-8"
+									class="w-full h-full flex items-center justify-center text-on-surface1 text-lg font-semibold rounded-lg absolute inset-0 p-8"
 									transition:fade={{ duration: 100 }}
 								>
 									{#if isModelsLoading}
@@ -517,7 +517,9 @@
 				in:fade={{ duration: 200 }}
 				out:fade={{ duration: 0 }}
 			>
-				<div class="mb-2 text-lg font-semibold text-gray-400">Provider is not yet configured</div>
+				<div class="text-on-surface1 mb-2 text-lg font-semibold">
+					Provider is not yet configured
+				</div>
 				<p class="text-center text-xs opacity-50">
 					Click on the "Configure" button below to set up this provider. We’ll then validate your
 					configuration and display available models.

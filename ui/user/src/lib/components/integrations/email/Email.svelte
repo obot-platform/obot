@@ -107,7 +107,7 @@
 	<div class="modal-box">
 		<div class="p-4">
 			<h3 class="text-lg font-medium">Task Created</h3>
-			<p class="mt-2 text-sm text-gray-500">
+			<p class="text-on-surface1 mt-2 text-sm">
 				Task "{task?.name}" has been created from the Email integration.
 			</p>
 

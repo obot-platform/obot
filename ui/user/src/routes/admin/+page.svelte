@@ -194,7 +194,7 @@
 
 		{#if loggedIn && !hasAccess}
 			<div class="relative z-10 my-6 flex w-full flex-col items-center justify-center gap-6">
-				<p class="px-8 text-center text-sm font-light text-gray-500 md:px-8 dark:text-gray-300">
+				<p class="text-on-surface1 px-8 text-center text-sm font-light md:px-8">
 					You are not authorized to access this page. Please sign in with an authorized account or
 					contact your administrator.
 				</p>
@@ -208,7 +208,7 @@
 			</a>
 		{:else if authProviders.length > 0}
 			<div class="relative z-10 mt-6 flex w-full flex-col items-center justify-center gap-6">
-				<p class="text-md px-8 text-center font-light text-gray-500 md:px-8 dark:text-gray-300">
+				<p class="text-md text-on-surface1 px-8 text-center font-light md:px-8">
 					To access the admin panel, you need to sign in with an option below.
 				</p>
 				<h3 class="dark:bg-surface2 bg-background px-2 text-lg font-semibold">

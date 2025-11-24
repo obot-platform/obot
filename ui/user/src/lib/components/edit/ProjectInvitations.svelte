@@ -121,10 +121,10 @@
 										<Crown class="size-4" />
 									{/if}
 									{#if member.email === profile.current.email}
-										<span class="text-xs text-gray-500">(Me)</span>
+										<span class="text-on-surface1 text-xs">(Me)</span>
 									{/if}
 								</p>
-								<span class="text-sm font-light text-gray-500">
+								<span class="text-on-surface1 text-sm font-light">
 									{member.isOwner ? 'Owner' : 'Member'}
 								</span>
 							</div>
@@ -160,7 +160,7 @@
 	<div class="dark:bg-gray-980 flex w-full grow items-center bg-gray-50 p-4">
 		<div class="mx-auto flex w-full flex-col self-start md:max-w-[1200px]">
 			{#if !isOwnerOrAdmin}
-				<p class="p-4 text-center text-gray-500">Only project owners can manage invitations.</p>
+				<p class="text-on-surface1 p-4 text-center">Only project owners can manage invitations.</p>
 			{:else if isLoading}
 				<div class="flex grow items-center justify-center">
 					<div
@@ -168,7 +168,7 @@
 					></div>
 				</div>
 			{:else if invitations.length === 0}
-				<p class="p-4 text-center text-gray-500">No invitations found</p>
+				<p class="text-on-surface1 p-4 text-center">No invitations found</p>
 			{:else}
 				<ul class="flex flex-col gap-4">
 					{#each invitations as invitation (invitation.code)}
@@ -186,13 +186,13 @@
 											invitation.status === 'pending' && 'border-yellow-500 text-yellow-500',
 											invitation.status === 'accepted' && 'border-green-500 text-green-500',
 											invitation.status === 'rejected' && 'border-red-500 text-red-500',
-											invitation.status === 'expired' && 'border-gray-500 text-gray-500'
+											invitation.status === 'expired' && 'border-on-surface1 text-on-surface1'
 										)}
 									>
 										{invitation.status}
 									</span>
 									<div class="bg-surface2 dark:bg-surface3 h-6 w-[1px]"></div>
-									<div class="flex items-center gap-2 text-xs text-gray-500">
+									<div class="text-on-surface1 flex items-center gap-2 text-xs">
 										<Clock class="size-3.5" />
 										<span>{formatTimeAgo(invitation.created).relativeTime}</span>
 									</div>
@@ -276,7 +276,7 @@
 			buttonText="Copy Invite Link"
 			classes={{ button: 'text-md px-6 gap-2' }}
 		/>
-		<span class="line-clamp-1 text-xs break-all text-gray-500">{invitationUrl}</span>
+		<span class="text-on-surface1 line-clamp-1 text-xs break-all">{invitationUrl}</span>
 	</div>
 </dialog>
 

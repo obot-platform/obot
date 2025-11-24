@@ -207,7 +207,7 @@
 			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<h4 class="text-sm font-semibold">Headers</h4>
-			<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+			<p class="text-on-surface1 text-xs font-light">
 				{#if selectedType === 'urlTemplate'}
 					Header values will be supplied with the URL to configure the MCP server. Their values can
 					be supplied by the user during initial setup or as static provided values. Only values

@@ -228,7 +228,7 @@
 							<p class="text-md font-semibold">
 								{tool.name}
 								{#if tool.unsupported}
-									<span class="ml-3 text-sm text-gray-500">
+									<span class="text-on-surface1 ml-3 text-sm">
 										⚠️ Not yet fully supported in Obot
 									</span>
 								{/if}
@@ -266,14 +266,14 @@
 							{#if browser}
 								<div
 									in:slide={{ axis: 'y' }}
-									class="milkdown-content max-w-none text-sm font-light text-gray-500"
+									class="milkdown-content text-on-surface1 max-w-none text-sm font-light"
 								>
 									{@html toHTMLFromMarkdownWithNewTabLinks(tool.description || '')}
 								</div>
 							{/if}
 							{#if Object.keys(tool.params ?? {}).length > 0}
 								<div
-									class="from-surface2 dark:from-surface3 flex w-full flex-shrink-0 bg-linear-to-r to-transparent px-4 py-2 text-xs font-semibold text-gray-500 md:w-sm"
+									class="from-surface2 dark:from-surface3 text-on-surface1 flex w-full flex-shrink-0 bg-linear-to-r to-transparent px-4 py-2 text-xs font-semibold md:w-sm"
 								>
 									Parameters
 								</div>
@@ -281,10 +281,10 @@
 									<div class="flex flex-col gap-2">
 										{#each Object.keys(tool.params ?? {}) as paramKey (paramKey)}
 											<div class="flex flex-col items-center gap-2 md:flex-row">
-												<p class="self-start font-semibold text-gray-500 md:min-w-xs">
+												<p class="text-on-surface1 self-start font-semibold md:min-w-xs">
 													{paramKey}
 												</p>
-												<p class="self-start font-light text-gray-500">
+												<p class="text-on-surface1 self-start font-light">
 													{tool.params?.[paramKey]}
 												</p>
 											</div>
@@ -299,9 +299,9 @@
 				{@render noToolsContent()}
 			{:else}
 				<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-					<Wrench class="size-24 text-gray-200 dark:text-gray-900" />
-					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No tools</h4>
-					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+					<Wrench class="text-on-surface1 size-24 opacity-50" />
+					<h4 class="text-on-surface1 text-lg font-semibold">No tools</h4>
+					<p class="text-on-surface1 text-sm font-light">
 						{#if !entry || hasConnectedServer}
 							Looks like this MCP server doesn't have any tools available.
 						{:else}

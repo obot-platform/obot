@@ -419,7 +419,9 @@
 			as="main"
 			{...main?.props}
 		>
-			<Navbar class={twMerge('dark:bg-gray-990 sticky top-0 left-0 z-30 w-full', classes?.navbar)}>
+			<Navbar
+				class={twMerge('dark:bg-background sticky top-0 left-0 z-30 w-full', classes?.navbar)}
+			>
 				{#snippet leftContent()}
 					{#if !layout.sidebarOpen || hideSidebar}
 						<BetaLogo />

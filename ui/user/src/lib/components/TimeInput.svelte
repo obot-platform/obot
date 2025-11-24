@@ -24,7 +24,7 @@
 	const amPmAsNumber = $derived(+!isAm);
 </script>
 
-<div class="time-input bg-surface1/50 flex h-14 items-center gap-2 rounded-md">
+<div class="time-input bg-surface1 flex h-14 items-center gap-2 rounded-md">
 	<div class="flex min-h-full flex-1 text-xl">
 		<input
 			class="min-h-full w-full bg-transparent px-4 text-end"

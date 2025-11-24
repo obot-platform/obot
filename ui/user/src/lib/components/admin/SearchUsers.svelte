@@ -139,12 +139,12 @@
 						<div class="flex grow flex-col">
 							{#if 'email' in item}
 								<p>{item.displayName ?? item.email}</p>
-								<p class="font-light text-gray-400 dark:text-gray-600">
+								<p class="text-on-surface1 font-light">
 									{getUserRoleLabel(item.role)}
 								</p>
 							{:else}
 								<p>{item.name}</p>
-								<p class="font-light text-gray-400 dark:text-gray-600">Group</p>
+								<p class="text-on-surface1 font-light">Group</p>
 							{/if}
 						</div>
 						<div class="flex items-center justify-center">

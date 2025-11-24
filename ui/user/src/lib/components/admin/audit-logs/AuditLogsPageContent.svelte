@@ -551,7 +551,7 @@
 	>
 		<h3 class="mb-2 px-4 pt-4 text-lg font-medium">Timeline</h3>
 		<div class="px-4">
-			<div class="flex h-40 items-center justify-center rounded-md text-gray-500">
+			<div class="text-on-surface1 flex h-40 items-center justify-center rounded-md">
 				<AuditLogsTimeline
 					data={remoteAuditLogs}
 					start={timeRangeFilters.startTime}
@@ -610,9 +610,9 @@
 	></AuditLogsTable>
 {:else if !showLoadingSpinner}
 	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
-		<Captions class="size-24 text-gray-200 dark:text-gray-900" />
-		<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No audit logs</h4>
-		<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+		<Captions class="text-on-surface1 size-24 opacity-50" />
+		<h4 class="text-on-surface1 text-lg font-semibold">No audit logs</h4>
+		<p class="text-on-surface text-sm font-light">
 			Currently, there are no audit logs for selected range or filters. Try modifying your search
 			criteria or try again later.
 		</p>
@@ -727,7 +727,7 @@
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
 		<div class="dark:bg-surface2 bg-background w-full max-w-2xl rounded-lg p-6 shadow-xl">
 			<h3 class="mb-4 text-lg font-semibold">Apply Current Filters to Export?</h3>
-			<p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+			<p class="text-on-surface1 mb-4 text-sm">
 				You have active filters applied to the audit logs. Would you like to include these filters
 				in the export?
 			</p>
@@ -740,7 +740,7 @@
 				][]}
 				<div class="mb-4 rounded-md bg-gray-50 p-3 dark:bg-gray-800">
 					<h4 class="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">Active Filters:</h4>
-					<div class="space-y-1 text-xs text-gray-600 dark:text-gray-400">
+					<div class="text-on-surface1 space-y-1 text-xs">
 						{#if query}
 							<div class="break-words"><strong>Search:</strong> {query}</div>
 						{/if}

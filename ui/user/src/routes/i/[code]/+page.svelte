@@ -181,13 +181,13 @@
 								class="size-16 rounded-full"
 							/>
 							{#if projectDescription}
-								<p class="text-md text-gray-600 dark:text-gray-400">
+								<p class="text-md text-on-surface1">
 									{projectDescription}
 								</p>
 							{/if}
 						</div>
 					{/if}
-					<p class="text-xs text-gray-500">
+					<p class="text-on-surface1 text-xs">
 						Invitation sent on {invitationDate}
 					</p>
 					<div class="mt-6 flex w-full justify-center gap-4">

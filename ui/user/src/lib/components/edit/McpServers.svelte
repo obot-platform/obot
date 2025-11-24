@@ -97,7 +97,7 @@
 	<div class="flex items-center justify-between">
 		<p class="text-md grow font-medium">Connectors</p>
 		<button
-			class="hover:text-on-background p-2 text-gray-400 transition-colors duration-200 dark:text-gray-600"
+			class="hover:text-on-background text-on-surface1 p-2 transition-colors duration-200"
 			onclick={() => mcpServerSetup?.open()}
 			use:tooltip={'Add Connector'}
 		>

@@ -48,7 +48,7 @@
 			>
 				<Logo class="h-16" />
 				<h1 class="text-2xl font-semibold">Welcome to Obot</h1>
-				<p class="text-md mb-1 text-center font-light text-gray-400 dark:text-gray-600">
+				<p class="text-md text-on-surface1 mb-1 text-center font-light">
 					Log in or create your account to continue
 				</p>
 

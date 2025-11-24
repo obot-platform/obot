@@ -398,11 +398,9 @@
 
 {#snippet emptyInstancesContent()}
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-		<Router class="size-24 text-gray-200 dark:text-gray-900" />
-		<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No server details</h4>
-		<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-			No details available yet for this server.
-		</p>
+		<Router class="text-on-surface1 size-24 opacity-50" />
+		<h4 class="text-on-surface1 text-lg font-semibold">No server details</h4>
+		<p class="text-on-surface1 text-sm font-light">No details available yet for this server.</p>
 	</div>
 {/snippet}
 

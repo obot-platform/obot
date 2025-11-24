@@ -151,7 +151,7 @@
 
 	<div class="flex flex-col gap-2">
 		{#if loading}
-			<div class="text-sm text-gray-500">Loading component servers...</div>
+			<div class="text-on-surface1 text-sm">Loading component servers...</div>
 		{:else if config.componentServers.length > 0}
 			{#each config.componentServers as entry (getComponentId(entry))}
 				{@const componentId = getComponentId(entry)}
@@ -162,7 +162,7 @@
 						{#if entry.manifest?.icon}
 							<img src={entry.manifest.icon} alt={entry.manifest.name} class="size-8" />
 						{:else}
-							<Server class="size-8 text-gray-400" />
+							<Server class="text-on-surface1 size-8" />
 						{/if}
 						<div class="flex-1">
 							<div class="font-medium">{entry.manifest?.name || 'Unnamed Server'}</div>
@@ -189,8 +189,10 @@
 						<div class="border-t border-gray-200 p-3" in:slide={{ axis: 'y' }}>
 							{#if !populatedByEntry[componentId]}
 								<div class="flex flex-col items-center justify-center pb-2">
-									<p class="text-sm font-light text-gray-500">All tools are enabled by default.</p>
-									<p class="mb-4 text-sm font-light text-gray-500">
+									<p class="text-on-surface1 text-sm font-light">
+										All tools are enabled by default.
+									</p>
+									<p class="text-on-surface1 mb-4 text-sm font-light">
 										Click below to further modify tool availability or details.
 									</p>
 									<button
@@ -252,7 +254,7 @@
 				</div>
 			{/each}
 		{:else}
-			<div class="text-sm text-gray-500 dark:text-gray-400">
+			<div class="text-on-surface1 text-sm">
 				Select one or more MCP servers to include in the composite server. Users will see this as a
 				single server with aggregated tools and resources.
 			</div>

@@ -66,7 +66,7 @@
 			helpText={HELPER_TEXTS.chatbot}
 		>
 			<div class="flex flex-col gap-3">
-				<p class="text-xs text-gray-500">
+				<p class="text-on-surface1 text-xs">
 					Configure ChatBot to produce a link that allows anyone to use this project in a read-only
 					mode.
 				</p>

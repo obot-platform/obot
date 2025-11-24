@@ -112,9 +112,7 @@
 						{/each}
 					</div>
 				{:else}
-					<span class="text-sm font-light text-gray-400 dark:text-gray-600"
-						>No configured headers.</span
-					>
+					<span class="text-on-surface1 text-sm font-light">No configured headers.</span>
 				{/if}
 			</div>
 
@@ -127,7 +125,7 @@
 						{/each}
 					</div>
 				{:else}
-					<span class="text-sm font-light text-gray-400 dark:text-gray-600"
+					<span class="text-on-surface1 text-sm font-light"
 						>No configured environment or file variables set.</span
 					>
 				{/if}

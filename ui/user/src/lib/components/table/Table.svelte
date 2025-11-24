@@ -362,7 +362,7 @@
 					<div class="flex-shrink-0 p-2">
 						{@render selectAll()}
 					</div>
-					<div class="px-4 py-2 text-left text-sm font-semibold text-gray-500">
+					<div class="text-on-surface1 px-4 py-2 text-left text-sm font-semibold">
 						{Object.keys(selected).length} of {totalSelectable} selected
 					</div>
 					<div class="flex grow items-center justify-end">
@@ -436,7 +436,7 @@
 {#if tableData.length === 0}
 	<div class="my-2 flex flex-col items-center justify-center gap-2">
 		{#if Object.keys(filteredBy || {}).length > 0}
-			<p class="text-sm font-light text-gray-400 dark:text-gray-600">No results found.</p>
+			<p class="text-on-surface1 text-sm font-light">No results found.</p>
 			<button
 				class="button text-sm"
 				onclick={() => {
@@ -447,7 +447,7 @@
 				Clear All Filters
 			</button>
 		{:else}
-			<p class="text-sm font-light text-gray-400 dark:text-gray-600">{noDataMessage}</p>
+			<p class="text-on-surface1 text-sm font-light">{noDataMessage}</p>
 		{/if}
 	</div>
 {/if}
@@ -462,7 +462,7 @@
 			<ChevronsLeft class="size-4" /> Previous
 		</button>
 
-		<p class="text-xs text-gray-500">
+		<p class="text-on-surface1 text-xs">
 			{page + 1} of {Math.ceil(total / pageSize)}
 		</p>
 
@@ -507,7 +507,7 @@
 			{/if}
 		</button>
 		{#if validateSelect}
-			<DotDotDot class="text-gray-500">
+			<DotDotDot class="text-on-surface1">
 				{#snippet icon()}
 					<ChevronDown class="size-4" />
 				{/snippet}
@@ -582,7 +582,7 @@
 				{@const actionHeaderClass = headerClasses?.find((hc) => hc.property === 'actions')?.class}
 				<th
 					class={twMerge(
-						'text-md float-right w-auto px-4 py-2 text-left font-medium text-gray-500',
+						'text-md text-on-surface1 float-right w-auto px-4 py-2 text-left font-medium',
 						actionHeaderClass
 					)}
 				></th>

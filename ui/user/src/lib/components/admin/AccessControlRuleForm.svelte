@@ -423,7 +423,7 @@
 	</div>
 	{#if !readonly}
 		<div
-			class="bg-surface1 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 dark:bg-black dark:text-gray-600"
+			class="bg-surface1 text-on-surface1 dark:bg-background sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4"
 			out:fly={{ x: -100, duration }}
 			in:fly={{ x: -100 }}
 		>

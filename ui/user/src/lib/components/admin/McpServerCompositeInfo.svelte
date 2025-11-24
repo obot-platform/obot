@@ -105,7 +105,7 @@
 						</div>
 						<p class="text-sm">{componentServer.manifest?.name}</p>
 						{#if catalogEntryServerId}
-							<span class="text-sm text-gray-400 dark:text-gray-600">({catalogEntryServerId})</span>
+							<span class="text-on-surface1 text-sm">({catalogEntryServerId})</span>
 						{/if}
 					</div>
 					<div class="icon-button">

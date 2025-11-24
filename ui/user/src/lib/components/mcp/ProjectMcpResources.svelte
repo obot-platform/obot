@@ -206,12 +206,12 @@
 						>
 							<div>
 								<p class="text-sm">{resource.name}</p>
-								<p class="text-xs font-light text-gray-500">{resource.mimeType}</p>
+								<p class="text-on-surface1 text-xs font-light">{resource.mimeType}</p>
 							</div>
 							<div class="flex grow"></div>
 							{#if enableProjectAdd}
 								{#if alreadyAdded}
-									<span class="p-2 pr-0 text-xs text-gray-500">Added</span>
+									<span class="text-on-surface1 p-2 pr-0 text-xs">Added</span>
 								{:else}
 									<div class="button-text flex items-center gap-1 p-2 pr-0 text-xs">
 										{#if loadingFiles || addingFileUri === resource.uri}

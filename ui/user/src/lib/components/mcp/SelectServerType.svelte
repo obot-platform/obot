@@ -28,11 +28,11 @@
 			onclick={() => onSelectServerType('single')}
 		>
 			<User
-				class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
+				class="text-on-surface1 size-12 flex-shrink-0 pl-1 transition-colors group-hover:text-inherit"
 			/>
 			<div>
 				<p class="mb-1 text-sm font-semibold">Single User Server</p>
-				<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
+				<span class="text-on-surface1 block text-xs leading-4">
 					This option is appropriate for servers that require individualized configuration or were
 					not designed for multi-user access, such as most stdio MCP servers. When a user selects
 					this server, a private instance will be created for them.
@@ -45,11 +45,11 @@
 				onclick={() => onSelectServerType('multi')}
 			>
 				<Users
-					class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
+					class="text-on-surface1 size-12 flex-shrink-0 pl-1 transition-colors group-hover:text-inherit"
 				/>
 				<div>
 					<p class="mb-1 text-sm font-semibold">Multi-User Server</p>
-					<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
+					<span class="text-on-surface1 block text-xs leading-4">
 						This option is appropriate for servers designed to handle multiple user connections,
 						such as most Streamable HTTP servers. When you create this server, a running instance
 						will be deployed and any user with access to this catalog will be able to connect to it.
@@ -62,11 +62,11 @@
 			onclick={() => onSelectServerType('remote')}
 		>
 			<Container
-				class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
+				class="text-on-surface1 size-12 flex-shrink-0 pl-1 transition-colors group-hover:text-inherit"
 			/>
 			<div>
 				<p class="mb-1 text-sm font-semibold">Remote Server</p>
-				<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
+				<span class="text-on-surface1 block text-xs leading-4">
 					This option is appropriate for allowing users to connect to MCP servers that are already
 					elsewhere. When a user selects this server, their connection to the remote MCP server will
 					go through the Obot gateway.
@@ -79,11 +79,11 @@
 				onclick={() => onSelectServerType('composite')}
 			>
 				<Layers
-					class="size-12 flex-shrink-0 pl-1 text-gray-500 transition-colors group-hover:text-inherit"
+					class="text-on-surface1 size-12 flex-shrink-0 pl-1 transition-colors group-hover:text-inherit"
 				/>
 				<div>
 					<p class="mb-1 text-sm font-semibold">Composite Server</p>
-					<span class="block text-xs leading-4 text-gray-400 dark:text-gray-600">
+					<span class="text-on-surface1 block text-xs leading-4">
 						This option allows you to combine multiple MCP catalog entries into a single unified
 						server. Users will connect via a single URL that aggregates tools and resources from all
 						component servers.

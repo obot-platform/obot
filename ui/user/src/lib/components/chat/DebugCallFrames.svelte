@@ -155,7 +155,7 @@
 		</summary>
 		<div class="my-2 ml-5">
 			{#if call?.tool?.source?.location && call.tool.source.location !== 'inline'}
-				<div class="mb-2 text-sm text-gray-400 dark:text-gray-600">
+				<div class="text-on-surface1 mb-2 text-sm">
 					Source:
 					<a
 						href={call.tool.source.location}
@@ -176,7 +176,7 @@
 						{@render inputContent(call.input)}
 					</div>
 				{:else}
-					<p class="ml-5 text-gray-400 dark:text-gray-600">No input available</p>
+					<p class="text-on-surface1 ml-5">No input available</p>
 				{/if}
 			</details>
 			<details open={expandAll}>
@@ -216,9 +216,7 @@
 									</li>
 								{/each}
 							{:else}
-								<li>
-									<p class="text-gray-400 dark:text-gray-600">No output available</p>
-								</li>
+								<li></li>
 							{/if}
 						{/each}
 					{/if}
@@ -294,7 +292,7 @@
 		<span class="mr-2 text-base font-semibold">
 			{typeof name === 'string' ? name : name.Name}
 		</span>
-		<span class="text-sm font-light text-gray-400 dark:text-gray-600">{info}</span>
+		<span class="text-on-surface1 text-sm font-light">{info}</span>
 	</p>
 {/snippet}
 

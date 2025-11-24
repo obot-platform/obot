@@ -48,7 +48,7 @@ export function compileAppPreferences(preferences?: AppPreferences): AppPreferen
 			primaryColor: preferences?.theme?.primaryColor ?? '#4f7ef3',
 			darkBackgroundColor: preferences?.theme?.darkBackgroundColor ?? 'hsl(0 0 0)',
 			darkOnBackgroundColor: preferences?.theme?.darkOnBackgroundColor ?? 'hsl(0 0 calc(2.5 + 95))',
-			darkOnSurfaceColor: preferences?.theme?.darkOnSurfaceColor ?? 'hsl(0 0 calc(2.5 + 40))',
+			darkOnSurfaceColor: preferences?.theme?.darkOnSurfaceColor ?? 'hsl(0 0 calc(2.5 + 50))',
 			darkSurface1Color: preferences?.theme?.darkSurface1Color ?? 'hsl(0 0 calc(2.5 + 5))',
 			darkSurface2Color: preferences?.theme?.darkSurface2Color ?? 'hsl(0 0 calc(2.5 + 10))',
 			darkSurface3Color: preferences?.theme?.darkSurface3Color ?? 'hsl(0 0 calc(2.5 + 20))',

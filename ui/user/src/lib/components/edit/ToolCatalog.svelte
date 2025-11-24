@@ -350,7 +350,7 @@
 						</div>
 					{/each}
 					{#if enabledTools.length === 0}
-						<p class="p-4 text-sm text-gray-500">No tools selected.</p>
+						<p class="text-on-surface1 p-4 text-sm">No tools selected.</p>
 					{/if}
 				</div>
 				{@render readOnlyTools()}
@@ -461,10 +461,10 @@
 		<span class="flex items-center gap-1">
 			{tool.name}
 			{#if headerLabel}
-				<span class={twMerge('text-xs text-gray-500', headerLabelClass)}>{headerLabel}</span>
+				<span class={twMerge('text-on-surface1 text-xs', headerLabelClass)}>{headerLabel}</span>
 			{/if}
 		</span>
-		<span class="text-gray text-xs font-normal dark:text-gray-300">
+		<span class="text-on-surface1 text-xs font-normal">
 			{tool.description}
 		</span>
 	</span>
@@ -614,7 +614,7 @@
 					{@render searchResult(result)}
 				{/each}
 				{#if getSearchResults().length === 0 && search}
-					<p class="px-4 py-2 text-sm font-light text-gray-500">No results found.</p>
+					<p class="text-on-surface1 px-4 py-2 text-sm font-light">No results found.</p>
 				{/if}
 			</div>
 		</div>

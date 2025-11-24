@@ -653,8 +653,7 @@
 
 		<div class="flex flex-col gap-1">
 			<label for="name" class="text-sm font-light capitalize"
-				>Description <span class="text-xs text-gray-400 dark:text-gray-600"
-					>(Markdown syntax supported)</span
+				>Description <span class="text-on-surface1 text-xs">(Markdown syntax supported)</span
 				></label
 			>
 			<MarkdownInput
@@ -789,7 +788,7 @@
 								/>
 							</div>
 
-							<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+							<p class="text-on-surface1 text-xs font-light">
 								{#if formData.env[i].file}
 									The value {type === 'single' ? 'the user supplies' : 'you provide'} will be written
 									to a file. An environment variable will be created using the name you specify in the
@@ -805,7 +804,7 @@
 							</p>
 
 							{#if type === 'single'}
-								<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+								<p class="text-on-surface1 text-xs font-light">
 									The Name and Description fields will be displayed to the user when configuring
 									this server. The Key field will not.
 								</p>

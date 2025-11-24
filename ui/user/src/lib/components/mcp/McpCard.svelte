@@ -47,7 +47,7 @@
 		</div>
 		<span
 			class={twMerge(
-				'mt-2 text-xs leading-4.5 font-light break-all text-gray-400 dark:text-gray-600',
+				'text-on-surface1 mt-2 text-xs leading-4.5 font-light break-all',
 				categories.length > 0 ? 'line-clamp-2' : 'line-clamp-3'
 			)}
 		>
@@ -56,7 +56,7 @@
 		<div class="line-clamp-1 flex w-full gap-1 pt-2">
 			{#each categories as category (category)}
 				<div
-					class="border-surface3 truncate rounded-full border px-1.5 py-0.5 text-[10px] font-light text-gray-400 dark:text-gray-600"
+					class="border-surface3 text-on-surface1 truncate rounded-full border px-1.5 py-0.5 text-[10px] font-light"
 				>
 					{category}
 				</div>

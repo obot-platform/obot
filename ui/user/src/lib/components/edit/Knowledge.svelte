@@ -60,7 +60,7 @@
 		<span
 			class={twMerge(
 				'flex grow items-center gap-1 text-sm',
-				!hasKnowledgeCapability && 'justify-between text-gray-400 dark:text-gray-600'
+				!hasKnowledgeCapability && 'text-on-surface1 justify-between'
 			)}
 		>
 			Knowledge
@@ -77,7 +77,7 @@
 	{/snippet}
 	<div class="flex flex-col gap-2">
 		{#if !hasKnowledgeCapability}
-			<p class="flex items-center gap-1 text-xs font-light text-gray-500">
+			<p class="text-on-surface1 flex items-center gap-1 text-xs font-light">
 				<span> Enable Knowledge in "Built-In Capabilities" to add knowledge to your project. </span>
 			</p>
 		{/if}

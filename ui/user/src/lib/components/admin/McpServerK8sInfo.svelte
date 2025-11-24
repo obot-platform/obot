@@ -401,9 +401,7 @@
 							{/each}
 						</div>
 					{:else}
-						<span class="text-sm font-light text-gray-400 dark:text-gray-600"
-							>No configured headers.</span
-						>
+						<span class="text-on-surface1 text-sm font-light">No configured headers.</span>
 					{/if}
 				</div>
 			{/if}
@@ -417,7 +415,7 @@
 						{/each}
 					</div>
 				{:else}
-					<span class="text-sm font-light text-gray-400 dark:text-gray-600"
+					<span class="text-on-surface1 text-sm font-light"
 						>No configured environment of file variables set.</span
 					>
 				{/if}
@@ -446,7 +444,7 @@
 				{/snippet}
 			</Table>
 		{:else}
-			<span class="text-sm font-light text-gray-400 dark:text-gray-600">No events.</span>
+			<span class="text-on-surface1 text-sm font-light">No events.</span>
 		{/if}
 	</div>
 {:catch error}
@@ -510,12 +508,12 @@
 			<div class="space-y-2">
 				{#each messages as message, i (i)}
 					<div class="font-mono text-sm" in:fade>
-						<span class="text-gray-600 dark:text-gray-400">{message}</span>
+						<span class="text-on-surface1">{message}</span>
 					</div>
 				{/each}
 			</div>
 		{:else}
-			<span class="text-sm font-light text-gray-400 dark:text-gray-600">No deployment logs.</span>
+			<span class="text-on-surface1 text-sm font-light">No deployment logs.</span>
 		{/if}
 	</div>
 </div>

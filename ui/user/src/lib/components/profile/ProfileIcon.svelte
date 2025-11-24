@@ -33,7 +33,7 @@
 		referrerpolicy="no-referrer"
 	/>
 {:else if profile.current.isBootstrapUser?.()}
-	<ShieldUser class="size-8 rounded-full text-gray-400 dark:text-gray-600" />
+	<ShieldUser class="text-on-surface1 size-8 rounded-full" />
 {:else}
 	<div class="flex h-8 w-8 items-center justify-center rounded-full bg-gray-600 text-white">
 		{initials}

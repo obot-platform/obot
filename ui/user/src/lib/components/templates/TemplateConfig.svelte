@@ -150,19 +150,19 @@
 {#snippet displayTasks(taskList: Task[])}
 	{#if taskList.length > 0}
 		<div class="p-3">
-			<h4 class="mb-1 text-xs font-medium text-gray-500">Tasks</h4>
+			<h4 class="text-on-surface1 mb-1 text-xs font-medium">Tasks</h4>
 			<div class="flex flex-col gap-2">
 				{#each taskList as t (t.id)}
 					<div class="rounded-md border border-gray-100 p-2 text-xs dark:border-gray-700">
 						<div class="font-medium text-gray-700 dark:text-gray-200">{t.name || t.id}</div>
 						{#if t.description}
-							<div class="mt-0.5 text-gray-500 dark:text-gray-400">{t.description}</div>
+							<div class="text-on-surface1 mt-0.5">{t.description}</div>
 						{/if}
 						{#if t.steps && t.steps.length > 0}
-							<div class="mt-1 text-gray-500 dark:text-gray-400">
+							<div class="text-on-surface1 mt-1">
 								{t.steps.length} step{t.steps.length === 1 ? '' : 's'}
 							</div>
-							<ol class="mt-1 list-decimal pl-4 text-[11px] text-gray-500 dark:text-gray-400">
+							<ol class="text-on-surface1 mt-1 list-decimal pl-4 text-[11px]">
 								{#each t.steps as s, idx (s.id)}
 									<li>
 										<span>{s.step || 'Step ' + (idx + 1)}</span>
@@ -187,8 +187,8 @@
 {#if loading}
 	<div class="flex items-center justify-center p-6">
 		<div class="flex flex-col items-center gap-2">
-			<Loader2 class="size-6 animate-spin text-gray-500" />
-			<span class="text-sm text-gray-500">Loading Project Share...</span>
+			<Loader2 class="text-on-surface1 size-6 animate-spin" />
+			<span class="text-on-surface1 text-sm">Loading Project Share...</span>
 		</div>
 	</div>
 {:else}
@@ -247,7 +247,7 @@
 					<div class="flex items-center gap-2">
 						{#if template.projectSnapshotStale}
 							{#if template.projectSnapshotUpgradeInProgress}
-								<div class="flex items-center gap-1 text-xs text-gray-500">
+								<div class="text-on-surface1 flex items-center gap-1 text-xs">
 									<Loader2 class="size-4 animate-spin" />
 									Updating...
 								</div>
@@ -317,7 +317,7 @@
 				<div class="flex flex-col divide-y divide-gray-100 dark:divide-gray-700">
 					{#if template.projectSnapshotLastUpgraded}
 						<div class="p-3">
-							<h4 class="mb-1 text-xs font-medium text-gray-500">Last Updated</h4>
+							<h4 class="text-on-surface1 mb-1 text-xs font-medium">Last Updated</h4>
 							<p class="text-sm text-gray-600 dark:text-gray-300">
 								{formatDate(template.projectSnapshotLastUpgraded)}
 							</p>
@@ -326,7 +326,7 @@
 
 					{#if template.projectSnapshot.description}
 						<div class="p-3">
-							<h4 class="mb-1 text-xs font-medium text-gray-500">Description</h4>
+							<h4 class="text-on-surface1 mb-1 text-xs font-medium">Description</h4>
 							<p class="text-sm text-gray-600 dark:text-gray-300">
 								{template.projectSnapshot.description}
 							</p>
@@ -335,7 +335,7 @@
 
 					{#if template.projectSnapshot.prompt}
 						<div class="p-3">
-							<h4 class="mb-1 text-xs font-medium text-gray-500">System Prompt</h4>
+							<h4 class="text-on-surface1 mb-1 text-xs font-medium">System Prompt</h4>
 							<p class="text-xs whitespace-pre-wrap text-gray-600 dark:text-gray-300">
 								{template.projectSnapshot.prompt}
 							</p>
@@ -344,7 +344,7 @@
 
 					{#if template.projectSnapshot.introductionMessage}
 						<div class="p-3">
-							<h4 class="mb-1 text-xs font-medium text-gray-500">Introduction Message</h4>
+							<h4 class="text-on-surface1 mb-1 text-xs font-medium">Introduction Message</h4>
 							<p class="text-xs whitespace-pre-wrap text-gray-600 dark:text-gray-300">
 								{template.projectSnapshot.introductionMessage}
 							</p>
@@ -353,7 +353,7 @@
 
 					{#if template.projectSnapshot.starterMessages && template.projectSnapshot.starterMessages.length > 0}
 						<div class="p-3">
-							<h4 class="mb-2 text-xs font-medium text-gray-500">Conversation Starters</h4>
+							<h4 class="text-on-surface1 mb-2 text-xs font-medium">Conversation Starters</h4>
 							<div class="flex flex-col gap-2">
 								{#each template.projectSnapshot.starterMessages as message (message)}
 									<div
@@ -368,7 +368,7 @@
 
 					{#if mcpServers.length > 0}
 						<div class="p-3">
-							<h4 class="mb-2 text-xs font-medium text-gray-500">Connectors</h4>
+							<h4 class="text-on-surface1 mb-2 text-xs font-medium">Connectors</h4>
 							<div class="flex flex-col gap-2">
 								{#each mcpServers as mcpServer (mcpServer.id)}
 									<div
@@ -398,7 +398,7 @@
 
 					{#if knowledgeFiles.length > 0}
 						<div class="p-3">
-							<h4 class="mb-1 text-xs font-medium text-gray-500">Knowledge Files</h4>
+							<h4 class="text-on-surface1 mb-1 text-xs font-medium">Knowledge Files</h4>
 							<ul class="mt-2">
 								{#each knowledgeFiles as file (file.fileName)}
 									<li class="mb-1 text-xs text-gray-600 last:mb-0 dark:text-gray-300">

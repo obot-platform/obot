@@ -444,9 +444,8 @@
 				></textarea>
 
 				<div class="mt-2 flex w-full flex-col justify-start text-left">
-					<label
-						for="project-prompt"
-						class="mb-1 text-sm font-semibold text-gray-400 dark:text-gray-600">Instructions</label
+					<label for="project-prompt" class="text-on-surface1 mb-1 text-sm font-semibold"
+						>Instructions</label
 					>
 					<textarea
 						id="project-prompt"
@@ -665,9 +664,7 @@
 					<div
 						class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
 					>
-						<span class="text-gray dark:text-gray-400"
-							>Obot isn't perfect. Double check its work.</span
-						>
+						<span class="text-on-surface1">Obot isn't perfect. Double check its work.</span>
 						<a
 							href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"
 							target="_blank"

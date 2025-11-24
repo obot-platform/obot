@@ -150,7 +150,7 @@
 				{@html toHTMLFromMarkdownWithNewTabLinks(description)}
 			</div>
 		{:else}
-			<p class="text-md text-center font-light text-gray-500 italic">
+			<p class="text-md text-on-surface1 text-center font-light italic">
 				{descriptionPlaceholder}
 			</p>
 		{/if}

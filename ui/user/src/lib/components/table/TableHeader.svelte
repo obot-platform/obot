@@ -51,7 +51,7 @@
 
 <th
 	class={twMerge(
-		'text-md group px-4 py-2 text-left font-medium text-gray-500 capitalize',
+		'text-md group text-on-surface1 px-4 py-2 text-left font-medium capitalize',
 		pointerOnTHeader && 'cursor-pointer',
 		headerClass
 	)}

@@ -243,7 +243,7 @@
 					/>
 					<span class="flex flex-col" class:opacity-50={updatingRole.explicitRole}>
 						<p class="w-28 flex-shrink-0 font-semibold">{role.label}</p>
-						<p class="text-gray-500">
+						<p class="text-on-surface1">
 							{#if role.id === Role.OWNER}
 								Owners can manage all aspects of the platform and can also assign the Owner role to
 								other users.
@@ -263,12 +263,12 @@
 					<span class="flex flex-col">
 						<p class="w-28 flex-shrink-0 font-semibold">Auditor</p>
 						{#if auditorReadonlyAdminRoles.includes(updatingRole.roleId)}
-							<p class="text-gray-500">
+							<p class="text-on-surface1">
 								Will have read-only access to the admin system and see additional details such as
 								response, request, and header information in the audit logs.
 							</p>
 						{:else}
-							<p class="text-gray-500">
+							<p class="text-on-surface1">
 								Will gain access to additional details such as response, request, and header
 								information in the audit logs.
 							</p>

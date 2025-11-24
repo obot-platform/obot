@@ -178,7 +178,7 @@
 			<ul class="flex min-h-0 w-xs flex-shrink-0 grow flex-col p-4">
 				<li>
 					<button
-						class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
+						class="text-md border-surface3 border-l-3 px-4 py-2 text-left font-light transition-colors duration-300"
 						class:!border-primary={!selectedCategory}
 						onclick={() => {
 							selectedCategory = '';
@@ -190,7 +190,7 @@
 				{#each categories as category (category)}
 					<li>
 						<button
-							class="text-md border-l-3 border-gray-100 px-4 py-2 text-left font-light transition-colors duration-300 dark:border-gray-900"
+							class="text-md border-surface3 border-l-3 px-4 py-2 text-left font-light transition-colors duration-300"
 							class:!border-primary={category === selectedCategory}
 							onclick={() => {
 								selectedCategory = category;

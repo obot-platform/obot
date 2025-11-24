@@ -47,12 +47,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<div
-		class={twMerge(
-			'flex items-center gap-2',
-			!hasKnowledgeCapability && 'text-gray-400 dark:text-gray-600'
-		)}
-	>
+	<div class={twMerge('flex items-center gap-2', !hasKnowledgeCapability && 'text-on-surface1')}>
 		<h2 class="text-xl font-semibold">Knowledge Files</h2>
 		{#if !hasKnowledgeCapability}
 			<div use:tooltip={'Capability Required'}>
@@ -65,7 +60,7 @@
 
 	<div class="flex flex-col gap-4">
 		{#if !hasKnowledgeCapability}
-			<p class="flex items-center gap-1 text-sm font-light text-gray-500">
+			<p class="text-on-surface1 flex items-center gap-1 text-sm font-light">
 				<span> Enable Knowledge in "Built-In Capabilities" to add knowledge to your project. </span>
 			</p>
 		{/if}

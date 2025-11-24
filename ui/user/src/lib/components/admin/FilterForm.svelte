@@ -283,7 +283,7 @@
 							{/if}
 						</div>
 					{:else}
-						<p class="text-xs text-gray-500 dark:text-gray-400">
+						<p class="text-on-surface1 text-xs">
 							A shared secret used to sign the payload for webhook verification.
 						</p>
 					{/if}
@@ -295,7 +295,7 @@
 			<div class="mb-2 flex items-center justify-between">
 				<div class="flex flex-col gap-1">
 					<h2 class="text-lg font-semibold">Selectors</h2>
-					<p class="text-sm text-gray-500 dark:text-gray-400">
+					<p class="text-on-surface1 text-sm">
 						Specify which requests should be matched by this filter.
 					</p>
 				</div>
@@ -309,7 +309,7 @@
 			</div>
 
 			{#if filter.selectors.length === 0}
-				<div class="p-4 text-center text-gray-500">
+				<div class="text-on-surface1 p-4 text-center">
 					No selectors added. This filter will match all MCP requests.<br />Click "Add Selector" to
 					specify filter criteria.
 				</div>
@@ -365,7 +365,7 @@
 								</div>
 
 								{#if !selector.identifiers || selector.identifiers.length === 0}
-									<div class="p-3 text-center text-sm text-gray-500">
+									<div class="text-on-surface1 p-3 text-center text-sm">
 										{#if !readonly}
 											No identifiers added. Click "Add Identifier" to specify filter criteria.
 										{:else}
@@ -406,7 +406,7 @@
 			<div class="mb-2 flex items-center justify-between">
 				<div class="flex flex-col gap-1">
 					<h2 class="text-lg font-semibold">MCP Servers</h2>
-					<p class="text-sm text-gray-500 dark:text-gray-400">
+					<p class="text-on-surface1 text-sm">
 						Specify which MCP servers this filter should be applied to.
 					</p>
 				</div>

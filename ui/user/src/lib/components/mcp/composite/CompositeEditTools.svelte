@@ -42,7 +42,7 @@
 	class="bg-surface1 pb-0 md:w-2xl"
 	onClose={() => onClose?.()}
 >
-	<p class="mb-4 text-xs font-light text-gray-500">
+	<p class="text-on-surface1 mb-4 text-xs font-light">
 		Toggle what tools are available to users of this composite server. Or modify the name or
 		description of a tool; this will override the default name or description provided by the
 		server. It may affect the LLM's ability to understand the tool so be careful when adjusting

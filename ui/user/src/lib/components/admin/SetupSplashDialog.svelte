@@ -133,7 +133,9 @@
 
 {#snippet renderChecklistItem(label: string, isChecked: boolean)}
 	<li>
-		<span class={twMerge('flex items-center gap-1', isChecked ? 'text-gray-500 line-through' : '')}>
+		<span
+			class={twMerge('flex items-center gap-1', isChecked ? 'text-on-surface1 line-through' : '')}
+		>
 			{label}
 			{#if isChecked}
 				<CircleCheckBig class="size-5 text-green-500" />

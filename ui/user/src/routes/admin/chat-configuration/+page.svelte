@@ -317,7 +317,7 @@
 						{#if showSaved}
 							<span
 								in:fade={{ duration: 200 }}
-								class="flex min-h-10 items-center px-4 text-sm font-extralight text-gray-500"
+								class="text-on-surface1 flex min-h-10 items-center px-4 text-sm font-extralight"
 							>
 								Your changes have been saved.
 							</span>
@@ -348,9 +348,9 @@
 				{/if}
 			{:else}
 				<div class="h-full w-full items-center justify-center">
-					<TriangleAlert class="size-24 text-gray-200 dark:text-gray-900" />
-					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">An Error Occurred!</h4>
-					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+					<TriangleAlert class="text-on-surface1 size-24 opacity-50" />
+					<h4 class="text-on-surface1 text-lg font-semibold">An Error Occurred!</h4>
+					<p class="text-on-surface1 text-sm font-light">
 						We were unable to load the default base agent. Please try again later or contact
 						support.
 					</p>

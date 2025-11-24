@@ -250,10 +250,10 @@
 			formatted = formatted.replace(/"([^"]+)":/g, '<span class="text-primary">"$1"</span>:');
 
 			// Replace string values (must come after keys)
-			formatted = formatted.replace(/: "([^"]+)"/g, ': <span class="text-gray-500">"$1"</span>');
+			formatted = formatted.replace(/: "([^"]+)"/g, ': <span class="text-on-surface1">"$1"</span>');
 
 			// Replace null
-			formatted = formatted.replace(/: (null)/g, ': <span class="text-gray-500">$1</span>');
+			formatted = formatted.replace(/: (null)/g, ': <span class="text-on-surface1">$1</span>');
 
 			// Replace brackets and braces
 			formatted = formatted.replace(/(".*?")|([{}[\]])/g, (match, stringContent, bracket) => {
@@ -344,7 +344,7 @@
 {#snippet timeAndUsername()}
 	{#if msg.time}
 		<div
-			class="mt-1 flex items-center justify-end gap-2 self-end text-xs whitespace-nowrap text-gray-500"
+			class="text-on-surface1 mt-1 flex items-center justify-end gap-2 self-end text-xs whitespace-nowrap"
 		>
 			{#if msg.userNotice}
 				<span class="inline-flex cursor-help" use:tooltip={msg.userNotice}>
@@ -353,7 +353,7 @@
 			{/if}
 			<span>{formatTime(msg.time)}</span>
 			{#if msg.username}
-				<span class="text-gray-400">•</span>
+				<span class="text-on-surface1">•</span>
 				<span class="max-w-[100px] truncate font-medium">by {msg.username?.split(' ')[0]}</span>
 			{/if}
 		</div>
@@ -429,7 +429,7 @@
 	>
 		{#if clearable}
 			<button
-				class="absolute top-0 right-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+				class="text-on-surface1 absolute top-0 right-0 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
 				aria-label="Clear message"
 				onclick={() => (msg.ignore = true)}
 			>
@@ -467,7 +467,7 @@
 					{#if msg.file?.filename}
 						<span use:overflowToolTip>{msg.file.filename}</span>
 					{:else}
-						<span class="text-gray-400 dark:text-gray-600">...</span>
+						<span class="text-on-surface1">...</span>
 					{/if}
 				</div>
 			</div>
@@ -595,7 +595,7 @@
 									const img = e.currentTarget as HTMLImageElement;
 									img.style.display = 'none';
 									const fallbackDiv = document.createElement('div');
-									fallbackDiv.className = 'text-gray-500 text-xs';
+									fallbackDiv.className = 'text-on-surface1 text-xs';
 									fallbackDiv.textContent = '[Image Failed to Load.]';
 									img.parentNode?.insertBefore(fallbackDiv, img.nextSibling);
 								}}
@@ -736,7 +736,7 @@
 							/>
 						{/if}
 						{#if field.description}
-							<p class="text-xs text-gray-500">{field.description}</p>
+							<p class="text-on-surface1 text-xs">{field.description}</p>
 						{/if}
 					</div>
 				{/each}

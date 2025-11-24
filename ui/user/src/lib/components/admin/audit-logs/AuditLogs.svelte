@@ -101,7 +101,7 @@
 {#snippet th(content: string, { class: klass = '', minWidth = '0ch' } = {})}
 	<th
 		class={twMerge(
-			'dark:bg-surface1 sticky top-0 box-content w-[24ch] truncate text-left text-xs font-medium tracking-wider text-gray-500 uppercase',
+			'dark:bg-surface1 text-on-surface1 sticky top-0 box-content w-[24ch] truncate text-left text-xs font-medium tracking-wider uppercase',
 			klass
 		)}
 		data-min-width={minWidth}
@@ -135,7 +135,7 @@
 				<thead>
 					<tr bind:this={headerRowElement}>
 						<th
-							class="dark:bg-surface1 bg-surface2 sticky top-0 box-content w-[4ch] px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase"
+							class="dark:bg-surface1 bg-surface2 text-on-surface1 sticky top-0 box-content w-[4ch] px-6 py-3 text-left text-xs font-medium tracking-wider uppercase"
 						>
 							<div>#</div>
 						</th>

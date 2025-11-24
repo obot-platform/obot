@@ -220,7 +220,7 @@
 											</div>
 										{/if}
 									</div>
-									<span class="line-clamp-2 text-xs text-gray-500">
+									<span class="text-on-surface1 line-clamp-2 text-xs">
 										{@html stripMarkdownToText(item.description ?? '')}
 									</span>
 								</div>

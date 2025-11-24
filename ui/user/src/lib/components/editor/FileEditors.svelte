@@ -49,6 +49,6 @@
 {#snippet unsupportedFile()}
 	<div class="flex h-full w-full flex-col items-center justify-center">
 		<Logo variant="warning" class="size-[200px] opacity-50" />
-		<p class="text-lg text-gray-500">This type of file cannot be opened in the editor</p>
+		<p class="text-on-surface1 text-lg">This type of file cannot be opened in the editor</p>
 	</div>
 {/snippet}

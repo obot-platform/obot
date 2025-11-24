@@ -281,7 +281,7 @@
 													{msg.sent ? 'User' : msg.sourceName || 'Assistant'}
 												</span>
 												{#if msg.time}
-													<span class="text-xs text-gray-500">
+													<span class="text-on-surface1 text-xs">
 														{formatTimeAgo(msg.time.toISOString())}
 													</span>
 												{/if}
@@ -292,7 +292,7 @@
 														<p class="mb-2 last:mb-0">{msgPart}</p>
 													{/each}
 												{:else}
-													<span class="text-gray-500 italic">No message content</span>
+													<span class="text-on-surface1 italic">No message content</span>
 												{/if}
 											</div>
 											{#if msg.toolCall}
@@ -311,7 +311,7 @@
 						</div>
 					{:else if loadingMessages}
 						<div class="flex items-center justify-center py-12 text-center">
-							<div class="text-gray-500">
+							<div class="text-on-surface1">
 								<LoaderCircle class="text-primary mx-auto mb-4 size-8 animate-spin" />
 								<h3 class="mb-2 text-lg font-medium">Loading Messages...</h3>
 								<p class="text-sm">Please wait while we load the thread messages.</p>
@@ -319,7 +319,7 @@
 						</div>
 					{:else}
 						<div class="flex items-center justify-center py-12 text-center">
-							<div class="text-gray-500">
+							<div class="text-on-surface1">
 								<MessageCircle class="mx-auto mb-4 size-16" />
 								<h3 class="mb-2 text-lg font-medium">No Messages Found</h3>
 								<p class="text-sm">This thread doesn't have any messages yet.</p>

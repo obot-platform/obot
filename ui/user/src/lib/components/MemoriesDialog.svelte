@@ -216,11 +216,7 @@
 				></div>
 			</div>
 		{:else if memories.length === 0 && !preview}
-			<p
-				in:fade
-				class="text-gray pt-6 pb-3 text-center text-sm dark:text-gray-300"
-				class:text-xs={preview}
-			>
+			<p in:fade class="text-on-surface1 pt-6 pb-3 text-center text-sm" class:text-xs={preview}>
 				No memories stored
 			</p>
 		{:else if !preview}
@@ -286,7 +282,7 @@
 							</p>
 						{/if}
 						{#if editingMemoryId !== memory.id}
-							<DotDotDot class="hover:text-on-background p-0  text-gray-400 dark:text-gray-600">
+							<DotDotDot class="hover:text-on-background text-on-surface1  p-0">
 								<div class="default-dialog flex min-w-max flex-col p-2">
 									<button class="menu-button" onclick={() => startEdit(memory, true)}>
 										<Pencil class="size-4" /> Edit

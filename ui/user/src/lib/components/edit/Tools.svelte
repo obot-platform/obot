@@ -56,7 +56,8 @@
 							{/if}
 							<div class="flex flex-col">
 								<p class="line-clamp-1 text-xs">{tool.name || 'Untitled'}</p>
-								<span class="line-clamp-1 text-xs font-light text-gray-500">{tool.description}</span
+								<span class="text-on-surface1 line-clamp-1 text-xs font-light"
+									>{tool.description}</span
 								>
 							</div>
 						</div>
@@ -89,7 +90,7 @@
 		</button>
 	</div>
 
-	<p class="text-xs text-gray-500">Tools added here are available to all threads.</p>
+	<p class="text-on-surface1 text-xs">Tools added here are available to all threads.</p>
 	<div class="flex flex-col gap-2">
 		{@render toolList(enabledList)}
 		{@render toolList(builtInList)}
