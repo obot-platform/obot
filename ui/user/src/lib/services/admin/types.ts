@@ -677,3 +677,13 @@ export class MCPCompositeDeletionDependencyError extends Error {
 		this.dependencies = dependencies;
 	}
 }
+
+export type GroupRoleAssignment = {
+	groupName: string;
+	role: number;
+	description?: string;
+};
+
+export type GroupRoleAssignmentList = {
+	items: GroupRoleAssignment[];
+};
