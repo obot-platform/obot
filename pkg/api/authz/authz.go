@@ -105,6 +105,9 @@ var (
 		"GET /api/eula",
 		"PUT /api/eula",
 
+		// Allow admins to upload custom images
+		"POST /api/image/upload",
+
 		// This rule allows admins without an ACR to fetch tools for MCP servers in the default
 		// catalog (all catalogs really) via the UI. It goes to the same handler as /api/mcp-servers/{mcpserver_id}/tools,
 		// which admins already have access to from the rules above, so it's not exposing anything that
@@ -196,6 +199,10 @@ var (
 			"GET /oauth/jwks.json",
 
 			"/mcp-connect/",
+
+			// Allow any user to read stored images.
+			// This allows the UI to display custom images to unauthenticated users.
+			"GET /api/image/{image_id}",
 		},
 
 		types.GroupBasic: {
@@ -205,7 +212,6 @@ var (
 			"GET /api/models",
 			"GET /api/model-providers",
 			"POST /api/image/generate",
-			"POST /api/image/upload",
 
 			// Allow authenticated users to read and accept/reject project invitations.
 			// The security depends on the code being an unguessable UUID string,
