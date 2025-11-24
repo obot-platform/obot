@@ -4,6 +4,7 @@ import { writable, get } from 'svelte/store';
 interface AdminConfig {
 	modelProviderConfigured: boolean;
 	authProviderConfigured: boolean;
+	eulaAccepted: boolean;
 	loading: boolean;
 	lastFetched: number | null;
 }
@@ -12,6 +13,7 @@ const createAdminConfigStore = () => {
 	const { subscribe, set, update } = writable<AdminConfig>({
 		modelProviderConfigured: false,
 		authProviderConfigured: false,
+		eulaAccepted: false,
 		loading: false,
 		lastFetched: null
 	});
@@ -33,17 +35,20 @@ const createAdminConfigStore = () => {
 		update((state) => ({ ...state, loading: true }));
 
 		try {
-			const [modelProviders, authProviders] = await Promise.all([
+			const [modelProviders, authProviders, eula] = await Promise.all([
 				AdminService.listModelProviders(),
-				AdminService.listAuthProviders()
+				AdminService.listAuthProviders(),
+				AdminService.getEula()
 			]);
 
 			const modelProviderConfigured = modelProviders.some((provider) => provider.configured);
 			const authProviderConfigured = authProviders.some((provider) => provider.configured);
+			const eulaAccepted = eula.accepted;
 
 			set({
 				modelProviderConfigured,
 				authProviderConfigured,
+				eulaAccepted,
 				loading: false,
 				lastFetched: now
 			});
@@ -79,13 +84,21 @@ const createAdminConfigStore = () => {
 		}));
 	};
 
+	const updateEula = (eulaAccepted: boolean) => {
+		update((state) => ({
+			...state,
+			eulaAccepted
+		}));
+	};
+
 	return {
 		subscribe,
 		refresh,
 		initialize,
 		fetchData,
 		updateAuthProviders,
-		updateModelProviders
+		updateModelProviders,
+		updateEula
 	};
 };
 

@@ -3,13 +3,14 @@
 	import { profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import Logo from '../navbar/Logo.svelte';
-	import { Group } from '$lib/services';
-	import { CircleCheckBig } from 'lucide-svelte';
+	import { AdminService, Group } from '$lib/services';
+	import { CircleCheckBig, LoaderCircle } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { twMerge } from 'tailwind-merge';
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let loading = $state(false);
 	const storeData = $derived($adminConfigStore);
 	const isAuthProviderConfigured = $derived(
 		version.current.authEnabled ? storeData.authProviderConfigured : true
@@ -34,12 +35,22 @@
 			if (
 				!firstTimeViewed &&
 				(isBootstrapUser || isOwner) &&
-				(!isAuthProviderConfigured || !storeData.modelProviderConfigured)
+				(!isAuthProviderConfigured || !storeData.modelProviderConfigured || !storeData.eulaAccepted)
 			) {
 				dialog?.open();
 			}
 		}
 	});
+
+	async function handleAcceptEula() {
+		if (storeData.eulaAccepted) return;
+		loading = true;
+		const response = await AdminService.acceptEula();
+		adminConfigStore.updateEula(response.accepted);
+
+		localStorage.setItem('seenSplashDialog', new Date().toISOString());
+		loading = false;
+	}
 </script>
 
 <ResponsiveDialog bind:this={dialog} class="text-md w-sm">
@@ -49,27 +60,44 @@
 	<h2 class="mb-8 text-center text-2xl font-semibold">Welcome to Obot!</h2>
 
 	<div class="w-fit self-center">
-		{#if isBootstrapUser}
-			<p>Before using Obot, you'll need to:</p>
-		{:else}
-			<p class="text-center">
-				You're halfway there! You just need to configure your model provider.
-			</p>
+		{#if !isAuthProviderConfigured || !storeData.modelProviderConfigured}
+			{#if isBootstrapUser}
+				<p>Before using Obot, you'll need to:</p>
+			{:else}
+				<p class="text-center">
+					You're halfway there! You just need to configure your model provider.
+				</p>
+			{/if}
+
+			<ul class="checklist">
+				{#if version.current.authEnabled}
+					{@render renderChecklistItem(
+						'Setup an Authentication Provider',
+						isAuthProviderConfigured
+					)}
+				{/if}
+				{@render renderChecklistItem('Setup a Model Provider', storeData.modelProviderConfigured)}
+			</ul>
 		{/if}
 
-		<ul class="checklist">
-			{#if version.current.authEnabled}
-				{@render renderChecklistItem('Setup an Authentication Provider', isAuthProviderConfigured)}
-			{/if}
-			{@render renderChecklistItem('Setup a Model Provider', storeData.modelProviderConfigured)}
-		</ul>
+		<p class="pt-4">
+			By continuing, you are choosing to accept Obot AI's <a
+				href="https://obot.ai/eul"
+				rel="external"
+				target="_blank"
+				class="text-link">EULA</a
+			>
+		</p>
 	</div>
 
 	{#if isBootstrapUser}
 		<button
-			class="button-primary mt-8 text-center"
-			onclick={() => {
+			class="button-primary mt-8 flex justify-center text-center"
+			disabled={loading}
+			onclick={async () => {
+				handleAcceptEula();
 				localStorage.setItem('seenSplashDialog', new Date().toISOString());
+
 				if (isOnAuthProvidersPage) {
 					dialog?.close();
 					return;
@@ -83,12 +111,17 @@
 				dialog?.close();
 			}}
 		>
-			Get Started
+			{#if loading}
+				<LoaderCircle class="size-4 animate-spin" />
+			{:else}
+				Get Started
+			{/if}
 		</button>
 	{:else}
 		<button
-			class="button-primary mt-8 text-center"
+			class="button-primary mt-8 flex justify-center text-center"
 			onclick={() => {
+				handleAcceptEula();
 				localStorage.setItem('seenSplashDialog', new Date().toISOString());
 				goto('/admin/model-providers');
 			}}
