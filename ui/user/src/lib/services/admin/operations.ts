@@ -1065,3 +1065,20 @@ export async function listK8sSettings(opts?: { fetch?: Fetcher }) {
 export async function updateK8sSettings(settings: K8sSettings, opts?: { fetch?: Fetcher }) {
 	return (await doPut('/k8s-settings', settings, opts)) as K8sSettings;
 }
+
+export async function getEula() {
+	const response = (await doGet('/eula', {
+		dontLogErrors: true
+	})) as {
+		accepted: boolean;
+	};
+	return response;
+}
+
+export async function acceptEula() {
+	return (await doPut('/eula', {
+		accepted: true
+	})) as {
+		accepted: boolean;
+	};
+}
