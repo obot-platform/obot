@@ -16,6 +16,7 @@
 		classes?: {
 			header?: string;
 			content?: string;
+			title?: string;
 		};
 		onClickOutside?: () => void;
 		onClose?: () => void;
@@ -69,7 +70,7 @@
 				class={twMerge('default-dialog-title', classes?.header)}
 				class:default-dialog-mobile-title={responsive.isMobile}
 			>
-				<span class="flex items-center gap-2">
+				<span class={twMerge('flex items-center gap-2', classes?.title ?? '')}>
 					{#if titleContent}
 						{@render titleContent()}
 					{:else if title}

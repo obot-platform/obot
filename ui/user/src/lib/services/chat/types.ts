@@ -797,3 +797,137 @@ export type Workspace = {
 	role: number;
 	type: string;
 };
+
+export declare enum RunEventType {
+	Event = 'event',
+	RunStart = 'runStart',
+	RunFinish = 'runFinish',
+	CallStart = 'callStart',
+	CallChat = 'callChat',
+	CallSubCalls = 'callSubCalls',
+	CallProgress = 'callProgress',
+	CallConfirm = 'callConfirm',
+	CallContinue = 'callContinue',
+	CallFinish = 'callFinish',
+	Prompt = 'prompt'
+}
+
+export type CallFrameToolType =
+	| 'tool'
+	| 'context'
+	| 'credential'
+	| 'input'
+	| 'output'
+	| 'agent'
+	| 'assistant'
+	| 'provider'
+	| '';
+
+export interface CallFrameToolDef {
+	name?: string;
+	description?: string;
+	maxTokens?: number;
+	modelName?: string;
+	modelProvider?: boolean;
+	jsonResponse?: boolean;
+	temperature?: number;
+	cache?: boolean;
+	chat?: boolean;
+	internalPrompt?: boolean;
+	arguments?: {
+		type: string;
+		properties?: Record<
+			string,
+			{
+				type: string;
+				description: string;
+				default?: string;
+			}
+		>;
+		required?: string[];
+	};
+	tools?: string[];
+	globalTools?: string[];
+	globalModelName?: string;
+	context?: string[];
+	exportContext?: string[];
+	export?: string[];
+	agents?: string[];
+	credentials?: string[];
+	exportCredentials?: string[];
+	inputFilters?: string[];
+	exportInputFilters?: string[];
+	outputFilters?: string[];
+	exportOutputFilters?: string[];
+	instructions?: string;
+	type?: CallFrameToolType;
+	metaData?: Record<string, string>;
+}
+export interface CallFrameTool extends CallFrameToolDef {
+	id: string;
+	toolMapping?: Record<string, ToolReference[]>;
+	localTools?: Record<string, string>;
+	source?: {
+		location: string;
+		lineNo: number;
+		repo?: {
+			VCS: string;
+			Root: string;
+			Path: string;
+			Name: string;
+			Revision: string;
+		};
+	};
+	workingDir?: string;
+}
+
+export declare enum ToolCategory {
+	ProviderToolCategory = 'provider',
+	CredentialToolCategory = 'credential',
+	ContextToolCategory = 'context',
+	InputToolCategory = 'input',
+	OutputToolCategory = 'output',
+	NoCategory = ''
+}
+
+export interface CallFrame {
+	id: string;
+	tool?: CallFrameTool;
+	agentGroup?: ToolReference[];
+	currentAgent?: ToolReference;
+	displayText?: string;
+	inputContext: { toolID: string; content: string }[];
+	toolCategory?: ToolCategory;
+	toolName: string;
+	parentID?: string;
+	type:
+		| RunEventType.CallStart
+		| RunEventType.CallChat
+		| RunEventType.CallConfirm
+		| RunEventType.CallContinue
+		| RunEventType.CallSubCalls
+		| RunEventType.CallProgress
+		| RunEventType.CallFinish;
+	start: string;
+	end: string;
+	input: string | Record<string, string>;
+	output: { content?: string; subCalls: Record<string, { toolID: string; input?: string }> }[];
+	error?: string;
+	usage: { promptTokens: number; completionTokens: number; totalTokens: number };
+	chatResponseCached: boolean;
+	toolResults: number;
+	llmRequest?: Record<string, unknown> & {
+		chatCompletion?: Record<string, unknown> & {
+			messages?: Record<string, unknown>;
+		};
+	};
+	llmResponse?: Record<string, unknown> & {
+		chatCompletion?: Record<string, unknown> & {
+			messages?: Record<string, unknown>;
+		};
+	};
+}
+
+export interface DebugRun {
+	frames: Record<string, CallFrame>;
+}

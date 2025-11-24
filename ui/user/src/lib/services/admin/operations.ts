@@ -4,7 +4,8 @@ import type {
 	Project,
 	MCPCatalogServer,
 	MCPServerInstance,
-	Model
+	Model,
+	DebugRun
 } from '../chat/types';
 import { doDelete, doGet, doPatch, doPost, doPut, handleResponse, type Fetcher } from '../http';
 import type {
@@ -1081,4 +1082,10 @@ export async function acceptEula() {
 	})) as {
 		accepted: boolean;
 	};
+}
+
+export async function listCallFramesForDebugRunById(id: string, opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(`/runs/${id}/debug`, opts)) as DebugRun;
+	console.log(response);
+	return response.frames;
 }

@@ -8,10 +8,11 @@
 	import { page } from '$app/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import MessageComponent from '$lib/components/messages/Message.svelte';
-	import type { Project } from '$lib/services/chat/types';
+	import type { CallFrame, Project } from '$lib/services/chat/types';
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import type { Messages } from '$lib/services/chat/types';
 	import BackLink from '$lib/components/BackLink.svelte';
+	import DebugCallFrames from '$lib/components/chat/DebugCallFrames.svelte';
 
 	const threadId = $page.params.id;
 
@@ -24,6 +25,9 @@
 	let threadContainer = $state<HTMLDivElement>();
 	let loadingOlderMessages = $state(false);
 	let showLoadOlderButton = $state(false);
+
+	let debugDialog = $state<ReturnType<typeof DebugCallFrames>>();
+	let debugInformation = $state<{ runId: string; frames: Record<string, CallFrame> }>();
 
 	onMount(() => {
 		loadThread();
@@ -245,6 +249,10 @@
 										currentThreadID={threadId}
 										disableMessageToEditor={true}
 										noMemoryTool={true}
+										onDebugMessageRun={async (runId, frames) => {
+											debugInformation = { runId, frames };
+											debugDialog?.open();
+										}}
 									/>
 								{:else}
 									<div
@@ -323,6 +331,12 @@
 		</div>
 	</div>
 </Layout>
+
+<DebugCallFrames
+	bind:this={debugDialog}
+	calls={debugInformation?.frames}
+	runId={debugInformation?.runId}
+/>
 
 <svelte:head>
 	<title>Obot | Admin - Thread {threadId}</title>
