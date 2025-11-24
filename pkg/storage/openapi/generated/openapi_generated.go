@@ -9349,6 +9349,12 @@ func schema_obot_platform_obot_apiclient_types_ThemePreferences(ref common.Refer
 							Format: "",
 						},
 					},
+					"onBackgroundColor": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"onSurfaceColor": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -9380,6 +9386,12 @@ func schema_obot_platform_obot_apiclient_types_ThemePreferences(ref common.Refer
 						},
 					},
 					"darkBackgroundColor": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"darkOnBackgroundColor": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -17323,6 +17335,12 @@ func schema_storage_apis_obotobotai_v1_ThemePreferences(ref common.ReferenceCall
 							Format:      "",
 						},
 					},
+					"onBackgroundColor": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"onSurfaceColor": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -17358,6 +17376,12 @@ func schema_storage_apis_obotobotai_v1_ThemePreferences(ref common.ReferenceCall
 							Description: "Dark theme colors",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"darkOnBackgroundColor": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"darkOnSurfaceColor": {
