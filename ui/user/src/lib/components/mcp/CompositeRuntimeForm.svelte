@@ -16,7 +16,7 @@
 	import Toggle from '../Toggle.svelte';
 
 	interface Props {
-		id?: string;
+		id?: string; // Composite catalog entry ID (when editing an existing composite)
 		config: CompositeCatalogConfig;
 		readonly?: boolean;
 		catalogId?: string;
@@ -34,6 +34,7 @@
 	let populatedByEntry = $state<Record<string, boolean>>({});
 	let loadingByEntry = $state<Record<string, boolean>>({});
 	let toolsToEdit = $state<CompositeServerToolRow[]>([]);
+	let configuringComponentId = $state<string | undefined>();
 
 	let compositeToolsSetupDialog = $state<ReturnType<typeof CompositeToolsSetup>>();
 	let editCurrentToolsDialog = $state<ReturnType<typeof CompositeEditTools>>();
@@ -46,6 +47,35 @@
 	// Helper to get unique ID for a component (catalogEntryID or mcpServerID)
 	function getComponentId(c: { catalogEntryID?: string; mcpServerID?: string }): string {
 		return c.catalogEntryID || c.mcpServerID || '';
+	}
+
+	// Build a configuring entry backed by the composite's manifest snapshot when
+	// configuring tools for an existing catalog-entry-based component.
+	function buildCompositeConfiguringEntry(componentId: string): MCPCatalogEntry | undefined {
+		const component = config.componentServers?.find((c) => getComponentId(c) === componentId);
+		if (!component || !component.catalogEntryID || !component.manifest) return undefined;
+
+		const metadataEntry = componentEntries.find((e) => e.id === componentId);
+		if (metadataEntry) {
+			return {
+				...metadataEntry,
+				manifest: component.manifest
+			};
+		}
+
+		// Fallback minimal entry if metadata isn't loaded; sufficient for Configure Tools.
+		return {
+			id: componentId,
+			created: new Date().toISOString(),
+			manifest: component.manifest,
+			sourceURL: undefined,
+			userCount: undefined,
+			type: 'catalog-entry',
+			powerUserID: undefined,
+			powerUserWorkspaceID: undefined,
+			isCatalogEntry: true,
+			needsUpdate: false
+		};
 	}
 
 	// Pre-populate toolsByEntry from existing toolOverrides in config
@@ -198,12 +228,11 @@
 										class="button-primary text-sm"
 										disabled={loadingByEntry[componentId]}
 										onclick={async () => {
-											const match =
-												componentServers.get(componentId) ||
-												componentEntries.find((e) => e.id === componentId);
-											if (match) {
-												configuringEntry = match;
-											}
+											if (readonly) return;
+											const entry = buildCompositeConfiguringEntry(componentId);
+											if (!entry) return;
+											configuringEntry = entry;
+											configuringComponentId = componentId;
 											compositeToolsSetupDialog?.open();
 										}}
 									>
@@ -264,6 +293,7 @@
 			type="button"
 			onclick={() => {
 				configuringEntry = undefined;
+				configuringComponentId = undefined;
 				compositeToolsSetupDialog?.open();
 			}}
 			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-sm font-medium hover:bg-gray-50"
@@ -279,6 +309,8 @@
 	{mcpEntriesContextFn}
 	{catalogId}
 	{configuringEntry}
+	compositeEntryId={id}
+	componentId={configuringComponentId}
 	onCancel={() => {
 		configuringEntry = undefined;
 	}}
