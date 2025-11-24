@@ -92,17 +92,19 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 					Path:   "/",
 					MaxAge: -1,
 				})
+				// Refresh the page so that the cookie deletes.
+				http.Redirect(rw, req, req.URL.String(), http.StatusFound)
 				return
 			}
+
+			http.Error(rw, err.Error(), http.StatusUnauthorized)
 
 			// Check if this is a FetchUserGroupsError which indicates an auth provider configuration issue
 			var fetchGroupsErr *gclient.FetchUserGroupsError
 			if errors.As(err, &fetchGroupsErr) {
 				http.Error(rw, fmt.Sprintf("Authentication provider configuration error: %s. Please contact an administrator to fix the auth provider configuration.", err.Error()), http.StatusInternalServerError)
-				return
 			}
 
-			http.Error(rw, err.Error(), http.StatusUnauthorized)
 			return
 		}
 
