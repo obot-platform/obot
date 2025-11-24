@@ -24,7 +24,7 @@ type Client struct {
 func (c *Client) hasValidToken() bool {
 	if c.jwt != nil {
 		expiration, err := c.jwt.Claims.GetExpirationTime()
-		return err == nil && (expiration == nil || !expiration.Before(time.Now().Add(-5*time.Minute)))
+		return err == nil && (expiration == nil || expiration.After(time.Now().Add(5*time.Minute)))
 	}
 	return false
 }
@@ -90,8 +90,11 @@ func (sm *SessionManager) loadSession(server ServerConfig, clientScope string, c
 			return c, nil
 		}
 
-		c.Close(false)
 		clientSessions.Delete(clientScope)
+		go func() {
+			time.Sleep(time.Minute)
+			c.Close(false)
+		}()
 	}
 
 	sm.contextLock.Lock()
@@ -153,13 +156,16 @@ func (sm *SessionManager) loadSession(server ServerConfig, clientScope string, c
 	if ok {
 		existing := res.(*Client)
 		if existing.hasValidToken() {
-			result.Close(true)
+			result.Close(false)
 			return existing, nil
 		}
 
 		// Swap the existing client with the new one and close the old one.
 		clientSessions.Swap(clientScope, result)
-		existing.Close(false)
+		go func() {
+			time.Sleep(time.Minute)
+			existing.Close(false)
+		}()
 	}
 
 	return result, nil
