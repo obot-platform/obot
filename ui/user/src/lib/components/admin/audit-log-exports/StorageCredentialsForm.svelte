@@ -494,8 +494,7 @@
 										placeholder={existingCredentials?.s3Config
 											? '••••••••••••••••••••••••••••••••••••••••'
 											: ''}
-										textarea
-										growable
+										hideReveal
 									/>
 								</div>
 							</div>
