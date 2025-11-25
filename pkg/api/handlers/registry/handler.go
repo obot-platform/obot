@@ -17,14 +17,16 @@ import (
 )
 
 type Handler struct {
-	acrHelper *accesscontrolrule.Helper
-	serverURL string
+	acrHelper      *accesscontrolrule.Helper
+	serverURL      string
+	registryNoAuth bool
 }
 
-func NewHandler(acrHelper *accesscontrolrule.Helper, serverURL string) *Handler {
+func NewHandler(acrHelper *accesscontrolrule.Helper, serverURL string, registryNoAuth bool) *Handler {
 	return &Handler{
-		acrHelper: acrHelper,
-		serverURL: serverURL,
+		acrHelper:      acrHelper,
+		serverURL:      serverURL,
+		registryNoAuth: registryNoAuth,
 	}
 }
 
@@ -42,8 +44,13 @@ func (h *Handler) ListServers(req api.Context) error {
 		return fmt.Errorf("failed to generate reverse DNS: %w", err)
 	}
 
-	// Collect all servers the user has access to
-	servers, err := h.collectAccessibleServers(req, reverseDNS)
+	// Collect servers based on registry mode
+	var servers []types.RegistryServerResponse
+	if h.registryNoAuth {
+		servers, err = h.collectAccessibleServersNoAuth(req, reverseDNS)
+	} else {
+		servers, err = h.collectAccessibleServers(req, reverseDNS)
+	}
 	if err != nil {
 		return err
 	}
@@ -155,6 +162,83 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 		}
 
 		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID)
+		if err != nil {
+			continue
+		}
+		result = append(result, converted)
+	}
+
+	return result, nil
+}
+
+// collectAccessibleServersNoAuth returns only default catalog items with wildcard ACR access
+func (h *Handler) collectAccessibleServersNoAuth(req api.Context, reverseDNS string) ([]types.RegistryServerResponse, error) {
+	var result []types.RegistryServerResponse
+
+	// Step 1: List catalog entries in default catalog
+	var entryList v1.MCPServerCatalogEntryList
+	if err := req.Storage.List(req.Context(), &entryList, &kclient.ListOptions{
+		Namespace: system.DefaultNamespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.mcpCatalogName": system.DefaultCatalog,
+		}),
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list catalog entries: %w", err)
+	}
+
+	// Filter for wildcard ACR access
+	for _, entry := range entryList.Items {
+		hasWildcardAccess, err := h.acrHelper.HasWildcardAccessToMCPServerCatalogEntryInCatalog(
+			entry.Name,
+			system.DefaultCatalog,
+		)
+		if err != nil || !hasWildcardAccess {
+			continue
+		}
+
+		converted, err := ConvertMCPServerCatalogEntryToRegistry(req.Context(), entry, h.serverURL, reverseDNS)
+		if err != nil {
+			continue
+		}
+		result = append(result, converted)
+	}
+
+	// Step 2: List multi-user servers in default catalog
+	var serverList v1.MCPServerList
+	if err := req.Storage.List(req.Context(), &serverList, &kclient.ListOptions{
+		Namespace: system.DefaultNamespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{
+			"spec.mcpCatalogID": system.DefaultCatalog,
+		}),
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list catalog servers: %w", err)
+	}
+
+	// Filter for wildcard ACR access and non-templates
+	for _, server := range serverList.Items {
+		// Skip templates and components
+		if server.Spec.Template || server.Spec.CompositeName != "" {
+			continue
+		}
+
+		hasWildcardAccess, err := h.acrHelper.HasWildcardAccessToMCPServerInCatalog(
+			server.Name,
+			system.DefaultCatalog,
+		)
+		if err != nil || !hasWildcardAccess {
+			continue
+		}
+
+		// Get slug for catalog server (no userID since it's catalog-scoped)
+		slug, err := handlers.SlugForMCPServer(req.Context(), req.Storage, server, "", system.DefaultCatalog, "")
+		if err != nil {
+			continue
+		}
+
+		// Get credentials
+		credEnv, _ := h.getCredentialsForServer(req, server, "", system.DefaultCatalog, "")
+
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, "")
 		if err != nil {
 			continue
 		}

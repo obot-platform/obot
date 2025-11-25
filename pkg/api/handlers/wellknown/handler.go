@@ -6,14 +6,16 @@ import (
 )
 
 type handler struct {
-	baseURL string
-	config  services.OAuthAuthorizationServerConfig
+	baseURL        string
+	config         services.OAuthAuthorizationServerConfig
+	registryNoAuth bool
 }
 
-func SetupHandlers(baseURL string, config services.OAuthAuthorizationServerConfig, mux *server.Server) {
+func SetupHandlers(baseURL string, config services.OAuthAuthorizationServerConfig, registryNoAuth bool, mux *server.Server) {
 	h := &handler{
-		baseURL: baseURL,
-		config:  config,
+		baseURL:        baseURL,
+		config:         config,
+		registryNoAuth: registryNoAuth,
 	}
 
 	mux.HandleFunc("GET /.well-known/oauth-protected-resource/mcp-connect/{mcp_id}", h.oauthProtectedResource)
