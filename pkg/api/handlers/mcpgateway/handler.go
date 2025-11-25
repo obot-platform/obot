@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,10 +20,10 @@ type Handler struct {
 	storageClient     kclient.Client
 	mcpSessionManager *mcp.SessionManager
 	webhookHelper     *mcp.WebhookHelper
-	jwks              func() string
+	jwks              system.EncodedJWKS
 }
 
-func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, jwks func() string) *Handler {
+func NewHandler(storageClient kclient.Client, mcpSessionManager *mcp.SessionManager, webhookHelper *mcp.WebhookHelper, jwks system.EncodedJWKS) *Handler {
 	return &Handler{
 		storageClient:     storageClient,
 		mcpSessionManager: mcpSessionManager,
@@ -61,7 +62,12 @@ func (h *Handler) Proxy(req api.Context) error {
 }
 
 func (h *Handler) ensureServerIsDeployed(req api.Context) (string, error) {
-	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, req.PathValue("mcp_id"), h.jwks())
+	jwks, err := h.jwks(req.Context())
+	if err != nil {
+		return "", fmt.Errorf("failed to get jwks: %v", err)
+	}
+
+	mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, req.PathValue("mcp_id"), jwks)
 	if err != nil {
 		return "", fmt.Errorf("failed to get mcp server config: %w", err)
 	}

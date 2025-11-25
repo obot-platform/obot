@@ -170,13 +170,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
-	if t.privateKey == nil {
-		if err := t.setJWK(req.Context()); err != nil {
-			return nil, false, err
-		}
-	}
-
-	tokenContext, err := t.DecodeToken(token)
+	tokenContext, err := t.DecodeToken(req.Context(), token)
 	if err != nil {
 		return nil, false, nil
 	}
@@ -203,7 +197,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	default:
 		return &authenticator.Response{
 			User: &user.DefaultInfo{
-				UID:    tokenContext.AuthProviderUserID,
+				UID:    tokenContext.UserID,
 				Name:   tokenContext.UserName,
 				Groups: tokenContext.UserGroups,
 				Extra: map[string][]string{
@@ -218,11 +212,25 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}
 }
 
-func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
+func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenContext, error) {
+	t.lock.RLock()
+	privateKey := t.privateKey
+	t.lock.RUnlock()
+
+	if privateKey == nil {
+		if err := t.setJWK(ctx); err != nil {
+			return nil, err
+		}
+
+		t.lock.RLock()
+		privateKey = t.privateKey
+		t.lock.RUnlock()
+	}
+
 	tk, err := jwt.Parse(token, func(*jwt.Token) (any, error) {
 		t.lock.RLock()
 		defer t.lock.RUnlock()
-		return t.privateKey.Public(), nil
+		return privateKey.Public(), nil
 	}, jwt.WithIssuer(t.serverURL))
 	if err != nil {
 		return nil, err
@@ -318,10 +326,18 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (stri
 }
 
 func (t *TokenService) NewTokenWithClaims(ctx context.Context, claims jwt.MapClaims) (*jwt.Token, string, error) {
-	if t.privateKey == nil {
+	t.lock.RLock()
+	privateKey := t.privateKey
+	t.lock.RUnlock()
+
+	if privateKey == nil {
 		if err := t.setJWK(ctx); err != nil {
 			return nil, "", err
 		}
+
+		t.lock.RLock()
+		privateKey = t.privateKey
+		t.lock.RUnlock()
 	}
 
 	claims["iss"] = t.serverURL
@@ -330,22 +346,43 @@ func (t *TokenService) NewTokenWithClaims(ctx context.Context, claims jwt.MapCla
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, claims)
-	s, err := token.SignedString(t.privateKey)
+	s, err := token.SignedString(privateKey)
 	return token, s, err
 }
 
 func (t *TokenService) ServeJWKS(api api.Context) error {
-	return api.Write(t.JWKS())
+	jwks, err := t.JWKS(api.Context())
+	if err != nil {
+		return err
+	}
+
+	return api.Write(jwks)
 }
 
-func (t *TokenService) JWKS() []byte {
+func (t *TokenService) JWKS(ctx context.Context) ([]byte, error) {
 	t.lock.RLock()
-	defer t.lock.RUnlock()
-	return t.jwks
+	jwks := t.jwks
+	t.lock.RUnlock()
+
+	if jwks == nil {
+		if err := t.setJWK(ctx); err != nil {
+			return nil, err
+		}
+
+		t.lock.RLock()
+		jwks = t.jwks
+		t.lock.RUnlock()
+	}
+
+	return jwks, nil
 }
 
-func (t *TokenService) EncodedJWKS() string {
-	return base64.StdEncoding.EncodeToString(t.JWKS())
+func (t *TokenService) EncodedJWKS(ctx context.Context) (string, error) {
+	jwks, err := t.JWKS(ctx)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(jwks), nil
 }
 
 const keyEnvVar = "JWK_KEY"

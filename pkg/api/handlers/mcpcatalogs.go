@@ -36,10 +36,10 @@ type MCPCatalogHandler struct {
 	oauthChecker       MCPOAuthChecker
 	gatewayClient      *gclient.Client
 	acrHelper          *accesscontrolrule.Helper
-	jwks               func() string
+	jwks               system.EncodedJWKS
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, jwks func() string) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, jwks system.EncodedJWKS) *MCPCatalogHandler {
 	return &MCPCatalogHandler{
 		defaultCatalogPath: defaultCatalogPath,
 		serverURL:          serverURL,
@@ -765,6 +765,11 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		return types.NewErrBadRequest("failed to read configuration: %v", err)
 	}
 
+	jwks, err := h.jwks(req.Context())
+	if err != nil {
+		return types.NewErrBadRequest("failed to get JWKS: %v", err)
+	}
+
 	server, serverConfig, err := tempServerAndConfig(
 		req.Context(),
 		req.GPTClient,
@@ -774,7 +779,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		entry.Spec.Manifest,
 		configRequest.Config,
 		h.serverURL,
-		h.jwks(),
+		jwks,
 	)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
@@ -840,6 +845,11 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 		return types.NewErrBadRequest("composite configuration is required")
 	}
 
+	jwks, err := h.jwks(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get JWKS: %w", err)
+	}
+
 	compositeToolPreviews := make([]types.MCPServerTool, 0, len(compositeConfig.ComponentServers))
 	for _, componentEntry := range compositeConfig.ComponentServers {
 		// If this component references an existing MCPServer, list its tools directly
@@ -850,7 +860,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 				return fmt.Errorf("failed to get MCP server %q: %w", componentEntry.MCPServerID, err)
 			}
 
-			serverConfig, err := serverConfigForAction(req, mcpServer, h.jwks())
+			serverConfig, err := serverConfigForAction(req, mcpServer, jwks)
 			if err != nil {
 				return fmt.Errorf("failed to build server configuration for MCP server %q: %w", mcpServer.Name, err)
 			}
@@ -882,6 +892,11 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			continue
 		}
 
+		jwks, err := h.jwks(req.Context())
+		if err != nil {
+			return fmt.Errorf("failed to get JWKS: %w", err)
+		}
+
 		server, serverConfig, err := tempServerAndConfig(
 			req.Context(),
 			req.GPTClient,
@@ -891,7 +906,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			componentEntry.Manifest,
 			config.Config,
 			h.serverURL,
-			h.jwks(),
+			jwks,
 		)
 		if err != nil {
 			return err
@@ -1010,7 +1025,12 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 		return types.NewErrBadRequest("failed to read configuration: %v", err)
 	}
 
-	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GPTClient, req.Storage, entry.Namespace, entry.Name, entry.Spec.Manifest, configRequest.Config, h.serverURL, h.jwks())
+	jwks, err := h.jwks(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get JWKS: %w", err)
+	}
+
+	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GPTClient, req.Storage, entry.Namespace, entry.Name, entry.Spec.Manifest, configRequest.Config, h.serverURL, jwks)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -1043,6 +1063,11 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 
 	// Collect OAuth URLs for each component
 	oauthURLs := make(map[string]string)
+
+	jwks, err := h.jwks(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to get JWKS: %w", err)
+	}
 
 	for _, componentEntry := range compositeConfig.ComponentServers {
 		if componentEntry.MCPServerID != "" {
@@ -1081,7 +1106,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 			componentEntry.Manifest,
 			config.Config,
 			h.serverURL,
-			h.jwks(),
+			jwks,
 		)
 		if err != nil {
 			// If we can't create server config, skip this component

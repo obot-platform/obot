@@ -5,6 +5,7 @@ import (
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/services"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 type handler struct {
@@ -12,11 +13,11 @@ type handler struct {
 	tokenService *persistent.TokenService
 	oauthConfig  services.OAuthAuthorizationServerConfig
 	tokenStore   mcp.GlobalTokenStore
-	jwks         func() string
+	jwks         system.EncodedJWKS
 	baseURL      string
 }
 
-func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig services.OAuthAuthorizationServerConfig, jwks func() string, baseURL string, mux *server.Server) {
+func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig services.OAuthAuthorizationServerConfig, jwks system.EncodedJWKS, baseURL string, mux *server.Server) {
 	h := &handler{
 		tokenStore:   tokenStore,
 		tokenService: tokenService,

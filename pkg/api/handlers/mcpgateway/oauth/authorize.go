@@ -296,7 +296,16 @@ func (h *handler) callback(req api.Context) error {
 
 	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
 		// Check whether the MCP server needs authentication.
-		_, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID, h.jwks())
+		jwks, err := h.jwks(req.Context())
+		if err != nil {
+			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+				Code:        ErrServerError,
+				Description: err.Error(),
+			})
+			return nil
+		}
+
+		_, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID, jwks)
 		if err != nil {
 			return err
 		}
