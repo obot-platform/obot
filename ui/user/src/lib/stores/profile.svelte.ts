@@ -1,4 +1,3 @@
-import { getProfile } from '$lib/services/chat/operations';
 import { type Profile } from '$lib/services/chat/types';
 
 const store = $state({
@@ -9,34 +8,27 @@ const store = $state({
 		iconURL: '',
 		role: 0,
 		groups: []
-	} as Profile
+	} as Profile,
+	initialize
 });
 
-async function init() {
-	try {
-		store.current = await getProfile();
-		if (store.current.isBootstrapUser?.()) {
+function initialize(profile?: Profile) {
+	if (profile) {
+		store.current = profile;
+		if (profile.isBootstrapUser?.()) {
 			store.current.displayName = 'Bootstrap';
 		}
-	} catch (e) {
-		if (e instanceof Error && (e.message.startsWith('403') || e.message.startsWith('401'))) {
-			store.current = {
-				id: '',
-				email: '',
-				iconURL: '',
-				role: 0,
-				groups: [],
-				unauthorized: true,
-				username: ''
-			};
-		} else {
-			setTimeout(init, 5000);
-		}
+	} else {
+		store.current = {
+			id: '',
+			email: '',
+			iconURL: '',
+			role: 0,
+			groups: [],
+			unauthorized: true,
+			username: ''
+		};
 	}
-}
-
-if (typeof window !== 'undefined') {
-	init().then(() => console.log('Profile initialized'));
 }
 
 export default store;

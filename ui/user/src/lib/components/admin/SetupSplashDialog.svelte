@@ -53,7 +53,7 @@
 	}
 </script>
 
-<ResponsiveDialog bind:this={dialog} class="text-md w-sm">
+<ResponsiveDialog bind:this={dialog} hideClose disableClickOutside class="text-md w-sm">
 	<div class="flex w-full items-center justify-center">
 		<Logo class="size-18" />
 	</div>

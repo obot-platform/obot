@@ -25,6 +25,8 @@
 		title?: string;
 		children: Snippet;
 		animate?: 'slide' | 'fade' | null;
+		hideClose?: boolean;
+		disableClickOutside?: boolean;
 	}
 
 	let {
@@ -36,7 +38,9 @@
 		children,
 		class: klass,
 		classes,
-		animate
+		animate,
+		hideClose,
+		disableClickOutside
 	}: Props = $props();
 	let dialog = $state<HTMLDialogElement>();
 
@@ -56,6 +60,7 @@
 	class={twMerge('w-full max-w-2xl font-normal', !responsive.isMobile && 'p-4', klass)}
 	class:mobile-screen-dialog={responsive.isMobile}
 	use:clickOutside={() => {
+		if (disableClickOutside) return;
 		if (onClickOutside) {
 			onClickOutside();
 		} else {
@@ -77,20 +82,22 @@
 						{title}
 					{/if}
 				</span>
-				<button
-					class:mobile-header-button={responsive.isMobile}
-					onclick={(e) => {
-						e.preventDefault();
-						close();
-					}}
-					class="icon-button"
-				>
-					{#if responsive.isMobile}
-						<ChevronRight class="size-6" />
-					{:else}
-						<X class="size-5" />
-					{/if}
-				</button>
+				{#if !hideClose}
+					<button
+						class:mobile-header-button={responsive.isMobile}
+						onclick={(e) => {
+							e.preventDefault();
+							close();
+						}}
+						class="icon-button"
+					>
+						{#if responsive.isMobile}
+							<ChevronRight class="size-6" />
+						{:else}
+							<X class="size-5" />
+						{/if}
+					</button>
+				{/if}
 			</h3>
 		</div>
 		{@render children()}

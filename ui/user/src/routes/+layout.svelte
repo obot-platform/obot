@@ -1,7 +1,6 @@
 <script lang="ts">
 	import '../app.css';
-	import { darkMode } from '$lib/stores';
-	import appPreferences from '$lib/stores/appPreferences.svelte';
+	import { darkMode, profile, appPreferences, version } from '$lib/stores';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
@@ -16,6 +15,14 @@
 
 	if (data.appPreferences) {
 		appPreferences.initialize(data.appPreferences);
+	}
+
+	if (data.profile) {
+		profile.initialize(data.profile);
+	}
+
+	if (data.version) {
+		version.initialize(data.version);
 	}
 
 	$effect(() => {
