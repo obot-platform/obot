@@ -253,12 +253,14 @@
 		requestAnimationFrame(() => {
 			const firstRow = dataTableRef?.querySelector('tbody tr');
 
-			if (!firstRow) {
+			if (!firstRow && previousWidths.length) {
 				columnWidths = previousWidths;
 				return;
 			}
 
-			const cells = firstRow.querySelectorAll('td');
+			const cells =
+				firstRow?.querySelectorAll('td') ?? dataTableRef?.querySelectorAll('tr th') ?? [];
+
 			const naturalWidths: number[] = [];
 
 			cells.forEach((cell, index) => {
@@ -330,6 +332,7 @@
 	});
 
 	let isScrolling = false;
+
 	function syncScroll(source: HTMLDivElement, target: HTMLDivElement) {
 		if (isScrolling) return;
 		isScrolling = true;
@@ -340,7 +343,7 @@
 	}
 
 	$effect(() => {
-		if (dataTableRef && tableData.length > 0 && tableSelectActions) {
+		if (dataTableRef && tableSelectActions) {
 			// Use a small delay to ensure the table is fully rendered
 			setTimeout(() => {
 				measureColumnWidths();
