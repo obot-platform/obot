@@ -69,12 +69,15 @@
 			const previewMap = new Map((preview || []).map((t) => [t.name, t]));
 			const rows: CompositeServerToolRow[] = overrides.map((o) => {
 				const t = previewMap.get(o.name);
+				// Prefer the stored description snapshot when present; otherwise fall back to preview.
+				const description = o.description ?? t?.description ?? '';
 				return {
 					id: `${componentId}-${o.overrideName || o.name}`,
 					originalName: o.name,
 					overrideName: o.overrideName || o.name,
-					originalDescription: t?.description || '',
-					overrideDescription: o.overrideDescription || t?.description || '',
+					description,
+					// Only use an override description if one was explicitly provided.
+					overrideDescription: o.overrideDescription ?? '',
 					enabled: o.enabled === true
 				};
 			});
@@ -221,30 +224,34 @@
 								<div class="flex flex-col gap-2">
 									{#each entry.toolOverrides as tool, index (index)}
 										<div
-											class="dark:bg-surface2 dark:border-surface3 bg-background flex gap-2 rounded border border-transparent p-2 shadow-sm"
+											class="dark:bg-surface2 dark:border-surface3 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
 										>
-											<div class="flex grow flex-col gap-1">
+											<div class="flex min-w-0 grow flex-col gap-1">
 												<input
 													class="text-input-filled flex-1 text-sm"
 													bind:value={tool.overrideName}
-													placeholder={tool.overrideName || tool.name}
+													placeholder={tool.name}
 												/>
 
 												<textarea
 													class="text-input-filled mt-1 resize-none text-xs"
 													bind:value={tool.overrideDescription}
-													placeholder="Enter tool description..."
+													placeholder={tool.description
+														? tool.description
+														: 'Enter tool description...'}
 													rows="2"
 												></textarea>
 											</div>
 
-											<Toggle
-												checked={tool.enabled ?? false}
-												onChange={(checked) => {
-													tool.enabled = checked;
-												}}
-												label="Enable/Disable Tool"
-											/>
+											<div class="flex shrink-0 items-start">
+												<Toggle
+													checked={tool.enabled ?? false}
+													onChange={(checked) => {
+														tool.enabled = checked;
+													}}
+													label="Enable/Disable Tool"
+												/>
+											</div>
 										</div>
 									{/each}
 								</div>
@@ -329,7 +336,15 @@
 			if (c.mcpServerID === id || c.catalogEntryID === id) {
 				return {
 					...c,
-					toolOverrides: toolsToEdit
+					toolOverrides: toolsToEdit.map((t) => ({
+						name: t.originalName,
+						// Persist the description snapshot for display in future edits.
+						description: t.description,
+						overrideName: t.overrideName,
+						// Empty or whitespace-only overrideDescription means \"use live description\".
+						overrideDescription: t.overrideDescription?.trim() ? t.overrideDescription : '',
+						enabled: t.enabled
+					}))
 				};
 			}
 			return c;

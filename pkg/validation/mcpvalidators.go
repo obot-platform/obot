@@ -571,8 +571,10 @@ func (v CompositeValidator) ValidateCatalogConfig(manifest types.MCPServerCatalo
 }
 
 func validateToolOverrides(overrides []types.ToolOverride) error {
-	toolNames := make(map[string]struct{}, len(overrides))
-	overrideNames := make(map[string]struct{}, len(overrides))
+	var (
+		toolNames    = make(map[string]struct{}, len(overrides))
+		exposedNames = make(map[string]struct{}, len(overrides))
+	)
 
 	for i, override := range overrides {
 		if override.Name == "" {
@@ -580,14 +582,6 @@ func validateToolOverrides(overrides []types.ToolOverride) error {
 				Runtime: types.RuntimeComposite,
 				Field:   fmt.Sprintf("toolOverrides[%d].name", i),
 				Message: "original tool name is required",
-			}
-		}
-
-		if override.OverrideName == "" {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("toolOverrides[%d].overrideName", i),
-				Message: "override tool name is required",
 			}
 		}
 
@@ -601,17 +595,26 @@ func validateToolOverrides(overrides []types.ToolOverride) error {
 		}
 		toolNames[override.Name] = struct{}{}
 
-		// Check for duplicate override names (only for enabled tools)
-		if _, ok := overrideNames[override.OverrideName]; ok && override.Enabled {
+		// For disabled tools, we don't care about exposed-name conflicts.
+		if !override.Enabled {
+			continue
+		}
+
+		// Compute the effective exposed name: override name if set, otherwise the original name.
+		effectiveName := override.OverrideName
+		if effectiveName == "" {
+			effectiveName = override.Name
+		}
+
+		// Check for duplicate exposed names among enabled tools.
+		if _, ok := exposedNames[effectiveName]; ok {
 			return types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
 				Field:   fmt.Sprintf("toolOverrides[%d].overrideName", i),
-				Message: fmt.Sprintf("duplicate override name: %s", override.OverrideName),
+				Message: fmt.Sprintf("duplicate override name: %s", effectiveName),
 			}
 		}
-		if override.Enabled {
-			overrideNames[override.OverrideName] = struct{}{}
-		}
+		exposedNames[effectiveName] = struct{}{}
 	}
 
 	return nil

@@ -140,9 +140,11 @@
 		return preview.map((t) => ({
 			id: `${entryId}-${t.id || t.name}`,
 			originalName: t.name,
-			overrideName: t.name,
-			originalDescription: t.description,
-			overrideDescription: t.description,
+			// Start with no override so the original name appears as placeholder.
+			overrideName: '',
+			// Snapshot of the original description for display; do not pre-populate an override.
+			description: t.description,
+			overrideDescription: '',
 			enabled: true,
 			parameters: []
 		}));
@@ -153,9 +155,11 @@
 		return tools.map((t) => ({
 			id: `${entryId}-${t.id || t.name}`,
 			originalName: t.name,
-			overrideName: t.name,
-			originalDescription: t.description,
-			overrideDescription: t.description,
+			// Start with no override so the original name appears as placeholder.
+			overrideName: '',
+			// Snapshot of the original description for display; do not pre-populate an override.
+			description: t.description,
+			overrideDescription: '',
 			enabled: t.enabled !== false
 		}));
 	}
@@ -376,8 +380,11 @@
 				...componentConfig,
 				toolOverrides: tools.map((t) => ({
 					name: t.originalName,
+					// Persist the description snapshot for display in future edits.
+					description: t.description,
 					overrideName: t.overrideName,
-					overrideDescription: t.overrideDescription,
+					// Empty or whitespace-only overrideDescription means \"use live description\".
+					overrideDescription: t.overrideDescription?.trim() ? t.overrideDescription : '',
 					enabled: t.enabled
 				}))
 			},
