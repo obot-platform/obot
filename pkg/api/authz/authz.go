@@ -349,7 +349,6 @@ func defaultRules(devMode bool, registryNoAuth bool) []rule {
 			group: anyGroup,
 			mux:   http.NewServeMux(),
 		}
-
 	} else {
 		registryRule = rule{
 			group: types.GroupBasic,
