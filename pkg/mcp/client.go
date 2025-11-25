@@ -63,7 +63,7 @@ func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, client
 		return nil, err
 	}
 
-	session, err := sm.loadSession(config, clientScope, opt)
+	session, err := sm.loadSession(ctx, config, clientScope, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, client
 	return session, nil
 }
 
-func (sm *SessionManager) loadSession(server ServerConfig, clientScope string, clientOpts nmcp.ClientOption) (*Client, error) {
+func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, clientScope string, clientOpts nmcp.ClientOption) (*Client, error) {
 	sessions, _ := sm.sessions.LoadOrStore(server.MCPServerName, &sync.Map{})
 
 	clientSessions, ok := sessions.(*sync.Map)
@@ -116,7 +116,7 @@ func (sm *SessionManager) loadSession(server ServerConfig, clientScope string, c
 
 		now := time.Now().Add(-time.Second)
 		// TODO(thedadams): This needs to be fixed before user information headers can be passed to the MCP server.
-		jwtToken, token, err = sm.tokenService.NewTokenWithClaims(jwt.MapClaims{
+		jwtToken, token, err = sm.tokenService.NewTokenWithClaims(ctx, jwt.MapClaims{
 			"aud": gtypes.FirstSet(server.Audiences...),
 			"exp": float64(now.Add(time.Hour + 15*time.Minute).Unix()),
 			"iat": float64(now.Unix()),
