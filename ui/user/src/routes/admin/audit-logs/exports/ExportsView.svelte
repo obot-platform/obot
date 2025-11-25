@@ -218,6 +218,8 @@
 					{d[property as keyof typeof d]}
 				{/if}
 			{/snippet}
+
+			{#snippet tableSelectActions()}{/snippet}
 		</Table>
 	{/if}
 </div>
