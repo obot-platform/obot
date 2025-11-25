@@ -671,12 +671,25 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Clean up "nobody" user from previous "Authentication Disabled" runs.
 		// This reduces the chance that someone could authenticate as "nobody" and get admin access once authentication
 		// is enabled.
-		if err := gatewayClient.RemoveIdentityAndUser(ctx, &types.Identity{
+		if id, err := gatewayClient.RemoveIdentityAndUser(ctx, &types.Identity{
 			ProviderUsername:     "nobody",
 			ProviderUserID:       "nobody",
 			HashedProviderUserID: hash.String("nobody"),
 		}); err != nil {
 			return nil, fmt.Errorf(`failed to remove "nobody" user and identity from database: %w`, err)
+		} else if id != 0 {
+			// Create this UserDelete object so that their stuff gets deleted.
+			if err = storageClient.Create(ctx, &v1.UserDelete{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace:    system.DefaultNamespace,
+					GenerateName: system.UserDeletePrefix,
+				},
+				Spec: v1.UserDeleteSpec{
+					UserID: id,
+				},
+			}); err != nil {
+				return nil, fmt.Errorf(`failed to create "nobody" user delete object: %w`, err)
+			}
 		}
 	} else {
 		// "Authentication Disabled" flow

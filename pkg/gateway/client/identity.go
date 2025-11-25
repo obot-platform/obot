@@ -380,8 +380,9 @@ func (c *Client) RemoveIdentity(ctx context.Context, id *types.Identity) error {
 // RemoveIdentityAndUser deletes an identity and the associated user from the database.
 // The identity and user are deleted using UserID if set, otherwise ProviderUsername.
 // The method is idempotent and ignores not-found errors, returning only unexpected errors.
-func (c *Client) RemoveIdentityAndUser(ctx context.Context, id *types.Identity) error {
-	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+func (c *Client) RemoveIdentityAndUser(ctx context.Context, id *types.Identity) (uint, error) {
+	var user types.User
+	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var identityQuery, userQuery *gorm.DB
 
 		// Build queries based on UserID or ProviderUsername
@@ -400,13 +401,20 @@ func (c *Client) RemoveIdentityAndUser(ctx context.Context, id *types.Identity) 
 			return err
 		}
 
-		// Attempt to delete the user
+		if err := userQuery.First(&user).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return err
+		}
+
 		if err := userQuery.Delete(&types.User{}).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
 
 		return nil
 	})
+	return user.ID, err
 }
 
 func (c *Client) createUserRoleChangeForNewUser(ctx context.Context, user *types.User) error {

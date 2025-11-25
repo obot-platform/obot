@@ -12,6 +12,10 @@ By default, Obot runs without authentication in development mode. For production
 1. Configure admins/owners
 1. Restart the system
 
+:::note
+If any MCP servers were created with authentication disabled, they will be deleted when authentication is enabled.
+:::
+
 ## Step 1: Enable Authentication
 
 ### Docker/Compose Deployment
