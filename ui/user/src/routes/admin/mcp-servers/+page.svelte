@@ -34,8 +34,8 @@
 		setFilterUrlParams
 	} from '$lib/url';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
-	import { localState } from '$lib/runes/localState.svelte';
 	import { debounce } from 'es-toolkit';
+	import { localState } from '$lib/runes/localState.svelte';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
@@ -49,7 +49,6 @@
 		'@obot/admin/mcp-servers/search-query',
 		{ registry: '', deployments: '', urls: '' }
 	);
-
 	initMcpServerAndEntries();
 
 	const mcpServerAndEntries = getAdminMcpServerAndEntries();
@@ -200,7 +199,7 @@
 	}
 
 	async function switchView(newView: View) {
-		clearUrlParams();
+		clearUrlParams(Array.from(page.url.searchParams.keys()).filter((key) => key !== 'query'));
 		view = newView;
 
 		const savedQuery = localStorageViewQuery.current?.[newView] || '';

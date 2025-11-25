@@ -66,10 +66,9 @@ export function setSortUrlParams(property?: string, direction?: 'asc' | 'desc') 
 	replaceState(page.url, {});
 }
 
-export function clearUrlParams() {
+export function clearUrlParams(params = Array.from(page.url.searchParams.keys())) {
 	// Collect all keys first to avoid issues with modifying during iteration
-	const keysToDelete = Array.from(page.url.searchParams.keys());
-	for (const key of keysToDelete) {
+	for (const key of params) {
 		page.url.searchParams.delete(key);
 	}
 	replaceState(page.url, {});
