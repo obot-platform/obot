@@ -10554,28 +10554,34 @@ func schema_obot_platform_obot_apiclient_types_ToolOverride(ref common.Reference
 					},
 					"overrideName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "OverrideName is the tool name exposed by the composite server",
-							Default:     "",
+							Description: "OverrideName is the tool name exposed by the composite server. An empty string denotes that the tool name should not be overridden.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Description is the unaltered tool description at the time the override was created. This field should be used for display purposes only.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"overrideDescription": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Optional overrides for display",
+							Description: "OverrideDescription is optional and will override the tool description returned by the component server An empty string denotes that the live description from the MCP server should be used.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"enabled": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Whether to include this tool (default true)",
+							Description: "Enabled indicates if the tool should be included in the tool allowlist.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"name", "overrideName"},
+				Required: []string{"name"},
 			},
 		},
 	}
