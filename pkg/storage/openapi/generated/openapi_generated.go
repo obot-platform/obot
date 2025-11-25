@@ -294,7 +294,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSummaryList":          schema_storage_apis_obotobotai_v1_KnowledgeSummaryList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSummarySpec":          schema_storage_apis_obotobotai_v1_KnowledgeSummarySpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.KnowledgeSummaryStatus":        schema_storage_apis_obotobotai_v1_KnowledgeSummaryStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.LogoPreferences":               schema_storage_apis_obotobotai_v1_LogoPreferences(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalog":                    schema_storage_apis_obotobotai_v1_MCPCatalog(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalogList":                schema_storage_apis_obotobotai_v1_MCPCatalogList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.MCPCatalogSpec":                schema_storage_apis_obotobotai_v1_MCPCatalogSpec(ref),
@@ -378,7 +377,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerList":              schema_storage_apis_obotobotai_v1_SlackTriggerList(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerSpec":              schema_storage_apis_obotobotai_v1_SlackTriggerSpec(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.SlackTriggerStatus":            schema_storage_apis_obotobotai_v1_SlackTriggerStatus(ref),
-		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThemePreferences":              schema_storage_apis_obotobotai_v1_ThemePreferences(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.Thread":                        schema_storage_apis_obotobotai_v1_Thread(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorization":           schema_storage_apis_obotobotai_v1_ThreadAuthorization(ref),
 		"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThreadAuthorizationList":       schema_storage_apis_obotobotai_v1_ThreadAuthorizationList(ref),
@@ -11694,23 +11692,21 @@ func schema_storage_apis_obotobotai_v1_AppPreferencesSpec(ref common.ReferenceCa
 				Properties: map[string]spec.Schema{
 					"logos": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Logo preferences",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.LogoPreferences"),
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LogoPreferences"),
 						},
 					},
 					"theme": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Theme preferences",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThemePreferences"),
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ThemePreferences"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.LogoPreferences", "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1.ThemePreferences"},
+			"github.com/obot-platform/obot/apiclient/types.LogoPreferences", "github.com/obot-platform/obot/apiclient/types.ThemePreferences"},
 	}
 }
 
@@ -13600,72 +13596,6 @@ func schema_storage_apis_obotobotai_v1_KnowledgeSummaryStatus(ref common.Referen
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_LogoPreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"logoIcon": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"logoIconError": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"logoIconWarning": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"logoDefault": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"logoEnterprise": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"logoChat": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"darkLogoDefault": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"darkLogoChat": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"darkLogoEnterprise": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
 			},
 		},
 	}
@@ -17317,104 +17247,6 @@ func schema_storage_apis_obotobotai_v1_SlackTriggerStatus(ref common.ReferenceCa
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_ThemePreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"backgroundColor": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Light theme colors",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"onBackgroundColor": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"onSurfaceColor": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"surface1Color": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"surface2Color": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"surface3Color": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"primaryColor": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"darkBackgroundColor": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Dark theme colors",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"darkOnBackgroundColor": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"darkOnSurfaceColor": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"darkSurface1Color": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"darkSurface2Color": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"darkSurface3Color": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"darkPrimaryColor": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
 			},
 		},
 	}

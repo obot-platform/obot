@@ -42,10 +42,7 @@ func (h *AppPreferencesHandler) Update(req api.Context) error {
 	}
 
 	var prefs v1.AppPreferences
-	err := req.Storage.Get(req.Context(), client.ObjectKey{
-		Namespace: req.Namespace(),
-		Name:      system.AppPreferencesName,
-	}, &prefs)
+	err := req.Get(&prefs, system.AppPreferencesName)
 
 	if apierrors.IsNotFound(err) {
 		// Create new preferences
@@ -54,21 +51,23 @@ func (h *AppPreferencesHandler) Update(req api.Context) error {
 				Name:      system.AppPreferencesName,
 				Namespace: req.Namespace(),
 			},
+			Spec: v1.AppPreferencesSpec{
+				Logos: input.Logos,
+				Theme: input.Theme,
+			},
 		}
-		prefs.Spec.Logos = v1.LogoPreferences(input.Logos)
-		prefs.Spec.Theme = v1.ThemePreferences(input.Theme)
 
-		if err := req.Storage.Create(req.Context(), &prefs); err != nil {
+		if err := req.Create(&prefs); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	} else {
 		// Update existing preferences
-		prefs.Spec.Logos = v1.LogoPreferences(input.Logos)
-		prefs.Spec.Theme = v1.ThemePreferences(input.Theme)
+		prefs.Spec.Logos = input.Logos
+		prefs.Spec.Theme = input.Theme
 
-		if err := req.Storage.Update(req.Context(), &prefs); err != nil {
+		if err := req.Update(&prefs); err != nil {
 			return err
 		}
 	}

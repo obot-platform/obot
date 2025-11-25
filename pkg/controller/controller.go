@@ -224,11 +224,8 @@ func ensureAppPreferences(ctx context.Context, client kclient.Client) error {
 				Name:      system.AppPreferencesName,
 				Namespace: system.DefaultNamespace,
 			},
-			Spec: v1.AppPreferencesSpec{
-				// Set default empty preferences - admin can customize later
-			},
 		}
-		return client.Create(ctx, &appPrefs)
+		return kclient.IgnoreAlreadyExists(client.Create(ctx, &appPrefs))
 	}
 	return err
 }

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -15,43 +16,8 @@ type AppPreferences struct {
 }
 
 type AppPreferencesSpec struct {
-	// Logo preferences
-	Logos LogoPreferences `json:"logos,omitempty"`
-
-	// Theme preferences
-	Theme ThemePreferences `json:"theme,omitempty"`
-}
-
-type LogoPreferences struct {
-	LogoIcon           string `json:"logoIcon,omitempty"`
-	LogoIconError      string `json:"logoIconError,omitempty"`
-	LogoIconWarning    string `json:"logoIconWarning,omitempty"`
-	LogoDefault        string `json:"logoDefault,omitempty"`
-	LogoEnterprise     string `json:"logoEnterprise,omitempty"`
-	LogoChat           string `json:"logoChat,omitempty"`
-	DarkLogoDefault    string `json:"darkLogoDefault,omitempty"`
-	DarkLogoChat       string `json:"darkLogoChat,omitempty"`
-	DarkLogoEnterprise string `json:"darkLogoEnterprise,omitempty"`
-}
-
-type ThemePreferences struct {
-	// Light theme colors
-	BackgroundColor   string `json:"backgroundColor,omitempty"`
-	OnBackgroundColor string `json:"onBackgroundColor,omitempty"`
-	OnSurfaceColor    string `json:"onSurfaceColor,omitempty"`
-	Surface1Color     string `json:"surface1Color,omitempty"`
-	Surface2Color     string `json:"surface2Color,omitempty"`
-	Surface3Color     string `json:"surface3Color,omitempty"`
-	PrimaryColor      string `json:"primaryColor,omitempty"`
-
-	// Dark theme colors
-	DarkBackgroundColor   string `json:"darkBackgroundColor,omitempty"`
-	DarkOnBackgroundColor string `json:"darkOnBackgroundColor,omitempty"`
-	DarkOnSurfaceColor    string `json:"darkOnSurfaceColor,omitempty"`
-	DarkSurface1Color     string `json:"darkSurface1Color,omitempty"`
-	DarkSurface2Color     string `json:"darkSurface2Color,omitempty"`
-	DarkSurface3Color     string `json:"darkSurface3Color,omitempty"`
-	DarkPrimaryColor      string `json:"darkPrimaryColor,omitempty"`
+	Logos types.LogoPreferences  `json:"logos,omitempty"`
+	Theme types.ThemePreferences `json:"theme,omitempty"`
 }
 
 type AppPreferencesStatus struct{}
