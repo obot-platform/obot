@@ -338,18 +338,13 @@
 				</div>
 			{/if}
 
-			<div
-				class={twMerge(
-					'flex flex-col gap-8',
-					!!existingCredentials && 'pointer-events-none opacity-50'
-				)}
-			>
+			<div class={twMerge('flex flex-col gap-8')}>
 				<!-- Provider Selection -->
 				<div class="space-y-4">
 					<h3 class="text-lg font-semibold">Storage Provider</h3>
 					<div class="flex flex-col gap-1">
 						<label class="text-sm font-medium" for="storage-provider">Provider</label>
-						<div>
+						<div class={[!!existingCredentials && 'pointer-events-none opacity-50']}>
 							<Dropdown
 								class="w-full md:w-1/3"
 								values={{
@@ -618,49 +613,45 @@
 			</div>
 
 			<!-- Actions -->
-			<div class="flex justify-between pt-6">
+			<div class="flex justify-between gap-4 pt-6">
 				{#if form.provider !== 'custom'}
-					{#if !!existingCredentials}
-						<button
-							type="button"
-							class="button-destructive"
-							onclick={confirmDeleteCredentials}
-							disabled={testing || saving || deleting}
-						>
-							{#if deleting}
-								<LoaderCircle class="size-4 animate-spin" />
-								Deleting...
-							{:else}
-								<Trash class="size-4" />
-								Delete Credentials
-							{/if}
-						</button>
-					{:else}
-						<button
-							type="button"
-							class="button-secondary"
-							onclick={handleTest}
-							disabled={testing || saving}
-						>
-							{#if testing}
-								<LoaderCircle class="size-4 animate-spin" />
-								Testing...
-							{:else}
-								Test Connection
-							{/if}
-						</button>
-					{/if}
+					<button
+						type="button"
+						class="button-secondary"
+						onclick={handleTest}
+						disabled={testing || saving}
+					>
+						{#if testing}
+							<LoaderCircle class="size-4 animate-spin" />
+							Testing...
+						{:else}
+							Test Connection
+						{/if}
+					</button>
+				{/if}
+
+				{#if !!existingCredentials}
+					<button
+						type="button"
+						class="button-destructive"
+						onclick={confirmDeleteCredentials}
+						disabled={testing || saving || deleting}
+					>
+						{#if deleting}
+							<LoaderCircle class="size-4 animate-spin" />
+							Deleting...
+						{:else}
+							<Trash class="size-4" />
+							Delete Credentials
+						{/if}
+					</button>
 				{/if}
 
 				<div class="ml-auto flex gap-3">
 					<button type="button" class="button" onclick={onCancel} disabled={saving || testing}>
 						Cancel
 					</button>
-					<button
-						type="submit"
-						class="button-primary"
-						disabled={!!existingCredentials || saving || testing}
-					>
+					<button type="submit" class="button-primary" disabled={saving || testing}>
 						{#if saving}
 							<LoaderCircle class="size-4 animate-spin" />
 							Saving...
