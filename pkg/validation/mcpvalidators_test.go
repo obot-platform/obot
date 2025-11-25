@@ -1088,7 +1088,7 @@ func TestValidateToolOverrides(t *testing.T) {
 			},
 			expectedError: types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
-				Field:   "toolOverrides[0].overrideName",
+				Field:   "toolOverrides[1].overrideName",
 				Message: "duplicate override name: tool-1",
 			},
 		},

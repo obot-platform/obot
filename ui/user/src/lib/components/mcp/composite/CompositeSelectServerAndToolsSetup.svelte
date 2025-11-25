@@ -137,27 +137,39 @@
 			dryRun: true
 		});
 		const preview = resp?.manifest?.toolPreview || [];
-		return preview.map((t) => ({
-			id: `${entryId}-${t.id || t.name}`,
-			originalName: t.name,
-			overrideName: t.name,
-			originalDescription: t.description,
-			overrideDescription: t.description,
-			enabled: true,
-			parameters: []
-		}));
+		return preview.map((t) => {
+			const baseDescription = t.description || '';
+			return {
+				id: `${entryId}-${t.id || t.name}`,
+				originalName: t.name,
+				// Start the input with the original name.
+				overrideName: t.name,
+				// Snapshot of the original description for display and comparison.
+				description: baseDescription,
+				// Start the input with the original description.
+				overrideDescription: baseDescription,
+				enabled: true,
+				parameters: []
+			};
+		});
 	}
 
 	async function fetchMultiServerTools(entryId: string) {
 		const tools = await ChatService.listMcpCatalogServerTools(entryId);
-		return tools.map((t) => ({
-			id: `${entryId}-${t.id || t.name}`,
-			originalName: t.name,
-			overrideName: t.name,
-			originalDescription: t.description,
-			overrideDescription: t.description,
-			enabled: t.enabled !== false
-		}));
+		return tools.map((t) => {
+			const baseDescription = t.description || '';
+			return {
+				id: `${entryId}-${t.id || t.name}`,
+				originalName: t.name,
+				// Start the input with the original name.
+				overrideName: t.name,
+				// Snapshot of the original description for display and comparison.
+				description: baseDescription,
+				// Start the input with the original description.
+				overrideDescription: baseDescription,
+				enabled: t.enabled !== false
+			};
+		});
 	}
 
 	async function runPreview(
@@ -374,12 +386,25 @@
 		onSuccess?.(
 			{
 				...componentConfig,
-				toolOverrides: tools.map((t) => ({
-					name: t.originalName,
-					overrideName: t.overrideName,
-					overrideDescription: t.overrideDescription,
-					enabled: t.enabled
-				}))
+				toolOverrides: tools.map((t) => {
+					const baseName = t.originalName;
+					const baseDescription = t.description || '';
+
+					const editedName = (t.overrideName || '').trim();
+					const editedDescription = (t.overrideDescription || '').trim();
+
+					return {
+						name: baseName,
+						// Persist the description snapshot for display in future edits.
+						description: baseDescription,
+						// Only store an override name if it differs from the original.
+						overrideName: editedName && editedName !== baseName ? editedName : '',
+						// Only store an override description if it differs from the original snapshot.
+						overrideDescription:
+							editedDescription && editedDescription !== baseDescription ? editedDescription : '',
+						enabled: t.enabled
+					};
+				})
 			},
 			configuringEntry,
 			tools

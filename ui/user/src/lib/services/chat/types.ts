@@ -319,8 +319,25 @@ export interface ComponentServer {
 
 export interface ToolOverride {
 	name: string;
+	/**
+	 * Snapshot of the original tool description at the time the override was created.
+	 * Used for display purposes only; the live description from the MCP server is
+	 * still the source of truth unless an overrideDescription is provided.
+	 */
+	description?: string;
+	/**
+	 * Name exposed by the composite server. An empty or undefined value means
+	 * the original tool name should be used.
+	 */
 	overrideName?: string;
+	/**
+	 * Optional description override. When empty or undefined, the live description
+	 * from the MCP server should be used.
+	 */
 	overrideDescription?: string;
+	/**
+	 * Whether this tool is included in the composite server's allowlist.
+	 */
 	enabled?: boolean;
 }
 

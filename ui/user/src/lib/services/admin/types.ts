@@ -651,18 +651,11 @@ export interface ServerK8sSettings {
 	currentSettings: K8sSettings;
 	deployedSettingsHash: string;
 }
-export type CompositeServerParameterRow = {
-	id: string;
-	originalName: string;
-	overrideName: string;
-	originalDescription?: string;
-	overrideDescription?: string;
-};
 export type CompositeServerToolRow = {
 	id: string;
 	originalName: string;
 	overrideName: string;
-	originalDescription?: string;
+	description?: string;
 	overrideDescription?: string;
 	enabled: boolean;
 };

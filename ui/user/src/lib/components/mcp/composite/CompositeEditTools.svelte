@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import { AlertTriangle } from 'lucide-svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import type { CompositeServerToolRow, MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
 
@@ -15,6 +16,7 @@
 	let { configuringEntry, tools = [], onClose, onCancel, onSuccess }: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let search = $state('');
+	let expandedTools = $state<Record<string, boolean>>({});
 
 	let allToolsEnabled = $derived(tools.every((tool) => tool.enabled));
 
@@ -22,7 +24,8 @@
 		tools.filter(
 			(tool) =>
 				tool.overrideName.toLowerCase().includes(search.toLowerCase()) ||
-				tool.overrideDescription?.toLowerCase().includes(search.toLowerCase())
+				tool.overrideDescription?.toLowerCase().includes(search.toLowerCase()) ||
+				tool.description?.toLowerCase().includes(search.toLowerCase())
 		)
 	);
 
@@ -71,32 +74,98 @@
 			placeholder="Search tools..."
 		/>
 		{#each visibleTools as tool (tool.id)}
+			{@const currentName = (tool.overrideName || '').trim() || tool.originalName}
+			{@const currentDescription =
+				(tool.overrideDescription || '').trim() || tool.description || ''}
+			{@const isCustomized =
+				((tool.overrideName || '').trim() !== '' &&
+					(tool.overrideName || '').trim() !== tool.originalName) ||
+				((tool.overrideDescription || '').trim() !== '' &&
+					(tool.overrideDescription || '').trim() !== (tool.description || ''))}
+
 			<div
-				class="dark:bg-surface2 dark:border-surface3 bg-background flex gap-2 rounded border border-transparent p-2 shadow-sm"
+				class="dark:bg-surface2 dark:border-surface3 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
 			>
-				<div class="flex grow flex-col gap-1">
-					<input
-						class="text-input-filled flex-1 text-sm"
-						bind:value={tool.overrideName}
-						placeholder={tool.originalName}
-					/>
+				<div class="flex min-w-0 grow flex-col gap-2">
+					<div class="flex items-start justify-between gap-2">
+						<div class="min-w-0">
+							<div class="truncate text-sm font-medium" title={currentName}>
+								{currentName}
+							</div>
+							{#if currentDescription}
+								<p class="line-clamp-2 text-xs" title={currentDescription}>
+									{currentDescription}
+								</p>
+							{/if}
+						</div>
+						<div class="flex flex-shrink-0 items-center gap-2">
+							<!-- Enabled/disabled toggle for this tool -->
+							<Toggle
+								checked={tool.enabled}
+								onChange={(checked) => {
+									tool.enabled = checked;
+								}}
+								label="Enabled"
+								disablePortal
+							/>
+							<button
+								type="button"
+								class="button px-3 py-1 text-xs"
+								onclick={() => {
+									// When expanding, initialize inputs with current effective values
+									if (!expandedTools[tool.id]) {
+										tool.overrideName = (tool.overrideName || '').trim() || tool.originalName;
+										tool.overrideDescription =
+											(tool.overrideDescription || '').trim() || tool.description || '';
+									}
+									expandedTools[tool.id] = !expandedTools[tool.id];
+								}}
+							>
+								{expandedTools[tool.id] ? 'Hide details' : 'Customize'}
+							</button>
+						</div>
+					</div>
 
-					<textarea
-						class="text-input-filled mt-1 resize-none text-xs"
-						bind:value={tool.overrideDescription}
-						placeholder="Enter tool description..."
-						rows="2"
-					></textarea>
+					{#if isCustomized}
+						<div class="mt-1 flex items-center gap-1 text-[11px] text-amber-600">
+							<AlertTriangle class="size-3 flex-shrink-0" />
+							<p>
+								Modified: This tool has been customized. The description or name has been changed.
+							</p>
+						</div>
+					{/if}
+
+					{#if expandedTools[tool.id]}
+						<div class="mt-2 flex flex-col gap-2">
+							<div class="flex flex-col gap-1">
+								<p class="text-xs text-gray-500">Tool name</p>
+								<input class="text-input-filled flex-1 text-sm" bind:value={tool.overrideName} />
+							</div>
+
+							<div class="flex flex-col gap-1">
+								<p class="text-xs text-gray-500">Description</p>
+								<textarea
+									class="text-input-filled h-24 resize-none text-xs"
+									bind:value={tool.overrideDescription}
+									placeholder="Enter tool description..."
+								></textarea>
+							</div>
+
+							<div class="mt-2 flex justify-end">
+								<button
+									type="button"
+									class="button px-3 py-1 text-xs"
+									onclick={() => {
+										tool.overrideName = tool.originalName;
+										tool.overrideDescription = tool.description || '';
+									}}
+								>
+									Reset to default
+								</button>
+							</div>
+						</div>
+					{/if}
 				</div>
-
-				<Toggle
-					checked={tool.enabled}
-					onChange={(checked) => {
-						tool.enabled = checked;
-					}}
-					label="Enable/Disable Tool"
-					disablePortal
-				/>
 			</div>
 		{/each}
 	</div>
