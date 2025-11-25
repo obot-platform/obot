@@ -373,7 +373,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 	}
 
 	// Parse the subject token JWT
-	tokenCtx, err := h.tokenService.DecodeToken(subjectToken)
+	tokenCtx, err := h.tokenService.DecodeToken(req.Context(), subjectToken)
 	if err != nil {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,

@@ -26,12 +26,12 @@ type ProjectMCPHandler struct {
 	mcpSessionManager *mcp.SessionManager
 	mcpOAuthChecker   MCPOAuthChecker
 	acrHelper         *accesscontrolrule.Helper
-	jwks              func() string
+	jwks              system.EncodedJWKS
 	serverURL         string
 	internalServerURL string
 }
 
-func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, jwks func() string, serverURL, internalServerURL string) *ProjectMCPHandler {
+func NewProjectMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, jwks system.EncodedJWKS, serverURL, internalServerURL string) *ProjectMCPHandler {
 	return &ProjectMCPHandler{
 		mcpSessionManager: mcpLoader,
 		mcpOAuthChecker:   mcpOAuthChecker,
@@ -320,12 +320,16 @@ func (p *ProjectMCPHandler) DeleteServer(req api.Context) error {
 
 func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
 	var projectServer v1.ProjectMCPServer
-	err := req.Get(&projectServer, req.PathValue("project_mcp_server_id"))
+	if err := req.Get(&projectServer, req.PathValue("project_mcp_server_id")); err != nil {
+		return err
+	}
+
+	jwks, err := p.jwks(req.Context())
 	if err != nil {
 		return err
 	}
 
-	_, _, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.jwks())
+	_, _, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, jwks)
 	if err != nil {
 		return err
 	}
@@ -354,12 +358,16 @@ func (p *ProjectMCPHandler) LaunchServer(req api.Context) error {
 
 func (p *ProjectMCPHandler) CheckOAuth(req api.Context) error {
 	var projectServer v1.ProjectMCPServer
-	err := req.Get(&projectServer, req.PathValue("project_mcp_server_id"))
+	if err := req.Get(&projectServer, req.PathValue("project_mcp_server_id")); err != nil {
+		return err
+	}
+
+	jwks, err := p.jwks(req.Context())
 	if err != nil {
 		return err
 	}
 
-	_, _, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.jwks())
+	_, _, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, jwks)
 	if err != nil {
 		return err
 	}
@@ -379,12 +387,16 @@ func (p *ProjectMCPHandler) CheckOAuth(req api.Context) error {
 
 func (p *ProjectMCPHandler) GetOAuthURL(req api.Context) error {
 	var projectServer v1.ProjectMCPServer
-	err := req.Get(&projectServer, req.PathValue("project_mcp_server_id"))
+	if err := req.Get(&projectServer, req.PathValue("project_mcp_server_id")); err != nil {
+		return err
+	}
+
+	jwks, err := p.jwks(req.Context())
 	if err != nil {
 		return err
 	}
 
-	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, p.jwks())
+	_, server, serverConfig, err := ServerForActionWithConnectID(req, projectServer.Spec.Manifest.MCPID, jwks)
 	if err != nil {
 		return err
 	}
