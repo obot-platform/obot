@@ -214,6 +214,14 @@
 								collapsible: false
 							}
 						]
+					},
+					{
+						id: 'app-preferences',
+						href: '/admin/app-preferences',
+						icon: Settings,
+						label: 'App Preferences',
+						disabled: false,
+						collapsible: false
 					}
 				]
 			: (overrideNavLinks ?? [
@@ -286,7 +294,7 @@
 	<div class="relative flex w-full grow">
 		{#if layout.sidebarOpen && !hideSidebar}
 			<div
-				class="dark:bg-gray-990 flex max-h-dvh w-dvh min-w-dvw flex-shrink-0 flex-col bg-white md:w-1/6 md:max-w-xl md:min-w-[300px]"
+				class="bg-background flex max-h-dvh w-dvh min-w-dvw flex-shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[300px]"
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
@@ -348,7 +356,7 @@
 													<div
 														class={twMerge(
 															'bg-surface3 absolute top-1/2 left-0 h-full w-0.5 -translate-x-3 -translate-y-1/2',
-															item.href === pathname && 'bg-blue-500'
+															item.href === pathname && 'bg-primary'
 														)}
 													></div>
 													{#if item.disabled}
@@ -400,13 +408,15 @@
 		<Render
 			class={twMerge(
 				'default-scrollbar-thin relative flex h-svh w-full grow flex-col overflow-y-auto',
-				whiteBackground ? 'bg-white dark:bg-black' : 'bg-surface1 dark:bg-black'
+				whiteBackground ? 'bg-background' : 'bg-surface1 dark:bg-background'
 			)}
 			component={main?.component}
 			as="main"
 			{...main?.props}
 		>
-			<Navbar class={twMerge('dark:bg-gray-990 sticky top-0 left-0 z-30 w-full', classes?.navbar)}>
+			<Navbar
+				class={twMerge('dark:bg-background sticky top-0 left-0 z-30 w-full', classes?.navbar)}
+			>
 				{#snippet leftContent()}
 					{#if !layout.sidebarOpen || hideSidebar}
 						<BetaLogo />

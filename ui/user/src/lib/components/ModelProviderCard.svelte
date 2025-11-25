@@ -394,7 +394,7 @@
 			</div>
 
 			{#if provider.configured}
-				<CheckCircleIcon class="text-blue ml-auto aspect-square h-5" />
+				<CheckCircleIcon class="text-primary ml-auto aspect-square h-5" />
 			{/if}
 		</div>
 	</div>
@@ -496,7 +496,7 @@
 								</div>
 							{:else}
 								<div
-									class="w-full h-full flex items-center justify-center text-gray-400 text-lg font-semibold rounded-lg absolute inset-0 p-8"
+									class="w-full h-full flex items-center justify-center text-on-surface1 text-lg font-semibold rounded-lg absolute inset-0 p-8"
 									transition:fade={{ duration: 100 }}
 								>
 									{#if isModelsLoading}
@@ -517,7 +517,9 @@
 				in:fade={{ duration: 200 }}
 				out:fade={{ duration: 0 }}
 			>
-				<div class="mb-2 text-lg font-semibold text-gray-400">Provider is not yet configured</div>
+				<div class="text-on-surface1 mb-2 text-lg font-semibold">
+					Provider is not yet configured
+				</div>
 				<p class="text-center text-xs opacity-50">
 					Click on the "Configure" button below to set up this provider. We’ll then validate your
 					configuration and display available models.
@@ -599,7 +601,7 @@
 						in:fade={{ duration: 100 }}
 						out:fade={{ duration: 0 }}
 						type="button"
-						class="button bg-blue/10 text-blue hover:bg-blue/15 active:bg-blue/20 rounded-full border-none px-4 py-2 text-sm transition-colors duration-100"
+						class="button bg-primary/10 text-primary hover:bg-primary/15 active:bg-primary/20 rounded-full border-none px-4 py-2 text-sm transition-colors duration-100"
 						disabled={!isDirty}
 						onclick={(ev) => saveHandler(ev)}
 					>

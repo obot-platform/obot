@@ -763,7 +763,7 @@
 			</div>
 		{:else}
 			<Search
-				class="dark:bg-surface1 dark:border-surface3 bg-white shadow-sm dark:border"
+				class="dark:bg-surface1 dark:border-surface3 bg-background shadow-sm dark:border"
 				onChange={(val) => {
 					search = val;
 					page = 0;
@@ -798,7 +798,7 @@
 										<div class="flex items-center gap-1">
 											{@render connectedServerCardAction?.(connectedServer)}
 											<DotDotDot
-												class="icon-button hover:bg-surface1 dark:hover:bg-surface2 size-6 min-h-auto min-w-auto flex-shrink-0 p-1 hover:text-blue-500"
+												class="icon-button hover:bg-surface1 dark:hover:bg-surface2 hover:text-primary size-6 min-h-auto min-w-auto flex-shrink-0 p-1"
 												{disablePortal}
 												el={container}
 											>
@@ -834,7 +834,7 @@
 				{#if filteredEntriesData.length > pageSize}
 					<div
 						class={twMerge(
-							'bg-surface1 sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 items-center justify-center gap-4 p-2 md:w-[calc(100%+4em)] md:-translate-x-8 dark:bg-black',
+							'bg-surface1 dark:bg-background sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 items-center justify-center gap-4 p-2 md:w-[calc(100%+4em)] md:-translate-x-8',
 							classes?.pageSelectorContainer
 						)}
 					>
@@ -845,7 +845,7 @@
 						>
 							<ChevronLeft class="size-4" /> Previous
 						</button>
-						<span class="text-sm text-gray-400 dark:text-gray-600">
+						<span class="text-on-surface1 text-sm">
 							{page + 1} of {Math.ceil(filteredEntriesData.length / pageSize)}
 						</span>
 						<button
@@ -937,7 +937,7 @@
 			>
 				{#each launchLogs as log, i (i)}
 					<div class="font-mono text-sm">
-						<span class="text-gray-600 dark:text-gray-400">{log}</span>
+						<span class="text-on-surface1">{log}</span>
 					</div>
 				{/each}
 			</div>

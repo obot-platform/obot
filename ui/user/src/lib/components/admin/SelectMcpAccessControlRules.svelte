@@ -137,7 +137,7 @@
 						<button
 							class={twMerge(
 								'flex w-full items-center gap-2 rounded-md border border-transparent p-2 text-left transition-colors duration-200',
-								selectedRules.includes(rule.id) && 'border-blue-500',
+								selectedRules.includes(rule.id) && 'border-primary',
 								!hasEverything && 'dark:hover:bg-surface1 hover:bg-surface2'
 							)}
 							onclick={() => {
@@ -150,20 +150,15 @@
 							}}
 						>
 							<div class="grid w-full grid-cols-2 items-center gap-2">
-								<p class={twMerge('truncate', hasEverything && 'text-gray-400 dark:text-gray-600')}>
+								<p class={twMerge('truncate', hasEverything && 'text-on-surface1')}>
 									{rule.displayName}
 								</p>
 								<div class="flex grow items-center justify-between">
-									<p
-										class={twMerge(
-											'line-clamp-2 text-xs',
-											hasEverything && 'text-gray-400 dark:text-gray-600'
-										)}
-									>
+									<p class={twMerge('line-clamp-2 text-xs', hasEverything && 'text-on-surface1')}>
 										{#if rule.subjects && rule.subjects.length > 0}
 											{rule.subjects?.map((s) => convertSubjectToDisplayName(s)).join(', ')}
 										{:else}
-											<i class="text-gray-400 dark:text-gray-600">(Empty)</i>
+											<i class="text-on-surface1">(Empty)</i>
 										{/if}
 									</p>
 									<div class="flex-shrink-0">
@@ -175,9 +170,9 @@
 												text="This server will be available by default to everyone in this rule."
 											/>
 										{:else if selectedRules.includes(rule.id)}
-											<CircleCheck class="size-4 text-blue-500" />
+											<CircleCheck class="text-primary size-4" />
 										{:else}
-											<Circle class="size-4 text-gray-400 dark:text-gray-600" />
+											<Circle class="text-on-surface1 size-4" />
 										{/if}
 									</div>
 								</div>

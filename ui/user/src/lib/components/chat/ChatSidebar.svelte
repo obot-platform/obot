@@ -74,7 +74,9 @@
 	}
 </script>
 
-<div class="border-surface2 dark:bg-gray-990 relative flex size-full flex-col border-r bg-white">
+<div
+	class="border-surface2 dark:bg-gray-990 bg-background relative flex size-full flex-col border-r"
+>
 	<div class="flex h-16 w-full flex-shrink-0 items-center justify-between px-2 md:justify-start">
 		<BetaLogo chat />
 		{#if responsive.isMobile}
@@ -103,20 +105,20 @@
 					onclick={() => (layout.sidebarConfig = 'project-configuration')}
 					use:tooltip={upgradeAvailable ? 'Upgrade available' : 'Configure Project'}
 				>
-					<Settings class="size-6 text-gray-500" />
+					<Settings class="text-on-surface1 size-6" />
 					{#if upgradeAvailable}
 						<span
 							class="absolute top-0 right-0 flex h-4 w-4 animate-[pulse_2s_ease-in-out_5] items-center
                    justify-center rounded-full"
 						>
-							<CircleFadingArrowUp class="size-4 text-blue-500" />
+							<CircleFadingArrowUp class="text-primary size-4" />
 						</span>
 					{/if}
 				</button>
 			</div>
 			{#if !shared}
 				<button class="icon-button" onclick={openTemplatePanel} use:tooltip={'Project Sharing'}>
-					<Share class="size-6 text-gray-500" />
+					<Share class="text-on-surface1 size-6" />
 				</button>
 			{/if}
 		</div>

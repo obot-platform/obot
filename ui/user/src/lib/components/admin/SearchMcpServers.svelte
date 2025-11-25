@@ -220,14 +220,14 @@
 											</div>
 										{/if}
 									</div>
-									<span class="line-clamp-2 text-xs text-gray-500">
+									<span class="text-on-surface1 line-clamp-2 text-xs">
 										{@html stripMarkdownToText(item.description ?? '')}
 									</span>
 								</div>
 							</div>
 							<div class="flex size-6 items-center justify-center">
 								{#if selectedMap.has(item.id)}
-									<Check class="size-6 text-blue-500" />
+									<Check class="text-primary size-6" />
 								{/if}
 							</div>
 						</button>

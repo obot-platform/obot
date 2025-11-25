@@ -104,6 +104,7 @@ var (
 		"/api/storage-credentials/",
 		"GET /api/eula",
 		"PUT /api/eula",
+		"PUT /api/app-preferences",
 
 		// Allow admins to upload custom images
 		"POST /api/image/upload",
@@ -176,6 +177,8 @@ var (
 			"POST /api/sendgrid",
 
 			"GET /api/healthz",
+
+			"GET /api/app-preferences",
 
 			"GET /api/auth-providers",
 			"GET /api/auth-providers/{id}",

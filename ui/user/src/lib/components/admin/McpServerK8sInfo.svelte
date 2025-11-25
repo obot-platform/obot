@@ -401,9 +401,7 @@
 							{/each}
 						</div>
 					{:else}
-						<span class="text-sm font-light text-gray-400 dark:text-gray-600"
-							>No configured headers.</span
-						>
+						<span class="text-on-surface1 text-sm font-light">No configured headers.</span>
 					{/if}
 				</div>
 			{/if}
@@ -417,7 +415,7 @@
 						{/each}
 					</div>
 				{:else}
-					<span class="text-sm font-light text-gray-400 dark:text-gray-600"
+					<span class="text-on-surface1 text-sm font-light"
 						>No configured environment of file variables set.</span
 					>
 				{/if}
@@ -446,7 +444,7 @@
 				{/snippet}
 			</Table>
 		{:else}
-			<span class="text-sm font-light text-gray-400 dark:text-gray-600">No events.</span>
+			<span class="text-on-surface1 text-sm font-light">No events.</span>
 		{/if}
 	</div>
 {:catch error}
@@ -472,7 +470,7 @@
 
 	<div class="flex flex-col gap-2">
 		<div
-			class="dark:bg-surface1 dark:border-surface3 flex flex-col rounded-lg border border-transparent bg-white p-4 shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<div class="grid grid-cols-2 gap-4">
 				<p class="text-sm font-semibold">Status</p>
@@ -504,18 +502,18 @@
 	</div>
 	<div
 		bind:this={logsContainer}
-		class="dark:bg-surface1 dark:border-surface3 default-scrollbar-thin flex max-h-84 min-h-64 flex-col overflow-y-auto rounded-lg border border-transparent bg-white p-4 shadow-sm"
+		class="dark:bg-surface1 dark:border-surface3 default-scrollbar-thin bg-background flex max-h-84 min-h-64 flex-col overflow-y-auto rounded-lg border border-transparent p-4 shadow-sm"
 	>
 		{#if messages.length > 0}
 			<div class="space-y-2">
 				{#each messages as message, i (i)}
 					<div class="font-mono text-sm" in:fade>
-						<span class="text-gray-600 dark:text-gray-400">{message}</span>
+						<span class="text-on-surface1">{message}</span>
 					</div>
 				{/each}
 			</div>
 		{:else}
-			<span class="text-sm font-light text-gray-400 dark:text-gray-600">No deployment logs.</span>
+			<span class="text-on-surface1 text-sm font-light">No deployment logs.</span>
 		{/if}
 	</div>
 </div>
@@ -542,7 +540,7 @@
 
 {#snippet detailRow(label: string, value: string, id: string)}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 flex flex-col rounded-lg border border-transparent bg-white p-4 shadow-sm"
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
 	>
 		<div class="grid grid-cols-12 gap-4">
 			<p class="col-span-4 text-sm font-semibold">{label}</p>
@@ -551,7 +549,7 @@
 				{#if id === 'status' && !readonly}
 					<button
 						onclick={() => (showRestartConfirm = true)}
-						class="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+						class="bg-primary/50 hover:bg-primary/10 flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
 						disabled={restarting}
 					>
 						<RotateCcw class="size-3" />
@@ -582,7 +580,7 @@
 
 {#snippet configurationRow(label: string, value: string, sensitive?: boolean)}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 flex flex-col rounded-lg border border-transparent bg-white px-4 py-1.5 shadow-sm"
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent px-4 py-1.5 shadow-sm"
 	>
 		<div class="grid grid-cols-12 items-center gap-4">
 			<p class="col-span-4 text-sm font-semibold">{label}</p>

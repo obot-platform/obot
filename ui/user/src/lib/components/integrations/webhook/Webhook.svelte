@@ -146,7 +146,7 @@
 	<div class="modal-box">
 		<div class="p-4">
 			<h3 class="text-lg font-medium">Disable Webhook Integration</h3>
-			<p class="mt-2 text-sm text-gray-500">
+			<p class="text-on-surface1 mt-2 text-sm">
 				Are you sure you want to disable webhook integration? This will remove the webhook trigger
 				from this project.
 			</p>
@@ -177,7 +177,7 @@
 	<div class="modal-box">
 		<div class="p-4">
 			<h3 class="text-lg font-medium">Task Created</h3>
-			<p class="mt-2 text-sm text-gray-500">
+			<p class="text-on-surface1 mt-2 text-sm">
 				Task "{task?.name}" has been created from the webhook integration.
 			</p>
 

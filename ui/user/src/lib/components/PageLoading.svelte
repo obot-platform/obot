@@ -85,7 +85,7 @@
 		{#if error}
 			<div
 				class={twMerge(
-					'dark:bg-surface2 dark:border-surface3 relative flex w-full flex-col items-center gap-4 rounded-lg bg-white p-4 dark:border',
+					'dark:bg-surface2 dark:border-surface3 bg-background relative flex w-full flex-col items-center gap-4 rounded-lg p-4 dark:border',
 					errorClasses?.root
 				)}
 				use:clickOutside={() => onClose?.()}
@@ -122,9 +122,9 @@
 					{Math.round(displayedProgress ?? 0)}%
 				</div>
 
-				<div class="h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+				<div class="bg-surface3 h-3 w-full overflow-hidden rounded-full">
 					<div
-						class={twMerge('h-full rounded-full bg-blue-500 transition-all duration-500 ease-out')}
+						class={twMerge('bg-primary h-full rounded-full transition-all duration-500 ease-out')}
 						style="width: {progress ?? 0}%"
 					></div>
 				</div>
@@ -141,14 +141,14 @@
 			</div>
 		{:else}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 flex flex-col items-center rounded-xl bg-white px-4 py-2 shadow-sm dark:border"
+				class="dark:bg-surface2 dark:border-surface3 bg-background flex flex-col items-center rounded-xl px-4 py-2 shadow-sm dark:border"
 			>
 				<div class="flex items-center gap-2">
 					<LoaderCircle class="size-8 animate-spin " />
 					<p class="text-xl font-semibold">{text ?? 'Loading...'}</p>
 				</div>
 				{#if isLongLoad && longLoadMessage}
-					<p in:fade class="text-md mt-4 font-light text-gray-500">
+					<p in:fade class="text-md text-on-surface1 mt-4 font-light">
 						{longLoadMessage}
 					</p>
 				{/if}

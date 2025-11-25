@@ -4,7 +4,7 @@
 	import type { Project } from '$lib/services';
 	import { responsive } from '$lib/stores';
 	import GenerateIcon from '$lib/components/edit/GenerateIcon.svelte';
-	import UploadIcon from '$lib/components/edit/UploadIcon.svelte';
+	import UploadImage from '$lib/components/UploadImage.svelte';
 	import { ChevronRight, CircleX, Pencil } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -68,7 +68,7 @@
 			fixed: responsive.isMobile ? true : false,
 			disablePortal: true
 		}}
-		class="default-dialog bg-surface1 top-16 left-0 z-40 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:top-auto md:left-auto md:h-auto md:w-[350px] md:py-6 dark:bg-black"
+		class="default-dialog bg-surface1 dark:bg-background top-16 left-0 z-40 flex h-[calc(100vh-64px)] w-screen flex-col px-4 md:top-auto md:left-auto md:h-auto md:w-[350px] md:py-6"
 	>
 		{@render content()}
 	</div>
@@ -126,7 +126,7 @@
 			<GenerateIcon {project} />
 
 			<div class="mt-4 flex w-full flex-col items-center justify-center gap-4 md:flex-row">
-				<UploadIcon
+				<UploadImage
 					label="Upload Icon"
 					onUpload={(imageUrl: string) => {
 						project.icons = {

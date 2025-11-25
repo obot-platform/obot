@@ -14,6 +14,7 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import { darkMode } from '$lib/stores';
 	import type { Assistant } from '$lib/services/chat/types';
+	import Logo from '../Logo.svelte';
 
 	interface Props {
 		threadId: string | undefined;
@@ -272,7 +273,7 @@
 		class={twMerge(
 			'hover:bg-surface2/50 active:bg-surface2/80 flex h-10 items-center gap-3 rounded-full px-2  py-1 text-xs text-gray-600 md:px-4 lg:px-6',
 			(isDefaultModelSelected || (!threadModel && defaultModel)) &&
-				'text-blue hover:bg-blue/10 active:bg-blue/15 bg-transparent'
+				'text-primary hover:bg-primary/10 active:bg-primary/15 bg-transparent'
 		)}
 		onclick={(e) => {
 			e.stopPropagation();
@@ -307,7 +308,7 @@
 			role="listbox"
 			tabindex="-1"
 			aria-labelledby="thread-model-button"
-			class="available-models-popover default-scrollbar-thin border-surface1 dark:bg-surface2 absolute right-0 bottom-full z-10 mb-1 max-h-60 w-max max-w-sm overflow-hidden overflow-y-auto rounded-md border bg-white px-2 shadow-lg md:max-w-md lg:max-w-lg"
+			class="available-models-popover default-scrollbar-thin border-surface1 dark:bg-surface2 bg-background absolute right-0 bottom-full z-10 mb-1 max-h-60 w-max max-w-sm overflow-hidden overflow-y-auto rounded-md border px-2 shadow-lg md:max-w-md lg:max-w-lg"
 			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => {
 				if (e.key === 'Escape') {
@@ -371,7 +372,7 @@
 												class={twMerge(
 													'hover:bg-surface1/70 active:bg-surface1/80 focus:bg-surface1/70 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors duration-200 focus:outline-none',
 													isModelSelected &&
-														'text-blue bg-blue/10 hover:bg-blue/15 active:bg-blue/20'
+														'text-primary bg-primary/10 hover:bg-primary/15 active:bg-primary/20'
 												)}
 												onclick={() => {
 													setThreadModel(model.id, '');
@@ -385,16 +386,11 @@
 												</div>
 
 												{#if isDefaultModel}
-													<img
-														class={twMerge(' size-4', !isModelSelected && 'grayscale-100')}
-														src="/user/images/obot-icon-blue.svg"
-														alt="Obot default model"
-														title="Obot default model"
-													/>
+													<Logo class={twMerge(' size-4', !isModelSelected && 'grayscale-100')} />
 												{/if}
 
 												{#if threadModelProvider === providerId && threadModel === modelId}
-													<div class="ml-auto text-xs text-blue-500">✓</div>
+													<div class="text-primary ml-auto text-xs">✓</div>
 												{/if}
 											</button>
 										{/if}
@@ -415,7 +411,7 @@
 					</div>
 				{/if}
 			{:else}
-				<p class="truncate text-sm text-gray-400">See "Configuration" for more options</p>
+				<p class="text-on-surface1 truncate text-sm">See "Configuration" for more options</p>
 			{/if}
 		</div>
 	{/if}

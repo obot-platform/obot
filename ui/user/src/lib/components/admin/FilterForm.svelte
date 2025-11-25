@@ -189,7 +189,7 @@
 		{/if}
 
 		<div
-			class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-transparent bg-white p-4"
+			class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
 		>
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
@@ -283,7 +283,7 @@
 							{/if}
 						</div>
 					{:else}
-						<p class="text-xs text-gray-500 dark:text-gray-400">
+						<p class="text-on-surface1 text-xs">
 							A shared secret used to sign the payload for webhook verification.
 						</p>
 					{/if}
@@ -295,7 +295,7 @@
 			<div class="mb-2 flex items-center justify-between">
 				<div class="flex flex-col gap-1">
 					<h2 class="text-lg font-semibold">Selectors</h2>
-					<p class="text-sm text-gray-500 dark:text-gray-400">
+					<p class="text-on-surface1 text-sm">
 						Specify which requests should be matched by this filter.
 					</p>
 				</div>
@@ -309,14 +309,14 @@
 			</div>
 
 			{#if filter.selectors.length === 0}
-				<div class="p-4 text-center text-gray-500">
+				<div class="text-on-surface1 p-4 text-center">
 					No selectors added. This filter will match all MCP requests.<br />Click "Add Selector" to
 					specify filter criteria.
 				</div>
 			{:else}
 				{#each filter.selectors as selector, selectorIndex (selectorIndex)}
 					<div
-						class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-transparent bg-white p-4"
+						class="dark:bg-surface2 dark:border-surface3 bg-background rounded-lg border border-transparent p-4"
 					>
 						<div class="mb-4 flex items-center justify-between">
 							<h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -365,7 +365,7 @@
 								</div>
 
 								{#if !selector.identifiers || selector.identifiers.length === 0}
-									<div class="p-3 text-center text-sm text-gray-500">
+									<div class="text-on-surface1 p-3 text-center text-sm">
 										{#if !readonly}
 											No identifiers added. Click "Add Identifier" to specify filter criteria.
 										{:else}
@@ -406,7 +406,7 @@
 			<div class="mb-2 flex items-center justify-between">
 				<div class="flex flex-col gap-1">
 					<h2 class="text-lg font-semibold">MCP Servers</h2>
-					<p class="text-sm text-gray-500 dark:text-gray-400">
+					<p class="text-on-surface1 text-sm">
 						Specify which MCP servers this filter should be applied to.
 					</p>
 				</div>
@@ -442,7 +442,7 @@
 	</div>
 	{#if !readonly}
 		<div
-			class="bg-surface1 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 dark:bg-black dark:text-gray-600"
+			class="bg-surface1 dark:bg-background dark:text-on-surface1 sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400"
 			out:fly={{ x: -100, duration }}
 			in:fly={{ x: -100 }}
 		>

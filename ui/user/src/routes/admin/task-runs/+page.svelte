@@ -162,22 +162,20 @@
 			<div class="flex flex-col gap-2">
 				<Search
 					value={query}
-					class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
 					onChange={updateQuery}
 					placeholder="Search threads..."
 				/>
 
 				{#if loading}
 					<div class="flex w-full justify-center py-12">
-						<LoaderCircle class="size-8 animate-spin text-blue-600" />
+						<LoaderCircle class="text-primary size-8 animate-spin" />
 					</div>
 				{:else if filteredThreads.length === 0}
 					<div class="flex w-full flex-col items-center justify-center py-12 text-center">
-						<MessageCircle class="size-24 text-gray-200 dark:text-gray-700" />
-						<h3 class="mt-4 text-lg font-semibold text-gray-400 dark:text-gray-600">
-							No task runs available
-						</h3>
-						<p class="mt-2 text-sm font-light text-gray-400 dark:text-gray-600">
+						<MessageCircle class="text-on-surface1 size-24 opacity-50" />
+						<h3 class="text-on-surface1 mt-4 text-lg font-semibold">No task runs available</h3>
+						<p class="text-on-surface1 mt-2 text-sm font-light">
 							Task runs will appear here once they are created.
 						</p>
 					</div>
@@ -218,7 +216,7 @@
 							<button
 								class={twMerge(
 									'icon-button',
-									isAuditor && 'hover:text-blue-500',
+									isAuditor && 'hover:text-primary',
 									!isAuditor && 'opacity-50 hover:bg-transparent dark:hover:bg-transparent'
 								)}
 								title="View Thread"
@@ -236,7 +234,7 @@
 							{#if property === 'name'}
 								<span>{thread.name || 'Unnamed Task Run'}</span>
 							{:else if property === 'created'}
-								<span class="text-sm text-gray-600 dark:text-gray-400">
+								<span class="text-on-surface1 text-sm">
 									{formatTimeAgo(thread.created).relativeTime}
 								</span>
 							{:else}

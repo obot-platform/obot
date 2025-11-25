@@ -1,15 +1,22 @@
 <script lang="ts">
 	import '../app.css';
 	import { darkMode } from '$lib/stores';
+	import appPreferences from '$lib/stores/appPreferences.svelte';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
+	import type { PageData } from './$types';
 
 	interface Props {
 		children?: import('svelte').Snippet;
+		data: PageData;
 	}
 
-	let { children }: Props = $props();
+	let { children, data }: Props = $props();
+
+	if (data.appPreferences) {
+		appPreferences.initialize(data.appPreferences);
+	}
 
 	$effect(() => {
 		if (typeof document === 'undefined') {

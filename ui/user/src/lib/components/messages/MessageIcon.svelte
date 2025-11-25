@@ -24,7 +24,7 @@
 			<AlertCircle class="size-4 text-red-500 md:size-6" />
 		{:else}
 			<img
-				class="text-blue size-4 rounded-md bg-gray-100 p-1 md:size-6"
+				class="text-primary size-4 rounded-md bg-gray-100 p-1 md:size-6"
 				src={msg.icon}
 				alt="message icon"
 			/>

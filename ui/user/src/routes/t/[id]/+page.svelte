@@ -5,6 +5,7 @@
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import AgentCopy from '$lib/components/agents/AgentCopy.svelte';
 	import { onMount } from 'svelte';
+	import Logo from '$lib/components/Logo.svelte';
 
 	let { data }: PageProps = $props();
 
@@ -16,12 +17,12 @@
 	});
 </script>
 
-<div class="bg-surface1 flex h-dvh w-dvw flex-col dark:bg-black">
+<div class="bg-surface1 dark:bg-background flex h-dvh w-dvw flex-col">
 	<div
 		class="bg-surface1 relative z-40 flex h-16 w-full items-center justify-between gap-4 p-3 shadow-md md:gap-8"
 	>
 		<div class="flex shrink-0 items-center gap-2">
-			<img src="/user/images/obot-icon-blue.svg" class="h-8" alt="Obot icon" />
+			<Logo />
 		</div>
 		<div class="flex items-center">
 			<Profile />

@@ -107,7 +107,7 @@
 	<title>Obot - Privacy Policy</title>
 </svelte:head>
 
-<div class="relative flex h-dvh w-full flex-col text-black dark:text-white">
+<div class="text-on-background relative flex h-dvh w-full flex-col">
 	<!-- Header with logo and navigation -->
 	<div class="colors-background flex h-16 w-full items-center p-5">
 		<div class="relative flex items-end">
@@ -160,7 +160,7 @@
 						<li
 							class={twMerge(
 								'border-l-4 border-transparent',
-								selected === header.id && 'border-blue-500'
+								selected === header.id && 'border-primary'
 							)}
 						>
 							<button

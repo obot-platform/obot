@@ -241,25 +241,19 @@
 			let formatted = JSON.stringify(parsed, null, 2).trim();
 
 			// Replace decimal numbers (must come before integer replacement)
-			formatted = formatted.replace(
-				/: (\d+\.\d+)/g,
-				': <span class="text-blue-600 dark:text-blue-400">$1</span>'
-			);
+			formatted = formatted.replace(/: (\d+\.\d+)/g, ': <span class="text-primary">$1</span>');
 
 			// Replace integer numbers
-			formatted = formatted.replace(
-				/: (\d+)(?!\d*\.)/g,
-				': <span class="text-blue-600 dark:text-blue-400">$1</span>'
-			);
+			formatted = formatted.replace(/: (\d+)(?!\d*\.)/g, ': <span class="text-primary">$1</span>');
 
 			// Replace keys
-			formatted = formatted.replace(/"([^"]+)":/g, '<span class="text-blue">"$1"</span>:');
+			formatted = formatted.replace(/"([^"]+)":/g, '<span class="text-primary">"$1"</span>:');
 
 			// Replace string values (must come after keys)
-			formatted = formatted.replace(/: "([^"]+)"/g, ': <span class="text-gray-500">"$1"</span>');
+			formatted = formatted.replace(/: "([^"]+)"/g, ': <span class="text-on-surface1">"$1"</span>');
 
 			// Replace null
-			formatted = formatted.replace(/: (null)/g, ': <span class="text-gray-500">$1</span>');
+			formatted = formatted.replace(/: (null)/g, ': <span class="text-on-surface1">$1</span>');
 
 			// Replace brackets and braces
 			formatted = formatted.replace(/(".*?")|([{}[\]])/g, (match, stringContent, bracket) => {
@@ -268,7 +262,7 @@
 					return stringContent;
 				}
 				// If it's a bracket/brace outside of strings, wrap it
-				return `<span class="text-black dark:text-white">${bracket}</span>`;
+				return `<span class="text-on-background">${bracket}</span>`;
 			});
 
 			return formatted;
@@ -350,7 +344,7 @@
 {#snippet timeAndUsername()}
 	{#if msg.time}
 		<div
-			class="mt-1 flex items-center justify-end gap-2 self-end text-xs whitespace-nowrap text-gray-500"
+			class="text-on-surface1 mt-1 flex items-center justify-end gap-2 self-end text-xs whitespace-nowrap"
 		>
 			{#if msg.userNotice}
 				<span class="inline-flex cursor-help" use:tooltip={msg.userNotice}>
@@ -359,7 +353,7 @@
 			{/if}
 			<span>{formatTime(msg.time)}</span>
 			{#if msg.username}
-				<span class="text-gray-400">•</span>
+				<span class="text-on-surface1">•</span>
 				<span class="max-w-[100px] truncate font-medium">by {msg.username?.split(' ')[0]}</span>
 			{/if}
 		</div>
@@ -429,13 +423,13 @@
 		class:contents={!showBubble}
 		class:message-content={renderMarkdown}
 		class={twMerge(
-			'bg-gray-70 flex w-full flex-col rounded-2xl px-6 py-3 text-black dark:bg-gray-950 dark:text-white',
+			'bg-gray-70 text-on-background flex w-full flex-col rounded-2xl px-6 py-3 dark:bg-gray-950 ',
 			classes?.messageBody
 		)}
 	>
 		{#if clearable}
 			<button
-				class="absolute top-0 right-0 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+				class="text-on-surface1 absolute top-0 right-0 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
 				aria-label="Clear message"
 				onclick={() => (msg.ignore = true)}
 			>
@@ -461,7 +455,7 @@
 	{#if msg.file}
 		<button
 			class={twMerge(
-				'my-2 flex w-[750px] w-md max-w-full cursor-pointer flex-col rounded-3xl border border-gray-300 bg-white text-start text-black shadow-lg md:w-[750px] dark:bg-black dark:text-gray-50',
+				'bg-background my-2 flex w-[750px] w-md max-w-full cursor-pointer flex-col rounded-3xl border border-gray-300 text-start text-black shadow-lg md:w-[750px] dark:text-gray-50',
 				!msg.file?.filename && !msg.aborted && !msg.done && 'cursor-wait'
 			)}
 			disabled={!msg.file?.filename}
@@ -473,7 +467,7 @@
 					{#if msg.file?.filename}
 						<span use:overflowToolTip>{msg.file.filename}</span>
 					{:else}
-						<span class="text-gray-400 dark:text-gray-600">...</span>
+						<span class="text-on-surface1">...</span>
 					{/if}
 				</div>
 			</div>
@@ -514,13 +508,11 @@
 	{#if msg.explain}
 		<div
 			role="none"
-			class="-m-6 mt-2 -mb-4 flex flex-col
-		 divide-y divide-gray-300
-		 rounded-3xl border
-		 border-gray-300 bg-white
-		 text-black shadow-lg
-		   dark:bg-black
-		    dark:text-gray-50"
+			class="bg-background -m-6 mt-2 -mb-4 flex
+		 flex-col divide-y
+		 divide-gray-300 rounded-3xl
+		 border border-gray-300
+		 text-black shadow-lg dark:text-gray-50"
 		>
 			<div class="flex gap-2 px-5 py-4">
 				<Paperclip />
@@ -546,7 +538,7 @@
 		<p class="p-0 text-xs font-semibold">{title}</p>
 		<pre
 			transition:slide={{ duration: 300 }}
-			class="default-scrollbar-thin bg-surface1 mt-0! max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap text-black dark:text-white">{@html formatJson(
+			class="default-scrollbar-thin bg-surface1 text-on-background mt-0! max-h-[300px] w-fit max-w-full overflow-auto rounded-lg px-4 py-2 text-xs break-all whitespace-pre-wrap">{@html formatJson(
 				stringifiedJson ?? ''
 			)}</pre>
 	</div>
@@ -603,7 +595,7 @@
 									const img = e.currentTarget as HTMLImageElement;
 									img.style.display = 'none';
 									const fallbackDiv = document.createElement('div');
-									fallbackDiv.className = 'text-gray-500 text-xs';
+									fallbackDiv.className = 'text-on-surface1 text-xs';
 									fallbackDiv.textContent = '[Image Failed to Load.]';
 									img.parentNode?.insertBefore(fallbackDiv, img.nextSibling);
 								}}
@@ -671,7 +663,7 @@
 	<a
 		href={msg.oauthURL}
 		class={twMerge(
-			'bg-blue rounded-xl p-4 text-center text-white transition-colors duration-300 hover:bg-blue-400 hover:text-white',
+			'bg-primary hover:bg-primary/50 rounded-xl p-4 text-center text-white transition-colors duration-300 hover:text-white',
 			classes?.oauth
 		)}
 		target="_blank"
@@ -737,14 +729,14 @@
 							</div>
 						{:else}
 							<input
-								class="rounded-lg bg-white p-2 outline-hidden dark:bg-gray-900"
+								class="bg-background dark:bg-surface2 rounded-lg p-2 outline-hidden"
 								type={field.sensitive ? 'password' : 'text'}
 								name={field.name}
 								bind:value={promptCredentials[field.name]}
 							/>
 						{/if}
 						{#if field.description}
-							<p class="text-xs text-gray-500">{field.description}</p>
+							<p class="text-on-surface1 text-xs">{field.description}</p>
 						{/if}
 					</div>
 				{/each}

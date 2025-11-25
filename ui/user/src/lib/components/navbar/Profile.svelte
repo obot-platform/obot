@@ -121,7 +121,7 @@
 			<ProfileIcon />
 			{#if showUpgradeAvailable}
 				<CircleFadingArrowUp
-					class="absolute -right-0.5 -bottom-0.5 z-10 size-3 rounded-full bg-white text-blue-500 dark:bg-black"
+					class="text-primary bg-background absolute -right-0.5 -bottom-0.5 z-10 size-3 rounded-full"
 				/>
 			{/if}
 		</div>
@@ -134,7 +134,7 @@
 					<span>
 						{profile.current.displayName || 'Anonymous'}
 					</span>
-					<span class="text-sm text-gray-500">
+					<span class="text-on-surface1 text-sm">
 						{getUserRoleLabel(profile.current.role)}
 					</span>
 				</div>
@@ -240,8 +240,8 @@
 
 		{#if version.current.obot}
 			{#if showUpgradeAvailable}
-				<div class="flex items-center gap-1 p-1 text-[11px] text-black dark:text-white">
-					<CircleFadingArrowUp class="size-4 flex-shrink-0 text-blue-500" />
+				<div class="text-on-background flex items-center gap-1 p-1 text-[11px]">
+					<CircleFadingArrowUp class="text-primary size-4 flex-shrink-0" />
 					<p>
 						Upgrade Available. <br /> Check out the
 						<a
@@ -253,7 +253,7 @@
 					</p>
 				</div>
 			{/if}
-			<div class="flex justify-end p-2 text-xs text-gray-500">
+			<div class="text-on-surface1 flex justify-end p-2 text-xs">
 				<div class="flex gap-2">
 					<a href={getLink('obot', version.current.obot)} target="_blank" rel="external">
 						{version.current.obot}

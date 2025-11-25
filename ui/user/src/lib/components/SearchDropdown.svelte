@@ -66,7 +66,7 @@
 	<div class="relative w-full">
 		<Search
 			class={twMerge(
-				'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+				'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 				klass
 			)}
 			onChange={(val) => {
@@ -101,7 +101,7 @@
 					{@render searchResult(result)}
 				{/each}
 				{#if filteredItems.length === 0 && search}
-					<p class="px-4 py-2 text-sm font-light text-gray-500">No results found.</p>
+					<p class="text-on-surface1 px-4 py-2 text-sm font-light">No results found.</p>
 				{/if}
 			</div>
 		</div>

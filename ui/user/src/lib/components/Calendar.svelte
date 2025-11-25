@@ -194,26 +194,26 @@
 			'w-8 h-8 flex items-center justify-center text-sm rounded-md transition-colors';
 
 		if (isDisabled(date)) {
-			return twMerge(baseClasses, 'text-gray-400 cursor-default');
+			return twMerge(baseClasses, 'text-on-surface1 cursor-default');
 		}
 
 		if (isStartDate(date) || isEndDate(date)) {
-			return twMerge(baseClasses, 'bg-blue-500 text-white font-medium');
+			return twMerge(baseClasses, 'bg-primary text-white font-medium');
 		}
 
 		if (isInRange(date)) {
-			return twMerge(baseClasses, 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300');
+			return twMerge(baseClasses, 'bg-primary/10 text-primary');
 		}
 
 		if (isToday(date)) {
-			return twMerge(baseClasses, 'border border-blue-500 text-blue-600 dark:text-blue-400');
+			return twMerge(baseClasses, 'border border-primary text-primary bg-primary/10');
 		}
 
 		if (!isCurrentMonth(date)) {
-			return twMerge(baseClasses, 'text-gray-400');
+			return twMerge(baseClasses, 'text-on-surface1');
 		}
 
-		return twMerge(baseClasses, 'hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer');
+		return twMerge(baseClasses, 'hover:bg-surface3 cursor-pointer');
 	}
 </script>
 
@@ -223,7 +223,7 @@
 		{disabled}
 		type="button"
 		class={twMerge(
-			'dark:bg-surface1 text-md flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg bg-white px-4 py-2 text-left shadow-sm',
+			'dark:bg-surface1 text-md bg-background flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg px-4 py-2 text-left shadow-sm',
 			disabled && 'cursor-default opacity-50',
 			klass
 		)}
@@ -258,7 +258,7 @@
 	>
 		<!-- Calendar Header -->
 		<div class={twMerge('mb-4 flex items-center justify-between', classes?.header)}>
-			<button class="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700" onclick={previousMonth}>
+			<button class="hover:bg-surface3 rounded p-1" onclick={previousMonth}>
 				<ChevronLeft class="size-4" />
 			</button>
 
@@ -267,7 +267,7 @@
 				{currentDate.getFullYear()}
 			</h3>
 
-			<button class="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700" onclick={nextMonth}>
+			<button class="hover:bg-surface3 rounded p-1" onclick={nextMonth}>
 				<ChevronRight class="size-4" />
 			</button>
 		</div>
@@ -275,7 +275,7 @@
 		<!-- Weekday Headers -->
 		<div class="mb-2 grid grid-cols-7 gap-1">
 			{#each weekdays as day, i (i)}
-				<div class="flex h-8 w-8 items-center justify-center text-xs font-medium text-gray-500">
+				<div class="text-on-surface1 flex h-8 w-8 items-center justify-center text-xs font-medium">
 					{day}
 				</div>
 			{/each}
@@ -302,7 +302,7 @@
 				out:slide={{ duration: 100 }}
 			>
 				<div class="flex flex-col gap-1">
-					<div class="text-xs text-gray-500">{start.toDateString()}</div>
+					<div class="text-on-surface1 text-xs">{start.toDateString()}</div>
 					<TimeInput
 						date={start}
 						onChange={(date) => {
@@ -315,7 +315,7 @@
 					<!-- In case start and end dates in the same day do not render the label -->
 					{#if !isSameDay(end ?? start, start)}
 						<div
-							class="text-xs text-gray-500"
+							class="text-on-surface1 text-xs"
 							in:slide={{ duration: 200 }}
 							out:slide={{ duration: 100 }}
 						>

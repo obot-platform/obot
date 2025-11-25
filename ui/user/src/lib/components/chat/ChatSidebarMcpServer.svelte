@@ -33,7 +33,7 @@
 	}
 </script>
 
-<div class="flex h-fit w-full justify-center bg-gray-50 dark:bg-black">
+<div class="bg-surface1 dark:bg-background flex h-fit w-full justify-center">
 	<div class="h-fit w-full px-4 py-4 md:max-w-[1200px] md:px-8">
 		<div class="mb-4 flex items-center gap-2">
 			{#if mcpServer.icon}

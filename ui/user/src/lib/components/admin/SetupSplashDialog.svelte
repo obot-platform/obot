@@ -2,7 +2,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import Logo from '../navbar/Logo.svelte';
+	import Logo from '../Logo.svelte';
 	import { AdminService, Group } from '$lib/services';
 	import { CircleCheckBig, LoaderCircle } from 'lucide-svelte';
 	import { page } from '$app/state';
@@ -137,7 +137,9 @@
 
 {#snippet renderChecklistItem(label: string, isChecked: boolean)}
 	<li>
-		<span class={twMerge('flex items-center gap-1', isChecked ? 'text-gray-500 line-through' : '')}>
+		<span
+			class={twMerge('flex items-center gap-1', isChecked ? 'text-on-surface1 line-through' : '')}
+		>
 			{label}
 			{#if isChecked}
 				<CircleCheckBig class="size-5 text-green-500" />

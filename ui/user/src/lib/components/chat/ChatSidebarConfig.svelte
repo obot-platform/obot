@@ -23,7 +23,7 @@
 </script>
 
 <div
-	class="default-scrollbar-thin relative flex w-full justify-center overflow-y-auto bg-gray-50 dark:bg-black"
+	class="default-scrollbar-thin bg-surface1 dark:bg-background relative flex w-full justify-center overflow-y-auto"
 	in:fade
 >
 	{#if layout.sidebarConfig === 'project-configuration'}
@@ -62,7 +62,7 @@
 {#snippet underConstruction()}
 	<div class="flex w-full flex-col items-center justify-center font-light">
 		<img src="/user/images/under-construction.webp" alt="under construction" class="size-32" />
-		<p class="text-sm font-light text-gray-500">
+		<p class="text-on-surface1 text-sm font-light">
 			This section is under construction. Please check back later.
 		</p>
 	</div>

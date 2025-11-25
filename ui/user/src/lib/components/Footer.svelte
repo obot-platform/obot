@@ -8,7 +8,7 @@
 			/>
 		</a>
 		<div class="line flex flex-col items-center gap-1">
-			<p class="bg-white px-2 font-light dark:bg-black">Contact Us</p>
+			<p class="bg-background px-2 font-light">Contact Us</p>
 			<div class="flex items-center gap-2">
 				<a href="/">
 					<img

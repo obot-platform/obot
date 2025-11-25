@@ -112,9 +112,7 @@
 						{/each}
 					</div>
 				{:else}
-					<span class="text-sm font-light text-gray-400 dark:text-gray-600"
-						>No configured headers.</span
-					>
+					<span class="text-on-surface1 text-sm font-light">No configured headers.</span>
 				{/if}
 			</div>
 
@@ -127,7 +125,7 @@
 						{/each}
 					</div>
 				{:else}
-					<span class="text-sm font-light text-gray-400 dark:text-gray-600"
+					<span class="text-on-surface1 text-sm font-light"
 						>No configured environment or file variables set.</span
 					>
 				{/if}
@@ -160,7 +158,7 @@
 
 {#snippet status(title: string, value?: string, sensitive?: boolean)}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 flex flex-col rounded-lg border border-transparent bg-white px-4 py-1.5 shadow-sm"
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col rounded-lg border border-transparent px-4 py-1.5 shadow-sm"
 	>
 		<div class="grid grid-cols-12 items-center gap-4">
 			<p class="col-span-4 text-sm font-semibold">{title}</p>

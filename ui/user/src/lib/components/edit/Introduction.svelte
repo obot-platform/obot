@@ -24,7 +24,7 @@
 			<label for="project-introduction" class="font-medium">Introduction</label>
 			<textarea
 				id="project-introduction"
-				class="dark:border-surface3 grow resize-none rounded-lg bg-white p-2 shadow-sm dark:border dark:bg-black"
+				class="dark:border-surface3 bg-background grow resize-none rounded-lg p-2 shadow-sm dark:border"
 				rows="5"
 				placeholder="This will be your project's go-to message."
 				use:autoHeight
@@ -34,7 +34,7 @@
 
 		<div class="flex flex-col gap-2">
 			<p class="font-medium">Conversation Starters</p>
-			<p class="text-xs font-light text-gray-500">
+			<p class="text-on-surface1 text-xs font-light">
 				These messages are conversation options that are provided to the user. Help break the ice
 				with your project by providing a few different options!
 			</p>
@@ -46,7 +46,7 @@
 					<div class="flex gap-2">
 						<textarea
 							id="project-instructions"
-							class="dark:border-surface3 border-surface1 grow resize-none rounded-lg border bg-white p-2 shadow-sm dark:bg-black"
+							class="dark:border-surface3 border-surface1 bg-background grow resize-none rounded-lg border p-2 shadow-sm"
 							rows="1"
 							use:autoHeight
 							bind:value={project.starterMessages[i]}

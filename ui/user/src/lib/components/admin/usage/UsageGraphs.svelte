@@ -595,7 +595,7 @@
 		out:fade|global={{ duration: 300, delay: 500 }}
 	>
 		<div
-			class="bg-surface3/50 border-surface3 flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 text-blue-500 shadow-md backdrop-blur-[1px] dark:text-blue-500"
+			class="bg-surface3/50 border-surface3 text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 		>
 			<Loading class="size-32 stroke-1" />
 			<div class="text-2xl font-semibold">Loading stats...</div>
@@ -614,7 +614,7 @@
 
 			{#if !mcpId}
 				<button
-					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
+					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background flex h-12 w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
 					onclick={() => {
 						showFilters = true;
 						rightSidebar?.show();
@@ -638,9 +638,9 @@
 
 	{#if !showLoadingSpinner && !hasData(filteredGraphConfigs)}
 		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<ChartBarDecreasing class="size-24 text-gray-200 dark:text-gray-900" />
-			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No usage stats</h4>
-			<p class="w-sm text-sm font-light text-gray-400 dark:text-gray-600">
+			<ChartBarDecreasing class="text-on-surface1 size-24 opacity-50" />
+			<h4 class="text-on-surface1 text-lg font-semibold">No usage stats</h4>
+			<p class="text-on-surface1 w-sm text-sm font-light">
 				Currently, there are no usage stats for the range or selected filters. Try modifying your
 				search criteria or try again later.
 			</p>
@@ -655,7 +655,7 @@
 				{@const paginated = full.slice(page * graphPageSize, (page + 1) * graphPageSize)}
 
 				<div
-					class="dark:bg-surface1 dark:border-surface3 rounded-md border border-transparent bg-white p-6 shadow-sm"
+					class="dark:bg-surface1 dark:border-surface3 bg-background rounded-md border border-transparent p-6 shadow-sm"
 				>
 					<h3 class="mb-4 text-lg font-semibold">{cfg.label}</h3>
 
@@ -672,7 +672,7 @@
 							/>
 						{:else if !showLoadingSpinner}
 							<div
-								class="flex h-[300px] items-center justify-center text-sm font-light text-gray-400 dark:text-gray-600"
+								class="text-on-surface1 flex h-[300px] items-center justify-center text-sm font-light"
 							>
 								No data available
 							</div>
@@ -715,7 +715,7 @@
 	bind:this={rightSidebar}
 	use:clickOutside={[handleRightSidebarClose, true]}
 	use:dialogAnimation={{ type: 'drawer' }}
-	class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-screen w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
+	class="dark:border-surface1 dark:bg-surface1 bg-background fixed! top-0! right-0! bottom-0! left-auto! z-40 h-screen w-auto max-w-none rounded-none border-0 shadow-lg outline-none!"
 >
 	{#if showFilters}
 		<FiltersDrawer
@@ -753,7 +753,7 @@
 				{@const isClearable = Object.keys(propsFilters).every((d) => d !== filterKey)}
 
 				<div
-					class="flex items-center gap-1 rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-blue-600 dark:text-blue-300"
+					class="border-primary/50 bg-primary/10 text-primary flex items-center gap-1 rounded-lg border px-4 py-2"
 					animate:flip={{ duration: 100 }}
 				>
 					<div class="text-xs font-semibold">
@@ -776,7 +776,7 @@
 
 					{#if isClearable}
 						<button
-							class="rounded-full p-1 transition-colors duration-200 hover:bg-blue-500/25"
+							class="hover:bg-primary/25 rounded-full p-1 transition-colors duration-200"
 							onclick={() => {
 								const url = page.url;
 								url.searchParams.set(filterKey, '');

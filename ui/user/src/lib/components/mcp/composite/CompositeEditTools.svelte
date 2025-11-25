@@ -42,7 +42,7 @@
 	class="bg-surface1 pb-0 md:w-2xl"
 	onClose={() => onClose?.()}
 >
-	<p class="mb-4 text-xs font-light text-gray-500">
+	<p class="text-on-surface1 mb-4 text-xs font-light">
 		Toggle what tools are available to users of this composite server. Or modify the name or
 		description of a tool; this will override the default name or description provided by the
 		server. It may affect the LLM's ability to understand the tool so be careful when adjusting
@@ -66,13 +66,13 @@
 			/>
 		</div>
 		<Search
-			class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
 			onChange={(val) => (search = val)}
 			placeholder="Search tools..."
 		/>
 		{#each visibleTools as tool (tool.id)}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 flex gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
+				class="dark:bg-surface2 dark:border-surface3 bg-background flex gap-2 rounded border border-transparent p-2 shadow-sm"
 			>
 				<div class="flex grow flex-col gap-1">
 					<input

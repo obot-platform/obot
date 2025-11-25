@@ -59,7 +59,7 @@
 	)}
 	class:opacity-50={isStepRunning && !isLoopStepRunning}
 	class:outline-2={isStepRunning && isLoopStepRunning}
-	class:outline-blue={isStepRunning && isLoopStepRunning}
+	class:outline-primary={isStepRunning && isLoopStepRunning}
 >
 	<div class="flex items-center gap-2 overflow-hidden pl-4">
 		<textarea

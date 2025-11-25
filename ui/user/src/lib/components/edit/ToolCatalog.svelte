@@ -350,7 +350,7 @@
 						</div>
 					{/each}
 					{#if enabledTools.length === 0}
-						<p class="p-4 text-sm text-gray-500">No tools selected.</p>
+						<p class="text-on-surface1 p-4 text-sm">No tools selected.</p>
 					{/if}
 				</div>
 				{@render readOnlyTools()}
@@ -366,7 +366,7 @@
 				onclick={() => (showAvailableTools = !showAvailableTools)}
 				class="h-inherit border-surface1 dark:border-surface3 flex min-h-0 w-8 flex-col items-center justify-center gap-2 border-l bg-transparent px-2"
 			>
-				<ChevronsRight class="size-6 text-black dark:text-white" />
+				<ChevronsRight class="text-on-background size-6" />
 			</button>
 		{/if}
 
@@ -400,7 +400,7 @@
 					onclick={() => (showAvailableTools = !showAvailableTools)}
 					class="text:border-black h-inherit dark:border-surface3 border-surface1 flex min-h-0 w-8 flex-col items-center justify-center gap-2 border-l px-2"
 				>
-					<ChevronsLeft class="size-6 text-black dark:text-white" />
+					<ChevronsLeft class="text-on-background size-6" />
 				</button>
 			{/if}
 		{/if}
@@ -450,7 +450,7 @@
 {#snippet toolInfo(tool: ToolReference, headerLabel?: string, headerLabelClass?: string)}
 	{#if tool.metadata?.icon}
 		<img
-			class="size-8 flex-shrink-0 rounded-md bg-white p-1 dark:bg-gray-600"
+			class="bg-background dark:bg- size-8 flex-shrink-0 rounded-md p-1"
 			src={tool.metadata?.icon}
 			alt="message icon"
 		/>
@@ -461,10 +461,10 @@
 		<span class="flex items-center gap-1">
 			{tool.name}
 			{#if headerLabel}
-				<span class={twMerge('text-xs text-gray-500', headerLabelClass)}>{headerLabel}</span>
+				<span class={twMerge('text-on-surface1 text-xs', headerLabelClass)}>{headerLabel}</span>
 			{/if}
 		</span>
-		<span class="text-gray text-xs font-normal dark:text-gray-300">
+		<span class="text-on-surface1 text-xs font-normal">
 			{tool.description}
 		</span>
 	</span>
@@ -549,9 +549,9 @@
 		)}
 	>
 		{#if isEnabled}
-			<ChevronsRight class="text-blue/65 animate-bounce-x size-6" />
+			<ChevronsRight class="text-primary/65 animate-bounce-x size-6" />
 		{:else}
-			<ChevronsLeft class="text-blue/65 animate-bounce-x size-6" />
+			<ChevronsLeft class="text-primary/65 animate-bounce-x size-6" />
 		{/if}
 	</span>
 {/snippet}
@@ -573,7 +573,7 @@
 		class={twMerge(
 			'group flex grow items-center gap-2 p-2 px-4 transition-opacity duration-200',
 			readOnly && 'cursor-default',
-			!readOnly && 'dark:bg-surface2 hover:bg-surface2 dark:hover:bg-surface3 bg-white'
+			!readOnly && 'dark:bg-surface2 hover:bg-surface2 dark:hover:bg-surface3 bg-background'
 		)}
 	>
 		{#if !isEnabled && !readOnly}
@@ -614,7 +614,7 @@
 					{@render searchResult(result)}
 				{/each}
 				{#if getSearchResults().length === 0 && search}
-					<p class="px-4 py-2 text-sm font-light text-gray-500">No results found.</p>
+					<p class="text-on-surface1 px-4 py-2 text-sm font-light">No results found.</p>
 				{/if}
 			</div>
 		</div>

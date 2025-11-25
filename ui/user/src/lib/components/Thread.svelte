@@ -444,9 +444,8 @@
 				></textarea>
 
 				<div class="mt-2 flex w-full flex-col justify-start text-left">
-					<label
-						for="project-prompt"
-						class="mb-1 text-sm font-semibold text-gray-400 dark:text-gray-600">Instructions</label
+					<label for="project-prompt" class="text-on-surface1 mb-1 text-sm font-semibold"
+						>Instructions</label
 					>
 					<textarea
 						id="project-prompt"
@@ -520,7 +519,7 @@
 				{#if showLoadOlderButton}
 					<div class="mb-4 flex justify-center">
 						<button
-							class="border-surface3 hover:bg-surface2 rounded-full border bg-white px-4 py-2 text-sm font-light transition-all duration-300 dark:bg-black"
+							class="border-surface3 hover:bg-surface2 bg-background rounded-full border px-4 py-2 text-sm font-light transition-all duration-300"
 							onclick={loadOlderMessages}
 							disabled={loadingOlderMessages}
 						>
@@ -562,7 +561,7 @@
 
 		<div
 			class={twMerge(
-				'sticky z-30 flex w-full justify-center bg-white pb-2 transition-transform duration-300 dark:bg-black',
+				'bg-background sticky z-30 flex w-full justify-center pb-2 transition-transform duration-300',
 				centerInput ? 'absolute top-1/2 -translate-y-[50%]' : 'bottom-0 -translate-y-[0%]'
 			)}
 		>
@@ -665,9 +664,7 @@
 					<div
 						class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
 					>
-						<span class="text-gray dark:text-gray-400"
-							>Obot isn't perfect. Double check its work.</span
-						>
+						<span class="text-on-surface1">Obot isn't perfect. Double check its work.</span>
 						<a
 							href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"
 							target="_blank"

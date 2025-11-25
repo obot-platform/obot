@@ -217,7 +217,7 @@
 	}
 </script>
 
-<div class="dark:bg-surface2 rounded-md bg-white p-6 shadow-sm">
+<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
 	<form
 		class="space-y-8"
 		onsubmit={(e) => {
@@ -263,7 +263,7 @@
 						disabled={isViewMode}
 					/>
 					{#if (isViewMode && form.name) || !isViewMode}
-						<p class="text-xs text-gray-500">Unique name for this export</p>
+						<p class="text-on-surface1 text-xs">Unique name for this export</p>
 					{/if}
 				</div>
 				<div class="flex flex-col gap-1">
@@ -281,7 +281,7 @@
 						disabled={isViewMode}
 					/>
 					{#if (isViewMode && form.bucket) || !isViewMode}
-						<p class="text-xs text-gray-500">Storage bucket name where exports will be saved</p>
+						<p class="text-on-surface1 text-xs">Storage bucket name where exports will be saved</p>
 					{/if}
 				</div>
 			</div>
@@ -300,7 +300,7 @@
 					disabled={isViewMode}
 				/>
 				{#if (isViewMode && form.keyPrefix) || !isViewMode}
-					<p class="text-xs text-gray-500">
+					<p class="text-on-surface1 text-xs">
 						Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
 						based on current date.
 					</p>
@@ -346,7 +346,7 @@
 							<label class="text-sm font-medium" for="user_id">User IDs</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -367,7 +367,7 @@
 							/>
 
 							{#if (isViewMode && form.filters.user_id) || !isViewMode}
-								<p class="text-xs text-gray-500">List of user IDs</p>
+								<p class="text-on-surface1 text-xs">List of user IDs</p>
 							{/if}
 						</div>
 
@@ -375,7 +375,7 @@
 							<label class="text-sm font-medium" for="mcp_id">Server IDs</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -392,7 +392,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_id) || !isViewMode}
-								<p class="text-xs text-gray-500">List of server IDs</p>
+								<p class="text-on-surface1 text-xs">List of server IDs</p>
 							{/if}
 						</div>
 
@@ -400,7 +400,7 @@
 							<label class="text-sm font-medium" for="mcp_server_display_name">Server Names</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -421,7 +421,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_server_display_name) || !isViewMode}
-								<p class="text-xs text-gray-500">List of server display names</p>
+								<p class="text-on-surface1 text-xs">List of server display names</p>
 							{/if}
 						</div>
 
@@ -429,7 +429,7 @@
 							<label class="text-sm font-medium" for="call_type">Call Types</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -446,7 +446,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.call_type) || !isViewMode}
-								<p class="text-xs text-gray-500">List of call types</p>
+								<p class="text-on-surface1 text-xs">List of call types</p>
 							{/if}
 						</div>
 
@@ -454,7 +454,7 @@
 							<label class="text-sm font-medium" for="client_name">Client Names</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -471,7 +471,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.client_name) || !isViewMode}
-								<p class="text-xs text-gray-500">List of client names</p>
+								<p class="text-on-surface1 text-xs">List of client names</p>
 							{/if}
 						</div>
 
@@ -479,7 +479,7 @@
 							<label class="text-sm font-medium" for="response_status">Response Status</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -498,7 +498,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.response_status) || !isViewMode}
-								<p class="text-xs text-gray-500">List of HTTP status codes</p>
+								<p class="text-on-surface1 text-xs">List of HTTP status codes</p>
 							{/if}
 						</div>
 
@@ -506,7 +506,7 @@
 							<label class="text-sm font-medium" for="session_id">Session IDs</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -523,7 +523,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.session_id) || !isViewMode}
-								<p class="text-xs text-gray-500">List of session IDs</p>
+								<p class="text-on-surface1 text-xs">List of session IDs</p>
 							{/if}
 						</div>
 
@@ -531,7 +531,7 @@
 							<label class="text-sm font-medium" for="client_ip">Client IPs</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -548,14 +548,14 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.client_ip) || !isViewMode}
-								<p class="text-xs text-gray-500">List of IP addresses</p>
+								<p class="text-on-surface1 text-xs">List of IP addresses</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="call_identifier">Call Identifier</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -574,14 +574,14 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.call_identifier) || !isViewMode}
-								<p class="text-xs text-gray-500">List of call identifiers</p>
+								<p class="text-on-surface1 text-xs">List of call identifiers</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_version">Client Versions</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -600,7 +600,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.client_version) || !isViewMode}
-								<p class="text-xs text-gray-500">List of client versions</p>
+								<p class="text-on-surface1 text-xs">List of client versions</p>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-1">
@@ -609,7 +609,7 @@
 							>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -630,7 +630,7 @@
 								multiple
 							/>
 							{#if (isViewMode && form.filters.mcp_server_catalog_entry_name) || !isViewMode}
-								<p class="text-xs text-gray-500">List of catalog entry names</p>
+								<p class="text-on-surface1 text-xs">List of catalog entry names</p>
 							{/if}
 						</div>
 					</div>

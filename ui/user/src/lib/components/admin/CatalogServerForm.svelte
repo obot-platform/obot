@@ -620,7 +620,7 @@
 {/if}
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-8 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<div class="flex flex-col gap-8">
 		{#if readonly && readonlyMessage}
@@ -643,7 +643,7 @@
 				type="text"
 				id="name"
 				bind:value={formData.name}
-				class={twMerge('text-input-filled dark:bg-black', showRequired.name && 'error')}
+				class={twMerge('text-input-filled dark:bg-background', showRequired.name && 'error')}
 				disabled={readonly}
 				oninput={() => {
 					updateRequired('name');
@@ -653,8 +653,7 @@
 
 		<div class="flex flex-col gap-1">
 			<label for="name" class="text-sm font-light capitalize"
-				>Description <span class="text-xs text-gray-400 dark:text-gray-600"
-					>(Markdown syntax supported)</span
+				>Description <span class="text-on-surface1 text-xs">(Markdown syntax supported)</span
 				></label
 			>
 			<MarkdownInput
@@ -670,7 +669,7 @@
 				type="text"
 				id="icon"
 				bind:value={formData.icon}
-				class="text-input-filled dark:bg-black"
+				class="text-input-filled dark:bg-background"
 				disabled={readonly}
 			/>
 		</div>
@@ -753,7 +752,7 @@
 {#if !['remote', 'composite'].includes(formData.runtime)}
 	{#if !readonly || (readonly && formData.env && formData.env.length > 0)}
 		<div
-			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<h4 class="text-sm font-semibold">
 				{type === 'single' ? 'User Supplied Configuration' : 'Configuration'}
@@ -789,7 +788,7 @@
 								/>
 							</div>
 
-							<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+							<p class="text-on-surface1 text-xs font-light">
 								{#if formData.env[i].file}
 									The value {type === 'single' ? 'the user supplies' : 'you provide'} will be written
 									to a file. An environment variable will be created using the name you specify in the
@@ -805,7 +804,7 @@
 							</p>
 
 							{#if type === 'single'}
-								<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+								<p class="text-on-surface1 text-xs font-light">
 									The Name and Description fields will be displayed to the user when configuring
 									this server. The Key field will not.
 								</p>
@@ -940,7 +939,7 @@
 
 {#if !readonly}
 	<div
-		class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 items-center justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
+		class="bg-surface1 dark:bg-background sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 items-center justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 	>
 		{#if Object.keys(showRequired).length > 0}
 			<span class="text-sm font-medium text-red-500">Fill out all required fields</span>

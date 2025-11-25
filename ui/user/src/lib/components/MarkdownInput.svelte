@@ -186,21 +186,21 @@
 
 <div
 	class={twMerge(
-		'text-input-filled border-surface3 flex flex-col gap-0 overflow-hidden border p-0 transition-colors dark:bg-black',
-		focused && !disabled && !disablePreview && 'ring-2 ring-blue-500 outline-none',
+		'text-input-filled border-surface3 dark:bg-background flex flex-col gap-0 overflow-hidden border p-0 transition-colors',
+		focused && !disabled && !disablePreview && 'ring-primary ring-2 outline-none',
 		disabled && 'disabled opacity-50',
 		klass
 	)}
 >
 	{#if !disablePreview}
 		<div
-			class="dark:border-surface3 dark:bg-surface2 flex items-center border-b text-sm font-light text-gray-500"
+			class="dark:border-surface3 dark:bg-surface2 text-on-surface1 flex items-center border-b text-sm font-light"
 		>
 			<button
 				class={twMerge(
 					'px-4 py-2',
 					!showPreview &&
-						'dark:border-surface3 relative z-10 translate-y-[1px] border-r bg-white font-medium text-black dark:bg-black dark:text-white'
+						'dark:border-surface3 bg-background text-on-background relative z-10 translate-y-[1px] border-r font-medium'
 				)}
 				onclick={() => {
 					showPreview = false;
@@ -216,7 +216,7 @@
 				class={twMerge(
 					'px-4 py-2',
 					showPreview &&
-						'dark:border-surface3 relative z-10 translate-y-[1px] border-x bg-white font-medium text-black dark:bg-black dark:text-white'
+						'dark:border-surface3 bg-background text-on-background relative z-10 translate-y-[1px] border-x font-medium'
 				)}
 				onclick={() => (showPreview = true)}>Preview</button
 			>
@@ -224,14 +224,14 @@
 	{/if}
 	{#if !disablePreview && showPreview}
 		<div
-			class="milkdown-content default-scrollbar-thin max-h-[650px] min-h-48 overflow-y-auto bg-white p-4 dark:bg-black"
+			class="milkdown-content default-scrollbar-thin bg-background max-h-[650px] min-h-48 overflow-y-auto p-4"
 		>
 			{@html toHTMLFromMarkdownWithNewTabLinks(value)}
 		</div>
 	{:else}
 		<div
 			class={twMerge(
-				'default-scrollbar-thin max-h-[650px] min-h-48 overflow-y-auto bg-white p-4 dark:bg-black ',
+				'default-scrollbar-thin bg-background max-h-[650px] min-h-48 overflow-y-auto p-4 ',
 				classes?.input
 			)}
 			use:cmEditor

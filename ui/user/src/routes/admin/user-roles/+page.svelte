@@ -48,7 +48,7 @@
 				<div class="flex grow flex-col gap-4">
 					<div class="flex flex-col gap-1">
 						<h4 class="text-lg font-semibold">Default User Role</h4>
-						<p class="text-sm font-light text-gray-500">
+						<p class="text-on-surface1 text-sm font-light">
 							Set the initial default role for all new users when they first log into the system.
 							User roles can be changed individually from the "Users" page.
 						</p>
@@ -66,7 +66,7 @@
 									/>
 									<div class="flex flex-col">
 										<p class="text-sm font-medium">{role.label}</p>
-										<p class="text-sm font-light text-gray-500">{role.description}</p>
+										<p class="text-on-surface1 text-sm font-light">{role.description}</p>
 									</div>
 								</label>
 							{/each}
@@ -80,12 +80,12 @@
 
 		{#if !isAdminReadonly}
 			<div
-				class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
+				class="bg-surface1 dark:bg-background sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 			>
 				{#if showSaved}
 					<span
 						in:fade={{ duration: 200 }}
-						class="flex min-h-10 items-center px-4 text-sm font-extralight text-gray-500"
+						class="text-on-surface1 flex min-h-10 items-center px-4 text-sm font-extralight"
 					>
 						Your changes have been saved.
 					</span>

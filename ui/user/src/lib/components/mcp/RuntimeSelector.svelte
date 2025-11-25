@@ -62,7 +62,7 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm {serverType ===
+	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm {serverType ===
 		'remote' || serverType === 'composite'
 		? 'hidden'
 		: ''}"
@@ -84,8 +84,6 @@
 	</div>
 
 	{#if !readonly && serverType !== 'remote'}
-		<p class="text-xs text-gray-500 dark:text-gray-400">
-			Choose the runtime environment for your MCP server.
-		</p>
+		<p class="text-on-surface1 text-xs">Choose the runtime environment for your MCP server.</p>
 	{/if}
 </div>

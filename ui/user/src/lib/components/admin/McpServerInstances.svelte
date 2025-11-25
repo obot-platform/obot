@@ -185,16 +185,16 @@
 		{#if servers.length > 0}
 			{#if numServerUpdatesNeeded}
 				<button
-					class="group mb-2 w-fit rounded-md bg-white dark:bg-black"
+					class="group bg-background mb-2 w-fit rounded-md"
 					onclick={() => {
 						// TODO: show all servers with upgrade & update all option
 					}}
 				>
 					<div
-						class="flex items-center gap-1 rounded-md border border-blue-500 bg-blue-500/10 px-4 py-2 transition-colors duration-300 group-hover:bg-blue-500/20 dark:bg-blue-500/30 dark:group-hover:bg-blue-500/40"
+						class="border-primary bg-primary/10 group-hover:bg-primary/20 dark:bg-primary/30 dark:group-hover:bg-primary/40 flex items-center gap-1 rounded-md border px-4 py-2 transition-colors duration-300"
 					>
-						<CircleFadingArrowUp class="size-4 text-blue-500" />
-						<p class="text-sm font-light text-blue-500">
+						<CircleFadingArrowUp class="text-primary size-4" />
+						<p class="text-primary text-sm font-light">
 							{#if numServerUpdatesNeeded === 1}
 								1 instance has an update available.
 							{:else}
@@ -238,7 +238,7 @@
 										classes: ['break-words', 'w-58']
 									}}
 								>
-									<CircleFadingArrowUp class="size-4 text-blue-500" />
+									<CircleFadingArrowUp class="text-primary size-4" />
 								</div>
 							{/if}
 						</span>
@@ -259,7 +259,7 @@
 											classes: ['break-words', 'w-58']
 										}}
 									>
-										<CircleFadingArrowUp class="size-4 text-blue-500" />
+										<CircleFadingArrowUp class="text-primary size-4" />
 									</div>
 								{/if}
 							{/if}
@@ -279,7 +279,7 @@
 						{/if}
 
 						{#if d.needsUpdate}
-							<DotDotDot class="icon-button hover:dark:bg-black/50">
+							<DotDotDot class="icon-button hover:dark:bg-background/50">
 								{#snippet icon()}
 									<Ellipsis class="size-4" />
 								{/snippet}
@@ -296,7 +296,7 @@
 										<GitCompare class="size-4" /> View Diff
 									</button>
 									<button
-										class="menu-button bg-blue-500/10 text-blue-500 hover:bg-blue-500/20"
+										class="menu-button bg-primary/10 text-primary hover:bg-primary/20"
 										disabled={updating[d.id]?.inProgress || !!d.compositeName}
 										onclick={async (e) => {
 											e.stopPropagation();
@@ -351,7 +351,7 @@
 				{@const numSelected = Object.keys(selected).length}
 				{@const updatingInProgress = Object.values(updating).some((u) => u.inProgress)}
 				<div
-					class="bg-surface1 sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
+					class="bg-surface1 dark:bg-background sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 				>
 					<div class="flex w-full items-center justify-between">
 						<p class="text-sm font-medium">
@@ -398,11 +398,9 @@
 
 {#snippet emptyInstancesContent()}
 	<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-		<Router class="size-24 text-gray-200 dark:text-gray-900" />
-		<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No server details</h4>
-		<p class="text-sm font-light text-gray-400 dark:text-gray-600">
-			No details available yet for this server.
-		</p>
+		<Router class="text-on-surface1 size-24 opacity-50" />
+		<h4 class="text-on-surface1 text-lg font-semibold">No server details</h4>
+		<p class="text-on-surface1 text-sm font-light">No details available yet for this server.</p>
 	</div>
 {/snippet}
 
@@ -419,7 +417,7 @@
 	}}
 	oncancel={() => (showConfirm = undefined)}
 	classes={{
-		confirm: 'bg-blue-500 hover:bg-blue-400 transition-colors duration-200'
+		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
 	}}
 >
 	{#snippet title()}

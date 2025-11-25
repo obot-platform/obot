@@ -260,11 +260,11 @@
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
 	class="bg-surface1 md:w-md"
 >
-	<p class="text-sm font-light text-gray-500">
+	<p class="text-on-surface1 text-sm font-light">
 		By default, the tools for <i>{configuringEntry?.manifest?.name ?? 'MCP Server'}</i> are enabled by
 		default. Would you like to further modify any tool availability or details?
 	</p>
-	<p class="mt-2 mb-6 text-sm font-light text-gray-500">
+	<p class="text-on-surface1 mt-2 mb-6 text-sm font-light">
 		You can also choose to skip and make these changes at a later time.
 	</p>
 
@@ -307,8 +307,8 @@
 		<div class="flex h-full min-h-32 flex-col items-center justify-center">
 			{#if loading && !ready}
 				<div class="mb-8 flex items-center justify-center gap-1">
-					<LoaderCircle class="size-4 animate-spin text-gray-500" />
-					<p class="text-sm font-light text-gray-500">Fetching tools...</p>
+					<LoaderCircle class="text-on-surface1 size-4 animate-spin" />
+					<p class="text-on-surface1 text-sm font-light">Fetching tools...</p>
 				</div>
 			{:else}
 				<div class="mb-6 h-full text-left">
@@ -415,8 +415,8 @@
 >
 	{#snippet loadingContent()}
 		<div class="mb-8 flex items-center justify-center gap-1">
-			<LoaderCircle class="size-4 animate-spin text-gray-500" />
-			<p class="text-sm font-light text-gray-500">Fetching tools...</p>
+			<LoaderCircle class="text-on-surface1 size-4 animate-spin" />
+			<p class="text-on-surface1 text-sm font-light">Fetching tools...</p>
 		</div>
 	{/snippet}
 </CatalogConfigureForm>

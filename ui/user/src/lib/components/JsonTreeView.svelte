@@ -42,7 +42,7 @@
 				return 'text-[#6897bb] dark:text-[#d19a66] font-semibold'; // Boolean color
 			case 'null':
 			case 'undefined':
-				return 'text-gray-400 dark:text-gray-600'; // Null/undefined color
+				return 'text-on-surface1'; // Null/undefined color
 			default:
 				return 'text-on-background';
 		}

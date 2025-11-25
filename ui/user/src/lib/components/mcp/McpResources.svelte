@@ -313,13 +313,13 @@
 
 		<div class="border-b border-gray-200 px-4 py-3 dark:border-gray-700">
 			<div class="relative">
-				<Search class="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-gray-400" />
+				<Search class="text-on-surface1 absolute top-1/2 left-3 size-4 -translate-y-1/2" />
 				<input
 					bind:this={searchInput}
 					bind:value={searchQuery}
 					type="text"
 					placeholder="Search by connector or resource name..."
-					class="w-full rounded-lg border border-gray-300 bg-white py-2 pr-4 pl-10 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:focus:border-blue-400"
+					class="focus:border-primary focus:ring-primary dark:focus:border-primary/50 bg-background dark:text-on-background w-full rounded-lg border border-gray-300 py-2 pr-4 pl-10 text-sm focus:ring-1 focus:outline-none dark:border-gray-600 dark:bg-gray-800"
 				/>
 			</div>
 		</div>
@@ -330,12 +330,12 @@
 			{#if loading}
 				<div class="flex h-full flex-col items-center justify-center">
 					<LoaderCircle class="size-6 animate-spin" />
-					<p class="mt-2 text-sm text-gray-500">Loading resources...</p>
+					<p class="text-on-surface1 mt-2 text-sm">Loading resources...</p>
 				</div>
 			{:else if filteredResources.length === 0}
 				<div class="flex h-full flex-col items-center justify-center">
 					<HardDrive class="size-12 text-gray-300" />
-					<p class="mt-2 text-sm text-gray-500">
+					<p class="text-on-surface1 mt-2 text-sm">
 						{searchQuery ? 'No resources found matching your search' : 'No resources available'}
 					</p>
 				</div>
@@ -385,7 +385,7 @@
 										>
 											<div>
 												<p class="text-sm">{resource.name}</p>
-												<p class="text-xs font-light text-gray-500">{resource.mimeType}</p>
+												<p class="text-on-surface1 text-xs font-light">{resource.mimeType}</p>
 											</div>
 											<div class="flex grow"></div>
 											{#if alreadyAdded}
@@ -412,9 +412,9 @@
 						{:else}
 							<div class="p-4 text-center">
 								{#if mcp.authenticated}
-									<p class="text-sm text-gray-500">No resources available</p>
+									<p class="text-on-surface1 text-sm">No resources available</p>
 								{:else}
-									<p class="text-sm text-gray-500">Authentication required to view resources</p>
+									<p class="text-on-surface1 text-sm">Authentication required to view resources</p>
 								{/if}
 							</div>
 						{/if}

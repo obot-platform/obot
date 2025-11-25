@@ -44,7 +44,7 @@
 	{@const remoteConfig = config as RemoteCatalogConfigAdmin}
 	<!-- For catalog entries, show simple fixed URL when not in advanced mode -->
 	<div
-		class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		in:fade={{ duration: 200 }}
 	>
 		<label
@@ -54,7 +54,7 @@
 		<input
 			id="basic-url"
 			class={twMerge(
-				'text-input-filled flex grow dark:bg-black',
+				'text-input-filled dark:bg-background flex grow',
 				showRequired?.fixedURL && 'error'
 			)}
 			bind:value={remoteConfig.fixedURL}
@@ -66,14 +66,14 @@
 {#if showAdvanced}
 	<div class="flex w-full flex-col gap-8" in:slide>
 		<div
-			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<div class="flex items-center gap-4 {readonly ? 'hidden' : ''}">
 				<label for="remote-type" class="flex-shrink-0 text-sm font-light"
 					>Restrict connections to:</label
 				>
 				<Select
-					class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
+					class="bg-surface1 dark:border-surface3 dark:bg-background border border-transparent shadow-inner"
 					classes={{
 						root: 'flex grow'
 					}}
@@ -114,7 +114,7 @@
 					>
 					<input
 						class={twMerge(
-							'text-input-filled flex grow dark:bg-black',
+							'text-input-filled dark:bg-background flex grow',
 							showRequired?.fixedURL && 'error'
 						)}
 						bind:value={remoteConfig.fixedURL}
@@ -135,7 +135,7 @@
 					>
 					<input
 						class={twMerge(
-							'text-input-filled flex grow dark:bg-black',
+							'text-input-filled dark:bg-background flex grow',
 							showRequired?.hostname && 'error'
 						)}
 						bind:value={remoteConfig.hostname}
@@ -157,7 +157,7 @@
 						>
 						<input
 							class={twMerge(
-								'text-input-filled flex grow dark:bg-black',
+								'text-input-filled dark:bg-background flex grow',
 								showRequired?.urlTemplate && 'error'
 							)}
 							bind:value={remoteConfig.urlTemplate}
@@ -204,10 +204,10 @@
 	</div>
 	<div class="flex w-full flex-col gap-8" in:slide>
 		<div
-			class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 		>
 			<h4 class="text-sm font-semibold">Headers</h4>
-			<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+			<p class="text-on-surface1 text-xs font-light">
 				{#if selectedType === 'urlTemplate'}
 					Header values will be supplied with the URL to configure the MCP server. Their values can
 					be supplied by the user during initial setup or as static provided values. Only values

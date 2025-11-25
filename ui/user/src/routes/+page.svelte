@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type PageProps } from './$types';
 	import { browser } from '$app/environment';
-	import Logo from '$lib/components/navbar/Logo.svelte';
+	import Logo from '$lib/components/Logo.svelte';
 
 	let { data }: PageProps = $props();
 	let { authProviders, loggedIn } = data;
@@ -29,7 +29,7 @@
 	{@render unauthorizedContent()}
 {:else}
 	<div class="flex h-svh w-svw flex-col items-center justify-center">
-		<div class="flex items-center justify-center">
+		<div class="flex items-center justify-center gap-2">
 			<div class="animate-bounce">
 				<Logo />
 			</div>
@@ -39,21 +39,21 @@
 {/if}
 
 {#snippet unauthorizedContent()}
-	<div class="relative flex h-dvh w-full flex-col text-black dark:text-white">
+	<div class="text-on-background relative flex h-dvh w-full flex-col">
 		<main
 			class="dark:from-surface2 to-surface1 mx-auto flex h-full w-full flex-col items-center justify-center gap-18 bg-radial-[at_50%_50%] from-gray-50 pb-6 md:gap-24 md:pb-12 dark:to-black"
 		>
 			<div
 				class="absolute top-1/2 left-1/2 flex w-md -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-4"
 			>
-				<img src="/user/images/obot-icon-blue.svg" class="h-16" alt="Obot logo" />
+				<Logo class="h-16" />
 				<h1 class="text-2xl font-semibold">Welcome to Obot</h1>
-				<p class="text-md mb-1 text-center font-light text-gray-400 dark:text-gray-600">
+				<p class="text-md text-on-surface1 mb-1 text-center font-light">
 					Log in or create your account to continue
 				</p>
 
 				<div
-					class="dark:border-surface3 dark:bg-gray-930 flex w-sm flex-col gap-4 rounded-xl border border-transparent bg-white p-4 shadow-sm"
+					class="dark:border-surface3 dark:bg-gray-930 bg-background flex w-sm flex-col gap-4 rounded-xl border border-transparent p-4 shadow-sm"
 				>
 					{#each authProviders as provider (provider.id)}
 						<button

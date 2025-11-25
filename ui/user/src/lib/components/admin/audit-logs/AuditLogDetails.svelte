@@ -32,11 +32,11 @@
 	class="dark:bg-gray-990 h-full w-screen max-w-full bg-gray-50 md:w-lg md:max-w-[85vw] md:min-w-lg"
 	bind:this={container}
 >
-	<div class="dark:bg-surface1 relative flex w-full flex-col bg-white p-4 pl-5 shadow-xs">
+	<div class="dark:bg-surface1 bg-background relative flex w-full flex-col p-4 pl-5 shadow-xs">
 		<div
 			class={twMerge(
 				'absolute top-0 left-0 h-full w-1',
-				auditLog.responseStatus >= 400 ? 'bg-red-500' : 'bg-blue-500'
+				auditLog.responseStatus >= 400 ? 'bg-red-500' : 'bg-primary'
 			)}
 		></div>
 		<h3 class="text-lg font-semibold">
@@ -53,7 +53,7 @@
 				})
 				.replace(/,/g, '')}
 		</h3>
-		<p class="text-xs font-light text-gray-400">
+		<p class="text-on-surface1 text-xs font-light">
 			{auditLog.requestID}
 		</p>
 		<button onclick={onClose} class="icon-button absolute top-1/2 right-4 -translate-y-1/2">
@@ -115,9 +115,9 @@
 					<p class="my-2 text-base font-semibold">Request Headers</p>
 
 					<div
-						class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
+						class="dark:bg-surface2 bg-background relative flex flex-col gap-2 overflow-hidden rounded-md p-4 pl-5"
 					>
-						<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
+						<div class="bg-primary/50 absolute top-0 left-0 h-full w-1"></div>
 						<div class="flex flex-col gap-1">
 							{#each Object.entries(auditLog.requestHeaders ?? {}) as [key, value] (key)}
 								<p>
@@ -159,7 +159,7 @@
 					<p
 						class={twMerge(
 							'w-fit rounded-full px-3 py-1 text-xs font-semibold text-white',
-							auditLog.responseStatus >= 400 ? 'bg-red-500' : 'bg-blue-500'
+							auditLog.responseStatus >= 400 ? 'bg-red-500' : 'bg-primary'
 						)}
 					>
 						{auditLog.responseStatus}
@@ -171,9 +171,9 @@
 				{#if auditLog.responseHeaders}
 					<p class="mt-4 mb-2 text-base font-semibold">Response Headers</p>
 					<div
-						class="dark:bg-surface2 relative flex flex-col gap-2 overflow-hidden rounded-md bg-white p-4 pl-5"
+						class="dark:bg-surface2 bg-background relative flex flex-col gap-2 overflow-hidden rounded-md p-4 pl-5"
 					>
-						<div class="absolute top-0 left-0 h-full w-1 bg-blue-800"></div>
+						<div class="bg-primary/50 absolute top-0 left-0 h-full w-1"></div>
 						<div class="flex flex-col gap-1">
 							{#each Object.entries(auditLog.responseHeaders ?? {}) as [key, value] (key)}
 								<p>
@@ -237,7 +237,7 @@
 
 {#snippet noAuditorAccessInfo(name: string)}
 	<p class="mt-4 mb-2 text-base font-semibold">{name}</p>
-	<div class="text-xs text-gray-400 dark:text-gray-600">
+	<div class="text-on-surface1 text-xs">
 		<i>Details are hidden; auditor role is required to access this information.</i>
 	</div>
 {/snippet}

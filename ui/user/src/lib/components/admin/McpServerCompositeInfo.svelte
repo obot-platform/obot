@@ -89,7 +89,7 @@
 
 						openUrl(url, isCtrlClick);
 					}}
-					class="dark:bg-surface1 dark:border-surface3 dark:hover:bg-surface2 flex items-center justify-between gap-2 rounded-lg border border-transparent bg-white p-2 pl-4 shadow-sm hover:bg-gray-50"
+					class="dark:bg-surface1 dark:border-surface3 dark:hover:bg-surface2 bg-background flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 shadow-sm hover:bg-gray-50"
 				>
 					<div class="flex items-center gap-2">
 						<div class="icon">
@@ -105,7 +105,7 @@
 						</div>
 						<p class="text-sm">{componentServer.manifest?.name}</p>
 						{#if catalogEntryServerId}
-							<span class="text-sm text-gray-400 dark:text-gray-600">({catalogEntryServerId})</span>
+							<span class="text-on-surface1 text-sm">({catalogEntryServerId})</span>
 						{/if}
 					</div>
 					<div class="icon-button">

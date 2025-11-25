@@ -177,7 +177,7 @@
 									type="text"
 									id="name"
 									bind:value={baseAgent.name}
-									class="text-input-filled dark:bg-black"
+									class="text-input-filled dark:bg-background"
 									disabled={isAdminReadonly}
 								/>
 							</div>
@@ -187,7 +187,7 @@
 									type="text"
 									id="description"
 									bind:value={baseAgent.description}
-									class="text-input-filled dark:bg-black"
+									class="text-input-filled dark:bg-background"
 									disabled={isAdminReadonly}
 								/>
 							</div>
@@ -209,7 +209,7 @@
 							rows={6}
 							id="prompt"
 							bind:value={baseAgent.prompt}
-							class="text-input-filled dark:bg-black"
+							class="text-input-filled dark:bg-background"
 							placeholder={HELPER_TEXTS.prompt}
 							use:autoHeight
 							disabled={isAdminReadonly}
@@ -300,7 +300,7 @@
 							{:else if property === 'isDefault'}
 								<div class="flex w-full items-center justify-center gap-2">
 									{#if d.isDefault}
-										<Check class="size-5 text-blue-500" />
+										<Check class="text-primary size-5" />
 									{:else}
 										<div class="size-5"></div>
 									{/if}
@@ -312,12 +312,12 @@
 
 				{#if !isAdminReadonly}
 					<div
-						class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
+						class="bg-surface1 dark:bg-background sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 					>
 						{#if showSaved}
 							<span
 								in:fade={{ duration: 200 }}
-								class="flex min-h-10 items-center px-4 text-sm font-extralight text-gray-500"
+								class="text-on-surface1 flex min-h-10 items-center px-4 text-sm font-extralight"
 							>
 								Your changes have been saved.
 							</span>
@@ -348,9 +348,9 @@
 				{/if}
 			{:else}
 				<div class="h-full w-full items-center justify-center">
-					<TriangleAlert class="size-24 text-gray-200 dark:text-gray-900" />
-					<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">An Error Occurred!</h4>
-					<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+					<TriangleAlert class="text-on-surface1 size-24 opacity-50" />
+					<h4 class="text-on-surface1 text-lg font-semibold">An Error Occurred!</h4>
+					<p class="text-on-surface1 text-sm font-light">
 						We were unable to load the default base agent. Please try again later or contact
 						support.
 					</p>
@@ -375,7 +375,7 @@
 	{#if baseAgent}
 		<div class="mb-4 px-4">
 			<Search
-				class="dark:border-surface3 border border-transparent bg-white shadow-sm dark:bg-black"
+				class="dark:border-surface3 bg-background border border-transparent shadow-sm"
 				onChange={(val) => (addModelsSearch = val)}
 				placeholder="Search models..."
 			/>
@@ -411,7 +411,7 @@
 							>
 								{model.name}
 								{#if addModelsSelected[model.id]}
-									<Check class="size-4 text-blue-500" />
+									<Check class="text-primary size-4" />
 								{/if}
 							</button>
 						{/each}

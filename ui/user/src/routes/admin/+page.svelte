@@ -42,7 +42,7 @@
 
 <div class="flex min-h-dvh flex-col items-center">
 	<main
-		class="bg-surface1 default-scrollbar-thin relative flex h-svh w-full grow flex-col overflow-y-auto dark:bg-black"
+		class="bg-surface1 default-scrollbar-thin dark:bg-background relative flex h-svh w-full grow flex-col overflow-y-auto"
 	>
 		<Navbar class="dark:bg-gray-990 sticky top-0 left-0 z-30 w-full" unauthorized />
 		<div class="flex min-h-1 w-full grow items-center justify-center">
@@ -71,7 +71,7 @@
 		{@const isExplicitAdmin = explicitRoles?.admins?.includes(tempUser?.email ?? '') ?? false}
 		{#if tempUser}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 flex w-md max-w-full flex-col rounded-lg border border-transparent bg-white px-4 py-8 shadow-sm"
+				class="dark:bg-surface2 dark:border-surface3 bg-background flex w-md max-w-full flex-col rounded-lg border border-transparent px-4 py-8 shadow-sm"
 			>
 				<BetaLogo class="self-center" />
 
@@ -175,7 +175,7 @@
 
 {#snippet loginView(bootstrapStatus?: BootstrapStatus)}
 	<form
-		class="dark:bg-surface2 dark:border-surface3 flex w-sm flex-col rounded-lg border border-transparent bg-white px-4 py-8 shadow-sm"
+		class="dark:bg-surface2 dark:border-surface3 bg-background flex w-sm flex-col rounded-lg border border-transparent px-4 py-8 shadow-sm"
 		onsubmit={(e) => e.preventDefault()}
 	>
 		<BetaLogo class="self-center" />
@@ -194,7 +194,7 @@
 
 		{#if loggedIn && !hasAccess}
 			<div class="relative z-10 my-6 flex w-full flex-col items-center justify-center gap-6">
-				<p class="px-8 text-center text-sm font-light text-gray-500 md:px-8 dark:text-gray-300">
+				<p class="text-on-surface1 px-8 text-center text-sm font-light md:px-8">
 					You are not authorized to access this page. Please sign in with an authorized account or
 					contact your administrator.
 				</p>
@@ -208,10 +208,10 @@
 			</a>
 		{:else if authProviders.length > 0}
 			<div class="relative z-10 mt-6 flex w-full flex-col items-center justify-center gap-6">
-				<p class="text-md px-8 text-center font-light text-gray-500 md:px-8 dark:text-gray-300">
+				<p class="text-md text-on-surface1 px-8 text-center font-light md:px-8">
 					To access the admin panel, you need to sign in with an option below.
 				</p>
-				<h3 class="dark:bg-surface2 bg-white px-2 text-lg font-semibold">
+				<h3 class="dark:bg-surface2 bg-background px-2 text-lg font-semibold">
 					Sign in to Your Account
 				</h3>
 			</div>

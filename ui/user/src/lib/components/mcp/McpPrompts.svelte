@@ -151,7 +151,7 @@
 		</div>
 	{:else if !hasPrompts && variant !== 'messages'}
 		<div class="flex h-full flex-col items-center justify-center">
-			<p class="text-sm text-gray-500">No prompts available</p>
+			<p class="text-on-surface1 text-sm">No prompts available</p>
 		</div>
 	{:else}
 		{#each setsToUse as mcpPromptSet (mcpPromptSet.mcp.id)}
@@ -168,7 +168,7 @@
 							{#if mcpPromptSet.mcp.icon}
 								<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-4" />
 							{:else}
-								<MessageSquarePlus class="size-4 text-gray-400 dark:text-gray-600" />
+								<MessageSquarePlus class="text-on-surface1 size-4" />
 							{/if}
 						{/if}
 					</div>
@@ -185,7 +185,7 @@
 								<p class="mb-1 flex items-center gap-1.5 text-xs">
 									{prompt.name}
 								</p>
-								<span class="line-clamp-3 text-xs font-light text-gray-400 dark:text-gray-600">
+								<span class="text-on-surface1 line-clamp-3 text-xs font-light">
 									{prompt.description}
 								</span>
 							</button>
@@ -210,7 +210,7 @@
 									{#if mcpPromptSet.mcp.icon}
 										<img src={mcpPromptSet.mcp.icon} alt={mcpPromptSet.mcp.name} class="size-6" />
 									{:else}
-										<MessageSquarePlus class="size-5 text-gray-400 dark:text-gray-600" />
+										<MessageSquarePlus class="text-on-surface1 size-5" />
 									{/if}
 								</div>
 								<div class="flex flex-col">
@@ -218,13 +218,13 @@
 										{prompt.name}
 										{#if variant === 'popover' && prompt.arguments}
 											{#each prompt.arguments as argument (argument.name)}
-												<span class="text-xs text-gray-500">
+												<span class="text-on-surface1 text-xs">
 													[{argument.name}]
 												</span>
 											{/each}
 										{/if}
 									</p>
-									<p class="text-xs font-light text-gray-400 dark:text-gray-600">
+									<p class="text-on-surface1 text-xs font-light">
 										{prompt.description}
 									</p>
 								</div>

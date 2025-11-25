@@ -136,7 +136,7 @@
 		<div
 			{id}
 			class={twMerge(
-				'dark:bg-surface1 text-md flex min-h-10 w-full grow resize-none items-center gap-2 rounded-lg bg-white px-2 py-2 text-left shadow-sm',
+				'dark:bg-surface1 text-md bg-background flex min-h-10 w-full grow resize-none items-center gap-2 rounded-lg px-2 py-2 text-left shadow-sm',
 				disabled && 'pointer-events-none cursor-default opacity-50',
 				multiple && 'flex-wrap',
 				klass
@@ -253,7 +253,7 @@
 		style={`top: ${popoverPlacement?.y ?? 0}px; left: ${popoverPlacement?.x ?? 0}px; width: ${ref?.clientWidth}px`}
 	>
 		{#if availableOptions.length === 0}
-			<div class="px-4 py-2 font-light text-gray-400 dark:text-gray-600">No options available</div>
+			<div class="text-on-surface1 px-4 py-2 font-light">No options available</div>
 		{:else}
 			{#each availableOptions as option, index (option.id)}
 				{@const isSelected = selectedValues.some((d) => d === option.id)}

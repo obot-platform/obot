@@ -24,10 +24,7 @@
 	}: Props = $props();
 </script>
 
-<nav
-	class={twMerge('flex h-16 w-full items-center bg-white px-3 dark:bg-black', klass)}
-	in:fade|global
->
+<nav class={twMerge('bg-background flex h-16 w-full items-center px-3', klass)} in:fade|global>
 	<div class="flex w-full items-center justify-between">
 		{#if leftContent}
 			{@render leftContent()}

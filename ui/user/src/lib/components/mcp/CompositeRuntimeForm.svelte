@@ -145,13 +145,13 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<h4 class="text-md font-semibold">Component Servers</h4>
 
 	<div class="flex flex-col gap-2">
 		{#if loading}
-			<div class="text-sm text-gray-500">Loading component servers...</div>
+			<div class="text-on-surface1 text-sm">Loading component servers...</div>
 		{:else if config.componentServers.length > 0}
 			{#each config.componentServers as entry (getComponentId(entry))}
 				{@const componentId = getComponentId(entry)}
@@ -162,7 +162,7 @@
 						{#if entry.manifest?.icon}
 							<img src={entry.manifest.icon} alt={entry.manifest.name} class="size-8" />
 						{:else}
-							<Server class="size-8 text-gray-400" />
+							<Server class="text-on-surface1 size-8" />
 						{/if}
 						<div class="flex-1">
 							<div class="font-medium">{entry.manifest?.name || 'Unnamed Server'}</div>
@@ -189,8 +189,10 @@
 						<div class="border-t border-gray-200 p-3" in:slide={{ axis: 'y' }}>
 							{#if !populatedByEntry[componentId]}
 								<div class="flex flex-col items-center justify-center pb-2">
-									<p class="text-sm font-light text-gray-500">All tools are enabled by default.</p>
-									<p class="mb-4 text-sm font-light text-gray-500">
+									<p class="text-on-surface1 text-sm font-light">
+										All tools are enabled by default.
+									</p>
+									<p class="text-on-surface1 mb-4 text-sm font-light">
 										Click below to further modify tool availability or details.
 									</p>
 									<button
@@ -219,7 +221,7 @@
 								<div class="flex flex-col gap-2">
 									{#each entry.toolOverrides as tool, index (index)}
 										<div
-											class="dark:bg-surface2 dark:border-surface3 flex gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
+											class="dark:bg-surface2 dark:border-surface3 bg-background flex gap-2 rounded border border-transparent p-2 shadow-sm"
 										>
 											<div class="flex grow flex-col gap-1">
 												<input
@@ -252,7 +254,7 @@
 				</div>
 			{/each}
 		{:else}
-			<div class="text-sm text-gray-500 dark:text-gray-400">
+			<div class="text-on-surface1 text-sm">
 				Select one or more MCP servers to include in the composite server. Users will see this as a
 				single server with aggregated tools and resources.
 			</div>
@@ -266,7 +268,7 @@
 				configuringEntry = undefined;
 				compositeToolsSetupDialog?.open();
 			}}
-			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white p-2 text-sm font-medium hover:bg-gray-50"
+			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 bg-background flex items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-sm font-medium hover:bg-gray-50"
 		>
 			<Plus class="size-4" />
 			Add MCP Server

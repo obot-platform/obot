@@ -474,7 +474,7 @@
 		out:fade|global={{ duration: 300, delay: 500 }}
 	>
 		<div
-			class="bg-surface3/50 border-surface3 flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 text-blue-500 shadow-md backdrop-blur-[1px] dark:text-blue-500"
+			class="bg-surface3/50 border-surface3 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
 		>
 			<Loading class="size-32 stroke-1" />
 			<div class="text-2xl font-semibold">Loading logs...</div>
@@ -485,7 +485,7 @@
 <div class="flex flex-col justify-end gap-2">
 	<div class="flex flex-col gap-4 md:flex-row">
 		<Search
-			class="dark:bg-surface1 dark:border-surface3 border border-transparent bg-white shadow-sm"
+			class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
 			onChange={handleQueryChange}
 			placeholder="Search..."
 			value={query}
@@ -500,7 +500,7 @@
 				/>
 
 				<button
-					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
+					class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
 					onclick={() => {
 						showFilters = true;
 						selectedAuditLog = undefined;
@@ -531,7 +531,7 @@
 		</DotDotDot>
 
 		<button
-			class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent bg-white shadow-sm"
+			class="hover:bg-surface1 dark:bg-surface1 dark:hover:bg-surface3 dark:border-surface3 button bg-background flex w-fit items-center justify-center gap-1 rounded-lg border border-transparent shadow-sm"
 			onclick={() => {
 				goto('/admin/audit-logs/exports');
 			}}
@@ -547,11 +547,11 @@
 {#if auditLogsTotalItems > 0}
 	<!-- Timeline Graph (Placeholder) -->
 	<div
-		class="dark:bg-surface2 dark:border-surface3 rounded-lg border border-transparent bg-white text-black shadow-sm dark:text-white"
+		class="dark:bg-surface2 dark:border-surface3 bg-background text-on-background rounded-lg border border-transparent shadow-sm"
 	>
 		<h3 class="mb-2 px-4 pt-4 text-lg font-medium">Timeline</h3>
 		<div class="px-4">
-			<div class="flex h-40 items-center justify-center rounded-md text-gray-500">
+			<div class="text-on-surface1 flex h-40 items-center justify-center rounded-md">
 				<AuditLogsTimeline
 					data={remoteAuditLogs}
 					start={timeRangeFilters.startTime}
@@ -610,9 +610,9 @@
 	></AuditLogsTable>
 {:else if !showLoadingSpinner}
 	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
-		<Captions class="size-24 text-gray-200 dark:text-gray-900" />
-		<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No audit logs</h4>
-		<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+		<Captions class="text-on-surface1 size-24 opacity-50" />
+		<h4 class="text-on-surface1 text-lg font-semibold">No audit logs</h4>
+		<p class="text-on-surface text-sm font-light">
 			Currently, there are no audit logs for selected range or filters. Try modifying your search
 			criteria or try again later.
 		</p>
@@ -623,7 +623,7 @@
 	bind:this={rightSidebar}
 	use:clickOutside={[handleRightSidebarClose, true]}
 	use:dialogAnimation={{ type: 'drawer' }}
-	class="dark:border-surface1 dark:bg-surface1 fixed! top-0! right-0! bottom-0! left-auto! z-40 h-dvh w-auto max-w-none rounded-none border-0 bg-white shadow-lg outline-none!"
+	class="dark:border-surface1 dark:bg-surface1 bg-background fixed! top-0! right-0! bottom-0! left-auto! z-40 h-dvh w-auto max-w-none rounded-none border-0 shadow-lg outline-none!"
 >
 	{#if selectedAuditLog}
 		<AuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
@@ -682,7 +682,7 @@
 				{@const isClearable = !propsFiltersKeys.has(filterKey)}
 
 				<div
-					class="flex items-center gap-1 rounded-lg border border-blue-500/50 bg-blue-500/10 px-4 py-2 text-blue-600 dark:text-blue-300"
+					class="border-primary/50 bg-primary/10 text-primary flex items-center gap-1 rounded-lg border px-4 py-2"
 					animate:flip={{ duration: 100 }}
 				>
 					<div class="text-xs font-semibold">
@@ -705,7 +705,7 @@
 
 					{#if isClearable}
 						<button
-							class="rounded-full p-1 transition-colors duration-200 hover:bg-blue-500/25"
+							class="hover:bg-primary/25 rounded-full p-1 transition-colors duration-200"
 							onclick={() => {
 								const url = page.url;
 								url.searchParams.set(filterKey, '');
@@ -725,9 +725,9 @@
 <!-- Filter Confirmation Dialog -->
 {#if showFilterConfirmDialog}
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-		<div class="dark:bg-surface2 w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
+		<div class="dark:bg-surface2 bg-background w-full max-w-2xl rounded-lg p-6 shadow-xl">
 			<h3 class="mb-4 text-lg font-semibold">Apply Current Filters to Export?</h3>
-			<p class="mb-4 text-sm text-gray-600 dark:text-gray-400">
+			<p class="text-on-surface1 mb-4 text-sm">
 				You have active filters applied to the audit logs. Would you like to include these filters
 				in the export?
 			</p>
@@ -740,7 +740,7 @@
 				][]}
 				<div class="mb-4 rounded-md bg-gray-50 p-3 dark:bg-gray-800">
 					<h4 class="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">Active Filters:</h4>
-					<div class="space-y-1 text-xs text-gray-600 dark:text-gray-400">
+					<div class="text-on-surface1 space-y-1 text-xs">
 						{#if query}
 							<div class="break-words"><strong>Search:</strong> {query}</div>
 						{/if}

@@ -38,7 +38,7 @@
 
 <div class="border-surface2 dark:border-surface3 relative w-full rounded-lg border-2 p-5 pt-2">
 	<h4
-		class="dark:bg-surface2 absolute top-0 left-3 w-fit -translate-y-3.5 bg-white px-2 text-base font-semibold"
+		class="dark:bg-surface2 bg-background absolute top-0 left-3 w-fit -translate-y-3.5 px-2 text-base font-semibold"
 	>
 		{#if task?.onDemand?.params}
 			Arguments

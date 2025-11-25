@@ -45,7 +45,7 @@
 
 			<Tooltip.Root
 				let:data
-				class="dark:border-surface3 dark:bg-surface2 min-w-32 rounded-lg border border-gray-200 bg-white p-2 shadow-sm"
+				class="dark:border-surface3 dark:bg-surface2 bg-background min-w-32 rounded-lg border border-gray-200 p-2 shadow-sm"
 			>
 				<Tooltip.Header class="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100"
 					>{formatTime(data.date)}</Tooltip.Header

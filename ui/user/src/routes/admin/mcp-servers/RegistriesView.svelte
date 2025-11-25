@@ -114,9 +114,9 @@
 		</div>
 	{:else if mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length === 0}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Server class="dark:text-surface3 size-24 text-gray-200" />
-			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">No created MCP servers</h4>
-			<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+			<Server class="text-surface3 size-24" />
+			<h4 class="text-on-surface1 text-lg font-semibold">No created MCP servers</h4>
+			<p class="text-on-surface1 text-sm font-light">
 				Looks like you don't have any servers created yet. <br />
 				Click the button below to get started.
 			</p>
@@ -169,7 +169,7 @@
 			}}
 			validateSelect={(d) => d.editable}
 			disabledSelectMessage="This entry is managed by Git; changes cannot be made."
-			setRowClasses={(d) => ('needsUpdate' in d && d.needsUpdate ? 'bg-blue-500/10' : '')}
+			setRowClasses={(d) => ('needsUpdate' in d && d.needsUpdate ? 'bg-primary/10' : '')}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'name'}
@@ -186,11 +186,11 @@
 							{#if 'needsUpdate' in d && d.needsUpdate}
 								<span
 									use:tooltip={{
-										classes: ['border-blue-500', 'bg-blue-100', 'dark:bg-blue-500/50'],
+										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
 										text: 'An update requires your attention'
 									}}
 								>
-									<CircleFadingArrowUp class="size-4 text-blue-500" />
+									<CircleFadingArrowUp class="text-primary size-4" />
 								</span>
 							{/if}
 						</p>
@@ -205,7 +205,7 @@
 			{/snippet}
 			{#snippet actions(d)}
 				{@const url = getAuditLogsUrl(d)}
-				<DotDotDot class="icon-button hover:dark:bg-black/50">
+				<DotDotDot class="icon-button hover:dark:bg-background/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}

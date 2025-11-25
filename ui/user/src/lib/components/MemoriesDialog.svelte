@@ -212,15 +212,11 @@
 		{#if loading}
 			<div in:fade class="flex justify-center py-10">
 				<div
-					class="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"
+					class="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent"
 				></div>
 			</div>
 		{:else if memories.length === 0 && !preview}
-			<p
-				in:fade
-				class="text-gray pt-6 pb-3 text-center text-sm dark:text-gray-300"
-				class:text-xs={preview}
-			>
+			<p in:fade class="text-on-surface1 pt-6 pb-3 text-center text-sm" class:text-xs={preview}>
 				No memories stored
 			</p>
 		{:else if !preview}
@@ -258,7 +254,7 @@
 			<div class="flex w-full flex-col gap-4">
 				{#each memories as memory (memory.id)}
 					<div
-						class="text-md dark:bg-surface1 dark:border-surface3 flex items-center justify-between gap-4 rounded-md border border-transparent bg-white p-4 shadow-sm"
+						class="text-md dark:bg-surface1 dark:border-surface3 bg-background flex items-center justify-between gap-4 rounded-md border border-transparent p-4 shadow-sm"
 					>
 						{#if editingMemoryId === memory.id}
 							<div class="flex w-full flex-col gap-4">
@@ -273,7 +269,7 @@
 										}
 									}}
 									bind:this={input}
-									class="default-scrollbar-thin min-h-10 w-full border-none bg-transparent pr-0 ring-0 outline-hidden dark:text-white"
+									class="default-scrollbar-thin text-on-background min-h-10 w-full border-none bg-transparent pr-0 ring-0 outline-hidden"
 								></textarea>
 								<div class="flex justify-end gap-4">
 									<button class="button text-xs" onclick={cancelEdit}> Cancel </button>
@@ -286,9 +282,7 @@
 							</p>
 						{/if}
 						{#if editingMemoryId !== memory.id}
-							<DotDotDot
-								class="p-0 text-gray-400 hover:text-black dark:text-gray-600 dark:hover:text-white"
-							>
+							<DotDotDot class="hover:text-on-background text-on-surface1  p-0">
 								<div class="default-dialog flex min-w-max flex-col p-2">
 									<button class="menu-button" onclick={() => startEdit(memory, true)}>
 										<Pencil class="size-4" /> Edit
@@ -313,7 +307,7 @@
 	{#if editingMemoryId === memory.id && preview === editingPreview}
 		<textarea
 			bind:value={editContent}
-			class="text-input-filled border-surface1 min-h-[80px] w-full resize-none border bg-white"
+			class="text-input-filled border-surface1 bg-background min-h-[80px] w-full resize-none border"
 			rows="3"
 		></textarea>
 	{:else}
@@ -391,7 +385,7 @@
 
 <style lang="postcss">
 	.memory {
-		border-left: 5px solid var(--color-blue);
+		border-left: 5px solid var(--color-primary);
 		background-color: var(--color-white);
 		color: black;
 		font-size: 0.8em;

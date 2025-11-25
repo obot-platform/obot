@@ -4,22 +4,16 @@ export function formatJsonWithHighlighting(json: unknown): string {
 		const formatted = JSON.stringify(json, null, 2);
 
 		// Replace decimal numbers
-		let highlighted = formatted.replace(
-			/: (\d+\.\d+)/g,
-			': <span class="text-blue-600 dark:text-blue-400">$1</span>'
-		);
+		let highlighted = formatted.replace(/: (\d+\.\d+)/g, ': <span class="text-primary">$1</span>');
 
 		// Replace integer numbers
 		highlighted = highlighted.replace(
 			/: (\d+)(?!\d*\.)/g,
-			': <span class="text-blue-600 dark:text-blue-400">$1</span>'
+			': <span class="text-primary">$1</span>'
 		);
 
 		// Replace keys
-		highlighted = highlighted.replace(
-			/"([^"]+)":/g,
-			'<span class="text-blue-600 dark:text-blue-400">"$1"</span>:'
-		);
+		highlighted = highlighted.replace(/"([^"]+)":/g, '<span class="text-primary">"$1"</span>:');
 
 		// Replace string values
 		highlighted = highlighted.replace(
@@ -28,14 +22,14 @@ export function formatJsonWithHighlighting(json: unknown): string {
 		);
 
 		// Replace null
-		highlighted = highlighted.replace(/: (null)/g, ': <span class="text-gray-500">$1</span>');
+		highlighted = highlighted.replace(/: (null)/g, ': <span class="text-on-surface1">$1</span>');
 
 		// Replace brackets and braces
 		highlighted = highlighted.replace(/(".*?")|([{}[\]])/g, (match, stringContent, bracket) => {
 			if (stringContent) {
 				return stringContent;
 			}
-			return `<span class="text-black dark:text-white">${bracket}</span>`;
+			return `<span class="text-on-background">${bracket}</span>`;
 		});
 
 		return highlighted;
@@ -274,19 +268,19 @@ export function formatJsonWithDiffHighlighting(
 			// Replace decimal numbers
 			highlightedLine = highlightedLine.replace(
 				/: (\d+\.\d+)/g,
-				': <span class="text-blue-600 dark:text-blue-400">$1</span>'
+				': <span class="text-primary">$1</span>'
 			);
 
 			// Replace integer numbers
 			highlightedLine = highlightedLine.replace(
 				/: (\d+)(?!\d*\.)/g,
-				': <span class="text-blue-600 dark:text-blue-400">$1</span>'
+				': <span class="text-primary">$1</span>'
 			);
 
 			// Replace keys
 			highlightedLine = highlightedLine.replace(
 				/"([^"]+)":/g,
-				'<span class="text-blue-600 dark:text-blue-400">"$1"</span>:'
+				'<span class="text-primary">"$1"</span>:'
 			);
 
 			// Replace string values
@@ -298,7 +292,7 @@ export function formatJsonWithDiffHighlighting(
 			// Replace null
 			highlightedLine = highlightedLine.replace(
 				/: (null)/g,
-				': <span class="text-gray-500">$1</span>'
+				': <span class="text-on-surface1">$1</span>'
 			);
 
 			// Replace brackets and braces
@@ -308,7 +302,7 @@ export function formatJsonWithDiffHighlighting(
 					if (stringContent) {
 						return stringContent;
 					}
-					return `<span class="text-black dark:text-white">${bracket}</span>`;
+					return `<span class="text-on-background">${bracket}</span>`;
 				}
 			);
 

@@ -143,7 +143,8 @@
 						}}
 						class={twMerge(
 							'w-48 flex-shrink-0 rounded-md border border-transparent px-4 py-2 text-center transition-colors duration-300',
-							selected === tab.view && 'dark:bg-surface1 dark:border-surface3 bg-white shadow-sm',
+							selected === tab.view &&
+								'dark:bg-surface1 dark:border-surface3 bg-background shadow-sm',
 							selected !== tab.view && 'hover:bg-surface3'
 						)}
 					>

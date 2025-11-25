@@ -35,7 +35,7 @@
 		{@render input()}
 	</label>
 {:else}
-	<label class={twMerge('flex items-center gap-1 text-xs text-gray-500', classes?.label)}>
+	<label class={twMerge('text-on-surface1 flex items-center gap-1 text-xs', classes?.label)}>
 		<span>{label}</span>
 		<div class="relative flex h-4.5 w-8.25">
 			{@render input()}
@@ -100,7 +100,7 @@
 		}
 
 		.slider.checked {
-			background-color: var(--color-blue-500);
+			background-color: var(--color-primary);
 		}
 
 		.slider.checked:before {
@@ -110,7 +110,7 @@
 		}
 
 		input:focus + .slider {
-			box-shadow: 0 0 1px var(--color-blue-500);
+			box-shadow: 0 0 1px var(--color-primary);
 		}
 	}
 </style>

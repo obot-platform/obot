@@ -41,7 +41,8 @@ import type {
 	ScheduledAuditLogExportInput,
 	K8sSettings,
 	ServerK8sSettings,
-	MCPCompositeDeletionDependency
+	MCPCompositeDeletionDependency,
+	AppPreferences
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -1086,6 +1087,17 @@ export async function acceptEula() {
 
 export async function listCallFramesForDebugRunById(id: string, opts?: { fetch?: Fetcher }) {
 	const response = (await doGet(`/runs/${id}/debug`, opts)) as DebugRun;
-	console.log(response);
 	return response.frames;
+}
+
+export async function listAppPreferences(opts?: { fetch?: Fetcher }) {
+	const response = (await doGet('/app-preferences', opts)) as AppPreferences;
+	return response;
+}
+
+export async function updateAppPreferences(
+	preferences: AppPreferences,
+	opts?: { fetch?: Fetcher }
+) {
+	return (await doPut('/app-preferences', preferences, opts)) as AppPreferences;
 }

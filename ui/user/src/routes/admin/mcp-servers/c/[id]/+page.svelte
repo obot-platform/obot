@@ -181,8 +181,8 @@
 		{/if}
 
 		{#if showUpgradeNotification}
-			<div class="flex items-center gap-3 rounded-lg border border-blue-500 bg-blue-500/10 p-4">
-				<Info class="size-5 flex-shrink-0 text-blue-400" />
+			<div class="border-primary bg-primary/10 flex items-center gap-3 rounded-lg border p-4">
+				<Info class="text-primary size-5 flex-shrink-0" />
 				<div class="flex-1">
 					<p class="text-sm font-medium">Component updates available</p>
 					<p class="text-muted-foreground mt-1 text-xs">
@@ -225,7 +225,7 @@
 	oncancel={() => (showUpgradeConfirm = false)}
 	loading={upgrading}
 	classes={{
-		confirm: 'bg-blue-500 hover:bg-blue-400 transition-colors duration-200'
+		confirm: 'bg-primary hover:bg-primary/50 transition-colors duration-200'
 	}}
 >
 	{#snippet title()}
@@ -263,7 +263,7 @@
 								{#if diff.newManifest}
 									<button
 										type="button"
-										class="flex items-center gap-1.5 rounded px-3 py-1.5 text-xs text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
+										class="text-primary hover:bg-primary/10 flex items-center gap-1.5 rounded px-3 py-1.5 text-xs"
 										onclick={() => {
 											selectedDiff = {
 												id: diff.id,

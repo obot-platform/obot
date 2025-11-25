@@ -68,7 +68,7 @@
 
 {#if !readOnly}
 	<div
-		class="dark:bg-surface1 dark:border-surface3 flex grow flex-col overflow-visible rounded-lg bg-white p-5 shadow-sm dark:border"
+		class="dark:bg-surface1 dark:border-surface3 bg-background flex grow flex-col overflow-visible rounded-lg p-5 shadow-sm dark:border"
 	>
 		{#if triggerType === 'onDemand' || triggerType === 'schedule'}
 			<div class="border-surface3 mb-4 flex flex-col gap-4 border-b pb-4">

@@ -60,7 +60,7 @@
 		<span
 			class={twMerge(
 				'flex grow items-center gap-1 text-sm',
-				!hasKnowledgeCapability && 'justify-between text-gray-400 dark:text-gray-600'
+				!hasKnowledgeCapability && 'text-on-surface1 justify-between'
 			)}
 		>
 			Knowledge
@@ -77,7 +77,7 @@
 	{/snippet}
 	<div class="flex flex-col gap-2">
 		{#if !hasKnowledgeCapability}
-			<p class="flex items-center gap-1 text-xs font-light text-gray-500">
+			<p class="text-on-surface1 flex items-center gap-1 text-xs font-light">
 				<span> Enable Knowledge in "Built-In Capabilities" to add knowledge to your project. </span>
 			</p>
 		{/if}
@@ -122,7 +122,7 @@
 			<div class="flex flex-col gap-2">
 				{#each project.websiteKnowledge.sites as _, i (i)}
 					<div
-						class="group dark:border-surface3 flex gap-2 rounded-md bg-white p-2 text-xs shadow-sm dark:border dark:bg-black"
+						class="group dark:border-surface3 bg-background flex gap-2 rounded-md p-2 text-xs shadow-sm dark:border"
 					>
 						<div class="flex grow flex-col gap-2">
 							<div>

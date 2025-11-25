@@ -52,7 +52,7 @@
 		type="text"
 		{placeholder}
 		class={twMerge(
-			'bg-surface1 peer w-full rounded-lg px-2.5 py-3 pl-12 ring-2 ring-transparent transition-all duration-200 hover:ring-2 hover:ring-blue-500 focus:w-full focus:ring-2 focus:ring-blue-500 focus:outline-hidden',
+			'bg-surface1 peer hover:ring-primary focus:ring-primary w-full rounded-lg px-2.5 py-3 pl-12 ring-2 ring-transparent transition-all duration-200 hover:ring-2 focus:w-full focus:ring-2 focus:outline-hidden',
 			compact && 'py-2 pl-8',
 			klass
 		)}
@@ -62,7 +62,7 @@
 	/>
 	<button
 		class={twMerge(
-			'text-gray absolute top-1/2 left-4 -translate-y-1/2 peer-focus:text-blue-500',
+			'text-gray peer-focus:text-primary absolute top-1/2 left-4 -translate-y-1/2',
 			compact && 'left-2.5'
 		)}
 		onclick={() => input?.focus()}

@@ -47,12 +47,7 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	<div
-		class={twMerge(
-			'flex items-center gap-2',
-			!hasKnowledgeCapability && 'text-gray-400 dark:text-gray-600'
-		)}
-	>
+	<div class={twMerge('flex items-center gap-2', !hasKnowledgeCapability && 'text-on-surface1')}>
 		<h2 class="text-xl font-semibold">Knowledge Files</h2>
 		{#if !hasKnowledgeCapability}
 			<div use:tooltip={'Capability Required'}>
@@ -65,7 +60,7 @@
 
 	<div class="flex flex-col gap-4">
 		{#if !hasKnowledgeCapability}
-			<p class="flex items-center gap-1 text-sm font-light text-gray-500">
+			<p class="text-on-surface1 flex items-center gap-1 text-sm font-light">
 				<span> Enable Knowledge in "Built-In Capabilities" to add knowledge to your project. </span>
 			</p>
 		{/if}
@@ -73,7 +68,7 @@
 			<div class="flex flex-col gap-2">
 				{#if knowledgeFiles.length > 0}
 					<div
-						class="text-md dark:bg-surface1 dark:border-surface3 gap-4 rounded-md border border-transparent bg-white shadow-sm"
+						class="text-md dark:bg-surface1 dark:border-surface3 bg-background gap-4 rounded-md border border-transparent shadow-sm"
 					>
 						{#each knowledgeFiles as file (file.fileName)}
 							{#key file.fileName}
@@ -115,7 +110,7 @@
 			<div class="flex flex-col gap-2">
 				{#each project.websiteKnowledge.sites as _, i (i)}
 					<div
-						class="group dark:border-surface3 flex gap-2 rounded-md bg-white p-2 text-xs shadow-sm dark:border dark:bg-black"
+						class="group dark:border-surface3 bg-background flex gap-2 rounded-md p-2 text-xs shadow-sm dark:border"
 					>
 						<div class="flex grow flex-col gap-2">
 							<div>

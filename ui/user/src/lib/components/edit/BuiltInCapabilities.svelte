@@ -56,13 +56,13 @@
 							{tool?.name ?? toolReference?.name}
 							{#if tool.builtin}
 								<span
-									class="rounded-full border border-gray-400 px-1.5 py-0.5 text-[9px] text-gray-500 dark:border-gray-600"
+									class="border-on-surface1 text-on-surface1 rounded-full border px-1.5 py-0.5 text-[9px]"
 								>
 									Non-optional
 								</span>
 							{/if}
 						</p>
-						<span class="text-xs text-gray-500"
+						<span class="text-on-surface1 text-xs"
 							>{tool?.description ?? toolReference?.description}</span
 						>
 					</div>

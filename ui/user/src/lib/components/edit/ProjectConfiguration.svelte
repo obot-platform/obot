@@ -97,7 +97,7 @@
 	});
 </script>
 
-<div class="min-h-full w-full flex-col bg-gray-50 dark:bg-black">
+<div class="dark:bg-background bg-surface1 min-h-full w-full flex-col">
 	<div class="mx-auto min-h-full w-full px-4 py-4 md:max-w-[1200px] md:px-8">
 		<div class="mb-4 flex items-center gap-2">
 			<h1 class="text-2xl font-semibold capitalize">Project Configuration</h1>
@@ -193,7 +193,7 @@
 								type="text"
 								id="name"
 								bind:value={modifiedProject.name}
-								class="text-input-filled dark:bg-black"
+								class="text-input-filled dark:bg-background"
 							/>
 						</div>
 						<div class="flex flex-col gap-1">
@@ -202,7 +202,7 @@
 								type="text"
 								id="description"
 								bind:value={modifiedProject.description}
-								class="text-input-filled dark:bg-black"
+								class="text-input-filled dark:bg-background"
 							/>
 						</div>
 					</div>
@@ -214,7 +214,7 @@
 						rows={6}
 						id="prompt"
 						bind:value={modifiedProject.prompt}
-						class="text-input-filled dark:bg-black"
+						class="text-input-filled dark:bg-background"
 						placeholder={HELPER_TEXTS.prompt}
 						use:autoHeight
 					></textarea>
@@ -244,7 +244,7 @@
 		</div>
 	</div>
 	<div
-		class="sticky bottom-0 left-0 flex w-full justify-end gap-4 bg-gray-50 p-4 md:px-8 dark:bg-black"
+		class="dark:bg-background bg-surface1 sticky bottom-0 left-0 flex w-full justify-end gap-4 p-4 md:px-8"
 	>
 		<button disabled={saving} class="button" onclick={() => closeAll(layout)}> Cancel </button>
 		<button disabled={saving} class="button-primary" onclick={handleUpdate}>

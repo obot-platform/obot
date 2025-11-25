@@ -97,7 +97,7 @@
 				<span class="flex items-center gap-2">
 					<img
 						src={credential.icon}
-						class="size-6 rounded-md bg-white p-1"
+						class="bg-background size-6 rounded-md p-1"
 						alt="credential {credential.toolName} icon"
 					/>
 					{credential.toolName}
@@ -132,7 +132,7 @@
 								messageActions: 'hidden',
 								root: 'w-full',
 								container: 'grow',
-								oauth: 'border border-blue-500 bg-blue-500/30 text-inherit',
+								oauth: 'border border-primary bg-primary/30 text-inherit',
 								prompt: 'm-0'
 							}}
 						/>

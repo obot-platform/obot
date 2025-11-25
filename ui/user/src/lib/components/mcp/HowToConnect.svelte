@@ -113,7 +113,7 @@
 					class={twMerge(
 						'dark:hover:bg-surface3 relative flex w-full items-center justify-center gap-1.5 rounded-t-xs border-b-2 border-transparent py-2 text-[13px] font-light transition-all duration-200 hover:bg-gray-50',
 						selected === option.key &&
-							'dark:bg-surface2 bg-white hover:bg-transparent dark:hover:bg-transparent'
+							'dark:bg-surface2 bg-background hover:bg-transparent dark:hover:bg-transparent'
 					)}
 					onclick={() => {
 						handleSelectionChange(option.key);
@@ -129,13 +129,13 @@
 					{#if selected === option.key}
 						<div
 							class={twMerge(
-								'absolute right-0 bottom-0 left-0 h-0.5 origin-left bg-blue-500',
+								'bg-primary absolute right-0 bottom-0 left-0 h-0.5 origin-left',
 								isAnimating && selected === option.key ? 'border-slide-in' : ''
 							)}
 						></div>
 					{:else if isAnimating && previousSelected === option.key}
 						<div
-							class="border-slide-out absolute right-0 bottom-0 left-0 h-0.5 origin-left bg-blue-500"
+							class="border-slide-out bg-primary absolute right-0 bottom-0 left-0 h-0.5 origin-left"
 						></div>
 					{/if}
 				</button>

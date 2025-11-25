@@ -47,7 +47,7 @@
 		{selected ? values[selected] : values[''] || ''}
 		<ChevronDown />
 	</button>
-	<div use:tooltip class="min-w-[150px] rounded-3xl bg-white shadow dark:bg-gray-900">
+	<div use:tooltip class="bg-background min-w-[150px] rounded-3xl shadow dark:bg-gray-900">
 		<ul>
 			{#each Object.keys(values) as key (key)}
 				{@const value = values[key]}

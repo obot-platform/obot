@@ -107,11 +107,9 @@
 		</Table>
 	{:else}
 		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Link2 class="dark:text-surface3 size-24 text-gray-200" />
-			<h4 class="text-lg font-semibold text-gray-400 dark:text-gray-600">
-				No current Git Source URLs.
-			</h4>
-			<p class="text-sm font-light text-gray-400 dark:text-gray-600">
+			<Link2 class="text-surface3 size-24" />
+			<h4 class="text-on-surface1 text-lg font-semibold">No current Git Source URLs.</h4>
+			<p class="text-on-surface1 text-sm font-light">
 				Once a Git Source URL has been added, its <br />
 				information will be quickly accessible here.
 			</p>

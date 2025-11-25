@@ -257,7 +257,7 @@
 	}
 </script>
 
-<div class="dark:bg-surface2 rounded-md bg-white p-6 shadow-sm">
+<div class="dark:bg-surface2 bg-background rounded-md p-6 shadow-sm">
 	<form
 		class="space-y-8"
 		onsubmit={(e) => {
@@ -300,7 +300,7 @@
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
 					/>
-					<p class="text-xs text-gray-500">Unique name for this export schedule</p>
+					<p class="text-on-surface1 text-xs">Unique name for this export schedule</p>
 				</div>
 				<div class="flex flex-col gap-1">
 					<label class="text-sm font-medium" for="bucket">Bucket Name</label>
@@ -312,7 +312,7 @@
 						required={mode !== 'view'}
 						readonly={mode === 'view'}
 					/>
-					<p class="text-xs text-gray-500">Storage bucket name where exports will be saved</p>
+					<p class="text-on-surface1 text-xs">Storage bucket name where exports will be saved</p>
 				</div>
 			</div>
 
@@ -325,7 +325,7 @@
 					placeholder="Leave empty for default: mcp-audit-logs/YYYY/MM/DD/"
 					readonly={mode === 'view'}
 				/>
-				<p class="text-xs text-gray-500">
+				<p class="text-on-surface1 text-xs">
 					Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
 					based on current date.
 				</p>
@@ -536,7 +536,7 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="user_id">User IDs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -551,13 +551,13 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated user IDs</p>
+							<p class="text-on-surface1 text-xs">Comma-separated user IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_id">Server IDs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -569,13 +569,13 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated server IDs</p>
+							<p class="text-on-surface1 text-xs">Comma-separated server IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_server_display_name">Server Names</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -591,13 +591,13 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated server display names</p>
+							<p class="text-on-surface1 text-xs">Comma-separated server display names</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="call_type">Call Types</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -612,13 +612,13 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated call types</p>
+							<p class="text-on-surface1 text-xs">Comma-separated call types</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_name">Client Names</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -633,13 +633,13 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated client names</p>
+							<p class="text-on-surface1 text-xs">Comma-separated client names</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="response_status">Response Status</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -655,13 +655,13 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated HTTP status codes</p>
+							<p class="text-on-surface1 text-xs">Comma-separated HTTP status codes</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="session_id">Session IDs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -676,13 +676,13 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated session IDs</p>
+							<p class="text-on-surface1 text-xs">Comma-separated session IDs</p>
 						</div>
 
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_ip">Client IPs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -697,14 +697,14 @@
 								disabled={isViewMode}
 								multiple
 							/>
-							<p class="text-xs text-gray-500">Comma-separated IP addresses</p>
+							<p class="text-on-surface1 text-xs">Comma-separated IP addresses</p>
 						</div>
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="power_user_workspace_id"
 								>Catalog Entry Names</label
 							>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -721,7 +721,7 @@
 								multiple
 							/>
 
-							<p class="text-xs text-gray-500">Comma-separated catalog entry names</p>
+							<p class="text-on-surface1 text-xs">Comma-separated catalog entry names</p>
 						</div>
 					</div>
 				</div>

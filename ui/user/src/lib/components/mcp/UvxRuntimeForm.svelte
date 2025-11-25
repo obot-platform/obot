@@ -67,10 +67,10 @@
 </script>
 
 <div
-	class="dark:bg-surface1 dark:border-surface3 flex flex-col gap-4 rounded-lg border border-transparent bg-white p-4 shadow-sm"
+	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<h4 class="text-sm font-semibold">UVX Runtime Configuration</h4>
-	<p class="text-xs text-gray-500 dark:text-gray-400">Only STDIO servers are supported.</p>
+	<p class="text-on-surface1 text-xs">Only STDIO servers are supported.</p>
 
 	<!-- Package field (required) -->
 	<div class="flex items-center gap-4">
@@ -79,7 +79,10 @@
 		>
 		<input
 			id="uvx-package"
-			class={twMerge('text-input-filled w-full dark:bg-black', showRequired?.package && 'error')}
+			class={twMerge(
+				'text-input-filled dark:bg-backgroundblack w-full',
+				showRequired?.package && 'error'
+			)}
 			bind:value={config.package}
 			disabled={readonly}
 			placeholder="e.g. @modelcontextprotocol/server-filesystem"
@@ -100,7 +103,7 @@
 		<label for="uvx-command" class="text-sm font-light">Command</label>
 		<input
 			id="uvx-command"
-			class="text-input-filled w-full dark:bg-black"
+			class="text-input-filled dark:bg-background w-full"
 			bind:value={config.command}
 			disabled={readonly}
 			placeholder="e.g. mcp-server-filesystem"
@@ -120,7 +123,7 @@
 				{#each config.args as _arg, i (i)}
 					<div class="flex items-center gap-2">
 						<input
-							class="text-input-filled w-full dark:bg-black"
+							class="text-input-filled dark:bg-background w-full"
 							bind:value={config.args[i]}
 							disabled={readonly}
 							placeholder="e.g. /path/to/directory"

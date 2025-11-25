@@ -317,7 +317,7 @@
 			<div class="flex items-center justify-between">
 				<p class="text-md grow font-medium">Chats</p>
 				<button
-					class="p-2 text-gray-400 transition-colors duration-200 hover:text-black dark:text-gray-600 dark:hover:text-white"
+					class="hover:text-on-background text-on-surface1 p-2 transition-colors duration-200"
 					onclick={createThread}
 					use:tooltip={'Start New Chat'}
 				>
@@ -351,7 +351,7 @@
 									break;
 							}
 						}}
-						class="mx-2 w-0 flex-1 grow border-none bg-transparent ring-0 outline-hidden dark:text-white"
+						class="text-on-background mx-2 w-0 flex-1 grow border-none bg-transparent ring-0 outline-hidden"
 						placeholder="Enter name"
 						type="text"
 					/>
@@ -372,7 +372,7 @@
 						<span class="truncate">{thread.name || 'New Chat'}</span>
 						{#if isThreadPinned(thread.id)}
 							<span transition:fade={{ duration: 100 }}>
-								<Pin class="h-3 w-3 shrink-0 text-blue-500" />
+								<Pin class="text-primary h-3 w-3 shrink-0" />
 							</span>
 						{/if}
 					</button>
