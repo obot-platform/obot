@@ -34,7 +34,6 @@
 		setFilterUrlParams
 	} from '$lib/url';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
-	import { localState } from '$lib/runes/localState.svelte';
 	import { debounce } from 'es-toolkit';
 
 	type View = 'registry' | 'deployments' | 'urls';
@@ -43,12 +42,6 @@
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 
 	const query = $derived(page.url.searchParams.get('query') || '');
-
-	type LocalStorageViewQuery = Record<View, string>;
-	const localStorageViewQuery = localState<LocalStorageViewQuery>(
-		'@obot/admin/mcp-servers/search-query',
-		{ registry: '', deployments: '', urls: '' }
-	);
 
 	initMcpServerAndEntries();
 
@@ -95,11 +88,11 @@
 		}
 	});
 
-	beforeNavigate(({ to }) => {
-		if (browser && !to?.url.pathname.startsWith('/admin/mcp-servers')) {
-			clearQueryFromLocalStorage();
-		}
-	});
+	// beforeNavigate(({ to }) => {
+	// 	if (browser && !to?.url.pathname.startsWith('/admin/mcp-servers')) {
+	// 		clearQueryFromLocalStorage();
+	// 	}
+	// });
 
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
@@ -172,27 +165,27 @@
 	}
 
 	// Helper function to persist query to local storage
-	function persistQueryToLocalStorage(view: View, queryValue: string): void {
-		if (!localStorageViewQuery.current) {
-			// Do nothing if local value has not loaded yet
-			return;
-		}
+	// function persistQueryToLocalStorage(view: View, queryValue: string): void {
+	// 	if (!localStorageViewQuery.current) {
+	// 		// Do nothing if local value has not loaded yet
+	// 		return;
+	// 	}
 
-		localStorageViewQuery.current[view] = queryValue;
-	}
+	// 	localStorageViewQuery.current[view] = queryValue;
+	// }
 
-	function clearQueryFromLocalStorage(view?: View): void {
-		if (!localStorageViewQuery.current) {
-			// Do nothing if local value has not loaded yet
-			return;
-		}
+	// function clearQueryFromLocalStorage(view?: View): void {
+	// 	if (!localStorageViewQuery.current) {
+	// 		// Do nothing if local value has not loaded yet
+	// 		return;
+	// 	}
 
-		if (view) {
-			localStorageViewQuery.current[view] = '';
-		} else {
-			localStorageViewQuery.current = { registry: '', deployments: '', urls: '' };
-		}
-	}
+	// 	if (view) {
+	// 		localStorageViewQuery.current[view] = '';
+	// 	} else {
+	// 		localStorageViewQuery.current = { registry: '', deployments: '', urls: '' };
+	// 	}
+	// }
 
 	// Helper function to navigate with consistent options
 	function navigateWithState(url: URL): void {
@@ -203,11 +196,11 @@
 		clearUrlParams();
 		view = newView;
 
-		const savedQuery = localStorageViewQuery.current?.[newView] || '';
+		// const savedQuery = localStorageViewQuery.current?.[newView] || '';
 
 		const newUrl = new URL(page.url);
 		setUrlParam(newUrl, 'view', newView);
-		setUrlParam(newUrl, 'query', savedQuery || null);
+		// setUrlParam(newUrl, 'query', savedQuery || null);
 
 		navigateWithState(newUrl);
 	}
@@ -225,7 +218,7 @@
 
 		setUrlParam(newUrl, 'query', value || null);
 
-		persistQueryToLocalStorage(view, value);
+		// persistQueryToLocalStorage(view, value);
 		navigateWithState(newUrl);
 	}, 100);
 </script>
@@ -316,7 +309,7 @@
 					bind:catalog={defaultCatalog}
 					readonly={isAdminReadonly}
 					{usersMap}
-					query={localStorageViewQuery.current?.['registry'] || ''}
+					query={query}
 					{urlFilters}
 					onFilter={handleFilter}
 					onClearAllFilters={handleClearAllFilters}
@@ -331,7 +324,7 @@
 				<SourceUrlsView
 					catalog={defaultCatalog}
 					readonly={isAdminReadonly}
-					query={localStorageViewQuery.current?.['urls'] || ''}
+					query={query}
 					{syncing}
 					onSync={sync}
 				/>
@@ -340,7 +333,7 @@
 					catalogId={defaultCatalogId}
 					readonly={isAdminReadonly}
 					{usersMap}
-					query={localStorageViewQuery.current?.['deployments'] || ''}
+					query={query}
 					{urlFilters}
 					onFilter={handleFilter}
 					onClearAllFilters={handleClearAllFilters}
