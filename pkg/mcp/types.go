@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"slices"
@@ -18,7 +19,7 @@ type GlobalTokenStore interface {
 }
 
 type TokenService interface {
-	NewTokenWithClaims(claims jwt.MapClaims) (*jwt.Token, string, error)
+	NewTokenWithClaims(context.Context, jwt.MapClaims) (*jwt.Token, string, error)
 }
 
 type Config struct {

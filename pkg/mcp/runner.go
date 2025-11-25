@@ -47,7 +47,7 @@ func (sm *SessionManager) Run(ctx engine.Context, _ chan<- gtypes.CompletionStat
 
 		now := time.Now().Add(-time.Second)
 		// TODO(thedadams): This needs to be fixed before user information headers can be passed to the MCP server.
-		_, token, err := sm.tokenService.NewTokenWithClaims(jwt.MapClaims{
+		_, token, err := sm.tokenService.NewTokenWithClaims(ctx.Ctx, jwt.MapClaims{
 			"aud": gtypes.FirstSet(serverConfig.Audiences...),
 			"exp": float64(now.Add(time.Hour + 15*time.Minute).Unix()),
 			"iat": float64(now.Unix()),

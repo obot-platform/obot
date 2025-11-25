@@ -286,12 +286,6 @@ func (t *TokenService) DecodeToken(token string) (*TokenContext, error) {
 }
 
 func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (string, error) {
-	if t.privateKey == nil {
-		if err := t.setJWK(ctx); err != nil {
-			return "", err
-		}
-	}
-
 	claims := jwt.MapClaims{
 		"aud":                   context.Audience,
 		"exp":                   float64(context.ExpiresAt.Unix()),
@@ -319,11 +313,17 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (stri
 		"TokenType":             string(context.TokenType),
 	}
 
-	_, s, err := t.NewTokenWithClaims(claims)
+	_, s, err := t.NewTokenWithClaims(ctx, claims)
 	return s, err
 }
 
-func (t *TokenService) NewTokenWithClaims(claims jwt.MapClaims) (*jwt.Token, string, error) {
+func (t *TokenService) NewTokenWithClaims(ctx context.Context, claims jwt.MapClaims) (*jwt.Token, string, error) {
+	if t.privateKey == nil {
+		if err := t.setJWK(ctx); err != nil {
+			return nil, "", err
+		}
+	}
+
 	claims["iss"] = t.serverURL
 	if claims["aud"] == "" {
 		claims["aud"] = t.serverURL
