@@ -1,5 +1,11 @@
 import { dev } from '$app/environment';
-import { AdminService, type AppPreferences } from '$lib/services';
+import {
+	AdminService,
+	ChatService,
+	type AppPreferences,
+	type Profile,
+	type Version
+} from '$lib/services';
 import { compileAppPreferences } from '$lib/stores/appPreferences.svelte';
 import type { LayoutLoad } from './$types';
 
@@ -8,6 +14,15 @@ export const ssr = dev;
 
 export const load: LayoutLoad = async ({ fetch }) => {
 	let appPreferences: AppPreferences | undefined;
+	let profile: Profile | undefined;
+	let version: Version | undefined;
+
+	try {
+		version = await ChatService.getVersion({ fetch });
+	} catch {
+		version = undefined;
+	}
+
 	try {
 		const response = await AdminService.listAppPreferences({ fetch });
 		appPreferences = compileAppPreferences(response);
@@ -16,7 +31,23 @@ export const load: LayoutLoad = async ({ fetch }) => {
 		appPreferences = compileAppPreferences();
 	}
 
+	try {
+		profile = await ChatService.getProfile({ fetch });
+	} catch {
+		profile = {
+			id: '',
+			email: '',
+			iconURL: '',
+			role: 0,
+			groups: [],
+			unauthorized: true,
+			username: ''
+		};
+	}
+
 	return {
-		appPreferences
+		appPreferences,
+		profile,
+		version
 	};
 };
