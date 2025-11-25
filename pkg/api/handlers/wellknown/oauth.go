@@ -47,7 +47,7 @@ func (h *handler) registryOAuthProtectedResource(req api.Context) error {
 	if h.registryNoAuth {
 		return &types.ErrHTTP{
 			Code:    http.StatusNotFound,
-			Message: "Registry OAuth is not available in no-auth mode",
+			Message: "Registry OAuth is not available when registry authentication is disabled",
 		}
 	}
 
