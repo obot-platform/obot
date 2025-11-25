@@ -135,6 +135,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthClient":                                    schema_obot_platform_obot_apiclient_types_OAuthClient(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClientManifest":                            schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                     schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
+		"github.com/obot-platform/obot/apiclient/types.Official":                                       schema_obot_platform_obot_apiclient_types_Official(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                        schema_obot_platform_obot_apiclient_types_OnEmail(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnWebhook":                                      schema_obot_platform_obot_apiclient_types_OnWebhook(ref),
 		"github.com/obot-platform/obot/apiclient/types.OneDriveConfig":                                 schema_obot_platform_obot_apiclient_types_OneDriveConfig(ref),
@@ -6643,6 +6644,30 @@ func schema_obot_platform_obot_apiclient_types_OAuthToken(ref common.ReferenceCa
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_Official(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_OnEmail(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -7959,11 +7984,17 @@ func schema_obot_platform_obot_apiclient_types_RegistryMeta(ref common.Reference
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RegistryObotMeta"),
 						},
 					},
+					"io.modelcontextprotocol.registry/official": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Official"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.RegistryObotMeta"},
+			"github.com/obot-platform/obot/apiclient/types.Official", "github.com/obot-platform/obot/apiclient/types.RegistryObotMeta"},
 	}
 }
 
@@ -8863,6 +8894,12 @@ func schema_obot_platform_obot_apiclient_types_ServerDetail(ref common.Reference
 					"repository": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RegistryRepository"),
+						},
+					},
+					"$schema": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
