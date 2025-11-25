@@ -1047,9 +1047,8 @@ func TestValidateToolOverrides(t *testing.T) {
 			name: "valid overrides",
 			overrides: []types.ToolOverride{
 				{
-					Name:         "tool-1",
-					OverrideName: "tool-1",
-					Enabled:      true,
+					Name:    "tool-1",
+					Enabled: true,
 				},
 				{
 					Name:         "tool-2",
@@ -1075,18 +1074,22 @@ func TestValidateToolOverrides(t *testing.T) {
 			},
 		},
 		{
-			name: "missing override name",
+			name: "duplicate effective name when override uses original name",
 			overrides: []types.ToolOverride{
 				{
-					Name:         "tool-1",
-					OverrideName: "",
+					Name:    "tool-1",
+					Enabled: true,
+				},
+				{
+					Name:         "tool-2",
+					OverrideName: "tool-1",
 					Enabled:      true,
 				},
 			},
 			expectedError: types.RuntimeValidationError{
 				Runtime: types.RuntimeComposite,
 				Field:   "toolOverrides[0].overrideName",
-				Message: "override tool name is required",
+				Message: "duplicate override name: tool-1",
 			},
 		},
 		{
