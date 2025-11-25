@@ -396,7 +396,7 @@
 			{#snippet actions(d)}
 				{@const isComposite = !!d.compositeName}
 				{@const auditLogsUrl = getAuditLogsUrl(d)}
-				<DotDotDot class="icon-button hover:dark:bg-black/50">
+				<DotDotDot class="icon-button hover:dark:bg-background/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}

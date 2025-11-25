@@ -834,7 +834,7 @@
 				{#if filteredEntriesData.length > pageSize}
 					<div
 						class={twMerge(
-							'bg-surface1 sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 items-center justify-center gap-4 p-2 md:w-[calc(100%+4em)] md:-translate-x-8 dark:bg-black',
+							'bg-surface1 dark:bg-background sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 items-center justify-center gap-4 p-2 md:w-[calc(100%+4em)] md:-translate-x-8',
 							classes?.pageSelectorContainer
 						)}
 					>

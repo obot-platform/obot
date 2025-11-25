@@ -643,7 +643,7 @@
 				type="text"
 				id="name"
 				bind:value={formData.name}
-				class={twMerge('text-input-filled dark:bg-black', showRequired.name && 'error')}
+				class={twMerge('text-input-filled dark:bg-background', showRequired.name && 'error')}
 				disabled={readonly}
 				oninput={() => {
 					updateRequired('name');
@@ -669,7 +669,7 @@
 				type="text"
 				id="icon"
 				bind:value={formData.icon}
-				class="text-input-filled dark:bg-black"
+				class="text-input-filled dark:bg-background"
 				disabled={readonly}
 			/>
 		</div>
@@ -939,7 +939,7 @@
 
 {#if !readonly}
 	<div
-		class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 items-center justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
+		class="bg-surface1 dark:bg-background sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 items-center justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 	>
 		{#if Object.keys(showRequired).length > 0}
 			<span class="text-sm font-medium text-red-500">Fill out all required fields</span>

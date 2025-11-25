@@ -202,7 +202,7 @@
 			</div>
 		</div>
 
-		<div class="bg-surface1 sticky top-16 left-0 z-20 w-full pb-1 dark:bg-black">
+		<div class="bg-surface1 dark:bg-background sticky top-16 left-0 z-20 w-full pb-1">
 			<div class="mb-2">
 				<Search
 					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"

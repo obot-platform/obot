@@ -43,7 +43,7 @@
 
 <ResponsiveDialog
 	bind:this={modelsDialog}
-	class="max-w-4xl bg-gray-50 p-0 pb-4 dark:bg-black"
+	class="bg-surface1 dark:bg-background max-w-4xl p-0 pb-4"
 	classes={{ header: 'p-4 pb-0' }}
 >
 	{#snippet titleContent()}

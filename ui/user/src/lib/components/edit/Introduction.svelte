@@ -24,7 +24,7 @@
 			<label for="project-introduction" class="font-medium">Introduction</label>
 			<textarea
 				id="project-introduction"
-				class="dark:border-surface3 bg-background grow resize-none rounded-lg p-2 shadow-sm dark:border dark:bg-black"
+				class="dark:border-surface3 bg-background grow resize-none rounded-lg p-2 shadow-sm dark:border"
 				rows="5"
 				placeholder="This will be your project's go-to message."
 				use:autoHeight
@@ -46,7 +46,7 @@
 					<div class="flex gap-2">
 						<textarea
 							id="project-instructions"
-							class="dark:border-surface3 border-surface1 bg-background grow resize-none rounded-lg border p-2 shadow-sm dark:bg-black"
+							class="dark:border-surface3 border-surface1 bg-background grow resize-none rounded-lg border p-2 shadow-sm"
 							rows="1"
 							use:autoHeight
 							bind:value={project.starterMessages[i]}

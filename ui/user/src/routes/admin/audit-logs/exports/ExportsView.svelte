@@ -197,7 +197,7 @@
 										'max-w-80',
 										'break-words',
 										'whitespace-pre-wrap',
-										'bg-white',
+										'bg-background',
 										'text-gray-900',
 										'border',
 										'shadow-lg'

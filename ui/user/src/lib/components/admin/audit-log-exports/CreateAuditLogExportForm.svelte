@@ -346,7 +346,7 @@
 							<label class="text-sm font-medium" for="user_id">User IDs</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -375,7 +375,7 @@
 							<label class="text-sm font-medium" for="mcp_id">Server IDs</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -400,7 +400,7 @@
 							<label class="text-sm font-medium" for="mcp_server_display_name">Server Names</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -429,7 +429,7 @@
 							<label class="text-sm font-medium" for="call_type">Call Types</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -454,7 +454,7 @@
 							<label class="text-sm font-medium" for="client_name">Client Names</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -479,7 +479,7 @@
 							<label class="text-sm font-medium" for="response_status">Response Status</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -506,7 +506,7 @@
 							<label class="text-sm font-medium" for="session_id">Session IDs</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -531,7 +531,7 @@
 							<label class="text-sm font-medium" for="client_ip">Client IPs</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -555,7 +555,7 @@
 							<label class="text-sm font-medium" for="call_identifier">Call Identifier</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -581,7 +581,7 @@
 							<label class="text-sm font-medium" for="client_version">Client Versions</label>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{
@@ -609,7 +609,7 @@
 							>
 							<Select
 								class={twMerge(
-									'dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black',
+									'dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner',
 									isViewMode && '[color:currentColor] disabled:opacity-100'
 								)}
 								classes={{

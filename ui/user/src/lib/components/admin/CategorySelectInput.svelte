@@ -35,7 +35,7 @@
 
 <div class="category-select-input flex w-full items-center gap-2">
 	<Select
-		class="dark:border-surface3 bg-surface1 text-input-filled border border-transparent shadow-inner dark:bg-black"
+		class="dark:border-surface3 bg-surface1 text-input-filled dark:bg-background border border-transparent shadow-inner"
 		classes={{
 			root: 'w-full',
 			clear: 'hover:bg-surface3 bg-transparent'

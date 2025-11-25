@@ -3,7 +3,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { LoaderCircle, Pencil } from 'lucide-svelte';
 	import { fade } from 'svelte/transition';
-	import { profile } from '$lib/stores/index.js';
+	import { darkMode, profile } from '$lib/stores/index.js';
 	import { AdminService, type AppPreferences } from '$lib/services';
 	import appPreferences, { compileAppPreferences } from '$lib/stores/appPreferences.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
@@ -247,12 +247,24 @@
 				{@render iconFields('standard')}
 			</div>
 			<div class="flex flex-col gap-1">
-				<div class="paper p-0">
+				<div
+					class={twMerge(
+						'paper p-0',
+						!darkMode.isDark &&
+							selectedIconTab === 'dark' &&
+							'bg-[var(--theme-background-dark)] text-[var(--theme-on-background-dark)]',
+						darkMode.isDark &&
+							selectedIconTab === 'light' &&
+							'bg-[var(--theme-background-light)] text-[var(--theme-on-background-light)]'
+					)}
+				>
 					<div class="flex">
 						<button
 							class={twMerge(
 								'page-tab max-w-full flex-1',
-								selectedIconTab === 'light' && 'page-tab-active'
+								selectedIconTab === 'light' &&
+									'page-tab-active hover:bg-[var(--theme-surface1-light)]',
+								selectedIconTab === 'dark' && 'hover:bg-[var(--theme-surface2-dark)]'
 							)}
 							onclick={() => (selectedIconTab = 'light')}
 						>
@@ -261,7 +273,10 @@
 						<button
 							class={twMerge(
 								'page-tab max-w-full flex-1',
-								selectedIconTab === 'dark' && 'page-tab-active'
+								selectedIconTab === 'dark' &&
+									'page-tab-active hover:bg-[var(--theme-surface2-dark)]',
+								selectedIconTab === 'light' &&
+									'bg-[var(--theme-background-light)] hover:bg-[var(--theme-surface1-light)]'
 							)}
 							onclick={() => (selectedIconTab = 'dark')}
 						>
@@ -280,7 +295,7 @@
 
 			{#if !isAdminReadonly}
 				<div
-					class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
+					class="bg-surface1 dark:bg-background sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 				>
 					{#if showSaved}
 						<span

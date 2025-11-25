@@ -429,7 +429,7 @@
 				{@const shouldShowOutline = isRunning || (isTaskRunning && !messages.length && index === 0)}
 
 				<div
-					class="transition-height bg-background relative my-3 -ml-4 box-content flex min-h-6 flex-col gap-4 overflow-hidden rounded-lg p-5 dark:bg-black"
+					class="transition-height bg-background relative my-3 -ml-4 box-content flex min-h-6 flex-col gap-4 overflow-hidden rounded-lg p-5"
 					class:outline-2={shouldShowOutline}
 					class:outline-primary={shouldShowOutline}
 					transition:slide={{

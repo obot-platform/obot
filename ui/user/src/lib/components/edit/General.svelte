@@ -30,7 +30,7 @@
 				disabled={!project.editor}
 				type="text"
 				placeholder="Name"
-				class="dark:border-surface3 bg-background grow rounded-lg p-2 shadow-sm dark:border dark:bg-black"
+				class="dark:border-surface3 bg-background grow rounded-lg p-2 shadow-sm dark:border"
 				bind:value={project.name}
 			/>
 		</div>
@@ -40,7 +40,7 @@
 			</label>
 			<textarea
 				id="project-desc"
-				class="bg-surface dark:border-surface3 grow resize-none rounded-lg p-2 shadow-sm dark:border dark:bg-black"
+				class="dark:border-surface3 bg-background grow resize-none rounded-lg p-2 shadow-sm dark:border"
 				disabled={!project.editor}
 				rows="1"
 				placeholder="Description"

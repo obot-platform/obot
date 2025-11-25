@@ -106,7 +106,7 @@
 	</div>
 
 	<Select
-		class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+		class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 		classes={{
 			root: 'w-full',
 			clear: 'hover:bg-surface3 bg-transparent'

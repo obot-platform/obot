@@ -54,7 +54,7 @@
 		<input
 			id="basic-url"
 			class={twMerge(
-				'text-input-filled flex grow dark:bg-black',
+				'text-input-filled dark:bg-background flex grow',
 				showRequired?.fixedURL && 'error'
 			)}
 			bind:value={remoteConfig.fixedURL}
@@ -73,7 +73,7 @@
 					>Restrict connections to:</label
 				>
 				<Select
-					class="bg-surface1 dark:border-surface3 border border-transparent shadow-inner dark:bg-black"
+					class="bg-surface1 dark:border-surface3 dark:bg-background border border-transparent shadow-inner"
 					classes={{
 						root: 'flex grow'
 					}}
@@ -114,7 +114,7 @@
 					>
 					<input
 						class={twMerge(
-							'text-input-filled flex grow dark:bg-black',
+							'text-input-filled dark:bg-background flex grow',
 							showRequired?.fixedURL && 'error'
 						)}
 						bind:value={remoteConfig.fixedURL}
@@ -135,7 +135,7 @@
 					>
 					<input
 						class={twMerge(
-							'text-input-filled flex grow dark:bg-black',
+							'text-input-filled dark:bg-background flex grow',
 							showRequired?.hostname && 'error'
 						)}
 						bind:value={remoteConfig.hostname}
@@ -157,7 +157,7 @@
 						>
 						<input
 							class={twMerge(
-								'text-input-filled flex grow dark:bg-black',
+								'text-input-filled dark:bg-background flex grow',
 								showRequired?.urlTemplate && 'error'
 							)}
 							bind:value={remoteConfig.urlTemplate}

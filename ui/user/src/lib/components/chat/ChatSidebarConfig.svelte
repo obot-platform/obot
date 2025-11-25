@@ -23,7 +23,7 @@
 </script>
 
 <div
-	class="default-scrollbar-thin relative flex w-full justify-center overflow-y-auto bg-gray-50 dark:bg-black"
+	class="default-scrollbar-thin bg-surface1 dark:bg-background relative flex w-full justify-center overflow-y-auto"
 	in:fade
 >
 	{#if layout.sidebarConfig === 'project-configuration'}

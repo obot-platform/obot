@@ -222,7 +222,7 @@
 							{#if showLoadOlderButton}
 								<div class="mb-4 flex justify-center">
 									<button
-										class="border-surface3 hover:bg-surface2 bg-background rounded-full border px-4 py-2 text-sm font-light transition-all duration-300 dark:bg-black"
+										class="border-surface3 hover:bg-surface2 bg-background rounded-full border px-4 py-2 text-sm font-light transition-all duration-300"
 										onclick={loadOlderMessages}
 										disabled={loadingOlderMessages}
 									>

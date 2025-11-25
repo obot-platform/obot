@@ -79,7 +79,10 @@
 		>
 		<input
 			id="npx-package"
-			class={twMerge('text-input-filled w-full dark:bg-black', showRequired?.package && 'error')}
+			class={twMerge(
+				'text-input-filled dark:bg-background w-full',
+				showRequired?.package && 'error'
+			)}
 			bind:value={config.package}
 			disabled={readonly}
 			placeholder="e.g. @modelcontextprotocol/server-filesystem"
@@ -103,7 +106,7 @@
 				{#each config.args as _arg, i (i)}
 					<div class="flex items-center gap-2">
 						<input
-							class="text-input-filled w-full dark:bg-black"
+							class="text-input-filled dark:bg-background w-full"
 							bind:value={config.args[i]}
 							disabled={readonly}
 							onblur={() => {

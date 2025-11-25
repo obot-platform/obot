@@ -85,7 +85,7 @@ export function tutorial(opts: TutorialOptions) {
 		clone.style.top = `${rect.top}px`;
 		clone.style.width = `${rect.width}px`;
 		clone.style.height = `${rect.height}px`;
-		clone.classList.add('bg-white', 'dark:bg-black', 'px-2', 'rounded-md');
+		clone.classList.add('bg-background', 'px-2', 'rounded-md');
 
 		backdrop.appendChild(clone);
 

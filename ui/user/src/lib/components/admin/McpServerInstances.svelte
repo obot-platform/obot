@@ -279,7 +279,7 @@
 						{/if}
 
 						{#if d.needsUpdate}
-							<DotDotDot class="icon-button hover:dark:bg-black/50">
+							<DotDotDot class="icon-button hover:dark:bg-background/50">
 								{#snippet icon()}
 									<Ellipsis class="size-4" />
 								{/snippet}
@@ -351,7 +351,7 @@
 				{@const numSelected = Object.keys(selected).length}
 				{@const updatingInProgress = Object.values(updating).some((u) => u.inProgress)}
 				<div
-					class="bg-surface1 sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
+					class="bg-surface1 dark:bg-background sticky bottom-0 left-0 mt-auto flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 				>
 					<div class="flex w-full items-center justify-between">
 						<p class="text-sm font-medium">

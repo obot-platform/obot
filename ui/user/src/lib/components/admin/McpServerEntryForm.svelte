@@ -507,7 +507,7 @@
 						<button
 							disabled={!showLeftChevron}
 							onclick={scrollLeft}
-							class="bg-surface1 sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30 dark:bg-black"
+							class="bg-surface1 dark:bg-background sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
 						>
 							<ChevronLeft class="size-full" />
 						</button>
@@ -535,7 +535,7 @@
 						<button
 							disabled={!showRightChevron}
 							onclick={scrollRight}
-							class="bg-surface1 sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30 dark:bg-black"
+							class="bg-surface1 dark:bg-background sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
 						>
 							<ChevronRight class="size-full" />
 						</button>

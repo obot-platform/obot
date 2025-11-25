@@ -99,7 +99,7 @@
 		>
 		<input
 			id="containerized-image"
-			class={twMerge('text-input-filled w-full dark:bg-black', showRequired?.image && 'error')}
+			class={twMerge('text-input-filled dark:bg-background w-full', showRequired?.image && 'error')}
 			bind:value={config.image}
 			disabled={readonly}
 			placeholder="e.g. docker.io/myorg/mcp-server:latest"
@@ -124,7 +124,7 @@
 		<input
 			id="containerized-port"
 			type="number"
-			class={twMerge('text-input-filled w-full dark:bg-black', showRequired?.port && 'error')}
+			class={twMerge('text-input-filled dark:bg-background w-full', showRequired?.port && 'error')}
 			value={config.port > 0 ? config.port : ''}
 			disabled={readonly}
 			placeholder="e.g. 8080"
@@ -146,7 +146,7 @@
 		>
 		<input
 			id="containerized-path"
-			class={twMerge('text-input-filled w-full dark:bg-black', showRequired?.path && 'error')}
+			class={twMerge('text-input-filled dark:bg-background w-full', showRequired?.path && 'error')}
 			bind:value={config.path}
 			disabled={readonly}
 			placeholder="e.g. /mcp"
@@ -167,7 +167,7 @@
 		<label for="containerized-command" class="w-20 text-sm font-light">Command</label>
 		<input
 			id="containerized-command"
-			class="text-input-filled w-full dark:bg-black"
+			class="text-input-filled dark:bg-background w-full"
 			bind:value={config.command}
 			disabled={readonly}
 			placeholder="e.g. node server.js"
@@ -187,7 +187,7 @@
 				{#each config.args as _arg, i (i)}
 					<div class="flex items-center gap-2">
 						<input
-							class="text-input-filled w-full dark:bg-black"
+							class="text-input-filled dark:bg-background w-full"
 							bind:value={config.args[i]}
 							disabled={readonly}
 							placeholder="e.g. --config /app/config.json"

@@ -536,7 +536,7 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="user_id">User IDs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -557,7 +557,7 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_id">Server IDs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -575,7 +575,7 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="mcp_server_display_name">Server Names</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -597,7 +597,7 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="call_type">Call Types</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -618,7 +618,7 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_name">Client Names</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -639,7 +639,7 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="response_status">Response Status</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -661,7 +661,7 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="session_id">Session IDs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -682,7 +682,7 @@
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for="client_ip">Client IPs</label>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'
@@ -704,7 +704,7 @@
 								>Catalog Entry Names</label
 							>
 							<Select
-								class="dark:border-surface3 bg-surface1 border border-transparent shadow-inner dark:bg-black"
+								class="dark:border-surface3 bg-surface1 dark:bg-background border border-transparent shadow-inner"
 								classes={{
 									root: 'w-full',
 									clear: 'hover:bg-surface3 bg-transparent'

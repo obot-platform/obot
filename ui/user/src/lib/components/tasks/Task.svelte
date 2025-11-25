@@ -436,7 +436,7 @@
 			{/if}
 			<div class="flex w-full justify-center">
 				<div
-					class="flex w-full flex-col gap-4 rounded-xl bg-gray-50 p-4 shadow-inner md:max-w-[1200px] dark:bg-black"
+					class="bg-surface1 dark:bg-background flex w-full flex-col gap-4 rounded-xl p-4 shadow-inner md:max-w-[1200px]"
 				>
 					<div class="flex flex-col gap-4">
 						<TaskOptions bind:task {readOnly} />
@@ -463,7 +463,7 @@
 			<div class="grow"></div>
 
 			<div
-				class="bg-background sticky bottom-0 z-50 flex items-center justify-center px-6 opacity-0 transition-opacity dark:bg-black"
+				class="bg-background sticky bottom-0 z-50 flex items-center justify-center px-6 opacity-0 transition-opacity"
 				class:chat-overlay={showChat}
 			>
 				{#if allMessages.messages.length > 0 && showChat}

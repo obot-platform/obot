@@ -297,7 +297,7 @@
 			isOpen = false;
 		}
 	}}
-	class={isCompositeForm(form) ? 'bg-surface1 dark:bg-black' : ''}
+	class={isCompositeForm(form) ? 'bg-surface1 dark:bg-background' : ''}
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">

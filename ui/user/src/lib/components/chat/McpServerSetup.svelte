@@ -159,7 +159,7 @@
 <dialog
 	bind:this={catalogDialog}
 	use:clickOutside={() => closeCatalogDialog()}
-	class="default-dialog max-w-(calc(100svw - 2em)) h-full w-(--breakpoint-2xl) bg-gray-50 p-0 dark:bg-black"
+	class="default-dialog max-w-(calc(100svw - 2em)) bg-surface1 dark:bg-background h-full w-(--breakpoint-2xl) p-0"
 	class:mobile-screen-dialog={responsive.isMobile}
 >
 	<div class="default-scrollbar-thin relative mx-auto h-full min-h-0 w-full overflow-y-auto">

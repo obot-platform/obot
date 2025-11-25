@@ -269,7 +269,7 @@
 								type="text"
 								id="cpu-request"
 								bind:value={resourceInfo.requests.cpu}
-								class="text-input-filled dark:bg-black"
+								class="text-input-filled dark:bg-background"
 								disabled={readonly}
 								placeholder="example: 500m"
 							/>
@@ -280,7 +280,7 @@
 								type="text"
 								id="cpu-limit"
 								bind:value={resourceInfo.limits.cpu}
-								class="text-input-filled dark:bg-black"
+								class="text-input-filled dark:bg-background"
 								disabled={readonly}
 								placeholder="example: 1"
 							/>
@@ -294,7 +294,7 @@
 								type="text"
 								id="memory-request"
 								bind:value={resourceInfo.requests.memory}
-								class="text-input-filled dark:bg-black"
+								class="text-input-filled dark:bg-background"
 								disabled={readonly}
 								placeholder="example: 512Mi"
 							/>
@@ -305,7 +305,7 @@
 								type="text"
 								id="memory-limit"
 								bind:value={resourceInfo.limits.memory}
-								class="text-input-filled dark:bg-black"
+								class="text-input-filled dark:bg-background"
 								disabled={readonly}
 								placeholder="example: 1Gi"
 							/>
@@ -315,7 +315,7 @@
 
 				{#if !readonly}
 					<div
-						class="bg-surface1 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8 dark:bg-black"
+						class="bg-surface1 dark:bg-background sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
 					>
 						{#if showSaved}
 							<span

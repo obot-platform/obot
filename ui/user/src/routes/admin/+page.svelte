@@ -42,7 +42,7 @@
 
 <div class="flex min-h-dvh flex-col items-center">
 	<main
-		class="bg-surface1 default-scrollbar-thin relative flex h-svh w-full grow flex-col overflow-y-auto dark:bg-black"
+		class="bg-surface1 default-scrollbar-thin dark:bg-background relative flex h-svh w-full grow flex-col overflow-y-auto"
 	>
 		<Navbar class="dark:bg-gray-990 sticky top-0 left-0 z-30 w-full" unauthorized />
 		<div class="flex min-h-1 w-full grow items-center justify-center">

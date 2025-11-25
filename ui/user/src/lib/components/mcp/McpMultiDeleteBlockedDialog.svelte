@@ -81,7 +81,7 @@
 			<ul class="space-y-2 text-sm">
 				{#each groupedLinks as dep (dep.catalogEntryID)}
 					<li
-						class="dark:bg-surface2 dark:border-surface3 flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-white p-3 shadow-sm"
+						class="dark:bg-surface2 dark:border-surface3 bg-background flex items-center justify-between gap-3 rounded-md border border-gray-200 p-3 shadow-sm"
 					>
 						<div class="flex min-w-0 items-center gap-3">
 							{#if dep.icon}
