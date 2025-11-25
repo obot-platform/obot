@@ -14,7 +14,7 @@
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { beforeNavigate, goto } from '$app/navigation';
+	import { goto } from '$app/navigation';
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import BackLink from '$lib/components/BackLink.svelte';
@@ -193,7 +193,7 @@
 	}
 
 	async function switchView(newView: View) {
-		clearUrlParams();
+		clearUrlParams(Array.from(page.url.searchParams.keys()).filter((key) => key !== 'query'));
 		view = newView;
 
 		// const savedQuery = localStorageViewQuery.current?.[newView] || '';
@@ -309,7 +309,7 @@
 					bind:catalog={defaultCatalog}
 					readonly={isAdminReadonly}
 					{usersMap}
-					query={query}
+					{query}
 					{urlFilters}
 					onFilter={handleFilter}
 					onClearAllFilters={handleClearAllFilters}
@@ -324,7 +324,7 @@
 				<SourceUrlsView
 					catalog={defaultCatalog}
 					readonly={isAdminReadonly}
-					query={query}
+					{query}
 					{syncing}
 					onSync={sync}
 				/>
@@ -333,7 +333,7 @@
 					catalogId={defaultCatalogId}
 					readonly={isAdminReadonly}
 					{usersMap}
-					query={query}
+					{query}
 					{urlFilters}
 					onFilter={handleFilter}
 					onClearAllFilters={handleClearAllFilters}
