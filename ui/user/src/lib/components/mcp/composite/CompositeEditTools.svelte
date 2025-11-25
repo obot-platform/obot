@@ -22,7 +22,8 @@
 		tools.filter(
 			(tool) =>
 				tool.overrideName.toLowerCase().includes(search.toLowerCase()) ||
-				tool.overrideDescription?.toLowerCase().includes(search.toLowerCase())
+				tool.overrideDescription?.toLowerCase().includes(search.toLowerCase()) ||
+				tool.description?.toLowerCase().includes(search.toLowerCase())
 		)
 	);
 
@@ -72,9 +73,9 @@
 		/>
 		{#each visibleTools as tool (tool.id)}
 			<div
-				class="dark:bg-surface2 dark:border-surface3 bg-background flex gap-2 rounded border border-transparent p-2 shadow-sm"
+				class="dark:bg-surface2 dark:border-surface3 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
 			>
-				<div class="flex grow flex-col gap-1">
+				<div class="flex min-w-0 grow flex-col gap-1">
 					<input
 						class="text-input-filled flex-1 text-sm"
 						bind:value={tool.overrideName}
@@ -84,19 +85,21 @@
 					<textarea
 						class="text-input-filled mt-1 resize-none text-xs"
 						bind:value={tool.overrideDescription}
-						placeholder="Enter tool description..."
+						placeholder={tool.description || 'Enter tool description...'}
 						rows="2"
 					></textarea>
 				</div>
 
-				<Toggle
-					checked={tool.enabled}
-					onChange={(checked) => {
-						tool.enabled = checked;
-					}}
-					label="Enable/Disable Tool"
-					disablePortal
-				/>
+				<div class="flex shrink-0 items-start">
+					<Toggle
+						checked={tool.enabled}
+						onChange={(checked) => {
+							tool.enabled = checked;
+						}}
+						label="Enable/Disable Tool"
+						disablePortal
+					/>
+				</div>
 			</div>
 		{/each}
 	</div>
