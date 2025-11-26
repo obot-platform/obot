@@ -42,11 +42,17 @@ type kubernetesBackend struct {
 	remoteShimBaseImage  string
 	mcpNamespace         string
 	mcpClusterDomain     string
+	serviceFQDN          string
 	imagePullSecrets     []string
 	obotClient           kclient.Client
 }
 
-func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, baseImage, httpWebhookBaseImage, remoteShimBaseImage, mcpNamespace, mcpClusterDomain string, imagePullSecrets []string, obotClient kclient.Client) backend {
+func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, baseImage, httpWebhookBaseImage, remoteShimBaseImage, mcpNamespace, mcpClusterDomain, serviceName, serviceNamespace string, imagePullSecrets []string, obotClient kclient.Client) backend {
+	var serviceFQDN string
+	if serviceName != "" && serviceNamespace != "" {
+		serviceFQDN = fmt.Sprintf("%s.%s.svc.%s", serviceName, serviceNamespace, mcpClusterDomain)
+	}
+
 	return &kubernetesBackend{
 		clientset:            clientset,
 		client:               client,
@@ -55,6 +61,7 @@ func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWa
 		remoteShimBaseImage:  remoteShimBaseImage,
 		mcpNamespace:         mcpNamespace,
 		mcpClusterDomain:     mcpClusterDomain,
+		serviceFQDN:          serviceFQDN,
 		imagePullSecrets:     imagePullSecrets,
 		obotClient:           obotClient,
 	}
@@ -79,6 +86,17 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 }
 
 func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
+	// Transform token exchange endpoint to use internal service FQDN
+	if k.serviceFQDN != "" && server.TokenExchangeEndpoint != "" {
+		server.TokenExchangeEndpoint = k.replaceHostWithServiceFQDN(server.TokenExchangeEndpoint)
+	}
+
+	// Transform component URLs to use internal service FQDN
+	for i, component := range server.Components {
+		component.URL = k.replaceHostWithServiceFQDN(component.URL)
+		server.Components[i] = component
+	}
+
 	if err := k.deployServer(ctx, server, webhooks); err != nil {
 		return ServerConfig{}, err
 	}
@@ -236,6 +254,32 @@ func (k *kubernetesBackend) transformConfig(ctx context.Context, serverConfig Se
 	}
 
 	return &ServerConfig{URL: fmt.Sprintf("http://%s.%s.svc.%s/%s", serverConfig.MCPServerName, k.mcpNamespace, k.mcpClusterDomain, strings.TrimPrefix(serverConfig.ContainerPath, "/")), MCPServerName: pods.Items[0].Name}, nil
+}
+
+// replaceHostWithServiceFQDN replaces the host and port in a URL with the internal service FQDN.
+func (k *kubernetesBackend) replaceHostWithServiceFQDN(urlStr string) string {
+	if k.serviceFQDN == "" {
+		return urlStr
+	}
+
+	// Parse the URL to extract the path
+	idx := strings.Index(urlStr, "://")
+	if idx == -1 {
+		return urlStr
+	}
+
+	scheme := urlStr[:idx]
+	rest := urlStr[idx+3:]
+
+	// Find where the path starts (after host:port)
+	pathIdx := strings.Index(rest, "/")
+	var path string
+	if pathIdx != -1 {
+		path = rest[pathIdx:]
+	}
+
+	// Reconstruct URL with service FQDN
+	return fmt.Sprintf("%s://%s%s", scheme, k.serviceFQDN, path)
 }
 
 func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error {
