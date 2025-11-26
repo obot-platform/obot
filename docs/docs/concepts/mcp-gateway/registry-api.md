@@ -4,23 +4,28 @@ The Registry API provides a standardized, MCP-compliant interface for discoverin
 
 ## Overview
 
-The Registry API exposes all MCP servers that a user has access to through a unified `/v0/servers` endpoint. This includes:
+The Registry API exposes MCP servers through a unified `/v0.1/servers` endpoint. The servers returned depend on the authentication mode:
 
+**No-Auth Mode (Default)**: Returns servers from the default catalog with wildcard Access Control Rules, accessible without authentication. This is ideal for public Obot instances sharing a curated set of MCP servers.
+
+**Auth Mode**: Returns all MCP servers that an authenticated user has access to, including:
 - **Personal Servers**: Single-user servers deployed specifically for you
 - **Catalog Servers**: Multi-user servers shared across your organization
 - **Workspace Servers**: Servers available within your Power User workspace
 
 All servers are returned in a standardized format, regardless of their underlying runtime (npx, uvx, containerized, or remote).
 
+To enable Auth Mode, set the environment variable: `OBOT_SERVER_ENABLE_REGISTRY_AUTH=true`
+
 ## API Endpoints
 
 ### List Servers
 
 ```http
-GET /v0/servers
+GET /v0.1/servers
 ```
 
-Returns a paginated list of all MCP servers accessible to the authenticated user.
+Returns a paginated list of MCP servers. In No-Auth Mode, returns servers from the default catalog with wildcard ACRs. In Auth Mode, returns all servers accessible to the authenticated user.
 
 #### Query Parameters
 
@@ -30,11 +35,17 @@ Returns a paginated list of all MCP servers accessible to the authenticated user
 | `limit` | integer | 50 | Maximum results per page (1-100) |
 | `search` | string | - | Filter servers by name, title, or description |
 
-#### Example Request
+#### Example Requests
 
+**No-Auth Mode (unauthenticated):**
+```bash
+curl "https://obot.example.com/v0.1/servers?limit=10&search=github"
+```
+
+**Auth Mode (authenticated):**
 ```bash
 curl -H "Authorization: Bearer <token>" \
-  "https://obot.example.com/v0/servers?limit=1&search=github"
+  "https://obot.example.com/v0.1/servers?limit=10&search=github"
 ```
 
 #### Response Format
@@ -77,7 +88,7 @@ curl -H "Authorization: Bearer <token>" \
 ### List Server Versions
 
 ```http
-GET /v0/servers/{serverName}/versions
+GET /v0.1/servers/{serverName}/versions
 ```
 
 Returns available versions for a specific server. Currently, Obot only supports the `latest` version.
@@ -88,17 +99,23 @@ Returns available versions for a specific server. Currently, Obot only supports 
 |-----------|------|-------------|
 | `serverName` | string | Full server name in format: `reverseDNS/server-id` |
 
-#### Example Request
+#### Example Requests
 
+**No-Auth Mode:**
+```bash
+curl "https://obot.example.com/v0.1/servers/com.example.obot%2Fgithub-server/versions"
+```
+
+**Auth Mode:**
 ```bash
 curl -H "Authorization: Bearer <token>" \
-  "https://obot.example.com/v0/servers/com.example.obot%2Fgithub-server/versions"
+  "https://obot.example.com/v0.1/servers/com.example.obot%2Fgithub-server/versions"
 ```
 
 ### Get Server Version
 
 ```http
-GET /v0/servers/{serverName}/versions/{version}
+GET /v0.1/servers/{serverName}/versions/{version}
 ```
 
 Returns details for a specific server version.
@@ -110,11 +127,17 @@ Returns details for a specific server version.
 | `serverName` | string | Full server name in format: `reverseDNS/server-id` |
 | `version` | string | Version identifier (currently only `latest` is supported) |
 
-#### Example Request
+#### Example Requests
 
+**No-Auth Mode:**
+```bash
+curl "https://obot.example.com/v0.1/servers/com.example.obot%2Fgithub-server/versions/latest"
+```
+
+**Auth Mode:**
 ```bash
 curl -H "Authorization: Bearer <token>" \
-  "https://obot.example.com/v0/servers/com.example.obot%2Fgithub-server/versions/latest"
+  "https://obot.example.com/v0.1/servers/com.example.obot%2Fgithub-server/versions/latest"
 ```
 
 ## Server Naming Convention
@@ -206,7 +229,22 @@ To configure these servers, users must visit the Obot web interface and provide 
 
 ## Access Control
 
-The Registry API respects all Obot access control rules:
+Access control behavior varies based on the authentication mode:
+
+### No-Auth Mode (Default)
+
+In No-Auth Mode, the registry returns only a curated subset of servers:
+
+- **Default Catalog Only**: Only servers from the default catalog are returned
+- **Wildcard ACRs Required**: Only servers with wildcard (`*`) Access Control Rules are visible
+- **No Personal Servers**: User-specific servers are never returned
+- **No Workspace Servers**: Workspace-scoped servers are not included
+
+This ensures that unauthenticated users only see publicly approved servers that administrators have explicitly made available to everyone.
+
+### Auth Mode
+
+In Auth Mode, the Registry API respects all Obot access control rules:
 
 - **Personal Servers**: Only visible to the owning user
 - **Catalog Servers**: Visible based on Access Control Rules (ACRs)
@@ -227,10 +265,10 @@ The API uses cursor-based pagination to handle large result sets efficiently:
 
 ```bash
 # First page
-curl "https://obot.example.com/v0/servers?limit=50"
+curl "https://obot.example.com/v0.1/servers?limit=50"
 
 # Next page (using cursor from previous response)
-curl "https://obot.example.com/v0/servers?limit=50&cursor=com.example.obot%2Flast-server"
+curl "https://obot.example.com/v0.1/servers?limit=50&cursor=com.example.obot%2Flast-server"
 ```
 
 ## Search Filtering
@@ -245,13 +283,15 @@ The `search` parameter performs case-insensitive substring matching across:
 
 ```bash
 # Find all servers related to GitHub
-curl "https://obot.example.com/v0/servers?search=github"
+curl "https://obot.example.com/v0.1/servers?search=github"
 
 # Find database-related servers
-curl "https://obot.example.com/v0/servers?search=database"
+curl "https://obot.example.com/v0.1/servers?search=database"
 ```
 
 ## Authentication
+
+When `OBOT_SERVER_ENABLE_REGISTRY_AUTH=true`:
 
 All authenticated users can access the Registry API. Registry clients can follow the [registry authorization spec](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/registry-authorization.md) to authenticate.
 
@@ -270,10 +310,14 @@ include any routes related to publishing, editing, or deleting entries in the re
 }
 ```
 
+Returned when the requested server does not exist or is not visible to the user.
+
 ### 401 Unauthorized
 
-Returned when authentication is missing or invalid.
+**Auth Mode Only:** Returned when authentication is missing or invalid.
+
+**No-Auth Mode:** This error is not returned; unauthenticated requests are allowed.
 
 ### 403 Forbidden
 
-Returned when the authenticated user doesn't have access to the requested server.
+**Auth Mode Only:** Returned when the authenticated user doesn't have access to the requested server.
