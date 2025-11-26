@@ -30,7 +30,7 @@ func NewHandler(acrHelper *accesscontrolrule.Helper, serverURL string, registryN
 	}
 }
 
-// ListServers handles GET /registry/v0.1/servers
+// ListServers handles GET /v0.1/servers
 func (h *Handler) ListServers(req api.Context) error {
 	// Parse query parameters
 	cursor := req.URL.Query().Get("cursor")
