@@ -198,6 +198,7 @@ var (
 			"GET /oauth/authorize",
 			"POST /oauth/token/{mcp_id}",
 			"POST /oauth/token",
+			"GET /oauth/callback/{oauth_request_id}/{mcp_id}",
 			"GET /oauth/callback/{oauth_request_id}",
 			"GET /oauth/jwks.json",
 

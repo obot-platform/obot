@@ -15,7 +15,6 @@ var apiResources = map[string][]string{
 		"GET    /api/all-mcps/servers/{mcpserver_id}/resources/{resource_uri}",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/prompts",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/prompts/{prompt_name}",
-		"GET    /oauth/callback/{oauth_request_id}/{mcp_id}",
 		"GET    /oauth/mcp/callback",
 		"GET    /auth/mcp/composite/{mcp_id}",
 		"GET    /api/oauth/composite/{mcp_id}",
