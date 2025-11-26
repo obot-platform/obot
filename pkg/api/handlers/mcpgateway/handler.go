@@ -50,10 +50,15 @@ func (h *Handler) Proxy(req api.Context) error {
 
 	(&httputil.ReverseProxy{
 		Director: func(r *http.Request) {
+			r.Header.Set("X-Forwarded-Host", r.Host)
+			scheme := "https"
+			if strings.HasPrefix(r.Host, "localhost") || strings.HasPrefix(r.Host, "127.0.0.1") {
+				scheme = "http"
+			}
+			r.Header.Set("X-Forwarded-Proto", scheme)
+
 			r.URL.Scheme = u.Scheme
 			r.URL.Host = u.Host
-			r.URL.Path = u.Path
-			r.URL.RawQuery = req.URL.RawQuery
 			r.Host = u.Host
 		},
 	}).ServeHTTP(req.ResponseWriter, req.Request)
