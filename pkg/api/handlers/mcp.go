@@ -1317,6 +1317,9 @@ func serverConfigForAction(req api.Context, server v1.MCPServer, jwks string) (m
 	}
 
 	catalogName := server.Spec.MCPCatalogID
+	if catalogName == "" {
+		catalogName = server.Status.MCPCatalogID
+	}
 	if catalogName == "" && server.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
