@@ -1167,19 +1167,21 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 	}
 }
 
-func MCPIDAndAudienceFromConnectURL(req api.Context, id string) (string, string, error) {
+// MCPServerIDFromConnectURL returns the MCP server name based on the provided connect URL.
+// The connect URL could have an MCP server ID, server instance ID, or MCP catalog entry ID.
+func MCPServerIDFromConnectURL(req api.Context, id string) (string, error) {
 	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id)
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
 
 	switch {
 	case instance.Name != "":
-		return instance.Name, instance.Spec.MCPServerName, nil
+		return instance.Spec.MCPServerName, nil
 	case server.Name != "":
-		return server.Name, server.Name, nil
+		return server.Name, nil
 	default:
-		return "", "", fmt.Errorf("unknown MCP server ID %s", id)
+		return "", fmt.Errorf("unknown MCP server ID %s", id)
 	}
 }
 

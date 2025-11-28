@@ -468,9 +468,8 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 		}
 		// Iterate through each MCPServer and make sure it is still allowed to exist.
 		for _, server := range mcpServers.Items {
-			if server.Spec.ThreadName != "" || server.Spec.MCPCatalogID != "" || server.Spec.UserID == "anonymous" {
+			if server.Spec.ThreadName != "" || server.Spec.MCPCatalogID != "" {
 				// For legacy project-scoped servers and multi-user servers created by the admin, we don't need to check them.
-				// For anonymous users, we don't need to check access. These servers are used for OAuth.
 				continue
 			}
 

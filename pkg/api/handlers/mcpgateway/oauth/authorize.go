@@ -200,33 +200,7 @@ func (h *handler) authorize(req api.Context) error {
 		}
 	}
 
-	if mcpID != "" {
-		id, audience, err := handlers.MCPIDAndAudienceFromConnectURL(req, mcpID)
-		if err != nil {
-			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
-				redirectWithAuthorizeError(req, redirectURI, Error{
-					Code:        ErrInvalidRequest,
-					Description: errHTTP.Message,
-					State:       state,
-				})
-			} else {
-				redirectWithAuthorizeError(req, redirectURI, Error{
-					Code:        ErrServerError,
-					Description: fmt.Sprintf("failed to get MCP ID from connect URL: %v", err),
-					State:       state,
-				})
-			}
-			return nil
-		}
-
-		audience = "/" + audience
-		mcpID = "/" + id
-		if resource == "" || !strings.HasSuffix(resource, audience) {
-			// Ensure the audience is what the server expects.
-			resource = fmt.Sprintf("%s/mcp-connect%s", h.baseURL, audience)
-		}
-	}
-
+	mcpID = "/" + mcpID
 	oauthAppAuthRequest := v1.OAuthAuthRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.OAuthAppPrefix,
@@ -278,6 +252,41 @@ func (h *handler) callback(req api.Context) error {
 			Description: "user is not authenticated",
 		})
 		return nil
+	}
+
+	mcpID := oauthAppAuthRequest.Spec.MCPID
+	if mcpID != "" {
+		audience, err := handlers.MCPServerIDFromConnectURL(req, mcpID)
+		if err != nil {
+			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
+				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+					Code:        ErrInvalidRequest,
+					Description: errHTTP.Message,
+					State:       oauthAppAuthRequest.Spec.State,
+				})
+			} else {
+				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+					Code:        ErrServerError,
+					Description: fmt.Sprintf("failed to get MCP ID from connect URL: %v", err),
+					State:       oauthAppAuthRequest.Spec.State,
+				})
+			}
+			return nil
+		}
+
+		audience = "/" + audience
+		if oauthAppAuthRequest.Spec.Resource == "" || !strings.HasSuffix(oauthAppAuthRequest.Spec.Resource, audience) {
+			// Ensure the audience is what the server expects.
+			oauthAppAuthRequest.Spec.Resource = fmt.Sprintf("%s/mcp-connect%s", h.baseURL, audience)
+			if err = req.Update(&oauthAppAuthRequest); err != nil {
+				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
+					Code:        ErrServerError,
+					Description: fmt.Sprintf("failed to update OAuth app auth request: %v", err),
+					State:       oauthAppAuthRequest.Spec.State,
+				})
+				return nil
+			}
+		}
 	}
 
 	code := strings.ToLower(rand.Text() + rand.Text())
