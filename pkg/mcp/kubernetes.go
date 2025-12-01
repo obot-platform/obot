@@ -268,7 +268,6 @@ func (k *kubernetesBackend) replaceHostWithServiceFQDN(urlStr string) string {
 		return urlStr
 	}
 
-	scheme := urlStr[:idx]
 	rest := urlStr[idx+3:]
 
 	// Find where the path starts (after host:port)
@@ -279,7 +278,7 @@ func (k *kubernetesBackend) replaceHostWithServiceFQDN(urlStr string) string {
 	}
 
 	// Reconstruct URL with service FQDN
-	return fmt.Sprintf("%s://%s%s", scheme, k.serviceFQDN, path)
+	return fmt.Sprintf("http://%s%s", k.serviceFQDN, path)
 }
 
 func (k *kubernetesBackend) shutdownServer(ctx context.Context, id string) error {
