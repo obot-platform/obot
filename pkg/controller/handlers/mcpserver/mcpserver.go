@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,7 +41,9 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 	}
 
 	var entry v1.MCPServerCatalogEntry
-	if err := req.Get(&entry, server.Namespace, server.Spec.MCPServerCatalogEntryName); err != nil {
+	if err := req.Get(&entry, server.Namespace, server.Spec.MCPServerCatalogEntryName); apierrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
 		return err
 	}
 
@@ -53,7 +56,9 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		}
 
 		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&entry, compositeServer.Namespace, compositeServer.Spec.MCPServerCatalogEntryName); err != nil {
+		if err := req.Get(&entry, compositeServer.Namespace, compositeServer.Spec.MCPServerCatalogEntryName); apierrors.IsNotFound(err) {
+			return nil
+		} else if err != nil {
 			return fmt.Errorf("failed to get composite server catalog entry %s: %w", compositeServer.Spec.MCPServerCatalogEntryName, err)
 		}
 
@@ -291,6 +296,22 @@ func (h *Handler) DeleteServersForAnonymousUser(req router.Request, _ router.Res
 	server := req.Object.(*v1.MCPServer)
 	if server.Spec.UserID == "anonymous" {
 		return req.Client.Delete(req.Ctx, server)
+	}
+
+	return nil
+}
+
+func (h *Handler) EnsureMCPCatalogID(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+
+	if server.Status.MCPCatalogID == "" && server.Spec.MCPCatalogID == "" && server.Spec.MCPServerCatalogEntryName != "" {
+		var mcpCatalogEntry v1.MCPServerCatalogEntry
+		if err := req.Get(&mcpCatalogEntry, server.Namespace, server.Spec.MCPServerCatalogEntryName); err != nil {
+			return err
+		}
+
+		server.Status.MCPCatalogID = mcpCatalogEntry.Name
+		return req.Client.Status().Update(req.Ctx, server)
 	}
 
 	return nil

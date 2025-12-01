@@ -14331,6 +14331,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"mcpCatalogID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPCatalogID is the catalog ID of the catalog entry that this MCP server is based on.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"needsUpdate": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.",
