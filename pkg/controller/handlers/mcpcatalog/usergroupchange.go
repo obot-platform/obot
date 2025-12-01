@@ -79,11 +79,11 @@ func (h *Handler) deleteUnauthorizedServersForUser(ctx context.Context, client k
 		if server.Spec.MCPServerCatalogEntryName != "" {
 			// Get the catalog entry to determine which catalog/workspace it belongs to
 			var entry v1.MCPServerCatalogEntry
-			if err := client.Get(ctx, kclient.ObjectKey{
+			if getErr := client.Get(ctx, kclient.ObjectKey{
 				Namespace: namespace,
 				Name:      server.Spec.MCPServerCatalogEntryName,
-			}, &entry); err != nil {
-				log.Warnf("Failed to get catalog entry %s: %v", server.Spec.MCPServerCatalogEntryName, err)
+			}, &entry); getErr != nil {
+				log.Warnf("Failed to get catalog entry %s: %v", server.Spec.MCPServerCatalogEntryName, getErr)
 				continue
 			}
 
@@ -97,6 +97,10 @@ func (h *Handler) deleteUnauthorizedServersForUser(ctx context.Context, client k
 				hasAccess, err = h.accessControlRuleHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(
 					user, server.Spec.MCPServerCatalogEntryName, entry.Spec.MCPCatalogName)
 			}
+		} else {
+			// If there's no catalog entry name, skip this server (shouldn't happen in normal operation)
+			log.Warnf("Server %s has no MCPServerCatalogEntryName, skipping access check", server.Name)
+			continue
 		}
 
 		if err != nil {
