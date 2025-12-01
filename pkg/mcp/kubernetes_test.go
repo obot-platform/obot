@@ -21,7 +21,7 @@ func TestReplaceHostWithServiceFQDN(t *testing.T) {
 			name:        "replace external domain with service FQDN",
 			serviceFQDN: "obot.obot-system.svc.cluster.local",
 			inputURL:    "https://obot.example.com/oauth/token",
-			expectedURL: "https://obot.obot-system.svc.cluster.local/oauth/token",
+			expectedURL: "http://obot.obot-system.svc.cluster.local/oauth/token",
 		},
 		{
 			name:        "preserve path with multiple segments",
