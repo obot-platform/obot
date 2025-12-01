@@ -2,27 +2,14 @@
 	import { goto } from '$lib/url';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { onMount } from 'svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { fly } from 'svelte/transition';
-	import {
-		fetchMcpServerAndEntries,
-		getAdminMcpServerAndEntries,
-		initMcpServerAndEntries
-	} from '$lib/context/admin/mcpServerAndEntries.svelte.js';
-	import { profile } from '$lib/stores/index.js';
+	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 
 	let { data } = $props();
 	const { accessControlRule: initialRule, workspaceId } = data;
 	let accessControlRule = $state(initialRule);
 	const duration = PAGE_TRANSITION_DURATION;
-
-	initMcpServerAndEntries();
-
-	onMount(async () => {
-		const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
-		fetchMcpServerAndEntries(defaultCatalogId);
-	});
 
 	let title = $derived(accessControlRule?.displayName ?? 'Access Control Rule');
 </script>
@@ -36,7 +23,7 @@
 			}}
 			entity="workspace"
 			id={workspaceId}
-			mcpEntriesContextFn={getAdminMcpServerAndEntries}
+			mcpEntriesContextFn={() => mcpServersAndEntries.current}
 			readonly={profile.current.isAdminReadonly?.()}
 			isAdminView
 		/>

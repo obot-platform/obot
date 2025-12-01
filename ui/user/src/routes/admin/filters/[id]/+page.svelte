@@ -2,27 +2,15 @@
 	import { goto } from '$lib/url';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import {
-		fetchMcpServerAndEntries,
-		getAdminMcpServerAndEntries,
-		initMcpServerAndEntries
-	} from '$lib/context/admin/mcpServerAndEntries.svelte.js';
-	import { onMount } from 'svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { fly } from 'svelte/transition';
 	import type { MCPFilter } from '$lib/services/admin/types';
-	import { profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 
 	let { data }: { data: { filter: MCPFilter } } = $props();
 	const { filter: initialFilter } = data;
 	let filter = $state(initialFilter);
 	const duration = PAGE_TRANSITION_DURATION;
-	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
-
-	initMcpServerAndEntries();
-	onMount(async () => {
-		await fetchMcpServerAndEntries(defaultCatalogId);
-	});
 
 	let title = $derived(filter?.name ?? 'Filter');
 </script>
@@ -34,7 +22,7 @@
 			onUpdate={() => {
 				goto('/admin/filters');
 			}}
-			mcpEntriesContextFn={getAdminMcpServerAndEntries}
+			mcpEntriesContextFn={() => mcpServersAndEntries.current}
 			readonly={profile.current.isAdminReadonly?.()}
 		/>
 	</div>

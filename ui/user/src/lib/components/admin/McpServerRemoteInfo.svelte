@@ -26,6 +26,7 @@
 		name: string;
 		connectedUsers: OrgUser[];
 		compositeParentName?: string;
+		mcpServer?: MCPCatalogServer;
 	}
 
 	let {
@@ -36,10 +37,11 @@
 		entityId,
 		catalogEntry,
 		mcpServerId,
+		mcpServer: initialMcpServer,
 		compositeParentName
 	}: Props = $props();
 	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
-	let mcpServer = $state<MCPCatalogServer>();
+	let mcpServer = $state<MCPCatalogServer | undefined>(initialMcpServer);
 	let revealedInfo = $state<Record<string, string>>({});
 	let headers = $derived(
 		(mcpServer?.manifest.remoteConfig?.headers ?? []).map((h) => {
@@ -62,9 +64,10 @@
 
 	onMount(async () => {
 		if (!mcpServerId || !catalogEntry?.id || !entityId) return;
-		if (entity === 'catalog') {
+
+		if (entity === 'catalog' && !mcpServer) {
 			mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
-		} else if (entity === 'workspace') {
+		} else if (entity === 'workspace' && !mcpServer) {
 			mcpServer = await ChatService.getWorkspaceCatalogEntryServer(
 				entityId,
 				catalogEntry.id,

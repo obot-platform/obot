@@ -9,7 +9,7 @@
 
 <Layout title="Usage">
 	<div
-		class="my-4 flex h-dvh min-h-full flex-col gap-8 pb-8"
+		class="mb-4 flex h-dvh min-h-full flex-col gap-8 pb-8"
 		in:fade={{ duration }}
 		out:fade={{ duration }}
 	>

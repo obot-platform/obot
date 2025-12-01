@@ -238,6 +238,16 @@ export function getServerTypeLabelByType(type?: string) {
 				: 'Composite';
 }
 
+export function getServerType(
+	server?: MCPCatalogServer
+): 'remote' | 'composite' | 'single' | 'multi' | null {
+	if (!server) return null;
+	const runtime = server.manifest.runtime;
+	if (runtime === 'remote') return 'remote';
+	if (runtime === 'composite') return 'composite';
+	return server.catalogEntryID ? 'single' : 'multi';
+}
+
 export function convertCompositeLaunchFormDataToPayload(lf: CompositeLaunchFormData) {
 	const payload: Record<
 		string,

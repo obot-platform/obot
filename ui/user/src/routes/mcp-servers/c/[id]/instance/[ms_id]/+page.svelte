@@ -2,26 +2,33 @@
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { AdminService, ChatService, type OrgUser } from '$lib/services/index.js';
+	import {
+		AdminService,
+		ChatService,
+		type MCPCatalogServer,
+		type OrgUser
+	} from '$lib/services/index.js';
 	import { Info } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { profile } from '$lib/stores/index.js';
+	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import McpServerRemoteInfo from '$lib/components/admin/McpServerRemoteInfo.svelte';
+	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
 
 	let { data } = $props();
 	let { catalogEntry, mcpServerId, workspaceId } = data;
 	const duration = PAGE_TRANSITION_DURATION;
 	let connectedUsers = $state<OrgUser[]>([]);
+	let mcpServer = $state<MCPCatalogServer>();
 
 	let catalogEntryName = catalogEntry?.manifest?.name ?? 'Unknown';
 
 	async function fetchUserInfo() {
 		if (!workspaceId || !catalogEntry?.id) return;
-		const mcpServer = await ChatService.getWorkspaceCatalogEntryServer(
-			workspaceId,
-			catalogEntry.id,
-			mcpServerId
-		);
+		mcpServer = catalogEntry.powerUserWorkspaceID
+			? await ChatService.getWorkspaceCatalogEntryServer(workspaceId, catalogEntry.id, mcpServerId)
+			: await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
 		if (mcpServer?.userID) {
 			const user = await AdminService.getUser(mcpServer.userID);
 			connectedUsers = [user];
@@ -34,22 +41,44 @@
 </script>
 
 <Layout {title} showBackButton>
+	{#snippet rightNavActions()}
+		<McpServerActions server={mcpServer} entry={catalogEntry} />
+	{/snippet}
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
-		{#if mcpServerId && catalogEntry?.manifest.runtime !== 'remote'}
-			<McpServerK8sInfo
-				id={workspaceId}
-				entity="workspace"
-				{catalogEntry}
-				{mcpServerId}
-				name={catalogEntryName}
-				{connectedUsers}
-				readonly={profile.current.isAdminReadonly?.()}
-			/>
+		{#if mcpServerId}
+			{#if catalogEntry?.manifest.runtime === 'remote'}
+				{#if mcpServer}
+					<McpServerRemoteInfo
+						{mcpServerId}
+						name={catalogEntryName}
+						{connectedUsers}
+						entity="workspace"
+						entityId={workspaceId}
+						{catalogEntry}
+						compositeParentName={mcpServer?.compositeName}
+						{mcpServer}
+					/>
+				{/if}
+			{:else if catalogEntry?.manifest.runtime === 'composite'}
+				<McpServerCompositeInfo
+					{mcpServerId}
+					name={catalogEntryName}
+					{connectedUsers}
+					entity="workspace"
+					entityId={workspaceId}
+					{catalogEntry}
+				/>
+			{:else}
+				<McpServerK8sInfo
+					{mcpServerId}
+					name={catalogEntryName}
+					{connectedUsers}
+					readonly={profile.current.isAdminReadonly?.()}
+					{catalogEntry}
+					compositeParentName={mcpServer?.compositeName}
+				/>
+			{/if}
 		{:else}
-			<h1 class="text-2xl font-semibold">
-				{catalogEntryName} | {mcpServerId}
-			</h1>
-
 			<div class="notification-info p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
 					<Info class="size-6" />

@@ -9,24 +9,28 @@
 	import { goto } from '$lib/url';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import {
-		getAdminMcpServerAndEntries,
-		type AdminMcpServerAndEntriesContext
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import {
 		AdminService,
+		type MCPCatalogEntry,
+		type MCPCatalogServer,
 		type MCPFilter,
 		type MCPFilterManifest,
 		type MCPFilterResource,
 		type MCPFilterWebhookSelector
 	} from '$lib/services';
 	import { removeSecret } from '$lib/services/admin/operations';
+	import { mcpServersAndEntries } from '$lib/stores';
 
 	interface Props {
 		topContent?: Snippet;
 		filter?: MCPFilter;
 		onCreate?: (filter?: MCPFilter) => void;
 		onUpdate?: (filter?: MCPFilter) => void;
-		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
+		mcpEntriesContextFn?: () => {
+			entries: MCPCatalogEntry[];
+			servers: MCPCatalogServer[];
+			userConfiguredServers: MCPCatalogServer[];
+			loading: boolean;
+		};
 		readonly?: boolean;
 	}
 
@@ -70,9 +74,8 @@
 	let removingSecret = $state(false);
 	let showValidation = $state(false);
 
-	const adminMcpServerAndEntries = getAdminMcpServerAndEntries();
-	let mcpServersMap = $derived(new Map(adminMcpServerAndEntries.servers.map((i) => [i.id, i])));
-	let mcpEntriesMap = $derived(new Map(adminMcpServerAndEntries.entries.map((i) => [i.id, i])));
+	let mcpServersMap = $derived(new Map(mcpServersAndEntries.current.servers.map((i) => [i.id, i])));
+	let mcpEntriesMap = $derived(new Map(mcpServersAndEntries.current.entries.map((i) => [i.id, i])));
 
 	// Validation
 	let nameError = $derived(showValidation && !filter.name.trim());

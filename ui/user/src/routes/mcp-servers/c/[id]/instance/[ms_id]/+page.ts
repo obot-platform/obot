@@ -10,7 +10,13 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	let catalogEntry;
 	try {
 		workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
-		catalogEntry = await ChatService.getWorkspaceMCPCatalogEntry(workspaceId, catalogEntryId, {
+	} catch (_err) {
+		// can happen if basic user atm
+		workspaceId = undefined;
+	}
+
+	try {
+		catalogEntry = await ChatService.getMCP(catalogEntryId, {
 			fetch
 		});
 	} catch (err) {

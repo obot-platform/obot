@@ -6,14 +6,6 @@
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import {
-		fetchMcpServerAndEntries,
-		getAdminMcpServerAndEntries
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import {
-		fetchUserMcpServerAndEntries,
-		getUserMcpServerAndEntries
-	} from '$lib/context/mcpServerAndEntries.svelte';
-	import {
 		AdminService,
 		ChatService,
 		type MCPCatalog,
@@ -21,14 +13,13 @@
 		type MCPCatalogServer,
 		type OrgUser,
 		MCPCompositeDeletionDependencyError,
-		Group,
-		type MCPServerInstance
+		Group
 	} from '$lib/services';
 	import {
 		convertEntriesAndServersToTableData,
 		getServerTypeLabelByType
 	} from '$lib/services/chat/mcp';
-	import { profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { openUrl } from '$lib/utils';
@@ -38,7 +29,6 @@
 		CircleFadingArrowUp,
 		Ellipsis,
 		LoaderCircle,
-		MessageCircle,
 		SatelliteDish,
 		Server,
 		Trash2
@@ -65,6 +55,8 @@
 		classes?: {
 			tableHeader?: string;
 		};
+		onConnect?: () => void;
+		onConnectClose?: () => void;
 	}
 
 	let {
@@ -72,14 +64,15 @@
 		catalog = $bindable(),
 		readonly,
 		noDataContent,
-		usersMap,
 		query,
 		urlFilters: filters,
 		onFilter,
 		onClearAllFilters,
 		onSort,
 		initSort,
-		classes
+		classes,
+		onConnect,
+		onConnectClose
 	}: Props = $props();
 
 	let deletingEntry = $state<MCPCatalogEntry>();
@@ -91,23 +84,16 @@
 
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 
-	const mcpServerAndEntries =
-		entity === 'workspace' ? getUserMcpServerAndEntries() : getAdminMcpServerAndEntries();
 	let tableData = $derived(
 		convertEntriesAndServersToTableData(
-			mcpServerAndEntries.entries,
-			mcpServerAndEntries.servers,
-			usersMap,
-			mcpServerAndEntries.userConfiguredServers
+			mcpServersAndEntries.current.entries,
+			mcpServersAndEntries.current.servers
 		)
 	);
 
-	let instances = $derived(mcpServerAndEntries.userServerInstances);
-	let instancesMap = $derived(
-		new Map(instances.map((instance) => [instance.mcpServerID, instance]))
+	let entriesMap = $derived(
+		new Map(mcpServersAndEntries.current.entries.map((entry) => [entry.id, entry]))
 	);
-
-	let entriesMap = $derived(new Map(mcpServerAndEntries.entries.map((entry) => [entry.id, entry])));
 
 	let filteredTableData = $derived.by(() => {
 		const sorted = tableData.sort((a, b) => {
@@ -151,20 +137,16 @@
 	}
 
 	async function fetch() {
-		if (catalog) {
-			await fetchMcpServerAndEntries(catalog.id, mcpServerAndEntries);
-		} else {
-			await fetchUserMcpServerAndEntries(mcpServerAndEntries);
-		}
+		mcpServersAndEntries.refreshAll();
 	}
 </script>
 
 <div class="flex flex-col gap-2">
-	{#if mcpServerAndEntries.loading}
+	{#if mcpServersAndEntries.current.loading}
 		<div class="my-2 flex items-center justify-center">
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
-	{:else if mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length === 0}
+	{:else if mcpServersAndEntries.current.entries.length + mcpServersAndEntries.current.servers.length === 0}
 		{#if noDataContent}
 			{@render noDataContent?.()}
 		{/if}
@@ -189,7 +171,8 @@
 				let useAdminUrl =
 					window.location.pathname.includes('/admin') && profile.current.hasAdminAccess?.();
 
-				const id = 'catalogEntryID' in d.data ? d.data.catalogEntryID : d.id;
+				const id =
+					'catalogEntryID' in d.data && d.data.catalogEntryID ? d.data.catalogEntryID : d.id;
 				if (useAdminUrl) {
 					if (d.type === 'single' || d.type === 'remote' || d.type === 'composite') {
 						url = d.data.powerUserWorkspaceID
@@ -277,37 +260,16 @@
 												? d.data
 												: undefined;
 									const server = 'isCatalogEntry' in d.data ? undefined : d.data;
-									const instance =
-										'isCatalogEntry' in d.data
-											? undefined
-											: d.data.catalogEntryID
-												? undefined
-												: instancesMap.get(d.id);
 									connectToServerDialog?.open({
 										entry,
 										server,
-										instance
+										instance: undefined
 									});
 									toggle(false);
 								}}
 							>
-								<SatelliteDish class="size-4" /> Connect
+								<SatelliteDish class="size-4" /> Connect To Server
 							</button>
-							{#if !('isCatalogEntry' in d.data)}
-								<button
-									class="menu-button"
-									onclick={async (e) => {
-										e.stopPropagation();
-										const serverToUse = 'isCatalogEntry' in d.data ? undefined : d.data;
-										if (serverToUse) {
-											connectToServerDialog?.handleSetupChat(serverToUse, instancesMap.get(d.id));
-										}
-										toggle(false);
-									}}
-								>
-									<MessageCircle class="size-4" /> Chat
-								</button>
-							{/if}
 
 							{#if auditLogUrl}
 								<button
@@ -478,5 +440,7 @@
 
 <ConnectToServer
 	bind:this={connectToServerDialog}
-	userConfiguredServers={mcpServerAndEntries.userConfiguredServers}
+	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
+	{onConnect}
+	onClose={onConnectClose}
 />

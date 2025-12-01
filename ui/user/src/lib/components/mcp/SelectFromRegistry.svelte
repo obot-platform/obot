@@ -879,7 +879,11 @@
 		userServerConfigureMap.has(selectedEntryOrServer.id)}
 />
 
-<CatalogEditAliasForm bind:this={editAliasDialog} {editingServer} {onUpdateConfigure} />
+<CatalogEditAliasForm
+	bind:this={editAliasDialog}
+	server={editingServer?.server}
+	{onUpdateConfigure}
+/>
 
 <Confirm
 	msg="Are you sure you want to delete this server?"

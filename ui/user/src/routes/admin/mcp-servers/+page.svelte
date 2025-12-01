@@ -3,23 +3,18 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import {
-		fetchMcpServerAndEntries,
-		getAdminMcpServerAndEntries,
-		initMcpServerAndEntries
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalog, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { goto } from '$lib/url';
+	import { beforeNavigate, afterNavigate, goto, replaceState } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import SelectServerType, {
 		type SelectServerOption
 	} from '$lib/components/mcp/SelectServerType.svelte';
-	import { profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { page } from '$app/state';
 	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
 	import Search from '$lib/components/Search.svelte';
@@ -28,7 +23,8 @@
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
 		setSortUrlParams,
-		setFilterUrlParams
+		setFilterUrlParams,
+		setUrlParam
 	} from '$lib/url';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
 	import { debounce } from 'es-toolkit';
@@ -41,7 +37,7 @@
 
 	type View = 'registry' | 'deployments' | 'urls';
 
-	let view = $state<View>((page.url.searchParams.get('view') as View) || 'registry');
+	let view = $state<View>((page.url.searchParams.get('view') as View) || 'deployments');
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 
 	const query = $derived(page.url.searchParams.get('query') || '');
@@ -51,17 +47,13 @@
 		'@obot/admin/mcp-servers/search-query',
 		{ registry: '', deployments: '', urls: '' }
 	);
-	initMcpServerAndEntries();
 
-	const mcpServerAndEntries = getAdminMcpServerAndEntries();
 	let users = $state<OrgUser[]>([]);
 	let urlFilters = $state(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 
 	onMount(async () => {
 		users = await AdminService.listUsersIncludeDeleted();
-
-		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
 		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
 
 		if (defaultCatalog?.isSyncing) {
@@ -79,17 +71,32 @@
 		clearUrlParams();
 	}
 
-	afterNavigate(({ to }) => {
-		if (browser && to?.url) {
-			const serverId = to.url.searchParams.get('id');
-			const createNewType = to.url.searchParams.get('new') as
+	afterNavigate(({ from }) => {
+		if (browser) {
+			// If coming back from a detail page, don't show form - user just created a server
+			const comingFromDetailPage =
+				from?.url?.pathname.startsWith('/admin/mcp-servers/c/') ||
+				from?.url?.pathname.startsWith('/admin/mcp-servers/s/');
+
+			if (comingFromDetailPage) {
+				selectedEntryServer = undefined;
+				showServerForm = false;
+				if (page.url.searchParams.has('new')) {
+					const cleanUrl = new URL(page.url);
+					cleanUrl.searchParams.delete('new');
+					replaceState(cleanUrl, {});
+				}
+				return;
+			}
+
+			const createNewType = page.url.searchParams.get('new') as
 				| 'single'
 				| 'multi'
 				| 'remote'
 				| 'composite';
 			if (createNewType) {
 				selectServerType(createNewType, false);
-			} else if (!serverId && (selectedEntryServer || showServerForm)) {
+			} else {
 				selectedEntryServer = undefined;
 				showServerForm = false;
 			}
@@ -145,7 +152,7 @@
 				if (syncInterval) {
 					clearInterval(syncInterval);
 				}
-				fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
+				mcpServersAndEntries.refreshAll();
 				syncing = false;
 			}
 		}, 5000);
@@ -157,15 +164,6 @@
 		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
 		if (defaultCatalog?.isSyncing) {
 			pollTillSyncComplete();
-		}
-	}
-
-	// Helper function to update URL search params
-	function setUrlParam(url: URL, key: string, value: string | null): void {
-		if (value) {
-			url.searchParams.set(key, value);
-		} else {
-			url.searchParams.delete(key);
 		}
 	}
 
@@ -238,7 +236,7 @@
 		: 'MCP Servers'}
 	showBackButton={showServerForm}
 >
-	<div class="flex min-h-full flex-col gap-8 pt-4" in:fade>
+	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if showServerForm}
 			{@render configureEntryScreen()}
 		{:else}
@@ -266,7 +264,7 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<div class="bg-surface1 dark:bg-background sticky top-16 left-0 z-20 w-full pb-1">
+		<div class="bg-surface1 dark:bg-background sticky top-16 left-0 z-20 w-full py-1">
 			<div class="mb-2">
 				<Search
 					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
@@ -279,16 +277,16 @@
 		<div class="dark:bg-surface2 bg-background rounded-t-md shadow-sm">
 			<div class="flex">
 				<button
+					class={twMerge('page-tab', view === 'deployments' && 'page-tab-active')}
+					onclick={() => switchView('deployments')}
+				>
+					All Servers
+				</button>
+				<button
 					class={twMerge('page-tab', view === 'registry' && 'page-tab-active')}
 					onclick={() => switchView('registry')}
 				>
 					Registry Entries
-				</button>
-				<button
-					class={twMerge('page-tab', view === 'deployments' && 'page-tab-active')}
-					onclick={() => switchView('deployments')}
-				>
-					Deployments & Connections
 				</button>
 				<button
 					class={twMerge('page-tab', view === 'urls' && 'page-tab-active')}
@@ -323,6 +321,12 @@
 					classes={{
 						tableHeader: 'top-31'
 					}}
+					onConnect={() => {
+						mcpServersAndEntries.refreshUserConfiguredServers();
+					}}
+					onConnectClose={() => {
+						switchView('deployments');
+					}}
 				>
 					{#snippet noDataContent()}{@render displayNoData()}{/snippet}
 				</RegistriesView>
@@ -336,7 +340,7 @@
 				/>
 			{:else if view === 'deployments'}
 				<DeploymentsView
-					catalogId={defaultCatalogId}
+					id={defaultCatalogId}
 					readonly={isAdminReadonly}
 					{usersMap}
 					query={localStorageViewQuery.current?.['deployments'] || ''}

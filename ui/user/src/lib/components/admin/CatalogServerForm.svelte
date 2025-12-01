@@ -21,8 +21,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import CategorySelectInput from './CategorySelectInput.svelte';
 	import Select from '../Select.svelte';
-	import { profile } from '$lib/stores';
-	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 
 	interface Props {
 		id?: string;
@@ -733,7 +732,7 @@
 		bind:config={formData.compositeConfig}
 		{readonly}
 		catalogId={id}
-		mcpEntriesContextFn={getAdminMcpServerAndEntries}
+		mcpEntriesContextFn={() => mcpServersAndEntries.current}
 		id={entry?.id}
 	/>
 {/if}

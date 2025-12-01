@@ -16,7 +16,6 @@
 		type MCPCatalogServer,
 		type CompositeServerToolRow
 	} from '$lib/services';
-	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import CompositeToolsSetup from './composite/CompositeSelectServerAndToolsSetup.svelte';
 	import { slide } from 'svelte/transition';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -27,7 +26,12 @@
 		config: CompositeCatalogConfig;
 		readonly?: boolean;
 		catalogId?: string;
-		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
+		mcpEntriesContextFn?: () => {
+			entries: MCPCatalogEntry[];
+			servers: MCPCatalogServer[];
+			userConfiguredServers: MCPCatalogServer[];
+			loading: boolean;
+		};
 	}
 
 	let { config = $bindable(), readonly, catalogId, mcpEntriesContextFn, id }: Props = $props();

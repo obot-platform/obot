@@ -17,6 +17,7 @@
 		ChevronLeft,
 		ChevronRight,
 		GlobeLock,
+		Info,
 		ListFilter,
 		LoaderCircle,
 		Server,
@@ -58,9 +59,19 @@
 		readonly?: boolean;
 		onCancel?: () => void;
 		onSubmit?: (id: string, type: MCPType) => void;
+		hasExistingConfigured?: boolean;
 	}
 
-	let { entry, id, entity = 'catalog', type, readonly, onCancel, onSubmit }: Props = $props();
+	let {
+		entry,
+		id,
+		entity = 'catalog',
+		type,
+		readonly,
+		onCancel,
+		onSubmit,
+		hasExistingConfigured
+	}: Props = $props();
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	let isAuditor = $derived(profile.current?.groups.includes(Group.AUDITOR));
 
@@ -543,6 +554,18 @@
 
 		{#if selected === 'overview' && entry}
 			<div class="pb-8">
+				{#if hasExistingConfigured}
+					<div class="notification-info mb-3 p-3 text-sm font-light">
+						<div class="flex items-center gap-3">
+							<Info class="size-6" />
+							<p>
+								It looks like you already have an existing server instance available. It is
+								recommended to only create another one if you need to instantiate another one with
+								different configurations.
+							</p>
+						</div>
+					</div>
+				{/if}
 				<McpServerInfo
 					{entry}
 					descriptionPlaceholder="Add a description for this MCP server in the Configuration tab"

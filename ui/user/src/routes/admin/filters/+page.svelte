@@ -5,17 +5,12 @@
 	import { BookOpenText, ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { onMount } from 'svelte';
-	import {
-		fetchMcpServerAndEntries,
-		getAdminMcpServerAndEntries,
-		initMcpServerAndEntries
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService, type MCPFilter } from '$lib/services/index.js';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import { openUrl } from '$lib/utils';
-	import { profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import Search from '$lib/components/Search.svelte';
 	import { replaceState } from '$lib/url';
 	import { debounce } from 'es-toolkit';
@@ -28,8 +23,6 @@
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url';
-
-	initMcpServerAndEntries();
 
 	let showCreateFilter = $state(false);
 	let loading = $state(true);
@@ -78,7 +71,6 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	onMount(async () => {
-		await fetchMcpServerAndEntries(DEFAULT_MCP_CATALOG_ID);
 		await refresh();
 
 		if (page.url.searchParams.size > 0) {
@@ -209,7 +201,10 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<FilterForm onCreate={navigateAfterCreated} mcpEntriesContextFn={getAdminMcpServerAndEntries}>
+		<FilterForm
+			onCreate={navigateAfterCreated}
+			mcpEntriesContextFn={() => mcpServersAndEntries.current}
+		>
 			{#snippet topContent()}
 				<button
 					onclick={() => (showCreateFilter = false)}

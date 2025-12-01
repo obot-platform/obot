@@ -10,13 +10,16 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	let mcpServer;
 	try {
 		workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
-		mcpServer = await ChatService.getWorkspaceMCPCatalogServer(workspaceId, id, {
-			fetch
-		});
+	} catch (_err) {
+		// can happen if basic user atm
+		workspaceId = undefined;
+	}
+
+	try {
+		mcpServer = await ChatService.getMcpCatalogServer(id, { fetch });
 	} catch (err) {
 		handleRouteError(err, `/mcp-servers/s/${id}/details`, profile.current);
 	}
-
 	return {
 		workspaceId,
 		mcpServer,

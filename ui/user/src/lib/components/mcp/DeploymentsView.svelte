@@ -8,8 +8,6 @@
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
-	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import { getUserMcpServerAndEntries } from '$lib/context/mcpServerAndEntries.svelte';
 	import {
 		AdminService,
 		ChatService,
@@ -17,10 +15,15 @@
 		type MCPCatalogServer,
 		type OrgUser,
 		MCPCompositeDeletionDependencyError,
-		type MCPServerInstance
+		type MCPServerInstance,
+		Group
 	} from '$lib/services';
-	import { getServerTypeLabel } from '$lib/services/chat/mcp';
-	import { profile } from '$lib/stores';
+	import {
+		getServerTypeLabel,
+		hasEditableConfiguration,
+		requiresUserUpdate
+	} from '$lib/services/chat/mcp';
+	import { profile, mcpServersAndEntries } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { setSearchParamsToLocalStorage } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
@@ -32,16 +35,23 @@
 		Ellipsis,
 		GitCompare,
 		LoaderCircle,
+		MessageCircle,
+		PencilLine,
 		Power,
+		SatelliteDish,
 		Server,
+		ServerCog,
 		Trash2
 	} from 'lucide-svelte';
 	import { onMount, type Snippet } from 'svelte';
+	import ConnectToServer from './ConnectToServer.svelte';
+	import { twMerge } from 'tailwind-merge';
+	import EditExistingDeployment from './EditExistingDeployment.svelte';
 
 	interface Props {
 		usersMap?: Map<string, OrgUser>;
 		entity?: 'workspace' | 'catalog';
-		catalogId?: string;
+		id?: string;
 		readonly?: boolean;
 		query?: string;
 		urlFilters?: Record<string, (string | number)[]>;
@@ -49,19 +59,21 @@
 		onClearAllFilters?: () => void;
 		onSort?: InitSortFn;
 		initSort?: InitSort;
+		noDataContent?: Snippet;
 	}
 
 	let {
 		entity = 'catalog',
 		usersMap = new Map(),
-		catalogId,
+		id,
 		readonly,
 		query,
 		urlFilters: filters,
 		onFilter,
 		onClearAllFilters,
 		onSort,
-		initSort = { property: 'created', order: 'desc' }
+		initSort = { property: 'created', order: 'desc' },
+		noDataContent
 	}: Props = $props();
 	let loading = $state(false);
 
@@ -82,26 +94,26 @@
 
 	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
 
-	let mcpServerAndEntries =
-		entity === 'workspace' ? getUserMcpServerAndEntries() : getAdminMcpServerAndEntries();
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let serversData = $derived(
 		entity === 'workspace'
-			? mcpServerAndEntries.servers.filter((server) => !server.deleted)
+			? mcpServersAndEntries.current.userConfiguredServers.filter((server) => !server.deleted)
 			: [
 					...deployedCatalogEntryServers.filter((server) => !server.deleted),
 					...deployedWorkspaceCatalogEntryServers.filter((server) => !server.deleted),
-					...mcpServerAndEntries.servers.filter((server) => !server.deleted)
+					...mcpServersAndEntries.current.servers.filter((server) => !server.deleted)
 				]
 	);
 
 	let instances = $state<MCPServerInstance[]>([]);
-
+	let instancesMap = $derived(
+		new Map(instances.map((instance) => [instance.mcpServerID, instance]))
+	);
 	let tableRef = $state<ReturnType<typeof Table>>();
 
 	let entriesMap = $derived(
-		mcpServerAndEntries.entries.reduce<Record<string, MCPCatalogEntry>>((acc, entry) => {
+		mcpServersAndEntries.current.entries.reduce<Record<string, MCPCatalogEntry>>((acc, entry) => {
 			acc[entry.id] = entry;
 			return acc;
 		}, {})
@@ -155,7 +167,10 @@
 								compositeParent,
 								deployment.catalogEntryID || deployment.mcpCatalogID || deployment.id
 							)
-						: false
+						: false,
+					isMyServer:
+						(deployment.catalogEntryID && deployment.userID === profile.current.id) ||
+						(powerUserID === profile.current.id && powerUserWorkspaceID === id)
 				};
 			})
 			.filter((d) => !d.disabled);
@@ -165,19 +180,25 @@
 			: transformedData;
 	});
 
+	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
+	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
+
 	onMount(() => {
-		reload();
+		reload(true);
 	});
 
-	async function reload() {
+	async function reload(isInitialLoad: boolean = false) {
 		loading = true;
 
-		if (entity === 'catalog' && profile.current.hasAdminAccess?.() && catalogId) {
+		if (entity === 'catalog' && profile.current.hasAdminAccess?.() && id) {
 			deployedCatalogEntryServers =
-				await AdminService.listAllCatalogDeployedSingleRemoteServers(catalogId);
+				await AdminService.listAllCatalogDeployedSingleRemoteServers(id);
 			deployedWorkspaceCatalogEntryServers =
 				await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
+		} else if (!isInitialLoad && entity === 'workspace') {
+			mcpServersAndEntries.refreshAll();
 		}
+
 		instances = await ChatService.listMcpServerInstances();
 		loading = false;
 	}
@@ -256,18 +277,22 @@
 		if (server.catalogEntryID) {
 			await ChatService.deleteSingleOrRemoteMcpServer(server.id);
 			// Decrement the count of servers in the catalog
-			const entry = mcpServerAndEntries.entries.find((entry) => entry.id === server.catalogEntryID);
+			const entry = mcpServersAndEntries.current.entries.find(
+				(entry) => entry.id === server.catalogEntryID
+			);
 			if (entry?.userCount) entry.userCount--;
 		} else {
 			// multi-user
 			try {
 				if (server.powerUserWorkspaceID) {
 					await ChatService.deleteWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
-				} else if (profile.current.hasAdminAccess?.() && catalogId) {
-					await AdminService.deleteMCPCatalogServer(catalogId, server.id);
+				} else if (profile.current.hasAdminAccess?.() && id) {
+					await AdminService.deleteMCPCatalogServer(id, server.id);
 				}
 				// Remove server from list
-				mcpServerAndEntries.servers = mcpServerAndEntries.servers.filter((s) => s.id !== server.id);
+				mcpServersAndEntries.current.servers = mcpServersAndEntries.current.servers.filter(
+					(s) => s.id !== server.id
+				);
 			} catch (error) {
 				if (error instanceof MCPCompositeDeletionDependencyError) {
 					deleteConflictError = error;
@@ -299,7 +324,7 @@
 				type:
 					item.manifest?.runtime === 'remote' ? 'remote' : item.catalogEntryID ? 'single' : 'multi',
 				entity: belongsToWorkspace ? 'workspace' : 'catalog',
-				entityId: belongsToWorkspace ? item.powerUserWorkspaceID : catalogId
+				entityId: belongsToWorkspace ? item.powerUserWorkspaceID : id
 			})
 		);
 	}
@@ -331,7 +356,7 @@
 					? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
 					: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`;
 			}
-		} else {
+		} else if (entity === 'workspace') {
 			url = isMulti
 				? `/mcp-servers/s/${d.id}/details`
 				: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`;
@@ -341,19 +366,12 @@
 </script>
 
 <div class="flex flex-col gap-2">
-	{#if loading || mcpServerAndEntries.loading}
+	{#if loading || mcpServersAndEntries.current.loading}
 		<div class="my-2 flex items-center justify-center">
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
 	{:else if serversData.length === 0}
-		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-			<Server class="text-surface3 size-24" />
-			<h4 class="text-on-surface1 text-lg font-semibold">No current deployments.</h4>
-			<p class="text-on-surface1 text-sm font-light">
-				Once a server has been deployed, its <br />
-				information will be quickly accessible here.
-			</p>
-		</div>
+		{@render noDataContent?.()}
 	{:else}
 		<Table
 			bind:this={tableRef}
@@ -386,6 +404,9 @@
 				root: 'rounded-none rounded-b-md shadow-none',
 				thead: 'top-31'
 			}}
+			sectionedBy="isMyServer"
+			sectionPrimaryTitle="My Servers"
+			sectionSecondaryTitle="All Servers"
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
@@ -431,9 +452,10 @@
 					{/snippet}
 
 					{#snippet children({ toggle })}
+						{@const isAtLeastPowerUser = profile.current.groups.includes(Group.POWERUSER)}
 						<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
 							{#if d.needsUpdate}
-								{#if !readonly}
+								{#if !readonly && isAtLeastPowerUser}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
@@ -476,7 +498,41 @@
 									<GitCompare class="size-4" /> View Diff
 								</button>
 							{/if}
-							{#if d.manifest.runtime !== 'remote' && !readonly}
+
+							{#if !d.catalogEntryID || d.userID === profile.current.id}
+								<button
+									class="menu-button-primary"
+									onclick={async (e) => {
+										e.stopPropagation();
+										const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined;
+										connectToServerDialog?.open({
+											entry,
+											server: d,
+											instance: instancesMap.get(d.id)
+										});
+										toggle(false);
+									}}
+								>
+									<SatelliteDish class="size-4" /> Connect To Server
+								</button>
+								<button
+									class="menu-button"
+									onclick={async (e) => {
+										e.stopPropagation();
+										if (d) {
+											connectToServerDialog?.handleSetupChat(d, instancesMap.get(d.id));
+										}
+										toggle(false);
+									}}
+								>
+									<MessageCircle class="size-4" /> Chat
+								</button>
+							{/if}
+
+							{@render editConfigAction(d)}
+							{@render renameAction(d)}
+
+							{#if d.manifest.runtime !== 'remote' && !readonly && isAtLeastPowerUser}
 								<button
 									class="menu-button"
 									disabled={restarting}
@@ -505,22 +561,25 @@
 									{/if}
 								</button>
 							{/if}
-							<button
-								onclick={(e) => {
-									e.stopPropagation();
-									const isCtrlClick = e.ctrlKey || e.metaKey;
-									setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-									openUrl(auditLogsUrl, isCtrlClick);
-								}}
-								class="menu-button text-left"
-							>
-								<Captions class="size-4" />
-								{#if isComposite}
-									View Parent Server <br /> Audit Logs
-								{:else}
-									View Audit Logs
-								{/if}
-							</button>
+							{#if isAtLeastPowerUser}
+								<button
+									onclick={(e) => {
+										e.stopPropagation();
+										const isCtrlClick = e.ctrlKey || e.metaKey;
+										setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+										openUrl(auditLogsUrl, isCtrlClick);
+									}}
+									class="menu-button text-left"
+								>
+									<Captions class="size-4" />
+									{#if isComposite}
+										View Parent Server <br /> Audit Logs
+									{:else}
+										View Audit Logs
+									{/if}
+								</button>
+							{/if}
+
 							{#if !readonly}
 								<button
 									class="menu-button-destructive"
@@ -620,6 +679,48 @@
 	{/if}
 </div>
 
+{#snippet editConfigAction(d: MCPCatalogServer)}
+	{@const requiresUpdate = requiresUserUpdate({
+		connectURL: d.connectURL ?? '',
+		server: { ...d, categories: [] }
+	})}
+	{@const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined}
+	{@const canConfigure =
+		entry && (entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry))}
+	{#if canConfigure}
+		<button
+			class={twMerge(
+				'menu-button',
+				requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+			)}
+			onclick={() => {
+				editExistingDialog?.edit({
+					server: d,
+					instance: instancesMap.get(d.id),
+					entry: d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined
+				});
+			}}
+		>
+			<ServerCog class="size-4" /> Edit Configuration
+		</button>
+	{/if}
+{/snippet}
+
+{#snippet renameAction(d: MCPCatalogServer)}
+	<button
+		class="menu-button"
+		onclick={() => {
+			editExistingDialog?.rename({
+				server: d,
+				instance: instancesMap.get(d.id),
+				entry: d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined
+			});
+		}}
+	>
+		<PencilLine class="size-4" /> Rename
+	</button>
+{/snippet}
+
 <DiffDialog bind:this={diffDialog} fromServer={existingServer} toServer={updatedServer} />
 
 <Confirm
@@ -686,5 +787,17 @@
 	error={deleteConflictError}
 	onClose={() => {
 		deleteConflictError = undefined;
+	}}
+/>
+
+<ConnectToServer
+	bind:this={connectToServerDialog}
+	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
+/>
+
+<EditExistingDeployment
+	bind:this={editExistingDialog}
+	onUpdateConfigure={() => {
+		mcpServersAndEntries.refreshAll();
 	}}
 />

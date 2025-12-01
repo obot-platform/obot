@@ -163,7 +163,7 @@
 </script>
 
 <Layout classes={{ navbar: 'bg-surface1' }} showBackButton title="Audit Log Exports">
-	<div class="flex min-h-full flex-col gap-8 pt-4" in:fade>
+	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if showForm}
 			{@render formScreen()}
 		{:else}

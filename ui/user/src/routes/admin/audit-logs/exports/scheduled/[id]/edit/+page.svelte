@@ -40,7 +40,7 @@
 </script>
 
 <Layout classes={{ navbar: 'bg-surface1' }} {title} showBackButton>
-	<div class="flex min-h-full flex-col gap-8 pt-4" in:fade>
+	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if loading}
 			<div class="flex items-center justify-center py-8">
 				<LoaderCircle class="text-primary size-8 animate-spin" />

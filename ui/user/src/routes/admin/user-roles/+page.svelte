@@ -37,7 +37,7 @@
 
 <Layout classes={{ container: 'pb-0' }} title="User Roles">
 	<div
-		class="my-4 flex h-dvh min-h-full flex-col gap-8"
+		class="mb-4 flex h-dvh min-h-full flex-col gap-8"
 		in:fade={{ duration }}
 		out:fade={{ duration }}
 	>

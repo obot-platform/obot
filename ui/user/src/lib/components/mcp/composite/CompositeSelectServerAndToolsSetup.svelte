@@ -11,7 +11,6 @@
 	import { convertEnvHeadersToRecord, hasEditableConfiguration } from '$lib/services/chat/mcp';
 	import { LoaderCircle } from 'lucide-svelte';
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
-	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
 	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
 
@@ -23,7 +22,12 @@
 			entry: MCPCatalogEntry | MCPCatalogServer,
 			tools?: CompositeServerToolRow[]
 		) => void;
-		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
+		mcpEntriesContextFn?: () => {
+			entries: MCPCatalogEntry[];
+			servers: MCPCatalogServer[];
+			userConfiguredServers: MCPCatalogServer[];
+			loading: boolean;
+		};
 		configuringEntry?: MCPCatalogEntry | MCPCatalogServer;
 		excluded?: string[];
 		// Optional composite context when configuring tools for an existing composite component
@@ -287,7 +291,7 @@
 		handleAdd(mcpCatalogEntryIds, mcpServerIds, otherSelectors)}
 	exclude={['*', 'default', ...(excluded ?? [])]}
 	type="acr"
-	mcpEntriesContextFn={(): AdminMcpServerAndEntriesContext => {
+	mcpEntriesContextFn={() => {
 		const ctx = mcpEntriesContextFn?.() ?? {
 			entries: [],
 			servers: [],

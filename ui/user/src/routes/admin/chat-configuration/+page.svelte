@@ -153,7 +153,7 @@
 </script>
 
 <Layout title="Chat Configuration" classes={{ container: 'pb-0' }}>
-	<div class="relative mt-4 h-full w-full" transition:fade={{ duration }}>
+	<div class="relative h-full w-full" transition:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
 			<div class="notification-info p-3 text-sm font-light">
 				<div class="flex items-center gap-3">
