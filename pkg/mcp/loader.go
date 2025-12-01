@@ -39,6 +39,10 @@ type Options struct {
 	MCPK8sSettingsAffinity    string `usage:"Affinity rules for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_AFFINITY"`
 	MCPK8sSettingsTolerations string `usage:"Tolerations for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_TOLERATIONS"`
 	MCPK8sSettingsResources   string `usage:"Resource requests/limits for MCP server pods (JSON)" env:"OBOT_SERVER_MCPK8S_SETTINGS_RESOURCES"`
+
+	// Obot service configuration for constructing internal service FQDN
+	ServiceName      string `usage:"The Kubernetes service name for the obot server" env:"OBOT_SERVER_SERVICE_NAME"`
+	ServiceNamespace string `usage:"The Kubernetes namespace where the obot server runs" env:"OBOT_SERVER_SERVICE_NAMESPACE"`
 }
 
 type SessionManager struct {
@@ -103,7 +107,7 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 			return nil, err
 		}
 
-		backend = newKubernetesBackend(clientset, client, opts.MCPBaseImage, opts.MCPHTTPWebhookBaseImage, opts.MCPRemoteShimBaseImage, opts.MCPNamespace, opts.MCPClusterDomain, opts.MCPImagePullSecrets, obotStorageClient)
+		backend = newKubernetesBackend(clientset, client, opts.MCPBaseImage, opts.MCPHTTPWebhookBaseImage, opts.MCPRemoteShimBaseImage, opts.MCPNamespace, opts.MCPClusterDomain, opts.ServiceName, opts.ServiceNamespace, opts.MCPImagePullSecrets, obotStorageClient)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}
