@@ -287,6 +287,15 @@ func (h *Handler) DeleteServersWithoutRuntime(req router.Request, _ router.Respo
 	return nil
 }
 
+func (h *Handler) DeleteServersForAnonymousUser(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.MCPServer)
+	if server.Spec.UserID == "anonymous" {
+		return req.Client.Delete(req.Ctx, server)
+	}
+
+	return nil
+}
+
 func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 

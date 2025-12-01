@@ -314,7 +314,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user user
 		MCPServerID:            vars("mcpserver_id"),
 		MCPServerInstanceID:    vars("mcp_server_instance_id"),
 		ProjectMCPServerID:     vars("project_mcp_server_id"),
-		MCPID:                  vars("mcp_id"), // this will be either a server ID or a server instance ID
+		MCPID:                  vars("mcp_id"), // this can be a server ID, server instance ID, or a catalog entry ID
 		PendingAuthorizationID: vars("pending_authorization_id"),
 		ThreadShareID:          vars("share_public_id"),
 		TemplateID:             vars("template_public_id"),
