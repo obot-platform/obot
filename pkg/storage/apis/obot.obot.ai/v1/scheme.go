@@ -89,6 +89,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&UserDeleteList{},
 		&UserRoleChange{},
 		&UserRoleChangeList{},
+		&UserGroupChange{},
+		&UserGroupChangeList{},
 		&GroupRoleChange{},
 		&GroupRoleChangeList{},
 		&MCPCatalog{},
