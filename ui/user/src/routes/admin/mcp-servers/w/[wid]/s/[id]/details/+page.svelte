@@ -1,6 +1,7 @@
 <script lang="ts">
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, ChatService, type MCPServerInstance, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
@@ -24,9 +25,13 @@
 	});
 
 	let title = $derived(mcpServer?.manifest?.name ?? 'MCP Server Details');
+	let instance = $derived(instances.find((instance) => instance.userID === profile.current.id));
 </script>
 
 <Layout {title} showBackButton>
+	{#snippet rightNavActions()}
+		<McpServerActions server={mcpServer} {instance} />
+	{/snippet}
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: PAGE_TRANSITION_DURATION }}>
 		{#if loading}
 			<div class="flex w-full justify-center">

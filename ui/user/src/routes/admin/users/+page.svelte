@@ -118,7 +118,7 @@
 </script>
 
 <Layout title="Users">
-	<div class="my-4" in:fade={{ duration }} out:fade={{ duration }}>
+	<div class="mb-4" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
 			<div class="flex flex-col gap-2">
 				<Search

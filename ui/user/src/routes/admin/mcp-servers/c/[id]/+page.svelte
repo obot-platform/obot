@@ -6,21 +6,16 @@
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import { profile } from '$lib/stores/index.js';
+	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 	import { CircleFadingArrowUp, CircleAlert, Info, GitCompare } from 'lucide-svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
 	import type { MCPServer, MCPCatalogServer } from '$lib/services/chat/types';
-	import {
-		fetchMcpServerAndEntries,
-		initMcpServerAndEntries
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService } from '$lib/services/index.js';
 	import { parseErrorContent } from '$lib/errors';
-
-	initMcpServerAndEntries();
+	import ConfiguredMcpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -56,6 +51,14 @@
 	} | null = $state(null);
 
 	let upgradeSuccessDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	const hasExistingConfigured = $derived(
+		Boolean(
+			initialCatalogEntry &&
+				mcpServersAndEntries.current.userConfiguredServers.some(
+					(server) => server.catalogEntryID === initialCatalogEntry.id
+				)
+		)
+	);
 
 	async function handleUpgradeClick() {
 		if (!catalogEntry || upgrading) return;
@@ -164,7 +167,7 @@
 
 	$effect(() => {
 		if (catalogEntry?.manifest.runtime === 'composite') {
-			fetchMcpServerAndEntries(DEFAULT_MCP_CATALOG_ID);
+			mcpServersAndEntries.refreshAll();
 		}
 	});
 
@@ -179,6 +182,9 @@
 	{title}
 	showBackButton
 >
+	{#snippet rightNavActions()}
+		<ConfiguredMcpServerActions entry={catalogEntry} />
+	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if showUpgradeNotification}
 			<div class="border-primary bg-primary/10 flex items-center gap-3 rounded-lg border p-4">
@@ -215,6 +221,7 @@
 			onSubmit={async () => {
 				goto('/admin/mcp-servers');
 			}}
+			{hasExistingConfigured}
 		/>
 	</div>
 </Layout>

@@ -35,9 +35,11 @@
 			entry?: MCPCatalogEntry;
 			instance?: MCPServerInstance;
 		}) => void;
+		onClose?: () => void;
+		skipConnectDialog?: boolean;
 	}
 
-	let { userConfiguredServers, onConnect }: Props = $props();
+	let { userConfiguredServers, onConnect, onClose, skipConnectDialog }: Props = $props();
 
 	let server = $state<MCPCatalogServer>();
 	let entry = $state<MCPCatalogEntry>();
@@ -72,7 +74,9 @@
 	function handleConnect() {
 		if (onConnect) {
 			onConnect({ server, entry, instance });
-		} else {
+		}
+
+		if (!skipConnectDialog) {
 			connectDialog?.open();
 		}
 	}
@@ -372,7 +376,7 @@
 	}
 
 	async function handleMultiUserServer() {
-		if (!server || entry) return;
+		if (!server || server.catalogEntryID) return;
 		try {
 			const response = await ChatService.createMcpServerInstance(server.id);
 			instance = response;
@@ -494,7 +498,9 @@
 		instance = initInstance;
 
 		if ((entry && server) || (server && instance)) {
-			connectDialog?.open();
+			if (!skipConnectDialog) {
+				handleConnect();
+			}
 		} else {
 			if (initEntry && !initServer) {
 				if (hasEditableConfiguration(initEntry) && initEntry.manifest?.runtime === 'composite') {
@@ -571,7 +577,7 @@
 	}
 </script>
 
-<ResponsiveDialog bind:this={connectDialog} animate="slide">
+<ResponsiveDialog bind:this={connectDialog} animate="slide" {onClose}>
 	{#snippet titleContent()}
 		{#if server}
 			{@const icon = server.manifest.icon ?? ''}
@@ -588,7 +594,7 @@
 	{/snippet}
 
 	{#if server}
-		{@const url = server.connectURL}
+		{@const url = instance ? instance.connectURL : server.connectURL}
 		<div class="flex items-center gap-4">
 			<div class="mb-4 flex grow flex-col gap-1">
 				<label for="connectURL" class="font-light">Connection URL</label>

@@ -6,6 +6,8 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import { mcpServersAndEntries } from '$lib/stores/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -13,6 +15,14 @@
 	let { workspaceId, catalogEntry: initialCatalogEntry } = data;
 	let catalogEntry = $state(initialCatalogEntry);
 	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
+	const hasExistingConfigured = $derived(
+		Boolean(
+			catalogEntry &&
+				mcpServersAndEntries.current.userConfiguredServers.some(
+					(server) => server.catalogEntryID === catalogEntry.id
+				)
+		)
+	);
 </script>
 
 <Layout
@@ -24,6 +34,9 @@
 	{title}
 	showBackButton
 >
+	{#snippet rightNavActions()}
+		<McpServerActions entry={catalogEntry} />
+	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if catalogEntry}
 			<McpServerEntryForm
@@ -42,6 +55,7 @@
 				onSubmit={async () => {
 					goto('/mcp-servers');
 				}}
+				{hasExistingConfigured}
 			/>
 		{/if}
 	</div>

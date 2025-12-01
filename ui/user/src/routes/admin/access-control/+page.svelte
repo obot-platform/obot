@@ -2,30 +2,21 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { BookOpenText, ChevronLeft, Plus, Trash2 } from 'lucide-svelte';
+	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import { onMount } from 'svelte';
-	import {
-		fetchMcpServerAndEntries,
-		getAdminMcpServerAndEntries,
-		initMcpServerAndEntries
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { getUserDisplayName, openUrl } from '$lib/utils.js';
-	import { profile } from '$lib/stores/index.js';
+	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 
 	let { data } = $props();
 	const { accessControlRules: initialRules } = data;
-	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 
-	initMcpServerAndEntries();
-
-	const mcpServersAndEntries = getAdminMcpServerAndEntries();
 	let accessControlRules = $state(initialRules);
 	let showCreateRule = $state(false);
 	let ruleToDelete = $state<AccessControlRule>();
@@ -39,7 +30,8 @@
 
 	function convertToTableData(rule: AccessControlRule, registry: 'user' | 'global' = 'global') {
 		const owner = rule.powerUserID ? getUserDisplayName(usersMap, rule.powerUserID) : undefined;
-		const totalServers = mcpServersAndEntries.entries.length + mcpServersAndEntries.servers.length;
+		const totalServers =
+			mcpServersAndEntries.current.entries.length + mcpServersAndEntries.current.servers.length;
 
 		const hasEverything = rule.resources?.find((r) => r.id === '*');
 		const count = (() => {
@@ -108,13 +100,12 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	onMount(async () => {
-		fetchMcpServerAndEntries(defaultCatalogId);
 		users = await AdminService.listUsersIncludeDeleted();
 	});
 
 	function getAcrServerCount(powerUserWorkspaceID: string) {
-		const mcpServers = Array.from(mcpServersAndEntries.servers.values());
-		const mcpEntries = Array.from(mcpServersAndEntries.entries.values());
+		const mcpServers = Array.from(mcpServersAndEntries.current.servers.values());
+		const mcpEntries = Array.from(mcpServersAndEntries.current.entries.values());
 
 		return (
 			mcpServers.filter((server) => server.powerUserWorkspaceID === powerUserWorkspaceID).length +
@@ -237,7 +228,7 @@
 	>
 		<AccessControlRuleForm
 			onCreate={navigateToCreated}
-			mcpEntriesContextFn={getAdminMcpServerAndEntries}
+			mcpEntriesContextFn={() => mcpServersAndEntries.current}
 		/>
 	</div>
 {/snippet}
