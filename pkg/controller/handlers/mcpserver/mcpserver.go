@@ -304,13 +304,13 @@ func (h *Handler) DeleteServersForAnonymousUser(req router.Request, _ router.Res
 func (h *Handler) EnsureMCPCatalogID(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 
-	if server.Status.MCPCatalogID == "" && server.Spec.MCPCatalogID == "" && server.Spec.MCPServerCatalogEntryName != "" {
+	if (server.Status.MCPCatalogID == "" || server.Status.MCPCatalogID == server.Spec.MCPServerCatalogEntryName) && server.Spec.MCPCatalogID == "" && server.Spec.MCPServerCatalogEntryName != "" {
 		var mcpCatalogEntry v1.MCPServerCatalogEntry
 		if err := req.Get(&mcpCatalogEntry, server.Namespace, server.Spec.MCPServerCatalogEntryName); err != nil {
 			return err
 		}
 
-		server.Status.MCPCatalogID = mcpCatalogEntry.Name
+		server.Status.MCPCatalogID = mcpCatalogEntry.Spec.MCPCatalogName
 		return req.Client.Status().Update(req.Ctx, server)
 	}
 
