@@ -25,10 +25,15 @@
 	let catalogEntryName = catalogEntry?.manifest?.name ?? 'Unknown';
 
 	async function fetchUserInfo() {
-		if (!workspaceId || !catalogEntry?.id) return;
-		mcpServer = catalogEntry.powerUserWorkspaceID
-			? await ChatService.getWorkspaceCatalogEntryServer(workspaceId, catalogEntry.id, mcpServerId)
-			: await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
+		if (!mcpServerId) return;
+		mcpServer =
+			catalogEntry && catalogEntry.powerUserWorkspaceID && workspaceId
+				? await ChatService.getWorkspaceCatalogEntryServer(
+						workspaceId,
+						catalogEntry.id,
+						mcpServerId
+					)
+				: await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
 		if (mcpServer?.userID) {
 			const user = await AdminService.getUser(mcpServer.userID);
 			connectedUsers = [user];
