@@ -261,7 +261,10 @@
 		} else {
 			await AdminService.deleteAccessControlRule(ruleToDelete.id);
 		}
-		accessControlRules = await AdminService.listAccessControlRules();
+		const adminAccessControlRules = await AdminService.listAccessControlRules();
+		const userWorkspacesAccessControlRules =
+			await AdminService.listAllUserWorkspaceAccessControlRules();
+		accessControlRules = [...adminAccessControlRules, ...userWorkspacesAccessControlRules];
 
 		ruleToDelete = undefined;
 	}}
