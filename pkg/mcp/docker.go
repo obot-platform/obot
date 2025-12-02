@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -27,16 +28,18 @@ import (
 )
 
 type dockerBackend struct {
-	client                 *client.Client
-	containerEnv           bool
-	network                string
-	hostBaseURL            string
-	containerizedBaseImage string
-	webhookBaseImage       string
-	remoteShimBaseImage    string
+	client                        *client.Client
+	containerEnv                  bool
+	network                       string
+	hostBaseURL                   string
+	containerizedBaseImage        string
+	webhookBaseImage              string
+	remoteShimBaseImage           string
+	auditLogsBatchSize            int
+	auditLogsFlushIntervalSeconds int
 }
 
-func newDockerBackend(ctx context.Context, containerizedBaseImage, webhookBaseImage, remoteShimBaseImage string) (backend, error) {
+func newDockerBackend(ctx context.Context, opts Options) (backend, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
@@ -53,13 +56,15 @@ func newDockerBackend(ctx context.Context, containerizedBaseImage, webhookBaseIm
 	}
 
 	d := &dockerBackend{
-		client:                 cli,
-		containerEnv:           containerEnv,
-		network:                network,
-		hostBaseURL:            "http://" + ipAddress,
-		containerizedBaseImage: containerizedBaseImage,
-		webhookBaseImage:       webhookBaseImage,
-		remoteShimBaseImage:    remoteShimBaseImage,
+		client:                        cli,
+		containerEnv:                  containerEnv,
+		network:                       network,
+		hostBaseURL:                   "http://" + ipAddress,
+		containerizedBaseImage:        opts.MCPBaseImage,
+		webhookBaseImage:              opts.MCPHTTPWebhookBaseImage,
+		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
+		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
+		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
 	}
 	if err = d.cleanupContainersWithOldID(ctx); err != nil {
 		return nil, fmt.Errorf("failed to cleanup containers with old ID: %w", err)
@@ -197,6 +202,9 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool, webhooks []Webhook) (ServerConfig, error) {
 	if strings.HasPrefix(server.TokenExchangeEndpoint, "http://localhost") {
 		server.TokenExchangeEndpoint = strings.Replace(server.TokenExchangeEndpoint, "http://localhost", d.hostBaseURL, 1)
+	}
+	if strings.HasPrefix(server.AuditLogEndpoint, "http://localhost") {
+		server.AuditLogEndpoint = strings.Replace(server.AuditLogEndpoint, "http://localhost", d.hostBaseURL, 1)
 	}
 
 	for i, component := range server.Components {
@@ -571,6 +579,9 @@ func (d *dockerBackend) buildServerConfig(server ServerConfig, c *container.Summ
 		TokenExchangeEndpoint:     server.TokenExchangeEndpoint,
 		TokenExchangeClientID:     server.TokenExchangeClientID,
 		TokenExchangeClientSecret: server.TokenExchangeClientSecret,
+		AuditLogEndpoint:          server.AuditLogEndpoint,
+		AuditLogToken:             server.AuditLogToken,
+		AuditLogMetadata:          server.AuditLogMetadata,
 		ContainerPort:             containerPort,
 		ContainerPath:             server.ContainerPath,
 	}, nil
@@ -657,6 +668,12 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 				"NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_ID=" + server.TokenExchangeClientID,
 				"NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_SECRET=" + server.TokenExchangeClientSecret,
 				"NANOBOT_RUN_TOKEN_EXCHANGE_ENDPOINT=" + server.TokenExchangeEndpoint,
+				"NANOBOT_RUN_AUDIT_LOG_TOKEN=" + server.AuditLogToken,
+				"NANOBOT_RUN_AUDIT_LOG_SEND_URL=" + server.AuditLogEndpoint,
+				"NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE=" + strconv.Itoa(d.auditLogsBatchSize),
+				"NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS=" + strconv.Itoa(d.auditLogsFlushIntervalSeconds),
+				"NANOBOT_RUN_AUDIT_LOG_METADATA=" + server.AuditLogMetadata,
+				"NANOBOT_RUN_FORCE_FETCH_TOOL_LIST=true",
 				"NANOBOT_DISABLE_HEALTH_CHECKER=true",
 			}
 		}

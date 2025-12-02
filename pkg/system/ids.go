@@ -93,6 +93,10 @@ func IsMCPServerInstanceID(id string) bool {
 	return strings.HasPrefix(id, MCPServerInstancePrefix)
 }
 
+func IsPowerUserWorkspaceID(id string) bool {
+	return strings.HasPrefix(id, PowerUserWorkspacePrefix)
+}
+
 // GetProjectShareName returns the project share name for a given user ID and project ID.
 func GetProjectShareName(userID string, projectID string) string {
 	return name.SafeHashConcatName(ThreadSharePrefix, userID,

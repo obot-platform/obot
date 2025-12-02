@@ -48,6 +48,12 @@ func TestReplaceHostWithServiceFQDN(t *testing.T) {
 			expectedURL: "http://localhost:8080/oauth/token",
 		},
 		{
+			name:        "empty URL returns empty string",
+			serviceFQDN: "obot.obot-system.svc.cluster.local",
+			inputURL:    "",
+			expectedURL: "",
+		},
+		{
 			name:        "malformed URL without scheme returns original",
 			serviceFQDN: "obot.obot-system.svc.cluster.local",
 			inputURL:    "localhost:8080/oauth/token",
@@ -127,7 +133,7 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			backend := newKubernetesBackend(nil, nil, "", "", "", "", tt.clusterDomain, tt.serviceName, tt.serviceNamespace, nil, nil)
+			backend := newKubernetesBackend(nil, nil, nil, Options{ServiceName: tt.serviceName, ServiceNamespace: tt.serviceNamespace, MCPClusterDomain: tt.clusterDomain})
 			k := backend.(*kubernetesBackend)
 			if k.serviceFQDN != tt.expectedFQDN {
 				t.Errorf("newKubernetesBackend() serviceFQDN = %v, want %v", k.serviceFQDN, tt.expectedFQDN)

@@ -222,11 +222,15 @@ func constructNanobotYAMLForServer(name, url, command string, args []string, env
 	mcpServers := make(map[string]nanobotConfigMCPServer, len(webhooks)+1)
 
 	for _, webhook := range webhooks {
-		mcpServers[replacer.Replace(webhook.Name)] = nanobotConfigMCPServer{
+		name := replacer.Replace(webhook.DisplayName)
+		if name == "" {
+			name = replacer.Replace(webhook.Name)
+		}
+		mcpServers[name] = nanobotConfigMCPServer{
 			BaseURL: webhook.URL,
 		}
 		for _, def := range webhook.Definitions {
-			webhookDefinitions[def] = []string{fmt.Sprintf("%s/%s", webhook.Name, webhookToolName)}
+			webhookDefinitions[def] = []string{fmt.Sprintf("%s/%s", name, webhookToolName)}
 		}
 	}
 

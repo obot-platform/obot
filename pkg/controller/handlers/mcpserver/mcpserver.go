@@ -329,7 +329,7 @@ func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router
 	return nil
 }
 
-func (h *Handler) EnsureOAuthClient(req router.Request, _ router.Response) error {
+func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 
 	fieldSelector := fields.SelectorFromSet(map[string]string{
@@ -339,16 +339,23 @@ func (h *Handler) EnsureOAuthClient(req router.Request, _ router.Response) error
 	if err := req.List(&oauthClients, &kclient.ListOptions{
 		Namespace:     req.Namespace,
 		FieldSelector: fieldSelector,
-	}); err != nil || len(oauthClients.Items) > 0 {
+	}); err != nil {
 		return err
 	}
 
-	// If listing with the cache doesn't return anything, double-check with the uncached listing
-	if err := req.List(untriggered.UncachedList(&oauthClients), &kclient.ListOptions{
-		Namespace:     req.Namespace,
-		FieldSelector: fieldSelector,
-	}); err != nil || len(oauthClients.Items) > 0 {
-		return err
+	if len(oauthClients.Items) == 0 {
+		// If listing with the cache doesn't return anything, double-check with the uncached listing
+		if err := req.List(untriggered.UncachedList(&oauthClients), &kclient.ListOptions{
+			Namespace:     req.Namespace,
+			FieldSelector: fieldSelector,
+		}); err != nil {
+			return err
+		}
+	}
+
+	if len(oauthClients.Items) > 0 && (server.Status.AuditLogTokenHash != "" || server.Spec.CompositeName != "") {
+		// Nothing else to do here.
+		return nil
 	}
 
 	clientID := system.OAuthClientPrefix + strings.ToLower(rand.Text())
@@ -358,6 +365,9 @@ func (h *Handler) EnsureOAuthClient(req router.Request, _ router.Response) error
 		return fmt.Errorf("failed to hash client secret: %w", err)
 	}
 
+	auditLogToken := strings.ToLower(rand.Text() + rand.Text())
+	server.Status.AuditLogTokenHash = hash.Digest(auditLogToken)
+
 	if err := h.gptClient.CreateCredential(req.Ctx, gptscript.Credential{
 		Context:  server.Name,
 		ToolName: server.Name,
@@ -365,8 +375,11 @@ func (h *Handler) EnsureOAuthClient(req router.Request, _ router.Response) error
 		Env: map[string]string{
 			"TOKEN_EXCHANGE_CLIENT_ID":     fmt.Sprintf("%s:%s", req.Namespace, clientID),
 			"TOKEN_EXCHANGE_CLIENT_SECRET": clientSecret,
+			"AUDIT_LOG_TOKEN":              auditLogToken,
 		},
 	}); err != nil {
+		// Ensure we retry creating the credential if we failed.
+		server.Status.AuditLogTokenHash = ""
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 

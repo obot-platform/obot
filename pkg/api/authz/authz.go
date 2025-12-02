@@ -205,6 +205,9 @@ var (
 			// Allow any user to read stored images.
 			// This allows the UI to display custom images to unauthenticated users.
 			"GET /api/image/{image_id}",
+
+			// The auth for this is handled in the HTTP handler
+			"POST /api/mcp-audit-logs",
 		},
 
 		types.GroupBasic: {

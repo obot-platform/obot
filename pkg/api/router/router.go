@@ -580,6 +580,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	// MCP Audit Logs
 	mux.HandleFunc("GET /api/mcp-audit-logs", mcpAuditLogs.ListAuditLogs)
+	mux.HandleFunc("POST /api/mcp-audit-logs", mcpAuditLogs.SubmitAuditLogs)
 	mux.HandleFunc("GET /api/mcp-audit-logs/filter-options/{filter}", mcpAuditLogs.ListAuditLogFilterOptions)
 	mux.HandleFunc("GET /api/mcp-audit-logs/{mcp_id}", mcpAuditLogs.ListAuditLogs)
 	mux.HandleFunc("GET /api/mcp-stats", mcpAuditLogs.GetUsageStats)

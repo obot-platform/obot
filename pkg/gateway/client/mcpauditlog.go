@@ -82,7 +82,19 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 					updates["error"] = responseLog.Error
 				}
 				if len(responseLog.WebhookStatuses) > 0 {
-					updates["webhook_statuses"] = responseLog.WebhookStatuses
+					updates["webhook_statuses"] = append(existingLog.WebhookStatuses, responseLog.WebhookStatuses...)
+				}
+				if existingLog.UserID == "" {
+					updates["user_id"] = responseLog.UserID
+				}
+				if existingLog.ClientIP == "" {
+					updates["client_ip"] = responseLog.ClientIP
+				}
+				if existingLog.ClientName == "" {
+					updates["client_name"] = responseLog.ClientName
+				}
+				if existingLog.ClientVersion == "" {
+					updates["client_version"] = responseLog.ClientVersion
 				}
 
 				// Calculate processing time as difference between response and request timestamps

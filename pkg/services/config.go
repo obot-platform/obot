@@ -105,11 +105,9 @@ type Config struct {
 	DefaultMCPCatalogPath      string   `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
 	DisableUpdateCheck         bool     `usage:"Disable Obot server update checks"`
 	// Sendgrid webhook
-	SendgridWebhookUsername           string `usage:"The username for the sendgrid webhook to authenticate with"`
-	SendgridWebhookPassword           string `usage:"The password for the sendgrid webhook to authenticate with"`
-	MCPAuditLogPersistIntervalSeconds int    `usage:"The interval in seconds to persist MCP audit logs to the database" default:"5"`
-	MCPAuditLogsPersistBatchSize      int    `usage:"The number of MCP audit logs to persist in a single batch" default:"1000"`
-	EnableRegistryAuth                bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
+	SendgridWebhookUsername string `usage:"The username for the sendgrid webhook to authenticate with"`
+	SendgridWebhookPassword string `usage:"The password for the sendgrid webhook to authenticate with"`
+	EnableRegistryAuth      bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 
 	GeminiConfig
 	GatewayConfig

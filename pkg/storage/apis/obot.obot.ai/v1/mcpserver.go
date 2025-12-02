@@ -49,6 +49,8 @@ func (in *MCPServer) Get(field string) (value string) {
 		return in.Spec.CompositeName
 	case "spec.manifest.runtime":
 		return string(in.Spec.Manifest.Runtime)
+	case "auditLogTokenHash":
+		return in.Status.AuditLogTokenHash
 	}
 	return ""
 }
@@ -63,6 +65,7 @@ func (in *MCPServer) FieldNames() []string {
 		"spec.template",
 		"spec.compositeName",
 		"spec.manifest.runtime",
+		"auditLogTokenHash",
 	}
 }
 
@@ -140,6 +143,8 @@ type MCPServerStatus struct {
 	// This field is only populated for servers running in Kubernetes runtime.
 	// For Docker, local, or remote runtimes, this field is omitted entirely.
 	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
+	// AuditLogTokenHash is the hash of the token used to submit audit logs.
+	AuditLogTokenHash string `json:"auditLogTokenHash,omitempty"`
 }
 
 type DeploymentCondition struct {

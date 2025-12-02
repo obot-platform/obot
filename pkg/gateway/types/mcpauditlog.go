@@ -43,8 +43,10 @@ type MCPAuditLog struct {
 
 type MCPWebhookStatus struct {
 	Type    string `json:"type,omitempty"`
-	URL     string `json:"url"`
-	Status  string `json:"status"`
+	URL     string `json:"url,omitempty"`
+	Method  string `json:"method,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Status  string `json:"status,omitempty"`
 	Message string `json:"message,omitempty"`
 }
 
@@ -99,7 +101,10 @@ func ConvertMCPAuditLog(a MCPAuditLog) types2.MCPAuditLog {
 	webhookStatus := make([]types2.WebhookStatus, len(a.WebhookStatuses))
 	for i, ws := range a.WebhookStatuses {
 		webhookStatus[i] = types2.WebhookStatus{
+			Type:    ws.Type,
+			Method:  ws.Method,
 			URL:     ws.URL,
+			Name:    ws.Name,
 			Status:  ws.Status,
 			Message: ws.Message,
 		}
