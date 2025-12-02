@@ -311,6 +311,9 @@ func (c *Controller) setupRoutes() {
 	// UserRoleChange
 	root.Type(&v1.UserRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleRoleChange)
 
+	// UserGroupChange
+	root.Type(&v1.UserGroupChange{}).HandlerFunc(mcpCatalog.HandleUserGroupChange)
+
 	// GroupRoleChange
 	root.Type(&v1.GroupRoleChange{}).HandlerFunc(powerUserWorkspaceHandler.HandleGroupRoleChange)
 

@@ -34,6 +34,7 @@ const (
 	SlackTriggerPrefix            = "st1"
 	UserDeletePrefix              = "ud1"
 	UserRoleChangePrefix          = "urc1"
+	UserGroupChangePrefix         = "ugc1"
 	GroupRoleChangePrefix         = "grc1"
 	MCPServerPrefix               = "ms1"
 	MCPServerInstancePrefix       = "msi1"

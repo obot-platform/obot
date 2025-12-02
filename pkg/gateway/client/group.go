@@ -233,7 +233,7 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 		}
 	}
 
-	membershipsChanged, err := c.ensureGroupMemberships(ctx, tx, identity)
+	membershipsChanged, groupsLost, err := c.ensureGroupMemberships(ctx, tx, identity)
 	if err != nil {
 		return fmt.Errorf("failed to update group memberships for identity: %w", err)
 	}
@@ -254,12 +254,30 @@ func (c *Client) ensureGroups(ctx context.Context, tx *gorm.DB, identity *types.
 		}
 	}
 
+	// If user lost groups, trigger MCP server cleanup
+	if groupsLost {
+		if err := c.storageClient.Create(ctx, &v1.UserGroupChange{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.UserGroupChangePrefix,
+				Namespace:    system.DefaultNamespace,
+			},
+			Spec: v1.UserGroupChangeSpec{
+				UserID: identity.UserID,
+			},
+		}); err != nil {
+			log.Warnf("failed to create user group change event for user %d: %v", identity.UserID, err)
+			// Don't fail authentication - membership update succeeded
+		}
+	}
+
 	return nil
 }
 
 // ensureGroupMemberships ensures the Identity is a member of the groups it references.
-// Returns true if memberships changed (user joined or left any groups).
-func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identity *types.Identity) (bool, error) {
+// Returns (membershipsChanged, groupsLost, error) where:
+//   - membershipsChanged: true if user joined or left any groups
+//   - groupsLost: true if user left at least one group
+func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identity *types.Identity) (bool, bool, error) {
 	// Get the existing memberships for this identity
 	var memberships []types.GroupMemberships
 	if err := tx.WithContext(ctx).
@@ -267,7 +285,7 @@ func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identi
 		Where("group_memberships.user_id = ?", identity.UserID).
 		Where("groups.auth_provider_namespace = ? AND groups.auth_provider_name = ?", identity.AuthProviderNamespace, identity.AuthProviderName).
 		Find(&memberships).Error; err != nil {
-		return false, fmt.Errorf("failed to get existing group memberships: %w", err)
+		return false, false, fmt.Errorf("failed to get existing group memberships: %w", err)
 	}
 
 	existingMemberships := make(map[string]types.GroupMemberships, len(memberships))
@@ -292,7 +310,7 @@ func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identi
 	// Insert new memberships
 	if len(toInsert) > 0 {
 		if err := tx.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&toInsert).Error; err != nil {
-			return false, fmt.Errorf("failed to create group memberships: %w", err)
+			return false, false, fmt.Errorf("failed to create group memberships: %w", err)
 		}
 	}
 
@@ -304,13 +322,14 @@ func (c *Client) ensureGroupMemberships(ctx context.Context, tx *gorm.DB, identi
 	if len(toDelete) > 0 {
 		// Delete memberships that are no longer in the identity's auth provider groups
 		if err := tx.WithContext(ctx).Delete(&toDelete).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return false, fmt.Errorf("failed to delete group memberships: %w", err)
+			return false, false, fmt.Errorf("failed to delete group memberships: %w", err)
 		}
 	}
 
 	// Return true if any memberships were added or removed
 	membershipsChanged := len(toInsert) > 0 || len(toDelete) > 0
-	return membershipsChanged, nil
+	groupsLost := len(toDelete) > 0
+	return membershipsChanged, groupsLost, nil
 }
 
 // deleteGroupMembershipsForUser deletes all group memberships for the given user.
