@@ -57,7 +57,7 @@ func (h *Handler) deleteUnauthorizedServersForUser(ctx context.Context, client k
 		}
 
 		// Skip special server types that don't need access checks
-		if server.Spec.ThreadName != "" || server.Spec.UserID == "anonymous" || server.Spec.CompositeName != "" {
+		if server.Spec.ThreadName != "" || server.Spec.CompositeName != "" {
 			// Legacy project-scoped servers, anonymous servers, and composite servers
 			continue
 		}
