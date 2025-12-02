@@ -74,17 +74,16 @@
 			placeholder="Search tools..."
 		/>
 		{#each visibleTools as tool (tool.id)}
-			{@const currentName = (tool.overrideName || '').trim() || tool.originalName}
-			{@const currentDescription =
-				(tool.overrideDescription || '').trim() || tool.description || ''}
+			{@const overrideName = (tool.overrideName || '').trim()}
+			{@const overrideDescription = (tool.overrideDescription || '').trim()}
+			{@const currentName = overrideName || tool.originalName}
+			{@const currentDescription = overrideDescription || tool.description || ''}
 			{@const isCustomized =
-				((tool.overrideName || '').trim() !== '' &&
-					(tool.overrideName || '').trim() !== tool.originalName) ||
-				((tool.overrideDescription || '').trim() !== '' &&
-					(tool.overrideDescription || '').trim() !== (tool.description || ''))}
+				(overrideName !== '' && overrideName !== tool.originalName) ||
+				(overrideDescription !== '' && overrideDescription !== (tool.description || ''))}
 
 			<div
-				class="dark:bg-surface2 dark:border-surface3 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
+				class="dark:bg-surface2 dark:border-surface3 bg-background flex items-start gap-2 rounded border border-transparent p-2 shadow-sm"
 			>
 				<div class="flex min-w-0 grow flex-col gap-2">
 					<div class="flex items-start justify-between gap-2">

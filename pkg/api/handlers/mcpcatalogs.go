@@ -1115,6 +1115,11 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 		return types.NewErrBadRequest("failed to read configuration: %v", err)
 	}
 
+	catalogName = composite.Spec.MCPCatalogName
+	if catalogName == "" {
+		catalogName = composite.Spec.PowerUserWorkspaceID
+	}
+
 	jwks, err := h.jwks(req.Context())
 	if err != nil {
 		return fmt.Errorf("failed to get JWKS: %w", err)
@@ -1126,7 +1131,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 		req.GPTClient,
 		req.Storage,
 		composite.Namespace,
-		component.CatalogEntryID,
+		catalogName,
 		component.Manifest,
 		configRequest.Config,
 		h.serverURL,
@@ -1163,7 +1168,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 	}
 	entry.Spec.Manifest.ToolPreview = toolPreviews
 
-	return req.Write(convertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry))
 }
 
 // GenerateComponentToolPreviewsOAuthURL returns an OAuth URL for a single component of a
@@ -1229,6 +1234,11 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Contex
 		return types.NewErrBadRequest("failed to read configuration: %v", err)
 	}
 
+	catalogName = composite.Spec.MCPCatalogName
+	if catalogName == "" {
+		catalogName = composite.Spec.PowerUserWorkspaceID
+	}
+
 	jwks, err := h.jwks(req.Context())
 	if err != nil {
 		return fmt.Errorf("failed to get JWKS: %w", err)
@@ -1239,7 +1249,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Contex
 		req.GPTClient,
 		req.Storage,
 		composite.Namespace,
-		component.CatalogEntryID,
+		catalogName,
 		component.Manifest,
 		configRequest.Config,
 		h.serverURL,
