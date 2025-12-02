@@ -276,6 +276,76 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntry(user kuser.Info, entryName
 	return h.UserHasAccessToMCPServerCatalogEntryInCatalog(user, entryName, system.DefaultCatalog)
 }
 
+// HasWildcardAccessToMCPServerCatalogEntryInCatalog checks if there are ACRs with wildcard selector for an entry
+func (h *Helper) HasWildcardAccessToMCPServerCatalogEntryInCatalog(entryName, catalogID string) (bool, error) {
+	// Check wildcard selector rules first
+	selectorRules, err := h.GetAccessControlRulesForSelectorInCatalog(
+		system.DefaultNamespace, "*", catalogID)
+	if err != nil {
+		return false, err
+	}
+
+	for _, rule := range selectorRules {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			if subject.Type == types.SubjectTypeSelector && subject.ID == "*" {
+				return true, nil
+			}
+		}
+	}
+
+	// Check specific entry rules
+	rules, err := h.GetAccessControlRulesForMCPServerCatalogEntryInCatalog(
+		system.DefaultNamespace, entryName, catalogID)
+	if err != nil {
+		return false, err
+	}
+
+	for _, rule := range rules {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			if subject.Type == types.SubjectTypeSelector && subject.ID == "*" {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
+// HasWildcardAccessToMCPServerInCatalog checks if there are ACRs with wildcard selector for a server
+func (h *Helper) HasWildcardAccessToMCPServerInCatalog(serverName, catalogID string) (bool, error) {
+	// Check wildcard selector rules first
+	selectorRules, err := h.GetAccessControlRulesForSelectorInCatalog(
+		system.DefaultNamespace, "*", catalogID)
+	if err != nil {
+		return false, err
+	}
+
+	for _, rule := range selectorRules {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			if subject.Type == types.SubjectTypeSelector && subject.ID == "*" {
+				return true, nil
+			}
+		}
+	}
+
+	// Check server-specific rules
+	rules, err := h.GetAccessControlRulesForMCPServerInCatalog(
+		system.DefaultNamespace, serverName, catalogID)
+	if err != nil {
+		return false, err
+	}
+
+	for _, rule := range rules {
+		for _, subject := range rule.Spec.Manifest.Subjects {
+			if subject.Type == types.SubjectTypeSelector && subject.ID == "*" {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
+}
+
 // Workspace-scoped lookup methods
 
 // GetAccessControlRulesForMCPServerInWorkspace returns all AccessControlRules that contain the specified MCP server name within a workspace
