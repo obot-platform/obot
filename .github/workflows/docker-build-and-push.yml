@@ -13,7 +13,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
     paths-ignore:
       - docs/**
       - chart/**
@@ -58,11 +58,13 @@ jobs:
             ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
           build-args: |
             BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
+            TOOLS_IMAGE=ghcr.io/obot-platform/obot/tools:v0.13.0
+            PROVIDER_IMAGE=ghcr.io/obot-platform/obot/tools/providers:v0.13.0
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1
         with:
-          cosign-release: 'v2.4.3'
+          cosign-release: "v2.4.3"
       - name: Check install!
         run: cosign version
 
@@ -108,9 +110,9 @@ jobs:
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          skip-dirs: '**/venv'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          skip-dirs: "**/venv"
+          format: "sarif"
+          output: "trivy-results.sarif"
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3
@@ -153,13 +155,15 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
           build-args: |
-            ENTERPRISE_IMAGE=ghcr.io/obot-platform/enterprise-tools:latest
+            TOOLS_IMAGE=ghcr.io/obot-platform/obot/tools:v0.13.0
+            PROVIDER_IMAGE=ghcr.io/obot-platform/obot/tools/providers:v0.13.0
+            ENTERPRISE_IMAGE=ghcr.io/obot-platform/enterprise-tools:v0.13.0
             BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1
         with:
-          cosign-release: 'v2.4.3'
+          cosign-release: "v2.4.3"
       - name: Check install!
         run: cosign version
 
@@ -204,9 +208,9 @@ jobs:
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
-          skip-dirs: '**/venv'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
+          skip-dirs: "**/venv"
+          format: "sarif"
+          output: "trivy-results.sarif"
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@v3

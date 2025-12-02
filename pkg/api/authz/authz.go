@@ -251,27 +251,29 @@ var (
 )
 
 type Authorizer struct {
-	rules        []rule
-	cache        kclient.Client
-	uncached     kclient.Client
-	apiResources map[string]*pathMatcher
-	uiResources  *pathMatcher
-	acrHelper    *accesscontrolrule.Helper
+	rules          []rule
+	cache          kclient.Client
+	uncached       kclient.Client
+	apiResources   map[string]*pathMatcher
+	uiResources    *pathMatcher
+	acrHelper      *accesscontrolrule.Helper
+	registryNoAuth bool
 }
 
-func NewAuthorizer(cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper) *Authorizer {
+func NewAuthorizer(cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, registryNoAuth bool) *Authorizer {
 	apiBasedResources := make(map[string]*pathMatcher, len(apiResources))
 	for group, resources := range apiResources {
 		apiBasedResources[group] = newPathMatcher(resources...)
 	}
 
 	return &Authorizer{
-		rules:        defaultRules(devMode),
-		cache:        cache,
-		uncached:     uncached,
-		apiResources: apiBasedResources,
-		uiResources:  newPathMatcher(uiResources...),
-		acrHelper:    acrHelper,
+		rules:          defaultRules(devMode, registryNoAuth),
+		cache:          cache,
+		uncached:       uncached,
+		apiResources:   apiBasedResources,
+		uiResources:    newPathMatcher(uiResources...),
+		acrHelper:      acrHelper,
+		registryNoAuth: registryNoAuth,
 	}
 }
 
@@ -301,7 +303,7 @@ type rule struct {
 	mux   *http.ServeMux
 }
 
-func defaultRules(devMode bool) []rule {
+func defaultRules(devMode bool, registryNoAuth bool) []rule {
 	var (
 		rules []rule
 		f     = (*fake)(nil)
@@ -317,6 +319,22 @@ func defaultRules(devMode bool) []rule {
 		}
 		rules = append(rules, rule)
 	}
+
+	var registryRule rule
+	if registryNoAuth {
+		registryRule = rule{
+			group: anyGroup,
+			mux:   http.NewServeMux(),
+		}
+	} else {
+		registryRule = rule{
+			group: types.GroupBasic,
+			mux:   http.NewServeMux(),
+		}
+	}
+	registryRule.mux.Handle("GET /v0.1", f)
+	registryRule.mux.Handle("GET /v0.1/", f)
+	rules = append(rules, registryRule)
 
 	if devMode {
 		for group := range devModeRules {

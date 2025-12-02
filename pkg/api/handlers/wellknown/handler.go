@@ -6,14 +6,16 @@ import (
 )
 
 type handler struct {
-	baseURL string
-	config  services.OAuthAuthorizationServerConfig
+	baseURL        string
+	config         services.OAuthAuthorizationServerConfig
+	registryNoAuth bool
 }
 
-func SetupHandlers(baseURL string, config services.OAuthAuthorizationServerConfig, mux *server.Server) {
+func SetupHandlers(baseURL string, config services.OAuthAuthorizationServerConfig, registryNoAuth bool, mux *server.Server) {
 	h := &handler{
-		baseURL: baseURL,
-		config:  config,
+		baseURL:        baseURL,
+		config:         config,
+		registryNoAuth: registryNoAuth,
 	}
 
 	mux.HandleFunc("GET /.well-known/oauth-protected-resource/mcp-connect/{mcp_id}", h.oauthProtectedResource)
@@ -21,6 +23,8 @@ func SetupHandlers(baseURL string, config services.OAuthAuthorizationServerConfi
 	mux.HandleFunc("GET /.well-known/oauth-authorization-server/{mcp_id}", h.oauthAuthorization)
 	// This is the one we expect clients to hit.
 	mux.HandleFunc("GET /.well-known/oauth-authorization-server/mcp-connect/{mcp_id}", h.oauthAuthorization)
+
+	mux.HandleFunc("GET /.well-known/oauth-protected-resource/v0.1/servers", h.registryOAuthProtectedResource)
 
 	// These will allow clients that don't follow the WWW-Authenticate header to connect to the MCP gateway.
 	// Such clients won't be able to do the second-level OAuth, but will be able to connect to all MCP servers
