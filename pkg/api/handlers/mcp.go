@@ -86,7 +86,7 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 		return types.NewErrForbidden("user is not authorized to access this catalog entry")
 	}
 
-	return req.Write(convertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntry(entry))
 }
 
 func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
@@ -99,7 +99,7 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	if (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
 		entries := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
 		for _, entry := range list.Items {
-			entries = append(entries, convertMCPServerCatalogEntry(entry))
+			entries = append(entries, ConvertMCPServerCatalogEntry(entry))
 		}
 		return req.Write(types.MCPServerCatalogEntryList{Items: entries})
 	}
@@ -122,18 +122,18 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		}
 
 		if hasAccess {
-			entries = append(entries, convertMCPServerCatalogEntry(entry))
+			entries = append(entries, ConvertMCPServerCatalogEntry(entry))
 		}
 	}
 
 	return req.Write(types.MCPServerCatalogEntryList{Items: entries})
 }
 
-func convertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
-	return convertMCPServerCatalogEntryWithWorkspace(entry, "", "")
+func ConvertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
+	return ConvertMCPServerCatalogEntryWithWorkspace(entry, "", "")
 }
 
-func convertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID string) types.MCPServerCatalogEntry {
+func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID string) types.MCPServerCatalogEntry {
 	// Add extracted env vars directly to the entry
 	addExtractedEnvVarsToCatalogEntry(&entry)
 
@@ -254,7 +254,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
-		slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
+		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
@@ -267,7 +267,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 				return err
 			}
 		}
-		converted := convertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
+		converted := ConvertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
 		items = append(items, converted)
 	}
 
@@ -323,7 +323,7 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
@@ -336,7 +336,7 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 			return err
 		}
 	}
-	converted := convertMCPServer(server, cred.Env, m.serverURL, slug, components...)
+	converted := ConvertMCPServer(server, cred.Env, m.serverURL, slug, components...)
 	return req.Write(converted)
 }
 
@@ -362,7 +362,7 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
@@ -379,7 +379,7 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPServer(server, nil, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(server, nil, m.serverURL, slug))
 }
 
 func (m *MCPHandler) LaunchServer(req api.Context) error {
@@ -892,7 +892,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 		// In this case, id refers to a catalog entry.
 		// Get the catalog entry to make sure it's valid
 		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&v1.MCPServerCatalogEntry{}, id); err != nil {
+		if err := req.Get(&entry, id); err != nil {
 			return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("catalog entry %s not found", id)
 		}
 
@@ -1388,12 +1388,12 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.WriteCreated(convertMCPServer(server, cred.Env, m.serverURL, slug))
+	return req.WriteCreated(ConvertMCPServer(server, cred.Env, m.serverURL, slug))
 }
 
 // createCompositeServer creates the parent composite server and all component servers.
@@ -1491,12 +1491,12 @@ func (m *MCPHandler) createCompositeServer(
 		return fmt.Errorf("failed to find credential: %w", credErr)
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, compositeServer, req.User.GetUID(), "", "")
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, compositeServer, req.User.GetUID(), "", "")
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.WriteCreated(convertMCPServer(compositeServer, cred.Env, m.serverURL, slug))
+	return req.WriteCreated(ConvertMCPServer(compositeServer, cred.Env, m.serverURL, slug))
 }
 
 // UpdateServer updates the manifest of an MCPServer.
@@ -1568,12 +1568,12 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return err
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, existing, req.User.GetUID(), catalogID, workspaceID)
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, existing, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(convertMCPServer(existing, cred.Env, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(existing, cred.Env, m.serverURL, slug))
 }
 
 func (m *MCPHandler) UpdateServerAlias(req api.Context) error {
@@ -1709,12 +1709,12 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, mcpServer, req.User.GetUID(), catalogID, workspaceID)
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, mcpServer, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, envVars, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(mcpServer, envVars, m.serverURL, slug))
 }
 
 func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v1.MCPServer) error {
@@ -1854,12 +1854,12 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		return fmt.Errorf("failed to update composite server enabled flags: %w", err)
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, compositeServer, req.User.GetUID(), "", "")
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, compositeServer, req.User.GetUID(), "", "")
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(convertMCPServer(compositeServer, nil, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(compositeServer, nil, m.serverURL, slug))
 }
 
 // applyURLTemplate applies a URL template with environment variables
@@ -1915,12 +1915,12 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 		return err
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, mcpServer, req.User.GetUID(), catalogID, workspaceID)
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, mcpServer, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(mcpServer, nil, m.serverURL, slug))
 }
 
 func (m *MCPHandler) deconfigureCompositeServer(req api.Context, compositeServer v1.MCPServer) error {
@@ -1967,12 +1967,12 @@ func (m *MCPHandler) deconfigureCompositeServer(req api.Context, compositeServer
 		return err
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, compositeServer, scope, "", "")
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, compositeServer, scope, "", "")
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(convertMCPServer(compositeServer, nil, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(compositeServer, nil, m.serverURL, slug))
 }
 
 func (m *MCPHandler) Reveal(req api.Context) error {
@@ -2283,7 +2283,7 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 }
 
-func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL, slug string, components ...types.MCPServer) types.MCPServer {
+func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL, slug string, components ...types.MCPServer) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
 
 	// Check for missing required env vars
@@ -2386,7 +2386,7 @@ func convertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	return converted
 }
 
-func slugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPServer, userID, catalogID, workspaceID string) (string, error) {
+func SlugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPServer, userID, catalogID, workspaceID string) (string, error) {
 	var shouldHaveUnique bool
 	if workspaceID == "" && catalogID == "" && server.Spec.MCPServerCatalogEntryName != "" {
 		var serversWithEntryName v1.MCPServerList
@@ -2470,7 +2470,7 @@ func resolveCompositeComponents(
 		}
 		addExtractedEnvVars(&component)
 		// No slug/URL needed; only Configured/NeedsURL are used from the component
-		convertedComponents = append(convertedComponents, convertMCPServer(component, ccred.Env, "", ""))
+		convertedComponents = append(convertedComponents, ConvertMCPServer(component, ccred.Env, "", ""))
 	}
 
 	return convertedComponents, nil
@@ -2563,7 +2563,7 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 			server.Spec.Manifest.ToolPreview = entry.Spec.Manifest.ToolPreview
 		}
 
-		slug, err = slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), system.DefaultCatalog, server.Spec.PowerUserWorkspaceID)
+		slug, err = SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), system.DefaultCatalog, server.Spec.PowerUserWorkspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
@@ -2577,7 +2577,7 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 				return err
 			}
 		}
-		parent := convertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
+		parent := ConvertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
 		mcpServers = append(mcpServers, parent)
 	}
 
@@ -2646,12 +2646,12 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		// Don't fail if catalog entry is missing, just continue without preview
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), system.DefaultCatalog, server.Spec.PowerUserWorkspaceID)
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), system.DefaultCatalog, server.Spec.PowerUserWorkspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(convertMCPServer(server, cred.Env, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(server, cred.Env, m.serverURL, slug))
 }
 
 func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
@@ -2978,13 +2978,13 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), catalogID, workspaceID)
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
 	// Return updated server
-	return req.Write(convertMCPServer(server, cred.Env, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(server, cred.Env, m.serverURL, slug))
 }
 
 // ListServersNeedingK8sUpdateInCatalog lists all servers in a catalog that need redeployment with new K8s settings
@@ -3308,12 +3308,12 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to update server: %w", err)
 	}
 
-	slug, err := slugForMCPServer(req.Context(), req.Storage, mcpServer, req.User.GetUID(), "", "")
+	slug, err := SlugForMCPServer(req.Context(), req.Storage, mcpServer, req.User.GetUID(), "", "")
 	if err != nil {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	return req.Write(convertMCPServer(mcpServer, nil, m.serverURL, slug))
+	return req.Write(ConvertMCPServer(mcpServer, nil, m.serverURL, slug))
 }
 
 func (m *MCPHandler) TriggerUpdate(req api.Context) error {
@@ -3672,12 +3672,12 @@ func (m *MCPHandler) ListServerInstances(req api.Context) error {
 	// Convert instances to API types
 	convertedInstances := make([]types.MCPServerInstance, 0, len(filteredInstances))
 	for _, instance := range filteredInstances {
-		slug, err := slugForMCPServerInstance(req.Context(), req.Storage, instance)
+		slug, err := SlugForMCPServerInstance(req.Context(), req.Storage, instance)
 		if err != nil {
 			return fmt.Errorf("failed to determine slug for instance %s: %w", instance.Name, err)
 		}
 
-		convertedInstances = append(convertedInstances, convertMCPServerInstance(instance, m.serverURL, slug))
+		convertedInstances = append(convertedInstances, ConvertMCPServerInstance(instance, m.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerInstanceList{

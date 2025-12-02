@@ -80,7 +80,7 @@ func (p *PowerUserWorkspaceHandler) ListAllEntries(req api.Context) error {
 		}
 
 		for _, entry := range list2.Items {
-			catalogEntries = append(catalogEntries, convertMCPServerCatalogEntryWithWorkspace(entry, item.Name, item.Spec.UserID))
+			catalogEntries = append(catalogEntries, ConvertMCPServerCatalogEntryWithWorkspace(entry, item.Name, item.Spec.UserID))
 		}
 	}
 
@@ -135,12 +135,12 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
-		slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", server.Spec.PowerUserWorkspaceID)
+		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", server.Spec.PowerUserWorkspaceID)
 		if err != nil {
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
 
-		servers = append(servers, convertMCPServer(server, credMap[server.Name], p.serverURL, slug))
+		servers = append(servers, ConvertMCPServer(server, credMap[server.Name], p.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{
@@ -235,12 +235,12 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 		// Add extracted env vars to the server definition
 		addExtractedEnvVars(&server)
 
-		slug, err := slugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", "")
+		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", "")
 		if err != nil {
 			return fmt.Errorf("failed to determine slug: %w", err)
 		}
 
-		servers = append(servers, convertMCPServer(server, credMap[server.Name], p.serverURL, slug))
+		servers = append(servers, ConvertMCPServer(server, credMap[server.Name], p.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{
@@ -324,12 +324,12 @@ func (p *PowerUserWorkspaceHandler) ListAllServerInstances(req api.Context) erro
 	// Convert instances to API types
 	convertedInstances := make([]types.MCPServerInstance, 0, len(filteredInstances))
 	for _, instance := range filteredInstances {
-		slug, err := slugForMCPServerInstance(req.Context(), req.Storage, instance)
+		slug, err := SlugForMCPServerInstance(req.Context(), req.Storage, instance)
 		if err != nil {
 			return fmt.Errorf("failed to determine slug for instance %s: %w", instance.Name, err)
 		}
 
-		convertedInstances = append(convertedInstances, convertMCPServerInstance(instance, p.serverURL, slug))
+		convertedInstances = append(convertedInstances, ConvertMCPServerInstance(instance, p.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerInstanceList{

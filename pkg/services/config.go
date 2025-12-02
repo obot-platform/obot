@@ -110,6 +110,7 @@ type Config struct {
 	SendgridWebhookPassword           string `usage:"The password for the sendgrid webhook to authenticate with"`
 	MCPAuditLogPersistIntervalSeconds int    `usage:"The interval in seconds to persist MCP audit logs to the database" default:"5"`
 	MCPAuditLogsPersistBatchSize      int    `usage:"The number of MCP audit logs to persist in a single batch" default:"1000"`
+	EnableRegistryAuth                bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 
 	GeminiConfig
 	GatewayConfig
@@ -181,6 +182,7 @@ type Services struct {
 
 	ServerUpdateCheckInterval time.Duration
 	MCPRuntimeBackend         string
+	RegistryNoAuth            bool
 }
 
 const (
@@ -728,6 +730,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	retentionPolicy := time.Duration(config.RetentionPolicyHours) * time.Hour
 
+	// Derive registryNoAuth flag from config
+	// When EnableRegistryAuth is false (default), registry is in no-auth mode
+	registryNoAuth := !config.EnableRegistryAuth
+
 	// For now, always auto-migrate the gateway database
 	return &Services{
 		EncryptionConfig:      encryptionConfig,
@@ -746,11 +752,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			gatewayClient,
 			gptscriptClient,
 			authn.NewAuthenticator(authenticators),
-			authz.NewAuthorizer(r.Backend(), storageClient, config.DevMode, acrHelper),
+			authz.NewAuthorizer(r.Backend(), storageClient, config.DevMode, acrHelper, registryNoAuth),
 			proxyManager,
 			auditLogger,
 			rateLimiter,
 			config.Hostname,
+			registryNoAuth,
 		),
 		EphemeralTokenServer:       ephemeralTokenServer,
 		PersistentTokenServer:      persistentTokenServer,
@@ -789,6 +796,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		K8sSettingsFromHelm:       helmK8sSettings,
 		ServerUpdateCheckInterval: time.Duration(config.UpdateCheckIntervalMins) * time.Minute,
 		MCPRuntimeBackend:         config.MCPRuntimeBackend,
+		RegistryNoAuth:            registryNoAuth,
 	}, nil
 }
 

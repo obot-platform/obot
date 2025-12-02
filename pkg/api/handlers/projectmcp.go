@@ -63,7 +63,7 @@ func convertProjectMCPServer(projectServer *v1.ProjectMCPServer, mcpServer *v1.M
 		// We don't show this for shared servers, because the user can't do anything about it
 		// if something is wrong with one of those; only the admin can.
 		// We don't care about the connect URL here, so passing empty string for both URL an slug.
-		convertedServer := convertMCPServer(*mcpServer, cred, "", "", components...)
+		convertedServer := ConvertMCPServer(*mcpServer, cred, "", "", components...)
 		pmcp.Configured = convertedServer.Configured
 		pmcp.NeedsURL = convertedServer.NeedsURL
 		pmcp.NeedsUpdate = convertedServer.NeedsUpdate

@@ -31,31 +31,33 @@ var (
 )
 
 type Server struct {
-	storageClient storage.Client
-	gatewayClient *gclient.Client
-	gptClient     *gptscript.GPTScript
-	authenticator *authn.Authenticator
-	authorizer    *authz.Authorizer
-	proxyManager  *proxy.Manager
-	auditLogger   audit.Logger
-	rateLimiter   *ratelimiter.RateLimiter
-	baseURL       string
+	storageClient  storage.Client
+	gatewayClient  *gclient.Client
+	gptClient      *gptscript.GPTScript
+	authenticator  *authn.Authenticator
+	authorizer     *authz.Authorizer
+	proxyManager   *proxy.Manager
+	auditLogger    audit.Logger
+	rateLimiter    *ratelimiter.RateLimiter
+	baseURL        string
+	registryNoAuth bool
 
 	mux *http.ServeMux
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, gptClient *gptscript.GPTScript, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, registryNoAuth bool) *Server {
 	return &Server{
-		storageClient: storageClient,
-		gatewayClient: gatewayClient,
-		gptClient:     gptClient,
-		authenticator: authn,
-		authorizer:    authz,
-		proxyManager:  proxyManager,
-		baseURL:       baseURL + "/api",
-		auditLogger:   auditLogger,
-		rateLimiter:   rateLimiter,
-		mux:           http.NewServeMux(),
+		storageClient:  storageClient,
+		gatewayClient:  gatewayClient,
+		gptClient:      gptClient,
+		authenticator:  authn,
+		authorizer:     authz,
+		proxyManager:   proxyManager,
+		baseURL:        baseURL + "/api",
+		auditLogger:    auditLogger,
+		rateLimiter:    rateLimiter,
+		registryNoAuth: registryNoAuth,
+		mux:            http.NewServeMux(),
 	}
 }
 
@@ -154,6 +156,11 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 			if strings.HasPrefix(req.URL.Path, "/mcp-connect/") {
 				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error="invalid_request", error_description="Invalid access token", resource_metadata="%s/.well-known/oauth-protected-resource%s"`, strings.TrimSuffix(s.baseURL, "/api"), req.URL.Path))
+			}
+
+			// Only set WWW-Authenticate if not in no-auth mode
+			if strings.HasPrefix(req.URL.Path, "/v0.1") && !s.registryNoAuth {
+				rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", resource_metadata="%s/.well-known/oauth-protected-resource/v0.1/servers"`, strings.TrimSuffix(s.baseURL, "/api")))
 			}
 
 			if slices.Contains(user.GetGroups(), authz.UnauthenticatedGroup) {
