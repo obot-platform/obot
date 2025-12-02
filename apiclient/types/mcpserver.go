@@ -147,11 +147,20 @@ type MCPServerCatalogEntryManifest struct {
 type ToolOverride struct {
 	// Name is the original tool name as returned by the component server
 	Name string `json:"name"`
-	// OverrideName is the tool name exposed by the composite server
-	OverrideName string `json:"overrideName"`
-	// Optional overrides for display
+
+	// OverrideName is the tool name exposed by the composite server.
+	// An empty string denotes that the tool name should not be overridden.
+	OverrideName string `json:"overrideName,omitempty"`
+
+	// Description is the unaltered tool description at the time the override was created.
+	// This field should be used for display purposes only.
+	Description string `json:"description,omitempty"`
+
+	// OverrideDescription is optional and will override the tool description returned by the component server
+	// An empty string denotes that the live description from the MCP server should be used.
 	OverrideDescription string `json:"overrideDescription,omitempty"`
-	// Whether to include this tool (default true)
+
+	// Enabled indicates if the tool should be included in the tool allowlist.
 	Enabled bool `json:"enabled,omitempty"`
 }
 

@@ -26,6 +26,9 @@
 		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
 		configuringEntry?: MCPCatalogEntry | MCPCatalogServer;
 		excluded?: string[];
+		// Optional composite context when configuring tools for an existing composite component
+		compositeEntryId?: string;
+		componentId?: string;
 	}
 
 	let {
@@ -34,7 +37,9 @@
 		onSuccess,
 		mcpEntriesContextFn,
 		excluded,
-		configuringEntry: presetConfiguringEntry
+		configuringEntry: presetConfiguringEntry,
+		compositeEntryId,
+		componentId
 	}: Props = $props();
 	let searchDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let choiceDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -131,33 +136,55 @@
 	async function fetchSingleRemoteTools(
 		entryId: string,
 		catalogId: string,
-		body: { config?: Record<string, string>; url?: string } = { config: {}, url: '' }
+		body: { config?: Record<string, string>; url?: string } = { config: {}, url: '' },
+		options?: { compositeEntryId?: string; componentId?: string }
 	) {
-		const resp = await AdminService.generateMcpCatalogEntryToolPreviews(catalogId, entryId, body, {
-			dryRun: true
-		});
+		const useCompositePreview = Boolean(options?.compositeEntryId && options?.componentId);
+		const resp = useCompositePreview
+			? await AdminService.generateMcpCompositeComponentToolPreviews(
+					catalogId,
+					options!.compositeEntryId!,
+					options!.componentId!,
+					body,
+					{ dryRun: true }
+				)
+			: await AdminService.generateMcpCatalogEntryToolPreviews(catalogId, entryId, body, {
+					dryRun: true
+				});
 		const preview = resp?.manifest?.toolPreview || [];
-		return preview.map((t) => ({
-			id: `${entryId}-${t.id || t.name}`,
-			originalName: t.name,
-			overrideName: t.name,
-			originalDescription: t.description,
-			overrideDescription: t.description,
-			enabled: true,
-			parameters: []
-		}));
+		return preview.map((t) => {
+			const baseDescription = t.description || '';
+			return {
+				id: `${entryId}-${t.id || t.name}`,
+				originalName: t.name,
+				// Start the input with the original name.
+				overrideName: t.name,
+				// Snapshot of the original description for display and comparison.
+				description: baseDescription,
+				// Start the input with the original description.
+				overrideDescription: baseDescription,
+				enabled: true,
+				parameters: []
+			};
+		});
 	}
 
 	async function fetchMultiServerTools(entryId: string) {
 		const tools = await ChatService.listMcpCatalogServerTools(entryId);
-		return tools.map((t) => ({
-			id: `${entryId}-${t.id || t.name}`,
-			originalName: t.name,
-			overrideName: t.name,
-			originalDescription: t.description,
-			overrideDescription: t.description,
-			enabled: t.enabled !== false
-		}));
+		return tools.map((t) => {
+			const baseDescription = t.description || '';
+			return {
+				id: `${entryId}-${t.id || t.name}`,
+				originalName: t.name,
+				// Start the input with the original name.
+				overrideName: t.name,
+				// Snapshot of the original description for display and comparison.
+				description: baseDescription,
+				// Start the input with the original description.
+				overrideDescription: baseDescription,
+				enabled: t.enabled !== false
+			};
+		});
 	}
 
 	async function runPreview(
@@ -166,28 +193,50 @@
 		if (!catalogId || !configuringEntry) return;
 		loading = true;
 		try {
-			tools =
-				'isCatalogEntry' in configuringEntry
-					? await fetchSingleRemoteTools(configuringEntry.id, catalogId, body)
-					: await fetchMultiServerTools(configuringEntry.id);
+			const isCatalogEntry = 'isCatalogEntry' in configuringEntry;
+			const useCompositePreview = isCatalogEntry && Boolean(compositeEntryId && componentId);
+
+			tools = isCatalogEntry
+				? await fetchSingleRemoteTools(configuringEntry.id, catalogId, body, {
+						compositeEntryId: useCompositePreview ? compositeEntryId : undefined,
+						componentId: useCompositePreview ? componentId : undefined
+					})
+				: await fetchMultiServerTools(configuringEntry.id);
 			initConfigureToolsDialog?.close();
 			modifyToolsDialog?.open();
 		} catch (err: unknown) {
 			const msg = err instanceof Error ? err.message : String(err);
 			if (msg.includes('OAuth')) {
-				const oauthResponse = await AdminService.getMcpCatalogToolPreviewsOauth(
-					catalogId!,
-					configuringEntry.id,
-					body,
-					{
-						dryRun: true
-					}
-				);
+				const isCatalogEntry = 'isCatalogEntry' in configuringEntry;
+				const useCompositePreview = isCatalogEntry && Boolean(compositeEntryId && componentId);
 
-				if (typeof oauthResponse === 'string') {
-					oauthURL = oauthResponse;
-				} else if (oauthResponse) {
-					oauthURL = undefined;
+				if (useCompositePreview) {
+					const oauthResponse = await AdminService.getMcpCompositeComponentToolPreviewsOauth(
+						catalogId!,
+						compositeEntryId!,
+						componentId!,
+						body,
+						{
+							dryRun: true
+						}
+					);
+
+					oauthURL = oauthResponse || '';
+				} else {
+					const oauthResponse = await AdminService.getMcpCatalogToolPreviewsOauth(
+						catalogId!,
+						configuringEntry.id,
+						body,
+						{
+							dryRun: true
+						}
+					);
+
+					if (typeof oauthResponse === 'string') {
+						oauthURL = oauthResponse;
+					} else if (oauthResponse) {
+						oauthURL = undefined;
+					}
 				}
 
 				if (oauthURL) {
@@ -374,12 +423,25 @@
 		onSuccess?.(
 			{
 				...componentConfig,
-				toolOverrides: tools.map((t) => ({
-					name: t.originalName,
-					overrideName: t.overrideName,
-					overrideDescription: t.overrideDescription,
-					enabled: t.enabled
-				}))
+				toolOverrides: tools.map((t) => {
+					const baseName = t.originalName;
+					const baseDescription = t.description || '';
+
+					const editedName = (t.overrideName || '').trim();
+					const editedDescription = (t.overrideDescription || '').trim();
+
+					return {
+						name: baseName,
+						// Persist the description snapshot for display in future edits.
+						description: baseDescription,
+						// Only store an override name if it differs from the original.
+						overrideName: editedName && editedName !== baseName ? editedName : '',
+						// Only store an override description if it differs from the original snapshot.
+						overrideDescription:
+							editedDescription && editedDescription !== baseDescription ? editedDescription : '',
+						enabled: t.enabled
+					};
+				})
 			},
 			configuringEntry,
 			tools

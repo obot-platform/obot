@@ -1,5 +1,13 @@
 <script lang="ts">
-	import { Plus, Server, Trash2, ChevronDown, ChevronUp, LoaderCircle } from 'lucide-svelte';
+	import {
+		Plus,
+		Server,
+		Trash2,
+		ChevronDown,
+		ChevronUp,
+		LoaderCircle,
+		AlertTriangle
+	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import {
 		AdminService,
@@ -16,7 +24,7 @@
 	import Toggle from '../Toggle.svelte';
 
 	interface Props {
-		id?: string;
+		id?: string; // Composite catalog entry ID (when editing an existing composite)
 		config: CompositeCatalogConfig;
 		readonly?: boolean;
 		catalogId?: string;
@@ -27,6 +35,7 @@
 	let componentEntries = $state<MCPCatalogEntry[]>([]);
 	const componentServers = new SvelteMap<string, MCPCatalogServer>();
 	let expanded = $state<Record<string, boolean>>({});
+	let expandedTools = $state<Record<string, boolean>>({});
 	let loading = $state(false);
 
 	let configuringEntry = $state<MCPCatalogEntry | MCPCatalogServer>();
@@ -34,6 +43,7 @@
 	let populatedByEntry = $state<Record<string, boolean>>({});
 	let loadingByEntry = $state<Record<string, boolean>>({});
 	let toolsToEdit = $state<CompositeServerToolRow[]>([]);
+	let configuringComponentId = $state<string | undefined>();
 
 	let compositeToolsSetupDialog = $state<ReturnType<typeof CompositeToolsSetup>>();
 	let editCurrentToolsDialog = $state<ReturnType<typeof CompositeEditTools>>();
@@ -46,6 +56,35 @@
 	// Helper to get unique ID for a component (catalogEntryID or mcpServerID)
 	function getComponentId(c: { catalogEntryID?: string; mcpServerID?: string }): string {
 		return c.catalogEntryID || c.mcpServerID || '';
+	}
+
+	// Build a configuring entry backed by the composite's manifest snapshot when
+	// configuring tools for an existing catalog-entry-based component.
+	function buildCompositeConfiguringEntry(componentId: string): MCPCatalogEntry | undefined {
+		const component = config.componentServers?.find((c) => getComponentId(c) === componentId);
+		if (!component || !component.catalogEntryID || !component.manifest) return undefined;
+
+		const metadataEntry = componentEntries.find((e) => e.id === componentId);
+		if (metadataEntry) {
+			return {
+				...metadataEntry,
+				manifest: component.manifest
+			};
+		}
+
+		// Fallback minimal entry if metadata isn't loaded; sufficient for Configure Tools.
+		return {
+			id: componentId,
+			created: new Date().toISOString(),
+			manifest: component.manifest,
+			sourceURL: undefined,
+			userCount: undefined,
+			type: 'catalog-entry',
+			powerUserID: undefined,
+			powerUserWorkspaceID: undefined,
+			isCatalogEntry: true,
+			needsUpdate: false
+		};
 	}
 
 	// Pre-populate toolsByEntry from existing toolOverrides in config
@@ -69,12 +108,21 @@
 			const previewMap = new Map((preview || []).map((t) => [t.name, t]));
 			const rows: CompositeServerToolRow[] = overrides.map((o) => {
 				const t = previewMap.get(o.name);
+				// Prefer the stored description snapshot when present; otherwise fall back to preview.
+				const baseDescription = o.description ?? t?.description ?? '';
+
+				// Pre-fill the editing fields with the effective values:
+				// - name: overrideName if set, otherwise original name
+				// - description: overrideDescription if set, otherwise base description
+				const effectiveName = (o.overrideName || '').trim() || o.name;
+				const effectiveDescription = (o.overrideDescription || '').trim() || baseDescription;
+
 				return {
-					id: `${componentId}-${o.overrideName || o.name}`,
+					id: `${componentId}-${effectiveName}`,
 					originalName: o.name,
-					overrideName: o.overrideName || o.name,
-					originalDescription: t?.description || '',
-					overrideDescription: o.overrideDescription || t?.description || '',
+					overrideName: effectiveName,
+					description: baseDescription,
+					overrideDescription: effectiveDescription,
 					enabled: o.enabled === true
 				};
 			});
@@ -200,12 +248,11 @@
 										class="button-primary text-sm"
 										disabled={loadingByEntry[componentId]}
 										onclick={async () => {
-											const match =
-												componentServers.get(componentId) ||
-												componentEntries.find((e) => e.id === componentId);
-											if (match) {
-												configuringEntry = match;
-											}
+											if (readonly) return;
+											const entry = buildCompositeConfiguringEntry(componentId);
+											if (!entry) return;
+											configuringEntry = entry;
+											configuringComponentId = componentId;
 											compositeToolsSetupDialog?.open();
 										}}
 									>
@@ -220,31 +267,106 @@
 							{#if entry.toolOverrides?.length}
 								<div class="flex flex-col gap-2">
 									{#each entry.toolOverrides as tool, index (index)}
+										{@const currentName = (tool.overrideName || '').trim() || tool.name}
+										{@const currentDescription =
+											(tool.overrideDescription || '').trim() || tool.description || ''}
+										{@const isCustomized =
+											((tool.overrideName || '').trim() !== '' &&
+												(tool.overrideName || '').trim() !== tool.name) ||
+											((tool.overrideDescription || '').trim() !== '' &&
+												(tool.overrideDescription || '').trim() !== (tool.description || ''))}
+
 										<div
-											class="dark:bg-surface2 dark:border-surface3 bg-background flex gap-2 rounded border border-transparent p-2 shadow-sm"
+											class="dark:bg-surface2 dark:border-surface3 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
 										>
-											<div class="flex grow flex-col gap-1">
-												<input
-													class="text-input-filled flex-1 text-sm"
-													bind:value={tool.overrideName}
-													placeholder={tool.overrideName || tool.name}
-												/>
+											<div class="flex min-w-0 grow flex-col gap-2">
+												<div class="flex items-start justify-between gap-2">
+													<div class="min-w-0">
+														<div class="truncate text-sm font-medium" title={currentName}>
+															{currentName}
+														</div>
+														{#if currentDescription}
+															<p class="line-clamp-2 text-xs" title={currentDescription}>
+																{currentDescription}
+															</p>
+														{/if}
+													</div>
+													<div class="flex flex-shrink-0 items-center gap-2">
+														<Toggle
+															checked={tool.enabled === true}
+															onChange={(checked) => {
+																tool.enabled = checked;
+															}}
+															label="Enabled"
+															disablePortal
+														/>
+														<button
+															type="button"
+															class="button px-3 py-1 text-xs"
+															onclick={() => {
+																const toolKey = `${componentId}-${tool.name}`;
+																// When expanding, initialize inputs with current effective values
+																if (!expandedTools[toolKey]) {
+																	tool.overrideName = (tool.overrideName || '').trim() || tool.name;
+																	tool.overrideDescription =
+																		(tool.overrideDescription || '').trim() ||
+																		tool.description ||
+																		'';
+																}
+																expandedTools[toolKey] = !expandedTools[toolKey];
+															}}
+														>
+															{expandedTools[`${componentId}-${tool.name}`]
+																? 'Hide details'
+																: 'Customize'}
+														</button>
+													</div>
+												</div>
 
-												<textarea
-													class="text-input-filled mt-1 resize-none text-xs"
-													bind:value={tool.overrideDescription}
-													placeholder="Enter tool description..."
-													rows="2"
-												></textarea>
+												{#if isCustomized}
+													<div class="mt-1 flex items-center gap-1 text-[11px] text-amber-600">
+														<AlertTriangle class="size-3 flex-shrink-0" />
+														<p>
+															Modified: This tool has been customized. The description or name has
+															been changed.
+														</p>
+													</div>
+												{/if}
+
+												{#if expandedTools[`${componentId}-${tool.name}`]}
+													<div class="mt-2 flex flex-col gap-2">
+														<div class="flex flex-col gap-1">
+															<p class="text-xs text-gray-500">Tool name</p>
+															<input
+																class="text-input-filled flex-1 text-sm"
+																bind:value={tool.overrideName}
+															/>
+														</div>
+
+														<div class="flex flex-col gap-1">
+															<p class="text-xs text-gray-500">Description</p>
+															<textarea
+																class="text-input-filled h-24 resize-none text-xs"
+																bind:value={tool.overrideDescription}
+																placeholder="Enter tool description..."
+															></textarea>
+														</div>
+
+														<div class="mt-2 flex justify-end">
+															<button
+																type="button"
+																class="button px-3 py-1 text-xs"
+																onclick={() => {
+																	tool.overrideName = tool.name;
+																	tool.overrideDescription = tool.description || '';
+																}}
+															>
+																Reset to default
+															</button>
+														</div>
+													</div>
+												{/if}
 											</div>
-
-											<Toggle
-												checked={tool.enabled ?? false}
-												onChange={(checked) => {
-													tool.enabled = checked;
-												}}
-												label="Enable/Disable Tool"
-											/>
 										</div>
 									{/each}
 								</div>
@@ -266,6 +388,7 @@
 			type="button"
 			onclick={() => {
 				configuringEntry = undefined;
+				configuringComponentId = undefined;
 				compositeToolsSetupDialog?.open();
 			}}
 			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 bg-background flex items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-sm font-medium hover:bg-gray-50"
@@ -281,6 +404,8 @@
 	{mcpEntriesContextFn}
 	{catalogId}
 	{configuringEntry}
+	compositeEntryId={id}
+	componentId={configuringComponentId}
 	onCancel={() => {
 		configuringEntry = undefined;
 	}}
@@ -329,7 +454,25 @@
 			if (c.mcpServerID === id || c.catalogEntryID === id) {
 				return {
 					...c,
-					toolOverrides: toolsToEdit
+					toolOverrides: toolsToEdit.map((t) => {
+						const baseName = t.originalName;
+						const baseDescription = t.description || '';
+
+						const editedName = (t.overrideName || '').trim();
+						const editedDescription = (t.overrideDescription || '').trim();
+
+						return {
+							name: baseName,
+							// Persist the description snapshot for display in future edits.
+							description: baseDescription,
+							// Only store an override name if it differs from the original.
+							overrideName: editedName && editedName !== baseName ? editedName : '',
+							// Only store an override description if it differs from the original snapshot.
+							overrideDescription:
+								editedDescription && editedDescription !== baseDescription ? editedDescription : '',
+							enabled: t.enabled
+						};
+					})
 				};
 			}
 			return c;

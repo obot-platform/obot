@@ -12,6 +12,7 @@
 	import { CircleFadingArrowUp, CircleAlert, Info, GitCompare } from 'lucide-svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
 	import type { MCPServer, MCPCatalogServer } from '$lib/services/chat/types';
 	import {
@@ -55,6 +56,8 @@
 		oldManifest: MCPCatalogEntryServerManifest | undefined;
 		newManifest: MCPServer | MCPCatalogEntryServerManifest | undefined;
 	} | null = $state(null);
+
+	let upgradeSuccessDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	async function handleUpgradeClick() {
 		if (!catalogEntry || upgrading) return;
@@ -151,6 +154,7 @@
 			// Keep the flag cleared even if backend status lags
 			catalogEntry = { ...updated, needsUpdate: false };
 			showUpgradeConfirm = false;
+			upgradeSuccessDialog?.open();
 		} catch (error) {
 			// Restore on error
 			catalogEntry = { ...catalogEntry, needsUpdate: prevNeedsUpdate };
@@ -237,8 +241,8 @@
 	{#snippet note()}
 		<div class="mb-8">
 			<p class="mb-4 text-sm font-light">
-				This will update the component snapshots in this composite catalog entry to match the
-				current versions of the component catalog entries and multi-user servers.
+				The configuration for one or more component servers has changed. Would you like to update
+				this server to match the latest configuration?
 			</p>
 			{#if componentDiffs.length > 0}
 				<div class="max-h-96 space-y-4 overflow-y-auto text-sm">
@@ -257,8 +261,6 @@
 											</span>
 										{/if}
 									</p>
-									<p class="text-muted-foreground mb-1 text-xs">{diff.type}</p>
-									<p class="text-muted-foreground font-mono text-xs">{diff.id}</p>
 								</div>
 								{#if diff.newManifest}
 									<button
@@ -286,6 +288,12 @@
 		</div>
 	{/snippet}
 </Confirm>
+
+<ResponsiveDialog bind:this={upgradeSuccessDialog} title="Update Applied" class="md:w-sm">
+	<div class="p-4">
+		<p class="text-sm">You can update tool selections from the Configuration tab</p>
+	</div>
+</ResponsiveDialog>
 
 <DiffDialog
 	bind:this={diffDialog}
