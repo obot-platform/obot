@@ -744,6 +744,9 @@ func (m *MCPHandler) SetTools(req api.Context) error {
 	}
 
 	catalogName := mcpServer.Spec.MCPCatalogID
+	if catalogName == "" {
+		catalogName = mcpServer.Status.MCPCatalogID
+	}
 	if catalogName == "" && mcpServer.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, mcpServer.Spec.MCPServerCatalogEntryName); err != nil {
@@ -1233,6 +1236,9 @@ func serverFromMCPServerInstance(req api.Context, instance v1.MCPServerInstance,
 	}
 
 	catalogName := server.Spec.MCPCatalogID
+	if catalogName == "" {
+		catalogName = server.Status.MCPCatalogID
+	}
 	if catalogName == "" && server.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
 		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
