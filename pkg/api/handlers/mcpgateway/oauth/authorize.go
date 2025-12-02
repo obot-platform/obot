@@ -303,7 +303,7 @@ func (h *handler) callback(req api.Context) error {
 		return nil
 	}
 
-	if mcpID := req.PathValue("mcp_id"); mcpID != "" && mcpID != "registry" {
+	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
 		// Check whether the MCP server needs authentication.
 		jwks, err := h.jwks(req.Context())
 		if err != nil {
