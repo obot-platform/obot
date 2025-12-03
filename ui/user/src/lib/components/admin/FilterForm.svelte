@@ -10,8 +10,6 @@
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import {
 		AdminService,
-		type MCPCatalogEntry,
-		type MCPCatalogServer,
 		type MCPFilter,
 		type MCPFilterManifest,
 		type MCPFilterResource,

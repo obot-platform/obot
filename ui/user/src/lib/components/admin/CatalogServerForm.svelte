@@ -21,7 +21,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import CategorySelectInput from './CategorySelectInput.svelte';
 	import Select from '../Select.svelte';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { profile } from '$lib/stores';
 
 	interface Props {
 		id?: string;

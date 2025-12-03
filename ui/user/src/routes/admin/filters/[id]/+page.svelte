@@ -5,7 +5,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { fly } from 'svelte/transition';
 	import type { MCPFilter } from '$lib/services/admin/types';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { profile } from '$lib/stores';
 
 	let { data }: { data: { filter: MCPFilter } } = $props();
 	const { filter: initialFilter } = data;
