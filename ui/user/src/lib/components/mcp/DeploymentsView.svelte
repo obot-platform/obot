@@ -51,6 +51,9 @@
 	interface Props {
 		usersMap?: Map<string, OrgUser>;
 		entity?: 'workspace' | 'catalog';
+		classes?: {
+			tableHeader?: string;
+		};
 		id?: string;
 		readonly?: boolean;
 		query?: string;
@@ -60,6 +63,7 @@
 		onSort?: InitSortFn;
 		initSort?: InitSort;
 		noDataContent?: Snippet;
+		onlyMyServers?: boolean;
 	}
 
 	let {
@@ -69,11 +73,13 @@
 		readonly,
 		query,
 		urlFilters: filters,
+		classes,
 		onFilter,
 		onClearAllFilters,
 		onSort,
 		initSort = { property: 'created', order: 'desc' },
-		noDataContent
+		noDataContent,
+		onlyMyServers
 	}: Props = $props();
 	let loading = $state(false);
 
@@ -173,7 +179,7 @@
 						(powerUserID === profile.current.id && powerUserWorkspaceID === id)
 				};
 			})
-			.filter((d) => !d.disabled);
+			.filter((d) => !d.disabled && (onlyMyServers ? d.isMyServer : true));
 
 		return query
 			? transformedData.filter((d) => d.displayName.toLowerCase().includes(query.toLowerCase()))
@@ -402,7 +408,7 @@
 			noDataMessage="No catalog servers added."
 			classes={{
 				root: 'rounded-none rounded-b-md shadow-none',
-				thead: 'top-31'
+				thead: classes?.tableHeader || 'top-31'
 			}}
 			sectionedBy="isMyServer"
 			sectionPrimaryTitle="My Servers"

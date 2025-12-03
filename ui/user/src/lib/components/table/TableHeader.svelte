@@ -18,6 +18,7 @@
 		sortable?: boolean;
 		style?: string;
 		presetFilters?: (string | number)[];
+		disablePortal?: boolean;
 	}
 	let {
 		onSort,
@@ -31,7 +32,8 @@
 		order,
 		sortable,
 		style,
-		presetFilters
+		presetFilters,
+		disablePortal
 	}: Props = $props();
 
 	let query = $state('');
@@ -105,7 +107,7 @@
 	</span>
 
 	{#if filterable}
-		<div use:tooltipRef class="default-dialog w-xs rounded-xs">
+		<div use:tooltipRef={{ disablePortal }} class="default-dialog w-xs rounded-xs">
 			<Select
 				class="rounded-xs border border-transparent shadow-inner"
 				classes={{

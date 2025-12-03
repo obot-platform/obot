@@ -45,6 +45,7 @@
 		sectionedBy?: string;
 		sectionPrimaryTitle?: string;
 		sectionSecondaryTitle?: string;
+		disablePortal?: boolean;
 	}
 
 	const {
@@ -72,7 +73,8 @@
 		disabledSelectMessage,
 		sectionedBy,
 		sectionPrimaryTitle,
-		sectionSecondaryTitle
+		sectionSecondaryTitle,
+		disablePortal
 	}: Props<T> = $props();
 
 	let page = $state(0);
@@ -556,7 +558,7 @@
 			{/if}
 		</button>
 		{#if validateSelect}
-			<DotDotDot class="text-on-surface1">
+			<DotDotDot class="text-on-surface1" {disablePortal}>
 				{#snippet icon()}
 					<ChevronDown class="size-4" />
 				{/snippet}
@@ -625,6 +627,7 @@
 					activeSort={sortedBy?.property === property}
 					order={sortedBy?.order}
 					presetFilters={filteredBy?.[property]}
+					{disablePortal}
 				/>
 			{/each}
 			{#if actions}

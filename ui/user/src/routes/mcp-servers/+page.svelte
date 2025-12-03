@@ -212,7 +212,6 @@
 
 			{#if view === 'registry'}
 				<RegistriesView
-					entity="workspace"
 					id={workspaceId}
 					query={localStorageViewQuery.current?.['registry'] || ''}
 					{urlFilters}
