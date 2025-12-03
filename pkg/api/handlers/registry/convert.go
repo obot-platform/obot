@@ -45,6 +45,13 @@ func ConvertMCPServerToRegistry(
 		Title:       displayName,
 		Version:     "latest",
 		Schema:      "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+		Meta: obottypes.RegistryServerMeta{
+			PublisherProvided: &obottypes.RegistryPublisherProvidedMeta{
+				GitHub: &obottypes.RegistryGitHubMeta{
+					Readme: server.Spec.Manifest.Description,
+				},
+			},
+		},
 	}
 
 	// Add icon if present
@@ -60,6 +67,7 @@ func ConvertMCPServerToRegistry(
 	// Create metadata
 	meta := obottypes.RegistryMeta{
 		Official: obottypes.RegistryOfficialMeta{
+			IsLatest:  true,
 			CreatedAt: server.CreationTimestamp.Format(time.RFC3339),
 			Status:    "active",
 		},
@@ -126,6 +134,13 @@ func ConvertMCPServerCatalogEntryToRegistry(
 		Title:       displayName,
 		Version:     "latest",
 		Schema:      "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+		Meta: obottypes.RegistryServerMeta{
+			PublisherProvided: &obottypes.RegistryPublisherProvidedMeta{
+				GitHub: &obottypes.RegistryGitHubMeta{
+					Readme: entry.Spec.Manifest.Description,
+				},
+			},
+		},
 	}
 
 	// Add icon if present
@@ -176,6 +191,7 @@ func ConvertMCPServerCatalogEntryToRegistry(
 	// Create metadata
 	meta := obottypes.RegistryMeta{
 		Official: obottypes.RegistryOfficialMeta{
+			IsLatest:  true,
 			CreatedAt: entry.CreationTimestamp.Format(time.RFC3339),
 			Status:    "active",
 		},
