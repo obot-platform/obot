@@ -33,6 +33,7 @@ type RegistryServerDetail struct {
 	Remotes     []RegistryServerRemote    `json:"remotes,omitempty"`
 	Repository  *RegistryServerRepository `json:"repository,omitempty"`
 	Schema      string                    `json:"$schema,omitempty"`
+	Meta        RegistryServerMeta        `json:"_meta"`
 }
 
 // RegistryServerIcon represents an icon for display
@@ -61,10 +62,11 @@ type RegistryServerRepository struct {
 // RegistryMeta contains registry-managed metadata
 type RegistryMeta struct {
 	Obot     *RegistryObotMeta    `json:"ai.obot/server,omitempty"`
-	Official RegistryOfficialMeta `json:"io.modelcontextprotocol.registry/official,omitempty"`
+	Official RegistryOfficialMeta `json:"io.modelcontextprotocol.registry/official"`
 }
 
 type RegistryOfficialMeta struct {
+	IsLatest  bool   `json:"isLatest"`
 	Status    string `json:"status,omitempty"`
 	CreatedAt string `json:"createdAt,omitempty"`
 }
@@ -73,4 +75,17 @@ type RegistryOfficialMeta struct {
 type RegistryObotMeta struct {
 	ConfigurationRequired bool   `json:"configurationRequired,omitempty"`
 	ConfigurationMessage  string `json:"configurationMessage,omitempty"`
+}
+
+type RegistryServerMeta struct {
+	PublisherProvided *RegistryPublisherProvidedMeta `json:"io.modelcontextprotocol.registry/publisher-provided,omitempty"`
+}
+
+type RegistryPublisherProvidedMeta struct {
+	GitHub *RegistryGitHubMeta `json:"github,omitempty"`
+}
+
+// RegistryGitHubMeta allows us to supply a readme that will be displayed in the registry UI in VSCode.
+type RegistryGitHubMeta struct {
+	Readme string `json:"readme,omitempty"`
 }

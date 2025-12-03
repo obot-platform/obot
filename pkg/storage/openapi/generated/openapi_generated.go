@@ -155,13 +155,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.Prompt":                                         schema_obot_platform_obot_apiclient_types_Prompt(ref),
 		"github.com/obot-platform/obot/apiclient/types.PromptResponse":                                 schema_obot_platform_obot_apiclient_types_PromptResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":                 schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryGitHubMeta":                             schema_obot_platform_obot_apiclient_types_RegistryGitHubMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryMeta":                                   schema_obot_platform_obot_apiclient_types_RegistryMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryObotMeta":                               schema_obot_platform_obot_apiclient_types_RegistryObotMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryOfficialMeta":                           schema_obot_platform_obot_apiclient_types_RegistryOfficialMeta(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryPublisherProvidedMeta":                  schema_obot_platform_obot_apiclient_types_RegistryPublisherProvidedMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryServerDetail":                           schema_obot_platform_obot_apiclient_types_RegistryServerDetail(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryServerIcon":                             schema_obot_platform_obot_apiclient_types_RegistryServerIcon(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryServerList":                             schema_obot_platform_obot_apiclient_types_RegistryServerList(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryServerListMetadata":                     schema_obot_platform_obot_apiclient_types_RegistryServerListMetadata(ref),
+		"github.com/obot-platform/obot/apiclient/types.RegistryServerMeta":                             schema_obot_platform_obot_apiclient_types_RegistryServerMeta(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryServerRemote":                           schema_obot_platform_obot_apiclient_types_RegistryServerRemote(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryServerRepository":                       schema_obot_platform_obot_apiclient_types_RegistryServerRepository(ref),
 		"github.com/obot-platform/obot/apiclient/types.RegistryServerResponse":                         schema_obot_platform_obot_apiclient_types_RegistryServerResponse(ref),
@@ -7697,6 +7700,25 @@ func schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(re
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_RegistryGitHubMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RegistryGitHubMeta allows us to supply a readme that will be displayed in the registry UI in VSCode.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"readme": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_RegistryMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -7716,6 +7738,7 @@ func schema_obot_platform_obot_apiclient_types_RegistryMeta(ref common.Reference
 						},
 					},
 				},
+				Required: []string{"io.modelcontextprotocol.registry/official"},
 			},
 		},
 		Dependencies: []string{
@@ -7754,6 +7777,13 @@ func schema_obot_platform_obot_apiclient_types_RegistryOfficialMeta(ref common.R
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"isLatest": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -7767,8 +7797,28 @@ func schema_obot_platform_obot_apiclient_types_RegistryOfficialMeta(ref common.R
 						},
 					},
 				},
+				Required: []string{"isLatest"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_RegistryPublisherProvidedMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"github": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.RegistryGitHubMeta"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.RegistryGitHubMeta"},
 	}
 }
 
@@ -7849,12 +7899,18 @@ func schema_obot_platform_obot_apiclient_types_RegistryServerDetail(ref common.R
 							Format: "",
 						},
 					},
+					"_meta": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.RegistryServerMeta"),
+						},
+					},
 				},
-				Required: []string{"name", "description", "version"},
+				Required: []string{"name", "description", "version", "_meta"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.RegistryServerIcon", "github.com/obot-platform/obot/apiclient/types.RegistryServerRemote", "github.com/obot-platform/obot/apiclient/types.RegistryServerRepository"},
+			"github.com/obot-platform/obot/apiclient/types.RegistryServerIcon", "github.com/obot-platform/obot/apiclient/types.RegistryServerMeta", "github.com/obot-platform/obot/apiclient/types.RegistryServerRemote", "github.com/obot-platform/obot/apiclient/types.RegistryServerRepository"},
 	}
 }
 
@@ -7961,6 +8017,25 @@ func schema_obot_platform_obot_apiclient_types_RegistryServerListMetadata(ref co
 				},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_RegistryServerMeta(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"io.modelcontextprotocol.registry/publisher-provided": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.RegistryPublisherProvidedMeta"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.RegistryPublisherProvidedMeta"},
 	}
 }
 
