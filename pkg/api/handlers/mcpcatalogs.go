@@ -1576,13 +1576,14 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 // convertServerManifestToCatalogManifest converts an MCPServerManifest to MCPServerCatalogEntryManifest
 func convertServerManifestToCatalogManifest(serverManifest types.MCPServerManifest) types.MCPServerCatalogEntryManifest {
 	catalogManifest := types.MCPServerCatalogEntryManifest{
-		Metadata:    serverManifest.Metadata,
-		Name:        serverManifest.Name,
-		Description: serverManifest.Description,
-		Icon:        serverManifest.Icon,
-		Runtime:     serverManifest.Runtime,
-		Env:         serverManifest.Env,
-		ToolPreview: serverManifest.ToolPreview,
+		Metadata:         serverManifest.Metadata,
+		Name:             serverManifest.Name,
+		ShortDescription: serverManifest.ShortDescription,
+		Description:      serverManifest.Description,
+		Icon:             serverManifest.Icon,
+		Runtime:          serverManifest.Runtime,
+		Env:              serverManifest.Env,
+		ToolPreview:      serverManifest.ToolPreview,
 	}
 
 	// Convert runtime-specific configs

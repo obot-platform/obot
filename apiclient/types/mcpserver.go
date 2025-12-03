@@ -123,12 +123,13 @@ type MCPServerCatalogEntry struct {
 }
 
 type MCPServerCatalogEntryManifest struct {
-	Metadata    map[string]string `json:"metadata,omitempty"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Icon        string            `json:"icon"`
-	RepoURL     string            `json:"repoURL,omitempty"`
-	ToolPreview []MCPServerTool   `json:"toolPreview,omitempty"`
+	Metadata         map[string]string `json:"metadata,omitempty"`
+	Name             string            `json:"name"`
+	ShortDescription string            `json:"shortDescription"`
+	Description      string            `json:"description"`
+	Icon             string            `json:"icon"`
+	RepoURL          string            `json:"repoURL,omitempty"`
+	ToolPreview      []MCPServerTool   `json:"toolPreview,omitempty"`
 
 	// Runtime configuration
 	Runtime Runtime `json:"runtime"`
@@ -187,11 +188,12 @@ type MCPEnv struct {
 type MCPServerCatalogEntryList List[MCPServerCatalogEntry]
 
 type MCPServerManifest struct {
-	Metadata    map[string]string `json:"metadata,omitempty"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	Icon        string            `json:"icon"`
-	ToolPreview []MCPServerTool   `json:"toolPreview,omitempty"`
+	Metadata         map[string]string `json:"metadata,omitempty"`
+	Name             string            `json:"name"`
+	ShortDescription string            `json:"shortDescription"`
+	Description      string            `json:"description"`
+	Icon             string            `json:"icon"`
+	ToolPreview      []MCPServerTool   `json:"toolPreview,omitempty"`
 
 	// Runtime configuration
 	Runtime Runtime `json:"runtime"`
@@ -366,13 +368,14 @@ func (e RuntimeValidationError) Error() string {
 func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string, disableHostnameValidation bool) (MCPServerManifest, error) {
 	serverManifest := MCPServerManifest{
 		// Copy common fields
-		Metadata:    catalogEntry.Metadata,
-		Name:        catalogEntry.Name,
-		Description: catalogEntry.Description,
-		Icon:        catalogEntry.Icon,
-		ToolPreview: catalogEntry.ToolPreview,
-		Runtime:     catalogEntry.Runtime,
-		Env:         catalogEntry.Env,
+		Metadata:         catalogEntry.Metadata,
+		Name:             catalogEntry.Name,
+		ShortDescription: catalogEntry.ShortDescription,
+		Description:      catalogEntry.Description,
+		Icon:             catalogEntry.Icon,
+		ToolPreview:      catalogEntry.ToolPreview,
+		Runtime:          catalogEntry.Runtime,
+		Env:              catalogEntry.Env,
 	}
 
 	// Handle runtime-specific mapping

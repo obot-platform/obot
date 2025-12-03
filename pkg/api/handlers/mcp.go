@@ -1420,12 +1420,13 @@ func serverManifestFromCatalogEntryManifest(
 
 	if entry.Runtime == types.RuntimeComposite {
 		result = types.MCPServerManifest{
-			Name:        entry.Name,
-			Icon:        entry.Icon,
-			Description: entry.Description,
-			Metadata:    entry.Metadata,
-			Runtime:     types.RuntimeComposite,
-			ToolPreview: entry.ToolPreview,
+			Name:             entry.Name,
+			Icon:             entry.Icon,
+			ShortDescription: entry.ShortDescription,
+			Description:      entry.Description,
+			Metadata:         entry.Metadata,
+			Runtime:          types.RuntimeComposite,
+			ToolPreview:      entry.ToolPreview,
 			CompositeConfig: &types.CompositeRuntimeConfig{
 				ComponentServers: make([]types.ComponentServer, 0, len(entry.CompositeConfig.ComponentServers)),
 			},
@@ -1503,6 +1504,9 @@ func serverManifestFromCatalogEntryManifest(
 func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.MCPServerManifest {
 	if override.Name != "" {
 		existing.Name = override.Name
+	}
+	if override.ShortDescription != "" {
+		existing.ShortDescription = override.ShortDescription
 	}
 	if override.Description != "" {
 		existing.Description = override.Description
@@ -3589,6 +3593,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	// Update the server manifest with the latest from the catalog entry
 	server.Spec.Manifest.Metadata = entry.Spec.Manifest.Metadata
 	server.Spec.Manifest.Name = entry.Spec.Manifest.Name
+	server.Spec.Manifest.ShortDescription = entry.Spec.Manifest.ShortDescription
 	server.Spec.Manifest.Description = entry.Spec.Manifest.Description
 	server.Spec.Manifest.Icon = entry.Spec.Manifest.Icon
 	server.Spec.Manifest.Env = entry.Spec.Manifest.Env
