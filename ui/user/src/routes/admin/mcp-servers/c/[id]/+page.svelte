@@ -15,7 +15,7 @@
 	import type { MCPServer, MCPCatalogServer } from '$lib/services/chat/types';
 	import { AdminService } from '$lib/services/index.js';
 	import { parseErrorContent } from '$lib/errors';
-	import ConfiguredMcpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -183,7 +183,7 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<ConfiguredMcpServerActions entry={catalogEntry} />
+		<McpServerActions entry={catalogEntry} />
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if showUpgradeNotification}

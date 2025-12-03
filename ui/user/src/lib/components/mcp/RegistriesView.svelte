@@ -60,6 +60,8 @@
 	}
 
 	let {
+		entity,
+		id,
 		catalog = $bindable(),
 		readonly,
 		noDataContent,
@@ -240,7 +242,9 @@
 			{/snippet}
 			{#snippet actions(d)}
 				{@const auditLogUrl = getAuditLogsUrl(d)}
-				{@const canDelete = d.editable && !readonly}
+				{@const belongsToUser = entity === 'workspace' && id && d.data.powerUserWorkspaceID === id}
+				{@const canDelete =
+					d.editable && !readonly && (belongsToUser || profile.current?.hasAdminAccess?.())}
 				<DotDotDot class="icon-button hover:dark:bg-background/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
@@ -295,7 +299,7 @@
 										}
 									}}
 								>
-									<Trash2 class="size-4" /> Delete Server
+									<Trash2 class="size-4" /> Delete
 								</button>
 							{/if}
 						</div>

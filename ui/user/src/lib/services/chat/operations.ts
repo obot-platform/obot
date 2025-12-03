@@ -934,7 +934,11 @@ export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCPCatalogEn
 }
 
 export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MCPCatalogEntry> {
-	return (await doGet(`/all-mcps/entries/${id}`, opts)) as MCPCatalogEntry;
+	const response = (await doGet(`/all-mcps/entries/${id}`, opts)) as MCPCatalogEntry;
+	return {
+		...response,
+		isCatalogEntry: true
+	};
 }
 
 export async function listMCPCatalogServers(opts?: {

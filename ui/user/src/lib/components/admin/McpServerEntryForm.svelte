@@ -500,7 +500,7 @@
 					</div>
 				{/if}
 			</div>
-			{#if !readonly}
+			{#if (!readonly && belongsToUser) || profile.current?.hasAdminAccess?.()}
 				<button
 					class="button-destructive flex items-center gap-1 text-xs font-normal"
 					use:tooltip={'Delete Server'}

@@ -1,4 +1,5 @@
 import type { CompositeLaunchFormData } from '$lib/components/mcp/CatalogConfigureForm.svelte';
+import { profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import {
 	ChatService,
@@ -349,4 +350,27 @@ export async function convertCompositeInfoToLaunchFormData(
 		};
 	}
 	return { componentConfigs } as CompositeLaunchFormData;
+}
+
+export function getServerUrl(d: MCPCatalogServer) {
+	const belongsToWorkspace = d.powerUserWorkspaceID ? true : false;
+	const isMulti = !d.catalogEntryID;
+
+	let url = '';
+	if (profile.current.hasAdminAccess?.()) {
+		if (isMulti) {
+			url = belongsToWorkspace
+				? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/s/${d.id}/details`
+				: `/admin/mcp-servers/s/${d.id}/details`;
+		} else {
+			url = belongsToWorkspace
+				? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
+				: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`;
+		}
+	} else {
+		url = isMulti
+			? `/mcp-servers/s/${d.id}/details`
+			: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`;
+	}
+	return url;
 }

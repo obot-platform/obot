@@ -77,7 +77,9 @@ async function fetchData(forceRefresh = false) {
 
 			entries = entriesResult;
 			servers = serversResult;
-			userConfiguredServers = ownConfiguredServers;
+			userConfiguredServers = [...serversResult, ...ownConfiguredServers].filter(
+				(server, index, self) => index === self.findIndex((t) => t.id === server.id)
+			);
 		}
 
 		store.current = {
