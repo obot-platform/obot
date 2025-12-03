@@ -201,10 +201,7 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<FilterForm
-			onCreate={navigateAfterCreated}
-			mcpEntriesContextFn={() => mcpServersAndEntries.current}
-		>
+		<FilterForm onCreate={navigateAfterCreated}>
 			{#snippet topContent()}
 				<button
 					onclick={() => (showCreateFilter = false)}

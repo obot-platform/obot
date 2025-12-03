@@ -22,7 +22,6 @@
 			onUpdate={() => {
 				goto('/admin/filters');
 			}}
-			mcpEntriesContextFn={() => mcpServersAndEntries.current}
 			readonly={profile.current.isAdminReadonly?.()}
 		/>
 	</div>

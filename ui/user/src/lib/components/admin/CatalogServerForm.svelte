@@ -731,7 +731,6 @@
 		bind:config={formData.compositeConfig}
 		{readonly}
 		catalogId={id}
-		mcpEntriesContextFn={() => mcpServersAndEntries.current}
 		id={entry?.id}
 	/>
 {/if}

@@ -13,6 +13,8 @@
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
 	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
+	import { resolve } from '$app/paths';
+	import { mcpServersAndEntries } from '$lib/stores';
 
 	interface Props {
 		catalogId?: string;
@@ -22,12 +24,6 @@
 			entry: MCPCatalogEntry | MCPCatalogServer,
 			tools?: CompositeServerToolRow[]
 		) => void;
-		mcpEntriesContextFn?: () => {
-			entries: MCPCatalogEntry[];
-			servers: MCPCatalogServer[];
-			userConfiguredServers: MCPCatalogServer[];
-			loading: boolean;
-		};
 		configuringEntry?: MCPCatalogEntry | MCPCatalogServer;
 		excluded?: string[];
 		// Optional composite context when configuring tools for an existing composite component
@@ -41,7 +37,6 @@
 		catalogId,
 		onCancel,
 		onSuccess,
-		mcpEntriesContextFn,
 		excluded,
 		configuringEntry: presetConfiguringEntry,
 		compositeEntryId,
@@ -292,7 +287,7 @@
 	exclude={['*', 'default', ...(excluded ?? [])]}
 	type="acr"
 	mcpEntriesContextFn={() => {
-		const ctx = mcpEntriesContextFn?.() ?? {
+		const ctx = mcpServersAndEntries.current ?? {
 			entries: [],
 			servers: [],
 			loading: false

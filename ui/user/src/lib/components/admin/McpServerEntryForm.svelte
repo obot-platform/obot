@@ -76,18 +76,23 @@
 	}: Props = $props();
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	let isAuditor = $derived(profile.current?.groups.includes(Group.AUDITOR));
+	let belongsToUser = $derived(
+		entity === 'workspace' && entry?.powerUserWorkspaceID && entry.powerUserWorkspaceID === id
+	);
 
 	const tabs = $derived(
 		entry
 			? [
 					{ label: 'Overview', view: 'overview' },
-					...(profile.current?.groups.includes(Group.POWERUSER)
+					...(profile.current?.groups.includes(Group.POWERUSER_PLUS)
 						? [{ label: 'Server Details', view: 'server-instances' }]
 						: []),
 					{ label: 'Tools', view: 'tools' },
+					...(belongsToUser || profile.current?.hasAdminAccess?.()
+						? [{ label: 'Configuration', view: 'configuration' }]
+						: []),
 					...(profile.current?.groups.includes(Group.POWERUSER)
 						? [
-								{ label: 'Configuration', view: 'configuration' },
 								{ label: 'Audit Logs', view: 'audit-logs' },
 								{ label: 'Usage', view: 'usage' }
 							]
