@@ -210,6 +210,7 @@
 			{#if view === 'registry'}
 				<RegistriesView
 					id={workspaceId}
+					entity="workspace"
 					query={localStorageViewQuery.current?.['registry'] || ''}
 					{urlFilters}
 					onFilter={handleFilter}
@@ -334,7 +335,11 @@
 	entityPlural="entries"
 />
 
-<SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />
+<SelectServerType
+	bind:this={selectServerTypeDialog}
+	onSelectServerType={selectServerType}
+	entity="workspace"
+/>
 
 <svelte:head>
 	<title>Obot | MCP Servers</title>

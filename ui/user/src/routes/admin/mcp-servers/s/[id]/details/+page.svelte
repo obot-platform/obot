@@ -32,7 +32,12 @@
 
 <Layout {title} showBackButton>
 	{#snippet rightNavActions()}
-		<McpServerActions server={mcpServer} {instance} {loading} />
+		<McpServerActions
+			server={mcpServer}
+			{instance}
+			{loading}
+			onConnect={({ instance: connectedInstance }) => (instance = connectedInstance)}
+		/>
 	{/snippet}
 
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: PAGE_TRANSITION_DURATION }}>

@@ -20,6 +20,7 @@
 	} from '$lib/services';
 	import {
 		getServerTypeLabel,
+		getServerUrl,
 		hasEditableConfiguration,
 		requiresUserUpdate
 	} from '$lib/services/chat/mcp';
@@ -353,29 +354,6 @@
 				? `/admin/audit-logs?mcp_id=${d.id}`
 				: `/audit-logs?mcp_id=${d.id}`;
 	}
-
-	function getServerUrl(d: MCPCatalogServer) {
-		const belongsToWorkspace = d.powerUserWorkspaceID ? true : false;
-		const isMulti = !d.catalogEntryID;
-
-		let url = '';
-		if (entity === 'catalog' && profile.current.hasAdminAccess?.()) {
-			if (isMulti) {
-				url = belongsToWorkspace
-					? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/s/${d.id}/details`
-					: `/admin/mcp-servers/s/${d.id}/details`;
-			} else {
-				url = belongsToWorkspace
-					? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
-					: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`;
-			}
-		} else if (entity === 'workspace') {
-			url = isMulti
-				? `/mcp-servers/s/${d.id}/details`
-				: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`;
-		}
-		return url;
-	}
 </script>
 
 <div class="flex flex-col gap-2">
@@ -403,7 +381,6 @@
 				setLastVisitedMcpServer(d);
 
 				const url = getServerUrl(d);
-
 				setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
 				openUrl(url, isCtrlClick);
 			}}
