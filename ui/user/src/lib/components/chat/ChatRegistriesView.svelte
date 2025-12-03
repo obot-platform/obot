@@ -1,12 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import {
-		type MCPCatalogEntry,
-		type MCPCatalogServer,
-		type MCPServerInstance,
-		type OrgUser
-	} from '$lib/services';
+	import { type MCPCatalogEntry, type MCPCatalogServer, type OrgUser } from '$lib/services';
 	import {
 		convertEntriesAndServersToTableData,
 		getServerTypeLabelByType
@@ -14,7 +9,6 @@
 	import { mcpServersAndEntries } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { CircleFadingArrowUp, LoaderCircle, Server, StepForward } from 'lucide-svelte';
-	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 
 	interface Props {
 		usersMap?: Map<string, OrgUser>;
@@ -22,25 +16,17 @@
 		classes?: {
 			tableHeader?: string;
 		};
-		onConnect?: (data: {
-			entry?: MCPCatalogEntry;
-			server?: MCPCatalogServer;
-			instance?: MCPServerInstance;
-		}) => void;
+		onSelect: (item: MCPCatalogEntry | MCPCatalogServer) => void;
+		onConnect: (item: MCPCatalogEntry | MCPCatalogServer) => void;
 	}
 
-	let { query, onConnect }: Props = $props();
-	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
+	let { query, onSelect, onConnect }: Props = $props();
 
 	let tableData = $derived(
 		convertEntriesAndServersToTableData(
 			mcpServersAndEntries.current.entries,
 			mcpServersAndEntries.current.servers
 		)
-	);
-
-	let entriesMap = $derived(
-		new Map(mcpServersAndEntries.current.entries.map((entry) => [entry.id, entry]))
 	);
 
 	let filteredTableData = $derived.by(() => {
@@ -70,20 +56,7 @@
 			}}
 			fields={['name', 'type', 'users', 'created', 'registry']}
 			filterable={['name', 'type', 'registry']}
-			onClickRow={(d) => {
-				const entry =
-					'catalogEntryID' in d.data
-						? entriesMap.get(d.data.catalogEntryID as string)
-						: 'isCatalogEntry' in d.data
-							? d.data
-							: undefined;
-				const server = 'isCatalogEntry' in d.data ? undefined : d.data;
-				connectToServerDialog?.open({
-					entry,
-					server,
-					instance: undefined
-				});
-			}}
+			onClickRow={(d) => onSelect?.(d.data)}
 			sortable={['name', 'type', 'users', 'created', 'registry']}
 			noDataMessage="No catalog servers added."
 			setRowClasses={(d) => ('needsUpdate' in d && d.needsUpdate ? 'bg-primary/10' : '')}
@@ -121,17 +94,17 @@
 					{d[property as keyof typeof d]}
 				{/if}
 			{/snippet}
-			{#snippet actions()}
-				<button class="icon-button hover:dark:bg-background/50">
+			{#snippet actions(d)}
+				<button
+					class="icon-button hover:dark:bg-background/50"
+					onclick={(e) => {
+						e.stopPropagation();
+						onConnect?.(d.data);
+					}}
+				>
 					<StepForward class="size-4" />
 				</button>
 			{/snippet}
 		</Table>
 	{/if}
 </div>
-
-<ConnectToServer
-	bind:this={connectToServerDialog}
-	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
-	{onConnect}
-/>

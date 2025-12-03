@@ -24,9 +24,20 @@
 		instance?: MCPServerInstance;
 		onDelete?: () => void;
 		loading?: boolean;
+		skipConnectDialog?: boolean;
+		onConnect?: ({
+			server,
+			entry,
+			instance
+		}: {
+			server?: MCPCatalogServer;
+			entry?: MCPCatalogEntry;
+			instance?: MCPServerInstance;
+		}) => void;
 	}
 
-	let { server, entry, instance, onDelete, loading }: Props = $props();
+	let { server, entry, instance, onDelete, loading, skipConnectDialog, onConnect }: Props =
+		$props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
 
@@ -35,20 +46,14 @@
 
 	let serverType = $derived(server && getServerType(server));
 	let isSingleOrRemote = $derived(serverType === 'single' || serverType === 'remote');
-	let requiresUpdate = $derived(
-		server &&
-			requiresUserUpdate({
-				connectURL: server?.connectURL ?? '',
-				server: { ...server, categories: [] }
-			})
-	);
+	let requiresUpdate = $derived(server && requiresUserUpdate(server));
 	let canConfigure = $derived(
 		entry && (entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry))
 	);
 	let isConfigured = $derived((server && entry) || (server && instance));
 
-	async function refresh() {
-		await mcpServersAndEntries.refreshUserConfiguredServers();
+	function refresh() {
+		mcpServersAndEntries.refreshUserConfiguredServers();
 	}
 
 	function handleDeleteSuccess() {
@@ -57,6 +62,14 @@
 		} else {
 			history.back();
 		}
+	}
+
+	export function connect() {
+		connectToServerDialog?.open({
+			entry,
+			server,
+			instance
+		});
 	}
 </script>
 
@@ -146,7 +159,11 @@
 <ConnectToServer
 	bind:this={connectToServerDialog}
 	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
-	onConnect={refresh}
+	onConnect={(data) => {
+		onConnect?.(data);
+		refresh();
+	}}
+	{skipConnectDialog}
 />
 
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
