@@ -4621,6 +4621,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Format:  "",
 						},
 					},
+					"shortDescription": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"description": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -4702,7 +4709,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 						},
 					},
 				},
-				Required: []string{"name", "description", "icon", "runtime"},
+				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
 		},
 		Dependencies: []string{
@@ -4994,6 +5001,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							Format:  "",
 						},
 					},
+					"shortDescription": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"description": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -5109,7 +5123,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 						},
 					},
 				},
-				Required: []string{"name", "description", "icon", "runtime"},
+				Required: []string{"name", "shortDescription", "description", "icon", "runtime"},
 			},
 		},
 		Dependencies: []string{
