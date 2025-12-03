@@ -618,6 +618,10 @@ func paginateServers(servers []types.RegistryServerResponse, cursor string, limi
 	}
 
 	page := servers[startIdx:endIdx]
+	if page == nil {
+		// This prevents an error from showing up in VSCode when the result is empty.
+		page = []types.RegistryServerResponse{}
+	}
 
 	// Build response
 	response := types.RegistryServerList{
