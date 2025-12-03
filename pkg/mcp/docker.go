@@ -147,6 +147,10 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	for i, webhook := range transformedWebhooks {
+		if strings.HasPrefix(webhook.URL, "http://localhost") {
+			webhook.URL = strings.Replace(webhook.URL, "http://localhost", d.hostBaseURL, 1)
+		}
+
 		c, err := webhookToServerConfig(webhook, d.webhookBaseImage, server.MCPServerName, server.UserID, server.Scope, defaultContainerPort)
 		if err != nil {
 			return ServerConfig{}, fmt.Errorf("failed to ensure webhook deployment: %w", err)
@@ -180,6 +184,8 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 		}
 
 		server.MCPServerName += "-shim"
+	} else if strings.HasPrefix(server.URL, "http://localhost") {
+		server.URL = strings.Replace(server.URL, "http://localhost", d.hostBaseURL, 1)
 	}
 
 	server, err = d.ensureDeployment(ctx, server, "", d.containerEnv, transformedWebhooks)
