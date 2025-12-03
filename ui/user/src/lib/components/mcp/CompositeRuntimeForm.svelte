@@ -27,15 +27,9 @@
 		config: CompositeCatalogConfig;
 		readonly?: boolean;
 		catalogId?: string;
-		mcpEntriesContextFn?: () => {
-			entries: MCPCatalogEntry[];
-			servers: MCPCatalogServer[];
-			userConfiguredServers: MCPCatalogServer[];
-			loading: boolean;
-		};
 	}
 
-	let { config = $bindable(), readonly, catalogId, mcpEntriesContextFn, id }: Props = $props();
+	let { config = $bindable(), readonly, catalogId, id }: Props = $props();
 	let componentEntries = $state<MCPCatalogEntry[]>([]);
 	const componentServers = new SvelteMap<string, MCPCatalogServer>();
 	let expanded = $state<Record<string, boolean>>({});
@@ -405,7 +399,6 @@
 
 <CompositeToolsSetup
 	bind:this={compositeToolsSetupDialog}
-	{mcpEntriesContextFn}
 	{catalogId}
 	{configuringEntry}
 	compositeEntryId={id}

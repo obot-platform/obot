@@ -25,23 +25,10 @@
 		filter?: MCPFilter;
 		onCreate?: (filter?: MCPFilter) => void;
 		onUpdate?: (filter?: MCPFilter) => void;
-		mcpEntriesContextFn?: () => {
-			entries: MCPCatalogEntry[];
-			servers: MCPCatalogServer[];
-			userConfiguredServers: MCPCatalogServer[];
-			loading: boolean;
-		};
 		readonly?: boolean;
 	}
 
-	let {
-		topContent,
-		filter: initialFilter,
-		onCreate,
-		onUpdate,
-		mcpEntriesContextFn,
-		readonly
-	}: Props = $props();
+	let { topContent, filter: initialFilter, onCreate, onUpdate, readonly }: Props = $props();
 	const duration = PAGE_TRANSITION_DURATION;
 	let filter = $state<{
 		name: string;
@@ -541,7 +528,7 @@
 			...selectorResources
 		];
 	}}
-	{mcpEntriesContextFn}
+	mcpEntriesContextFn={() => mcpServersAndEntries.current}
 />
 
 <Confirm
