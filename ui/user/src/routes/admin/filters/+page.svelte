@@ -10,7 +10,7 @@
 	import { AdminService, type MCPFilter } from '$lib/services/index.js';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import { openUrl } from '$lib/utils';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { profile } from '$lib/stores';
 	import Search from '$lib/components/Search.svelte';
 	import { replaceState } from '$lib/url';
 	import { debounce } from 'es-toolkit';
