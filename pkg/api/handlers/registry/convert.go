@@ -43,6 +43,9 @@ func ConvertMCPServerToRegistry(
 	description := convertedServer.MCPServerManifest.ShortDescription
 	if description == "" {
 		description = convertedServer.MCPServerManifest.Description
+		if description == "" {
+			description = "(no description)"
+		}
 	}
 	serverDetail := obottypes.RegistryServerDetail{
 		Name:        registryName,
@@ -129,6 +132,9 @@ func ConvertMCPServerCatalogEntryToRegistry(
 	description := manifest.ShortDescription
 	if description == "" {
 		description = manifest.Description
+		if description == "" {
+			description = "(no description)"
+		}
 	}
 	serverDetail := obottypes.RegistryServerDetail{
 		Name:        registryName,
