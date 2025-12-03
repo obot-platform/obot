@@ -1096,7 +1096,7 @@
 {/snippet}
 
 {#snippet editConfigAction(connectedServer: ConnectedServer)}
-	{@const requiresUpdate = requiresUserUpdate(connectedServer)}
+	{@const requiresUpdate = requiresUserUpdate(connectedServer.server)}
 	{@const canConfigure =
 		connectedServer.parent &&
 		(connectedServer.parent.manifest.runtime === 'composite' ||

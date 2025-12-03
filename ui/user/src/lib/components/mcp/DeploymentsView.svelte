@@ -413,6 +413,8 @@
 			sectionedBy="isMyServer"
 			sectionPrimaryTitle="My Servers"
 			sectionSecondaryTitle="All Servers"
+			setRowClasses={(d) =>
+				d.needsUpdate ? 'bg-primary/10' : requiresUserUpdate(d) ? 'bg-yellow-500/10' : ''}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
@@ -686,10 +688,7 @@
 </div>
 
 {#snippet editConfigAction(d: MCPCatalogServer)}
-	{@const requiresUpdate = requiresUserUpdate({
-		connectURL: d.connectURL ?? '',
-		server: { ...d, categories: [] }
-	})}
+	{@const requiresUpdate = requiresUserUpdate(d)}
 	{@const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined}
 	{@const canConfigure =
 		entry && (entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry))}

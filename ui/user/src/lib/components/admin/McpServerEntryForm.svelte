@@ -60,6 +60,7 @@
 		onCancel?: () => void;
 		onSubmit?: (id: string, type: MCPType) => void;
 		hasExistingConfigured?: boolean;
+		isDialogView?: boolean;
 	}
 
 	let {
@@ -70,7 +71,8 @@
 		readonly,
 		onCancel,
 		onSubmit,
-		hasExistingConfigured
+		hasExistingConfigured,
+		isDialogView
 	}: Props = $props();
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	let isAuditor = $derived(profile.current?.groups.includes(Group.AUDITOR));
@@ -118,9 +120,7 @@
 	}>();
 	let selected = $derived.by(() => {
 		const searchParams = page.url.searchParams;
-
 		const tab = searchParams.get('view');
-
 		return tab ?? (entry ? 'overview' : 'configuration');
 	});
 	let showLeftChevron = $state(false);
@@ -208,6 +208,7 @@
 	}
 
 	function setLastVisitedMcpServer() {
+		if (isDialogView) return;
 		if (!entry) return;
 		const name = entry.manifest.name;
 		sessionStorage.setItem(
@@ -237,6 +238,10 @@
 	}
 
 	function handleSelectionChange(newSelection: string) {
+		if (isDialogView) {
+			selected = newSelection;
+			return;
+		}
 		if (newSelection !== selected) {
 			const url = new URL(window.location.href);
 			url.searchParams.set('view', newSelection);

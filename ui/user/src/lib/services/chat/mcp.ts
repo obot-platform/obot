@@ -1,5 +1,4 @@
 import type { CompositeLaunchFormData } from '$lib/components/mcp/CatalogConfigureForm.svelte';
-import type { ConnectedServer } from '$lib/components/mcp/MyMcpServers.svelte';
 import { getUserDisplayName } from '$lib/utils';
 import {
 	ChatService,
@@ -97,14 +96,12 @@ export function hasEditableConfiguration(item: MCPCatalogEntry) {
 	return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
 }
 
-export function requiresUserUpdate(mcpServer?: ConnectedServer) {
-	if (!mcpServer) return false;
-	if (mcpServer.server?.needsURL) {
+export function requiresUserUpdate(server?: MCPCatalogServer) {
+	if (!server) return false;
+	if (server?.needsURL) {
 		return true;
 	}
-	return typeof mcpServer.server?.configured === 'boolean'
-		? mcpServer.server?.configured === false
-		: false;
+	return typeof server?.configured === 'boolean' ? server?.configured === false : false;
 }
 
 function convertEntriesToTableData(entries?: MCPCatalogEntry[], usersMap?: Map<string, OrgUser>) {

@@ -12,7 +12,13 @@
 	import { profile, mcpServersAndEntries } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { getUserDisplayName } from '$lib/utils';
-	import { CircleFadingArrowUp, LoaderCircle, Server, StepForward } from 'lucide-svelte';
+	import {
+		CircleFadingArrowUp,
+		LoaderCircle,
+		Server,
+		StepForward,
+		TriangleAlert
+	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -142,6 +148,9 @@
 				{ title: 'Status', property: 'deploymentStatus' }
 			]}
 			onClickRow={(d) => {
+				if (requiresUserUpdate(d)) {
+					return;
+				}
 				onSelect?.({
 					server: d,
 					instance: instancesMap.get(d.id),
@@ -154,6 +163,10 @@
 			sectionPrimaryTitle="My Servers"
 			sectionSecondaryTitle="All Servers"
 			disablePortal
+			setRowClasses={(d) =>
+				requiresUserUpdate(d)
+					? 'bg-yellow-500/10 hover:bg-yellow-500/10 dark:hover:bg-yellow-500/10 text-on-background/30'
+					: ''}
 		>
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'displayName'}
@@ -173,6 +186,17 @@
 								</span>
 							{/if}
 						</p>
+						{#if requiresUserUpdate(d)}
+							<div
+								class="text-yellow-500"
+								use:tooltip={{
+									text: 'Server requires an update.',
+									disablePortal: true
+								}}
+							>
+								<TriangleAlert class="size-4" />
+							</div>
+						{/if}
 					</div>
 				{:else if property === 'created'}
 					{formatTimeAgo(d.created).relativeTime}
@@ -190,10 +214,12 @@
 				{/if}
 			{/snippet}
 
-			{#snippet actions()}
-				<button class="icon-button hover:dark:bg-background/50">
-					<StepForward class="size-4" />
-				</button>
+			{#snippet actions(d)}
+				{#if !requiresUserUpdate(d)}
+					<button class="icon-button hover:dark:bg-background/50">
+						<StepForward class="size-4" />
+					</button>
+				{/if}
 			{/snippet}
 		</Table>
 	{/if}
