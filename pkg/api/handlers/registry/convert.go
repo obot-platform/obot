@@ -110,6 +110,8 @@ func ConvertMCPServerToRegistry(
 			ConfigurationRequired: true,
 			ConfigurationMessage:  "This server requires configuration. Please visit the Obot UI to configure it.",
 		}
+
+		serverDetail.Meta.PublisherProvided.GitHub.Readme = fmt.Sprintf("> Note: This server requires configuration and cannot be installed directly from your client. Please visit [Obot](%s) to to configure this server and obtain a connection URL.\n\n%s", serverURL, serverDetail.Meta.PublisherProvided.GitHub.Readme)
 	}
 
 	return obottypes.RegistryServerResponse{
@@ -220,6 +222,8 @@ func ConvertMCPServerCatalogEntryToRegistry(
 			ConfigurationRequired: true,
 			ConfigurationMessage:  "This server needs to be configured before use. Please visit the Obot UI to set it up.",
 		}
+
+		serverDetail.Meta.PublisherProvided.GitHub.Readme = fmt.Sprintf("> Note: This server requires configuration and cannot be installed directly from your client. Please visit [Obot](%s) to to configure this server and obtain a connection URL.\n\n%s", serverURL, serverDetail.Meta.PublisherProvided.GitHub.Readme)
 	} else {
 		// No configuration required - provide connection URL
 		serverDetail.Remotes = []obottypes.RegistryServerRemote{
