@@ -60,7 +60,6 @@
 	}
 
 	let {
-		entity = 'catalog',
 		catalog = $bindable(),
 		readonly,
 		noDataContent,
