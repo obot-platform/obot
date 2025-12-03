@@ -89,7 +89,7 @@
 	}
 </script>
 
-{#if server && (!server.catalogEntryID || (server.catalogEntryID && server.userID === profile.current.id))}
+{#if (entry && !server) || (server && (!server.catalogEntryID || (server.catalogEntryID && server.userID === profile.current.id)))}
 	<button
 		class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
 		onclick={() => {

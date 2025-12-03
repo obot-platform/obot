@@ -77,27 +77,28 @@
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	let isAuditor = $derived(profile.current?.groups.includes(Group.AUDITOR));
 	let belongsToUser = $derived(
-		entity === 'workspace' && entry?.powerUserWorkspaceID && entry.powerUserWorkspaceID === id
+		(entity === 'workspace' && entry?.powerUserWorkspaceID && entry.powerUserWorkspaceID === id) ||
+			profile.current?.hasAdminAccess?.()
 	);
 
 	const tabs = $derived(
 		entry
 			? [
 					{ label: 'Overview', view: 'overview' },
-					...(profile.current?.groups.includes(Group.POWERUSER_PLUS)
+					...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
 						? [{ label: 'Server Details', view: 'server-instances' }]
 						: []),
 					{ label: 'Tools', view: 'tools' },
-					...(belongsToUser || profile.current?.hasAdminAccess?.()
-						? [{ label: 'Configuration', view: 'configuration' }]
-						: []),
-					...(profile.current?.groups.includes(Group.POWERUSER)
+					...(belongsToUser
 						? [
+								{ label: 'Configuration', view: 'configuration' },
 								{ label: 'Audit Logs', view: 'audit-logs' },
 								{ label: 'Usage', view: 'usage' }
 							]
 						: []),
-					...(isAtLeastPowerUserPlus ? [{ label: 'Access Control', view: 'access-control' }] : []),
+					...(isAtLeastPowerUserPlus && belongsToUser
+						? [{ label: 'Access Control', view: 'access-control' }]
+						: []),
 					...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
 				]
 			: []
