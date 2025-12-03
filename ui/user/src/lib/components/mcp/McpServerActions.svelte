@@ -103,8 +103,7 @@
 						onclick={() => {
 							editExistingDialog?.rename({
 								server,
-								entry,
-								instance
+								entry
 							});
 						}}
 					>
@@ -119,8 +118,7 @@
 							onclick={() => {
 								editExistingDialog?.edit({
 									server,
-									entry,
-									instance
+									entry
 								});
 							}}
 						>

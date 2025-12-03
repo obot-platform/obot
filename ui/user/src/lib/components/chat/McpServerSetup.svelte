@@ -2,14 +2,11 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { mcpServersAndEntries, responsive } from '$lib/stores';
-	import { Import, X } from 'lucide-svelte';
+	import { X } from 'lucide-svelte';
 	import { type MCPCatalogEntry, type Project, type ProjectMCP } from '$lib/services';
-	import { createProjectMcp, parseCategories, requiresUserUpdate } from '$lib/services/chat/mcp';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import Search from '../Search.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import RegistriesView from '../mcp/RegistriesView.svelte';
-	import DeploymentsView from '../mcp/DeploymentsView.svelte';
 	import ChatRegistriesView from './ChatRegistriesView.svelte';
 	import ChatDeploymentsView from './ChatDeploymentsView.svelte';
 

@@ -58,7 +58,6 @@
 		type: newType = 'single',
 		onCancel,
 		onSubmit,
-		hideTitle,
 		readonlyMessage
 	}: Props = $props();
 	let type = $derived(getType(entry) ?? newType);

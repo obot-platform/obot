@@ -2,7 +2,6 @@
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { profile, responsive, darkMode } from '$lib/stores';
 	import Menu from '$lib/components/navbar/Menu.svelte';
-	import { Group } from '$lib/services/admin/types';
 	import { getUserRoleLabel } from '$lib/utils';
 	import {
 		Book,

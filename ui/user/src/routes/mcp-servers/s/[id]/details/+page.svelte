@@ -2,7 +2,7 @@
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
-	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, ChatService, type MCPServerInstance, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
 	import { LoaderCircle } from 'lucide-svelte';
