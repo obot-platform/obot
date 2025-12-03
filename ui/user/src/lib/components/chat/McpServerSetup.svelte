@@ -61,7 +61,7 @@
 <dialog
 	bind:this={catalogDialog}
 	use:clickOutside={() => closeCatalogDialog()}
-	class="default-dialog max-w-(calc(100svw - 2em)) bg-surface1 dark:bg-background h-full w-(--breakpoint-xl) p-0"
+	class="default-dialog max-w-(calc(100svw - 2em)) h-full w-(--breakpoint-xl) p-0"
 	class:mobile-screen-dialog={responsive.isMobile}
 >
 	<div class="default-scrollbar-thin relative mx-auto h-full min-h-0 w-full overflow-y-auto">
@@ -80,7 +80,7 @@
 {/snippet}
 
 {#snippet mainContent()}
-	<div class="dark:bg-surface2 bg-background w-full px-4 py-2">
+	<div class="w-full px-4 py-2">
 		<div class="mb-2 flex items-center justify-between gap-4">
 			<h4 class="text-lg font-semibold">Add Connector</h4>
 			<button
@@ -98,7 +98,7 @@
 			placeholder="Search servers..."
 		/>
 	</div>
-	<div class="dark:bg-surface2 bg-background rounded-t-md shadow-sm">
+	<div class="rounded-t-md shadow-sm">
 		<div class="flex w-full">
 			<button
 				class={twMerge('page-tab max-w-full', tabView === 'deployments' && 'page-tab-active')}
