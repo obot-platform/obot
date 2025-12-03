@@ -2,7 +2,6 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import {
-		ChatService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
@@ -41,9 +40,10 @@
 		mcpServersAndEntries.current.userConfiguredServers.filter((server) => !server.deleted)
 	);
 
-	let instances = $state<MCPServerInstance[]>([]);
 	let instancesMap = $derived(
-		new Map(instances.map((instance) => [instance.mcpServerID, instance]))
+		new Map(
+			mcpServersAndEntries.current.userInstances.map((instance) => [instance.mcpServerID, instance])
+		)
 	);
 	let tableRef = $state<ReturnType<typeof Table>>();
 
@@ -122,7 +122,6 @@
 	async function reload() {
 		loading = true;
 		mcpServersAndEntries.refreshAll();
-		instances = await ChatService.listMcpServerInstances();
 		loading = false;
 	}
 </script>

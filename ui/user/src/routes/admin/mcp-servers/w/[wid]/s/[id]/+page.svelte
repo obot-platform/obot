@@ -26,7 +26,7 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions server={mcpServer} instance={mcpServer} />
+		<McpServerActions server={mcpServer} />
 	{/snippet}
 	<div class="flex h-full flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if workspaceId && mcpServer}

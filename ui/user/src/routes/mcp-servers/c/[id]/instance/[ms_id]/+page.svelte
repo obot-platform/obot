@@ -39,6 +39,7 @@
 			connectedUsers = [user];
 		}
 	}
+
 	onMount(() => {
 		fetchUserInfo();
 	});

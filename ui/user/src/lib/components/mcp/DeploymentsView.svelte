@@ -113,9 +113,10 @@
 				]
 	);
 
-	let instances = $state<MCPServerInstance[]>([]);
 	let instancesMap = $derived(
-		new Map(instances.map((instance) => [instance.mcpServerID, instance]))
+		new Map(
+			mcpServersAndEntries.current.userInstances.map((instance) => [instance.mcpServerID, instance])
+		)
 	);
 	let tableRef = $state<ReturnType<typeof Table>>();
 
@@ -206,7 +207,6 @@
 			mcpServersAndEntries.refreshAll();
 		}
 
-		instances = await ChatService.listMcpServerInstances();
 		loading = false;
 	}
 

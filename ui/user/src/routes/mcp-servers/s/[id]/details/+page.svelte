@@ -19,22 +19,21 @@
 	onMount(async () => {
 		if (!mcpServer || !workspaceId) return;
 		loading = true;
-		instances = await ChatService.listWorkspaceMcpCatalogServerInstances(workspaceId, mcpServer.id);
+		if (mcpServer.powerUserWorkspaceID && workspaceId === mcpServer.powerUserWorkspaceID) {
+			instances = await ChatService.listWorkspaceMcpCatalogServerInstances(
+				workspaceId,
+				mcpServer.id
+			);
+		}
 		users = await AdminService.listUsersIncludeDeleted();
 		loading = false;
 	});
 	let title = $derived(mcpServer?.manifest.name);
-	let instance = $derived(instances.find((instance) => instance.userID === profile.current.id));
 </script>
 
 <Layout {title} showBackButton>
 	{#snippet rightNavActions()}
-		<McpServerActions
-			server={mcpServer}
-			{instance}
-			{loading}
-			onConnect={({ instance: connectedInstance }) => (instance = connectedInstance)}
-		/>
+		<McpServerActions server={mcpServer} {loading} />
 	{/snippet}
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: PAGE_TRANSITION_DURATION }}>
 		{#if loading}
@@ -45,8 +44,12 @@
 			<div class="flex flex-col gap-6">
 				{#if mcpServer && workspaceId}
 					<McpServerK8sInfo
-						id={workspaceId}
-						entity="workspace"
+						id={mcpServer.powerUserWorkspaceID && workspaceId === mcpServer.powerUserWorkspaceID
+							? workspaceId
+							: undefined}
+						entity={mcpServer.powerUserWorkspaceID && workspaceId === mcpServer.powerUserWorkspaceID
+							? 'workspace'
+							: 'catalog'}
 						mcpServerId={mcpServer.id}
 						name={mcpServer.manifest.name || ''}
 						connectedUsers={(instances ?? []).map((instance) => {
