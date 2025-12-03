@@ -27,17 +27,11 @@
 		loading = false;
 	});
 	let title = $derived(mcpServer?.manifest.name);
-	let instance = $derived(instances.find((instance) => instance.userID === profile.current.id));
 </script>
 
 <Layout {title} showBackButton>
 	{#snippet rightNavActions()}
-		<McpServerActions
-			server={mcpServer}
-			{instance}
-			{loading}
-			onConnect={({ instance: connectedInstance }) => (instance = connectedInstance)}
-		/>
+		<McpServerActions server={mcpServer} {loading} />
 	{/snippet}
 
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: PAGE_TRANSITION_DURATION }}>

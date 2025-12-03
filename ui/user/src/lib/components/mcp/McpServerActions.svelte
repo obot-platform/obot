@@ -32,24 +32,14 @@
 	interface Props {
 		server?: MCPCatalogServer;
 		entry?: MCPCatalogEntry;
-		instance?: MCPServerInstance;
 		onDelete?: () => void;
 		onDeleteConflict?: (error: MCPCompositeDeletionDependencyError) => void;
 		loading?: boolean;
 		skipConnectDialog?: boolean;
-		onConnect?: ({
-			server,
-			entry,
-			instance
-		}: {
-			server?: MCPCatalogServer;
-			entry?: MCPCatalogEntry;
-			instance?: MCPServerInstance;
-		}) => void;
+		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
 	}
 
-	let { server, entry, instance, onDelete, loading, skipConnectDialog, onConnect }: Props =
-		$props();
+	let { server, entry, onDelete, loading, skipConnectDialog, onConnect }: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
 
@@ -57,6 +47,13 @@
 	let deletingServer = $state<MCPCatalogServer>();
 	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
 
+	let instance = $derived(
+		server && !server.catalogEntryID
+			? mcpServersAndEntries.current.userInstances.find(
+					(instance) => instance.mcpServerID === server.id
+				)
+			: undefined
+	);
 	let serverType = $derived(server && getServerType(server));
 	let isSingleOrRemote = $derived(serverType === 'single' || serverType === 'remote');
 	let requiresUpdate = $derived(server && requiresUserUpdate(server));
@@ -70,6 +67,8 @@
 	function refresh() {
 		if (entry) {
 			mcpServersAndEntries.refreshUserConfiguredServers();
+		} else if (!server?.catalogEntryID) {
+			mcpServersAndEntries.refreshUserInstances();
 		}
 	}
 
@@ -90,23 +89,25 @@
 	}
 </script>
 
-<button
-	class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
-	onclick={() => {
-		connectToServerDialog?.open({
-			entry,
-			server,
-			instance
-		});
-	}}
-	disabled={loading}
->
-	{#if loading}
-		<LoaderCircle class="size-4 animate-spin" />
-	{:else}
-		Connect To Server
-	{/if}
-</button>
+{#if server && (!server.catalogEntryID || (server.catalogEntryID && server.userID === profile.current.id))}
+	<button
+		class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
+		onclick={() => {
+			connectToServerDialog?.open({
+				entry,
+				server,
+				instance
+			});
+		}}
+		disabled={loading}
+	>
+		{#if loading}
+			<LoaderCircle class="size-4 animate-spin" />
+		{:else}
+			Connect To Server
+		{/if}
+	</button>
+{/if}
 
 {#if !loading && server && isConfigured}
 	<DotDotDot

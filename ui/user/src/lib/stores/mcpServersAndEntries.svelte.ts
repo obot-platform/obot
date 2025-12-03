@@ -3,13 +3,15 @@ import {
 	AdminService,
 	ChatService,
 	type MCPCatalogEntry,
-	type MCPCatalogServer
+	type MCPCatalogServer,
+	type MCPServerInstance
 } from '$lib/services';
 import { profile } from '.';
 
 interface McpServerAndEntries {
 	entries: MCPCatalogEntry[];
 	servers: MCPCatalogServer[];
+	userInstances: MCPServerInstance[];
 	userConfiguredServers: MCPCatalogServer[];
 	loading: boolean;
 	lastFetched: number | null;
@@ -19,12 +21,14 @@ const store = $state<{
 	current: McpServerAndEntries;
 	refreshAll: () => void;
 	refreshUserConfiguredServers: () => void;
+	refreshUserInstances: () => void;
 	initialize: (forceRefresh?: boolean) => void;
 	fetchData: (forceRefresh?: boolean) => Promise<void>;
 }>({
 	current: {
 		entries: [],
 		servers: [],
+		userInstances: [],
 		userConfiguredServers: [],
 		loading: false,
 		lastFetched: null,
@@ -32,6 +36,7 @@ const store = $state<{
 	},
 	refreshAll,
 	refreshUserConfiguredServers,
+	refreshUserInstances,
 	initialize,
 	fetchData
 });
@@ -55,6 +60,7 @@ async function fetchData(forceRefresh = false) {
 		let entries: MCPCatalogEntry[] = [];
 		let servers: MCPCatalogServer[] = [];
 		let userConfiguredServers: MCPCatalogServer[] = [];
+		let userInstances: MCPServerInstance[] = [];
 
 		if (profile.current.hasAdminAccess?.()) {
 			const [adminEntries, adminServers, workspaceEntries, workspaceServers, ownConfiguredServers] =
@@ -67,6 +73,7 @@ async function fetchData(forceRefresh = false) {
 				]);
 			entries = [...adminEntries, ...workspaceEntries];
 			servers = [...adminServers, ...workspaceServers];
+			userInstances = await ChatService.listMcpServerInstances();
 			userConfiguredServers = ownConfiguredServers;
 		} else {
 			const [ownConfiguredServers, entriesResult, serversResult] = await Promise.all([
@@ -77,6 +84,7 @@ async function fetchData(forceRefresh = false) {
 
 			entries = entriesResult;
 			servers = serversResult;
+			userInstances = await ChatService.listMcpServerInstances();
 			userConfiguredServers = [...serversResult, ...ownConfiguredServers].filter(
 				(server, index, self) => index === self.findIndex((t) => t.id === server.id)
 			);
@@ -85,6 +93,7 @@ async function fetchData(forceRefresh = false) {
 		store.current = {
 			entries,
 			servers,
+			userInstances,
 			userConfiguredServers,
 			loading: false,
 			lastFetched: now,
@@ -109,6 +118,14 @@ async function refreshUserConfiguredServers() {
 	store.current = {
 		...store.current,
 		userConfiguredServers: response
+	};
+}
+
+async function refreshUserInstances() {
+	const response = await ChatService.listMcpServerInstances();
+	store.current = {
+		...store.current,
+		userInstances: response
 	};
 }
 
