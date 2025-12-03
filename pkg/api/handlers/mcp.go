@@ -1151,6 +1151,7 @@ func serverManifestFromCatalogEntryManifest(req api.Context, isAdmin bool, entry
 		var result types.MCPServerManifest
 		result.Name = entry.Name
 		result.Icon = entry.Icon
+		result.ShortDescription = entry.ShortDescription
 		result.Description = entry.Description
 		result.Metadata = entry.Metadata
 		result.Runtime = types.RuntimeComposite
@@ -1228,6 +1229,9 @@ func serverManifestFromCatalogEntryManifest(req api.Context, isAdmin bool, entry
 func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.MCPServerManifest {
 	if override.Name != "" {
 		existing.Name = override.Name
+	}
+	if override.ShortDescription != "" {
+		existing.ShortDescription = override.ShortDescription
 	}
 	if override.Description != "" {
 		existing.Description = override.Description
@@ -3361,6 +3365,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	// Update the server manifest with the latest from the catalog entry
 	server.Spec.Manifest.Metadata = entry.Spec.Manifest.Metadata
 	server.Spec.Manifest.Name = entry.Spec.Manifest.Name
+	server.Spec.Manifest.ShortDescription = entry.Spec.Manifest.ShortDescription
 	server.Spec.Manifest.Description = entry.Spec.Manifest.Description
 	server.Spec.Manifest.Icon = entry.Spec.Manifest.Icon
 	server.Spec.Manifest.Env = entry.Spec.Manifest.Env

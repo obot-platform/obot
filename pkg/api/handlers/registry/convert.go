@@ -39,9 +39,17 @@ func ConvertMCPServerToRegistry(
 	registryName := FormatRegistryServerName(reverseDNS, slug)
 
 	// Create ServerDetail
+	// Use ShortDescription if available, otherwise fall back to Description
+	description := convertedServer.MCPServerManifest.ShortDescription
+	if description == "" {
+		description = convertedServer.MCPServerManifest.Description
+		if description == "" {
+			description = "(no description)"
+		}
+	}
 	serverDetail := obottypes.RegistryServerDetail{
 		Name:        registryName,
-		Description: convertedServer.MCPServerManifest.Description,
+		Description: description,
 		Title:       displayName,
 		Version:     "latest",
 		Schema:      "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
@@ -129,9 +137,17 @@ func ConvertMCPServerCatalogEntryToRegistry(
 	registryName := FormatRegistryServerName(reverseDNS, entry.Name)
 
 	// Create ServerDetail
+	// Use ShortDescription if available, otherwise fall back to Description
+	description := manifest.ShortDescription
+	if description == "" {
+		description = manifest.Description
+		if description == "" {
+			description = "(no description)"
+		}
+	}
 	serverDetail := obottypes.RegistryServerDetail{
 		Name:        registryName,
-		Description: manifest.Description,
+		Description: description,
 		Title:       displayName,
 		Version:     "latest",
 		Schema:      "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
