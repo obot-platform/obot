@@ -15,7 +15,6 @@
 		type MCPCatalogServer,
 		type OrgUser,
 		MCPCompositeDeletionDependencyError,
-		type MCPServerInstance,
 		Group
 	} from '$lib/services';
 	import {
@@ -438,6 +437,7 @@
 			{#snippet actions(d)}
 				{@const isComposite = !!d.compositeName}
 				{@const auditLogsUrl = getAuditLogsUrl(d)}
+
 				<DotDotDot class="icon-button hover:dark:bg-background/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
@@ -446,7 +446,7 @@
 					{#snippet children({ toggle })}
 						{@const isAtLeastPowerUser = profile.current.groups.includes(Group.POWERUSER)}
 						<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-							{#if d.needsUpdate}
+							{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.())}
 								{#if !readonly && isAtLeastPowerUser}
 									<button
 										class="menu-button-primary"
@@ -491,7 +491,7 @@
 								</button>
 							{/if}
 
-							{#if !d.catalogEntryID || d.userID === profile.current.id}
+							{#if !d.catalogEntryID || d.isMyServer}
 								<button
 									class="menu-button-primary"
 									onclick={async (e) => {
@@ -521,41 +521,43 @@
 								</button>
 							{/if}
 
-							{@render editConfigAction(d)}
-							{#if d.catalogEntryID}
-								{@render renameAction(d)}
+							{#if d.isMyServer}
+								{@render editConfigAction(d)}
+								{#if d.catalogEntryID}
+									{@render renameAction(d)}
+								{/if}
 							{/if}
 
-							{#if d.manifest.runtime !== 'remote' && !readonly && isAtLeastPowerUser}
-								<button
-									class="menu-button"
-									disabled={restarting}
-									onclick={async (e) => {
-										e.stopPropagation();
-										restarting = true;
-										if (d.powerUserWorkspaceID) {
-											await ChatService.restartWorkspaceK8sServerDeployment(
-												d.powerUserWorkspaceID,
-												d.id
-											);
-										} else {
-											await AdminService.restartK8sDeployment(d.id);
-										}
+							{#if d.isMyServer || profile.current?.hasAdminAccess?.()}
+								{#if d.manifest.runtime !== 'remote' && !readonly && isAtLeastPowerUser}
+									<button
+										class="menu-button"
+										disabled={restarting}
+										onclick={async (e) => {
+											e.stopPropagation();
+											restarting = true;
+											if (d.powerUserWorkspaceID) {
+												await ChatService.restartWorkspaceK8sServerDeployment(
+													d.powerUserWorkspaceID,
+													d.id
+												);
+											} else {
+												await AdminService.restartK8sDeployment(d.id);
+											}
 
-										await delay(1000);
+											await delay(1000);
 
-										toggle((restarting = false));
-									}}
-								>
-									{#if restarting}
-										<LoaderCircle class="size-4 animate-spin" /> Restarting...
-									{:else}
-										<Power class="size-4" />
-										Restart Server
-									{/if}
-								</button>
-							{/if}
-							{#if isAtLeastPowerUser}
+											toggle((restarting = false));
+										}}
+									>
+										{#if restarting}
+											<LoaderCircle class="size-4 animate-spin" /> Restarting...
+										{:else}
+											<Power class="size-4" />
+											Restart Server
+										{/if}
+									</button>
+								{/if}
 								<button
 									onclick={(e) => {
 										e.stopPropagation();
@@ -572,31 +574,31 @@
 										View Audit Logs
 									{/if}
 								</button>
-							{/if}
 
-							{#if !readonly}
-								<button
-									class="menu-button-destructive"
-									onclick={async (e) => {
-										e.stopPropagation();
-										showDeleteConfirm = {
-											type: 'single',
-											server: d
-										};
+								{#if !readonly}
+									<button
+										class="menu-button-destructive"
+										onclick={async (e) => {
+											e.stopPropagation();
+											showDeleteConfirm = {
+												type: 'single',
+												server: d
+											};
 
-										toggle(false);
-									}}
-									use:tooltip={d.compositeName
-										? {
-												text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
-												classes: ['w-md'],
-												disablePortal: true
-											}
-										: undefined}
-									disabled={!!d.compositeName}
-								>
-									<Trash2 class="size-4" /> Delete Server
-								</button>
+											toggle(false);
+										}}
+										use:tooltip={d.compositeName
+											? {
+													text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+													classes: ['w-md'],
+													disablePortal: true
+												}
+											: undefined}
+										disabled={!!d.compositeName}
+									>
+										<Trash2 class="size-4" /> Delete Server
+									</button>
+								{/if}
 							{/if}
 						</div>
 					{/snippet}
