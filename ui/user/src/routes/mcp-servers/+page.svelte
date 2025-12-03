@@ -54,7 +54,6 @@
 				from?.url?.pathname.startsWith('/mcp-servers/s/');
 
 			if (comingFromDetailPage) {
-				selectedEntryServer = undefined;
 				showServerForm = false;
 				if (page.url.searchParams.has('new')) {
 					const cleanUrl = new URL(page.url);
@@ -68,7 +67,6 @@
 			if (createNewType) {
 				selectServerType(createNewType, false);
 			} else {
-				selectedEntryServer = undefined;
 				showServerForm = false;
 			}
 		}
@@ -82,7 +80,6 @@
 
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let selectedServerType = $state<SelectServerOption>();
-	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
 
 	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
@@ -279,7 +276,6 @@
 			id={workspaceId}
 			entity="workspace"
 			onCancel={() => {
-				selectedEntryServer = undefined;
 				showServerForm = false;
 			}}
 			onSubmit={async (id, type) => {

@@ -1,16 +1,12 @@
 <script lang="ts">
-	import {
-		ChatService,
-		type MCPCatalogEntry,
-		type MCPCatalogServer,
-		type MCPServerInstance
-	} from '$lib/services';
+	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import type { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord
 	} from '$lib/services/chat/mcp';
+	import PageLoading from '../PageLoading.svelte';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
 		type LaunchFormData
@@ -28,7 +24,6 @@
 
 	let entry = $state<MCPCatalogEntry>();
 	let server = $state<MCPCatalogServer>();
-	let instance = $state<MCPServerInstance>();
 
 	let editingError = $state<string>();
 	let editingManifest = $derived(server?.manifest);
@@ -40,15 +35,12 @@
 
 	export async function edit({
 		server: initServer,
-		instance: initInstance,
 		entry: initEntry
 	}: {
 		server: MCPCatalogServer;
-		instance?: MCPServerInstance;
 		entry?: MCPCatalogEntry;
 	}) {
 		server = initServer;
-		instance = initInstance;
 		entry = initEntry;
 
 		if (entry?.manifest.runtime === 'composite') {
@@ -85,15 +77,12 @@
 
 	export function rename({
 		server: initServer,
-		instance: initInstance,
 		entry: initEntry
 	}: {
 		server: MCPCatalogServer;
-		instance?: MCPServerInstance;
 		entry?: MCPCatalogEntry;
 	}) {
 		server = initServer;
-		instance = initInstance;
 		entry = initEntry;
 
 		editAliasDialog?.open();
@@ -194,3 +183,47 @@
 />
 
 <CatalogEditAliasForm bind:this={editAliasDialog} {server} {onUpdateConfigure} />
+
+<PageLoading
+	isProgressBar
+	show={editing}
+	text="Updating and initializing server..."
+	progress={launchProgress}
+	error={launchError}
+	errorClasses={{
+		root: 'md:w-[95vw]'
+	}}
+>
+	{#snippet errorPreContent()}
+		<h4 class="text-xl font-semibold">MCP Server Update Failed</h4>
+	{/snippet}
+	{#snippet errorPostContent()}
+		{#if launchLogs.length > 0}
+			<div
+				class="default-scrollbar-thin bg-surface1 max-h-[50vh] w-full overflow-y-auto rounded-lg p-4 shadow-inner"
+			>
+				{#each launchLogs as log, i (i)}
+					<div class="font-mono text-sm">
+						<span class="text-on-surface1">{log}</span>
+					</div>
+				{/each}
+			</div>
+		{:else}
+			<p class="text-md self-start">An issue occurred while launching the MCP server.</p>
+		{/if}
+
+		<div class="flex w-full flex-col items-center gap-2 md:flex-row">
+			{#if entry}
+				<button
+					class="button-primary w-full md:w-1/2 md:flex-1"
+					onclick={() => {
+						launchError = undefined;
+						configDialog?.open();
+					}}
+				>
+					Update Configuration and Try Again
+				</button>
+			{/if}
+		</div>
+	{/snippet}
+</PageLoading>

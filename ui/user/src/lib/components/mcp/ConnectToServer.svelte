@@ -656,7 +656,7 @@
 <PageLoading
 	isProgressBar
 	show={typeof launchState !== 'undefined'}
-	text={'Configuring and initializing server...'}
+	text="Configuring and initializing server..."
 	progress={launchProgress}
 	error={launchError}
 	errorClasses={{

@@ -29,7 +29,7 @@
 		}) => void;
 	}
 
-	let { query, classes, onConnect }: Props = $props();
+	let { query, onConnect }: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 
 	let tableData = $derived(
@@ -121,7 +121,7 @@
 					{d[property as keyof typeof d]}
 				{/if}
 			{/snippet}
-			{#snippet actions(d)}
+			{#snippet actions()}
 				<button class="icon-button hover:dark:bg-background/50">
 					<StepForward class="size-4" />
 				</button>

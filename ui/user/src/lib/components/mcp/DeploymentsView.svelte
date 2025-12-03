@@ -702,7 +702,6 @@
 			onclick={() => {
 				editExistingDialog?.edit({
 					server: d,
-					instance: instancesMap.get(d.id),
 					entry: d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined
 				});
 			}}
@@ -718,7 +717,6 @@
 		onclick={() => {
 			editExistingDialog?.rename({
 				server: d,
-				instance: instancesMap.get(d.id),
 				entry: d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined
 			});
 		}}

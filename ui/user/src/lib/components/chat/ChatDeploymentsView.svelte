@@ -110,10 +110,10 @@
 	});
 
 	onMount(() => {
-		reload(true);
+		reload();
 	});
 
-	async function reload(isInitialLoad: boolean = false) {
+	async function reload() {
 		loading = true;
 		mcpServersAndEntries.refreshAll();
 		instances = await ChatService.listMcpServerInstances();
@@ -190,7 +190,7 @@
 				{/if}
 			{/snippet}
 
-			{#snippet actions(d)}
+			{#snippet actions()}
 				<button class="icon-button hover:dark:bg-background/50">
 					<StepForward class="size-4" />
 				</button>
