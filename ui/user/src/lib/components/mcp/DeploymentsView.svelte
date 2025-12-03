@@ -339,12 +339,19 @@
 		const isMultiUser = !d.catalogEntryID;
 		const isComposite = !!d.compositeName;
 
+		const useAdminUrl = profile.current.hasAdminAccess?.();
 		if (isComposite) {
-			return `/admin/audit-logs?mcp_id=${d.compositeName}`;
+			return useAdminUrl
+				? `/admin/audit-logs?mcp_id=${d.compositeName}`
+				: `/audit-logs?mcp_id=${d.compositeName}`;
 		}
 		return isMultiUser
-			? `/admin/audit-logs?mcp_server_display_name=${d.manifest.name}`
-			: `/admin/audit-logs?mcp_id=${d.id}`;
+			? useAdminUrl
+				? `/admin/audit-logs?mcp_server_display_name=${d.manifest.name}`
+				: `/audit-logs?mcp_server_display_name=${d.manifest.name}`
+			: useAdminUrl
+				? `/admin/audit-logs?mcp_id=${d.id}`
+				: `/audit-logs?mcp_id=${d.id}`;
 	}
 
 	function getServerUrl(d: MCPCatalogServer) {
@@ -538,7 +545,9 @@
 							{/if}
 
 							{@render editConfigAction(d)}
-							{@render renameAction(d)}
+							{#if d.catalogEntryID}
+								{@render renameAction(d)}
+							{/if}
 
 							{#if d.manifest.runtime !== 'remote' && !readonly && isAtLeastPowerUser}
 								<button
