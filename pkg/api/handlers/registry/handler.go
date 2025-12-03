@@ -21,6 +21,7 @@ type Handler struct {
 	acrHelper      *accesscontrolrule.Helper
 	serverURL      string
 	registryNoAuth bool
+	mimeFetcher    *mimeFetcher
 }
 
 func NewHandler(acrHelper *accesscontrolrule.Helper, serverURL string, registryNoAuth bool) *Handler {
@@ -28,6 +29,7 @@ func NewHandler(acrHelper *accesscontrolrule.Helper, serverURL string, registryN
 		acrHelper:      acrHelper,
 		serverURL:      serverURL,
 		registryNoAuth: registryNoAuth,
+		mimeFetcher:    newMimeFetcher(),
 	}
 }
 
@@ -86,7 +88,7 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			continue
 		}
 
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
 		if err != nil {
 			// Skip servers that can't be converted
 			continue
@@ -106,7 +108,7 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 	}
 
 	for _, entry := range catalogEntries {
-		converted, err := ConvertMCPServerCatalogEntryToRegistry(req.Context(), entry, h.serverURL, reverseDNS)
+		converted, err := ConvertMCPServerCatalogEntryToRegistry(req.Context(), entry, h.serverURL, reverseDNS, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the entry
 			continue
@@ -128,7 +130,7 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			continue
 		}
 
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -143,7 +145,7 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 	}
 
 	for _, entry := range workspaceEntries {
-		converted, err := ConvertMCPServerCatalogEntryToRegistry(req.Context(), entry, h.serverURL, reverseDNS)
+		converted, err := ConvertMCPServerCatalogEntryToRegistry(req.Context(), entry, h.serverURL, reverseDNS, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the entry
 			continue
@@ -165,7 +167,7 @@ func (h *Handler) collectAccessibleServers(req api.Context, reverseDNS string) (
 			continue
 		}
 
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID)
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credMap[server.Name], h.serverURL, slug, reverseDNS, userID, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -201,7 +203,7 @@ func (h *Handler) collectAccessibleServersNoAuth(req api.Context, reverseDNS str
 			continue
 		}
 
-		converted, err := ConvertMCPServerCatalogEntryToRegistry(req.Context(), entry, h.serverURL, reverseDNS)
+		converted, err := ConvertMCPServerCatalogEntryToRegistry(req.Context(), entry, h.serverURL, reverseDNS, h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the entry
 			continue
@@ -245,7 +247,7 @@ func (h *Handler) collectAccessibleServersNoAuth(req api.Context, reverseDNS str
 		// Get credentials
 		credEnv, _ := h.getCredentialsForServer(req, server, "", system.DefaultCatalog, "")
 
-		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, "")
+		converted, err := ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, "", h.mimeFetcher)
 		if err != nil {
 			// If conversion fails, just skip the server
 			continue
@@ -780,7 +782,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 		return types.RegistryServerResponse{}, fmt.Errorf("server not found")
 	}
 
-	return ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, req.User.GetUID())
+	return ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, req.User.GetUID(), h.mimeFetcher)
 }
 
 // findMCPServerCatalogEntry looks up an MCPServerCatalogEntry and checks ACR permissions
@@ -817,7 +819,7 @@ func (h *Handler) findMCPServerCatalogEntry(req api.Context, entryName string, r
 		return types.RegistryServerResponse{}, fmt.Errorf("catalog entry not found")
 	}
 
-	return ConvertMCPServerCatalogEntryToRegistry(req.Context(), entry, h.serverURL, reverseDNS)
+	return ConvertMCPServerCatalogEntryToRegistry(req.Context(), entry, h.serverURL, reverseDNS, h.mimeFetcher)
 }
 
 // notFoundError returns a standard 404 error response in the format:
