@@ -436,7 +436,7 @@
 							if (redirect) {
 								goto(redirect);
 							} else {
-								goto('/admin/access-control');
+								goto('/admin/mcp-registries');
 							}
 						}}
 					>
@@ -576,7 +576,7 @@
 		await (entity === 'workspace'
 			? ChatService.deleteWorkspaceAccessControlRule(id, accessControlRule.id)
 			: AdminService.deleteAccessControlRule(accessControlRule.id));
-		goto('/admin/access-control');
+		goto('/admin/mcp-registries');
 	}}
 	oncancel={() => (deletingRule = false)}
 />

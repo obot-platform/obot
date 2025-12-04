@@ -96,7 +96,7 @@
 							]
 						: []),
 					...(isAtLeastPowerUserPlus && belongsToUser
-						? [{ label: 'Access Control', view: 'access-control' }]
+						? [{ label: 'Registries', view: 'access-control' }]
 						: []),
 					...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
 				]
@@ -699,10 +699,10 @@
 					let url = '';
 					if (entity === 'workspace') {
 						url = !isAdminRoute
-							? `/access-control/${d.id}`
-							: `/admin/access-control/w/${id}/r/${d.id}`;
+							? `/mcp-registries/${d.id}`
+							: `/admin/mcp-registries/w/${id}/r/${d.id}`;
 					} else {
-						url = `/admin/access-control/${d.id}`;
+						url = `/admin/mcp-registries/${d.id}`;
 					}
 					openUrl(url, isCtrlClick);
 				}}
@@ -742,9 +742,9 @@
 		{:else}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<GlobeLock class="text-on-surface1 size-24 opacity-50" />
-				<h4 class="text-on-surface1 text-lg font-semibold">No access control rules</h4>
+				<h4 class="text-on-surface1 text-lg font-semibold">No MCP registries</h4>
 				<p class="text-on-surface1 text-sm font-light">
-					This server is not tied to any access control rules.
+					This server is not tied to any registries.
 				</p>
 			</div>
 		{/if}

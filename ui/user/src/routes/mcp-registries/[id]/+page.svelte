@@ -24,7 +24,7 @@
 		}
 	});
 
-	let title = $derived(accessControlRule?.displayName ?? 'Access Control Rule');
+	let title = $derived(accessControlRule?.displayName ?? 'MCP Registry');
 </script>
 
 <Layout showUserLinks {title} showBackButton>
@@ -32,7 +32,7 @@
 		<AccessControlRuleForm
 			{accessControlRule}
 			onUpdate={() => {
-				goto('/access-control');
+				goto('/mcp-registries');
 			}}
 			entity="workspace"
 			id={workspaceId}

@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	try {
 		accessControlRule = await AdminService.getAccessControlRule(id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/admin/access-control/${id}`, profile.current);
+		handleRouteError(err, `/admin/mcp-registries/${id}`, profile.current);
 	}
 
 	return {
