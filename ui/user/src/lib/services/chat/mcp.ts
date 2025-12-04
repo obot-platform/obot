@@ -388,13 +388,13 @@ export function getServerUrl(d: MCPCatalogServer) {
 				: `/admin/mcp-servers/s/${d.id}/details`;
 		} else {
 			url = belongsToWorkspace
-				? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
-				: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`;
+				? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}/details`
+				: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}/details`;
 		}
 	} else {
 		url = isMulti
 			? `/mcp-servers/s/${d.id}/details`
-			: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`;
+			: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}/details`;
 	}
 	return url;
 }

@@ -7,12 +7,14 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	const workspaceId = params.wid;
 	const catalogEntryId = params.id;
 	const mcpServerId = params.ms_id;
+	let mcpServer;
 
 	let catalogEntry;
 	try {
 		catalogEntry = await ChatService.getWorkspaceMCPCatalogEntry(workspaceId, catalogEntryId, {
 			fetch
 		});
+		mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId, { fetch });
 	} catch (err) {
 		handleRouteError(
 			err,
@@ -24,6 +26,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	return {
 		workspaceId,
 		catalogEntry,
-		mcpServerId
+		mcpServerId,
+		mcpServer
 	};
 };

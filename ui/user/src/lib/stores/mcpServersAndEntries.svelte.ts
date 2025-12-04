@@ -41,6 +41,12 @@ const store = $state<{
 	fetchData
 });
 
+function filterOutDuplicateAndDeleted(servers: MCPCatalogServer[]) {
+	return servers.filter(
+		(server, index, self) => index === self.findIndex((t) => t.id === server.id) && !server.deleted
+	);
+}
+
 async function fetchData(forceRefresh = false) {
 	if (store.current.loading) return;
 
@@ -71,12 +77,10 @@ async function fetchData(forceRefresh = false) {
 					AdminService.listAllUserWorkspaceMCPServers(),
 					ChatService.listSingleOrRemoteMcpServers()
 				]);
-			entries = [...adminEntries, ...workspaceEntries];
+			entries = [...adminEntries, ...workspaceEntries].filter((entry) => !entry.deleted);
 			servers = [...adminServers, ...workspaceServers];
 			userInstances = await ChatService.listMcpServerInstances();
-			userConfiguredServers = [...servers, ...ownConfiguredServers].filter(
-				(server, index, self) => index === self.findIndex((t) => t.id === server.id)
-			);
+			userConfiguredServers = filterOutDuplicateAndDeleted([...servers, ...ownConfiguredServers]);
 		} else {
 			const [ownConfiguredServers, entriesResult, serversResult] = await Promise.all([
 				ChatService.listSingleOrRemoteMcpServers(),
@@ -84,14 +88,14 @@ async function fetchData(forceRefresh = false) {
 				ChatService.listMCPCatalogServers()
 			]);
 
-			entries = entriesResult;
+			entries = entriesResult.filter((entry) => !entry.deleted);
 			servers = serversResult;
 			userInstances = await ChatService.listMcpServerInstances();
-			userConfiguredServers = [...serversResult, ...ownConfiguredServers].filter(
-				(server, index, self) => index === self.findIndex((t) => t.id === server.id)
-			);
+			userConfiguredServers = filterOutDuplicateAndDeleted([
+				...serversResult,
+				...ownConfiguredServers
+			]);
 		}
-
 		store.current = {
 			entries,
 			servers,
@@ -117,9 +121,10 @@ function initialize(forceRefresh = false) {
 
 async function refreshUserConfiguredServers() {
 	const ownConfiguredServers = await ChatService.listSingleOrRemoteMcpServers();
-	const userConfiguredServers = [...store.current.servers, ...ownConfiguredServers].filter(
-		(server, index, self) => index === self.findIndex((t) => t.id === server.id)
-	);
+	const userConfiguredServers = filterOutDuplicateAndDeleted([
+		...store.current.servers,
+		...ownConfiguredServers
+	]);
 
 	store.current = {
 		...store.current,

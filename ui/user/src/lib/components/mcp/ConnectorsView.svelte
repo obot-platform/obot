@@ -196,26 +196,29 @@
 			{filters}
 			onClickRow={(d, isCtrlClick) => {
 				let url = '';
-				let useAdminUrl =
+				const useAdminUrl =
 					window.location.pathname.includes('/admin') && profile.current.hasAdminAccess?.();
 
-				const id =
-					'catalogEntryID' in d.data && d.data.catalogEntryID ? d.data.catalogEntryID : d.id;
 				if (useAdminUrl) {
-					if (d.type === 'single' || d.type === 'remote' || d.type === 'composite') {
+					if ('isCatalogEntry' in d.data) {
 						url = d.data.powerUserWorkspaceID
-							? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/c/${id}`
-							: `/admin/mcp-servers/c/${id}`;
+							? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/c/${d.data.id}`
+							: `/admin/mcp-servers/c/${d.data.id}`;
+					} else if (d.data.catalogEntryID) {
+						url = `/admin/mcp-servers/c/${d.data.catalogEntryID}/instance/${d.id}`;
 					} else {
 						url = d.data.powerUserWorkspaceID
-							? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/s/${id}`
-							: `/admin/mcp-servers/s/${id}`;
+							? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/s/${d.id}`
+							: `/admin/mcp-servers/s/${d.id}`;
 					}
 				} else {
-					url =
-						d.type === 'single' || d.type === 'remote' || d.type === 'composite'
-							? `/mcp-servers/c/${id}`
-							: `/mcp-servers/s/${id}`;
+					if ('isCatalogEntry' in d.data) {
+						url = `/mcp-servers/c/${d.data.id}`;
+					} else if (d.data.catalogEntryID) {
+						url = `/mcp-servers/c/${d.data.catalogEntryID}/instance/${d.id}`;
+					} else {
+						url = `/mcp-servers/s/${d.id}`;
+					}
 				}
 
 				setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
@@ -295,7 +298,7 @@
 						</p>
 					</div>
 				{:else if property === 'connected'}
-					{#if d.connected}
+					{#if d.connected && server}
 						<div class="pill-primary bg-primary">Connected</div>
 					{/if}
 				{:else if property === 'type'}

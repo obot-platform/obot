@@ -8,7 +8,6 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	const mcpServerId = params.ms_id;
 	let workspaceId;
 	let catalogEntry;
-	let mcpServer;
 	try {
 		workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
 	} catch (_err) {
@@ -20,7 +19,6 @@ export const load: PageLoad = async ({ params, fetch }) => {
 		catalogEntry = await ChatService.getMCP(catalogEntryId, {
 			fetch
 		});
-		mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId, { fetch });
 	} catch (err) {
 		handleRouteError(
 			err,
@@ -32,7 +30,6 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	return {
 		workspaceId,
 		catalogEntry,
-		mcpServer,
 		mcpServerId
 	};
 };
