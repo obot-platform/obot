@@ -7,11 +7,11 @@
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 
 	let { data } = $props();
-	const { accessControlRule: initialRule, workspaceId } = data;
+	const { accessControlRule: initialRule } = data;
 	let accessControlRule = $state(initialRule);
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let title = $derived(accessControlRule?.displayName ?? 'Access Control Rule');
+	let title = $derived(accessControlRule?.displayName ?? 'MCP Registry');
 </script>
 
 <Layout {title} showBackButton>
@@ -19,13 +19,10 @@
 		<AccessControlRuleForm
 			{accessControlRule}
 			onUpdate={() => {
-				goto('/admin/access-control');
+				goto('/admin/mcp-registries');
 			}}
-			entity="workspace"
-			id={workspaceId}
 			mcpEntriesContextFn={() => mcpServersAndEntries.current}
 			readonly={profile.current.isAdminReadonly?.()}
-			isAdminView
 		/>
 	</div>
 </Layout>

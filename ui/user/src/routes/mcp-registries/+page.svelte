@@ -39,7 +39,7 @@
 
 	async function navigateToCreated(rule: AccessControlRule) {
 		showCreateRule = false;
-		goto(`/access-control/${rule.id}`, { replaceState: false });
+		goto(`/mcp-registries/${rule.id}`, { replaceState: false });
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -63,7 +63,7 @@
 		}
 	});
 
-	let title = $derived(showCreateRule ? 'Create Access Control Rule' : 'Access Control');
+	let title = $derived(showCreateRule ? 'Create MCP Registry' : 'MCP Registries');
 </script>
 
 <Layout showUserLinks {title} showBackButton={showCreateRule}>
@@ -83,9 +83,9 @@
 				{#if accessControlRules.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 						<BookOpenText class="text-on-surface1 size-24 opacity-25" />
-						<h4 class="text-on-surface1 text-lg font-semibold">No created access control rules.</h4>
+						<h4 class="text-on-surface1 text-lg font-semibold">No created MCP registries.</h4>
 						<p class="text-on-surface1 text-sm font-light">
-							Looks like you don't have any access control rules created yet. <br />
+							Looks like you don't have any registries created yet. <br />
 							Click the button below to get started.
 						</p>
 
@@ -96,7 +96,7 @@
 						data={accessControlRules}
 						fields={['displayName', 'servers']}
 						onClickRow={(d, isCtrlClick) => {
-							const url = `/access-control/${d.id}`;
+							const url = `/mcp-registries/${d.id}`;
 							openUrl(url, isCtrlClick);
 						}}
 						headers={[
@@ -144,7 +144,7 @@
 	<button
 		class="button-primary flex items-center gap-1 text-sm"
 		onclick={() => {
-			goto(`/access-control?new=true`);
+			goto(`/mcp-registries?new=true`);
 		}}
 	>
 		<Plus class="size-4" /> Add New Rule
@@ -168,7 +168,7 @@
 {/snippet}
 
 <Confirm
-	msg="Are you sure you want to delete this access control rule?"
+	msg="Are you sure you want to delete this MCP registry?"
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
 		if (!ruleToDelete || !workspaceId) return;
@@ -180,5 +180,5 @@
 />
 
 <svelte:head>
-	<title>Obot | Access Control</title>
+	<title>Obot | MCP Registries</title>
 </svelte:head>

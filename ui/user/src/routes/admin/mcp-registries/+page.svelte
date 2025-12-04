@@ -95,7 +95,7 @@
 
 	async function navigateToCreated(rule: AccessControlRule) {
 		showCreateRule = false;
-		goto(`/admin/access-control/${rule.id}`, { replaceState: false });
+		goto(`/admin/mcp-registries/${rule.id}`, { replaceState: false });
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -114,7 +114,7 @@
 		);
 	}
 
-	let title = $derived(showCreateRule ? 'Create Access Control Rule' : 'Access Control');
+	let title = $derived(showCreateRule ? 'Create MCP Registry' : 'MCP Registries');
 </script>
 
 <Layout {title} showBackButton={showCreateRule}>
@@ -134,9 +134,9 @@
 				{#if accessControlRules.length === 0}
 					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 						<BookOpenText class="text-on-surface1 size-24 opacity-25" />
-						<h4 class="text-on-surface1 text-lg font-semibold">No created access control rules</h4>
+						<h4 class="text-on-surface1 text-lg font-semibold">No created MCP registries</h4>
 						<p class="text-on-surface1 text-sm font-light">
-							Looks like you don't have any access control rules created yet. <br />
+							Looks like you don't have any registries created yet. <br />
 							{#if !isReadonly}
 								Click the button below to get started.
 							{/if}
@@ -167,8 +167,8 @@
 		fields={['displayName', 'serversCount', 'owner']}
 		onClickRow={(d, isCtrlClick) => {
 			const url = d.powerUserWorkspaceID
-				? `/admin/access-control/w/${d.powerUserWorkspaceID}/r/${d.id}`
-				: `/admin/access-control/${d.id}`;
+				? `/admin/mcp-registries/w/${d.powerUserWorkspaceID}/r/${d.id}`
+				: `/admin/mcp-registries/${d.id}`;
 			openUrl(url, isCtrlClick);
 		}}
 		headers={[
@@ -213,7 +213,7 @@
 		<button
 			class="button-primary flex items-center gap-1 text-sm"
 			onclick={() => {
-				goto(`/admin/access-control?new=true`);
+				goto(`/admin/mcp-registries?new=true`);
 			}}
 		>
 			<Plus class="size-4" /> Add New Rule
@@ -255,5 +255,5 @@
 />
 
 <svelte:head>
-	<title>Obot | Access Control</title>
+	<title>Obot | MCP Registries</title>
 </svelte:head>

@@ -13,7 +13,7 @@ export const load: PageLoad = async ({ fetch }) => {
 			await AdminService.listAllUserWorkspaceAccessControlRules({ fetch });
 		accessControlRules = [...adminAccessControlRules, ...userWorkspacesAccessControlRules];
 	} catch (err) {
-		handleRouteError(err, '/admin/access-control', profile.current);
+		handleRouteError(err, '/admin/mcp-registries', profile.current);
 	}
 
 	return {

@@ -4,16 +4,19 @@ import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params, fetch }) => {
-	const { id, wid } = params;
+	const { id } = params;
+
 	let accessControlRule;
+	let workspaceId;
 	try {
-		accessControlRule = await ChatService.getWorkspaceAccessControlRule(wid, id, { fetch });
+		workspaceId = await ChatService.fetchWorkspaceIDForProfile(profile.current?.id, { fetch });
+		accessControlRule = await ChatService.getWorkspaceAccessControlRule(workspaceId, id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/admin/access-control/w/${wid}/r/${id}`, profile.current);
+		handleRouteError(err, `/mcp-registries/${id}`, profile.current);
 	}
 
 	return {
 		accessControlRule,
-		workspaceId: wid
+		workspaceId
 	};
 };

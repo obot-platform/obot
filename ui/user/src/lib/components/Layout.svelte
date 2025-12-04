@@ -109,10 +109,10 @@
 								collapsible: false
 							},
 							{
-								id: 'access-control',
+								id: 'mcp-registries',
 								icon: SquareLibrary,
-								href: '/admin/access-control',
-								label: 'Access Control',
+								href: '/admin/mcp-registries',
+								label: 'MCP Registries',
 								disabled: isBootStrapUser,
 								collapsible: false
 							},
@@ -256,10 +256,10 @@
 							...(isAtLeastPowerUserPlus
 								? [
 										{
-											id: 'access-control',
-											href: '/access-control',
+											id: 'mcp-registries',
+											href: '/mcp-registries',
 											icon: GlobeLock,
-											label: 'Access Control',
+											label: 'MCP Registries',
 											disabled: false,
 											collapsible: false
 										}
