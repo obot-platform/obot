@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -338,6 +339,14 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		return nil, false, err
 	}
 	defer stateResponse.Body.Close()
+	body, err := io.ReadAll(stateResponse.Body)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if stateResponse.StatusCode == http.StatusInternalServerError && strings.Contains(string(body), "record not found") {
+		return nil, false, ErrInvalidSession
+	}
 
 	var ss serializableState
 	if err = json.NewDecoder(stateResponse.Body).Decode(&ss); err != nil {
