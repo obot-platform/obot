@@ -58,8 +58,8 @@ jobs:
             ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
           build-args: |
             BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
-            TOOLS_IMAGE=ghcr.io/obot-platform/tools:v0.14.0-rc6
-            PROVIDER_IMAGE=ghcr.io/obot-platform/tools/providers:v0.14.0-rc6
+            TOOLS_IMAGE=ghcr.io/obot-platform/tools:v0.14.0
+            PROVIDER_IMAGE=ghcr.io/obot-platform/tools/providers:v0.14.0
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1
@@ -155,9 +155,9 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
           build-args: |
-            TOOLS_IMAGE=ghcr.io/obot-platform/tools:v0.14.0-rc6
-            PROVIDER_IMAGE=ghcr.io/obot-platform/tools/providers:v0.14.0-rc6
-            ENTERPRISE_IMAGE=ghcr.io/obot-platform/enterprise-tools:v0.14.0-rc6
+            TOOLS_IMAGE=ghcr.io/obot-platform/tools:v0.14.0
+            PROVIDER_IMAGE=ghcr.io/obot-platform/tools/providers:v0.14.0
+            ENTERPRISE_IMAGE=ghcr.io/obot-platform/enterprise-tools:v0.14.0
             BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
 
       - name: Install Cosign
