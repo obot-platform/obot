@@ -73,9 +73,7 @@
 	let serverType = $derived(server && getServerType(server));
 	let isSingleOrRemote = $derived(serverType === 'single' || serverType === 'remote');
 	let requiresUpdate = $derived(server && requiresUserUpdate(server));
-	let belongsToUser = $derived(
-		server && (profile.current.hasAdminAccess?.() || server.userID === profile.current.id)
-	);
+	let belongsToUser = $derived(server && server.userID === profile.current.id);
 	let canConfigure = $derived(
 		entry && (entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry))
 	);
@@ -192,16 +190,16 @@
 					>
 						<Unplug class="size-4" /> Disconnect
 					</button>
-					{#if belongsToUser}
-						<button
-							class="menu-button-destructive"
-							onclick={() => {
-								deletingServer = server;
-							}}
-						>
-							<Trash2 class="size-4" /> Delete Server
-						</button>
-					{/if}
+				{/if}
+				{#if isConfigured && (belongsToUser || profile.current.hasAdminAccess?.())}
+					<button
+						class="menu-button-destructive"
+						onclick={() => {
+							deletingServer = server;
+						}}
+					>
+						<Trash2 class="size-4" /> Delete Server
+					</button>
 				{/if}
 			</div>
 		{/snippet}

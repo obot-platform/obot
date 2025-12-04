@@ -1,75 +1,48 @@
 <script lang="ts">
-	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import {
-		AdminService,
-		ChatService,
-		type MCPCatalogServer,
-		type OrgUser
-	} from '$lib/services/index.js';
-	import { Info } from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import Layout from '$lib/components/Layout.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import { goto } from '$app/navigation';
 	import { profile } from '$lib/stores/index.js';
-	import McpServerRemoteInfo from '$lib/components/admin/McpServerRemoteInfo.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 
-	let { data } = $props();
-	let { catalogEntry, mcpServerId, workspaceId } = data;
 	const duration = PAGE_TRANSITION_DURATION;
-	let connectedUsers = $state<OrgUser[]>([]);
-	let mcpServer = $state<MCPCatalogServer>();
 
-	let catalogEntryName = catalogEntry?.manifest?.name ?? 'Unknown';
-
-	async function fetchUserInfo() {
-		mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId);
-		if (mcpServer.userID) {
-			const user = await AdminService.getUser(mcpServer.userID);
-			connectedUsers = [user];
-		}
-	}
-	onMount(() => {
-		fetchUserInfo();
-	});
-
-	let title = $derived(`${catalogEntryName} | ${mcpServerId}`);
+	let { data } = $props();
+	let { workspaceId, catalogEntry: initialCatalogEntry, mcpServer } = data;
+	let catalogEntry = $state(initialCatalogEntry);
+	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
 </script>
 
-<Layout {title} showBackButton>
+<Layout
+	main={{
+		component: VirtualPageViewport as unknown as Component,
+		props: { class: '', as: 'main', itemHeight: 56, overscan: 5, disabled: true }
+	}}
+	{title}
+	showBackButton
+>
 	{#snippet rightNavActions()}
-		<McpServerActions server={mcpServer} entry={catalogEntry} />
+		<McpServerActions entry={catalogEntry} server={mcpServer} />
 	{/snippet}
-	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
-		{#if mcpServerId}
-			{#if catalogEntry?.manifest.runtime === 'remote'}
-				<McpServerRemoteInfo
-					{mcpServerId}
-					name={catalogEntryName}
-					{connectedUsers}
-					entity="workspace"
-					entityId={workspaceId}
-					{catalogEntry}
-				/>
-			{:else}
-				<McpServerK8sInfo
-					id={workspaceId}
-					entity="workspace"
-					{mcpServerId}
-					name={catalogEntryName}
-					{connectedUsers}
-					readonly={profile.current.isAdminReadonly?.()}
-					{catalogEntry}
-				/>
-			{/if}
-		{:else}
-			<div class="notification-info p-3 text-sm font-light">
-				<div class="flex items-center gap-3">
-					<Info class="size-6" />
-					<p>Server information cannot be provided at this time.</p>
-				</div>
-			</div>
+	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
+		{#if workspaceId && catalogEntry}
+			<McpServerEntryForm
+				entry={catalogEntry}
+				type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
+				id={workspaceId}
+				entity="workspace"
+				onCancel={() => {
+					goto('/admin/mcp-servers');
+				}}
+				onSubmit={async () => {
+					goto('/admin/mcp-servers');
+				}}
+				readonly={profile.current.isAdminReadonly?.()}
+			/>
 		{/if}
 	</div>
 </Layout>
