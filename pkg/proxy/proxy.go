@@ -349,7 +349,7 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 	}
 
 	var ss serializableState
-	if err = json.NewDecoder(stateResponse.Body).Decode(&ss); err != nil {
+	if err = json.Unmarshal(body, &ss); err != nil {
 		return nil, false, err
 	}
 
