@@ -318,9 +318,12 @@
 					classes={{
 						tableHeader: 'top-31'
 					}}
-					onConnect={() => {
-						mcpServersAndEntries.refreshUserConfiguredServers();
-						mcpServersAndEntries.refreshUserInstances();
+					onConnect={({ instance }) => {
+						if (instance) {
+							mcpServersAndEntries.refreshUserInstances();
+						} else {
+							mcpServersAndEntries.refreshUserConfiguredServers();
+						}
 					}}
 				>
 					{#snippet noDataContent()}{@render displayNoData()}{/snippet}

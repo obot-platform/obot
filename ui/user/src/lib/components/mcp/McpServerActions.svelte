@@ -18,7 +18,9 @@
 		LoaderCircle,
 		MessageCircle,
 		PencilLine,
+		Server,
 		ServerCog,
+		StepForward,
 		Trash2,
 		Unplug
 	} from 'lucide-svelte';
@@ -28,6 +30,9 @@
 	import Confirm from '../Confirm.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import McpMultiDeleteBlockedDialog from './McpMultiDeleteBlockedDialog.svelte';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Table from '../table/Table.svelte';
+	import { formatTimeAgo } from '$lib/time';
 
 	interface Props {
 		server?: MCPCatalogServer;
@@ -47,12 +52,23 @@
 	let deletingServer = $state<MCPCatalogServer>();
 	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
 
+	let selectedConfiguredServers = $state<MCPCatalogServer[]>([]);
+	let selectedEntry = $state<MCPCatalogEntry>();
+	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+
 	let instance = $derived(
 		server && !server.catalogEntryID
 			? mcpServersAndEntries.current.userInstances.find(
 					(instance) => instance.mcpServerID === server.id
 				)
 			: undefined
+	);
+	let configuredServers = $derived(
+		entry
+			? mcpServersAndEntries.current.userConfiguredServers.filter(
+					(server) => server.catalogEntryID === entry.id
+				)
+			: []
 	);
 	let serverType = $derived(server && getServerType(server));
 	let isSingleOrRemote = $derived(serverType === 'single' || serverType === 'remote');
@@ -93,11 +109,17 @@
 	<button
 		class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
 		onclick={() => {
-			connectToServerDialog?.open({
-				entry,
-				server,
-				instance
-			});
+			if (entry && !server && configuredServers.length > 0) {
+				selectedConfiguredServers = configuredServers;
+				selectedEntry = entry;
+				selectServerDialog?.open();
+			} else {
+				connectToServerDialog?.open({
+					entry,
+					server,
+					instance
+				});
+			}
 		}}
 		disabled={loading}
 	>
@@ -256,3 +278,51 @@
 		deleteConflictError = undefined;
 	}}
 />
+
+<ResponsiveDialog bind:this={selectServerDialog} title="Select Your Server">
+	<Table
+		data={selectedConfiguredServers || []}
+		fields={['name', 'created']}
+		onClickRow={(d) => {
+			connectToServerDialog?.open({
+				entry: selectedEntry,
+				server: d
+			});
+			selectServerDialog?.close();
+		}}
+	>
+		{#snippet onRenderColumn(property, d)}
+			{#if property === 'name'}
+				<div class="flex flex-shrink-0 items-center gap-2">
+					<div class="icon">
+						{#if d.manifest.icon}
+							<img src={d.manifest.icon} alt={d.manifest.name} class="size-6" />
+						{:else}
+							<Server class="size-6" />
+						{/if}
+					</div>
+					<p class="flex items-center gap-2">
+						{d.alias || d.manifest.name}
+					</p>
+				</div>
+			{:else if property === 'created'}
+				{formatTimeAgo(d.created).relativeTime}
+			{/if}
+		{/snippet}
+		{#snippet actions()}
+			<button class="icon-button hover:dark:bg-background/50">
+				<StepForward class="size-4" />
+			</button>
+		{/snippet}
+	</Table>
+	<p class="my-4 self-center text-center text-sm font-semibold">OR</p>
+	<button
+		class="button-primary"
+		onclick={() => {
+			selectServerDialog?.close();
+			connectToServerDialog?.open({
+				entry: selectedEntry
+			});
+		}}>Connect New Server</button
+	>
+</ResponsiveDialog>
