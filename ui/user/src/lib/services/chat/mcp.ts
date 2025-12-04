@@ -6,6 +6,7 @@ import {
 	type MCPCatalogEntry,
 	type MCPCatalogServer,
 	type MCPServer,
+	type MCPServerInstance,
 	type MCPSubField,
 	type OrgUser,
 	type Project
@@ -105,10 +106,18 @@ export function requiresUserUpdate(server?: MCPCatalogServer) {
 	return typeof server?.configured === 'boolean' ? server?.configured === false : false;
 }
 
-function convertEntriesToTableData(entries?: MCPCatalogEntry[], usersMap?: Map<string, OrgUser>) {
+function convertEntriesToTableData(
+	entries?: MCPCatalogEntry[],
+	usersMap?: Map<string, OrgUser>,
+	userConfiguredServers?: MCPCatalogServer[]
+) {
 	if (!entries) {
 		return [];
 	}
+
+	const userConfiguredServersMap = userConfiguredServers
+		? new Map(userConfiguredServers.map((server) => [server.catalogEntryID, server]))
+		: undefined;
 
 	return entries
 		.filter((entry) => !entry.deleted)
@@ -131,15 +140,24 @@ function convertEntriesToTableData(entries?: MCPCatalogEntry[], usersMap?: Map<s
 					usersMap && entry.powerUserID
 						? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
 						: 'Global Registry',
-				needsUpdate: entry.needsUpdate
+				needsUpdate: entry.needsUpdate,
+				connected: userConfiguredServersMap?.has(entry.id)
 			};
 		});
 }
 
-function convertServersToTableData(servers?: MCPCatalogServer[], usersMap?: Map<string, OrgUser>) {
+function convertServersToTableData(
+	servers?: MCPCatalogServer[],
+	usersMap?: Map<string, OrgUser>,
+	instances?: MCPServerInstance[]
+) {
 	if (!servers) {
 		return [];
 	}
+
+	const instancesMap = instances
+		? new Map(instances.map((instance) => [instance.mcpServerID, instance]))
+		: undefined;
 
 	return servers
 		.filter((server) => !server.catalogEntryID && !server.deleted)
@@ -157,7 +175,8 @@ function convertServersToTableData(servers?: MCPCatalogServer[], usersMap?: Map<
 				registry:
 					usersMap && server.userID && server.powerUserWorkspaceID
 						? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
-						: 'Global Registry'
+						: 'Global Registry',
+				connected: instancesMap?.has(server.id)
 			};
 		});
 }
@@ -173,7 +192,10 @@ function convertUserConfiguredServersToTableData(
 	const catalogEntryMap = entries ? new Map(entries.map((entry) => [entry.id, entry])) : undefined;
 
 	return servers
-		.filter((server) => server.catalogEntryID && !server.deleted)
+		.filter((server) => {
+			const uniqueName = !!server.alias;
+			return server.catalogEntryID && !server.deleted && uniqueName;
+		})
 		.map((server) => {
 			const catalogEntry = catalogEntryMap?.get(server.catalogEntryID);
 			const type = catalogEntry
@@ -192,7 +214,8 @@ function convertUserConfiguredServersToTableData(
 				users: server.mcpServerInstanceUserCount ?? 0,
 				editable: true,
 				created: server.created,
-				registry: 'My Registry'
+				registry: 'My Registry',
+				connected: true
 			};
 		});
 }
@@ -201,14 +224,15 @@ export function convertEntriesAndServersToTableData(
 	entries: MCPCatalogEntry[],
 	servers: MCPCatalogServer[],
 	usersMap?: Map<string, OrgUser>,
-	userConfiguredServers?: MCPCatalogServer[]
+	userConfiguredServers?: MCPCatalogServer[],
+	instances?: MCPServerInstance[]
 ) {
 	const userConfiguredServersTableData = convertUserConfiguredServersToTableData(
 		userConfiguredServers,
 		entries
 	);
-	const entriesTableData = convertEntriesToTableData(entries, usersMap);
-	const serversTableData = convertServersToTableData(servers, usersMap);
+	const entriesTableData = convertEntriesToTableData(entries, usersMap, userConfiguredServers);
+	const serversTableData = convertServersToTableData(servers, usersMap, instances);
 	return [...userConfiguredServersTableData, ...entriesTableData, ...serversTableData];
 }
 

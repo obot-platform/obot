@@ -394,8 +394,8 @@
 				thead: classes?.tableHeader || 'top-31'
 			}}
 			sectionedBy="isMyServer"
-			sectionPrimaryTitle="My Servers"
-			sectionSecondaryTitle="All Servers"
+			sectionPrimaryTitle="My Deployments"
+			sectionSecondaryTitle="All Deployments"
 			setRowClasses={(d) =>
 				d.needsUpdate ? 'bg-primary/10' : requiresUserUpdate(d) ? 'bg-yellow-500/10' : ''}
 		>

@@ -498,9 +498,7 @@
 		instance = initInstance;
 
 		if ((entry && server) || (server && instance)) {
-			if (!skipConnectDialog) {
-				handleConnect();
-			}
+			handleConnect();
 		} else {
 			if (initEntry && !initServer) {
 				if (hasEditableConfiguration(initEntry) && initEntry.manifest?.runtime === 'composite') {

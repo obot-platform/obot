@@ -24,12 +24,10 @@
 		setUrlParam
 	} from '$lib/url';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
-	import RegistriesView from '$lib/components/mcp/RegistriesView.svelte';
-	import { twMerge } from 'tailwind-merge';
 	import { page } from '$app/state';
 	import { localState } from '$lib/runes/localState.svelte.js';
 	import { debounce } from 'es-toolkit';
-	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
+	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
 
 	let { data } = $props();
 	let query = $state('');
@@ -192,80 +190,25 @@
 			</div>
 		</div>
 		<div class="dark:bg-surface2 bg-background rounded-t-md shadow-sm">
-			<div class="flex">
-				<button
-					class={twMerge('page-tab', view === 'deployments' && 'page-tab-active')}
-					onclick={() => switchView('deployments')}
-				>
-					My Servers
-				</button>
-				<button
-					class={twMerge('page-tab', view === 'registry' && 'page-tab-active')}
-					onclick={() => switchView('registry')}
-				>
-					Registry Entries
-				</button>
-			</div>
-
-			{#if view === 'registry'}
-				<RegistriesView
-					id={workspaceId}
-					entity="workspace"
-					query={localStorageViewQuery.current?.['registry'] || ''}
-					{urlFilters}
-					onFilter={handleFilter}
-					onClearAllFilters={handleClearAllFilters}
-					onSort={setSortUrlParams}
-					{initSort}
-					classes={{
-						tableHeader: 'top-31'
-					}}
-					onConnect={() => {
-						mcpServersAndEntries.refreshUserConfiguredServers();
-					}}
-					onConnectClose={() => {
-						switchView('deployments');
-					}}
-				/>
-			{:else if view === 'deployments'}
-				<DeploymentsView
-					entity="workspace"
-					id={workspaceId}
-					query={localStorageViewQuery.current?.['deployments'] || ''}
-					{urlFilters}
-					onFilter={handleFilter}
-					onClearAllFilters={handleClearAllFilters}
-					onSort={setSortUrlParams}
-					{initSort}
-				>
-					{#snippet noDataContent()}
-						<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-							<Server class="text-on-surface1 size-24 opacity-25" />
-							<h4 class="text-on-surface1 text-lg font-semibold">No created MCP servers</h4>
-							<p class="text-on-surface1 text-sm font-light">
-								Looks like you don't have any servers set up yet. <br />
-								Connect to a server from <i>"Registry Entries"</i>
-								{#if isAtLeastPowerUser}
-									or click the button below
-								{/if}
-								to get started.
-							</p>
-							{#if isAtLeastPowerUser}
-								{@render addServerButton()}
-							{:else}
-								<button
-									class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
-									onclick={() => {
-										switchView('registry');
-									}}
-								>
-									<Plus class="size-4" /> Connect To Registry Entry
-								</button>
-							{/if}
-						</div>
-					{/snippet}
-				</DeploymentsView>
-			{/if}
+			<ConnectorsView
+				id={workspaceId}
+				entity="workspace"
+				query={localStorageViewQuery.current?.['registry'] || ''}
+				{urlFilters}
+				onFilter={handleFilter}
+				onClearAllFilters={handleClearAllFilters}
+				onSort={setSortUrlParams}
+				{initSort}
+				classes={{
+					tableHeader: 'top-31'
+				}}
+				onConnect={() => {
+					mcpServersAndEntries.refreshUserConfiguredServers();
+				}}
+				onConnectClose={() => {
+					switchView('deployments');
+				}}
+			/>
 		</div>
 	</div>
 {/snippet}

@@ -114,10 +114,23 @@ function initialize(forceRefresh = false) {
 }
 
 async function refreshUserConfiguredServers() {
-	const response = await ChatService.listSingleOrRemoteMcpServers();
+	let userConfiguredServers: MCPCatalogServer[];
+
+	if (profile.current.hasAdminAccess?.()) {
+		userConfiguredServers = await ChatService.listSingleOrRemoteMcpServers();
+	} else {
+		const [ownConfiguredServers, serversResult] = await Promise.all([
+			ChatService.listSingleOrRemoteMcpServers(),
+			ChatService.listMCPCatalogServers()
+		]);
+		userConfiguredServers = [...serversResult, ...ownConfiguredServers].filter(
+			(server, index, self) => index === self.findIndex((t) => t.id === server.id)
+		);
+	}
+
 	store.current = {
 		...store.current,
-		userConfiguredServers: response
+		userConfiguredServers
 	};
 }
 
