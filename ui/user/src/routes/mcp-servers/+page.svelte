@@ -4,7 +4,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ChatService, Group, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
-	import { Plus, Server } from 'lucide-svelte';
+	import { Plus } from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { goto } from '$lib/url';
 	import { beforeNavigate, afterNavigate, replaceState } from '$app/navigation';
@@ -102,19 +102,6 @@
 
 	function navigateWithState(url: URL): void {
 		goto(url.toString(), { replaceState: true, noScroll: true, keepFocus: true });
-	}
-
-	async function switchView(newView: View) {
-		clearUrlParams(Array.from(page.url.searchParams.keys()).filter((key) => key !== 'query'));
-		view = newView;
-
-		const savedQuery = localStorageViewQuery.current?.[newView] || '';
-
-		const newUrl = new URL(page.url);
-		setUrlParam(newUrl, 'view', newView);
-		setUrlParam(newUrl, 'query', savedQuery || null);
-
-		navigateWithState(newUrl);
 	}
 
 	function handleClearAllFilters() {
