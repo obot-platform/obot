@@ -74,7 +74,9 @@ async function fetchData(forceRefresh = false) {
 			entries = [...adminEntries, ...workspaceEntries];
 			servers = [...adminServers, ...workspaceServers];
 			userInstances = await ChatService.listMcpServerInstances();
-			userConfiguredServers = ownConfiguredServers;
+			userConfiguredServers = [...servers, ...ownConfiguredServers].filter(
+				(server, index, self) => index === self.findIndex((t) => t.id === server.id)
+			);
 		} else {
 			const [ownConfiguredServers, entriesResult, serversResult] = await Promise.all([
 				ChatService.listSingleOrRemoteMcpServers(),
@@ -114,19 +116,10 @@ function initialize(forceRefresh = false) {
 }
 
 async function refreshUserConfiguredServers() {
-	let userConfiguredServers: MCPCatalogServer[];
-
-	if (profile.current.hasAdminAccess?.()) {
-		userConfiguredServers = await ChatService.listSingleOrRemoteMcpServers();
-	} else {
-		const [ownConfiguredServers, serversResult] = await Promise.all([
-			ChatService.listSingleOrRemoteMcpServers(),
-			ChatService.listMCPCatalogServers()
-		]);
-		userConfiguredServers = [...serversResult, ...ownConfiguredServers].filter(
-			(server, index, self) => index === self.findIndex((t) => t.id === server.id)
-		);
-	}
+	const ownConfiguredServers = await ChatService.listSingleOrRemoteMcpServers();
+	const userConfiguredServers = [...store.current.servers, ...ownConfiguredServers].filter(
+		(server, index, self) => index === self.findIndex((t) => t.id === server.id)
+	);
 
 	store.current = {
 		...store.current,

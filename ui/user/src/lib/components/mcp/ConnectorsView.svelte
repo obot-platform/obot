@@ -13,7 +13,8 @@
 		type MCPCatalogServer,
 		type OrgUser,
 		MCPCompositeDeletionDependencyError,
-		Group
+		Group,
+		type MCPServerInstance
 	} from '$lib/services';
 	import {
 		convertEntriesAndServersToTableData,
@@ -66,8 +67,7 @@
 		classes?: {
 			tableHeader?: string;
 		};
-		onConnect?: () => void;
-		onConnectClose?: () => void;
+		onConnect?: ({ instance }: { instance?: MCPServerInstance }) => void;
 	}
 
 	let {
@@ -83,8 +83,7 @@
 		onSort,
 		initSort,
 		classes,
-		onConnect,
-		onConnectClose
+		onConnect
 	}: Props = $props();
 
 	let deletingEntry = $state<MCPCatalogEntry>();
@@ -309,7 +308,9 @@
 			{/snippet}
 			{#snippet actions(d)}
 				{@const auditLogUrl = getAuditLogsUrl(d)}
-				{@const belongsToUser = entity === 'workspace' && id && d.data.powerUserWorkspaceID === id}
+				{@const belongsToUser =
+					(entity === 'workspace' && id && d.data.powerUserWorkspaceID === id) ||
+					('catalogEntryID' in d.data && d.data.userID === profile.current.id)}
 				{@const canDelete =
 					d.editable && !readonly && (belongsToUser || profile.current?.hasAdminAccess?.())}
 				{@const matchingServer =
@@ -348,7 +349,8 @@
 										const server = 'isCatalogEntry' in d.data ? undefined : d.data;
 										connectToServerDialog?.open({
 											entry,
-											server
+											server,
+											instance: instancesMap.get(d.id)
 										});
 									}
 									toggle(false);
@@ -398,10 +400,7 @@
 									onclick={async (e) => {
 										e.stopPropagation();
 										await ChatService.deleteSingleOrRemoteMcpServer(matchingServer.id);
-										mcpServersAndEntries.current.userConfiguredServers =
-											mcpServersAndEntries.current.userConfiguredServers.filter(
-												(server) => server.id !== matchingServer.id
-											);
+										mcpServersAndEntries.refreshUserConfiguredServers();
 										toggle(false);
 									}}
 								>
@@ -509,20 +508,22 @@
 />
 
 <McpConfirmDelete
-	names={[deletingServer?.manifest?.name ?? '']}
+	names={[deletingServer?.alias || deletingServer?.manifest?.name || '']}
 	show={Boolean(deletingServer)}
 	onsuccess={async () => {
-		if (!deletingServer || !catalog) {
+		if (!deletingServer) {
 			return;
 		}
 
 		try {
-			if (deletingServer.powerUserWorkspaceID) {
+			if (deletingServer.catalogEntryID) {
+				await ChatService.deleteSingleOrRemoteMcpServer(deletingServer.id);
+			} else if (deletingServer.powerUserWorkspaceID) {
 				await ChatService.deleteWorkspaceMCPCatalogServer(
 					deletingServer.powerUserWorkspaceID,
 					deletingServer.id
 				);
-			} else if (catalog && !deletingServer.catalogEntryID) {
+			} else if (catalog) {
 				await AdminService.deleteMCPCatalogServer(catalog.id, deletingServer.id);
 			}
 
@@ -577,6 +578,8 @@
 
 						throw error;
 					}
+				} else {
+					await ChatService.deleteSingleOrRemoteMcpServer(item.data.id);
 				}
 			}
 
@@ -604,7 +607,6 @@
 	bind:this={connectToServerDialog}
 	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
 	{onConnect}
-	onClose={onConnectClose}
 />
 
 <ResponsiveDialog bind:this={selectServerDialog} title="Select Your Server">
@@ -612,10 +614,10 @@
 		data={selectedConfiguredServers || []}
 		fields={['name', 'created']}
 		onClickRow={(d) => {
-			// onConnect?.({
-			// 	entry: selectedEntry,
-			// 	server: d
-			// });
+			connectToServerDialog?.open({
+				entry: selectedEntry,
+				server: d
+			});
 			selectServerDialog?.close();
 		}}
 	>
@@ -658,9 +660,9 @@
 		class="button-primary"
 		onclick={() => {
 			selectServerDialog?.close();
-			// onConnect?.({
-			// 	entry: selectedEntry
-			// });
+			connectToServerDialog?.open({
+				entry: selectedEntry
+			});
 		}}>Connect New Server</button
 	>
 </ResponsiveDialog>

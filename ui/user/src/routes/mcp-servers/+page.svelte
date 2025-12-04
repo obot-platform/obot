@@ -202,11 +202,12 @@
 				classes={{
 					tableHeader: 'top-31'
 				}}
-				onConnect={() => {
-					mcpServersAndEntries.refreshUserConfiguredServers();
-				}}
-				onConnectClose={() => {
-					switchView('deployments');
+				onConnect={({ instance }) => {
+					if (instance) {
+						mcpServersAndEntries.refreshUserInstances();
+					} else {
+						mcpServersAndEntries.refreshUserConfiguredServers();
+					}
 				}}
 			/>
 		</div>
