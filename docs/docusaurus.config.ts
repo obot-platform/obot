@@ -1,41 +1,42 @@
-import {themes as prismThemes} from 'prism-react-renderer';
-import type {Config} from '@docusaurus/types';
-import type * as Preset from '@docusaurus/preset-classic';
+import { themes as prismThemes } from "prism-react-renderer";
+import type { Config } from "@docusaurus/types";
+import type * as Preset from "@docusaurus/preset-classic";
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 const config: Config = {
-  title: 'Obot Docs',
-  tagline: '',
-  favicon: 'img/favicon.ico',
-  url: 'https://docs.obot.ai',
-  baseUrl: '/',
-  organizationName: 'obot-platform',
-  projectName: 'obot',
-  onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
+  title: "Obot Docs",
+  tagline: "",
+  favicon: "img/favicon.ico",
+  url: "https://docs.obot.ai",
+  baseUrl: "/",
+  organizationName: "obot-platform",
+  projectName: "obot",
+  onBrokenLinks: "throw",
+  onBrokenMarkdownLinks: "warn",
 
   i18n: {
-    defaultLocale: 'en',
-    locales: ['en'],
+    defaultLocale: "en",
+    locales: ["en"],
   },
 
   presets: [
     [
-      'classic',
+      "classic",
       {
         docs: {
-          sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/obot-platform/obot/tree/main/docs',
+          sidebarPath: "./sidebars.ts",
+          editUrl: "https://github.com/obot-platform/obot/tree/main/docs",
           routeBasePath: "/", // Serve the docs at the site's root
 
           // Versioning configuration
-          lastVersion: 'v0.13.0',
+          lastVersion: "v0.14.0",
           versions: {
+            "v0.13.0": { label: "v0.13.0", banner: "none", path: "v0.13.0" },
           },
         },
         theme: {
-          customCss: './src/css/custom.css',
+          customCss: "./src/css/custom.css",
         },
         blog: false,
       } satisfies Preset.Options,
@@ -44,17 +45,17 @@ const config: Config = {
 
   themeConfig: {
     // Replace with your project's social card
-    image: 'img/obot-logo-blue-black-text.svg',
+    image: "img/obot-logo-blue-black-text.svg",
     navbar: {
       logo: {
-        alt: 'Obot Logo',
-        src: 'img/obot-logo-blue-black-text.svg',
-        srcDark: 'img/obot-logo-blue-white-text.svg',
+        alt: "Obot Logo",
+        src: "img/obot-logo-blue-black-text.svg",
+        srcDark: "img/obot-logo-blue-white-text.svg",
       },
       items: [
         {
-          type: 'docsVersionDropdown',
-          position: 'left',
+          type: "docsVersionDropdown",
+          position: "left",
           dropdownActiveClassDisabled: true,
         },
         {
@@ -70,7 +71,7 @@ const config: Config = {
       ],
     },
     footer: {
-      style: 'dark',
+      style: "dark",
       links: [
         {
           label: "GitHub",
