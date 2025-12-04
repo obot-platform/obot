@@ -12,15 +12,13 @@
 	} from '$lib/services';
 	import { getProjectMCPs } from '$lib/context/projectMcps.svelte';
 	import Search from '../Search.svelte';
-	import { twMerge } from 'tailwind-merge';
-	import ChatRegistriesView from './ChatRegistriesView.svelte';
-	import ChatDeploymentsView from './ChatDeploymentsView.svelte';
 	import { createProjectMcp } from '$lib/services/chat/mcp';
 	import McpServerActions from '../mcp/McpServerActions.svelte';
 	import { fly } from 'svelte/transition';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import McpServerEntryForm from '../admin/McpServerEntryForm.svelte';
 	import ConnectToServer from '../mcp/ConnectToServer.svelte';
+	import ChatConnectorsView from './ChatConnectorsView.svelte';
 
 	interface Props {
 		project: Project;
@@ -31,25 +29,26 @@
 
 	const projectMCPs = getProjectMCPs();
 	let query = $state('');
-	let tabView = $state<'deployments' | 'registry'>('deployments');
-	let selectedItem = $state<MCPCatalogEntry | MCPCatalogServer>();
+	let selected = $state<{
+		entry?: MCPCatalogEntry;
+		server?: MCPCatalogServer;
+	}>();
 
 	let catalogDialog = $state<HTMLDialogElement>();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 
 	let hasExistingConfigured = $derived(
 		Boolean(
-			selectedItem &&
+			selected?.entry &&
 				mcpServersAndEntries.current.userConfiguredServers.find(
-					(userConfiguredServer) => userConfiguredServer.catalogEntryID === selectedItem?.id
+					(userConfiguredServer) => userConfiguredServer.catalogEntryID === selected?.entry?.id
 				)
 		)
 	);
 
 	function closeCatalogDialog() {
 		catalogDialog?.close();
-		selectedItem = undefined;
-		tabView = 'deployments';
+		selected = undefined;
 		query = '';
 	}
 
@@ -123,7 +122,7 @@
 >
 	<div class="default-scrollbar-thin relative mx-auto h-full min-h-0 w-full overflow-y-auto">
 		<div class="relative flex h-full w-full max-w-(--breakpoint-2xl) flex-col">
-			{#if selectedItem}
+			{#if selected}
 				{@render selectedContent()}
 			{:else}
 				{@render mainContent()}
@@ -133,19 +132,32 @@
 </dialog>
 
 {#snippet selectedContent()}
-	{#if selectedItem}
+	{#if selected}
 		<div class="flex items-center justify-between gap-4 py-2 pr-4 pl-2">
 			<div class="flex items-center gap-2">
-				<button class="icon-button" onclick={() => (selectedItem = undefined)}>
+				<button class="icon-button" onclick={() => (selected = undefined)}>
 					<ChevronLeft class="size-6" />
 				</button>
-				<h4 class="text-lg font-semibold">{selectedItem.manifest.name}</h4>
+				<h4 class="text-lg font-semibold">
+					{selected.server?.alias ||
+						selected.server?.manifest.name ||
+						selected.entry?.manifest.name}
+				</h4>
 			</div>
 			<div class="flex items-center gap-2">
-				{#if 'catalogEntryID' in selectedItem}
-					<McpServerActions server={selectedItem} onConnect={setupProjectMcp} skipConnectDialog />
+				{#if selected.entry}
+					<McpServerActions
+						entry={selected.entry}
+						server={selected.server}
+						onConnect={setupProjectMcp}
+						skipConnectDialog
+					/>
 				{:else}
-					<McpServerActions entry={selectedItem} onConnect={setupProjectMcp} skipConnectDialog />
+					<McpServerActions
+						server={selected.server}
+						onConnect={setupProjectMcp}
+						skipConnectDialog
+					/>
 				{/if}
 			</div>
 		</div>
@@ -154,12 +166,12 @@
 			in:fly={{ x: 100, delay: duration, duration }}
 		>
 			<McpServerEntryForm
-				entry={selectedItem}
-				type={selectedItem?.manifest.runtime === 'composite'
+				entry={selected.entry ? selected.entry : selected.server}
+				type={selected.entry?.manifest.runtime === 'composite'
 					? 'composite'
-					: selectedItem?.manifest.runtime === 'remote'
+					: selected.entry?.manifest.runtime === 'remote'
 						? 'remote'
-						: 'isCatalogEntry' in selectedItem || selectedItem.catalogEntryID
+						: selected.server?.catalogEntryID
 							? 'single'
 							: 'multi'}
 				readonly
@@ -191,41 +203,14 @@
 		/>
 	</div>
 	<div class="rounded-t-md shadow-sm">
-		<div class="flex w-full">
-			<button
-				class={twMerge('page-tab max-w-full', tabView === 'deployments' && 'page-tab-active')}
-				onclick={() => (tabView = 'deployments')}
-			>
-				My Servers
-			</button>
-			<button
-				class={twMerge('page-tab max-w-full', tabView === 'registry' && 'page-tab-active')}
-				onclick={() => (tabView = 'registry')}
-			>
-				Registry Entries
-			</button>
-		</div>
-
-		{#if tabView === 'registry'}
-			<ChatRegistriesView
-				{query}
-				onSelect={(item) => (selectedItem = item)}
-				onConnect={(item) => {
-					connectToServerDialog?.open({
-						server: 'isCatalogEntry' in item ? undefined : item,
-						entry: 'isCatalogEntry' in item ? item : undefined,
-						instance: undefined
-					});
-				}}
-			/>
-		{:else if tabView === 'deployments'}
-			<ChatDeploymentsView
-				{query}
-				onSelect={(data) => {
-					setupProjectMcp(data);
-				}}
-			/>
-		{/if}
+		<ChatConnectorsView
+			{query}
+			onSelect={(data) => (selected = data)}
+			onConnect={(data) => {
+				catalogDialog?.close();
+				connectToServerDialog?.open(data);
+			}}
+		/>
 	</div>
 {/snippet}
 

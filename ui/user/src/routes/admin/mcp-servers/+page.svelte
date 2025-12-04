@@ -16,6 +16,7 @@
 	} from '$lib/components/mcp/SelectServerType.svelte';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import {
@@ -29,15 +30,14 @@
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
 	import { debounce } from 'es-toolkit';
 	import { localState } from '$lib/runes/localState.svelte';
-	import { resolve } from '$app/paths';
-	import RegistriesView from '$lib/components/mcp/RegistriesView.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
-	let view = $state<View>((page.url.searchParams.get('view') as View) || 'deployments');
+	let view = $state<View>((page.url.searchParams.get('view') as View) || 'registry');
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 
 	const query = $derived(page.url.searchParams.get('query') || '');
@@ -274,16 +274,16 @@
 		<div class="dark:bg-surface2 bg-background rounded-t-md shadow-sm">
 			<div class="flex">
 				<button
-					class={twMerge('page-tab', view === 'deployments' && 'page-tab-active')}
-					onclick={() => switchView('deployments')}
-				>
-					All Servers
-				</button>
-				<button
 					class={twMerge('page-tab', view === 'registry' && 'page-tab-active')}
 					onclick={() => switchView('registry')}
 				>
 					Registry Entries
+				</button>
+				<button
+					class={twMerge('page-tab', view === 'deployments' && 'page-tab-active')}
+					onclick={() => switchView('deployments')}
+				>
+					Deployments & Connections
 				</button>
 				<button
 					class={twMerge('page-tab', view === 'urls' && 'page-tab-active')}
@@ -305,7 +305,7 @@
 			{/if}
 
 			{#if view === 'registry'}
-				<RegistriesView
+				<ConnectorsView
 					bind:catalog={defaultCatalog}
 					readonly={isAdminReadonly}
 					{usersMap}
@@ -320,13 +320,11 @@
 					}}
 					onConnect={() => {
 						mcpServersAndEntries.refreshUserConfiguredServers();
-					}}
-					onConnectClose={() => {
-						switchView('deployments');
+						mcpServersAndEntries.refreshUserInstances();
 					}}
 				>
 					{#snippet noDataContent()}{@render displayNoData()}{/snippet}
-				</RegistriesView>
+				</ConnectorsView>
 			{:else if view === 'urls'}
 				<SourceUrlsView
 					catalog={defaultCatalog}

@@ -162,6 +162,10 @@
 						: bValue.localeCompare(aValue);
 				}
 
+				if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+					return sortedBy!.order === 'asc' ? (aValue ? 1 : -1) : bValue ? 1 : -1;
+				}
+
 				return 0;
 			});
 		}
