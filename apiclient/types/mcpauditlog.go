@@ -43,8 +43,11 @@ type ClientInfo struct {
 }
 
 type WebhookStatus struct {
-	URL     string `json:"url"`
-	Status  string `json:"status"`
+	Type    string `json:"type,omitempty"`
+	Method  string `json:"method,omitempty"`
+	URL     string `json:"url,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Status  string `json:"status,omitempty"`
 	Message string `json:"message"`
 }
 

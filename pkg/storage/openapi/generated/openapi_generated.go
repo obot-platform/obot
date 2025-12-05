@@ -11209,18 +11209,34 @@ func schema_obot_platform_obot_apiclient_types_WebhookStatus(ref common.Referenc
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"method": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"url": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"message": {
@@ -11231,7 +11247,7 @@ func schema_obot_platform_obot_apiclient_types_WebhookStatus(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"url", "status", "message"},
+				Required: []string{"message"},
 			},
 		},
 	}
@@ -14869,6 +14885,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 					"k8sSettingsHash": {
 						SchemaProps: spec.SchemaProps{
 							Description: "K8sSettingsHash contains the hash of K8s settings (affinity, tolerations, resources) this server was deployed with. This field is only populated for servers running in Kubernetes runtime. For Docker, local, or remote runtimes, this field is omitted entirely.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"auditLogTokenHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuditLogTokenHash is the hash of the token used to submit audit logs.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

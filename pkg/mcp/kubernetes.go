@@ -35,35 +35,39 @@ import (
 var olog = logger.Package()
 
 type kubernetesBackend struct {
-	clientset            *kubernetes.Clientset
-	client               kclient.WithWatch
-	baseImage            string
-	httpWebhookBaseImage string
-	remoteShimBaseImage  string
-	mcpNamespace         string
-	mcpClusterDomain     string
-	serviceFQDN          string
-	imagePullSecrets     []string
-	obotClient           kclient.Client
+	clientset                     *kubernetes.Clientset
+	client                        kclient.WithWatch
+	baseImage                     string
+	httpWebhookBaseImage          string
+	remoteShimBaseImage           string
+	mcpNamespace                  string
+	mcpClusterDomain              string
+	serviceFQDN                   string
+	imagePullSecrets              []string
+	auditLogsBatchSize            int
+	auditLogsFlushIntervalSeconds int
+	obotClient                    kclient.Client
 }
 
-func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, baseImage, httpWebhookBaseImage, remoteShimBaseImage, mcpNamespace, mcpClusterDomain, serviceName, serviceNamespace string, imagePullSecrets []string, obotClient kclient.Client) backend {
+func newKubernetesBackend(clientset *kubernetes.Clientset, client kclient.WithWatch, obotClient kclient.Client, opts Options) backend {
 	var serviceFQDN string
-	if serviceName != "" && serviceNamespace != "" {
-		serviceFQDN = fmt.Sprintf("%s.%s.svc.%s", serviceName, serviceNamespace, mcpClusterDomain)
+	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
+		serviceFQDN = fmt.Sprintf("%s.%s.svc.%s", opts.ServiceName, opts.ServiceNamespace, opts.MCPClusterDomain)
 	}
 
 	return &kubernetesBackend{
-		clientset:            clientset,
-		client:               client,
-		baseImage:            baseImage,
-		httpWebhookBaseImage: httpWebhookBaseImage,
-		remoteShimBaseImage:  remoteShimBaseImage,
-		mcpNamespace:         mcpNamespace,
-		mcpClusterDomain:     mcpClusterDomain,
-		serviceFQDN:          serviceFQDN,
-		imagePullSecrets:     imagePullSecrets,
-		obotClient:           obotClient,
+		clientset:                     clientset,
+		client:                        client,
+		baseImage:                     opts.MCPBaseImage,
+		httpWebhookBaseImage:          opts.MCPHTTPWebhookBaseImage,
+		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
+		mcpNamespace:                  opts.MCPNamespace,
+		mcpClusterDomain:              opts.MCPClusterDomain,
+		serviceFQDN:                   serviceFQDN,
+		imagePullSecrets:              opts.MCPImagePullSecrets,
+		auditLogsBatchSize:            opts.MCPAuditLogsPersistBatchSize,
+		auditLogsFlushIntervalSeconds: opts.MCPAuditLogPersistIntervalSeconds,
+		obotClient:                    obotClient,
 	}
 }
 
@@ -87,8 +91,9 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 
 func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
 	// Transform token exchange endpoint to use internal service FQDN
-	if k.serviceFQDN != "" && server.TokenExchangeEndpoint != "" {
+	if k.serviceFQDN != "" {
 		server.TokenExchangeEndpoint = k.replaceHostWithServiceFQDN(server.TokenExchangeEndpoint)
+		server.AuditLogEndpoint = k.replaceHostWithServiceFQDN(server.AuditLogEndpoint)
 	}
 
 	// Transform component URLs to use internal service FQDN
@@ -258,7 +263,7 @@ func (k *kubernetesBackend) transformConfig(ctx context.Context, serverConfig Se
 
 // replaceHostWithServiceFQDN replaces the host and port in a URL with the internal service FQDN.
 func (k *kubernetesBackend) replaceHostWithServiceFQDN(urlStr string) string {
-	if k.serviceFQDN == "" {
+	if k.serviceFQDN == "" || urlStr == "" {
 		return urlStr
 	}
 
@@ -369,6 +374,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	// This is something that our special images read and react to.
 	secretEnvStringData["OBOT_KUBERNETES_MODE"] = "true"
 
+	// Set an environment variable to force fetch tool list
+	secretEnvStringData["NANOBOT_RUN_FORCE_FETCH_TOOL_LIST"] = "true"
+
 	// Tell nanobot to expose the healthz endpoint
 	secretEnvStringData["NANOBOT_RUN_HEALTHZ_PATH"] = "/healthz"
 
@@ -380,6 +388,12 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 	secretEnvStringData["NANOBOT_RUN_TOKEN_EXCHANGE_CLIENT_SECRET"] = server.TokenExchangeClientSecret
 	secretEnvStringData["NANOBOT_RUN_TOKEN_EXCHANGE_ENDPOINT"] = server.TokenExchangeEndpoint
 	secretEnvStringData["NANOBOT_DISABLE_HEALTH_CHECKER"] = strconv.FormatBool(server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite)
+	// Audit log variables
+	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_TOKEN"] = server.AuditLogToken
+	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_SEND_URL"] = server.AuditLogEndpoint
+	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE"] = strconv.Itoa(k.auditLogsBatchSize)
+	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS"] = strconv.Itoa(k.auditLogsFlushIntervalSeconds)
+	secretEnvStringData["NANOBOT_RUN_AUDIT_LOG_METADATA"] = server.AuditLogMetadata
 
 	annotations["obot-revision"] = hash.Digest(hash.Digest(secretEnvStringData) + hash.Digest(secretVolumeStringData) + hash.Digest(webhooks))
 
@@ -489,7 +503,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 				Annotations: annotations,
 			},
 			StringData: func() map[string]string {
-				vars := make(map[string]string, 10)
+				vars := make(map[string]string, 15)
 				for k, v := range secretEnvStringData {
 					if k == "NANOBOT_DISABLE_HEALTH_CHECKER" {
 						vars[k] = "true"
@@ -498,7 +512,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 						}
 					} else if strings.HasPrefix(k, "NANOBOT_") {
 						vars[k] = v
-						if k != "NANOBOT_RUN_HEALTHZ_PATH" && server.Runtime != types.RuntimeComposite {
+						if strings.HasPrefix(k, "NANOBOT_RUN_AUDIT_LOG_") || k != "NANOBOT_RUN_HEALTHZ_PATH" && server.Runtime != types.RuntimeComposite {
 							delete(secretEnvStringData, k)
 						}
 					}

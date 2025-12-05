@@ -65,6 +65,10 @@ type ServerConfig struct {
 	TokenExchangeEndpoint     string `json:"tokenExchangeEndpoint"`
 	TokenExchangeClientID     string `json:"tokenExchangeClientID"`
 	TokenExchangeClientSecret string `json:"tokenExchangeClientSecret"`
+
+	AuditLogToken    string `json:"auditLogToken"`
+	AuditLogEndpoint string `json:"auditLogEndpoint"`
+	AuditLogMetadata string `json:"auditLogMetadata"`
 }
 
 type File struct {
@@ -267,7 +271,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 	return config, missing, err
 }
 
-func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, jwks, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
+func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, jwks, userID, scope, mcpCatalogName string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
 	fileEnvVars := make(map[string]struct{})
 	for _, file := range mcpServer.Spec.Manifest.Env {
 		if file.File {
@@ -283,6 +287,11 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, jw
 		displayName = mcpServer.Name
 	}
 
+	var powerUserWorkspaceID string
+	if system.IsPowerUserWorkspaceID(mcpCatalogName) {
+		powerUserWorkspaceID = mcpCatalogName
+	}
+
 	serverConfig := ServerConfig{
 		Env:                       make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
 		UserID:                    userID,
@@ -296,10 +305,17 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, jw
 		JWKS:                      jwks,
 		Issuer:                    issuer,
 		Audiences:                 audiences,
-		TokenExchangeClientID:     tokenExchangeCredEnv["TOKEN_EXCHANGE_CLIENT_ID"],
-		TokenExchangeClientSecret: tokenExchangeCredEnv["TOKEN_EXCHANGE_CLIENT_SECRET"],
+		TokenExchangeClientID:     secretsCred["TOKEN_EXCHANGE_CLIENT_ID"],
+		TokenExchangeClientSecret: secretsCred["TOKEN_EXCHANGE_CLIENT_SECRET"],
 		TokenExchangeEndpoint:     fmt.Sprintf("%s/oauth/token", issuer),
 		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
+	}
+
+	if mcpServer.Spec.CompositeName == "" {
+		// Don't set these for component MCP servers. Audit logging is handled at the composite level for these.
+		serverConfig.AuditLogEndpoint = fmt.Sprintf("%s/api/mcp-audit-logs", issuer)
+		serverConfig.AuditLogToken = secretsCred["AUDIT_LOG_TOKEN"]
+		serverConfig.AuditLogMetadata = fmt.Sprintf("mcpID=%s,mcpServerCatalogEntryName=%s,powerUserWorkspaceID=%s,mcpServerDisplayName=%s", mcpServer.Name, mcpServer.Spec.MCPServerCatalogEntryName, powerUserWorkspaceID, displayName)
 	}
 
 	var missingRequiredNames []string

@@ -28,7 +28,7 @@ var log = logger.Package()
 type Options struct {
 	MCPBaseImage            string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/phat:main"`
 	MCPHTTPWebhookBaseImage string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-converter:main"`
-	MCPRemoteShimBaseImage  string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/nanobot-ai/nanobot:v0.0.41"`
+	MCPRemoteShimBaseImage  string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/nanobot-ai/nanobot:v0.0.42"`
 	MCPNamespace            string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain        string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
 	DisallowLocalhostMCP    bool     `usage:"Allow MCP containers to run on localhost"`
@@ -43,6 +43,10 @@ type Options struct {
 	// Obot service configuration for constructing internal service FQDN
 	ServiceName      string `usage:"The Kubernetes service name for the obot server" env:"OBOT_SERVER_SERVICE_NAME"`
 	ServiceNamespace string `usage:"The Kubernetes namespace where the obot server runs" env:"OBOT_SERVER_SERVICE_NAMESPACE"`
+
+	// Audit log configuration
+	MCPAuditLogPersistIntervalSeconds int `usage:"The interval in seconds to persist MCP audit logs to the database" default:"5"`
+	MCPAuditLogsPersistBatchSize      int `usage:"The number of MCP audit logs to persist in a single batch" default:"1000"`
 }
 
 type SessionManager struct {
@@ -78,7 +82,7 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 
 	switch opts.MCPRuntimeBackend {
 	case "docker":
-		dockerBackend, err := newDockerBackend(ctx, opts.MCPBaseImage, opts.MCPHTTPWebhookBaseImage, opts.MCPRemoteShimBaseImage)
+		dockerBackend, err := newDockerBackend(ctx, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize Docker backend: %w", err)
 		}
@@ -107,7 +111,7 @@ func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL s
 			return nil, err
 		}
 
-		backend = newKubernetesBackend(clientset, client, opts.MCPBaseImage, opts.MCPHTTPWebhookBaseImage, opts.MCPRemoteShimBaseImage, opts.MCPNamespace, opts.MCPClusterDomain, opts.ServiceName, opts.ServiceNamespace, opts.MCPImagePullSecrets, obotStorageClient)
+		backend = newKubernetesBackend(clientset, client, obotStorageClient, opts)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}

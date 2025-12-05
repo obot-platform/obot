@@ -368,8 +368,10 @@ export interface AuditLog {
 	};
 	webhookStatuses?: {
 		type?: string;
-		url: string;
-		status: string;
+		method?: string;
+		name?: string;
+		url?: string;
+		status?: string;
 		message?: string;
 	}[];
 	error?: string;

@@ -1,16 +1,21 @@
 package mcpgateway
 
 import (
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/gptscript-ai/gptscript/pkg/hash"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"k8s.io/apimachinery/pkg/fields"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type AuditLogHandler struct{}
@@ -45,6 +50,64 @@ func parseMultiValueParam(queryValues map[string][]string, key string) []string 
 		return nil
 	}
 	return result
+}
+
+type auditLogInput struct {
+	gatewaytypes.MCPAuditLog `json:",inline"`
+	Metadata                 map[string]string `json:"metadata"`
+	Subject                  string            `json:"subject"`
+}
+
+// SubmitAuditLogs handles POST /api/mcp-audit-logs
+// This endpoint is not protected by authentication nor authorization. We have to do it in the handler.
+func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
+	token := strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Bearer ")
+	if token == "" {
+		return types.NewErrHTTP(http.StatusUnauthorized, "no token provided")
+	}
+
+	// Get the MCP server ID from the token
+	var mcpServers v1.MCPServerList
+	if err := req.List(&mcpServers, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("auditLogTokenHash", hash.Digest(token)),
+	}); err != nil {
+		return err
+	}
+	if len(mcpServers.Items) != 1 {
+		return types.NewErrHTTP(http.StatusUnauthorized, "invalid token")
+	}
+
+	mcpServerName := mcpServers.Items[0].Name
+
+	var auditLogs []auditLogInput
+	if err := req.Read(&auditLogs); err != nil {
+		return types.NewErrBadRequest("failed to read input: %v", err)
+	}
+
+	for _, auditLog := range auditLogs {
+		if auditLog.MCPID == "" {
+			auditLog.MCPID = auditLog.Metadata["mcpID"]
+		}
+		if auditLog.MCPID != mcpServerName {
+			return types.NewErrForbidden("audit log does not belong to MCP server %q", mcpServerName)
+		}
+		if auditLog.UserID == "" {
+			auditLog.UserID = auditLog.Subject
+		}
+		if auditLog.MCPServerCatalogEntryName == "" {
+			auditLog.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
+		}
+		if auditLog.PowerUserWorkspaceID == "" {
+			auditLog.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
+		}
+		if auditLog.MCPServerDisplayName == "" {
+			auditLog.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
+		}
+
+		req.GatewayClient.LogMCPAuditEntry(auditLog.MCPAuditLog)
+	}
+
+	return nil
 }
 
 // ListAuditLogs handles GET /api/mcp-audit-logs and /api/mcp-audit-logs/{mcp_id}

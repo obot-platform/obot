@@ -138,6 +138,11 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 		return c.removeMCPCredentialsForProject(req, mcpServer)
 	}
 
+	// Cleanup the audit log token.
+	if err := c.gClient.DeleteCredential(req.Ctx, mcpServer.Name, mcpServer.Name+"-audit-log-token"); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return err
+	}
+
 	var credCtx string
 	if mcpServer.Spec.MCPCatalogID != "" {
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.MCPCatalogID, mcpServer.Name)
