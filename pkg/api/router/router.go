@@ -580,6 +580,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/system-servers/{id}/configure", systemMCPServers.Configure)
 	mux.HandleFunc("POST /api/system-servers/{id}/deconfigure", systemMCPServers.Deconfigure)
 	mux.HandleFunc("POST /api/system-servers/{id}/restart", systemMCPServers.Restart)
+	mux.HandleFunc("GET /api/system-servers/{id}/details", systemMCPServers.GetDetails)
 	mux.HandleFunc("GET /api/system-servers/{id}/logs", systemMCPServers.Logs)
 	mux.HandleFunc("GET /api/system-servers/{id}/tools", systemMCPServers.GetTools)
 

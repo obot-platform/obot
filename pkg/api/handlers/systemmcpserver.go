@@ -222,17 +222,46 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 		return err
 	}
 
-	// Trigger restart by updating an annotation
-	if systemServer.Annotations == nil {
-		systemServer.Annotations = make(map[string]string)
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
+		return types.NewErrBadRequest("cannot restart deployment for remote MCP server")
 	}
-	systemServer.Annotations["obot.obot.ai/restart-at"] = metav1.Now().Format("2006-01-02T15:04:05Z")
 
-	if err := req.Update(&systemServer); err != nil {
+	// Get credentials for the server config
+	credCtx := systemServer.Name
+	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{credCtx},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list credentials: %w", err)
+	}
+
+	credEnv := make(map[string]string)
+	for _, cred := range creds {
+		credDetail, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
+		if err != nil {
+			continue
+		}
+		for k, v := range credDetail.Env {
+			credEnv[k] = v
+		}
+	}
+
+	// Transform to ServerConfig
+	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, credEnv)
+	if err != nil {
+		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
+	}
+
+	// Restart the deployment via the session manager
+	if err := h.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrNotFound(nse.Error())
+		}
 		return fmt.Errorf("failed to restart system MCP server: %w", err)
 	}
 
-	return req.Write(map[string]string{"status": "restarting"})
+	req.WriteHeader(http.StatusNoContent)
+	return nil
 }
 
 // Logs streams logs from a system MCP server
@@ -406,6 +435,58 @@ func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 	}
 
 	return req.Write(convertedTools)
+}
+
+// GetDetails returns deployment details for a system MCP server
+func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
+	var systemServer v1.SystemMCPServer
+	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
+		if apierrors.IsNotFound(err) {
+			return types.NewErrNotFound("system MCP server not found")
+		}
+		return err
+	}
+
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
+		return types.NewErrBadRequest("cannot get details for remote MCP server")
+	}
+
+	// Get credentials for the server config
+	credCtx := systemServer.Name
+	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{credCtx},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list credentials: %w", err)
+	}
+
+	credEnv := make(map[string]string)
+	for _, cred := range creds {
+		credDetail, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
+		if err != nil {
+			continue
+		}
+		for k, v := range credDetail.Env {
+			credEnv[k] = v
+		}
+	}
+
+	// Transform to ServerConfig
+	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, credEnv)
+	if err != nil {
+		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
+	}
+
+	// Get server details from the session manager
+	details, err := h.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
+	if err != nil {
+		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			return types.NewErrNotFound(nse.Error())
+		}
+		return fmt.Errorf("failed to get server details: %w", err)
+	}
+
+	return req.Write(details)
 }
 
 // Helper functions

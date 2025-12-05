@@ -28,7 +28,11 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 
 	// Check if server should be deployed
 	if !systemServer.Spec.Manifest.Enabled {
-		// Server is disabled, ensure it's not deployed
+		// Server is disabled, ensure any existing deployment is removed
+		err := h.mcpSessionManager.ShutdownServer(req.Ctx, systemServer.Name)
+		if err != nil {
+			return fmt.Errorf("failed to shutdown disabled system MCP server: %w", err)
+		}
 		return nil
 	}
 
@@ -70,7 +74,12 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 		return nil
 	}
 
-	// TODO: use the backend to deploy
+	// Deploy the system server via backend
+	// System servers don't use webhooks, so pass nil
+	_, err = h.mcpSessionManager.EnsureServerDeployment(req.Ctx, serverConfig, nil)
+	if err != nil {
+		return fmt.Errorf("failed to deploy system MCP server: %w", err)
+	}
 
 	return nil
 }
@@ -85,9 +94,11 @@ func (h *Handler) CleanupDeployment(req router.Request, _ router.Response) error
 	}
 
 	// Shutdown deployment via backend
-	// This would call the backend's shutdownServer method
-	// For now, this is a placeholder as the backend integration would need more work
-	// TODO: use the backend to remove the deployment
+	// The backend's shutdownServer will remove the deployment (Docker container or K8s deployment)
+	err := h.mcpSessionManager.ShutdownServer(req.Ctx, systemServer.Name)
+	if err != nil {
+		return fmt.Errorf("failed to shutdown system MCP server: %w", err)
+	}
 
 	return nil
 }
