@@ -35,6 +35,7 @@
 		{#if catalogEntry}
 			<McpServerEntryForm
 				entry={catalogEntry}
+				server={mcpServer}
 				type={catalogEntry?.manifest.runtime === 'composite'
 					? 'composite'
 					: catalogEntry?.manifest.runtime === 'remote'

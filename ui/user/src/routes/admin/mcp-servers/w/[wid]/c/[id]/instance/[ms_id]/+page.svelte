@@ -32,6 +32,7 @@
 		{#if workspaceId && catalogEntry}
 			<McpServerEntryForm
 				entry={catalogEntry}
+				server={mcpServer}
 				type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
 				id={workspaceId}
 				entity="workspace"
