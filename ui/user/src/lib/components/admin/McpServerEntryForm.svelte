@@ -83,29 +83,6 @@
 			profile.current?.hasAdminAccess?.()
 	);
 
-	const tabs = $derived(
-		entry
-			? [
-					{ label: 'Overview', view: 'overview' },
-					...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
-						? [{ label: 'Server Details', view: 'server-instances' }]
-						: []),
-					{ label: 'Tools', view: 'tools' },
-					...(belongsToUser
-						? [
-								{ label: 'Configuration', view: 'configuration' },
-								{ label: 'Audit Logs', view: 'audit-logs' },
-								{ label: 'Usage', view: 'usage' }
-							]
-						: []),
-					...(isAtLeastPowerUserPlus && belongsToUser
-						? [{ label: 'Registries', view: 'access-control' }]
-						: []),
-					...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
-				]
-			: []
-	);
-
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
 	let listFilters = $state<Promise<MCPFilter[]>>();
 	let users = $state<OrgUser[]>([]);
@@ -162,6 +139,36 @@
 			entry.toolPreviewsLastGenerated &&
 			entry.lastUpdated &&
 			new Date(entry.toolPreviewsLastGenerated) < new Date(entry.lastUpdated)
+	);
+
+	const tabs = $derived(
+		entry && !server
+			? [
+					{ label: 'Overview', view: 'overview' },
+					...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
+						? [{ label: 'Server Details', view: 'server-instances' }]
+						: []),
+					{ label: 'Tools', view: 'tools' },
+					...(belongsToUser
+						? [
+								{ label: 'Configuration', view: 'configuration' },
+								{ label: 'Audit Logs', view: 'audit-logs' },
+								{ label: 'Usage', view: 'usage' }
+							]
+						: []),
+					...(isAtLeastPowerUserPlus && belongsToUser
+						? [{ label: 'Registries', view: 'access-control' }]
+						: []),
+					...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
+				]
+			: [
+					{ label: 'Overview', view: 'overview' },
+					...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
+						? [{ label: 'Server Details', view: 'server-instances' }]
+						: []),
+					{ label: 'Tools', view: 'tools' },
+					...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : [])
+				]
 	);
 
 	$effect(() => {
@@ -658,7 +665,13 @@
 		{:else if selected === 'audit-logs'}
 			{@render auditLogsView()}
 		{:else if selected === 'server-instances'}
-			<McpServerInstances {id} {entity} {entry} {users} {type} />
+			<McpServerInstances
+				{id}
+				{entity}
+				entry={entry && 'isCatalogEntry' in entry && server ? server : entry}
+				{users}
+				{type}
+			/>
 		{:else if selected === 'filters'}
 			{@render filtersView()}
 		{/if}
@@ -803,7 +816,7 @@
 			<!-- temporary filter mcp server by name and catalog entry id-->
 			{#if id}
 				<AuditLogsPageContent
-					mcpId={isMultiUserServer ? entryId : null}
+					mcpId={isMultiUserServer ? entryId : server ? server.id : null}
 					mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
 					{mcpServerDisplayName}
 					{id}
