@@ -71,8 +71,8 @@
 					onclick={(e) => {
 						const isCtrlClick = e.metaKey || e.ctrlKey;
 						const url = componentServer.catalogEntryID
-							? `/admin/mcp-servers/c/${componentServer.catalogEntryID}/instance/${serversMap.get(componentServer.catalogEntryID)?.id}?from=/mcp-servers/${catalogEntry?.id}`
-							: `/admin/mcp-servers/s/${componentServer.mcpServerID}/details?from=/mcp-servers/${catalogEntry?.id}`;
+							? `/admin/mcp-servers/c/${componentServer.catalogEntryID}/instance/${serversMap.get(componentServer.catalogEntryID)?.id}`
+							: `/admin/mcp-servers/s/${componentServer.mcpServerID}/details`;
 
 						sessionStorage.setItem(
 							ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
@@ -82,8 +82,7 @@
 								type: 'composite',
 								entity: 'catalog',
 								entityId: DEFAULT_MCP_CATALOG_ID,
-								serverId: mcpServerId,
-								prevFrom: page.url.searchParams.get('from')
+								serverId: mcpServerId
 							})
 						);
 

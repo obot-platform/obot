@@ -21,7 +21,6 @@ import {
 	type InvokeInput,
 	type KnowledgeFile,
 	type KnowledgeFiles,
-	type MCP,
 	type MCPCatalogServer,
 	type McpServerGeneratedPrompt,
 	type MCPServerInstance,
@@ -934,8 +933,12 @@ export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCPCatalogEn
 	);
 }
 
-export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MCP> {
-	return (await doGet(`/all-mcps/entries/${id}`, opts)) as MCP;
+export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MCPCatalogEntry> {
+	const response = (await doGet(`/all-mcps/entries/${id}`, opts)) as MCPCatalogEntry;
+	return {
+		...response,
+		isCatalogEntry: true
+	};
 }
 
 export async function listMCPCatalogServers(opts?: {

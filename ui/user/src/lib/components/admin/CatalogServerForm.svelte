@@ -22,7 +22,6 @@
 	import CategorySelectInput from './CategorySelectInput.svelte';
 	import Select from '../Select.svelte';
 	import { profile } from '$lib/stores';
-	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
 
 	interface Props {
 		id?: string;
@@ -59,7 +58,6 @@
 		type: newType = 'single',
 		onCancel,
 		onSubmit,
-		hideTitle,
 		readonlyMessage
 	}: Props = $props();
 	let type = $derived(getType(entry) ?? newType);
@@ -609,16 +607,6 @@
 	}
 </script>
 
-{#if !hideTitle}
-	<h1 class="text-2xl font-semibold capitalize">
-		{#if entry}
-			{formData.name}
-		{:else}
-			Create {type} Server
-		{/if}
-	</h1>
-{/if}
-
 <div
 	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
 >
@@ -743,7 +731,6 @@
 		bind:config={formData.compositeConfig}
 		{readonly}
 		catalogId={id}
-		mcpEntriesContextFn={getAdminMcpServerAndEntries}
 		id={entry?.id}
 	/>
 {/if}

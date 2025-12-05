@@ -6,10 +6,8 @@ import { redirect } from '@sveltejs/kit';
 export const load: PageLoad = async ({ fetch, url }) => {
 	let authProviders: AuthProvider[] = [];
 	let profile;
-	let version;
 
 	try {
-		version = await ChatService.getVersion({ fetch });
 		profile = await getProfile({ fetch });
 	} catch (_err) {
 		authProviders = await ChatService.listAuthProviders({ fetch });
@@ -19,12 +17,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	const hasAccess =
 		profile?.groups.includes(Group.ADMIN) || profile?.groups.includes(Group.AUDITOR);
 	if (hasAccess && !showSetupHandoff) {
-		throw redirect(
-			307,
-			profile?.isBootstrapUser?.() && version?.authEnabled
-				? '/admin/auth-providers'
-				: '/admin/mcp-servers'
-		);
+		throw redirect(307, '/admin/mcp-servers');
 	}
 
 	return {

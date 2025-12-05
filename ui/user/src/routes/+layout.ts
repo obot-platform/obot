@@ -25,7 +25,9 @@ export const load: LayoutLoad = async ({ fetch }) => {
 
 	try {
 		const response = await AdminService.listAppPreferences({ fetch });
+		const response2 = await ChatService.getProfile({ fetch });
 		appPreferences = compileAppPreferences(response);
+		profile = response2;
 	} catch {
 		// If the request fails, use default preferences
 		appPreferences = compileAppPreferences();

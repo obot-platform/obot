@@ -36,7 +36,8 @@ export function getTableUrlParamsFilters() {
 				key === 'sortDirection' ||
 				key === 'query' ||
 				key === 'from' ||
-				key === 'view'
+				key === 'view' ||
+				key === 'new'
 			)
 				return;
 			urlFilters[key] = value.split(',');
@@ -86,4 +87,12 @@ export function getSearchParamsFromLocalStorage(pathname: string): string | null
 	}
 
 	return null;
+}
+
+export function setUrlParam(url: URL, key: string, value: string | null): void {
+	if (value) {
+		url.searchParams.set(key, value);
+	} else {
+		url.searchParams.delete(key);
+	}
 }

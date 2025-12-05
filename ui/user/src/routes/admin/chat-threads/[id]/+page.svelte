@@ -11,7 +11,6 @@
 	import type { CallFrame, Project } from '$lib/services/chat/types';
 	import { Thread } from '$lib/services/chat/thread.svelte';
 	import type { Messages } from '$lib/services/chat/types';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import DebugCallFrames from '$lib/components/chat/DebugCallFrames.svelte';
 
 	const threadId = $page.params.id;
@@ -197,21 +196,17 @@
 			}
 		});
 	});
+
+	let title = $derived(`Admin - Thread ${threadId}`);
 </script>
 
-<Layout whiteBackground={true}>
+<Layout {title} whiteBackground={true} showBackButton>
 	<div
 		class="h-dvh w-full"
 		in:fly={{ x: 100, duration: 300, delay: 150 }}
 		out:fly={{ x: -100, duration: 300 }}
 	>
 		<div class="flex h-full flex-col">
-			<div class="my-6">
-				{#if currentThreadData}
-					{@const currentLabel = currentThreadData.name || 'Unnamed Thread'}
-					<BackLink fromURL="chat-threads" {currentLabel} />
-				{/if}
-			</div>
 			<div class="flex w-full grow justify-center" bind:this={threadContainer}>
 				<div class="relative flex w-full max-w-[900px] flex-col">
 					{#if messages.messages.length > 0}
@@ -339,5 +334,5 @@
 />
 
 <svelte:head>
-	<title>Obot | Admin - Thread {threadId}</title>
+	<title>Obot | {title}</title>
 </svelte:head>
