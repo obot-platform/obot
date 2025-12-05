@@ -112,33 +112,6 @@ server_pid=$!
 server_ready_pid=$!
 
 (
-  print_section_header 153 "Starting admin UI..."
-  cd ui/admin
-
-  pnpm i --ignore-scripts 2>&1 | while IFS= read -r line; do
-    print_with_color 153 "[admin-ui](install)" " $line"
-  done
-
-  VITE_API_IN_BROWSER=true npm run dev 2>&1 | while IFS= read -r line; do
-    print_with_color 153 "[admin-ui]" " $line"
-  done
-) &
-admin_ui_pid=$!
-
-(
-  for _ in {1..60}; do # ~1 minute timeout
-    if curl -s --head http://localhost:8080/admin/ | head -n 1 | grep "200 OK" > /dev/null; then
-      print_section_header 153 "Admin UI ready!"
-      exit
-    fi
-    sleep 1
-  done
-
-  print_section_header 196 "Timeout waiting for admin UI to start"
-) &
-admin_ui_ready_pid=$!
-
-(
   print_section_header 217 "Starting user UI..."
   cd ui/user
 

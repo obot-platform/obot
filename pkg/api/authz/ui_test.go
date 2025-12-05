@@ -142,6 +142,60 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			},
 			expected: true,
 		},
+		{
+			name: "unknown paths are allowed (handled by SvelteKit routing)",
+			path: "/legacy-admin",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: []string{types.GroupAuthenticated},
+			},
+			expected: true,
+		},
+		{
+			name: "unknown paths with trailing slash are allowed",
+			path: "/legacy-admin/",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: []string{types.GroupAuthenticated},
+			},
+			expected: true,
+		},
+		{
+			name: "unknown multi-segment paths are allowed",
+			path: "/unknown/path/here",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: []string{types.GroupAuthenticated},
+			},
+			expected: true,
+		},
+		{
+			name: "/api is rejected",
+			path: "/api",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: []string{types.GroupAuthenticated},
+			},
+			expected: false,
+		},
+		{
+			name: "/api/foo is rejected",
+			path: "/api/foo",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: []string{types.GroupAuthenticated},
+			},
+			expected: false,
+		},
+		{
+			name: "/api/image/123 is allowed",
+			path: "/api/image/123",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: []string{types.GroupAuthenticated},
+			},
+			expected: true,
+		},
 	}
 
 	for _, tt := range tests {

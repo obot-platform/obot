@@ -22,17 +22,6 @@ To run the server in GoLand:
 
 Then you're ready to run or debug this target.
 
-### Admin UI
-
-To run the Admin UI in GoLand or WebStorm:
-1. Create a new "npm" build.
-2. In the "package.json" dropdown, select the `package.json` file in the `ui/admin` directory.
-3. In the "Command" dropdown, select `run`.
-4. In the "Scripts" dropdown, select `dev`.
-5. In the "Environment" section, enter `VITE_API_IN_BROWSER=true`.
-
-Then you're ready to run or debug this target.
-
 ### User UI
 
 To run the User UI in GoLand or WebStorm:
