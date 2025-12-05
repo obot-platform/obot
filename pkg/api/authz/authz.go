@@ -56,6 +56,8 @@ var (
 		"/api/workspaces/",
 		"/api/mcp-webhook-validations",
 		"/api/mcp-webhook-validations/",
+		"/api/system-servers",
+		"/api/system-servers/",
 		"GET /api/mcp-audit-logs",
 		"GET /api/mcp-audit-logs/filter-options/{filter}",
 		"GET /api/mcp-audit-logs/{mcp_id}",

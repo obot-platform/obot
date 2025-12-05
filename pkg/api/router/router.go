@@ -73,6 +73,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GPTClient)
 	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, services.ServerURL)
+	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPLoader)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL)
 	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth)
@@ -569,6 +570,18 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("PUT /api/mcp-webhook-validations/{mcp_webhook_validation_id}", mcpWebhookValidations.Update)
 	mux.HandleFunc("DELETE /api/mcp-webhook-validations/{mcp_webhook_validation_id}", mcpWebhookValidations.Delete)
 	mux.HandleFunc("DELETE /api/mcp-webhook-validations/{mcp_webhook_validation_id}/secret", mcpWebhookValidations.RemoveSecret)
+
+	// System MCP Servers (admin only)
+	mux.HandleFunc("GET /api/system-servers", systemMCPServers.List)
+	mux.HandleFunc("GET /api/system-servers/{id}", systemMCPServers.Get)
+	mux.HandleFunc("POST /api/system-servers", systemMCPServers.Create)
+	mux.HandleFunc("PUT /api/system-servers/{id}", systemMCPServers.Update)
+	mux.HandleFunc("DELETE /api/system-servers/{id}", systemMCPServers.Delete)
+	mux.HandleFunc("POST /api/system-servers/{id}/configure", systemMCPServers.Configure)
+	mux.HandleFunc("POST /api/system-servers/{id}/deconfigure", systemMCPServers.Deconfigure)
+	mux.HandleFunc("POST /api/system-servers/{id}/restart", systemMCPServers.Restart)
+	mux.HandleFunc("GET /api/system-servers/{id}/logs", systemMCPServers.Logs)
+	mux.HandleFunc("GET /api/system-servers/{id}/tools", systemMCPServers.GetTools)
 
 	// MCP Gateway Endpoints
 	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
