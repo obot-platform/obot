@@ -11,8 +11,6 @@ import (
 
 var uiResources = []string{
 	"GET /{$}",
-	"GET /legacy-admin/",
-	"GET /legacy-admin",
 	"GET /admin/",
 	"GET /admin",
 	"GET /admin/assets/",
@@ -32,21 +30,18 @@ var uiResources = []string{
 }
 
 func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
-	vars, match := a.uiResources.Match(req)
-	if !match {
+	// Reject direct access to /api or /api paths for UI except for /api/image/{id}
+	if req.URL.Path == "/api" || (strings.HasPrefix(req.URL.Path, "/api/") && !strings.HasPrefix(req.URL.Path, "/api/image/")) {
 		return false
-	}
-	if vars("assistant") == "api" {
-		return false
-	}
-
-	// Allow all users to access /admin and /admin/
-	if req.URL.Path == "/admin" || req.URL.Path == "/admin/" {
-		return true
 	}
 
 	// Allow all users to access /admin/assets/
 	if strings.HasPrefix(req.URL.Path, "/admin/assets/") {
+		return true
+	}
+
+	// Allow all users to access /admin and /admin/
+	if req.URL.Path == "/admin" || req.URL.Path == "/admin/" {
 		return true
 	}
 
@@ -61,6 +56,7 @@ func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
 		return slices.Contains(user.GetGroups(), types.GroupPowerUser)
 	}
 
-	// Matches and is not API
+	// did not hit any above conditions, so allow access
+	// incorrect routes will handled by SvelteKit error page
 	return true
 }
