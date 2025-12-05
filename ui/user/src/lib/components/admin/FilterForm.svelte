@@ -342,7 +342,7 @@
 									id="method-{selectorIndex}"
 									bind:value={selector.method}
 									class="text-input-filled"
-									placeholder="e.g., tools/call, resources/read"
+									placeholder="e.g.: 'tools/call' or 'resources/read'"
 									disabled={readonly}
 								/>
 							</div>
