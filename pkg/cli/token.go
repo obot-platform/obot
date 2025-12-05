@@ -7,7 +7,9 @@ import (
 )
 
 type Token struct {
-	root *Obot
+	NoExpiration bool `usage:"Set the token to never expire"`
+	ForceRefresh bool `usage:"Force refresh the token"`
+	root         *Obot
 }
 
 func (t *Token) Customize(cmd *cobra.Command) {
@@ -16,7 +18,7 @@ func (t *Token) Customize(cmd *cobra.Command) {
 }
 
 func (t *Token) Run(cmd *cobra.Command, _ []string) error {
-	token, err := t.root.Client.GetToken(cmd.Context())
+	token, err := t.root.Client.GetToken(cmd.Context(), t.NoExpiration, t.ForceRefresh)
 	if err != nil {
 		return err
 	}

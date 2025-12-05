@@ -15,7 +15,8 @@ type AuthToken struct {
 	AuthProviderUserID    string    `json:"-"`
 	HashedToken           string    `json:"-" gorm:"index:idx_id_hashed_token"`
 	CreatedAt             time.Time `json:"createdAt"`
-	ExpiresAt             time.Time `json:"expiresAt"`
+	ExpiresAt             time.Time `json:"expiresAt,omitzero"`
+	NoExpiration          bool      `json:"noExpiration"`
 }
 
 type TokenRequest struct {
@@ -25,6 +26,7 @@ type TokenRequest struct {
 	State                 string `gorm:"index"`
 	Nonce                 string
 	Token                 string
+	NoExpiration          bool
 	ExpiresAt             time.Time
 	CompletionRedirectURL string
 	Error                 string

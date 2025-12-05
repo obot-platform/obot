@@ -40,7 +40,7 @@ func enter(ctx context.Context) error {
 	}
 }
 
-func Token(ctx context.Context, baseURL string) (string, error) {
+func Token(ctx context.Context, baseURL string, noExpiration, forceRefresh bool) (string, error) {
 	// Check to see if authentication is required for this baseURL
 	if testToken(ctx, baseURL, "") {
 		return "", nil
@@ -75,7 +75,8 @@ func Token(ctx context.Context, baseURL string) (string, error) {
 		scopedTokens = make(map[string]string, 1)
 	}
 
-	if token, ok := scopedTokens[baseURL]; ok && testToken(ctx, baseURL, token) {
+	if token, ok := scopedTokens[baseURL]; ok && !forceRefresh && testToken(ctx, baseURL, token) {
+		fmt.Println("Existing token is valid, no refresh needed")
 		return token, nil
 	}
 
@@ -85,7 +86,7 @@ func Token(ctx context.Context, baseURL string) (string, error) {
 	}
 
 	uuid := uuid.NewString()
-	loginURL, err := create(ctx, baseURL, uuid, provider.ID, provider.Namespace)
+	loginURL, err := create(ctx, baseURL, uuid, provider.ID, provider.Namespace, noExpiration)
 	if err != nil {
 		return "", fmt.Errorf("failed to create login request: %w", err)
 	}
@@ -129,18 +130,20 @@ type createRequest struct {
 	ProviderName      string `json:"providerName,omitempty"`
 	ProviderNamespace string `json:"providerNamespace,omitempty"`
 	ID                string `json:"id,omitempty"`
+	NoExpiration      bool   `json:"noExpiration,omitempty"`
 }
 
 type createResponse struct {
 	TokenPath string `json:"token-path,omitempty"`
 }
 
-func create(ctx context.Context, baseURL, uuid, providerName, providerNamespace string) (string, error) {
+func create(ctx context.Context, baseURL, uuid, providerName, providerNamespace string, noExpiration bool) (string, error) {
 	var data bytes.Buffer
 	if err := json.NewEncoder(&data).Encode(createRequest{
 		ID:                uuid,
 		ProviderName:      providerName,
 		ProviderNamespace: providerNamespace,
+		NoExpiration:      noExpiration,
 	}); err != nil {
 		return "", err
 	}
