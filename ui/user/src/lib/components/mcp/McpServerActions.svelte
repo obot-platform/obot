@@ -277,7 +277,11 @@
 	}}
 />
 
-<ResponsiveDialog class="bg-surface1 dark:bg-background" bind:this={selectServerDialog} title="Select Your Server">
+<ResponsiveDialog
+	class="bg-surface1 dark:bg-background"
+	bind:this={selectServerDialog}
+	title="Select Your Server"
+>
 	<Table
 		data={selectedConfiguredServers || []}
 		fields={['name', 'created']}
