@@ -230,7 +230,7 @@ func constructNanobotYAMLForServer(name, url, command string, args []string, env
 			BaseURL: webhook.URL,
 		}
 		for _, def := range webhook.Definitions {
-			webhookDefinitions[def] = []string{fmt.Sprintf("%s/%s", name, webhookToolName)}
+			webhookDefinitions[def] = append(webhookDefinitions[def], fmt.Sprintf("%s/%s", name, webhookToolName))
 		}
 	}
 
