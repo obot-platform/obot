@@ -485,6 +485,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
 		}
 
+		annotations["nanobot-file-rev"] = hash.Digest(nanobotFileString)
+
 		objs = append(objs, &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        name.SafeConcatName(server.MCPServerName, "run", "shim"),
@@ -699,6 +701,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 		var nanobotFileString string
 		if server.Runtime == types.RuntimeComposite {
 			nanobotFileString, err = constructNanobotYAMLForCompositeServer(server.Components)
+			annotations["nanobot-composite-file-rev"] = hash.Digest(nanobotFileString)
 		} else {
 			nanobotFileString, err = constructNanobotYAMLForServer(server.MCPServerDisplayName, server.URL, server.Command, server.Args, secretEnvStringData, headerData, webhooks)
 		}
