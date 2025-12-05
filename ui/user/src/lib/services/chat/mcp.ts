@@ -183,7 +183,8 @@ function convertServersToTableData(
 
 function convertUserConfiguredServersToTableData(
 	servers?: MCPCatalogServer[],
-	entries?: MCPCatalogEntry[]
+	entries?: MCPCatalogEntry[],
+	usersMap?: Map<string, OrgUser>
 ) {
 	if (!servers) {
 		return [];
@@ -214,7 +215,10 @@ function convertUserConfiguredServersToTableData(
 				users: server.mcpServerInstanceUserCount ?? 0,
 				editable: true,
 				created: server.created,
-				registry: 'My Registry',
+				registry:
+					usersMap && catalogEntry?.powerUserID
+						? `${getUserDisplayName(usersMap, catalogEntry.powerUserID)}'s Registry`
+						: 'Global Registry',
 				connected: true
 			};
 		});
@@ -229,7 +233,8 @@ export function convertEntriesAndServersToTableData(
 ) {
 	const userConfiguredServersTableData = convertUserConfiguredServersToTableData(
 		userConfiguredServers,
-		entries
+		entries,
+		usersMap
 	);
 	const entriesTableData = convertEntriesToTableData(entries, usersMap, userConfiguredServers);
 	const serversTableData = convertServersToTableData(servers, usersMap, instances);

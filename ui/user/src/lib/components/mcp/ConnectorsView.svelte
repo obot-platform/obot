@@ -83,7 +83,8 @@
 		onSort,
 		initSort,
 		classes,
-		onConnect
+		onConnect,
+		usersMap
 	}: Props = $props();
 
 	let deletingEntry = $state<MCPCatalogEntry>();
@@ -114,7 +115,7 @@
 		convertEntriesAndServersToTableData(
 			mcpServersAndEntries.current.entries,
 			mcpServersAndEntries.current.servers,
-			undefined,
+			usersMap,
 			mcpServersAndEntries.current.userConfiguredServers,
 			mcpServersAndEntries.current.userInstances
 		)
@@ -384,7 +385,7 @@
 								{@render renameAction('isCatalogEntry' in d.data ? matchingServer! : d.data)}
 							{/if}
 
-							{#if auditLogUrl}
+							{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
 								<button
 									onclick={(e) => {
 										e.stopPropagation();
@@ -612,7 +613,11 @@
 	{onConnect}
 />
 
-<ResponsiveDialog bind:this={selectServerDialog} title="Select Your Server">
+<ResponsiveDialog
+	class="bg-surface1 dark:bg-background"
+	bind:this={selectServerDialog}
+	title="Select Your Server"
+>
 	<Table
 		data={selectedConfiguredServers || []}
 		fields={['name', 'created']}

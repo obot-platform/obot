@@ -44,7 +44,7 @@
 	import McpMultiDeleteBlockedDialog from '../mcp/McpMultiDeleteBlockedDialog.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
-	import { profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import OverflowContainer from '../OverflowContainer.svelte';
 	import { getServerTypeLabel } from '$lib/services/chat/mcp';
 	import { resolve } from '$app/paths';
@@ -55,6 +55,7 @@
 		id?: string;
 		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
+		server?: MCPCatalogServer;
 		type?: MCPType;
 		readonly?: boolean;
 		onCancel?: () => void;
@@ -65,6 +66,7 @@
 
 	let {
 		entry,
+		server,
 		id,
 		entity = 'catalog',
 		type,
@@ -144,8 +146,16 @@
 	let error = $state<string>();
 	let showButtonInlineError = $state(false);
 
+	let configuredServerForCatalogEntry = $derived(
+		entry && 'isCatalogEntry' in entry
+			? mcpServersAndEntries.current.userConfiguredServers.find(
+					(s) => s.catalogEntryID === entry?.id && !s.alias
+				)
+			: undefined
+	);
 	let showRegenerateToolsButton = $derived(
 		entry &&
+			!configuredServerForCatalogEntry &&
 			entry.manifest?.toolPreview &&
 			'toolPreviewsLastGenerated' in entry &&
 			'lastUpdated' in entry &&
@@ -591,7 +601,13 @@
 						Regenerate Tools & Capabilities
 					</button>
 				{/if}
-				<McpServerTools {entry}>
+				<McpServerTools
+					entry={'isCatalogEntry' in entry && server
+						? server
+						: configuredServerForCatalogEntry
+							? configuredServerForCatalogEntry
+							: entry}
+				>
 					{#snippet noToolsContent()}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 							<Wrench class="text-on-surface1 size-24 opacity-50" />
