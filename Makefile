@@ -6,12 +6,7 @@ default: build
 all: ui
 	$(MAKE) build
 
-ui: ui-admin ui-user ui-user-node
-
-ui-admin:
-	cd ui/admin && \
-	pnpm install && \
-	pnpm run build
+ui: ui-user ui-user-node
 
 ui-user:
 	cd ui/user && \
@@ -46,12 +41,7 @@ dev-open: ARGS=--open-uis
 dev-open: dev
 
 # Lint the project
-lint: lint-admin lint-go
-
-lint-admin:
-	cd ui/admin && \
-	pnpm run format && \
-	pnpm run lint
+lint: lint-go
 
 tidy:
 	go mod tidy
@@ -112,4 +102,4 @@ remove-docs-version:
 	jq 'del(.[] | select(. == "${version}"))' ./docs/versions.json > tmp.json && mv tmp.json ./docs/versions.json
 	grep -v '"${version}": {label: "${version}", banner: "none", path: "${version}"},' ./docs/docusaurus.config.ts  > tmp.config.ts && mv tmp.config.ts ./docs/docusaurus.config.ts
 
-.PHONY: ui ui-admin ui-user build all clean dev dev-open lint lint-admin lint-api no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
+.PHONY: ui ui-user build all clean dev dev-open lint lint-admin lint-api no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
