@@ -37,10 +37,14 @@ func (c *Client) NewAuthToken(
 		ID: fmt.Sprintf("%x", id),
 		// Hash the token again for long-term storage
 		HashedToken:           hash.String(fmt.Sprintf("%x", token)),
+		NoExpiration:          tr.NoExpiration,
 		ExpiresAt:             time.Now().Add(expirationDur),
 		AuthProviderNamespace: authProviderNamespace,
 		AuthProviderName:      authProviderName,
 		AuthProviderUserID:    authProviderUserID,
+	}
+	if tkn.NoExpiration {
+		tkn.ExpiresAt = time.Time{}
 	}
 
 	return tkn, c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

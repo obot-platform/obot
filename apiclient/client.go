@@ -23,7 +23,7 @@ type Client struct {
 	BaseURL      string
 	Token        string
 	Cookie       *http.Cookie
-	tokenFetcher func(context.Context, string) (string, error)
+	tokenFetcher func(context.Context, string, bool, bool) (string, error)
 }
 
 func NewClientFromEnv() *Client {
@@ -40,7 +40,7 @@ func NewClientFromEnv() *Client {
 	}
 }
 
-func (c *Client) WithTokenFetcher(f func(context.Context, string) (string, error)) *Client {
+func (c *Client) WithTokenFetcher(f func(context.Context, string, bool, bool) (string, error)) *Client {
 	n := *c
 	n.tokenFetcher = f
 	return &n
@@ -58,12 +58,12 @@ func (c *Client) WithCookie(cookie *http.Cookie) *Client {
 	return &n
 }
 
-func (c *Client) GetToken(ctx context.Context) (string, error) {
-	if c.Token != "" {
+func (c *Client) GetToken(ctx context.Context, noExpiration, forceRefresh bool) (string, error) {
+	if c.Token != "" && !forceRefresh {
 		return c.Token, nil
 	}
 	if c.tokenFetcher != nil {
-		return c.tokenFetcher(ctx, c.BaseURL)
+		return c.tokenFetcher(ctx, c.BaseURL, noExpiration, forceRefresh)
 	}
 	return "", fmt.Errorf("no token or token fetcher")
 }
@@ -131,7 +131,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 	}
 
 	if c.Token == "" && c.tokenFetcher != nil {
-		token, err := c.GetToken(ctx)
+		token, err := c.GetToken(ctx, false, false)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch token: %w", err)
 		}

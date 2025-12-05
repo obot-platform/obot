@@ -23,11 +23,12 @@ type tokenRequestRequest struct {
 	ProviderName          string `json:"providerName"`
 	ProviderNamespace     string `json:"providerNamespace"`
 	CompletionRedirectURL string `json:"completionRedirectURL"`
+	NoExpiration          bool   `json:"noExpiration"`
 }
 
 type refreshTokenResponse struct {
 	Token     string    `json:"token"`
-	ExpiresAt time.Time `json:"expiresAt,omitempty"`
+	ExpiresAt time.Time `json:"expiresAt,omitzero"`
 }
 
 func (s *Server) getTokens(apiContext api.Context) error {
@@ -77,6 +78,7 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 	tokenReq := &types.TokenRequest{
 		ID:                    reqObj.ID,
 		CompletionRedirectURL: reqObj.CompletionRedirectURL,
+		NoExpiration:          reqObj.NoExpiration,
 	}
 
 	if err := s.db.WithContext(apiContext.Context()).Create(tokenReq).Error; err != nil {
@@ -193,7 +195,7 @@ func (s *Server) autoCleanupTokens(ctx context.Context) {
 		if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			errs = append(errs, tx.Where("created_at < ?", now.Add(-2*time.Minute)).Where("token_retrieved = ?", false).Delete(new(types.TokenRequest)).Error)
 			errs = append(errs, tx.Where("token_retrieved = ?", true).Where("updated_at < ?", time.Now().Add(-cleanupTick)).Delete(new(types.TokenRequest)).Error)
-			errs = append(errs, tx.Where("expires_at < ?", now).Delete(new(types.AuthToken)).Error)
+			errs = append(errs, tx.Where("no_expiration = ?", false).Where("expires_at < ?", now).Delete(new(types.AuthToken)).Error)
 			return errors.Join(errs...)
 		}); err != nil {
 			slog.ErrorContext(ctx, "error cleaning up state", "error", err)
