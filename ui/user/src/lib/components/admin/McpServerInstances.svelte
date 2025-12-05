@@ -59,7 +59,11 @@
 
 	onMount(() => {
 		if (entry && !('isCatalogEntry' in entry) && id) {
-			if (entity === 'workspace') {
+			if (entry.catalogEntryID) {
+				listServerInstances = Promise.resolve([
+					{ id: entry.id, userID: entry.userID, created: entry.created }
+				]);
+			} else if (entity === 'workspace') {
 				listServerInstances = ChatService.listWorkspaceMcpCatalogServerInstances(id, entry.id);
 			} else {
 				listServerInstances = AdminService.listMcpCatalogServerInstances(id, entry.id);
@@ -220,9 +224,9 @@
 							const url =
 								entity === 'workspace'
 									? isAdminUrl
-										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}`
-										: `/mcp-servers/c/${entry?.id}/instance/${d.id}`
-									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}`;
+										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}/details`
+										: `/mcp-servers/c/${entry?.id}/instance/${d.id}/details`
+									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}/details`;
 							openUrl(url, isCtrlClick);
 						}
 					: undefined}
