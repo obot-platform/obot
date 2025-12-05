@@ -294,6 +294,11 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 }
 
 func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (string, error) {
+	var picture string
+	if !strings.HasPrefix(context.Picture, "data:") {
+		// Don't store the picture in the token if it is a base64 encoded image
+		picture = context.Picture
+	}
 	claims := jwt.MapClaims{
 		"aud":                   context.Audience,
 		"exp":                   float64(context.ExpiresAt.Unix()),
@@ -301,7 +306,7 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (stri
 		"sub":                   context.UserID,
 		"name":                  context.UserName,
 		"email":                 context.UserEmail,
-		"picture":               context.Picture,
+		"picture":               picture,
 		"UserGroups":            strings.Join(context.UserGroups, ","),
 		"AuthProviderName":      context.AuthProviderName,
 		"AuthProviderNamespace": context.AuthProviderNamespace,
