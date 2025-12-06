@@ -3,8 +3,15 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import { formatTime } from '$lib/time';
-	import { Copy, Edit } from 'lucide-svelte';
-	import { fade } from 'svelte/transition';
+	import { Copy, Edit, MessageCircleMore } from 'lucide-svelte';
+	import { fade, slide } from 'svelte/transition';
+	import ChatInput from '$lib/components/messages/Input.svelte';
+
+	interface Props {
+		name: string;
+	}
+
+	let { name }: Props = $props();
 
 	const taskArguments: {
 		name: string;
@@ -15,6 +22,8 @@
 			value: 'Obot'
 		}
 	]);
+
+	let showChat = $state(false);
 
 	const tasks: {
 		id: string;
@@ -263,11 +272,11 @@ If you’d like, I can next:
 </script>
 
 <div class="h-full w-full">
-	<h2 class="p-4 pr-12 text-2xl font-semibold">
-		Run | {formatTime(new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString())}
+	<h2 class="p-4 pr-12 text-xl font-semibold">
+		{name} | {formatTime(new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString())}
 	</h2>
-	<div class="default-scrollbar-thin h-[calc(100%-48px)] w-full overflow-y-auto px-4 pb-8">
-		<div class="mb-4 w-full">
+	<div class="default-scrollbar-thin relative h-[calc(100%-48px)] w-full overflow-y-auto">
+		<div class="mb-4 w-full px-4">
 			{#if taskArguments.length > 0}
 				{#each taskArguments as argument (argument.name)}
 					<div
@@ -281,7 +290,7 @@ If you’d like, I can next:
 				{/each}
 			{/if}
 		</div>
-		<div class="flex flex-col gap-8">
+		<div class="flex flex-col gap-8 px-4">
 			{#each tasks as task (task.id)}
 				<div class="flex w-full flex-col gap-2">
 					<h3 class="flex items-center gap-2 text-xl font-semibold">
@@ -312,7 +321,10 @@ If you’d like, I can next:
 									{/if}
 								</div>
 								{#if message.content}
-									<div class="milkdown-content pt-2" transition:fade={{ duration: 1000 }}>
+									<div
+										class="milkdown-content workflow-run pt-2"
+										transition:fade={{ duration: 1000 }}
+									>
 										{@html toHTMLFromMarkdown(message.content)}
 									</div>
 								{/if}
@@ -341,5 +353,47 @@ If you’d like, I can next:
 				</div>
 			{/each}
 		</div>
+		{#if showChat}
+			<div
+				class="bg-background dark:bg-surface2 sticky bottom-0 left-0 w-full p-4 pb-8"
+				in:slide={{ axis: 'y' }}
+			>
+				<ChatInput
+					classes={{
+						root: 'mt-0'
+					}}
+					onSubmit={async (i) => {
+						//	await thread?.invoke(i);
+					}}
+					placeholder="What can I help with?"
+				/>
+			</div>
+		{:else}
+			<div class="sticky bottom-0 left-0 w-full p-4 pb-8" in:slide={{ axis: 'y' }}>
+				<button
+					class="button-icon bg-primary mx-auto text-white transition-all hover:scale-110"
+					onclick={() => (showChat = !showChat)}
+				>
+					<MessageCircleMore class="size-6" />
+				</button>
+			</div>
+		{/if}
 	</div>
 </div>
+
+<style lang="postcss">
+	:global {
+		.milkdown-content.workflow-run {
+			h1 {
+				font-size: var(--text-xl);
+			}
+			h2 {
+				font-size: var(--text-lg);
+			}
+			h3,
+			h4 {
+				font-size: var(--text-base);
+			}
+		}
+	}
+</style>

@@ -322,7 +322,7 @@ Send the drafted email.
 		<div
 			bind:this={runContainer}
 			class={twMerge(
-				'bg-background dark:bg-surface1 absolute right-0 z-30 float-right flex w-full flex-shrink-0 translate-x-full transform transition-transform duration-300 md:w-2/5 md:max-w-4xl md:min-w-[480px]',
+				'bg-background dark:bg-surface1 absolute right-0 z-30 float-right flex w-full flex-shrink-0 translate-x-full transform transition-transform duration-300 md:w-2/5 md:max-w-4xl md:min-w-[540px]',
 				workflowRunOpen && 'relative w-full translate-x-0',
 				!workflowRunOpen && 'w-0'
 			)}
@@ -342,7 +342,7 @@ Send the drafted email.
 				<X class="size-6" />
 			</button>
 			<div class="w-[calc(100%-24px)]">
-				<Run />
+				<Run name={workflow.name} />
 			</div>
 		</div>
 	</div>
