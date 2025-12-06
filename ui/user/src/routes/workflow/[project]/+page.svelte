@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { responsive } from '$lib/stores';
-	import { GripVertical, Play, Plus, SidebarClose, SidebarOpen } from 'lucide-svelte';
+	import { GripVertical, Play, Plus, SidebarClose, SidebarOpen, Ticket } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import { columnResize } from '$lib/actions/resize';
@@ -14,6 +14,7 @@
 	import Runs from './Runs.svelte';
 	import WorkflowTasks from './WorkflowTasks.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { tick } from 'svelte';
 
 	let { data } = $props();
 	initProjectMCPs(data.mcps ?? []);
@@ -22,6 +23,7 @@
 		sidebarOpen: !responsive.isMobile
 	});
 
+	let workflowContainer = $state<HTMLDivElement>();
 	let project = $state(data.project);
 	let workflow = $state({
 		name: 'Onboarding Workflow',
@@ -217,6 +219,7 @@ Send the drafted email.
 
 			<div
 				class="default-scrollbar-thin relative h-[calc(100%-64px)] max-w-full overflow-y-auto px-16"
+				bind:this={workflowContainer}
 			>
 				<div class="mx-auto min-h-full w-full px-1 md:max-w-[1200px]">
 					<div class="mb-4 flex w-full flex-col gap-1">
@@ -232,13 +235,32 @@ Send the drafted email.
 						/>
 					</div>
 
-					<WorkflowTasks bind:tasks={workflow.tasks} onVariableAddition={handleVariableAddition} />
+					<WorkflowTasks
+						bind:tasks={workflow.tasks}
+						onVariableAddition={handleVariableAddition}
+						onDelete={(task) => {
+							workflow.tasks = workflow.tasks.filter((t) => t.id !== task.id);
+						}}
+					/>
 
 					<div class="mx-auto w-fit pt-6">
 						<button
 							use:tooltip={'Add Task'}
 							class="button-icon-primary bg-background dark:bg-surface2 shadow-xs"
-							onclick={() => {}}
+							onclick={async () => {
+								workflow.tasks.push({
+									id: (workflow.tasks.length + 1).toString(),
+									name: '',
+									description: '',
+									content: ''
+								});
+
+								await tick();
+								workflowContainer?.scrollTo({
+									top: workflowContainer.scrollHeight,
+									behavior: 'smooth'
+								});
+							}}
 						>
 							<Plus class="size-6" />
 						</button>

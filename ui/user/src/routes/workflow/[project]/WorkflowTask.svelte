@@ -69,7 +69,6 @@
 				labelInline
 				checked={showDescription}
 				onChange={(checked) => {
-					console.log('checked', checked);
 					showDescription = checked;
 				}}
 			/>
@@ -77,7 +76,6 @@
 		<button
 			class="menu-button"
 			onclick={() => {
-				console.log('delete task');
 				onDelete?.(task);
 			}}
 		>

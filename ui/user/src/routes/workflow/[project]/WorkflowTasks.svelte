@@ -6,6 +6,7 @@
 		DraggableHandle
 	} from '$lib/components/primitives/draggable';
 	import WorkflowTask from './WorkflowTask.svelte';
+	import { slide } from 'svelte/transition';
 
 	interface Task {
 		id: string;
@@ -17,9 +18,10 @@
 	interface Props {
 		tasks: Task[];
 		onVariableAddition?: (variable: string) => void;
+		onDelete?: (task: Task) => void;
 	}
 
-	let { tasks = $bindable(), onVariableAddition }: Props = $props();
+	let { tasks = $bindable(), onVariableAddition, onDelete }: Props = $props();
 </script>
 
 <DraggableList
@@ -41,7 +43,7 @@
 				<div class="relative flex h-full w-full items-start gap-3">
 					<DraggableHandle class="absolute top-0 left-0 h-full w-full opacity-0" />
 					<div class="flex min-w-0 flex-1 flex-col gap-1 p-6">
-						<WorkflowTask bind:task={tasks[index]} {onVariableAddition} />
+						<WorkflowTask bind:task={tasks[index]} {onVariableAddition} {onDelete} />
 					</div>
 				</div>
 			</DraggableItem>
