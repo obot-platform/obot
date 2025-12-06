@@ -16,6 +16,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { tick } from 'svelte';
 	import Thread from '$lib/components/Thread.svelte';
+	import Run from './Run.svelte';
 
 	let { data } = $props();
 	initProjectMCPs(data.mcps ?? []);
@@ -40,12 +41,42 @@
 		],
 		tasks: [
 			{
+				id: '1',
+				name: 'Add Member to Google Sheet',
+				description: 'This task will add the member to the google sheet',
+				content: `
+1. Get the account record for $CompanyName in Salesforce. You also need to get all related Contacts including roles and emails. Search all opportunities, look for the most recent closed won opportunity for membership level. Get the documents. Documents may be stored as classic Attachments (in the Attachment object, linked by ParentId) or as Salesforce Files (in ContentDocument, linked to the Account via ContentDocumentLink and LinkedEntityId). Notes or special instructions are typically found in the Account’s Description field. To review everything created for a company, look for these related records and fields using the Account’s Id.
+
+2. Get the Demo Workflow LF Google Sheet. Read the first few rows to understand the sheet and formats used in each column.
+
+3. Follow the formatting and style, add a new row to the google sheet for the member $CompanyName based on the information we got previously in Salesforce. The join date should be the closed won date.
+				`
+			},
+			{
+				id: '2',
 				name: 'Add New Member Contacts to Google Groups',
 				description:
 					'This will add the contacts of our new members to the appropriate Google Groups',
 				content:
-					'1. Get the account record for \$CompanyName in Salesforce. You also need to get all related Contacts including roles and emails.',
-				id: '1'
+					'1. Get the account record for \$CompanyName in Salesforce. You also need to get all related Contacts including roles and emails.'
+			},
+
+			{
+				name: 'Add member contacts to Slack',
+				description: '',
+				content: `
+1. Get the account record for \$CompanyName in Salesforce. You also need to get all related Contacts including roles and emails.
+
+2. List all channels including private ones.
+
+3. Search for the marketing contacts in the slack workspace to see if they are members. If they are in the workspace add them to the private marketing channel.
+
+4. Search for the business owner contacts in the slack workspace to see if they are members. If they are in the workspace, add them to the private business-owners channel.
+
+5. Search for the technical contacts in the slack workspace to see if they are members. If they are members of the workspace, add them to the private technical-leads channel.
+
+6. Report back who is a member of slack already.`,
+				id: '3'
 			},
 			{
 				name: 'Add Logo to site',
@@ -59,19 +90,7 @@
 
 4. Add the file to the assets/img directory called \$CompanyName-logo.txt, and create a PR back into the main branch.
 				`,
-				id: '2'
-			},
-			{
-				name: 'Add Member to Google Sheet',
-				description: 'This task will add the member to the google sheet',
-				content: `
-1. Get the account record for $CompanyName in Salesforce. You also need to get all related Contacts including roles and emails. Search all opportunities, look for the most recent closed won opportunity for membership level. Get the documents. Documents may be stored as classic Attachments (in the Attachment object, linked by ParentId) or as Salesforce Files (in ContentDocument, linked to the Account via ContentDocumentLink and LinkedEntityId). Notes or special instructions are typically found in the Account’s Description field. To review everything created for a company, look for these related records and fields using the Account’s Id.
-
-2. Get the Demo Workflow LF Google Sheet. Read the first few rows to understand the sheet and formats used in each column.
-
-3. Follow the formatting and style, add a new row to the google sheet for the member $CompanyName based on the information we got previously in Salesforce. The join date should be the closed won date.
-				`,
-				id: '3'
+				id: '4'
 			},
 			{
 				name: 'Send Welcome Email',
@@ -100,23 +119,6 @@ Dir. CNCF Onboarding Agent
 
 Send the drafted email.
 				`,
-				id: '4'
-			},
-			{
-				name: 'Add member contacts to Slack',
-				description: '',
-				content: `
-1. Get the account record for \$CompanyName in Salesforce. You also need to get all related Contacts including roles and emails.
-
-2. List all channels including private ones.
-
-3. Search for the marketing contacts in the slack workspace to see if they are members. If they are in the workspace add them to the private marketing channel.
-
-4. Search for the business owner contacts in the slack workspace to see if they are members. If they are in the workspace, add them to the private business-owners channel.
-
-5. Search for the technical contacts in the slack workspace to see if they are members. If they are members of the workspace, add them to the private technical-leads channel.
-
-6. Report back who is a member of slack already.`,
 				id: '5'
 			}
 		]
@@ -126,7 +128,6 @@ Send the drafted email.
 	let runContainer = $state<HTMLDivElement>();
 	let navContainer = $state<HTMLDivElement>();
 	let workflowNameContainer = $state<HTMLDivElement>();
-	let selectedRun = $state<Thread>();
 
 	let titleVisible = $state(false);
 
@@ -240,9 +241,9 @@ Send the drafted email.
 							</div>
 						{/if}
 						{#if layout.sidebarOpen && !titleVisible && !workflowRunOpen}
-							<h4 in:fade={{ duration: 200 }} class="pl-14 text-xl font-semibold">
+							<h1 in:fade={{ duration: 200 }} class="pl-14 text-xl font-semibold">
 								{workflow.name}
-							</h4>
+							</h1>
 						{/if}
 					{/snippet}
 					{#snippet centerContent()}
@@ -321,7 +322,7 @@ Send the drafted email.
 		<div
 			bind:this={runContainer}
 			class={twMerge(
-				'bg-background dark:bg-surface1 absolute right-0 z-30 float-right flex w-full flex-shrink-0 translate-x-full transform transition-transform duration-300 md:w-2/5 md:max-w-4xl md:min-w-[320px]',
+				'bg-background dark:bg-surface1 absolute right-0 z-30 float-right flex w-full flex-shrink-0 translate-x-full transform transition-transform duration-300 md:w-2/5 md:max-w-4xl md:min-w-[480px]',
 				workflowRunOpen && 'relative w-full translate-x-0',
 				!workflowRunOpen && 'w-0'
 			)}
@@ -340,6 +341,9 @@ Send the drafted email.
 			<button class="icon-button absolute top-2 right-2" onclick={() => (workflowRunOpen = false)}>
 				<X class="size-6" />
 			</button>
+			<div class="w-[calc(100%-24px)]">
+				<Run />
+			</div>
 		</div>
 	</div>
 </div>
