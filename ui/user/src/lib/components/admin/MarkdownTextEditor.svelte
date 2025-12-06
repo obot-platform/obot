@@ -19,9 +19,17 @@
 		onUpdate?: (markdown: string) => void;
 		onCancel?: () => void;
 		initialFocus?: boolean;
+		placeholder?: string;
 	}
 
-	let { value = $bindable(''), class: klass, onUpdate, onCancel, initialFocus }: Props = $props();
+	let {
+		value = $bindable(''),
+		class: klass,
+		onUpdate,
+		onCancel,
+		initialFocus,
+		placeholder = 'Add content...'
+	}: Props = $props();
 
 	let ttDiv: HTMLDivElement | undefined = $state();
 	let provider: TooltipProvider | undefined = $derived.by(() => {
@@ -130,6 +138,7 @@
 
 <div
 	class={klass}
+	style="--placeholder: '{placeholder}'"
 	use:editor
 	onfocusout={() => {
 		if (value !== lastSetValue) {
@@ -372,12 +381,12 @@
 		.milkdown .crepe-placeholder::before,
 		.milkdown [data-placeholder]::before,
 		.milkdown .ProseMirror[data-placeholder]:empty::before {
-			content: 'Add description here...' !important;
+			content: var(--placeholder) !important;
 		}
 
 		/* Additional selectors to catch different placeholder implementations */
 		.milkdown .ProseMirror:empty::before {
-			content: 'Add description here...' !important;
+			content: var(--placeholder) !important;
 			color: var(--color-gray-400);
 			pointer-events: none;
 			position: absolute;

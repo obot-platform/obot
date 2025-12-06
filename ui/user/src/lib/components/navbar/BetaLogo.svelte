@@ -6,20 +6,23 @@
 	interface Props {
 		chat?: boolean;
 		enterprise?: boolean;
+		workflow?: boolean;
 		class?: string;
 	}
-	let { chat, enterprise, class: klass }: Props = $props();
+	let { chat, enterprise, workflow, class: klass }: Props = $props();
 
 	let logos = $derived({
 		dark: {
 			chat: appPreferences.current.logos?.darkLogoChat,
 			enterprise: appPreferences.current.logos?.darkLogoEnterprise,
-			default: appPreferences.current.logos?.darkLogoDefault
+			default: appPreferences.current.logos?.darkLogoDefault,
+			workflow: appPreferences.current.logos?.darkLogoDefault // TODO:
 		},
 		light: {
 			chat: appPreferences.current.logos?.logoChat,
 			enterprise: appPreferences.current.logos?.logoEnterprise,
-			default: appPreferences.current.logos?.logoDefault
+			default: appPreferences.current.logos?.logoDefault,
+			workflow: appPreferences.current.logos?.logoDefault // TODO:
 		}
 	});
 
@@ -27,6 +30,8 @@
 		const theme = darkMode.isDark ? 'dark' : 'light';
 		if (chat) {
 			return logos[theme].chat;
+		} else if (workflow) {
+			return logos[theme].workflow;
 		} else if (enterprise) {
 			return logos[theme].enterprise;
 		}
