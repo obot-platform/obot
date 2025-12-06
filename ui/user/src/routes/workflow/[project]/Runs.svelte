@@ -9,9 +9,10 @@
 	interface Props {
 		project: Project;
 		currentThreadID?: string;
+		onSelectRun: (run: any) => void;
 	}
 
-	let { currentThreadID = $bindable(), project }: Props = $props();
+	let { currentThreadID = $bindable(), onSelectRun }: Props = $props();
 	const layout = getLayout();
 	const runs = $state([
 		{
@@ -41,7 +42,7 @@
 							class:font-medium={layout.editTaskID === run.id}
 							class="grow py-2 pr-2 pl-1 text-left text-xs"
 							onclick={async () => {
-								// TODO:
+								onSelectRun(run);
 							}}
 						>
 							{formatTime(run.created)}

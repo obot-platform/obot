@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { responsive } from '$lib/stores';
-	import { GripVertical, Play, Plus, SidebarClose, SidebarOpen, Ticket } from 'lucide-svelte';
+	import { GripVertical, Play, Plus, SidebarClose, SidebarOpen, X } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import { columnResize } from '$lib/actions/resize';
@@ -15,6 +15,7 @@
 	import WorkflowTasks from './WorkflowTasks.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { tick } from 'svelte';
+	import Thread from '$lib/components/Thread.svelte';
 
 	let { data } = $props();
 	initProjectMCPs(data.mcps ?? []);
@@ -33,6 +34,7 @@
 		arguments: [
 			{
 				name: 'CompanyName',
+				displayLabel: '',
 				description: ''
 			}
 		],
@@ -121,8 +123,37 @@ Send the drafted email.
 	});
 
 	let workflowRunOpen = $state(false);
-	let run = $state<HTMLDivElement>();
-	let nav = $state<HTMLDivElement>();
+	let runContainer = $state<HTMLDivElement>();
+	let navContainer = $state<HTMLDivElement>();
+	let workflowNameContainer = $state<HTMLDivElement>();
+	let selectedRun = $state<Thread>();
+
+	let titleVisible = $state(false);
+
+	let observer: IntersectionObserver;
+	function setupObserver() {
+		// Always disconnect existing observer before setting up new one
+		observer?.disconnect();
+
+		observer = new IntersectionObserver(
+			([entry]) => {
+				titleVisible = entry.isIntersecting;
+			},
+			{ threshold: 0 }
+		);
+
+		if (workflowNameContainer) {
+			observer.observe(workflowNameContainer);
+		}
+	}
+
+	$effect(() => {
+		if (workflowNameContainer) {
+			setupObserver();
+		}
+		return () => observer.disconnect();
+	});
+
 	const layout = getLayout();
 
 	function handleVariableAddition(variable: string) {
@@ -133,18 +164,19 @@ Send the drafted email.
 
 		workflow.arguments.push({
 			name: argumentToAdd,
-			description: ''
+			description: '',
+			displayLabel: ''
 		});
 	}
 </script>
 
-<div class="colors-background relative flex h-dvh flex-col overflow-hidden">
+<div class="bg-surface1 dark:bg-background relative flex h-dvh flex-col overflow-hidden">
 	<div class="relative flex h-full">
 		{#if layout.sidebarOpen}
 			<div
 				class="bg-surface1 w-screen min-w-screen flex-shrink-0 md:w-1/6 md:min-w-[250px]"
 				transition:slide={{ axis: 'x' }}
-				bind:this={nav}
+				bind:this={navContainer}
 			>
 				<div
 					class="border-surface2 dark:bg-gray-990 bg-background relative flex size-full flex-col border-r"
@@ -169,7 +201,7 @@ Send the drafted email.
 						<div class="flex flex-col gap-8 px-4">
 							<!-- todo -->
 							{#if project}
-								<Runs {project} />
+								<Runs {project} onSelectRun={() => (workflowRunOpen = true)} />
 								<McpServers {project} />
 							{/if}
 						</div>
@@ -186,7 +218,7 @@ Send the drafted email.
 				<div
 					role="none"
 					class="relative -ml-3 h-full w-3 cursor-col-resize"
-					use:columnResize={{ column: nav }}
+					use:columnResize={{ column: navContainer }}
 				></div>
 			{/if}
 		{/if}
@@ -207,6 +239,20 @@ Send the drafted email.
 								{@render openSidebar()}
 							</div>
 						{/if}
+						{#if layout.sidebarOpen && !titleVisible && !workflowRunOpen}
+							<h4 in:fade={{ duration: 200 }} class="pl-14 text-xl font-semibold">
+								{workflow.name}
+							</h4>
+						{/if}
+					{/snippet}
+					{#snippet centerContent()}
+						<div class="flex w-full justify-end px-2">
+							<button
+								class="button-primary flex w-48 flex-shrink-0 items-center justify-center gap-2 text-sm"
+							>
+								Run <Play class="size-4" />
+							</button>
+						</div>
 					{/snippet}
 				</Navbar>
 			</div>
@@ -221,8 +267,8 @@ Send the drafted email.
 				class="default-scrollbar-thin relative h-[calc(100%-64px)] max-w-full overflow-y-auto px-16"
 				bind:this={workflowContainer}
 			>
-				<div class="mx-auto min-h-full w-full px-1 md:max-w-[1200px]">
-					<div class="mb-4 flex w-full flex-col gap-1">
+				<div class="mx-auto min-h-full w-full px-1 pb-4 md:max-w-[1200px]">
+					<div class="mb-4 flex w-full flex-col gap-1" bind:this={workflowNameContainer}>
 						<input
 							class="ghost-input text-2xl font-semibold"
 							bind:value={workflow.name}
@@ -242,8 +288,9 @@ Send the drafted email.
 							workflow.tasks = workflow.tasks.filter((t) => t.id !== task.id);
 						}}
 					/>
-
-					<div class="mx-auto w-fit pt-6">
+				</div>
+				<div class="bg-surface1 dark:bg-background sticky bottom-0 left-0 z-50 w-full py-4">
+					<div class="flex w-full items-center justify-center">
 						<button
 							use:tooltip={'Add Task'}
 							class="button-icon-primary bg-background dark:bg-surface2 shadow-xs"
@@ -266,36 +313,31 @@ Send the drafted email.
 						</button>
 					</div>
 				</div>
-				<div class="bg-surface1 dark:bg-background sticky bottom-0 left-0 z-50 w-full py-4">
-					<div class="flex justify-center">
-						<button class="button-primary flex w-48 items-center justify-center gap-2">
-							Run <Play class="size-4" />
-						</button>
-					</div>
-				</div>
 			</div>
 		</main>
 
-		{#if workflowRunOpen && run}
-			<div
-				use:columnResize={{ column: run, direction: 'right' }}
-				class="relative h-full w-8 cursor-grab"
-				transition:slide={{ axis: 'x' }}
-			>
-				<div class="text-on-surface1 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-					<GripVertical class="text-surface3 size-3" />
-				</div>
-			</div>
-		{/if}
 		<div
-			bind:this={run}
+			bind:this={runContainer}
 			class={twMerge(
-				'border-surface2 dark:bg-surface1 absolute right-0 z-30 float-right flex w-full flex-shrink-0 translate-x-full transform border border-r-0 bg-gray-50 transition-transform duration-300 md:w-3/5 md:max-w-[calc(100%-320px)] md:min-w-[320px]',
+				'bg-background dark:bg-surface1 absolute right-0 z-30 float-right flex w-full flex-shrink-0 translate-x-full transform transition-transform duration-300 md:w-2/5 md:max-w-4xl md:min-w-[320px]',
 				workflowRunOpen && 'relative w-full translate-x-0',
 				!workflowRunOpen && 'w-0'
 			)}
 		>
-			WORKFLOW RUN CONTENT
+			{#if workflowRunOpen && runContainer}
+				<div
+					use:columnResize={{ column: runContainer, direction: 'right' }}
+					class="bg-surface1 dark:bg-background relative h-full w-8 cursor-grab"
+					transition:slide={{ axis: 'x' }}
+				>
+					<div class="text-on-surface1 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+						<GripVertical class="text-surface3 size-3" />
+					</div>
+				</div>
+			{/if}
+			<button class="icon-button absolute top-2 right-2" onclick={() => (workflowRunOpen = false)}>
+				<X class="size-6" />
+			</button>
 		</div>
 	</div>
 </div>
