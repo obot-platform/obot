@@ -9,7 +9,7 @@
 	import { Bold, Italic, Strikethrough } from 'lucide-svelte';
 	import { TooltipProvider } from '@milkdown/plugin-tooltip';
 	import { tooltipFactory } from '@milkdown/plugin-tooltip';
-	import { type Ctx } from '@milkdown/ctx';
+	import { type Ctx, type MilkdownPlugin } from '@milkdown/ctx';
 	import { toggleStrongCommand, toggleEmphasisCommand } from '@milkdown/kit/preset/commonmark';
 	import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm';
 
@@ -20,6 +20,7 @@
 		onCancel?: () => void;
 		initialFocus?: boolean;
 		placeholder?: string;
+		plugins?: MilkdownPlugin[];
 	}
 
 	let {
@@ -28,7 +29,8 @@
 		onUpdate,
 		onCancel,
 		initialFocus,
-		placeholder = 'Add content...'
+		placeholder = 'Add content...',
+		plugins = []
 	}: Props = $props();
 
 	let ttDiv: HTMLDivElement | undefined = $state();
@@ -87,7 +89,7 @@
 			}
 		});
 
-		crepe.editor
+		const editorConfig = crepe.editor
 			.config((ctx) => {
 				editorCtx = ctx;
 
@@ -111,6 +113,11 @@
 			})
 			.use(listener)
 			.use(tooltip);
+
+		// Apply any additional plugins
+		for (const plugin of plugins) {
+			editorConfig.use(plugin);
+		}
 
 		crepe.create();
 
@@ -396,6 +403,17 @@
 
 		.dark .milkdown .ProseMirror:empty::before {
 			color: var(--color-gray-600);
+		}
+
+		/* Variable pill styling */
+		.milkdown .ProseMirror .variable-pill {
+			background-color: color-mix(in oklab, var(--color-primary) 15%, transparent);
+			color: var(--color-primary);
+			padding: 0.125rem 0.5rem;
+			border-radius: 9999px;
+			font-size: 0.875rem;
+			font-weight: 500;
+			white-space: nowrap;
 		}
 	}
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { responsive } from '$lib/stores';
-	import { GripVertical, Plus, SidebarClose, SidebarOpen } from 'lucide-svelte';
+	import { GripVertical, Play, Plus, SidebarClose, SidebarOpen } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import { columnResize } from '$lib/actions/resize';
@@ -28,6 +28,12 @@
 		description: 'This workflow is used to onboard new users to the platform.',
 		prompt:
 			'You are an assistant responsible for onboarding members to the CNCF without breaking the rules.\n\nRules:\n* You can read from Salesforce.\n* Never add a new record to Salesforce.\n* Follow the Action you are told.',
+		arguments: [
+			{
+				name: 'CompanyName',
+				description: ''
+			}
+		],
 		tasks: [
 			{
 				name: 'Add New Member Contacts to Google Groups',
@@ -116,6 +122,18 @@ Send the drafted email.
 	let run = $state<HTMLDivElement>();
 	let nav = $state<HTMLDivElement>();
 	const layout = getLayout();
+
+	function handleVariableAddition(variable: string) {
+		const argumentToAdd = variable.replace('$', '');
+		if (workflow.arguments.some((arg) => arg.name === argumentToAdd)) {
+			return;
+		}
+
+		workflow.arguments.push({
+			name: argumentToAdd,
+			description: ''
+		});
+	}
 </script>
 
 <div class="colors-background relative flex h-dvh flex-col overflow-hidden">
@@ -198,9 +216,9 @@ Send the drafted email.
 			{/if}
 
 			<div
-				class="default-scrollbar-thin relative flex h-[calc(100%-76px)] max-w-full overflow-y-auto px-16"
+				class="default-scrollbar-thin relative h-[calc(100%-64px)] max-w-full overflow-y-auto px-16"
 			>
-				<div class="mx-auto min-h-full w-full md:max-w-[1200px]">
+				<div class="mx-auto min-h-full w-full px-1 md:max-w-[1200px]">
 					<div class="mb-4 flex w-full flex-col gap-1">
 						<input
 							class="ghost-input text-2xl font-semibold"
@@ -214,15 +232,22 @@ Send the drafted email.
 						/>
 					</div>
 
-					<WorkflowTasks bind:tasks={workflow.tasks} />
+					<WorkflowTasks bind:tasks={workflow.tasks} onVariableAddition={handleVariableAddition} />
 
-					<div class="mx-auto mt-4 mb-8 w-fit">
+					<div class="mx-auto w-fit pt-6">
 						<button
 							use:tooltip={'Add Task'}
-							class="button-icon-primary bg-surface2"
+							class="button-icon-primary bg-background dark:bg-surface2 shadow-xs"
 							onclick={() => {}}
 						>
 							<Plus class="size-6" />
+						</button>
+					</div>
+				</div>
+				<div class="bg-surface1 dark:bg-background sticky bottom-0 left-0 z-50 w-full py-4">
+					<div class="flex justify-center">
+						<button class="button-primary flex w-48 items-center justify-center gap-2">
+							Run <Play class="size-4" />
 						</button>
 					</div>
 				</div>
@@ -266,3 +291,7 @@ Send the drafted email.
 		<SidebarOpen class="size-6" />
 	</button>
 {/snippet}
+
+<svelte:head>
+	<title>Obot | Workflow</title>
+</svelte:head>

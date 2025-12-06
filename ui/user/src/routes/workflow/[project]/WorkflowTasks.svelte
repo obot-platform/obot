@@ -16,9 +16,10 @@
 
 	interface Props {
 		tasks: Task[];
+		onVariableAddition?: (variable: string) => void;
 	}
 
-	let { tasks = $bindable() }: Props = $props();
+	let { tasks = $bindable(), onVariableAddition }: Props = $props();
 </script>
 
 <DraggableList
@@ -40,7 +41,7 @@
 				<div class="relative flex h-full w-full items-start gap-3">
 					<DraggableHandle class="absolute top-0 left-0 h-full w-full opacity-0" />
 					<div class="flex min-w-0 flex-1 flex-col gap-1 p-6">
-						<WorkflowTask bind:task={tasks[index]} />
+						<WorkflowTask bind:task={tasks[index]} {onVariableAddition} />
 					</div>
 				</div>
 			</DraggableItem>
