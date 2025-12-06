@@ -8,6 +8,7 @@ import (
 	"maps"
 	"os"
 	"path"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -26,6 +27,8 @@ import (
 	"github.com/moby/moby/client"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 )
+
+var localhostURLRegexp = regexp.MustCompile(`^http://localhost(:\d+)?`)
 
 type dockerBackend struct {
 	client                        *client.Client
@@ -47,9 +50,9 @@ func newDockerBackend(ctx context.Context, opts Options) (backend, error) {
 
 	containerEnv := os.Getenv("OBOT_CONTAINER_ENV") == "true"
 	network := "bridge"
-	ipAddress := "host.docker.internal"
+	host := "host.docker.internal"
 	if containerEnv {
-		network, ipAddress, err = detectCurrentNetworkAndIP(ctx, cli)
+		network, host, err = detectCurrentNetworkIPAndPort(ctx, cli)
 		if err != nil {
 			return nil, fmt.Errorf("failed to detect current network: %w", err)
 		}
@@ -59,7 +62,7 @@ func newDockerBackend(ctx context.Context, opts Options) (backend, error) {
 		client:                        cli,
 		containerEnv:                  containerEnv,
 		network:                       network,
-		hostBaseURL:                   "http://" + ipAddress,
+		hostBaseURL:                   "http://" + host,
 		containerizedBaseImage:        opts.MCPBaseImage,
 		webhookBaseImage:              opts.MCPHTTPWebhookBaseImage,
 		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
@@ -73,9 +76,9 @@ func newDockerBackend(ctx context.Context, opts Options) (backend, error) {
 	return d, nil
 }
 
-// detectCurrentNetworkAndIP detects the Docker network and IP of the current container if running inside one.
+// detectCurrentNetworkIPAndPort detects the Docker network and IP of the current container if running inside one.
 // Returns empty string if not running in a container or if detection fails.
-func detectCurrentNetworkAndIP(ctx context.Context, cli *client.Client) (string, string, error) {
+func detectCurrentNetworkIPAndPort(ctx context.Context, cli *client.Client) (string, string, error) {
 	// Read container ID from cgroup file
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -91,7 +94,16 @@ func detectCurrentNetworkAndIP(ctx context.Context, cli *client.Client) (string,
 
 	// Get the first network (most containers are on a single network)
 	for networkName, networkSettings := range inspect.NetworkSettings.Networks {
-		return networkName, networkSettings.IPAddress, nil
+		var port string
+
+		// We need to find the port that is exposed from the container.
+		// This assumes there is only one port exposed, which is fine for now.
+		for k := range inspect.NetworkSettings.Ports {
+			port, _, _ = strings.Cut(string(k), "/")
+			port = ":" + port
+			break
+		}
+		return networkName, networkSettings.IPAddress + port, nil
 	}
 
 	return "bridge", "", nil
@@ -152,9 +164,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	for i, webhook := range transformedWebhooks {
-		if strings.HasPrefix(webhook.URL, "http://localhost") {
-			webhook.URL = strings.Replace(webhook.URL, "http://localhost", d.hostBaseURL, 1)
-		}
+		webhook.URL = localhostURLRegexp.ReplaceAllString(webhook.URL, d.hostBaseURL)
 
 		c, err := webhookToServerConfig(webhook, d.webhookBaseImage, server.MCPServerName, server.UserID, server.Scope, defaultContainerPort)
 		if err != nil {
@@ -189,8 +199,8 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 		}
 
 		server.MCPServerName += "-shim"
-	} else if strings.HasPrefix(server.URL, "http://localhost") {
-		server.URL = strings.Replace(server.URL, "http://localhost", d.hostBaseURL, 1)
+	} else {
+		server.URL = localhostURLRegexp.ReplaceAllString(server.URL, d.hostBaseURL)
 	}
 
 	server, err = d.ensureDeployment(ctx, server, "", d.containerEnv, transformedWebhooks)
@@ -200,18 +210,12 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 }
 
 func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool, webhooks []Webhook) (ServerConfig, error) {
-	if strings.HasPrefix(server.TokenExchangeEndpoint, "http://localhost") {
-		server.TokenExchangeEndpoint = strings.Replace(server.TokenExchangeEndpoint, "http://localhost", d.hostBaseURL, 1)
-	}
-	if strings.HasPrefix(server.AuditLogEndpoint, "http://localhost") {
-		server.AuditLogEndpoint = strings.Replace(server.AuditLogEndpoint, "http://localhost", d.hostBaseURL, 1)
-	}
+	server.TokenExchangeEndpoint = localhostURLRegexp.ReplaceAllString(server.TokenExchangeEndpoint, d.hostBaseURL)
+	server.AuditLogEndpoint = localhostURLRegexp.ReplaceAllString(server.AuditLogEndpoint, d.hostBaseURL)
 
 	for i, component := range server.Components {
-		if strings.HasPrefix(component.URL, "http://localhost") {
-			component.URL = strings.Replace(component.URL, "http://localhost", d.hostBaseURL, 1)
-			server.Components[i] = component
-		}
+		component.URL = localhostURLRegexp.ReplaceAllString(component.URL, d.hostBaseURL)
+		server.Components[i] = component
 	}
 
 	configHash := clientID(server)
