@@ -16,13 +16,13 @@
 			chat: appPreferences.current.logos?.darkLogoChat,
 			enterprise: appPreferences.current.logos?.darkLogoEnterprise,
 			default: appPreferences.current.logos?.darkLogoDefault,
-			workflow: appPreferences.current.logos?.darkLogoDefault // TODO:
+			workflow: appPreferences.current.logos?.darkLogoWorkflow
 		},
 		light: {
 			chat: appPreferences.current.logos?.logoChat,
 			enterprise: appPreferences.current.logos?.logoEnterprise,
 			default: appPreferences.current.logos?.logoDefault,
-			workflow: appPreferences.current.logos?.logoDefault // TODO:
+			workflow: appPreferences.current.logos?.logoWorkflow
 		}
 	});
 
