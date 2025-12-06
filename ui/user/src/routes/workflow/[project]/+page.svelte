@@ -1,8 +1,19 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { responsive } from '$lib/stores';
-	import { GripVertical, Play, Plus, SidebarClose, SidebarOpen, X } from 'lucide-svelte';
-	import { fade, slide } from 'svelte/transition';
+	import {
+		BadgeAlert,
+		GripVertical,
+		Play,
+		Plus,
+		Settings,
+		SidebarClose,
+		SidebarOpen,
+		Variable,
+		Workflow,
+		X
+	} from 'lucide-svelte';
+	import { fade, fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import { columnResize } from '$lib/actions/resize';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
@@ -13,10 +24,12 @@
 	import McpServers from '$lib/components/edit/McpServers.svelte';
 	import Runs from './Runs.svelte';
 	import WorkflowTasks from './WorkflowTasks.svelte';
-	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { tick } from 'svelte';
-	import Thread from '$lib/components/Thread.svelte';
 	import Run from './Run.svelte';
+	import WorkflowArguments from './WorkflowArguments.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { tickStep } from 'd3';
 
 	let { data } = $props();
 	initProjectMCPs(data.mcps ?? []);
@@ -34,9 +47,11 @@
 			'You are an assistant responsible for onboarding members to the CNCF without breaking the rules.\n\nRules:\n* You can read from Salesforce.\n* Never add a new record to Salesforce.\n* Follow the Action you are told.',
 		arguments: [
 			{
+				id: '1',
 				name: 'CompanyName',
-				displayLabel: '',
-				description: ''
+				displayLabel: 'Company Name',
+				description: 'The name of the company to onboard. Example: Obot',
+				visible: true
 			}
 		],
 		tasks: [
@@ -128,6 +143,15 @@ Send the drafted email.
 	let runContainer = $state<HTMLDivElement>();
 	let navContainer = $state<HTMLDivElement>();
 	let workflowNameContainer = $state<HTMLDivElement>();
+	let notifications = $state<
+		{
+			id: string;
+			type: 'argument_addition' | 'argument_deletion';
+			name: string;
+		}[]
+	>([]);
+
+	let runDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	let titleVisible = $state(false);
 
@@ -158,16 +182,40 @@ Send the drafted email.
 	const layout = getLayout();
 
 	function handleVariableAddition(variable: string) {
-		const argumentToAdd = variable.replace('$', '');
-		if (workflow.arguments.some((arg) => arg.name === argumentToAdd)) {
-			return;
-		}
+		const id = crypto.randomUUID();
 
 		workflow.arguments.push({
-			name: argumentToAdd,
+			id,
+			name: variable,
+			displayLabel: '',
 			description: '',
-			displayLabel: ''
+			visible: false
 		});
+
+		notifications.push({
+			id,
+			type: 'argument_addition',
+			name: variable
+		});
+
+		setTimeout(() => {
+			notifications = notifications.filter((n) => n.id !== id);
+		}, 5000);
+	}
+
+	function handleVariableDeletion(variable: string) {
+		if (variable.length === 0) return;
+		if (workflow.arguments.some((arg) => arg.name === variable)) {
+			notifications.push({
+				id: variable,
+				type: 'argument_deletion',
+				name: variable
+			});
+
+			setTimeout(() => {
+				notifications = notifications.filter((n) => n.id !== variable);
+			}, 5000);
+		}
 	}
 </script>
 
@@ -208,7 +256,10 @@ Send the drafted email.
 						</div>
 					</div>
 
-					<div class="flex w-full items-center justify-end gap-2 px-2 py-2">
+					<div class="flex w-full items-center justify-between gap-2 px-2 py-2">
+						<button class="icon-button flex-shrink-0">
+							<Settings class="text-on-surface1 size-6" />
+						</button>
 						{#if !responsive.isMobile}
 							{@render closeSidebar()}
 						{/if}
@@ -250,6 +301,7 @@ Send the drafted email.
 						<div class="flex w-full justify-end px-2">
 							<button
 								class="button-primary flex w-48 flex-shrink-0 items-center justify-center gap-2 text-sm"
+								onclick={() => runDialog?.open()}
 							>
 								Run <Play class="size-4" />
 							</button>
@@ -284,36 +336,83 @@ Send the drafted email.
 						/>
 					</div>
 
+					{#if workflow.arguments.length > 0}
+						<div class="mb-6">
+							<WorkflowArguments
+								bind:args={workflow.arguments}
+								onDelete={(arg) => {
+									workflow.arguments = workflow.arguments.filter((a) => a.id !== arg.id);
+								}}
+							/>
+						</div>
+					{/if}
+
 					<WorkflowTasks
 						bind:tasks={workflow.tasks}
 						onVariableAddition={handleVariableAddition}
+						onVariableDeletion={handleVariableDeletion}
 						onDelete={(task) => {
 							workflow.tasks = workflow.tasks.filter((t) => t.id !== task.id);
 						}}
 					/>
 				</div>
-				<div class="bg-surface1 dark:bg-background sticky bottom-0 left-0 z-50 w-full py-4">
+				<div class="sticky bottom-0 left-0 z-50 w-full py-4">
 					<div class="flex w-full items-center justify-center">
-						<button
-							use:tooltip={'Add Task'}
-							class="button-icon-primary bg-background dark:bg-surface2 shadow-xs"
-							onclick={async () => {
-								workflow.tasks.push({
-									id: (workflow.tasks.length + 1).toString(),
-									name: '',
-									description: '',
-									content: ''
-								});
-
-								await tick();
-								workflowContainer?.scrollTo({
-									top: workflowContainer.scrollHeight,
-									behavior: 'smooth'
-								});
-							}}
+						<DotDotDot
+							placement="top"
+							class="button-icon bg-primary text-white shadow-xs transition-all hover:scale-110"
 						>
-							<Plus class="size-6" />
-						</button>
+							{#snippet icon()}
+								<Plus class="size-6" />
+							{/snippet}
+							<div class="default-dialog flex min-w-48 flex-col p-2">
+								<button
+									class="menu-button"
+									onclick={async () => {
+										workflow.tasks.push({
+											id: (workflow.tasks.length + 1).toString(),
+											name: '',
+											description: '',
+											content: ''
+										});
+
+										await tick();
+										const latestTask = document.querySelector('.workflow-task:last-child');
+										if (latestTask) {
+											workflowContainer?.scrollTo({
+												top: latestTask.getBoundingClientRect().top + 64,
+												behavior: 'smooth'
+											});
+										}
+									}}
+								>
+									<Workflow class="size-4" /> Add Task
+								</button>
+								<button
+									class="menu-button"
+									onclick={async () => {
+										workflow.arguments.push({
+											name: '',
+											displayLabel: '',
+											description: '',
+											id: (workflow.arguments.length + 1).toString(),
+											visible: true
+										});
+
+										await tick();
+										const latestArgument = document.querySelector('.workflow-argument:last-child');
+										if (latestArgument) {
+											workflowContainer?.scrollTo({
+												top: latestArgument.getBoundingClientRect().top + 64,
+												behavior: 'smooth'
+											});
+										}
+									}}
+								>
+									<Variable class="size-4" /> Add Argument
+								</button>
+							</div>
+						</DotDotDot>
 					</div>
 				</div>
 			</div>
@@ -342,7 +441,13 @@ Send the drafted email.
 				<X class="size-6" />
 			</button>
 			<div class="w-[calc(100%-24px)]">
-				<Run name={workflow.name} />
+				<Run
+					name={workflow.name}
+					args={workflow.arguments}
+					values={{
+						CompanyName: 'Obot'
+					}}
+				/>
 			</div>
 		</div>
 	</div>
@@ -365,3 +470,84 @@ Send the drafted email.
 <svelte:head>
 	<title>Obot | Workflow</title>
 </svelte:head>
+
+<div class="fixed right-0 bottom-0 z-100 m-4">
+	{#each notifications as notification (notification.id)}
+		<div
+			class="bg-background dark:bg-surface1 border-surface3 w-sm rounded-md border p-2"
+			transition:fly={{ x: 100, duration: 200 }}
+		>
+			<div class="flex w-full items-center justify-evenly gap-2">
+				<BadgeAlert class="size-6" />
+				<div class="flex flex-col gap-0.5">
+					<span class="bg-primary/10 text-primary w-fit rounded-md px-1 py-0.5 text-sm font-medium"
+						>${notification.name}</span
+					>
+					{#if notification.type === 'argument_addition'}
+						<p class="flex-shrink-0 text-sm font-light">Add argument details to workflow?</p>
+						<button
+							class="button-primary px-2 py-1 text-xs"
+							onclick={async () => {
+								workflow.arguments = workflow.arguments.map((arg) =>
+									arg.id === notification.id ? { ...arg, visible: true } : arg
+								);
+
+								await tick();
+								const matchingArgument = document.querySelector(`#description-${notification.id}`);
+								if (matchingArgument) {
+									workflowContainer?.scrollTo({
+										top: matchingArgument.getBoundingClientRect().top + 64,
+										behavior: 'smooth'
+									});
+								}
+							}}
+						>
+							Add
+						</button>
+					{:else}
+						<p class="flex-shrink-0 text-sm font-light">
+							Remove existing argument details from workflow?
+						</p>
+						<button
+							class="button px-2 py-1 text-xs"
+							onclick={() => {
+								workflow.arguments = workflow.arguments.filter((arg) => arg.id !== notification.id);
+							}}
+						>
+							Remove
+						</button>
+					{/if}
+				</div>
+				<button
+					class="icon-button"
+					onclick={() => {
+						notifications = notifications.filter((n) => n.id !== notification.id);
+					}}
+				>
+					<X class="size-3" />
+				</button>
+			</div>
+		</div>
+	{/each}
+</div>
+
+<ResponsiveDialog bind:this={runDialog} title="Run Workflow" animate="slide" class="max-w-md">
+	<div class="flex w-full flex-col gap-4">
+		<div class="flex w-full flex-col gap-2">
+			{#each workflow.arguments as argument (argument.id)}
+				<label for="description-{argument.id}" class="flex-1 text-sm font-medium capitalize"
+					>{argument.displayLabel}</label
+				>
+				<input
+					id="description-{argument.id}"
+					class="text-input-filled"
+					placeholder={argument.description}
+				/>
+			{/each}
+		</div>
+		<button
+			class="button-primary flex items-center justify-center gap-2"
+			onclick={() => runDialog?.close()}>Run <Play class="size-4" /></button
+		>
+	</div>
+</ResponsiveDialog>

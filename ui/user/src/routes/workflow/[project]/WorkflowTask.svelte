@@ -20,17 +20,19 @@
 			content: string;
 		};
 		onVariableAddition?: (variable: string) => void;
+		onVariableDeletion?: (variable: string) => void;
 		onDelete?: (task: WorkflowTask) => void;
 	}
 
-	let { task = $bindable(), onVariableAddition, onDelete }: Props = $props();
+	let { task = $bindable(), onVariableAddition, onVariableDeletion, onDelete }: Props = $props();
 
 	let showDescription = $state(task.description.trim().length > 0);
-	const variablePillPlugin = $derived(
-		createVariablePillPlugin({
-			onVariableAddition
-		})
-	);
+
+	// Create plugin once - use a wrapper function to always call the current callback
+	const variablePillPlugin = createVariablePillPlugin({
+		onVariableAddition: (variable: string) => onVariableAddition?.(variable),
+		onVariableDeletion: (variable: string) => onVariableDeletion?.(variable)
+	});
 </script>
 
 <div class="flex flex-col gap-1 pr-12">
@@ -55,7 +57,7 @@
 
 <DotDotDot
 	disablePortal
-	class="hover:text-primary hover:bg-primary/10 absolute top-2 right-2 z-100 rounded-full p-2 opacity-0 transition-colors group-hover:opacity-100"
+	class="hover:text-primary hover:bg-primary/10 absolute top-4 right-4 z-100 rounded-full p-2 opacity-0 transition-colors group-hover:opacity-100"
 >
 	<div class="default-dialog flex min-w-48 flex-col p-2">
 		<div

@@ -9,19 +9,14 @@
 
 	interface Props {
 		name: string;
+		args: {
+			name: string;
+			displayLabel: string;
+		}[];
+		values: Record<string, string>;
 	}
 
-	let { name }: Props = $props();
-
-	const taskArguments: {
-		name: string;
-		value: string;
-	}[] = $state([
-		{
-			name: 'CompanyName',
-			value: 'Obot'
-		}
-	]);
+	let { name, args, values }: Props = $props();
 
 	let showChat = $state(false);
 
@@ -81,10 +76,7 @@
 					name: 'Onboarding Workflow',
 					// 30 seconds after previous message
 					created: new Date(new Date().getTime() - 1000 * 30).toISOString(),
-					content: `## 1) Salesforce – Account, Contacts, Opportunities, Documents
-
-### Account: Obot
-
+					content: `
 * **Account Name:** Obot
 * **Account Id:** \`0015g00000ABC123AA\`
 * **Account Owner:** Alex Johnson
@@ -92,141 +84,11 @@
 * **Billing Country:** United States
 * **Website:** \`https://www.obot.ai\`
 
----
+### New row for **Obot** in Demo Workflow LF Sheet
 
-### Related Contacts (with roles & emails)
-
-| Contact Name   | Title               | Role              | Email                                                   | Phone             | Primary? |
-| -------------- | ------------------- | ----------------- | ------------------------------------------------------- | ----------------- | -------- |
-| Jane Doe       | VP of Operations    | Decision Maker    | [jane.doe@obot.ai](mailto:jane.doe@obot.ai)             | +1 (555) 201-1001 | Yes      |
-| Michael Lee    | Director of Finance | Billing Contact   | [michael.lee@obot.ai](mailto:michael.lee@obot.ai)       | +1 (555) 201-1002 |          |
-| Priya Sharma   | Head of Security    | Technical Contact | [priya.sharma@obot.ai](mailto:priya.sharma@obot.ai)     | +1 (555) 201-1003 |          |
-| Chris Martinez | Operations Manager  | Day-to-day Admin  | [chris.martinez@obot.ai](mailto:chris.martinez@obot.ai) | +1 (555) 201-1004 |          |
-
-*(Roles are pulled from Contact Role / custom role fields where available; otherwise inferred from title.)*
-
----
-
-### Opportunities – finding the **most recent Closed Won** membership
-
-Relevant opportunities for Account \`0015g00000ABC123AA\`:
-
-1. **“2024 Membership – Obot”**
-
-   * Opportunity Id: \`0065g00000MNO456AA\`
-   * Stage: Closed Won
-   * **Close Date:** 2024-03-10
-   * Amount: $18,000
-   * Membership Level (custom field): **Standard**
-
-2. **“2025 Membership – Obot – Upgrade”** ✅ *Most recent Closed Won*
-
-   * Opportunity Id: \`0065g00000XYZ789AA\`
-   * Stage: **Closed Won**
-   * **Close Date:** **2025-03-15**
-   * Amount: $32,000
-   * Membership Level (custom field): **Premier**
-   * Term: 12 months
-   * Primary Contact: Jane Doe
-   * Notes (Opportunity):
-
-     > Upgraded from Standard to Premier – includes priority support and dedicated CSM.
-
-For step 3, we use:
-
-* **Membership Level:** \`Premier\`
-* **Join Date (per instructions):** **2025-03-15** (the Closed Won date from this opportunity)
-
----
-
-### Documents for Obot
-
-Using the Account Id \`0015g00000ABC123AA\`, I looked for:
-
-#### Classic Attachments (Attachment object – \`ParentId = Account.Id\`)
-
-Mocked results:
-
-1. **Name:** \`Obot - Signed Membership Agreement 2025.pdf\`
-
-   * Attachment Id: \`00P5g00000ATT001AA\`
-   * ParentId: \`0015g00000ABC123AA\`
-   * Description: Signed Premier membership agreement.
-
-2. **Name:** \`Obot - Data Processing Addendum.pdf\`
-
-   * Attachment Id: \`00P5g00000ATT002AA\`
-   * ParentId: \`0015g00000ABC123AA\`
-   * Description: Custom DPA, referenced in Account Description.
-
-#### Salesforce Files (ContentDocument via ContentDocumentLink)
-
-Found ContentDocumentLink records where:
-
-* \`LinkedEntityId = 0015g00000ABC123AA\`
-
-Mocked files:
-
-1. **ContentDocument:** \`0695g00000DOC001AA\`
-
-   * Title: \`Obot Onboarding Plan\`
-   * File Type: Google Doc / PDF
-   * Description: Internal onboarding checklist for CSM.
-
-2. **ContentDocument:** \`0695g00000DOC002AA\`
-
-   * Title: \`Obot - Logo Pack\`
-   * File Type: PNG/ZIP
-   * Description: Logo assets used for marketing and listings.
-
-3. **ContentDocument:** \`0695g00000DOC003AA\`
-
-   * Title: \`Obot Implementation Notes\`
-   * File Type: \`Doc\`
-   * Description: Internal notes from discovery and technical calls.
-
-These documents would be referenced or linked in the Google Sheet row (often as URLs or Salesforce record links).
-
----
-
-## 2) Demo Workflow LF Google Sheet – structure (mocked)
-
-After opening **“Demo Workflow LF”** in Google Sheets, I skimmed the header row and first few example rows.
-
-Mocked columns (based on what I “saw” in the sheet):
-
-1. \`Account Name\`
-2. \`Membership Level\`
-3. \`Join Date\`
-4. \`Status\`
-5. \`Primary Contact Name\`
-6. \`Primary Contact Email\`
-7. \`Billing Contact\`
-8. \`Billing Email\`
-9. \`Salesforce Account Id\`
-10. \`Primary Opportunity Id\`
-11. \`CSM Owner\`
-12. \`Region\`
-13. \`Docs / Links\`
-14. \`Internal Notes\`
-
-Example existing row for context (mocked):
-
-| Account Name | Membership Level | Join Date  | Status | Primary Contact Name | Primary Contact Email                               | Billing Contact | Billing Email                               | Salesforce Account Id | Primary Opportunity Id | CSM Owner   | Region | Docs / Links       | Internal Notes                     |
-| ------------ | ---------------- | ---------- | ------ | -------------------- | --------------------------------------------------- | --------------- | ------------------------------------------- | --------------------- | ---------------------- | ----------- | ------ | ------------------ | ---------------------------------- |
-| Acme Corp    | Standard         | 2024-01-05 | Active | Sarah Green          | [sarah.green@acme.com](mailto:sarah.green@acme.com) | John Brown      | [billing@acme.com](mailto:billing@acme.com) | 0015g00000AAA111AA    | 0065g00000AAA111AA     | Emily Davis | NA     | SF Docs, Logo, DPA | Onboarding complete; QBR in March. |
-
-I then followed this exact style and formatting for Obot.
-
----
-
-## 3) New row for **Obot** in Demo Workflow LF Sheet
-
-Using the Salesforce info above and matching the sheet’s style, I would add the following row (mocked values):
-
-| Account Name | Membership Level | Join Date  | Status | Primary Contact Name | Primary Contact Email                       | Billing Contact | Billing Email                                     | Salesforce Account Id | Primary Opportunity Id | CSM Owner    | Region | Docs / Links                                                                                                                                 | Internal Notes                                                                                                            |
-| ------------ | ---------------- | ---------- | ------ | -------------------- | ------------------------------------------- | --------------- | ------------------------------------------------- | --------------------- | ---------------------- | ------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Obot         | Premier          | 2025-03-15 | Active | Jane Doe             | [jane.doe@obot.ai](mailto:jane.doe@obot.ai) | Michael Lee     | [michael.lee@obot.ai](mailto:michael.lee@obot.ai) | 0015g00000ABC123AA    | 0065g00000XYZ789AA     | Alex Johnson | NA     | Membership Agreement, DPA, Onboarding Plan, Implementation Notes, Logo Pack (Salesforce Attachments/Files linked via Account & Content Docs) | Prefers **quarterly billing**. Include security lead on all onboarding calls. Upgraded from Standard to Premier for 2025. |
+| Account Name | Membership Level | Join Date  | Status | Primary Contact Name | Primary Contact Email                       | Billing Contact | Billing Email                                     | Salesforce Account Id | Primary Opportunity Id | CSM Owner    | Region |
+| ------------ | ---------------- | ---------- | ------ | -------------------- | ------------------------------------------- | --------------- | ------------------------------------------------- | --------------------- | ---------------------- | ------------ | ------ |
+| Obot         | Premier          | 2025-03-15 | Active | Jane Doe             | [jane.doe@obot.ai](mailto:jane.doe@obot.ai) | Michael Lee     | [michael.lee@obot.ai](mailto:michael.lee@obot.ai) | 0015g00000ABC123AA    | 0065g00000XYZ789AA     | Alex Johnson | NA     |
 
 Key points tied to your instructions:
 
@@ -276,17 +138,19 @@ If you’d like, I can next:
 		{name} | {formatTime(new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString())}
 	</h2>
 	<div class="default-scrollbar-thin relative h-[calc(100%-48px)] w-full overflow-y-auto">
-		<div class="mb-4 w-full px-4">
-			{#if taskArguments.length > 0}
-				{#each taskArguments as argument (argument.name)}
-					<div
-						class="bg-primary/15 flex w-fit flex-wrap items-center gap-2 rounded-full px-2 py-1 text-sm"
-					>
-						<p class="text-primary font-medium">
-							${argument.name}:
-						</p>
-						<p>{argument.value}</p>
-					</div>
+		<div class="mb-4 flex w-full flex-wrap gap-2 px-4">
+			{#if args.length > 0}
+				{#each args as argument (argument.name)}
+					{#if values[argument.name]}
+						<div
+							class="bg-primary/15 flex w-fit flex-wrap items-center gap-2 rounded-full px-2 py-1 text-sm"
+						>
+							<p class="text-primary font-medium">
+								${argument.name}:
+							</p>
+							<p>{values[argument.name]}</p>
+						</div>
+					{/if}
 				{/each}
 			{/if}
 		</div>
@@ -370,12 +234,15 @@ If you’d like, I can next:
 			</div>
 		{:else}
 			<div class="sticky bottom-0 left-0 w-full p-4 pb-8" in:slide={{ axis: 'y' }}>
-				<button
-					class="button-icon bg-primary mx-auto text-white transition-all hover:scale-110"
-					onclick={() => (showChat = !showChat)}
-				>
-					<MessageCircleMore class="size-6" />
-				</button>
+				<div class="flex w-full justify-end">
+					<button
+						class="button-icon bg-primary text-white transition-all hover:scale-110"
+						onclick={() => (showChat = !showChat)}
+						use:tooltip={'Open Chat'}
+					>
+						<MessageCircleMore class="size-6" />
+					</button>
+				</div>
 			</div>
 		{/if}
 	</div>

@@ -85,7 +85,8 @@
 			root: node,
 			defaultValue: value,
 			features: {
-				[Crepe.Feature.Toolbar]: false
+				[Crepe.Feature.Toolbar]: false,
+				[Crepe.Feature.Latex]: false
 			}
 		});
 
