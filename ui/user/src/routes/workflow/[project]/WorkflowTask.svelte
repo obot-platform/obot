@@ -55,7 +55,7 @@
 
 <DotDotDot
 	disablePortal
-	class="hover:text-primary hover:bg-primary/10 absolute top-2 right-2 z-100 rounded-full p-2 transition-colors"
+	class="hover:text-primary hover:bg-primary/10 absolute top-2 right-2 z-100 rounded-full p-2 opacity-0 transition-colors group-hover:opacity-100"
 >
 	<div class="default-dialog flex min-w-48 flex-col p-2">
 		<div

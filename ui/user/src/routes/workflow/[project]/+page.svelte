@@ -189,7 +189,7 @@ Send the drafted email.
 							{@render closeSidebar()}
 						{/if}
 					</div>
-					<div class="default-scrollbar-thin flex w-full grow flex-col gap-2" use:scrollFocus>
+					<div class="default-scrollbar-thin flex w-full grow flex-col gap-4" use:scrollFocus>
 						{#if project}
 							<Projects
 								{project}
@@ -198,7 +198,7 @@ Send the drafted email.
 								}}
 							/>
 						{/if}
-						<div class="flex flex-col gap-8 px-4">
+						<div class="mb-2 flex flex-col gap-8 px-4">
 							<!-- todo -->
 							{#if project}
 								<Runs {project} onSelectRun={() => (workflowRunOpen = true)} />
@@ -264,7 +264,9 @@ Send the drafted email.
 			{/if}
 
 			<div
-				class="default-scrollbar-thin relative h-[calc(100%-64px)] max-w-full overflow-y-auto px-16"
+				class="default-scrollbar-thin relative h-[calc(100%-64px)] max-w-full overflow-y-auto"
+				class:px-16={!workflowRunOpen}
+				class:px-8={workflowRunOpen}
 				bind:this={workflowContainer}
 			>
 				<div class="mx-auto min-h-full w-full px-1 pb-4 md:max-w-[1200px]">
