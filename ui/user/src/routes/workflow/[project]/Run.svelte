@@ -219,7 +219,7 @@ If you’d like, I can next:
 		</div>
 		{#if showChat}
 			<div
-				class="bg-background dark:bg-surface2 sticky bottom-0 left-0 w-full p-4 pb-8"
+				class="workflow-run bg-background dark:bg-surface2 sticky bottom-0 left-0 w-full p-4 pb-8"
 				in:slide={{ axis: 'y' }}
 			>
 				<ChatInput
@@ -250,6 +250,9 @@ If you’d like, I can next:
 
 <style lang="postcss">
 	:global {
+		.workflow-run .milkdown {
+			background-color: var(--color-surface1);
+		}
 		.milkdown-content.workflow-run {
 			h1 {
 				font-size: var(--text-xl);
