@@ -23,7 +23,45 @@ interface VariableMatch {
 	end: number;
 }
 
-function findVariables(doc: Parameters<typeof DecorationSet.create>[0]) {
+interface CompletedVariableInfo extends VariableMatch {
+	isCompleted: boolean;
+}
+
+// Find all variables in the document with their completion status
+function findAllVariablesWithStatus(
+	doc: Node,
+	completedVariables: Set<string>
+): CompletedVariableInfo[] {
+	const variables: CompletedVariableInfo[] = [];
+
+	doc.descendants((node, pos) => {
+		if (node.isText && node.text) {
+			const text = node.text;
+			let match;
+
+			VARIABLE_REGEX.lastIndex = 0;
+			while ((match = VARIABLE_REGEX.exec(text)) !== null) {
+				const start = pos + match.index;
+				const end = pos + match.index + match[0].length;
+				const key = `${match[1]}:${start}`;
+
+				variables.push({
+					variable: match[1],
+					start,
+					end,
+					isCompleted: completedVariables.has(key)
+				});
+			}
+		}
+	});
+
+	return variables;
+}
+
+function findVariablesWithDecorations(
+	doc: Parameters<typeof DecorationSet.create>[0],
+	completedVariables: Set<string>
+) {
 	const decorations: Decoration[] = [];
 
 	doc.descendants((node, pos) => {
@@ -35,13 +73,36 @@ function findVariables(doc: Parameters<typeof DecorationSet.create>[0]) {
 			while ((match = VARIABLE_REGEX.exec(text)) !== null) {
 				const start = pos + match.index;
 				const end = start + match[0].length;
+				const key = `${match[1]}:${start}`;
+				const isCompleted = completedVariables.has(key);
 
+				// Add inline decoration for the variable pill
 				decorations.push(
 					Decoration.inline(start, end, {
-						class: 'variable-pill',
-						'data-variable': match[1]
+						class: isCompleted ? 'variable-pill variable-pill-completed' : 'variable-pill',
+						'data-variable': match[1],
+						'data-start': String(start),
+						'data-end': String(end)
 					})
 				);
+
+				// Add delete button widget for completed variables
+				if (isCompleted) {
+					const widget = Decoration.widget(
+						end,
+						() => {
+							const button = document.createElement('span');
+							button.className = 'variable-pill-delete';
+							button.textContent = '×';
+							button.contentEditable = 'false';
+							button.setAttribute('data-start', String(start));
+							button.setAttribute('data-end', String(end));
+							return button;
+						},
+						{ side: -1, key: `delete-${key}` }
+					);
+					decorations.push(widget);
+				}
 			}
 		}
 	});
@@ -77,21 +138,11 @@ function hasSeparatorAt(doc: Node, pos: number): boolean {
 	try {
 		const $pos = doc.resolve(pos);
 		const nodeAfter = $pos.nodeAfter;
-		const nodeBefore = $pos.nodeBefore;
 		const parent = $pos.parent;
-
-		console.log(`hasSeparatorAt(${pos}) debug:`, {
-			nodeAfter: nodeAfter?.isText ? nodeAfter.text : nodeAfter?.type?.name,
-			nodeBefore: nodeBefore?.isText ? nodeBefore.text : nodeBefore?.type?.name,
-			parentType: parent.type.name,
-			parentOffset: $pos.parentOffset,
-			parentTextContent: parent.isTextblock ? parent.textContent : 'N/A'
-		});
 
 		// Check if the node right after is text starting with a separator
 		if (nodeAfter?.isText && nodeAfter.text) {
 			const char = nodeAfter.text[0];
-			console.log(`  nodeAfter first char: "${char}" (code: ${char.charCodeAt(0)})`);
 			return SEPARATOR_CHARS.has(char);
 		}
 
@@ -101,17 +152,13 @@ function hasSeparatorAt(doc: Node, pos: number): boolean {
 			const textContent = parent.textContent;
 			if (offset < textContent.length) {
 				const char = textContent[offset];
-				console.log(`  parent textContent[${offset}]: "${char}" (code: ${char.charCodeAt(0)})`);
 				return SEPARATOR_CHARS.has(char);
-			} else {
-				console.log(`  offset ${offset} >= textContent.length ${textContent.length}`);
 			}
 		}
 
 		// No separator found - do NOT treat end-of-node as separator
 		return false;
-	} catch (e) {
-		console.log(`hasSeparatorAt error:`, e);
+	} catch {
 		return false;
 	}
 }
@@ -139,6 +186,37 @@ function isFollowedByNewBlock(doc: Node, pos: number): boolean {
 	}
 }
 
+// Find a completed variable at or around the given position
+function findCompletedVariableAtPosition(
+	doc: Node,
+	pos: number,
+	completedVariables: Set<string>,
+	checkType: 'before' | 'after' | 'inside'
+): CompletedVariableInfo | null {
+	const variables = findAllVariablesWithStatus(doc, completedVariables);
+
+	for (const v of variables) {
+		if (!v.isCompleted) continue;
+
+		switch (checkType) {
+			case 'before':
+				// Cursor is right before the variable (for Delete key)
+				if (pos === v.start) return v;
+				break;
+			case 'after':
+				// Cursor is right after the variable (for Backspace key)
+				if (pos === v.end) return v;
+				break;
+			case 'inside':
+				// Cursor is inside the variable
+				if (pos > v.start && pos < v.end) return v;
+				break;
+		}
+	}
+
+	return null;
+}
+
 export function createVariablePillPlugin(options: VariablePillOptions = {}): MilkdownPlugin {
 	return $prose(() => {
 		// Track variables from previous state
@@ -156,7 +234,7 @@ export function createVariablePillPlugin(options: VariablePillOptions = {}): Mil
 							completedVariables.add(`${v.variable}:${v.start}`);
 						}
 					}
-					return findVariables(doc);
+					return findVariablesWithDecorations(doc, completedVariables);
 				},
 				apply(tr, decorations) {
 					if (tr.docChanged) {
@@ -195,14 +273,30 @@ export function createVariablePillPlugin(options: VariablePillOptions = {}): Mil
 						previousVariables = newVariables;
 
 						// Clean up completed set - remove entries for variables that no longer exist
+						// and call onVariableDeletion if no instances of the variable remain
 						const currentKeys = new Set(newVariables.map((v) => `${v.variable}:${v.start}`));
+						const deletedCompletedVars: string[] = [];
+
 						for (const key of completedVariables) {
 							if (!currentKeys.has(key)) {
+								const varName = key.split(':')[0];
+								deletedCompletedVars.push(varName);
 								completedVariables.delete(key);
 							}
 						}
 
-						return findVariables(tr.doc);
+						// Call onVariableDeletion for completed variables that no longer have any instances
+						if (options.onVariableDeletion) {
+							for (const varName of deletedCompletedVars) {
+								// Check if there are any remaining instances of this variable in the document
+								const hasRemainingInstances = newVariables.some((v) => v.variable === varName);
+								if (!hasRemainingInstances) {
+									options.onVariableDeletion(varName);
+								}
+							}
+						}
+
+						return findVariablesWithDecorations(tr.doc, completedVariables);
 					}
 					return decorations.map(tr.mapping, tr.doc);
 				}
@@ -210,6 +304,94 @@ export function createVariablePillPlugin(options: VariablePillOptions = {}): Mil
 			props: {
 				decorations(state) {
 					return this.getState(state);
+				},
+
+				handleKeyDown(view, event) {
+					const { state } = view;
+					const { selection } = state;
+
+					// Only handle when there's no text selection (cursor is collapsed)
+					if (!selection.empty) return false;
+
+					const pos = selection.from;
+
+					if (event.key === 'Backspace') {
+						// Check if cursor is right after a completed variable
+						let targetVar = findCompletedVariableAtPosition(
+							state.doc,
+							pos,
+							completedVariables,
+							'after'
+						);
+
+						// Also check if cursor is inside a completed variable
+						if (!targetVar) {
+							targetVar = findCompletedVariableAtPosition(
+								state.doc,
+								pos,
+								completedVariables,
+								'inside'
+							);
+						}
+
+						if (targetVar) {
+							// Delete the entire variable
+							const tr = state.tr.delete(targetVar.start, targetVar.end);
+							view.dispatch(tr);
+							return true; // Prevent default backspace behavior
+						}
+					}
+
+					if (event.key === 'Delete') {
+						// Check if cursor is right before a completed variable
+						let targetVar = findCompletedVariableAtPosition(
+							state.doc,
+							pos,
+							completedVariables,
+							'before'
+						);
+
+						// Also check if cursor is inside a completed variable
+						if (!targetVar) {
+							targetVar = findCompletedVariableAtPosition(
+								state.doc,
+								pos,
+								completedVariables,
+								'inside'
+							);
+						}
+
+						if (targetVar) {
+							// Delete the entire variable
+							const tr = state.tr.delete(targetVar.start, targetVar.end);
+							view.dispatch(tr);
+							return true; // Prevent default delete behavior
+						}
+					}
+
+					return false;
+				},
+
+				handleDOMEvents: {
+					mousedown(view, event) {
+						const target = event.target as HTMLElement;
+
+						// Handle click on delete button
+						if (target.classList.contains('variable-pill-delete')) {
+							const start = parseInt(target.getAttribute('data-start') || '0', 10);
+							const end = parseInt(target.getAttribute('data-end') || '0', 10);
+
+							if (start !== end) {
+								const tr = view.state.tr.delete(start, end);
+								view.dispatch(tr);
+								event.preventDefault();
+								event.stopPropagation();
+								return true;
+							}
+						}
+
+						return false;
+					}
 				}
 			}
 		});

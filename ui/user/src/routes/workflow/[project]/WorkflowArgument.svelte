@@ -67,7 +67,7 @@
 	</div>
 	<div class="flex flex-col gap-0.5 px-2">
 		<input
-			class="ghost-input text-md relative z-10"
+			class="ghost-input text-md relative z-10 font-semibold"
 			bind:value={arg.displayLabel}
 			placeholder="Display Label"
 		/>

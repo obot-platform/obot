@@ -416,5 +416,36 @@
 			font-weight: 500;
 			white-space: nowrap;
 		}
+
+		/* Completed variable pill - behaves as atomic unit */
+		.milkdown .ProseMirror .variable-pill-completed {
+			background-color: color-mix(in oklab, var(--color-primary) 25%, transparent);
+			cursor: default;
+			user-select: all;
+			border-top-right-radius: 0;
+			border-bottom-right-radius: 0;
+		}
+
+		/* Delete button for completed variable pills */
+		.milkdown .ProseMirror .variable-pill-delete {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			margin-right: 0.125rem;
+			border-top-right-radius: 9999px;
+			border-bottom-right-radius: 9999px;
+			padding: 0.125rem 0.5rem 0.125rem 0rem;
+			color: var(--color-primary);
+			background-color: color-mix(in oklab, var(--color-primary) 25%, transparent);
+			cursor: pointer;
+			transition: background-color 0.15s ease;
+			font-size: 0.875rem;
+			font-weight: 300;
+			height: 23px;
+		}
+
+		.milkdown .ProseMirror .variable-pill-delete:hover {
+			color: var(--color-on-background);
+		}
 	}
 </style>

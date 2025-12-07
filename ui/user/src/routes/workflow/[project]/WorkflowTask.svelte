@@ -1,6 +1,6 @@
 <script lang="ts">
 	import MarkdownTextEditor from '$lib/components/admin/MarkdownTextEditor.svelte';
-	import { createVariablePillPlugin } from '$lib/components/admin/variablePillPlugin';
+	import { createVariablePillPlugin } from './variablePillPlugin';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { ReceiptText, Trash2 } from 'lucide-svelte';

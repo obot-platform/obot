@@ -29,7 +29,6 @@
 	import WorkflowArguments from './WorkflowArguments.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import { tickStep } from 'd3';
 
 	let { data } = $props();
 	initProjectMCPs(data.mcps ?? []);
@@ -486,7 +485,7 @@ Send the drafted email.
 					{#if notification.type === 'argument_addition'}
 						<p class="flex-shrink-0 text-sm font-light">Add argument details to workflow?</p>
 						<button
-							class="button-primary px-2 py-1 text-xs"
+							class="button-primary w-fit px-2 py-1 text-xs"
 							onclick={async () => {
 								workflow.arguments = workflow.arguments.map((arg) =>
 									arg.id === notification.id ? { ...arg, visible: true } : arg
@@ -500,6 +499,8 @@ Send the drafted email.
 										behavior: 'smooth'
 									});
 								}
+
+								notifications = notifications.filter((n) => n.id !== notification.id);
 							}}
 						>
 							Add
@@ -509,9 +510,12 @@ Send the drafted email.
 							Remove existing argument details from workflow?
 						</p>
 						<button
-							class="button px-2 py-1 text-xs"
+							class="button w-fit px-2 py-1 text-xs"
 							onclick={() => {
-								workflow.arguments = workflow.arguments.filter((arg) => arg.id !== notification.id);
+								workflow.arguments = workflow.arguments.filter(
+									(arg) => arg.name !== notification.name
+								);
+								notifications = notifications.filter((n) => n.id !== notification.id);
 							}}
 						>
 							Remove
