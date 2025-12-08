@@ -2,7 +2,6 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import { responsive } from '$lib/stores';
 	import {
-		BadgeAlert,
 		GripVertical,
 		OctagonAlert,
 		Play,
@@ -213,16 +212,13 @@ Send the drafted email.
 
 	function handleVariableDeletion(variable: string) {
 		if (variable.length === 0) return;
-		if (workflow.arguments.some((arg) => arg.name === variable)) {
+		const match = workflow.arguments.find((arg) => arg.name === variable);
+		if (match && match.visible) {
 			notifications.push({
-				id: variable,
+				id: match.id,
 				type: 'argument_deletion',
-				name: variable
+				name: match.name
 			});
-
-			setTimeout(() => {
-				notifications = notifications.filter((n) => n.id !== variable);
-			}, 5000);
 		}
 	}
 </script>
@@ -491,8 +487,8 @@ Send the drafted email.
 <div class="fixed right-0 bottom-0 z-100 m-4">
 	{#each notifications as notification (notification.id)}
 		<div
-			class="bg-background dark:bg-surface1 border-surface3 max-w-sm rounded-md border p-2"
-			transition:fly={{ x: 100, duration: 200 }}
+			class="bg-background dark:bg-surface1 border-surface3 mb-1 max-w-sm rounded-md border p-2"
+			transition:fly={{ x: 100, duration: 150 }}
 		>
 			<div class="flex w-full items-center justify-between gap-2">
 				<OctagonAlert class="text-primary mx-2 size-6" />
