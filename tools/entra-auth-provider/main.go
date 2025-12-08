@@ -79,6 +79,8 @@ func main() {
 	legacyOpts.LegacyProvider.ClientID = opts.ClientID
 	legacyOpts.LegacyProvider.ClientSecret = opts.ClientSecret
 	legacyOpts.LegacyProvider.AzureTenant = opts.TenantID
+	// Set OIDC issuer URL for Azure AD v2.0 endpoint
+	legacyOpts.LegacyProvider.OIDCIssuerURL = fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0", opts.TenantID)
 	// Request scopes for user info and groups
 	legacyOpts.LegacyProvider.Scope = "openid email profile offline_access User.Read GroupMember.Read.All"
 
@@ -86,6 +88,11 @@ func main() {
 	if err != nil {
 		fmt.Printf("ERROR: entra-auth-provider: failed to convert legacy options to new options: %v\n", err)
 		os.Exit(1)
+	}
+
+	// For multi-tenant apps, skip OIDC issuer verification since Azure returns {tenantid} template
+	if isMultiTenant(opts.TenantID) {
+		oauthProxyOpts.Providers[0].OIDCConfig.InsecureSkipIssuerVerification = true
 	}
 
 	// Server configuration
