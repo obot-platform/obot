@@ -379,7 +379,7 @@
 												id="identifier-{selectorIndex}-{identifierIndex}"
 												bind:value={selector.identifiers[identifierIndex]}
 												class="text-input-filled flex-1"
-												placeholder="e.g., tool name, resource URI"
+												placeholder="e.g.: tool name or resource URI"
 												disabled={readonly}
 											/>
 											{#if !readonly}
