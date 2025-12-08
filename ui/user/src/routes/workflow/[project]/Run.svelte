@@ -81,6 +81,8 @@
 					// 30 seconds after previous message
 					created: new Date(new Date().getTime() - 1000 * 30).toISOString(),
 					content: `
+This is the information about the company **Obot** that was found in Salesforce: 
+
 * **Account Name:** Obot
 * **Account Id:** \`0015g00000ABC123AA\`
 * **Account Owner:** Alex Johnson
@@ -88,7 +90,7 @@
 * **Billing Country:** United States
 * **Website:** \`https://www.obot.ai\`
 
-### New row for **Obot** in Demo Workflow LF Sheet
+I've added the following row for **Obot** in Demo Workflow LF Sheet:
 
 | Account Name | Membership Level | Join Date  | Status | Primary Contact Name | Primary Contact Email                       | Billing Contact | Billing Email                                     | Salesforce Account Id | Primary Opportunity Id | CSM Owner    | Region |
 | ------------ | ---------------- | ---------- | ------ | -------------------- | ------------------------------------------- | --------------- | ------------------------------------------------- | --------------------- | ---------------------- | ------------ | ------ |
@@ -102,10 +104,7 @@ Key points tied to your instructions:
 
 ---
 
-If you’d like, I can next:
-
-* Adjust the row to match a different column schema if your real sheet uses other headings, or
-* Add a few more mocked companies/rows in the same style for testing your workflow.
+If you’d like, I can add another company to the sheet.
  `
 				}
 			]
