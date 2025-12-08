@@ -14,9 +14,13 @@
 			displayLabel: string;
 		}[];
 		values: Record<string, string>;
+		run?: {
+			id: string;
+			created: string;
+		};
 	}
 
-	let { name, args, values }: Props = $props();
+	let { name, args, values, run }: Props = $props();
 
 	let showChat = $state(false);
 
@@ -134,11 +138,14 @@ If you’d like, I can next:
 </script>
 
 <div class="h-full w-full">
-	<h2 class="p-4 pr-12 text-xl font-semibold">
-		{name} | {formatTime(new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString())}
+	<h2
+		class="border-l-primary dark:border-b-surface2 border-b border-l-4 border-b-transparent p-4 pr-12 text-xl font-semibold shadow-xs"
+	>
+		{name}
+		{run?.created ? `| ${formatTime(run.created)}` : ''}
 	</h2>
 	<div class="default-scrollbar-thin relative h-[calc(100%-48px)] w-full overflow-y-auto">
-		<div class="mb-4 flex w-full flex-wrap gap-2 px-4">
+		<div class="mb-4 flex w-full flex-wrap gap-2 px-4 pt-4">
 			{#if args.length > 0}
 				{#each args as argument (argument.name)}
 					{#if values[argument.name]}

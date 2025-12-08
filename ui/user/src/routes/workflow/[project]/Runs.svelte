@@ -17,7 +17,19 @@
 	const runs = $state([
 		{
 			id: '1',
+			created: new Date(Date.now() - 1000 * 60 * 8).toISOString()
+		},
+		{
+			id: '2',
 			created: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString()
+		},
+		{
+			id: '3',
+			created: new Date('2025-12-07T12:05:00Z').toISOString()
+		},
+		{
+			id: '4',
+			created: new Date('2025-12-07T12:12:00Z').toISOString()
 		}
 	]);
 </script>

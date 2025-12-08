@@ -139,6 +139,14 @@ Send the drafted email.
 	});
 
 	let workflowRunOpen = $state(false);
+	let selectedRun = $state<
+		| {
+				id: string;
+				created: string;
+		  }
+		| undefined
+	>(undefined);
+
 	let runContainer = $state<HTMLDivElement>();
 	let navContainer = $state<HTMLDivElement>();
 	let workflowNameContainer = $state<HTMLDivElement>();
@@ -249,7 +257,13 @@ Send the drafted email.
 						<div class="mb-2 flex flex-col gap-8 px-4">
 							<!-- todo -->
 							{#if project}
-								<Runs {project} onSelectRun={() => (workflowRunOpen = true)} />
+								<Runs
+									{project}
+									onSelectRun={(run) => {
+										workflowRunOpen = true;
+										selectedRun = run;
+									}}
+								/>
 								<McpServers {project} />
 							{/if}
 						</div>
@@ -446,6 +460,7 @@ Send the drafted email.
 					values={{
 						CompanyName: 'Obot'
 					}}
+					run={selectedRun}
 				/>
 			</div>
 		</div>
