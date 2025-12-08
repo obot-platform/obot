@@ -225,28 +225,28 @@ func loadConfig() (Config, error) {
 	}
 
 	refreshDuration := time.Hour
-	if d := os.Getenv("GPTSCRIPT_TOKEN_REFRESH_DURATION"); d != "" {
+	if d := os.Getenv("OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION"); d != "" {
 		if parsed, err := time.ParseDuration(d); err == nil {
 			refreshDuration = parsed
 		}
 	}
 
 	cacheSize := defaultCacheSize
-	if s := os.Getenv("GPTSCRIPT_CACHE_SIZE"); s != "" {
+	if s := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CACHE_SIZE"); s != "" {
 		if _, err := fmt.Sscanf(s, "%d", &cacheSize); err != nil {
-			return Config{}, fmt.Errorf("invalid GPTSCRIPT_CACHE_SIZE: %w", err)
+			return Config{}, fmt.Errorf("invalid OBOT_ENTRA_AUTH_PROVIDER_CACHE_SIZE: %w", err)
 		}
 	}
 
 	cacheTTL := defaultCacheTTL
-	if t := os.Getenv("GPTSCRIPT_CACHE_TTL"); t != "" {
+	if t := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CACHE_TTL"); t != "" {
 		if parsed, err := time.ParseDuration(t); err == nil {
 			cacheTTL = parsed
 		}
 	}
 
 	logLevel := slog.LevelInfo
-	if l := os.Getenv("GPTSCRIPT_LOG_LEVEL"); l != "" {
+	if l := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_LOG_LEVEL"); l != "" {
 		switch strings.ToLower(l) {
 		case "debug":
 			logLevel = slog.LevelDebug
@@ -258,38 +258,38 @@ func loadConfig() (Config, error) {
 	}
 
 	// Check for workload identity
-	useWorkloadIdentity := os.Getenv("GPTSCRIPT_USE_WORKLOAD_IDENTITY") == "true"
+	useWorkloadIdentity := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_USE_WORKLOAD_IDENTITY") == "true"
 
 	// Validate and decode cookie secret
-	cookieSecretB64 := os.Getenv("GPTSCRIPT_COOKIE_SECRET")
+	cookieSecretB64 := os.Getenv("OBOT_AUTH_PROVIDER_COOKIE_SECRET")
 	if cookieSecretB64 == "" {
-		return Config{}, errors.New("GPTSCRIPT_COOKIE_SECRET is required")
+		return Config{}, errors.New("OBOT_AUTH_PROVIDER_COOKIE_SECRET is required")
 	}
 
 	cookieBytes, err := base64.StdEncoding.DecodeString(cookieSecretB64)
 	if err != nil {
-		return Config{}, fmt.Errorf("GPTSCRIPT_COOKIE_SECRET must be valid base64: %w", err)
+		return Config{}, fmt.Errorf("OBOT_AUTH_PROVIDER_COOKIE_SECRET must be valid base64: %w", err)
 	}
 
 	switch len(cookieBytes) {
 	case 16, 24, 32:
 		// Valid AES key lengths
 	default:
-		return Config{}, fmt.Errorf("GPTSCRIPT_COOKIE_SECRET must decode to 16, 24, or 32 bytes (got %d)", len(cookieBytes))
+		return Config{}, fmt.Errorf("OBOT_AUTH_PROVIDER_COOKIE_SECRET must decode to 16, 24, or 32 bytes (got %d)", len(cookieBytes))
 	}
 
 	// Validate authentication method
-	clientSecret := os.Getenv("GPTSCRIPT_CLIENT_SECRET")
-	clientCertPath := os.Getenv("GPTSCRIPT_CLIENT_CERT_PATH")
-	clientKeyPath := os.Getenv("GPTSCRIPT_CLIENT_KEY_PATH")
+	clientSecret := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CLIENT_SECRET")
+	clientCertPath := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CLIENT_CERT_PATH")
+	clientKeyPath := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CLIENT_KEY_PATH")
 
 	if !useWorkloadIdentity && clientSecret == "" && clientCertPath == "" {
-		return Config{}, errors.New("one of GPTSCRIPT_CLIENT_SECRET, GPTSCRIPT_USE_WORKLOAD_IDENTITY=true, or GPTSCRIPT_CLIENT_CERT_PATH must be set")
+		return Config{}, errors.New("one of OBOT_ENTRA_AUTH_PROVIDER_CLIENT_SECRET, OBOT_ENTRA_AUTH_PROVIDER_USE_WORKLOAD_IDENTITY=true, or OBOT_ENTRA_AUTH_PROVIDER_CLIENT_CERT_PATH must be set")
 	}
 
 	// Parse allowed groups
 	var allowedGroups []string
-	if groups := os.Getenv("GPTSCRIPT_ALLOWED_GROUPS"); groups != "" {
+	if groups := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_GROUPS"); groups != "" {
 		allowedGroups = strings.Split(groups, ",")
 		for i := range allowedGroups {
 			allowedGroups[i] = strings.TrimSpace(allowedGroups[i])
@@ -298,11 +298,11 @@ func loadConfig() (Config, error) {
 
 	// Parse allowed tenants (required for multi-tenant)
 	var allowedTenants []string
-	tenantID := os.Getenv("GPTSCRIPT_TENANT_ID")
+	tenantID := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID")
 	if isMultiTenant(tenantID) {
-		tenantsEnv := os.Getenv("GPTSCRIPT_ALLOWED_TENANTS")
+		tenantsEnv := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS")
 		if tenantsEnv == "" {
-			return Config{}, errors.New("GPTSCRIPT_ALLOWED_TENANTS is required when tenant_id is 'common' or 'organizations'")
+			return Config{}, errors.New("OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS is required when tenant_id is 'common' or 'organizations'")
 		}
 		allowedTenants = strings.Split(tenantsEnv, ",")
 		for i := range allowedTenants {
@@ -312,7 +312,7 @@ func loadConfig() (Config, error) {
 
 	// Parse allowed email domains
 	var allowedEmailDomains []string
-	if domains := os.Getenv("GPTSCRIPT_ALLOWED_EMAIL_DOMAINS"); domains != "" {
+	if domains := os.Getenv("OBOT_AUTH_PROVIDER_EMAIL_DOMAINS"); domains != "" {
 		allowedEmailDomains = strings.Split(domains, ",")
 		for i := range allowedEmailDomains {
 			allowedEmailDomains[i] = strings.TrimSpace(allowedEmailDomains[i])
@@ -321,12 +321,12 @@ func loadConfig() (Config, error) {
 
 	// Metrics enabled by default
 	metricsEnabled := true
-	if m := os.Getenv("GPTSCRIPT_METRICS_ENABLED"); m == "false" {
+	if m := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_METRICS_ENABLED"); m == "false" {
 		metricsEnabled = false
 	}
 
 	return Config{
-		ClientID:             os.Getenv("GPTSCRIPT_CLIENT_ID"),
+		ClientID:             os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID"),
 		ClientSecret:         clientSecret,
 		TenantID:             tenantID,
 		CookieSecret:         cookieBytes,

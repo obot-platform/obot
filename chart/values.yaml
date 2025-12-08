@@ -153,6 +153,9 @@ config:
   # config.OBOT_SERVER_DISABLE_UPDATE_CHECK -- Disable the Obot server update check. Defaults to false.
   OBOT_SERVER_DISABLE_UPDATE_CHECK: ""
 
+  # config.OBOT_SERVER_TOOL_REGISTRIES -- Comma-separated list of tool registry paths or URLs. Set to include custom auth providers like Entra ID.
+  OBOT_SERVER_TOOL_REGISTRIES: "/obot-tools-custom"
+
 # extraEnv -- A map of additional environment variables to set
 extraEnv: {}
 

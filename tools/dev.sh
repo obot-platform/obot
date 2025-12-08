@@ -89,6 +89,9 @@ trap cleanup INT TERM
 (
   print_section_header 183 "Starting server..."
 
+  # Source environment variables for the server
+  source .envrc.dev
+
   go run main.go server --dev-mode 2>&1 | while IFS= read -r line; do
     print_with_color 183 "[server]" " $line"
   done

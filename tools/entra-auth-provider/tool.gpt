@@ -1,40 +1,80 @@
 Name: Entra
 Description: Auth provider for Microsoft Entra ID (Azure AD)
-Daemon: true
-Metadata: icon=https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/media/entra-id.png
-Metadata: link=https://entra.microsoft.com
-Metadata: postgresTablePrefix=entra_
+Metadata: noUserAuth: entra-auth-provider
+Credential: ../placeholder-credential as entra-auth-provider
 
-# Required configuration parameters
-Param: client_id: The Application (client) ID from Azure App Registration (required)
-Param: tenant_id: The Directory (tenant) ID, or 'common'/'organizations' for multi-tenant (required)
-Param: cookie_secret: Base64-encoded secret (must decode to 16, 24, or 32 bytes for AES) (required, sensitive)
-Param: allowed_email_domains: Comma-separated list of allowed email domains, or * to allow all (required)
-
-# Authentication method (choose one)
-Param: client_secret: The client secret value from Certificates & secrets. Not required if using workload_identity or certificate auth. (optional, sensitive)
-Param: use_workload_identity: Enable Azure Workload Identity authentication for Kubernetes (eliminates client_secret). (optional, default: false)
-Param: client_cert_path: Path to client certificate PEM file for certificate-based auth. (optional)
-Param: client_key_path: Path to client private key PEM file for certificate-based auth. (optional)
-
-# Optional configuration parameters
-Param: postgres_dsn: PostgreSQL DSN for session storage. If not set, sessions are stored in cookies. (optional, env: OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN)
-Param: token_refresh_duration: How often to refresh the access token. Defaults to 1 hour. (optional)
-Param: allowed_groups: Comma-separated list of Azure AD group IDs that are allowed to authenticate. Leave empty to allow all groups. (optional)
-Param: allowed_tenants: Comma-separated list of tenant IDs allowed for multi-tenant apps. Required if tenant_id is 'common' or 'organizations'. (optional)
-Param: cache_size: Maximum number of user states to cache. Defaults to 5000. (optional)
-Param: cache_ttl: Cache TTL duration. Defaults to 1h. (optional)
-Param: log_level: Logging level (debug, info, warn, error). Defaults to info. (optional)
-Param: metrics_enabled: Enable Prometheus metrics endpoint at /metrics. Defaults to true. (optional)
-
-#!sys.daemon /bin/gptscript-go-tool
+#!sys.daemon ${GPTSCRIPT_TOOL_DIR}/bin/gptscript-go-tool
 
 ---
-!metadata:Entra:bundle
-true
-
----
-Name: Entra Credential
-Type: credential
----
-#!sys.echo
+!metadata:Entra:providerMeta
+{
+    "icon": "https://learn.microsoft.com/en-us/entra/fundamentals/media/new-name/entra-icon.png",
+    "link": "https://entra.microsoft.com",
+    "postgresTablePrefix": "entra_",
+    "envVars": [
+        {
+            "name": "OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID",
+            "friendlyName": "Client ID",
+            "description": "The Application (client) ID from your Azure App Registration.",
+            "sensitive": false
+        },
+        {
+            "name": "OBOT_ENTRA_AUTH_PROVIDER_CLIENT_SECRET",
+            "friendlyName": "Client Secret",
+            "description": "The client secret value from Certificates & secrets in your Azure App Registration.",
+            "sensitive": true
+        },
+        {
+            "name": "OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID",
+            "friendlyName": "Tenant ID",
+            "description": "The Directory (tenant) ID, or 'common'/'organizations' for multi-tenant apps.",
+            "sensitive": false
+        },
+        {
+            "name": "OBOT_AUTH_PROVIDER_COOKIE_SECRET",
+            "friendlyName": "Cookie Secret",
+            "description": "Secret used to encrypt cookies. Must be a base64-encoded string that decodes to 16, 24, or 32 bytes.",
+            "sensitive": true,
+            "hidden": true
+        },
+        {
+            "name": "OBOT_AUTH_PROVIDER_EMAIL_DOMAINS",
+            "friendlyName": "Allowed E-Mail Domains",
+            "description": "A comma-separated list of email domains allowed to authenticate. Use * to allow all domains.",
+            "sensitive": false
+        }
+    ],
+    "optionalEnvVars": [
+        {
+            "name": "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN",
+            "friendlyName": "PostgreSQL Connection String (DSN)",
+            "description": "The connection string for PostgreSQL session storage. If unset, cookies will be used instead.",
+            "sensitive": true,
+            "hidden": true
+        },
+        {
+            "name": "OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION",
+            "friendlyName": "Token Refresh Duration",
+            "description": "Time before refreshing auth tokens. Format: 1h1m1s. Default: 1h",
+            "sensitive": false
+        },
+        {
+            "name": "OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_GROUPS",
+            "friendlyName": "Allowed Azure AD Groups",
+            "description": "Comma-separated list of Azure AD group IDs allowed to authenticate. Leave empty to allow all groups.",
+            "sensitive": false
+        },
+        {
+            "name": "OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS",
+            "friendlyName": "Allowed Tenant IDs",
+            "description": "Comma-separated list of tenant IDs allowed for multi-tenant apps. Required if Tenant ID is 'common' or 'organizations'.",
+            "sensitive": false
+        },
+        {
+            "name": "OBOT_ENTRA_AUTH_PROVIDER_USE_WORKLOAD_IDENTITY",
+            "friendlyName": "Use Workload Identity",
+            "description": "Enable Azure Workload Identity for Kubernetes (eliminates need for client secret). Set to 'true' to enable.",
+            "sensitive": false
+        }
+    ]
+}

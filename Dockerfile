@@ -16,7 +16,8 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
   --mount=type=cache,target=/root/.cache/go-build \
   --mount=type=cache,target=/root/.cache/uv \
   --mount=type=cache,target=/root/go/pkg/mod \
-  make all
+  make all && \
+  cd tools/entra-auth-provider && make build
 
 FROM cgr.dev/chainguard/wolfi-base:latest AS final-base
 RUN addgroup -g 70 postgres && \
@@ -70,6 +71,11 @@ COPY --chmod=0755 run.sh /bin/run.sh
 COPY --link --from=tools /obot-tools /obot-tools
 COPY --link --from=enterprise-tools /obot-tools /obot-tools
 COPY --link --from=provider /obot-tools /obot-tools
+
+# Copy custom Entra ID auth provider to separate directory to avoid conflicts
+COPY --from=bin /app/tools/index.yaml /obot-tools-custom/
+COPY --from=bin /app/tools/entra-auth-provider/tool.gpt /obot-tools-custom/entra-auth-provider/
+COPY --from=bin /app/tools/entra-auth-provider/bin/gptscript-go-tool /obot-tools-custom/entra-auth-provider/
 COPY --chmod=0755 /tools/combine-envrc.sh /
 RUN /combine-envrc.sh && rm /combine-envrc.sh
 COPY --from=provider /bin/*-encryption-provider /bin/
@@ -83,6 +89,8 @@ ENV XDG_CACHE_HOME=/data/cache
 ENV OBOT_SERVER_AGENTS_DIR=/agents
 ENV TERM=vt100
 ENV OBOT_CONTAINER_ENV=true
+# Include custom Entra ID auth provider registry alongside default tools
+ENV OBOT_SERVER_TOOL_REGISTRIES=/obot-tools-custom
 WORKDIR /data
 VOLUME /data
 ENTRYPOINT ["run.sh"]
