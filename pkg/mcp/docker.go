@@ -42,7 +42,7 @@ type dockerBackend struct {
 	auditLogsFlushIntervalSeconds int
 }
 
-func newDockerBackend(ctx context.Context, opts Options) (backend, error) {
+func newDockerBackend(ctx context.Context, publicPort int, opts Options) (backend, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
@@ -50,7 +50,7 @@ func newDockerBackend(ctx context.Context, opts Options) (backend, error) {
 
 	containerEnv := os.Getenv("OBOT_CONTAINER_ENV") == "true"
 	network := "bridge"
-	host := "host.docker.internal"
+	host := fmt.Sprintf("host.docker.internal:%d", publicPort)
 	if containerEnv {
 		network, host, err = detectCurrentNetworkIPAndPort(ctx, cli)
 		if err != nil {
