@@ -260,6 +260,7 @@ Send the drafted email.
 										workflowRunOpen = true;
 										selectedRun = run;
 									}}
+									selected={selectedRun?.id}
 								/>
 								<McpServers {project} />
 							{/if}

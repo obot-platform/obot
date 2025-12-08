@@ -10,9 +10,10 @@
 		project: Project;
 		currentThreadID?: string;
 		onSelectRun: (run: any) => void;
+		selected?: string;
 	}
 
-	let { currentThreadID = $bindable(), onSelectRun }: Props = $props();
+	let { currentThreadID = $bindable(), onSelectRun, selected }: Props = $props();
 	const layout = getLayout();
 	const runs = $state([
 		{
@@ -43,9 +44,8 @@
 			<li class="flex min-h-9 flex-col">
 				<div
 					class={twMerge(
-						'hover:bg-surface3/90 active:bg-surface3/100 group mb-[2px] flex items-center rounded-md font-light transition-colors duration-200'
-						// layout.editTaskID === task.id && 'bg-surface3/60',
-						// layout.displayTaskRun && layout.displayTaskRun.taskID === task.id && 'font-medium'
+						'hover:bg-surface3/90 active:bg-surface3/100 group mb-[2px] flex items-center rounded-md font-light transition-colors duration-200',
+						selected === run.id && 'bg-surface3/60 font-medium'
 					)}
 				>
 					<div class="flex grow items-center gap-1 truncate pl-1.5">
