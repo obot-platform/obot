@@ -92,8 +92,7 @@
 	bind:this={dialog}
 	{onClose}
 	{onOpen}
-	class="p-0"
-	classes={{ header: 'p-4 pb-0' }}
+	classes={{ header: 'p-4 pb-0', content: 'p-0' }}
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2 pb-0">

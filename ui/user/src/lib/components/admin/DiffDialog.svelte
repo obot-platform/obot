@@ -22,7 +22,11 @@
 	}
 </script>
 
-<ResponsiveDialog bind:this={diffDialog} class="h-dvh w-full max-w-full p-0 md:w-[calc(100vw-2em)]">
+<ResponsiveDialog
+	bind:this={diffDialog}
+	class="h-dvh w-full max-w-full md:w-[calc(100vw-2em)]"
+	classes={{ content: 'p-0' }}
+>
 	{#snippet titleContent()}
 		{#if fromServer?.manifest}
 			<div class="flex items-center gap-2 md:p-4 md:pb-0">

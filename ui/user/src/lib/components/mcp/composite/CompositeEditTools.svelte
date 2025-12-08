@@ -42,7 +42,8 @@
 	bind:this={dialog}
 	animate="slide"
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
-	class="bg-surface1 pb-0 md:w-2xl"
+	class="bg-surface1 md:w-2xl"
+	classes={{ content: 'pb-0' }}
 	onClose={() => onClose?.()}
 >
 	<p class="text-on-surface1 mb-4 text-xs font-light">

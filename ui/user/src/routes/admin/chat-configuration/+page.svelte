@@ -363,9 +363,10 @@
 <ResponsiveDialog
 	bind:this={showAddModelsDialog}
 	title="Add Models"
-	class="dark:bg-surface1 p-0"
+	class="dark:bg-surface1"
 	classes={{
-		header: 'p-4 pb-0'
+		header: 'p-4 pb-0',
+		content: 'p-0'
 	}}
 	onClose={() => {
 		addModelsSearch = '';
