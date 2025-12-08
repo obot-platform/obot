@@ -81,8 +81,9 @@ func main() {
 	legacyOpts.LegacyProvider.AzureTenant = opts.TenantID
 	// Set OIDC issuer URL for Azure AD v2.0 endpoint
 	legacyOpts.LegacyProvider.OIDCIssuerURL = fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0", opts.TenantID)
-	// Request scopes for user info and groups
-	legacyOpts.LegacyProvider.Scope = "openid email profile offline_access User.Read GroupMember.Read.All"
+	// Request OIDC scopes only - Graph API permissions should be configured in Azure App Registration
+	// Note: Don't mix .default with resource-specific scopes (Azure doesn't allow it)
+	legacyOpts.LegacyProvider.Scope = "openid email profile offline_access"
 
 	oauthProxyOpts, err := legacyOpts.ToOptions()
 	if err != nil {
