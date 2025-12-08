@@ -454,14 +454,16 @@ Send the drafted email.
 				<X class="size-6" />
 			</button>
 			<div class="w-[calc(100%-24px)]">
-				<Run
-					name={workflow.name}
-					args={workflow.arguments}
-					values={{
-						CompanyName: 'Obot'
-					}}
-					run={selectedRun}
-				/>
+				{#key selectedRun?.id}
+					<Run
+						name={workflow.name}
+						args={workflow.arguments}
+						values={{
+							CompanyName: 'Obot'
+						}}
+						run={selectedRun}
+					/>
+				{/key}
 			</div>
 		</div>
 	</div>

@@ -3,7 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import { formatTime } from '$lib/time';
-	import { Copy, Edit, MessageCircleMore } from 'lucide-svelte';
+	import { Copy, Edit, MessageCircleMore, MessageCircleOff } from 'lucide-svelte';
 	import { fade, slide } from 'svelte/transition';
 	import ChatInput from '$lib/components/messages/Input.svelte';
 
@@ -224,34 +224,37 @@ If you’d like, I can next:
 				</div>
 			{/each}
 		</div>
-		{#if showChat}
-			<div
-				class="workflow-run bg-background dark:bg-surface2 sticky bottom-0 left-0 w-full p-4 pb-8"
-				in:slide={{ axis: 'y' }}
-			>
-				<ChatInput
-					classes={{
-						root: 'mt-0'
-					}}
-					onSubmit={async (i) => {
-						//	await thread?.invoke(i);
-					}}
-					placeholder="What can I help with?"
-				/>
-			</div>
-		{:else}
-			<div class="sticky bottom-0 left-0 w-full p-4 pb-8" in:slide={{ axis: 'y' }}>
-				<div class="flex w-full justify-end">
-					<button
-						class="button-icon bg-primary text-white transition-all hover:scale-110"
-						onclick={() => (showChat = !showChat)}
-						use:tooltip={'Open Chat'}
-					>
+		<div class="sticky bottom-0 left-0 w-full pb-4">
+			<div class="flex w-full justify-end pr-6" class:pb-4={!showChat} class:pb-1={showChat}>
+				<button
+					class="button-icon bg-primary text-white transition-all hover:scale-110"
+					onclick={() => (showChat = !showChat)}
+					use:tooltip={'Toggle chat'}
+				>
+					{#if showChat}
+						<MessageCircleOff class="size-6" />
+					{:else}
 						<MessageCircleMore class="size-6" />
-					</button>
-				</div>
+					{/if}
+				</button>
 			</div>
-		{/if}
+			{#if showChat}
+				<div
+					class="workflow-run bg-background dark:bg-surface2 w-full p-4"
+					in:slide={{ axis: 'y' }}
+				>
+					<ChatInput
+						classes={{
+							root: 'mt-0'
+						}}
+						onSubmit={async (i) => {
+							//	await thread?.invoke(i);
+						}}
+						placeholder="What can I help with?"
+					/>
+				</div>
+			{/if}
+		</div>
 	</div>
 </div>
 
