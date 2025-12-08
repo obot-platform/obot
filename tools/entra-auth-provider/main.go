@@ -182,29 +182,10 @@ func main() {
 		json.NewEncoder(w).Encode(userInfo)
 	})
 
-	// Groups endpoint - lists user's Azure AD groups
+	// Groups endpoint - return 404 as groups are fetched via getState instead
+	// (The gateway doesn't provide an access token to this endpoint, so we can't fetch groups here)
 	mux.HandleFunc("/obot-list-user-auth-groups", func(w http.ResponseWriter, r *http.Request) {
-		accessToken := r.Header.Get("Authorization")
-		if accessToken == "" {
-			http.Error(w, "no authorization header", http.StatusUnauthorized)
-			return
-		}
-
-		// Remove "Bearer " prefix if present
-		accessToken = strings.TrimPrefix(accessToken, "Bearer ")
-
-		groups, err := fetchUserGroups(r.Context(), accessToken)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("failed to fetch groups: %v", err), http.StatusInternalServerError)
-			return
-		}
-
-		// Apply group filtering if configured
-		if len(allowedGroups) > 0 {
-			groups = filterGroups(groups, allowedGroups)
-		}
-
-		json.NewEncoder(w).Encode(map[string][]string{"groups": groups})
+		w.WriteHeader(http.StatusNotFound)
 	})
 
 	// Catch-all route - delegates to oauth2-proxy for OAuth flow handling
