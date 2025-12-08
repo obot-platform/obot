@@ -515,26 +515,30 @@ func convertSystemMCPServer(ctx context.Context, gptClient *gptscript.GPTScript,
 
 	// Find missing required env vars and headers
 	credCtx := server.Name
-	creds, err := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
+	creds, _ := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
 		CredentialContexts: []string{credCtx},
 	})
 
-	credMap := make(map[string]bool)
-	if err == nil {
-		for _, cred := range creds {
-			credMap[cred.ToolName] = true
+	credEnv := make(map[string]string)
+	for _, cred := range creds {
+		credDetail, err := gptClient.RevealCredential(ctx, []string{credCtx}, cred.ToolName)
+		if err != nil {
+			continue
+		}
+		for k, v := range credDetail.Env {
+			credEnv[k] = v
 		}
 	}
 
 	for _, env := range server.Spec.Manifest.Env {
-		if env.Required && env.Sensitive && !credMap[env.Key] {
+		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
 			result.MissingRequiredEnvVars = append(result.MissingRequiredEnvVars, env.Key)
 		}
 	}
 
 	if server.Spec.Manifest.RemoteConfig != nil {
 		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
-			if header.Required && header.Sensitive && !credMap[header.Key] {
+			if header.Required && header.Value == "" && credEnv[header.Key] == "" {
 				result.MissingRequiredHeaders = append(result.MissingRequiredHeaders, header.Key)
 			}
 		}
@@ -553,20 +557,26 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 		return false
 	}
 
-	credMap := make(map[string]bool)
+	credEnv := make(map[string]string)
 	for _, cred := range creds {
-		credMap[cred.ToolName] = true
+		credDetail, err := gptClient.RevealCredential(ctx, []string{credCtx}, cred.ToolName)
+		if err != nil {
+			continue
+		}
+		for k, v := range credDetail.Env {
+			credEnv[k] = v
+		}
 	}
 
 	for _, env := range server.Spec.Manifest.Env {
-		if env.Required && env.Sensitive && !credMap[env.Key] {
+		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
 			return false
 		}
 	}
 
 	if server.Spec.Manifest.RemoteConfig != nil {
 		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
-			if header.Required && header.Sensitive && !credMap[header.Key] {
+			if header.Required && header.Value == "" && credEnv[header.Key] == "" {
 				return false
 			}
 		}

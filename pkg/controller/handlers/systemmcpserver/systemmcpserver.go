@@ -38,7 +38,11 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 
 	// Check if server is fully configured
 	if !isSystemServerConfigured(req.Ctx, h.gptClient, *systemServer) {
-		// Server is not fully configured, cannot deploy
+		// Server is not fully configured, ensure any existing deployment is removed
+		err := h.mcpSessionManager.ShutdownServer(req.Ctx, systemServer.Name)
+		if err != nil {
+			return fmt.Errorf("failed to shutdown unconfigured system MCP server: %w", err)
+		}
 		return nil
 	}
 
@@ -114,20 +118,26 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 		return false
 	}
 
-	credMap := make(map[string]bool)
+	credEnv := make(map[string]string)
 	for _, cred := range creds {
-		credMap[cred.ToolName] = true
+		credDetail, err := gptClient.RevealCredential(ctx, []string{credCtx}, cred.ToolName)
+		if err != nil {
+			continue
+		}
+		for k, v := range credDetail.Env {
+			credEnv[k] = v
+		}
 	}
 
 	for _, env := range server.Spec.Manifest.Env {
-		if env.Required && env.Sensitive && !credMap[env.Key] {
+		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
 			return false
 		}
 	}
 
 	if server.Spec.Manifest.RemoteConfig != nil {
 		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
-			if header.Required && header.Sensitive && !credMap[header.Key] {
+			if header.Required && header.Value == "" && credEnv[header.Key] == "" {
 				return false
 			}
 		}

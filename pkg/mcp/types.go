@@ -492,23 +492,39 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[str
 		if systemServer.Spec.Manifest.RemoteConfig != nil {
 			serverConfig.URL = expandEnvVars(systemServer.Spec.Manifest.RemoteConfig.URL, credEnv, fileEnvVars)
 
+			// Add headers from remote config
+			serverConfig.Headers = make([]string, 0, len(systemServer.Spec.Manifest.RemoteConfig.Headers))
 			for _, header := range systemServer.Spec.Manifest.RemoteConfig.Headers {
-				val := header.Value
-				// If the header is sensitive and marked as required, get it from credEnv
-				if header.Sensitive {
-					if envVal, ok := credEnv[header.Key]; ok {
-						val = envVal
-					} else if header.Required {
-						missingRequiredNames = append(missingRequiredNames, header.Key)
-						continue
+				var (
+					val      string
+					hasValue bool
+				)
+
+				// Check for static value first
+				if header.Value != "" {
+					val = header.Value
+					hasValue = true
+				} else {
+					// Fall back to user-configured value from credentials
+					credVal, ok := credEnv[header.Key]
+					if ok && credVal != "" {
+						val = credVal
+						hasValue = true
 					}
 				}
 
-				// Expand environment variables in the value
-				val = expandEnvVars(val, credEnv, fileEnvVars)
+				if !hasValue {
+					if header.Required {
+						missingRequiredNames = append(missingRequiredNames, header.Key)
+					}
+					continue
+				}
 
-				// Apply prefix if specified (e.g., "Bearer ", "sk-")
-				val = applyPrefix(val, header.Prefix)
+				// Apply prefix if specified (e.g., "Bearer ", "Token ")
+				// Only apply to user-supplied values, not static values
+				if header.Value == "" {
+					val = applyPrefix(val, header.Prefix)
+				}
 
 				serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
 			}
@@ -517,22 +533,11 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[str
 
 	// Process environment variables
 	for _, env := range systemServer.Spec.Manifest.Env {
-		val := env.Value
-		// If the env var is sensitive and marked as required, get it from credEnv
-		if env.Sensitive {
-			if envVal, ok := credEnv[env.Key]; ok {
-				val = envVal
-			} else if env.Required {
+		val, ok := credEnv[env.Key]
+		if !ok || val == "" {
+			if env.Required {
 				missingRequiredNames = append(missingRequiredNames, env.Key)
-				continue
 			}
-		}
-
-		// Expand environment variables in the value
-		val = expandEnvVars(val, credEnv, fileEnvVars)
-
-		// Skip if value is still empty after all processing
-		if val == "" {
 			continue
 		}
 
