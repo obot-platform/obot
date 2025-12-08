@@ -16,6 +16,7 @@ import (
 	oauth2proxy "github.com/oauth2-proxy/oauth2-proxy/v7"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/options"
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/validation"
+	"github.com/obot-platform/obot-entraid/tools/entra-auth-provider/pkg/profile"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/env"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/state"
 )
@@ -213,6 +214,23 @@ func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string) http.HandlerFun
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to get state: %v", err), http.StatusInternalServerError)
 			return
+		}
+
+		// Extract Azure OID from ID token and set as User
+		// This is required because oauth2-proxy's azure provider doesn't populate ss.User correctly
+		// (known bug #3165: userIDClaim setting doesn't work)
+		if ss.IDToken != "" {
+			userProfile, err := profile.ParseIDToken(ss.IDToken)
+			if err != nil {
+				fmt.Printf("WARNING: entra-auth-provider: failed to parse ID token: %v\n", err)
+			} else {
+				// Set User to Azure Object ID (stable identifier)
+				ss.User = userProfile.OID
+				// Preserve original preferred_username from token if not set
+				if ss.PreferredUsername == "" && userProfile.PreferredUsername != "" {
+					ss.PreferredUsername = userProfile.PreferredUsername
+				}
+			}
 		}
 
 		// Enrich with groups from Microsoft Graph

@@ -6,6 +6,7 @@ go 1.25.3
 replace github.com/oauth2-proxy/oauth2-proxy/v7 => github.com/obot-platform/oauth2-proxy/v7 v7.0.0-20251112215948-0f320f3720bb
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.2.3
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/oauth2-proxy/oauth2-proxy/v7 v7.8.1
 	github.com/obot-platform/tools/auth-providers-common v0.0.0-20251106020319-94c074309ab3
@@ -31,7 +32,6 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
-	github.com/golang-jwt/jwt/v5 v5.2.3 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.6 // indirect
