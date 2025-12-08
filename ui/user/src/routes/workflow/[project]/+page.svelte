@@ -389,9 +389,9 @@ Send the drafted email.
 										await tick();
 										const latestTask = document.querySelector('.workflow-task:last-child');
 										if (latestTask) {
-											workflowContainer?.scrollTo({
-												top: latestTask.getBoundingClientRect().top + 64,
-												behavior: 'smooth'
+											latestTask.scrollIntoView({
+												behavior: 'smooth',
+												block: 'end'
 											});
 										}
 									}}
@@ -412,9 +412,9 @@ Send the drafted email.
 										await tick();
 										const latestArgument = document.querySelector('.workflow-argument:last-child');
 										if (latestArgument) {
-											workflowContainer?.scrollTo({
-												top: latestArgument.getBoundingClientRect().top + 64,
-												behavior: 'smooth'
+											latestArgument.scrollIntoView({
+												behavior: 'smooth',
+												block: 'end'
 											});
 										}
 									}}
