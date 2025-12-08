@@ -297,7 +297,9 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 
 	// Stream logs using the helper (handles SSE formatting, Docker header stripping, etc.)
 	return StreamLogs(req.Context(), req.ResponseWriter, logs, StreamLogsOptions{
-		SendEnded: true,
+		SendKeepAlive:  true,
+		SendDisconnect: true,
+		SendEnded:      true,
 	})
 }
 
