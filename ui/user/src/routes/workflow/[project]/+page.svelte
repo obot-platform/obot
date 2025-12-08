@@ -4,6 +4,7 @@
 	import {
 		BadgeAlert,
 		GripVertical,
+		OctagonAlert,
 		Play,
 		Plus,
 		Settings,
@@ -490,11 +491,11 @@ Send the drafted email.
 <div class="fixed right-0 bottom-0 z-100 m-4">
 	{#each notifications as notification (notification.id)}
 		<div
-			class="bg-background dark:bg-surface1 border-surface3 w-sm rounded-md border p-2"
+			class="bg-background dark:bg-surface1 border-surface3 max-w-sm rounded-md border p-2"
 			transition:fly={{ x: 100, duration: 200 }}
 		>
-			<div class="flex w-full items-center justify-evenly gap-2">
-				<BadgeAlert class="size-6" />
+			<div class="flex w-full items-center justify-between gap-2">
+				<OctagonAlert class="text-primary mx-2 size-6" />
 				<div class="flex flex-col gap-0.5">
 					<span class="bg-primary/10 text-primary w-fit rounded-md px-1 py-0.5 text-sm font-medium"
 						>${notification.name}</span
@@ -502,7 +503,7 @@ Send the drafted email.
 					{#if notification.type === 'argument_addition'}
 						<p class="flex-shrink-0 text-sm font-light">Add argument details to workflow?</p>
 						<button
-							class="button-primary w-fit px-2 py-1 text-xs"
+							class="button-primary w-full px-2 py-1 text-xs"
 							onclick={async () => {
 								workflow.arguments = workflow.arguments.map((arg) =>
 									arg.id === notification.id ? { ...arg, visible: true } : arg
@@ -520,14 +521,14 @@ Send the drafted email.
 								notifications = notifications.filter((n) => n.id !== notification.id);
 							}}
 						>
-							Add
+							Yes
 						</button>
 					{:else}
 						<p class="flex-shrink-0 text-sm font-light">
 							Remove existing argument details from workflow?
 						</p>
 						<button
-							class="button w-fit px-2 py-1 text-xs"
+							class="button w-full px-2 py-1 text-xs"
 							onclick={() => {
 								workflow.arguments = workflow.arguments.filter(
 									(arg) => arg.name !== notification.name
@@ -535,7 +536,7 @@ Send the drafted email.
 								notifications = notifications.filter((n) => n.id !== notification.id);
 							}}
 						>
-							Remove
+							Yes
 						</button>
 					{/if}
 				</div>
