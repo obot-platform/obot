@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { flip } from 'svelte/animate';
 	import {
 		DraggableList,
 		DraggableItem,
@@ -33,11 +32,7 @@
 	}}
 >
 	{#each args as arg (arg.id)}
-		<div
-			class="flip-item workflow-argument"
-			animate:flip={{ duration: 200 }}
-			class:hidden={!arg.visible}
-		>
+		<div class="workflow-argument" class:hidden={!arg.visible}>
 			<DraggableItem
 				id={arg.id}
 				data={arg}

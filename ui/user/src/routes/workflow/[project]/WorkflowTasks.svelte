@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { flip } from 'svelte/animate';
 	import {
 		DraggableList,
 		DraggableItem,
@@ -34,7 +33,7 @@
 	}}
 >
 	{#each tasks as task, index (task.id)}
-		<div class="flip-item workflow-task" animate:flip={{ duration: 200 }}>
+		<div class="workflow-task">
 			<DraggableItem
 				id={task.id}
 				data={task}
