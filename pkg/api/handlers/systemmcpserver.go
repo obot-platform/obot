@@ -489,6 +489,29 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 	return req.Write(details)
 }
 
+// Reveal returns the configuration values (env vars) for a system MCP server
+func (h *SystemMCPServerHandler) Reveal(req api.Context) error {
+	var systemServer v1.SystemMCPServer
+	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
+		if apierrors.IsNotFound(err) {
+			return types.NewErrNotFound("system MCP server not found")
+		}
+		return err
+	}
+
+	credCtx := systemServer.Name
+
+	// Reveal the credential
+	cred, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, systemServer.Name)
+	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
+		return fmt.Errorf("failed to find credential: %w", err)
+	} else if err == nil {
+		return req.Write(cred.Env)
+	}
+
+	return types.NewErrNotFound("no credential found for %q", systemServer.Name)
+}
+
 // Helper functions
 
 func convertSystemMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) types.SystemMCPServer {
