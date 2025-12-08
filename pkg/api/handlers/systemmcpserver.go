@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -152,7 +151,7 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 	credCtx := systemServer.Name
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	if err := h.removeSystemServerCred(req.Context(), req.GPTClient, systemServer, []string{credCtx}); err != nil {
+	if err := DeleteCredentialIfExists(req.Context(), req.GPTClient, []string{credCtx}, systemServer.Name); err != nil {
 		return err
 	}
 
@@ -201,7 +200,7 @@ func (h *SystemMCPServerHandler) Deconfigure(req api.Context) error {
 	credCtx := systemServer.Name
 
 	// Delete credentials using GPTScript
-	if err := h.removeSystemServerCred(req.Context(), req.GPTClient, systemServer, []string{credCtx}); err != nil {
+	if err := DeleteCredentialIfExists(req.Context(), req.GPTClient, []string{credCtx}, systemServer.Name); err != nil {
 		return err
 	}
 
@@ -295,63 +294,11 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 		}
 		return err
 	}
-	defer logs.Close()
 
-	// Set up Server-Sent Events headers
-	req.ResponseWriter.Header().Set("Content-Type", "text/event-stream")
-	req.ResponseWriter.Header().Set("Cache-Control", "no-cache")
-	req.ResponseWriter.Header().Set("Connection", "keep-alive")
-
-	flusher, shouldFlush := req.ResponseWriter.(http.Flusher)
-
-	// Send initial connection event
-	fmt.Fprintf(req.ResponseWriter, "event: connected\ndata: Log stream started\n\n")
-	if shouldFlush {
-		flusher.Flush()
-	}
-
-	// Channel to coordinate between goroutines
-	logChan := make(chan string, 100) // Buffered to prevent blocking
-
-	// Start a goroutine to read logs
-	go func() {
-		defer close(logChan)
-
-		scanner := bufio.NewScanner(logs)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if len(line) > 0 && (line[0] == '\x01' || line[0] == '\x02') {
-				// Docker appends a header to each line of logs so that it knows where to send the log (stdout/stderr)
-				// and how long the log is. We don't need this information and it doesn't produce good output.
-				// Skip the 8-byte header
-				if len(line) > 8 {
-					line = line[8:]
-				}
-			}
-			select {
-			case logChan <- line:
-			case <-req.Context().Done():
-				return
-			}
-		}
-	}()
-
-	// Send logs to client
-	for {
-		select {
-		case line, ok := <-logChan:
-			if !ok {
-				// Channel closed, we're done
-				return nil
-			}
-			fmt.Fprintf(req.ResponseWriter, "data: %s\n\n", line)
-			if shouldFlush {
-				flusher.Flush()
-			}
-		case <-req.Context().Done():
-			return nil
-		}
-	}
+	// Stream logs using the helper (handles SSE formatting, Docker header stripping, etc.)
+	return StreamLogs(req.Context(), req.ResponseWriter, logs, StreamLogsOptions{
+		SendEnded: true,
+	})
 }
 
 // GetTools returns the tools provided by a system MCP server
@@ -576,17 +523,4 @@ func getCredentialsForSystemServer(ctx context.Context, gptClient *gptscript.GPT
 	}
 
 	return credEnv, nil
-}
-
-func (h *SystemMCPServerHandler) removeSystemServerCred(ctx context.Context, gptClient *gptscript.GPTScript, systemServer v1.SystemMCPServer, credCtx []string) error {
-	cred, err := gptClient.RevealCredential(ctx, credCtx, systemServer.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return fmt.Errorf("failed to find credential: %w", err)
-	} else if err == nil {
-		if err = gptClient.DeleteCredential(ctx, cred.Context, systemServer.Name); err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-			return fmt.Errorf("failed to remove existing credential: %w", err)
-		}
-	}
-
-	return nil
 }

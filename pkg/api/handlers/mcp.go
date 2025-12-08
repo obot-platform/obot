@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -2341,13 +2340,9 @@ func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer
 }
 
 func (m *MCPHandler) removeMCPServerAndCred(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, credCtx []string) error {
-	cred, err := gptClient.RevealCredential(ctx, credCtx, mcpServer.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return fmt.Errorf("failed to find credential: %w", err)
-	} else if err == nil {
-		if err = gptClient.DeleteCredential(ctx, cred.Context, mcpServer.Name); err != nil {
-			return fmt.Errorf("failed to remove existing credential: %w", err)
-		}
+	// Delete credential if it exists
+	if err := DeleteCredentialIfExists(ctx, gptClient, credCtx, mcpServer.Name); err != nil {
+		return err
 	}
 
 	// Shutdown the server, even if there is no credential
@@ -3388,85 +3383,13 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		}
 		return err
 	}
-	defer logs.Close()
 
-	// Set up Server-Sent Events headers
-	req.ResponseWriter.Header().Set("Content-Type", "text/event-stream")
-	req.ResponseWriter.Header().Set("Cache-Control", "no-cache")
-	req.ResponseWriter.Header().Set("Connection", "keep-alive")
-
-	flusher, shouldFlush := req.ResponseWriter.(http.Flusher)
-
-	// Send initial connection event
-	fmt.Fprintf(req.ResponseWriter, "event: connected\ndata: Log stream started\n\n")
-	if shouldFlush {
-		flusher.Flush()
-	}
-
-	// Channel to coordinate between goroutines
-	logChan := make(chan string, 100) // Buffered to prevent blocking
-
-	// Start a goroutine to read logs
-	go func() {
-		defer close(logChan)
-
-		scanner := bufio.NewScanner(logs)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line[0] == '\x01' || line[0] == '\x02' {
-				// Docker appends a header to each line of logs so that it knows where to send the log (stdout/stderr)
-				// and how long the log is. We don't need this information and it doesn't produce good output.
-				// See https://github.com/moby/moby/issues/7375#issuecomment-51462963
-				line = line[min(8, len(line)):]
-			}
-			select {
-			case <-req.Context().Done():
-				return
-			case logChan <- line:
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			// Send error event
-			select {
-			case logChan <- fmt.Sprintf("ERROR retrieving logs: %v", err):
-			case <-req.Context().Done():
-			}
-			return
-		}
-	}()
-
-	// Send log events as they come in
-	ticker := time.NewTicker(30 * time.Second) // Keep-alive ping
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-req.Context().Done():
-			fmt.Fprintf(req.ResponseWriter, "event: disconnected\ndata: Client disconnected\n\n")
-			if shouldFlush {
-				flusher.Flush()
-			}
-			return nil
-		case <-ticker.C:
-			// Send keep-alive ping
-			fmt.Fprintf(req.ResponseWriter, "event: ping\ndata: keep-alive\n\n")
-			if shouldFlush {
-				flusher.Flush()
-			}
-		case logLine, ok := <-logChan:
-			if !ok {
-				fmt.Fprintf(req.ResponseWriter, "event: ended\ndata: Log stream ended\n\n")
-				if shouldFlush {
-					flusher.Flush()
-				}
-				return nil
-			}
-			fmt.Fprintf(req.ResponseWriter, "event: log\ndata: %s\n\n", logLine)
-			if shouldFlush {
-				flusher.Flush()
-			}
-		}
-	}
+	// Stream logs using the helper (handles SSE formatting, Docker header stripping, etc.)
+	return StreamLogs(req.Context(), req.ResponseWriter, logs, StreamLogsOptions{
+		SendKeepAlive:  true,
+		SendDisconnect: true,
+		SendEnded:      true,
+	})
 }
 
 func (m *MCPHandler) UpdateURL(req api.Context) error {
