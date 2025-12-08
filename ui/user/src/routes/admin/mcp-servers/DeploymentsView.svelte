@@ -217,6 +217,52 @@
 		}
 	}
 
+	async function redeployServerWithK8sSettings(server: MCPCatalogServer) {
+		if (server.powerUserWorkspaceID && server.catalogEntryID) {
+			await ChatService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
+				server.powerUserWorkspaceID,
+				server.catalogEntryID,
+				server.id
+			);
+		} else if (server.powerUserWorkspaceID) {
+			await ChatService.redeployWorkspaceK8sServerWithK8sSettings(
+				server.powerUserWorkspaceID,
+				server.id
+			);
+		} else if (server.catalogEntryID) {
+			await AdminService.redeployMCPCatalogServerWithK8sSettings(server.catalogEntryID, server.id);
+		} else {
+			await AdminService.redeployWithK8sSettings(server.id);
+		}
+	}
+
+	async function handleBulkK8sRedeploy() {
+		const errors: string[] = [];
+		for (const id of Object.keys(selected)) {
+			const server = selected[id];
+			if (!server.needsK8sUpdate) continue;
+			try {
+				await redeployServerWithK8sSettings(server);
+			} catch (err) {
+				const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+				errors.push(`${server.manifest.name || id}: ${errorMsg}`);
+				console.error(`Failed to redeploy server ${id} with K8s settings:`, err);
+			}
+		}
+
+		if (errors.length > 0) {
+			console.error('Some servers failed to redeploy:', errors.join('\n'));
+			// Show a user-visible error notification
+			alert(
+				`Failed to redeploy ${errors.length} server(s):\n\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...and ${errors.length - 5} more` : ''}`
+			);
+		}
+
+		selected = {};
+		tableRef?.clearSelectAll();
+		await reload();
+	}
+
 	async function updateServer(server?: MCPCatalogServer) {
 		if (!server) return;
 		updating[server.id] = { inProgress: true, error: '' };
@@ -458,29 +504,14 @@
 									onclick={async (e) => {
 										e.stopPropagation();
 										try {
-											if (d.powerUserWorkspaceID && d.catalogEntryID) {
-												await ChatService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
-													d.powerUserWorkspaceID,
-													d.catalogEntryID,
-													d.id
-												);
-											} else if (d.powerUserWorkspaceID) {
-												await ChatService.redeployWorkspaceK8sServerWithK8sSettings(
-													d.powerUserWorkspaceID,
-													d.id
-												);
-											} else if (d.catalogEntryID) {
-												await AdminService.redeployMCPCatalogServerWithK8sSettings(
-													d.catalogEntryID,
-													d.id
-												);
-											} else {
-												await AdminService.redeployWithK8sSettings(d.id);
-											}
+											await redeployServerWithK8sSettings(d);
 											await delay(1000);
 											await reload();
 										} catch (err) {
 											console.error('Failed to redeploy with K8s settings:', err);
+											alert(
+												`Failed to redeploy server: ${err instanceof Error ? err.message : 'Unknown error'}`
+											);
 										}
 									}}
 								>
@@ -614,37 +645,8 @@
 					<button
 						class="button flex items-center gap-1 text-sm font-normal"
 						onclick={async () => {
-							// Redeploy all selected servers that need K8s update
-							for (const id of Object.keys(currentSelected)) {
-								const server = currentSelected[id];
-								if (!server.needsK8sUpdate) continue;
-								try {
-									if (server.powerUserWorkspaceID && server.catalogEntryID) {
-										await ChatService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
-											server.powerUserWorkspaceID,
-											server.catalogEntryID,
-											id
-										);
-									} else if (server.powerUserWorkspaceID) {
-										await ChatService.redeployWorkspaceK8sServerWithK8sSettings(
-											server.powerUserWorkspaceID,
-											id
-										);
-									} else if (server.catalogEntryID) {
-										await AdminService.redeployMCPCatalogServerWithK8sSettings(
-											server.catalogEntryID,
-											id
-										);
-									} else {
-										await AdminService.redeployWithK8sSettings(id);
-									}
-								} catch (err) {
-									console.error(`Failed to redeploy server ${id} with K8s settings:`, err);
-								}
-							}
-							selected = {};
-							tableRef?.clearSelectAll();
-							await reload();
+							selected = currentSelected;
+							await handleBulkK8sRedeploy();
 						}}
 						disabled={readonly || k8sUpgradeableCount === 0}
 					>
