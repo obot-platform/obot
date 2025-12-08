@@ -226,9 +226,12 @@ func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string) http.HandlerFun
 			} else {
 				// Set User to Azure Object ID (stable identifier)
 				ss.User = userProfile.OID
-				// Preserve original preferred_username from token if not set
-				if ss.PreferredUsername == "" && userProfile.PreferredUsername != "" {
+				// Set PreferredUsername to the human-readable UPN from the token
+				// This is used for display purposes in the UI
+				if userProfile.PreferredUsername != "" {
 					ss.PreferredUsername = userProfile.PreferredUsername
+				} else if userProfile.Email != "" {
+					ss.PreferredUsername = userProfile.Email
 				}
 			}
 		}

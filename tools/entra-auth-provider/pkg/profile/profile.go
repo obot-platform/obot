@@ -20,6 +20,7 @@ type EntraIDTokenClaims struct {
 	OID               string `json:"oid"`
 	Email             string `json:"email"`
 	PreferredUsername string `json:"preferred_username"`
+	UPN               string `json:"upn"` // User Principal Name - often in idToken when preferred_username is not
 	Name              string `json:"name"`
 	TenantID          string `json:"tid"`
 	jwt.RegisteredClaims
@@ -47,10 +48,17 @@ func ParseIDToken(idToken string) (*UserProfile, error) {
 		return nil, fmt.Errorf("no oid claim found in ID token")
 	}
 
+	// Use preferred_username if available, otherwise fall back to UPN
+	// Azure AD often puts UPN in idToken and preferred_username in accessToken
+	preferredUsername := claims.PreferredUsername
+	if preferredUsername == "" {
+		preferredUsername = claims.UPN
+	}
+
 	return &UserProfile{
 		OID:               claims.OID,
 		Email:             claims.Email,
-		PreferredUsername: claims.PreferredUsername,
+		PreferredUsername: preferredUsername,
 		DisplayName:       claims.Name,
 		TenantID:          claims.TenantID,
 	}, nil
