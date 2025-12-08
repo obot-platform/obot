@@ -8,9 +8,9 @@ export OBOT_SERVER_TOOL_REGISTRIES=github.com/obot-platform/tools,./tools
 ###########################################
 # The below variables were added manually #
 ###########################################
-export OBOT_SERVER_ENABLE_AUTHENTICATION=true
+# export OBOT_SERVER_ENABLE_AUTHENTICATION=true
 
-export OBOT_BOOTSTRAP_TOKEN=aZmdYlGbolpifiPEOKFGNAErS0LDEqZ7ZIUIDsNwg
+# export OBOT_BOOTSTRAP_TOKEN=aZmdYlGbolpifiPEOKFGNAErS0LDEqZ7ZIUIDsNwg
 
 # Set admin users (comma-separated email addresses)
 # OBOT_SERVER_AUTH_ADMIN_EMAILS=admin1@company.com,admin2@company.com

@@ -45,7 +45,7 @@ Now, any time one of these tools is run, your local copy will be used.
 
 > [!IMPORTANT]
 > Any time you change a Go based tool in your local repo, you must run `make build` in the tools repo for the changes to take effect with Obot.
-
+>
 > [!NOTE]
 > Tool definitions and metadata are only synced to Obot every hour. Therefore, if you make a change to the tool in your local machine, it may not reflect immediately in Obot. Rest assured that the latest version is used when running the tool.
 
@@ -65,10 +65,10 @@ There may be times when you want to completely wipe your setup and start fresh. 
 
 On Mac:
 ```bash
-rm -rf ~/Library/Application\ Support/obot &&
-rm -rf ~/Library/Application\ Support/gptscript &&
-rm -rf ~/Library/Caches/obot &&
-rm -rf ~/Library/Caches/gptscript &&
+rm -rf ~/Library/Application\ Support/obot && \
+rm -rf ~/Library/Application\ Support/gptscript && \
+rm -rf ~/Library/Caches/obot && \
+rm -rf ~/Library/Caches/gptscript && \
 rm obot.db obot-credentials.db
 ```
 

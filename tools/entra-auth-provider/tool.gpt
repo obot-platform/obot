@@ -1,0 +1,40 @@
+Name: Entra
+Description: Auth provider for Microsoft Entra ID (Azure AD)
+Daemon: true
+Metadata: icon=https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/media/entra-id.png
+Metadata: link=https://entra.microsoft.com
+Metadata: postgresTablePrefix=entra_
+
+# Required configuration parameters
+Param: client_id: The Application (client) ID from Azure App Registration (required)
+Param: tenant_id: The Directory (tenant) ID, or 'common'/'organizations' for multi-tenant (required)
+Param: cookie_secret: Base64-encoded secret (must decode to 16, 24, or 32 bytes for AES) (required, sensitive)
+Param: allowed_email_domains: Comma-separated list of allowed email domains, or * to allow all (required)
+
+# Authentication method (choose one)
+Param: client_secret: The client secret value from Certificates & secrets. Not required if using workload_identity or certificate auth. (optional, sensitive)
+Param: use_workload_identity: Enable Azure Workload Identity authentication for Kubernetes (eliminates client_secret). (optional, default: false)
+Param: client_cert_path: Path to client certificate PEM file for certificate-based auth. (optional)
+Param: client_key_path: Path to client private key PEM file for certificate-based auth. (optional)
+
+# Optional configuration parameters
+Param: postgres_dsn: PostgreSQL DSN for session storage. If not set, sessions are stored in cookies. (optional, env: OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN)
+Param: token_refresh_duration: How often to refresh the access token. Defaults to 1 hour. (optional)
+Param: allowed_groups: Comma-separated list of Azure AD group IDs that are allowed to authenticate. Leave empty to allow all groups. (optional)
+Param: allowed_tenants: Comma-separated list of tenant IDs allowed for multi-tenant apps. Required if tenant_id is 'common' or 'organizations'. (optional)
+Param: cache_size: Maximum number of user states to cache. Defaults to 5000. (optional)
+Param: cache_ttl: Cache TTL duration. Defaults to 1h. (optional)
+Param: log_level: Logging level (debug, info, warn, error). Defaults to info. (optional)
+Param: metrics_enabled: Enable Prometheus metrics endpoint at /metrics. Defaults to true. (optional)
+
+#!sys.daemon /bin/gptscript-go-tool
+
+---
+!metadata:Entra:bundle
+true
+
+---
+Name: Entra Credential
+Type: credential
+---
+#!sys.echo

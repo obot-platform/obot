@@ -1,0 +1,6 @@
+# Custom tool registry for obot-entraid
+# Contains auth providers not available in the open-source edition
+
+authProviders:
+  entra-auth-provider:
+    reference: ./entra-auth-provider
