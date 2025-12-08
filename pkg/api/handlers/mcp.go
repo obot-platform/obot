@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/gptscript-ai/gptscript/pkg/hash"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -1994,6 +1995,8 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		}
 	}
 
+	// Hash the composite server's original manifest to determine if we should update it after processing the configuration request.
+	oldManifestHash := hash.Digest(compositeServer.Spec.Manifest)
 	for _, component := range componentServers.Items {
 		addExtractedEnvVars(&component)
 
@@ -2074,9 +2077,28 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		}
 	}
 
-	// After processing all components, persist parent composite with updated enabled flags
-	if err := req.Update(&compositeServer); err != nil {
-		return fmt.Errorf("failed to update composite server enabled flags: %w", err)
+	if hash.Digest(compositeServer.Spec.Manifest) != oldManifestHash {
+		// The composite MCP server's manifest has changed due to component configuration changes. Update it.
+		if err := wait.ExponentialBackoff(retry.DefaultBackoff, func() (bool, error) {
+			var latest v1.MCPServer
+			if err := req.Get(&latest, compositeServer.Name); err != nil {
+				return false, err
+			}
+
+			if hash.Digest(latest.Spec.Manifest) != oldManifestHash {
+				return false, types.NewErrHTTP(http.StatusConflict, "manifest changed before configuration could finish")
+			}
+
+			latest.Spec.Manifest = compositeServer.Spec.Manifest
+			updateErr := req.Update(&latest)
+			if apierrors.IsConflict(updateErr) {
+				return false, nil
+			}
+
+			return updateErr == nil, updateErr
+		}); err != nil {
+			return fmt.Errorf("failed to update composite server enabled flags: %w", err)
+		}
 	}
 
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, compositeServer, req.User.GetUID(), "", "")
