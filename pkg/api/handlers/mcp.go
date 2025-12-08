@@ -37,6 +37,18 @@ type MCPOAuthChecker interface {
 	CheckForMCPAuth(req api.Context, server v1.MCPServer, config mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error)
 }
 
+// getCurrentK8sSettingsHash returns the current K8s settings hash
+func getCurrentK8sSettingsHash(req api.Context) (string, error) {
+	var k8sSettings v1.K8sSettings
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
+		Namespace: req.Namespace(),
+		Name:      system.K8sSettingsName,
+	}, &k8sSettings); err != nil {
+		return "", err
+	}
+	return mcp.ComputeK8sSettingsHash(k8sSettings.Spec), nil
+}
+
 type MCPHandler struct {
 	mcpSessionManager *mcp.SessionManager
 	mcpOAuthChecker   MCPOAuthChecker
@@ -180,6 +192,14 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		return nil
 	}
 
+	// Get current K8s settings hash for comparison
+	currentK8sSettingsHash, err := getCurrentK8sSettingsHash(req)
+	if err != nil {
+		log.Warnf("failed to get current K8s settings hash: %v", err)
+		// Continue without K8s update checking
+		currentK8sSettingsHash = ""
+	}
+
 	credCtxs := make([]string, 0, len(servers.Items))
 	if catalogID != "" {
 		for _, server := range servers.Items {
@@ -269,7 +289,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 				return err
 			}
 		}
-		converted := ConvertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
+		converted := ConvertMCPServerWithK8sHash(server, credMap[server.Name], m.serverURL, slug, currentK8sSettingsHash, components...)
 		items = append(items, converted)
 	}
 
@@ -338,7 +358,16 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 			return err
 		}
 	}
-	converted := ConvertMCPServer(server, cred.Env, m.serverURL, slug, components...)
+
+	// Get current K8s settings hash for comparison
+	currentK8sSettingsHash, err := getCurrentK8sSettingsHash(req)
+	if err != nil {
+		log.Warnf("failed to get current K8s settings hash: %v", err)
+		// Continue without K8s update checking
+		currentK8sSettingsHash = ""
+	}
+
+	converted := ConvertMCPServerWithK8sHash(server, cred.Env, m.serverURL, slug, currentK8sSettingsHash, components...)
 	return req.Write(converted)
 }
 
@@ -2495,7 +2524,21 @@ func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
 	}
 }
 
+// computeNeedsK8sUpdate checks if the server needs K8s settings update
+func computeNeedsK8sUpdate(server v1.MCPServer, currentK8sSettingsHash string) bool {
+	// Only K8s runtime servers have K8s settings hash
+	if server.Status.K8sSettingsHash == "" {
+		return false
+	}
+	// Compare deployed hash with current hash
+	return server.Status.K8sSettingsHash != currentK8sSettingsHash
+}
+
 func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL, slug string, components ...types.MCPServer) types.MCPServer {
+	return ConvertMCPServerWithK8sHash(server, credEnv, serverURL, slug, "", components...)
+}
+
+func ConvertMCPServerWithK8sHash(server v1.MCPServer, credEnv map[string]string, serverURL, slug string, currentK8sSettingsHash string, components ...types.MCPServer) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
 
 	// Check for missing required env vars
@@ -2554,6 +2597,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		MCPCatalogID:                server.Spec.MCPCatalogID,
 		ConnectURL:                  connectURL,
 		NeedsUpdate:                 server.Status.NeedsUpdate,
+		NeedsK8sUpdate:              computeNeedsK8sUpdate(server, currentK8sSettingsHash),
 		NeedsURL:                    server.Spec.NeedsURL,
 		PreviousURL:                 server.Spec.PreviousURL,
 		MCPServerInstanceUserCount:  server.Status.MCPServerInstanceUserCount,
@@ -2757,6 +2801,14 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 		catalogEntryMap[entry.Name] = entry
 	}
 
+	// Get current K8s settings hash for comparison
+	currentK8sSettingsHash, err := getCurrentK8sSettingsHash(req)
+	if err != nil {
+		log.Warnf("failed to get current K8s settings hash: %v", err)
+		// Continue without K8s update checking
+		currentK8sSettingsHash = ""
+	}
+
 	mcpServers := make([]types.MCPServer, 0, len(allowedServers))
 
 	var slug string
@@ -2783,7 +2835,7 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 				return err
 			}
 		}
-		parent := ConvertMCPServer(server, credMap[server.Name], m.serverURL, slug, components...)
+		parent := ConvertMCPServerWithK8sHash(server, credMap[server.Name], m.serverURL, slug, currentK8sSettingsHash, components...)
 		mcpServers = append(mcpServers, parent)
 	}
 
@@ -3826,8 +3878,18 @@ func (m *MCPHandler) ListServerInstances(req api.Context) error {
 
 	// Filter instances that belong to servers in this catalog
 	var catalogServerNames = make(map[string]struct{})
+	serverK8sHashMap := make(map[string]string)
 	for _, server := range catalogServers {
 		catalogServerNames[server.Name] = struct{}{}
+		serverK8sHashMap[server.Name] = server.Status.K8sSettingsHash
+	}
+
+	// Get current K8s settings hash for comparison
+	currentK8sSettingsHash, err := getCurrentK8sSettingsHash(req)
+	if err != nil {
+		log.Warnf("failed to get current K8s settings hash: %v", err)
+		// Continue without K8s update checking
+		currentK8sSettingsHash = ""
 	}
 
 	var filteredInstances []v1.MCPServerInstance
@@ -3849,7 +3911,8 @@ func (m *MCPHandler) ListServerInstances(req api.Context) error {
 			return fmt.Errorf("failed to determine slug for instance %s: %w", instance.Name, err)
 		}
 
-		convertedInstances = append(convertedInstances, ConvertMCPServerInstance(instance, m.serverURL, slug))
+		serverK8sHash := serverK8sHashMap[instance.Spec.MCPServerName]
+		convertedInstances = append(convertedInstances, ConvertMCPServerInstanceWithK8sHash(instance, m.serverURL, slug, serverK8sHash, currentK8sSettingsHash))
 	}
 
 	return req.Write(types.MCPServerInstanceList{

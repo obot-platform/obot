@@ -233,6 +233,9 @@ type MCPServer struct {
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
 
+	// NeedsK8sUpdate indicates whether the server needs redeployment with new K8s settings.
+	NeedsK8sUpdate bool `json:"needsK8sUpdate,omitempty"`
+
 	// NeedsURL indicates whether the server's URL needs to be updated to match the catalog entry.
 	NeedsURL bool `json:"needsURL,omitempty"`
 

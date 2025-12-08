@@ -179,6 +179,16 @@ func (h *ServerInstancesHandler) ClearOAuthCredentials(req api.Context) error {
 }
 
 func ConvertMCPServerInstance(instance v1.MCPServerInstance, serverURL, slug string) types.MCPServerInstance {
+	return ConvertMCPServerInstanceWithK8sHash(instance, serverURL, slug, "", "")
+}
+
+func ConvertMCPServerInstanceWithK8sHash(instance v1.MCPServerInstance, serverURL, slug string, serverK8sSettingsHash, currentK8sSettingsHash string) types.MCPServerInstance {
+	// Compute NeedsK8sUpdate if both hashes are available
+	needsK8sUpdate := false
+	if serverK8sSettingsHash != "" && currentK8sSettingsHash != "" {
+		needsK8sUpdate = serverK8sSettingsHash != currentK8sSettingsHash
+	}
+
 	return types.MCPServerInstance{
 		Metadata:                MetadataFrom(&instance),
 		UserID:                  instance.Spec.UserID,
@@ -187,6 +197,7 @@ func ConvertMCPServerInstance(instance v1.MCPServerInstance, serverURL, slug str
 		MCPServerCatalogEntryID: instance.Spec.MCPServerCatalogEntryName,
 		PowerUserWorkspaceID:    instance.Spec.PowerUserWorkspaceID,
 		ConnectURL:              fmt.Sprintf("%s/mcp-connect/%s", serverURL, slug),
+		NeedsK8sUpdate:          needsK8sUpdate,
 	}
 }
 

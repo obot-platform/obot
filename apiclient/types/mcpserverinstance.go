@@ -14,6 +14,8 @@ type MCPServerInstance struct {
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
 	// ConnectURL is the URL to connect to the MCP server.
 	ConnectURL string `json:"connectURL,omitempty"`
+	// NeedsK8sUpdate indicates whether the underlying server needs redeployment with new K8s settings.
+	NeedsK8sUpdate bool `json:"needsK8sUpdate,omitempty"`
 }
 
 type MCPServerInstanceList List[MCPServerInstance]
