@@ -62,3 +62,5 @@ __debug_*
 .claude/
 CLAUDE.md
 thoughts/
+ui/user/package-lock.json
+ui/user/node_modules
