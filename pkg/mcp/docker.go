@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net"
 	"os"
 	"path"
 	"regexp"
@@ -42,7 +43,7 @@ type dockerBackend struct {
 	auditLogsFlushIntervalSeconds int
 }
 
-func newDockerBackend(ctx context.Context, publicPort int, opts Options) (backend, error) {
+func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backend, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
@@ -50,13 +51,19 @@ func newDockerBackend(ctx context.Context, publicPort int, opts Options) (backen
 
 	containerEnv := os.Getenv("OBOT_CONTAINER_ENV") == "true"
 	network := "bridge"
-	host := fmt.Sprintf("host.docker.internal:%d", publicPort)
+	host := "host.docker.internal"
 	if containerEnv {
-		network, host, err = detectCurrentNetworkIPAndPort(ctx, cli)
+		network, host, err = detectContainerCurrentNetworkIP(ctx, cli)
 		if err != nil {
-			return nil, fmt.Errorf("failed to detect current network: %w", err)
+			return nil, fmt.Errorf("failed to detect current IP: %w", err)
+		}
+	} else if os.Getenv("OBOT_DOCKER_INTERNAL_IP_LOOKUP") == "true" {
+		host, err = detectCurrentLocalIP()
+		if err != nil {
+			return nil, fmt.Errorf("failed to detect current IP: %w", err)
 		}
 	}
+	host = fmt.Sprintf("%s:%d", host, exposedPort)
 
 	d := &dockerBackend{
 		client:                        cli,
@@ -76,9 +83,9 @@ func newDockerBackend(ctx context.Context, publicPort int, opts Options) (backen
 	return d, nil
 }
 
-// detectCurrentNetworkIPAndPort detects the Docker network and IP of the current container if running inside one.
+// detectContainerCurrentNetworkIP detects the Docker network and IP of the current container if running inside one.
 // Returns empty string if not running in a container or if detection fails.
-func detectCurrentNetworkIPAndPort(ctx context.Context, cli *client.Client) (string, string, error) {
+func detectContainerCurrentNetworkIP(ctx context.Context, cli *client.Client) (string, string, error) {
 	// Read container ID from cgroup file
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -94,19 +101,27 @@ func detectCurrentNetworkIPAndPort(ctx context.Context, cli *client.Client) (str
 
 	// Get the first network (most containers are on a single network)
 	for networkName, networkSettings := range inspect.NetworkSettings.Networks {
-		var port string
-
-		// We need to find the port that is exposed from the container.
-		// This assumes there is only one port exposed, which is fine for now.
-		for k := range inspect.NetworkSettings.Ports {
-			port, _, _ = strings.Cut(string(k), "/")
-			port = ":" + port
-			break
-		}
-		return networkName, networkSettings.IPAddress + port, nil
+		return networkName, networkSettings.IPAddress, nil
 	}
 
 	return "bridge", "", nil
+}
+
+// detectCurrentLocalIP detects the local IP.
+func detectCurrentLocalIP() (string, error) {
+	// Use UDP dial to determine the source IP address that would be used to reach an external IP.
+	// This is equivalent to `ip route get 1.1.1.1` on Linux.
+	// No actual connection is made since UDP is connectionless.
+	conn, err := net.Dial("udp", "1.1.1.1:80")
+	if err != nil {
+		return "", fmt.Errorf("failed to determine local IP: %w", err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	ip := localAddr.IP.String()
+
+	return ip, nil
 }
 
 // cleanupContainersWithOldID removes containers with old ID and no config hash label.
