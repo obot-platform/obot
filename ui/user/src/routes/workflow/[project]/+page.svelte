@@ -391,20 +391,36 @@ Send the drafted email.
 						<div
 							class={twMerge(
 								'workflow-run border-surface1 dark:border-surface3 bg-background dark:bg-surface2 ml-auto w-full rounded-2xl border p-2 shadow-xs',
-								workflowRunOpen ? 'mr-0 max-w-[500px]' : 'mr-4 md:max-w-[900px]'
+								workflowRunOpen ? 'mr-0 max-w-[420px]' : 'mr-4 md:max-w-[750px]'
 							)}
 							in:slide={{ axis: 'y' }}
 						>
-							<div class="">
-								<ChatInput
-									classes={{
-										root: 'mt-0'
-									}}
-									onSubmit={async (i) => {
-										//	await thread?.invoke(i);
-									}}
-									placeholder="What can I help with?"
-								/>
+							<ChatInput
+								classes={{
+									root: 'mt-0'
+								}}
+								onSubmit={async (i) => {
+									//	await thread?.invoke(i);
+								}}
+								placeholder="What can I help with?"
+							/>
+							<p class="text-on-surface1 mt-2 pl-1 text-xs font-medium">Here's some suggestions:</p>
+							<div class="mt-2 flex flex-wrap gap-2 pl-1 text-xs font-light">
+								<button
+									class="bg-surface1/75 border-surface3 hover:bg-surface2 rounded-md border p-2 transition-all"
+								>
+									Improve a task
+								</button>
+								<button
+									class="bg-surface1/75 border-surface3 hover:bg-surface2 rounded-md border p-2 transition-all"
+								>
+									Upload a document and automatically convert it to new tasks
+								</button>
+								<button
+									class="bg-surface1/75 border-surface3 hover:bg-surface2 rounded-md border p-2 transition-all"
+								>
+									Get output from a previous task
+								</button>
 							</div>
 						</div>
 					{/if}

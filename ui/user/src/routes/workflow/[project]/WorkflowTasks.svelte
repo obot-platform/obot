@@ -65,13 +65,22 @@
 {#snippet action(index: number)}
 	<button
 		class="button-icon min-h-fit min-w-fit p-2"
-		onclick={async () => {
-			tasks.splice(index + 1, 0, {
-				id: (tasks.length + 1).toString(),
-				name: '',
-				description: '',
-				content: ''
-			});
+		onclick={async (e) => {
+			if (e.metaKey) {
+				tasks.unshift({
+					id: (tasks.length + 1).toString(),
+					name: '',
+					description: '',
+					content: ''
+				});
+			} else {
+				tasks.splice(index + 1, 0, {
+					id: (tasks.length + 1).toString(),
+					name: '',
+					description: '',
+					content: ''
+				});
+			}
 		}}
 		use:tooltip={'Add task'}
 	>

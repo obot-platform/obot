@@ -57,14 +57,25 @@
 {#snippet action(index: number)}
 	<button
 		class="button-icon min-h-fit min-w-fit p-2"
-		onclick={async () => {
-			args.splice(index + 1, 0, {
-				id: (args.length + 1).toString(),
-				name: '',
-				displayLabel: '',
-				description: '',
-				visible: true
-			});
+		onclick={async (e) => {
+			// if command is also pressed, prepend the new argument
+			if (e.metaKey) {
+				args.unshift({
+					id: (args.length + 1).toString(),
+					name: '',
+					displayLabel: '',
+					description: '',
+					visible: true
+				});
+			} else {
+				args.splice(index + 1, 0, {
+					id: (args.length + 1).toString(),
+					name: '',
+					displayLabel: '',
+					description: '',
+					visible: true
+				});
+			}
 		}}
 		use:tooltip={'Add argument'}
 	>
