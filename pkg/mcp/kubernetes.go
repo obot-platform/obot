@@ -510,7 +510,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig,
 						if server.Runtime != types.RuntimeComposite {
 							delete(secretEnvStringData, k)
 						}
-					} else if strings.HasPrefix(k, "NANOBOT_") {
+					} else if strings.HasPrefix(k, "NANOBOT_RUN_") {
 						vars[k] = v
 						if strings.HasPrefix(k, "NANOBOT_RUN_AUDIT_LOG_") || k != "NANOBOT_RUN_HEALTHZ_PATH" && server.Runtime != types.RuntimeComposite {
 							delete(secretEnvStringData, k)
