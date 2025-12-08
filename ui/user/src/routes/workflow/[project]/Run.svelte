@@ -3,9 +3,8 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { toHTMLFromMarkdown } from '$lib/markdown';
 	import { formatTime } from '$lib/time';
-	import { Copy, Edit, MessageCircleMore, MessageCircleOff } from 'lucide-svelte';
-	import { fade, slide } from 'svelte/transition';
-	import ChatInput from '$lib/components/messages/Input.svelte';
+	import { Copy, Edit } from 'lucide-svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		name: string;
@@ -222,37 +221,6 @@ If you’d like, I can add another company to the sheet.
 					</div>
 				</div>
 			{/each}
-		</div>
-		<div class="sticky bottom-0 left-0 w-full pb-4">
-			<div class="flex w-full justify-end pr-6" class:pb-4={!showChat} class:pb-1={showChat}>
-				<button
-					class="button-icon bg-primary text-white transition-all hover:scale-110"
-					onclick={() => (showChat = !showChat)}
-					use:tooltip={'Toggle chat'}
-				>
-					{#if showChat}
-						<MessageCircleOff class="size-6" />
-					{:else}
-						<MessageCircleMore class="size-6" />
-					{/if}
-				</button>
-			</div>
-			{#if showChat}
-				<div
-					class="workflow-run bg-background dark:bg-surface2 w-full p-4"
-					in:slide={{ axis: 'y' }}
-				>
-					<ChatInput
-						classes={{
-							root: 'mt-0'
-						}}
-						onSubmit={async (i) => {
-							//	await thread?.invoke(i);
-						}}
-						placeholder="What can I help with?"
-					/>
-				</div>
-			{/if}
 		</div>
 	</div>
 </div>

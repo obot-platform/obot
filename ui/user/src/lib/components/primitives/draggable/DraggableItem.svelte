@@ -13,6 +13,7 @@
 		id?: string;
 		data?: unknown;
 		children?: Snippet;
+		hidePointerBorder?: boolean;
 	};
 
 	const draggableContext = getDraggableContext();
@@ -28,7 +29,8 @@
 		index = 0,
 		id = (Date.now() * Math.random() + index).toString(16),
 		data,
-		children
+		children,
+		hidePointerBorder
 	}: Props = $props();
 
 	let isPointerDown = $state(false);
@@ -200,8 +202,9 @@
 		bind:this={containerElement}
 		class={twMerge(
 			'draggable-inner-element relative isolate z-[1] flex justify-start gap-2 rounded-sm border border-transparent transition-colors duration-200',
-			isPointerEntered && 'border-primary bg-primary/5',
-			!isActive && isDragOver && 'bg-surface2 pointer-events-none',
+			isPointerEntered && !hidePointerBorder && 'border-primary bg-primary/5',
+			!isActive && isDragOver && 'pointer-events-none',
+			!isActive && isDragOver && !hidePointerBorder && 'bg-surface2',
 			klass
 		)}
 	>

@@ -3,7 +3,7 @@
 	import { createVariablePillPlugin } from './variablePillPlugin';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
-	import { ReceiptText, Trash2 } from 'lucide-svelte';
+	import { ReceiptText, Sparkles, Trash2 } from 'lucide-svelte';
 
 	type WorkflowTask = {
 		id: string;
@@ -48,7 +48,7 @@
 	{/if}
 	<div class="my-2">
 		<MarkdownTextEditor
-			placeholder="Add content..."
+			placeholder="Add steps..."
 			bind:value={task.content}
 			plugins={[variablePillPlugin]}
 		/>
@@ -75,6 +75,9 @@
 				}}
 			/>
 		</div>
+		<button class="menu-button" onclick={() => {}}>
+			<Sparkles class="size-4" /> Improve with AI
+		</button>
 		<button
 			class="menu-button"
 			onclick={() => {

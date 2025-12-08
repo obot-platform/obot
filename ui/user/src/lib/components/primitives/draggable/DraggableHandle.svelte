@@ -3,6 +3,7 @@
 	import { GripVerticalIcon } from 'lucide-svelte';
 	import { getDraggableItemContext } from './contextItem';
 	import { getDraggableContext } from './contextRoot';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	const rootContext = getDraggableContext();
 	const itemContext = getDraggableItemContext();
@@ -34,6 +35,7 @@
 
 		return itemContext?.state?.onPointerLeave?.(ev);
 	}}
+	use:tooltip={'Drag to move'}
 >
 	<GripVerticalIcon class="aspect-square h-full" />
 </button>

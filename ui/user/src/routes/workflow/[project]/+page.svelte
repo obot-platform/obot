@@ -3,14 +3,13 @@
 	import { responsive } from '$lib/stores';
 	import {
 		GripVertical,
+		MessageCircleMore,
+		MessageCircleOff,
 		OctagonAlert,
 		Play,
-		Plus,
 		Settings,
 		SidebarClose,
 		SidebarOpen,
-		Variable,
-		Workflow,
 		X
 	} from 'lucide-svelte';
 	import { fade, fly, slide } from 'svelte/transition';
@@ -27,8 +26,9 @@
 	import { tick } from 'svelte';
 	import Run from './Run.svelte';
 	import WorkflowArguments from './WorkflowArguments.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import ChatInput from '$lib/components/messages/Input.svelte';
 
 	let { data } = $props();
 	initProjectMCPs(data.mcps ?? []);
@@ -157,6 +157,7 @@ Send the drafted email.
 			name: string;
 		}[]
 	>([]);
+	let showChat = $state(false);
 
 	let runDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
@@ -303,7 +304,7 @@ Send the drafted email.
 							</div>
 						{/if}
 						{#if layout.sidebarOpen && !titleVisible && !workflowRunOpen}
-							<h1 in:fade={{ duration: 200 }} class="pl-14 text-xl font-semibold">
+							<h1 in:fade={{ duration: 200 }} class="pl-4 text-xl font-semibold">
 								{workflow.name}
 							</h1>
 						{/if}
@@ -329,12 +330,10 @@ Send the drafted email.
 
 			<div
 				class="default-scrollbar-thin relative h-[calc(100%-64px)] max-w-full overflow-y-auto"
-				class:px-16={!workflowRunOpen}
-				class:px-8={workflowRunOpen}
 				bind:this={workflowContainer}
 			>
-				<div class="mx-auto min-h-full w-full px-1 pb-4 md:max-w-[1200px]">
-					<div class="mb-4 flex w-full flex-col gap-1" bind:this={workflowNameContainer}>
+				<div class="mx-auto min-h-full w-full pb-4 md:max-w-[1200px]">
+					<div class="mb-4 flex w-full flex-col gap-1 pl-22" bind:this={workflowNameContainer}>
 						<input
 							class="ghost-input text-2xl font-semibold"
 							bind:value={workflow.name}
@@ -367,64 +366,48 @@ Send the drafted email.
 						}}
 					/>
 				</div>
-				<div class="sticky bottom-0 left-0 z-50 w-full py-4">
-					<div class="flex w-full items-center justify-center">
-						<DotDotDot
-							placement="top"
-							class="button-icon bg-primary text-white shadow-xs transition-all hover:scale-110"
+
+				<div class="sticky bottom-0 left-0 z-50 w-full pb-4">
+					<div
+						class={twMerge(
+							'flex w-full justify-end',
+							workflowRunOpen ? 'pr-0' : 'pr-9',
+							showChat ? 'pb-2' : 'pb-4'
+						)}
+					>
+						<button
+							class="button-icon bg-primary text-white transition-all hover:scale-110"
+							onclick={() => (showChat = !showChat)}
+							use:tooltip={'Toggle chat'}
 						>
-							{#snippet icon()}
-								<Plus class="size-6" />
-							{/snippet}
-							<div class="default-dialog flex min-w-48 flex-col p-2">
-								<button
-									class="menu-button"
-									onclick={async () => {
-										workflow.tasks.push({
-											id: (workflow.tasks.length + 1).toString(),
-											name: '',
-											description: '',
-											content: ''
-										});
-
-										await tick();
-										const latestTask = document.querySelector('.workflow-task:last-child');
-										if (latestTask) {
-											latestTask.scrollIntoView({
-												behavior: 'smooth',
-												block: 'end'
-											});
-										}
-									}}
-								>
-									<Workflow class="size-4" /> Add Task
-								</button>
-								<button
-									class="menu-button"
-									onclick={async () => {
-										workflow.arguments.push({
-											name: '',
-											displayLabel: '',
-											description: '',
-											id: (workflow.arguments.length + 1).toString(),
-											visible: true
-										});
-
-										await tick();
-										const latestArgument = document.querySelector('.workflow-argument:last-child');
-										if (latestArgument) {
-											latestArgument.scrollIntoView({
-												behavior: 'smooth',
-												block: 'end'
-											});
-										}
-									}}
-								>
-									<Variable class="size-4" /> Add Argument
-								</button>
-							</div>
-						</DotDotDot>
+							{#if showChat}
+								<MessageCircleOff class="size-6" />
+							{:else}
+								<MessageCircleMore class="size-6" />
+							{/if}
+						</button>
 					</div>
+					{#if showChat}
+						<div
+							class={twMerge(
+								'workflow-run border-surface1 dark:border-surface3 bg-background dark:bg-surface2 ml-auto w-full rounded-2xl border p-2 shadow-xs',
+								workflowRunOpen ? 'mr-0 max-w-[500px]' : 'mr-4 md:max-w-[900px]'
+							)}
+							in:slide={{ axis: 'y' }}
+						>
+							<div class="">
+								<ChatInput
+									classes={{
+										root: 'mt-0'
+									}}
+									onSubmit={async (i) => {
+										//	await thread?.invoke(i);
+									}}
+									placeholder="What can I help with?"
+								/>
+							</div>
+						</div>
+					{/if}
 				</div>
 			</div>
 		</main>
