@@ -1,0 +1,82 @@
+Name: Keycloak
+Description: Auth provider for Keycloak OIDC
+Metadata: envVars: OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_ID,OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_SECRET,OBOT_KEYCLOAK_AUTH_PROVIDER_URL,OBOT_KEYCLOAK_AUTH_PROVIDER_REALM,OBOT_AUTH_PROVIDER_COOKIE_SECRET,OBOT_AUTH_PROVIDER_EMAIL_DOMAINS
+Metadata: noUserAuth: keycloak-auth-provider
+Credential: ../placeholder-credential as keycloak-auth-provider
+
+#!sys.daemon ${GPTSCRIPT_TOOL_DIR}/bin/gptscript-go-tool
+
+---
+!metadata:Keycloak:providerMeta
+{
+    "icon": "https://www.keycloak.org/resources/images/icon.svg",
+    "iconDark": "https://www.keycloak.org/resources/images/icon.svg",
+    "link": "https://www.keycloak.org",
+    "postgresTablePrefix": "keycloak_",
+    "envVars": [
+        {
+            "name": "OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_ID",
+            "friendlyName": "Client ID",
+            "description": "The client ID from your Keycloak realm client configuration.",
+            "sensitive": false
+        },
+        {
+            "name": "OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_SECRET",
+            "friendlyName": "Client Secret",
+            "description": "The client secret from your Keycloak realm client credentials.",
+            "sensitive": true
+        },
+        {
+            "name": "OBOT_KEYCLOAK_AUTH_PROVIDER_URL",
+            "friendlyName": "Keycloak URL",
+            "description": "The base URL of your Keycloak instance (e.g., https://keycloak.example.com).",
+            "sensitive": false
+        },
+        {
+            "name": "OBOT_KEYCLOAK_AUTH_PROVIDER_REALM",
+            "friendlyName": "Realm Name",
+            "description": "The Keycloak realm name to authenticate against.",
+            "sensitive": false
+        },
+        {
+            "name": "OBOT_AUTH_PROVIDER_COOKIE_SECRET",
+            "friendlyName": "Cookie Secret",
+            "description": "Secret used to encrypt cookies. Must be a base64-encoded string that decodes to 16, 24, or 32 bytes.",
+            "sensitive": true,
+            "hidden": true
+        },
+        {
+            "name": "OBOT_AUTH_PROVIDER_EMAIL_DOMAINS",
+            "friendlyName": "Allowed E-Mail Domains",
+            "description": "A comma-separated list of email domains allowed to authenticate. Use * to allow all domains.",
+            "sensitive": false
+        }
+    ],
+    "optionalEnvVars": [
+        {
+            "name": "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN",
+            "friendlyName": "PostgreSQL Connection String (DSN)",
+            "description": "The connection string for PostgreSQL session storage. If unset, cookies will be used instead.",
+            "sensitive": true,
+            "hidden": true
+        },
+        {
+            "name": "OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION",
+            "friendlyName": "Token Refresh Duration",
+            "description": "Time before refreshing auth tokens. Format: 1h1m1s. Default: 1h",
+            "sensitive": false
+        },
+        {
+            "name": "OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_GROUPS",
+            "friendlyName": "Allowed Groups",
+            "description": "Comma-separated list of Keycloak group names allowed to authenticate. Leave empty to allow all groups. Requires 'groups' client scope in Keycloak.",
+            "sensitive": false
+        },
+        {
+            "name": "OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_ROLES",
+            "friendlyName": "Allowed Roles",
+            "description": "Comma-separated list of Keycloak realm roles allowed to authenticate. Leave empty to allow all roles. Format: 'role-name' for realm roles or 'client-id:role-name' for client roles.",
+            "sensitive": false
+        }
+    ]
+}

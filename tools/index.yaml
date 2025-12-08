@@ -4,3 +4,5 @@
 authProviders:
   entra-auth-provider:
     reference: ./entra-auth-provider
+  keycloak-auth-provider:
+    reference: ./keycloak-auth-provider

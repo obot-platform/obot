@@ -74,10 +74,10 @@ rm obot.db obot-credentials.db
 
 On Linux:
 ```bash
-rm -rf ~/.local/share/obot &&
-rm -rf ~/.local/share/gptscript &&
-rm -rf ~/.cache/obot &&
-rm -rf ~/.cache/gptscript &&
+rm -rf ~/.local/share/obot && \
+rm -rf ~/.local/share/gptscript && \
+rm -rf ~/.cache/obot && \
+rm -rf ~/.cache/gptscript && \
 rm obot.db obot-credentials.db
 ```
 
