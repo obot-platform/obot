@@ -118,7 +118,6 @@ You can now return to Obot and finish configuring Entra. Use the table below to 
 | Client Secret | Secret `Value` column   | Certificates & secrets |
 | Tenant ID     | Directory (tenant) ID   | Overview               |
 
-
 ### Okta (Enterprise Only)
 
 :::note
@@ -139,4 +138,3 @@ or have Okta do it for you. Make sure you save the private key in PEM format, as
 in addition to the Client ID for this app. When you are done with that, the `Client Credentials` section should look similar to this:
 
 ![Okta API Services App Client Credentials configuration](/img/okta-client-credentials.png)
-

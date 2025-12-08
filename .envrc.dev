@@ -5,6 +5,9 @@ export WORKSPACE_PROVIDER_IGNORE_WORKSPACE_NOT_FOUND=true
 # Custom tool registry for Entra ID auth provider
 export OBOT_SERVER_TOOL_REGISTRIES=github.com/obot-platform/tools,./tools
 
+# Default MCP catalog (required for registry entries to appear)
+export OBOT_SERVER_DEFAULT_MCPCATALOG_PATH=https://github.com/obot-platform/mcp-catalog
+
 ###########################################
 # The below variables were added manually #
 ###########################################

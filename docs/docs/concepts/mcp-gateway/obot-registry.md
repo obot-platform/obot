@@ -19,7 +19,6 @@ Each Obot instance connects to our open source registry by default. You can foll
     
     → You'll touch **both** repos: first [**mcp-images**](https://github.com/obot-platform/mcp-images) (to repackage it), then [**mcp-catalog**](https://github.com/obot-platform/mcp-catalog).
     
-
 **⚠️ Not Currently Supported:**
 - Docker images that use stdio transport (only HTTP-based Docker images are supported)
 - npx/uvx packages that serve streamable HTTP (only stdio-based npx/uvx packages are supported)
@@ -226,7 +225,6 @@ containerizedConfig:
 ---
 </details>
 
-
 <details>
   <summary>Option C: Stdio MCP Server (npx, uvx)</summary>
 
@@ -297,6 +295,6 @@ If you have Obot running locally, you can test your catalog entry before submitt
 
 ---
 
-## Examples:
+## Examples
 
 Please refer to entries in https://github.com/obot-platform/mcp-catalog
