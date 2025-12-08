@@ -77,12 +77,12 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL string, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL string, httpListenPort int, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
 	var backend backend
 
 	switch opts.MCPRuntimeBackend {
 	case "docker":
-		dockerBackend, err := newDockerBackend(ctx, opts)
+		dockerBackend, err := newDockerBackend(ctx, httpListenPort, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize Docker backend: %w", err)
 		}

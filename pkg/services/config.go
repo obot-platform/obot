@@ -477,7 +477,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	)
 	providerDispatcher := dispatcher.New(invoker, storageClient, credOnlyGPTscriptClient, gatewayClient, postgresDSN)
 
-	mcpSessionManager, err := mcp.NewSessionManager(ctx, persistentTokenServer, config.Hostname, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
+	mcpSessionManager, err := mcp.NewSessionManager(ctx, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), localK8sConfig, storageClient)
 	if err != nil {
 		return nil, err
 	}
