@@ -1,14 +1,16 @@
-Name: Entra
+Name: Microsoft EntraID
 Description: Auth provider for Microsoft Entra ID (Azure AD)
+Metadata: envVars: OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID,OBOT_ENTRA_AUTH_PROVIDER_CLIENT_SECRET,OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID,OBOT_AUTH_PROVIDER_COOKIE_SECRET,OBOT_AUTH_PROVIDER_EMAIL_DOMAINS
 Metadata: noUserAuth: entra-auth-provider
 Credential: ../placeholder-credential as entra-auth-provider
 
 #!sys.daemon ${GPTSCRIPT_TOOL_DIR}/bin/gptscript-go-tool
 
 ---
-!metadata:Entra:providerMeta
+!metadata:Microsoft EntraID:providerMeta
 {
-    "icon": "https://learn.microsoft.com/en-us/entra/fundamentals/media/new-name/entra-icon.png",
+    "icon": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Microsoft_Azure.svg",
+    "iconDark": "https://upload.wikimedia.org/wikipedia/commons/f/fa/Microsoft_Azure.svg",
     "link": "https://entra.microsoft.com",
     "postgresTablePrefix": "entra_",
     "envVars": [

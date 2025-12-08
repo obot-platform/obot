@@ -7,660 +7,278 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"os"
-	"os/signal"
-	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/hashicorp/golang-lru/v2/expirable"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	oauth2proxy "github.com/oauth2-proxy/oauth2-proxy/v7"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/apis/options"
+	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/validation"
+	"github.com/obot-platform/tools/auth-providers-common/pkg/env"
+	"github.com/obot-platform/tools/auth-providers-common/pkg/state"
 )
 
 const (
-	defaultPort      = 9999
-	defaultCacheSize = 5000
-	defaultCacheTTL  = time.Hour
-	defaultTimeout   = 30 * time.Second
-	graphAPIBaseURL  = "https://graph.microsoft.com/v1.0"
-	maxRetries       = 3
+	graphAPIBaseURL = "https://graph.microsoft.com/v1.0"
 )
 
-// Prometheus metrics
-var (
-	authRequestsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "entra_auth_requests_total",
-			Help: "Total authentication requests",
-		},
-		[]string{"status", "endpoint"},
-	)
-
-	authFailuresTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "entra_auth_failures_total",
-			Help: "Failed authentication attempts by reason",
-		},
-		[]string{"reason"},
-	)
-
-	graphAPILatency = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "entra_graph_api_duration_seconds",
-			Help:    "Microsoft Graph API request latency",
-			Buckets: prometheus.DefBuckets,
-		},
-		[]string{"endpoint", "status"},
-	)
-
-	cacheHitsTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "entra_cache_hits_total",
-			Help: "Total cache hits",
-		},
-	)
-
-	cacheMissesTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "entra_cache_misses_total",
-			Help: "Total cache misses",
-		},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(authRequestsTotal)
-	prometheus.MustRegister(authFailuresTotal)
-	prometheus.MustRegister(graphAPILatency)
-	prometheus.MustRegister(cacheHitsTotal)
-	prometheus.MustRegister(cacheMissesTotal)
+type Options struct {
+	ClientID                 string `env:"OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID"`
+	ClientSecret             string `env:"OBOT_ENTRA_AUTH_PROVIDER_CLIENT_SECRET"`
+	TenantID                 string `env:"OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID"`
+	ObotServerURL            string `env:"OBOT_SERVER_PUBLIC_URL,OBOT_SERVER_URL"`
+	PostgresConnectionDSN    string `env:"OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN" optional:"true"`
+	AuthCookieSecret         string `env:"OBOT_AUTH_PROVIDER_COOKIE_SECRET"`
+	AuthEmailDomains         string `env:"OBOT_AUTH_PROVIDER_EMAIL_DOMAINS" default:"*"`
+	AuthTokenRefreshDuration string `env:"OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION" optional:"true" default:"1h"`
+	AllowedGroups            string `env:"OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_GROUPS" optional:"true"`
+	AllowedTenants           string `env:"OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS" optional:"true"`
 }
 
-// APIError represents a structured error response
-type APIError struct {
-	Error   string `json:"error"`
-	Code    string `json:"code,omitempty"`
-	Details string `json:"details,omitempty"`
+// GraphClient for Microsoft Graph API requests
+var graphClient = &http.Client{
+	Timeout: 30 * time.Second,
 }
-
-// Config holds all configuration from environment variables
-type Config struct {
-	ClientID             string
-	ClientSecret         string
-	TenantID             string
-	CookieSecret         []byte
-	AllowedEmailDomains  []string
-	AllowedGroups        []string
-	AllowedTenants       []string
-	PostgresDSN          string
-	TokenRefreshDuration time.Duration
-	Port                 int
-	ServerURL            string
-	CacheSize            int
-	CacheTTL             time.Duration
-	LogLevel             slog.Level
-	UseWorkloadIdentity  bool
-	ClientCertPath       string
-	ClientKeyPath        string
-	MetricsEnabled       bool
-}
-
-// UserState represents cached user authentication state
-type UserState struct {
-	UserID   string   `json:"userId"`
-	Email    string   `json:"email"`
-	Name     string   `json:"name"`
-	Groups   []string `json:"groups,omitempty"`
-	TenantID string   `json:"tenantId,omitempty"`
-}
-
-var (
-	// Expirable LRU cache with built-in TTL support
-	stateCache *expirable.LRU[string, UserState]
-	config     Config
-	logger     *slog.Logger
-
-	// HTTP client with timeouts for Microsoft Graph API
-	graphClient = &http.Client{
-		Timeout: defaultTimeout,
-		Transport: &http.Transport{
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 10,
-			IdleConnTimeout:     90 * time.Second,
-		},
-	}
-)
 
 func main() {
-	// Load and validate configuration
-	var err error
-	config, err = loadConfig()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Configuration error: %v\n", err)
+	var opts Options
+	if err := env.LoadEnvForStruct(&opts); err != nil {
+		fmt.Printf("ERROR: entra-auth-provider: failed to load options: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Setup structured logging
-	logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: config.LogLevel,
-	}))
-	slog.SetDefault(logger)
-
-	// Initialize expirable LRU cache with built-in TTL
-	stateCache = expirable.NewLRU[string, UserState](config.CacheSize, nil, config.CacheTTL)
-
-	// Create HTTP server with custom handlers
-	mux := http.NewServeMux()
-
-	// Health and readiness endpoints (Kubernetes probes)
-	mux.HandleFunc("/health", handleHealth)
-	mux.HandleFunc("/ready", handleReady)
-
-	// Prometheus metrics endpoint
-	if config.MetricsEnabled {
-		mux.Handle("/metrics", promhttp.Handler())
-	}
-
-	// Obot-specific endpoints
-	mux.HandleFunc("/", handleRoot)
-	mux.HandleFunc("/obot-get-state", handleGetState)
-	mux.HandleFunc("/obot-get-user-info", handleGetUserInfo)
-	mux.HandleFunc("/obot-list-user-auth-groups", handleListGroups)
-
-	// Create server with timeouts
-	addr := fmt.Sprintf("127.0.0.1:%d", config.Port)
-	server := &http.Server{
-		Addr:         addr,
-		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
-
-	// Graceful shutdown handling
-	done := make(chan bool)
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-quit
-		logger.Info("Shutting down server...")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		if err := server.Shutdown(ctx); err != nil {
-			logger.Error("Server forced to shutdown", "error", err)
-		}
-		close(done)
-	}()
-
-	logger.Info("Starting Entra ID auth provider",
-		"address", addr,
-		"tenant_id", config.TenantID,
-		"multi_tenant", isMultiTenant(config.TenantID),
-		"workload_identity", config.UseWorkloadIdentity,
-		"metrics_enabled", config.MetricsEnabled,
-	)
-
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		logger.Error("Server failed", "error", err)
+	// Validate multi-tenant configuration
+	if isMultiTenant(opts.TenantID) && opts.AllowedTenants == "" {
+		fmt.Printf("ERROR: entra-auth-provider: OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS is required when tenant_id is 'common' or 'organizations'\n")
 		os.Exit(1)
 	}
 
-	<-done
-	logger.Info("Server stopped")
-}
-
-func loadConfig() (Config, error) {
-	port := defaultPort
-	if p := os.Getenv("PORT"); p != "" {
-		if _, err := fmt.Sscanf(p, "%d", &port); err != nil {
-			return Config{}, fmt.Errorf("invalid PORT: %w", err)
-		}
-	}
-
-	refreshDuration := time.Hour
-	if d := os.Getenv("OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION"); d != "" {
-		if parsed, err := time.ParseDuration(d); err == nil {
-			refreshDuration = parsed
-		}
-	}
-
-	cacheSize := defaultCacheSize
-	if s := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CACHE_SIZE"); s != "" {
-		if _, err := fmt.Sscanf(s, "%d", &cacheSize); err != nil {
-			return Config{}, fmt.Errorf("invalid OBOT_ENTRA_AUTH_PROVIDER_CACHE_SIZE: %w", err)
-		}
-	}
-
-	cacheTTL := defaultCacheTTL
-	if t := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CACHE_TTL"); t != "" {
-		if parsed, err := time.ParseDuration(t); err == nil {
-			cacheTTL = parsed
-		}
-	}
-
-	logLevel := slog.LevelInfo
-	if l := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_LOG_LEVEL"); l != "" {
-		switch strings.ToLower(l) {
-		case "debug":
-			logLevel = slog.LevelDebug
-		case "warn":
-			logLevel = slog.LevelWarn
-		case "error":
-			logLevel = slog.LevelError
-		}
-	}
-
-	// Check for workload identity
-	useWorkloadIdentity := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_USE_WORKLOAD_IDENTITY") == "true"
-
-	// Validate and decode cookie secret
-	cookieSecretB64 := os.Getenv("OBOT_AUTH_PROVIDER_COOKIE_SECRET")
-	if cookieSecretB64 == "" {
-		return Config{}, errors.New("OBOT_AUTH_PROVIDER_COOKIE_SECRET is required")
-	}
-
-	cookieBytes, err := base64.StdEncoding.DecodeString(cookieSecretB64)
+	refreshDuration, err := time.ParseDuration(opts.AuthTokenRefreshDuration)
 	if err != nil {
-		return Config{}, fmt.Errorf("OBOT_AUTH_PROVIDER_COOKIE_SECRET must be valid base64: %w", err)
+		fmt.Printf("ERROR: entra-auth-provider: failed to parse token refresh duration: %v\n", err)
+		os.Exit(1)
 	}
 
-	switch len(cookieBytes) {
-	case 16, 24, 32:
-		// Valid AES key lengths
-	default:
-		return Config{}, fmt.Errorf("OBOT_AUTH_PROVIDER_COOKIE_SECRET must decode to 16, 24, or 32 bytes (got %d)", len(cookieBytes))
+	if refreshDuration < 0 {
+		fmt.Printf("ERROR: entra-auth-provider: token refresh duration must be greater than 0\n")
+		os.Exit(1)
 	}
 
-	// Validate authentication method
-	clientSecret := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CLIENT_SECRET")
-	clientCertPath := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CLIENT_CERT_PATH")
-	clientKeyPath := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CLIENT_KEY_PATH")
-
-	if !useWorkloadIdentity && clientSecret == "" && clientCertPath == "" {
-		return Config{}, errors.New("one of OBOT_ENTRA_AUTH_PROVIDER_CLIENT_SECRET, OBOT_ENTRA_AUTH_PROVIDER_USE_WORKLOAD_IDENTITY=true, or OBOT_ENTRA_AUTH_PROVIDER_CLIENT_CERT_PATH must be set")
+	cookieSecret, err := base64.StdEncoding.DecodeString(opts.AuthCookieSecret)
+	if err != nil {
+		fmt.Printf("ERROR: entra-auth-provider: failed to decode cookie secret: %v\n", err)
+		os.Exit(1)
 	}
 
-	// Parse allowed groups
+	// Configure oauth2-proxy with Azure/Entra ID provider
+	legacyOpts := options.NewLegacyOptions()
+	legacyOpts.LegacyProvider.ProviderType = "azure"
+	legacyOpts.LegacyProvider.ProviderName = "azure"
+	legacyOpts.LegacyProvider.ClientID = opts.ClientID
+	legacyOpts.LegacyProvider.ClientSecret = opts.ClientSecret
+	legacyOpts.LegacyProvider.AzureTenant = opts.TenantID
+	// Request scopes for user info and groups
+	legacyOpts.LegacyProvider.Scope = "openid email profile offline_access User.Read GroupMember.Read.All"
+
+	oauthProxyOpts, err := legacyOpts.ToOptions()
+	if err != nil {
+		fmt.Printf("ERROR: entra-auth-provider: failed to convert legacy options to new options: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Server configuration
+	oauthProxyOpts.Server.BindAddress = ""
+	oauthProxyOpts.MetricsServer.BindAddress = ""
+
+	// Session storage configuration
+	if opts.PostgresConnectionDSN != "" {
+		oauthProxyOpts.Session.Type = options.PostgresSessionStoreType
+		oauthProxyOpts.Session.Postgres.ConnectionDSN = opts.PostgresConnectionDSN
+		oauthProxyOpts.Session.Postgres.TableNamePrefix = "entra_"
+	}
+
+	// Cookie configuration
+	oauthProxyOpts.Cookie.Refresh = refreshDuration
+	oauthProxyOpts.Cookie.Name = "obot_access_token"
+	oauthProxyOpts.Cookie.Secret = string(cookieSecret)
+	oauthProxyOpts.Cookie.Secure = strings.HasPrefix(opts.ObotServerURL, "https://")
+	oauthProxyOpts.Cookie.CSRFExpire = 30 * time.Minute
+
+	// Templates path
+	oauthProxyOpts.Templates.Path = os.Getenv("GPTSCRIPT_TOOL_DIR") + "/../auth-providers-common/templates"
+
+	// Redirect URL configuration
+	oauthProxyOpts.RawRedirectURL = opts.ObotServerURL + "/"
+
+	// Email domain restrictions
+	if opts.AuthEmailDomains != "" {
+		emailDomains := strings.Split(opts.AuthEmailDomains, ",")
+		for i := range emailDomains {
+			emailDomains[i] = strings.TrimSpace(emailDomains[i])
+		}
+		oauthProxyOpts.EmailDomains = emailDomains
+	}
+
+	// Disable verbose logging
+	oauthProxyOpts.Logging.RequestEnabled = false
+	oauthProxyOpts.Logging.AuthEnabled = false
+	oauthProxyOpts.Logging.StandardEnabled = false
+
+	// Validate options
+	if err = validation.Validate(oauthProxyOpts); err != nil {
+		fmt.Printf("ERROR: entra-auth-provider: failed to validate options: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create OAuth proxy
+	oauthProxy, err := oauth2proxy.NewOAuthProxy(oauthProxyOpts, oauth2proxy.NewValidator(oauthProxyOpts.EmailDomains, oauthProxyOpts.AuthenticatedEmailsFile))
+	if err != nil {
+		fmt.Printf("ERROR: entra-auth-provider: failed to create oauth2 proxy: %v\n", err)
+		os.Exit(1)
+	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "9999"
+	}
+
+	// Parse allowed groups for filtering
 	var allowedGroups []string
-	if groups := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_GROUPS"); groups != "" {
-		allowedGroups = strings.Split(groups, ",")
+	if opts.AllowedGroups != "" {
+		allowedGroups = strings.Split(opts.AllowedGroups, ",")
 		for i := range allowedGroups {
 			allowedGroups[i] = strings.TrimSpace(allowedGroups[i])
 		}
 	}
 
-	// Parse allowed tenants (required for multi-tenant)
-	var allowedTenants []string
-	tenantID := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID")
-	if isMultiTenant(tenantID) {
-		tenantsEnv := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS")
-		if tenantsEnv == "" {
-			return Config{}, errors.New("OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS is required when tenant_id is 'common' or 'organizations'")
-		}
-		allowedTenants = strings.Split(tenantsEnv, ",")
-		for i := range allowedTenants {
-			allowedTenants[i] = strings.TrimSpace(allowedTenants[i])
-		}
-	}
+	// Setup HTTP routes
+	mux := http.NewServeMux()
 
-	// Parse allowed email domains
-	var allowedEmailDomains []string
-	if domains := os.Getenv("OBOT_AUTH_PROVIDER_EMAIL_DOMAINS"); domains != "" {
-		allowedEmailDomains = strings.Split(domains, ",")
-		for i := range allowedEmailDomains {
-			allowedEmailDomains[i] = strings.TrimSpace(allowedEmailDomains[i])
+	// Root endpoint - returns daemon address (required by obot)
+	mux.HandleFunc("/{$}", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(fmt.Sprintf("http://127.0.0.1:%s", port)))
+	})
+
+	// State endpoint - returns auth state with token refresh support
+	mux.HandleFunc("/obot-get-state", getState(oauthProxy, allowedGroups))
+
+	// User info endpoint - fetches profile from Microsoft Graph
+	mux.HandleFunc("/obot-get-user-info", func(w http.ResponseWriter, r *http.Request) {
+		userInfo, err := fetchUserProfile(r.Context(), r.Header.Get("Authorization"))
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to fetch user info: %v", err), http.StatusBadRequest)
+			return
 		}
-	}
+		json.NewEncoder(w).Encode(userInfo)
+	})
 
-	// Metrics enabled by default
-	metricsEnabled := true
-	if m := os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_METRICS_ENABLED"); m == "false" {
-		metricsEnabled = false
-	}
+	// Groups endpoint - lists user's Azure AD groups
+	mux.HandleFunc("/obot-list-user-auth-groups", func(w http.ResponseWriter, r *http.Request) {
+		accessToken := r.Header.Get("Authorization")
+		if accessToken == "" {
+			http.Error(w, "no authorization header", http.StatusUnauthorized)
+			return
+		}
 
-	return Config{
-		ClientID:             os.Getenv("OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID"),
-		ClientSecret:         clientSecret,
-		TenantID:             tenantID,
-		CookieSecret:         cookieBytes,
-		AllowedEmailDomains:  allowedEmailDomains,
-		AllowedGroups:        allowedGroups,
-		AllowedTenants:       allowedTenants,
-		PostgresDSN:          os.Getenv("OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN"),
-		TokenRefreshDuration: refreshDuration,
-		Port:                 port,
-		ServerURL:            os.Getenv("OBOT_SERVER_URL"),
-		CacheSize:            cacheSize,
-		CacheTTL:             cacheTTL,
-		LogLevel:             logLevel,
-		UseWorkloadIdentity:  useWorkloadIdentity,
-		ClientCertPath:       clientCertPath,
-		ClientKeyPath:        clientKeyPath,
-		MetricsEnabled:       metricsEnabled,
-	}, nil
+		// Remove "Bearer " prefix if present
+		accessToken = strings.TrimPrefix(accessToken, "Bearer ")
+
+		groups, err := fetchUserGroups(r.Context(), accessToken)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to fetch groups: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Apply group filtering if configured
+		if len(allowedGroups) > 0 {
+			groups = filterGroups(groups, allowedGroups)
+		}
+
+		json.NewEncoder(w).Encode(map[string][]string{"groups": groups})
+	})
+
+	// Catch-all route - delegates to oauth2-proxy for OAuth flow handling
+	mux.HandleFunc("/", oauthProxy.ServeHTTP)
+
+	fmt.Printf("listening on 127.0.0.1:%s\n", port)
+	if err := http.ListenAndServe("127.0.0.1:"+port, mux); !errors.Is(err, http.ErrServerClosed) {
+		fmt.Printf("ERROR: entra-auth-provider: failed to listen and serve: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func isMultiTenant(tenantID string) bool {
 	return tenantID == "common" || tenantID == "organizations" || tenantID == "consumers"
 }
 
-// writeError sends a structured JSON error response
-func writeError(w http.ResponseWriter, status int, message, code string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(APIError{
-		Error: message,
-		Code:  code,
-	})
-}
+// getState returns an HTTP handler that wraps the state.ObotGetState with group enrichment
+func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string) http.HandlerFunc {
+	// Cache for user groups to avoid repeated Graph API calls
+	groupCache := expirable.NewLRU[string, []string](5000, nil, time.Hour)
 
-// Health check endpoint for Kubernetes liveness probe
-func handleHealth(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
-}
-
-// Readiness check endpoint for Kubernetes readiness probe
-func handleReady(w http.ResponseWriter, r *http.Request) {
-	// Check if we can reach Microsoft's OIDC discovery endpoint
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
-
-	discoveryURL := fmt.Sprintf("https://login.microsoftonline.com/%s/v2.0/.well-known/openid-configuration", config.TenantID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, discoveryURL, nil)
-	if err != nil {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "not ready", "reason": "cannot create request"})
-		return
-	}
-
-	resp, err := graphClient.Do(req)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "not ready", "reason": "cannot reach Entra ID"})
-		return
-	}
-	resp.Body.Close()
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
-}
-
-func handleRoot(w http.ResponseWriter, _ *http.Request) {
-	fmt.Fprintf(w, "http://127.0.0.1:%d", config.Port)
-}
-
-func handleGetState(w http.ResponseWriter, r *http.Request) {
-	authRequestsTotal.WithLabelValues("attempt", "get-state").Inc()
-
-	// Extract user from oauth2-proxy session headers
-	email := r.Header.Get("X-Forwarded-Email")
-	userID := r.Header.Get("X-Forwarded-User")
-
-	if userID == "" || email == "" {
-		logger.Debug("Unauthenticated request to get-state")
-		authFailuresTotal.WithLabelValues("not_authenticated").Inc()
-		writeError(w, http.StatusUnauthorized, "not authenticated", "AUTH_REQUIRED")
-		return
-	}
-
-	// Check cache first (expirable cache handles TTL automatically)
-	if cached, ok := stateCache.Get(userID); ok {
-		cacheHitsTotal.Inc()
-		logger.Debug("Returning cached state", "user_id", userID)
-		authRequestsTotal.WithLabelValues("success", "get-state").Inc()
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(cached)
-		return
-	}
-	cacheMissesTotal.Inc()
-
-	// Validate access token before using it
-	accessToken := r.Header.Get("X-Forwarded-Access-Token")
-	if err := validateAccessToken(accessToken); err != nil {
-		logger.Warn("Invalid access token", "error", err, "user_id", userID)
-		authFailuresTotal.WithLabelValues("invalid_token").Inc()
-		writeError(w, http.StatusUnauthorized, "invalid access token", "INVALID_TOKEN")
-		return
-	}
-
-	// Fetch fresh state
-	state := UserState{
-		UserID: userID,
-		Email:  email,
-		Name:   r.Header.Get("X-Forwarded-Preferred-Username"),
-	}
-
-	// Fetch groups from Microsoft Graph (with pagination and retry for 200+ groups)
-	groups, err := fetchUserGroupsWithRetry(r.Context(), accessToken)
-	if err != nil {
-		logger.Warn("Failed to fetch groups", "error", err, "user_id", userID)
-		// Continue without groups - don't fail the entire request
-	} else {
-		// Apply group filtering if configured
-		if len(config.AllowedGroups) > 0 {
-			state.Groups = filterGroups(groups, config.AllowedGroups)
-		} else {
-			state.Groups = groups
-		}
-	}
-
-	// Cache the state (TTL handled by expirable cache)
-	stateCache.Add(userID, state)
-
-	logger.Info("User state retrieved",
-		"user_id", userID,
-		"email", email,
-		"group_count", len(state.Groups),
-	)
-
-	authRequestsTotal.WithLabelValues("success", "get-state").Inc()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(state)
-}
-
-func handleGetUserInfo(w http.ResponseWriter, r *http.Request) {
-	authRequestsTotal.WithLabelValues("attempt", "get-user-info").Inc()
-
-	accessToken := r.Header.Get("X-Forwarded-Access-Token")
-	if accessToken == "" {
-		authFailuresTotal.WithLabelValues("no_token").Inc()
-		writeError(w, http.StatusUnauthorized, "no access token", "NO_TOKEN")
-		return
-	}
-
-	// Validate token before use
-	if err := validateAccessToken(accessToken); err != nil {
-		logger.Warn("Invalid access token for user info", "error", err)
-		authFailuresTotal.WithLabelValues("invalid_token").Inc()
-		writeError(w, http.StatusUnauthorized, "invalid access token", "INVALID_TOKEN")
-		return
-	}
-
-	// Fetch from Microsoft Graph API with retry
-	userInfo, err := fetchUserProfileWithRetry(r.Context(), accessToken)
-	if err != nil {
-		logger.Error("Failed to fetch user profile", "error", err)
-		writeError(w, http.StatusInternalServerError, err.Error(), "GRAPH_API_ERROR")
-		return
-	}
-
-	authRequestsTotal.WithLabelValues("success", "get-user-info").Inc()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(userInfo)
-}
-
-func handleListGroups(w http.ResponseWriter, r *http.Request) {
-	authRequestsTotal.WithLabelValues("attempt", "list-groups").Inc()
-
-	accessToken := r.Header.Get("X-Forwarded-Access-Token")
-	if accessToken == "" {
-		authFailuresTotal.WithLabelValues("no_token").Inc()
-		writeError(w, http.StatusUnauthorized, "no access token", "NO_TOKEN")
-		return
-	}
-
-	// Validate token before use
-	if err := validateAccessToken(accessToken); err != nil {
-		logger.Warn("Invalid access token for list groups", "error", err)
-		authFailuresTotal.WithLabelValues("invalid_token").Inc()
-		writeError(w, http.StatusUnauthorized, "invalid access token", "INVALID_TOKEN")
-		return
-	}
-
-	groups, err := fetchUserGroupsWithRetry(r.Context(), accessToken)
-	if err != nil {
-		logger.Error("Failed to fetch groups", "error", err)
-		writeError(w, http.StatusInternalServerError, err.Error(), "GRAPH_API_ERROR")
-		return
-	}
-
-	// Apply group filtering if configured
-	if len(config.AllowedGroups) > 0 {
-		groups = filterGroups(groups, config.AllowedGroups)
-	}
-
-	authRequestsTotal.WithLabelValues("success", "list-groups").Inc()
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string][]string{"groups": groups})
-}
-
-// validateAccessToken performs basic validation on the access token
-func validateAccessToken(token string) error {
-	if token == "" {
-		return errors.New("token is empty")
-	}
-
-	// JWT format check
-	parts := strings.Split(token, ".")
-	if len(parts) != 3 {
-		return errors.New("invalid token format")
-	}
-
-	// Decode claims (middle part)
-	claimsJSON, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return fmt.Errorf("failed to decode token claims: %w", err)
-	}
-
-	var claims struct {
-		Exp int64  `json:"exp"`
-		Iss string `json:"iss"`
-		Aud string `json:"aud"`
-		Tid string `json:"tid"`
-	}
-
-	if err := json.Unmarshal(claimsJSON, &claims); err != nil {
-		return fmt.Errorf("failed to parse token claims: %w", err)
-	}
-
-	// Check expiration
-	if time.Now().Unix() > claims.Exp {
-		return errors.New("token expired")
-	}
-
-	// Validate issuer for multi-tenant
-	if isMultiTenant(config.TenantID) && len(config.AllowedTenants) > 0 {
-		tenantAllowed := false
-		for _, allowed := range config.AllowedTenants {
-			if claims.Tid == allowed {
-				tenantAllowed = true
-				break
-			}
-		}
-		if !tenantAllowed {
-			return fmt.Errorf("tenant %s not in allowed list", claims.Tid)
-		}
-	}
-
-	return nil
-}
-
-// fetchWithRetry performs an HTTP request with retry logic for rate limiting
-func fetchWithRetry(ctx context.Context, req *http.Request) (*http.Response, error) {
-	var lastErr error
-
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		if attempt > 0 {
-			// Clone request for retry
-			req = req.Clone(ctx)
-		}
-
-		resp, err := graphClient.Do(req)
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get base state from oauth2-proxy
+		ss, err := getSerializableStateFromRequest(p, r)
 		if err != nil {
-			lastErr = err
-			continue
+			http.Error(w, fmt.Sprintf("failed to get state: %v", err), http.StatusInternalServerError)
+			return
 		}
 
-		// Handle rate limiting (429 Too Many Requests)
-		if resp.StatusCode == http.StatusTooManyRequests {
-			resp.Body.Close()
+		// Enrich with groups from Microsoft Graph
+		if ss.AccessToken != "" {
+			userID := ss.User
+			if userID == "" {
+				userID = ss.Email
+			}
 
-			retryAfter := resp.Header.Get("Retry-After")
-			delay := 1 * time.Second // default delay
-
-			if retryAfter != "" {
-				if seconds, err := strconv.Atoi(retryAfter); err == nil {
-					delay = time.Duration(seconds) * time.Second
+			// Check cache first
+			if groups, ok := groupCache.Get(userID); ok {
+				ss.Groups = groups
+			} else {
+				// Fetch groups from Graph API
+				groups, err := fetchUserGroups(r.Context(), ss.AccessToken)
+				if err != nil {
+					// Log error but don't fail - groups are optional
+					fmt.Printf("WARNING: entra-auth-provider: failed to fetch groups for %s: %v\n", userID, err)
+				} else {
+					// Apply group filtering if configured
+					if len(allowedGroups) > 0 {
+						groups = filterGroups(groups, allowedGroups)
+					}
+					ss.Groups = groups
+					groupCache.Add(userID, groups)
 				}
 			}
-
-			logger.Warn("Rate limited by Graph API, retrying",
-				"attempt", attempt+1,
-				"retry_after", delay,
-			)
-
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(delay):
-				continue
-			}
 		}
 
-		// Handle 5xx errors with exponential backoff
-		if resp.StatusCode >= 500 && attempt < maxRetries {
-			resp.Body.Close()
-			delay := time.Duration(1<<attempt) * time.Second
-			logger.Warn("Graph API server error, retrying",
-				"status", resp.StatusCode,
-				"attempt", attempt+1,
-				"delay", delay,
-			)
-
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(delay):
-				continue
-			}
+		if err = json.NewEncoder(w).Encode(ss); err != nil {
+			http.Error(w, fmt.Sprintf("failed to encode state: %v", err), http.StatusInternalServerError)
+			return
 		}
-
-		return resp, nil
 	}
-
-	if lastErr != nil {
-		return nil, lastErr
-	}
-	return nil, errors.New("max retries exceeded")
 }
 
-func fetchUserProfileWithRetry(ctx context.Context, accessToken string) (map[string]interface{}, error) {
-	start := time.Now()
-	defer func() {
-		graphAPILatency.WithLabelValues("/me", "completed").Observe(time.Since(start).Seconds())
-	}()
+// getSerializableStateFromRequest decodes the request and gets state from oauth2-proxy
+func getSerializableStateFromRequest(p *oauth2proxy.OAuthProxy, r *http.Request) (state.SerializableState, error) {
+	var sr state.SerializableRequest
+	if err := json.NewDecoder(r.Body).Decode(&sr); err != nil {
+		return state.SerializableState{}, fmt.Errorf("failed to decode request body: %v", err)
+	}
+
+	reqObj, err := http.NewRequest(sr.Method, sr.URL, nil)
+	if err != nil {
+		return state.SerializableState{}, fmt.Errorf("failed to create request object: %v", err)
+	}
+	reqObj.Header = sr.Header
+
+	return state.GetSerializableState(p, reqObj)
+}
+
+// fetchUserProfile fetches user profile from Microsoft Graph API
+func fetchUserProfile(ctx context.Context, authHeader string) (map[string]interface{}, error) {
+	accessToken := strings.TrimPrefix(authHeader, "Bearer ")
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, graphAPIBaseURL+"/me", nil)
 	if err != nil {
@@ -669,7 +287,7 @@ func fetchUserProfileWithRetry(ctx context.Context, accessToken string) (map[str
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := fetchWithRetry(ctx, req)
+	resp, err := graphClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("graph API request failed: %w", err)
 	}
@@ -692,17 +310,11 @@ func fetchUserProfileWithRetry(ctx context.Context, accessToken string) (map[str
 	return result, nil
 }
 
-// fetchUserGroupsWithRetry handles the 200+ groups scenario with pagination and retry
-func fetchUserGroupsWithRetry(ctx context.Context, accessToken string) ([]string, error) {
-	start := time.Now()
-	defer func() {
-		graphAPILatency.WithLabelValues("/transitiveMemberOf", "completed").Observe(time.Since(start).Seconds())
-	}()
-
+// fetchUserGroups fetches user's group memberships from Microsoft Graph API with pagination
+func fetchUserGroups(ctx context.Context, accessToken string) ([]string, error) {
 	var allGroups []string
 
 	// Use transitiveMemberOf for complete group hierarchy including nested groups
-	// IMPORTANT: ConsistencyLevel: eventual is REQUIRED for $count and $top>100
 	url := graphAPIBaseURL + "/me/transitiveMemberOf/microsoft.graph.group?$count=true&$select=id,displayName&$top=999"
 
 	for url != "" {
@@ -712,9 +324,9 @@ func fetchUserGroupsWithRetry(ctx context.Context, accessToken string) ([]string
 		}
 		req.Header.Set("Authorization", "Bearer "+accessToken)
 		req.Header.Set("Accept", "application/json")
-		req.Header.Set("ConsistencyLevel", "eventual") // REQUIRED for $count and advanced query
+		req.Header.Set("ConsistencyLevel", "eventual") // Required for $count and advanced query
 
-		resp, err := fetchWithRetry(ctx, req)
+		resp, err := graphClient.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("graph API request failed: %w", err)
 		}
@@ -736,7 +348,6 @@ func fetchUserGroupsWithRetry(ctx context.Context, accessToken string) ([]string
 				DisplayName string `json:"displayName"`
 			} `json:"value"`
 			NextLink string `json:"@odata.nextLink"`
-			Count    int    `json:"@odata.count"`
 		}
 
 		if err := json.Unmarshal(body, &result); err != nil {
@@ -749,12 +360,6 @@ func fetchUserGroupsWithRetry(ctx context.Context, accessToken string) ([]string
 
 		// Follow pagination
 		url = result.NextLink
-
-		logger.Debug("Fetched group page",
-			"count", len(result.Value),
-			"total", result.Count,
-			"has_more", url != "",
-		)
 	}
 
 	return allGroups, nil

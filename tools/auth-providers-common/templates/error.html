@@ -1,0 +1,247 @@
+
+<!DOCTYPE html>
+<html lang="en" charset="utf-8">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>{{.StatusCode}} {{.Title}}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet">
+    
+    <style>
+      body {
+        font-family: "Inter", serif;
+        font-optical-sizing: auto;
+        height: 100vh;
+        margin: 0;
+      }
+
+      .error-box {
+        align-items: flex-end;
+        display: flex;
+        gap: 24px;
+        justify-content: flex-end;
+      }
+      .error-box img {
+        height: 280px;
+        width: 280px;
+      }
+
+      p { 
+        line-height: 1.3rem;
+        margin: 0;
+      }
+
+      .status-code {
+        font-size: 7.5rem;
+        font-weight: 600;
+        line-height: 1;
+      }
+      .status-title {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-top: 0;
+        margin-bottom: 0;
+      }
+
+      .centered {
+        align-items: center;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        justify-content: center;
+      }
+
+      .centered-content {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .speech-bubble {
+        align-items: center;
+        background: #f2f2f3;
+        border-radius: .4em;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        margin-bottom: 24px;
+        padding: 18px 24px;
+        position: relative;
+      }
+      .speech-bubble h1 {
+        margin: 0;
+      }
+
+      .speech-bubble:after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        width: 0;
+        height: 0;
+        border: 40px solid transparent;
+        border-right-color: #f2f2f3;
+        border-left: 0;
+        border-bottom: 0;
+        margin-top: -20px;
+        margin-left: -40px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 36px;
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        font-weight: 500;
+        cursor: pointer;
+        width: 100%;
+      }
+
+      button:hover {
+        opacity: 0.8;
+      }
+
+      .primary {
+        background-color: #4f7df3;
+        color: #ffffff;
+      }
+
+      .secondary:hover {
+        opacity: 0.6;
+      }
+
+      .columns {
+        align-self: center;
+        display: flex;
+        gap: 24px;
+        justify-self: center;
+      }
+
+      .column, form {
+        width: 200px;
+      }
+
+      .message {
+        align-self: center;
+        justify-self: center;
+        max-width: 600px;
+        width: 100%;
+        text-align: center;
+      }
+
+      form button {
+        width: 100%;
+      }
+
+      .card-content {
+        font-size: 0.75rem;
+        padding: 0 12px 8px 12px;
+        max-width: 600px;
+      }
+      
+      .card-content .content {
+        background-color: rgba(239, 68, 68, 0.2);
+        border: 1px solid #ef4444;
+        border-radius: 8px;
+        padding: 12px;
+      }
+
+      @media (max-width: 640px) {
+        section {
+          padding: 0 12px;
+        }
+        .error-box {
+          align-items: center;
+          justify-content: center;
+        }
+        .error-box img {
+          height: 150px;
+          width: 150px;
+        }
+        .status-code {
+          font-size: 3.5rem;
+        }
+        .status-title {
+          font-size: 0.875rem;
+        }
+        .columns {
+          flex-direction: column;
+          width: 100%;
+        }
+        .column, form {
+          width: 100%;
+        }
+        .speech-bubble {
+          margin-bottom: -16px;
+        }
+        .card-content {
+          max-width: 100%;
+        }
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background-color: #030712;
+          color: #d7d8db;
+        }
+        .speech-bubble {
+          background-color: #242528;
+        }
+        .speech-bubble:after {
+          border-right-color: #242528;
+        }
+        .primary {
+          color: #030712;
+        }
+      }
+    </style>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('back-btn').addEventListener('click', function() {
+          const preAuthUrl = localStorage.getItem('preAuthRedirect');
+          window.location.href = preAuthUrl;
+        });
+      });
+    </script>
+  </head>
+  <body>
+    <section class="centered">
+      <div class="centered-content">
+        <div class="error-box">
+          <div>
+            <img alt="Obot Logo" src="/user/images/obot-icon-grumpy-blue.svg" />
+          </div>
+          <div class="speech-bubble">
+            <div class="status-code">{{.StatusCode}}</div>
+            <h1 class="status-title">{{.Title}}</h1>
+          </div>
+        </div>
+
+        {{ if .Message }}
+          <div class="columns">
+            <div class="card-content">
+              <div class="content">
+                {{.Message}}
+              </div>
+            </div>
+          </div>
+        {{ end }}
+
+        <div class="message">
+          <p>Oops! You are not authorized to access this page or something went wrong. Please try logging in again or contact an administrator.</p>
+        </div>
+
+        {{ if .Redirect }}
+          <div class="columns">
+            <div class="column">
+              <button id="back-btn" class="primary">Go Back</button>
+            </div>
+          </div>
+        {{ end }}
+      </div>
+    </section>
+
+  </body>
+</html>

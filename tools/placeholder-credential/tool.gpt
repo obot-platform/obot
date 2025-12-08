@@ -1,0 +1,5 @@
+Name: Placeholder credential
+Description: This is a fake credential tool for the model and auth providers. These credentials are handled in Obot and this tool should never be called.
+Parameters: env_vars: A semicolon-separated list of environment variables to prompt for
+
+#!/usr/bin/env python3 ${GPTSCRIPT_TOOL_DIR}/main.py

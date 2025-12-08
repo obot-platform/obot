@@ -1,0 +1,6 @@
+name: Custom Tool Index
+description: Custom Obot tool registry for Entra ID auth provider
+
+# This hack loads the index.yaml file contents when run via gptscript
+outputfilter: index.yaml
+#!sys.echo
