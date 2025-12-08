@@ -222,6 +222,11 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 		return err
 	}
 
+	// Check if server is both enabled and configured
+	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+		return err
+	}
+
 	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("cannot restart deployment for remote MCP server")
 	}
@@ -271,6 +276,11 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 		if apierrors.IsNotFound(err) {
 			return types.NewErrNotFound("system MCP server not found")
 		}
+		return err
+	}
+
+	// Check if server is both enabled and configured
+	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
 		return err
 	}
 
@@ -380,6 +390,11 @@ func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 		return err
 	}
 
+	// Check if server is both enabled and configured
+	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+		return err
+	}
+
 	// Get credentials for the server config
 	credCtx := systemServer.Name
 	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
@@ -447,6 +462,11 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 		return err
 	}
 
+	// Check if server is both enabled and configured
+	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+		return err
+	}
+
 	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("cannot get details for remote MCP server")
 	}
@@ -499,6 +519,11 @@ func (h *SystemMCPServerHandler) Reveal(req api.Context) error {
 		return err
 	}
 
+	// Check if server is both enabled and configured
+	if err := h.checkEnabledAndConfigured(req.Context(), req.GPTClient, systemServer); err != nil {
+		return err
+	}
+
 	credCtx := systemServer.Name
 
 	// Reveal the credential
@@ -513,6 +538,19 @@ func (h *SystemMCPServerHandler) Reveal(req api.Context) error {
 }
 
 // Helper functions
+
+// checkEnabledAndConfigured verifies that a system MCP server is both enabled and configured
+func (h *SystemMCPServerHandler) checkEnabledAndConfigured(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) error {
+	if !server.Spec.Manifest.Enabled {
+		return types.NewErrBadRequest("system MCP server is not enabled")
+	}
+
+	if !isSystemServerConfigured(ctx, gptClient, server) {
+		return types.NewErrBadRequest("system MCP server is not configured")
+	}
+
+	return nil
+}
 
 func convertSystemMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) types.SystemMCPServer {
 	result := types.SystemMCPServer{

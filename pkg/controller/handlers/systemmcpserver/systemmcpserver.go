@@ -93,7 +93,7 @@ func (h *Handler) CleanupDeployment(req router.Request, _ router.Response) error
 	systemServer := req.Object.(*v1.SystemMCPServer)
 
 	// Only cleanup if being deleted
-	if systemServer.DeletionTimestamp == nil {
+	if systemServer.DeletionTimestamp.IsZero() {
 		return nil
 	}
 
