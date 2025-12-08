@@ -80,7 +80,7 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 
 	// Deploy the system server via backend
 	// System servers don't use webhooks, so pass nil
-	_, err = h.mcpSessionManager.EnsureServerDeployment(req.Ctx, serverConfig, nil)
+	_, err = h.mcpSessionManager.LaunchServer(req.Ctx, serverConfig)
 	if err != nil {
 		return fmt.Errorf("failed to deploy system MCP server: %w", err)
 	}
@@ -91,11 +91,6 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 // CleanupDeployment handles cleanup when SystemMCPServer is deleted
 func (h *Handler) CleanupDeployment(req router.Request, _ router.Response) error {
 	systemServer := req.Object.(*v1.SystemMCPServer)
-
-	// Only cleanup if being deleted
-	if systemServer.DeletionTimestamp.IsZero() {
-		return nil
-	}
 
 	// Shutdown deployment via backend
 	// The backend's shutdownServer will remove the deployment (Docker container or K8s deployment)

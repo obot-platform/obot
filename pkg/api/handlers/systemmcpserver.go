@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -14,7 +15,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/validation"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -37,7 +37,11 @@ func (h *SystemMCPServerHandler) List(req api.Context) error {
 
 	servers := make([]types.SystemMCPServer, 0, len(list.Items))
 	for _, server := range list.Items {
-		servers = append(servers, convertSystemMCPServer(req.Context(), req.GPTClient, server))
+		credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, server)
+		if err != nil {
+			return err
+		}
+		servers = append(servers, convertSystemMCPServer(server, credEnv))
 	}
 
 	return req.Write(types.SystemMCPServerList{Items: servers})
@@ -47,13 +51,15 @@ func (h *SystemMCPServerHandler) List(req api.Context) error {
 func (h *SystemMCPServerHandler) Get(req api.Context) error {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("system MCP server not found")
-		}
 		return err
 	}
 
-	return req.Write(convertSystemMCPServer(req.Context(), req.GPTClient, systemServer))
+	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(convertSystemMCPServer(systemServer, credEnv))
 }
 
 // Create creates a new system MCP server
@@ -72,6 +78,7 @@ func (h *SystemMCPServerHandler) Create(req api.Context) error {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.SystemMCPServerPrefix,
 			Namespace:    req.Namespace(),
+			Finalizers:   []string{v1.SystemMCPServerFinalizer},
 		},
 		Spec: v1.SystemMCPServerSpec{
 			Manifest: manifest,
@@ -82,7 +89,7 @@ func (h *SystemMCPServerHandler) Create(req api.Context) error {
 		return fmt.Errorf("failed to create system MCP server: %w", err)
 	}
 
-	return req.Write(convertSystemMCPServer(req.Context(), req.GPTClient, systemServer))
+	return req.Write(convertSystemMCPServer(systemServer, nil)) // no credentials to check for a brand new server
 }
 
 // Update updates an existing system MCP server
@@ -99,9 +106,6 @@ func (h *SystemMCPServerHandler) Update(req api.Context) error {
 
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("system MCP server not found")
-		}
 		return err
 	}
 
@@ -111,16 +115,18 @@ func (h *SystemMCPServerHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to update system MCP server: %w", err)
 	}
 
-	return req.Write(convertSystemMCPServer(req.Context(), req.GPTClient, systemServer))
+	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(convertSystemMCPServer(systemServer, credEnv))
 }
 
 // Delete deletes a system MCP server
 func (h *SystemMCPServerHandler) Delete(req api.Context) error {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("system MCP server not found")
-		}
 		return err
 	}
 
@@ -140,9 +146,6 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("system MCP server not found")
-		}
 		return err
 	}
 
@@ -172,24 +175,26 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 
 	// Update annotation to track configuration timestamp
 	if systemServer.Annotations == nil {
-		systemServer.Annotations = make(map[string]string)
+		systemServer.Annotations = make(map[string]string, 1)
 	}
-	systemServer.Annotations["obot.obot.ai/configured-at"] = metav1.Now().Format("2006-01-02T15:04:05Z")
+	systemServer.Annotations["obot.obot.ai/configured-at"] = metav1.Now().Format(time.RFC3339)
 
 	if err := req.Update(&systemServer); err != nil {
 		return fmt.Errorf("failed to update system MCP server: %w", err)
 	}
 
-	return req.Write(convertSystemMCPServer(req.Context(), req.GPTClient, systemServer))
+	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(convertSystemMCPServer(systemServer, credEnv))
 }
 
 // Deconfigure clears configuration for a system MCP server
 func (h *SystemMCPServerHandler) Deconfigure(req api.Context) error {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("system MCP server not found")
-		}
 		return err
 	}
 
@@ -209,16 +214,18 @@ func (h *SystemMCPServerHandler) Deconfigure(req api.Context) error {
 		return fmt.Errorf("failed to update system MCP server: %w", err)
 	}
 
-	return req.Write(convertSystemMCPServer(req.Context(), req.GPTClient, systemServer))
+	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
+	if err != nil {
+		return err
+	}
+
+	return req.Write(convertSystemMCPServer(systemServer, credEnv))
 }
 
 // Restart restarts a system MCP server deployment
 func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("system MCP server not found")
-		}
 		return err
 	}
 
@@ -231,24 +238,9 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 		return types.NewErrBadRequest("cannot restart deployment for remote MCP server")
 	}
 
-	// Get credentials for the server config
-	credCtx := systemServer.Name
-	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
+	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
 	if err != nil {
-		return fmt.Errorf("failed to list credentials: %w", err)
-	}
-
-	credEnv := make(map[string]string)
-	for _, cred := range creds {
-		credDetail, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
-		if err != nil {
-			continue
-		}
-		for k, v := range credDetail.Env {
-			credEnv[k] = v
-		}
+		return err
 	}
 
 	// Transform to ServerConfig
@@ -273,9 +265,6 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("system MCP server not found")
-		}
 		return err
 	}
 
@@ -288,24 +277,9 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 		return types.NewErrBadRequest("cannot stream logs for remote MCP server")
 	}
 
-	// Get credentials for the server config
-	credCtx := systemServer.Name
-	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
+	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
 	if err != nil {
-		return fmt.Errorf("failed to list credentials: %w", err)
-	}
-
-	credEnv := make(map[string]string)
-	for _, cred := range creds {
-		credDetail, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
-		if err != nil {
-			continue
-		}
-		for k, v := range credDetail.Env {
-			credEnv[k] = v
-		}
+		return err
 	}
 
 	// Transform to ServerConfig
@@ -384,9 +358,6 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("system MCP server not found")
-		}
 		return err
 	}
 
@@ -395,24 +366,9 @@ func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 		return err
 	}
 
-	// Get credentials for the server config
-	credCtx := systemServer.Name
-	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
+	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
 	if err != nil {
-		return fmt.Errorf("failed to list credentials: %w", err)
-	}
-
-	credEnv := make(map[string]string)
-	for _, cred := range creds {
-		credDetail, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
-		if err != nil {
-			continue
-		}
-		for k, v := range credDetail.Env {
-			credEnv[k] = v
-		}
+		return err
 	}
 
 	// Transform to ServerConfig
@@ -456,9 +412,6 @@ func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("system MCP server not found")
-		}
 		return err
 	}
 
@@ -471,24 +424,9 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 		return types.NewErrBadRequest("cannot get details for remote MCP server")
 	}
 
-	// Get credentials for the server config
-	credCtx := systemServer.Name
-	creds, err := req.GPTClient.ListCredentials(req.Context(), gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
+	credEnv, err := getCredentialsForSystemServer(req.Context(), req.GPTClient, systemServer)
 	if err != nil {
-		return fmt.Errorf("failed to list credentials: %w", err)
-	}
-
-	credEnv := make(map[string]string)
-	for _, cred := range creds {
-		credDetail, err := req.GPTClient.RevealCredential(req.Context(), []string{credCtx}, cred.ToolName)
-		if err != nil {
-			continue
-		}
-		for k, v := range credDetail.Env {
-			credEnv[k] = v
-		}
+		return err
 	}
 
 	// Transform to ServerConfig
@@ -513,9 +451,6 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 func (h *SystemMCPServerHandler) Reveal(req api.Context) error {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrNotFound("system MCP server not found")
-		}
 		return err
 	}
 
@@ -552,11 +487,10 @@ func (h *SystemMCPServerHandler) checkEnabledAndConfigured(ctx context.Context, 
 	return nil
 }
 
-func convertSystemMCPServer(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) types.SystemMCPServer {
+func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string) types.SystemMCPServer {
 	result := types.SystemMCPServer{
 		Metadata:                    MetadataFrom(&server),
 		SystemMCPServerManifest:     server.Spec.Manifest,
-		Configured:                  isSystemServerConfigured(ctx, gptClient, server),
 		DeploymentStatus:            server.Status.DeploymentStatus,
 		DeploymentAvailableReplicas: server.Status.DeploymentAvailableReplicas,
 		DeploymentReadyReplicas:     server.Status.DeploymentReadyReplicas,
@@ -574,26 +508,12 @@ func convertSystemMCPServer(ctx context.Context, gptClient *gptscript.GPTScript,
 		})
 	}
 
-	// Find missing required env vars and headers
-	credCtx := server.Name
-	creds, _ := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
-
-	credEnv := make(map[string]string)
-	for _, cred := range creds {
-		credDetail, err := gptClient.RevealCredential(ctx, []string{credCtx}, cred.ToolName)
-		if err != nil {
-			continue
-		}
-		for k, v := range credDetail.Env {
-			credEnv[k] = v
-		}
-	}
+	configured := true
 
 	for _, env := range server.Spec.Manifest.Env {
 		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
 			result.MissingRequiredEnvVars = append(result.MissingRequiredEnvVars, env.Key)
+			configured = false
 		}
 	}
 
@@ -601,33 +521,22 @@ func convertSystemMCPServer(ctx context.Context, gptClient *gptscript.GPTScript,
 		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
 			if header.Required && header.Value == "" && credEnv[header.Key] == "" {
 				result.MissingRequiredHeaders = append(result.MissingRequiredHeaders, header.Key)
+				configured = false
 			}
 		}
 	}
 
+	result.Configured = configured
 	return result
 }
 
 func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) bool {
-	// Check if all required env vars are configured
-	credCtx := server.Name
-	creds, err := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
+	credEnv, err := getCredentialsForSystemServer(ctx, gptClient, server)
 	if err != nil {
 		return false
 	}
 
-	credEnv := make(map[string]string)
-	for _, cred := range creds {
-		credDetail, err := gptClient.RevealCredential(ctx, []string{credCtx}, cred.ToolName)
-		if err != nil {
-			continue
-		}
-		for k, v := range credDetail.Env {
-			credEnv[k] = v
-		}
-	}
+	// Check if all required env vars are configured
 
 	for _, env := range server.Spec.Manifest.Env {
 		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
@@ -644,6 +553,29 @@ func isSystemServerConfigured(ctx context.Context, gptClient *gptscript.GPTScrip
 	}
 
 	return true
+}
+
+func getCredentialsForSystemServer(ctx context.Context, gptClient *gptscript.GPTScript, server v1.SystemMCPServer) (map[string]string, error) {
+	credCtx := server.Name
+	creds, err := gptClient.ListCredentials(ctx, gptscript.ListCredentialsOptions{
+		CredentialContexts: []string{credCtx},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	credEnv := make(map[string]string)
+	for _, cred := range creds {
+		credDetail, err := gptClient.RevealCredential(ctx, []string{credCtx}, cred.ToolName)
+		if err != nil {
+			continue
+		}
+		for k, v := range credDetail.Env {
+			credEnv[k] = v
+		}
+	}
+
+	return credEnv, nil
 }
 
 func (h *SystemMCPServerHandler) removeSystemServerCred(ctx context.Context, gptClient *gptscript.GPTScript, systemServer v1.SystemMCPServer, credCtx []string) error {

@@ -231,12 +231,6 @@ func (sm *SessionManager) ShutdownServer(ctx context.Context, serverName string)
 	return sm.backend.shutdownServer(ctx, serverName)
 }
 
-// EnsureServerDeployment ensures that a server is deployed with the given configuration and webhooks.
-// This is primarily used by controllers to deploy system-level servers.
-func (sm *SessionManager) EnsureServerDeployment(ctx context.Context, serverConfig ServerConfig, webhooks []Webhook) (ServerConfig, error) {
-	return sm.backend.ensureServerDeployment(ctx, serverConfig, webhooks)
-}
-
 func (sm *SessionManager) closeClients(serverName string) {
 	sm.contextLock.Lock()
 	if sm.sessionCtx == nil {

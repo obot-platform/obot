@@ -330,7 +330,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ProjectMCPServer{}).HandlerFunc(cleanup.Cleanup)
 
 	// System MCP Servers
-	root.Type(&v1.SystemMCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureDeployment)
 	root.Type(&v1.SystemMCPServer{}).FinalizeFunc(v1.SystemMCPServerFinalizer, systemMCPServerHandler.CleanupDeployment)
 
