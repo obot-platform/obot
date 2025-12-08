@@ -1,16 +1,8 @@
 package v1
 
 import (
-	"slices"
-
-	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-var (
-	_ fields.Fields = (*SystemMCPServer)(nil)
-	_ DeleteRefs    = (*SystemMCPServer)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -21,31 +13,6 @@ type SystemMCPServer struct {
 
 	Spec   SystemMCPServerSpec   `json:"spec,omitempty"`
 	Status SystemMCPServerStatus `json:"status,omitempty"`
-}
-
-func (in *SystemMCPServer) Has(field string) (exists bool) {
-	return slices.Contains(in.FieldNames(), field)
-}
-
-func (in *SystemMCPServer) Get(field string) (value string) {
-	switch field {
-	case "spec.manifest.runtime":
-		return string(in.Spec.Manifest.Runtime)
-	}
-	return ""
-}
-
-// TODO(g-linville) - remove this field selector if we don't need it
-
-func (in *SystemMCPServer) FieldNames() []string {
-	return []string{
-		"spec.manifest.runtime",
-	}
-}
-
-func (in *SystemMCPServer) DeleteRefs() []Ref {
-	// SystemMCPServers don't reference other resources for deletion
-	return nil
 }
 
 type SystemMCPServerSpec struct {
