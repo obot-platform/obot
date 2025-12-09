@@ -24,6 +24,10 @@
 	let showRequired = $state(false);
 
 	function onOpen() {
+		// Reset state on each open
+		form = {};
+		showRequired = false;
+
 		if (provider) {
 			for (const param of provider.requiredConfigurationParameters ?? []) {
 				let value = values?.[param.name] ? values?.[param.name] : '';
@@ -46,6 +50,7 @@
 
 	function onClose() {
 		form = {};
+		showRequired = false;
 	}
 
 	export function open() {
