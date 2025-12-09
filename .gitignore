@@ -65,3 +65,4 @@ thoughts/
 .serena/
 .archive/
 .cloned-obot-tools/
+*.tgz
