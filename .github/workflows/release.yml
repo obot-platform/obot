@@ -7,28 +7,13 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
-  release-tag:
+  release:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Trigger tools repo tag workflow
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.TOOLS_DISPATCH_PAT }}
-          repository: obot-platform/tools
-          event-type: release
-          client-payload: '{"tag": "${{ github.ref_name }}"}'
-
-      - name: Trigger enterprise-tool repo tag workflow
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.ENTERPRISE_TOOLS_DISPATCH_PAT }}
-          repository: obot-platform/enterprise-tools
-          event-type: release
-          client-payload: '{"tag": "${{ github.ref_name }}"}'
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -46,23 +31,12 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
-  winget-release:
-    needs: release-tag
-    if: "! contains(github.ref_name, '-rc')"
-    runs-on: windows-latest
-    steps:
-      - name: Install winget-create
-        run: |
-          Invoke-WebRequest -Uri 'https://aka.ms/wingetcreate/latest' -OutFile 'wingetcreate.exe'
-      - name: Create WinGet Package Update Pull Request
-        run: |
-          $url = "${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/obot_${{ github.ref_name }}_windows_amd64.zip"
-          ./wingetcreate.exe update --submit --token "${{ secrets.WINGET_GH_TOKEN }}" --urls $url --version "${{ github.ref_name }}" obot-platform.obot
+
   chart-release:
-    needs: release-tag
+    needs: release
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,32 +47,8 @@ jobs:
       - name: Package Helm chart
         run: helm package chart --destination ./.packaged --version ${{ github.ref_name }} --app-version ${{ github.ref_name }}
 
-      - name: Checkout GitHub Pages Repository
-        uses: actions/checkout@v4
-        with:
-          repository: obot-platform/charts
-          token: ${{ secrets.CHARTS_REPO_TOKEN }}
-          path: gh-pages
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Run helm-docs
-        uses: losisin/helm-docs-github-action@v1
-        with:
-          chart-search-root: "./chart"
-          output-file: "../gh-pages/README.md"
-          template-files: "../gh-pages/README.md.gotmpl"
-
-      - name: Update Helm Repo Index
-        run: |
-          cd gh-pages
-          mkdir -p charts
-          mv ../.packaged/* charts/
-          helm repo index . --url https://charts.obot.ai/ --merge index.yaml
-
-      - name: Commit and Push Changes
-        run: |
-          cd gh-pages
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add --all
-          git commit -m "Release new Helm chart version ${{ github.ref_name }}" || echo "No changes to commit"
-          git push
+      - name: Push Helm chart to OCI registry
+        run: helm push ./.packaged/obot-${{ github.ref_name }}.tgz oci://ghcr.io/${{ github.repository_owner }}/charts

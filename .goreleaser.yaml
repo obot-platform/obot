@@ -13,7 +13,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -X "github.com/obot-platform/obot/pkg/version.Tag=v{{ .Version }}"
+      - -X "github.com/jrmatherly/obot-entraid/pkg/version.Tag=v{{ .Version }}"
 
 archives:
   - format: tar.gz
@@ -24,20 +24,7 @@ archives:
 
 release:
   github:
-    owner: "obot-platform"
-    name: "obot"
-  make_latest: false
+    owner: "jrmatherly"
+    name: "obot-entraid"
+  make_latest: true
   prerelease: auto
-
-brews:
-  - name: obot
-    description: "Obot CLI"
-    install: |
-      bin.install "obot"
-    homepage: "https://github.com/obot-platform/obot"
-    skip_upload: false
-    directory: "Formula"
-    repository:
-      owner: obot-platform
-      name: homebrew-tap
-      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
