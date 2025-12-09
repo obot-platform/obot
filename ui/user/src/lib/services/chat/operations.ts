@@ -1605,7 +1605,7 @@ export async function getProjectMcpServerOauthURL(
 			}
 		)) as { oauthURL: string };
 		return response.oauthURL;
-	} catch (err) {
+	} catch (_) {
 		return '';
 	}
 }
