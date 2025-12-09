@@ -79,7 +79,7 @@
 	animate="slide"
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
 	class="bg-surface1 md:w-2xl"
-	classes={{ content: 'pb-0', header: 'p-4 pb-0' }}
+	classes={{ content: 'p-0', header: 'p-4 pb-0' }}
 	onClickOutside={handleClose}
 >
 	<p class="text-on-surface1 px-4 text-xs font-light">
