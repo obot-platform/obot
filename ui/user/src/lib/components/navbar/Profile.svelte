@@ -257,13 +257,14 @@
 			{/if}
 			<div class="text-on-surface1 flex justify-end p-2 text-xs">
 				<div class="flex gap-2">
-					<a
-						href={resolve(getLink('obot', version.current.obot) as `/${string}`)}
-						target="_blank"
-						rel="external"
-					>
-						{version.current.obot}
-					</a>
+					{#if version.current.obot}
+						{@const link = getLink('obot', version.current.obot)}
+						{#if link}
+							<a href={resolve(link as `/${string}`)} target="_blank" rel="external">
+								{version.current.obot}
+							</a>
+						{/if}
+					{/if}
 					<button
 						use:tooltip={{ disablePortal: true, text: 'Versions' }}
 						onclick={() => {
