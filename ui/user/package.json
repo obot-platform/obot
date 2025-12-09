@@ -54,7 +54,7 @@
 		"@xterm/addon-fit": "^0.10.0",
 		"@xterm/xterm": "^5.5.0",
 		"dompurify": "^3.2.5",
-		"eslint": "^9.6.1",
+		"eslint": "^9.39.1",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.13.1",
 		"globals": "^15.15.0",
@@ -85,5 +85,11 @@
 		"es-toolkit": "^1.37.2",
 		"layerchart": "1.0.12",
 		"tar": "^7.5.2"
+	},
+	"pnpm": {
+		"overrides": {
+			"glob": "10.5.0",
+			"cookie": "0.7.0"
+		}
 	}
 }
