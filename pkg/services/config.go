@@ -651,7 +651,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient, gptscriptClient, providerDispatcher)
 	if config.EnableAuthentication {
-		proxyManager = proxy.NewProxyManager(ctx, providerDispatcher, gptscriptClient)
+		proxyManager = proxy.NewProxyManager(providerDispatcher, gptscriptClient)
 
 		// Token Auth + OAuth auth
 		authenticators = union.NewFailOnError(authenticators, proxyManager)

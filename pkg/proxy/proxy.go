@@ -34,17 +34,12 @@ const (
 
 var ErrInvalidSession = errors.New("invalid session")
 
-type cacheObject struct {
-	provider  string
-	createdAt time.Time
-}
-
 type Manager struct {
 	dispatcher *dispatcher.Dispatcher
 	gptClient  *gptscript.GPTScript
 }
 
-func NewProxyManager(ctx context.Context, dispatcher *dispatcher.Dispatcher, gptClient *gptscript.GPTScript) *Manager {
+func NewProxyManager(dispatcher *dispatcher.Dispatcher, gptClient *gptscript.GPTScript) *Manager {
 	m := &Manager{
 		dispatcher: dispatcher,
 		gptClient:  gptClient,
