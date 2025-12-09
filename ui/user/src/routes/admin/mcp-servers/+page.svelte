@@ -208,6 +208,9 @@
 		setUrlParam(newUrl, 'view', newView);
 		setUrlParam(newUrl, 'query', savedQuery || null);
 
+		urlFilters = getTableUrlParamsFilters();
+		initSort = getTableUrlParamsSort();
+
 		navigateWithState(newUrl);
 	}
 
