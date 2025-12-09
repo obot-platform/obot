@@ -293,7 +293,7 @@
 
 		// Update the query search param without cause app to react
 		// Prevent losing focus from the input
-		replaceState(page.url.toString(), { query: value });
+		replaceState(page.url, { query: value });
 	}, 100);
 
 	function isSafe<T = unknown>(value: T) {

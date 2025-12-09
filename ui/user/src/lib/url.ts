@@ -18,10 +18,6 @@ export function q(key: string): string {
 	return browser ? new URL(window.location.href).searchParams.get(key) || '' : '';
 }
 
-export function replaceState(url: string | URL, state: Record<string, unknown>) {
-	svelteReplaceState(resolve((url instanceof URL ? url.toString() : url) as `/${string}`), state);
-}
-
 export function setFilterUrlParams(property: string, values: string[]) {
 	if (values.length === 0) {
 		page.url.searchParams.delete(property);
@@ -29,7 +25,7 @@ export function setFilterUrlParams(property: string, values: string[]) {
 		page.url.searchParams.set(property, values.join(','));
 	}
 
-	replaceState(page.url.toString(), {});
+	replaceState(page.url, {});
 }
 
 export function getTableUrlParamsFilters() {
@@ -63,12 +59,12 @@ export function setSortUrlParams(property?: string, direction?: 'asc' | 'desc') 
 	if (!property || !direction) {
 		page.url.searchParams.delete('sort');
 		page.url.searchParams.delete('sortDirection');
-		replaceState(page.url.toString(), {});
+		replaceState(page.url, {});
 		return;
 	}
 	page.url.searchParams.set('sort', property);
 	page.url.searchParams.set('sortDirection', direction);
-	replaceState(page.url.toString(), {});
+	replaceState(page.url, {});
 }
 
 export function clearUrlParams(params = Array.from(page.url.searchParams.keys())) {
@@ -76,13 +72,19 @@ export function clearUrlParams(params = Array.from(page.url.searchParams.keys())
 	for (const key of params) {
 		page.url.searchParams.delete(key);
 	}
-	replaceState(page.url.toString(), {});
+	replaceState(page.url, {});
 }
 
 export function setSearchParamsToLocalStorage(pathname: string, searchParams: string) {
 	if (browser) {
 		localStorage.setItem(`page.searchParams.${pathname}`, searchParams);
 	}
+}
+
+export function replaceState(url: string | URL, state: {}) {
+	const routeToUse =
+		url instanceof URL ? `/${url.pathname}${url.search ? `${url.search}` : ''}` : url;
+	svelteReplaceState(resolve(routeToUse as `/${string}`), state);
 }
 
 export function getSearchParamsFromLocalStorage(pathname: string): string | null {
@@ -94,5 +96,7 @@ export function getSearchParamsFromLocalStorage(pathname: string): string | null
 }
 
 export function goto(url: string | URL, state?: Record<string, unknown>) {
-	svelteGoTo(resolve((url instanceof URL ? url.toString() : url) as `/${string}`), state);
+	const routeToUse =
+		url instanceof URL ? `/${url.pathname}${url.search ? `${url.search}` : ''}` : url;
+	svelteGoTo(resolve(routeToUse as `/${string}`), state);
 }

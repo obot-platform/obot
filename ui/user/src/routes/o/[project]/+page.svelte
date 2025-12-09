@@ -70,7 +70,7 @@
 			currentURL.searchParams.get('thread') !== currentThreadID
 		) {
 			currentURL.searchParams.set('thread', currentThreadID);
-			replaceState(currentURL.toString(), {});
+			replaceState(currentURL, {});
 		}
 	});
 

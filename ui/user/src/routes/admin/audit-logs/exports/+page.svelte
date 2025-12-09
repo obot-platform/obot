@@ -153,7 +153,7 @@
 			const url = new URL(page.url);
 			url.searchParams.set('form', nextForm);
 			url.searchParams.delete('next');
-			goto(url.pathname + url.search, { replaceState: false });
+			goto(url, { replaceState: false });
 		} else {
 			showForm = null;
 			goto('/admin/audit-logs/exports', { replaceState: false });
