@@ -26,5 +26,5 @@ release:
   github:
     owner: "jrmatherly"
     name: "obot-entraid"
-  make_latest: true
+  make_latest: auto
   prerelease: auto
