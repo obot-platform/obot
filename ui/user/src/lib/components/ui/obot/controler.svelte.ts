@@ -7,13 +7,17 @@ interface ObotUIControllerProps {
 const [get, set] = createContext<ObotUIController>();
 
 export class ObotUIController<Props extends ObotUIControllerProps = ObotUIControllerProps> {
+	#id: string = generateId();
 	#props: () => Props;
 
 	dom: Record<string, HTMLElement | null> = $state({});
-	setup: Record<string, { attrs: () => Record<string, any>; fn: (node: HTMLElement) => any }> = {};
 
 	constructor(props: () => Props) {
 		this.#props = props;
+	}
+
+	get id() {
+		return this.#id;
 	}
 
 	get props() {
@@ -24,9 +28,7 @@ export class ObotUIController<Props extends ObotUIControllerProps = ObotUIContro
 		return ObotUIController.set(this) as this;
 	}
 
-	destroy(){
-
-	}
+	destroy() {}
 
 	static get(): unknown | undefined {
 		throw new Error('Method not implemented! Use derived class');
@@ -35,4 +37,8 @@ export class ObotUIController<Props extends ObotUIControllerProps = ObotUIContro
 	static set(controller: unknown): unknown {
 		throw new Error('Method not implemented! Use derived class');
 	}
+}
+
+function generateId(prefix = 'obot'): string {
+	return `${prefix}-${(Date.now() + Math.random() * Math.random()).toString(36).substring(2, 11)}`;
 }
