@@ -5,6 +5,7 @@
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
 	import type { PageData } from './$types';
+	import { Portal, PortalActive, PortalHub } from '$lib/components/ui/portal';
 
 	interface Props {
 		children?: import('svelte').Snippet;
@@ -40,7 +41,15 @@
 	});
 </script>
 
-{@render children?.()}
+<PortalHub>
+	<Portal.Root id="l0" class="overflow-hidden">
+		<Portal.Inner />
+	</Portal.Root>
+
+	<PortalActive id="l0">
+		{@render children?.()}
+	</PortalActive>
+</PortalHub>
 
 <svelte:head>
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
