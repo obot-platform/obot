@@ -81,7 +81,7 @@ export function setSearchParamsToLocalStorage(pathname: string, searchParams: st
 	}
 }
 
-export function replaceState(url: string | URL, state: {}) {
+export function replaceState(url: string | URL, state: object) {
 	const routeToUse =
 		url instanceof URL ? `/${url.pathname}${url.search ? `${url.search}` : ''}` : url;
 	svelteReplaceState(resolve(routeToUse as `/${string}`), state);
@@ -95,7 +95,7 @@ export function getSearchParamsFromLocalStorage(pathname: string): string | null
 	return null;
 }
 
-export function goto(url: string | URL, state?: Record<string, unknown>) {
+export function goto(url: string | URL, state?: object) {
 	const routeToUse =
 		url instanceof URL ? `/${url.pathname}${url.search ? `${url.search}` : ''}` : url;
 	svelteGoTo(resolve(routeToUse as `/${string}`), state);
