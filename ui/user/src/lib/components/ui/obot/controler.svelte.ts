@@ -1,8 +1,4 @@
-interface ObotUIControllerProps {
-	[key: string]: unknown;
-}
-
-export class ObotUIController<Props extends ObotUIControllerProps = ObotUIControllerProps> {
+export class ObotUIController<Props extends object = object> {
 	#id: string = generateId();
 	#props: () => Props;
 

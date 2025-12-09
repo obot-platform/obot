@@ -4,7 +4,7 @@
 
 	const controller = PortalController.get();
 
-	let { class: klass = '', children, ...restProps } = $props();
+	let { class: klass = '', children = undefined, ...restProps } = $props();
 
 	const innerProps = $derived({
 		...controller.innerProps(),

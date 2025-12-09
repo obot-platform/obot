@@ -229,7 +229,7 @@
 			disabled && 'cursor-default opacity-50',
 			klass
 		)}
-		{@attach (node) => {
+		{@attach (node: HTMLElement) => {
 			const response = tooltip(node, {
 				text: 'Filter By Date',
 				placement: 'top-end'
