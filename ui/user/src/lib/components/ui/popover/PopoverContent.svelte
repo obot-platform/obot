@@ -43,16 +43,14 @@
 	{...controller.setup.content.attrs()}
 	{@attach (node: HTMLElement) => {
 		if (!position) return;
-
-		requestAnimationFrame(() => {
-			node.style.left = position.x + 'px';
-			node.style.top = position.y + 'px';
-		});
+		
+		node.style.left = position.x + 'px';
+		node.style.top = position.y + 'px';
 	}}
 >
 	<div
 		class={twMerge(
-			'duration-50 flex min-w-full flex-col transition-all',
+			'duration-50 flex min-w-full flex-col overflow-hidden transition-all',
 			isOpen ? 'pointer-events-auto' : '',
 			klass
 		)}
