@@ -97,37 +97,22 @@ func getTokenHash(req *http.Request) (string, error) {
 }
 
 func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	tokenHash, err := getTokenHash(req)
-	if err != nil {
+	// Check for the access token cookie.
+	// This authenticator requires the cookie in order to authenticate any users.
+	if _, err := req.Cookie(ObotAccessTokenCookie); errors.Is(err, http.ErrNoCookie) {
 		return nil, false, nil
 	}
 
-	pm.lock.RLock()
-	cached, found := pm.tokenHashToProviderCache[tokenHash]
-	pm.lock.RUnlock()
-
-	if !found {
-		configuredProvider, err := pm.dispatcher.GetConfiguredAuthProvider(req.Context())
-		if err != nil {
-			return nil, false, err
-		}
-		if proxy, err := pm.createProxy(req.Context(), pm.gptClient, system.DefaultNamespace+"/"+configuredProvider); err == nil {
-			if resp, good, err := proxy.authenticateRequest(req); good && err == nil {
-				pm.lock.Lock()
-				pm.tokenHashToProviderCache[tokenHash] = cacheObject{
-					provider:  system.DefaultNamespace + "/" + configuredProvider,
-					createdAt: time.Now(),
-				}
-				pm.lock.Unlock()
-				return resp, true, nil
-			}
-		}
-
-		// No provider was found that recognized the user.
+	configuredProvider, err := pm.dispatcher.GetConfiguredAuthProvider(req.Context())
+	if err != nil {
+		return nil, false, err
+	} else if configuredProvider == "" {
+		// No provider is configured, but the user has a session cookie.
+		// Probably the old provider was deconfigured.
 		return nil, false, ErrInvalidSession
 	}
 
-	proxy, err := pm.createProxy(req.Context(), pm.gptClient, cached.provider)
+	proxy, err := pm.createProxy(req.Context(), pm.gptClient, system.DefaultNamespace+"/"+configuredProvider)
 	if err != nil {
 		return nil, false, err
 	}
