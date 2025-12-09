@@ -109,7 +109,7 @@ function popover(controller: PopoverController) {
 		}
 
 		const { content, trigger } = controller.dom;
-		
+
 		// Build middleware stack
 		const middleware: ComputePositionConfig['middleware'] = [
 			offset(ofs),
@@ -121,25 +121,25 @@ function popover(controller: PopoverController) {
 
 		// Position change callback
 		const onchangeCallback = props.onchange as PopoverParams['onchange'];
-		
+
 		// Compute position and notify listeners
 		const compute = async () => {
 			// Double RAF to ensure DOM has fully settled, styles applied, and layout complete
-			await new Promise((resolve) => requestAnimationFrame(() => {
-				requestAnimationFrame(resolve);
-			}));
-			
+			await new Promise((resolve) =>
+				requestAnimationFrame(() => {
+					requestAnimationFrame(resolve);
+				})
+			);
+
 			const position = await computePosition(trigger, content, {
 				placement: placement ?? 'bottom',
 				middleware
 			});
 
 			onchangeCallback?.(content, position);
-			
+
 			// Set minimum width to match trigger after first position calculation
-			if (!content.style.minWidth) {
-				content.style.minWidth = `${trigger.clientWidth}px`;
-			}
+			content.style.minWidth = `${trigger.clientWidth}px`;
 		};
 
 		// Use auto-update if provided, otherwise compute once
