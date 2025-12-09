@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import Logo from '../Logo.svelte';
@@ -58,7 +59,7 @@
 				<div class="flex flex-row flex-wrap gap-2">
 					{#if !isModelProviderConfigured}
 						<a
-							href="/admin/model-providers"
+							href={resolve('/admin/model-providers')}
 							class="button grow bg-yellow-500 text-center text-sm text-black hover:bg-yellow-500/70"
 						>
 							Configure Model Provider
@@ -66,7 +67,7 @@
 					{/if}
 					{#if !isAuthProviderConfigured}
 						<a
-							href="/admin/auth-providers"
+							href={resolve('/admin/auth-providers')}
 							class="button grow bg-yellow-500 text-center text-sm text-black hover:bg-yellow-500/70"
 						>
 							Configure Auth Provider

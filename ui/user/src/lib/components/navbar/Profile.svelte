@@ -22,8 +22,10 @@
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { AdminService, ChatService, EditorService } from '$lib/services';
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import PageLoading from '../PageLoading.svelte';
+	import { resolve } from '$app/paths';
 
 	let versionDialog = $state<HTMLDialogElement>();
 	let showChatLink = $state(false);
@@ -214,7 +216,7 @@
 				</button>
 			{/if}
 			{#if profile.current.groups.includes(Group.POWERUSER) && showMcpPublisherLink && version.current.authEnabled}
-				<a href="/mcp-publisher" rel="external" class="link">
+				<a href={resolve('/mcp-publisher')} class="link">
 					<ServerCog class="size-4" /> MCP Publisher
 				</a>
 			{/if}
@@ -224,7 +226,7 @@
 				>
 			{/if}
 			{#if profile.current.email}
-				<a href="/profile" rel="external" role="menuitem" class="link"
+				<a href={resolve('/profile')} role="menuitem" class="link"
 					><User class="size-4" /> My Account</a
 				>
 				<button class="link" onclick={handleLogout}>
@@ -255,7 +257,11 @@
 			{/if}
 			<div class="text-on-surface1 flex justify-end p-2 text-xs">
 				<div class="flex gap-2">
-					<a href={getLink('obot', version.current.obot)} target="_blank" rel="external">
+					<a
+						href={resolve(getLink('obot', version.current.obot) as `/${string}`)}
+						target="_blank"
+						rel="external"
+					>
 						{version.current.obot}
 					</a>
 					<button
@@ -292,7 +298,7 @@
 				<div class="flex justify-between gap-8">
 					<span class="font-semibold">{key.replace('github.com/', '')}:</span>
 					{#if link}
-						<a href={link} target="_blank" rel="external">
+						<a href={resolve(link as `/${string}`)} target="_blank" rel="external">
 							{value}
 						</a>
 					{:else}

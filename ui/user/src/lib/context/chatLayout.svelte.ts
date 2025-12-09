@@ -54,6 +54,7 @@ export function isSomethingSelected(layout: Layout) {
 export function closeAll(layout: Layout) {
 	if (layout.sidebarConfig === 'project-configuration') {
 		// remove edit from url
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const url = new URL(window.location.href);
 		url.searchParams.delete('edit');
 		window.history.replaceState({}, '', url.toString());

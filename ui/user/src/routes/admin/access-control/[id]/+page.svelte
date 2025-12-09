@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import Layout from '$lib/components/Layout.svelte';

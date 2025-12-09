@@ -36,6 +36,7 @@
 	import { page } from '$app/state';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import { resolve } from '$app/paths';
 
 	type NavLink = {
 		id: string;
@@ -314,9 +315,9 @@
 											<link.icon class="size-5" />
 											{link.label}
 										</div>
-									{:else}
+									{:else if link.href}
 										<a
-											href={link.href}
+											href={resolve(link.href as `/${string}`)}
 											class={twMerge(
 												'sidebar-link',
 												link.href && link.href === pathname && 'bg-surface2',
@@ -364,9 +365,9 @@
 															<item.icon class="size-4" />
 															{item.label}
 														</div>
-													{:else}
+													{:else if item.href}
 														<a
-															href={item.href}
+															href={resolve(item.href as `/${string}`)}
 															class={twMerge(
 																'sidebar-link',
 																item.href === pathname && 'bg-surface2'

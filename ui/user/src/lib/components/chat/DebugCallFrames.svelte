@@ -5,6 +5,7 @@
 	import JsonTreeView from '../JsonTreeView.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		calls?: Record<string, CallFrame>;
@@ -158,7 +159,7 @@
 				<div class="text-on-surface1 mb-2 text-sm">
 					Source:
 					<a
-						href={call.tool.source.location}
+						href={resolve(call.tool.source.location as `/${string}`)}
 						target="_blank"
 						rel="noopener noreferrer"
 						class="text-link"

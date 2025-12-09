@@ -3,7 +3,7 @@
 	import BackLink from '$lib/components/BackLink.svelte';
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { AdminService } from '$lib/services';
 	import type { ScheduledAuditLogExport } from '$lib/services/admin/types';
 	import CreateScheduleForm from '$lib/components/admin/audit-log-exports/CreateScheduleForm.svelte';
@@ -17,12 +17,14 @@
 	let scheduleData = $state<ScheduledAuditLogExport | null>(null);
 
 	onMount(async () => {
-		try {
-			scheduleData = await AdminService.getScheduledAuditLogExport(scheduleId);
-		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to load scheduled export';
-		} finally {
-			loading = false;
+		if (scheduleId) {
+			try {
+				scheduleData = await AdminService.getScheduledAuditLogExport(scheduleId);
+			} catch (err) {
+				error = err instanceof Error ? err.message : 'Failed to load scheduled export';
+			} finally {
+				loading = false;
+			}
 		}
 	});
 

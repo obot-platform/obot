@@ -24,8 +24,8 @@ importers:
         specifier: ^1.37.2
         version: 1.39.7
       layerchart:
-        specifier: 1.0.11
-        version: 1.0.11(svelte@5.35.5)(typescript@5.9.3)
+        specifier: 1.0.12
+        version: 1.0.12(svelte@5.35.5)(typescript@5.9.3)
       tar:
         specifier: ^7.5.2
         version: 7.5.2
@@ -2018,8 +2018,8 @@ packages:
       svelte: 3 - 5 || >=5.0.0-next.120
       typescript: ^5.0.2
 
-  layerchart@1.0.11:
-    resolution: {integrity: sha512-1Na3BO3a32x0X8PR3vCl7zwiD0NMp90deoxOJPrmIy+34INEPeyowv7NuJ0zfjNMA4BCDTYj/1xK4nnIIh8Nmw==}
+  layerchart@1.0.12:
+    resolution: {integrity: sha512-WaYyZ9iX6GhXgvNlY/IYBZ0281XVj0LUhgDZmImJkJufhjk0EKtpudcLsoEbO0p4xYrmr1A/HxgZh6DlTFXigA==}
     peerDependencies:
       svelte: ^3.56.0 || ^4.0.0 || ^5.0.0
 
@@ -5200,7 +5200,7 @@ snapshots:
       svelte: 5.35.5
       typescript: 5.9.3
 
-  layerchart@1.0.11(svelte@5.35.5)(typescript@5.9.3):
+  layerchart@1.0.12(svelte@5.35.5)(typescript@5.9.3):
     dependencies:
       '@dagrejs/dagre': 1.1.5
       '@layerstack/svelte-actions': 1.0.1

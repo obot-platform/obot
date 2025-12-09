@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
@@ -7,6 +7,7 @@
 	import { AlertCircle, Handshake, LoaderCircle, ShieldAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
+	import { resolve } from '$app/paths';
 
 	const { data } = $props();
 	const { authProviders, loggedIn, hasAccess, showSetupHandoff } = data;
@@ -201,7 +202,7 @@
 			</div>
 
 			<a
-				href="/oauth2/sign_out?rd=/admin"
+				href={resolve('/oauth2/sign_out?rd=/admin')}
 				class="bg-surface1 hover:bg-surface2 dark:bg-surface1 dark:hover:bg-surface3 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold"
 			>
 				<p class="text-center text-sm font-medium">Sign Out</p>

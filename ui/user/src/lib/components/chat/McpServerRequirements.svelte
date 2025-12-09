@@ -15,6 +15,7 @@
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord
 	} from '$lib/services/chat/mcp';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		assistantId: string;
@@ -301,7 +302,7 @@
 			<p>Click the link below to authenticate.</p>
 
 			<a
-				href={oauth.oauthURL}
+				href={resolve(oauth.oauthURL as `/${string}`)}
 				target="_blank"
 				class="button-primary text-center text-sm outline-none"
 				onclick={() => {

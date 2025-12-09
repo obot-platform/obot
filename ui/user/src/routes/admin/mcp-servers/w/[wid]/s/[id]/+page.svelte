@@ -6,7 +6,7 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { profile } from '$lib/stores/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;

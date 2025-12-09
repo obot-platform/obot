@@ -14,8 +14,8 @@
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { beforeNavigate, goto } from '$app/navigation';
-	import { afterNavigate } from '$app/navigation';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { browser } from '$app/environment';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
@@ -36,6 +36,7 @@
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
 	import { debounce } from 'es-toolkit';
 	import { localState } from '$lib/runes/localState.svelte';
+	import { resolve } from '$app/paths';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
@@ -125,7 +126,7 @@
 		selectServerTypeDialog?.close();
 		showServerForm = true;
 		if (updateUrl) {
-			goto(`/admin/mcp-servers?new=${type}`, { replaceState: false });
+			goto(resolve(`/admin/mcp-servers?new=${type}`), { replaceState: false });
 		}
 	}
 
@@ -367,9 +368,9 @@
 			}}
 			onSubmit={async (id, type) => {
 				if (type === 'single' || type === 'remote' || type === 'composite') {
-					goto(`/admin/mcp-servers/c/${id}`);
+					goto(resolve(`/admin/mcp-servers/c/${id}`));
 				} else {
-					goto(`/admin/mcp-servers/s/${id}`);
+					goto(resolve(`/admin/mcp-servers/s/${id}`));
 				}
 			}}
 		/>

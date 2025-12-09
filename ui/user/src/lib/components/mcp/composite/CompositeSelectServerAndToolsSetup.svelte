@@ -14,6 +14,7 @@
 	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
 	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		catalogId?: string;
@@ -383,7 +384,11 @@
 					{/if}
 				</div>
 				{#if oauthURL}
-					<a href={oauthURL} target="_blank" class="button-primary flex w-full justify-center">
+					<a
+						href={resolve(oauthURL as `/${string}`)}
+						target="_blank"
+						class="button-primary flex w-full justify-center"
+					>
 						{#if loading}
 							<LoaderCircle class="size-4 animate-spin" />
 						{:else}

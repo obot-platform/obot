@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { type PageProps } from './$types';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { profile } from '$lib/stores';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import AgentCopy from '$lib/components/agents/AgentCopy.svelte';

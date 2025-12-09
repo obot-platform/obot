@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import BackLink from '$lib/components/BackLink.svelte';
 	import Layout from '$lib/components/Layout.svelte';

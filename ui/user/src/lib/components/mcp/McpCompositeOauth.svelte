@@ -3,6 +3,7 @@
 	import { LoaderCircle, Server } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { ChatService, type MCPCatalogServer } from '$lib/services';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		compositeMcpId: string;
@@ -183,7 +184,9 @@
 							>
 						</div>
 						<div class="flex items-center gap-2">
-							<a href={item.authURL} target="_blank" class="button-primary">Authenticate</a>
+							<a href={resolve(item.authURL as `/${string}`)} target="_blank" class="button-primary"
+								>Authenticate</a
+							>
 							{#if enabledCount > 1}
 								<button
 									class="button-text"

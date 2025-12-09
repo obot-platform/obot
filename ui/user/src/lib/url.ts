@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
-import { replaceState } from '$app/navigation';
+import { goto as svelteGoTo, replaceState as svelteReplaceState } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { navigating, page } from '$app/state';
 import type { InitSort } from './components/table/Table.svelte';
 
@@ -17,6 +18,10 @@ export function q(key: string): string {
 	return browser ? new URL(window.location.href).searchParams.get(key) || '' : '';
 }
 
+export function replaceState(url: string | URL, state: Record<string, unknown>) {
+	svelteReplaceState(resolve((url instanceof URL ? url.toString() : url) as `/${string}`), state);
+}
+
 export function setFilterUrlParams(property: string, values: string[]) {
 	if (values.length === 0) {
 		page.url.searchParams.delete(property);
@@ -24,7 +29,7 @@ export function setFilterUrlParams(property: string, values: string[]) {
 		page.url.searchParams.set(property, values.join(','));
 	}
 
-	replaceState(page.url, {});
+	replaceState(page.url.toString(), {});
 }
 
 export function getTableUrlParamsFilters() {
@@ -58,12 +63,12 @@ export function setSortUrlParams(property?: string, direction?: 'asc' | 'desc') 
 	if (!property || !direction) {
 		page.url.searchParams.delete('sort');
 		page.url.searchParams.delete('sortDirection');
-		replaceState(page.url, {});
+		replaceState(page.url.toString(), {});
 		return;
 	}
 	page.url.searchParams.set('sort', property);
 	page.url.searchParams.set('sortDirection', direction);
-	replaceState(page.url, {});
+	replaceState(page.url.toString(), {});
 }
 
 export function clearUrlParams(params = Array.from(page.url.searchParams.keys())) {
@@ -71,7 +76,7 @@ export function clearUrlParams(params = Array.from(page.url.searchParams.keys())
 	for (const key of params) {
 		page.url.searchParams.delete(key);
 	}
-	replaceState(page.url, {});
+	replaceState(page.url.toString(), {});
 }
 
 export function setSearchParamsToLocalStorage(pathname: string, searchParams: string) {
@@ -86,4 +91,8 @@ export function getSearchParamsFromLocalStorage(pathname: string): string | null
 	}
 
 	return null;
+}
+
+export function goto(url: string | URL, state?: Record<string, unknown>) {
+	svelteGoTo(resolve((url instanceof URL ? url.toString() : url) as `/${string}`), state);
 }

@@ -25,7 +25,7 @@
 		Wrench
 	} from 'lucide-svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import { onMount } from 'svelte';
@@ -46,6 +46,7 @@
 	import { profile } from '$lib/stores';
 	import OverflowContainer from '../OverflowContainer.svelte';
 	import { getServerTypeLabel } from '$lib/services/chat/mcp';
+	import { resolve } from '$app/paths';
 
 	type MCPType = 'single' | 'multi' | 'remote' | 'composite';
 
@@ -232,7 +233,7 @@
 		if (newSelection !== selected) {
 			const url = new URL(window.location.href);
 			url.searchParams.set('view', newSelection);
-			goto(url.toString(), { replaceState: true });
+			goto(url, { replaceState: true });
 		}
 	}
 
@@ -777,7 +778,7 @@
 								{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
 								<p class="text-on-surface1 text-sm font-light">
 									See more usage details in the server's <a
-										href={`/admin/audit-logs?${param}`}
+										href={resolve(`/admin/audit-logs?${param}`)}
 										class="text-link"
 									>
 										Audit Logs
@@ -873,7 +874,9 @@
 					? ChatService.deleteWorkspaceMCPCatalogEntry
 					: AdminService.deleteMCPCatalogEntry;
 			await deleteCatalogEntryFn(id, entry.id);
-			goto(entity === 'workspace' ? '/mcp-publisher/mcp-servers' : '/admin/mcp-servers');
+			let url: `/${string}` =
+				entity === 'workspace' ? '/mcp-publisher/mcp-servers' : '/admin/mcp-servers';
+			goto(url);
 		}
 	}}
 	oncancel={() => (deleteServer = false)}
@@ -949,7 +952,9 @@
 		</div>
 	{:else if oauthURL}
 		<!-- Single server OAuth -->
-		<a href={oauthURL} target="_blank" class="button-primary text-center">Authenticate</a>
+		<a href={resolve(oauthURL as `/${string}`)} target="_blank" class="button-primary text-center"
+			>Authenticate</a
+		>
 	{:else if oauthURLs && Object.keys(oauthURLs).length > 0}
 		<!-- Composite server OAuth - multiple components -->
 		<div class="flex flex-col gap-3">

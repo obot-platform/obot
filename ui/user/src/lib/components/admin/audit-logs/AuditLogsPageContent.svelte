@@ -7,7 +7,8 @@
 	import { debounce } from 'es-toolkit';
 	import { set, endOfDay, isBefore, subDays } from 'date-fns';
 	import { page } from '$app/state';
-	import { afterNavigate, goto, replaceState } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
+	import { goto, replaceState } from '$lib/url';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { type DateRange } from '$lib/components/Calendar.svelte';
 	import Search from '$lib/components/Search.svelte';
@@ -292,7 +293,7 @@
 
 		// Update the query search param without cause app to react
 		// Prevent losing focus from the input
-		replaceState(page.url, { query: value });
+		replaceState(page.url.toString(), { query: value });
 	}, 100);
 
 	function isSafe<T = unknown>(value: T) {
@@ -381,7 +382,7 @@
 			}
 		}
 
-		goto(url.toString(), { noScroll: true });
+		goto(url, { noScroll: true });
 		pageIndexLocal.current = 0;
 	}
 

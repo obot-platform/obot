@@ -11,7 +11,7 @@
 	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { replaceState } from '$app/navigation';
+	import { replaceState } from '$lib/url';
 	import { formatTimeAgo } from '$lib/time';
 	import Search from '$lib/components/Search.svelte';
 	import { page } from '$app/state';
@@ -27,6 +27,7 @@
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url';
+	import { resolve } from '$app/paths';
 
 	let tasks = $state<ProjectTask[]>([]);
 	let threads = $state<ProjectThread[]>([]);
@@ -220,7 +221,7 @@
 							{:else if property === 'runs'}
 								<a
 									onclick={(e) => e.stopPropagation()}
-									href={`/admin/task-runs?task=${task.id}`}
+									href={resolve(`/admin/task-runs?task=${task.id}`)}
 									class="text-primary text-sm font-semibold hover:underline"
 								>
 									{taskRunsCount[task.id] || 0}

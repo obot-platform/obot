@@ -15,7 +15,8 @@
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import PageLoading from '$lib/components/PageLoading.svelte';
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import MyMcpServers, { type ConnectedServer } from '$lib/components/mcp/MyMcpServers.svelte';
 	import { responsive } from '$lib/stores';
 
