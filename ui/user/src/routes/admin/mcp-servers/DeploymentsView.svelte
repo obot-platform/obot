@@ -56,7 +56,7 @@
 		onFilter,
 		onClearAllFilters,
 		onSort,
-		initSort
+		initSort = { property: 'created', order: 'desc' }
 	}: Props = $props();
 	let loading = $state(false);
 

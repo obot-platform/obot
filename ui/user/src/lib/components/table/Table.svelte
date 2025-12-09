@@ -225,7 +225,9 @@
 			return naturalWidths;
 		}
 
-		const minWidths = naturalWidths.map((width) => Math.max(width * 0.3, 100));
+		const minWidths = naturalWidths.map((width, index) =>
+			index === 0 && tableSelectActions ? 57 : Math.max(width * 0.3, 100)
+		);
 		const totalMinWidth = minWidths.reduce((sum, width) => sum + width, 0);
 
 		if (totalMinWidth > availableWidth) {
