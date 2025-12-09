@@ -7,20 +7,20 @@ builds:
     main: .
     goos:
       - linux
-      - darwin
-      - windows
+      # - darwin
+      # - windows
     goarch:
       - amd64
-      - arm64
+      # - arm64
     ldflags:
       - -X "github.com/jrmatherly/obot-entraid/pkg/version.Tag=v{{ .Version }}"
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_v{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
 
 release:
   github:
