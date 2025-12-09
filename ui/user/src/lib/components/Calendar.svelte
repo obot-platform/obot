@@ -6,6 +6,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import TimeInput from './TimeInput.svelte';
 	import { slide } from 'svelte/transition';
+	import { clickOutsidePopoverContent, Popover } from './ui/popover';
 
 	export interface DateRange {
 		start: Date | null;
@@ -32,6 +33,7 @@
 		placeholder?: string;
 		format?: string;
 		compact?: boolean;
+		open?: boolean;
 	}
 
 	let {
@@ -47,7 +49,8 @@
 		end = $bindable(initialValue.end),
 		placeholder = 'Select date range',
 		format = 'MMM dd, yyyy',
-		compact
+		compact,
+		open = $bindable(false)
 	}: Props = $props();
 
 	let currentDate = $state(new Date());
@@ -177,7 +180,8 @@
 	function handleApply() {
 		onChange({ start, end });
 
-		calendarPopover?.close();
+		// calendarPopover?.close();
+		open = false;
 	}
 
 	function handleCancel() {
@@ -186,7 +190,8 @@
 		start = initialValue.start;
 		end = initialValue.end;
 
-		calendarPopover?.close();
+		// calendarPopover?.close();
+		open = false;
 	}
 
 	function getDayClass(date: Date): string {
@@ -215,29 +220,26 @@
 
 		return twMerge(baseClasses, 'hover:bg-surface3 cursor-pointer');
 	}
+
+	$inspect(open);
 </script>
 
-<div class={twMerge('relative', classes?.root)}>
-	<button
+<Popover.Root bind:open placement="bottom-end" offset={4}>
+	<Popover.Trigger
 		{id}
 		{disabled}
-		type="button"
 		class={twMerge(
-			'dark:bg-surface1 text-md bg-background flex min-h-10 w-full grow resize-none items-center justify-between rounded-lg px-4 py-2 text-left shadow-sm',
+			'dark:bg-surface1 text-md bg-background flex min-h-10 resize-none items-center justify-between rounded-lg px-4 py-2 text-left shadow-sm',
 			disabled && 'cursor-default opacity-50',
 			klass
 		)}
-		onmousedown={() => {
-			if (disabled) return;
-			if (calendarPopover?.open) {
-				calendarPopover?.close();
-			} else {
-				calendarPopover?.show();
-			}
-		}}
-		use:tooltip={{
-			text: 'Filter By Date',
-			placement: 'top-end'
+		{@attach (node) => {
+			const response = tooltip(node, {
+				text: 'Filter By Date',
+				placement: 'top-end'
+			});
+
+			return () => response.destroy();
 		}}
 	>
 		<span class="text-md flex grow items-center gap-2 truncate">
@@ -246,15 +248,11 @@
 				{formatRange()}
 			{/if}
 		</span>
-	</button>
+	</Popover.Trigger>
 
-	<dialog
-		use:clickOutside={[() => calendarPopover?.close(), true]}
-		bind:this={calendarPopover}
-		class={twMerge(
-			'default-dialog absolute left-13 z-50 min-w-[320px] -translate-x-full p-4',
-			classes?.calendar
-		)}
+	<Popover.Content
+		class={twMerge('default-dialog w-xs p-4', classes?.calendar)}
+		{@attach clickOutsidePopoverContent(() => (open = false))}
 	>
 		<!-- Calendar Header -->
 		<div class={twMerge('mb-4 flex items-center justify-between', classes?.header)}>
@@ -337,5 +335,5 @@
 			<button type="button" class="button text-xs" onclick={handleCancel}>Cancel</button>
 			<button type="button" class="button-primary text-xs" onclick={handleApply}>Apply</button>
 		</div>
-	</dialog>
-</div>
+	</Popover.Content>
+</Popover.Root>
