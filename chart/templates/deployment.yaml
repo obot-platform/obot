@@ -85,18 +85,14 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
+          {{- with .Values.livenessProbe }}
           livenessProbe:
-            httpGet:
-              path: /api/healthz
-              port: http
-            failureThreshold: 5
-            periodSeconds: 10
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
           readinessProbe:
-            httpGet:
-              path: /api/healthz
-              port: http
-            failureThreshold: 5
-            periodSeconds: 10
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- if .Values.extraEnv }}
           env:
             {{- range $key, $value := .Values.extraEnv }}

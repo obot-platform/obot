@@ -303,3 +303,23 @@ affinity: {}
 #             values:
 #             - obot
 #         topologyKey: kubernetes.io/hostname
+
+# livenessProbe -- Liveness probe configuration for Obot
+livenessProbe:
+  httpGet:
+    path: /api/healthz
+    port: 8080
+  initialDelaySeconds: 60
+  periodSeconds: 15
+  failureThreshold: 5
+  timeoutSeconds: 10
+
+# readinessProbe -- Readiness probe configuration for Obot
+readinessProbe:
+  httpGet:
+    path: /api/healthz
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  failureThreshold: 3
+  timeoutSeconds: 5
