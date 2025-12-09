@@ -25,51 +25,83 @@ export class PopoverController extends ObotUIController<PopoverControllerProps> 
 
 	constructor(props: () => PopoverControllerProps) {
 		super(props);
+	}
 
-		this.setup = {
-			trigger: {
-				fn: (node) => {
-					this.dom.trigger = node;
-				},
-				attrs: () => ({
-					'aria-expanded': this.props.open ? 'true' : 'false',
-					type: 'button',
-					onclick: () => {
-						if (this.dom.trigger instanceof HTMLButtonElement) {
-							if (this.dom.trigger?.ariaDisabled === 'true' || this.dom.trigger?.disabled) return;
-						}
+	triggerProps() {
+		return {
+			'aria-expanded': this.props.open ? 'true' : 'false',
+			'aria-haspopup': 'dialog',
+			'aria-controls': `${this.id}-content`,
+			type: 'button',
+			onclick: () => {
+				if (this.dom.trigger instanceof HTMLButtonElement) {
+					if (this.dom.trigger?.ariaDisabled === 'true' || this.dom.trigger?.disabled) return;
+				}
 
-						this.toggle();
-					}
-				})
+				this.toggle();
 			},
-			content: {
-				fn: (node) => {},
-				attrs: () => ({
-					[createAttachmentKey()]: (node: HTMLElement) => {
-						// Recalculate position whenever popover is opened/closed
+			onkeydown: (e: KeyboardEvent) => {
+				if (this.dom.trigger instanceof HTMLButtonElement) {
+					if (this.dom.trigger?.ariaDisabled === 'true' || this.dom.trigger?.disabled) return;
+				}
 
-						this.dom.content = node;
-
-						if (!this.dom.trigger) {
-							return;
-						}
-
-						if (!this.props.open) return;
-
-						return popover(this)(
-							{
-								...props,
-								onchange: (node: HTMLElement, position: ComputePositionReturn) => {
-									this.position = position;
-								}
-							},
-							autoUpdate
-						);
-					}
-				})
+				// Open on Enter or Space
+				if (e.key === 'Enter' || e.key === ' ') {
+					e.preventDefault();
+					this.open();
+				}
+				// Close on Escape
+				else if (e.key === 'Escape' && this.props.open) {
+					e.preventDefault();
+					this.close();
+				}
+			},
+			[createAttachmentKey()]: (node: HTMLElement) => {
+				this.dom.trigger = node;
 			}
-		};
+		} as const;
+	}
+	contentProps() {
+		return {
+			id: `${this.id}-content`,
+			role: 'dialog',
+			'aria-modal': 'false',
+			tabindex: -1,
+			onkeydown: (e: KeyboardEvent) => {
+				// Close on Escape
+				if (
+					e.key === 'Escape' &&
+					this.props.open &&
+					(document.activeElement?.contains(this.dom.content) ||
+						document.activeElement === this.dom.content)
+				) {
+					e.preventDefault();
+					e.stopPropagation();
+					this.close();
+					// Return focus to trigger
+					this.dom.trigger?.focus();
+				}
+			},
+			[createAttachmentKey()]: (node: HTMLElement) => {
+				this.dom.content = node;
+
+				if (!this.dom.trigger) {
+					return;
+				}
+
+				if (!this.props.open) return;
+
+				return popover(this)(
+					{
+						...this.props,
+						onchange: (node: HTMLElement, position: ComputePositionReturn) => {
+							this.position = position;
+						}
+					},
+					autoUpdate
+				);
+			}
+		} as const;
 	}
 
 	open() {

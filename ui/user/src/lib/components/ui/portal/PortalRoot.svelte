@@ -7,7 +7,7 @@
 	const controller = new PortalController(() => ({ id })).share();
 
 	const rootProps = $derived({
-		...controller.setup.root.attrs(),
+		...controller.rootProps(),
 		...restProps
 	});
 </script>

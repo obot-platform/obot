@@ -40,10 +40,10 @@
 <Teleport
 	class={'absolute left-0 top-0 flex h-min w-fit'}
 	target={portal.target}
-	{...controller.setup.content.attrs()}
+	{...controller.contentProps()}
 	{@attach (node: HTMLElement) => {
 		if (!position) return;
-		
+
 		node.style.left = position.x + 'px';
 		node.style.top = position.y + 'px';
 	}}

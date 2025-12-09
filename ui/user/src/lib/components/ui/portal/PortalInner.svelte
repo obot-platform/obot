@@ -7,7 +7,7 @@
 	let { class: klass = '', children, ...restProps } = $props();
 
 	const innerProps = $derived({
-		...controller.setup.inner.attrs(),
+		...controller.innerProps(),
 		...restProps
 	});
 </script>

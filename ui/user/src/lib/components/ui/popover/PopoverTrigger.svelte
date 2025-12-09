@@ -7,11 +7,11 @@
 	let { class: klass = '', children, ...restProps } = $props();
 
 	const triggerProps = $derived({
-		...controller?.setup.trigger.attrs(),
+		...controller.triggerProps(),
 		...restProps
 	});
 </script>
 
-<button {@attach controller?.setup?.trigger?.fn} class={twMerge('', klass)}  {...triggerProps}>
+<button class={twMerge('', klass)} {...triggerProps}>
 	{@render children?.({ popover: controller })}
 </button>

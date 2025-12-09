@@ -1,7 +1,7 @@
-import { createAttachmentKey } from 'svelte/attachments';
 import { ObotUIController } from '../obot/controler.svelte';
 import { PortalHubController } from './hubController.svelte';
 import { createContext } from 'svelte';
+import { createAttachmentKey } from 'svelte/attachments';
 
 export interface PortalControllerProps {
 	id: string;
@@ -15,27 +15,6 @@ export class PortalController extends ObotUIController<PortalControllerProps> {
 	constructor(props: () => PortalControllerProps) {
 		super(props);
 
-		this.setup = {
-			root: {
-				fn: (node) => {
-				},
-				attrs: () => ({
-					[createAttachmentKey()]: (node: HTMLElement) => {
-						this.dom.root = node;
-					}
-				})
-			},
-			inner: {
-				fn: (node) => {
-				},
-				attrs: () => ({
-					[createAttachmentKey()]: (node: HTMLElement) => {
-						this.dom.inner = node;
-					}
-				})
-			}
-		};
-
 		if (this.#hub) {
 			this.#hub.register(this.props.id, this);
 		}
@@ -43,6 +22,22 @@ export class PortalController extends ObotUIController<PortalControllerProps> {
 
 	get target() {
 		return this.dom.inner ?? this.dom.root;
+	}
+
+	rootProps() {
+		return {
+			[createAttachmentKey()]: (node: HTMLElement) => {
+				this.dom.root = node;
+			}
+		} as const;
+	}
+
+	innerProps() {
+		return {
+			[createAttachmentKey()]: (node: HTMLElement) => {
+				this.dom.inner = node;
+			}
+		} as const;
 	}
 
 	destroy(): void {
