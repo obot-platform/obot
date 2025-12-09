@@ -320,13 +320,17 @@
 											href={resolve(link.href as `/${string}`)}
 											class={twMerge(
 												'sidebar-link',
-												link.href && link.href === pathname && 'bg-surface2',
-												!link.href && 'no-link'
+												link.href && link.href === pathname && 'bg-surface2'
 											)}
 										>
 											<link.icon class="size-5" />
 											{link.label}
 										</a>
+									{:else}
+										<div class="sidebar-link no-link">
+											<link.icon class="size-5" />
+											{link.label}
+										</div>
 									{/if}
 									{#if !version.current.authEnabled && tooltips[link.href as keyof typeof tooltips]}
 										<InfoTooltip text={tooltips[link.href as keyof typeof tooltips]} />
@@ -376,6 +380,11 @@
 															<item.icon class="size-4" />
 															{item.label}
 														</a>
+													{:else}
+														<div class="sidebar-link disabled">
+															<item.icon class="size-4" />
+															{item.label}
+														</div>
 													{/if}
 												</div>
 											{/each}
