@@ -89,8 +89,9 @@ ENV XDG_CACHE_HOME=/data/cache
 ENV OBOT_SERVER_AGENTS_DIR=/agents
 ENV TERM=vt100
 ENV OBOT_CONTAINER_ENV=true
-# Include custom Entra ID auth provider registry alongside default tools
-ENV OBOT_SERVER_TOOL_REGISTRIES=/obot-tools-custom
+# Include both upstream tools and custom Entra ID auth provider registries
+# Upstream tools (GitHub, Google auth providers) + Custom (EntraID, Keycloak)
+ENV OBOT_SERVER_TOOL_REGISTRIES=/obot-tools,/obot-tools-custom
 WORKDIR /data
 VOLUME /data
 ENTRYPOINT ["run.sh"]
