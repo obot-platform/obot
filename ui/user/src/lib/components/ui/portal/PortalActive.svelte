@@ -8,7 +8,7 @@
 	const portal = hub?.portal(id);
 
 	function proxy(...args: unknown[]) {
-        portal?.share();
+		portal?.share();
 
 		return children?.(...args);
 	}

@@ -13,7 +13,7 @@
 	let {
 		open = $bindable(false),
 		placement = 'bottom-end',
-		placements = ['top',  'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end',],
+		placements = ['top', 'top-start', 'top-end', 'bottom', 'bottom-start', 'bottom-end'],
 		offset = 1,
 		children
 	}: Props = $props();

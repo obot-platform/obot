@@ -28,7 +28,7 @@ export class PortalHubController extends ObotUIController<PortalHubControllerPro
 		return this.#portals.get(id);
 	}
 
-    share(): this {
+	share(): this {
 		return PortalHubController.set(this) as this;
 	}
 

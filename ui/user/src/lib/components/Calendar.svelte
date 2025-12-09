@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { differenceInDays, endOfDay, isBefore, isSameDay, startOfDay } from 'date-fns';
 	import { ChevronLeft, ChevronRight, CalendarCog } from 'lucide-svelte';
@@ -54,7 +53,6 @@
 	}: Props = $props();
 
 	let currentDate = $state(new Date());
-	let calendarPopover = $state<HTMLDialogElement>();
 
 	// Local state for the date range being edited
 	// let localValue = $derived<DateRange>({ start, end });
@@ -220,8 +218,6 @@
 
 		return twMerge(baseClasses, 'hover:bg-surface3 cursor-pointer');
 	}
-
-	$inspect(open);
 </script>
 
 <Popover.Root bind:open placement="bottom-end" offset={4}>

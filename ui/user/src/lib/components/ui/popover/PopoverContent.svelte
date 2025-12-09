@@ -38,7 +38,7 @@
 </script>
 
 <Teleport
-	class={'absolute left-0 top-0 flex h-min w-fit'}
+	class="absolute top-0 left-0 flex h-min w-fit"
 	target={portal.target}
 	{...controller.contentProps()}
 	{@attach (node: HTMLElement) => {
@@ -50,7 +50,7 @@
 >
 	<div
 		class={twMerge(
-			'duration-50 flex min-w-full flex-col overflow-hidden transition-all',
+			'flex min-w-full flex-col overflow-hidden transition-all duration-50',
 			isOpen ? 'pointer-events-auto' : '',
 			klass
 		)}

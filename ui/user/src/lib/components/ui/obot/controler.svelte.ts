@@ -1,10 +1,6 @@
-import { createContext } from 'svelte';
-
 interface ObotUIControllerProps {
-	[key: string]: any;
+	[key: string]: unknown;
 }
-
-const [get, set] = createContext<ObotUIController>();
 
 export class ObotUIController<Props extends ObotUIControllerProps = ObotUIControllerProps> {
 	#id: string = generateId();
@@ -34,7 +30,7 @@ export class ObotUIController<Props extends ObotUIControllerProps = ObotUIContro
 		throw new Error('Method not implemented! Use derived class');
 	}
 
-	static set(controller: unknown): unknown {
+	static set(_: unknown): unknown {
 		throw new Error('Method not implemented! Use derived class');
 	}
 }

@@ -19,7 +19,7 @@
 				start = subHours(end, 1);
 
 				onChange({ end: end, start });
-				isQuickActionOpen;
+				isQuickActionOpen = false;
 			}
 		},
 		{
@@ -89,7 +89,7 @@
 	<Popover.Root bind:open={isQuickActionOpen} placement="bottom-start" offset={4}>
 		<Popover.Trigger
 			type="button"
-			class="dark:border-surface3 dark:hover:bg-surface2/70 dark:active:bg-surface2 dark:bg-surface1 hover:bg-surface1/70 active:bg-surface1 bg-background min-h-12.5 flex flex-shrink-0 items-center gap-2 truncate rounded-l-lg border border-r-0 border-transparent px-2 text-sm shadow-sm transition-colors duration-200 disabled:opacity-50"
+			class="dark:border-surface3 dark:hover:bg-surface2/70 dark:active:bg-surface2 dark:bg-surface1 hover:bg-surface1/70 active:bg-surface1 bg-background flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-l-lg border border-r-0 border-transparent px-2 text-sm shadow-sm transition-colors duration-200 disabled:opacity-50"
 			{disabled}
 			{@attach (node) => {
 				const response = tooltip(node, {
@@ -125,7 +125,7 @@
 
 	<Calendar
 		compact
-		class="dark:border-surface3 hover:bg-surface1 dark:hover:bg-surface3 dark:bg-surface1 bg-background min-h-12.5 flex flex-shrink-0 items-center gap-2 truncate rounded-none rounded-r-lg border border-transparent px-4 text-sm shadow-sm"
+		class="dark:border-surface3 hover:bg-surface1 dark:hover:bg-surface3 dark:bg-surface1 bg-background flex min-h-12.5 flex-shrink-0 items-center gap-2 truncate rounded-none rounded-r-lg border border-transparent px-4 text-sm shadow-sm"
 		initialValue={{
 			start: new Date(start),
 			end: end ? new Date(end) : null
