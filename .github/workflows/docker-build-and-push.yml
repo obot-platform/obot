@@ -20,56 +20,58 @@ on:
       - .github/workflows/**
 
 jobs:
-  oss-build:
-    runs-on: depot-ubuntu-22.04
+  build:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Depot
-        uses: depot/setup-action@v1
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ secrets.GHCR_USERNAME }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub
-        if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
-        uses: docker/login-action@v3
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern=v{{version}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=sha,prefix=
 
-      - name: Build and push OSS Docker image
-        uses: depot/build-push-action@v1
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
         id: build-and-push
         with:
-          project: bbqjs4tj1g
           context: .
           push: true
-          pull: true
           platforms: linux/amd64,linux/arm64
-          tags: |
-            ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-            ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
-          build-args: |
-            BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1
         with:
           cosign-release: 'v2.4.3'
-      - name: Check install!
-        run: cosign version
 
       - name: Sign Images
         env:
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
-          TAGS: ghcr.io/${{ github.repository }}:${{ github.ref_name }} ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
           images=""
           for tag in ${TAGS}; do
@@ -77,133 +79,25 @@ jobs:
           done
           cosign sign --yes ${images}
 
-      - name: Setup crane
-        uses: imjasonh/setup-crane@v0.4
-
-      - name: Copy OSS image to latest tag
-        if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
-        run: |
-          crane tag ghcr.io/${{ github.repository }}:${{ github.ref_name }} latest
-          crane tag docker.io/obot/${{ github.event.repository.name }}:${{ github.ref_name }} latest
-
-  oss-image-scan:
-    runs-on: depot-ubuntu-22.04
-    needs: oss-build
+  image-scan:
+    runs-on: ubuntu-latest
+    needs: build
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Depot
-        uses: depot/setup-action@v1
-
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ secrets.GHCR_USERNAME }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run Trivy
+      - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          skip-dirs: '**/venv'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: trivy-results.sarif
-
-  enterprise-build:
-    runs-on: depot-ubuntu-22.04
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Depot
-        uses: depot/setup-action@v1
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ secrets.GHCR_USERNAME }}
-          password: ${{ secrets.GHCR_TOKEN }}
-
-      - name: Log in to Docker Hub
-        if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and push Enterprise Docker image
-        uses: depot/build-push-action@v1
-        id: build-and-push
-        with:
-          project: bbqjs4tj1g
-          context: .
-          push: true
-          pull: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
-          build-args: |
-            ENTERPRISE_IMAGE=ghcr.io/obot-platform/enterprise-tools:latest
-            BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3.8.1
-        with:
-          cosign-release: 'v2.4.3'
-      - name: Check install!
-        run: cosign version
-
-      - name: Sign Images
-        env:
-          DIGEST: ${{ steps.build-and-push.outputs.digest }}
-          TAGS: ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
-        run: |
-          images=""
-          for tag in ${TAGS}; do
-            images+="${tag}@${DIGEST} "
-          done
-          cosign sign --yes ${images}
-
-      - name: Setup crane
-        uses: imjasonh/setup-crane@v0.4
-
-      - name: Copy Enterprise image to latest tag
-        if: ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-rc') }}
-        run: |
-          crane tag ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }} latest
-
-  enterprise-image-scan:
-    runs-on: depot-ubuntu-22.04
-    needs: enterprise-build
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Depot
-        uses: depot/setup-action@v1
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ secrets.GHCR_USERNAME }}
-          password: ${{ secrets.GHCR_TOKEN }}
-
-      - name: Run Trivy
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: ghcr.io/${{ github.repository }}-enterprise:${{ github.ref_name }}
           skip-dirs: '**/venv'
           format: 'sarif'
           output: 'trivy-results.sarif'
