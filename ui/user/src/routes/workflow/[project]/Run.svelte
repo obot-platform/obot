@@ -53,7 +53,7 @@
 					name: 'Salesforce',
 					tool: 'get_record',
 					content: '',
-					created: new Date(new Date().getTime() - 1000 * 60 * 60 * 24).toISOString()
+					created: new Date(new Date().getTime() - 1000 * 60 * 3).toISOString()
 				},
 				{
 					id: '1.2',
@@ -62,7 +62,7 @@
 					tool: 'read_spreadsheet',
 					content: '',
 					// 2 minutes after previous message
-					created: new Date(new Date().getTime() - 1000 * 60 * 2).toISOString()
+					created: new Date(new Date().getTime() - 1000 * 60 * 3).toISOString()
 				},
 				{
 					id: '1.3',
@@ -71,7 +71,7 @@
 					tool: 'append_row',
 					content: '',
 					// 3 minutes after previous message
-					created: new Date(new Date().getTime() - 1000 * 60 * 3).toISOString()
+					created: new Date(new Date().getTime() - 1000 * 60 * 1).toISOString()
 				},
 				{
 					id: '1.4',
