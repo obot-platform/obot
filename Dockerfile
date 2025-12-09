@@ -91,7 +91,8 @@ ENV TERM=vt100
 ENV OBOT_CONTAINER_ENV=true
 # Include both upstream tools and custom Entra ID auth provider registries
 # Upstream tools (GitHub, Google auth providers) + Custom (EntraID, Keycloak)
-ENV OBOT_SERVER_TOOL_REGISTRIES=/obot-tools,/obot-tools-custom
+# Note: /obot-tools/tools contains the index.yaml, not /obot-tools root
+ENV OBOT_SERVER_TOOL_REGISTRIES=/obot-tools/tools,/obot-tools-custom
 WORKDIR /data
 VOLUME /data
 ENTRYPOINT ["run.sh"]
