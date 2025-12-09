@@ -52,7 +52,7 @@
 >
 	<div
 		class={twMerge(
-			'duration-50 flex flex-col transition-all',
+			'duration-50 flex min-w-full flex-col transition-all',
 			isOpen ? 'pointer-events-auto' : '',
 			klass
 		)}
