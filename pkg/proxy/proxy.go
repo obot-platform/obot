@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -42,58 +40,17 @@ type cacheObject struct {
 }
 
 type Manager struct {
-	dispatcher               *dispatcher.Dispatcher
-	gptClient                *gptscript.GPTScript
-	tokenHashToProviderCache map[string]cacheObject
-	lock                     sync.RWMutex
+	dispatcher *dispatcher.Dispatcher
+	gptClient  *gptscript.GPTScript
 }
 
 func NewProxyManager(ctx context.Context, dispatcher *dispatcher.Dispatcher, gptClient *gptscript.GPTScript) *Manager {
 	m := &Manager{
-		dispatcher:               dispatcher,
-		gptClient:                gptClient,
-		tokenHashToProviderCache: make(map[string]cacheObject),
-		lock:                     sync.RWMutex{},
+		dispatcher: dispatcher,
+		gptClient:  gptClient,
 	}
-
-	go m.cacheCleanup(ctx)
 
 	return m
-}
-
-func (pm *Manager) cacheCleanup(ctx context.Context) {
-	t := time.NewTicker(time.Hour)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			pm.lock.Lock()
-			for tokenHash, obj := range pm.tokenHashToProviderCache {
-				if time.Since(obj.createdAt) > 24*time.Hour {
-					delete(pm.tokenHashToProviderCache, tokenHash)
-				}
-			}
-			pm.lock.Unlock()
-		}
-	}
-}
-
-func getTokenHash(req *http.Request) (string, error) {
-	c, err := req.Cookie(ObotAccessTokenCookie)
-	if errors.Is(err, http.ErrNoCookie) {
-		// Check the zero cookie. This one is present when the token is too large to fit in one cookie and
-		// must be split into two.
-		c, err = req.Cookie(ObotAccessTokenCookieZero)
-	}
-	if err != nil {
-		return "", err
-	}
-
-	h := sha256.New()
-	h.Write([]byte(c.Value))
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
 func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
