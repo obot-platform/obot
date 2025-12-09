@@ -47,6 +47,7 @@ const (
 	PowerUserWorkspacePrefix      = "puw1"
 	AuditLogExportPrefix          = "ael1"
 	ScheduledAuditLogExportPrefix = "sael1"
+	SystemMCPServerPrefix         = "sms1"
 )
 
 func IsThreadID(id string) bool {
@@ -95,6 +96,10 @@ func IsMCPServerInstanceID(id string) bool {
 
 func IsPowerUserWorkspaceID(id string) bool {
 	return strings.HasPrefix(id, PowerUserWorkspacePrefix)
+}
+
+func IsSystemMCPServerID(id string) bool {
+	return strings.HasPrefix(id, SystemMCPServerPrefix)
 }
 
 // GetProjectShareName returns the project share name for a given user ID and project ID.

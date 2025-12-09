@@ -445,3 +445,115 @@ func ProjectServerToConfig(projectMCPServer v1.ProjectMCPServer, publicBaseURL, 
 		ProjectMCPServer:   true,
 	}, nil
 }
+
+// SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
+func SystemServerToServerConfig(systemServer v1.SystemMCPServer, credEnv map[string]string) (ServerConfig, []string, error) {
+	fileEnvVars := make(map[string]struct{})
+	for _, env := range systemServer.Spec.Manifest.Env {
+		if env.File {
+			fileEnvVars[env.Key] = struct{}{}
+		}
+	}
+
+	displayName := systemServer.Spec.Manifest.Name
+	if displayName == "" {
+		displayName = systemServer.Name
+	}
+
+	serverConfig := ServerConfig{
+		Env:                  make([]string, 0, len(systemServer.Spec.Manifest.Env)),
+		MCPServerNamespace:   systemServer.Namespace,
+		MCPServerName:        systemServer.Name,
+		MCPServerDisplayName: displayName,
+		Runtime:              systemServer.Spec.Manifest.Runtime,
+		Scope:                fmt.Sprintf("%s-system", systemServer.Name),
+	}
+
+	var missingRequiredNames []string
+
+	// Handle runtime-specific configuration
+	switch systemServer.Spec.Manifest.Runtime {
+	case types.RuntimeContainerized:
+		if systemServer.Spec.Manifest.ContainerizedConfig != nil {
+			serverConfig.ContainerImage = systemServer.Spec.Manifest.ContainerizedConfig.Image
+			serverConfig.ContainerPort = systemServer.Spec.Manifest.ContainerizedConfig.Port
+			serverConfig.ContainerPath = systemServer.Spec.Manifest.ContainerizedConfig.Path
+
+			if systemServer.Spec.Manifest.ContainerizedConfig.Command != "" {
+				serverConfig.Command = expandEnvVars(systemServer.Spec.Manifest.ContainerizedConfig.Command, credEnv, fileEnvVars)
+			}
+
+			for _, arg := range systemServer.Spec.Manifest.ContainerizedConfig.Args {
+				serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
+			}
+		}
+
+	case types.RuntimeRemote:
+		if systemServer.Spec.Manifest.RemoteConfig != nil {
+			serverConfig.URL = expandEnvVars(systemServer.Spec.Manifest.RemoteConfig.URL, credEnv, fileEnvVars)
+
+			// Add headers from remote config
+			serverConfig.Headers = make([]string, 0, len(systemServer.Spec.Manifest.RemoteConfig.Headers))
+			for _, header := range systemServer.Spec.Manifest.RemoteConfig.Headers {
+				var (
+					val      string
+					hasValue bool
+				)
+
+				// Check for static value first
+				if header.Value != "" {
+					val = header.Value
+					hasValue = true
+				} else {
+					// Fall back to user-configured value from credentials
+					credVal, ok := credEnv[header.Key]
+					if ok && credVal != "" {
+						val = credVal
+						hasValue = true
+					}
+				}
+
+				if !hasValue {
+					if header.Required {
+						missingRequiredNames = append(missingRequiredNames, header.Key)
+					}
+					continue
+				}
+
+				// Apply prefix if specified (e.g., "Bearer ", "Token ")
+				// Only apply to user-supplied values, not static values
+				if header.Value == "" {
+					val = applyPrefix(val, header.Prefix)
+				}
+
+				serverConfig.Headers = append(serverConfig.Headers, fmt.Sprintf("%s=%s", header.Key, val))
+			}
+		}
+	}
+
+	// Process environment variables
+	for _, env := range systemServer.Spec.Manifest.Env {
+		val, ok := credEnv[env.Key]
+		if !ok || val == "" {
+			if env.Required {
+				missingRequiredNames = append(missingRequiredNames, env.Key)
+			}
+			continue
+		}
+
+		// Apply prefix if specified (e.g., "Bearer ", "sk-")
+		val = applyPrefix(val, env.Prefix)
+
+		if !env.File {
+			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
+			continue
+		}
+
+		serverConfig.Files = append(serverConfig.Files, File{
+			Data:   val,
+			EnvKey: env.Key,
+		})
+	}
+
+	return serverConfig, missingRequiredNames, nil
+}
