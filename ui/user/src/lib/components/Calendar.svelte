@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import popover from '$lib/actions/popover.svelte';
 	import { differenceInDays, endOfDay, isBefore, isSameDay, startOfDay } from 'date-fns';
 	import { ChevronLeft, ChevronRight, CalendarCog } from 'lucide-svelte';
 	import { twMerge } from 'tailwind-merge';
 	import TimeInput from './TimeInput.svelte';
 	import { slide } from 'svelte/transition';
-	import { clickOutsidePopoverContent, Popover } from './ui/popover';
 
 	export interface DateRange {
 		start: Date | null;
@@ -218,118 +218,132 @@
 
 		return twMerge(baseClasses, 'hover:bg-surface3 cursor-pointer');
 	}
+
+	const calendarPopover = popover({
+		placement: 'bottom-end',
+		offset: 4,
+		onOpenChange: (isOpen) => {
+			open = isOpen;
+		}
+	});
+
+	// Sync open state with popover
+	$effect(() => {
+		if (calendarPopover.open !== open) {
+			calendarPopover.toggle(open);
+		}
+	});
 </script>
 
-<Popover.Root bind:open placement="bottom-end" offset={4}>
-	<Popover.Trigger
-		{id}
-		{disabled}
-		class={twMerge(
-			'dark:bg-surface1 text-md bg-background flex min-h-10 resize-none items-center justify-between rounded-lg px-4 py-2 text-left shadow-sm',
-			disabled && 'cursor-default opacity-50',
-			klass
-		)}
-		{@attach (node: HTMLElement) => {
-			const response = tooltip(node, {
-				text: 'Filter By Date',
-				placement: 'top-end'
-			});
+<button
+	{id}
+	{disabled}
+	type="button"
+	class={twMerge(
+		'dark:bg-surface1 text-md bg-background flex min-h-10 resize-none items-center justify-between rounded-lg px-4 py-2 text-left shadow-sm',
+		disabled && 'cursor-default opacity-50',
+		klass
+	)}
+	use:calendarPopover.ref
+	onclick={() => !disabled && calendarPopover.toggle()}
+	{@attach (node: HTMLElement) => {
+		const response = tooltip(node, {
+			text: 'Filter By Date',
+			placement: 'top-end'
+		});
 
-			return () => response.destroy();
-		}}
-	>
-		<span class="text-md flex grow items-center gap-2 truncate">
-			<CalendarCog class="size-4" />
-			{#if !compact}
-				{formatRange()}
-			{/if}
-		</span>
-	</Popover.Trigger>
-
-	<Popover.Content
-		class={twMerge('default-dialog w-xs p-4', classes?.calendar)}
-		{@attach clickOutsidePopoverContent(() => (open = false))}
-	>
-		<!-- Calendar Header -->
-		<div class={twMerge('mb-4 flex items-center justify-between', classes?.header)}>
-			<button class="hover:bg-surface3 rounded p-1" onclick={previousMonth}>
-				<ChevronLeft class="size-4" />
-			</button>
-
-			<h3 class="text-lg font-semibold">
-				{months[currentDate.getMonth()]}
-				{currentDate.getFullYear()}
-			</h3>
-
-			<button class="hover:bg-surface3 rounded p-1" onclick={nextMonth}>
-				<ChevronRight class="size-4" />
-			</button>
-		</div>
-
-		<!-- Weekday Headers -->
-		<div class="mb-2 grid grid-cols-7 gap-1">
-			{#each weekdays as day, i (i)}
-				<div class="text-on-surface1 flex h-8 w-8 items-center justify-center text-xs font-medium">
-					{day}
-				</div>
-			{/each}
-		</div>
-
-		<!-- Calendar Grid -->
-		<div class={twMerge('grid grid-cols-7 gap-1', classes?.grid)}>
-			{#each calendarDays as date (date.toISOString())}
-				<button
-					class={getDayClass(date)}
-					onclick={() => handleDateClick(date)}
-					disabled={isDisabled(date)}
-				>
-					{date.getDate()}
-				</button>
-			{/each}
-		</div>
-
-		{#if (start && !end) || (start && end && differenceInDays(end, start) <= 20)}
-			<!-- Render Time pickers -->
-			<div
-				class="mt-4 flex flex-col gap-2"
-				in:slide={{ duration: 200 }}
-				out:slide={{ duration: 100 }}
-			>
-				<div class="flex flex-col gap-1">
-					<div class="text-on-surface1 text-xs">{start.toDateString()}</div>
-					<TimeInput
-						date={start}
-						onChange={(date) => {
-							start = date;
-						}}
-					/>
-				</div>
-
-				<div class="flex flex-col gap-1">
-					<!-- In case start and end dates in the same day do not render the label -->
-					{#if !isSameDay(end ?? start, start)}
-						<div
-							class="text-on-surface1 text-xs"
-							in:slide={{ duration: 200 }}
-							out:slide={{ duration: 100 }}
-						>
-							{end?.toDateString()}
-						</div>
-					{/if}
-
-					<TimeInput
-						date={end ?? endOfDay(start)}
-						onChange={(date) => {
-							end = date;
-						}}
-					/>
-				</div>
-			</div>
+		return () => response.destroy();
+	}}
+>
+	<span class="text-md flex grow items-center gap-2 truncate">
+		<CalendarCog class="size-4" />
+		{#if !compact}
+			{formatRange()}
 		{/if}
+	</span>
+</button>
 
-		<div class="mt-4 flex justify-end gap-2">
-			<button type="button" class="button text-xs" onclick={handleCancel}>Cancel</button>
-			<button type="button" class="button-primary text-xs" onclick={handleApply}>Apply</button>
+<div class={twMerge('default-dialog w-xs p-4', classes?.calendar)} use:calendarPopover.tooltip>
+	<!-- Calendar Header -->
+	<div class={twMerge('mb-4 flex items-center justify-between', classes?.header)}>
+		<button type="button" class="hover:bg-surface3 rounded p-1" onclick={previousMonth}>
+			<ChevronLeft class="size-4" />
+		</button>
+
+		<h3 class="text-lg font-semibold">
+			{months[currentDate.getMonth()]}
+			{currentDate.getFullYear()}
+		</h3>
+
+		<button type="button" class="hover:bg-surface3 rounded p-1" onclick={nextMonth}>
+			<ChevronRight class="size-4" />
+		</button>
+	</div>
+
+	<!-- Weekday Headers -->
+	<div class="mb-2 grid grid-cols-7 gap-1">
+		{#each weekdays as day, i (i)}
+			<div class="text-on-surface1 flex h-8 w-8 items-center justify-center text-xs font-medium">
+				{day}
+			</div>
+		{/each}
+	</div>
+
+	<!-- Calendar Grid -->
+	<div class={twMerge('grid grid-cols-7 gap-1', classes?.grid)}>
+		{#each calendarDays as date (date.toISOString())}
+			<button
+				type="button"
+				class={getDayClass(date)}
+				onclick={() => handleDateClick(date)}
+				disabled={isDisabled(date)}
+			>
+				{date.getDate()}
+			</button>
+		{/each}
+	</div>
+
+	{#if (start && !end) || (start && end && differenceInDays(end, start) <= 20)}
+		<!-- Render Time pickers -->
+		<div
+			class="mt-4 flex flex-col gap-2"
+			in:slide={{ duration: 200 }}
+			out:slide={{ duration: 100 }}
+		>
+			<div class="flex flex-col gap-1">
+				<div class="text-on-surface1 text-xs">{start.toDateString()}</div>
+				<TimeInput
+					date={start}
+					onChange={(date) => {
+						start = date;
+					}}
+				/>
+			</div>
+
+			<div class="flex flex-col gap-1">
+				<!-- In case start and end dates in the same day do not render the label -->
+				{#if !isSameDay(end ?? start, start)}
+					<div
+						class="text-on-surface1 text-xs"
+						in:slide={{ duration: 200 }}
+						out:slide={{ duration: 100 }}
+					>
+						{end?.toDateString()}
+					</div>
+				{/if}
+
+				<TimeInput
+					date={end ?? endOfDay(start)}
+					onChange={(date) => {
+						end = date;
+					}}
+				/>
+			</div>
 		</div>
-	</Popover.Content>
-</Popover.Root>
+	{/if}
+
+	<div class="mt-4 flex justify-end gap-2">
+		<button type="button" class="button text-xs" onclick={handleCancel}>Cancel</button>
+		<button type="button" class="button-primary text-xs" onclick={handleApply}>Apply</button>
+	</div>
+</div>
