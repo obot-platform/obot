@@ -79,16 +79,16 @@
 	animate="slide"
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
 	class="bg-surface1 md:w-2xl"
-	classes={{ content: 'pb-0' }}
+	classes={{ content: 'pb-0', header: 'p-4 pb-0' }}
 	onClickOutside={handleClose}
 >
-	<p class="text-on-surface1 mb-4 text-xs font-light">
+	<p class="text-on-surface1 px-4 text-xs font-light">
 		Toggle what tools are available to users of this composite server. Or modify the name or
 		description of a tool; this will override the default name or description provided by the
 		server. It may affect the LLM's ability to understand the tool so be careful when adjusting
 		these values.
 	</p>
-	<div class="relative flex flex-col gap-2 overflow-x-hidden px-0.5">
+	<div class="relative flex flex-col gap-2 overflow-x-hidden p-4">
 		<div class="flex w-full justify-end">
 			<Toggle
 				checked={allToolsEnabled}
