@@ -95,22 +95,22 @@
 	function convertResourcesForOutput(output: ReturnType<typeof convertResourcesForInput>) {
 		let outputString = '';
 		if (output.requests.cpu || output.requests.memory) {
-			outputString += `requests:\n  `;
+			outputString += `requests:\n`;
 			if (output.requests.cpu) {
-				outputString += `cpu: ${output.requests.cpu.toString()}\n  `;
+				outputString += `  cpu: ${output.requests.cpu.toString()}\n`;
 			}
 			if (output.requests.memory) {
-				outputString += `memory: ${output.requests.memory.toString()}\n`;
+				outputString += `  memory: ${output.requests.memory.toString()}\n`;
 			}
 		}
 
 		if (output.limits.cpu || output.limits.memory) {
-			outputString += `limits:\n  `;
+			outputString += `limits:\n`;
 			if (output.limits.cpu) {
-				outputString += `cpu: ${output.limits.cpu.toString()}\n  `;
+				outputString += `  cpu: ${output.limits.cpu.toString()}\n`;
 			}
 			if (output.limits.memory) {
-				outputString += `memory: ${output.limits.memory.toString()}\n`;
+				outputString += `  memory: ${output.limits.memory.toString()}\n`;
 			}
 		}
 
