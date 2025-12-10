@@ -155,11 +155,10 @@ config:
   # config.OBOT_SERVER_DISABLE_UPDATE_CHECK -- Disable the Obot server update check. Set to "true" for forks since upstream upgrade server won't know about fork versions.
   OBOT_SERVER_DISABLE_UPDATE_CHECK: "true"
 
-  # config.OBOT_SERVER_TOOL_REGISTRIES -- Comma-separated list of tool registry paths or URLs.
-  # IMPORTANT: Must include BOTH upstream tools (/obot-tools/tools) AND custom auth providers (/obot-tools-custom)
-  # - /obot-tools/tools: Contains upstream Google and GitHub auth providers
-  # - /obot-tools-custom: Contains custom EntraID and Keycloak auth providers
-  OBOT_SERVER_TOOL_REGISTRIES: "/obot-tools/tools,/obot-tools-custom"
+  # config.OBOT_SERVER_TOOL_REGISTRIES -- Tool registry path containing all auth providers.
+  # The Docker build process merges upstream tools (GitHub, Google auth) with custom auth providers
+  # (EntraID, Keycloak) into a single unified directory with a combined index.yaml
+  OBOT_SERVER_TOOL_REGISTRIES: "/obot-tools/tools"
 
 # extraEnv -- A map of additional environment variables to set
 extraEnv: {}

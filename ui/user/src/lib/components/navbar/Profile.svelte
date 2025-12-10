@@ -248,7 +248,8 @@
 							rel="external"
 							target="_blank"
 							class="text-link"
-							href="https://github.com/jrmatherly/obot-entraid/releases/latest">latest release notes.</a
+							href="https://github.com/jrmatherly/obot-entraid/releases/latest"
+							>latest release notes.</a
 						>
 					</p>
 				</div>
