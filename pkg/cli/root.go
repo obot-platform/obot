@@ -39,9 +39,8 @@ func (a *Obot) PersistentPre(*cobra.Command, []string) error {
 }
 
 func New() *cobra.Command {
-	baseURL := env.VarOrDefault("OBOT_BASE_URL", "http://localhost:8080/api")
 	root := &Obot{
-		BaseURL: baseURL,
+		BaseURL: env.VarOrDefault("OBOT_BASE_URL", "http://localhost:8080/api"),
 		Client: &apiclient.Client{
 			Token: os.Getenv("OBOT_TOKEN"),
 		},
