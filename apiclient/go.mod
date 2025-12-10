@@ -1,6 +1,6 @@
 module github.com/obot-platform/obot/apiclient
 
-go 1.25.1
+go 1.25.5
 
 require (
 	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250714170123-17ad44ae8c54

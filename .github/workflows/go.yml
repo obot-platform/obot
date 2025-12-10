@@ -27,5 +27,12 @@ jobs:
       - name: Build
         run: make build
 
+      - name: Build custom auth providers
+        run: |
+          echo "Building EntraID auth provider..."
+          cd tools/entra-auth-provider && make build && cd ../..
+          echo "Building Keycloak auth provider..."
+          cd tools/keycloak-auth-provider && make build && cd ../..
+
       - name: Validate Go Code
         run: make validate-go-code
