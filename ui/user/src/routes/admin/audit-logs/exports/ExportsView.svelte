@@ -7,7 +7,7 @@
 	import { onMount } from 'svelte';
 	import type { AuditLogExport } from '$lib/services/admin/types';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 
 	interface Props {
 		query?: string;

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Layout from '$lib/components/Layout.svelte';

@@ -14,7 +14,7 @@
 	import { localState } from '$lib/runes/localState.svelte';
 	import { flip } from 'svelte/animate';
 	import { page } from '$app/state';
-	import { replaceState } from '$app/navigation';
+	import { replaceState } from '$lib/url';
 
 	interface Props {
 		currentThreadID?: string;
@@ -54,6 +54,7 @@
 	}
 
 	function toggleThreadPin(threadId: string) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const pinnedThreadsSet = new Set(projectPinnedThreads);
 
 		if (pinnedThreadsSet.has(threadId)) {
@@ -217,6 +218,7 @@
 
 				// Clean up pinned thread if it was deleted
 				if (isThreadPinned(thread.id)) {
+					// eslint-disable-next-line svelte/prefer-svelte-reactivity
 					const pinnedThreadsSet = new Set(projectPinnedThreads);
 					pinnedThreadsSet.delete(thread.id);
 					savePinnedThreads(pinnedThreadsSet.values().toArray());

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ProjectTemplate } from '$lib/services';
 	import { ChatService } from '$lib/services';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 
 	interface Props {
 		onBack?: () => void;

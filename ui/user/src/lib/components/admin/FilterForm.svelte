@@ -6,7 +6,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '../table/Table.svelte';
 	import Confirm from '../Confirm.svelte';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import {
 		getAdminMcpServerAndEntries,

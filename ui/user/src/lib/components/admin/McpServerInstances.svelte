@@ -31,6 +31,7 @@
 	import { openUrl } from '$lib/utils';
 	import DiffDialog from './DiffDialog.svelte';
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		id?: string;
@@ -275,7 +276,9 @@
 					{@const auditLogsUrl = getAuditLogUrl(d)}
 					<div class="flex items-center gap-1">
 						{#if auditLogsUrl}
-							<a class="button-text" href={auditLogsUrl}> View Audit Logs </a>
+							<a class="button-text" href={resolve(auditLogsUrl as `/${string}`)}>
+								View Audit Logs
+							</a>
 						{/if}
 
 						{#if d.needsUpdate}

@@ -12,6 +12,7 @@
 	import Table from '../table/Table.svelte';
 	import { onMount } from 'svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		entity?: 'workspace' | 'catalog';
@@ -150,7 +151,7 @@
 		{#snippet actions(d)}
 			{@const auditLogsUrl = getAuditLogUrl(d)}
 			{#if auditLogsUrl}
-				<a href={auditLogsUrl} class="button-text"> View Audit Logs </a>
+				<a href={resolve(auditLogsUrl as `/${string}`)} class="button-text"> View Audit Logs </a>
 			{/if}
 		{/snippet}
 	</Table>

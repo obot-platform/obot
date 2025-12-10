@@ -13,7 +13,8 @@
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import { getUserDisplayName } from '$lib/utils';
 	import type { SupportedStateFilter } from './types';
@@ -220,6 +221,7 @@
 			formatXLabel: (d) => String(d).split('.').slice(1).join('.'),
 			formatTooltipText: (data) => `${data.count} calls • ${data.serverDisplayName}`,
 			transform: (stats) => {
+				// eslint-disable-next-line svelte/prefer-svelte-reactivity
 				const counts = new Map<string, { count: number; serverDisplayName: string }>();
 				for (const s of stats?.items ?? []) {
 					for (const call of s.toolCalls ?? []) {
@@ -248,6 +250,7 @@
 			yKey: 'count',
 			tooltip: 'calls',
 			transform: (stats) => {
+				// eslint-disable-next-line svelte/prefer-svelte-reactivity
 				const counts = new Map<string, number>();
 				for (const s of stats?.items ?? []) {
 					const total = (s.toolCalls ?? []).reduce((sum, t) => sum + t.callCount, 0);
@@ -270,6 +273,7 @@
 			formatTooltipText: (data) =>
 				`${(data.averageResponseTimeMs as number).toFixed(2)}ms avg • ${data.serverDisplayName}`,
 			transform: (stats) => {
+				// eslint-disable-next-line svelte/prefer-svelte-reactivity
 				const responseTimes = new Map<
 					string,
 					{ total: number; count: number; serverDisplayName: string }
@@ -341,6 +345,7 @@
 			},
 			formatTooltipText: (data) => `${data.errorCount} errors • ${data.serverDisplayName}`,
 			transform: (stats) => {
+				// eslint-disable-next-line svelte/prefer-svelte-reactivity
 				const errorCounts = new Map<string, { errorCount: number; serverDisplayName: string }>();
 				for (const s of stats?.items ?? []) {
 					for (const call of s.toolCalls ?? []) {
@@ -377,6 +382,7 @@
 			tooltip: 'errors',
 			formatXLabel: (d) => String(d),
 			transform: (stats) => {
+				// eslint-disable-next-line svelte/prefer-svelte-reactivity
 				const errorCounts = new Map<string, number>();
 				for (const s of stats?.items ?? []) {
 					let count = 0;
@@ -412,6 +418,7 @@
 				return userDisplayName(user);
 			},
 			transform: (stats) => {
+				// eslint-disable-next-line svelte/prefer-svelte-reactivity
 				const userCounts = new Map<string, number>();
 				for (const s of stats?.items ?? []) {
 					for (const call of s.toolCalls ?? []) {
@@ -580,7 +587,7 @@
 			}
 		}
 
-		goto(url.toString(), { noScroll: true });
+		goto(url, { noScroll: true });
 	}
 
 	function isSafe<T = unknown>(value: T) {

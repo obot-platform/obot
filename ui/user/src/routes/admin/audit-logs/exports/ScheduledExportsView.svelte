@@ -17,7 +17,7 @@
 	import type { ScheduledAuditLogExport } from '$lib/services/admin/types';
 	import type { Schedule } from '$lib/services/chat/types';
 	import type { ScheduledAuditLogExportInput } from '$lib/services/admin/types';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 
 	interface Props {
 		query?: string;

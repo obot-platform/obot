@@ -325,6 +325,7 @@
 			{#if allowedModels.length}
 				<div class="flex flex-col">
 					{#each (() => {
+						// eslint-disable-next-line svelte/prefer-svelte-reactivity
 						const modelsByProvider = new Map<string, string[]>();
 						allowedModels.forEach((modelId) => {
 							// Find model by ID since allowedModels contains model IDs

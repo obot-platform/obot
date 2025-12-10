@@ -581,13 +581,15 @@
 
 							const add = (...cn: string[]) => {
 								for (const name of cn) {
-									classNames.add(name);
+									if (!classNames.includes(name)) {
+										classNames.push(name);
+									}
 								}
 							};
 
 							const remove = (...cn: string[]) => {
 								for (const name of cn) {
-									classNames.delete(name);
+									classNames = classNames.filter((c) => c !== name);
 								}
 							};
 
@@ -596,7 +598,7 @@
 								end
 							});
 
-							const classNames = new Set(element.classList);
+							let classNames = [...element.classList];
 							const baseClassName = ['duration-500', 'transiton-all'];
 							add(...baseClassName);
 
@@ -625,7 +627,7 @@
 
 							// Keep old class names
 							// Filter falsy values and join with a space
-							return classNames.values().toArray().join(' ');
+							return classNames.join(' ');
 						});
 				}}
 			></g>

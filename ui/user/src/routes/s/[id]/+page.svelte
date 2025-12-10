@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { profile, responsive } from '$lib/stores';
 	import { type PageProps } from './$types';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { type Assistant, ChatService, type Project } from '$lib/services';
 	import { onMount } from 'svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';

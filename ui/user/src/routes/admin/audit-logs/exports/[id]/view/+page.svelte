@@ -16,6 +16,7 @@
 	let exportData = $state<AuditLogExport>();
 
 	onMount(async () => {
+		if (!exportId) return;
 		try {
 			exportData = (await AdminService.getAuditLogExport(exportId)) as AuditLogExport;
 		} catch (err) {

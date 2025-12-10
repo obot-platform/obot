@@ -166,6 +166,7 @@
 	}
 
 	function highlightMissingRequiredFields(formAny: LaunchFormData | CompositeLaunchFormData) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const fieldsToHighlight = new Set<string>();
 		if (isCompositeForm(formAny)) {
 			for (const [compId, comp] of Object.entries(formAny.componentConfigs || {})) {

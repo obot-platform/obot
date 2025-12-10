@@ -38,6 +38,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import { isTextFile } from '$lib/utils';
 	import { profile } from '$lib/stores';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		msg: Message;
@@ -224,6 +225,7 @@
 	}
 
 	function deduplicateCitations(citations: string[]) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const seen = new Set<string>();
 		return citations.filter((url) => {
 			if (seen.has(url)) {
@@ -661,7 +663,8 @@
 
 {#snippet oauth()}
 	<a
-		href={msg.oauthURL}
+		href={resolve(msg.oauthURL as `/${string}`)}
+		rel="external"
 		class={twMerge(
 			'bg-primary hover:bg-primary/50 rounded-xl p-4 text-center text-white transition-colors duration-300 hover:text-white',
 			classes?.oauth
@@ -770,7 +773,8 @@
 					.filter((url) => url !== undefined)) as url, i (i)}
 				{#if msg.done}
 					<a
-						href={citationURL(url)}
+						href={resolve(citationURL(url) as `/${string}`)}
+						rel="external"
 						target="_blank"
 						class="flex w-fit items-center gap-2 rounded-full bg-gray-100 p-2 text-sm dark:bg-gray-900"
 						transition:fly={{ y: 100, delay: 50 * i, duration: 250 }}

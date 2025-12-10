@@ -14,7 +14,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import { Circle, CircleCheck, LoaderCircle } from 'lucide-svelte';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 
 	interface Props {

@@ -21,6 +21,7 @@ export function getToolReferences() {
 
 export function getToolReferenceMap() {
 	const toolReferences = getToolReferences();
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	return new Map(toolReferences.map((x) => [x.id, x]));
 }
 
@@ -30,6 +31,7 @@ type ToolBundleItem = {
 };
 
 export function getToolBundleMap() {
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	const map = new Map<string, ToolBundleItem>();
 
 	const toolReferences = getToolReferences();

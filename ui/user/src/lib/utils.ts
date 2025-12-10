@@ -1,5 +1,5 @@
-import { goto } from '$app/navigation';
 import { Role, type OrgUser } from './services';
+import { goto } from './url';
 
 // Simple delay function
 export function delay(ms: number): Promise<void> {

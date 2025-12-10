@@ -27,6 +27,7 @@
 	import { profile } from '$lib/stores';
 	import { page } from '$app/state';
 	import SensitiveInput from '../SensitiveInput.svelte';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		id?: string;
@@ -532,7 +533,7 @@
 		{#snippet actions(d)}
 			{@const auditLogsUrl = getAuditLogUrl(d)}
 			{#if auditLogsUrl}
-				<a href={auditLogsUrl} class="button-text"> View Audit Logs </a>
+				<a href={resolve(auditLogsUrl as `/${string}`)} class="button-text"> View Audit Logs </a>
 			{/if}
 		{/snippet}
 	</Table>

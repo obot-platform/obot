@@ -5,7 +5,7 @@
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import Memories from '$lib/components/edit/Memories.svelte';
 	import { getProjectTools } from '$lib/context/projectTools.svelte';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { hasTool } from '$lib/tools';
 	import { AlertTriangle } from 'lucide-svelte';
 	import ProjectConfigurationKnowledge from './ProjectConfigurationKnowledge.svelte';

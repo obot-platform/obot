@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { page } from '$app/state';
 	import { Check, X } from 'lucide-svelte';
 	import { ChatService, type ProjectInvitation } from '$lib/services';
@@ -8,6 +8,7 @@
 	import { darkMode } from '$lib/stores';
 	import { getProjectImage } from '$lib/image';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
+	import { resolve } from '$app/paths';
 
 	interface PageData {
 		invitation: ProjectInvitation;
@@ -108,7 +109,7 @@
 						error, please contact support.
 					</p>
 					<div class="mt-4 flex w-full justify-center">
-						<a href="/" class="button-primary w-full rounded-full p-2 px-6 text-center">
+						<a href={resolve('/')} class="button-primary w-full rounded-full p-2 px-6 text-center">
 							Go Home
 						</a>
 					</div>
@@ -128,7 +129,7 @@
 					</h2>
 					<p class="text-md text-center leading-6 font-light">Thank you for your response!</p>
 					<div class="mt-4 flex w-full justify-center">
-						<a href="/" class="button-primary w-full rounded-full p-2 px-6 text-center">
+						<a href={resolve('/')} class="button-primary w-full rounded-full p-2 px-6 text-center">
 							Go Home
 						</a>
 					</div>
@@ -150,14 +151,16 @@
 					</p>
 					<div class="mt-4 flex w-full justify-center">
 						<a
-							href="/o/{invitation.project?.id}"
+							href={resolve(`/o/${invitation.project?.id}`)}
 							class="button-primary w-full rounded-full p-2 px-6 text-center"
 						>
 							Go To Project
 						</a>
 					</div>
 					<div class="flex w-full justify-center">
-						<a href="/" class="button w-full rounded-full p-2 px-6 text-center"> Go Home </a>
+						<a href={resolve('/')} class="button w-full rounded-full p-2 px-6 text-center">
+							Go Home
+						</a>
 					</div>
 				</div>
 			</div>

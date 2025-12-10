@@ -10,6 +10,7 @@
 	import { parseErrorContent } from '$lib/errors';
 	import { Info, LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -123,7 +124,7 @@
 		{:else}
 			<a
 				target="_blank"
-				href={oauthURL}
+				href={resolve(oauthURL as `/${string}`)}
 				class="button-primary text-center text-sm"
 				onclick={() => {
 					setTimeout(() => {

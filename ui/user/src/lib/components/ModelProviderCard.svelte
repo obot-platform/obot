@@ -252,12 +252,14 @@
 	function toggleModel(model: string, isChecked: boolean) {
 		// Take a snapshot of current models
 		let projectModels = { ...(project.models || {}) };
-		const currentProviderModels = new Set([...(projectModels[provider.id] || [])]);
+		let currentProviderModels = [...(projectModels[provider.id] || [])];
 
 		if (isChecked) {
-			currentProviderModels.add(model);
+			if (!currentProviderModels.includes(model)) {
+				currentProviderModels.push(model);
+			}
 		} else {
-			currentProviderModels.delete(model);
+			currentProviderModels = currentProviderModels.filter((m) => m !== model);
 		}
 
 		let p = project;
@@ -270,7 +272,7 @@
 			p = setProjectDefaultModel(p, model);
 		}
 
-		p = setProjectModels(p, provider.id, currentProviderModels.values().toArray());
+		p = setProjectModels(p, provider.id, currentProviderModels);
 
 		project = p;
 	}
@@ -291,15 +293,11 @@
 		// Take a snapshot of current models
 		let projectModels = { ...(project.models || {}) };
 
-		const array = new Set(projectModels[providerId] ?? []);
-
-		for (const model of models) {
-			array.delete(model);
-		}
+		const filtered = (projectModels[providerId] ?? []).filter((m) => !models.includes(m));
 
 		projectModels = {
 			...projectModels,
-			[provider.id]: array.values().toArray()
+			[provider.id]: filtered
 		};
 
 		return updateProject_({ models: projectModels });

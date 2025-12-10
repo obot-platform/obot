@@ -40,6 +40,7 @@
 	});
 
 	async function loadThread() {
+		if (!threadId) return;
 		try {
 			currentThreadData = await AdminService.getThread(threadId);
 

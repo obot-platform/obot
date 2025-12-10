@@ -11,6 +11,7 @@
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import type { AuditLogExport, OrgUser } from '$lib/services/admin/types';
 	import Select from '$lib/components/Select.svelte';
+	import { SvelteMap } from 'svelte/reactivity';
 
 	interface Props {
 		onCancel: () => void;
@@ -66,7 +67,7 @@
 		'response_status'
 	];
 
-	let usersMap = new Map<string, OrgUser>();
+	let usersMap = new SvelteMap<string, OrgUser>();
 	let filtersOptions: Record<string, string[]> = $state({});
 
 	onMount(async () => {

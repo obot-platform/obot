@@ -5,6 +5,7 @@
 		MCPCompositeDeletionDependency,
 		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		show: boolean;
@@ -19,6 +20,7 @@
 	const groupedLinks = $derived.by(() => {
 		const deps: MCPCompositeDeletionDependency[] = error?.dependencies ?? [];
 
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const grouped = new Map<string, { name: string; icon?: string; hasConfigDep: boolean }>();
 
 		for (const dep of deps) {
@@ -94,7 +96,7 @@
 							</span>
 						</div>
 						<a
-							href={dep.url}
+							href={resolve(dep.url as `/${string}`)}
 							class="text-xs font-medium whitespace-nowrap text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
 						>
 							{dep.label}

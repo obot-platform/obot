@@ -59,21 +59,22 @@
 
 	// Get current month's first day and last day
 	let firstDayOfMonth = $derived(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1));
-	let startOfWeek = $derived.by(() => {
-		const date = new Date(firstDayOfMonth);
-		date.setDate(date.getDate() - date.getDay());
-
-		return date;
-	});
+	let startOfWeek = $derived(
+		new Date(
+			firstDayOfMonth.getFullYear(),
+			firstDayOfMonth.getMonth(),
+			firstDayOfMonth.getDate() - firstDayOfMonth.getDay()
+		)
+	);
 
 	function generateCalendarDays(): Date[] {
 		const days: Date[] = [];
-		const current = new Date(startOfWeek);
 
 		// Generate 6 weeks of days (42 days)
 		for (let i = 0; i < 42; i++) {
-			days.push(new Date(current));
-			current.setDate(current.getDate() + 1);
+			days.push(
+				new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate() + i)
+			);
 		}
 
 		return days;

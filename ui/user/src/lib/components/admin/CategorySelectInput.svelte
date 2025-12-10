@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import Select from '../Select.svelte';
 
 	type Props = {
@@ -19,16 +20,11 @@
 		onDelete
 	}: Props = $props();
 
-	let optionsMap = new Map();
-	let localOptions = $derived.by(() => {
-		optionsMap.clear();
+	let optionsMap = new SvelteMap<string, { id: string; label: string }>(
+		options.map((option) => [option.id, option])
+	);
 
-		for (const option of options) {
-			optionsMap.set(option.id, option);
-		}
-
-		return [...optionsMap.values()];
-	});
+	let localOptions = $derived([...optionsMap.values()]);
 
 	let query = $state('');
 </script>
@@ -56,7 +52,9 @@
 		}}
 		onClear={(option, value) => {
 			onUpdate?.(value as string);
-			onDelete?.(option);
+			if (option) {
+				onDelete?.(option);
+			}
 		}}
 		onKeyDown={(ev, params) => {
 			const { results } = params ?? {};

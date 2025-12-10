@@ -12,7 +12,7 @@
 	import { Eye, LoaderCircle, MessageCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
-	import { replaceState } from '$app/navigation';
+	import { replaceState } from '$lib/url';
 	import { formatTimeAgo } from '$lib/time';
 	import Search from '$lib/components/Search.svelte';
 	import { page } from '$app/state';

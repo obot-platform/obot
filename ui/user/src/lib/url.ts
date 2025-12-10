@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
-import { replaceState } from '$app/navigation';
+import { goto as svelteGoTo, replaceState as svelteReplaceState } from '$app/navigation';
+import { resolve } from '$app/paths';
 import { navigating, page } from '$app/state';
 import type { InitSort } from './components/table/Table.svelte';
 
@@ -80,10 +81,22 @@ export function setSearchParamsToLocalStorage(pathname: string, searchParams: st
 	}
 }
 
+export function replaceState(url: string | URL, state: object) {
+	const routeToUse =
+		url instanceof URL ? `/${url.pathname}${url.search ? `${url.search}` : ''}` : url;
+	svelteReplaceState(resolve(routeToUse as `/${string}`), state);
+}
+
 export function getSearchParamsFromLocalStorage(pathname: string): string | null {
 	if (browser) {
 		return localStorage.getItem(`page.searchParams.${pathname}`);
 	}
 
 	return null;
+}
+
+export function goto(url: string | URL, state?: object) {
+	const routeToUse =
+		url instanceof URL ? `/${url.pathname}${url.search ? `${url.search}` : ''}` : url;
+	svelteGoTo(resolve(routeToUse as `/${string}`), state);
 }
