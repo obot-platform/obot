@@ -344,7 +344,7 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		return nil, false, err
 	}
 
-	if stateResponse.StatusCode == http.StatusInternalServerError && strings.Contains(string(body), "record not found") {
+	if stateResponse.StatusCode == http.StatusInternalServerError && (strings.Contains(string(body), "record not found") || strings.Contains(string(body), "session ticket cookie failed validation")) {
 		return nil, false, ErrInvalidSession
 	}
 
