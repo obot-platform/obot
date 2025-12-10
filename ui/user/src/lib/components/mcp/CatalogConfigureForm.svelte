@@ -85,9 +85,11 @@
 
 	const headers = $derived.by(() => {
 		if (form && 'headers' in form) {
-			return form.headers
-				?.map((header, i) => ({ index: i, data: header }))
-				.filter((item) => item.data.required);
+			return (
+				form.headers
+					?.map((header, i) => ({ index: i, data: header }))
+					?.filter((item) => item.data.required) ?? []
+			);
 		}
 
 		return [];
