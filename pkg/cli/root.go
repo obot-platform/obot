@@ -43,8 +43,7 @@ func New() *cobra.Command {
 	root := &Obot{
 		BaseURL: baseURL,
 		Client: &apiclient.Client{
-			BaseURL: baseURL,
-			Token:   os.Getenv("OBOT_TOKEN"),
+			Token: os.Getenv("OBOT_TOKEN"),
 		},
 	}
 	return cmd.Command(root,
