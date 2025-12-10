@@ -319,7 +319,8 @@ func getSerializableStateFromRequest(p *oauth2proxy.OAuthProxy, r *http.Request)
 }
 
 // fetchUserProfile fetches user profile from Microsoft Graph API
-func fetchUserProfile(ctx context.Context, authHeader string) (map[string]interface{}, error) {
+// Returns a map with field names that obot expects: "name" for display name, "icon_url" for profile picture
+func fetchUserProfile(ctx context.Context, authHeader string) (map[string]any, error) {
 	accessToken := strings.TrimPrefix(authHeader, "Bearer ")
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, graphAPIBaseURL+"/me", nil)
@@ -344,9 +345,25 @@ func fetchUserProfile(ctx context.Context, authHeader string) (map[string]interf
 		return nil, fmt.Errorf("graph API returned %d: %s", resp.StatusCode, string(body))
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Map displayName to "name" for obot compatibility
+	// obot's UpdateProfileIfNeeded looks for profile["name"] for entra-auth-provider
+	if displayName, ok := result["displayName"].(string); ok {
+		result["name"] = displayName
+	}
+
+	// Fetch and add icon URL for obot compatibility
+	// obot's UpdateProfileIfNeeded looks for profile["icon_url"] for entra-auth-provider
+	iconURL, err := profile.FetchUserIconURL(ctx, accessToken)
+	if err != nil {
+		// Log but don't fail - icon is optional
+		fmt.Printf("WARNING: failed to fetch icon URL: %v\n", err)
+	} else if iconURL != "" {
+		result["icon_url"] = iconURL
 	}
 
 	return result, nil
