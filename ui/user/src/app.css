@@ -1124,6 +1124,14 @@
 		}
 	}
 
+	& table + p {
+		margin-top: 1rem;
+	}
+
+	& hr {
+		margin-bottom: 1rem;
+	}
+
 	& code {
 		background-color: var(--surface1);
 		padding: 0.25rem 0.5rem;

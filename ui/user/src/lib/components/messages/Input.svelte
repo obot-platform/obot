@@ -6,6 +6,7 @@
 	import type { EditorItem } from '$lib/services/editor/index.svelte';
 
 	import PlaintextEditor from './PlaintextEditor.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		id?: string;
@@ -22,6 +23,9 @@
 		initialValue?: string;
 		items?: EditorItem[];
 		inputPopover?: Snippet<[string]>;
+		classes?: {
+			root?: string;
+		};
 	}
 
 	let {
@@ -38,7 +42,8 @@
 		placeholder = 'Your message...',
 		initialValue,
 		items = $bindable([]),
-		inputPopover
+		inputPopover,
+		classes
 	}: Props = $props();
 
 	let value = $state(initialValue || '');
@@ -152,7 +157,10 @@
 	{/if}
 
 	<div
-		class=" focus-within:ring-primary bg-surface1 mt-4 flex h-fit max-h-[80svh] rounded-2xl focus-within:shadow-md focus-within:ring-1"
+		class={twMerge(
+			'focus-within:ring-primary bg-surface1 mt-4 flex h-fit max-h-[80svh] rounded-2xl focus-within:shadow-md focus-within:ring-1',
+			classes?.root
+		)}
 	>
 		<div class="flex min-h-full w-full flex-col" {id}>
 			<label for="chat" class="sr-only">Your messages</label>
