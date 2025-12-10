@@ -16,6 +16,7 @@
 	import { AdminService } from '$lib/services/index.js';
 	import { parseErrorContent } from '$lib/errors';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import { resolve } from '$app/paths';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -157,6 +158,10 @@
 		}
 	}
 
+	function navigateToMcpServers() {
+		goto(resolve(`/admin/mcp-servers`));
+	}
+
 	$effect(() => {
 		if (catalogEntry?.manifest.runtime === 'composite') {
 			mcpServersAndEntries.refreshAll();
@@ -210,12 +215,8 @@
 					: 'single'}
 			readonly={isAdminReadonly || isSourcedEntry}
 			id={DEFAULT_MCP_CATALOG_ID}
-			onCancel={() => {
-				goto('/admin/mcp-servers');
-			}}
-			onSubmit={async () => {
-				goto('/admin/mcp-servers');
-			}}
+			onCancel={navigateToMcpServers}
+			onSubmit={navigateToMcpServers}
 		/>
 	</div>
 </Layout>

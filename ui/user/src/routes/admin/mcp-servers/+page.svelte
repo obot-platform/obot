@@ -9,7 +9,8 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
 	import { goto } from '$lib/url';
-	import { beforeNavigate, afterNavigate, goto, replaceState } from '$app/navigation';
+	import { replaceState } from '$lib/url';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { mcpServersAndEntries, profile } from '$lib/stores';

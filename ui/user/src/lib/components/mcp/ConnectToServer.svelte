@@ -23,6 +23,7 @@
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		userConfiguredServers: MCPCatalogServer[];
@@ -570,7 +571,7 @@
 		chatLoadingProgress = 100;
 		setTimeout(() => {
 			chatLoading = false;
-			goto(`/o/${project?.id}`);
+			goto(resolve(`/o/${project?.id}`));
 		}, 1000);
 	}
 </script>

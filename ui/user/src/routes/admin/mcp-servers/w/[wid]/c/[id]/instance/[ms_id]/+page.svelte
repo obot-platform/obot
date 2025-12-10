@@ -8,6 +8,7 @@
 	import { goto } from '$app/navigation';
 	import { profile } from '$lib/stores/index.js';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import { resolve } from '$app/paths';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -15,6 +16,10 @@
 	let { workspaceId, catalogEntry: initialCatalogEntry, mcpServer } = data;
 	let catalogEntry = $state(initialCatalogEntry);
 	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
+
+	function navigateToMcpServers() {
+		goto(resolve(`/admin/mcp-servers`));
+	}
 </script>
 
 <Layout
@@ -36,12 +41,8 @@
 				type={catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'single'}
 				id={workspaceId}
 				entity="workspace"
-				onCancel={() => {
-					goto('/admin/mcp-servers');
-				}}
-				onSubmit={async () => {
-					goto('/admin/mcp-servers');
-				}}
+				onCancel={navigateToMcpServers}
+				onSubmit={navigateToMcpServers}
 				readonly={profile.current.isAdminReadonly?.()}
 			/>
 		{/if}

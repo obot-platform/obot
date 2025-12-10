@@ -7,6 +7,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import { resolve } from '$app/paths';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -17,6 +18,10 @@
 		mcpServer?.alias || mcpServer?.manifest?.name || catalogEntry?.manifest?.name || 'MCP Server'
 	);
 	let server = $state(mcpServer);
+
+	function navigateToMcpServers() {
+		goto(resolve(`/mcp-servers`));
+	}
 </script>
 
 <Layout
@@ -44,12 +49,8 @@
 				readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
 				id={workspaceId}
 				entity="workspace"
-				onCancel={() => {
-					goto('/mcp-servers');
-				}}
-				onSubmit={async () => {
-					goto('/mcp-servers');
-				}}
+				onCancel={navigateToMcpServers}
+				onSubmit={navigateToMcpServers}
 			/>
 		{/if}
 	</div>

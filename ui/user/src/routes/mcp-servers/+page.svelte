@@ -6,8 +6,8 @@
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
 	import { Plus } from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
-	import { goto } from '$lib/url';
-	import { beforeNavigate, afterNavigate, replaceState } from '$app/navigation';
+	import { goto, replaceState } from '$lib/url';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import Search from '$lib/components/Search.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';

@@ -928,8 +928,7 @@
 					? ChatService.deleteWorkspaceMCPCatalogEntry
 					: AdminService.deleteMCPCatalogEntry;
 			await deleteCatalogEntryFn(id, entry.id);
-			let url: `/${string}` =
-				entity === 'workspace' ? '/mcp-servers' : '/admin/mcp-servers';
+			let url: `/${string}` = entity === 'workspace' ? '/mcp-servers' : '/admin/mcp-servers';
 			goto(url);
 		}
 	}}
