@@ -178,7 +178,6 @@
 	function handleApply() {
 		onChange({ start, end });
 
-		// calendarPopover?.close();
 		open = false;
 	}
 
@@ -188,7 +187,6 @@
 		start = initialValue.start;
 		end = initialValue.end;
 
-		// calendarPopover?.close();
 		open = false;
 	}
 
@@ -229,9 +227,7 @@
 
 	// Sync open state with popover
 	$effect(() => {
-		if (calendarPopover.open !== open) {
-			calendarPopover.toggle(open);
-		}
+		calendarPopover.toggle(open);
 	});
 </script>
 
