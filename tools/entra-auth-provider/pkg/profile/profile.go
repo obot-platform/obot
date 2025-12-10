@@ -2,6 +2,7 @@ package profile
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -73,29 +74,29 @@ func ParseIDToken(idToken string) (*UserProfile, error) {
 	}, nil
 }
 
-// FetchUserIconURL fetches the user's profile picture URL from Microsoft Graph API
+// FetchUserIconURL fetches the user's profile picture from Microsoft Graph API
+// and returns it as a base64-encoded data URL that can be used directly in browsers.
 // accessToken should be the raw access token (not "Bearer <token>")
-// Returns the Graph API photo URL if the user has a profile picture, empty string if not
+// Returns a data URL (data:image/jpeg;base64,...) if the user has a profile picture, empty string if not
 func FetchUserIconURL(ctx context.Context, accessToken string) (string, error) {
 	if accessToken == "" {
 		return "", fmt.Errorf("no access token provided")
 	}
 
-	// Microsoft Graph API endpoint for user photo metadata
-	photoMetadataURL := "https://graph.microsoft.com/v1.0/me/photo"
+	// Microsoft Graph API endpoint for user photo binary data
+	// Using $value endpoint to get the actual image bytes
+	photoURL := "https://graph.microsoft.com/v1.0/me/photo/$value"
 
-	// Check if photo exists by calling the metadata endpoint
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, photoMetadataURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, photoURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Accept", "application/json")
 
 	resp, err := graphClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch photo metadata from Graph API: %w", err)
+		return "", fmt.Errorf("failed to fetch photo from Graph API: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -106,9 +107,23 @@ func FetchUserIconURL(ctx context.Context, accessToken string) (string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("Graph API photo metadata returned status %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("Graph API photo returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	// Photo exists, return the $value URL that can be used to fetch the actual image
-	return "https://graph.microsoft.com/v1.0/me/photo/$value", nil
+	// Read the image data
+	imageData, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read photo data: %w", err)
+	}
+
+	// Get content type from response, default to jpeg if not specified
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "image/jpeg"
+	}
+
+	// Encode as base64 data URL that browsers can display directly
+	dataURL := fmt.Sprintf("data:%s;base64,%s", contentType, base64.StdEncoding.EncodeToString(imageData))
+
+	return dataURL, nil
 }
