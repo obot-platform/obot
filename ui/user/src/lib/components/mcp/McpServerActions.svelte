@@ -227,7 +227,6 @@
 	bind:this={connectToServerDialog}
 	userConfiguredServers={mcpServersAndEntries.current.userConfiguredServers}
 	onConnect={(data) => {
-		console.log({ data });
 		onConnect?.(data);
 		refresh();
 	}}
