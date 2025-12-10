@@ -14,8 +14,9 @@ import (
 )
 
 type Obot struct {
-	Debug  bool `usage:"Enable debug logging"`
-	Client *apiclient.Client
+	Debug   bool   `usage:"Enable debug logging"`
+	BaseURL string `usage:"Base URL for the OBOT API" default:"http://localhost:8080/api"`
+	Client  *apiclient.Client
 }
 
 func (a *Obot) PersistentPre(*cobra.Command, []string) error {
@@ -27,6 +28,11 @@ func (a *Obot) PersistentPre(*cobra.Command, []string) error {
 		logger.SetDebug()
 	}
 
+	// Update the client's BaseURL if it was set via flag
+	if a.BaseURL != "" {
+		a.Client.BaseURL = a.BaseURL
+	}
+
 	if a.Client.Token == "" {
 		a.Client = a.Client.WithTokenFetcher(internal.Token)
 	}
@@ -35,9 +41,11 @@ func (a *Obot) PersistentPre(*cobra.Command, []string) error {
 }
 
 func New() *cobra.Command {
+	baseURL := env.VarOrDefault("OBOT_BASE_URL", "http://localhost:8080/api")
 	root := &Obot{
+		BaseURL: baseURL,
 		Client: &apiclient.Client{
-			BaseURL: env.VarOrDefault("OBOT_BASE_URL", "http://localhost:8080/api"),
+			BaseURL: baseURL,
 			Token:   os.Getenv("OBOT_TOKEN"),
 		},
 	}
