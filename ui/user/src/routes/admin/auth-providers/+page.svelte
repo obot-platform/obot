@@ -283,7 +283,7 @@
 				its unconfigured state. You will need to set up the auth provider once again to use it.
 			</p>
 			<p class="text-sm font-light">
-				Are you sure you want to deconfigure <b>Google</b>?
+				Are you sure you want to deconfigure <b>{confirmDeconfigureAuthProvider?.name}</b>?
 			</p>
 		</div>
 	{/snippet}

@@ -213,9 +213,11 @@ mcpImagePullSecrets: []
 #     email: "myemail@example.com"
 
 mcpNamespace:
-  # mcpNamespace.name -- The namespace in which to deploy the MCP servers. Will only be created if config.OBOT_SERVER_MCPBASE_IMAGE image is set. Defaults to {{ .Release.Name }}-mcp
+  # mcpNamespace.create -- Whether to create the MCP namespace via Helm. Set to false if namespace is managed externally (e.g., by Flux/ArgoCD).
+  create: true
+  # mcpNamespace.name -- The namespace in which to deploy the MCP servers. Defaults to {{ .Release.Name }}-mcp
   name: ""
-  # mcpNamespace.annotation - Annotations to add to the mcp server namespace. Includes ArgoCD sync wave by default.
+  # mcpNamespace.annotations -- Annotations to add to the mcp server namespace. Includes ArgoCD sync wave by default.
   annotations:
     argocd.argoproj.io/sync-wave: "-1"
 

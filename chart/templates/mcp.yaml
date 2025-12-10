@@ -1,4 +1,5 @@
 {{- if eq .Values.config.OBOT_SERVER_MCPRUNTIME_BACKEND "kubernetes" }}
+{{- if not (eq .Values.mcpNamespace.create false) }}
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -9,6 +10,7 @@ metadata:
   {{- end }}
   labels:
     {{- include "obot.labels" . | nindent 4 }}
+{{- end }}
 {{- range .Values.mcpImagePullSecrets }}
 ---
 apiVersion: v1
@@ -57,5 +59,40 @@ subjects:
 roleRef:
   kind: Role
   name: obot-mcp-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ClusterRole to allow obot to create/manage the MCP namespace
+# This is needed because obot tries to ensure the namespace exists at startup
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "obot.fullname" . }}-mcp-namespace
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["create", "get", "list", "watch"]
+    # Limit to only the MCP namespace using resourceNames
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    resourceNames: ["{{ include "obot.config.mcpNamespace" . }}"]
+    verbs: ["create", "get", "list", "watch", "update", "patch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "obot.fullname" . }}-mcp-namespace
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "obot.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ include "obot.fullname" . }}-mcp-namespace
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
