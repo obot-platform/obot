@@ -157,7 +157,7 @@
 			{#if call?.tool?.source?.location && call.tool.source.location !== 'inline'}
 				<div class="text-on-surface1 mb-2 text-sm">
 					Source:
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external URL -->
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- external URL -->
 					<a
 						href={call.tool.source.location}
 						target="_blank"
@@ -166,6 +166,7 @@
 					>
 						{call.tool.source.location}
 					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				</div>
 			{/if}
 			<details open={expandAll}>

@@ -661,7 +661,7 @@
 {/snippet}
 
 {#snippet oauth()}
-	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
+	<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
 	<a
 		href={msg.oauthURL}
 		rel="external"
@@ -674,6 +674,7 @@
 		<p>Authentication is required.</p>
 		<p><span class="underline">Click here</span> to log-in using OAuth.</p>
 	</a>
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 {/snippet}
 
 {#snippet promptAuth()}
@@ -772,7 +773,7 @@
 					.map((c) => c.url)
 					.filter((url) => url !== undefined)) as url, i (i)}
 				{#if msg.done}
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external URL -->
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- external URL -->
 					<a
 						href={citationURL(url)}
 						rel="external"
@@ -788,6 +789,7 @@
 						/>
 						{citationDisplayURL(url)}
 					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{/if}
 			{/each}
 		</div>

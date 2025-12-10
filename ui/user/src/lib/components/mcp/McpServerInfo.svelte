@@ -169,7 +169,7 @@
 				>
 					<p class="mb-1 text-xs font-medium">{detail.label}</p>
 					{#if detail.link}
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external URL? -->
+						<!-- eslint-disable svelte/no-navigation-without-resolve -- external URL? -->
 						<a
 							href={detail.link}
 							class="text-link"
@@ -184,6 +184,7 @@
 								{@render detailSection(detail)}
 							{/if}
 						</a>
+						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					{:else if detail.showTooltip && typeof detail.value === 'string'}
 						<span use:tooltip={detail.value}>
 							{@render detailSection(detail)}

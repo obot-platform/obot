@@ -121,7 +121,7 @@
 				Authenticating...
 			</div>
 		{:else}
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
 			<a
 				target="_blank"
 				href={oauthURL}
@@ -135,6 +135,7 @@
 			>
 				Authenticate
 			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{/if}
 	</div>
 {/if}

@@ -383,7 +383,7 @@
 					{/if}
 				</div>
 				{#if oauthURL}
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
 					<a
 						href={oauthURL}
 						rel="external"
@@ -396,6 +396,7 @@
 							Authenticate
 						{/if}
 					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{:else}
 					<button
 						class="button-primary flex w-full justify-center"

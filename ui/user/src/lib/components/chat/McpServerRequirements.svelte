@@ -300,7 +300,7 @@
 
 			<p>Click the link below to authenticate.</p>
 
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
+			<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
 			<a
 				href={oauth.oauthURL}
 				rel="external"
@@ -317,6 +317,7 @@
 					Authenticate
 				{/if}
 			</a>
+			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		</dialog>
 	{:else if requirements[0]?.type === 'config'}
 		<CatalogConfigureForm
