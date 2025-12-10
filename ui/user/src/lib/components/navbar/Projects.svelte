@@ -129,7 +129,6 @@
 	>
 		<a
 			href={resolve(`/o/${p.id}`)}
-			rel="external"
 			class="flex min-h-14 w-full items-center gap-2 p-2"
 			onclick={() => (loading = true)}
 		>

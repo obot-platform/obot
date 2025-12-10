@@ -14,7 +14,6 @@
 	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
 	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
-	import { resolve } from '$app/paths';
 
 	interface Props {
 		catalogId?: string;
@@ -384,8 +383,10 @@
 					{/if}
 				</div>
 				{#if oauthURL}
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
 					<a
-						href={resolve(oauthURL as `/${string}`)}
+						href={oauthURL}
+						rel="external"
 						target="_blank"
 						class="button-primary flex w-full justify-center"
 					>
@@ -395,6 +396,7 @@
 							Authenticate
 						{/if}
 					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{:else}
 					<button
 						class="button-primary flex w-full justify-center"
