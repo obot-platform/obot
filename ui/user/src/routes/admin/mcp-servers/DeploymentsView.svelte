@@ -217,6 +217,52 @@
 		}
 	}
 
+	async function redeployServerWithK8sSettings(server: MCPCatalogServer) {
+		if (server.powerUserWorkspaceID && server.catalogEntryID) {
+			await ChatService.redeployWorkspaceCatalogEntryServerWithK8sSettings(
+				server.powerUserWorkspaceID,
+				server.catalogEntryID,
+				server.id
+			);
+		} else if (server.powerUserWorkspaceID) {
+			await ChatService.redeployWorkspaceK8sServerWithK8sSettings(
+				server.powerUserWorkspaceID,
+				server.id
+			);
+		} else if (server.catalogEntryID) {
+			await AdminService.redeployMCPCatalogServerWithK8sSettings(server.catalogEntryID, server.id);
+		} else {
+			await AdminService.redeployWithK8sSettings(server.id);
+		}
+	}
+
+	async function handleBulkK8sRedeploy() {
+		const errors: string[] = [];
+		for (const id of Object.keys(selected)) {
+			const server = selected[id];
+			if (!server.needsK8sUpdate) continue;
+			try {
+				await redeployServerWithK8sSettings(server);
+			} catch (err) {
+				const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+				errors.push(`${server.manifest.name || id}: ${errorMsg}`);
+				console.error(`Failed to redeploy server ${id} with K8s settings:`, err);
+			}
+		}
+
+		if (errors.length > 0) {
+			console.error('Some servers failed to redeploy:', errors.join('\n'));
+			// Show a user-visible error notification
+			alert(
+				`Failed to redeploy ${errors.length} server(s):\n\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...and ${errors.length - 5} more` : ''}`
+			);
+		}
+
+		selected = {};
+		tableRef?.clearSelectAll();
+		await reload();
+	}
+
 	async function updateServer(server?: MCPCatalogServer) {
 		if (!server) return;
 		updating[server.id] = { inProgress: true, error: '' };
@@ -387,6 +433,11 @@
 								<CircleFadingArrowUp class="text-primary size-4" />
 							</div>
 						{/if}
+						{#if d.needsK8sUpdate}
+							<div use:tooltip={'K8s settings upgrade available'}>
+								<CircleFadingArrowUp class="text-yellow-500 size-4" />
+							</div>
+						{/if}
 					</div>
 				{:else}
 					{d[property as keyof typeof d]}
@@ -445,6 +496,26 @@
 									}}
 								>
 									<GitCompare class="size-4" /> View Diff
+								</button>
+							{/if}
+							{#if d.needsK8sUpdate && !readonly}
+								<button
+									class="menu-button-primary"
+									onclick={async (e) => {
+										e.stopPropagation();
+										try {
+											await redeployServerWithK8sSettings(d);
+											await delay(1000);
+											await reload();
+										} catch (err) {
+											console.error('Failed to redeploy with K8s settings:', err);
+											alert(
+												`Failed to redeploy server: ${err instanceof Error ? err.message : 'Unknown error'}`
+											);
+										}
+									}}
+								>
+									<CircleFadingArrowUp class="size-4" /> Redeploy with Latest K8s Settings
 								</button>
 							{/if}
 							{#if d.manifest.runtime !== 'remote' && !readonly}
@@ -528,6 +599,9 @@
 				{@const upgradeableCount = Object.values(currentSelected).filter(
 					(s) => s.needsUpdate && !s.compositeName
 				).length}
+				{@const k8sUpgradeableCount = Object.values(currentSelected).filter(
+					(s) => s.needsK8sUpdate
+				).length}
 				{@const deletableCount = Object.values(currentSelected).filter(
 					(s) => !s.compositeName
 				).length}
@@ -565,6 +639,21 @@
 						{#if upgradeableCount > 0 && !readonly}
 							<span class="pill-primary">
 								{upgradeableCount}
+							</span>
+						{/if}
+					</button>
+					<button
+						class="button flex items-center gap-1 text-sm font-normal"
+						onclick={async () => {
+							selected = currentSelected;
+							await handleBulkK8sRedeploy();
+						}}
+						disabled={readonly || k8sUpgradeableCount === 0}
+					>
+						<CircleFadingArrowUp class="size-4 text-yellow-500" /> K8s Redeploy
+						{#if k8sUpgradeableCount > 0 && !readonly}
+							<span class="pill-primary">
+								{k8sUpgradeableCount}
 							</span>
 						{/if}
 					</button>
