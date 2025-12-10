@@ -12,12 +12,81 @@ RUN if [ "${BASE_IMAGE}" = "cgr.dev/chainguard/wolfi-base" ]; then \
 FROM base AS bin
 WORKDIR /app
 COPY . .
+# hadolint ignore=DL3003
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
   --mount=type=cache,target=/root/.cache/go-build \
   --mount=type=cache,target=/root/.cache/uv \
   --mount=type=cache,target=/root/go/pkg/mod \
   make all && \
-  cd tools/entra-auth-provider && make build
+  cd tools/entra-auth-provider && make build && \
+  cd ../keycloak-auth-provider && make build
+
+# Intermediate stage to fetch upstream tools images
+FROM cgr.dev/chainguard/wolfi-base:latest AS tools-fetch
+RUN apk add --no-cache ca-certificates
+
+FROM ${TOOLS_IMAGE} AS tools
+FROM ${PROVIDER_IMAGE} AS provider
+FROM ${ENTERPRISE_IMAGE} AS enterprise-tools
+RUN mkdir -p /obot-tools
+
+# Create unified tools directory by patching upstream tools with custom auth providers
+FROM cgr.dev/chainguard/wolfi-base:latest AS tools-patched
+RUN apk add --no-cache yq bash
+
+# Copy upstream tools as base
+COPY --from=tools /obot-tools /obot-tools
+
+# Copy provider tools (encryption providers, etc.)
+COPY --from=provider /obot-tools /obot-tools
+COPY --from=enterprise-tools /obot-tools /obot-tools
+
+# Create directories for custom auth providers
+RUN mkdir -p /obot-tools/tools/entra-auth-provider/bin && \
+  mkdir -p /obot-tools/tools/keycloak-auth-provider/bin && \
+  mkdir -p /obot-tools/tools/placeholder-credential && \
+  mkdir -p /obot-tools/tools/auth-providers-common/templates
+
+# Copy custom auth provider binaries
+COPY --from=bin /app/tools/entra-auth-provider/bin/gptscript-go-tool /obot-tools/tools/entra-auth-provider/bin/
+COPY --from=bin /app/tools/entra-auth-provider/tool.gpt /obot-tools/tools/entra-auth-provider/
+
+# Copy keycloak auth provider binaries
+COPY --from=bin /app/tools/keycloak-auth-provider/bin/gptscript-go-tool /obot-tools/tools/keycloak-auth-provider/bin/
+COPY --from=bin /app/tools/keycloak-auth-provider/tool.gpt /obot-tools/tools/keycloak-auth-provider/
+
+# Copy shared dependencies used by auth providers
+COPY --from=bin /app/tools/placeholder-credential/ /obot-tools/tools/placeholder-credential/
+COPY --from=bin /app/tools/auth-providers-common/templates/ /obot-tools/tools/auth-providers-common/templates/
+
+# Copy and merge custom tool index with upstream index
+COPY --from=bin /app/tools/index.yaml /tmp/custom-index.yaml
+
+# Merge custom authProviders into existing upstream index.yaml
+# This combines upstream tools (github, google auth) with custom (entra, keycloak)
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# hadolint ignore=SC2016
+RUN if [ -f /obot-tools/tools/index.yaml ]; then \
+  # Extract upstream authProviders (if any exist)
+  upstream_auth=$(yq '.authProviders' /obot-tools/tools/index.yaml 2>/dev/null || echo "{}"); \
+  custom_auth=$(yq '.authProviders' /tmp/custom-index.yaml 2>/dev/null || echo "{}"); \
+  # Merge authProviders sections
+  if [ "$upstream_auth" = "null" ] || [ "$upstream_auth" = "{}" ]; then \
+  yq eval '.authProviders = '"$(echo "$custom_auth" | yq -I4 -)"'' /obot-tools/tools/index.yaml > /tmp/merged-index.yaml; \
+  else \
+  # Deep merge: preserve upstream, add custom providers
+  yq eval-all 'select(fileIndex == 0) as $upstream | select(fileIndex == 1) as $custom | $upstream * {"authProviders": ($upstream.authProviders + $custom.authProviders)}' \
+  /obot-tools/tools/index.yaml /tmp/custom-index.yaml > /tmp/merged-index.yaml; \
+  fi; \
+  mv /tmp/merged-index.yaml /obot-tools/tools/index.yaml; \
+  else \
+  # No upstream index, use custom index directly
+  cp /tmp/custom-index.yaml /obot-tools/tools/index.yaml; \
+  fi && \
+  rm /tmp/custom-index.yaml
+
+# Copy tool.gpt wrapper (outputfilter hack for loading index.yaml)
+COPY --from=bin /app/tools/tool.gpt /obot-tools/tools/
 
 FROM cgr.dev/chainguard/wolfi-base:latest AS final-base
 RUN addgroup -g 70 postgres && \
@@ -35,6 +104,7 @@ ENTRYPOINT [ "/usr/bin/docker-entrypoint.sh", "postgres" ]
 
 FROM final-base AS build-pgvector
 RUN apk add --no-cache build-base git postgresql-17-dev clang-19
+# hadolint ignore=DL3003
 RUN git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git && \
   cd pgvector && \
   make clean && \
@@ -42,11 +112,6 @@ RUN git clone --branch v0.8.1 https://github.com/pgvector/pgvector.git && \
   PG_MAJOR=17 make install && \
   cd .. && \
   rm -rf pgvector
-
-FROM ${TOOLS_IMAGE} AS tools
-FROM ${PROVIDER_IMAGE} AS provider
-FROM ${ENTERPRISE_IMAGE} AS enterprise-tools
-RUN mkdir -p /obot-tools
 
 FROM final-base AS final
 ENV POSTGRES_USER=obot
@@ -68,16 +133,13 @@ COPY azure-encryption.yaml /
 COPY gcp-encryption.yaml /
 COPY --chmod=0755 run.sh /bin/run.sh
 
-COPY --link --from=tools /obot-tools /obot-tools
-COPY --link --from=enterprise-tools /obot-tools /obot-tools
-COPY --link --from=provider /obot-tools /obot-tools
+# Copy unified tools directory with all upstream tools and custom auth providers merged
+COPY --link --from=tools-patched /obot-tools /obot-tools
 
-# Copy custom Entra ID auth provider to separate directory to avoid conflicts
-COPY --from=bin /app/tools/index.yaml /obot-tools-custom/
-COPY --from=bin /app/tools/entra-auth-provider/tool.gpt /obot-tools-custom/entra-auth-provider/
-COPY --from=bin /app/tools/entra-auth-provider/bin/gptscript-go-tool /obot-tools-custom/entra-auth-provider/
+# Combine all .envrc files from upstream tools, enterprise tools, and providers
 COPY --chmod=0755 /tools/combine-envrc.sh /
 RUN /combine-envrc.sh && rm /combine-envrc.sh
+
 COPY --from=provider /bin/*-encryption-provider /bin/
 COPY --from=bin /app/bin/obot /bin/
 COPY --from=bin --link /app/ui/user/build-node /ui
@@ -89,10 +151,9 @@ ENV XDG_CACHE_HOME=/data/cache
 ENV OBOT_SERVER_AGENTS_DIR=/agents
 ENV TERM=vt100
 ENV OBOT_CONTAINER_ENV=true
-# Include both upstream tools and custom Entra ID auth provider registries
-# Upstream tools (GitHub, Google auth providers) + Custom (EntraID, Keycloak)
-# Note: /obot-tools/tools contains the index.yaml, not /obot-tools root
-ENV OBOT_SERVER_TOOL_REGISTRIES=/obot-tools/tools,/obot-tools-custom
+# Unified tool registry containing upstream tools and custom auth providers
+# All providers are in /obot-tools/tools directory with merged index.yaml
+ENV OBOT_SERVER_TOOL_REGISTRIES=/obot-tools/tools
 WORKDIR /data
 VOLUME /data
 ENTRYPOINT ["run.sh"]

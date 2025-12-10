@@ -28,7 +28,10 @@ done
 
 GPTSCRIPT_TOOL_REMAP="${remap_entries%,}"
 OBOT_SERVER_VERSIONS="${server_versions%,}"
-OBOT_SERVER_TOOL_REGISTRIES="${tool_registries%,}"
+
+# Override TOOL_REGISTRIES to use local path since all tools are patched into /obot-tools/tools
+# This includes upstream tools (github, google auth) and custom tools (entra, keycloak)
+OBOT_SERVER_TOOL_REGISTRIES="/obot-tools/tools"
 
 # Check if enterprise tools are enabled
 if [[ "$OBOT_SERVER_TOOL_REGISTRIES" == *"github.com/obot-platform/enterprise-tools"* ]]; then

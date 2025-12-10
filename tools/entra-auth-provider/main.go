@@ -183,6 +183,38 @@ func main() {
 		json.NewEncoder(w).Encode(userInfo)
 	})
 
+	// Icon URL endpoint - returns user's profile picture URL from Microsoft Graph
+	mux.HandleFunc("/obot-get-icon-url", func(w http.ResponseWriter, r *http.Request) {
+		auth := r.Header.Get("Authorization")
+		if auth == "" {
+			http.Error(w, "missing Authorization header", http.StatusBadRequest)
+			return
+		}
+
+		// Extract access token from "Bearer <token>"
+		accessToken := strings.TrimPrefix(auth, "Bearer ")
+		if accessToken == "" || accessToken == auth {
+			http.Error(w, "invalid Authorization header format", http.StatusBadRequest)
+			return
+		}
+
+		iconURL, err := profile.FetchUserIconURL(r.Context(), accessToken)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("failed to fetch icon URL: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		// Return JSON response as required by auth-providers.md spec
+		type iconResponse struct {
+			IconURL string `json:"iconURL"`
+		}
+
+		if err := json.NewEncoder(w).Encode(iconResponse{IconURL: iconURL}); err != nil {
+			http.Error(w, fmt.Sprintf("failed to encode response: %v", err), http.StatusInternalServerError)
+			return
+		}
+	})
+
 	// Groups endpoint - return 404 as groups are fetched via getState instead
 	// (The gateway doesn't provide an access token to this endpoint, so we can't fetch groups here)
 	mux.HandleFunc("/obot-list-user-auth-groups", func(w http.ResponseWriter, r *http.Request) {

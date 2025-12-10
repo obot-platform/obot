@@ -6,9 +6,11 @@ dev:
   useEmbeddedDb: false
 
 image:
-  # image.repository -- The name of the docker repository for Obot. `ghcr.io/obot-platform/obot` for open-source or `ghcr.io/obot-platform/obot-enterprise` for enterprise.
-  # Please note that for enterprise you will need to set an `imagePullSecret`
-  repository: ghcr.io/obot-platform/obot
+  # image.repository -- The docker repository for Obot.
+  # For this fork with EntraID/Keycloak auth: `ghcr.io/jrmatherly/obot-entraid`
+  # For upstream open-source: `ghcr.io/obot-platform/obot`
+  # For enterprise: `ghcr.io/obot-platform/obot-enterprise` (requires imagePullSecret)
+  repository: ghcr.io/jrmatherly/obot-entraid
   # image.tag -- The docker tag to pull for obot. If blank, will default to the chart appVersion
   tag: ""
   # image.pullPolicy -- Kubernetes image pullPolicy to use for Obot
@@ -150,11 +152,14 @@ config:
   # config.OBOT_SERVER_MCPAUDIT_LOGS_PERSIST_BATCH_SIZE -- The batch size to use when persisting MCP audit logs to the database. Defaults to 1000
   OBOT_SERVER_MCPAUDIT_LOGS_PERSIST_BATCH_SIZE: ""
 
-  # config.OBOT_SERVER_DISABLE_UPDATE_CHECK -- Disable the Obot server update check. Defaults to false.
-  OBOT_SERVER_DISABLE_UPDATE_CHECK: ""
+  # config.OBOT_SERVER_DISABLE_UPDATE_CHECK -- Disable the Obot server update check. Set to "true" for forks since upstream upgrade server won't know about fork versions.
+  OBOT_SERVER_DISABLE_UPDATE_CHECK: "true"
 
-  # config.OBOT_SERVER_TOOL_REGISTRIES -- Comma-separated list of tool registry paths or URLs. Set to include custom auth providers like Entra ID.
-  OBOT_SERVER_TOOL_REGISTRIES: "/obot-tools-custom"
+  # config.OBOT_SERVER_TOOL_REGISTRIES -- Comma-separated list of tool registry paths or URLs.
+  # IMPORTANT: Must include BOTH upstream tools (/obot-tools/tools) AND custom auth providers (/obot-tools-custom)
+  # - /obot-tools/tools: Contains upstream Google and GitHub auth providers
+  # - /obot-tools-custom: Contains custom EntraID and Keycloak auth providers
+  OBOT_SERVER_TOOL_REGISTRIES: "/obot-tools/tools,/obot-tools-custom"
 
 # extraEnv -- A map of additional environment variables to set
 extraEnv: {}

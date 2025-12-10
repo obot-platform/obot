@@ -13,7 +13,7 @@ builds:
       - amd64
       # - arm64
     ldflags:
-      - -X "github.com/jrmatherly/obot-entraid/pkg/version.Tag=v{{ .Version }}"
+      - -X "github.com/obot-platform/obot/pkg/version.Tag=v{{ .Version }}"
 
 archives:
   - formats: [tar.gz]

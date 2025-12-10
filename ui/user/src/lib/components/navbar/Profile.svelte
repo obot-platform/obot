@@ -44,7 +44,7 @@
 		if (typeof value !== 'string') return;
 
 		const repoMap: Record<string, string> = {
-			obot: 'https://github.com/obot-platform/obot'
+			obot: 'https://github.com/jrmatherly/obot-entraid'
 		};
 
 		const [, commit] = value.split('+');
@@ -248,7 +248,7 @@
 							rel="external"
 							target="_blank"
 							class="text-link"
-							href="https://github.com/obot-platform/obot/releases/latest">latest release notes.</a
+							href="https://github.com/jrmatherly/obot-entraid/releases/latest">latest release notes.</a
 						>
 					</p>
 				</div>

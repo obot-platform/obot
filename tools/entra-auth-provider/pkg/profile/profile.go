@@ -1,10 +1,19 @@
 package profile
 
 import (
+	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+// graphClient for Microsoft Graph API requests
+var graphClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
 
 // UserProfile represents extracted user information from Entra ID
 type UserProfile struct {
@@ -62,4 +71,44 @@ func ParseIDToken(idToken string) (*UserProfile, error) {
 		DisplayName:       claims.Name,
 		TenantID:          claims.TenantID,
 	}, nil
+}
+
+// FetchUserIconURL fetches the user's profile picture URL from Microsoft Graph API
+// accessToken should be the raw access token (not "Bearer <token>")
+// Returns the Graph API photo URL if the user has a profile picture, empty string if not
+func FetchUserIconURL(ctx context.Context, accessToken string) (string, error) {
+	if accessToken == "" {
+		return "", fmt.Errorf("no access token provided")
+	}
+
+	// Microsoft Graph API endpoint for user photo metadata
+	photoMetadataURL := "https://graph.microsoft.com/v1.0/me/photo"
+
+	// Check if photo exists by calling the metadata endpoint
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, photoMetadataURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := graphClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch photo metadata from Graph API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// If photo doesn't exist (404), return empty string (not an error)
+	if resp.StatusCode == http.StatusNotFound {
+		return "", nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("Graph API photo metadata returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Photo exists, return the $value URL that can be used to fetch the actual image
+	return "https://graph.microsoft.com/v1.0/me/photo/$value", nil
 }
