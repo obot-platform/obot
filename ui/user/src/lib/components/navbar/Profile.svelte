@@ -260,7 +260,8 @@
 					{#if version.current.obot}
 						{@const link = getLink('obot', version.current.obot)}
 						{#if link}
-							<a href={resolve(link as `/${string}`)} target="_blank" rel="external">
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external github link -->
+							<a href={link} target="_blank" rel="external">
 								{version.current.obot}
 							</a>
 						{/if}
@@ -299,7 +300,8 @@
 				<div class="flex justify-between gap-8">
 					<span class="font-semibold">{key.replace('github.com/', '')}:</span>
 					{#if link}
-						<a href={resolve(link as `/${string}`)} target="_blank" rel="external">
+						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external version link -->
+						<a href={link} target="_blank" rel="external">
 							{value}
 						</a>
 					{:else}
