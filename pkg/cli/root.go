@@ -28,10 +28,8 @@ func (a *Obot) PersistentPre(*cobra.Command, []string) error {
 		logger.SetDebug()
 	}
 
-	// Update the client's BaseURL if it was set via flag
-	if a.BaseURL != "" {
-		a.Client.BaseURL = a.BaseURL
-	}
+	// Update the client's BaseURL from the flag/env value
+	a.Client.BaseURL = a.BaseURL
 
 	if a.Client.Token == "" {
 		a.Client = a.Client.WithTokenFetcher(internal.Token)
