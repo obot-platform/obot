@@ -16,6 +16,7 @@
 	import { AdminService } from '$lib/services/index.js';
 	import { parseErrorContent } from '$lib/errors';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
+	import { page } from '$app/state';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -172,6 +173,7 @@
 	});
 
 	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
+	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 </script>
 
 <Layout
@@ -183,7 +185,7 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions entry={catalogEntry} />
+		<McpServerActions entry={catalogEntry} {promptInitialLaunch} />
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if showUpgradeNotification}

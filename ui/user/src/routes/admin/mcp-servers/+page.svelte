@@ -373,9 +373,9 @@
 			}}
 			onSubmit={async (id, type) => {
 				if (type === 'single' || type === 'remote' || type === 'composite') {
-					goto(resolve(`/admin/mcp-servers/c/${id}`));
+					goto(resolve(`/admin/mcp-servers/c/${id}?launch=true`));
 				} else {
-					goto(resolve(`/admin/mcp-servers/s/${id}`));
+					goto(resolve(`/admin/mcp-servers/s/${id}?launch=true`));
 				}
 			}}
 		/>

@@ -42,9 +42,18 @@
 		loading?: boolean;
 		skipConnectDialog?: boolean;
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
+		promptInitialLaunch?: boolean;
 	}
 
-	let { server, entry, onDelete, loading, skipConnectDialog, onConnect }: Props = $props();
+	let {
+		server,
+		entry,
+		onDelete,
+		loading,
+		skipConnectDialog,
+		onConnect,
+		promptInitialLaunch
+	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
 
@@ -55,6 +64,8 @@
 	let selectedConfiguredServers = $state<MCPCatalogServer[]>([]);
 	let selectedEntry = $state<MCPCatalogEntry>();
 	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+
+	let launchDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	let instance = $derived(
 		server && !server.catalogEntryID
@@ -101,6 +112,12 @@
 			instance
 		});
 	}
+
+	$effect(() => {
+		if (promptInitialLaunch) {
+			launchDialog?.open();
+		}
+	});
 </script>
 
 {#if (entry && !server) || (server && (!server.catalogEntryID || (server.catalogEntryID && server.userID === profile.current.id)))}
@@ -327,4 +344,51 @@
 			});
 		}}>Connect New Server</button
 	>
+</ResponsiveDialog>
+
+<ResponsiveDialog bind:this={launchDialog} animate="slide" class="md:max-w-sm">
+	{#snippet titleContent()}
+		{#if entry || server}
+			{@const name = entry?.manifest.name ?? server?.manifest.name ?? 'MCP Server'}
+			{@const imageUrl = entry?.manifest.icon || server?.manifest.icon}
+			<div class="icon">
+				{#if imageUrl}
+					<img
+						src={imageUrl}
+						alt={entry?.manifest.name ?? server?.manifest.name ?? 'MCP Server'}
+						class="size-6"
+					/>
+				{:else}
+					<Server class="size-6" />
+				{/if}
+			</div>
+			{name}
+		{/if}
+	{/snippet}
+	<div class="flex grow flex-col gap-2 p-4 pt-0 md:p-0">
+		<p class="text-center">
+			{#if entry && entry.manifest.runtime === 'remote'}
+				Your proxy remote server details have been configured.
+			{:else if entry}
+				Your server details have been configured.
+			{:else}
+				Your server has been configured.
+			{/if}
+		</p>
+		<p class="mb-2 text-center">Would you like to go ahead and connect now?</p>
+		<div class="flex grow"></div>
+		<div class="flex flex-col gap-2">
+			<button class="button" onclick={() => launchDialog?.close()}>Skip</button>
+			<button
+				class="button-primary"
+				onclick={() => {
+					launchDialog?.close();
+					connectToServerDialog?.open({
+						entry: selectedEntry,
+						server: server
+					});
+				}}>Connect To Server</button
+			>
+		</div>
+	</div>
 </ResponsiveDialog>

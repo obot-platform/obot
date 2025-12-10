@@ -8,6 +8,7 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { mcpServersAndEntries } from '$lib/stores/index.js';
+	import { page } from '$app/state';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -23,6 +24,7 @@
 				)
 		)
 	);
+	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 </script>
 
 <Layout
@@ -35,7 +37,7 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions entry={catalogEntry} />
+		<McpServerActions entry={catalogEntry} {promptInitialLaunch} />
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if catalogEntry}
