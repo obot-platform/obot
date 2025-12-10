@@ -1182,7 +1182,7 @@ func MCPIDAndAudienceFromConnectURL(req api.Context, id string) (string, string,
 	case instance.Name != "":
 		return instance.Name, instance.Spec.MCPServerName, nil
 	case server.Name != "":
-		return server.Name, server.Name, nil
+		return server.Name, id, nil
 	default:
 		return "", "", fmt.Errorf("unknown MCP server ID %s", id)
 	}
