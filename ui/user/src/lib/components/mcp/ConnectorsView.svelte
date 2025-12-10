@@ -323,6 +323,8 @@
 								(server) => server.catalogEntryID === d.data.id && !server.alias
 							)
 						: undefined}
+				{@const matchingInstance =
+					d.connected && d.type === 'multi' ? instancesMap.get(d.data.id) : undefined}
 				{@const hasConnectedOptions = 'isCatalogEntry' in d.data ? !!matchingServer : d.connected}
 				<DotDotDot class="icon-button hover:dark:bg-background/50">
 					{#snippet icon()}
@@ -398,13 +400,25 @@
 									<Captions class="size-4" /> View Audit Logs
 								</button>
 							{/if}
-							{#if 'isCatalogEntry' in d.data && matchingServer}
+							{#if matchingServer}
 								<button
 									class="menu-button"
 									onclick={async (e) => {
 										e.stopPropagation();
 										await ChatService.deleteSingleOrRemoteMcpServer(matchingServer.id);
 										mcpServersAndEntries.refreshUserConfiguredServers();
+										toggle(false);
+									}}
+								>
+									<Unplug class="size-4" /> Disconnect
+								</button>
+							{:else if matchingInstance}
+								<button
+									class="menu-button"
+									onclick={async (e) => {
+										e.stopPropagation();
+										await ChatService.deleteMcpServerInstance(matchingInstance.id);
+										mcpServersAndEntries.refreshUserInstances();
 										toggle(false);
 									}}
 								>

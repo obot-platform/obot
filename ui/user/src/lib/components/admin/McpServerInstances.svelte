@@ -3,6 +3,7 @@
 		AdminService,
 		ChatService,
 		Group,
+		type LaunchServerType,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance,
@@ -38,7 +39,7 @@
 		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		users?: OrgUser[];
-		type?: 'single' | 'multi' | 'remote' | 'composite';
+		type?: LaunchServerType;
 	}
 
 	let { id, entity = 'catalog', entry, users = [], type }: Props = $props();

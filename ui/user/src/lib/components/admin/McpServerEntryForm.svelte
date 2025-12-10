@@ -5,7 +5,8 @@
 		type MCPCatalogServer,
 		ChatService,
 		Group,
-		MCPCompositeDeletionDependencyError
+		MCPCompositeDeletionDependencyError,
+		type LaunchServerType
 	} from '$lib/services';
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { twMerge } from 'tailwind-merge';
@@ -49,17 +50,15 @@
 	import { getServerTypeLabel } from '$lib/services/chat/mcp';
 	import { resolve } from '$app/paths';
 
-	type MCPType = 'single' | 'multi' | 'remote' | 'composite';
-
 	interface Props {
 		id?: string;
 		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		server?: MCPCatalogServer;
-		type?: MCPType;
+		type?: LaunchServerType;
 		readonly?: boolean;
 		onCancel?: () => void;
-		onSubmit?: (id: string, type: MCPType) => void;
+		onSubmit?: (id: string, type: LaunchServerType) => void;
 		hasExistingConfigured?: boolean;
 		isDialogView?: boolean;
 	}

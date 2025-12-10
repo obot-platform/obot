@@ -948,3 +948,5 @@ export interface CallFrame {
 export interface DebugRun {
 	frames: Record<string, CallFrame>;
 }
+
+export type LaunchServerType = 'single' | 'multi' | 'remote' | 'composite';

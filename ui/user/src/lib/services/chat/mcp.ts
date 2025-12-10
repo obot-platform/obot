@@ -3,6 +3,7 @@ import { profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import {
 	ChatService,
+	type LaunchServerType,
 	type MCPCatalogEntry,
 	type MCPCatalogServer,
 	type MCPServer,
@@ -265,9 +266,7 @@ export function getServerTypeLabelByType(type?: string) {
 				: 'Composite';
 }
 
-export function getServerType(
-	server?: MCPCatalogServer
-): 'remote' | 'composite' | 'single' | 'multi' | null {
+export function getServerType(server?: MCPCatalogServer): LaunchServerType | null {
 	if (!server) return null;
 	const runtime = server.manifest.runtime;
 	if (runtime === 'remote') return 'remote';

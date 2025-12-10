@@ -3,7 +3,7 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { AdminService } from '$lib/services';
+	import { AdminService, type LaunchServerType } from '$lib/services';
 	import type { MCPCatalog, OrgUser } from '$lib/services/admin/types';
 	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
@@ -11,9 +11,7 @@
 	import { goto } from '$lib/url';
 	import { beforeNavigate, afterNavigate, goto, replaceState } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import SelectServerType, {
-		type SelectServerOption
-	} from '$lib/components/mcp/SelectServerType.svelte';
+	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
@@ -88,11 +86,7 @@
 				return;
 			}
 
-			const createNewType = page.url.searchParams.get('new') as
-				| 'single'
-				| 'multi'
-				| 'remote'
-				| 'composite';
+			const createNewType = page.url.searchParams.get('new') as LaunchServerType;
 			if (createNewType) {
 				selectServerType(createNewType, false);
 			} else {
@@ -113,7 +107,7 @@
 	let editingSource = $state<{ index: number; value: string }>();
 	let sourceDialog = $state<HTMLDialogElement>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<SelectServerOption>();
+	let selectedServerType = $state<LaunchServerType>();
 
 	let showServerForm = $state(false);
 	let saving = $state(false);
@@ -123,7 +117,7 @@
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
-	function selectServerType(type: SelectServerOption, updateUrl = true) {
+	function selectServerType(type: LaunchServerType, updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
 		showServerForm = true;

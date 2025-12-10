@@ -2,7 +2,7 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { ChatService, Group, type MCPCatalogServer } from '$lib/services';
+	import { ChatService, Group, type LaunchServerType, type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
 	import { Plus } from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
@@ -10,9 +10,7 @@
 	import { beforeNavigate, afterNavigate, replaceState } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import Search from '$lib/components/Search.svelte';
-	import SelectServerType, {
-		type SelectServerOption
-	} from '$lib/components/mcp/SelectServerType.svelte';
+	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp.js';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import {
@@ -77,7 +75,7 @@
 	});
 
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<SelectServerOption>();
+	let selectedServerType = $state<LaunchServerType>();
 
 	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
@@ -86,7 +84,7 @@
 	let urlFilters = $state(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 
-	function selectServerType(type: SelectServerOption, updateUrl = true) {
+	function selectServerType(type: LaunchServerType, updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
 		showServerForm = true;

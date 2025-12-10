@@ -6,7 +6,7 @@
 		type MCPCatalogServerManifest,
 		Group
 	} from '$lib/services/admin/types';
-	import type { Runtime } from '$lib/services/chat/types';
+	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
 	import { Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
@@ -27,10 +27,10 @@
 		id?: string;
 		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
-		type?: 'single' | 'multi' | 'remote' | 'composite';
+		type?: LaunchServerType;
 		readonly?: boolean;
 		onCancel?: () => void;
-		onSubmit?: (id: string, type: 'single' | 'multi' | 'remote' | 'composite') => void;
+		onSubmit?: (id: string, type: LaunchServerType) => void;
 		hideTitle?: boolean;
 		readonlyMessage?: Snippet;
 	}
