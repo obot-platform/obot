@@ -154,6 +154,8 @@ var (
 			"/api/audit-log-exports/{id}",
 			"/api/scheduled-audit-log-exports",
 			"/api/scheduled-audit-log-exports/{id}",
+			"/api/storage-credentials",
+			"/api/storage-credentials/",
 		},
 		anyGroup: {
 			// Allow access to the oauth2 endpoints
