@@ -30,7 +30,7 @@
 		type?: LaunchServerType;
 		readonly?: boolean;
 		onCancel?: () => void;
-		onSubmit?: (id: string, type: LaunchServerType) => void;
+		onSubmit?: (id: string, type: LaunchServerType, message?: string) => void;
 		hideTitle?: boolean;
 		readonlyMessage?: Snippet;
 	}
@@ -590,11 +590,11 @@
 					loading = false;
 				} else {
 					loading = false;
-					onSubmit?.(entryResponse.id, type);
+					onSubmit?.(entryResponse.id, type, 'MCP server updated successfully!');
 				}
 			} else {
 				loading = false;
-				onSubmit?.(entryResponse.id, type);
+				onSubmit?.(entryResponse.id, type, 'MCP server updated successfully!');
 			}
 		} catch (error) {
 			loading = false;
