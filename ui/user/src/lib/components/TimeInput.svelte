@@ -25,9 +25,9 @@
 </script>
 
 <div class="time-input bg-surface1 flex h-14 items-center gap-2 rounded-md">
-	<div class="flex min-h-full flex-1 text-xl">
+	<div class="flex h-full flex-1 text-xl">
 		<input
-			class="min-h-full w-full bg-transparent px-4 text-end"
+			class="w-[3ch] flex-1 bg-transparent px-4 text-end"
 			type="number"
 			max="12"
 			min="0"
@@ -60,9 +60,9 @@
 
 	<div class="text-4xl font-bold">:</div>
 
-	<div class=" flex min-h-full flex-1 rounded-md text-xl">
+	<div class=" flex h-full flex-1 rounded-md text-xl">
 		<input
-			class="min-h-full w-full bg-transparent px-4"
+			class="w-[3ch] flex-1 bg-transparent px-4"
 			type="number"
 			max="60"
 			min="0"
