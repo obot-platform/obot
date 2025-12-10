@@ -1600,12 +1600,12 @@ export async function getProjectMcpServerOauthURL(
 		const response = (await doGet(
 			`/assistants/${assistantID}/projects/${projectID}/mcpservers/${mcpServerID}/oauth-url`,
 			{
-				dontLogErrors: true,
+				dontLogErrors: false,
 				signal: opts?.signal
 			}
 		)) as { oauthURL: string };
 		return response.oauthURL;
-	} catch (_err) {
+	} catch (_) {
 		return '';
 	}
 }
