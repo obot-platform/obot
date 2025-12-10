@@ -15,7 +15,6 @@
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord
 	} from '$lib/services/chat/mcp';
-	import { resolve } from '$app/paths';
 
 	interface Props {
 		assistantId: string;
@@ -301,8 +300,10 @@
 
 			<p>Click the link below to authenticate.</p>
 
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
 			<a
-				href={resolve(oauth.oauthURL as `/${string}`)}
+				href={oauth.oauthURL}
+				rel="external"
 				target="_blank"
 				class="button-primary text-center text-sm outline-none"
 				onclick={() => {

@@ -952,7 +952,8 @@
 		</div>
 	{:else if oauthURL}
 		<!-- Single server OAuth -->
-		<a href={resolve(oauthURL as `/${string}`)} target="_blank" class="button-primary text-center"
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
+		<a href={oauthURL} rel="external" target="_blank" class="button-primary text-center"
 			>Authenticate</a
 		>
 	{:else if oauthURLs && Object.keys(oauthURLs).length > 0}

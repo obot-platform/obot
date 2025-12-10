@@ -38,7 +38,6 @@
 	import { twMerge } from 'tailwind-merge';
 	import { isTextFile } from '$lib/utils';
 	import { profile } from '$lib/stores';
-	import { resolve } from '$app/paths';
 
 	interface Props {
 		msg: Message;
@@ -662,8 +661,9 @@
 {/snippet}
 
 {#snippet oauth()}
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
 	<a
-		href={resolve(msg.oauthURL as `/${string}`)}
+		href={msg.oauthURL}
 		rel="external"
 		class={twMerge(
 			'bg-primary hover:bg-primary/50 rounded-xl p-4 text-center text-white transition-colors duration-300 hover:text-white',
@@ -772,8 +772,9 @@
 					.map((c) => c.url)
 					.filter((url) => url !== undefined)) as url, i (i)}
 				{#if msg.done}
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external URL -->
 					<a
-						href={resolve(citationURL(url) as `/${string}`)}
+						href={citationURL(url)}
 						rel="external"
 						target="_blank"
 						class="flex w-fit items-center gap-2 rounded-full bg-gray-100 p-2 text-sm dark:bg-gray-900"

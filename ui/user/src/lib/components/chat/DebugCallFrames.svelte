@@ -5,7 +5,6 @@
 	import JsonTreeView from '../JsonTreeView.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { resolve } from '$app/paths';
 
 	interface Props {
 		calls?: Record<string, CallFrame>;
@@ -158,10 +157,11 @@
 			{#if call?.tool?.source?.location && call.tool.source.location !== 'inline'}
 				<div class="text-on-surface1 mb-2 text-sm">
 					Source:
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external URL -->
 					<a
-						href={resolve(call.tool.source.location as `/${string}`)}
+						href={call.tool.source.location}
 						target="_blank"
-						rel="noopener noreferrer"
+						rel="noopener noreferrer external"
 						class="text-link"
 					>
 						{call.tool.source.location}

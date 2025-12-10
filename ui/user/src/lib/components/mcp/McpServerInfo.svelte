@@ -8,7 +8,6 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { browser } from '$app/environment';
 	import type { Snippet } from 'svelte';
-	import { resolve } from '$app/paths';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -170,11 +169,12 @@
 				>
 					<p class="mb-1 text-xs font-medium">{detail.label}</p>
 					{#if detail.link}
+						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external URL? -->
 						<a
-							href={resolve(detail.link as `/${string}`)}
+							href={detail.link}
 							class="text-link"
 							target="_blank"
-							rel="noopener noreferrer"
+							rel="noopener noreferrer external"
 						>
 							{#if detail.showTooltip && typeof detail.value === 'string'}
 								<span use:tooltip={detail.value}>

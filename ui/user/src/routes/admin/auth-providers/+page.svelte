@@ -17,7 +17,6 @@
 	import { darkMode, errors, profile } from '$lib/stores/index.js';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import { resolve } from '$app/paths';
 
 	let { data } = $props();
 	let { authProviders: initialAuthProviders } = data;
@@ -320,7 +319,8 @@
 		{/if}
 
 		<div class="my-4 flex flex-col gap-2">
-			<a class="button-auth group" href={resolve(setupTempLoginUrl as `/${string}`)}>
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external temp login URL -->
+			<a class="button-auth group" href={setupTempLoginUrl} rel="external">
 				{#if configuringAuthProvider?.icon}
 					<img
 						class="h-6 w-6 rounded-full bg-transparent p-1 dark:bg-gray-600"

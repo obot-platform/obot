@@ -10,7 +10,6 @@
 	import { parseErrorContent } from '$lib/errors';
 	import { Info, LoaderCircle } from 'lucide-svelte';
 	import { onMount } from 'svelte';
-	import { resolve } from '$app/paths';
 
 	interface Props {
 		entry: MCPCatalogEntry | MCPCatalogServer | ProjectMCP;
@@ -122,9 +121,11 @@
 				Authenticating...
 			</div>
 		{:else}
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
 			<a
 				target="_blank"
-				href={resolve(oauthURL as `/${string}`)}
+				href={oauthURL}
+				rel="external"
 				class="button-primary text-center text-sm"
 				onclick={() => {
 					setTimeout(() => {
