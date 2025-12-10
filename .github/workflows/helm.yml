@@ -6,11 +6,21 @@ on:
       - main
     paths:
       - chart/**
+    tags:
+      - 'v*'
   pull_request:
     branches:
       - main
     paths:
       - chart/**
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  CHART_NAME: obot
 
 jobs:
   lint:
@@ -25,3 +35,47 @@ jobs:
 
       - name: Lint Helm chart
         run: helm lint chart
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: lint
+    # Only publish on push to main or tags, not on PRs
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$GITHUB_TOKEN" | helm registry login "$REGISTRY" -u "$ACTOR" --password-stdin
+
+      - name: Package Helm chart
+        run: helm package chart
+
+      - name: Get chart version
+        id: chart
+        run: |
+          VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Push Helm chart to GHCR
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          helm push "$CHART_NAME-${{ steps.chart.outputs.version }}.tgz" "oci://$REGISTRY/$REPO_OWNER/charts"
+
+      - name: Summary
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          echo "### Helm Chart Published :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Chart:** $CHART_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.chart.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** oci://$REGISTRY/$REPO_OWNER/charts/$CHART_NAME" >> $GITHUB_STEP_SUMMARY
