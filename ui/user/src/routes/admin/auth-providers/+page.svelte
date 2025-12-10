@@ -108,7 +108,18 @@
 
 	async function handleOwnerSetup() {
 		if (!configuringAuthProvider || setupLoading) return;
+
+		try {
+			const users = await AdminService.listUsers();
+			const isOwnerExist = users.some((user) => user.role === Role.OWNER);
+
+			if (isOwnerExist) return;
+		} catch (err) {
+			errors.append(err);
+		}
+
 		setupLoading = true;
+
 		try {
 			await AdminService.cancelTempLogin();
 		} catch (err) {
