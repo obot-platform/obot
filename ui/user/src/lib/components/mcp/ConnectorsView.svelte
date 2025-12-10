@@ -200,16 +200,24 @@
 				const useAdminUrl =
 					window.location.pathname.includes('/admin') && profile.current.hasAdminAccess?.();
 
+				const matchedEntry =
+					!('isCatalogEntry' in d.data) && d.data.catalogEntryID
+						? entriesMap.get(d.data.catalogEntryID as string)
+						: undefined;
+				const powerUserWorkspaceID =
+					matchedEntry?.powerUserWorkspaceID || d.data.powerUserWorkspaceID;
 				if (useAdminUrl) {
 					if ('isCatalogEntry' in d.data) {
-						url = d.data.powerUserWorkspaceID
-							? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/c/${d.data.id}`
+						url = powerUserWorkspaceID
+							? `/admin/mcp-servers/w/${powerUserWorkspaceID}/c/${d.data.id}`
 							: `/admin/mcp-servers/c/${d.data.id}`;
 					} else if (d.data.catalogEntryID) {
-						url = `/admin/mcp-servers/c/${d.data.catalogEntryID}/instance/${d.id}`;
+						url = powerUserWorkspaceID
+							? `/admin/mcp-servers/w/${powerUserWorkspaceID}/c/${d.data.catalogEntryID}/instance/${d.id}`
+							: `/admin/mcp-servers/c/${d.data.catalogEntryID}/instance/${d.id}`;
 					} else {
-						url = d.data.powerUserWorkspaceID
-							? `/admin/mcp-servers/w/${d.data.powerUserWorkspaceID}/s/${d.id}`
+						url = powerUserWorkspaceID
+							? `/admin/mcp-servers/w/${powerUserWorkspaceID}/s/${d.id}`
 							: `/admin/mcp-servers/s/${d.id}`;
 					}
 				} else {

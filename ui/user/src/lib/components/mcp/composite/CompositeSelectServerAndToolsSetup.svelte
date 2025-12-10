@@ -13,7 +13,6 @@
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
 	import SearchMcpServers from '$lib/components/admin/SearchMcpServers.svelte';
-	import { resolve } from '$app/paths';
 	import { mcpServersAndEntries } from '$lib/stores';
 
 	interface Props {

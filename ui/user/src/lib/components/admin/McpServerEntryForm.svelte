@@ -908,6 +908,7 @@
 	show={deleteServer}
 	onsuccess={async () => {
 		if (!id || !entry) return;
+		let url: `/${string}` = entity === 'workspace' ? '/mcp-servers' : '/admin/mcp-servers';
 		if (!('isCatalogEntry' in entry)) {
 			const deleteServerFn =
 				entity === 'workspace'
@@ -928,9 +929,8 @@
 					? ChatService.deleteWorkspaceMCPCatalogEntry
 					: AdminService.deleteMCPCatalogEntry;
 			await deleteCatalogEntryFn(id, entry.id);
-			let url: `/${string}` = entity === 'workspace' ? '/mcp-servers' : '/admin/mcp-servers';
-			goto(url);
 		}
+		goto(url);
 	}}
 	oncancel={() => (deleteServer = false)}
 />

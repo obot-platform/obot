@@ -121,10 +121,10 @@
 	function selectServerType(type: LaunchServerType, updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
-		showServerForm = true;
 		if (updateUrl) {
-			goto(resolve(`/admin/mcp-servers?new=${type}`), { replaceState: false });
+			goto(resolve(`/admin/mcp-servers?new=${type}`), { replaceState: showServerForm });
 		}
+		showServerForm = true;
 	}
 
 	function closeSourceDialog() {
@@ -237,14 +237,16 @@
 	</div>
 	{#snippet rightNavActions()}
 		{#if !isAdminReadonly}
-			<button class="button flex items-center gap-1 text-sm" onclick={sync}>
-				{#if syncing}
-					<LoaderCircle class="size-4 animate-spin" /> Syncing...
-				{:else}
-					<RefreshCcw class="size-4" />
-					Sync
-				{/if}
-			</button>
+			{#if !showServerForm}
+				<button class="button flex items-center gap-1 text-sm" onclick={sync}>
+					{#if syncing}
+						<LoaderCircle class="size-4 animate-spin" /> Syncing...
+					{:else}
+						<RefreshCcw class="size-4" />
+						Sync
+					{/if}
+				</button>
+			{/if}
 			{@render addServerButton()}
 		{/if}
 	{/snippet}

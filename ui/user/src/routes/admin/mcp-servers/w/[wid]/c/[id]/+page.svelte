@@ -5,11 +5,9 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import { goto } from '$lib/lib';
+	import { goto } from '$lib/url';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
-
-	import { profile } from '$lib/stores/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;
 

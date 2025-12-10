@@ -383,8 +383,8 @@
 				onclick={() => {
 					launchDialog?.close();
 					connectToServerDialog?.open({
-						entry: selectedEntry,
-						server: server
+						entry,
+						server
 					});
 				}}>Connect To Server</button
 			>
