@@ -4,7 +4,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { goto } from '$lib/url';
+	import { goto, replaceState } from '$lib/url';
 	import { afterNavigate } from '$app/navigation';
 	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -14,6 +14,7 @@
 	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { getUserDisplayName, openUrl } from '$lib/utils.js';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import { page } from '$app/state';
 
 	let { data } = $props();
 	const { accessControlRules: initialRules } = data;
@@ -83,13 +84,22 @@
 		}
 	});
 
-	afterNavigate(() => {
-		const url = new URL(window.location.href);
-		const queryParams = new URLSearchParams(url.search);
-		if (queryParams.get('new')) {
-			showCreateRule = true;
-		} else {
+	afterNavigate(({ from }) => {
+		const comingFromRegistryPage = from?.url?.pathname.startsWith('/admin/mcp-registries/');
+		if (comingFromRegistryPage) {
 			showCreateRule = false;
+			if (page.url.searchParams.has('new')) {
+				const cleanUrl = new URL(page.url);
+				cleanUrl.searchParams.delete('new');
+				replaceState(cleanUrl, {});
+			}
+			return;
+		} else {
+			if (page.url.searchParams.has('new')) {
+				showCreateRule = true;
+			} else {
+				showCreateRule = false;
+			}
 		}
 	});
 

@@ -4,7 +4,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { BookOpenText, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { goto } from '$lib/url';
+	import { goto, replaceState } from '$lib/url';
 	import { afterNavigate } from '$app/navigation';
 	import { type AccessControlRule } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -18,6 +18,7 @@
 		getPoweruserWorkspace,
 		initMcpServerAndEntries
 	} from '$lib/context/poweruserWorkspace.svelte.js';
+	import { page } from '$app/state';
 
 	let { data } = $props();
 	const { accessControlRules: initialRules, workspaceId } = data;
@@ -53,13 +54,22 @@
 		}
 	});
 
-	afterNavigate(() => {
-		const url = new URL(window.location.href);
-		const queryParams = new URLSearchParams(url.search);
-		if (queryParams.get('new')) {
-			showCreateRule = true;
-		} else {
+	afterNavigate(({ from }) => {
+		const comingFromRegistryPage = from?.url?.pathname.startsWith('/mcp-registries/');
+		if (comingFromRegistryPage) {
 			showCreateRule = false;
+			if (page.url.searchParams.has('new')) {
+				const cleanUrl = new URL(page.url);
+				cleanUrl.searchParams.delete('new');
+				replaceState(cleanUrl, {});
+			}
+			return;
+		} else {
+			if (page.url.searchParams.has('new')) {
+				showCreateRule = true;
+			} else {
+				showCreateRule = false;
+			}
 		}
 	});
 
@@ -67,6 +77,9 @@
 </script>
 
 <Layout showUserLinks {title} showBackButton={showCreateRule}>
+	{#snippet rightNavActions()}
+		{@render addRuleButton()}
+	{/snippet}
 	<div
 		class="h-full w-full"
 		in:fly={{ x: 100, duration, delay: duration }}
