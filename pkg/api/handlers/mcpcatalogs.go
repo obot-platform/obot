@@ -775,6 +775,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		catalogName,
 		entry.Spec.Manifest,
 		configRequest.Config,
+		configRequest.URL,
 		h.serverURL,
 		jwks,
 	)
@@ -907,6 +908,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			catalogName,
 			componentEntry.Manifest,
 			config.Config,
+			config.URL,
 			h.serverURL,
 			jwks,
 		)
@@ -1036,7 +1038,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	if catalogName == "" {
 		catalogName = entry.Spec.PowerUserWorkspaceID
 	}
-	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GPTClient, req.Storage, entry.Namespace, catalogName, entry.Spec.Manifest, configRequest.Config, h.serverURL, jwks)
+	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GPTClient, req.Storage, entry.Namespace, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL, jwks)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -1134,6 +1136,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 		catalogName,
 		component.Manifest,
 		configRequest.Config,
+		configRequest.URL,
 		h.serverURL,
 		jwks,
 	)
@@ -1166,6 +1169,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 	if err := req.Get(&entry, componentID); err != nil {
 		return fmt.Errorf("failed to get component catalog entry: %w", err)
 	}
+
 	entry.Spec.Manifest.ToolPreview = toolPreviews
 
 	return req.Write(ConvertMCPServerCatalogEntry(entry))
@@ -1252,6 +1256,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Contex
 		catalogName,
 		component.Manifest,
 		configRequest.Config,
+		configRequest.URL,
 		h.serverURL,
 		jwks,
 	)
@@ -1338,6 +1343,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 			catalogName,
 			componentEntry.Manifest,
 			config.Config,
+			config.URL,
 			h.serverURL,
 			jwks,
 		)
@@ -1349,7 +1355,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 
 		// Check if OAuth is required
 		oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
-		if err != nil {
+		if err != nil || oauthURL == "" {
 			// On error, assume no OAuth needed
 			delete(oauthURLs, componentID)
 			continue
@@ -1362,7 +1368,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 	return req.Write(oauthURLs)
 }
 
-func tempServerAndConfig(ctx context.Context, gptClient *gptscript.GPTScript, client client.Client, namespace, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, jwks string) (v1.MCPServer, mcp.ServerConfig, error) {
+func tempServerAndConfig(ctx context.Context, gptClient *gptscript.GPTScript, client client.Client, namespace, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL, jwks string) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
 	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url, false)
 	if err != nil {
@@ -1420,7 +1426,7 @@ func tempServerAndConfig(ctx context.Context, gptClient *gptscript.GPTScript, cl
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create OAuth client: %w", err)
 	}
 
-	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, tempMCPServer.ValidConnectURLs(url), url, jwks, "temp", "temp", catalogName, config, tokenExchangeEnv)
+	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, tempMCPServer.ValidConnectURLs(baseURL), baseURL, jwks, "temp", "temp", catalogName, config, tokenExchangeEnv)
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create server config: %w", err)
 	}
