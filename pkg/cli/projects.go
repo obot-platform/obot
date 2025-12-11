@@ -1,4 +1,3 @@
-// filepath: /Users/wmaxwell/code/obot-platform/obot/pkg/cli/obots.go
 package cli
 
 import (
@@ -10,19 +9,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type Obots struct {
+type Projects struct {
 	root   *Obot
-	Quiet  bool   `usage:"Only print IDs of obots" short:"q"`
+	Quiet  bool   `usage:"Only print IDs of projects" short:"q"`
 	Wide   bool   `usage:"Print more information" short:"w"`
 	Output string `usage:"Output format (table, json, yaml)" short:"o" default:"table"`
-	All    bool   `usage:"List all obots (admin only)" short:"a"`
+	All    bool   `usage:"List all projects (admin only)" short:"a"`
 }
 
-func (l *Obots) Customize(cmd *cobra.Command) {
-	cmd.Aliases = []string{"obot", "o"}
+func (l *Projects) Customize(cmd *cobra.Command) {
+	cmd.Aliases = []string{"project", "p"}
 }
 
-func (l *Obots) Run(cmd *cobra.Command, args []string) error {
+func (l *Projects) Run(cmd *cobra.Command, args []string) error {
 	var (
 		projects types.ProjectList
 		err      error

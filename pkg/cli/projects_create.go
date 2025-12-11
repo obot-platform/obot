@@ -8,31 +8,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CreateObot implements the 'obot obot create' subcommand
-type CreateObot struct {
+// CreateProject implements the 'obot projects create' subcommand
+type CreateProject struct {
 	root      *Obot
-	CatalogID string `usage:"ID of the base agent (catalog) to use for creating the obot" short:"c"`
-	Name      string `usage:"Name for the new obot" short:"n"`
-	ObotID    string `usage:"ID of an existing obot to copy directly" short:"i"`
+	CatalogID string `usage:"ID of the base agent (catalog) to use for creating the project" short:"c"`
+	Name      string `usage:"Name for the new project" short:"n"`
+	ProjectID string `usage:"ID of an existing project to copy directly" short:"i"`
 }
 
-func (c *CreateObot) Customize(cmd *cobra.Command) {
+func (c *CreateProject) Customize(cmd *cobra.Command) {
 	cmd.Use = "create [flags]"
-	cmd.Short = "Create a new obot"
-	cmd.Long = "Create a new obot based on a specific agent, existing obot, or the default agent"
+	cmd.Short = "Create a new project"
+	cmd.Long = "Create a new project based on a specific agent, existing project, or the default agent"
 }
 
-func (c *CreateObot) Run(cmd *cobra.Command, _ []string) error {
+func (c *CreateProject) Run(cmd *cobra.Command, _ []string) error {
 	var (
 		assistantID string
 		project     *types.Project
 		err         error
 	)
 
-	// If obot-id is provided, directly copy the specified obot
-	if c.ObotID != "" {
+	// If project-id is provided, directly copy the specified project
+	if c.ProjectID != "" {
 		// Try to get project details to determine the assistant ID
-		projectInfo, err := c.root.Client.GetProject(cmd.Context(), c.ObotID)
+		projectInfo, err := c.root.Client.GetProject(cmd.Context(), c.ProjectID)
 		if err != nil {
 			return fmt.Errorf("failed to get project details: %w", err)
 		}
@@ -40,9 +40,9 @@ func (c *CreateObot) Run(cmd *cobra.Command, _ []string) error {
 		assistantID = projectInfo.AssistantID
 
 		// Directly copy the project
-		project, err = c.root.Client.CopyProject(cmd.Context(), assistantID, c.ObotID)
+		project, err = c.root.Client.CopyProject(cmd.Context(), assistantID, c.ProjectID)
 		if err != nil {
-			return fmt.Errorf("failed to copy obot %s: %w", c.ObotID, err)
+			return fmt.Errorf("failed to copy project %s: %w", c.ProjectID, err)
 		}
 
 		// If a name was specified, update the project name
@@ -113,11 +113,11 @@ func (c *CreateObot) Run(cmd *cobra.Command, _ []string) error {
 		// Create the project
 		project, err = c.root.Client.CreateProject(cmd.Context(), assistantID, manifest)
 		if err != nil {
-			return fmt.Errorf("failed to create obot: %w", err)
+			return fmt.Errorf("failed to create project: %w", err)
 		}
 	}
 
 	// Print the result
-	fmt.Printf("Created new obot: %s (ID: %s) using base agent: %s\n", project.Name, project.ID, project.AssistantID)
+	fmt.Printf("Created new project: %s (ID: %s) using base agent: %s\n", project.Name, project.ID, project.AssistantID)
 	return nil
 }

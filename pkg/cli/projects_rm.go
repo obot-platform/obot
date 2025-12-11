@@ -11,21 +11,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// DeleteObot implements the 'obot obot rm' subcommand
-type DeleteObot struct {
+// DeleteProject implements the 'obot projects rm' subcommand
+type DeleteProject struct {
 	root  *Obot
 	Force bool `usage:"Skip confirmation prompt" short:"f"`
 }
 
-func (c *DeleteObot) Customize(cmd *cobra.Command) {
+func (c *DeleteProject) Customize(cmd *cobra.Command) {
 	cmd.Use = "rm [ID...]"
-	cmd.Short = "Delete one or more obots"
-	cmd.Long = "Delete one or more obots by ID"
+	cmd.Short = "Delete one or more projects"
+	cmd.Long = "Delete one or more projects by ID"
 	cmd.Aliases = []string{"remove", "delete"}
 	cmd.Args = cobra.MinimumNArgs(1)
 }
 
-func (c *DeleteObot) Run(cmd *cobra.Command, args []string) error {
+func (c *DeleteProject) Run(cmd *cobra.Command, args []string) error {
 	// Collect valid IDs first and validate them
 	var validIDs []string
 	var validProjects []*types.Project
@@ -34,14 +34,14 @@ func (c *DeleteObot) Run(cmd *cobra.Command, args []string) error {
 	for _, id := range args {
 		// Check if ID has the project prefix (both p1- format and p1* format)
 		if !strings.HasPrefix(id, system.ProjectPrefix) {
-			errs = append(errs, fmt.Errorf("%s is not a valid obot ID (should start with p1)", id))
+			errs = append(errs, fmt.Errorf("%s is not a valid project ID (should start with p1)", id))
 			continue
 		}
 
 		// Get project details to determine the assistant ID
 		projectInfo, err := c.root.Client.GetProject(cmd.Context(), id)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to get obot details for %s: %w", id, err))
+			errs = append(errs, fmt.Errorf("failed to get project details for %s: %w", id, err))
 			continue
 		}
 
@@ -55,7 +55,7 @@ func (c *DeleteObot) Run(cmd *cobra.Command, args []string) error {
 
 	// If not forcing, confirm with user
 	if !c.Force {
-		fmt.Println("You are about to delete the following obots:")
+		fmt.Println("You are about to delete the following projects:")
 		for i, project := range validProjects {
 			fmt.Printf("  %s: %s\n", validIDs[i], project.Name)
 		}
@@ -76,9 +76,9 @@ func (c *DeleteObot) Run(cmd *cobra.Command, args []string) error {
 	for i, id := range validIDs {
 		project := validProjects[i]
 		if err := c.root.Client.DeleteProject(cmd.Context(), project.AssistantID, id); err != nil {
-			errs = append(errs, fmt.Errorf("failed to delete obot %s: %w", id, err))
+			errs = append(errs, fmt.Errorf("failed to delete project %s: %w", id, err))
 		} else {
-			fmt.Printf("Obot deleted: %s (%s)\n", id, project.Name)
+			fmt.Printf("Project deleted: %s (%s)\n", id, project.Name)
 		}
 	}
 
