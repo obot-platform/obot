@@ -11,7 +11,7 @@ export default defineConfig({
 	},
 	optimizeDeps: {
 		// currently incompatible with dep optimizer
-		exclude: ['layerchart']
+		exclude: ['layerchart', 'layercake']
 	},
 	plugins: [sveltekit()]
 });
