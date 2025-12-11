@@ -126,6 +126,7 @@ Only the org-level authorization server is supported (no custom authorization se
 :::
 
 Create an OAuth app of type `OIDC` in Okta following these [instructions](https://developer.okta.com/docs/guides/implement-oauth-for-okta/main/#create-an-oauth-2-0-app-in-okta).
+Make sure to add the redirect URL displayed in Obot to the list of Sign-in redirect URIs in your Okta application settings.
 
 Take note of the Client ID and Client Secret. You will need to provide these to Obot.
 
