@@ -29,6 +29,8 @@
 		// Optional composite context when configuring tools for an existing composite component
 		compositeEntryId?: string;
 		componentId?: string;
+		// Indicates if this is a newly added component (not yet persisted to the composite entry)
+		isNewComponent?: boolean;
 	}
 
 	let {
@@ -39,7 +41,8 @@
 		excluded,
 		configuringEntry: presetConfiguringEntry,
 		compositeEntryId,
-		componentId
+		componentId,
+		isNewComponent = false
 	}: Props = $props();
 	let searchDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let choiceDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -55,6 +58,7 @@
 	let tools = $state<CompositeServerToolRow[]>([]);
 	let oauthURL = $state<string>();
 	let listeningOauthVisibility = $state(false);
+	let error = $state<string>();
 
 	function handleVisibilityChange() {
 		if (!componentConfig) return;
@@ -81,6 +85,7 @@
 		configuringEntry = undefined;
 		oauthURL = undefined;
 		listeningOauthVisibility = false;
+		error = undefined;
 	}
 
 	export function open() {
@@ -99,8 +104,8 @@
 							manifest: configuringEntry.manifest,
 							toolOverrides: []
 						} as CatalogComponentServer);
-			runPreview();
 			initConfigureToolsDialog?.open();
+			handleConfigureToolsInit();
 		} else {
 			searchDialog?.open();
 		}
@@ -139,18 +144,20 @@
 		body: { config?: Record<string, string>; url?: string } = { config: {}, url: '' },
 		options?: { compositeEntryId?: string; componentId?: string }
 	) {
-		const useCompositePreview = Boolean(options?.compositeEntryId && options?.componentId);
-		const resp = useCompositePreview
-			? await AdminService.generateMcpCompositeComponentToolPreviews(
-					catalogId,
-					options!.compositeEntryId!,
-					options!.componentId!,
-					body,
-					{ dryRun: true }
-				)
-			: await AdminService.generateMcpCatalogEntryToolPreviews(catalogId, entryId, body, {
-					dryRun: true
-				});
+		// Use the composite component tool preview endpoint to generate previews for
+		// components that have already been persisted to the API resource.
+		const resp =
+			options?.componentId && options?.compositeEntryId && !isNewComponent
+				? await AdminService.generateMcpCompositeComponentToolPreviews(
+						catalogId,
+						options!.compositeEntryId!,
+						options!.componentId!,
+						body,
+						{ dryRun: true }
+					)
+				: await AdminService.generateMcpCatalogEntryToolPreviews(catalogId, entryId, body, {
+						dryRun: true
+					});
 		const preview = resp?.manifest?.toolPreview || [];
 		return preview.map((t) => {
 			const baseDescription = t.description || '';
@@ -192,25 +199,22 @@
 	) {
 		if (!catalogId || !configuringEntry) return;
 		loading = true;
+		error = undefined;
 		try {
 			const isCatalogEntry = 'isCatalogEntry' in configuringEntry;
-			const useCompositePreview = isCatalogEntry && Boolean(compositeEntryId && componentId);
-
-			tools = isCatalogEntry
-				? await fetchSingleRemoteTools(configuringEntry.id, catalogId, body, {
-						compositeEntryId: useCompositePreview ? compositeEntryId : undefined,
-						componentId: useCompositePreview ? componentId : undefined
-					})
-				: await fetchMultiServerTools(configuringEntry.id);
+			tools = !isCatalogEntry
+				? await fetchMultiServerTools(configuringEntry.id)
+				: await fetchSingleRemoteTools(configuringEntry.id, catalogId, body, {
+						compositeEntryId: compositeEntryId,
+						componentId: componentId
+					});
 			initConfigureToolsDialog?.close();
 			modifyToolsDialog?.open();
 		} catch (err: unknown) {
 			const msg = err instanceof Error ? err.message : String(err);
 			if (msg.includes('OAuth')) {
 				const isCatalogEntry = 'isCatalogEntry' in configuringEntry;
-				const useCompositePreview = isCatalogEntry && Boolean(compositeEntryId && componentId);
-
-				if (useCompositePreview) {
+				if (isCatalogEntry && compositeEntryId && componentId && !isNewComponent) {
 					const oauthResponse = await AdminService.getMcpCompositeComponentToolPreviewsOauth(
 						catalogId!,
 						compositeEntryId!,
@@ -243,7 +247,7 @@
 					listeningOauthVisibility = true;
 				}
 			} else {
-				throw err;
+				error = err instanceof Error ? err.message : 'An unknown error occurred';
 			}
 		} finally {
 			loading = false;
@@ -333,7 +337,6 @@
 			onclick={() => {
 				if (!configuringEntry) return;
 				ready = false;
-				runPreview();
 				choiceDialog?.close();
 				initConfigureToolsDialog?.open();
 			}}
@@ -467,17 +470,21 @@
 		if (!configuringEntry) return;
 		const configValues = convertEnvHeadersToRecord(configureForm?.envs, configureForm?.headers);
 		await runPreview({ config: configValues, url: configureForm?.url });
-		configDialog?.close();
-		modifyToolsDialog?.open();
+		// Only proceed if there was no error
+		if (!error) {
+			configDialog?.close();
+			modifyToolsDialog?.open();
+		}
 	}}
 	onCancel={() => {
 		if (configuringEntry) {
 			onCancel?.();
 		}
 		configDialog?.close();
+		error = undefined;
 	}}
 	{loading}
-	error={undefined}
+	{error}
 	isNew
 	disableOutsideClick
 	animate="slide"
