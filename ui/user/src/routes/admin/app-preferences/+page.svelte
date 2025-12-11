@@ -293,6 +293,64 @@
 				</div>
 			</div>
 
+			<div class="flex flex-col gap-1">
+				<h2 class="text-lg font-semibold">Footer Branding</h2>
+				<div class="paper flex flex-col gap-4">
+					<label class="flex flex-col gap-1">
+						<span class="text-on-surface1 text-sm font-semibold">Product Name</span>
+						<input
+							type="text"
+							class="ghost-input"
+							bind:value={form.branding.productName}
+							placeholder="Obot"
+							disabled={isAdminReadonly}
+						/>
+						<span class="text-on-surface1 text-xs">
+							The product name displayed in the footer message
+						</span>
+					</label>
+
+					<label class="flex flex-col gap-1">
+						<span class="text-on-surface1 text-sm font-semibold">Issue Report URL</span>
+						<input
+							type="url"
+							class="ghost-input"
+							bind:value={form.branding.issueReportUrl}
+							placeholder="https://github.com/..."
+							disabled={isAdminReadonly}
+						/>
+						<span class="text-on-surface1 text-xs">
+							URL for the "Report issues here" link in the footer
+						</span>
+					</label>
+
+					<label class="flex flex-col gap-1">
+						<span class="text-on-surface1 text-sm font-semibold">Footer Message</span>
+						<input
+							type="text"
+							class="ghost-input"
+							bind:value={form.branding.footerMessage}
+							placeholder={"{productName} isn't perfect. Double check its work."}
+							disabled={isAdminReadonly}
+						/>
+						<span class="text-on-surface1 text-xs">
+							Use <code class="bg-surface2 rounded px-1">{'{productName}'}</code> as a placeholder for
+							the product name
+						</span>
+					</label>
+
+					<Toggle
+						label="Show Footer"
+						labelInline
+						checked={form.branding.showFooter}
+						onChange={(checked) => {
+							form = { ...form, branding: { ...form.branding, showFooter: checked } };
+						}}
+						disabled={isAdminReadonly}
+					/>
+				</div>
+			</div>
+
 			{#if !isAdminReadonly}
 				<div
 					class="bg-surface1 dark:bg-background sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"

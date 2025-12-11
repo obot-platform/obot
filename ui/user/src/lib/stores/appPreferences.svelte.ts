@@ -24,6 +24,13 @@ export const DEFAULT_LOGOS = {
 	}
 } as const;
 
+export const DEFAULT_BRANDING = {
+	productName: 'Obot',
+	issueReportUrl: 'https://github.com/jrmatherly/obot-entraid/issues/new?template=bug_report.md',
+	footerMessage: "{productName} isn't perfect. Double check its work.",
+	showFooter: true
+} as const;
+
 export function compileAppPreferences(preferences?: AppPreferences): AppPreferences {
 	return {
 		logos: {
@@ -53,6 +60,12 @@ export function compileAppPreferences(preferences?: AppPreferences): AppPreferen
 			darkSurface2Color: preferences?.theme?.darkSurface2Color ?? 'hsl(0 0 calc(2.5 + 10))',
 			darkSurface3Color: preferences?.theme?.darkSurface3Color ?? 'hsl(0 0 calc(2.5 + 20))',
 			darkPrimaryColor: preferences?.theme?.darkPrimaryColor ?? '#4f7ef3'
+		},
+		branding: {
+			productName: preferences?.branding?.productName ?? DEFAULT_BRANDING.productName,
+			issueReportUrl: preferences?.branding?.issueReportUrl ?? DEFAULT_BRANDING.issueReportUrl,
+			footerMessage: preferences?.branding?.footerMessage ?? DEFAULT_BRANDING.footerMessage,
+			showFooter: preferences?.branding?.showFooter ?? DEFAULT_BRANDING.showFooter
 		}
 	};
 }

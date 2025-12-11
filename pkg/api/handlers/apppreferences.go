@@ -52,8 +52,9 @@ func (h *AppPreferencesHandler) Update(req api.Context) error {
 				Namespace: req.Namespace(),
 			},
 			Spec: v1.AppPreferencesSpec{
-				Logos: input.Logos,
-				Theme: input.Theme,
+				Logos:    input.Logos,
+				Theme:    input.Theme,
+				Branding: input.Branding,
 			},
 		}
 
@@ -66,6 +67,7 @@ func (h *AppPreferencesHandler) Update(req api.Context) error {
 		// Update existing preferences
 		prefs.Spec.Logos = input.Logos
 		prefs.Spec.Theme = input.Theme
+		prefs.Spec.Branding = input.Branding
 
 		if err := req.Update(&prefs); err != nil {
 			return err
@@ -80,6 +82,7 @@ func convertAppPreferences(prefs v1.AppPreferences) types.AppPreferences {
 	return types.AppPreferences{
 		Logos:    types.LogoPreferences(prefs.Spec.Logos),
 		Theme:    types.ThemePreferences(prefs.Spec.Theme),
+		Branding: types.BrandingPreferences(prefs.Spec.Branding),
 		Metadata: MetadataFrom(&prefs),
 	}
 }

@@ -2,9 +2,10 @@ package types
 
 // AppPreferences represents global application appearance preferences
 type AppPreferences struct {
-	Logos    LogoPreferences  `json:"logos,omitempty"`
-	Theme    ThemePreferences `json:"theme,omitempty"`
-	Metadata Metadata         `json:"metadata,omitempty"`
+	Logos    LogoPreferences     `json:"logos,omitempty"`
+	Theme    ThemePreferences    `json:"theme,omitempty"`
+	Branding BrandingPreferences `json:"branding,omitempty"`
+	Metadata Metadata            `json:"metadata,omitempty"`
 }
 
 type LogoPreferences struct {
@@ -33,6 +34,14 @@ type ThemePreferences struct {
 	DarkSurface1Color       string `json:"darkSurface1Color,omitempty"`
 	DarkSurface2Color       string `json:"darkSurface2Color,omitempty"`
 	DarkSurface3Color       string `json:"darkSurface3Color,omitempty"`
-	DarkPrimaryColor        string `json:"darkPrimaryColor,omitempty"`
+	DarkPrimaryColor string `json:"darkPrimaryColor,omitempty"`
+}
+
+// BrandingPreferences represents configurable branding for the application footer
+type BrandingPreferences struct {
+	ProductName    string `json:"productName,omitempty"`
+	IssueReportURL string `json:"issueReportUrl,omitempty"`
+	FooterMessage  string `json:"footerMessage,omitempty"`
+	ShowFooter     *bool  `json:"showFooter,omitempty"`
 }
 

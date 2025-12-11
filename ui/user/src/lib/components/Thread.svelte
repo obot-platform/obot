@@ -16,7 +16,7 @@
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import Files from '$lib/components/edit/Files.svelte';
 	import type { UIEventHandler } from 'svelte/elements';
-	import { responsive } from '$lib/stores';
+	import { responsive, appPreferences } from '$lib/stores';
 	import { Bug, LoaderCircle, X } from 'lucide-svelte';
 	import { autoHeight } from '$lib/actions/textarea';
 	import { twMerge } from 'tailwind-merge';
@@ -660,13 +660,19 @@
 						/>
 					{/snippet}
 				</Input>
-				{#if !centerInput}
+				{#if !centerInput && appPreferences.current.branding.showFooter}
 					<div
 						class="mt-3 grid grid-cols-[auto_auto] items-center justify-center gap-x-2 px-5 text-xs font-light"
 					>
-						<span class="text-on-surface1">Obot isn't perfect. Double check its work.</span>
+						<span class="text-on-surface1"
+							>{appPreferences.current.branding.footerMessage.replace(
+								'{productName}',
+								appPreferences.current.branding.productName
+							)}</span
+						>
+						<!-- eslint-disable svelte/no-navigation-without-resolve -- external issue report URL -->
 						<a
-							href="https://github.com/obot-platform/obot/issues/new?template=bug_report.md"
+							href={appPreferences.current.branding.issueReportUrl}
 							target="_blank"
 							rel="noopener noreferrer"
 							class="whitespace-nowrap text-blue-500/50 hover:underline"
@@ -677,6 +683,7 @@
 								Report issues here
 							{/if}
 						</a>
+						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					</div>
 				{/if}
 			</div>

@@ -701,6 +701,12 @@ export interface AppPreferencesManifest {
 		darkSurface3Color?: string;
 		darkPrimaryColor?: string;
 	};
+	branding?: {
+		productName?: string;
+		issueReportUrl?: string;
+		footerMessage?: string;
+		showFooter?: boolean;
+	};
 }
 
 export interface AppPreferences {
@@ -730,5 +736,11 @@ export interface AppPreferences {
 		darkSurface2Color: string;
 		darkSurface3Color: string;
 		darkPrimaryColor: string;
+	};
+	branding: {
+		productName: string;
+		issueReportUrl: string;
+		footerMessage: string;
+		showFooter: boolean;
 	};
 }
