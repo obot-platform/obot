@@ -215,6 +215,8 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 		}
 
 		server.MCPServerName += "-shim"
+		// Set the container port to 0 for the shim so the default port is used.
+		server.ContainerPort = 0
 	} else {
 		server.URL = strings.Replace(server.URL, "http://localhost", d.hostBaseURL, 1)
 	}
