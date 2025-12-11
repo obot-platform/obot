@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { darkMode, profile, appPreferences, version, mcpServersAndEntries } from '$lib/stores';
+	import { untrack } from 'svelte';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
@@ -15,17 +16,19 @@
 
 	let { children, data }: Props = $props();
 
-	if (data.appPreferences) {
-		appPreferences.initialize(data.appPreferences);
-	}
+	untrack(() => {
+		if (data.appPreferences) {
+			appPreferences.initialize(data.appPreferences);
+		}
 
-	if (data.profile) {
-		profile.initialize(data.profile);
-	}
+		if (data.profile) {
+			profile.initialize(data.profile);
+		}
 
-	if (data.version) {
-		version.initialize(data.version);
-	}
+		if (data.version) {
+			version.initialize(data.version);
+		}
+	});
 
 	$effect(() => {
 		if (typeof document === 'undefined') {

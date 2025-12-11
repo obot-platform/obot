@@ -2,7 +2,7 @@
 	import '@milkdown/crepe/theme/common/style.css';
 	import '@milkdown/crepe/theme/frame.css';
 	import { twMerge } from 'tailwind-merge';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 
 	import {
@@ -110,7 +110,7 @@
 	});
 
 	// Track previous disabled state to detect changes
-	let prevDisabled = $state(disabled);
+	let prevDisabled = $state(untrack(() => disabled));
 
 	$effect(() => {
 		if (cmView && prevDisabled !== disabled) {

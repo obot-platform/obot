@@ -47,7 +47,9 @@
 	const isAdmin = $derived(page.url.pathname.startsWith('/admin/tasks'));
 	const shouldShowToggleAllOutput = $derived(!isAdmin);
 
-	let orderedSteps = $state(readOnly && taskRun ? taskRun?.steps : (task?.steps ?? []));
+	let orderedSteps = $state(
+		untrack(() => (readOnly && taskRun ? taskRun?.steps : (task?.steps ?? [])))
+	);
 
 	// Capture the steps element
 	let element: HTMLElement | undefined = $state();

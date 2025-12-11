@@ -16,7 +16,7 @@
 		type MCPCatalogEntry
 	} from '$lib/services/admin/types';
 	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
-	import { type Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '../table/Table.svelte';
@@ -58,13 +58,16 @@
 	}: Props = $props();
 	const duration = PAGE_TRANSITION_DURATION;
 	let accessControlRule = $state(
-		initialAccessControlRule ??
-			({
-				displayName: '',
-				userIDs: [],
-				mcpServerCatalogEntryNames: [],
-				mcpServerNames: []
-			} as AccessControlRuleManifest)
+		untrack(
+			() =>
+				initialAccessControlRule ??
+				({
+					displayName: '',
+					userIDs: [],
+					mcpServerCatalogEntryNames: [],
+					mcpServerNames: []
+				} as AccessControlRuleManifest)
+		)
 	);
 
 	let saving = $state<boolean | undefined>();
@@ -77,11 +80,13 @@
 
 	let deletingRule = $state(false);
 
-	const mcpServerAndEntries = mcpEntriesContextFn?.() ?? {
-		entries: [],
-		servers: [],
-		loading: false
-	};
+	const mcpServerAndEntries = $derived(
+		mcpEntriesContextFn?.() ?? {
+			entries: [],
+			servers: [],
+			loading: false
+		}
+	);
 	let usersMap = $derived(new Map(usersAndGroups?.users.map((user) => [user.id, user]) ?? []));
 	let mcpServersMap = $derived(new Map(mcpServerAndEntries.servers.map((i) => [i.id, i])));
 	let mcpEntriesMap = $derived(new Map(mcpServerAndEntries.entries.map((i) => [i.id, i])));

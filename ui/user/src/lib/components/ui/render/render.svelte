@@ -12,7 +12,7 @@
 <script lang="ts">
 	let { as = 'div', component, children, ...restProps }: RenderProps<string, Component> = $props();
 
-	const Shell = component;
+	const Shell = $derived(component);
 </script>
 
 {#if component}

@@ -15,7 +15,7 @@
 	}
 
 	let { data }: { data: PageData } = $props();
-	const invitation: ProjectInvitation = data.invitation;
+	const invitation: ProjectInvitation = $derived(data.invitation);
 
 	let isProcessing = $state(false);
 	let responseMessage = $state('');

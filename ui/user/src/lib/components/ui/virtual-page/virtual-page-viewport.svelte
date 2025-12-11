@@ -113,7 +113,7 @@
 
 	// Height management with exponential moving average
 	let heightMap: number[] = $state([]);
-	let averageHeight = $state(itemHeight || 50);
+	let averageHeight = $state(untrack(() => itemHeight) || 50);
 	let heightSampleCount = $state(0);
 
 	let rows: HTMLElement[] = $state([]);

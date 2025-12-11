@@ -59,11 +59,13 @@
 	let selectedMap = $derived(new Set(selected.map((i) => i.id)));
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
-	const mcpServerAndEntries = mcpEntriesContextFn?.() ?? {
-		entries: [],
-		servers: [],
-		loading: false
-	};
+	const mcpServerAndEntries = $derived(
+		mcpEntriesContextFn?.() ?? {
+			entries: [],
+			servers: [],
+			loading: false
+		}
+	);
 
 	let loading = $state(false);
 	let allData: SearchItem[] = $derived(

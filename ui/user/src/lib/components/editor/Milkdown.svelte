@@ -10,7 +10,7 @@
 	import { TextSelection } from '@milkdown/prose/state';
 	import type { EditorView } from '@milkdown/prose/view';
 	import { CircleHelp, MessageSquareText } from 'lucide-svelte/icons';
-	import { tick } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import Input from '$lib/components/messages/Input.svelte';
 	import { Bold, Italic, Strikethrough } from 'lucide-svelte';
 	import { TooltipProvider } from '@milkdown/plugin-tooltip';
@@ -66,7 +66,7 @@
 	let editorCtx: Ctx;
 	let editorView: EditorView | undefined = $state();
 	let isEditing = $state(false);
-	let lastSetValue = $state(contents ?? '');
+	let lastSetValue = $state(untrack(() => contents ?? ''));
 
 	function hide() {
 		ttVisible = false;

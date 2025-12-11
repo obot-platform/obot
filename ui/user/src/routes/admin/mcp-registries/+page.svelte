@@ -17,9 +17,7 @@
 	import { page } from '$app/state';
 
 	let { data } = $props();
-	const { accessControlRules: initialRules } = data;
-
-	let accessControlRules = $state(initialRules);
+	let accessControlRules = $state(untrack(() => data.accessControlRules));
 	let showCreateRule = $state(false);
 	let ruleToDelete = $state<AccessControlRule>();
 

@@ -7,13 +7,14 @@
 	import { userRoleOptions } from '$lib/services/admin/constants';
 	import { AdminService } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
+	import { untrack } from 'svelte';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
 	let showSaved = $state(false);
-	let baseDefaultRole = $state(data.defaultUsersRole ?? Role.BASIC);
-	let prevBaseDefaultRole = $state(data.defaultUsersRole ?? Role.BASIC);
+	let baseDefaultRole = $state(untrack(() => data.defaultUsersRole ?? Role.BASIC));
+	let prevBaseDefaultRole = $state(untrack(() => data.defaultUsersRole ?? Role.BASIC));
 	let saving = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
 

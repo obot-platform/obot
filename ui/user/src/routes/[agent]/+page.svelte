@@ -5,8 +5,7 @@
 	import { goto } from '$lib/url';
 
 	let { data }: PageProps = $props();
-	let project = $state(data.project);
-	let title = $derived(project?.name || 'Obot');
+	let title = $derived(data.project?.name || 'Obot');
 
 	initLayout({
 		items: []
@@ -16,8 +15,8 @@
 		if (profile.current.unauthorized) {
 			// Redirect to the main page to log in.
 			window.location.href = `/?rd=${window.location.pathname}`;
-		} else if (project?.id) {
-			goto(`/o/${project.id}`, { replaceState: true });
+		} else if (data.project?.id) {
+			goto(`/o/${data.project.id}`, { replaceState: true });
 		}
 	});
 </script>

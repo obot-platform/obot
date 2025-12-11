@@ -39,7 +39,9 @@
 	}: Props = $props();
 	let loading = $state(false);
 	const { ref, tooltip, toggle } = popover({
-		placement
+		get placement() {
+			return placement;
+		}
 	});
 
 	$effect(() => {

@@ -12,7 +12,7 @@
 	import ProviderConfigure from '$lib/components/admin/ProviderConfigure.svelte';
 	import ListModels from '$lib/components/admin/ListModels.svelte';
 	import { getAdminModels, initModels } from '$lib/context/admin/models.svelte.js';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import DefaultModels from '$lib/components/admin/DefaultModels.svelte';
 	import { sortModelProviders } from '$lib/sort.js';
 	import { AlertTriangle } from 'lucide-svelte';
@@ -20,9 +20,7 @@
 	import { profile } from '$lib/stores/index.js';
 
 	let { data } = $props();
-	let { modelProviders: initialModelProviders } = data;
-
-	let modelProviders = $state(initialModelProviders);
+	let modelProviders = $state(untrack(() => data.modelProviders));
 	let providerConfigure = $state<ReturnType<typeof ProviderConfigure>>();
 	let defaultModelsDialog = $state<ReturnType<typeof DefaultModels>>();
 	let configuringModelProvider = $state<ModelProviderType>();

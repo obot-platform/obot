@@ -42,15 +42,11 @@
 		onUpdate,
 		onEditConfiguration
 	}: Props = $props();
-	let selected = $state<string>(view);
+	let selected = $derived<string>(view);
 	const tabs = [
 		{ label: 'Overview', view: 'overview' },
 		{ label: 'Tools', view: 'tools' }
 	];
-
-	$effect(() => {
-		selected = view;
-	});
 
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configureForm = $state<LaunchFormData>();

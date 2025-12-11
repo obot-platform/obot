@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { Eye, EyeOff, LoaderCircle, Plus, Trash2, X } from 'lucide-svelte';
-	import { type Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '../table/Table.svelte';
@@ -35,21 +35,23 @@
 		secret: string;
 		selectors: MCPFilterWebhookSelector[];
 	}>(
-		initialFilter
-			? {
-					name: initialFilter.name || '',
-					resources: initialFilter.resources || [],
-					url: initialFilter.url || '',
-					secret: initialFilter.secret || '',
-					selectors: initialFilter.selectors || []
-				}
-			: {
-					name: '',
-					resources: [{ id: 'default', type: 'mcpCatalog' }],
-					url: '',
-					secret: '',
-					selectors: []
-				}
+		untrack(() =>
+			initialFilter
+				? {
+						name: initialFilter.name || '',
+						resources: initialFilter.resources || [],
+						url: initialFilter.url || '',
+						secret: initialFilter.secret || '',
+						selectors: initialFilter.selectors || []
+					}
+				: {
+						name: '',
+						resources: [{ id: 'default', type: 'mcpCatalog' }],
+						url: '',
+						secret: '',
+						selectors: []
+					}
+		)
 	);
 
 	let saving = $state<boolean | undefined>();

@@ -59,7 +59,7 @@
 			disablePreview
 			class="border-surface3 h-full grow rounded-none border-0 bg-inherit shadow-none"
 			classes={{
-				input: 'bg-gray-50 h-full max-h-full pb-8 grid'
+				input: 'bg-surface1 h-full max-h-full pb-8 grid'
 			}}
 			typewriterOnAutonomous
 			{overrideContent}

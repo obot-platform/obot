@@ -24,11 +24,10 @@
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url.js';
+	import { untrack } from 'svelte';
 
 	let { data } = $props();
-	const { users: initialUsers } = data;
-
-	let users = $state<OrgUser[]>(initialUsers);
+	let users = $state<OrgUser[]>(untrack(() => data.users));
 	let query = $state('');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());

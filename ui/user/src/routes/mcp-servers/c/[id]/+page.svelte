@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Component } from 'svelte';
+	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$lib/url';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';

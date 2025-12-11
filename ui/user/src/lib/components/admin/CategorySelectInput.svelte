@@ -20,8 +20,10 @@
 		onDelete
 	}: Props = $props();
 
-	let optionsMap = new SvelteMap<string, { id: string; label: string }>(
-		options.map((option) => [option.id, option])
+	let optionsMap = $derived(
+		new SvelteMap<string, { id: string; label: string }>(
+			options.map((option) => [option.id, option])
+		)
 	);
 
 	let localOptions = $derived([...optionsMap.values()]);
