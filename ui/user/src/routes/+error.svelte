@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import CollapsePane from '$lib/components/edit/CollapsePane.svelte';
 	import Logo from '$lib/components/Logo.svelte';
@@ -53,5 +54,5 @@
 		</div>
 	{/if}
 
-	<a href="/" class="button-primary"> Go Home </a>
+	<a href={resolve('/')} class="button-primary"> Go Home </a>
 </div>

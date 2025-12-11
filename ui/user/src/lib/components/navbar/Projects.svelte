@@ -4,11 +4,12 @@
 	import { popover } from '$lib/actions';
 	import { twMerge } from 'tailwind-merge';
 	import { DEFAULT_PROJECT_NAME } from '$lib/constants';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { closeAll, getLayout } from '$lib/context/chatLayout.svelte';
 	import PageLoading from '../PageLoading.svelte';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		project: Project;
@@ -127,8 +128,7 @@
 		)}
 	>
 		<a
-			href="/o/{p.id}"
-			rel="external"
+			href={resolve(`/o/${p.id}`)}
 			class="flex min-h-14 w-full items-center gap-2 p-2"
 			onclick={() => (loading = true)}
 		>

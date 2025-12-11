@@ -224,6 +224,7 @@
 	}
 
 	function deduplicateCitations(citations: string[]) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const seen = new Set<string>();
 		return citations.filter((url) => {
 			if (seen.has(url)) {
@@ -660,8 +661,10 @@
 {/snippet}
 
 {#snippet oauth()}
+	<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
 	<a
 		href={msg.oauthURL}
+		rel="external"
 		class={twMerge(
 			'bg-primary hover:bg-primary/50 rounded-xl p-4 text-center text-white transition-colors duration-300 hover:text-white',
 			classes?.oauth
@@ -671,6 +674,7 @@
 		<p>Authentication is required.</p>
 		<p><span class="underline">Click here</span> to log-in using OAuth.</p>
 	</a>
+	<!-- eslint-enable svelte/no-navigation-without-resolve -->
 {/snippet}
 
 {#snippet promptAuth()}
@@ -769,8 +773,10 @@
 					.map((c) => c.url)
 					.filter((url) => url !== undefined)) as url, i (i)}
 				{#if msg.done}
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- external URL -->
 					<a
 						href={citationURL(url)}
+						rel="external"
 						target="_blank"
 						class="flex w-fit items-center gap-2 rounded-full bg-gray-100 p-2 text-sm dark:bg-gray-900"
 						transition:fly={{ y: 100, delay: 50 * i, duration: 250 }}
@@ -783,6 +789,7 @@
 						/>
 						{citationDisplayURL(url)}
 					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{/if}
 			{/each}
 		</div>

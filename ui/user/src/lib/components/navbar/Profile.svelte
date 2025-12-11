@@ -22,8 +22,10 @@
 	import { version } from '$lib/stores';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { AdminService, ChatService, EditorService } from '$lib/services';
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import PageLoading from '../PageLoading.svelte';
+	import { resolve } from '$app/paths';
 
 	let versionDialog = $state<HTMLDialogElement>();
 	let showChatLink = $state(false);
@@ -214,7 +216,7 @@
 				</button>
 			{/if}
 			{#if profile.current.groups.includes(Group.POWERUSER) && showMcpPublisherLink && version.current.authEnabled}
-				<a href="/mcp-publisher" rel="external" class="link">
+				<a href={resolve('/mcp-publisher')} class="link">
 					<ServerCog class="size-4" /> MCP Publisher
 				</a>
 			{/if}
@@ -224,7 +226,7 @@
 				>
 			{/if}
 			{#if profile.current.email}
-				<a href="/profile" rel="external" role="menuitem" class="link"
+				<a href={resolve('/profile')} role="menuitem" class="link"
 					><User class="size-4" /> My Account</a
 				>
 				<button class="link" onclick={handleLogout}>
@@ -256,9 +258,15 @@
 			{/if}
 			<div class="text-on-surface1 flex justify-end p-2 text-xs">
 				<div class="flex gap-2">
-					<a href={getLink('obot', version.current.obot)} target="_blank" rel="external">
-						{version.current.obot}
-					</a>
+					{#if version.current.obot}
+						{@const link = getLink('obot', version.current.obot)}
+						{#if link}
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external github link -->
+							<a href={link} target="_blank" rel="external">
+								{version.current.obot}
+							</a>
+						{/if}
+					{/if}
 					<button
 						use:tooltip={{ disablePortal: true, text: 'Versions' }}
 						onclick={() => {
@@ -293,6 +301,7 @@
 				<div class="flex justify-between gap-8">
 					<span class="font-semibold">{key.replace('github.com/', '')}:</span>
 					{#if link}
+						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external version link -->
 						<a href={link} target="_blank" rel="external">
 							{value}
 						</a>

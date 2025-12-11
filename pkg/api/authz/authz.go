@@ -56,6 +56,8 @@ var (
 		"/api/workspaces/",
 		"/api/mcp-webhook-validations",
 		"/api/mcp-webhook-validations/",
+		"/api/system-mcp-servers",
+		"/api/system-mcp-servers/",
 		"GET /api/mcp-audit-logs",
 		"GET /api/mcp-audit-logs/filter-options/{filter}",
 		"GET /api/mcp-audit-logs/{mcp_id}",
@@ -152,6 +154,8 @@ var (
 			"/api/audit-log-exports/{id}",
 			"/api/scheduled-audit-log-exports",
 			"/api/scheduled-audit-log-exports/{id}",
+			"/api/storage-credentials",
+			"/api/storage-credentials/",
 		},
 		anyGroup: {
 			// Allow access to the oauth2 endpoints

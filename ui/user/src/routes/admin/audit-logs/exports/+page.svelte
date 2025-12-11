@@ -8,7 +8,8 @@
 	import { fade, fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import { page } from '$app/state';
-	import { replaceState, goto, beforeNavigate } from '$app/navigation';
+	import { beforeNavigate } from '$app/navigation';
+	import { replaceState, goto } from '$lib/url';
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { profile } from '$lib/stores';
@@ -152,7 +153,7 @@
 			const url = new URL(page.url);
 			url.searchParams.set('form', nextForm);
 			url.searchParams.delete('next');
-			goto(url.pathname + url.search, { replaceState: false });
+			goto(url, { replaceState: false });
 		} else {
 			showForm = null;
 			goto('/admin/audit-logs/exports', { replaceState: false });

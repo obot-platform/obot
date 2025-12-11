@@ -15,8 +15,12 @@
 
 	let { configuringEntry, tools = [], onClose, onCancel, onSuccess }: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let confirmDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let search = $state('');
 	let expandedTools = $state<Record<string, boolean>>({});
+
+	// Track initial state to detect changes
+	let initialToolsState = $state<string>('');
 
 	let allToolsEnabled = $derived(tools.every((tool) => tool.enabled));
 
@@ -29,12 +33,44 @@
 		)
 	);
 
+	// Check if there are any changes compared to initial state
+	let hasChanges = $derived.by(() => {
+		const currentState = JSON.stringify(tools);
+		return initialToolsState !== currentState;
+	});
+
 	export function open() {
+		// Capture initial state when dialog opens
+		initialToolsState = JSON.stringify(tools);
 		dialog?.open();
 	}
 
 	export function close() {
 		dialog?.close();
+	}
+
+	function handleClose() {
+		if (hasChanges) {
+			confirmDialog?.open();
+		} else {
+			dialog?.close();
+			onClose?.();
+		}
+	}
+
+	function handleCancel() {
+		onCancel?.();
+		dialog?.close();
+	}
+
+	function confirmDiscard() {
+		confirmDialog?.close();
+		dialog?.close();
+		onClose?.();
+	}
+
+	function cancelDiscard() {
+		confirmDialog?.close();
 	}
 </script>
 
@@ -42,16 +78,17 @@
 	bind:this={dialog}
 	animate="slide"
 	title={`Configure ${configuringEntry?.manifest?.name ?? 'MCP Server'} Tools`}
-	class="bg-surface1 pb-0 md:w-2xl"
-	onClose={() => onClose?.()}
+	class="bg-surface1 md:w-2xl"
+	classes={{ content: 'p-0', header: 'p-4 pb-0' }}
+	onClickOutside={handleClose}
 >
-	<p class="text-on-surface1 mb-4 text-xs font-light">
+	<p class="text-on-surface1 px-4 text-xs font-light">
 		Toggle what tools are available to users of this composite server. Or modify the name or
 		description of a tool; this will override the default name or description provided by the
 		server. It may affect the LLM's ability to understand the tool so be careful when adjusting
 		these values.
 	</p>
-	<div class="relative flex flex-col gap-2 overflow-x-hidden px-0.5">
+	<div class="relative flex flex-col gap-2 overflow-x-hidden p-4">
 		<div class="flex w-full justify-end">
 			<Toggle
 				checked={allToolsEnabled}
@@ -169,13 +206,7 @@
 		{/each}
 	</div>
 	<div class="bg-surface1 sticky bottom-0 left-0 mt-4 flex w-full justify-end gap-2 p-4">
-		<button
-			class="button"
-			onclick={() => {
-				onCancel?.();
-				dialog?.close();
-			}}>Cancel</button
-		>
+		<button class="button" onclick={handleCancel}>Cancel</button>
 		<button
 			class="button-primary"
 			onclick={() => {
@@ -183,5 +214,20 @@
 				dialog?.close();
 			}}>Confirm</button
 		>
+	</div>
+</ResponsiveDialog>
+
+<!-- Confirmation Dialog for Unsaved Changes -->
+<ResponsiveDialog bind:this={confirmDialog} title="Discard Changes?" class="max-w-xl">
+	<p class="text-on-surface1 mb-4 text-sm">
+		You have unsaved changes for {configuringEntry?.manifest?.name ?? 'MCP Server'} configuration. Are
+		you sure you want to discard these changes?
+	</p>
+
+	<div class="flex justify-end gap-3">
+		<button class="button" onclick={cancelDiscard}>Keep Editing</button>
+		<button class="button-primary bg-red-600 hover:bg-red-700" onclick={confirmDiscard}>
+			Discard Changes
+		</button>
 	</div>
 </ResponsiveDialog>

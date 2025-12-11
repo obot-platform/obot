@@ -13,6 +13,7 @@
 	import { ChevronRight, Server } from 'lucide-svelte';
 	import { ADMIN_SESSION_STORAGE, DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { openUrl } from '$lib/utils';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		entity?: 'workspace' | 'catalog';
@@ -133,7 +134,7 @@
 		{#snippet actions(d)}
 			{@const auditLogsUrl = getAuditLogUrl(d)}
 			{#if auditLogsUrl}
-				<a href={auditLogsUrl} class="button-text"> View Audit Logs </a>
+				<a href={resolve(auditLogsUrl as `/${string}`)} class="button-text"> View Audit Logs </a>
 			{/if}
 		{/snippet}
 	</Table>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ChatService } from '$lib/services';
 	import { profile, errors, version } from '$lib/stores';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import { getUserRoleLabel } from '$lib/utils';
 	import ConfirmDeleteAccount from '$lib/components/ConfirmDeleteAccount.svelte';

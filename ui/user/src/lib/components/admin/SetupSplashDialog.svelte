@@ -6,7 +6,7 @@
 	import { AdminService, Group } from '$lib/services';
 	import { CircleCheckBig, LoaderCircle } from 'lucide-svelte';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { twMerge } from 'tailwind-merge';
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();

@@ -256,7 +256,7 @@ func (h *handler) callback(req api.Context) error {
 
 	mcpID := oauthAppAuthRequest.Spec.MCPID
 	if mcpID != "" {
-		audience, err := handlers.MCPServerIDFromConnectURL(req, mcpID)
+		serverOrInstanceID, audience, err := handlers.MCPIDAndAudienceFromConnectURL(req, mcpID)
 		if err != nil {
 			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
 				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
@@ -274,10 +274,12 @@ func (h *handler) callback(req api.Context) error {
 			return nil
 		}
 
+		mcpID = serverOrInstanceID
 		audience = "/" + audience
-		if oauthAppAuthRequest.Spec.Resource == "" || !strings.HasSuffix(oauthAppAuthRequest.Spec.Resource, audience) {
+		if !strings.HasSuffix(oauthAppAuthRequest.Spec.Resource, audience) || oauthAppAuthRequest.Spec.MCPID != mcpID {
 			// Ensure the audience is what the server expects.
 			oauthAppAuthRequest.Spec.Resource = fmt.Sprintf("%s/mcp-connect%s", h.baseURL, audience)
+			oauthAppAuthRequest.Spec.MCPID = mcpID
 			if err = req.Update(&oauthAppAuthRequest); err != nil {
 				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
 					Code:        ErrServerError,
@@ -303,7 +305,10 @@ func (h *handler) callback(req api.Context) error {
 		return nil
 	}
 
-	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
+	if mcpID == "" {
+		mcpID = req.PathValue("mcp_id")
+	}
+	if mcpID != "" {
 		// Check whether the MCP server needs authentication.
 		jwks, err := h.jwks(req.Context())
 		if err != nil {
@@ -314,7 +319,7 @@ func (h *handler) callback(req api.Context) error {
 			return nil
 		}
 
-		_, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID, jwks)
+		mcpID, mcpServer, mcpServerConfig, err := handlers.ServerForActionWithConnectID(req, mcpID, jwks)
 		if err != nil {
 			return err
 		}

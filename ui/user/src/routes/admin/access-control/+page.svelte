@@ -4,7 +4,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { BookOpenText, ChevronLeft, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { type AccessControlRule, type OrgUser } from '$lib/services/admin/types';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';

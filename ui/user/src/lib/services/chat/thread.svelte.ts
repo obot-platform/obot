@@ -16,6 +16,7 @@ export class Thread {
 	threadID?: string;
 	closed: boolean = false;
 	// Map runID -> caution/notice message to show on the user's sent message
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
 	#userNotices: Map<string, string> = new Map();
 
 	readonly #onError: ((error: Error) => void) | undefined;
@@ -192,6 +193,7 @@ export class Thread {
 	onStepMessages(stepID: string, m: Messages) {}
 
 	#handleSteps() {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const newMessages = new Map<string, Progress[]>();
 		let stepID: string | undefined;
 		let fullStepID: string | undefined;

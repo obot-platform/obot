@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
@@ -36,98 +34,37 @@ const (
 
 var ErrInvalidSession = errors.New("invalid session")
 
-type cacheObject struct {
-	provider  string
-	createdAt time.Time
-}
-
 type Manager struct {
-	dispatcher               *dispatcher.Dispatcher
-	gptClient                *gptscript.GPTScript
-	tokenHashToProviderCache map[string]cacheObject
-	lock                     sync.RWMutex
+	dispatcher *dispatcher.Dispatcher
+	gptClient  *gptscript.GPTScript
 }
 
-func NewProxyManager(ctx context.Context, dispatcher *dispatcher.Dispatcher, gptClient *gptscript.GPTScript) *Manager {
+func NewProxyManager(dispatcher *dispatcher.Dispatcher, gptClient *gptscript.GPTScript) *Manager {
 	m := &Manager{
-		dispatcher:               dispatcher,
-		gptClient:                gptClient,
-		tokenHashToProviderCache: make(map[string]cacheObject),
-		lock:                     sync.RWMutex{},
+		dispatcher: dispatcher,
+		gptClient:  gptClient,
 	}
-
-	go m.cacheCleanup(ctx)
 
 	return m
 }
 
-func (pm *Manager) cacheCleanup(ctx context.Context) {
-	t := time.NewTicker(time.Hour)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			pm.lock.Lock()
-			for tokenHash, obj := range pm.tokenHashToProviderCache {
-				if time.Since(obj.createdAt) > 24*time.Hour {
-					delete(pm.tokenHashToProviderCache, tokenHash)
-				}
-			}
-			pm.lock.Unlock()
-		}
-	}
-}
-
-func getTokenHash(req *http.Request) (string, error) {
-	c, err := req.Cookie(ObotAccessTokenCookie)
-	if errors.Is(err, http.ErrNoCookie) {
-		// Check the zero cookie. This one is present when the token is too large to fit in one cookie and
-		// must be split into two.
-		c, err = req.Cookie(ObotAccessTokenCookieZero)
-	}
-	if err != nil {
-		return "", err
-	}
-
-	h := sha256.New()
-	h.Write([]byte(c.Value))
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
-}
-
 func (pm *Manager) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	tokenHash, err := getTokenHash(req)
-	if err != nil {
+	// Check for the access token cookie.
+	// This authenticator requires the cookie in order to authenticate any users.
+	if _, err := req.Cookie(ObotAccessTokenCookie); errors.Is(err, http.ErrNoCookie) {
 		return nil, false, nil
 	}
 
-	pm.lock.RLock()
-	cached, found := pm.tokenHashToProviderCache[tokenHash]
-	pm.lock.RUnlock()
-
-	if !found {
-		configuredProvider, err := pm.dispatcher.GetConfiguredAuthProvider(req.Context())
-		if err != nil {
-			return nil, false, err
-		}
-		if proxy, err := pm.createProxy(req.Context(), pm.gptClient, system.DefaultNamespace+"/"+configuredProvider); err == nil {
-			if resp, good, err := proxy.authenticateRequest(req); good && err == nil {
-				pm.lock.Lock()
-				pm.tokenHashToProviderCache[tokenHash] = cacheObject{
-					provider:  system.DefaultNamespace + "/" + configuredProvider,
-					createdAt: time.Now(),
-				}
-				pm.lock.Unlock()
-				return resp, true, nil
-			}
-		}
-
-		// No provider was found that recognized the user.
+	configuredProvider, err := pm.dispatcher.GetConfiguredAuthProvider(req.Context())
+	if err != nil {
+		return nil, false, err
+	} else if configuredProvider == "" {
+		// No provider is configured, but the user has a session cookie.
+		// Probably the old provider was deconfigured.
 		return nil, false, ErrInvalidSession
 	}
 
-	proxy, err := pm.createProxy(req.Context(), pm.gptClient, cached.provider)
+	proxy, err := pm.createProxy(req.Context(), pm.gptClient, system.DefaultNamespace+"/"+configuredProvider)
 	if err != nil {
 		return nil, false, err
 	}
@@ -344,7 +281,7 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		return nil, false, err
 	}
 
-	if stateResponse.StatusCode == http.StatusInternalServerError && strings.Contains(string(body), "record not found") {
+	if stateResponse.StatusCode == http.StatusInternalServerError && (strings.Contains(string(body), "record not found") || strings.Contains(string(body), "session ticket cookie failed validation")) {
 		return nil, false, ErrInvalidSession
 	}
 

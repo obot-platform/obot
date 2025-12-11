@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"net"
 	"os"
 	"path"
 	"regexp"
@@ -35,6 +36,7 @@ type dockerBackend struct {
 	containerEnv                  bool
 	network                       string
 	hostBaseURL                   string
+	hostBaseURLWithPort           string
 	containerizedBaseImage        string
 	webhookBaseImage              string
 	remoteShimBaseImage           string
@@ -42,7 +44,7 @@ type dockerBackend struct {
 	auditLogsFlushIntervalSeconds int
 }
 
-func newDockerBackend(ctx context.Context, opts Options) (backend, error) {
+func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backend, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Docker client: %w", err)
@@ -52,9 +54,14 @@ func newDockerBackend(ctx context.Context, opts Options) (backend, error) {
 	network := "bridge"
 	host := "host.docker.internal"
 	if containerEnv {
-		network, host, err = detectCurrentNetworkIPAndPort(ctx, cli)
+		network, host, err = detectContainerCurrentNetworkIP(ctx, cli)
 		if err != nil {
-			return nil, fmt.Errorf("failed to detect current network: %w", err)
+			return nil, fmt.Errorf("failed to detect current IP: %w", err)
+		}
+	} else if os.Getenv("OBOT_DOCKER_INTERNAL_IP_LOOKUP") == "true" {
+		host, err = detectCurrentLocalIP()
+		if err != nil {
+			return nil, fmt.Errorf("failed to detect current IP: %w", err)
 		}
 	}
 
@@ -63,6 +70,7 @@ func newDockerBackend(ctx context.Context, opts Options) (backend, error) {
 		containerEnv:                  containerEnv,
 		network:                       network,
 		hostBaseURL:                   "http://" + host,
+		hostBaseURLWithPort:           "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
 		containerizedBaseImage:        opts.MCPBaseImage,
 		webhookBaseImage:              opts.MCPHTTPWebhookBaseImage,
 		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
@@ -76,9 +84,9 @@ func newDockerBackend(ctx context.Context, opts Options) (backend, error) {
 	return d, nil
 }
 
-// detectCurrentNetworkIPAndPort detects the Docker network and IP of the current container if running inside one.
+// detectContainerCurrentNetworkIP detects the Docker network and IP of the current container if running inside one.
 // Returns empty string if not running in a container or if detection fails.
-func detectCurrentNetworkIPAndPort(ctx context.Context, cli *client.Client) (string, string, error) {
+func detectContainerCurrentNetworkIP(ctx context.Context, cli *client.Client) (string, string, error) {
 	// Read container ID from cgroup file
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -94,19 +102,27 @@ func detectCurrentNetworkIPAndPort(ctx context.Context, cli *client.Client) (str
 
 	// Get the first network (most containers are on a single network)
 	for networkName, networkSettings := range inspect.NetworkSettings.Networks {
-		var port string
-
-		// We need to find the port that is exposed from the container.
-		// This assumes there is only one port exposed, which is fine for now.
-		for k := range inspect.NetworkSettings.Ports {
-			port, _, _ = strings.Cut(string(k), "/")
-			port = ":" + port
-			break
-		}
-		return networkName, networkSettings.IPAddress + port, nil
+		return networkName, networkSettings.IPAddress, nil
 	}
 
 	return "bridge", "", nil
+}
+
+// detectCurrentLocalIP detects the local IP.
+func detectCurrentLocalIP() (string, error) {
+	// Use UDP dial to determine the source IP address that would be used to reach an external IP.
+	// This is equivalent to `ip route get 1.1.1.1` on Linux.
+	// No actual connection is made since UDP is connectionless.
+	conn, err := net.Dial("udp", "1.1.1.1:80")
+	if err != nil {
+		return "", fmt.Errorf("failed to determine local IP: %w", err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	ip := localAddr.IP.String()
+
+	return ip, nil
 }
 
 // cleanupContainersWithOldID removes containers with old ID and no config hash label.
@@ -164,7 +180,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	for i, webhook := range transformedWebhooks {
-		webhook.URL = localhostURLRegexp.ReplaceAllString(webhook.URL, d.hostBaseURL)
+		webhook.URL = strings.Replace(webhook.URL, "http://localhost", d.hostBaseURL, 1)
 
 		c, err := webhookToServerConfig(webhook, d.webhookBaseImage, server.MCPServerName, server.UserID, server.Scope, defaultContainerPort)
 		if err != nil {
@@ -200,7 +216,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 
 		server.MCPServerName += "-shim"
 	} else {
-		server.URL = localhostURLRegexp.ReplaceAllString(server.URL, d.hostBaseURL)
+		server.URL = strings.Replace(server.URL, "http://localhost", d.hostBaseURL, 1)
 	}
 
 	server, err = d.ensureDeployment(ctx, server, "", d.containerEnv, transformedWebhooks)
@@ -210,11 +226,11 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 }
 
 func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool, webhooks []Webhook) (ServerConfig, error) {
-	server.TokenExchangeEndpoint = localhostURLRegexp.ReplaceAllString(server.TokenExchangeEndpoint, d.hostBaseURL)
-	server.AuditLogEndpoint = localhostURLRegexp.ReplaceAllString(server.AuditLogEndpoint, d.hostBaseURL)
+	server.TokenExchangeEndpoint = localhostURLRegexp.ReplaceAllString(server.TokenExchangeEndpoint, d.hostBaseURLWithPort)
+	server.AuditLogEndpoint = localhostURLRegexp.ReplaceAllString(server.AuditLogEndpoint, d.hostBaseURLWithPort)
 
 	for i, component := range server.Components {
-		component.URL = localhostURLRegexp.ReplaceAllString(component.URL, d.hostBaseURL)
+		component.URL = strings.Replace(component.URL, "http://localhost", d.hostBaseURL, 1)
 		server.Components[i] = component
 	}
 

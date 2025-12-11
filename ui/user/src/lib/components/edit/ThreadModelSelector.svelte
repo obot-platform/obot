@@ -325,6 +325,7 @@
 			{#if allowedModels.length}
 				<div class="flex flex-col">
 					{#each (() => {
+						// eslint-disable-next-line svelte/prefer-svelte-reactivity
 						const modelsByProvider = new Map<string, string[]>();
 						allowedModels.forEach((modelId) => {
 							// Find model by ID since allowedModels contains model IDs
@@ -337,6 +338,14 @@
 								modelsByProvider.get(providerId)!.push(modelId);
 							}
 						});
+						if (defaultModel && defaultModelProvider) {
+							if (!modelsByProvider.has(defaultModelProvider)) {
+								modelsByProvider.set(defaultModelProvider, []);
+							}
+							if (!modelsByProvider.get(defaultModelProvider)!.includes(defaultModel)) {
+								modelsByProvider.get(defaultModelProvider)!.push(defaultModel);
+							}
+						}
 						return Array.from(modelsByProvider.entries());
 					})() as [providerId, modelIds] (providerId)}
 						{#if modelIds.length > 0}
@@ -363,37 +372,40 @@
 											(threadModel === modelId || threadModel === model?.name)}
 
 										{@const isDefaultModel =
-											defaultModelProvider === providerId && defaultModel === model?.name}
+											defaultModelProvider === providerId &&
+											(defaultModel === model?.name || defaultModel === modelId)}
 
-										{#if model}
-											<button
-												role="option"
-												aria-selected={isModelSelected}
-												class={twMerge(
-													'hover:bg-surface1/70 active:bg-surface1/80 focus:bg-surface1/70 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors duration-200 focus:outline-none',
-													isModelSelected &&
-														'text-primary bg-primary/10 hover:bg-primary/15 active:bg-primary/20'
-												)}
-												onclick={() => {
+										<button
+											role="option"
+											aria-selected={isModelSelected}
+											class={twMerge(
+												'hover:bg-surface1/70 active:bg-surface1/80 focus:bg-surface1/70 flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors duration-200 focus:outline-none',
+												isModelSelected &&
+													'text-primary bg-primary/10 hover:bg-primary/15 active:bg-primary/20'
+											)}
+											onclick={() => {
+												if (model) {
 													setThreadModel(model.id, '');
-												}}
-												tabindex="0"
-												data-provider={providerId}
-												data-model={modelId}
-											>
-												<div>
-													{model.name}
-												</div>
+												} else if (isDefaultModel) {
+													setThreadModel('', '');
+												}
+											}}
+											tabindex="0"
+											data-provider={providerId}
+											data-model={modelId}
+										>
+											<div>
+												{model?.name || modelId}
+											</div>
 
-												{#if isDefaultModel}
-													<Logo class={twMerge(' size-4', !isModelSelected && 'grayscale-100')} />
-												{/if}
+											{#if isDefaultModel}
+												<Logo class={twMerge(' size-4', !isModelSelected && 'grayscale-100')} />
+											{/if}
 
-												{#if threadModelProvider === providerId && threadModel === modelId}
-													<div class="text-primary ml-auto text-xs">✓</div>
-												{/if}
-											</button>
-										{/if}
+											{#if threadModelProvider === providerId && threadModel === modelId}
+												<div class="text-primary ml-auto text-xs">✓</div>
+											{/if}
+										</button>
 									{/each}
 								</div>
 							</div>

@@ -29,11 +29,11 @@
 	} from '$lib/services/chat/types';
 	import ThreadModelSelector from '$lib/components/edit/ThreadModelSelector.svelte';
 	import McpPrompts from './mcp/McpPrompts.svelte';
-	import { goto } from '$app/navigation';
 	import { HELPER_TEXTS } from '$lib/context/helperMode.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { browser } from '$app/environment';
+	import { goto } from '$lib/url';
 
 	interface Props {
 		id?: string;

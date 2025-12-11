@@ -57,7 +57,7 @@
 
 <dialog
 	bind:this={dialog}
-	class={twMerge('w-full max-w-2xl font-normal', !responsive.isMobile && 'p-4', klass)}
+	class={twMerge('w-full max-w-2xl font-normal', klass, 'p-0')}
 	class:mobile-screen-dialog={responsive.isMobile}
 	use:clickOutside={() => {
 		if (disableClickOutside) return;
@@ -69,7 +69,13 @@
 	}}
 	use:dialogAnimation={{ type: animate }}
 >
-	<div class={twMerge('flex h-full w-full flex-col', classes?.content ?? 'max-h-dvh min-h-fit')}>
+	<div
+		class={twMerge(
+			'flex h-full w-full flex-col',
+			!responsive.isMobile && 'p-4',
+			classes?.content ?? 'max-h-dvh min-h-fit'
+		)}
+	>
 		<div class="mb-4 flex flex-col gap-4">
 			<h3
 				class={twMerge('default-dialog-title', classes?.header)}

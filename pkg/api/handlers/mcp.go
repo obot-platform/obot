@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gptscript-ai/go-gptscript"
+	"github.com/gptscript-ai/gptscript/pkg/hash"
 	nmcp "github.com/nanobot-ai/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -1170,21 +1170,21 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id string) (v1.MCPServer
 	}
 }
 
-// MCPServerIDFromConnectURL returns the MCP server name based on the provided connect URL.
+// MCPIDAndAudienceFromConnectURL returns the MCP server or instance name and audience based on the provided connect URL.
 // The connect URL could have an MCP server ID, server instance ID, or MCP catalog entry ID.
-func MCPServerIDFromConnectURL(req api.Context, id string) (string, error) {
+func MCPIDAndAudienceFromConnectURL(req api.Context, id string) (string, string, error) {
 	server, instance, err := mcpServerOrInstanceFromConnectURL(req, id)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	switch {
 	case instance.Name != "":
-		return instance.Spec.MCPServerName, nil
+		return instance.Name, instance.Spec.MCPServerName, nil
 	case server.Name != "":
-		return server.Name, nil
+		return server.Name, id, nil
 	default:
-		return "", fmt.Errorf("unknown MCP server ID %s", id)
+		return "", "", fmt.Errorf("unknown MCP server ID %s", id)
 	}
 }
 
@@ -1994,6 +1994,8 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		}
 	}
 
+	// Hash the composite server's original manifest to determine if we should update it after processing the configuration request.
+	oldManifestHash := hash.Digest(compositeServer.Spec.Manifest)
 	for _, component := range componentServers.Items {
 		addExtractedEnvVars(&component)
 
@@ -2074,9 +2076,28 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 		}
 	}
 
-	// After processing all components, persist parent composite with updated enabled flags
-	if err := req.Update(&compositeServer); err != nil {
-		return fmt.Errorf("failed to update composite server enabled flags: %w", err)
+	if hash.Digest(compositeServer.Spec.Manifest) != oldManifestHash {
+		// The composite MCP server's manifest has changed due to component configuration changes. Update it.
+		if err := wait.ExponentialBackoff(retry.DefaultBackoff, func() (bool, error) {
+			var latest v1.MCPServer
+			if err := req.Get(&latest, compositeServer.Name); err != nil {
+				return false, err
+			}
+
+			if hash.Digest(latest.Spec.Manifest) != oldManifestHash {
+				return false, types.NewErrHTTP(http.StatusConflict, "manifest changed before configuration could finish")
+			}
+
+			latest.Spec.Manifest = compositeServer.Spec.Manifest
+			updateErr := req.Update(&latest)
+			if apierrors.IsConflict(updateErr) {
+				return false, nil
+			}
+
+			return updateErr == nil, updateErr
+		}); err != nil {
+			return fmt.Errorf("failed to update composite server enabled flags: %w", err)
+		}
 	}
 
 	slug, err := SlugForMCPServer(req.Context(), req.Storage, compositeServer, req.User.GetUID(), "", "")
@@ -2341,13 +2362,9 @@ func (m *MCPHandler) removeMCPServer(ctx context.Context, mcpServer v1.MCPServer
 }
 
 func (m *MCPHandler) removeMCPServerAndCred(ctx context.Context, gptClient *gptscript.GPTScript, mcpServer v1.MCPServer, credCtx []string) error {
-	cred, err := gptClient.RevealCredential(ctx, credCtx, mcpServer.Name)
-	if err != nil && !errors.As(err, &gptscript.ErrNotFound{}) {
-		return fmt.Errorf("failed to find credential: %w", err)
-	} else if err == nil {
-		if err = gptClient.DeleteCredential(ctx, cred.Context, mcpServer.Name); err != nil {
-			return fmt.Errorf("failed to remove existing credential: %w", err)
-		}
+	// Delete credential if it exists
+	if err := DeleteCredentialIfExists(ctx, gptClient, credCtx, mcpServer.Name); err != nil {
+		return err
 	}
 
 	// Shutdown the server, even if there is no credential
@@ -3388,85 +3405,13 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		}
 		return err
 	}
-	defer logs.Close()
 
-	// Set up Server-Sent Events headers
-	req.ResponseWriter.Header().Set("Content-Type", "text/event-stream")
-	req.ResponseWriter.Header().Set("Cache-Control", "no-cache")
-	req.ResponseWriter.Header().Set("Connection", "keep-alive")
-
-	flusher, shouldFlush := req.ResponseWriter.(http.Flusher)
-
-	// Send initial connection event
-	fmt.Fprintf(req.ResponseWriter, "event: connected\ndata: Log stream started\n\n")
-	if shouldFlush {
-		flusher.Flush()
-	}
-
-	// Channel to coordinate between goroutines
-	logChan := make(chan string, 100) // Buffered to prevent blocking
-
-	// Start a goroutine to read logs
-	go func() {
-		defer close(logChan)
-
-		scanner := bufio.NewScanner(logs)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line[0] == '\x01' || line[0] == '\x02' {
-				// Docker appends a header to each line of logs so that it knows where to send the log (stdout/stderr)
-				// and how long the log is. We don't need this information and it doesn't produce good output.
-				// See https://github.com/moby/moby/issues/7375#issuecomment-51462963
-				line = line[min(8, len(line)):]
-			}
-			select {
-			case <-req.Context().Done():
-				return
-			case logChan <- line:
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			// Send error event
-			select {
-			case logChan <- fmt.Sprintf("ERROR retrieving logs: %v", err):
-			case <-req.Context().Done():
-			}
-			return
-		}
-	}()
-
-	// Send log events as they come in
-	ticker := time.NewTicker(30 * time.Second) // Keep-alive ping
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-req.Context().Done():
-			fmt.Fprintf(req.ResponseWriter, "event: disconnected\ndata: Client disconnected\n\n")
-			if shouldFlush {
-				flusher.Flush()
-			}
-			return nil
-		case <-ticker.C:
-			// Send keep-alive ping
-			fmt.Fprintf(req.ResponseWriter, "event: ping\ndata: keep-alive\n\n")
-			if shouldFlush {
-				flusher.Flush()
-			}
-		case logLine, ok := <-logChan:
-			if !ok {
-				fmt.Fprintf(req.ResponseWriter, "event: ended\ndata: Log stream ended\n\n")
-				if shouldFlush {
-					flusher.Flush()
-				}
-				return nil
-			}
-			fmt.Fprintf(req.ResponseWriter, "event: log\ndata: %s\n\n", logLine)
-			if shouldFlush {
-				flusher.Flush()
-			}
-		}
-	}
+	// Stream logs using the helper (handles SSE formatting, Docker header stripping, etc.)
+	return StreamLogs(req.Context(), req.ResponseWriter, logs, StreamLogsOptions{
+		SendKeepAlive:  true,
+		SendDisconnect: true,
+		SendEnded:      true,
+	})
 }
 
 func (m *MCPHandler) UpdateURL(req api.Context) error {

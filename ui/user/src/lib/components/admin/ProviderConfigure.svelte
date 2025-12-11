@@ -24,6 +24,10 @@
 	let showRequired = $state(false);
 
 	function onOpen() {
+		// Reset state on each open
+		form = {};
+		showRequired = false;
+
 		if (provider) {
 			for (const param of provider.requiredConfigurationParameters ?? []) {
 				let value = values?.[param.name] ? values?.[param.name] : '';
@@ -46,6 +50,7 @@
 
 	function onClose() {
 		form = {};
+		showRequired = false;
 	}
 
 	export function open() {
@@ -92,8 +97,7 @@
 	bind:this={dialog}
 	{onClose}
 	{onOpen}
-	class="p-0"
-	classes={{ header: 'p-4 pb-0' }}
+	classes={{ header: 'p-4 pb-0', content: 'p-0' }}
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2 pb-0">

@@ -9,7 +9,7 @@
 	import { Eye, LoaderCircle, Plus, Server, Trash2 } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import BackLink from '$lib/components/BackLink.svelte';

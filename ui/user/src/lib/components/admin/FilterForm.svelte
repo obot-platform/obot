@@ -6,7 +6,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '../table/Table.svelte';
 	import Confirm from '../Confirm.svelte';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import {
 		getAdminMcpServerAndEntries,
@@ -379,7 +379,7 @@
 												id="identifier-{selectorIndex}-{identifierIndex}"
 												bind:value={selector.identifiers[identifierIndex]}
 												class="text-input-filled flex-1"
-												placeholder="e.g., tool name, resource URI"
+												placeholder="e.g.: tool name or resource URI"
 												disabled={readonly}
 											/>
 											{#if !readonly}

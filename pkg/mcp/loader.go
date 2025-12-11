@@ -28,7 +28,7 @@ var log = logger.Package()
 type Options struct {
 	MCPBaseImage            string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/phat:main"`
 	MCPHTTPWebhookBaseImage string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-converter:main"`
-	MCPRemoteShimBaseImage  string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/nanobot-ai/nanobot:v0.0.42"`
+	MCPRemoteShimBaseImage  string   `usage:"The base image to use for MCP remote shim containers" default:"ghcr.io/nanobot-ai/nanobot:v0.0.44"`
 	MCPNamespace            string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain        string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
 	DisallowLocalhostMCP    bool     `usage:"Allow MCP containers to run on localhost"`
@@ -77,12 +77,12 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL string, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, tokenService TokenService, baseURL string, httpListenPort int, opts Options, localK8sConfig *rest.Config, obotStorageClient storage.Client) (*SessionManager, error) {
 	var backend backend
 
 	switch opts.MCPRuntimeBackend {
 	case "docker":
-		dockerBackend, err := newDockerBackend(ctx, opts)
+		dockerBackend, err := newDockerBackend(ctx, httpListenPort, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize Docker backend: %w", err)
 		}

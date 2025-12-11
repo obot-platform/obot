@@ -183,7 +183,10 @@
 							>
 						</div>
 						<div class="flex items-center gap-2">
-							<a href={item.authURL} target="_blank" class="button-primary">Authenticate</a>
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
+							<a href={item.authURL} rel="external" target="_blank" class="button-primary"
+								>Authenticate</a
+							>
 							{#if enabledCount > 1}
 								<button
 									class="button-text"

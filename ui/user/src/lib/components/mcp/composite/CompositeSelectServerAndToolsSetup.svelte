@@ -383,13 +383,20 @@
 					{/if}
 				</div>
 				{#if oauthURL}
-					<a href={oauthURL} target="_blank" class="button-primary flex w-full justify-center">
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
+					<a
+						href={oauthURL}
+						rel="external"
+						target="_blank"
+						class="button-primary flex w-full justify-center"
+					>
 						{#if loading}
 							<LoaderCircle class="size-4 animate-spin" />
 						{:else}
 							Authenticate
 						{/if}
 					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				{:else}
 					<button
 						class="button-primary flex w-full justify-center"

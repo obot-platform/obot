@@ -43,8 +43,8 @@
 
 <ResponsiveDialog
 	bind:this={modelsDialog}
-	class="bg-surface1 dark:bg-background max-w-4xl p-0 pb-4"
-	classes={{ header: 'p-4 pb-0' }}
+	class="bg-surface1 dark:bg-background max-w-4xl"
+	classes={{ header: 'p-4 pb-0', content: 'p-0 pb-4' }}
 >
 	{#snippet titleContent()}
 		{#if darkMode.isDark}

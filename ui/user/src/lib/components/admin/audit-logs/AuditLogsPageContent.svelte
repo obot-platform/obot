@@ -7,7 +7,8 @@
 	import { debounce } from 'es-toolkit';
 	import { set, endOfDay, isBefore, subDays } from 'date-fns';
 	import { page } from '$app/state';
-	import { afterNavigate, goto, replaceState } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
+	import { goto, replaceState } from '$lib/url';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { type DateRange } from '$lib/components/Calendar.svelte';
 	import Search from '$lib/components/Search.svelte';
@@ -381,7 +382,7 @@
 			}
 		}
 
-		goto(url.toString(), { noScroll: true });
+		goto(url, { noScroll: true });
 		pageIndexLocal.current = 0;
 	}
 

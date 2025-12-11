@@ -81,10 +81,10 @@
 <ResponsiveDialog
 	bind:this={dialog}
 	class={twMerge(
-		'bg-surface1 dark:bg-surface2 h-full px-0 pb-0 transition-all',
+		'bg-surface1 dark:bg-surface2 h-full transition-all',
 		maximized ? 'h-dvh max-h-dvh w-full max-w-dvw' : 'max-h-[75vh] w-full max-w-2xl'
 	)}
-	classes={{ title: 'w-full justify-between', header: 'px-4' }}
+	classes={{ title: 'w-full justify-between', header: 'px-4', content: 'px-0 pb-0' }}
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
@@ -157,14 +157,16 @@
 			{#if call?.tool?.source?.location && call.tool.source.location !== 'inline'}
 				<div class="text-on-surface1 mb-2 text-sm">
 					Source:
+					<!-- eslint-disable svelte/no-navigation-without-resolve -- external URL -->
 					<a
 						href={call.tool.source.location}
 						target="_blank"
-						rel="noopener noreferrer"
+						rel="noopener noreferrer external"
 						class="text-link"
 					>
 						{call.tool.source.location}
 					</a>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				</div>
 			{/if}
 			<details open={expandAll}>

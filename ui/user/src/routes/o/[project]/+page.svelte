@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { afterNavigate, replaceState } from '$app/navigation';
+	import { afterNavigate } from '$app/navigation';
+	import { replaceState } from '$lib/url';
 	import Obot from '$lib/components/Obot.svelte';
 	import { getLayout, initLayout } from '$lib/context/chatLayout.svelte';
 	import { initToolReferences } from '$lib/context/toolReferences.svelte';
@@ -69,7 +70,7 @@
 			currentURL.searchParams.get('thread') !== currentThreadID
 		) {
 			currentURL.searchParams.set('thread', currentThreadID);
-			replaceState(currentURL.toString(), {});
+			replaceState(currentURL, {});
 		}
 	});
 

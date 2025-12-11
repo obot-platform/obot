@@ -2,7 +2,7 @@
 	import { profile } from '$lib/stores';
 	import { type PageProps } from './$types';
 	import { initLayout } from '$lib/context/chatLayout.svelte';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 
 	let { data }: PageProps = $props();
 	let project = $state(data.project);

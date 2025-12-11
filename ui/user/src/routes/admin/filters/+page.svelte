@@ -17,7 +17,7 @@
 	import { openUrl } from '$lib/utils';
 	import { profile } from '$lib/stores';
 	import Search from '$lib/components/Search.svelte';
-	import { replaceState } from '$app/navigation';
+	import { replaceState } from '$lib/url';
 	import { debounce } from 'es-toolkit';
 	import { page } from '$app/state';
 	import {

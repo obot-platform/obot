@@ -4,7 +4,7 @@
 	import { MenuIcon } from 'lucide-svelte';
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import Footer from '$lib/components/Footer.svelte';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import { twMerge } from 'tailwind-merge';
 	import { onMount } from 'svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';

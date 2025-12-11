@@ -23,6 +23,7 @@ const (
 	MCPSessionFinalizer        = "obot.obot.ai/mcp-session"
 	OAuthClientFinalizer       = "obot.obot.ai/oauth-client"
 	AccessControlRuleFinalizer = "obot.obot.ai/access-control-rule"
+	SystemMCPServerFinalizer   = "obot.obot.ai/system-mcp-server"
 
 	ModelProviderSyncAnnotation       = "obot.ai/model-provider-sync"
 	WorkflowSyncAnnotation            = "obot.ai/workflow-sync"

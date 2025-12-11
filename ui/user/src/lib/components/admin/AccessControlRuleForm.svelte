@@ -21,7 +21,7 @@
 	import Table from '../table/Table.svelte';
 	import SearchUsers from './SearchUsers.svelte';
 	import Confirm from '../Confirm.svelte';
-	import { goto } from '$app/navigation';
+	import { goto } from '$lib/url';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import type { PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
