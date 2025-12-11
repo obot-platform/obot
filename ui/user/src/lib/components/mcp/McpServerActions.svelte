@@ -374,7 +374,7 @@
 				Your server has been configured.
 			{/if}
 		</p>
-		<p class="mb-2 text-center">Would you like to go ahead and connect now?</p>
+		<p class="mb-2 text-center">Would you like to connect now?</p>
 		<div class="flex grow"></div>
 		<div class="flex flex-col gap-2">
 			<button class="button" onclick={() => launchDialog?.close()}>Skip</button>
