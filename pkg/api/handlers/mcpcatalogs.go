@@ -1164,12 +1164,20 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 		return fmt.Errorf("failed to generate tool preview: %w", err)
 	}
 
-	// Load the standalone catalog entry for shape / metadata and attach the preview.
-	var entry v1.MCPServerCatalogEntry
-	if err := req.Get(&entry, componentID); err != nil {
-		return fmt.Errorf("failed to get component catalog entry: %w", err)
+	// Return the tool previews on a skeleton entry
+	// We don't bother adding these to the real entry because:
+	// - it may no longer exist
+	// - we already have enough information to generate composite tool overrides for the component
+	entry := v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      component.CatalogEntryID,
+			Namespace: composite.Namespace,
+		},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName: composite.Spec.MCPCatalogName,
+			Manifest:       component.Manifest,
+		},
 	}
-
 	entry.Spec.Manifest.ToolPreview = toolPreviews
 
 	return req.Write(ConvertMCPServerCatalogEntry(entry))
