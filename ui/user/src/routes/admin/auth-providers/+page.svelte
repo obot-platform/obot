@@ -167,7 +167,7 @@
 	<div class="mb-4" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
 			{#if !atLeastOneConfigured}
-				<div class="notification-alert flex flex-col gap-2">
+				<div class="notification-alert mb-4 flex flex-col gap-2">
 					<div class="flex items-center gap-2">
 						<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">No Auth Providers Configured!</p>
