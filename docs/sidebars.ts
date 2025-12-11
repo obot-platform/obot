@@ -60,7 +60,9 @@ const sidebars = {
       label: "Configuration",
       items: [
         "configuration/server-configuration",
+        "configuration/app-preferences",
         "configuration/auth-providers",
+        "configuration/entra-id-authentication",
         "configuration/model-providers",
         "configuration/workspace-provider",
         {
@@ -96,6 +98,13 @@ const sidebars = {
       ],
     },
     "enterprise/overview",
+    {
+      type: "category",
+      label: "Contributing",
+      items: [
+        "contributing/upstream-merge-process",
+      ],
+    },
     "faq",
   ],
 };

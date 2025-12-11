@@ -1,4 +1,4 @@
-# Upstream Merge Verification Process
+# Upstream Merge Process
 
 This document describes the process for safely merging changes from the upstream `obot-platform/obot` repository into our fork `jrmatherly/obot-entraid`.
 
@@ -131,30 +131,45 @@ git commit -m "chore: merge upstream obot-platform/obot main"
 When merging upstream, ensure these customizations remain:
 
 ### Custom Auth Providers
-- `tools/entra-auth-provider/` - Microsoft Entra ID authentication
-- `tools/keycloak-auth-provider/` - Keycloak OIDC authentication
-- `tools/auth-providers-common/` - Shared auth provider utilities
-- `tools/placeholder-credential/` - Credential placeholder tool
-- `tools/index.yaml` - Custom tool registry
+
+| Path | Description |
+|------|-------------|
+| `tools/entra-auth-provider/` | Microsoft Entra ID authentication |
+| `tools/keycloak-auth-provider/` | Keycloak OIDC authentication |
+| `tools/auth-providers-common/` | Shared auth provider utilities |
+| `tools/placeholder-credential/` | Credential placeholder tool |
+| `tools/index.yaml` | Custom tool registry |
 
 ### Build Infrastructure
-- `Dockerfile` - Must merge upstream + custom tools into unified registry
-- `.github/workflows/docker-build-and-push.yml` - GHCR container publishing
-- `.github/workflows/helm.yml` - GHCR Helm chart publishing
+
+| Path | Description |
+|------|-------------|
+| `Dockerfile` | Must merge upstream + custom tools into unified registry |
+| `.github/workflows/docker-build-and-push.yml` | GHCR container publishing |
+| `.github/workflows/helm.yml` | GHCR Helm chart publishing |
 
 ### Helm Chart Customizations
-- `chart/Chart.yaml` - Our version numbering
-- `chart/values.yaml` - Custom defaults and MCP configuration
-- `chart/templates/deployment.yaml` - Health probe customizations
+
+| Path | Description |
+|------|-------------|
+| `chart/Chart.yaml` | Our version numbering |
+| `chart/values.yaml` | Custom defaults and MCP configuration |
+| `chart/templates/deployment.yaml` | Health probe customizations |
 
 ### Documentation
-- `docs/ENTRA_ID_IMPLEMENTATION_SPEC.md` - Entra ID implementation details
-- `tools/README.md` - Auth provider documentation
-- `tools/keycloak-auth-provider/KEYCLOAK_SETUP.md` - Keycloak setup guide
+
+| Path | Description |
+|------|-------------|
+| `docs/ENTRA_ID_IMPLEMENTATION_SPEC.md` | Entra ID implementation details |
+| `tools/README.md` | Auth provider documentation |
+| `tools/keycloak-auth-provider/KEYCLOAK_SETUP.md` | Keycloak setup guide |
 
 ### UI Customizations
-- `ui/user/src/lib/components/navbar/Profile.svelte` - Profile picture handling
-- `ui/user/src/routes/admin/auth-providers/+page.svelte` - Auth provider UI
+
+| Path | Description |
+|------|-------------|
+| `ui/user/src/lib/components/navbar/Profile.svelte` | Profile picture handling |
+| `ui/user/src/routes/admin/auth-providers/+page.svelte` | Auth provider UI |
 
 ## Quick Reference Commands
 
@@ -230,3 +245,12 @@ docker build -t obot-entraid:test .
 docker run --rm obot-entraid:test ls -la /obot-tools/tools/
 docker run --rm obot-entraid:test cat /obot-tools/tools/index.yaml
 ```
+
+## Automation Considerations
+
+For frequent upstream syncs, consider:
+
+1. **Scheduled checks**: GitHub Actions workflow to check for upstream updates weekly
+2. **Automated dry-run**: CI job that tests merge compatibility
+3. **Notification**: Alert when new upstream releases are available
+4. **Changelog comparison**: Automated diff of release notes
