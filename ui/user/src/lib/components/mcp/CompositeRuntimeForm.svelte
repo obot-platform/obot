@@ -19,7 +19,6 @@
 	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import CompositeToolsSetup from './composite/CompositeSelectServerAndToolsSetup.svelte';
 	import { slide } from 'svelte/transition';
-	import CompositeEditTools from './composite/CompositeEditTools.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import Toggle from '../Toggle.svelte';
 
@@ -42,11 +41,12 @@
 	let toolsByEntry = $state<Record<string, CompositeServerToolRow[]>>({});
 	let populatedByEntry = $state<Record<string, boolean>>({});
 	let loadingByEntry = $state<Record<string, boolean>>({});
-	let toolsToEdit = $state<CompositeServerToolRow[]>([]);
 	let configuringComponentId = $state<string | undefined>();
+	let configuringIsNewComponent = $state<boolean>(false);
+	// Track the initial component IDs that were loaded from the API (persisted components)
+	let initialComponentIds = $state<Set<string>>(new Set());
 
 	let compositeToolsSetupDialog = $state<ReturnType<typeof CompositeToolsSetup>>();
-	let editCurrentToolsDialog = $state<ReturnType<typeof CompositeEditTools>>();
 
 	const excluded = $derived([
 		...(config?.componentServers ?? []).map((c) => getComponentId(c)),
@@ -85,6 +85,12 @@
 			isCatalogEntry: true,
 			needsUpdate: false
 		};
+	}
+
+	// Check if a component is newly added (not yet persisted to the composite entry)
+	function isComponentNew(componentId: string): boolean {
+		// A component is new if it wasn't part of the initial loaded state
+		return !initialComponentIds.has(componentId);
 	}
 
 	// Pre-populate toolsByEntry from existing toolOverrides in config
@@ -178,6 +184,8 @@
 	}
 
 	onMount(() => {
+		// Capture the initial component IDs on first mount before any user interactions
+		initialComponentIds = new Set((config?.componentServers || []).map((c) => getComponentId(c)));
 		loadComponentEntries();
 	});
 
@@ -253,6 +261,7 @@
 											if (!entry) return;
 											configuringEntry = entry;
 											configuringComponentId = componentId;
+											configuringIsNewComponent = isComponentNew(componentId);
 											compositeToolsSetupDialog?.open();
 										}}
 									>
@@ -389,6 +398,7 @@
 			onclick={() => {
 				configuringEntry = undefined;
 				configuringComponentId = undefined;
+				configuringIsNewComponent = false;
 				compositeToolsSetupDialog?.open();
 			}}
 			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 bg-background flex items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-sm font-medium hover:bg-gray-50"
@@ -406,6 +416,7 @@
 	{configuringEntry}
 	compositeEntryId={id}
 	componentId={configuringComponentId}
+	isNewComponent={configuringIsNewComponent}
 	onCancel={() => {
 		configuringEntry = undefined;
 	}}
@@ -441,42 +452,4 @@
 		}
 	}}
 	{excluded}
-/>
-
-<CompositeEditTools
-	bind:this={editCurrentToolsDialog}
-	{configuringEntry}
-	tools={toolsToEdit}
-	onSuccess={() => {
-		if (!configuringEntry) return;
-		config.componentServers = config.componentServers.map((c) => {
-			const id = getComponentId(c);
-			if (c.mcpServerID === id || c.catalogEntryID === id) {
-				return {
-					...c,
-					toolOverrides: toolsToEdit.map((t) => {
-						const baseName = t.originalName;
-						const baseDescription = t.description || '';
-
-						const editedName = (t.overrideName || '').trim();
-						const editedDescription = (t.overrideDescription || '').trim();
-
-						return {
-							name: baseName,
-							// Persist the description snapshot for display in future edits.
-							description: baseDescription,
-							// Only store an override name if it differs from the original.
-							overrideName: editedName && editedName !== baseName ? editedName : '',
-							// Only store an override description if it differs from the original snapshot.
-							overrideDescription:
-								editedDescription && editedDescription !== baseDescription ? editedDescription : '',
-							enabled: t.enabled
-						};
-					})
-				};
-			}
-			return c;
-		}) as unknown as typeof config.componentServers;
-		toolsByEntry[configuringEntry.id] = toolsToEdit;
-	}}
 />
