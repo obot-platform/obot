@@ -365,6 +365,22 @@ func defaultRules(devMode bool, registryNoAuth bool) []rule {
 	registryRule.mux.Handle("GET /v0.1/", f)
 	rules = append(rules, registryRule)
 
+	// Per-ACR registry follows the same auth mode as root registry
+	var acrRegistryRule rule
+	if registryNoAuth {
+		acrRegistryRule = rule{
+			group: anyGroup,
+			mux:   http.NewServeMux(),
+		}
+	} else {
+		acrRegistryRule = rule{
+			group: types.GroupBasic,
+			mux:   http.NewServeMux(),
+		}
+	}
+	acrRegistryRule.mux.Handle("GET /mcp-registry/", f)
+	rules = append(rules, acrRegistryRule)
+
 	if devMode {
 		for group := range devModeRules {
 			rule := rule{
