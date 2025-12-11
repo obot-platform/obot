@@ -30,14 +30,11 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/runs"
 	"github.com/obot-platform/obot/pkg/controller/handlers/runstates"
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
-	"github.com/obot-platform/obot/pkg/controller/handlers/slackreceiver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
-	"github.com/obot-platform/obot/pkg/controller/handlers/task"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threads"
 	"github.com/obot-platform/obot/pkg/controller/handlers/threadshare"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolinfo"
 	"github.com/obot-platform/obot/pkg/controller/handlers/toolreference"
-	"github.com/obot-platform/obot/pkg/controller/handlers/webhook"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflow"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflowexecution"
 	"github.com/obot-platform/obot/pkg/controller/handlers/workflowstep"
@@ -62,7 +59,6 @@ func (c *Controller) setupRoutes() {
 	knowledgesource := knowledgesource.NewHandler(c.services.Invoker, c.services.GPTClient)
 	knowledgefile := knowledgefile.New(c.services.Invoker, c.services.GPTClient, c.services.KnowledgeSetIngestionLimit)
 	runs := runs.New(c.services.Invoker, c.services.Router.Backend(), c.services.GatewayClient, c.services.GPTClient)
-	webHooks := webhook.New()
 	cronJobs := cronjob.New()
 	oauthLogins := oauthapp.NewLogin(c.services.Invoker, c.services.GPTClient, c.services.ServerURL)
 	knowledgesummary := knowledgesummary.NewHandler(c.services.GPTClient)
@@ -72,9 +68,6 @@ func (c *Controller) setupRoutes() {
 	projects := projects.NewHandler()
 	runstates := runstates.NewHandler(c.services.GatewayClient)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
-	discord := workflow.NewDiscordController(c.services.GPTClient)
-	taskHandler := task.NewHandler()
-	slackReceiverHandler := slackreceiver.NewHandler(c.services.GPTClient, c.services.StorageClient)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpSession := mcpsession.New(c.services.GPTClient)
 	mcpserver := mcpserver.New(c.services.GPTClient, c.services.ServerURL)
@@ -118,8 +111,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.Thread{}).HandlerFunc(threads.EnsureUpgradeAvailable)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.EnsureLatestConfigRevision)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.SetCreated)
-	root.Type(&v1.Thread{}).HandlerFunc(threads.SlackCapability)
-	root.Type(&v1.Thread{}).HandlerFunc(taskHandler.HandleTaskCreationForCapabilities)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.EnsureTemplateThreadShare)
 	root.Type(&v1.Thread{}).HandlerFunc(threads.RemoveOldFinalizers)
 	root.Type(&v1.Thread{}).FinalizeFunc(v1.ThreadFinalizer, credentialCleanup.Remove)
@@ -132,7 +123,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.Workflow{}).HandlerFunc(threads.EnsureShared)
 	root.Type(&v1.Workflow{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.Workflow{}).FinalizeFunc(v1.WorkflowFinalizer, credentialCleanup.Remove)
-	root.Type(&v1.Workflow{}).HandlerFunc(discord.SubscribeToDiscord)
 
 	// WorkflowExecutions
 	root.Type(&v1.WorkflowExecution{}).HandlerFunc(cleanup.Cleanup)
@@ -160,11 +150,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.Populate)
 	root.Type(&v1.ToolReference{}).HandlerFunc(toolRef.BackPopulateModels)
 	root.Type(&v1.ToolReference{}).FinalizeFunc(v1.ToolReferenceFinalizer, toolRef.CleanupModelProvider)
-
-	// EmailReceivers
-	root.Type(&v1.EmailReceiver{}).HandlerFunc(alias.AssignAlias)
-	root.Type(&v1.EmailReceiver{}).HandlerFunc(generationed.UpdateObservedGeneration)
-	root.Type(&v1.EmailReceiver{}).HandlerFunc(cleanup.Cleanup)
 
 	// Models
 	root.Type(&v1.Model{}).HandlerFunc(alias.AssignAlias)
@@ -194,12 +179,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.CreateWorkspace)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.CheckHasContent)
 	root.Type(&v1.KnowledgeSet{}).HandlerFunc(knowledgeset.SetEmbeddingModel)
-
-	// Webhooks
-	root.Type(&v1.Webhook{}).HandlerFunc(alias.AssignAlias)
-	root.Type(&v1.Webhook{}).HandlerFunc(webHooks.SetSuccessRunTime)
-	root.Type(&v1.Webhook{}).HandlerFunc(generationed.UpdateObservedGeneration)
-	root.Type(&v1.Webhook{}).HandlerFunc(cleanup.Cleanup)
 
 	// Cronjobs
 	root.Type(&v1.CronJob{}).HandlerFunc(cronJobs.SetSuccessRunTime)
@@ -232,15 +211,6 @@ func (c *Controller) setupRoutes() {
 
 	// Tools
 	root.Type(&v1.Tool{}).HandlerFunc(cleanup.Cleanup)
-
-	// SlackReceiver
-	root.Type(&v1.SlackReceiver{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.SlackReceiver{}).HandlerFunc(slackreceiver.CreateOAuthApp)
-	root.Type(&v1.SlackReceiver{}).HandlerFunc(slackReceiverHandler.SubscribeToSlackEvents)
-	root.Type(&v1.SlackReceiver{}).FinalizeFunc(v1.SlackReceiverFinalizer, slackReceiverHandler.UnsubscribeFromSlackEvents)
-
-	// SlackTrigger
-	root.Type(&v1.SlackTrigger{}).HandlerFunc(cleanup.Cleanup)
 
 	// User Cleanup
 	root.Type(&v1.UserDelete{}).HandlerFunc(userCleanup.Cleanup)

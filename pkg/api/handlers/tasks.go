@@ -20,7 +20,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -478,32 +477,11 @@ func (t *TaskHandler) UpdateFromScope(req api.Context) error {
 
 type triggers struct {
 	CronJob *v1.CronJob
-	Webhook *v1.Webhook
-	Email   *v1.EmailReceiver
 }
 
 func validate(task types.TaskManifest) error {
-	var count int
-	if task.Schedule != nil {
-		count++
-	}
-	if task.Webhook != nil {
-		count++
-	}
-	if task.Email != nil {
-		count++
-	}
-	if task.OnDemand != nil {
-		count++
-	}
-	if task.OnSlackMessage != nil {
-		count++
-	}
-	if task.OnDiscordMessage != nil {
-		count++
-	}
-	if count > 1 {
-		return types.NewErrBadRequest("only one trigger is allowed, schedule, webhook, onDemand, onSlackMessage, or email")
+	if task.Schedule != nil && task.OnDemand != nil {
+		return types.NewErrBadRequest("only one trigger is allowed, schedule or onDemand")
 	}
 	return nil
 }
@@ -519,99 +497,7 @@ func (t *TaskHandler) updateTrigger(req api.Context, workflow *v1.Workflow, task
 		return nil, err
 	}
 
-	if err := t.updateWebhook(req, workflow, task, &trigger); err != nil {
-		return nil, err
-	}
-
-	if err := t.updateEmail(req, workflow, task, &trigger); err != nil {
-		return nil, err
-	}
-
-	if err := t.updateSlack(req, workflow, task); err != nil {
-		return nil, err
-	}
-
-	if err := t.updateDiscord(req, workflow, task); err != nil {
-		return nil, err
-	}
-
 	return &trigger, nil
-}
-
-func (t *TaskHandler) updateEmail(req api.Context, workflow *v1.Workflow, task types.TaskManifest, trigger *triggers) error {
-	emailName := name.SafeHashConcatName(system.EmailReceiverPrefix, workflow.Name)
-
-	var email v1.EmailReceiver
-	if err := req.Get(&email, emailName); kclient.IgnoreNotFound(err) != nil {
-		return err
-	}
-
-	if task.Email == nil {
-		if email.Name != "" {
-			return req.Delete(&email)
-		}
-		return nil
-	}
-
-	if email.Name == "" {
-		email = v1.EmailReceiver{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      emailName,
-				Namespace: req.Namespace(),
-			},
-			Spec: v1.EmailReceiverSpec{
-				EmailReceiverManifest: types.EmailReceiverManifest{
-					Alias:        workflow.Spec.Manifest.Alias,
-					WorkflowName: workflow.Name,
-				},
-				ThreadName: workflow.Spec.ThreadName,
-			},
-		}
-		if err := req.Create(&email); err != nil {
-			return err
-		}
-	}
-
-	trigger.Email = &email
-	return nil
-}
-
-func (t *TaskHandler) updateWebhook(req api.Context, workflow *v1.Workflow, task types.TaskManifest, trigger *triggers) error {
-	webhookName := name.SafeHashConcatName(system.WebhookPrefix, workflow.Name)
-
-	var webhook v1.Webhook
-	if err := req.Get(&webhook, webhookName); kclient.IgnoreNotFound(err) != nil {
-		return err
-	}
-
-	if task.Webhook == nil {
-		if webhook.Name != "" {
-			return req.Delete(&webhook)
-		}
-		return nil
-	}
-
-	if webhook.Name == "" {
-		webhook = v1.Webhook{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      webhookName,
-				Namespace: req.Namespace(),
-			},
-			Spec: v1.WebhookSpec{
-				WebhookManifest: types.WebhookManifest{
-					Alias:        workflow.Spec.Manifest.Alias,
-					WorkflowName: workflow.Name,
-				},
-				ThreadName: workflow.Spec.ThreadName,
-			},
-		}
-		if err := req.Create(&webhook); err != nil {
-			return err
-		}
-	}
-
-	trigger.Webhook = &webhook
-	return nil
 }
 
 func (t *TaskHandler) updateCron(req api.Context, workflow *v1.Workflow, task types.TaskManifest, trigger *triggers) error {
@@ -657,34 +543,6 @@ func (t *TaskHandler) updateCron(req api.Context, workflow *v1.Workflow, task ty
 	}
 
 	return nil
-}
-
-func (t *TaskHandler) updateSlack(req api.Context, workflow *v1.Workflow, task types.TaskManifest) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := req.Storage.Get(req.Context(), kclient.ObjectKeyFromObject(workflow), workflow); err != nil {
-			return err
-		}
-		if task.OnSlackMessage == nil {
-			workflow.Spec.Manifest.OnSlackMessage = nil
-		} else {
-			workflow.Spec.Manifest.OnSlackMessage = &types.TaskOnSlackMessage{}
-		}
-		return req.Update(workflow)
-	})
-}
-
-func (t *TaskHandler) updateDiscord(req api.Context, workflow *v1.Workflow, task types.TaskManifest) error {
-	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := req.Storage.Get(req.Context(), kclient.ObjectKeyFromObject(workflow), workflow); err != nil {
-			return err
-		}
-		if task.OnDiscordMessage == nil {
-			workflow.Spec.Manifest.OnDiscordMessage = nil
-		} else {
-			workflow.Spec.Manifest.OnDiscordMessage = &types.TaskOnDiscordMessage{}
-		}
-		return req.Update(workflow)
-	})
 }
 
 func (t *TaskHandler) getThreadAndManifestFromRequest(req api.Context) (*v1.Thread, types.WorkflowManifest, types.TaskManifest, error) {
@@ -763,11 +621,10 @@ func (t *TaskHandler) CreateFromScope(req api.Context) error {
 
 func ToWorkflowManifest(manifest types.TaskManifest) types.WorkflowManifest {
 	return types.WorkflowManifest{
-		Name:           manifest.Name,
-		Description:    manifest.Description,
-		Steps:          toWorkflowSteps(manifest.Steps),
-		Params:         toParams(manifest),
-		OnSlackMessage: manifest.OnSlackMessage,
+		Name:        manifest.Name,
+		Description: manifest.Description,
+		Steps:       toWorkflowSteps(manifest.Steps),
+		Params:      toParams(manifest),
 	}
 }
 
@@ -810,20 +667,8 @@ func (t *TaskHandler) get(req api.Context, workflow *v1.Workflow) error {
 		return err
 	}
 
-	var webhook v1.Webhook
-	if err := req.Get(&webhook, name.SafeHashConcatName(system.WebhookPrefix, workflow.Name)); kclient.IgnoreNotFound(err) != nil {
-		return err
-	}
-
-	var email v1.EmailReceiver
-	if err := req.Get(&email, name.SafeHashConcatName(system.EmailReceiverPrefix, workflow.Name)); kclient.IgnoreNotFound(err) != nil {
-		return err
-	}
-
 	return req.Write(convertTask(*workflow, &triggers{
 		CronJob: &cron,
-		Webhook: &webhook,
-		Email:   &email,
 	}))
 }
 
@@ -950,26 +795,6 @@ func (t *TaskHandler) list(req api.Context, thread *v1.Thread) error {
 		cronMap[crons.Items[i].Name] = &crons.Items[i]
 	}
 
-	var webhooks v1.WebhookList
-	if err := req.List(&webhooks, selector); err != nil {
-		return err
-	}
-
-	webhookMap := make(map[string]*v1.Webhook, len(webhooks.Items))
-	for i := range webhooks.Items {
-		webhookMap[webhooks.Items[i].Name] = &webhooks.Items[i]
-	}
-
-	var emailReceivers v1.EmailReceiverList
-	if err := req.List(&emailReceivers, selector); err != nil {
-		return err
-	}
-
-	emailReceiverMap := make(map[string]*v1.EmailReceiver, len(emailReceivers.Items))
-	for i := range emailReceivers.Items {
-		emailReceiverMap[emailReceivers.Items[i].Name] = &emailReceivers.Items[i]
-	}
-
 	var workflows v1.WorkflowList
 	if err := req.List(&workflows, selector); err != nil {
 		return err
@@ -985,8 +810,6 @@ func (t *TaskHandler) list(req api.Context, thread *v1.Thread) error {
 
 		taskList.Items = append(taskList.Items, convertTask(workflow, &triggers{
 			CronJob: cronMap[name.SafeHashConcatName(system.CronJobPrefix, workflow.Name)],
-			Webhook: webhookMap[name.SafeHashConcatName(system.WebhookPrefix, workflow.Name)],
-			Email:   emailReceiverMap[name.SafeHashConcatName(system.EmailReceiverPrefix, workflow.Name)],
 		}))
 	}
 
@@ -998,11 +821,9 @@ func ConvertTaskManifest(manifest *types.WorkflowManifest) types.TaskManifest {
 		return types.TaskManifest{}
 	}
 	return types.TaskManifest{
-		Name:             manifest.Name,
-		Description:      manifest.Description,
-		Steps:            toTaskSteps(manifest.Steps),
-		OnSlackMessage:   manifest.OnSlackMessage,
-		OnDiscordMessage: manifest.OnDiscordMessage,
+		Name:        manifest.Name,
+		Description: manifest.Description,
+		Steps:       toTaskSteps(manifest.Steps),
 	}
 }
 
@@ -1016,12 +837,6 @@ func convertTask(workflow v1.Workflow, trigger *triggers) types.Task {
 	}
 	if trigger != nil && trigger.CronJob != nil && trigger.CronJob.Name != "" {
 		task.Schedule = trigger.CronJob.Spec.TaskSchedule
-	}
-	if trigger != nil && trigger.Webhook != nil && trigger.Webhook.Name != "" {
-		task.Webhook = &types.TaskWebhook{}
-	}
-	if trigger != nil && trigger.Email != nil && trigger.Email.Name != "" {
-		task.Email = &types.TaskEmail{}
 	}
 	if len(workflow.Spec.Manifest.Params) > 0 {
 		task.OnDemand = &types.TaskOnDemand{

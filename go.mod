@@ -34,7 +34,6 @@ require (
 	github.com/gptscript-ai/gptscript v0.9.7
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
-	github.com/mhale/smtpd v0.8.3
 	github.com/moby/moby/api v1.52.0-alpha.1
 	github.com/moby/moby/client v0.1.0-alpha.0
 	github.com/modelcontextprotocol/go-sdk v0.2.0
@@ -50,9 +49,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/pterm/pterm v0.12.80
 	github.com/rs/cors v1.11.1
-	github.com/sendgrid/sendgrid-go v3.16.0+incompatible
 	github.com/sethvargo/go-limiter v1.0.0
-	github.com/slack-go/slack v0.17.1
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.18.0
@@ -84,6 +81,8 @@ require (
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/yaml v1.6.0
 )
+
+require github.com/go-test/deep v1.1.1 // indirect
 
 require (
 	atomicgo.dev/cursor v0.2.0 // indirect
@@ -134,7 +133,6 @@ require (
 	github.com/bodgit/sevenzip v1.6.1 // indirect
 	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/bombsimon/logrusr/v4 v4.1.0 // indirect
-	github.com/bwmarrin/discordgo v0.28.1
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
