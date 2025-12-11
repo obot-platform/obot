@@ -36,6 +36,7 @@ type dockerBackend struct {
 	containerEnv                  bool
 	network                       string
 	hostBaseURL                   string
+	hostBaseURLWithPort           string
 	containerizedBaseImage        string
 	webhookBaseImage              string
 	remoteShimBaseImage           string
@@ -63,13 +64,13 @@ func newDockerBackend(ctx context.Context, exposedPort int, opts Options) (backe
 			return nil, fmt.Errorf("failed to detect current IP: %w", err)
 		}
 	}
-	host = fmt.Sprintf("%s:%d", host, exposedPort)
 
 	d := &dockerBackend{
 		client:                        cli,
 		containerEnv:                  containerEnv,
 		network:                       network,
 		hostBaseURL:                   "http://" + host,
+		hostBaseURLWithPort:           "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
 		containerizedBaseImage:        opts.MCPBaseImage,
 		webhookBaseImage:              opts.MCPHTTPWebhookBaseImage,
 		remoteShimBaseImage:           opts.MCPRemoteShimBaseImage,
@@ -179,7 +180,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 	}
 
 	for i, webhook := range transformedWebhooks {
-		webhook.URL = localhostURLRegexp.ReplaceAllString(webhook.URL, d.hostBaseURL)
+		webhook.URL = strings.Replace(webhook.URL, "http://localhost", d.hostBaseURL, 1)
 
 		c, err := webhookToServerConfig(webhook, d.webhookBaseImage, server.MCPServerName, server.UserID, server.Scope, defaultContainerPort)
 		if err != nil {
@@ -215,7 +216,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 
 		server.MCPServerName += "-shim"
 	} else {
-		server.URL = localhostURLRegexp.ReplaceAllString(server.URL, d.hostBaseURL)
+		server.URL = strings.Replace(server.URL, "http://localhost", d.hostBaseURL, 1)
 	}
 
 	server, err = d.ensureDeployment(ctx, server, "", d.containerEnv, transformedWebhooks)
@@ -225,11 +226,11 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 }
 
 func (d *dockerBackend) ensureDeployment(ctx context.Context, server ServerConfig, mcpServerName string, containerEnv bool, webhooks []Webhook) (ServerConfig, error) {
-	server.TokenExchangeEndpoint = localhostURLRegexp.ReplaceAllString(server.TokenExchangeEndpoint, d.hostBaseURL)
-	server.AuditLogEndpoint = localhostURLRegexp.ReplaceAllString(server.AuditLogEndpoint, d.hostBaseURL)
+	server.TokenExchangeEndpoint = localhostURLRegexp.ReplaceAllString(server.TokenExchangeEndpoint, d.hostBaseURLWithPort)
+	server.AuditLogEndpoint = localhostURLRegexp.ReplaceAllString(server.AuditLogEndpoint, d.hostBaseURLWithPort)
 
 	for i, component := range server.Components {
-		component.URL = localhostURLRegexp.ReplaceAllString(component.URL, d.hostBaseURL)
+		component.URL = strings.Replace(component.URL, "http://localhost", d.hostBaseURL, 1)
 		server.Components[i] = component
 	}
 
