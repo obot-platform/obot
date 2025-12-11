@@ -150,8 +150,8 @@
 			options?.componentId && options?.compositeEntryId && !isNewComponent
 				? await AdminService.generateMcpCompositeComponentToolPreviews(
 						catalogId,
-						options!.compositeEntryId!,
-						options!.componentId!,
+						options.compositeEntryId,
+						options.componentId,
 						body,
 						{ dryRun: true }
 					)
@@ -216,9 +216,9 @@
 				const isCatalogEntry = 'isCatalogEntry' in configuringEntry;
 				if (isCatalogEntry && compositeEntryId && componentId && !isNewComponent) {
 					const oauthResponse = await AdminService.getMcpCompositeComponentToolPreviewsOauth(
-						catalogId!,
-						compositeEntryId!,
-						componentId!,
+						catalogId,
+						compositeEntryId,
+						componentId,
 						body,
 						{
 							dryRun: true
@@ -228,7 +228,7 @@
 					oauthURL = oauthResponse || '';
 				} else {
 					const oauthResponse = await AdminService.getMcpCatalogToolPreviewsOauth(
-						catalogId!,
+						catalogId,
 						configuringEntry.id,
 						body,
 						{
