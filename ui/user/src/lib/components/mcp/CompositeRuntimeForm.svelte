@@ -59,15 +59,26 @@
 	}
 
 	// Build a configuring entry backed by the composite's manifest snapshot when
-	// configuring tools for an existing catalog-entry-based component.
-	function buildCompositeConfiguringEntry(componentId: string): MCPCatalogEntry | undefined {
+	// configuring tools for an existing entry
+	function buildCompositeConfiguringEntry(
+		componentId: string
+	): MCPCatalogEntry | MCPCatalogServer | undefined {
 		const component = config.componentServers?.find((c) => getComponentId(c) === componentId);
-		if (!component || !component.catalogEntryID || !component.manifest) return undefined;
+		if (!component || !component.manifest || (!component.catalogEntryID && !component.mcpServerID))
+			return undefined;
 
-		const metadataEntry = componentEntries.find((e) => e.id === componentId);
-		if (metadataEntry) {
+		if (component.mcpServerID) {
+			// This is a multi-user server, we should always use the live value since they should always exist
+			const catalogServer = componentServers.get(component.mcpServerID);
+			if (catalogServer) return catalogServer;
+
+			throw new Error(`Catalog server not found for ID: ${component.mcpServerID}`);
+		}
+
+		const catalogEntry = componentEntries.find((e) => e.id === componentId);
+		if (catalogEntry) {
 			return {
-				...metadataEntry,
+				...catalogEntry,
 				manifest: component.manifest
 			};
 		}
@@ -80,9 +91,7 @@
 			sourceURL: undefined,
 			userCount: undefined,
 			type: 'catalog-entry',
-			powerUserID: undefined,
-			powerUserWorkspaceID: undefined,
-			isCatalogEntry: true,
+			isCatalogEntry: !component.mcpServerID,
 			needsUpdate: false
 		};
 	}
@@ -257,8 +266,8 @@
 										disabled={loadingByEntry[componentId]}
 										onclick={async () => {
 											if (readonly) return;
+
 											const entry = buildCompositeConfiguringEntry(componentId);
-											if (!entry) return;
 											configuringEntry = entry;
 											configuringComponentId = componentId;
 											configuringIsNewComponent = isComponentNew(componentId);
