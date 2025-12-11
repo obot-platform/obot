@@ -105,7 +105,6 @@
 							toolOverrides: []
 						} as CatalogComponentServer);
 			initConfigureToolsDialog?.open();
-			handleConfigureToolsInit();
 		} else {
 			searchDialog?.open();
 		}
@@ -123,10 +122,6 @@
 
 	async function handleConfigureToolsInit() {
 		if (!configuringEntry) return;
-
-		if (presetConfiguringEntry) {
-			initConfigureToolsDialog?.close();
-		}
 
 		if ('isCatalogEntry' in configuringEntry && hasEditableConfiguration(configuringEntry)) {
 			choiceDialog?.close();
@@ -470,8 +465,8 @@
 		if (!configuringEntry) return;
 		const configValues = convertEnvHeadersToRecord(configureForm?.envs, configureForm?.headers);
 		await runPreview({ config: configValues, url: configureForm?.url });
-		// Only proceed if there was no error
 		if (!error) {
+			// Keep the dialog open to display the error
 			configDialog?.close();
 			modifyToolsDialog?.open();
 		}
