@@ -39,6 +39,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderManifest":                           schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuthProviderStatus":                             schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.AzureConfig":                                    schema_obot_platform_obot_apiclient_types_AzureConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.BrandingPreferences":                            schema_obot_platform_obot_apiclient_types_BrandingPreferences(ref),
 		"github.com/obot-platform/obot/apiclient/types.CatalogComponentServer":                         schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.ClientInfo":                                     schema_obot_platform_obot_apiclient_types_ClientInfo(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata":                         schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref),
@@ -1162,6 +1163,12 @@ func schema_obot_platform_obot_apiclient_types_AppPreferences(ref common.Referen
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ThemePreferences"),
 						},
 					},
+					"branding": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.BrandingPreferences"),
+						},
+					},
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -1172,7 +1179,7 @@ func schema_obot_platform_obot_apiclient_types_AppPreferences(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LogoPreferences", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ThemePreferences"},
+			"github.com/obot-platform/obot/apiclient/types.BrandingPreferences", "github.com/obot-platform/obot/apiclient/types.LogoPreferences", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.ThemePreferences"},
 	}
 }
 
@@ -1942,6 +1949,43 @@ func schema_obot_platform_obot_apiclient_types_AzureConfig(ref common.ReferenceC
 					"clientSecret": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_BrandingPreferences(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BrandingPreferences represents configurable branding for the application footer",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"productName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"issueReportUrl": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"footerMessage": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"showFooter": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
 							Format: "",
 						},
 					},
@@ -12437,11 +12481,17 @@ func schema_storage_apis_obotobotai_v1_AppPreferencesSpec(ref common.ReferenceCa
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ThemePreferences"),
 						},
 					},
+					"branding": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.BrandingPreferences"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LogoPreferences", "github.com/obot-platform/obot/apiclient/types.ThemePreferences"},
+			"github.com/obot-platform/obot/apiclient/types.BrandingPreferences", "github.com/obot-platform/obot/apiclient/types.LogoPreferences", "github.com/obot-platform/obot/apiclient/types.ThemePreferences"},
 	}
 }
 
