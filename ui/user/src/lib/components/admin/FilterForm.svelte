@@ -9,10 +9,6 @@
 	import { goto } from '$lib/url';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import {
-		getAdminMcpServerAndEntries,
-		type AdminMcpServerAndEntriesContext
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import {
 		AdminService,
 		type MCPFilter,
 		type MCPFilterManifest,
@@ -20,24 +16,17 @@
 		type MCPFilterWebhookSelector
 	} from '$lib/services';
 	import { removeSecret } from '$lib/services/admin/operations';
+	import { mcpServersAndEntries } from '$lib/stores';
 
 	interface Props {
 		topContent?: Snippet;
 		filter?: MCPFilter;
 		onCreate?: (filter?: MCPFilter) => void;
 		onUpdate?: (filter?: MCPFilter) => void;
-		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
 		readonly?: boolean;
 	}
 
-	let {
-		topContent,
-		filter: initialFilter,
-		onCreate,
-		onUpdate,
-		mcpEntriesContextFn,
-		readonly
-	}: Props = $props();
+	let { topContent, filter: initialFilter, onCreate, onUpdate, readonly }: Props = $props();
 	const duration = PAGE_TRANSITION_DURATION;
 	let filter = $state<{
 		name: string;
@@ -70,9 +59,8 @@
 	let removingSecret = $state(false);
 	let showValidation = $state(false);
 
-	const adminMcpServerAndEntries = getAdminMcpServerAndEntries();
-	let mcpServersMap = $derived(new Map(adminMcpServerAndEntries.servers.map((i) => [i.id, i])));
-	let mcpEntriesMap = $derived(new Map(adminMcpServerAndEntries.entries.map((i) => [i.id, i])));
+	let mcpServersMap = $derived(new Map(mcpServersAndEntries.current.servers.map((i) => [i.id, i])));
+	let mcpEntriesMap = $derived(new Map(mcpServersAndEntries.current.entries.map((i) => [i.id, i])));
 
 	// Validation
 	let nameError = $derived(showValidation && !filter.name.trim());
@@ -538,7 +526,7 @@
 			...selectorResources
 		];
 	}}
-	{mcpEntriesContextFn}
+	mcpEntriesContextFn={() => mcpServersAndEntries.current}
 />
 
 <Confirm

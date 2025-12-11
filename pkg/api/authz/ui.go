@@ -25,8 +25,10 @@ var uiResources = []string{
 	"GET /i/{code}",
 	"GET /user/images/",
 	"GET /api/image/{id}",
-	"GET /mcp-publisher",
-	"GET /mcp-publisher/",
+	"GET /mcp-servers/",
+	"GET /mcp-registries/",
+	"GET /audit-logs",
+	"GET /usage",
 }
 
 func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
@@ -50,10 +52,6 @@ func (a *Authorizer) checkUI(req *http.Request, user user.Info) bool {
 		return slices.ContainsFunc(user.GetGroups(), func(group string) bool {
 			return group == types.GroupAdmin || group == types.GroupOwner || group == types.GroupAuditor
 		})
-	}
-
-	if strings.HasPrefix(req.URL.Path, "/mcp-publisher/") {
-		return slices.Contains(user.GetGroups(), types.GroupPowerUser)
 	}
 
 	// did not hit any above conditions, so allow access

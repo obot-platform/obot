@@ -129,20 +129,11 @@
 	}
 </script>
 
-<Layout>
-	<div class="my-4" in:fade={{ duration }} out:fade={{ duration }}>
+<Layout title="Model Providers">
+	<div class="mb-4" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
-			<h1 class="flex items-center justify-between gap-4 text-2xl font-semibold">
-				Model Providers
-				<DefaultModels
-					bind:this={defaultModelsDialog}
-					availableModels={adminModels.items}
-					readonly={isAdminReadonly}
-				/>
-			</h1>
-
 			{#if !atLeastOneConfigured}
-				<div class="notification-alert flex flex-col gap-2">
+				<div class="notification-alert mb-4 flex flex-col gap-2">
 					<div class="flex items-center gap-2">
 						<AlertTriangle class="size-6 flex-shrink-0 self-start text-yellow-500" />
 						<p class="my-0.5 flex flex-col text-sm font-semibold">No Model Providers Configured!</p>
@@ -154,7 +145,7 @@
 				</div>
 			{/if}
 		</div>
-		<div class="grid grid-cols-1 gap-4 py-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+		<div class="grid grid-cols-1 gap-4 px-8 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			{#each sortedModelProviders as modelProvider (modelProvider.id)}
 				<ProviderCard
 					provider={modelProvider}
@@ -188,6 +179,14 @@
 			{/each}
 		</div>
 	</div>
+
+	{#snippet rightNavActions()}
+		<DefaultModels
+			bind:this={defaultModelsDialog}
+			availableModels={adminModels.items}
+			readonly={isAdminReadonly}
+		/>
+	{/snippet}
 </Layout>
 
 <ProviderConfigure

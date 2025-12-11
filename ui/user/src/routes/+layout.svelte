@@ -1,10 +1,12 @@
 <script lang="ts">
 	import '../app.css';
-	import { darkMode, profile, appPreferences, version } from '$lib/stores';
+	import { darkMode, profile, appPreferences, version, mcpServersAndEntries } from '$lib/stores';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
 	import type { PageData } from './$types';
+	import { page } from '$app/state';
+	import { untrack } from 'svelte';
 
 	interface Props {
 		children?: import('svelte').Snippet;
@@ -37,6 +39,14 @@
 			html?.classList.remove('dark');
 		}
 		html?.classList.remove('hidden');
+	});
+
+	$effect(() => {
+		const pathname = page.url.pathname;
+		const isMcpServersRoute = pathname === '/mcp-servers' || pathname === '/admin/mcp-servers';
+		if (profile.current.loaded) {
+			untrack(() => mcpServersAndEntries.initialize(isMcpServersRoute));
+		}
 	});
 </script>
 

@@ -1,11 +1,13 @@
 import type { CompositeLaunchFormData } from '$lib/components/mcp/CatalogConfigureForm.svelte';
-import type { ConnectedServer } from '$lib/components/mcp/MyMcpServers.svelte';
+import { profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import {
 	ChatService,
+	type LaunchServerType,
 	type MCPCatalogEntry,
 	type MCPCatalogServer,
 	type MCPServer,
+	type MCPServerInstance,
 	type MCPSubField,
 	type OrgUser,
 	type Project
@@ -97,23 +99,26 @@ export function hasEditableConfiguration(item: MCPCatalogEntry) {
 	return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
 }
 
-export function requiresUserUpdate(mcpServer?: ConnectedServer) {
-	if (!mcpServer) return false;
-	if (mcpServer.server?.needsURL) {
+export function requiresUserUpdate(server?: MCPCatalogServer) {
+	if (!server) return false;
+	if (server?.needsURL) {
 		return true;
 	}
-	return typeof mcpServer.server?.configured === 'boolean'
-		? mcpServer.server?.configured === false
-		: false;
+	return typeof server?.configured === 'boolean' ? server?.configured === false : false;
 }
 
 function convertEntriesToTableData(
-	entries: MCPCatalogEntry[] | undefined,
-	usersMap?: Map<string, OrgUser>
+	entries?: MCPCatalogEntry[],
+	usersMap?: Map<string, OrgUser>,
+	userConfiguredServers?: MCPCatalogServer[]
 ) {
 	if (!entries) {
 		return [];
 	}
+
+	const userConfiguredServersMap = userConfiguredServers
+		? new Map(userConfiguredServers.map((server) => [server.catalogEntryID, server]))
+		: undefined;
 
 	return entries
 		.filter((entry) => !entry.deleted)
@@ -136,18 +141,24 @@ function convertEntriesToTableData(
 					usersMap && entry.powerUserID
 						? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
 						: 'Global Registry',
-				needsUpdate: entry.needsUpdate
+				needsUpdate: entry.needsUpdate,
+				connected: userConfiguredServersMap?.has(entry.id)
 			};
 		});
 }
 
 function convertServersToTableData(
-	servers: MCPCatalogServer[] | undefined,
-	usersMap?: Map<string, OrgUser>
+	servers?: MCPCatalogServer[],
+	usersMap?: Map<string, OrgUser>,
+	instances?: MCPServerInstance[]
 ) {
 	if (!servers) {
 		return [];
 	}
+
+	const instancesMap = instances
+		? new Map(instances.map((instance) => [instance.mcpServerID, instance]))
+		: undefined;
 
 	return servers
 		.filter((server) => !server.catalogEntryID && !server.deleted)
@@ -165,7 +176,51 @@ function convertServersToTableData(
 				registry:
 					usersMap && server.userID && server.powerUserWorkspaceID
 						? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
-						: 'Global Registry'
+						: 'Global Registry',
+				connected: instancesMap?.has(server.id)
+			};
+		});
+}
+
+function convertUserConfiguredServersToTableData(
+	servers?: MCPCatalogServer[],
+	entries?: MCPCatalogEntry[],
+	usersMap?: Map<string, OrgUser>
+) {
+	if (!servers) {
+		return [];
+	}
+
+	const catalogEntryMap = entries ? new Map(entries.map((entry) => [entry.id, entry])) : undefined;
+
+	return servers
+		.filter((server) => {
+			const uniqueName = !!server.alias;
+			return server.catalogEntryID && !server.deleted && uniqueName;
+		})
+		.map((server) => {
+			const catalogEntry = catalogEntryMap?.get(server.catalogEntryID);
+			const type = catalogEntry
+				? catalogEntry.manifest.runtime === 'remote' ||
+					catalogEntry.manifest.runtime === 'composite'
+					? catalogEntry.manifest.runtime
+					: 'single'
+				: 'multi';
+			return {
+				id: server.id,
+				name: server.alias || server.manifest.name || '',
+				icon: server.manifest.icon,
+				source: 'manual',
+				type,
+				data: server,
+				users: server.mcpServerInstanceUserCount ?? 0,
+				editable: true,
+				created: server.created,
+				registry:
+					usersMap && catalogEntry?.powerUserID
+						? `${getUserDisplayName(usersMap, catalogEntry.powerUserID)}'s Registry`
+						: 'Global Registry',
+				connected: true
 			};
 		});
 }
@@ -173,11 +228,18 @@ function convertServersToTableData(
 export function convertEntriesAndServersToTableData(
 	entries: MCPCatalogEntry[],
 	servers: MCPCatalogServer[],
-	usersMap?: Map<string, OrgUser>
+	usersMap?: Map<string, OrgUser>,
+	userConfiguredServers?: MCPCatalogServer[],
+	instances?: MCPServerInstance[]
 ) {
-	const entriesTableData = convertEntriesToTableData(entries, usersMap);
-	const serversTableData = convertServersToTableData(servers, usersMap);
-	return [...entriesTableData, ...serversTableData];
+	const userConfiguredServersTableData = convertUserConfiguredServersToTableData(
+		userConfiguredServers,
+		entries,
+		usersMap
+	);
+	const entriesTableData = convertEntriesToTableData(entries, usersMap, userConfiguredServers);
+	const serversTableData = convertServersToTableData(servers, usersMap, instances);
+	return [...userConfiguredServersTableData, ...entriesTableData, ...serversTableData];
 }
 
 export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) {
@@ -202,6 +264,14 @@ export function getServerTypeLabelByType(type?: string) {
 			: type === 'remote'
 				? 'Remote'
 				: 'Composite';
+}
+
+export function getServerType(server?: MCPCatalogServer): LaunchServerType | null {
+	if (!server) return null;
+	const runtime = server.manifest.runtime;
+	if (runtime === 'remote') return 'remote';
+	if (runtime === 'composite') return 'composite';
+	return server.catalogEntryID ? 'single' : 'multi';
 }
 
 export function convertCompositeLaunchFormDataToPayload(lf: CompositeLaunchFormData) {
@@ -308,4 +378,27 @@ export async function convertCompositeInfoToLaunchFormData(
 		};
 	}
 	return { componentConfigs } as CompositeLaunchFormData;
+}
+
+export function getServerUrl(d: MCPCatalogServer) {
+	const belongsToWorkspace = d.powerUserWorkspaceID ? true : false;
+	const isMulti = !d.catalogEntryID;
+
+	let url = '';
+	if (profile.current.hasAdminAccess?.()) {
+		if (isMulti) {
+			url = belongsToWorkspace
+				? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/s/${d.id}/details`
+				: `/admin/mcp-servers/s/${d.id}/details`;
+		} else {
+			url = belongsToWorkspace
+				? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}/details`
+				: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}/details`;
+		}
+	} else {
+		url = isMulti
+			? `/mcp-servers/s/${d.id}/details`
+			: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}/details`;
+	}
+	return url;
 }

@@ -5,14 +5,15 @@
 		DEFAULT_MCP_CATALOG_ID,
 		ADMIN_ALL_OPTION
 	} from '$lib/constants';
-	import { AdminService, ChatService } from '$lib/services';
+	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
 	import {
 		type AccessControlRule,
 		type AccessControlRuleManifest,
 		type AccessControlRuleResource,
 		type AccessControlRuleSubject,
 		type OrgUser,
-		type OrgGroup
+		type OrgGroup,
+		type MCPCatalogEntry
 	} from '$lib/services/admin/types';
 	import { LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { type Snippet } from 'svelte';
@@ -23,8 +24,6 @@
 	import Confirm from '../Confirm.svelte';
 	import { goto } from '$lib/url';
 	import SearchMcpServers from './SearchMcpServers.svelte';
-	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import type { PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
 	import { getRegistryLabel, getUserDisplayName } from '$lib/utils';
 	import { profile } from '$lib/stores';
 
@@ -35,7 +34,11 @@
 		onUpdate?: (accessControlRule: AccessControlRule) => void;
 		entity?: 'workspace' | 'catalog';
 		id?: string | null;
-		mcpEntriesContextFn: () => AdminMcpServerAndEntriesContext | PoweruserWorkspaceContext;
+		mcpEntriesContextFn: () => {
+			entries: MCPCatalogEntry[];
+			servers: MCPCatalogServer[];
+			loading: boolean;
+		};
 		all?: { label: string; description: string };
 		readonly?: boolean;
 		isAdminView?: boolean;
@@ -157,7 +160,7 @@
 					];
 					redirect =
 						entity === 'workspace'
-							? `/mcp-publisher/mcp-servers/c/${entry.id}`
+							? `/mcp-servers/c/${entry.id}`
 							: `/admin/mcp-servers/c/${entry.id}`;
 				} else {
 					const server = mcpServersMap.get(initialAdditionId);
@@ -168,7 +171,7 @@
 						];
 						redirect =
 							entity === 'workspace'
-								? `/mcp-publisher/mcp-servers/s/${server.id}`
+								? `/mcp-servers/s/${server.id}`
 								: `/admin/mcp-servers/s/${server.id}`;
 					}
 				}
@@ -306,8 +309,6 @@
 					</button>
 				{/if}
 			</div>
-		{:else}
-			<h1 class="text-2xl font-semibold">Create Access Control Rule</h1>
 		{/if}
 
 		{#if !accessControlRule.id}
@@ -435,7 +436,7 @@
 							if (redirect) {
 								goto(redirect);
 							} else {
-								goto('/admin/access-control');
+								goto('/admin/mcp-registries');
 							}
 						}}
 					>
@@ -575,7 +576,7 @@
 		await (entity === 'workspace'
 			? ChatService.deleteWorkspaceAccessControlRule(id, accessControlRule.id)
 			: AdminService.deleteAccessControlRule(accessControlRule.id));
-		goto('/admin/access-control');
+		goto('/admin/mcp-registries');
 	}}
 	oncancel={() => (deletingRule = false)}
 />

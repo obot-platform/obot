@@ -19,13 +19,10 @@
 		component: VirtualPageRoot as unknown as Component,
 		props: { class: '', as: 'main', itemHeight: 56, overscan: 5 }
 	}}
+	title="Audit Logs"
 >
 	<div class="flex-1" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex min-h-full flex-col gap-8 pb-8">
-			<div class="flex items-center justify-between gap-4">
-				<h1 class="text-2xl font-semibold">Audit Logs</h1>
-			</div>
-
 			<AuditLogsPageContent />
 		</div>
 	</div>

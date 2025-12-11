@@ -42,6 +42,10 @@
 		tableSelectActions?: Snippet<[Record<string, T>]>;
 		validateSelect?: (row: T) => boolean;
 		disabledSelectMessage?: string;
+		sectionedBy?: string;
+		sectionPrimaryTitle?: string;
+		sectionSecondaryTitle?: string;
+		disablePortal?: boolean;
 	}
 
 	const {
@@ -66,7 +70,11 @@
 		filters,
 		tableSelectActions,
 		validateSelect,
-		disabledSelectMessage
+		disabledSelectMessage,
+		sectionedBy,
+		sectionPrimaryTitle,
+		sectionSecondaryTitle,
+		disablePortal
 	}: Props<T> = $props();
 
 	let page = $state(0);
@@ -152,6 +160,10 @@
 					return sortedBy!.order === 'asc'
 						? aValue.localeCompare(bValue)
 						: bValue.localeCompare(aValue);
+				}
+
+				if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+					return sortedBy!.order === 'asc' ? (aValue ? 1 : -1) : bValue ? 1 : -1;
 				}
 
 				return 0;
@@ -253,7 +265,7 @@
 		columnWidths = [];
 
 		requestAnimationFrame(() => {
-			const firstRow = dataTableRef?.querySelector('tbody tr');
+			const firstRow = dataTableRef?.querySelector('tbody tr:not([data-section-header])');
 
 			if (!firstRow && previousWidths.length) {
 				columnWidths = previousWidths;
@@ -430,9 +442,47 @@
 			{@render header(Boolean(tableSelectActions))}
 			{#if tableData.length > 0}
 				<tbody>
-					{#each visibleItems as d (sortedBy ? `${d.id}-${sortedBy.property}-${sortedBy.order}` : d.id)}
-						{@render row(d)}
-					{/each}
+					{#if sectionedBy}
+						{#key `${sortedBy?.property}-${sortedBy?.order}`}
+							{@const sectionA = visibleItems.filter((d) => d[sectionedBy as keyof T])}
+							{@const sectionB = visibleItems.filter((d) => !d[sectionedBy as keyof T])}
+
+							{#if sectionA.length > 0}
+								{#if sectionB.length > 0}
+									<tr class="bg-surface3" data-section-header>
+										<th
+											colspan={fields.length + (tableSelectActions ? 1 : 0) + (actions ? 1 : 0)}
+											class="px-4 py-2 text-left text-xs font-semibold uppercase"
+										>
+											{sectionPrimaryTitle}
+										</th>
+									</tr>
+								{/if}
+								{#each sectionA as d (d.id)}
+									{@render row(d)}
+								{/each}
+							{/if}
+							{#if sectionB.length > 0}
+								{#if sectionA.length > 0}
+									<tr class="bg-surface3" data-section-header>
+										<th
+											colspan={fields.length + (tableSelectActions ? 1 : 0) + (actions ? 1 : 0)}
+											class="px-4 py-2 text-left text-xs font-semibold uppercase"
+										>
+											{sectionSecondaryTitle}
+										</th>
+									</tr>
+								{/if}
+								{#each sectionB as d (d.id)}
+									{@render row(d)}
+								{/each}
+							{/if}
+						{/key}
+					{:else}
+						{#each visibleItems as d (sortedBy ? `${d.id}-${sortedBy.property}-${sortedBy.order}` : d.id)}
+							{@render row(d)}
+						{/each}
+					{/if}
 				</tbody>
 			{/if}
 		</table>
@@ -512,7 +562,7 @@
 			{/if}
 		</button>
 		{#if validateSelect}
-			<DotDotDot class="text-on-surface1">
+			<DotDotDot class="text-on-surface1" {disablePortal}>
 				{#snippet icon()}
 					<ChevronDown class="size-4" />
 				{/snippet}
@@ -581,6 +631,7 @@
 					activeSort={sortedBy?.property === property}
 					order={sortedBy?.order}
 					presetFilters={filteredBy?.[property]}
+					{disablePortal}
 				/>
 			{/each}
 			{#if actions}

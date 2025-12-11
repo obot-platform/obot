@@ -4,16 +4,26 @@
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Layout from '$lib/components/Layout.svelte';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import { goto } from '$lib/url';
-	import { profile } from '$lib/stores/index.js';
+	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
+	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
 	let { workspaceId, catalogEntry: initialCatalogEntry } = data;
 	let catalogEntry = $state(initialCatalogEntry);
+	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
+
+	const hasExistingConfigured = $derived(
+		Boolean(
+			initialCatalogEntry &&
+				mcpServersAndEntries.current.userConfiguredServers.some(
+					(server) => server.catalogEntryID === initialCatalogEntry.id
+				)
+		)
+	);
 </script>
 
 <Layout
@@ -21,13 +31,13 @@
 		component: VirtualPageViewport as unknown as Component,
 		props: { class: '', as: 'main', itemHeight: 56, overscan: 5, disabled: true }
 	}}
+	{title}
+	showBackButton
 >
-	<div class="flex h-full flex-col gap-6 pt-6" in:fly={{ x: 100, delay: duration, duration }}>
-		{#if catalogEntry}
-			{@const currentLabel = catalogEntry?.manifest?.name ?? 'MCP Server'}
-			<BackLink fromURL="mcp-servers" {currentLabel} />
-		{/if}
-
+	{#snippet rightNavActions()}
+		<McpServerActions entry={catalogEntry} />
+	{/snippet}
+	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if workspaceId && catalogEntry}
 			<McpServerEntryForm
 				entry={catalogEntry}
@@ -41,11 +51,12 @@
 					goto('/admin/mcp-servers');
 				}}
 				readonly={profile.current.isAdminReadonly?.()}
+				{hasExistingConfigured}
 			/>
 		{/if}
 	</div>
 </Layout>
 
 <svelte:head>
-	<title>Obot | {catalogEntry?.manifest?.name ?? 'MCP Server'}</title>
+	<title>Obot | {title}</title>
 </svelte:head>

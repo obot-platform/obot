@@ -80,7 +80,7 @@
 {#if show}
 	<div
 		in:fade|global={{ duration: 200 }}
-		class="fixed top-0 left-0 z-50 flex h-svh w-svw items-center justify-center bg-black/90"
+		class="fixed top-0 left-0 z-100 flex h-svh w-svw items-center justify-center bg-black/90"
 	>
 		{#if error}
 			<div

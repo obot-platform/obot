@@ -119,15 +119,13 @@
 	let isAuditor = $derived(profile.current.groups.includes(Group.AUDITOR));
 </script>
 
-<Layout>
+<Layout title="Chat Threads">
 	<div
-		class="my-4 h-full w-full"
+		class="h-full w-full"
 		in:fly={{ x: 100, duration: 300, delay: 150 }}
 		out:fly={{ x: -100, duration: 300 }}
 	>
 		<div class="flex flex-col gap-8 pb-8">
-			<h1 class="text-2xl font-semibold">Chat Threads</h1>
-
 			<div class="flex flex-col gap-2">
 				<div class="flex items-center gap-4">
 					<Search
