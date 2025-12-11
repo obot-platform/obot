@@ -12,8 +12,8 @@
 		BadgeInfo,
 		X,
 		MessageCircle,
-		ServerCog,
-		CircleFadingArrowUp
+		CircleFadingArrowUp,
+		LayoutDashboard
 	} from 'lucide-svelte/icons';
 	import { twMerge } from 'tailwind-merge';
 	import { version } from '$lib/stores';
@@ -175,13 +175,13 @@
 					Chat
 				</button>
 			{/if}
-			{#if showMcpManagement && version.current.authEnabled}
+			{#if showMcpManagement}
 				<a
 					href={resolve(profile.current.hasAdminAccess?.() ? '/admin/mcp-servers' : '/mcp-servers')}
 					rel="external"
 					class="link"
 				>
-					<ServerCog class="size-4" /> MCP Management
+					<LayoutDashboard class="size-4" /> MCP Platform
 				</a>
 			{/if}
 			{#if responsive.isMobile}
