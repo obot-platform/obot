@@ -216,7 +216,7 @@
 				goto(`/admin/mcp-registries?new=true`);
 			}}
 		>
-			<Plus class="size-4" /> Add New Rule
+			<Plus class="size-4" /> Add New Registry
 		</button>
 	{/if}
 {/snippet}
