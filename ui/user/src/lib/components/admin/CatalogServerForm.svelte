@@ -15,11 +15,10 @@
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
-	import { onMount, tick, untrack, type Snippet } from 'svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import CategorySelectInput from './CategorySelectInput.svelte';
 	import Select from '../Select.svelte';
 	import { profile } from '$lib/stores';
 
@@ -71,7 +70,6 @@
 
 	let remoteCategories = $state<string[]>([]);
 
-	let categories = $derived([...remoteCategories, ...(formData?.categories ?? [])]);
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 
 	onMount(() => {
