@@ -549,7 +549,8 @@
 			})),
 			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
 				...header,
-				value: ''
+				value: '',
+				isStatic: header.value !== ''
 			})),
 			...(item.manifest?.remoteConfig?.hostname
 				? { hostname: item.manifest.remoteConfig?.hostname, url: '' }
