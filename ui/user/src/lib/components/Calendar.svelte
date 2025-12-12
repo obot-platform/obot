@@ -7,7 +7,6 @@
 	import TimeInput from './TimeInput.svelte';
 	import { slide } from 'svelte/transition';
 	import { Viewport } from '$lib/context/viewport.svelte';
-	import { update } from 'es-toolkit/compat';
 
 	export interface DateRange {
 		start: Date | null;
@@ -237,7 +236,6 @@
 	}
 
 	function tooltipRef(node: HTMLElement) {
-		// console.log('tooltipRef called', isSmallScreen);
 		if (isSmallScreen) {
 			return;
 		}
@@ -282,7 +280,7 @@
 <div
 	class={twMerge(
 		'flex flex-col items-center justify-center',
-		isSmallScreen ? 'backdrop-blur-xs fixed inset-0 z-50 min-w-full p-4' : 'contents',
+		isSmallScreen ? 'fixed inset-0 z-50 min-w-full p-4 backdrop-blur-xs' : 'contents',
 		!open && 'hidden'
 	)}
 	role="button"

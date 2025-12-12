@@ -98,7 +98,7 @@ function initializeBreakpoints() {
 		if (value.endsWith('rem')) {
 			const remValue = parseFloat(value);
 			const rootFontSize = parseFloat(cumputedStyle.fontSize);
-            
+
 			return remValue * rootFontSize;
 		}
 
