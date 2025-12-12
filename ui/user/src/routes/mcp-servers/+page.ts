@@ -1,24 +1,21 @@
 import { handleRouteError } from '$lib/errors';
 import { ChatService } from '$lib/services';
-import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
-export const load: PageLoad = async ({ fetch }) => {
+export const load: PageLoad = async ({ fetch, parent }) => {
+	const { profile } = await parent();
 	let workspace;
 
-	if (profile.current.hasAdminAccess?.()) {
+	if (profile?.hasAdminAccess?.()) {
 		throw redirect(302, '/admin/mcp-servers');
 	}
 
 	try {
-		const currentProfile = profile.current.id
-			? profile.current
-			: await ChatService.getProfile({ fetch });
 		const workspaces = await ChatService.listWorkspaces({ fetch });
-		workspace = workspaces.find((w) => w.userID === currentProfile.id) ?? null;
+		workspace = workspaces.find((w) => w.userID === profile?.id) ?? null;
 	} catch (err) {
-		handleRouteError(err, `/mcp-servers`, profile.current);
+		handleRouteError(err, `/mcp-servers`, profile);
 	}
 
 	return {

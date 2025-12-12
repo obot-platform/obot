@@ -151,12 +151,14 @@
 						server={selected.server}
 						onConnect={setupProjectMcp}
 						skipConnectDialog
+						connectOnly
 					/>
 				{:else}
 					<McpServerActions
 						server={selected.server}
 						onConnect={setupProjectMcp}
 						skipConnectDialog
+						connectOnly
 					/>
 				{/if}
 			</div>

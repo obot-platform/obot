@@ -445,56 +445,20 @@
 
 					{#snippet children({ toggle })}
 						{@const isAtLeastPowerUser = profile.current.groups.includes(Group.POWERUSER)}
-						<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-							{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.())}
-								{#if !readonly && isAtLeastPowerUser}
-									<button
-										class="menu-button-primary"
-										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
-										onclick={(e) => {
-											e.stopPropagation();
-											if (!d) return;
-											showUpgradeConfirm = {
-												type: 'single',
-												server: d
-											};
-										}}
-										use:tooltip={d.compositeName
-											? {
-													text: 'This is a component of a composite server and cannot be updated independently; update the composite MCP server instead',
-													classes: ['w-md'],
-													disablePortal: true
-												}
-											: undefined}
+						<div class="default-dialog flex min-w-max flex-col">
+							{#if !isComposite && (!d.catalogEntryID || d.isMyServer)}
+								{#if d.isMyServer}
+									<div
+										class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
 									>
-										{#if updating[d.id]?.inProgress}
-											<LoaderCircle class="size-4 animate-spin" />
-										{:else}
-											<CircleFadingArrowUp class="size-4" />
-										{/if}
-										Update Server
-									</button>
+										My Connection
+									</div>
 								{/if}
-								<button
-									class="menu-button-primary"
-									disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
-									onclick={(e) => {
-										e.stopPropagation();
-										if (!d.catalogEntryID) return;
-
-										existingServer = d;
-										updatedServer = entriesMap[d.catalogEntryID];
-										diffDialog?.open();
-									}}
+								<div
+									class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-surface1' : 'pb-0')}
 								>
-									<GitCompare class="size-4" /> View Diff
-								</button>
-							{/if}
-
-							{#if !isComposite}
-								{#if !d.catalogEntryID || d.isMyServer}
 									<button
-										class="menu-button-primary"
+										class="menu-button"
 										onclick={async (e) => {
 											e.stopPropagation();
 											const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined;
@@ -520,88 +484,134 @@
 									>
 										<MessageCircle class="size-4" /> Chat
 									</button>
-								{/if}
 
-								{#if d.isMyServer}
-									{@render editConfigAction(d)}
-									{#if d.catalogEntryID}
-										{@render renameAction(d)}
+									{#if d.isMyServer}
+										{@render editConfigAction(d)}
+										{#if d.catalogEntryID}
+											{@render renameAction(d)}
+										{/if}
 									{/if}
-								{/if}
+								</div>
 							{/if}
-
-							{#if d.isMyServer || profile.current?.hasAdminAccess?.()}
-								{#if d.manifest.runtime !== 'remote' && !readonly && isAtLeastPowerUser}
+							<div class="flex flex-col gap-1 p-2">
+								{#if d.needsUpdate && (d.isMyServer || profile.current?.hasAdminAccess?.())}
+									{#if !readonly && isAtLeastPowerUser}
+										<button
+											class="menu-button-primary"
+											disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
+											onclick={(e) => {
+												e.stopPropagation();
+												if (!d) return;
+												showUpgradeConfirm = {
+													type: 'single',
+													server: d
+												};
+											}}
+											use:tooltip={d.compositeName
+												? {
+														text: 'This is a component of a composite server and cannot be updated independently; update the composite MCP server instead',
+														classes: ['w-md'],
+														disablePortal: true
+													}
+												: undefined}
+										>
+											{#if updating[d.id]?.inProgress}
+												<LoaderCircle class="size-4 animate-spin" />
+											{:else}
+												<CircleFadingArrowUp class="size-4" />
+											{/if}
+											Update Server
+										</button>
+									{/if}
 									<button
-										class="menu-button"
-										disabled={restarting}
-										onclick={async (e) => {
+										class="menu-button-primary"
+										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
+										onclick={(e) => {
 											e.stopPropagation();
-											restarting = true;
-											if (d.powerUserWorkspaceID) {
-												await ChatService.restartWorkspaceK8sServerDeployment(
-													d.powerUserWorkspaceID,
-													d.id
-												);
-											} else {
-												await AdminService.restartK8sDeployment(d.id);
-											}
+											if (!d.catalogEntryID) return;
 
-											await delay(1000);
-
-											toggle((restarting = false));
+											existingServer = d;
+											updatedServer = entriesMap[d.catalogEntryID];
+											diffDialog?.open();
 										}}
 									>
-										{#if restarting}
-											<LoaderCircle class="size-4 animate-spin" /> Restarting...
+										<GitCompare class="size-4" /> View Diff
+									</button>
+								{/if}
+
+								{#if d.isMyServer || profile.current?.hasAdminAccess?.()}
+									{#if d.manifest.runtime !== 'remote' && !readonly && isAtLeastPowerUser}
+										<button
+											class="menu-button"
+											disabled={restarting}
+											onclick={async (e) => {
+												e.stopPropagation();
+												restarting = true;
+												if (d.powerUserWorkspaceID) {
+													await ChatService.restartWorkspaceK8sServerDeployment(
+														d.powerUserWorkspaceID,
+														d.id
+													);
+												} else {
+													await AdminService.restartK8sDeployment(d.id);
+												}
+
+												await delay(1000);
+
+												toggle((restarting = false));
+											}}
+										>
+											{#if restarting}
+												<LoaderCircle class="size-4 animate-spin" /> Restarting...
+											{:else}
+												<Power class="size-4" />
+												Restart Server
+											{/if}
+										</button>
+									{/if}
+									<button
+										onclick={(e) => {
+											e.stopPropagation();
+											const isCtrlClick = e.ctrlKey || e.metaKey;
+											setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+											openUrl(auditLogsUrl, isCtrlClick);
+										}}
+										class="menu-button text-left"
+									>
+										<Captions class="size-4" />
+										{#if isComposite}
+											View Parent Server <br /> Audit Logs
 										{:else}
-											<Power class="size-4" />
-											Restart Server
+											View Audit Logs
 										{/if}
 									</button>
-								{/if}
-								<button
-									onclick={(e) => {
-										e.stopPropagation();
-										const isCtrlClick = e.ctrlKey || e.metaKey;
-										setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-										openUrl(auditLogsUrl, isCtrlClick);
-									}}
-									class="menu-button text-left"
-								>
-									<Captions class="size-4" />
-									{#if isComposite}
-										View Parent Server <br /> Audit Logs
-									{:else}
-										View Audit Logs
+
+									{#if !readonly}
+										<button
+											class="menu-button-destructive"
+											onclick={async (e) => {
+												e.stopPropagation();
+												showDeleteConfirm = {
+													type: 'single',
+													server: d
+												};
+
+												toggle(false);
+											}}
+											use:tooltip={d.compositeName
+												? {
+														text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
+														classes: ['w-md'],
+														disablePortal: true
+													}
+												: undefined}
+											disabled={!!d.compositeName}
+										>
+											<Trash2 class="size-4" /> Delete Server
+										</button>
 									{/if}
-								</button>
-
-								{#if !readonly}
-									<button
-										class="menu-button-destructive"
-										onclick={async (e) => {
-											e.stopPropagation();
-											showDeleteConfirm = {
-												type: 'single',
-												server: d
-											};
-
-											toggle(false);
-										}}
-										use:tooltip={d.compositeName
-											? {
-													text: 'Cannot directly update a descendant of a composite server; update the composite MCP server instead.',
-													classes: ['w-md'],
-													disablePortal: true
-												}
-											: undefined}
-										disabled={!!d.compositeName}
-									>
-										<Trash2 class="size-4" /> Delete Server
-									</button>
 								{/if}
-							{/if}
+							</div>
 						</div>
 					{/snippet}
 				</DotDotDot>

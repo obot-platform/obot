@@ -1,11 +1,14 @@
 <script lang="ts">
 	import { closeAll, closeSidebarConfig, getLayout } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
-	import { Server, Trash2, X } from 'lucide-svelte';
+	import { Pencil, Server, Trash2, X } from 'lucide-svelte';
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import McpServerInfoAndTools from '../mcp/McpServerInfoAndTools.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { mcpServersAndEntries } from '$lib/stores';
+	import EditExistingDeployment from '../mcp/EditExistingDeployment.svelte';
+	import { hasEditableConfiguration } from '$lib/services/chat/mcp';
 
 	interface Props {
 		mcpServer: ProjectMCP;
@@ -17,6 +20,19 @@
 	const layout = getLayout();
 	const projectMcps = getProjectMCPs();
 	let showDeleteConfirm = $state(false);
+	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
+
+	let matchingConfiguredServer = $derived(
+		mcpServersAndEntries.current.userConfiguredServers.find((s) => s.id === mcpServer.mcpID) ||
+			mcpServersAndEntries.current.servers.find((s) => s.id === mcpServer.mcpID)
+	);
+	let matchingEntry = $derived(
+		matchingConfiguredServer?.catalogEntryID
+			? mcpServersAndEntries.current.entries.find(
+					(e) => e.id === matchingConfiguredServer?.catalogEntryID
+				)
+			: undefined
+	);
 
 	async function handleRemoveMcp() {
 		if (!project?.assistantID || !project.id) return;
@@ -49,6 +65,20 @@
 				{mcpServer.alias || mcpServer.name}
 			</h1>
 			<div class="flex grow justify-end gap-2">
+				{#if matchingConfiguredServer && matchingEntry && hasEditableConfiguration(matchingEntry)}
+					<button
+						class="button-icon size-12"
+						use:tooltip={'Edit Configuration'}
+						onclick={() => {
+							editExistingDialog?.edit({
+								entry: matchingEntry,
+								server: matchingConfiguredServer
+							});
+						}}
+					>
+						<Pencil class="size-4" />
+					</button>
+				{/if}
 				<button
 					class="button-destructive"
 					use:tooltip={'Delete'}
@@ -56,7 +86,7 @@
 				>
 					<Trash2 class="size-4" />
 				</button>
-				<button class="icon-button" onclick={() => closeSidebarConfig(layout)}>
+				<button class="icon-button size-12" onclick={() => closeSidebarConfig(layout)}>
 					<X class="size-6" />
 				</button>
 			</div>
@@ -89,3 +119,5 @@
 	onsuccess={handleRemoveMcp}
 	oncancel={() => (showDeleteConfirm = false)}
 />
+
+<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refreshProjectMcps} />

@@ -22,7 +22,6 @@
 		component: VirtualPageViewport as unknown as Component,
 		props: { class: '', as: 'main', itemHeight: 56, overscan: 5, disabled: true }
 	}}
-	showUserLinks
 	{title}
 	showBackButton
 >

@@ -1,11 +1,59 @@
 <!doctype html>
-<html lang="en" class="default-scrollbar hidden">
+<html lang="en" class="default-scrollbar">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script>
+			(function () {
+				var dark = localStorage.getItem('theme');
+				if (
+					dark === 'true' ||
+					(dark === null && window.matchMedia('(prefers-color-scheme: dark)').matches)
+				) {
+					document.documentElement.classList.add('dark');
+				}
+			})();
+		</script>
+		<style>
+			#initial-loader {
+				position: fixed;
+				inset: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				background: var(--background);
+				z-index: 9999;
+				transition: opacity 0.15s ease-out;
+			}
+			html.dark #initial-loader {
+				background: #0a0a0a;
+			}
+			#initial-loader .spinner {
+				width: 32px;
+				height: 32px;
+				border: 3px solid var(--surface1);
+				border-top-color: var(--primary);
+				border-radius: 50%;
+				animation: spin 0.8s linear infinite;
+			}
+			html.dark #initial-loader .spinner {
+				border-color: var(--surface1);
+				border-top-color: var(--primary);
+			}
+			@keyframes spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+			#initial-loader.loaded {
+				opacity: 0;
+				pointer-events: none;
+			}
+		</style>
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">
+		<div id="initial-loader"><div class="spinner"></div></div>
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

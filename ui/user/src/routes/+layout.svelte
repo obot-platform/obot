@@ -40,7 +40,10 @@
 		} else {
 			html?.classList.remove('dark');
 		}
-		html?.classList.remove('hidden');
+
+		// Hide the initial loader
+		const loader = document.getElementById('initial-loader');
+		loader?.classList.add('loaded');
 	});
 
 	$effect(() => {
