@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { getProjectMCPs, validateOauthProjectMcps } from '$lib/context/projectMcps.svelte';
 	import { ChatService, type Project, type ProjectMCP } from '$lib/services';
-	import { Server, TriangleAlert, Plus } from 'lucide-svelte/icons';
+	import { Server, TriangleAlert, Plus, Pencil, Trash2 } from 'lucide-svelte/icons';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { getLayout, openMCPServer } from '$lib/context/chatLayout.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import McpServerSetup from '../chat/McpServerSetup.svelte';
+	import DotDotDot from '../DotDotDot.svelte';
+	import { mcpServersAndEntries } from '$lib/stores';
+	import EditExistingDeployment from '../mcp/EditExistingDeployment.svelte';
+	import { hasEditableConfiguration } from '$lib/services/chat/mcp';
 
 	interface Props {
 		project: Project;
@@ -17,8 +21,21 @@
 	let loading = $state(false);
 
 	let mcpServerSetup = $state<ReturnType<typeof McpServerSetup>>();
+	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
+
 	const projectMCPs = getProjectMCPs();
 	const layout = getLayout();
+
+	let configuredServersMap = $derived(
+		new Map(
+			[
+				...mcpServersAndEntries.current.userConfiguredServers,
+				...mcpServersAndEntries.current.servers
+			].map((s) => [s.id, s])
+		)
+	);
+
+	let entriesMap = $derived(new Map(mcpServersAndEntries.current.entries.map((e) => [e.id, e])));
 
 	// Refresh MCP list whenever sidebar config changes (and we're not currently editing an MCP)
 	$effect(() => {
@@ -107,6 +124,10 @@
 	{#if projectMCPs.items.length > 0}
 		<div class="flex flex-col">
 			{#each projectMCPs.items as mcpServer (mcpServer.id)}
+				{@const matchingConfiguredServer = configuredServersMap.get(mcpServer.mcpID)}
+				{@const matchingEntry = matchingConfiguredServer?.catalogEntryID
+					? entriesMap.get(matchingConfiguredServer?.catalogEntryID)
+					: undefined}
 				<div
 					class="group hover:bg-surface3 flex w-full items-center rounded-md transition-colors duration-200"
 				>
@@ -134,6 +155,29 @@
 							{/if}
 						</p>
 					</button>
+
+					<DotDotDot
+						class="p-0 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
+					>
+						<div class="default-dialog flex min-w-max flex-col p-2">
+							{#if matchingEntry && matchingConfiguredServer && hasEditableConfiguration(matchingEntry)}
+								<button
+									class="menu-button"
+									onclick={() => {
+										editExistingDialog?.edit({
+											server: matchingConfiguredServer,
+											entry: matchingEntry
+										});
+									}}
+								>
+									<Pencil class="h-4 w-4" /> Edit Configuration
+								</button>
+							{/if}
+							<button class="menu-button" onclick={() => (toDelete = mcpServer)}>
+								<Trash2 class="h-4 w-4" /> Delete
+							</button>
+						</div>
+					</DotDotDot>
 				</div>
 			{/each}
 		</div>
@@ -149,3 +193,5 @@
 	oncancel={() => (toDelete = undefined)}
 	{loading}
 />
+
+<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refreshMcpList} />
