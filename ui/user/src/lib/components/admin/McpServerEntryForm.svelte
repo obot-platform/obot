@@ -468,7 +468,8 @@
 			})),
 			headers: entry.manifest?.remoteConfig?.headers?.map((header) => ({
 				...header,
-				value: ''
+				value: '',
+				isStatic: header.value !== ''
 			})),
 			...(hostname ? { hostname, url: '' } : {})
 		};
@@ -985,6 +986,7 @@
 	submitText="Launch"
 	loading={saving}
 	isNew={false}
+	{type}
 />
 
 <ResponsiveDialog

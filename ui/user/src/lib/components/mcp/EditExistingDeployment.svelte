@@ -67,7 +67,8 @@
 			})),
 			headers: server.manifest.remoteConfig?.headers?.map((header) => ({
 				...header,
-				value: values[header.key] ?? ''
+				value: values[header.key] ?? '',
+				isStatic: header.value !== ''
 			})),
 			url: server.manifest.remoteConfig?.url,
 			hostname: entry?.manifest.remoteConfig?.hostname

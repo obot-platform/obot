@@ -592,7 +592,8 @@
 					headers: (m.remoteConfig?.headers ?? []).map((h) => ({
 						...(h as unknown as Record<string, unknown>),
 						key: h.key,
-						value: ''
+						value: '',
+						isStatic: h.value !== ''
 					}))
 				};
 			}
@@ -719,7 +720,8 @@
 			})),
 			headers: connectedServer.server.manifest.remoteConfig?.headers?.map((header) => ({
 				...header,
-				value: values[header.key] ?? ''
+				value: values[header.key] ?? '',
+				isStatic: header.value !== ''
 			})),
 			url: connectedServer.server.manifest.remoteConfig?.url,
 			hostname: connectedServer.parent?.manifest.remoteConfig?.hostname

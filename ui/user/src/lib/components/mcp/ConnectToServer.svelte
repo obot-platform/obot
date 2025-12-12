@@ -6,6 +6,7 @@
 	import {
 		ChatService,
 		EditorService,
+		type LaunchServerType,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance
@@ -38,9 +39,10 @@
 		}) => void;
 		onClose?: () => void;
 		skipConnectDialog?: boolean;
+		type?: LaunchServerType;
 	}
 
-	let { userConfiguredServers, onConnect, onClose, skipConnectDialog }: Props = $props();
+	let { userConfiguredServers, onConnect, onClose, skipConnectDialog, type }: Props = $props();
 
 	let server = $state<MCPCatalogServer>();
 	let entry = $state<MCPCatalogEntry>();
@@ -110,7 +112,8 @@
 			})),
 			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
 				...header,
-				value: ''
+				value: '',
+				isStatic: header.value !== ''
 			})),
 			...(item.manifest?.remoteConfig?.hostname
 				? { hostname: item.manifest.remoteConfig?.hostname, url: '' }
@@ -643,6 +646,7 @@
 	bind:this={configDialog}
 	bind:form={configureForm}
 	{error}
+	{type}
 	icon={manifest?.icon}
 	name={server?.alias || manifest?.name || ''}
 	onSave={handleConfigureForm}
