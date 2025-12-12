@@ -32,6 +32,9 @@ The chart has sane defaults for a test cluster.
 Create a `values.yaml` file with your production configuration:
 
 ```yaml
+# Optionally customize replica count for high availability
+# replicaCount: 2
+
 # Enable ingress or use a service of type loadbalancer to expose Obot
 ingress:
   enabled: true
@@ -72,6 +75,10 @@ config:
   OPENAI_API_KEY: <openai api key>
   ANTHROPIC_API_KEY: <anthropic api key>
 ```
+
+### High Availability
+
+To enable a high availability setup, uncomment the `replicaCount` line and set it to `2` or higher. An external PostgreSQL database and a workspace provider are required for HA.
 
 For detailed configuration options, see:
 
