@@ -661,31 +661,6 @@
 				disabled={readonly}
 			/>
 		</div>
-
-		<div class="flex flex-col gap-1">
-			<span class="text-sm font-light capitalize">Categories</span>
-			<CategorySelectInput
-				categories={formData.categories.join(',')}
-				options={categories.map((d) => ({ label: d, id: d }))}
-				{readonly}
-				onCreate={async (category) => {
-					await tick();
-
-					formData.categories = [category, ...formData.categories].filter(Boolean);
-				}}
-				onUpdate={async (categories) => {
-					formData.categories = [
-						// Avoid duplicates
-						...new Set(
-							categories
-								.split(',')
-								.map((c) => c.trim())
-								.filter(Boolean)
-						)
-					];
-				}}
-			/>
-		</div>
 	</div>
 </div>
 

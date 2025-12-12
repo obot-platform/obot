@@ -537,7 +537,7 @@
 			{@attach (node: HTMLDivElement) => (scrollContainer = node)}
 		>
 			{#snippet children({ x })}
-				{#if tabs.length > 0}
+				{#if tabs.length > 0 && (entry?.id || server?.id)}
 					{#if x}
 						<button
 							disabled={!showLeftChevron}
