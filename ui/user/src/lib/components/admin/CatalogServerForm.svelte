@@ -68,17 +68,7 @@
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
-	let remoteCategories = $state<string[]>([]);
-
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
-
-	onMount(() => {
-		if (!id || entity === 'workspace') return;
-		// TODO: do we have categories for workspace catalog?
-		AdminService.listCatalogCategories(id).then((res) => {
-			remoteCategories = res;
-		});
-	});
 
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
