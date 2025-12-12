@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 var pkgLog = mvl.Package()
@@ -70,6 +71,20 @@ func (s *Server) getUsers(apiContext api.Context) error {
 			validUsers = append(validUsers, user)
 			userIDs = append(userIDs, user.ID)
 		}
+	}
+
+	// Basic and Power users are only allowed to access IDs and display names, so we have all the information needed for that.
+	if userIsBasicOrPower(apiContext.User) {
+		trimmedUsers := make([]types2.User, 0, len(validUsers))
+		for _, u := range validUsers {
+			trimmedUsers = append(trimmedUsers, types2.User{
+				Metadata: types2.Metadata{
+					ID: fmt.Sprint(u.ID),
+				},
+				DisplayName: u.DisplayName,
+			})
+		}
+		return apiContext.Write(types2.UserList{Items: trimmedUsers})
 	}
 
 	// Bulk fetch group memberships for all users (single query)
@@ -125,6 +140,16 @@ func (s *Server) getUser(apiContext api.Context) error {
 			return types2.NewErrNotFound("user %s not found", userID)
 		}
 		return fmt.Errorf("failed to get user: %v", err)
+	}
+
+	// Basic and Power users are only allowed to access IDs and display names, so we have all the information needed for that.
+	if userIsBasicOrPower(apiContext.User) {
+		return apiContext.Write(types2.User{
+			Metadata: types2.Metadata{
+				ID: fmt.Sprint(user.ID),
+			},
+			DisplayName: user.DisplayName,
+		})
 	}
 
 	// Get user's groups and compute effective role
@@ -360,4 +385,14 @@ func (s *Server) restrictGroups(ctx context.Context, gptscriptClient *gptscript.
 	})
 
 	return groups, nil
+}
+
+func userIsBasicOrPower(u user.Info) bool {
+	for _, group := range u.GetGroups() {
+		switch group {
+		case types2.GroupPowerUserPlus, types2.GroupAuditor, types2.GroupAdmin, types2.GroupOwner:
+			return false
+		}
+	}
+	return true
 }
