@@ -4,7 +4,7 @@
 	import { Server, TriangleAlert, Plus, Pencil, Trash2 } from 'lucide-svelte/icons';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { getLayout, openMCPServer } from '$lib/context/chatLayout.svelte';
+	import { closeSidebarConfig, getLayout, openMCPServer } from '$lib/context/chatLayout.svelte';
 	import { DEFAULT_CUSTOM_SERVER_NAME } from '$lib/constants';
 	import McpServerSetup from '../chat/McpServerSetup.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -103,6 +103,11 @@
 	async function handleRemoveMcp() {
 		if (!project?.assistantID || !project.id || !toDelete) return;
 		loading = true;
+
+		if (layout.mcpServer?.id === toDelete.id) {
+			closeSidebarConfig(layout);
+		}
+
 		await ChatService.deleteProjectMCP(project.assistantID, project.id, toDelete.id);
 		await refreshMcpList();
 		toDelete = undefined;
