@@ -133,6 +133,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.OAuthAppLoginAuthStatus":                        schema_obot_platform_obot_apiclient_types_OAuthAppLoginAuthStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthAppManifest":                               schema_obot_platform_obot_apiclient_types_OAuthAppManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClient":                                    schema_obot_platform_obot_apiclient_types_OAuthClient(ref),
+		"github.com/obot-platform/obot/apiclient/types.OAuthClientList":                                schema_obot_platform_obot_apiclient_types_OAuthClientList(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthClientManifest":                            schema_obot_platform_obot_apiclient_types_OAuthClientManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.OAuthToken":                                     schema_obot_platform_obot_apiclient_types_OAuthToken(ref),
 		"github.com/obot-platform/obot/apiclient/types.OnEmail":                                        schema_obot_platform_obot_apiclient_types_OnEmail(ref),
@@ -6421,16 +6422,14 @@ func schema_obot_platform_obot_apiclient_types_OAuthClient(ref common.ReferenceC
 					},
 					"registration_token_issued_at": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 					"registration_token_expires_at": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 					"registration_client_uri": {
@@ -6455,24 +6454,68 @@ func schema_obot_platform_obot_apiclient_types_OAuthClient(ref common.ReferenceC
 					},
 					"client_secret_issued_at": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
+							Type:   []string{"integer"},
+							Format: "int64",
 						},
 					},
 					"client_secret_expires_at": {
 						SchemaProps: spec.SchemaProps{
-							Default: 0,
-							Type:    []string{"integer"},
-							Format:  "int64",
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"static": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"authorize_url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"token_url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
-				Required: []string{"Metadata", "OAuthClientManifest", "registration_token_issued_at", "registration_token_expires_at", "registration_client_uri", "client_id", "client_secret_issued_at", "client_secret_expires_at"},
+				Required: []string{"Metadata", "OAuthClientManifest", "registration_client_uri", "client_id"},
 			},
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthClientManifest"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_OAuthClientList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/obot-platform/obot/apiclient/types.OAuthClient"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.OAuthClient"},
 	}
 }
 
@@ -16394,8 +16437,16 @@ func schema_storage_apis_obotobotai_v1_OAuthClientSpec(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"static": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Static indicates that the OAuth client is not dynamically registered, but was created manually.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"manifest", "clientSecretHash", "client_secret_issued_at", "client_secret_expires_at", "registrationTokenHash", "registration_token_issued_at", "registration_token_expires_at", "mcp_server_name", "ephemeral"},
+				Required: []string{"manifest", "clientSecretHash", "client_secret_issued_at", "client_secret_expires_at", "registrationTokenHash", "registration_token_issued_at", "registration_token_expires_at", "mcp_server_name", "ephemeral", "static"},
 			},
 		},
 		Dependencies: []string{

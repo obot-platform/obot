@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/obot-platform/nah/pkg/fields"
@@ -39,12 +40,14 @@ func (o *OAuthClient) Get(field string) (value string) {
 	switch field {
 	case "spec.mcpServerName":
 		return o.Spec.MCPServerName
+	case "spec.static":
+		return fmt.Sprintf("%v", o.Spec.Static)
 	}
 	return ""
 }
 
 func (*OAuthClient) FieldNames() []string {
-	return []string{"spec.mcpServerName"}
+	return []string{"spec.mcpServerName", "spec.static"}
 }
 
 type OAuthClientSpec struct {
@@ -59,6 +62,9 @@ type OAuthClientSpec struct {
 	// Ephemeral indicates that the OAuth client is temporary and will be deleted after a certain period of time.
 	// This is used for generating tool previews for example.
 	Ephemeral bool `json:"ephemeral"`
+
+	// Static indicates that the OAuth client is not dynamically registered, but was created manually.
+	Static bool `json:"static"`
 }
 
 type OAuthClientStatus struct{}

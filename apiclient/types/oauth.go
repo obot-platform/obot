@@ -88,14 +88,19 @@ type OAuthClient struct {
 	Metadata
 	OAuthClientManifest
 	RegistrationAccessToken    string `json:"registration_access_token,omitempty"`
-	RegistrationTokenIssuedAt  int64  `json:"registration_token_issued_at"`
-	RegistrationTokenExpiresAt int64  `json:"registration_token_expires_at"`
+	RegistrationTokenIssuedAt  int64  `json:"registration_token_issued_at,omitempty"`
+	RegistrationTokenExpiresAt int64  `json:"registration_token_expires_at,omitempty"`
 	RegistrationClientURI      string `json:"registration_client_uri"`
 	ClientID                   string `json:"client_id"`
 	ClientSecret               string `json:"client_secret,omitempty"`
-	ClientSecretIssuedAt       int64  `json:"client_secret_issued_at"`
-	ClientSecretExpiresAt      int64  `json:"client_secret_expires_at"`
+	ClientSecretIssuedAt       int64  `json:"client_secret_issued_at,omitempty"`
+	ClientSecretExpiresAt      int64  `json:"client_secret_expires_at,omitempty"`
+	Static                     bool   `json:"static,omitempty"`
+	AuthorizeURL               string `json:"authorize_url,omitempty"`
+	TokenURL                   string `json:"token_url,omitempty"`
 }
+
+type OAuthClientList List[OAuthClient]
 
 type OAuthToken struct {
 	AccessToken  string `json:"access_token"`
