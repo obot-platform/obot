@@ -73,7 +73,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 		}
 	}
 
-	// Basic and Power users are only allowed to access IDs and emails, so we have all the information needed for that.
+	// Basic and Power users are only allowed to access IDs and display names, so we have all the information needed for that.
 	if userIsBasicOrPower(apiContext.User) {
 		trimmedUsers := make([]types2.User, 0, len(validUsers))
 		for _, u := range validUsers {
@@ -142,7 +142,7 @@ func (s *Server) getUser(apiContext api.Context) error {
 		return fmt.Errorf("failed to get user: %v", err)
 	}
 
-	// Basic and Power users are only allowed to access IDs and emails, so we have all the information needed for that.
+	// Basic and Power users are only allowed to access IDs and display names, so we have all the information needed for that.
 	if userIsBasicOrPower(apiContext.User) {
 		return apiContext.Write(types2.User{
 			Metadata: types2.Metadata{
