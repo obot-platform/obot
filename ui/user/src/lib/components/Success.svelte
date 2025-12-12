@@ -12,6 +12,7 @@
 
 <div
 	in:fade
+	out:fade={{ duration: 100 }}
 	class="relative flex max-w-sm items-center gap-2 rounded-xl bg-gray-50 p-5 pr-12 dark:bg-gray-950"
 >
 	<div>

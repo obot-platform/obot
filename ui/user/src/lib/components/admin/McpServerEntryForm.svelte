@@ -58,7 +58,7 @@
 		type?: LaunchServerType;
 		readonly?: boolean;
 		onCancel?: () => void;
-		onSubmit?: (id: string, type: LaunchServerType) => void;
+		onSubmit?: (id: string, type: LaunchServerType, message?: string) => void;
 		hasExistingConfigured?: boolean;
 		isDialogView?: boolean;
 	}

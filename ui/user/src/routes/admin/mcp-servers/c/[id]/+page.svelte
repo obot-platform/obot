@@ -17,6 +17,7 @@
 	import { parseErrorContent } from '$lib/errors';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { page } from '$app/state';
+	import { success } from '$lib/stores/success';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
@@ -213,8 +214,10 @@
 			onCancel={() => {
 				goto('/admin/mcp-servers');
 			}}
-			onSubmit={async () => {
-				goto('/admin/mcp-servers');
+			onSubmit={async (_id, _type, message) => {
+				if (message) {
+					success.add(message);
+				}
 			}}
 			{hasExistingConfigured}
 		/>
