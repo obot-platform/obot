@@ -4,9 +4,12 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<script>
-			(function() {
+			(function () {
 				var dark = localStorage.getItem('theme');
-				if (dark === 'true' || (dark === null && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+				if (
+					dark === 'true' ||
+					(dark === null && window.matchMedia('(prefers-color-scheme: dark)').matches)
+				) {
 					document.documentElement.classList.add('dark');
 				}
 			})();
@@ -38,7 +41,9 @@
 				border-top-color: var(--primary);
 			}
 			@keyframes spin {
-				to { transform: rotate(360deg); }
+				to {
+					transform: rotate(360deg);
+				}
 			}
 			#initial-loader.loaded {
 				opacity: 0;
