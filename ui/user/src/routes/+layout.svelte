@@ -7,6 +7,7 @@
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/state';
+	import { Viewport } from '$lib/context/viewport.svelte';
 
 	interface Props {
 		children?: import('svelte').Snippet;
@@ -15,7 +16,13 @@
 
 	let { children, data }: Props = $props();
 
+	new Viewport().share();
+
 	untrack(() => {
+		if (data.appPreferences) {
+			appPreferences.initialize(data.appPreferences);
+		}
+
 		if (data.appPreferences) {
 			appPreferences.initialize(data.appPreferences);
 		}
