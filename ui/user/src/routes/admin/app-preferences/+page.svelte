@@ -8,7 +8,7 @@
 	import appPreferences, { compileAppPreferences } from '$lib/stores/appPreferences.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { browser } from '$app/environment';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import { invalidateAll } from '$app/navigation';
@@ -16,8 +16,8 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();
-	let form = $state<AppPreferences>(data.appPreferences);
-	let prevAppPreferences = $state<AppPreferences>(data.appPreferences);
+	let form = $state<AppPreferences>(untrack(() => data.appPreferences));
+	let prevAppPreferences = $state<AppPreferences>(untrack(() => data.appPreferences));
 	let saving = $state(false);
 	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();

@@ -21,12 +21,11 @@
 	import { page } from '$app/state';
 
 	let { data } = $props();
-	const { accessControlRules: initialRules, workspaceId } = data;
+	let { accessControlRules, workspaceId } = $derived(data);
 
 	initMcpServerAndEntries();
 
 	const mcpServersAndEntries = getPoweruserWorkspace();
-	let accessControlRules = $state(initialRules);
 	let showCreateRule = $state(false);
 	let ruleToDelete = $state<AccessControlRule>();
 

@@ -15,7 +15,7 @@
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
-	import { onMount, tick, type Snippet } from 'svelte';
+	import { onMount, tick, untrack, type Snippet } from 'svelte';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -67,7 +67,7 @@
 	let showRequired = $state<Record<string, boolean>>({});
 	let loading = $state(false);
 
-	let formData = $state<RuntimeFormData>(convertToFormData(entry));
+	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
 	let remoteCategories = $state<string[]>([]);
 
@@ -748,13 +748,13 @@
 			{#if formData.env}
 				{#each formData.env as _, i (i)}
 					<div
-						class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
+						class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
 					>
 						<div class="flex w-full flex-col gap-4">
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
 								<Select
-									class="bg-surface1 dark:border-surface3 dark:bg-surface1 border border-transparent shadow-inner"
+									class="dark:border-surface3 bg-background border border-transparent"
 									classes={{
 										root: 'flex grow'
 									}}
@@ -799,7 +799,7 @@
 									<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
 									<input
 										id={`env-name-${i}`}
-										class="text-input-filled w-full"
+										class="text-input-filled bg-background w-full shadow-none"
 										bind:value={formData.env[i].name}
 										disabled={readonly}
 									/>
@@ -808,7 +808,7 @@
 									<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
 									<input
 										id={`env-description-${i}`}
-										class="text-input-filled w-full"
+										class="text-input-filled bg-background w-full shadow-none"
 										bind:value={formData.env[i].description}
 										disabled={readonly}
 									/>
@@ -817,7 +817,7 @@
 									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 									<input
 										id={`env-key-${i}`}
-										class="text-input-filled w-full"
+										class="text-input-filled bg-background w-full shadow-none"
 										bind:value={formData.env[i].key}
 										placeholder="e.g. CUSTOM_API_KEY"
 										disabled={readonly}
@@ -846,7 +846,7 @@
 									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 									<input
 										id={`env-key-${i}`}
-										class="text-input-filled w-full"
+										class="text-input-filled bg-background w-full shadow-none"
 										bind:value={formData.env[i].key}
 										placeholder="e.g. CUSTOM_API_KEY"
 										disabled={readonly}
@@ -857,7 +857,7 @@
 									{#if formData.env[i].file}
 										<textarea
 											id={`env-value-${i}`}
-											class="text-input-filled min-h-24 w-full resize-y"
+											class="text-input-filled bg-background min-h-24 w-full resize-y shadow-none"
 											bind:value={formData.env[i].value}
 											disabled={readonly}
 											rows={formData.env[i].value.split('\n').length + 1}
@@ -865,7 +865,7 @@
 									{:else}
 										<input
 											id={`env-value-${i}`}
-											class="text-input-filled w-full"
+											class="text-input-filled bg-background w-full shadow-none"
 											bind:value={formData.env[i].value}
 											placeholder="e.g. 123abcdef456"
 											disabled={readonly}

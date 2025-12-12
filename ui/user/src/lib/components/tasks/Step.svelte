@@ -68,11 +68,9 @@
 	let loopStepToDeleteIndex: number | undefined = $state(undefined);
 	let isLoopStepDeleteDialogShown = $derived(typeof loopStepToDeleteIndex === 'number');
 
-	let shouldShowOutputLocal = $state(!!shouldShowOutputGlobal);
-
+	let shouldShowOutputLocal = $derived(!!shouldShowOutputGlobal);
 	let shouldShowOutput = $derived(shouldShowOutputLocal && shouldShowOutputGlobal);
-
-	let isRunning = $state(lastStepId?.includes(step.id) ?? false);
+	let isRunning = $derived(lastStepId?.includes(step.id) ?? false);
 
 	let timeoutId: number | undefined = undefined;
 	// save how many step.inProgress === false we got
@@ -118,7 +116,7 @@
 
 	const messages = $derived(!isLoopStep ? simpleStepMessages : loopStepMessage);
 
-	let runningProgress = $state(getCurrentRunData(step.id, lastStepId));
+	let runningProgress = $state(untrack(() => getCurrentRunData(step.id, lastStepId)));
 
 	const layout = getLayout();
 

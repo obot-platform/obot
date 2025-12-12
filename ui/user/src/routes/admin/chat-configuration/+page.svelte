@@ -12,15 +12,15 @@
 	import { AdminService, ModelUsage, type Model, type ModelProvider } from '$lib/services';
 	import { sortModelProviders } from '$lib/sort';
 	import { Check, Info, LoaderCircle, Plus, TriangleAlert } from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 	import { profile } from '$lib/stores/index.js';
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();
-	let prevAgent = $state(data.baseAgent);
-	let baseAgent = $state(data.baseAgent);
+	let prevAgent = $state(untrack(() => data.baseAgent));
+	let baseAgent = $state(untrack(() => data.baseAgent));
 	let saving = $state(false);
 	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
@@ -291,7 +291,7 @@
 									<img
 										src={modelProvidersMap.get(d.modelProvider)?.icon}
 										alt={d.modelProvider}
-										class="size-6 rounded-md bg-gray-50 p-1 dark:bg-gray-600"
+										class="icon size-6"
 									/>
 									{d.name}
 								</div>
@@ -385,11 +385,7 @@
 				{#if models.length > 0}
 					<div class="flex flex-col gap-1 px-2 py-1">
 						<h4 class="text-md mx-2 flex items-center gap-2 font-semibold">
-							<img
-								src={modelProvider.icon}
-								alt={modelProvider?.name}
-								class="size-4 rounded-md bg-gray-50 p-0.5 dark:bg-gray-600"
-							/>
+							<img src={modelProvider.icon} alt={modelProvider?.name} class="icon size-4" />
 							{modelProvider.name}
 						</h4>
 					</div>

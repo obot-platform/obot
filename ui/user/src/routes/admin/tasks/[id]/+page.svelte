@@ -3,6 +3,7 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import { initLayout } from '$lib/context/chatLayout.svelte';
+	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
@@ -10,7 +11,7 @@
 	initLayout({
 		sidebarOpen: false,
 		fileEditorOpen: false,
-		editTaskID: data.task?.id,
+		editTaskID: untrack(() => data.task?.id),
 		items: []
 	});
 

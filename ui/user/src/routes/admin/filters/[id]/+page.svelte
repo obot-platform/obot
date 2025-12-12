@@ -8,8 +8,7 @@
 	import { profile } from '$lib/stores';
 
 	let { data }: { data: { filter: MCPFilter } } = $props();
-	const { filter: initialFilter } = data;
-	let filter = $state(initialFilter);
+	let { filter } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let title = $derived(filter?.name ?? 'Filter');

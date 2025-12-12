@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Component } from 'svelte';
+	import { type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$lib/url';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -12,8 +12,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { mcpServer: initialMcpServer, workspaceId } = data;
-	let mcpServer = $state(initialMcpServer);
+	let { mcpServer, workspaceId } = $derived(data);
 	let title = $derived(mcpServer?.manifest?.name ?? 'MCP Server');
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 </script>

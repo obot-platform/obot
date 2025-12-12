@@ -17,10 +17,10 @@
 	import { darkMode, errors, profile } from '$lib/stores/index.js';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { untrack } from 'svelte';
 
 	let { data } = $props();
-	let { authProviders: initialAuthProviders } = data;
-	let authProviders = $state(initialAuthProviders);
+	let authProviders = $state(untrack(() => data.authProviders));
 
 	function sortAuthProviders(authProviders: AuthProvider[]) {
 		return [...authProviders].sort((a, b) => {

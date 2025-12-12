@@ -12,8 +12,7 @@
 	} from '$lib/context/poweruserWorkspace.svelte.js';
 
 	let { data } = $props();
-	const { accessControlRule: initialRule, workspaceId } = data;
-	let accessControlRule = $state(initialRule);
+	let { accessControlRule, workspaceId } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 
 	initMcpServerAndEntries();

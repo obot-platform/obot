@@ -220,14 +220,14 @@
 			{#if config.headers}
 				{#each config.headers as header, i (i)}
 					<div
-						class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
+						class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
 					>
 						<div class="flex w-full flex-col gap-4">
 							<div class="flex w-full flex-col gap-1">
 								<label for={`header-key-${i}`} class="text-sm font-light">Key</label>
 								<input
 									id={`header-key-${i}`}
-									class="text-input-filled w-full"
+									class="text-input-filled bg-background w-full shadow-none"
 									bind:value={config.headers[i].key}
 									placeholder="e.g. CUSTOM_HEADER_KEY"
 									disabled={readonly}
@@ -236,7 +236,7 @@
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-type-${i}`} class="text-sm font-light">Value</label>
 								<Select
-									class="bg-surface1 dark:border-surface3 dark:bg-surface1 border border-transparent shadow-inner"
+									class="bg-background dark:border-surface3 border border-transparent shadow-none"
 									classes={{
 										root: 'flex grow'
 									}}
@@ -265,7 +265,7 @@
 									<label for={`header-name-${i}`} class="text-sm font-light">Name</label>
 									<input
 										id={`header-name-${i}`}
-										class="text-input-filled w-full"
+										class="text-input-filled bg-background w-full shadow-none"
 										bind:value={config.headers[i].name}
 										disabled={readonly}
 									/>
@@ -276,7 +276,7 @@
 									>
 									<input
 										id={`header-description-${i}`}
-										class="text-input-filled w-full"
+										class="text-input-filled bg-background w-full shadow-none"
 										bind:value={config.headers[i].description}
 										disabled={readonly}
 									/>
@@ -294,7 +294,7 @@
 									</label>
 									<input
 										id={`header-prefix-${i}`}
-										class="text-input-filled w-full"
+										class="text-input-filled bg-background w-full shadow-none"
 										bind:value={config.headers[i].prefix}
 										disabled={readonly}
 									/>
@@ -314,7 +314,7 @@
 							{:else}
 								<input
 									id={`header-description-${i}`}
-									class="text-input-filled w-full"
+									class="text-input-filled bg-background w-full shadow-none"
 									bind:value={config.headers[i].value}
 									disabled={readonly}
 								/>

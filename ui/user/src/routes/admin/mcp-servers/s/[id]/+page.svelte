@@ -13,8 +13,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { mcpServer: initialMcpServer } = data;
-	let mcpServer = $state(initialMcpServer);
+	let { mcpServer } = $derived(data);
 	let title = $derived(mcpServer?.manifest?.name ?? 'MCP Server');
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 </script>

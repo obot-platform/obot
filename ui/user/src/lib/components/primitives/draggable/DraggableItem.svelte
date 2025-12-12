@@ -51,7 +51,9 @@
 	let containerElement: HTMLElement | undefined = $state();
 
 	const item = {
-		id,
+		get id() {
+			return id;
+		},
 		get data() {
 			return data;
 		}

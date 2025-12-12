@@ -12,15 +12,14 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { workspaceId, catalogEntry: initialCatalogEntry } = data;
-	let catalogEntry = $state(initialCatalogEntry);
+	let { workspaceId, catalogEntry } = $derived(data);
 	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
 
 	const hasExistingConfigured = $derived(
 		Boolean(
-			initialCatalogEntry &&
+			catalogEntry &&
 				mcpServersAndEntries.current.userConfiguredServers.some(
-					(server) => server.catalogEntryID === initialCatalogEntry.id
+					(server) => server.catalogEntryID === catalogEntry?.id
 				)
 		)
 	);

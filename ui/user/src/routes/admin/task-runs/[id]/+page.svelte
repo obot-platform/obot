@@ -4,14 +4,16 @@
 	import Task from '$lib/components/tasks/Task.svelte';
 	import { initLayout } from '$lib/context/chatLayout.svelte';
 	import { initProjectTools } from '$lib/context/projectTools.svelte';
+	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
+	let { taskRun, task, project } = $derived(data);
 
 	initLayout({
 		sidebarOpen: false,
 		fileEditorOpen: false,
-		editTaskID: data.task?.id,
+		editTaskID: untrack(() => task?.id),
 		items: []
 	});
 
@@ -31,15 +33,8 @@
 	>
 		<div class="flex h-full flex-col">
 			<div class="flex w-full grow justify-center">
-				{#if data.taskRun && data.task && data.project && browser}
-					<Task
-						project={data.project}
-						task={data.task}
-						runID={data.taskRun.taskRunID}
-						readonly
-						skipFetchOnMount
-						noChat
-					/>
+				{#if taskRun && task && project && browser}
+					<Task {project} {task} runID={taskRun.taskRunID} readonly skipFetchOnMount noChat />
 				{/if}
 			</div>
 		</div>

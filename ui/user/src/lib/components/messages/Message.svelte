@@ -91,8 +91,8 @@
 	);
 	let fullWidth = $derived(!msg.sent && !msg.oauthURL && !msg.tool);
 	let showBubble = $derived(msg.sent);
-	let isPrompt = msg.fields && msg.promptId;
-	let renderMarkdown = !msg.sent && !msg.oauthURL && !msg.tool;
+	let isPrompt = $derived(msg.fields && msg.promptId);
+	let renderMarkdown = $derived(!msg.sent && !msg.oauthURL && !msg.tool);
 	let shell = $state({
 		input: '',
 		output: ''
@@ -338,7 +338,7 @@
 		}
 	}
 
-	const projectTools = noMemoryTool ? { tools: [] } : getProjectTools();
+	const projectTools = $derived(noMemoryTool ? { tools: [] } : getProjectTools());
 	let memoriesDialog = $state<ReturnType<typeof MemoriesDialog>>();
 </script>
 
@@ -456,7 +456,7 @@
 	{#if msg.file}
 		<button
 			class={twMerge(
-				'bg-background my-2 flex w-[750px] w-md max-w-full cursor-pointer flex-col rounded-3xl border border-gray-300 text-start text-black shadow-lg md:w-[750px] dark:text-gray-50',
+				'bg-background my-2 flex w-md max-w-full cursor-pointer flex-col rounded-3xl border border-gray-300 text-start text-black shadow-lg md:w-[750px] dark:text-gray-50',
 				!msg.file?.filename && !msg.aborted && !msg.done && 'cursor-wait'
 			)}
 			disabled={!msg.file?.filename}

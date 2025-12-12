@@ -4,7 +4,7 @@
 	import Logo from '$lib/components/Logo.svelte';
 
 	let { data }: PageProps = $props();
-	let { authProviders, loggedIn } = data;
+	let { authProviders, loggedIn } = $derived(data);
 	let overrideRedirect = $state<string | null>(null);
 
 	let rd = $derived.by(() => {

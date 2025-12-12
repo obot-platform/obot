@@ -53,8 +53,8 @@
 		noChat
 	}: Props = $props();
 
-	const readOnly = !!inputRunID || readonly;
-	let runID = $state(inputRunID);
+	const readOnly = untrack(() => !!inputRunID || readonly);
+	let runID = $state(untrack(() => inputRunID));
 	let thread: Thread | undefined = $state<Thread>();
 	let lastStepId: string | undefined = $state(undefined);
 	let stepMessages: Record<string, Messages> = $state({});

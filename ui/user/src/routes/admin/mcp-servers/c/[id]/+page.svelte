@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type Component } from 'svelte';
+	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { goto } from '$lib/url';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
@@ -21,8 +21,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { catalogEntry: initialCatalogEntry } = data;
-	let catalogEntry = $state(initialCatalogEntry);
+	let catalogEntry = $state(untrack(() => data.catalogEntry));
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let isSourcedEntry = $derived(
@@ -54,9 +53,9 @@
 	let upgradeSuccessDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	const hasExistingConfigured = $derived(
 		Boolean(
-			initialCatalogEntry &&
+			catalogEntry &&
 				mcpServersAndEntries.current.userConfiguredServers.some(
-					(server) => server.catalogEntryID === initialCatalogEntry.id
+					(server) => server.catalogEntryID === catalogEntry?.id
 				)
 		)
 	);

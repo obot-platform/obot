@@ -12,7 +12,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import { ChatService } from '$lib/services';
 	import { responsive } from '$lib/stores';
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 
@@ -40,7 +40,9 @@
 	}: Props = $props();
 	const layout = getLayout();
 
-	let expanded = $state((taskRuns?.length ?? 0) > 0 && initialExpanded ? true : false);
+	let expanded = $state(
+		untrack(() => ((taskRuns?.length ?? 0) > 0 && initialExpanded ? true : false))
+	);
 	let displayCount = $state(10); // number of task runs to display initially
 
 	function loadMore() {

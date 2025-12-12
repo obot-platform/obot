@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, type Snippet, tick } from 'svelte';
+	import { onMount, type Snippet, tick, untrack } from 'svelte';
 	import { ArrowUp, LoaderCircle } from 'lucide-svelte';
 
 	import { type InvokeInput } from '$lib/services';
@@ -41,7 +41,7 @@
 		inputPopover
 	}: Props = $props();
 
-	let value = $state(initialValue || '');
+	let value = $state(untrack(() => initialValue) || '');
 	let chat: HTMLDivElement | undefined = $state<HTMLDivElement>();
 	let editor: PlaintextEditor | undefined = $state();
 

@@ -10,28 +10,32 @@
 	import { initProjectTools } from '$lib/context/projectTools.svelte.js';
 	import { initProjectMCPs } from '$lib/context/projectMcps.svelte.js';
 	import { initHelperMode } from '$lib/context/helperMode.svelte.js';
+	import { untrack } from 'svelte';
 
 	let { data } = $props();
-	let project = $state(data.project);
+	let project = $state(untrack(() => data.project));
 
 	let currentThreadID = $state<string | undefined>(
 		(browser && new URL(window.location.href).searchParams.get('thread')) || undefined
 	);
 	let title = $derived(project?.name || 'Obot');
 
-	initToolReferences(data.toolReferences ?? []);
-	initProjectMCPs(data.mcps ?? []);
+	untrack(() => {
+		initToolReferences(data.toolReferences ?? []);
+		initProjectMCPs(data.mcps ?? []);
+
+		// Initialize project tools immediately
+		initProjectTools({
+			tools: data.tools ?? [],
+			maxTools: data.assistant?.maxTools ?? 5
+		});
+	});
+
 	initLayout({
 		items: [],
 		sidebarOpen: !responsive.isMobile
 	});
 	initHelperMode();
-
-	// Initialize project tools immediately
-	initProjectTools({
-		tools: data.tools ?? [],
-		maxTools: data.assistant?.maxTools ?? 5
-	});
 
 	// Update project tools when data changes
 	$effect(() => {

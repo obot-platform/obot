@@ -22,7 +22,7 @@
 		entityPlural,
 		additionalNote
 	}: Props = $props();
-	let plural = entityPlural ? entityPlural : entity + '(s)';
+	let plural = $derived(entityPlural ? entityPlural : entity + '(s)');
 </script>
 
 <Confirm {show} {onsuccess} {oncancel} {loading}>

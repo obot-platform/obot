@@ -12,13 +12,10 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { workspaceId, catalogEntry: initialCatalogEntry, mcpServer } = data;
-	let catalogEntry = $state(initialCatalogEntry);
+	let { workspaceId, catalogEntry, mcpServer } = $derived(data);
 	let title = $derived(
 		mcpServer?.alias || mcpServer?.manifest?.name || catalogEntry?.manifest?.name || 'MCP Server'
 	);
-	let server = $state(mcpServer);
-
 	function navigateToMcpServers() {
 		goto(resolve(`/mcp-servers`));
 	}
@@ -34,7 +31,7 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions entry={catalogEntry} {server} />
+		<McpServerActions entry={catalogEntry} server={mcpServer} />
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if catalogEntry}

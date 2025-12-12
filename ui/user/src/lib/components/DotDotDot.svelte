@@ -26,7 +26,9 @@
 	}: Props = $props();
 
 	const { tooltip, ref, toggle } = popover({
-		placement
+		get placement() {
+			return placement;
+		}
 	});
 </script>
 
