@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,24 +24,11 @@ func NewPowerUserWorkspaceHandler(serverURL string, acrHelper *accesscontrolrule
 	}
 }
 
-// List returns power user workspaces. Admins see all, non-admins see only their own.
+// List returns power user workspaces. All users are allowed to list these.
 func (*PowerUserWorkspaceHandler) List(req api.Context) error {
 	var list v1.PowerUserWorkspaceList
-	if req.UserIsAdmin() {
-		// Admins can see all PowerUserWorkspaces
-		if err := req.List(&list); err != nil {
-			return fmt.Errorf("failed to list power user workspaces: %w", err)
-		}
-	} else {
-		// Non-admins can only see their own workspace
-		userID := req.User.GetUID()
-		if err := req.List(&list, &kclient.ListOptions{
-			FieldSelector: fields.SelectorFromSet(map[string]string{
-				"spec.userID": userID,
-			}),
-		}); err != nil {
-			return fmt.Errorf("failed to list power user workspaces: %w", err)
-		}
+	if err := req.List(&list); err != nil {
+		return fmt.Errorf("failed to list power user workspaces: %w", err)
 	}
 
 	items := make([]types.PowerUserWorkspace, 0, len(list.Items))
