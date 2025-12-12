@@ -3,6 +3,7 @@
 		AdminService,
 		ChatService,
 		MCPCompositeDeletionDependencyError,
+		type LaunchServerType,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance
@@ -43,6 +44,7 @@
 		skipConnectDialog?: boolean;
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
 		promptInitialLaunch?: boolean;
+		type?: LaunchServerType;
 	}
 
 	let {
@@ -52,7 +54,8 @@
 		loading,
 		skipConnectDialog,
 		onConnect,
-		promptInitialLaunch
+		promptInitialLaunch,
+		type
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
@@ -233,6 +236,7 @@
 			refresh();
 		}}
 		{skipConnectDialog}
+		{type}
 	/>
 
 	<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
