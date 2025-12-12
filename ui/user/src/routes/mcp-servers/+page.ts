@@ -2,9 +2,14 @@ import { handleRouteError } from '$lib/errors';
 import { ChatService } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
 export const load: PageLoad = async ({ fetch }) => {
 	let workspace;
+
+	if (profile.current.hasAdminAccess?.()) {
+		throw redirect(302, '/admin/mcp-servers');
+	}
 
 	try {
 		const currentProfile = profile.current.id
