@@ -253,15 +253,11 @@
 							)
 						: d.data;
 
-				if (server) {
-					return server.needsUpdate
-						? 'bg-primary/10'
-						: requiresUserUpdate(server)
-							? 'bg-yellow-500/10'
-							: '';
-				}
-
-				return '';
+				return server?.needsUpdate || ('isCatalogEntry' in d.data && d.data.needsUpdate)
+					? 'bg-primary/10'
+					: requiresUserUpdate(server)
+						? 'bg-yellow-500/10'
+						: '';
 			}}
 		>
 			{#snippet onRenderColumn(property, d)}
@@ -282,27 +278,25 @@
 						</div>
 						<p class="flex items-center gap-2">
 							{d.name}
-							{#if server}
-								{#if server.needsUpdate}
-									<span
-										use:tooltip={{
-											classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
-											text: 'An update requires your attention'
-										}}
-									>
-										<CircleFadingArrowUp class="text-primary size-4" />
-									</span>
-								{:else if requiresUserUpdate(server)}
-									<span
-										class="text-yellow-500"
-										use:tooltip={{
-											text: 'Server requires an update.',
-											disablePortal: true
-										}}
-									>
-										<TriangleAlert class="size-4" />
-									</span>
-								{/if}
+							{#if server?.needsUpdate || ('isCatalogEntry' in d.data && d.data.needsUpdate)}
+								<span
+									use:tooltip={{
+										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
+										text: 'An update requires your attention'
+									}}
+								>
+									<CircleFadingArrowUp class="text-primary size-4" />
+								</span>
+							{:else if requiresUserUpdate(server)}
+								<span
+									class="text-yellow-500"
+									use:tooltip={{
+										text: 'Server requires an update.',
+										disablePortal: true
+									}}
+								>
+									<TriangleAlert class="size-4" />
+								</span>
 							{/if}
 						</p>
 					</div>
