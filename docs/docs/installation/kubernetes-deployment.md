@@ -78,7 +78,7 @@ config:
 
 ### High Availability
 
-To enable a high availability setup, uncomment the `replicaCount` line and set it to `2` or higher. An external PostgreSQL database and a workpace provider are required for HA.
+To enable a high availability setup, uncomment the `replicaCount` line and set it to `2` or higher. An external PostgreSQL database and a workspace provider are required for HA.
 
 For detailed configuration options, see:
 
