@@ -801,6 +801,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPLoader:                  mcpSessionManager,
 		MCPOAuthTokenStorage:       mcpOAuthTokenStorage,
 		OAuthServerConfig: handlers.OAuthAuthorizationServerConfig{
+			Issuer:                            config.Hostname,
+			AuthorizationEndpoint:             fmt.Sprintf("%s/oauth/authorize", config.Hostname),
+			TokenEndpoint:                     fmt.Sprintf("%s/oauth/token", config.Hostname),
+			RegistrationEndpoint:              fmt.Sprintf("%s/oauth/register", config.Hostname),
 			JWKSURI:                           config.Hostname + "/oauth/jwks.json",
 			ResponseTypesSupported:            []string{"code"},
 			GrantTypesSupported:               []string{"authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"},

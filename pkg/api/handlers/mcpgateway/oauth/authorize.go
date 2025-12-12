@@ -134,7 +134,7 @@ func (h *handler) authorize(req api.Context) error {
 		})
 	}
 
-	if !slices.Contains(oauthClient.Spec.Manifest.ResponseTypes, responseType) {
+	if len(oauthClient.Spec.Manifest.ResponseTypes) > 0 && !slices.Contains(oauthClient.Spec.Manifest.ResponseTypes, responseType) || len(oauthClient.Spec.Manifest.ResponseTypes) == 0 && responseType != "code" {
 		redirectWithAuthorizeError(req, redirectURI, Error{
 			Code:        ErrUnsupportedResponseType,
 			Description: "response_type is not allowed for this client",
@@ -200,7 +200,9 @@ func (h *handler) authorize(req api.Context) error {
 		}
 	}
 
-	mcpID = "/" + mcpID
+	if mcpID != "" {
+		mcpID = "/" + mcpID
+	}
 	oauthAppAuthRequest := v1.OAuthAuthRequest{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: system.OAuthAppPrefix,

@@ -112,7 +112,7 @@ func (h *handler) token(req api.Context) error {
 		})
 	}
 
-	if !slices.Contains(client.Spec.Manifest.GrantTypes, grantType) {
+	if len(client.Spec.Manifest.GrantTypes) > 0 && !slices.Contains(client.Spec.Manifest.GrantTypes, grantType) || len(client.Spec.Manifest.GrantTypes) == 0 && grantType != "authorization_code" {
 		return types.NewErrBadRequest("%v", Error{
 			Code:        ErrInvalidRequest,
 			Description: "client is not allowed to use authorization_code grant type",
