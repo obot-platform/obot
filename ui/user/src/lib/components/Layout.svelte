@@ -189,6 +189,14 @@
 								icon: Boxes,
 								label: 'Model Providers',
 								collapsible: false
+							},
+							{
+								id: 'chat',
+								href: '/chat',
+								icon: MessageCircle,
+								label: 'Launch Chat',
+								disabled: isBootStrapUser,
+								collapsible: false
 							}
 						]
 					},
@@ -232,26 +240,10 @@
 						label: 'App Preferences',
 						disabled: false,
 						collapsible: false
-					},
-					{
-						id: 'chat',
-						href: '/chat',
-						icon: MessageCircle,
-						label: 'Launch Chat',
-						disabled: isBootStrapUser,
-						collapsible: false
 					}
 				]
 			: isAtLeastPowerUser
 				? [
-						{
-							id: 'chat',
-							href: '/chat',
-							icon: MessageCircle,
-							label: 'Chat',
-							disabled: isBootStrapUser,
-							collapsible: false
-						},
 						{
 							id: 'mcp-server-management',
 							icon: RadioTower,
@@ -296,9 +288,7 @@
 									collapsible: false
 								}
 							]
-						}
-					]
-				: [
+						},
 						{
 							id: 'chat',
 							href: '/chat',
@@ -306,13 +296,23 @@
 							label: 'Chat',
 							disabled: isBootStrapUser,
 							collapsible: false
-						},
+						}
+					]
+				: [
 						{
 							id: 'mcp-servers',
 							href: '/mcp-servers',
 							icon: Server,
 							label: 'MCP Servers',
 							disabled: false,
+							collapsible: false
+						},
+						{
+							id: 'chat',
+							href: '/chat',
+							icon: MessageCircle,
+							label: 'Chat',
+							disabled: isBootStrapUser,
 							collapsible: false
 						}
 					]

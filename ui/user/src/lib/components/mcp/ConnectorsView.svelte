@@ -349,6 +349,7 @@
 									My Connection(s)
 								</div>
 								<div class="bg-surface1 flex flex-col gap-1 p-2">
+									{@render connectToServerAction(d.data, toggle)}
 									<button
 										class="menu-button hover:bg-surface3"
 										onclick={async (e) => {
@@ -426,33 +427,9 @@
 								</div>
 							{/if}
 							<div class="flex flex-col gap-1 p-2">
-								<button
-									class="menu-button"
-									onclick={async (e) => {
-										e.stopPropagation();
-
-										if ('isCatalogEntry' in d.data && d.connected) {
-											handleShowSelectServerDialog(d.data);
-										} else {
-											const entry =
-												'isCatalogEntry' in d.data
-													? d.data
-													: d.data.catalogEntryID
-														? entriesMap.get(d.data.catalogEntryID)
-														: undefined;
-											const server = 'isCatalogEntry' in d.data ? undefined : d.data;
-											connectToServerDialog?.open({
-												entry,
-												server,
-												instance: instancesMap.get(d.id)
-											});
-										}
-										toggle(false);
-									}}
-								>
-									<SatelliteDish class="size-4" /> Connect To Server
-								</button>
-
+								{#if !hasConnectedOptions}
+									{@render connectToServerAction(d.data, toggle, true)}
+								{/if}
 								{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
 									<button
 										onclick={(e) => {
@@ -531,6 +508,40 @@
 		}}
 	>
 		<PencilLine class="size-4" /> Rename
+	</button>
+{/snippet}
+
+{#snippet connectToServerAction(
+	d: MCPCatalogEntry | MCPCatalogServer,
+	toggle: (value: boolean) => void,
+	isCreateFirst?: boolean
+)}
+	<button
+		class="menu-button"
+		onclick={async (e) => {
+			e.stopPropagation();
+
+			if ('isCatalogEntry' in d) {
+				if (isCreateFirst) {
+					connectToServerDialog?.open({
+						entry: d
+					});
+				} else {
+					handleShowSelectServerDialog(d);
+				}
+			} else {
+				const entry = d.catalogEntryID ? entriesMap.get(d.catalogEntryID) : undefined;
+				const server = 'isCatalogEntry' in d ? undefined : d;
+				connectToServerDialog?.open({
+					entry,
+					server,
+					instance: instancesMap.get(d.id)
+				});
+			}
+			toggle(false);
+		}}
+	>
+		<SatelliteDish class="size-4" /> Connect To Server
 	</button>
 {/snippet}
 
