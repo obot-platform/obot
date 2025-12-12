@@ -7,7 +7,6 @@
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
 	import type { PageData } from './$types';
 	import { page } from '$app/state';
-	import { untrack } from 'svelte';
 
 	interface Props {
 		children?: import('svelte').Snippet;

@@ -21,8 +21,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { catalogEntry: initialCatalogEntry, mcpServer } = data;
-	let catalogEntry = $state(initialCatalogEntry);
+	let { catalogEntry, mcpServer } = $derived(data);
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let isSourcedEntry = $derived(

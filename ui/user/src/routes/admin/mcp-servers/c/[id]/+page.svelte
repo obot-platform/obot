@@ -53,9 +53,9 @@
 	let upgradeSuccessDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	const hasExistingConfigured = $derived(
 		Boolean(
-			initialCatalogEntry &&
+			catalogEntry &&
 				mcpServersAndEntries.current.userConfiguredServers.some(
-					(server) => server.catalogEntryID === initialCatalogEntry.id
+					(server) => server.catalogEntryID === catalogEntry?.id
 				)
 		)
 	);

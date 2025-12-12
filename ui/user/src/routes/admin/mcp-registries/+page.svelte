@@ -10,7 +10,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { AdminService, ChatService } from '$lib/services/index.js';
 	import { getUserDisplayName, openUrl } from '$lib/utils.js';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';

@@ -13,8 +13,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
-	let { workspaceId, catalogEntry: initialCatalogEntry, mcpServer } = data;
-	let catalogEntry = $state(initialCatalogEntry);
+	let { workspaceId, catalogEntry, mcpServer } = $derived(data);
 	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
 
 	function navigateToMcpServers() {

@@ -10,7 +10,7 @@
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	let { mcpServer, workspaceId } = data;
+	let { mcpServer, workspaceId } = $derived(data);
 	let loading = $state(false);
 	let users = $state<OrgUser[]>([]);
 	let instances = $state<MCPServerInstance[]>([]);

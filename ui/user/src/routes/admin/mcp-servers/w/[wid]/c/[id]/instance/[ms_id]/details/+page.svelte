@@ -16,12 +16,12 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 
 	let { data } = $props();
-	let { catalogEntry, mcpServerId, workspaceId } = data;
+	let { catalogEntry, mcpServerId, workspaceId } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 	let connectedUsers = $state<OrgUser[]>([]);
 	let mcpServer = $state<MCPCatalogServer>();
 
-	let catalogEntryName = catalogEntry?.manifest?.name ?? 'Unknown';
+	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? 'Unknown');
 
 	async function fetchUserInfo() {
 		mcpServer = await ChatService.getSingleOrRemoteMcpServer(mcpServerId);

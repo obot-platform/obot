@@ -7,8 +7,7 @@
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 
 	let { data } = $props();
-	const { accessControlRule: initialRule } = data;
-	let accessControlRule = $state(initialRule);
+	const { accessControlRule } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let title = $derived(accessControlRule?.displayName ?? 'MCP Registry');
