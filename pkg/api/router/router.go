@@ -77,6 +77,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL)
 	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth)
+	acrRegistryHandler := registry.NewACRHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -592,6 +593,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /v0.1/servers", registryHandler.ListServers)
 	mux.HandleFunc("GET /v0.1/servers/{serverName}/versions", registryHandler.ListServerVersions)
 	mux.HandleFunc("GET /v0.1/servers/{serverName}/versions/{version}", registryHandler.GetServerVersion)
+
+	// Per-ACR Registry API
+	mux.HandleFunc("GET /mcp-registry/{acr_id}/v0.1/servers", acrRegistryHandler.ListServers)
+	mux.HandleFunc("GET /mcp-registry/{acr_id}/v0.1/servers/{serverName}/versions", acrRegistryHandler.ListServerVersions)
+	mux.HandleFunc("GET /mcp-registry/{acr_id}/v0.1/servers/{serverName}/versions/{version}", acrRegistryHandler.GetServerVersion)
 
 	// MCP Audit Logs
 	mux.HandleFunc("GET /api/mcp-audit-logs", mcpAuditLogs.ListAuditLogs)
