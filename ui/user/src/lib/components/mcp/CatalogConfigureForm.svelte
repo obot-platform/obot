@@ -87,8 +87,11 @@
 		if (form && 'headers' in form) {
 			return (
 				form.headers
-					?.map((header, i) => ({ index: i, data: header }))
-					?.filter((item) => item.data.required) ?? []
+					?.map((header, i) => ({
+						index: i,
+						data: header as typeof header & { isStatic?: boolean }
+					}))
+					?.filter((item) => !item.data.isStatic) ?? []
 			);
 		}
 
