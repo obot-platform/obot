@@ -6,7 +6,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -17,12 +16,12 @@ type mockUser struct {
 	extra  map[string][]string
 }
 
-func (m *mockUser) GetName() string                      { return m.uid }
-func (m *mockUser) GetUID() string                       { return m.uid }
-func (m *mockUser) GetGroups() []string                  { return m.groups }
-func (m *mockUser) GetExtra() map[string][]string        { return m.extra }
-func (m *mockUser) GetAuthID() string                    { return "" }
-func (m *mockUser) GetAuthentications() []string         { return nil }
+func (m *mockUser) GetName() string                       { return m.uid }
+func (m *mockUser) GetUID() string                        { return m.uid }
+func (m *mockUser) GetGroups() []string                   { return m.groups }
+func (m *mockUser) GetExtra() map[string][]string         { return m.extra }
+func (m *mockUser) GetAuthID() string                     { return "" }
+func (m *mockUser) GetAuthentications() []string          { return nil }
 func (m *mockUser) GetPersistentIdentity() (string, bool) { return "", false }
 
 func TestHasWildcardSubject(t *testing.T) {
@@ -585,91 +584,5 @@ func TestNewACRHandler(t *testing.T) {
 
 	if handler.mimeFetcher == nil {
 		t.Error("NewACRHandler() mimeFetcher is nil")
-	}
-}
-
-// TestACRScopeValidation tests the scope validation logic in fetchCatalogEntry and fetchMCPServer
-func TestACRScopeValidation(t *testing.T) {
-	tests := []struct {
-		name        string
-		acrCatalog  string
-		acrWorkspace string
-		entryCatalog string
-		entryWorkspace string
-		shouldMatch bool
-	}{
-		{
-			name:         "catalog-scoped ACR, matching catalog entry",
-			acrCatalog:   "default",
-			entryCatalog: "default",
-			shouldMatch:  true,
-		},
-		{
-			name:         "catalog-scoped ACR, non-matching catalog entry",
-			acrCatalog:   "default",
-			entryCatalog: "other",
-			shouldMatch:  false,
-		},
-		{
-			name:           "workspace-scoped ACR, matching workspace entry",
-			acrWorkspace:   "workspace-123",
-			entryWorkspace: "workspace-123",
-			shouldMatch:    true,
-		},
-		{
-			name:           "workspace-scoped ACR, non-matching workspace entry",
-			acrWorkspace:   "workspace-123",
-			entryWorkspace: "workspace-456",
-			shouldMatch:    false,
-		},
-		{
-			name:           "catalog-scoped ACR, workspace entry",
-			acrCatalog:     "default",
-			entryWorkspace: "workspace-123",
-			shouldMatch:    false,
-		},
-		{
-			name:         "workspace-scoped ACR, catalog entry",
-			acrWorkspace: "workspace-123",
-			entryCatalog: "default",
-			shouldMatch:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// This is a conceptual test to document the scope validation logic
-			// The actual implementation is in fetchCatalogEntry and fetchMCPServer
-			// which require a full api.Context setup
-
-			// Create an ACR with the specified scope
-			acr := v1.AccessControlRule{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test-acr",
-				},
-				Spec: v1.AccessControlRuleSpec{
-					MCPCatalogID:         tt.acrCatalog,
-					PowerUserWorkspaceID: tt.acrWorkspace,
-				},
-			}
-
-			// Verify the scope is set correctly
-			if acr.Spec.MCPCatalogID != tt.acrCatalog {
-				t.Errorf("ACR catalog ID = %v, want %v", acr.Spec.MCPCatalogID, tt.acrCatalog)
-			}
-			if acr.Spec.PowerUserWorkspaceID != tt.acrWorkspace {
-				t.Errorf("ACR workspace ID = %v, want %v", acr.Spec.PowerUserWorkspaceID, tt.acrWorkspace)
-			}
-
-			// The actual validation would happen in fetchCatalogEntry/fetchMCPServer
-			// where it compares the ACR's scope with the entry/server's scope
-			catalogMatch := tt.acrCatalog != "" && tt.acrCatalog == tt.entryCatalog
-			workspaceMatch := tt.acrWorkspace != "" && tt.acrWorkspace == tt.entryWorkspace
-			actualMatch := catalogMatch || workspaceMatch
-
-			if actualMatch != tt.shouldMatch {
-				t.Errorf("Scope validation = %v, want %v", actualMatch, tt.shouldMatch)
-			}
-		})
 	}
 }

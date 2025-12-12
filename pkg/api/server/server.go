@@ -166,10 +166,10 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			}
 
 			// Only set WWW-Authenticate if not in no-auth mode
-			if !s.registryNoAuth && (strings.HasPrefix(req.URL.Path, "/v0.1") || strings.HasPrefix(req.URL.Path, "/mcp-registry/")) {
+			if !s.registryNoAuth {
 				if strings.HasPrefix(req.URL.Path, "/v0.1") {
 					rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", resource_metadata="%s/.well-known/oauth-protected-resource/v0.1/servers"`, strings.TrimSuffix(s.baseURL, "/api")))
-				} else {
+				} else if strings.HasPrefix(req.URL.Path, "/mcp-registry/") {
 					// Per-ACR registry path - extract ACR ID and set WWW-Authenticate header
 					// Path format: /mcp-registry/{acr_id}/v0.1/...
 					pathParts := strings.SplitN(strings.TrimPrefix(req.URL.Path, "/mcp-registry/"), "/", 2)

@@ -338,6 +338,7 @@ func defaultRules(devMode bool, registryNoAuth bool) []rule {
 		f     = (*fake)(nil)
 	)
 
+	// Set up the static rules
 	for group := range staticRules {
 		rule := rule{
 			group: group,
@@ -349,9 +350,18 @@ func defaultRules(devMode bool, registryNoAuth bool) []rule {
 		rules = append(rules, rule)
 	}
 
-	var registryRule rule
+	// Set up the MCP Registry API rules
+	var (
+		registryRule    rule
+		acrRegistryRule rule
+	)
+
 	if registryNoAuth {
 		registryRule = rule{
+			group: anyGroup,
+			mux:   http.NewServeMux(),
+		}
+		acrRegistryRule = rule{
 			group: anyGroup,
 			mux:   http.NewServeMux(),
 		}
@@ -360,27 +370,18 @@ func defaultRules(devMode bool, registryNoAuth bool) []rule {
 			group: types.GroupBasic,
 			mux:   http.NewServeMux(),
 		}
+		acrRegistryRule = rule{
+			group: types.GroupBasic,
+			mux:   http.NewServeMux(),
+		}
 	}
+
 	registryRule.mux.Handle("GET /v0.1", f)
 	registryRule.mux.Handle("GET /v0.1/", f)
-	rules = append(rules, registryRule)
+	acrRegistryRule.mux.Handle("GET /acr-registry/", f)
+	rules = append(rules, registryRule, acrRegistryRule)
 
-	// Per-ACR registry follows the same auth mode as root registry
-	var acrRegistryRule rule
-	if registryNoAuth {
-		acrRegistryRule = rule{
-			group: anyGroup,
-			mux:   http.NewServeMux(),
-		}
-	} else {
-		acrRegistryRule = rule{
-			group: types.GroupBasic,
-			mux:   http.NewServeMux(),
-		}
-	}
-	acrRegistryRule.mux.Handle("GET /mcp-registry/", f)
-	rules = append(rules, acrRegistryRule)
-
+	// Set up the Dev Mode rules
 	if devMode {
 		for group := range devModeRules {
 			rule := rule{

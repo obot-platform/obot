@@ -328,8 +328,10 @@ func (h *ACRHandler) fetchMCPServer(req api.Context, serverName, catalogID, work
 	}
 
 	// Get slug
-	var slug string
-	var err error
+	var (
+		slug string
+		err  error
+	)
 	if catalogID != "" {
 		slug, err = handlers.SlugForMCPServer(req.Context(), req.Storage, server, "", catalogID, "")
 	} else if workspaceID != "" {
