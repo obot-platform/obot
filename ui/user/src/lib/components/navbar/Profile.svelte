@@ -73,7 +73,8 @@
 	afterNavigate(() => {
 		inAdminRoute = window.location.pathname.includes('/admin');
 		showChatLink = !window.location.pathname.startsWith('/o') || inAdminRoute;
-		showMcpManagement = window.location.pathname.startsWith('/o');
+		showMcpManagement =
+			window.location.pathname.startsWith('/o') || window.location.pathname.startsWith('/profile');
 	});
 
 	function navigateTo(path: string, asNewTab?: boolean) {
