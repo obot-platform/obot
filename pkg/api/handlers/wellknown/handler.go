@@ -1,17 +1,17 @@
 package wellknown
 
 import (
+	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/server"
-	"github.com/obot-platform/obot/pkg/services"
 )
 
 type handler struct {
 	baseURL        string
-	config         services.OAuthAuthorizationServerConfig
+	config         handlers.OAuthAuthorizationServerConfig
 	registryNoAuth bool
 }
 
-func SetupHandlers(baseURL string, config services.OAuthAuthorizationServerConfig, registryNoAuth bool, mux *server.Server) {
+func SetupHandlers(baseURL string, config handlers.OAuthAuthorizationServerConfig, registryNoAuth bool, mux *server.Server) {
 	h := &handler{
 		baseURL:        baseURL,
 		config:         config,

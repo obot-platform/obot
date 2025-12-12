@@ -77,6 +77,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL)
 	registryHandler := registry.NewHandler(services.AccessControlRuleHelper, services.ServerURL, services.RegistryNoAuth)
+	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -636,6 +637,14 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/resources/{resource_uri}", projectMCP.ReadResource)
 	mux.HandleFunc("GET /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/prompts", projectMCP.GetPrompts)
 	mux.HandleFunc("POST /api/assistants/{assistant_id}/projects/{project_id}/mcpservers/{project_mcp_server_id}/prompts/{prompt_name}", projectMCP.GetPrompt)
+
+	// OAuthClients
+	mux.HandleFunc("GET /api/oauth-clients", oauthClients.List)
+	mux.HandleFunc("POST /api/oauth-clients", oauthClients.Create)
+	mux.HandleFunc("GET /api/oauth-clients/{client_id}", oauthClients.Get)
+	mux.HandleFunc("PUT /api/oauth-clients/{client_id}", oauthClients.Update)
+	mux.HandleFunc("DELETE /api/oauth-clients/{client_id}", oauthClients.Delete)
+	mux.HandleFunc("POST /api/oauth-clients/{client_id}/client-secret", oauthClients.RollClientSecret)
 
 	// User Default Role Settings
 	mux.HandleFunc("GET /api/user-default-role-settings", userDefaultRoleSettings.Get)

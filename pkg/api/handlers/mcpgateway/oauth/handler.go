@@ -1,23 +1,23 @@
 package oauth
 
 import (
+	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
-	"github.com/obot-platform/obot/pkg/services"
 	"github.com/obot-platform/obot/pkg/system"
 )
 
 type handler struct {
 	oauthChecker *MCPOAuthHandlerFactory
 	tokenService *persistent.TokenService
-	oauthConfig  services.OAuthAuthorizationServerConfig
+	oauthConfig  handlers.OAuthAuthorizationServerConfig
 	tokenStore   mcp.GlobalTokenStore
 	jwks         system.EncodedJWKS
 	baseURL      string
 }
 
-func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig services.OAuthAuthorizationServerConfig, jwks system.EncodedJWKS, baseURL string, mux *server.Server) {
+func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig handlers.OAuthAuthorizationServerConfig, jwks system.EncodedJWKS, baseURL string, mux *server.Server) {
 	h := &handler{
 		tokenStore:   tokenStore,
 		tokenService: tokenService,

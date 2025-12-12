@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -36,8 +35,11 @@ func (h *handler) register(req api.Context) error {
 		},
 	}
 
-	if err := h.validateClientConfig(&oauthClient); err != nil {
-		return err
+	if err := handlers.ValidateClientConfig(&oauthClient, h.oauthConfig); err != nil {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidClientMetadata,
+			Description: err.Error(),
+		})
 	}
 
 	clientSecret, registrationToken, err := ensureTokenAndSecret(&oauthClient)
@@ -49,7 +51,7 @@ func (h *handler) register(req api.Context) error {
 		return err
 	}
 
-	return req.WriteCreated(convertClient(oauthClient, h.baseURL, clientSecret, registrationToken))
+	return req.WriteCreated(handlers.ConvertDynamicClient(oauthClient, h.baseURL, clientSecret, registrationToken))
 }
 
 func (h *handler) readClient(req api.Context) error {
@@ -68,7 +70,7 @@ func (h *handler) readClient(req api.Context) error {
 		return fmt.Errorf("failed to update client secret: %w", err)
 	}
 
-	return req.Write(convertClient(oauthClient, h.baseURL, clientSecret, registrationToken))
+	return req.Write(handlers.ConvertDynamicClient(oauthClient, h.baseURL, clientSecret, registrationToken))
 }
 
 func (h *handler) updateClient(req api.Context) error {
@@ -89,8 +91,11 @@ func (h *handler) updateClient(req api.Context) error {
 
 	oauthClient.Spec.Manifest = oauthClientManifest
 
-	if err := h.validateClientConfig(&oauthClient); err != nil {
-		return err
+	if err := handlers.ValidateClientConfig(&oauthClient, h.oauthConfig); err != nil {
+		return types.NewErrBadRequest("%v", Error{
+			Code:        ErrInvalidClientMetadata,
+			Description: err.Error(),
+		})
 	}
 
 	clientSecret, registrationToken, err := updateClientIfNecessary(req.Context(), req.Storage, &oauthClient)
@@ -102,7 +107,7 @@ func (h *handler) updateClient(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertClient(oauthClient, h.baseURL, clientSecret, registrationToken))
+	return req.Write(handlers.ConvertDynamicClient(oauthClient, h.baseURL, clientSecret, registrationToken))
 }
 
 func (h *handler) deleteClient(req api.Context) error {
@@ -165,41 +170,4 @@ func ensureTokenAndSecret(oauthClient *v1.OAuthClient) (string, string, error) {
 	}
 
 	return clientSecret, registrationToken, nil
-}
-
-func (h *handler) validateClientConfig(oauthClient *v1.OAuthClient) error {
-	//nolint: staticcheck
-	if oauthClient.Spec.Manifest.RedirectURI != "" {
-		oauthClient.Spec.Manifest.RedirectURIs = append(oauthClient.Spec.Manifest.RedirectURIs, oauthClient.Spec.Manifest.RedirectURI)
-	}
-	if len(oauthClient.Spec.Manifest.RedirectURIs) == 0 {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidClientMetadata,
-			Description: "redirect_uris is required",
-		})
-	}
-	if oauthClient.Spec.Manifest.TokenEndpointAuthMethod != "" && !slices.Contains(h.oauthConfig.TokenEndpointAuthMethodsSupported, oauthClient.Spec.Manifest.TokenEndpointAuthMethod) {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidClientMetadata,
-			Description: fmt.Sprintf("token_endpoint_auth_method must be %s, not %s", strings.Join(h.oauthConfig.TokenEndpointAuthMethodsSupported, ", "), oauthClient.Spec.Manifest.TokenEndpointAuthMethod),
-		})
-	}
-
-	return nil
-}
-
-func convertClient(oauthClient v1.OAuthClient, baseURL, clientSecret, registrationToken string) types.OAuthClient {
-	oauthClient.Name = fmt.Sprintf("%s:%s", oauthClient.Namespace, oauthClient.Name)
-	return types.OAuthClient{
-		Metadata:                   handlers.MetadataFrom(&oauthClient),
-		OAuthClientManifest:        oauthClient.Spec.Manifest,
-		RegistrationAccessToken:    registrationToken,
-		RegistrationClientURI:      fmt.Sprintf("%s/oauth/register/%s", baseURL, oauthClient.Name),
-		RegistrationTokenIssuedAt:  oauthClient.Spec.RegistrationTokenIssuedAt.Unix(),
-		RegistrationTokenExpiresAt: oauthClient.Spec.RegistrationTokenExpiresAt.Unix(),
-		ClientID:                   oauthClient.Name,
-		ClientSecret:               clientSecret,
-		ClientSecretIssuedAt:       oauthClient.Spec.ClientSecretIssuedAt.Unix(),
-		ClientSecretExpiresAt:      oauthClient.Spec.ClientSecretExpiresAt.Unix(),
-	}
 }
