@@ -85,7 +85,7 @@
 		onFilter,
 		onClearAllFilters,
 		onSort,
-		initSort,
+		initSort = { property: 'connected', order: 'desc' },
 		classes,
 		onConnect,
 		usersMap

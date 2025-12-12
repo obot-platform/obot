@@ -165,6 +165,14 @@
 				}
 
 				if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+					// If both are the same, sort alphabetically by first field
+					if (aValue === bValue && fields.length > 0) {
+						const firstFieldA = a[fields[0] as keyof T];
+						const firstFieldB = b[fields[0] as keyof T];
+						if (typeof firstFieldA === 'string' && typeof firstFieldB === 'string') {
+							return firstFieldA.localeCompare(firstFieldB);
+						}
+					}
 					return sortedBy!.order === 'asc' ? (aValue ? 1 : -1) : bValue ? 1 : -1;
 				}
 
