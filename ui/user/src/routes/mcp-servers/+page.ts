@@ -5,6 +5,7 @@ import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
 	let workspace;
+
 	try {
 		const currentProfile = profile.current.id
 			? profile.current

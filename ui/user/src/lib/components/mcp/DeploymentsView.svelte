@@ -491,40 +491,42 @@
 								</button>
 							{/if}
 
-							{#if !d.catalogEntryID || d.isMyServer}
-								<button
-									class="menu-button-primary"
-									onclick={async (e) => {
-										e.stopPropagation();
-										const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined;
-										connectToServerDialog?.open({
-											entry,
-											server: d,
-											instance: instancesMap.get(d.id)
-										});
-										toggle(false);
-									}}
-								>
-									<SatelliteDish class="size-4" /> Connect To Server
-								</button>
-								<button
-									class="menu-button"
-									onclick={async (e) => {
-										e.stopPropagation();
-										if (d) {
-											connectToServerDialog?.handleSetupChat(d, instancesMap.get(d.id));
-										}
-										toggle(false);
-									}}
-								>
-									<MessageCircle class="size-4" /> Chat
-								</button>
-							{/if}
+							{#if !isComposite}
+								{#if !d.catalogEntryID || d.isMyServer}
+									<button
+										class="menu-button-primary"
+										onclick={async (e) => {
+											e.stopPropagation();
+											const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined;
+											connectToServerDialog?.open({
+												entry,
+												server: d,
+												instance: instancesMap.get(d.id)
+											});
+											toggle(false);
+										}}
+									>
+										<SatelliteDish class="size-4" /> Connect To Server
+									</button>
+									<button
+										class="menu-button"
+										onclick={async (e) => {
+											e.stopPropagation();
+											if (d) {
+												connectToServerDialog?.handleSetupChat(d, instancesMap.get(d.id));
+											}
+											toggle(false);
+										}}
+									>
+										<MessageCircle class="size-4" /> Chat
+									</button>
+								{/if}
 
-							{#if d.isMyServer}
-								{@render editConfigAction(d)}
-								{#if d.catalogEntryID}
-									{@render renameAction(d)}
+								{#if d.isMyServer}
+									{@render editConfigAction(d)}
+									{#if d.catalogEntryID}
+										{@render renameAction(d)}
+									{/if}
 								{/if}
 							{/if}
 

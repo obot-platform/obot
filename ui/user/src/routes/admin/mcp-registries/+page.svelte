@@ -153,7 +153,15 @@
 						{@render addRuleButton()}
 					</div>
 				{:else}
-					{@render accessControlRuleTable()}
+					<div class="flex flex-col gap-2">
+						<h4 class="text-lg font-semibold">Admin Managed Registries</h4>
+						{@render accessControlRuleTable('global')}
+					</div>
+
+					<div class="flex flex-col gap-2">
+						<h4 class="text-lg font-semibold">User Managed Registries</h4>
+						{@render accessControlRuleTable('user')}
+					</div>
 				{/if}
 			</div>
 		{/if}
@@ -168,11 +176,13 @@
 	{/snippet}
 </Layout>
 
-{#snippet accessControlRuleTable()}
-	{@const data = [...userAccessControlRules, ...globalAccessControlRules]}
+{#snippet accessControlRuleTable(type: 'user' | 'global')}
+	{@const data = type === 'global' ? globalAccessControlRules : userAccessControlRules}
 	<Table
 		{data}
-		fields={['displayName', 'serversCount', 'owner']}
+		fields={type === 'global'
+			? ['displayName', 'serversCount']
+			: ['displayName', 'serversCount', 'owner']}
 		onClickRow={(d, isCtrlClick) => {
 			const url = d.powerUserWorkspaceID
 				? `/admin/mcp-registries/w/${d.powerUserWorkspaceID}/r/${d.id}`

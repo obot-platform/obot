@@ -15,11 +15,10 @@
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
-	import { onMount, tick, untrack, type Snippet } from 'svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import CategorySelectInput from './CategorySelectInput.svelte';
 	import Select from '../Select.svelte';
 	import { profile } from '$lib/stores';
 
@@ -69,18 +68,7 @@
 
 	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
-	let remoteCategories = $state<string[]>([]);
-
-	let categories = $derived([...remoteCategories, ...(formData?.categories ?? [])]);
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
-
-	onMount(() => {
-		if (!id || entity === 'workspace') return;
-		// TODO: do we have categories for workspace catalog?
-		AdminService.listCatalogCategories(id).then((res) => {
-			remoteCategories = res;
-		});
-	});
 
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
@@ -659,31 +647,6 @@
 				bind:value={formData.icon}
 				class="text-input-filled dark:bg-background"
 				disabled={readonly}
-			/>
-		</div>
-
-		<div class="flex flex-col gap-1">
-			<span class="text-sm font-light capitalize">Categories</span>
-			<CategorySelectInput
-				categories={formData.categories.join(',')}
-				options={categories.map((d) => ({ label: d, id: d }))}
-				{readonly}
-				onCreate={async (category) => {
-					await tick();
-
-					formData.categories = [category, ...formData.categories].filter(Boolean);
-				}}
-				onUpdate={async (categories) => {
-					formData.categories = [
-						// Avoid duplicates
-						...new Set(
-							categories
-								.split(',')
-								.map((c) => c.trim())
-								.filter(Boolean)
-						)
-					];
-				}}
 			/>
 		</div>
 	</div>

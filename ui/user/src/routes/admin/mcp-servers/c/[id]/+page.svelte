@@ -165,12 +165,6 @@
 		}
 	}
 
-	$effect(() => {
-		if (catalogEntry?.manifest.runtime === 'composite') {
-			mcpServersAndEntries.refreshAll();
-		}
-	});
-
 	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 </script>

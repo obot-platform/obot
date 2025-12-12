@@ -99,7 +99,7 @@
 	}
 
 	function navigateWithState(url: URL): void {
-		goto(url.toString(), { replaceState: true, noScroll: true, keepFocus: true });
+		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
 	function handleClearAllFilters() {
