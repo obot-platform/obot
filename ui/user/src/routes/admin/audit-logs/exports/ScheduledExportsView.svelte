@@ -165,7 +165,7 @@
 			<LoaderCircle class="size-6 animate-spin" />
 		</div>
 	{:else if scheduledExports.length === 0}
-		<div class="w-md my-12 flex flex-col items-center gap-4 self-center text-center">
+		<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 			<Calendar class="text-surface3 size-24 opacity-50" />
 			<h4 class="text-on-surface1 text-lg font-semibold">No export schedules found.</h4>
 			<p class="text-on-surface1 text-sm font-light">
