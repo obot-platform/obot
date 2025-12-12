@@ -274,7 +274,7 @@
 					class={twMerge('page-tab', view === 'registry' && 'page-tab-active')}
 					onclick={() => switchView('registry')}
 				>
-					Registry Entries
+					Server Entries
 				</button>
 				<button
 					class={twMerge('page-tab', view === 'deployments' && 'page-tab-active')}

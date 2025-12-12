@@ -1,23 +1,13 @@
 <script lang="ts">
-	import {
-		AdminService,
-		ChatService,
-		MCPCompositeDeletionDependencyError,
-		type MCPCatalogEntry,
-		type MCPCatalogServer,
-		type MCPServerInstance
-	} from '$lib/services';
-	import {
-		getServerType,
-		hasEditableConfiguration,
-		requiresUserUpdate
-	} from '$lib/services/chat/mcp';
+	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
+	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
 	import { twMerge } from 'tailwind-merge';
 	import DotDotDot from '../DotDotDot.svelte';
 	import {
 		LoaderCircle,
 		MessageCircle,
 		PencilLine,
+		ReceiptText,
 		Server,
 		ServerCog,
 		StepForward,
@@ -27,43 +17,38 @@
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import ConnectToServer from './ConnectToServer.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
-	import Confirm from '../Confirm.svelte';
-	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
-	import McpMultiDeleteBlockedDialog from './McpMultiDeleteBlockedDialog.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Table from '../table/Table.svelte';
 	import { formatTimeAgo } from '$lib/time';
+	import { goto } from '$lib/url';
+	import { resolve } from '$app/paths';
+
+	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
 
 	interface Props {
 		server?: MCPCatalogServer;
 		entry?: MCPCatalogEntry;
-		onDelete?: () => void;
-		onDeleteConflict?: (error: MCPCompositeDeletionDependencyError) => void;
 		loading?: boolean;
 		skipConnectDialog?: boolean;
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
 		promptInitialLaunch?: boolean;
+		connectOnly?: boolean;
 	}
 
 	let {
 		server,
 		entry,
-		onDelete,
 		loading,
 		skipConnectDialog,
 		onConnect,
-		promptInitialLaunch
+		promptInitialLaunch,
+		connectOnly
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
 
-	let deletingInstance = $state<MCPServerInstance>();
-	let deletingServer = $state<MCPCatalogServer>();
-	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
-
-	let selectedConfiguredServers = $state<MCPCatalogServer[]>([]);
-	let selectedEntry = $state<MCPCatalogEntry>();
 	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let selectServerMode = $state<ServerSelectMode>('connect');
 
 	let launchDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
@@ -81,28 +66,22 @@
 				)
 			: []
 	);
-	let serverType = $derived(server && getServerType(server));
-	let isSingleOrRemote = $derived(serverType === 'single' || serverType === 'remote');
 	let requiresUpdate = $derived(server && requiresUserUpdate(server));
-	let belongsToUser = $derived(server && server.userID === profile.current.id);
 	let canConfigure = $derived(
 		entry && (entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry))
 	);
-	let isConfigured = $derived((server && entry) || (server && instance));
 	let belongsToComposite = $derived(Boolean(server && server.compositeName));
+	let showServerDetais = $derived(entry && !server && configuredServers.length > 0);
+	let hasActions = $derived((entry && server) || showServerDetais || (server && instance));
+	let showDisconnectUser = $derived(
+		entry && server && profile.current.isAdmin?.() && server.userID !== profile.current.id
+	);
+
 	function refresh() {
 		if (entry) {
 			mcpServersAndEntries.refreshUserConfiguredServers();
 		} else if (!server?.catalogEntryID) {
 			mcpServersAndEntries.refreshUserInstances();
-		}
-	}
-
-	function handleDeleteSuccess() {
-		if (onDelete) {
-			onDelete();
-		} else {
-			history.back();
 		}
 	}
 
@@ -119,6 +98,11 @@
 			launchDialog?.open();
 		}
 	});
+
+	function handleShowSelectServerDialog(mode: ServerSelectMode = 'connect') {
+		selectServerDialog?.open();
+		selectServerMode = mode;
+	}
 </script>
 
 {#if !belongsToComposite}
@@ -127,9 +111,7 @@
 			class="button-primary flex w-full items-center gap-1 text-sm md:w-fit"
 			onclick={() => {
 				if (entry && !server && configuredServers.length > 0) {
-					selectedConfiguredServers = configuredServers;
-					selectedEntry = entry;
-					selectServerDialog?.open();
+					handleShowSelectServerDialog();
 				} else {
 					connectToServerDialog?.open({
 						entry,
@@ -148,77 +130,176 @@
 		</button>
 	{/if}
 
-	{#if !loading && server && isConfigured}
+	{#if !loading && hasActions && !connectOnly}
 		<DotDotDot
 			class="icon-button hover:bg-surface1 dark:hover:bg-surface2 hover:text-primary flex-shrink-0"
 		>
 			{#snippet children({ toggle })}
-				<div class="default-dialog flex min-w-48 flex-col p-2">
-					{#if isSingleOrRemote}
-						{#if server.userID === profile.current.id}
+				<div class="default-dialog flex min-w-48 flex-col">
+					{#if server && server.userID === profile.current.id}
+						<div class="bg-surface1 flex flex-col gap-1 rounded-t-xl p-2">
 							<button
 								class="menu-button"
-								onclick={async (e) => {
-									e.stopPropagation();
-									if (!server) return;
+								onclick={async () => {
 									connectToServerDialog?.handleSetupChat(server, instance);
-									toggle(false);
 								}}
 							>
 								<MessageCircle class="size-4" /> Chat
 							</button>
-						{/if}
-						{#if belongsToUser}
+							{#if entry}
+								<button
+									class="menu-button"
+									onclick={() => {
+										editExistingDialog?.rename({
+											server,
+											entry
+										});
+									}}
+								>
+									<PencilLine class="size-4" /> Rename
+								</button>
+								{#if canConfigure}
+									<button
+										class={twMerge(
+											'menu-button',
+											requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+										)}
+										onclick={() => {
+											editExistingDialog?.edit({
+												server,
+												entry
+											});
+										}}
+									>
+										<ServerCog class="size-4" /> Edit Configuration
+									</button>
+								{/if}
+							{/if}
+							{#if server && instance}
+								<button
+									class="menu-button"
+									onclick={async (e) => {
+										e.stopPropagation();
+										await ChatService.deleteMcpServerInstance(instance.id);
+										mcpServersAndEntries.refreshUserInstances();
+										toggle(false);
+									}}
+								>
+									<Unplug class="size-4" /> Disconnect
+								</button>
+							{:else if entry && server}
+								<button
+									class="menu-button"
+									onclick={async (e) => {
+										e.stopPropagation();
+										await ChatService.deleteSingleOrRemoteMcpServer(server.id);
+										mcpServersAndEntries.refreshUserConfiguredServers();
+										toggle(false);
+									}}
+								>
+									<Trash2 class="size-4" /> Disconnect
+								</button>
+							{/if}
+						</div>
+					{:else if entry && configuredServers.length > 0}
+						<div
+							class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+						>
+							My Connection(s)
+						</div>
+						<div class="bg-surface1 flex flex-col gap-1 p-2">
 							<button
 								class="menu-button"
 								onclick={() => {
-									editExistingDialog?.rename({
-										server,
-										entry
-									});
+									if (configuredServers.length === 1) {
+										connectToServerDialog?.handleSetupChat(configuredServers[0]);
+									} else {
+										handleShowSelectServerDialog('chat');
+									}
 								}}
 							>
-								<PencilLine class="size-4" /> Rename
+								<MessageCircle class="size-4" /> Chat
 							</button>
-						{/if}
-						{#if belongsToUser && canConfigure}
+							{#if entry}
+								<button
+									class="menu-button"
+									onclick={() => {
+										if (configuredServers.length === 1) {
+											editExistingDialog?.rename({
+												server: configuredServers[0],
+												entry
+											});
+										} else {
+											handleShowSelectServerDialog('rename');
+										}
+									}}
+								>
+									<PencilLine class="size-4" /> Rename
+								</button>
+								{#if canConfigure}
+									<button
+										class={twMerge(
+											'menu-button',
+											requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
+										)}
+										onclick={() => {
+											if (configuredServers.length === 1) {
+												editExistingDialog?.edit({
+													server: configuredServers[0],
+													entry
+												});
+											} else {
+												handleShowSelectServerDialog('edit');
+											}
+										}}
+									>
+										<ServerCog class="size-4" /> Edit Configuration
+									</button>
+								{/if}
+							{/if}
 							<button
-								class={twMerge(
-									'menu-button',
-									requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
-								)}
+								class="menu-button"
 								onclick={() => {
-									editExistingDialog?.edit({
-										server,
-										entry
-									});
+									if (configuredServers.length === 1) {
+										goto(resolve(`/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`));
+									} else {
+										handleShowSelectServerDialog('server-details');
+									}
 								}}
 							>
-								<ServerCog class="size-4" /> Edit Configuration
+								<ReceiptText class="size-4" /> Server Details
 							</button>
-						{/if}
+							<button
+								class="menu-button"
+								onclick={async (e) => {
+									e.stopPropagation();
+									if (configuredServers.length === 1) {
+										await ChatService.deleteSingleOrRemoteMcpServer(configuredServers[0].id);
+										mcpServersAndEntries.refreshUserConfiguredServers();
+									} else {
+										handleShowSelectServerDialog('disconnect');
+									}
+									toggle(false);
+								}}
+							>
+								<Unplug class="size-4" /> Disconnect
+							</button>
+						</div>
 					{/if}
-					{#if server && instance}
-						<button
-							class="menu-button"
-							onclick={async () => {
-								if (instance) {
-									deletingInstance = instance;
-								}
-							}}
-						>
-							<Unplug class="size-4" /> Disconnect
-						</button>
-					{/if}
-					{#if isConfigured && (belongsToUser || profile.current.hasAdminAccess?.())}
-						<button
-							class="menu-button-destructive"
-							onclick={() => {
-								deletingServer = server;
-							}}
-						>
-							<Trash2 class="size-4" /> Delete Server
-						</button>
+					{#if showDisconnectUser && server}
+						<div class="flex flex-col gap-2 p-2">
+							<button
+								class="menu-button text-red-500"
+								onclick={async (e) => {
+									e.stopPropagation();
+									await ChatService.deleteSingleOrRemoteMcpServer(server.id);
+									mcpServersAndEntries.refreshUserConfiguredServers();
+									toggle(false);
+								}}
+							>
+								<Trash2 class="size-4" /> Disconnect User
+							</button>
+						</div>
 					{/if}
 				</div>
 			{/snippet}
@@ -237,78 +318,51 @@
 
 	<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
 
-	<Confirm
-		msg="Are you sure you want to disconnect from this server?"
-		show={Boolean(deletingInstance)}
-		onsuccess={async () => {
-			if (deletingInstance) {
-				await ChatService.deleteMcpServerInstance(deletingInstance.id);
-				await refresh();
-				handleDeleteSuccess();
-			}
-		}}
-		oncancel={() => (deletingInstance = undefined)}
-	/>
-
-	<Confirm
-		msg="Are you sure you want to delete this server?"
-		show={Boolean(deletingServer)}
-		onsuccess={async () => {
-			if (!deletingServer) return;
-
-			if (deletingServer.catalogEntryID) {
-				await ChatService.deleteSingleOrRemoteMcpServer(deletingServer.id);
-			} else {
-				try {
-					if (deletingServer.powerUserWorkspaceID) {
-						await ChatService.deleteWorkspaceMCPCatalogServer(
-							deletingServer.powerUserWorkspaceID,
-							deletingServer.id
-						);
-					} else if (profile.current.hasAdminAccess?.()) {
-						await AdminService.deleteMCPCatalogServer(DEFAULT_MCP_CATALOG_ID, deletingServer.id);
-					}
-					// Remove server from list
-					mcpServersAndEntries.current.servers = mcpServersAndEntries.current.servers.filter(
-						(s) => s.id !== deletingServer?.id
-					);
-				} catch (error) {
-					if (error instanceof MCPCompositeDeletionDependencyError) {
-						deleteConflictError = error;
-						return;
-					}
-
-					throw error;
-				}
-			}
-			await refresh();
-			handleDeleteSuccess();
-		}}
-		oncancel={() => (deletingServer = undefined)}
-	/>
-
-	<McpMultiDeleteBlockedDialog
-		show={!!deleteConflictError}
-		error={deleteConflictError}
-		onClose={() => {
-			deleteConflictError = undefined;
-		}}
-	/>
-
 	<ResponsiveDialog
 		class="bg-surface1 dark:bg-background"
 		bind:this={selectServerDialog}
 		title="Select Your Server"
 	>
 		<Table
-			data={selectedConfiguredServers || []}
+			data={configuredServers || []}
 			fields={['name', 'created']}
 			onClickRow={(d) => {
-				connectToServerDialog?.open({
-					entry: selectedEntry,
-					server: d
-				});
 				selectServerDialog?.close();
+				switch (selectServerMode) {
+					case 'chat': {
+						connectToServerDialog?.handleSetupChat(d);
+						break;
+					}
+					case 'server-details': {
+						goto(resolve(`/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`));
+						break;
+					}
+					case 'rename': {
+						editExistingDialog?.rename({
+							server: d,
+							entry
+						});
+						break;
+					}
+					case 'edit': {
+						editExistingDialog?.edit({
+							server: d,
+							entry
+						});
+						break;
+					}
+					case 'disconnect': {
+						ChatService.deleteSingleOrRemoteMcpServer(d.id);
+						mcpServersAndEntries.refreshUserConfiguredServers();
+						break;
+					}
+					default:
+						connectToServerDialog?.open({
+							entry,
+							server: d
+						});
+						break;
+				}
 			}}
 		>
 			{#snippet onRenderColumn(property, d)}
@@ -335,16 +389,18 @@
 				</button>
 			{/snippet}
 		</Table>
-		<p class="my-4 self-center text-center text-sm font-semibold">OR</p>
-		<button
-			class="button-primary"
-			onclick={() => {
-				selectServerDialog?.close();
-				connectToServerDialog?.open({
-					entry: selectedEntry
-				});
-			}}>Connect New Server</button
-		>
+		{#if selectServerMode === 'connect'}
+			<p class="my-4 self-center text-center text-sm font-semibold">OR</p>
+			<button
+				class="button-primary"
+				onclick={() => {
+					selectServerDialog?.close();
+					connectToServerDialog?.open({
+						entry
+					});
+				}}>Connect New Server</button
+			>
+		{/if}
 	</ResponsiveDialog>
 
 	<ResponsiveDialog bind:this={launchDialog} animate="slide" class="md:max-w-sm">

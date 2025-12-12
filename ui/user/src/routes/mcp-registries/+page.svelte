@@ -75,7 +75,7 @@
 	let title = $derived(showCreateRule ? 'Create MCP Registry' : 'MCP Registries');
 </script>
 
-<Layout showUserLinks {title} showBackButton={showCreateRule}>
+<Layout {title} showBackButton={showCreateRule}>
 	{#snippet rightNavActions()}
 		{@render addRuleButton()}
 	{/snippet}

@@ -26,7 +26,7 @@
 	let title = $derived(accessControlRule?.displayName ?? 'MCP Registry');
 </script>
 
-<Layout showUserLinks {title} showBackButton>
+<Layout {title} showBackButton>
 	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
 		<AccessControlRuleForm
 			{accessControlRule}

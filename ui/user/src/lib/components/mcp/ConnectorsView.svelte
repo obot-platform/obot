@@ -34,6 +34,7 @@
 		LoaderCircle,
 		MessageCircle,
 		PencilLine,
+		ReceiptText,
 		SatelliteDish,
 		Server,
 		ServerCog,
@@ -48,8 +49,11 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 
 	type Item = ReturnType<typeof convertEntriesAndServersToTableData>[number];
+	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
 
 	interface Props {
 		entity?: 'workspace' | 'catalog';
@@ -100,6 +104,7 @@
 	let selectedConfiguredServers = $state<MCPCatalogServer[]>([]);
 	let selectedEntry = $state<MCPCatalogEntry>();
 	let selectServerDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let selectServerMode = $state<ServerSelectMode>('connect');
 
 	let instancesMap = $derived(
 		new Map(
@@ -165,6 +170,22 @@
 	async function fetch() {
 		mcpServersAndEntries.refreshAll();
 	}
+
+	function getConfiguredServersForCatalogEntry(entry: MCPCatalogEntry): MCPCatalogServer[] {
+		return mcpServersAndEntries.current.userConfiguredServers.filter(
+			(server) => server.catalogEntryID === entry.id
+		);
+	}
+
+	function handleShowSelectServerDialog(
+		entry: MCPCatalogEntry,
+		mode: ServerSelectMode = 'connect'
+	) {
+		selectedConfiguredServers = getConfiguredServersForCatalogEntry(entry);
+		selectedEntry = entry;
+		selectServerDialog?.open();
+		selectServerMode = mode;
+	}
 </script>
 
 <div class="flex flex-col gap-2">
@@ -191,7 +212,7 @@
 			data={filteredTableData}
 			fields={profile.current.hasAdminAccess?.()
 				? ['name', 'connected', 'type', 'users', 'created', 'registry']
-				: ['name', 'connected', 'created']}
+				: ['name', 'connected', 'created', 'registry']}
 			headers={[{ title: 'Status', property: 'connected' }]}
 			filterable={['name', 'type', 'registry']}
 			{filters}
@@ -243,30 +264,19 @@
 				root: 'rounded-none rounded-b-md shadow-none',
 				thead: classes?.tableHeader
 			}}
-			validateSelect={(d) => d.editable}
-			disabledSelectMessage="This entry is managed by Git; changes cannot be made."
 			setRowClasses={(d) => {
-				const server =
-					'isCatalogEntry' in d.data
-						? mcpServersAndEntries.current.userConfiguredServers.find(
-								(server) => server.catalogEntryID === d.data.id && !server.alias
-							)
-						: d.data;
-
-				return server?.needsUpdate || ('isCatalogEntry' in d.data && d.data.needsUpdate)
+				const matchingServers =
+					'isCatalogEntry' in d.data ? getConfiguredServersForCatalogEntry(d.data) : [];
+				return 'isCatalogEntry' in d.data && d.data.needsUpdate
 					? 'bg-primary/10'
-					: requiresUserUpdate(server)
+					: matchingServers.some(requiresUserUpdate)
 						? 'bg-yellow-500/10'
 						: '';
 			}}
 		>
 			{#snippet onRenderColumn(property, d)}
-				{@const server =
-					'isCatalogEntry' in d.data
-						? mcpServersAndEntries.current.userConfiguredServers.find(
-								(server) => server.catalogEntryID === d.data.id && !server.alias
-							)
-						: d.data}
+				{@const matchingServers =
+					'isCatalogEntry' in d.data ? getConfiguredServersForCatalogEntry(d.data) : []}
 				{#if property === 'name'}
 					<div class="flex flex-shrink-0 items-center gap-2">
 						<div class="icon">
@@ -278,7 +288,7 @@
 						</div>
 						<p class="flex items-center gap-2">
 							{d.name}
-							{#if server?.needsUpdate || ('isCatalogEntry' in d.data && d.data.needsUpdate)}
+							{#if 'isCatalogEntry' in d.data && d.data.needsUpdate}
 								<span
 									use:tooltip={{
 										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],
@@ -287,7 +297,7 @@
 								>
 									<CircleFadingArrowUp class="text-primary size-4" />
 								</span>
-							{:else if requiresUserUpdate(server)}
+							{:else if matchingServers.some(requiresUserUpdate)}
 								<span
 									class="text-yellow-500"
 									use:tooltip={{
@@ -301,7 +311,7 @@
 						</p>
 					</div>
 				{:else if property === 'connected'}
-					{#if d.connected && server}
+					{#if d.connected}
 						<div class="pill-primary bg-primary">Connected</div>
 					{/if}
 				{:else if property === 'type'}
@@ -319,168 +329,186 @@
 					('catalogEntryID' in d.data && d.data.userID === profile.current.id)}
 				{@const canDelete =
 					d.editable && !readonly && (belongsToUser || profile.current?.hasAdminAccess?.())}
-				{@const matchingServer =
-					d.connected && 'isCatalogEntry' in d.data
-						? mcpServersAndEntries.current.userConfiguredServers.find(
-								(server) => server.catalogEntryID === d.data.id && !server.alias
-							)
-						: undefined}
+				{@const matchingServers =
+					'isCatalogEntry' in d.data ? getConfiguredServersForCatalogEntry(d.data) : []}
 				{@const matchingInstance =
 					d.connected && d.type === 'multi' ? instancesMap.get(d.data.id) : undefined}
-				{@const hasConnectedOptions = 'isCatalogEntry' in d.data ? !!matchingServer : d.connected}
+				{@const hasConnectedOptions =
+					'isCatalogEntry' in d.data ? matchingServers.length > 0 : !!matchingInstance}
 				<DotDotDot class="icon-button hover:dark:bg-background/50">
 					{#snippet icon()}
 						<Ellipsis class="size-4" />
 					{/snippet}
 
 					{#snippet children({ toggle })}
-						<div class="default-dialog flex min-w-max flex-col gap-1 p-2">
-							<button
-								class="menu-button-primary"
-								onclick={async (e) => {
-									e.stopPropagation();
-
-									if ('isCatalogEntry' in d.data && d.connected) {
-										selectedConfiguredServers =
-											mcpServersAndEntries.current.userConfiguredServers.filter(
-												(server) => server.catalogEntryID === d.data.id
-											);
-										selectedEntry = d.data;
-										selectServerDialog?.open();
-									} else {
-										const entry =
-											'isCatalogEntry' in d.data
-												? d.data
-												: d.data.catalogEntryID
-													? entriesMap.get(d.data.catalogEntryID)
-													: undefined;
-										const server = 'isCatalogEntry' in d.data ? undefined : d.data;
-										connectToServerDialog?.open({
-											entry,
-											server,
-											instance: instancesMap.get(d.id)
-										});
-									}
-									toggle(false);
-								}}
-							>
-								<SatelliteDish class="size-4" /> Connect To Server
-							</button>
-
+						<div class="default-dialog flex min-w-max flex-col">
 							{#if hasConnectedOptions}
-								<button
-									class="menu-button"
-									onclick={async (e) => {
-										e.stopPropagation();
-										if ('isCatalogEntry' in d.data) {
-											if (matchingServer) {
-												connectToServerDialog?.handleSetupChat(matchingServer);
+								<div
+									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+								>
+									My Connection(s)
+								</div>
+								<div class="bg-surface1 flex flex-col gap-1 p-2">
+									<button
+										class="menu-button hover:bg-surface3"
+										onclick={async (e) => {
+											e.stopPropagation();
+											if ('isCatalogEntry' in d.data) {
+												if (matchingServers.length === 1) {
+													connectToServerDialog?.handleSetupChat(matchingServers[0]);
+												} else {
+													handleShowSelectServerDialog(d.data as MCPCatalogEntry, 'chat');
+												}
+											} else {
+												connectToServerDialog?.handleSetupChat(d.data, instancesMap.get(d.id));
 											}
-										} else {
-											connectToServerDialog?.handleSetupChat(d.data, instancesMap.get(d.id));
-										}
-										toggle(false);
-									}}
-								>
-									<MessageCircle class="size-4" /> Chat
-								</button>
+											toggle(false);
+										}}
+									>
+										<MessageCircle class="size-4" /> Chat
+									</button>
 
-								{@render editConfigAction('isCatalogEntry' in d.data ? matchingServer! : d.data)}
-								{@render renameAction('isCatalogEntry' in d.data ? matchingServer! : d.data)}
-							{/if}
+									{#if 'isCatalogEntry' in d.data}
+										{@render editCatalogEntryAction(d.data, matchingServers)}
+										{@render renameCatalogEntryAction(d.data, matchingServers)}
+									{/if}
 
-							{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
-								<button
-									onclick={(e) => {
-										e.stopPropagation();
-										const isCtrlClick = e.ctrlKey || e.metaKey;
-										setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
-										openUrl(auditLogUrl, isCtrlClick);
-									}}
-									class="menu-button"
-								>
-									<Captions class="size-4" /> View Audit Logs
-								</button>
+									{#if matchingServers.length > 0}
+										<button
+											class="menu-button hover:bg-surface3"
+											onclick={async (e) => {
+												e.stopPropagation();
+												if (matchingServers.length === 1) {
+													goto(
+														resolve(`/mcp-servers/c/${d.data.id}/instance/${matchingServers[0].id}`)
+													);
+												} else {
+													handleShowSelectServerDialog(d.data as MCPCatalogEntry, 'server-details');
+												}
+												toggle(false);
+											}}
+										>
+											<ReceiptText class="size-4" /> Server Details
+										</button>
+									{/if}
+
+									{#if matchingServers.length > 0 && 'isCatalogEntry' in d.data}
+										<button
+											class="menu-button hover:bg-surface3"
+											onclick={async (e) => {
+												e.stopPropagation();
+
+												if (matchingServers.length === 1) {
+													await ChatService.deleteSingleOrRemoteMcpServer(matchingServers[0].id);
+													mcpServersAndEntries.refreshUserConfiguredServers();
+												} else {
+													handleShowSelectServerDialog(d.data as MCPCatalogEntry, 'disconnect');
+												}
+
+												toggle(false);
+											}}
+										>
+											<Unplug class="size-4" /> Disconnect
+										</button>
+									{:else if matchingInstance}
+										<button
+											class="menu-button hover:bg-surface3"
+											onclick={async (e) => {
+												e.stopPropagation();
+												await ChatService.deleteMcpServerInstance(matchingInstance.id);
+												mcpServersAndEntries.refreshUserInstances();
+												toggle(false);
+											}}
+										>
+											<Unplug class="size-4" /> Disconnect
+										</button>
+									{/if}
+								</div>
 							{/if}
-							{#if matchingServer}
+							<div class="flex flex-col gap-1 p-2">
 								<button
 									class="menu-button"
 									onclick={async (e) => {
 										e.stopPropagation();
-										await ChatService.deleteSingleOrRemoteMcpServer(matchingServer.id);
-										mcpServersAndEntries.refreshUserConfiguredServers();
-										toggle(false);
-									}}
-								>
-									<Unplug class="size-4" /> Disconnect
-								</button>
-							{:else if matchingInstance}
-								<button
-									class="menu-button"
-									onclick={async (e) => {
-										e.stopPropagation();
-										await ChatService.deleteMcpServerInstance(matchingInstance.id);
-										mcpServersAndEntries.refreshUserInstances();
-										toggle(false);
-									}}
-								>
-									<Unplug class="size-4" /> Disconnect
-								</button>
-							{/if}
-							{#if canDelete}
-								<button
-									class="menu-button-destructive"
-									onclick={(e) => {
-										e.stopPropagation();
-										if ('isCatalogEntry' in d.data) {
-											deletingEntry = d.data;
+
+										if ('isCatalogEntry' in d.data && d.connected) {
+											handleShowSelectServerDialog(d.data);
 										} else {
-											deletingServer = d.data;
+											const entry =
+												'isCatalogEntry' in d.data
+													? d.data
+													: d.data.catalogEntryID
+														? entriesMap.get(d.data.catalogEntryID)
+														: undefined;
+											const server = 'isCatalogEntry' in d.data ? undefined : d.data;
+											connectToServerDialog?.open({
+												entry,
+												server,
+												instance: instancesMap.get(d.id)
+											});
 										}
 										toggle(false);
 									}}
 								>
-									<Trash2 class="size-4" /> Delete {'isCatalogEntry' in d.data ? 'Entry' : 'Server'}
+									<SatelliteDish class="size-4" /> Connect To Server
 								</button>
-							{/if}
+
+								{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
+									<button
+										onclick={(e) => {
+											e.stopPropagation();
+											const isCtrlClick = e.ctrlKey || e.metaKey;
+											setSearchParamsToLocalStorage(page.url.pathname, page.url.search);
+											openUrl(auditLogUrl, isCtrlClick);
+										}}
+										class="menu-button"
+									>
+										<Captions class="size-4" /> View Audit Logs
+									</button>
+								{/if}
+								{#if canDelete}
+									<button
+										class="menu-button-destructive"
+										onclick={(e) => {
+											e.stopPropagation();
+											if ('isCatalogEntry' in d.data) {
+												deletingEntry = d.data;
+											} else {
+												deletingServer = d.data;
+											}
+											toggle(false);
+										}}
+									>
+										<Trash2 class="size-4" /> Delete Entry
+									</button>
+								{/if}
+							</div>
 						</div>
 					{/snippet}
 				</DotDotDot>
-			{/snippet}
-			{#snippet tableSelectActions(currentSelected)}
-				<div class="flex grow items-center justify-end gap-2 px-4 py-2">
-					<button
-						class="button flex items-center gap-1 text-sm font-normal"
-						onclick={() => {
-							selected = currentSelected;
-							confirmBulkDelete = true;
-						}}
-						disabled={readonly}
-					>
-						<Trash2 class="size-4" /> Delete
-					</button>
-				</div>
 			{/snippet}
 		</Table>
 	{/if}
 </div>
 
-{#snippet editConfigAction(d: MCPCatalogServer)}
-	{@const requiresUpdate = requiresUserUpdate(d)}
-	{@const entry = d.catalogEntryID ? entriesMap.get(d.catalogEntryID) : undefined}
-	{@const canConfigure =
-		entry && (entry.manifest.runtime === 'composite' || hasEditableConfiguration(entry))}
+{#snippet editCatalogEntryAction(d: MCPCatalogEntry, configuredServers: MCPCatalogServer[])}
+	{@const canConfigure = d.manifest.runtime === 'composite' || hasEditableConfiguration(d)}
+	{@const requiresUpdate = configuredServers.some(requiresUserUpdate)}
 	{#if canConfigure}
 		<button
 			class={twMerge(
-				'menu-button',
+				'menu-button hover:bg-surface3',
 				requiresUpdate && 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/30'
 			)}
 			onclick={() => {
-				editExistingDialog?.edit({
-					server: d,
-					entry
-				});
+				if (configuredServers.length === 1) {
+					editExistingDialog?.edit({
+						server: configuredServers[0],
+						entry: d
+					});
+				} else {
+					handleShowSelectServerDialog(d, 'edit');
+				}
 			}}
 		>
 			<ServerCog class="size-4" /> Edit Configuration
@@ -488,14 +516,18 @@
 	{/if}
 {/snippet}
 
-{#snippet renameAction(d: MCPCatalogServer)}
+{#snippet renameCatalogEntryAction(d: MCPCatalogEntry, configuredServers: MCPCatalogServer[])}
 	<button
-		class="menu-button"
+		class="menu-button hover:bg-surface3"
 		onclick={() => {
-			editExistingDialog?.rename({
-				server: d,
-				entry: d.catalogEntryID ? entriesMap.get(d.catalogEntryID) : undefined
-			});
+			if (configuredServers.length === 1) {
+				editExistingDialog?.rename({
+					server: configuredServers[0],
+					entry: d
+				});
+			} else {
+				handleShowSelectServerDialog(d, 'rename');
+			}
 		}}
 	>
 		<PencilLine class="size-4" /> Rename
@@ -637,12 +669,43 @@
 	<Table
 		data={selectedConfiguredServers || []}
 		fields={['name', 'created']}
-		onClickRow={(d) => {
-			connectToServerDialog?.open({
-				entry: selectedEntry,
-				server: d
-			});
+		onClickRow={async (d) => {
 			selectServerDialog?.close();
+			switch (selectServerMode) {
+				case 'chat': {
+					connectToServerDialog?.handleSetupChat(d);
+					break;
+				}
+				case 'server-details': {
+					goto(resolve(`/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`));
+					break;
+				}
+				case 'rename': {
+					editExistingDialog?.rename({
+						server: d,
+						entry: d.catalogEntryID ? entriesMap.get(d.catalogEntryID) : undefined
+					});
+					break;
+				}
+				case 'edit': {
+					editExistingDialog?.edit({
+						server: d,
+						entry: d.catalogEntryID ? entriesMap.get(d.catalogEntryID) : undefined
+					});
+					break;
+				}
+				case 'disconnect': {
+					await ChatService.deleteSingleOrRemoteMcpServer(d.id);
+					mcpServersAndEntries.refreshUserConfiguredServers();
+					break;
+				}
+				default:
+					connectToServerDialog?.open({
+						entry: selectedEntry,
+						server: d
+					});
+					break;
+			}
 		}}
 	>
 		{#snippet onRenderColumn(property, d)}
@@ -679,16 +742,20 @@
 			</button>
 		{/snippet}
 	</Table>
-	<p class="my-4 self-center text-center text-sm font-semibold">OR</p>
-	<button
-		class="button-primary"
-		onclick={() => {
-			selectServerDialog?.close();
-			connectToServerDialog?.open({
-				entry: selectedEntry
-			});
-		}}>Connect New Server</button
-	>
+	{#if selectServerMode === 'connect'}
+		<p class="my-4 self-center text-center text-sm font-semibold">OR</p>
+		<button
+			class="button-primary"
+			onclick={() => {
+				selectServerDialog?.close();
+				connectToServerDialog?.open({
+					entry: selectedEntry
+				});
+			}}
+		>
+			Connect New Server
+		</button>
+	{/if}
 </ResponsiveDialog>
 
 <EditExistingDeployment

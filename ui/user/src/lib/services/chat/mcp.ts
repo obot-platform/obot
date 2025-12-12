@@ -137,10 +137,13 @@ function convertEntriesToTableData(
 							? 'composite'
 							: 'single',
 				created: entry.created,
-				registry:
-					usersMap && entry.powerUserID
-						? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
-						: 'Global Registry',
+				registry: entry.powerUserID
+					? profile.current.id === entry.powerUserID
+						? 'My Registry'
+						: usersMap
+							? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
+							: 'Unknown Registry'
+					: 'Global Registry',
 				needsUpdate: entry.needsUpdate,
 				connected: userConfiguredServersMap?.has(entry.id)
 			};
@@ -173,54 +176,14 @@ function convertServersToTableData(
 				users: server.mcpServerInstanceUserCount ?? 0,
 				editable: true,
 				created: server.created,
-				registry:
-					usersMap && server.userID && server.powerUserWorkspaceID
-						? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
-						: 'Global Registry',
+				registry: server.powerUserWorkspaceID
+					? profile.current.id === server.userID
+						? 'My Registry'
+						: usersMap
+							? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
+							: 'Unknown Registry'
+					: 'Global Registry',
 				connected: instancesMap?.has(server.id)
-			};
-		});
-}
-
-function convertUserConfiguredServersToTableData(
-	servers?: MCPCatalogServer[],
-	entries?: MCPCatalogEntry[],
-	usersMap?: Map<string, OrgUser>
-) {
-	if (!servers) {
-		return [];
-	}
-
-	const catalogEntryMap = entries ? new Map(entries.map((entry) => [entry.id, entry])) : undefined;
-
-	return servers
-		.filter((server) => {
-			const uniqueName = !!server.alias;
-			return server.catalogEntryID && !server.deleted && uniqueName;
-		})
-		.map((server) => {
-			const catalogEntry = catalogEntryMap?.get(server.catalogEntryID);
-			const type = catalogEntry
-				? catalogEntry.manifest.runtime === 'remote' ||
-					catalogEntry.manifest.runtime === 'composite'
-					? catalogEntry.manifest.runtime
-					: 'single'
-				: 'multi';
-			return {
-				id: server.id,
-				name: server.alias || server.manifest.name || '',
-				icon: server.manifest.icon,
-				source: 'manual',
-				type,
-				data: server,
-				users: server.mcpServerInstanceUserCount ?? 0,
-				editable: true,
-				created: server.created,
-				registry:
-					usersMap && catalogEntry?.powerUserID
-						? `${getUserDisplayName(usersMap, catalogEntry.powerUserID)}'s Registry`
-						: 'Global Registry',
-				connected: true
 			};
 		});
 }
@@ -232,14 +195,9 @@ export function convertEntriesAndServersToTableData(
 	userConfiguredServers?: MCPCatalogServer[],
 	instances?: MCPServerInstance[]
 ) {
-	const userConfiguredServersTableData = convertUserConfiguredServersToTableData(
-		userConfiguredServers,
-		entries,
-		usersMap
-	);
 	const entriesTableData = convertEntriesToTableData(entries, usersMap, userConfiguredServers);
 	const serversTableData = convertServersToTableData(servers, usersMap, instances);
-	return [...userConfiguredServersTableData, ...entriesTableData, ...serversTableData];
+	return [...entriesTableData, ...serversTableData];
 }
 
 export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) {

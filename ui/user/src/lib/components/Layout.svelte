@@ -58,7 +58,6 @@
 			navbar?: string;
 		};
 		children: Snippet;
-		showUserLinks?: boolean;
 		onRenderSubContent?: Snippet<[string]>;
 		hideSidebar?: boolean;
 		whiteBackground?: boolean;
@@ -73,8 +72,6 @@
 	const {
 		classes,
 		children,
-		showUserLinks,
-		navLinks: overrideNavLinks,
 		onRenderSubContent,
 		hideSidebar,
 		whiteBackground,
@@ -92,7 +89,7 @@
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 	let navLinks = $derived<NavLink[]>(
-		profile.current.hasAdminAccess?.() && !showUserLinks
+		profile.current.hasAdminAccess?.()
 			? [
 					{
 						id: 'mcp-server-management',
@@ -235,59 +232,90 @@
 						label: 'App Preferences',
 						disabled: false,
 						collapsible: false
+					},
+					{
+						id: 'chat',
+						href: '/chat',
+						icon: MessageCircle,
+						label: 'Launch Chat',
+						disabled: isBootStrapUser,
+						collapsible: false
 					}
 				]
-			: (overrideNavLinks ?? [
-					{
-						id: 'mcp-server-management',
-						icon: RadioTower,
-						label: 'MCP Management',
-						collapsible: false,
-						disabled: false,
-						items: [
-							{
-								id: 'mcp-servers',
-								href: '/mcp-servers',
-								icon: Server,
-								label: 'MCP Servers',
-								disabled: false,
-								collapsible: false
-							},
-							...(isAtLeastPowerUserPlus
-								? [
-										{
-											id: 'mcp-registries',
-											href: '/mcp-registries',
-											icon: GlobeLock,
-											label: 'MCP Registries',
-											disabled: false,
-											collapsible: false
-										}
-									]
-								: []),
-							...(isAtLeastPowerUser
-								? [
-										{
-											id: 'audit-logs',
-											href: '/audit-logs',
-											icon: Captions,
-											label: 'Audit Logs',
-											disabled: false,
-											collapsible: false
-										},
-										{
-											id: 'usage',
-											href: '/usage',
-											icon: ChartBarDecreasing,
-											label: 'Usage',
-											disabled: false,
-											collapsible: false
-										}
-									]
-								: [])
-						]
-					}
-				])
+			: isAtLeastPowerUser
+				? [
+						{
+							id: 'chat',
+							href: '/chat',
+							icon: MessageCircle,
+							label: 'Chat',
+							disabled: isBootStrapUser,
+							collapsible: false
+						},
+						{
+							id: 'mcp-server-management',
+							icon: RadioTower,
+							label: 'MCP Management',
+							collapsible: false,
+							disabled: false,
+							items: [
+								{
+									id: 'mcp-servers',
+									href: '/mcp-servers',
+									icon: Server,
+									label: 'MCP Servers',
+									disabled: false,
+									collapsible: false
+								},
+								...(isAtLeastPowerUserPlus
+									? [
+											{
+												id: 'mcp-registries',
+												href: '/mcp-registries',
+												icon: GlobeLock,
+												label: 'MCP Registries',
+												disabled: false,
+												collapsible: false
+											}
+										]
+									: []),
+								{
+									id: 'audit-logs',
+									href: '/audit-logs',
+									icon: Captions,
+									label: 'Audit Logs',
+									disabled: false,
+									collapsible: false
+								},
+								{
+									id: 'usage',
+									href: '/usage',
+									icon: ChartBarDecreasing,
+									label: 'Usage',
+									disabled: false,
+									collapsible: false
+								}
+							]
+						}
+					]
+				: [
+						{
+							id: 'chat',
+							href: '/chat',
+							icon: MessageCircle,
+							label: 'Chat',
+							disabled: isBootStrapUser,
+							collapsible: false
+						},
+						{
+							id: 'mcp-servers',
+							href: '/mcp-servers',
+							icon: Server,
+							label: 'MCP Servers',
+							disabled: false,
+							collapsible: false
+						}
+					]
 	);
 
 	const tooltips = {

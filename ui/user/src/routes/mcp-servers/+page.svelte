@@ -2,8 +2,14 @@
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { ChatService, Group, type LaunchServerType, type MCPCatalogServer } from '$lib/services';
-	import type { MCPCatalogEntry } from '$lib/services/admin/types';
+	import {
+		AdminService,
+		ChatService,
+		Group,
+		type LaunchServerType,
+		type MCPCatalogServer
+	} from '$lib/services';
+	import type { MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { Plus, Server } from 'lucide-svelte';
 	import { fade, fly } from 'svelte/transition';
 	import { goto, replaceState } from '$lib/url';
@@ -26,17 +32,14 @@
 	import { localState } from '$lib/runes/localState.svelte.js';
 	import { debounce } from 'es-toolkit';
 	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
+	import { onMount } from 'svelte';
 
 	let { data } = $props();
-	let query = $state('');
 
-	type View = 'registry' | 'deployments';
-	let view = $state<View>((page.url.searchParams.get('view') as View) || 'deployments');
-
-	type LocalStorageViewQuery = Record<View, string>;
+	type LocalStorageViewQuery = Record<'registry', string>;
 	const localStorageViewQuery = localState<LocalStorageViewQuery>(
 		'@obot/mcp-servers/search-query',
-		{ registry: '', deployments: '' }
+		{ registry: '' }
 	);
 
 	let workspaceId = $derived(data.workspace?.id);
@@ -77,12 +80,19 @@
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let selectedServerType = $state<LaunchServerType>();
 
+	let users = $state<OrgUser[]>([]);
 	let showServerForm = $state(false);
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
 
 	let urlFilters = $state(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
+
+	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
+
+	onMount(async () => {
+		users = await AdminService.listUsers();
+	});
 
 	function selectServerType(type: LaunchServerType, updateUrl = true) {
 		selectedServerType = type;
@@ -107,24 +117,20 @@
 		clearUrlParams();
 	}
 
-	function persistQueryToLocalStorage(view: View, queryValue: string): void {
+	function persistQueryToLocalStorage(queryValue: string): void {
 		if (!localStorageViewQuery.current) {
 			return;
 		}
 
-		localStorageViewQuery.current[view] = queryValue;
+		localStorageViewQuery.current.registry = queryValue;
 	}
 
-	function clearQueryFromLocalStorage(view?: View): void {
+	function clearQueryFromLocalStorage(): void {
 		if (!localStorageViewQuery.current) {
 			return;
 		}
 
-		if (view) {
-			localStorageViewQuery.current[view] = '';
-		} else {
-			localStorageViewQuery.current = { registry: '', deployments: '' };
-		}
+		localStorageViewQuery.current.registry = '';
 	}
 
 	const updateSearchQuery = debounce((value: string) => {
@@ -132,7 +138,7 @@
 
 		setUrlParam(newUrl, 'query', value || null);
 
-		persistQueryToLocalStorage(view, value);
+		persistQueryToLocalStorage(value);
 		navigateWithState(newUrl);
 	}, 100);
 
@@ -142,7 +148,7 @@
 	);
 </script>
 
-<Layout classes={{ navbar: 'bg-surface1' }} showUserLinks {title} showBackButton={showServerForm}>
+<Layout classes={{ navbar: 'bg-surface1' }} {title} showBackButton={showServerForm}>
 	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if showServerForm}
 			{@render configureEntryScreen()}
@@ -168,7 +174,7 @@
 			<div class="mb-2">
 				<Search
 					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
-					value={query}
+					value={localStorageViewQuery.current?.registry || ''}
 					onChange={updateSearchQuery}
 					placeholder="Search servers..."
 				/>
@@ -194,6 +200,7 @@
 						mcpServersAndEntries.refreshUserConfiguredServers();
 					}
 				}}
+				{usersMap}
 			>
 				{#snippet noDataContent()}
 					<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
