@@ -98,10 +98,6 @@
 	const isSmallScreen = $derived(viewport.screen === 'sm' || viewport.screen === 'xs');
 
 	function refAction(node: HTMLElement) {
-		if (viewport.screen === 'sm' || viewport.screen === 'xs') {
-			return;
-		}
-
 		return quickActionsPopover.ref(node);
 	}
 
@@ -145,7 +141,7 @@
 	<div
 		class={twMerge(
 			isSmallScreen
-				? 'fixed inset-0 z-50 flex min-w-full items-center justify-stretch p-4 backdrop-blur-sm'
+				? 'fixed inset-0 z-50 flex min-w-full items-center justify-center p-4 backdrop-blur-sm'
 				: 'contents',
 			!open && 'hidden'
 		)}
@@ -164,20 +160,17 @@
 		onkeydown={undefined}
 	>
 		{#key isSmallScreen}
-			<div
-				class={twMerge('default-dialog flex w-full flex-col p-0', !isSmallScreen && 'max-w-fit')}
-				use:tooltipAction
-			>
-				<div class={twMerge('px-4 py-4 text-lg font-medium', !isSmallScreen && 'hidden')}>
+			<div class="default-dialog flex w-full max-w-sm flex-col py-2 md:max-w-fit" use:tooltipAction>
+				<div class="mb-6 px-4 text-center text-lg font-medium md:hidden md:text-start">
 					<div>Select Export Time Range</div>
 				</div>
 
-				<div class="flex w-full flex-col pb-2">
+				<div class="flex w-full flex-col min-w-36">
 					{#each actions as action (action.label)}
 						<button
 							type="button"
-							class="hover:bg-surface3 w-full min-w-max px-4 py-2 text-start"
-							onpointerdown={action.onpointerdown}
+							class="hover:bg-surface3/25 h-12 w-full min-w-max px-4 py-2 text-center last:border-b-transparent md:h-10 md:text-start"
+							onclick={action.onpointerdown}
 						>
 							{action.label}
 						</button>

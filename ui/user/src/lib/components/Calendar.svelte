@@ -232,17 +232,12 @@
 
 	const isSmallScreen = $derived(viewport.screen === 'sm' || viewport.screen === 'xs');
 
-	// $inspect(isSmallScreen, viewport.screen);
-
 	function popoverRef(node: HTMLElement) {
-		if (isSmallScreen) {
-			return;
-		}
-
 		return calendarPopover.ref(node);
 	}
 
 	function tooltipRef(node: HTMLElement) {
+		// console.log('tooltipRef called', isSmallScreen);
 		if (isSmallScreen) {
 			return;
 		}
@@ -314,13 +309,17 @@
 			)}
 			use:tooltipRef
 		>
+			<div class="mb-6 px-4 text-center text-lg font-medium md:hidden md:text-start">
+				<div>Select Export Time Range</div>
+			</div>
+
 			<!-- Calendar Header -->
 			<div class={twMerge('mb-4 flex items-center justify-between', classes?.header)}>
 				<button type="button" class="hover:bg-surface3 rounded p-1" onclick={previousMonth}>
 					<ChevronLeft class="size-4" />
 				</button>
 
-				<h3 class="text-lg font-semibold">
+				<h3 class="">
 					{months[currentDate.getMonth()]}
 					{currentDate.getFullYear()}
 				</h3>
