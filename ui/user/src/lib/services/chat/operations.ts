@@ -44,8 +44,6 @@ import {
 	type ProjectShare,
 	type ProjectShareList,
 	type ProjectTemplate,
-	type SlackConfig,
-	type SlackReceiver,
 	type Task,
 	type TaskList,
 	type TaskRun,
@@ -852,34 +850,6 @@ export async function updateProjectThreadTools(
 		list.items = [];
 	}
 	return list;
-}
-
-export async function configureProjectSlack(
-	assistantID: string,
-	projectID: string,
-	config: SlackConfig,
-	method: 'POST' | 'PUT' = 'POST'
-) {
-	if (method === 'POST') {
-		return (await doPost(
-			`/assistants/${assistantID}/projects/${projectID}/slack`,
-			config
-		)) as SlackReceiver;
-	}
-	return (await doPut(
-		`/assistants/${assistantID}/projects/${projectID}/slack`,
-		config
-	)) as SlackReceiver;
-}
-
-export async function getProjectSlack(assistantID: string, projectID: string) {
-	return (await doGet(`/assistants/${assistantID}/projects/${projectID}/slack`, {
-		dontLogErrors: true
-	})) as SlackReceiver;
-}
-
-export async function disableProjectSlack(assistantID: string, projectID: string) {
-	return doDelete(`/assistants/${assistantID}/projects/${projectID}/slack`);
 }
 
 export async function getMemories(assistantID: string, projectID: string): Promise<MemoryList> {

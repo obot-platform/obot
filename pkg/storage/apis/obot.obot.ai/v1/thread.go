@@ -226,10 +226,6 @@ type ThreadSpec struct {
 	KnowledgeSourceName string `json:"remoteKnowledgeSourceName,omitempty"`
 	// KnowledgeSetName is the knowledge set owner of the thread
 	KnowledgeSetName string `json:"knowledgeSetName,omitempty"`
-	// WebhookName is the webhook owner of the thread
-	WebhookName string `json:"webhookName,omitempty"`
-	// EmailReceiverName is the email receiver owner of the thread
-	EmailReceiverName string `json:"emailReceiverName,omitempty"`
 	// CronJobName is the cron job owner of the thread
 	CronJobName string `json:"cronJobName,omitempty"`
 	// OAuthAppLoginName is the oauth app login owner of the thread
@@ -261,8 +257,6 @@ func (in *Thread) DeleteRefs() []Ref {
 		{ObjType: &WorkflowExecution{}, Name: in.Spec.WorkflowExecutionName},
 		{ObjType: &Workflow{}, Name: in.Spec.WorkflowName},
 		{ObjType: &CronJob{}, Name: in.Spec.CronJobName},
-		{ObjType: &Webhook{}, Name: in.Spec.WebhookName},
-		{ObjType: &EmailReceiver{}, Name: in.Spec.EmailReceiverName},
 		{ObjType: &KnowledgeSource{}, Name: in.Spec.KnowledgeSourceName},
 		{ObjType: &KnowledgeSet{}, Name: in.Spec.KnowledgeSetName},
 		{ObjType: &Workspace{}, Name: in.Spec.WorkspaceName},

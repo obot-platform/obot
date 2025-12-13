@@ -2,7 +2,6 @@ package v1
 
 import (
 	"slices"
-	"strconv"
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -31,17 +30,12 @@ func (in *Workflow) Get(field string) (value string) {
 	switch field {
 	case "spec.threadName":
 		return in.Spec.ThreadName
-	case "spec.slack":
-		return strconv.FormatBool(in.Spec.Manifest.OnSlackMessage != nil)
 	}
 	return ""
 }
 
 func (in *Workflow) FieldNames() []string {
-	return []string{
-		"spec.threadName",
-		"spec.slack",
-	}
+	return []string{"spec.threadName"}
 }
 
 type WorkflowSpec struct {

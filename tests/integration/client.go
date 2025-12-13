@@ -256,37 +256,6 @@ func (c *Client) GetProjectTask(projectID, taskID string) (*apiclient.Task, erro
 	return &task, nil
 }
 
-func (c *Client) ConfigureProjectSlack(projectID string, payload map[string]any) (*apiclient.SlackReceiver, error) {
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.HTTPClient.Post(c.ServerURL+"/api/assistants/a1-obot/projects/"+projectID+"/slack", "application/json", bytes.NewBuffer(payloadBytes))
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		return nil, fmt.Errorf("failed to configure project slack: %s", resp.Status)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	slackReceiver := apiclient.SlackReceiver{}
-	err = json.Unmarshal(body, &slackReceiver)
-	if err != nil {
-		return nil, err
-	}
-
-	return &slackReceiver, nil
-}
-
 func (c *Client) GetModels() ([]apiclient.Model, error) {
 	resp, err := c.HTTPClient.Get(c.ServerURL + "/api/models")
 	if err != nil {

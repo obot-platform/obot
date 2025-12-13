@@ -19,18 +19,6 @@
 		if (task?.schedule) {
 			return 'schedule';
 		}
-		if (task?.webhook) {
-			return 'webhook';
-		}
-		if (task?.email) {
-			return 'email';
-		}
-		if (task?.onSlackMessage) {
-			return 'slack';
-		}
-		if (task?.onDiscordMessage) {
-			return 'discord';
-		}
 		return 'onDemand';
 	}
 
@@ -50,18 +38,12 @@
 				weekday: 0,
 				timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
 			};
-			task.webhook = undefined;
-			task.email = undefined;
 			task.onDemand = undefined;
-			task.onSlackMessage = undefined;
 		}
 
 		if (value === 'onDemand') {
 			task.schedule = undefined;
-			task.webhook = undefined;
-			task.email = undefined;
 			task.onDemand = undefined;
-			task.onSlackMessage = undefined;
 		}
 	}
 </script>
