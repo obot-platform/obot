@@ -77,7 +77,7 @@ func (c *Controller) setupRoutes() {
 	slackReceiverHandler := slackreceiver.NewHandler(c.services.GPTClient, c.services.StorageClient)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpSession := mcpsession.New(c.services.GPTClient)
-	mcpserver := mcpserver.New(c.services.GPTClient, c.services.ServerURL)
+	mcpserver := mcpserver.New(c.services.GPTClient, c.services.MCPLoader, c.services.ServerURL)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New()
