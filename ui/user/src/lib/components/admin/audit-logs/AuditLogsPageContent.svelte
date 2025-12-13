@@ -100,12 +100,9 @@
 
 	const defaultSearchParams: Partial<AuditLogURLFilters> = {
 		call_type: [
-			'prompts/list',
 			'resources/read',
-			'tools/list',
 			'tools/call',
 			'prompts/get',
-			'resources/list'
 		].join(',')
 	};
 
