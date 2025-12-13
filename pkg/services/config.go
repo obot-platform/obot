@@ -28,6 +28,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
@@ -167,7 +168,7 @@ type Services struct {
 	MCPOAuthTokenStorage mcp.GlobalTokenStore
 
 	// OAuth configuration
-	OAuthServerConfig OAuthAuthorizationServerConfig
+	OAuthServerConfig handlers.OAuthAuthorizationServerConfig
 
 	// Local Kubernetes configuration for deployment monitoring
 	LocalK8sConfig     *rest.Config
@@ -799,7 +800,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DefaultMCPCatalogPath:      config.DefaultMCPCatalogPath,
 		MCPLoader:                  mcpSessionManager,
 		MCPOAuthTokenStorage:       mcpOAuthTokenStorage,
-		OAuthServerConfig: OAuthAuthorizationServerConfig{
+		OAuthServerConfig: handlers.OAuthAuthorizationServerConfig{
+			Issuer:                            config.Hostname,
+			AuthorizationEndpoint:             fmt.Sprintf("%s/oauth/authorize", config.Hostname),
+			TokenEndpoint:                     fmt.Sprintf("%s/oauth/token", config.Hostname),
+			RegistrationEndpoint:              fmt.Sprintf("%s/oauth/register", config.Hostname),
 			JWKSURI:                           config.Hostname + "/oauth/jwks.json",
 			ResponseTypesSupported:            []string{"code"},
 			GrantTypesSupported:               []string{"authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"},

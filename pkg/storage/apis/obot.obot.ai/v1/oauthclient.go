@@ -59,6 +59,9 @@ type OAuthClientSpec struct {
 	// Ephemeral indicates that the OAuth client is temporary and will be deleted after a certain period of time.
 	// This is used for generating tool previews for example.
 	Ephemeral bool `json:"ephemeral"`
+
+	// Static indicates that the OAuth client is not dynamically registered, but was created manually.
+	Static bool `json:"static"`
 }
 
 type OAuthClientStatus struct{}

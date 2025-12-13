@@ -104,6 +104,8 @@ var (
 		"/api/scheduled-audit-log-exports/{id}",
 		"/api/storage-credentials",
 		"/api/storage-credentials/",
+		"/api/oauth-clients",
+		"/api/oauth-clients/",
 		"GET /api/eula",
 		"PUT /api/eula",
 		"PUT /api/app-preferences",
