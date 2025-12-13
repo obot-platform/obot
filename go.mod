@@ -1,6 +1,6 @@
 module github.com/obot-platform/obot
 
-go 1.25.3
+go 1.25.5
 
 replace (
 	github.com/obot-platform/obot/apiclient => ./apiclient
@@ -30,8 +30,8 @@ require (
 	github.com/gptscript-ai/chat-completion-client v0.0.0-20250224164718-139cb4507b1d
 	github.com/gptscript-ai/cmd v0.0.0-20250530150401-bc71fddf8070
 	github.com/gptscript-ai/datasets v0.0.0-20241125193827-31ce6c3c682b
-	github.com/gptscript-ai/go-gptscript v0.9.6-0.20250714170123-17ad44ae8c54
-	github.com/gptscript-ai/gptscript v0.9.7
+	github.com/gptscript-ai/go-gptscript v0.9.8
+	github.com/gptscript-ai/gptscript v0.9.8
 	github.com/jackc/pgx/v5 v5.7.5
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 	github.com/mhale/smtpd v0.8.3
