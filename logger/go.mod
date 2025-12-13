@@ -1,6 +1,6 @@
 module github.com/obot-platform/obot/logger
 
-go 1.23.1
+go 1.23.5
 
 require github.com/sirupsen/logrus v1.9.3
 
