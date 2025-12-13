@@ -99,14 +99,7 @@
 	];
 
 	const defaultSearchParams: Partial<AuditLogURLFilters> = {
-		call_type: [
-			'prompts/list',
-			'resources/read',
-			'tools/list',
-			'tools/call',
-			'prompts/get',
-			'resources/list'
-		].join(',')
+		call_type: ['resources/read', 'tools/call', 'prompts/get'].join(',')
 	};
 
 	const searchParamsAsArray: [SupportedFilter, string | undefined | null][] = $derived(
