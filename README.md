@@ -1,6 +1,6 @@
 # Obot
 
-**The Enterprise MCP Management Platform**
+**The Complete MCP Management Platform**
 
 Obot is an open-source platform that solves the key challenges of adopting the Model Context Protocol (MCP) at enterprise scale. Built for organizations that need to securely discover, manage, and govern AI integrations across their infrastructure.
 
