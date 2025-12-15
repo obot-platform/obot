@@ -1,6 +1,21 @@
 export function resize(node: HTMLTextAreaElement) {
+	const currentHeight = node.style.height;
+	const currentMinHeight = node.style.minHeight;
+
+	const overflow = node.style.overflow;
+	node.style.overflow = 'hidden';
+
 	node.style.height = 'auto';
-	node.style.height = node.scrollHeight + 'px';
+	const scrollHeight = node.scrollHeight;
+
+	node.style.height = currentHeight;
+	node.style.overflow = overflow;
+
+	// Only update if the height actually changed
+	const newMinHeight = scrollHeight + 'px';
+	if (newMinHeight !== currentMinHeight) {
+		node.style.minHeight = newMinHeight;
+	}
 }
 
 export function autoHeight(node: HTMLTextAreaElement) {
