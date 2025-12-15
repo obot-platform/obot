@@ -85,7 +85,6 @@ const sidebars = {
         },
       ],
     },
-    "integrations/ide-client-integration",
     "enterprise/overview",
     "faq",
   ],
