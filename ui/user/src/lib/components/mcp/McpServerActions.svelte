@@ -97,16 +97,14 @@
 	}
 
 	$effect(() => {
-		console.log('promptInitialLaunch', promptInitialLaunch, 'current URL:', window.location.href);
 		if (promptInitialLaunch && !launchPromptHandled) {
 			launchPromptHandled = true;
 			launchDialog?.open();
 
-			// clear out the launch param using native history API
-			const url = new URL(window.location.href);
+			// clear out the launch param
+			const url = new URL(page.url);
 			url.searchParams.delete('launch');
-			console.log('Replacing state with URL:', url.toString());
-			window.history.replaceState(window.history.state, '', url.toString());
+			goto(url, { replaceState: true });
 		}
 	});
 
