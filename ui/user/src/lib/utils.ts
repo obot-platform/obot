@@ -246,13 +246,3 @@ export function getUserDisplayName(
 
 	return display;
 }
-
-export function getRegistryLabel(idToLookup?: string, myID?: string, users?: OrgUser[]) {
-	const usersMap = new Map(users?.map((user) => [user.id, user]));
-	const user = idToLookup ? usersMap.get(idToLookup) : undefined;
-	const ownerDisplayName = user && getUserDisplayName(usersMap, user.id);
-	const isMe = idToLookup === myID;
-	return idToLookup
-		? `${isMe ? 'My' : `${ownerDisplayName || 'Unknown'}'s`} Registry`
-		: 'Global Registry';
-}

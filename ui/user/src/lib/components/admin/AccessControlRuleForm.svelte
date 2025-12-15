@@ -24,8 +24,9 @@
 	import Confirm from '../Confirm.svelte';
 	import { goto } from '$lib/url';
 	import SearchMcpServers from './SearchMcpServers.svelte';
-	import { getRegistryLabel, getUserDisplayName } from '$lib/utils';
+	import { getUserDisplayName } from '$lib/utils';
 	import { profile } from '$lib/stores';
+	import { getUserRegistry } from '$lib/services/chat/mcp';
 
 	interface Props {
 		topContent?: Snippet;
@@ -289,11 +290,7 @@
 					</h1>
 					{#if !loadingUsersAndGroups}
 						{#if initialAccessControlRule}
-							{@const registry = getRegistryLabel(
-								initialAccessControlRule.powerUserID,
-								profile.current?.id,
-								usersAndGroups?.users
-							)}
+							{@const registry = getUserRegistry(initialAccessControlRule, usersMap)}
 							{#if registry}
 								<div class="dark:bg-surface2 bg-surface3 rounded-full px-3 py-1 text-xs">
 									{registry}
