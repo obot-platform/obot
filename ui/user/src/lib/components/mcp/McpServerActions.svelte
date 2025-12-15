@@ -22,6 +22,8 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { resolve } from '$app/paths';
+	import { replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 
 	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
 
@@ -51,6 +53,7 @@
 	let selectServerMode = $state<ServerSelectMode>('connect');
 
 	let launchDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let launchPromptHandled = $state(false);
 
 	let instance = $derived(
 		server && !server.catalogEntryID
@@ -94,8 +97,16 @@
 	}
 
 	$effect(() => {
-		if (promptInitialLaunch) {
+		console.log('promptInitialLaunch', promptInitialLaunch, 'current URL:', window.location.href);
+		if (promptInitialLaunch && !launchPromptHandled) {
+			launchPromptHandled = true;
 			launchDialog?.open();
+
+			// clear out the launch param using native history API
+			const url = new URL(window.location.href);
+			url.searchParams.delete('launch');
+			console.log('Replacing state with URL:', url.toString());
+			window.history.replaceState(window.history.state, '', url.toString());
 		}
 	});
 
