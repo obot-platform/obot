@@ -88,7 +88,9 @@
 	let updatedServer = $state<MCPCatalogServer | MCPCatalogEntry>();
 
 	let showUpgradeConfirm = $state<
-		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
+		| { type: 'multi'; onConfirm?: () => void }
+		| { type: 'single'; server: MCPCatalogServer; onConfirm?: () => void }
+		| undefined
 	>();
 	let showDeleteConfirm = $state<
 		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
@@ -502,7 +504,10 @@
 												if (!d) return;
 												showUpgradeConfirm = {
 													type: 'single',
-													server: d
+													server: d,
+													onConfirm: async () => {
+														reload();
+													}
 												};
 											}}
 											use:tooltip={d.compositeName
@@ -650,7 +655,10 @@
 						onclick={() => {
 							selected = currentSelected;
 							showUpgradeConfirm = {
-								type: 'multi'
+								type: 'multi',
+								onConfirm: () => {
+									reload();
+								}
 							};
 						}}
 						disabled={readonly || upgradeableCount === 0}
@@ -733,6 +741,7 @@
 		} else {
 			await handleBulkUpdate();
 		}
+		showUpgradeConfirm?.onConfirm?.();
 		showUpgradeConfirm = undefined;
 	}}
 	oncancel={() => (showUpgradeConfirm = undefined)}
