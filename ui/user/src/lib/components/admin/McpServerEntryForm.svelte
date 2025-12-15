@@ -403,7 +403,6 @@
 	}
 
 	function handleInitTemporaryInstance() {
-		console.log('handleInitTemporaryInstance', entry, server);
 		if (!entry) return;
 
 		if (entry.manifest?.runtime === 'composite') {
