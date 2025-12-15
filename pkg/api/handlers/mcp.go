@@ -103,14 +103,8 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		return err
 	}
 
-	// Helper to conditionally include powerUserWorkspaceID only if it matches the user's workspace
-	userWorkspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
 	convertEntry := func(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
-		var powerUserWorkspaceID string
-		if entry.Spec.PowerUserWorkspaceID == userWorkspaceID {
-			powerUserWorkspaceID = entry.Spec.PowerUserWorkspaceID
-		}
-		return ConvertMCPServerCatalogEntryWithWorkspace(entry, powerUserWorkspaceID, "")
+		return ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, "")
 	}
 
 	// Allow admins/auditors to bypass ACR filtering with ?all=true
