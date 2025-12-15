@@ -22,7 +22,6 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { resolve } from '$app/paths';
-	import { replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 
 	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
