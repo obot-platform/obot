@@ -102,7 +102,7 @@
 			toggleAction = { id, action: request.enabled ? 'resume' : 'pause' };
 
 			await AdminService.updateScheduledAuditLogExport(id, request);
-			await loadScheduledExports(); // Refresh the list
+			await reload(); // Refresh the list
 		} catch (error) {
 			console.error('Failed to update scheduled export:', error);
 		} finally {
@@ -113,30 +113,45 @@
 	async function handleSingleDelete(exp: ScheduledAuditLogExport) {
 		try {
 			await AdminService.deleteScheduledAuditLogExport(exp.id);
-			await loadScheduledExports(); // Refresh the list
+			await reload(); // Refresh the list
 		} catch (error) {
 			console.error('Failed to delete scheduled export:', error);
 		}
 	}
 
 	async function handleBulkDelete() {
-		for (const id of Object.keys(selected)) {
-			await handleSingleDelete(selected[id]);
+		const keys = Object.keys(selected);
+
+		await Promise.all(keys.map((id) => handleSingleDelete(selected[id])));
+
+		if (keys.length > 0) {
+			reload();
 		}
+
 		selected = {};
 	}
 
 	async function handleBulkPause() {
-		for (const id of Object.keys(selected)) {
-			await handleUpdateScheduledExport(id, { enabled: false });
+		const keys = Object.keys(selected);
+
+		await Promise.all(keys.map((id) => handleUpdateScheduledExport(id, { enabled: false })));
+
+		if (keys.length > 0) {
+			reload();
 		}
+
 		selected = {};
 	}
 
 	async function handleBulkResume() {
-		for (const id of Object.keys(selected)) {
-			await handleUpdateScheduledExport(id, { enabled: true });
+		const keys = Object.keys(selected);
+
+		await Promise.all(keys.map((id) => handleUpdateScheduledExport(id, { enabled: true })));
+
+		if (keys.length > 0) {
+			reload();
 		}
+
 		selected = {};
 	}
 
