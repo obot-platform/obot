@@ -301,8 +301,7 @@
 								<span
 									class="text-yellow-500"
 									use:tooltip={{
-										text: 'Server requires an update.',
-										disablePortal: true
+										text: 'Server requires an update.'
 									}}
 								>
 									<TriangleAlert class="size-4" />
