@@ -3,99 +3,63 @@ title: Overview
 slug: /installation/overview
 ---
 
-Obot is a complete platform for building and running AI agents. This guide will help you choose the right deployment method for your use case.
+This guide helps you choose the right deployment method for your use case. Before selecting a deployment option, it’s useful to understand the core components that make up an Obot installation:
 
-## Obot Components
+- **Obot Server**: The core application server, distributed as a container image.
+- **MCP Server Hosting Platform**: The environment where Obot deploys users’ MCP servers. This matches the platform on which Obot itself is deployed (Docker or Kubernetes).
+- **PostgreSQL Database**: The primary database for Obot. PostgreSQL 17 or later is required, along with the [pgvector](https://github.com/pgvector/pgvector) extension.
+- **File Storage**: Local filesystem or S3-compatible object storage for files generated or uploaded during chat threads or task runs.
 
-Obot consists of three main components:
+Below you’ll find an overview of the available deployment options, along with system requirements and links to reference architectures.
 
-- **Obot Server**: The core application server
-- **PostgreSQL Database**: Version 17 or higher with [pgvector](https://github.com/pgvector/pgvector) extension
-- **Data Storage**: Local filesystem or S3-compatible storage for workspace files
+## Docker Deployment
 
-Obot stores its data under the `/data` path. It also includes the data for the built-in PostgreSQL instance during development. Production deployments require an external PostgreSQL database.
+Docker provides the fastest way to get Obot running on your local machine or a single server for development, testing, and proof-of-concept use cases.
 
-## Deployment Options
+- Simple setup using `docker run`
+- Includes a built-in PostgreSQL database and local file storage
+- Deploys MCP servers as Docker containers using the host’s Docker socket
 
-### Docker Deployment
+For more details, see the [Docker Deployment Guide](docker-deployment).
 
-**Best for**: Local development, testing, proof-of-concept
+## Kubernetes Deployment
 
-Docker provides the fastest way to get Obot running on your local machine or a single server.
-
-- Simple setup with `docker run`
-- Ideal for development and evaluation
-- Uses built-in PostgreSQL
-
-👉 [Docker Deployment Guide](docker-deployment)
-
-### Kubernetes Deployment
-
-**Best for**: Production deployments, scalability, high availability
-
-Deploy Obot on Kubernetes for production-grade reliability and scalability.
+Kubernetes provides the best way to run Obot reliably at scale in production environments.
 
 - Helm chart available at [charts.obot.ai](https://charts.obot.ai/)
-- Integrates with cloud services (KMS, S3, etc.)
-- Requires external PostgreSQL database
+- Integrates with cloud-native services such as KMS and S3
+- Requires an external PostgreSQL database and external storage
 
-👉 [Kubernetes Deployment Guide](kubernetes-deployment)
+For more details, see the [Kubernetes Deployment Guide](kubernetes-deployment).
 
-### Cloud Platform Reference Architectures
+## Production System Requirements
 
-**Best for**: Planning production deployments on cloud-managed Kubernetes
+For production deployments, the following components are required:
 
-If you're planning to deploy Obot on cloud-managed Kubernetes services, these reference architectures provide infrastructure guidance and best practices.
+- **Kubernetes**: A production-grade Kubernetes cluster with capacity for Obot and the MCP servers it will manage
+- **External PostgreSQL database**: PostgreSQL 17 or later with the pgvector extension
+- **S3-compatible object storage**: For workspace files and persistent data
+- **Encryption provider**: AWS KMS, Google Cloud KMS, or Azure Key Vault
+- **Authentication provider**: See our supported [Authentication Providers](../configuration/auth-providers)
+- **TLS/SSL certificates**: For secure HTTPS access
+- **Backup strategy**: Regular backups for both the database and object storage
 
-- **Infrastructure blueprints**: Pre-configured setups using cloud-native services
-- **Best practices**: Security, networking, and scalability recommendations
-- **Managed services integration**: Databases, storage, and key management
+## Cloud Platform Reference Architectures
 
-Reference architectures for cloud-managed Kubernetes:
+If you plan to deploy Obot on a managed Kubernetes service, these reference architectures provide infrastructure guidance and best practices:
 
 - [GCP GKE Reference Architecture](reference-architectures/gcp-gke)
 - [AWS EKS Reference Architecture](reference-architectures/aws-eks)
 - [Azure AKS Reference Architecture](reference-architectures/azure-aks)
 
-## System Requirements
-
-### Minimum (Development/Testing)
-
-- **CPU**: 1 cores
-- **RAM**: 2 GB
-- **Storage**: 10 GB
-
-## Database Requirements
-
-- **Development**: Built-in PostgreSQL included
-- **Production**: External PostgreSQL 17+ required with [pgvector](https://github.com/pgvector/pgvector) extension
-
-## Production Considerations
-
-For production deployments, you should have:
-
-- **External PostgreSQL database**: PostgreSQL 17+ with pgvector extension
-- **S3-compatible storage**: For workspace files and data
-- **Encryption provider**: AWS KMS, Google Cloud KMS, or Azure Key Vault
-- **Authentication**: OAuth, OIDC, or enterprise providers (SAML, LDAP)
-- **TLS/SSL certificates**: For secure HTTPS access
-- **Backup strategy**: Regular backups of database and storage
-
-## Quick Decision Guide
-
-| Use Case | Recommended Deployment |
-|----------|----------------------|
-| Local development | [Docker](docker-deployment) |
-| Production | [Kubernetes](kubernetes-deployment) |
-
 ## Next Steps
 
-1. Choose your deployment method above
-2. Follow the deployment guide
+1. Choose a deployment method above
+2. Follow the corresponding deployment guide
 3. [Configure authentication](../configuration/auth-providers)
 4. [Set up model providers](../configuration/model-providers)
-5. Review [server configuration](../configuration/server-configuration)
+5. Review the [server configuration options](../configuration/server-configuration)
 
 ## Getting Help
 
-- Check [FAQ](../faq)
+- See the [FAQ](../faq)
