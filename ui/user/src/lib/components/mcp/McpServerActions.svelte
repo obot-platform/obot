@@ -22,6 +22,7 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 
 	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
 
@@ -51,6 +52,7 @@
 	let selectServerMode = $state<ServerSelectMode>('connect');
 
 	let launchDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let launchPromptHandled = $state(false);
 
 	let instance = $derived(
 		server && !server.catalogEntryID
@@ -94,8 +96,14 @@
 	}
 
 	$effect(() => {
-		if (promptInitialLaunch) {
+		if (promptInitialLaunch && !launchPromptHandled) {
+			launchPromptHandled = true;
 			launchDialog?.open();
+
+			// clear out the launch param
+			const url = new URL(page.url);
+			url.searchParams.delete('launch');
+			goto(url, { replaceState: true });
 		}
 	});
 
