@@ -60,6 +60,7 @@ var (
 		"/api/system-mcp-servers/",
 		"GET /api/mcp-audit-logs",
 		"GET /api/mcp-audit-logs/filter-options/{filter}",
+		"GET /api/mcp-audit-logs/detail/{audit_log_id}",
 		"GET /api/mcp-audit-logs/{mcp_id}",
 		"GET /api/mcp-stats",
 		"GET /api/mcp-stats/{mcp_id}",
@@ -125,6 +126,7 @@ var (
 		types.GroupAuditor: {
 			"GET /api/mcp-audit-logs",
 			"GET /api/mcp-audit-logs/filter-options/{filter}",
+			"GET /api/mcp-audit-logs/detail/{audit_log_id}",
 			"GET /api/mcp-audit-logs/{mcp_id}",
 			"GET /api/mcp-stats",
 			"GET /api/mcp-stats/{mcp_id}",
