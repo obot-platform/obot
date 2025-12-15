@@ -446,14 +446,12 @@
 					{#snippet children({ toggle })}
 						{@const isAtLeastPowerUser = profile.current.groups.includes(Group.POWERUSER)}
 						<div class="default-dialog flex min-w-max flex-col">
-							{#if !isComposite && (!d.catalogEntryID || d.isMyServer)}
-								{#if d.isMyServer}
-									<div
-										class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
-									>
-										My Connection
-									</div>
-								{/if}
+							{#if !isComposite && d.isMyServer}
+								<div
+									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+								>
+									My Connection
+								</div>
 								<div
 									class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-surface1' : 'pb-0')}
 								>
