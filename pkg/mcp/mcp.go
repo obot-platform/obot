@@ -16,10 +16,6 @@ import (
 )
 
 func (sm *SessionManager) GPTScriptTools(ctx context.Context, projectMCPServer v1.ProjectMCPServer, userID, mcpServerDisplayName, internalServerURL, serverURL string, allowedTools []string) ([]gptscript.ToolDef, error) {
-	return sm.gptScriptTools(ctx, projectMCPServer, userID, mcpServerDisplayName, internalServerURL, serverURL, allowedTools, true)
-}
-
-func (sm *SessionManager) gptScriptTools(ctx context.Context, projectMCPServer v1.ProjectMCPServer, userID, mcpServerDisplayName, internalServerURL, serverURL string, allowedTools []string, retry bool) ([]gptscript.ToolDef, error) {
 	if mcpServerDisplayName == "" {
 		mcpServerDisplayName = projectMCPServer.Name
 	}
@@ -41,11 +37,6 @@ func (sm *SessionManager) gptScriptTools(ctx context.Context, projectMCPServer v
 
 	tools, err := client.ListTools(ctx)
 	if err != nil {
-		if retry {
-			sm.closeClient(serverConfig, "default")
-			return sm.gptScriptTools(ctx, projectMCPServer, userID, mcpServerDisplayName, internalServerURL, serverURL, allowedTools, false)
-		}
-
 		return nil, determineError(err, mcpServerDisplayName)
 	}
 

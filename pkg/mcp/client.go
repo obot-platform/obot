@@ -117,14 +117,10 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		now := time.Now().Add(-time.Second)
 		// TODO(thedadams): This needs to be fixed before user information headers can be passed to the MCP server.
 		jwtToken, token, err = sm.tokenService.NewTokenWithClaims(ctx, jwt.MapClaims{
-			"aud": gtypes.FirstSet(server.Audiences...),
-			"exp": float64(now.Add(time.Hour + 15*time.Minute).Unix()),
-			"iat": float64(now.Unix()),
-			"sub": server.UserID,
-			// "name":       server.UserName,
-			// "email":      server.UserEmail,
-			// "picture":    server.Picture,
-			// "UserGroups": strings.Join(server.UserGroups, ","),
+			"aud":   gtypes.FirstSet(server.Audiences...),
+			"exp":   float64(now.Add(time.Hour + 15*time.Minute).Unix()),
+			"iat":   float64(now.Unix()),
+			"sub":   server.UserID,
 			"MCPID": server.MCPServerName,
 		})
 		if err != nil {
