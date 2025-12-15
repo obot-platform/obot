@@ -88,13 +88,7 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 		return types.NewErrForbidden("user is not authorized to access this catalog entry")
 	}
 
-	// Only include powerUserWorkspaceID if it matches the user's workspace
-	var powerUserWorkspaceID string
-	if entry.Spec.PowerUserWorkspaceID == system.GetPowerUserWorkspaceID(req.User.GetUID()) {
-		powerUserWorkspaceID = entry.Spec.PowerUserWorkspaceID
-	}
-
-	return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, powerUserWorkspaceID, ""))
+	return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, ""))
 }
 
 func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {

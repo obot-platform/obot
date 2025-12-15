@@ -36,7 +36,7 @@
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
-	import { getRegistryLabel, openUrl } from '$lib/utils';
+	import { openUrl } from '$lib/utils';
 	import CatalogConfigureForm, {
 		type LaunchFormData,
 		type CompositeLaunchFormData,
@@ -47,7 +47,7 @@
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import { profile } from '$lib/stores';
 	import OverflowContainer from '../OverflowContainer.svelte';
-	import { getServerTypeLabel } from '$lib/services/chat/mcp';
+	import { getServerTypeLabel, getUserRegistry } from '$lib/services/chat/mcp';
 	import { resolve } from '$app/paths';
 
 	interface Props {
@@ -76,7 +76,6 @@
 		isDialogView
 	}: Props = $props();
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
-	let isAuditor = $derived(profile.current?.groups.includes(Group.AUDITOR));
 	let belongsToUser = $derived(
 		(entity === 'workspace' && entry?.powerUserWorkspaceID && entry.powerUserWorkspaceID === id) ||
 			profile.current?.hasAdminAccess?.()
@@ -85,16 +84,8 @@
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
 	let listFilters = $state<Promise<MCPFilter[]>>();
 	let users = $state<OrgUser[]>([]);
-	let registry = $derived.by(() => {
-		if (!entry) return undefined;
-		const ownerUserId =
-			'isCatalogEntry' in entry
-				? entry.powerUserID
-				: entry.powerUserWorkspaceID
-					? entry.userID
-					: undefined;
-		return getRegistryLabel(ownerUserId, profile.current?.id, users);
-	});
+	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
+	let registry = $derived(entry ? getUserRegistry(entry, usersMap) : 'Global Registry');
 
 	let deleteServer = $state(false);
 	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
@@ -190,11 +181,9 @@
 	});
 
 	onMount(() => {
-		if (isAtLeastPowerUserPlus || isAuditor) {
-			AdminService.listUsersIncludeDeleted().then((data) => {
-				users = data;
-			});
-		}
+		AdminService.listUsersIncludeDeleted().then((data) => {
+			users = data;
+		});
 
 		checkScrollPosition();
 		scrollContainer?.addEventListener('scroll', checkScrollPosition);
@@ -460,8 +449,7 @@
 			})),
 			headers: entry.manifest?.remoteConfig?.headers?.map((header) => ({
 				...header,
-				value: '',
-				isStatic: header.value !== ''
+				value: ''
 			})),
 			...(hostname ? { hostname, url: '' } : {})
 		};
@@ -972,7 +960,6 @@
 	submitText="Launch"
 	loading={saving}
 	isNew={false}
-	{type}
 />
 
 <ResponsiveDialog

@@ -3,6 +3,7 @@ import { profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import {
 	ChatService,
+	type AccessControlRule,
 	type LaunchServerType,
 	type MCPCatalogEntry,
 	type MCPCatalogServer,
@@ -107,8 +108,8 @@ export function requiresUserUpdate(server?: MCPCatalogServer) {
 	return typeof server?.configured === 'boolean' ? server?.configured === false : false;
 }
 
-function getUserRegistry(
-	entity: MCPCatalogEntry | MCPCatalogServer,
+export function getUserRegistry(
+	entity: MCPCatalogEntry | MCPCatalogServer | AccessControlRule,
 	usersMap?: Map<string, OrgUser>
 ) {
 	let registry: string = 'Global Registry';
