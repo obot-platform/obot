@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
+	import {
+		ChatService,
+		type LaunchServerType,
+		type MCPCatalogEntry,
+		type MCPCatalogServer
+	} from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
 	import { twMerge } from 'tailwind-merge';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -34,6 +39,7 @@
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
 		promptInitialLaunch?: boolean;
 		connectOnly?: boolean;
+		type?: LaunchServerType;
 	}
 
 	let {
@@ -43,7 +49,8 @@
 		skipConnectDialog,
 		onConnect,
 		promptInitialLaunch,
-		connectOnly
+		connectOnly,
+		type
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
@@ -322,6 +329,7 @@
 			refresh();
 		}}
 		{skipConnectDialog}
+		{type}
 	/>
 
 	<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />

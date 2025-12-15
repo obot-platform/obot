@@ -111,7 +111,11 @@
 	function initConfigureForm(entry: MCPCatalogEntry) {
 		configureForm = {
 			envs: entry.manifest?.env?.map((env) => ({ ...env, value: '' })),
-			headers: entry.manifest?.remoteConfig?.headers?.map((h) => ({ ...h, value: '' })),
+			headers: entry.manifest?.remoteConfig?.headers?.map((h) => ({
+				...h,
+				value: '',
+				isStatic: h.value !== ''
+			})),
 			...(entry.manifest?.remoteConfig?.hostname
 				? { hostname: entry.manifest.remoteConfig.hostname, url: '' }
 				: {})
