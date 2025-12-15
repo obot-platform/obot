@@ -78,7 +78,7 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 		return fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.MCPServerName, err)
 	}
 
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil {
+	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).WithPruneTypes(new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service)).Apply(ctx, nil, nil); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to cleanup old MCP deployment %s: %w", server.MCPServerName, err)
 	}
 
@@ -91,10 +91,8 @@ func (k *kubernetesBackend) deployServer(ctx context.Context, server ServerConfi
 
 func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig, webhooks []Webhook) (ServerConfig, error) {
 	// Transform token exchange endpoint to use internal service FQDN
-	if k.serviceFQDN != "" {
-		server.TokenExchangeEndpoint = k.replaceHostWithServiceFQDN(server.TokenExchangeEndpoint)
-		server.AuditLogEndpoint = k.replaceHostWithServiceFQDN(server.AuditLogEndpoint)
-	}
+	server.TokenExchangeEndpoint = k.replaceHostWithServiceFQDN(server.TokenExchangeEndpoint)
+	server.AuditLogEndpoint = k.replaceHostWithServiceFQDN(server.AuditLogEndpoint)
 
 	// Transform component URLs to use internal service FQDN
 	for i, component := range server.Components {
