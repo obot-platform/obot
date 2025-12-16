@@ -30,12 +30,12 @@ func New(mcpNamespace string, storageClient kclient.Client) *Handler {
 }
 
 // UpdateMCPServerStatus watches for Deployment changes and copies status information
-// to the corresponding MCPServer object based on the "mcp-server-name" label
+// to the corresponding MCPServer object based on the "app" label
 func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) error {
 	deployment := req.Object.(*appsv1.Deployment)
 
 	// Get the MCP server name from the deployment label
-	mcpServerName, exists := deployment.Labels["mcp-server-name"]
+	mcpServerName, exists := deployment.Labels["app"]
 	if !exists {
 		// This deployment is not associated with an MCP server, skip it
 		return nil
