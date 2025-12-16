@@ -1,7 +1,6 @@
 <script lang="ts">
 	import {
 		ChatService,
-		type LaunchServerType,
 		type MCPCatalogEntry,
 		type MCPCatalogServer
 	} from '$lib/services';

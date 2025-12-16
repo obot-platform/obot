@@ -6,7 +6,6 @@
 	import {
 		ChatService,
 		EditorService,
-		type LaunchServerType,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance

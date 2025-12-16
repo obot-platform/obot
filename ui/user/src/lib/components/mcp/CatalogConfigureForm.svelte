@@ -8,7 +8,6 @@
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Confirm from '../Confirm.svelte';
-	import type { LaunchServerType } from '$lib/services';
 
 	export type LaunchFormData = {
 		envs?: MCPServerInfo['env'];
