@@ -22,8 +22,6 @@ For additional installation options, see the Installation Guide at [https://docs
 
 ## Platform Components
 
-Here’s a clearer, more polished rewrite:
-
 Organizations face several challenges when implementing MCP technologies:
 
 * **Build**: While MCP servers can be developed using SDKs of choice, IT teams need a reliable way to host these servers for both private and public use.
@@ -74,14 +72,7 @@ A chat client built to work directly with MCP:
 * Create and share reusable project configurations with other users
 * Scheduled tasks for recurring workflow automations
 
-## How the Pieces Fit Together
-
-1. Platform owners or administrators can manage MCP servers in the registry and define access rules.
-2. MCP servers are deployed and run using the hosting layer.
-3. All MCP traffic flows through the gateway, where access control, policy checks, and auditing is applied.
-4. Users interact with MCP servers through Obot Chat or other MCP-compatible clients.
-
-## Technical Overview
+## Technical Advantages
 
 * **Self-Hosted**: Deploy on your own infrastructure for complete control over data and security
 * **MCP Standard**: Built on the open Model Context Protocol for maximum interoperability
