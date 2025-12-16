@@ -2,6 +2,10 @@
 
 Deploy Obot on Kubernetes for production-grade reliability, scalability, and high availability.
 
+:::info Helm Chart Reference
+For a complete list of all available Helm chart configuration values, see [charts.obot.ai](https://charts.obot.ai/).
+:::
+
 ## Prerequisites
 
 - **Helm**

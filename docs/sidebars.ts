@@ -85,16 +85,6 @@ const sidebars = {
         },
       ],
     },
-    "integrations/ide-client-integration",
-    {
-      type: "category",
-      label: "Tutorials",
-      items: [
-        "tutorials/github-assistant",
-        "tutorials/knowledge-assistant",
-        "tutorials/slack-alerts-assistant",
-      ],
-    },
     "enterprise/overview",
     "faq",
   ],

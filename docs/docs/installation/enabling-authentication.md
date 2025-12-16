@@ -1,137 +1,85 @@
 # Enabling Authentication
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 This guide covers the step-by-step process to enable and configure authentication in Obot. Authentication must be setup to use one of the external providers in order to function properly. The bootstrap user is not implemented to operate as a regular user.
-
-## Overview
-
-By default, Obot runs without authentication in development mode. For production deployments, you'll need to:
-
-1. Set the authentication environment variable
-1. Login using the bootstrap token
-1. Configure your authentication provider
-1. Configure admins/owners
-1. Restart the system
 
 :::note
 If any MCP servers were created with authentication disabled, they will be deleted when authentication is enabled.
 :::
 
-## Step 1: Enable Authentication
+## Step 1: Set Environment Variables
 
-### Docker/Compose Deployment
+Enabling authentication begins with launching Obot with additional configuration options in the form of environment variables. See the [Docker](docker-deployment) or [Kubernetes](kubernetes-deployment) deployment guides for full setup details.
 
-Set the environment variable in your deployment:
+<Tabs>
+  <TabItem value="docker" label="Docker" default>
 
 ```bash
-OBOT_SERVER_ENABLE_AUTHENTICATION=true
+docker run \
+  ... # other flags
+  -e OBOT_SERVER_ENABLE_AUTHENTICATION=true \
+  -e OBOT_BOOTSTRAP_TOKEN=your-secret-token \
+  -e OBOT_SERVER_AUTH_OWNER_EMAILS=owner@company.com \
+  ghcr.io/obot-platform/obot:latest
 ```
 
-### Kubernetes Deployment
-
-Add the environment variable to your Helm values:
+  </TabItem>
+  <TabItem value="kubernetes" label="Kubernetes">
 
 ```yaml
 config:
+  # Required: Enable authentication
   OBOT_SERVER_ENABLE_AUTHENTICATION: "true"
+
+  # Required: Set a bootstrap token for initial login
+  OBOT_BOOTSTRAP_TOKEN: "your-secret-token"
+
+  # Required: Set the owner email (can also be configured in the UI later)
+  OBOT_SERVER_AUTH_OWNER_EMAILS: "owner@company.com"
+
+  # Optional: Set additional admin emails
+  OBOT_SERVER_AUTH_ADMIN_EMAILS: "admin1@company.com,admin2@company.com"
 ```
 
-## Step 2: Login with Bootstrap Token
+  </TabItem>
+</Tabs>
 
-When Obot starts with authentication enabled for the first time, it generates a bootstrap token that's printed to the console logs. 
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OBOT_SERVER_ENABLE_AUTHENTICATION` | Yes | Enables authentication |
+| `OBOT_BOOTSTRAP_TOKEN` | No | Token used for initial admin login before an auth provider is configured. If not set, a token will be generated and printed to the logs. |
+| `OBOT_SERVER_AUTH_OWNER_EMAILS` | No | Email address that will have owner access after logging in via the auth provider. If not set, the bootstrap user will be prompted to log in via the auth provider and set themselves as the owner. |
+| `OBOT_SERVER_AUTH_ADMIN_EMAILS` | No | Additional email addresses that will have admin access |
 
-### Finding the Bootstrap Token
+## Step 2: Start Obot and Login
 
-**Docker/Compose:**
-
-```bash
-# Check the container logs
-docker logs <container-name> 
-```
-
-**Kubernetes:**
-
-```bash
-# Check pod logs
-kubectl logs <pod-name> 
-```
-
-### Using the Bootstrap Token
-
-1. Navigate to your Obot installation
-2. Use the bootstrap token to login as an admin user
-3. You can now access the Admin interface to configure authentication
-
-:::tip Custom Bootstrap Token
-You can set a custom bootstrap token using the `OBOT_BOOTSTRAP_TOKEN` environment variable instead of using the auto-generated one.
-:::
+Start (or restart) your Obot deployment with the new environment variables. Navigate to your Obot installation and use the bootstrap token to login. You'll now see User Management options enabled in the left navigation.
 
 ## Step 3: Configure Authentication Provider
 
-Once logged in with the bootstrap token:
-
-1. Go to **Admin** → **Auth Providers**
-2. Click **Add Provider**
-3. Select your desired provider (GitHub, Google, Entra, Okta)
-4. Follow the provider-specific configuration steps
+1. Go to **Auth Providers** under the **User Management** section in the left navigation
+2. Click **Configure** on your desired provider (GitHub, Google, Entra, Okta)
+3. Follow the provider-specific configuration steps
 
 For detailed provider configuration, see the [Auth Providers](/configuration/auth-providers) documentation.
 
-## Step 4: Set Admin/Owner Users and Restart
-
-Logout of Obot and configure the following.
-
-### Set Admin/Owner Environment Variables
-
-**Docker/Compose:**
-
-```bash
-# Set admin users (comma-separated email addresses)
-OBOT_SERVER_AUTH_ADMIN_EMAILS=admin1@company.com,admin2@company.com
-
-# Set owner users (comma-separated email addresses)  
-OBOT_SERVER_AUTH_OWNER_EMAILS=owner@company.com
-```
-
-**Kubernetes:**
-
-```yaml
-config:
-  OBOT_SERVER_AUTH_ADMIN_EMAILS: "admin1@company.com,admin2@company.com"
-  OBOT_SERVER_AUTH_OWNER_EMAILS: "owner@company.com"
-```
-
-### Restart Obot
-
-After setting the environment variables, restart your Obot deployment:
-
-**Docker/Compose:**
-
-```bash
-docker restart <container>
-```
-
-**Kubernetes:**
-
-```bash
-helm upgrade <release-name> <chart-name> -f values.yaml
-```
-
 ## Post-Setup
 
-After restart:
+Once you have configured an authentication provider:
 
-1. The bootstrap token will no longer be valid
-2. Users can now login using the configured authentication provider
-3. Users with emails matching `OBOT_SERVER_AUTH_ADMIN_EMAILS` will automatically have admin access
-4. Users with emails matching `OBOT_SERVER_AUTH_OWNER_EMAILS` will automatically have owner access
+1. Users can login using the configured authentication provider
+2. Users with emails matching `OBOT_SERVER_AUTH_OWNER_EMAILS` will have owner access
+3. Users with emails matching `OBOT_SERVER_AUTH_ADMIN_EMAILS` will have admin access
 
 ## Troubleshooting
 
 ### Bootstrap Token Not Working
 
 - Ensure `OBOT_SERVER_ENABLE_AUTHENTICATION=true` is set
-- Check that you're using the correct token from the logs
-- If Auth Provider has been configured, you need to set `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP=true`
+- Check that you're using the correct token
+- If an auth provider has already been configured, set `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP=true` to re-enable bootstrap login
 
 ### Authentication Provider Issues
 
