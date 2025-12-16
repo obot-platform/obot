@@ -2,7 +2,6 @@
 
 Obot is an open-source platform that provides everything an organization needs to implement MCP technologies. It enables you to host MCP servers for internal and external users, set up MCP registries, manage and monitor MCP usage, and build feature-rich agents and chatbots that leverage MCP servers.
 
-
 ## Getting Started
 
 To run Obot locally, start it with Docker:
@@ -30,7 +29,6 @@ Organizations face several challenges when implementing MCP technologies:
 * **Use**: MCP protocol support varies widely across chat clients. A standardized chat client that provides consistent MCP support across the organization is highly desirable.
 
 Obot addresses these challenges by offering MCP hosting, an MCP registry, an MCP gateway, and an MCP-standards-compliant chat client. Popular workflow and agent frameworks such as n8n and LangGraph can interact with MCP servers managed by Obot. In addition, clients like ChatGPT, Claude Desktop, and GitHub Copilot can also leverage MCP servers managed by Obot.
-
 
 ![Obot Platform Architecture](docs/static/img/obot-mcp-mgmt.png)
 
