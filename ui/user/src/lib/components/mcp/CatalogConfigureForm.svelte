@@ -625,12 +625,12 @@
 	oncancel={() => (showConfirmClose = false)}
 >
 	{#snippet title()}
-		<h3 class="text-on-background mb-5 break-words text-lg font-semibold">
+		<h3 class="text-on-background mb-5 text-lg font-semibold break-words">
 			Are you sure you want to exit?
 		</h3>
 	{/snippet}
 	{#snippet note()}
-		<p class="w-sm mb-8">
+		<p class="mb-8 w-sm">
 			It looks like you have started filling out the server information. You will have to fill out
 			the form again to launch this server.
 		</p>
