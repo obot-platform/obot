@@ -20,7 +20,7 @@ Open [http://localhost:8080](http://localhost:8080) in your browser to access th
 
 For additional installation options, see the Installation Guide at [https://docs.obot.ai/installation/general](https://docs.obot.ai/installation/general).
 
-## Platform Components
+## Platform Concepts
 
 Organizations face several challenges when implementing MCP technologies:
 

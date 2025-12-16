@@ -1,8 +1,9 @@
 ---
+title: Obot Configuration Reference
 hide_table_of_contents: true
 ---
 
-# Server Configuration
+# Obot Configuration Reference
 
 The Obot server is configured via environment variables. The following configuration is available:
 
@@ -42,13 +43,3 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_DISALLOW_LOCALHOST_MCP` | Disallow MCP servers that try to connect to localhost. | `false` |
 | `OBOT_SERVER_UPDATE_CHECK_INTERVAL_MINS` | The interval in minutes to check for Obot server updates. Set to 0 to disable. (Deprecated, will be removed in v0.14.0) | `1440` minutes (1 day) |
 | `OBOT_SERVER_DISABLE_UPDATE_CHECK` | Disable the Obot server update check. (v0.14.0+) | `false ` |
-
-## Encryption Providers
-
-You can configure optional [encryption providers](encryption-providers/aws-kms) to ensure secrets are encrypted.
-
-## Model Providers
-You can configure additional models using [model providers](model-providers)
-
-## Workspace Provider
-You can configure external storage for workspace files using a [workspace provider](workspace-provider)

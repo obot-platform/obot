@@ -4,13 +4,13 @@ title: Filters
 
 ## Overview
 
-Filters are a powerful mechanism for inspecting and controlling tool calls and their results in Obot Gateway. They provide administrators with the ability to implement custom validation, logging, security checks, or other business logic by intercepting tool requests and responses before they are processed.
+Filters are a powerful mechanism for inspecting and controlling tool calls and their results in the MCP Gateway. They provide administrators with the ability to implement custom validation, logging, security checks, or other business logic by intercepting tool requests and responses before they are processed.
 
-When you configure a filter, you're essentially setting up a webhook that the Obot Gateway will send a payload to on every tool request, or you can narrow this down using specific selectors to target particular tool calls or MCP (Model Context Protocol) tool functions.
+When you configure a filter, you're essentially setting up a webhook that the gateway will send a payload to on every tool request, or you can narrow this down using specific selectors to target particular tool calls or MCP (Model Context Protocol) tool functions.
 
 ## How Filters Work
 
-1. **Tool Call Interception**: When a tool call is made, the Obot Gateway intercepts it and sends the details to your configured webhook endpoint
+1. **Tool Call Interception**: When a tool call is made, the gateway intercepts it and sends the details to your configured webhook endpoint
 2. **Payload Inspection**: Your webhook service receives the payload and can perform any custom logic or validation
 3. **Response Decision**: Your service responds with either:
    - HTTP 200: Accept the tool call (allows it to proceed)
@@ -18,12 +18,12 @@ When you configure a filter, you're essentially setting up a webhook that the Ob
 
 ## Gateway Configuration
 
-To configure a filter in the Obot Gateway, you'll need to provide the following information:
+To configure a filter in the gateway, you'll need to provide the following information:
 
 ### Required Configuration
 
 - **Name**: A descriptive name for your filter
-- **URL**: The webhook endpoint URL where the Obot Gateway will send payloads
+- **URL**: The webhook endpoint URL where the gateway will send payloads
 - **Secret** (optional): A shared secret with the webhook receiver for payload signature verification
 
 ### Selectors
@@ -35,15 +35,15 @@ You can configure selectors to control when your filter is triggered:
 
 ### Security with Secrets
 
-If you configure a secret, the Obot Gateway will sign each payload using this shared secret. This allows both sides (the Gateway and your webhook service) to verify the authenticity of the communication:
+If you configure a secret, the gateway will sign each payload using this shared secret. This allows both sides (the gateway and your webhook service) to verify the authenticity of the communication:
 
-- The Gateway signs outgoing payloads with the secret
+- The gateway signs outgoing payloads with the secret
 - Your webhook service can verify the signature to ensure the payload is legitimate
 - This prevents unauthorized or tampered requests from being processed
 
 ## Webhook Receiver
 
-To implement a filter, you need to create a web service that can handle POST requests from the Obot Gateway.
+To implement a filter, you need to create a web service that can handle POST requests from the gateway.
 
 ### Payload Structure
 
@@ -85,7 +85,7 @@ PORT=8000 WEBHOOK_SECRET=somethingsecret uv run simple_webhook_example.py
 
 The filter target url will be `http://<host>:8000/webhook`
 
-The Webhook Secret will also need to be configured in the Obot Gateway.
+The Webhook Secret will also need to be configured in the gateway.
 
 ```python
 #!/usr/bin/env python3

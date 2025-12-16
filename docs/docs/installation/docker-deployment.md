@@ -59,7 +59,7 @@ If you enabled authentication, use your bootstrap token to log in as the owner a
 
 1. **Configure Authentication**: Set up [auth providers](../configuration/auth-providers) for secure access
 2. **Configure Model Providers**: Configure [model providers](../configuration/model-providers) (OpenAI, Anthropic, etc.)
-3. **Set Up MCP Tools**: Deploy [MCP servers](../concepts/mcp-gateway/overview) for extended functionality
+3. **Set Up MCP Servers**: Configure [MCP servers](../functionality/mcp-servers) for extended functionality
 
 ## Related Documentation
 

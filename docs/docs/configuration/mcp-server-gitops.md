@@ -1,29 +1,29 @@
 ---
-title: MCP Server Catalogs
+title: MCP Server GitOps
 ---
 
 ## Overview
 
-Obot supports managing MCP servers through Git repositories, enabling Infrastructure as Code and GitOps workflows. Instead of manually adding MCP servers one at a time, administrators can source server configurations from Git repositories. This supports collaborative workflows with proper code review, versioning, and automated validation processes.
+Obot supports managing MCP servers through Git repositories, enabling GitOps workflows. Instead of manually adding MCP servers one at a time, administrators can source server configurations from Git repositories. This supports collaborative workflows with proper code review, versioning, and automated validation processes.
 
 ### Key Benefits
 
 - **Version Control**: Change tracking, rollback capabilities, and branch-based development
 - **Collaborative Workflows**: PR-based reviews, team collaboration, and approval processes
 - **Validation & Quality Assurance**: Automated testing, CI/CD integration, and consistent formatting
-- **Infrastructure as Code**: Integration with existing DevOps workflows and automated deployment
+- **Automation**: Integration with existing DevOps workflows and automated deployment
 
 ## Getting Started
 
-1. **Create or Fork a Repository**: Start with the official [Obot MCP catalog](https://github.com/obot-platform/mcp-catalog) or create your own repository
-2. **Add Server Configurations**: Create YAML files for each MCP server following the catalog format (see examples below)
-3. **Configure Obot**: Point your Obot instance to the Git repository containing your catalog
+1. **Create or Fork a Repository**: Start with the official [Obot MCP server repository](https://github.com/obot-platform/mcp-catalog) or create your own
+2. **Add Server Configurations**: Create YAML files for each MCP server following the format below
+3. **Configure Obot**: Point your Obot instance to the Git repository containing your server configurations
 4. **Establish Review Workflows**: Set up branch protection rules and PR-based review processes for configuration changes
 5. **Automate Validation**: Implement CI/CD pipelines to validate YAML syntax and test server configurations
 
-## Catalog Format
+## Configuration Format
 
-MCP server catalogs consist of individual YAML files, each defining a single MCP server configuration. These files contain comprehensive metadata including:
+MCP server configurations consist of individual YAML files, each defining a single MCP server. These files contain comprehensive metadata including:
 
 - **Name and Description**: Human-readable identification
 - **Tool Previews**: Documentation of available tools and their parameters
@@ -31,7 +31,7 @@ MCP server catalogs consist of individual YAML files, each defining a single MCP
 - **Environment Variables**: Required and optional configuration parameters
 - **Runtime Configuration**: Deployment and connection details
 
-For examples and reference implementations, see the official Obot MCP catalog at [github.com/obot-platform/mcp-catalog](https://github.com/obot-platform/mcp-catalog).
+For examples and reference implementations, see the official Obot MCP server repository at [github.com/obot-platform/mcp-catalog](https://github.com/obot-platform/mcp-catalog).
 
 ## YAML Configuration Structure
 

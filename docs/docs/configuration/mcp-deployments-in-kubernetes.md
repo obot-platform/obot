@@ -1,4 +1,4 @@
-# Deployment of MCP Servers in Kubernetes
+# MCP Servers in Kubernetes
 
 This is an overview of how Obot sets up MCP servers in Kubernetes, and how to change some of the configuration values.
 
