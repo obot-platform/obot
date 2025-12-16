@@ -185,7 +185,7 @@
 	<div class="relative h-full w-full" transition:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
 			<div class="flex items-center gap-4">
-				<h1 class="text-2xl font-semibold">App Preferences</h1>
+				<h1 class="text-2xl font-semibold">Branding</h1>
 				<button
 					class="button text-xs"
 					onclick={() => {
@@ -448,5 +448,5 @@
 </ResponsiveDialog>
 
 <svelte:head>
-	<title>Obot | App Preferences</title>
+	<title>Obot | Branding</title>
 </svelte:head>
