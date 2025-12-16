@@ -39,10 +39,9 @@
 		}) => void;
 		onClose?: () => void;
 		skipConnectDialog?: boolean;
-		type?: LaunchServerType;
 	}
 
-	let { userConfiguredServers, onConnect, onClose, skipConnectDialog, type }: Props = $props();
+	let { userConfiguredServers, onConnect, onClose, skipConnectDialog }: Props = $props();
 
 	let server = $state<MCPCatalogServer>();
 	let entry = $state<MCPCatalogEntry>();
@@ -646,7 +645,6 @@
 	bind:this={configDialog}
 	bind:form={configureForm}
 	{error}
-	{type}
 	icon={manifest?.icon}
 	name={server?.alias || manifest?.name || ''}
 	onSave={handleConfigureForm}

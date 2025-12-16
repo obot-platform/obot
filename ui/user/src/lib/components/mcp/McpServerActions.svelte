@@ -39,7 +39,6 @@
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
 		promptInitialLaunch?: boolean;
 		connectOnly?: boolean;
-		type?: LaunchServerType;
 	}
 
 	let {
@@ -49,8 +48,7 @@
 		skipConnectDialog,
 		onConnect,
 		promptInitialLaunch,
-		connectOnly,
-		type
+		connectOnly
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
@@ -329,7 +327,6 @@
 			refresh();
 		}}
 		{skipConnectDialog}
-		{type}
 	/>
 
 	<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />

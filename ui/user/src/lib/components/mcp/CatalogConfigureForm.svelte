@@ -56,7 +56,6 @@
 		showAlias?: boolean;
 		disableOutsideClick?: boolean;
 		animate?: 'slide' | 'fade' | null;
-		type?: LaunchServerType;
 	}
 	let {
 		form = $bindable(),
@@ -73,8 +72,7 @@
 		isNew,
 		showAlias,
 		disableOutsideClick,
-		animate = 'slide',
-		type
+		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let highlightedFields = $state<Set<string>>(new Set());
@@ -581,14 +579,6 @@
 								/>
 							{/if}
 						</div>
-					{:else}
-						{#if type === 'remote'}
-							<div
-								class="flex h-32 w-full items-center bg-surface1 rounded-md p-8 text-on-surface1"
-							>
-								<div>There are no headers to configure for this MCP server.</div>
-							</div>
-						{/if}
 					{/each}
 
 					{#if form.hostname}
@@ -635,12 +625,12 @@
 	oncancel={() => (showConfirmClose = false)}
 >
 	{#snippet title()}
-		<h3 class="text-on-background mb-5 text-lg font-semibold break-words">
+		<h3 class="text-on-background mb-5 break-words text-lg font-semibold">
 			Are you sure you want to exit?
 		</h3>
 	{/snippet}
 	{#snippet note()}
-		<p class="mb-8 w-sm">
+		<p class="w-sm mb-8">
 			It looks like you have started filling out the server information. You will have to fill out
 			the form again to launch this server.
 		</p>
