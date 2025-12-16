@@ -1,17 +1,7 @@
 # Obot
 
-Obot is an open-source, self-hosted platform for the Model Context Protocol. It provides MCP hosting, MCP registries, an MCP gateway, and a chat platform in a single system.
+Obot is an open-source platform that provides everything an organization needs to implement MCP technologies. It enables you to host MCP servers for internal and external users, set up MCP registries, manage and monitor MCP usage, and build feature-rich agents and chatbots that leverage MCP servers.
 
-## The Problem
-
-MCP provides a standard way to connect AI applications to tools, services, and data. Running MCP in practice introduces a set of common problems:
-
-* **Discovery**: Users need a clear way to find available MCP servers without relying on ad hoc sharing.
-* **Security**: Servers need to be authenticated, access needs to be controlled, and activity needs to be auditable.
-* **Operations**: Servers must be deployed, updated, and scaled without manual coordination.
-* **Policy Enforcement**: Requests sometimes need to be inspected or blocked before they reach downstream systems.
-
-Obot addresses these problems by providing a complete, self-hosted MCP platform.
 
 ## Getting Started
 
@@ -32,7 +22,17 @@ For additional installation options, see the Installation Guide at [https://docs
 
 ## Platform Components
 
-Obot is built around four core components.
+Organizations face several challenges when implementing MCP technologies:
+
+* **Build**: While MCP servers can be developed using SDKs of choice, IT teams need a reliable way to host these servers for both private and public use.
+* **Discover**: With tens of thousands of MCP servers available, users need a clear and trusted way to discover servers that have been approved by IT administrators.
+* **Secure**: MCP servers must be authenticated, access must be controlled, and all activity should be auditable.
+* **Use**: MCP protocol support varies widely across chat clients. A standardized chat client that provides consistent MCP support across the organization is highly desirable.
+
+Obot addresses these challenges by offering MCP hosting, an MCP registry, an MCP gateway, and an MCP-standards-compliant chat client. Popular workflow and agent frameworks such as n8n and LangGraph can interact with MCP servers managed by Obot. In addition, clients like ChatGPT, Claude Desktop, and GitHub Copilot can also leverage MCP servers managed by Obot.
+
+
+![Obot Platform Architecture](docs/static/img/obot-mcp-mgmt.png)
 
 ### MCP Hosting
 
@@ -72,14 +72,7 @@ A chat client built to work directly with MCP:
 * Create and share reusable project configurations with other users
 * Scheduled tasks for recurring workflow automations
 
-## How the Pieces Fit Together
-
-1. Platform owners or administrators can manage MCP servers in the registry and define access rules.
-2. MCP servers are deployed and run using the hosting layer.
-3. All MCP traffic flows through the gateway, where access control, policy checks, and auditing is applied.
-4. Users interact with MCP servers through Obot Chat or other MCP-compatible clients.
-
-## Technical Overview
+## Technical Advantages
 
 * **Self-Hosted**: Deploy on your own infrastructure for complete control over data and security
 * **MCP Standard**: Built on the open Model Context Protocol for maximum interoperability
