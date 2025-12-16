@@ -117,10 +117,12 @@
 
 	async function updateExistingRemoteOrSingleUser(lf: LaunchFormData) {
 		if (!server) return;
+
 		if (
 			entry &&
 			entry.manifest.runtime === 'remote' &&
-			entry.manifest.remoteConfig?.urlTemplate === undefined &&
+			// The update-url endpoint should only be called for remote servers that have a hostname set. For ones that have a fixedURL or urlTemplate the update-url endpoint is not supported.
+			entry.manifest.remoteConfig?.hostname &&
 			lf?.url
 		) {
 			await ChatService.updateRemoteMcpServerUrl(server.id, lf.url.trim());

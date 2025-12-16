@@ -425,7 +425,7 @@
 		if (
 			entry &&
 			entry.manifest.runtime === 'remote' &&
-			entry.manifest.remoteConfig?.urlTemplate === undefined &&
+			entry.manifest.remoteConfig?.hostname &&
 			lf?.url
 		) {
 			await ChatService.updateRemoteMcpServerUrl(server.id, lf.url.trim());
