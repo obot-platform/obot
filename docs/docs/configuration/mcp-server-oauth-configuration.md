@@ -1,4 +1,4 @@
-# OAuth Configuration
+# MCP Server OAuth Configuration
 
 Some MCP Servers do not have dynamic OAuth, and require pre-registering an OAuth client with the provider. One such example of this is the GitHub remote MCP server. The following steps are required to successfully use the remote hosted GitHub MCP server.
 

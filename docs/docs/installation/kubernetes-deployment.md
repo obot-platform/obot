@@ -56,7 +56,7 @@ config:
   AWS_SECRET_ACCESS_KEY: <secret key>
   AWS_REGION: <aws region>
 
-  # This should be set to avoid ratelimiting certain actions that interact with github, such as catalogs
+  # This should be set to avoid ratelimiting certain actions that interact with github, such as server sources
   GITHUB_AUTH_TOKEN: <PAT from github>
 
   # Enable encryption
@@ -102,7 +102,7 @@ For detailed cloud-specific deployment instructions:
 
 1. **Configure Authentication**: Set up [auth providers](../configuration/auth-providers)
 2. **Add Model Providers**: Configure [model providers](../configuration/model-providers)
-3. **Set Up MCP Servers**: Deploy [MCP tools](../concepts/mcp-gateway/overview)
+3. **Set Up MCP Servers**: Configure [MCP servers](../functionality/mcp-servers)
 4. **Configure Monitoring**: Set up logging and metrics
 5. **Review Security**: Enable authentication and encryption
 

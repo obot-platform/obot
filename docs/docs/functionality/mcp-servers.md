@@ -1,13 +1,13 @@
 ---
-title: Adding MCP Servers
-description: Adding MCP servers to the Obot Gateway
+title: MCP Servers
+description: Managing MCP servers in the MCP Platform
 ---
 
 ## Overview
 
-Managing MCP servers in the Obot gateway starts with adding them to the main catalog. Administrators can control which servers are available to users and how they are configured. Servers may be added individually through the UI, or managed via a Git repository.
+Managing MCP servers in Obot starts with adding them to the platform. Administrators can control which servers are available to users and how they are configured. Servers may be added individually through the UI, or managed via a Git repository.
 
-The choice of server type depends on how the MCP server was developed. All servers that are not remote servers are deployed and managed by the Obot Gateway.
+The choice of server type depends on how the MCP server was developed. All servers that are not remote servers are deployed and managed by the MCP Gateway.
 
 ## Server types
 
@@ -15,7 +15,7 @@ The system supports four distinct server types, each designed for specific deplo
 
 ### Single-user server
 
-Single-user servers establish a one-to-one mapping between users and server instances. Each user has their own server instance deployed and provides their own individual credentials (such as personal API keys). Most `stdio` servers were designed with this model in mind. The intended use was to run on the individuals laptop.
+Single-user servers establish a one-to-one mapping between users and server instances. Each user has their own server instance deployed and provides their own individual credentials (such as personal API keys). Most `stdio` servers were designed with this model in mind. The intended use was to run on the individual's laptop.
 
 This model provides maximum isolation and is ideal when:
 
@@ -24,6 +24,8 @@ This model provides maximum isolation and is ideal when:
 - Different users need different configurations or permissions
 
 Keep in mind the gateway will deploy these servers in their own environment on a hosted platform. MCP servers that expect local access to the users filesystem, run local executables, or write output to the local disk will not work as expected.
+
+**Configuration**: Define parameters that users must provide when enabling the server (e.g., API keys). For each parameter, specify a user-friendly name, description, environment variable name, and whether it's required or sensitive. Values are passed as environment variables to the server process.
 
 ### Multi-user server
 
@@ -39,7 +41,9 @@ This approach is optimal when:
 - The service supports organizational or tenant-based access
 - Usage monitoring and control at the organizational level is important
 
-Multi-User servers will still require the user to authenticate to the Obot Gateway's configured identity provider.
+Multi-user servers still require the user to authenticate to the gateway's configured identity provider.
+
+**Configuration**: Pre-configure any required API keys or environment variables. These values are deployed with the server instance. Users connect without being prompted for configuration and authenticate using the built-in authentication or OAuth per the MCP specification.
 
 ### Remote server
 
@@ -51,11 +55,13 @@ Choose this type when:
 - External partners provide MCP endpoints and you just want to integrate
 - You are building MCP servers through existing CI/CD workflows or SaaS services
 
-Remote MCP servers that conform to the MCP spec authentication schema will work out of the box. Servers that do not conform to the spec may not work within the Gateway. Please open a GitHub issue if you run into issues with remote servers.
+Remote MCP servers that conform to the MCP spec authentication schema will work out of the box. Servers that do not conform to the spec may not work within the gateway. Please open a GitHub issue if you run into issues with remote servers.
+
+**Configuration**: Specify the remote URL endpoint. Additional options include connection restrictions for unconventional configurations, custom HTTP headers, and configuration values to send to the remote server.
 
 ### Composite server
 
-Composite servers let administrators combine one or more Single-user, Multi-user, and Remote servers into a single virtual MCP server. It also allows admins to control the names, descriptions, and availability of the tool set exposed to end-users.
+Composite servers let administrators combine one or more single-user, multi-user, and remote servers into a single virtual MCP server. It also allows admins to control the names, descriptions, and availability of the tool set exposed to end-users.
 
 This type is useful when:
 
@@ -64,9 +70,11 @@ This type is useful when:
 - You want to fine-tune exposed tool names and descriptions
 - You want to create tool sets tailored to specific user groups and use cases
 
+**Configuration**: Inherited from component servers. Users are prompted for configuration for each component and can disable individual components. Remote components requiring OAuth prompt for authentication, and skipping OAuth automatically disables that component.
+
 ## Adding a server
 
-Navigate to the Admin panel and access the MCP Servers section, then select **Add MCP Server** button.
+Navigate to **MCP Management > MCP Servers** in the MCP Platform, then select **Add MCP Server**.
 
 Select the type of server you want to deploy.
 
@@ -88,7 +96,7 @@ Select the appropriate runtime environment based on your server's requirements:
 
 ### NPX: Node/Typescript Based MCP Servers
 
-If you found an MCP server like Firecrawl and want to add it to your Obot Gateway you would do the following.
+If you found an MCP server like Firecrawl and want to add it to the MCP Gateway you would do the following.
 
 From the README.md:
 
@@ -106,7 +114,7 @@ From the README.md:
 }
 ```
 
-In Obot Gateway
+In the MCP Gateway
 
 - You would select NPX from the drop down.
 - Then put `firecrawl-mcp` in the package text box.
@@ -123,7 +131,7 @@ For multi-user setup, you would follow the same steps but would be configuring t
 
 ### UVX: For Python-based packages  
 
-If you found an MCP server like Duckduckgo and want it added to the Obot Gateway you would do the following.
+If you found an MCP server like Duckduckgo and want it added to the gateway you would do the following.
 
 From the README.md:
 
@@ -138,7 +146,7 @@ From the README.md:
 }
 ```
 
-In the Gateway you would:
+In the gateway you would:
 
 - Select UVX from the drop down
 - In the package field put in `duckduckgo-mcp-server`
@@ -159,62 +167,6 @@ You will need to select the container option from the drop down. Then provide th
 
 You can also provide configuration through environment variables by filling in the configurations.
 
-## Configuration parameters
-
-How configuration is handled depends on the server type:
-
-### Single-user servers
-
-Define the configuration parameters that users must provide when enabling the server. Common examples include API keys and authentication tokens.
-
-For each parameter, specify:
-
-- **Label and description**: Clear identification of the parameter's purpose
-- **Environment variable name**: The variable name expected by the server (e.g., `OPENAI_API_KEY`)
-- **Required**: Whether the parameter is mandatory for server operation
-- **Sensitive**: Whether the value should be masked in the user interface
-
-User-provided values are passed as environment variables to the server process during initialization.
-
-### Multi-user servers
-
-Multi-user servers use pre-configured values that are deployed with the server instance. Configure any required API keys or environment variables in this section. These values will be set on the deployment automatically.
-
-Unlike single-user servers, there are no user environment settings with multi-user servers since everything is handled in the configuration section. The server will be pre-deployed, and users simply connect to it without being prompted for any information.
-
-When users authenticate, they use the built-in authentication or OAuth per the MCP specification.
-
-### Remote servers
-
-Configure the connection to your remote MCP server:
-
-- **Remote URL**: The endpoint URL for the remote MCP server
-
-Additional configuration options are available for specialized scenarios:
-
-- **Connection restrictions**: Restrict connections to specific URLs if the provider requires unconventional configurations
-- **Custom headers**: Set specific HTTP headers if required by the remote server
-- **Configuration values**: Set configuration values that will be sent to the remote server
-
-For most remote server configurations, you'll typically only need to specify the remote URL.
-
-
-Select **Save** to deploy the persist the server configuration.
-
-### Composite servers
-
-Configuration parameters for composite servers are inherited from the set of MCP servers they contain.
-
-When connecting to a composite MCP server, end-users will be prompted to provide arguments for each "component" MCP server in the composite.
-
-Each component can also be individually disabled by the end user during configuration, in which case, they will not need to provide configuration
-for the component, and its tools and prompts will not be made available in their launched instance. Disabled components can be re-enabled by end-users
-via the `Edit Config` dialog for their connected MCP server.
-
-If the composite server contains remote component servers that require OAuth, the user will be prompted to authenticate or skip authentication for each
-tool that requires OAuth. If OAuth is skipped for a component, the component MCP server is automatically disabled for the composite instance.
-
-
 ## Post-deployment management
 
 After successfully adding a server:
@@ -222,4 +174,4 @@ After successfully adding a server:
 - The server appears in the available servers list for authorized users
 - Server entries can now be added to authorization groups for different teams
 - Users can integrate the server into their clients to access tools in conversations and tasks
-- Administrative monitoring of usage and auditing is available through the Admin panel
+- Administrative monitoring of usage and auditing is available through the MCP Platform

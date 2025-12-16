@@ -1,4 +1,4 @@
-# Workspace Provider
+# Workspace Providers
 
 Workspaces are where files are stored and manipulated in Obot. The default installation uses a local disk directory to provide workspaces. For production deployments, we recommend using cloud object stores like AWS S3 or Azure Blob Storage to ensure adequate storage capacity and high availability.
 

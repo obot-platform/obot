@@ -63,7 +63,7 @@ Start (or restart) your Obot deployment with the new environment variables. Navi
 2. Click **Configure** on your desired provider (GitHub, Google, Entra, Okta)
 3. Follow the provider-specific configuration steps
 
-For detailed provider configuration, see the [Auth Providers](/configuration/auth-providers) documentation.
+For detailed provider configuration, see the [Auth Providers](../configuration/auth-providers) documentation.
 
 ## Post-Setup
 
@@ -72,6 +72,8 @@ Once you have configured an authentication provider:
 1. Users can login using the configured authentication provider
 2. Users with emails matching `OBOT_SERVER_AUTH_OWNER_EMAILS` will have owner access
 3. Users with emails matching `OBOT_SERVER_AUTH_ADMIN_EMAILS` will have admin access
+
+Note that you can always assign the owner or admin role to additional users through the User pages.
 
 ## Troubleshooting
 
@@ -89,6 +91,4 @@ Once you have configured an authentication provider:
 
 ## Next Steps
 
-- Review [Auth Providers configuration](/configuration/auth-providers) for detailed provider setup
-- Configure [OAuth settings](/configuration/oauth-configuration) for additional customization
-- Set up proper [access control](/configuration/auth-providers#access-control) with email domain restrictions
+- Review [Auth Providers configuration](../configuration/auth-providers) for detailed provider setup

@@ -4,7 +4,33 @@
 const sidebars = {
   sidebar: [
     "overview",
-    "architecture",
+    {
+      type: "category",
+      label: "Concepts",
+      items: [
+        "concepts/mcp-hosting",
+        "concepts/mcp-registry",
+        "concepts/mcp-gateway",
+        "concepts/obot-chat",
+        "concepts/architecture",
+      ],
+    },
+    {
+      type: "category",
+      label: "Features",
+      items: [
+        "functionality/overview",
+        "functionality/mcp-servers",
+        "functionality/mcp-registries",
+        "functionality/audit-logs-and-usage",
+        "functionality/filters",
+        "functionality/server-scheduling",
+        "functionality/chat-management",
+        "functionality/user-management",
+        "functionality/branding",
+        "functionality/chat/overview",
+      ],
+    },
     {
       type: "category",
       label: "Installation",
@@ -26,55 +52,20 @@ const sidebars = {
     },
     {
       type: "category",
-      label: "Chat Interface",
+      label: "Configuration and Operations",
       items: [
-        "concepts/chat/overview",
-        "concepts/chat/projects",
-        "concepts/chat/threads",
-        "concepts/chat/tasks",
-      ],
-    },
-    {
-      type: "category",
-      label: "MCP Gateway",
-      items: [
-        "concepts/mcp-gateway/overview",
-        "concepts/mcp-gateway/servers-and-tools",
-        "concepts/mcp-gateway/obot-registry",
-        "concepts/mcp-gateway/registry-api",
-      ],
-    },
-    {
-      type: "category",
-      label: "Admin Interface",
-      items: [
-        "concepts/admin/overview",
-        "concepts/admin/mcp-servers",
-        "concepts/admin/mcp-server-catalogs",
-        "concepts/admin/access-control",
-        "concepts/admin/filters",
-      ],
-    },
-    {
-      type: "category",
-      label: "Configuration",
-      items: [
-        "configuration/server-configuration",
         "configuration/auth-providers",
-        "configuration/model-providers",
+         "configuration/model-providers",
         "configuration/workspace-provider",
+        "configuration/user-roles",
+        "configuration/mcp-server-gitops",
+        "configuration/mcp-deployments-in-kubernetes",
+        "configuration/audit-log-export",
+        "configuration/mcp-server-oauth-configuration",
+        "configuration/server-configuration",
         {
           type: "category",
-          label: "Advanced Configuration",
-          items: [
-            "configuration/oauth-configuration",
-            "configuration/mcp-deployments-in-kubernetes",
-            "configuration/audit-log-export",
-          ],
-        },
-        {
-          type: "category",
-          label: "Encryption Providers",
+          label: "Encryption",
           items: [
             "configuration/encryption-providers/overview",
             "configuration/encryption-providers/aws-kms",
