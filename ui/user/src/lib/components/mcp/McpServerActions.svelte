@@ -1,9 +1,5 @@
 <script lang="ts">
-	import {
-		ChatService,
-		type MCPCatalogEntry,
-		type MCPCatalogServer
-	} from '$lib/services';
+	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
 	import { twMerge } from 'tailwind-merge';
 	import DotDotDot from '../DotDotDot.svelte';
