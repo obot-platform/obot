@@ -74,3 +74,7 @@ Tools are specific functions that MCP servers expose for AI agents to use. Each 
 - **Service Errors**: External service unavailable or failing
 - **Timeout Errors**: Operations taking too long to complete
 - **Rate Limit Errors**: Too many requests in a given time period
+
+## Using Connectors
+
+Once you connect to a server, you can use it directly in Obot Chat or connect to it from external MCP clients and IDEs. For external clients, configuration snippets for popular MCP clients (such as Claude Desktop, VS Code, and Cursor) will be provided in the connection modal. See the [FAQ](/faq#how-do-i-connect-my-ide-or-mcp-client-to-obot) for step-by-step instructions.

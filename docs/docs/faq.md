@@ -23,9 +23,22 @@ Both use the same core codebase, but the enterprise version includes additional 
 
 ## Integration & Troubleshooting
 
-### Why does my IDE/client (e.g., Cline) fail to connect to Obot with a “Session ID is required” error?
+### How do I connect my IDE or MCP client to Obot?
 
-- Some clients do not support the required OAuth flows. As a workaround, use the `mcp-remote` package as a proxy, or check for client updates that add OAuth support.
+<details>
+<summary>Step-by-step instructions</summary>
+
+1. Go to the **MCP Servers** page in the left navigation
+2. Click on the server you want to connect to
+3. Click **Connect to Server**
+4. If the server requires configuration or authentication, fill that out and click **Launch**
+5. A connection modal will appear with the connection URL and configuration snippets for popular MCP clients
+
+</details>
+
+### Why does my IDE/client (e.g., Cline) fail to connect to Obot with a "Session ID is required" error?
+
+Some clients do not support the required OAuth flows. As a workaround, use the `mcp-remote` package as a proxy, or check for client updates that add OAuth support.
 
 ## Enterprise Access
 

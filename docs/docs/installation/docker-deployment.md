@@ -45,30 +45,15 @@ docker run -d \
   -p 8080:8080 \
   -e OPENAI_API_KEY=your-openai-key \
   -e OBOT_SERVER_ENABLE_AUTHENTICATION=true \
+  -e OBOT_BOOTSTRAP_TOKEN=your-bootstrap-token \
   ghcr.io/obot-platform/obot:latest
 ```
 
 ## Accessing Obot
 
-Once started, access Obot at:
+Once started, access Obot at http://localhost:8080.
 
-- **Web UI**: http://localhost:8080
-
-### Bootstrap token
-
-The first time you access Obot, you may need the bootstrap token found in the logs:
-
-```bash
-docker logs obot
-```
-
-You will need to look for an entry like:
-
-```shell
---------------------------------------
-| Bootstrap token: <BOOTSTRAP_TOKEN> |
---------------------------------------
-```
+If you enabled authentication, use your bootstrap token to log in as the owner and set up an authentication provider. If you didn't supply a bootstrap token, a random one will be generated and can be found in the container's logs by searching for "Bootstrap token".
 
 ## Next Steps
 
