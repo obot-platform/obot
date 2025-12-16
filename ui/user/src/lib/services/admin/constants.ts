@@ -4,8 +4,7 @@ export const userRoleOptions = [
 	{
 		id: Role.BASIC,
 		label: 'Basic User',
-		description:
-			'New users can connect to MCP servers through the My Connectors app and have access to Obot Chat.'
+		description: 'Connect to MCP servers made available through registries and use Chat.'
 	},
 	{
 		id: Role.POWERUSER,
