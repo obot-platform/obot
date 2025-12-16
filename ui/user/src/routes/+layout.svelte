@@ -23,10 +23,6 @@
 			appPreferences.initialize(data.appPreferences);
 		}
 
-		if (data.appPreferences) {
-			appPreferences.initialize(data.appPreferences);
-		}
-
 		if (data.profile) {
 			profile.initialize(data.profile);
 		}
