@@ -7,13 +7,14 @@
 	import { userRoleOptions } from '$lib/services/admin/constants';
 	import { AdminService } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
+	import { untrack } from 'svelte';
 
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let { data } = $props();
 	let showSaved = $state(false);
-	let baseDefaultRole = $state(data.defaultUsersRole ?? Role.BASIC);
-	let prevBaseDefaultRole = $state(data.defaultUsersRole ?? Role.BASIC);
+	let baseDefaultRole = $state(untrack(() => data.defaultUsersRole ?? Role.BASIC));
+	let prevBaseDefaultRole = $state(untrack(() => data.defaultUsersRole ?? Role.BASIC));
 	let saving = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
 
@@ -35,14 +36,12 @@
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 </script>
 
-<Layout classes={{ container: 'pb-0' }}>
+<Layout classes={{ container: 'pb-0' }} title="User Roles">
 	<div
-		class="my-4 flex h-dvh min-h-full flex-col gap-8"
+		class="mb-4 flex h-dvh min-h-full flex-col gap-8"
 		in:fade={{ duration }}
 		out:fade={{ duration }}
 	>
-		<h1 class="text-2xl font-semibold">User Roles</h1>
-
 		<div class="paper">
 			<div class="flex gap-6">
 				<div class="flex grow flex-col gap-4">

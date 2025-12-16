@@ -3,7 +3,7 @@
 	import { type PageProps } from './$types';
 	import { goto } from '$lib/url';
 	import { type Assistant, ChatService, type Project } from '$lib/services';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import Profile from '$lib/components/navbar/Profile.svelte';
 	import { LoaderCircle } from 'lucide-svelte';
 	import { initLayout } from '$lib/context/chatLayout.svelte';
@@ -29,8 +29,10 @@
 		items: []
 	});
 
-	initToolReferences(data.toolReferences || []);
-	initProjectMCPs(data.mcps || []);
+	untrack(() => {
+		initToolReferences(data.toolReferences || []);
+		initProjectMCPs(data.mcps || []);
+	});
 
 	initProjectTools({
 		tools: [],

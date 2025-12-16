@@ -685,7 +685,7 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRule(ref common.Refe
 						},
 					},
 				},
-				Required: []string{"mcpCatalogID"},
+				Required: []string{"created", "mcpCatalogID"},
 			},
 		},
 		Dependencies: []string{
@@ -5689,6 +5689,7 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 						},
 					},
 				},
+				Required: []string{"created"},
 			},
 		},
 		Dependencies: []string{
@@ -5914,6 +5915,7 @@ func schema_obot_platform_obot_apiclient_types_Metadata(ref common.ReferenceCall
 						},
 					},
 				},
+				Required: []string{"created"},
 			},
 		},
 		Dependencies: []string{

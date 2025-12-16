@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { Copy } from 'lucide-svelte';
+	import { untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -24,8 +25,8 @@
 		classes,
 		showTextLeft
 	}: Props = $props();
-	let message = $state<string>(tooltipText);
-	let buttonTextToShow = $state(buttonText);
+	let message = $state<string>(untrack(() => tooltipText));
+	let buttonTextToShow = $state(untrack(() => buttonText));
 	const COPIED_TEXT = 'Copied!';
 
 	function copy() {

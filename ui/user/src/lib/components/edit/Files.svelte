@@ -63,7 +63,7 @@
 	];
 	const accept = knowledgeExtensions.join(', ') + ',.csv, .png, .jpg, .jpeg, .webp';
 	const layout = getLayout();
-	const fileMonitor = newFileMonitor(project);
+	const fileMonitor = $derived(newFileMonitor(project));
 	let files = $state<File[]>([]);
 	let fileToDelete = $state<string | undefined>();
 	let fileList = $state<FileList>();

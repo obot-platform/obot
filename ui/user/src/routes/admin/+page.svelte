@@ -10,11 +10,11 @@
 	import { resolve } from '$app/paths';
 
 	const { data } = $props();
-	const { authProviders, loggedIn, hasAccess, showSetupHandoff } = data;
+	let { authProviders, loggedIn, hasAccess, showSetupHandoff } = $derived(data);
 	let fetchBootstrapStatus = $state<Promise<BootstrapStatus>>();
 	let bootstrapToken = $state('');
 	let error = $state('');
-	let showBootstrapLogin = $state(authProviders.length === 0);
+	let showBootstrapLogin = $derived(authProviders.length === 0);
 	let tempDataPromises =
 		$state<Promise<[TempUser, Awaited<ReturnType<typeof AdminService.listExplicitRoleEmails>>]>>();
 	let loadingCancelTempUser = $state(false);

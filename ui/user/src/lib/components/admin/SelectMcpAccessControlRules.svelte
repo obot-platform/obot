@@ -107,21 +107,21 @@
 		if (entry) {
 			sessionStorage.setItem(ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION, entry.id);
 		}
-		goto('/admin/access-control?new=true');
+		goto('/admin/mcp-registries?new=true');
 	}
 </script>
 
 <ResponsiveDialog
 	bind:this={dialog}
-	title="Add to Access Control Rule(s)"
+	title="Add to MCP Registry(ies)"
 	class="overflow-visible md:w-2xl"
 >
 	{#if accessControlRules.length === 0}
-		<p class="text-md mb-4 font-light">Looks like you don't have any access control rules yet!</p>
+		<p class="text-md mb-4 font-light">Looks like you don't have any MCP registries yet!</p>
 		<p class="text-md mb-8 font-light">Want to go ahead & create one now?</p>
 	{:else}
 		<p class="text-md mb-8 font-light">
-			Select the access control rules you want to apply to this MCP server.
+			Select the registries you want to apply to this MCP server.
 		</p>
 	{/if}
 	{#if accessControlRules.length > 0}
@@ -203,9 +203,7 @@
 	{:else}
 		<div class="mt-auto flex justify-end gap-4">
 			<button class="button" onclick={close}> Skip Step </button>
-			<button class="button-primary" onclick={handleCreateNewRule}>
-				Create Access Control Rule
-			</button>
+			<button class="button-primary" onclick={handleCreateNewRule}> Create MCP Registry </button>
 		</div>
 	{/if}
 </ResponsiveDialog>

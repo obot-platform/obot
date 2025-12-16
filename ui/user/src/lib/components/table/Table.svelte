@@ -7,7 +7,7 @@
 		SquareCheck,
 		SquareMinus
 	} from 'lucide-svelte';
-	import { onMount, type Snippet } from 'svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 	import TableHeader from './TableHeader.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
@@ -42,6 +42,10 @@
 		tableSelectActions?: Snippet<[Record<string, T>]>;
 		validateSelect?: (row: T) => boolean;
 		disabledSelectMessage?: string;
+		sectionedBy?: string;
+		sectionPrimaryTitle?: string;
+		sectionSecondaryTitle?: string;
+		disablePortal?: boolean;
 	}
 
 	const {
@@ -66,16 +70,22 @@
 		filters,
 		tableSelectActions,
 		validateSelect,
-		disabledSelectMessage
+		disabledSelectMessage,
+		sectionedBy,
+		sectionPrimaryTitle,
+		sectionSecondaryTitle,
+		disablePortal
 	}: Props<T> = $props();
 
 	let page = $state(0);
-	let total = $state(data.length);
+	let total = $derived(data.length);
 
 	let sortableFields = $derived(new Set(sortable));
 	let filterableFields = $derived(new Set(filterable));
 	let sortedBy = $state<{ property: string; order: 'asc' | 'desc' } | undefined>(
-		initSort ? initSort : sortable?.[0] ? { property: sortable[0], order: 'asc' } : undefined
+		untrack(() =>
+			initSort ? initSort : sortable?.[0] ? { property: sortable[0], order: 'asc' } : undefined
+		)
 	);
 	let filteredBy = $derived<Record<string, (string | number)[]> | undefined>(filters);
 	let filterValues = $derived.by(() => {
@@ -152,6 +162,18 @@
 					return sortedBy!.order === 'asc'
 						? aValue.localeCompare(bValue)
 						: bValue.localeCompare(aValue);
+				}
+
+				if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+					// If both are the same, sort alphabetically by first field
+					if (aValue === bValue && fields.length > 0) {
+						const firstFieldA = a[fields[0] as keyof T];
+						const firstFieldB = b[fields[0] as keyof T];
+						if (typeof firstFieldA === 'string' && typeof firstFieldB === 'string') {
+							return firstFieldA.localeCompare(firstFieldB);
+						}
+					}
+					return sortedBy!.order === 'asc' ? (aValue ? 1 : -1) : bValue ? 1 : -1;
 				}
 
 				return 0;
@@ -253,7 +275,7 @@
 		columnWidths = [];
 
 		requestAnimationFrame(() => {
-			const firstRow = dataTableRef?.querySelector('tbody tr');
+			const firstRow = dataTableRef?.querySelector('tbody tr:not([data-section-header])');
 
 			if (!firstRow && previousWidths.length) {
 				columnWidths = previousWidths;
@@ -430,9 +452,47 @@
 			{@render header(Boolean(tableSelectActions))}
 			{#if tableData.length > 0}
 				<tbody>
-					{#each visibleItems as d (sortedBy ? `${d.id}-${sortedBy.property}-${sortedBy.order}` : d.id)}
-						{@render row(d)}
-					{/each}
+					{#if sectionedBy}
+						{#key `${sortedBy?.property}-${sortedBy?.order}`}
+							{@const sectionA = visibleItems.filter((d) => d[sectionedBy as keyof T])}
+							{@const sectionB = visibleItems.filter((d) => !d[sectionedBy as keyof T])}
+
+							{#if sectionA.length > 0}
+								{#if sectionB.length > 0}
+									<tr class="bg-surface3" data-section-header>
+										<th
+											colspan={fields.length + (tableSelectActions ? 1 : 0) + (actions ? 1 : 0)}
+											class="px-4 py-2 text-left text-xs font-semibold uppercase"
+										>
+											{sectionPrimaryTitle}
+										</th>
+									</tr>
+								{/if}
+								{#each sectionA as d (d.id)}
+									{@render row(d)}
+								{/each}
+							{/if}
+							{#if sectionB.length > 0}
+								{#if sectionA.length > 0}
+									<tr class="bg-surface3" data-section-header>
+										<th
+											colspan={fields.length + (tableSelectActions ? 1 : 0) + (actions ? 1 : 0)}
+											class="px-4 py-2 text-left text-xs font-semibold uppercase"
+										>
+											{sectionSecondaryTitle}
+										</th>
+									</tr>
+								{/if}
+								{#each sectionB as d (d.id)}
+									{@render row(d)}
+								{/each}
+							{/if}
+						{/key}
+					{:else}
+						{#each visibleItems as d (sortedBy ? `${d.id}-${sortedBy.property}-${sortedBy.order}` : d.id)}
+							{@render row(d)}
+						{/each}
+					{/if}
 				</tbody>
 			{/if}
 		</table>
@@ -512,7 +572,7 @@
 			{/if}
 		</button>
 		{#if validateSelect}
-			<DotDotDot class="text-on-surface1">
+			<DotDotDot class="text-on-surface1" {disablePortal}>
 				{#snippet icon()}
 					<ChevronDown class="size-4" />
 				{/snippet}
@@ -581,6 +641,7 @@
 					activeSort={sortedBy?.property === property}
 					order={sortedBy?.order}
 					presetFilters={filteredBy?.[property]}
+					{disablePortal}
 				/>
 			{/each}
 			{#if actions}

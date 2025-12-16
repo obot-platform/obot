@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { Container, User, Users, Layers } from 'lucide-svelte';
+	import { Container, Layers, User, Users } from 'lucide-svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { profile } from '$lib/stores';
-	import { Group } from '$lib/services';
+	import { Group, type LaunchServerType } from '$lib/services';
 
 	interface Props {
-		onSelectServerType: (type: 'single' | 'multi' | 'remote' | 'composite') => void;
+		onSelectServerType: (type: LaunchServerType) => void;
 		entity?: 'catalog' | 'workspace';
 	}
 

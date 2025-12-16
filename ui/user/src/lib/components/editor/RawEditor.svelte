@@ -36,7 +36,7 @@
 	import { EditorView as CMEditorView } from '@codemirror/view';
 	import { githubLight, githubDark } from '@uiw/codemirror-theme-github';
 	import { darkMode } from '$lib/stores';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 
 	interface Props {
 		value?: string;
@@ -118,7 +118,7 @@
 	});
 
 	// Track previous disabled state to detect changes
-	let prevDisabled = $state(disabled);
+	let prevDisabled = $state(untrack(() => disabled));
 
 	$effect(() => {
 		if (cmView && prevDisabled !== disabled) {

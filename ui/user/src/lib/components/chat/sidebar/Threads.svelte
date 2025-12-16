@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Pen, Plus, Save, Trash2, Pin, PinOff } from 'lucide-svelte';
 	import { ChatService, type Project, type Thread } from '$lib/services';
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick, untrack } from 'svelte';
 	import { CircleX } from 'lucide-svelte/icons';
 	import { closeAll, getLayout, isSomethingSelected } from '$lib/context/chatLayout.svelte.js';
 	import { fade } from 'svelte/transition';
@@ -32,9 +32,11 @@
 	let lastSeenThreadID = $state('');
 	let watchingThread: (() => void) | undefined;
 	let displayCount = $state(10); // Number of threads to display initially
-	let localPinnedThreads = localState<Record<string, string[]>>('@obot/sidebar/pinned-threads', {
-		[project.id]: []
-	}); // Track pinned thread IDs
+	let localPinnedThreads = untrack(() =>
+		localState<Record<string, string[]>>('@obot/sidebar/pinned-threads', {
+			[project.id]: []
+		})
+	); // Track pinned thread IDs
 
 	const projectPinnedThreads = $derived(localPinnedThreads.current?.[project.id] || []) as string[];
 

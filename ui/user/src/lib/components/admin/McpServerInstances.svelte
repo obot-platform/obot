@@ -3,6 +3,7 @@
 		AdminService,
 		ChatService,
 		Group,
+		type LaunchServerType,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type MCPServerInstance,
@@ -38,7 +39,7 @@
 		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
 		users?: OrgUser[];
-		type?: 'single' | 'multi' | 'remote' | 'composite';
+		type?: LaunchServerType;
 	}
 
 	let { id, entity = 'catalog', entry, users = [], type }: Props = $props();
@@ -60,7 +61,11 @@
 
 	onMount(() => {
 		if (entry && !('isCatalogEntry' in entry) && id) {
-			if (entity === 'workspace') {
+			if (entry.catalogEntryID) {
+				listServerInstances = Promise.resolve([
+					{ id: entry.id, userID: entry.userID, created: entry.created }
+				]);
+			} else if (entity === 'workspace') {
 				listServerInstances = ChatService.listWorkspaceMcpCatalogServerInstances(id, entry.id);
 			} else {
 				listServerInstances = AdminService.listMcpCatalogServerInstances(id, entry.id);
@@ -140,7 +145,7 @@
 		}
 
 		return profile.current?.groups.includes(Group.POWERUSER)
-			? `/mcp-publisher/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
+			? `/mcp-servers/c/${entry?.id}?view=audit-logs&mcp_id=${d.id}&user_id=${d.userID}`
 			: null;
 	}
 </script>
@@ -221,9 +226,9 @@
 							const url =
 								entity === 'workspace'
 									? isAdminUrl
-										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}?from=/mcp-servers/${entry?.id}`
-										: `/mcp-publisher/c/${entry?.id}/instance/${d.id}`
-									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}?from=/mcp-servers/${entry?.id}`;
+										? `/admin/mcp-servers/w/${id}/c/${entry?.id}/instance/${d.id}/details`
+										: `/mcp-servers/c/${entry?.id}/instance/${d.id}/details`
+									: `/admin/mcp-servers/c/${entry?.id}/instance/${d.id}/details`;
 							openUrl(url, isCtrlClick);
 						}
 					: undefined}

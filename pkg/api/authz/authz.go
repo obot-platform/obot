@@ -254,6 +254,8 @@ var (
 		},
 
 		types.GroupAuthenticated: {
+			"GET /api/users",
+			"GET /api/users/{user_id}",
 			"/api/oauth/redirect/{namespace}/{name}",
 			"GET /api/me",
 			"DELETE /api/me",

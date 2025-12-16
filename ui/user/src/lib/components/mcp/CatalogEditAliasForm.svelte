@@ -1,16 +1,15 @@
 <script lang="ts">
 	import { LoaderCircle, Server } from 'lucide-svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { ChatService } from '$lib/services';
-	import type { ConnectedServer } from './MyMcpServers.svelte';
+	import { ChatService, type MCPCatalogServer } from '$lib/services';
 	import { errors } from '$lib/stores';
 
 	interface Props {
-		editingServer?: ConnectedServer;
+		server?: MCPCatalogServer;
 		onUpdateConfigure?: () => void;
 	}
 
-	let { editingServer, onUpdateConfigure }: Props = $props();
+	let { server, onUpdateConfigure }: Props = $props();
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let newName = $state('');
@@ -18,7 +17,7 @@
 	let saving = $state(false);
 
 	export function open() {
-		const name = editingServer?.server?.alias || editingServer?.server?.manifest?.name || '';
+		const name = server?.alias || server?.manifest?.name || '';
 		newName = name;
 		originalName = name;
 		dialog?.open();
@@ -30,11 +29,11 @@
 
 	async function handleSave() {
 		const trimmedName = newName.trim();
-		if (!editingServer?.server?.id || !trimmedName || trimmedName === originalName) return;
+		if (!server?.id || !trimmedName || trimmedName === originalName) return;
 
 		try {
 			saving = true;
-			await ChatService.updateSingleOrRemoteMcpServerAlias(editingServer.server.id, trimmedName);
+			await ChatService.updateSingleOrRemoteMcpServerAlias(server.id, trimmedName);
 			dialog?.close();
 			onUpdateConfigure?.();
 		} catch (err) {
@@ -56,17 +55,17 @@
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
 			<div class="bg-surface1 rounded-sm p-1 dark:bg-gray-600">
-				{#if editingServer?.server?.manifest?.icon}
+				{#if server?.manifest?.icon}
 					<img
-						src={editingServer.server.manifest.icon}
-						alt={newName || editingServer?.server?.alias || editingServer?.server?.manifest?.name}
+						src={server.manifest.icon}
+						alt={newName || server?.alias || server?.manifest?.name}
 						class="size-8"
 					/>
 				{:else}
 					<Server class="size-8" />
 				{/if}
 			</div>
-			{newName || editingServer?.server?.alias || editingServer?.server?.manifest?.name || 'Server'}
+			{newName || server?.alias || server?.manifest?.name || 'Server'}
 		</div>
 	{/snippet}
 

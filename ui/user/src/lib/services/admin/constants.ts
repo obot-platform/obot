@@ -17,7 +17,7 @@ export const userRoleOptions = [
 		id: Role.POWERUSER_PLUS,
 		label: 'Power User Plus',
 		description:
-			'In addition to power user features, users can share their custom MCP servers through their own Access Control Rules.'
+			'In addition to power user features, users can share their custom MCP servers through their own registries.'
 	},
 	{
 		id: Role.ADMIN,

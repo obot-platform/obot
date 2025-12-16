@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Runtime } from '$lib/services/chat/types';
+	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
 	import Select from '../Select.svelte';
 
 	interface Props {
 		runtime: Runtime;
-		serverType: 'single' | 'multi' | 'remote' | 'composite';
+		serverType: LaunchServerType;
 		readonly?: boolean;
 		onRuntimeChange?: (runtime: Runtime) => void;
 	}

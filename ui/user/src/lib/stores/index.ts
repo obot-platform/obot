@@ -4,3 +4,4 @@ export { default as errors } from './errors.svelte';
 export { default as responsive } from './responsive.svelte';
 export { default as version } from './version.svelte';
 export { default as appPreferences } from './appPreferences.svelte';
+export { default as mcpServersAndEntries } from './mcpServersAndEntries.svelte';

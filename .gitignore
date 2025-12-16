@@ -62,6 +62,9 @@ __debug_*
 .claude/
 CLAUDE.md
 thoughts/
+thoughts
+
+# Custom entries for obot-entraid fork
 .serena/
 .archive/
 .cloned-obot-tools/

@@ -275,7 +275,7 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 			PowerUserWorkspaceID: workspace.Name,
 			Generated:            true,
 			Manifest: types.AccessControlRuleManifest{
-				DisplayName: "Default Access Rule",
+				DisplayName: "My Registry",
 				Subjects: []types.Subject{
 					{
 						Type: types.SubjectTypeSelector,

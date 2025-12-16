@@ -149,19 +149,24 @@ func Agent(ctx context.Context, mcpSessionManager *mcp.SessionManager, db kclien
 			allowedTools      []string
 			mcpServer         v1.MCPServer
 			mcpServerInstance v1.MCPServerInstance
-			mcpServerID       string
 			mcpDisplayName    string
 		)
 		for _, projectMCPServer := range projectMCPServers.Items {
 			allowedTools = allowedToolsPerMCP[projectMCPServer.Name]
 
-			if system.IsMCPServerInstanceID(projectMCPServer.Spec.Manifest.MCPID) {
-				if err = db.Get(ctx, kclient.ObjectKey{Namespace: projectMCPServer.Namespace, Name: projectMCPServer.Spec.Manifest.MCPID}, &mcpServerInstance); err != nil {
-					return renderedAgent, err
+			mcpServerID := projectMCPServer.Spec.MCPServerName
+			if mcpServerID == "" {
+				// If the MCPServerName hasn't been set yet by the controller, then we can look it up here.
+				if system.IsMCPServerInstanceID(projectMCPServer.Spec.Manifest.MCPID) {
+					if err = db.Get(ctx, kclient.ObjectKey{Namespace: projectMCPServer.Namespace, Name: projectMCPServer.Spec.Manifest.MCPID}, &mcpServerInstance); err != nil {
+						return renderedAgent, err
+					}
+					mcpServerID = mcpServerInstance.Spec.MCPServerName
+				} else {
+					mcpServerID = projectMCPServer.Spec.Manifest.MCPID
 				}
-				mcpServerID = mcpServerInstance.Spec.MCPServerName
-			} else {
-				mcpServerID = projectMCPServer.Spec.Manifest.MCPID
+
+				projectMCPServer.Spec.MCPServerName = mcpServerID
 			}
 
 			if err = db.Get(ctx, kclient.ObjectKey{Namespace: projectMCPServer.Namespace, Name: mcpServerID}, &mcpServer); err != nil {

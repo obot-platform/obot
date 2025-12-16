@@ -37,7 +37,8 @@ export function getTableUrlParamsFilters() {
 				key === 'sortDirection' ||
 				key === 'query' ||
 				key === 'from' ||
-				key === 'view'
+				key === 'view' ||
+				key === 'new'
 			)
 				return;
 			urlFilters[key] = value.split(',');
@@ -99,4 +100,12 @@ export function goto(url: string | URL, state?: object) {
 	const routeToUse =
 		url instanceof URL ? `/${url.pathname}${url.search ? `${url.search}` : ''}` : url;
 	svelteGoTo(resolve(routeToUse as `/${string}`), state);
+}
+
+export function setUrlParam(url: URL, key: string, value: string | null): void {
+	if (value) {
+		url.searchParams.set(key, value);
+	} else {
+		url.searchParams.delete(key);
+	}
 }

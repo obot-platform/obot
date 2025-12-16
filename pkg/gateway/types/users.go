@@ -103,10 +103,10 @@ func NewUserQuery(u url.Values) UserQuery {
 
 func (q UserQuery) Scope(db *gorm.DB) *gorm.DB {
 	if q.Username != "" {
-		db = db.Where("hashed_username = ?", "%"+hash.String(q.Username)+"%")
+		db = db.Where("hashed_username = ?", hash.String(q.Username))
 	}
 	if q.Email != "" {
-		db = db.Where("hashed_email = ?", "%"+hash.String(q.Email)+"%")
+		db = db.Where("hashed_email = ?", hash.String(q.Email))
 	}
 	if q.Role != 0 {
 		db = db.Where("role = ?", q.Role)

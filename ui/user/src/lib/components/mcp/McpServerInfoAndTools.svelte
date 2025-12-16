@@ -42,15 +42,11 @@
 		onUpdate,
 		onEditConfiguration
 	}: Props = $props();
-	let selected = $state<string>(view);
+	let selected = $derived<string>(view);
 	const tabs = [
 		{ label: 'Overview', view: 'overview' },
 		{ label: 'Tools', view: 'tools' }
 	];
-
-	$effect(() => {
-		selected = view;
-	});
 
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configureForm = $state<LaunchFormData>();
@@ -83,7 +79,8 @@
 			})),
 			headers: server.manifest.remoteConfig?.headers?.map((header) => ({
 				...header,
-				value: values[header.key] ?? ''
+				value: values[header.key] ?? '',
+				isStatic: header.value !== ''
 			})),
 			url: server.manifest.remoteConfig?.url
 		};

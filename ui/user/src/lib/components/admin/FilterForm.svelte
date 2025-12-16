@@ -1,17 +1,13 @@
 <script lang="ts">
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { Eye, EyeOff, LoaderCircle, Plus, Trash2, X } from 'lucide-svelte';
-	import { type Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Table from '../table/Table.svelte';
 	import Confirm from '../Confirm.svelte';
 	import { goto } from '$lib/url';
 	import SearchMcpServers from './SearchMcpServers.svelte';
-	import {
-		getAdminMcpServerAndEntries,
-		type AdminMcpServerAndEntriesContext
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import {
 		AdminService,
 		type MCPFilter,
@@ -20,24 +16,17 @@
 		type MCPFilterWebhookSelector
 	} from '$lib/services';
 	import { removeSecret } from '$lib/services/admin/operations';
+	import { mcpServersAndEntries } from '$lib/stores';
 
 	interface Props {
 		topContent?: Snippet;
 		filter?: MCPFilter;
 		onCreate?: (filter?: MCPFilter) => void;
 		onUpdate?: (filter?: MCPFilter) => void;
-		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
 		readonly?: boolean;
 	}
 
-	let {
-		topContent,
-		filter: initialFilter,
-		onCreate,
-		onUpdate,
-		mcpEntriesContextFn,
-		readonly
-	}: Props = $props();
+	let { topContent, filter: initialFilter, onCreate, onUpdate, readonly }: Props = $props();
 	const duration = PAGE_TRANSITION_DURATION;
 	let filter = $state<{
 		name: string;
@@ -46,21 +35,23 @@
 		secret: string;
 		selectors: MCPFilterWebhookSelector[];
 	}>(
-		initialFilter
-			? {
-					name: initialFilter.name || '',
-					resources: initialFilter.resources || [],
-					url: initialFilter.url || '',
-					secret: initialFilter.secret || '',
-					selectors: initialFilter.selectors || []
-				}
-			: {
-					name: '',
-					resources: [{ id: 'default', type: 'mcpCatalog' }],
-					url: '',
-					secret: '',
-					selectors: []
-				}
+		untrack(() =>
+			initialFilter
+				? {
+						name: initialFilter.name || '',
+						resources: initialFilter.resources || [],
+						url: initialFilter.url || '',
+						secret: initialFilter.secret || '',
+						selectors: initialFilter.selectors || []
+					}
+				: {
+						name: '',
+						resources: [{ id: 'default', type: 'mcpCatalog' }],
+						url: '',
+						secret: '',
+						selectors: []
+					}
+		)
 	);
 
 	let saving = $state<boolean | undefined>();
@@ -70,9 +61,8 @@
 	let removingSecret = $state(false);
 	let showValidation = $state(false);
 
-	const adminMcpServerAndEntries = getAdminMcpServerAndEntries();
-	let mcpServersMap = $derived(new Map(adminMcpServerAndEntries.servers.map((i) => [i.id, i])));
-	let mcpEntriesMap = $derived(new Map(adminMcpServerAndEntries.entries.map((i) => [i.id, i])));
+	let mcpServersMap = $derived(new Map(mcpServersAndEntries.current.servers.map((i) => [i.id, i])));
+	let mcpEntriesMap = $derived(new Map(mcpServersAndEntries.current.entries.map((i) => [i.id, i])));
 
 	// Validation
 	let nameError = $derived(showValidation && !filter.name.trim());
@@ -538,7 +528,7 @@
 			...selectorResources
 		];
 	}}
-	{mcpEntriesContextFn}
+	mcpEntriesContextFn={() => mcpServersAndEntries.current}
 />
 
 <Confirm

@@ -1,18 +1,19 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import Task from '$lib/components/tasks/Task.svelte';
 	import { initLayout } from '$lib/context/chatLayout.svelte';
 	import { initProjectTools } from '$lib/context/projectTools.svelte';
+	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
+	let { taskRun, task, project } = $derived(data);
 
 	initLayout({
 		sidebarOpen: false,
 		fileEditorOpen: false,
-		editTaskID: data.task?.id,
+		editTaskID: untrack(() => task?.id),
 		items: []
 	});
 
@@ -20,33 +21,26 @@
 		tools: [],
 		maxTools: 5
 	});
+
+	let title = $derived(data.taskRun?.name ?? 'Task Run');
 </script>
 
-<Layout whiteBackground={true}>
+<Layout {title} whiteBackground={true} showBackButton>
 	<div
 		class="h-dvh w-full"
 		in:fly={{ x: 100, duration: 300, delay: 150 }}
 		out:fly={{ x: -100, duration: 300 }}
 	>
 		<div class="flex h-full flex-col">
-			<div class="my-6">
-				{#if data.taskRun}
-					{@const currentLabel = data.taskRun?.name || 'Unnamed Task Run'}
-					<BackLink fromURL="task-runs" {currentLabel} />
-				{/if}
-			</div>
 			<div class="flex w-full grow justify-center">
-				{#if data.taskRun && data.task && data.project && browser}
-					<Task
-						project={data.project}
-						task={data.task}
-						runID={data.taskRun.taskRunID}
-						readonly
-						skipFetchOnMount
-						noChat
-					/>
+				{#if taskRun && task && project && browser}
+					<Task {project} {task} runID={taskRun.taskRunID} readonly skipFetchOnMount noChat />
 				{/if}
 			</div>
 		</div>
 	</div>
 </Layout>
+
+<svelte:head>
+	<title>Obot | {title}</title>
+</svelte:head>

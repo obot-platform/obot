@@ -6,24 +6,27 @@
 	import { profile } from '$lib/stores/index.js';
 	import { AdminService, type K8sSettings } from '$lib/services';
 	import YamlEditor from '$lib/components/admin/YamlEditor.svelte';
+	import { untrack } from 'svelte';
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let { data } = $props();
-	let prevK8sSettings = $state(data.k8sSettings);
-	let k8sSettings = $state<K8sSettings | undefined>({
-		id: data.k8sSettings?.id ?? '',
-		created: data.k8sSettings?.created ?? '',
-		type: data.k8sSettings?.type ?? '',
-		resources: data.k8sSettings?.resources ?? '',
-		setViaHelm: data.k8sSettings?.setViaHelm ?? false,
-		affinity: data.k8sSettings?.affinity ?? '',
-		tolerations: data.k8sSettings?.tolerations ?? '',
-		...data.k8sSettings
-	});
+	let prevK8sSettings = $state(untrack(() => data.k8sSettings));
+	let k8sSettings = $state<K8sSettings | undefined>(
+		untrack(() => ({
+			id: data.k8sSettings?.id ?? '',
+			created: data.k8sSettings?.created ?? '',
+			type: data.k8sSettings?.type ?? '',
+			resources: data.k8sSettings?.resources ?? '',
+			setViaHelm: data.k8sSettings?.setViaHelm ?? false,
+			affinity: data.k8sSettings?.affinity ?? '',
+			tolerations: data.k8sSettings?.tolerations ?? '',
+			...data.k8sSettings
+		}))
+	);
 	let saving = $state(false);
 	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
-	let resourceInfo = $state(convertResourcesForInput(data.k8sSettings?.resources));
+	let resourceInfo = $state(untrack(() => convertResourcesForInput(data.k8sSettings?.resources)));
 
 	function stripQuotes(value: string): string {
 		// Remove double quotes if the entire value is wrapped in them
@@ -146,10 +149,9 @@
 	}
 </script>
 
-<Layout classes={{ container: 'pb-0' }}>
-	<div class="relative mt-4 h-full w-full" transition:fade={{ duration }}>
+<Layout classes={{ container: 'pb-0' }} title="Server Scheduling">
+	<div class="relative h-full w-full" transition:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
-			<h1 class="text-2xl font-semibold">Server Scheduling</h1>
 			{#if k8sSettings}
 				{@const readonly = k8sSettings?.setViaHelm || isAdminReadonly}
 				<div class="flex flex-col gap-2">

@@ -212,7 +212,8 @@
 			envs: server.manifest.env?.map((env) => ({ ...env, value: values[env.key] ?? '' })),
 			headers: server.manifest.remoteConfig?.headers?.map((header) => ({
 				...header,
-				value: values[header.key] ?? ''
+				value: values[header.key] ?? '',
+				isStatic: header.value !== ''
 			})),
 			url: server.manifest.remoteConfig?.url,
 			hostname: parent?.manifest.remoteConfig?.hostname

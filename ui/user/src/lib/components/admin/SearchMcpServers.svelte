@@ -2,19 +2,26 @@
 	import { Check, LoaderCircle, Server } from 'lucide-svelte';
 	import Search from '../Search.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import { type AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import { stripMarkdownToText } from '$lib/markdown';
-	import { type PoweruserWorkspaceContext } from '$lib/context/poweruserWorkspace.svelte';
 	import { ADMIN_ALL_OPTION } from '$lib/constants';
-	import { AdminService, type OrgUser } from '$lib/services';
+	import {
+		AdminService,
+		type MCPCatalogEntry,
+		type MCPCatalogServer,
+		type OrgUser
+	} from '$lib/services';
 	import { onMount } from 'svelte';
 	import { getUserDisplayName } from '$lib/utils';
 
 	interface Props {
 		onAdd: (mcpCatalogEntryIds: string[], mcpServerIds: string[], otherSelectors: string[]) => void;
 		exclude?: string[];
-		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext | PoweruserWorkspaceContext;
+		mcpEntriesContextFn?: () => {
+			entries: MCPCatalogEntry[];
+			servers: MCPCatalogServer[];
+			loading: boolean;
+		};
 		all?: { label: string; description: string };
 		type: 'acr' | 'filter';
 		entity?: 'catalog' | 'workspace';
@@ -52,11 +59,13 @@
 	let selectedMap = $derived(new Set(selected.map((i) => i.id)));
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
-	const mcpServerAndEntries = mcpEntriesContextFn?.() ?? {
-		entries: [],
-		servers: [],
-		loading: false
-	};
+	const mcpServerAndEntries = $derived(
+		mcpEntriesContextFn?.() ?? {
+			entries: [],
+			servers: [],
+			loading: false
+		}
+	);
 
 	let loading = $state(false);
 	let allData: SearchItem[] = $derived(

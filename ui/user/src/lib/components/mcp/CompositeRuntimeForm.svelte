@@ -16,10 +16,8 @@
 		type MCPCatalogServer,
 		type CompositeServerToolRow
 	} from '$lib/services';
-	import type { AdminMcpServerAndEntriesContext } from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import CompositeToolsSetup from './composite/CompositeSelectServerAndToolsSetup.svelte';
 	import { slide } from 'svelte/transition';
-	import CompositeEditTools from './composite/CompositeEditTools.svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import Toggle from '../Toggle.svelte';
 
@@ -28,10 +26,9 @@
 		config: CompositeCatalogConfig;
 		readonly?: boolean;
 		catalogId?: string;
-		mcpEntriesContextFn?: () => AdminMcpServerAndEntriesContext;
 	}
 
-	let { config = $bindable(), readonly, catalogId, mcpEntriesContextFn, id }: Props = $props();
+	let { config = $bindable(), readonly, catalogId, id }: Props = $props();
 	let componentEntries = $state<MCPCatalogEntry[]>([]);
 	const componentServers = new SvelteMap<string, MCPCatalogServer>();
 	let expanded = $state<Record<string, boolean>>({});
@@ -42,11 +39,12 @@
 	let toolsByEntry = $state<Record<string, CompositeServerToolRow[]>>({});
 	let populatedByEntry = $state<Record<string, boolean>>({});
 	let loadingByEntry = $state<Record<string, boolean>>({});
-	let toolsToEdit = $state<CompositeServerToolRow[]>([]);
 	let configuringComponentId = $state<string | undefined>();
+	let configuringIsNewComponent = $state<boolean>(false);
+	// Track the initial component IDs that were loaded from the API (persisted components)
+	let initialComponentIds = $state<Set<string>>(new Set());
 
 	let compositeToolsSetupDialog = $state<ReturnType<typeof CompositeToolsSetup>>();
-	let editCurrentToolsDialog = $state<ReturnType<typeof CompositeEditTools>>();
 
 	const excluded = $derived([
 		...(config?.componentServers ?? []).map((c) => getComponentId(c)),
@@ -59,15 +57,26 @@
 	}
 
 	// Build a configuring entry backed by the composite's manifest snapshot when
-	// configuring tools for an existing catalog-entry-based component.
-	function buildCompositeConfiguringEntry(componentId: string): MCPCatalogEntry | undefined {
+	// configuring tools for an existing entry
+	function buildCompositeConfiguringEntry(
+		componentId: string
+	): MCPCatalogEntry | MCPCatalogServer | undefined {
 		const component = config.componentServers?.find((c) => getComponentId(c) === componentId);
-		if (!component || !component.catalogEntryID || !component.manifest) return undefined;
+		if (!component || !component.manifest || (!component.catalogEntryID && !component.mcpServerID))
+			return undefined;
 
-		const metadataEntry = componentEntries.find((e) => e.id === componentId);
-		if (metadataEntry) {
+		if (component.mcpServerID) {
+			// This is a multi-user server, we should always use the live value since they should always exist
+			const catalogServer = componentServers.get(component.mcpServerID);
+			if (catalogServer) return catalogServer;
+
+			throw new Error(`Catalog server not found for ID: ${component.mcpServerID}`);
+		}
+
+		const catalogEntry = componentEntries.find((e) => e.id === componentId);
+		if (catalogEntry) {
 			return {
-				...metadataEntry,
+				...catalogEntry,
 				manifest: component.manifest
 			};
 		}
@@ -80,11 +89,15 @@
 			sourceURL: undefined,
 			userCount: undefined,
 			type: 'catalog-entry',
-			powerUserID: undefined,
-			powerUserWorkspaceID: undefined,
-			isCatalogEntry: true,
+			isCatalogEntry: !component.mcpServerID,
 			needsUpdate: false
 		};
+	}
+
+	// Check if a component is newly added (not yet persisted to the composite entry)
+	function isComponentNew(componentId: string): boolean {
+		// A component is new if it wasn't part of the initial loaded state
+		return !initialComponentIds.has(componentId);
 	}
 
 	// Pre-populate toolsByEntry from existing toolOverrides in config
@@ -178,6 +191,8 @@
 	}
 
 	onMount(() => {
+		// Capture the initial component IDs on first mount before any user interactions
+		initialComponentIds = new Set((config?.componentServers || []).map((c) => getComponentId(c)));
 		loadComponentEntries();
 	});
 
@@ -249,10 +264,11 @@
 										disabled={loadingByEntry[componentId]}
 										onclick={async () => {
 											if (readonly) return;
+
 											const entry = buildCompositeConfiguringEntry(componentId);
-											if (!entry) return;
 											configuringEntry = entry;
 											configuringComponentId = componentId;
+											configuringIsNewComponent = isComponentNew(componentId);
 											compositeToolsSetupDialog?.open();
 										}}
 									>
@@ -389,6 +405,7 @@
 			onclick={() => {
 				configuringEntry = undefined;
 				configuringComponentId = undefined;
+				configuringIsNewComponent = false;
 				compositeToolsSetupDialog?.open();
 			}}
 			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 bg-background flex items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-sm font-medium hover:bg-gray-50"
@@ -401,11 +418,11 @@
 
 <CompositeToolsSetup
 	bind:this={compositeToolsSetupDialog}
-	{mcpEntriesContextFn}
 	{catalogId}
 	{configuringEntry}
 	compositeEntryId={id}
 	componentId={configuringComponentId}
+	isNewComponent={configuringIsNewComponent}
 	onCancel={() => {
 		configuringEntry = undefined;
 	}}
@@ -441,42 +458,4 @@
 		}
 	}}
 	{excluded}
-/>
-
-<CompositeEditTools
-	bind:this={editCurrentToolsDialog}
-	{configuringEntry}
-	tools={toolsToEdit}
-	onSuccess={() => {
-		if (!configuringEntry) return;
-		config.componentServers = config.componentServers.map((c) => {
-			const id = getComponentId(c);
-			if (c.mcpServerID === id || c.catalogEntryID === id) {
-				return {
-					...c,
-					toolOverrides: toolsToEdit.map((t) => {
-						const baseName = t.originalName;
-						const baseDescription = t.description || '';
-
-						const editedName = (t.overrideName || '').trim();
-						const editedDescription = (t.overrideDescription || '').trim();
-
-						return {
-							name: baseName,
-							// Persist the description snapshot for display in future edits.
-							description: baseDescription,
-							// Only store an override name if it differs from the original.
-							overrideName: editedName && editedName !== baseName ? editedName : '',
-							// Only store an override description if it differs from the original snapshot.
-							overrideDescription:
-								editedDescription && editedDescription !== baseDescription ? editedDescription : '',
-							enabled: t.enabled
-						};
-					})
-				};
-			}
-			return c;
-		}) as unknown as typeof config.componentServers;
-		toolsByEntry[configuringEntry.id] = toolsToEdit;
-	}}
 />

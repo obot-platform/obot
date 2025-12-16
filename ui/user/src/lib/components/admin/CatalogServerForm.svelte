@@ -6,7 +6,7 @@
 		type MCPCatalogServerManifest,
 		Group
 	} from '$lib/services/admin/types';
-	import type { Runtime } from '$lib/services/chat/types';
+	import type { LaunchServerType, Runtime } from '$lib/services/chat/types';
 	import { Info, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import RuntimeSelector from '../mcp/RuntimeSelector.svelte';
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
@@ -15,23 +15,21 @@
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import { AdminService, ChatService, type MCPCatalogServer } from '$lib/services';
-	import { onMount, tick, type Snippet } from 'svelte';
+	import { onMount, untrack, type Snippet } from 'svelte';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import SelectMcpAccessControlRules from './SelectMcpAccessControlRules.svelte';
 	import { twMerge } from 'tailwind-merge';
-	import CategorySelectInput from './CategorySelectInput.svelte';
 	import Select from '../Select.svelte';
 	import { profile } from '$lib/stores';
-	import { getAdminMcpServerAndEntries } from '$lib/context/admin/mcpServerAndEntries.svelte';
 
 	interface Props {
 		id?: string;
 		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
-		type?: 'single' | 'multi' | 'remote' | 'composite';
+		type?: LaunchServerType;
 		readonly?: boolean;
 		onCancel?: () => void;
-		onSubmit?: (id: string, type: 'single' | 'multi' | 'remote' | 'composite') => void;
+		onSubmit?: (id: string, type: LaunchServerType, message?: string) => void;
 		hideTitle?: boolean;
 		readonlyMessage?: Snippet;
 	}
@@ -59,7 +57,6 @@
 		type: newType = 'single',
 		onCancel,
 		onSubmit,
-		hideTitle,
 		readonlyMessage
 	}: Props = $props();
 	let type = $derived(getType(entry) ?? newType);
@@ -69,20 +66,9 @@
 	let showRequired = $state<Record<string, boolean>>({});
 	let loading = $state(false);
 
-	let formData = $state<RuntimeFormData>(convertToFormData(entry));
+	let formData = $state<RuntimeFormData>(untrack(() => convertToFormData(entry)));
 
-	let remoteCategories = $state<string[]>([]);
-
-	let categories = $derived([...remoteCategories, ...(formData?.categories ?? [])]);
 	const isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
-
-	onMount(() => {
-		if (!id || entity === 'workspace') return;
-		// TODO: do we have categories for workspace catalog?
-		AdminService.listCatalogCategories(id).then((res) => {
-			remoteCategories = res;
-		});
-	});
 
 	function convertToFormData(item?: MCPCatalogEntry | MCPCatalogServer): RuntimeFormData {
 		if (!item) {
@@ -592,11 +578,11 @@
 					loading = false;
 				} else {
 					loading = false;
-					onSubmit?.(entryResponse.id, type);
+					onSubmit?.(entryResponse.id, type, 'MCP server updated successfully!');
 				}
 			} else {
 				loading = false;
-				onSubmit?.(entryResponse.id, type);
+				onSubmit?.(entryResponse.id, type, 'MCP server updated successfully!');
 			}
 		} catch (error) {
 			loading = false;
@@ -608,16 +594,6 @@
 		delete showRequired[field];
 	}
 </script>
-
-{#if !hideTitle}
-	<h1 class="text-2xl font-semibold capitalize">
-		{#if entry}
-			{formData.name}
-		{:else}
-			Create {type} Server
-		{/if}
-	</h1>
-{/if}
 
 <div
 	class="dark:bg-surface1 dark:border-surface3 bg-background flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
@@ -673,31 +649,6 @@
 				disabled={readonly}
 			/>
 		</div>
-
-		<div class="flex flex-col gap-1">
-			<span class="text-sm font-light capitalize">Categories</span>
-			<CategorySelectInput
-				categories={formData.categories.join(',')}
-				options={categories.map((d) => ({ label: d, id: d }))}
-				{readonly}
-				onCreate={async (category) => {
-					await tick();
-
-					formData.categories = [category, ...formData.categories].filter(Boolean);
-				}}
-				onUpdate={async (categories) => {
-					formData.categories = [
-						// Avoid duplicates
-						...new Set(
-							categories
-								.split(',')
-								.map((c) => c.trim())
-								.filter(Boolean)
-						)
-					];
-				}}
-			/>
-		</div>
 	</div>
 </div>
 
@@ -743,7 +694,6 @@
 		bind:config={formData.compositeConfig}
 		{readonly}
 		catalogId={id}
-		mcpEntriesContextFn={getAdminMcpServerAndEntries}
 		id={entry?.id}
 	/>
 {/if}
@@ -761,13 +711,13 @@
 			{#if formData.env}
 				{#each formData.env as _, i (i)}
 					<div
-						class="dark:border-surface3 flex w-full items-center gap-4 rounded-lg border border-transparent bg-gray-50 p-4 dark:bg-gray-900"
+						class="dark:border-surface3 bg-surface2 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
 					>
 						<div class="flex w-full flex-col gap-4">
 							<div class="flex w-full flex-col gap-1">
 								<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
 								<Select
-									class="bg-surface1 dark:border-surface3 dark:bg-surface1 border border-transparent shadow-inner"
+									class="dark:border-surface3 bg-background border border-transparent"
 									classes={{
 										root: 'flex grow'
 									}}
@@ -812,7 +762,7 @@
 									<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
 									<input
 										id={`env-name-${i}`}
-										class="text-input-filled w-full"
+										class="text-input-filled bg-background w-full shadow-none"
 										bind:value={formData.env[i].name}
 										disabled={readonly}
 									/>
@@ -821,7 +771,7 @@
 									<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
 									<input
 										id={`env-description-${i}`}
-										class="text-input-filled w-full"
+										class="text-input-filled bg-background w-full shadow-none"
 										bind:value={formData.env[i].description}
 										disabled={readonly}
 									/>
@@ -830,7 +780,7 @@
 									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 									<input
 										id={`env-key-${i}`}
-										class="text-input-filled w-full"
+										class="text-input-filled bg-background w-full shadow-none"
 										bind:value={formData.env[i].key}
 										placeholder="e.g. CUSTOM_API_KEY"
 										disabled={readonly}
@@ -859,7 +809,7 @@
 									<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
 									<input
 										id={`env-key-${i}`}
-										class="text-input-filled w-full"
+										class="text-input-filled bg-background w-full shadow-none"
 										bind:value={formData.env[i].key}
 										placeholder="e.g. CUSTOM_API_KEY"
 										disabled={readonly}
@@ -870,7 +820,7 @@
 									{#if formData.env[i].file}
 										<textarea
 											id={`env-value-${i}`}
-											class="text-input-filled min-h-24 w-full resize-y"
+											class="text-input-filled bg-background min-h-24 w-full resize-y shadow-none"
 											bind:value={formData.env[i].value}
 											disabled={readonly}
 											rows={formData.env[i].value.split('\n').length + 1}
@@ -878,7 +828,7 @@
 									{:else}
 										<input
 											id={`env-value-${i}`}
-											class="text-input-filled w-full"
+											class="text-input-filled bg-background w-full shadow-none"
 											bind:value={formData.env[i].value}
 											placeholder="e.g. 123abcdef456"
 											disabled={readonly}

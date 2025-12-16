@@ -5,7 +5,8 @@
 		type MCPCatalogServer,
 		ChatService,
 		Group,
-		MCPCompositeDeletionDependencyError
+		MCPCompositeDeletionDependencyError,
+		type LaunchServerType
 	} from '$lib/services';
 	import type { AccessControlRule, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
 	import { twMerge } from 'tailwind-merge';
@@ -17,6 +18,7 @@
 		ChevronLeft,
 		ChevronRight,
 		GlobeLock,
+		Info,
 		ListFilter,
 		LoaderCircle,
 		Server,
@@ -34,7 +36,7 @@
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
 	import { page } from '$app/state';
-	import { getRegistryLabel, openUrl } from '$lib/utils';
+	import { openUrl } from '$lib/utils';
 	import CatalogConfigureForm, {
 		type LaunchFormData,
 		type CompositeLaunchFormData,
@@ -45,63 +47,45 @@
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import { profile } from '$lib/stores';
 	import OverflowContainer from '../OverflowContainer.svelte';
-	import { getServerTypeLabel } from '$lib/services/chat/mcp';
+	import { getServerTypeLabel, getUserRegistry } from '$lib/services/chat/mcp';
 	import { resolve } from '$app/paths';
-
-	type MCPType = 'single' | 'multi' | 'remote' | 'composite';
 
 	interface Props {
 		id?: string;
 		entity?: 'workspace' | 'catalog';
 		entry?: MCPCatalogEntry | MCPCatalogServer;
-		type?: MCPType;
+		server?: MCPCatalogServer;
+		type?: LaunchServerType;
 		readonly?: boolean;
 		onCancel?: () => void;
-		onSubmit?: (id: string, type: MCPType) => void;
+		onSubmit?: (id: string, type: LaunchServerType, message?: string) => void;
+		hasExistingConfigured?: boolean;
+		isDialogView?: boolean;
 	}
 
-	let { entry, id, entity = 'catalog', type, readonly, onCancel, onSubmit }: Props = $props();
+	let {
+		entry,
+		server,
+		id,
+		entity = 'catalog',
+		type,
+		readonly,
+		onCancel,
+		onSubmit,
+		hasExistingConfigured,
+		isDialogView
+	}: Props = $props();
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
-	let isAuditor = $derived(profile.current?.groups.includes(Group.AUDITOR));
-
-	const tabs = $derived(
-		entry
-			? entity === 'workspace' && !profile.current?.isAdmin?.()
-				? [
-						{ label: 'Overview', view: 'overview' },
-						{ label: 'Server Details', view: 'server-instances' },
-						{ label: 'Tools', view: 'tools' },
-						{ label: 'Configuration', view: 'configuration' },
-						{ label: 'Usage', view: 'usage' },
-						{ label: 'Audit Logs', view: 'audit-logs' },
-						...(isAtLeastPowerUserPlus ? [{ label: 'Access Control', view: 'access-control' }] : [])
-					]
-				: [
-						{ label: 'Overview', view: 'overview' },
-						{ label: 'Server Details', view: 'server-instances' },
-						{ label: 'Tools', view: 'tools' },
-						{ label: 'Configuration', view: 'configuration' },
-						{ label: 'Usage', view: 'usage' },
-						{ label: 'Audit Logs', view: 'audit-logs' },
-						{ label: 'Access Control', view: 'access-control' },
-						{ label: 'Filters', view: 'filters' }
-					]
-			: []
+	let belongsToUser = $derived(
+		(entity === 'workspace' && entry?.powerUserWorkspaceID && entry.powerUserWorkspaceID === id) ||
+			profile.current?.hasAdminAccess?.()
 	);
 
 	let listAccessControlRules = $state<Promise<AccessControlRule[]>>();
 	let listFilters = $state<Promise<MCPFilter[]>>();
 	let users = $state<OrgUser[]>([]);
-	let registry = $derived.by(() => {
-		if (!entry) return undefined;
-		const ownerUserId =
-			'isCatalogEntry' in entry
-				? entry.powerUserID
-				: entry.powerUserWorkspaceID
-					? entry.userID
-					: undefined;
-		return getRegistryLabel(ownerUserId, profile.current?.id, users);
-	});
+	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
+	let registry = $derived(entry ? getUserRegistry(entry, usersMap) : 'Global Registry');
 
 	let deleteServer = $state(false);
 	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
@@ -111,9 +95,7 @@
 	}>();
 	let selected = $derived.by(() => {
 		const searchParams = page.url.searchParams;
-
 		const tab = searchParams.get('view');
-
 		return tab ?? (entry ? 'overview' : 'configuration');
 	});
 	let showLeftChevron = $state(false);
@@ -133,12 +115,43 @@
 
 	let showRegenerateToolsButton = $derived(
 		entry &&
+			!server &&
 			entry.manifest?.toolPreview &&
 			'toolPreviewsLastGenerated' in entry &&
 			'lastUpdated' in entry &&
 			entry.toolPreviewsLastGenerated &&
 			entry.lastUpdated &&
 			new Date(entry.toolPreviewsLastGenerated) < new Date(entry.lastUpdated)
+	);
+
+	const tabs = $derived(
+		entry && !server
+			? [
+					{ label: 'Overview', view: 'overview' },
+					...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
+						? [{ label: 'Server Details', view: 'server-instances' }]
+						: []),
+					{ label: 'Tools', view: 'tools' },
+					...(belongsToUser
+						? [
+								{ label: 'Configuration', view: 'configuration' },
+								{ label: 'Audit Logs', view: 'audit-logs' },
+								{ label: 'Usage', view: 'usage' }
+							]
+						: []),
+					...(isAtLeastPowerUserPlus && belongsToUser
+						? [{ label: 'Registries', view: 'access-control' }]
+						: []),
+					...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
+				]
+			: [
+					{ label: 'Overview', view: 'overview' },
+					...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
+						? [{ label: 'Server Details', view: 'server-instances' }]
+						: []),
+					{ label: 'Tools', view: 'tools' },
+					...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : [])
+				]
 	);
 
 	$effect(() => {
@@ -169,11 +182,9 @@
 	});
 
 	onMount(() => {
-		if (isAtLeastPowerUserPlus || isAuditor) {
-			AdminService.listUsersIncludeDeleted().then((data) => {
-				users = data;
-			});
-		}
+		AdminService.listUsersIncludeDeleted().then((data) => {
+			users = data;
+		});
 
 		checkScrollPosition();
 		scrollContainer?.addEventListener('scroll', checkScrollPosition);
@@ -201,6 +212,7 @@
 	}
 
 	function setLastVisitedMcpServer() {
+		if (isDialogView) return;
 		if (!entry) return;
 		const name = entry.manifest.name;
 		sessionStorage.setItem(
@@ -230,6 +242,10 @@
 	}
 
 	function handleSelectionChange(newSelection: string) {
+		if (isDialogView) {
+			selected = newSelection;
+			return;
+		}
 		if (newSelection !== selected) {
 			const url = new URL(window.location.href);
 			url.searchParams.set('view', newSelection);
@@ -483,7 +499,7 @@
 					</div>
 				{/if}
 			</div>
-			{#if !readonly}
+			{#if (!readonly && belongsToUser) || profile.current?.hasAdminAccess?.()}
 				<button
 					class="button-destructive flex items-center gap-1 text-xs font-normal"
 					use:tooltip={'Delete Server'}
@@ -503,7 +519,7 @@
 			{@attach (node: HTMLDivElement) => (scrollContainer = node)}
 		>
 			{#snippet children({ x })}
-				{#if tabs.length > 0}
+				{#if tabs.length > 0 && (entry?.id || server?.id)}
 					{#if x}
 						<button
 							disabled={!showLeftChevron}
@@ -547,6 +563,18 @@
 
 		{#if selected === 'overview' && entry}
 			<div class="pb-8">
+				{#if hasExistingConfigured}
+					<div class="notification-info mb-3 p-3 text-sm font-light">
+						<div class="flex items-center gap-3">
+							<Info class="size-6" />
+							<p>
+								It looks like you already have an existing server instance available. It is
+								recommended to only create another one if you need to instantiate another one with
+								different configurations.
+							</p>
+						</div>
+					</div>
+				{/if}
 				<McpServerInfo
 					{entry}
 					descriptionPlaceholder="Add a description for this MCP server in the Configuration tab"
@@ -561,14 +589,14 @@
 						Regenerate Tools & Capabilities
 					</button>
 				{/if}
-				<McpServerTools {entry}>
+				<McpServerTools entry={'isCatalogEntry' in entry && server ? server : entry}>
 					{#snippet noToolsContent()}
 						<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 							<Wrench class="text-on-surface1 size-24 opacity-50" />
-							{#if !entry || (entry && readonly)}
+							{#if !entry || (entry && (readonly || server))}
 								<h4 class="text-on-surface1 text-lg font-semibold">No tools</h4>
 								<p class="text-on-surface1 text-sm font-light">
-									Looks like this MCP server doesn't have any tools available.
+									Looks like this MCP server doesn't have any tools available currently.
 								</p>
 							{:else if !readonly}
 								<h4 class="text-on-surface1 text-lg font-semibold">No tools</h4>
@@ -612,7 +640,13 @@
 		{:else if selected === 'audit-logs'}
 			{@render auditLogsView()}
 		{:else if selected === 'server-instances'}
-			<McpServerInstances {id} {entity} {entry} {users} {type} />
+			<McpServerInstances
+				{id}
+				{entity}
+				entry={entry && 'isCatalogEntry' in entry && server ? server : entry}
+				{users}
+				{type}
+			/>
 		{:else if selected === 'filters'}
 			{@render filtersView()}
 		{/if}
@@ -668,16 +702,12 @@
 					const isAdminRoute = window.location.pathname.includes('/admin/');
 
 					let url = '';
-					const from =
-						entity === 'workspace' && !isAdminRoute
-							? encodeURIComponent(`mcp-publisher/${entry.id}`)
-							: encodeURIComponent(`mcp-servers/${entry.id}`);
 					if (entity === 'workspace') {
 						url = !isAdminRoute
-							? `/mcp-publisher/access-control/${d.id}?from=${from}`
-							: `/admin/access-control/w/${id}/r/${d.id}?from=${from}`;
+							? `/mcp-registries/${d.id}`
+							: `/admin/mcp-registries/w/${id}/r/${d.id}`;
 					} else {
-						url = `/admin/access-control/${d.id}?from=${from}`;
+						url = `/admin/mcp-registries/${d.id}`;
 					}
 					openUrl(url, isCtrlClick);
 				}}
@@ -717,9 +747,9 @@
 		{:else}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<GlobeLock class="text-on-surface1 size-24 opacity-50" />
-				<h4 class="text-on-surface1 text-lg font-semibold">No access control rules</h4>
+				<h4 class="text-on-surface1 text-lg font-semibold">No MCP registries</h4>
 				<p class="text-on-surface1 text-sm font-light">
-					This server is not tied to any access control rules.
+					This server is not tied to any registries.
 				</p>
 			</div>
 		{/if}
@@ -761,7 +791,7 @@
 			<!-- temporary filter mcp server by name and catalog entry id-->
 			{#if id}
 				<AuditLogsPageContent
-					mcpId={isMultiUserServer ? entryId : null}
+					mcpId={isMultiUserServer ? entryId : server ? server.id : null}
 					mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
 					{mcpServerDisplayName}
 					{id}
@@ -812,7 +842,7 @@
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						setLastVisitedMcpServer();
-						const url = `/admin/filters/${d.id}?from=${encodeURIComponent(`mcp-servers/${entry?.id}`)}`;
+						const url = `/admin/filters/${d.id}`;
 						openUrl(url, isCtrlClick);
 					}}
 				>
@@ -854,6 +884,7 @@
 	show={deleteServer}
 	onsuccess={async () => {
 		if (!id || !entry) return;
+		let url: `/${string}` = entity === 'workspace' ? '/mcp-servers' : '/admin/mcp-servers';
 		if (!('isCatalogEntry' in entry)) {
 			const deleteServerFn =
 				entity === 'workspace'
@@ -874,10 +905,8 @@
 					? ChatService.deleteWorkspaceMCPCatalogEntry
 					: AdminService.deleteMCPCatalogEntry;
 			await deleteCatalogEntryFn(id, entry.id);
-			let url: `/${string}` =
-				entity === 'workspace' ? '/mcp-publisher/mcp-servers' : '/admin/mcp-servers';
-			goto(url);
 		}
+		goto(url);
 	}}
 	oncancel={() => (deleteServer = false)}
 />

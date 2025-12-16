@@ -88,7 +88,7 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 		return types.NewErrForbidden("user is not authorized to access this catalog entry")
 	}
 
-	return req.Write(ConvertMCPServerCatalogEntry(entry))
+	return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, ""))
 }
 
 func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
@@ -97,11 +97,15 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		return err
 	}
 
+	convertEntry := func(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
+		return ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, "")
+	}
+
 	// Allow admins/auditors to bypass ACR filtering with ?all=true
 	if (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
 		entries := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
 		for _, entry := range list.Items {
-			entries = append(entries, ConvertMCPServerCatalogEntry(entry))
+			entries = append(entries, convertEntry(entry))
 		}
 		return req.Write(types.MCPServerCatalogEntryList{Items: entries})
 	}
@@ -124,7 +128,7 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		}
 
 		if hasAccess {
-			entries = append(entries, ConvertMCPServerCatalogEntry(entry))
+			entries = append(entries, convertEntry(entry))
 		}
 	}
 

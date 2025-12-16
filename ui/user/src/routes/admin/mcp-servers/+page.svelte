@@ -1,42 +1,38 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import {
-		fetchMcpServerAndEntries,
-		getAdminMcpServerAndEntries,
-		initMcpServerAndEntries
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
-	import { AdminService, type MCPCatalogServer } from '$lib/services';
-	import type { MCPCatalog, MCPCatalogEntry, OrgUser } from '$lib/services/admin/types';
-	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, X } from 'lucide-svelte';
+	import { AdminService, type LaunchServerType } from '$lib/services';
+	import type { MCPCatalog, OrgUser } from '$lib/services/admin/types';
+	import { AlertTriangle, Info, LoaderCircle, Plus, RefreshCcw, Server, X } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { fade, fly, slide } from 'svelte/transition';
-	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { goto } from '$lib/url';
+	import { replaceState } from '$lib/url';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import BackLink from '$lib/components/BackLink.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
-	import { profile } from '$lib/stores';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { page } from '$app/state';
-	import { twMerge } from 'tailwind-merge';
-	import RegistriesView from './RegistriesView.svelte';
-	import DeploymentsView from './DeploymentsView.svelte';
+	import { resolve } from '$app/paths';
+	import DeploymentsView from '$lib/components/mcp/DeploymentsView.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import SourceUrlsView from './SourceUrlsView.svelte';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		getTableUrlParamsSort,
 		setSortUrlParams,
-		setFilterUrlParams
+		setFilterUrlParams,
+		setUrlParam
 	} from '$lib/url';
 	import { getServerTypeLabelByType } from '$lib/services/chat/mcp';
 	import { debounce } from 'es-toolkit';
 	import { localState } from '$lib/runes/localState.svelte';
-	import { resolve } from '$app/paths';
+	import SourceUrlsView from './SourceUrlsView.svelte';
+	import { twMerge } from 'tailwind-merge';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import ConnectorsView from '$lib/components/mcp/ConnectorsView.svelte';
 
 	type View = 'registry' | 'deployments' | 'urls';
 
@@ -50,17 +46,13 @@
 		'@obot/admin/mcp-servers/search-query',
 		{ registry: '', deployments: '', urls: '' }
 	);
-	initMcpServerAndEntries();
 
-	const mcpServerAndEntries = getAdminMcpServerAndEntries();
 	let users = $state<OrgUser[]>([]);
 	let urlFilters = $state(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 
 	onMount(async () => {
 		users = await AdminService.listUsersIncludeDeleted();
-
-		await fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
 		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
 
 		if (defaultCatalog?.isSyncing) {
@@ -78,18 +70,27 @@
 		clearUrlParams();
 	}
 
-	afterNavigate(({ to }) => {
-		if (browser && to?.url) {
-			const serverId = to.url.searchParams.get('id');
-			const createNewType = to.url.searchParams.get('new') as
-				| 'single'
-				| 'multi'
-				| 'remote'
-				| 'composite';
+	afterNavigate(({ from }) => {
+		if (browser) {
+			// If coming back from a detail page, don't show form - user just created a server
+			const comingFromDetailPage =
+				from?.url?.pathname.startsWith('/admin/mcp-servers/c/') ||
+				from?.url?.pathname.startsWith('/admin/mcp-servers/s/');
+
+			if (comingFromDetailPage) {
+				showServerForm = false;
+				if (page.url.searchParams.has('new')) {
+					const cleanUrl = new URL(page.url);
+					cleanUrl.searchParams.delete('new');
+					replaceState(cleanUrl, {});
+				}
+				return;
+			}
+
+			const createNewType = page.url.searchParams.get('new') as LaunchServerType;
 			if (createNewType) {
 				selectServerType(createNewType, false);
-			} else if (!serverId && (selectedEntryServer || showServerForm)) {
-				selectedEntryServer = undefined;
+			} else {
 				showServerForm = false;
 			}
 		}
@@ -107,8 +108,7 @@
 	let editingSource = $state<{ index: number; value: string }>();
 	let sourceDialog = $state<HTMLDialogElement>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
-	let selectedServerType = $state<'single' | 'multi' | 'remote' | 'composite'>();
-	let selectedEntryServer = $state<MCPCatalogEntry | MCPCatalogServer>();
+	let selectedServerType = $state<LaunchServerType>();
 
 	let showServerForm = $state(false);
 	let saving = $state(false);
@@ -117,17 +117,14 @@
 	let syncInterval = $state<ReturnType<typeof setInterval>>();
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let totalCount = $derived(
-		mcpServerAndEntries.entries.length + mcpServerAndEntries.servers.length
-	);
 
-	function selectServerType(type: 'single' | 'multi' | 'remote' | 'composite', updateUrl = true) {
+	function selectServerType(type: LaunchServerType, updateUrl = true) {
 		selectedServerType = type;
 		selectServerTypeDialog?.close();
-		showServerForm = true;
 		if (updateUrl) {
-			goto(resolve(`/admin/mcp-servers?new=${type}`), { replaceState: false });
+			goto(resolve(`/admin/mcp-servers?new=${type}`), { replaceState: showServerForm });
 		}
+		showServerForm = true;
 	}
 
 	function closeSourceDialog() {
@@ -147,7 +144,7 @@
 				if (syncInterval) {
 					clearInterval(syncInterval);
 				}
-				fetchMcpServerAndEntries(defaultCatalogId, mcpServerAndEntries);
+				mcpServersAndEntries.refreshAll();
 				syncing = false;
 			}
 		}, 5000);
@@ -159,15 +156,6 @@
 		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
 		if (defaultCatalog?.isSyncing) {
 			pollTillSyncComplete();
-		}
-	}
-
-	// Helper function to update URL search params
-	function setUrlParam(url: URL, key: string, value: string | null): void {
-		if (value) {
-			url.searchParams.set(key, value);
-		} else {
-			url.searchParams.delete(key);
 		}
 	}
 
@@ -233,14 +221,35 @@
 	}, 100);
 </script>
 
-<Layout classes={{ navbar: 'bg-surface1' }}>
-	<div class="flex min-h-full flex-col gap-8 pt-4" in:fade>
+<Layout
+	classes={{ navbar: 'bg-surface1' }}
+	title={showServerForm
+		? `Create ${getServerTypeLabelByType(selectedServerType)} Server`
+		: 'MCP Servers'}
+	showBackButton={showServerForm}
+>
+	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if showServerForm}
 			{@render configureEntryScreen()}
 		{:else}
 			{@render mainContent()}
 		{/if}
 	</div>
+	{#snippet rightNavActions()}
+		{#if !isAdminReadonly}
+			{#if !showServerForm}
+				<button class="button flex items-center gap-1 text-sm" onclick={sync}>
+					{#if syncing}
+						<LoaderCircle class="size-4 animate-spin" /> Syncing...
+					{:else}
+						<RefreshCcw class="size-4" />
+						Sync
+					{/if}
+				</button>
+			{/if}
+			{@render addServerButton()}
+		{/if}
+	{/snippet}
 </Layout>
 
 {#snippet mainContent()}
@@ -249,29 +258,7 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<div
-			class="mb-4 flex flex-col items-center justify-start md:mb-8 md:flex-row md:justify-between"
-		>
-			<div class="flex items-center gap-2">
-				<h1 class="text-2xl font-semibold">MCP Servers</h1>
-				{#if !isAdminReadonly}
-					<button class="button-small flex items-center gap-1 text-xs font-normal" onclick={sync}>
-						{#if syncing}
-							<LoaderCircle class="size-4 animate-spin" /> Syncing...
-						{:else}
-							<RefreshCcw class="size-4" />
-							Sync
-						{/if}
-					</button>
-				{/if}
-			</div>
-			{#if totalCount > 0 && !isAdminReadonly}
-				<div class="mt-4 w-full flex-shrink-0 md:mt-0 md:w-fit">
-					{@render addServerButton()}
-				</div>
-			{/if}
-		</div>
-		<div class="bg-surface1 dark:bg-background sticky top-16 left-0 z-20 w-full pb-1">
+		<div class="bg-surface1 dark:bg-background sticky top-16 left-0 z-20 w-full py-1">
 			<div class="mb-2">
 				<Search
 					class="dark:bg-surface1 dark:border-surface3 bg-background border border-transparent shadow-sm"
@@ -287,7 +274,7 @@
 					class={twMerge('page-tab', view === 'registry' && 'page-tab-active')}
 					onclick={() => switchView('registry')}
 				>
-					Registry Entries
+					Server Entries
 				</button>
 				<button
 					class={twMerge('page-tab', view === 'deployments' && 'page-tab-active')}
@@ -315,7 +302,7 @@
 			{/if}
 
 			{#if view === 'registry'}
-				<RegistriesView
+				<ConnectorsView
 					bind:catalog={defaultCatalog}
 					readonly={isAdminReadonly}
 					{usersMap}
@@ -325,11 +312,19 @@
 					onClearAllFilters={handleClearAllFilters}
 					onSort={setSortUrlParams}
 					{initSort}
+					classes={{
+						tableHeader: 'top-31'
+					}}
+					onConnect={({ instance }) => {
+						if (instance) {
+							mcpServersAndEntries.refreshUserInstances();
+						} else {
+							mcpServersAndEntries.refreshUserConfiguredServers();
+						}
+					}}
 				>
-					{#snippet emptyContentButton()}
-						{@render addServerButton()}
-					{/snippet}
-				</RegistriesView>
+					{#snippet noDataContent()}{@render displayNoData()}{/snippet}
+				</ConnectorsView>
 			{:else if view === 'urls'}
 				<SourceUrlsView
 					catalog={defaultCatalog}
@@ -340,7 +335,7 @@
 				/>
 			{:else if view === 'deployments'}
 				<DeploymentsView
-					catalogId={defaultCatalogId}
+					id={defaultCatalogId}
 					readonly={isAdminReadonly}
 					{usersMap}
 					query={localStorageViewQuery.current?.['deployments'] || ''}
@@ -349,28 +344,40 @@
 					onClearAllFilters={handleClearAllFilters}
 					onSort={setSortUrlParams}
 					{initSort}
-				/>
+				>
+					{#snippet noDataContent()}{@render displayNoData()}{/snippet}
+				</DeploymentsView>
 			{/if}
 		</div>
 	</div>
 {/snippet}
 
+{#snippet displayNoData()}
+	<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
+		<Server class="text-on-surface1 size-24 opacity-25" />
+		<h4 class="text-on-surface1 text-lg font-semibold">No created MCP servers</h4>
+		<p class="text-on-surface1 text-sm font-light">
+			Looks like you don't have any servers created yet. <br />
+			Click the button below to get started.
+		</p>
+
+		{@render addServerButton()}
+	</div>
+{/snippet}
+
 {#snippet configureEntryScreen()}
-	{@const currentLabelType = getServerTypeLabelByType(selectedServerType)}
 	<div class="flex flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
-		<BackLink fromURL="mcp-servers" currentLabel={`Create ${currentLabelType} Server`} />
 		<McpServerEntryForm
 			type={selectedServerType}
 			id={defaultCatalogId}
 			onCancel={() => {
-				selectedEntryServer = undefined;
 				showServerForm = false;
 			}}
 			onSubmit={async (id, type) => {
 				if (type === 'single' || type === 'remote' || type === 'composite') {
-					goto(resolve(`/admin/mcp-servers/c/${id}`));
+					goto(resolve(`/admin/mcp-servers/c/${id}?launch=true`));
 				} else {
-					goto(resolve(`/admin/mcp-servers/s/${id}`));
+					goto(resolve(`/admin/mcp-servers/s/${id}?launch=true`));
 				}
 			}}
 		/>

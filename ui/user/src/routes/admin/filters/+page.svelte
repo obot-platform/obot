@@ -5,13 +5,8 @@
 	import { BookOpenText, ChevronLeft, LoaderCircle, Plus, Trash2 } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { onMount } from 'svelte';
-	import {
-		fetchMcpServerAndEntries,
-		getAdminMcpServerAndEntries,
-		initMcpServerAndEntries
-	} from '$lib/context/admin/mcpServerAndEntries.svelte';
 	import { AdminService, type MCPFilter } from '$lib/services/index.js';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import { openUrl } from '$lib/utils';
@@ -28,8 +23,6 @@
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url';
-
-	initMcpServerAndEntries();
 
 	let showCreateFilter = $state(false);
 	let loading = $state(true);
@@ -78,7 +71,6 @@
 
 	const duration = PAGE_TRANSITION_DURATION;
 	onMount(async () => {
-		await fetchMcpServerAndEntries(DEFAULT_MCP_CATALOG_ID);
 		await refresh();
 
 		if (page.url.searchParams.size > 0) {
@@ -89,9 +81,9 @@
 	});
 </script>
 
-<Layout>
+<Layout title="Filters">
 	<div
-		class="my-4 h-full w-full"
+		class="h-full w-full"
 		in:fly={{ x: 100, duration, delay: duration }}
 		out:fly={{ x: -100, duration }}
 	>
@@ -103,17 +95,6 @@
 				in:fly={{ x: 100, delay: duration, duration }}
 				out:fly={{ x: -100, duration }}
 			>
-				<div class="flex items-center justify-between">
-					<h1 class="text-2xl font-semibold">Filters</h1>
-					<div class="relative flex items-center gap-4">
-						{#if loading}
-							<LoaderCircle class="size-4 animate-spin" />
-						{/if}
-						{#if !profile.current.isAdminReadonly?.()}
-							{@render addFilterButton()}
-						{/if}
-					</div>
-				</div>
 				<div class="flex flex-col gap-2">
 					<Search
 						value={query}
@@ -194,6 +175,15 @@
 			</div>
 		{/if}
 	</div>
+
+	{#snippet rightNavActions()}
+		{#if loading}
+			<LoaderCircle class="size-4 animate-spin" />
+		{/if}
+		{#if !profile.current.isAdminReadonly?.()}
+			{@render addFilterButton()}
+		{/if}
+	{/snippet}
 </Layout>
 
 {#snippet addFilterButton()}
@@ -211,7 +201,7 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<FilterForm onCreate={navigateAfterCreated} mcpEntriesContextFn={getAdminMcpServerAndEntries}>
+		<FilterForm onCreate={navigateAfterCreated}>
 			{#snippet topContent()}
 				<button
 					onclick={() => (showCreateFilter = false)}

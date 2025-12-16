@@ -8,6 +8,7 @@
 	interface Props {
 		leftContent?: Snippet;
 		centerContent?: Snippet;
+		rightContent?: Snippet;
 		class?: string;
 		unauthorized?: boolean;
 		hideProfileButton?: boolean;
@@ -17,6 +18,7 @@
 	let {
 		leftContent,
 		centerContent,
+		rightContent,
 		class: klass,
 		unauthorized,
 		hideProfileButton,
@@ -36,10 +38,15 @@
 				{@render centerContent()}
 			{/if}
 		</div>
-		{#if !unauthorized && !hideProfileButton}
-			<div class="flex h-16 items-center">
-				<Profile />
-			</div>
-		{/if}
+		<div class="flex items-center gap-2">
+			{#if rightContent}
+				{@render rightContent()}
+			{/if}
+			{#if !unauthorized && !hideProfileButton}
+				<div class="flex h-16 flex-shrink-0 items-center">
+					<Profile />
+				</div>
+			{/if}
+		</div>
 	</div>
 </nav>
