@@ -160,7 +160,8 @@
 						: (m.remoteConfig?.headers ?? []).map((h) => ({
 								...(h as unknown as Record<string, unknown>),
 								key: h.key,
-								value: ''
+								value: '',
+								isStatic: h.value !== ''
 							}))
 				};
 			}
