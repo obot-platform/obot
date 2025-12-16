@@ -6,7 +6,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import TimeInput from './TimeInput.svelte';
 	import { slide } from 'svelte/transition';
-	import { Viewport } from '$lib/context/viewport.svelte';
+	import { responsive } from '$lib/stores';
 
 	export interface DateRange {
 		start: Date | null;
@@ -35,8 +35,6 @@
 		compact?: boolean;
 		open?: boolean;
 	}
-
-	const viewport = Viewport.get();
 
 	let {
 		id,
@@ -229,7 +227,7 @@
 		}
 	});
 
-	const isSmallScreen = $derived(viewport.screen === 'sm' || viewport.screen === 'xs');
+	const isSmallScreen = $derived(responsive.isMobile);
 
 	function popoverRef(node: HTMLElement) {
 		return calendarPopover.ref(node);

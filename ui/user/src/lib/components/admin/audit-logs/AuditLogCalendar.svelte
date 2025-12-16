@@ -5,9 +5,7 @@
 	import { formatTimeRange, getTimeRangeShorthand } from '$lib/time';
 	import { set, startOfDay, subDays, subHours } from 'date-fns';
 	import { twMerge } from 'tailwind-merge';
-	import { Viewport } from '$lib/context/viewport.svelte';
-
-	const viewport = Viewport.get();
+	import { responsive } from '$lib/stores';
 
 	let { start, end, disabled = false, onChange } = $props();
 
@@ -95,7 +93,7 @@
 		}
 	});
 
-	const isSmallScreen = $derived(viewport.screen === 'sm' || viewport.screen === 'xs');
+	const isSmallScreen = $derived(responsive.isMobile);
 
 	function refAction(node: HTMLElement) {
 		return quickActionsPopover.ref(node);
