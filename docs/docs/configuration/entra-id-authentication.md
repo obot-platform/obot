@@ -174,8 +174,8 @@ Set `use_workload_identity: true` in tool configuration - no `client_secret` req
 | `token_refresh_duration` | `1h` | How often to refresh the access token |
 | `allowed_groups` | - | Comma-separated Azure AD group IDs allowed to authenticate |
 | `allowed_tenants` | - | Comma-separated tenant IDs for multi-tenant apps |
-| `cache_size` | `5000` | Maximum number of user states to cache |
-| `cache_ttl` | `1h` | Cache TTL duration |
+| `group_cache_ttl` | `1h` | How long to cache user group memberships |
+| `icon_cache_ttl` | `24h` | How long to cache profile pictures |
 | `log_level` | `info` | Logging level (debug, info, warn, error) |
 | `metrics_enabled` | `true` | Enable Prometheus metrics endpoint |
 

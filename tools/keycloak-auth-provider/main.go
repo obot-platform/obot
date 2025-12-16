@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -18,14 +19,15 @@ import (
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/validation"
 	"github.com/obot-platform/obot-entraid/tools/keycloak-auth-provider/pkg/profile"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/env"
+	"github.com/obot-platform/tools/auth-providers-common/pkg/groups"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/state"
 )
 
 type Options struct {
 	ClientID                 string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_ID"`
 	ClientSecret             string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_SECRET"`
-	KeycloakURL              string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_URL"`                                              // e.g., https://keycloak.example.com
-	KeycloakRealm            string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_REALM"`                                            // e.g., "obot"
+	KeycloakURL              string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_URL"`   // e.g., https://keycloak.example.com
+	KeycloakRealm            string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_REALM"` // e.g., "obot"
 	ObotServerURL            string `env:"OBOT_SERVER_PUBLIC_URL,OBOT_SERVER_URL"`
 	PostgresConnectionDSN    string `env:"OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN" optional:"true"`
 	AuthCookieSecret         string `env:"OBOT_AUTH_PROVIDER_COOKIE_SECRET"`
@@ -33,6 +35,7 @@ type Options struct {
 	AuthTokenRefreshDuration string `env:"OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION" optional:"true" default:"1h"`
 	AllowedGroups            string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_GROUPS" optional:"true"`
 	AllowedRoles             string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_ROLES" optional:"true"`
+	GroupCacheTTL            string `env:"OBOT_KEYCLOAK_AUTH_PROVIDER_GROUP_CACHE_TTL" optional:"true" default:"1h"`
 }
 
 func main() {
@@ -171,6 +174,13 @@ func main() {
 		port = "9999"
 	}
 
+	// Parse cache TTL with default
+	groupCacheTTL, err := time.ParseDuration(opts.GroupCacheTTL)
+	if err != nil {
+		fmt.Printf("WARNING: keycloak-auth-provider: invalid GROUP_CACHE_TTL '%s', using default 1h\\n", opts.GroupCacheTTL)
+		groupCacheTTL = time.Hour
+	}
+
 	// Parse allowed groups for filtering (if groups come from token claims)
 	var allowedGroups []string
 	if opts.AllowedGroups != "" {
@@ -189,7 +199,7 @@ func main() {
 	})
 
 	// State endpoint - returns auth state with group enrichment from token claims
-	mux.HandleFunc("/obot-get-state", getState(oauthProxy, allowedGroups))
+	mux.HandleFunc("/obot-get-state", getState(oauthProxy, allowedGroups, groupCacheTTL))
 
 	// User info endpoint - fetches profile from Keycloak userinfo endpoint
 	mux.HandleFunc("/obot-get-user-info", func(w http.ResponseWriter, r *http.Request) {
@@ -217,9 +227,9 @@ func main() {
 }
 
 // getState returns an HTTP handler that wraps the state.ObotGetState with group enrichment from Keycloak token
-func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string) http.HandlerFunc {
+func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string, groupCacheTTL time.Duration) http.HandlerFunc {
 	// Cache for user groups to avoid repeated token parsing
-	groupCache := expirable.NewLRU[string, []string](5000, nil, time.Hour)
+	groupCache := expirable.NewLRU[string, []string](5000, nil, groupCacheTTL)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get base state from oauth2-proxy
@@ -252,16 +262,16 @@ func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string) http.HandlerFun
 				}
 
 				// Check cache first
-				if groups, ok := groupCache.Get(userID); ok {
-					ss.Groups = groups
+				if cachedGroups, ok := groupCache.Get(userID); ok {
+					ss.Groups = cachedGroups
 				} else if len(userProfile.Groups) > 0 {
-					groups := userProfile.Groups
+					filteredGroups := userProfile.Groups
 					// Apply group filtering if configured
 					if len(allowedGroups) > 0 {
-						groups = filterGroups(groups, allowedGroups)
+						filteredGroups = groups.Filter(filteredGroups, allowedGroups)
 					}
-					ss.Groups = groups
-					groupCache.Add(userID, groups)
+					ss.Groups = filteredGroups
+					groupCache.Add(userID, filteredGroups)
 				}
 			}
 		}
@@ -290,7 +300,7 @@ func getSerializableStateFromRequest(p *oauth2proxy.OAuthProxy, r *http.Request)
 }
 
 // fetchUserProfile fetches user profile from Keycloak's userinfo endpoint
-func fetchUserProfile(ctx context.Context, authHeader, issuerURL string) (map[string]interface{}, error) {
+func fetchUserProfile(ctx context.Context, authHeader, issuerURL string) (map[string]any, error) {
 	accessToken := strings.TrimPrefix(authHeader, "Bearer ")
 
 	// Keycloak userinfo endpoint: {issuer}/protocol/openid-connect/userinfo
@@ -320,26 +330,20 @@ func fetchUserProfile(ctx context.Context, authHeader, issuerURL string) (map[st
 		return nil, fmt.Errorf("userinfo endpoint returned %d: %s", resp.StatusCode, string(body))
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
 	}
 
-	return result, nil
-}
-
-// filterGroups returns only groups that are in the allowed list
-func filterGroups(groups []string, allowed []string) []string {
-	allowedSet := make(map[string]bool, len(allowed))
-	for _, g := range allowed {
-		allowedSet[g] = true
-	}
-
-	var filtered []string
-	for _, g := range groups {
-		if allowedSet[g] {
-			filtered = append(filtered, g)
+	// Add Gravatar fallback for icon_url since Keycloak doesn't have built-in profile pictures
+	// Uses email hash to generate consistent identicon avatars
+	if email, ok := result["email"].(string); ok && email != "" {
+		// Check if icon_url is not already set (e.g., from Keycloak custom attribute)
+		if _, hasIcon := result["icon_url"]; !hasIcon {
+			hash := md5.Sum([]byte(strings.ToLower(strings.TrimSpace(email))))
+			result["icon_url"] = fmt.Sprintf("https://www.gravatar.com/avatar/%x?d=identicon&s=200", hash)
 		}
 	}
-	return filtered
+
+	return result, nil
 }

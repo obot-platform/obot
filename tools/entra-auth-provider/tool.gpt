@@ -77,6 +77,18 @@ Credential: ../placeholder-credential as entra-auth-provider
             "friendlyName": "Use Workload Identity",
             "description": "Enable Azure Workload Identity for Kubernetes (eliminates need for client secret). Set to 'true' to enable.",
             "sensitive": false
+        },
+        {
+            "name": "OBOT_ENTRA_AUTH_PROVIDER_GROUP_CACHE_TTL",
+            "friendlyName": "Group Cache TTL",
+            "description": "How long to cache user group memberships. Format: 1h, 30m, etc. Default: 1h. Shorter values mean faster permission propagation but more API calls.",
+            "sensitive": false
+        },
+        {
+            "name": "OBOT_ENTRA_AUTH_PROVIDER_ICON_CACHE_TTL",
+            "friendlyName": "Icon Cache TTL",
+            "description": "How long to cache profile pictures. Format: 24h, 12h, etc. Default: 24h. Profile pictures rarely change, so longer values reduce API calls.",
+            "sensitive": false
         }
     ]
 }

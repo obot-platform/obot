@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/obot-platform/tools/auth-providers-common/pkg/ratelimit"
 )
 
 // graphClient for Microsoft Graph API requests
@@ -37,7 +38,16 @@ type EntraIDTokenClaims struct {
 }
 
 // ParseIDToken extracts user information from an Entra ID ID token (JWT)
-// The token is parsed without verification since oauth2-proxy already verified it
+// The token is parsed without verification since oauth2-proxy already verified it.
+//
+// SECURITY NOTE: We use ParseUnverified because the token signature has already
+// been validated by oauth2-proxy during the OIDC authentication flow. This is
+// safe because:
+//  1. oauth2-proxy validates the signature using the IdP's public keys (JWKS)
+//  2. oauth2-proxy validates standard claims (exp, iss, aud)
+//  3. We only extract claims for internal use after authentication succeeds
+//
+// DO NOT use ParseUnverified for tokens that haven't been pre-validated.
 func ParseIDToken(idToken string) (*UserProfile, error) {
 	if idToken == "" {
 		return nil, fmt.Errorf("empty ID token")
@@ -94,7 +104,7 @@ func FetchUserIconURL(ctx context.Context, accessToken string) (string, error) {
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	resp, err := graphClient.Do(req)
+	resp, err := ratelimit.DoWithRetry(ctx, graphClient, req, ratelimit.DefaultConfig())
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch photo from Graph API: %w", err)
 	}
@@ -107,7 +117,7 @@ func FetchUserIconURL(ctx context.Context, accessToken string) (string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("Graph API photo returned status %d: %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("graph API photo returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	// Read the image data

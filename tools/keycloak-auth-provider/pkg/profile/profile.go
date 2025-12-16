@@ -8,7 +8,7 @@ import (
 
 // UserProfile represents extracted user information from Keycloak
 type UserProfile struct {
-	Subject           string   // Subject - stable user identifier in Keycloak
+	Subject           string // Subject - stable user identifier in Keycloak
 	Email             string
 	PreferredUsername string
 	Name              string
@@ -45,7 +45,16 @@ type ResourceAccess struct {
 }
 
 // ParseIDToken extracts user information from a Keycloak ID token (JWT)
-// The token is parsed without verification since oauth2-proxy already verified it
+// The token is parsed without verification since oauth2-proxy already verified it.
+//
+// SECURITY NOTE: We use ParseUnverified because the token signature has already
+// been validated by oauth2-proxy during the OIDC authentication flow. This is
+// safe because:
+//  1. oauth2-proxy validates the signature using the IdP's public keys (JWKS)
+//  2. oauth2-proxy validates standard claims (exp, iss, aud)
+//  3. We only extract claims for internal use after authentication succeeds
+//
+// DO NOT use ParseUnverified for tokens that haven't been pre-validated.
 func ParseIDToken(idToken string) (*UserProfile, error) {
 	if idToken == "" {
 		return nil, fmt.Errorf("empty ID token")

@@ -18,6 +18,8 @@ import (
 	"github.com/oauth2-proxy/oauth2-proxy/v7/pkg/validation"
 	"github.com/obot-platform/obot-entraid/tools/entra-auth-provider/pkg/profile"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/env"
+	"github.com/obot-platform/tools/auth-providers-common/pkg/groups"
+	"github.com/obot-platform/tools/auth-providers-common/pkg/ratelimit"
 	"github.com/obot-platform/tools/auth-providers-common/pkg/state"
 )
 
@@ -36,12 +38,19 @@ type Options struct {
 	AuthTokenRefreshDuration string `env:"OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION" optional:"true" default:"1h"`
 	AllowedGroups            string `env:"OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_GROUPS" optional:"true"`
 	AllowedTenants           string `env:"OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS" optional:"true"`
+	GroupCacheTTL            string `env:"OBOT_ENTRA_AUTH_PROVIDER_GROUP_CACHE_TTL" optional:"true" default:"1h"`
+	IconCacheTTL             string `env:"OBOT_ENTRA_AUTH_PROVIDER_ICON_CACHE_TTL" optional:"true" default:"24h"`
 }
 
 // GraphClient for Microsoft Graph API requests
 var graphClient = &http.Client{
 	Timeout: 30 * time.Second,
 }
+
+// iconCache caches user profile pictures to reduce Graph API calls
+// Key: user OID, Value: base64 data URL
+// Initialized in main() with configurable TTL
+var iconCache *expirable.LRU[string, string]
 
 func main() {
 	var opts Options
@@ -153,12 +162,37 @@ func main() {
 		port = "9999"
 	}
 
+	// Parse cache TTLs with defaults
+	groupCacheTTL, err := time.ParseDuration(opts.GroupCacheTTL)
+	if err != nil {
+		fmt.Printf("WARNING: entra-auth-provider: invalid GROUP_CACHE_TTL '%s', using default 1h\\n", opts.GroupCacheTTL)
+		groupCacheTTL = time.Hour
+	}
+
+	iconCacheTTL, err := time.ParseDuration(opts.IconCacheTTL)
+	if err != nil {
+		fmt.Printf("WARNING: entra-auth-provider: invalid ICON_CACHE_TTL '%s', using default 24h\\n", opts.IconCacheTTL)
+		iconCacheTTL = 24 * time.Hour
+	}
+
+	// Initialize icon cache with configured TTL
+	iconCache = expirable.NewLRU[string, string](10000, nil, iconCacheTTL)
+
 	// Parse allowed groups for filtering
 	var allowedGroups []string
 	if opts.AllowedGroups != "" {
 		allowedGroups = strings.Split(opts.AllowedGroups, ",")
 		for i := range allowedGroups {
 			allowedGroups[i] = strings.TrimSpace(allowedGroups[i])
+		}
+	}
+
+	// Parse allowed tenants for multi-tenant runtime validation
+	var allowedTenantSet map[string]bool
+	if opts.AllowedTenants != "" && opts.AllowedTenants != "*" {
+		allowedTenantSet = make(map[string]bool)
+		for _, tenant := range strings.Split(opts.AllowedTenants, ",") {
+			allowedTenantSet[strings.TrimSpace(tenant)] = true
 		}
 	}
 
@@ -171,7 +205,7 @@ func main() {
 	})
 
 	// State endpoint - returns auth state with token refresh support
-	mux.HandleFunc("/obot-get-state", getState(oauthProxy, allowedGroups))
+	mux.HandleFunc("/obot-get-state", getState(oauthProxy, allowedGroups, allowedTenantSet, groupCacheTTL))
 
 	// User info endpoint - fetches profile from Microsoft Graph
 	mux.HandleFunc("/obot-get-user-info", func(w http.ResponseWriter, r *http.Request) {
@@ -236,9 +270,9 @@ func isMultiTenant(tenantID string) bool {
 }
 
 // getState returns an HTTP handler that wraps the state.ObotGetState with group enrichment
-func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string) http.HandlerFunc {
+func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string, allowedTenants map[string]bool, groupCacheTTL time.Duration) http.HandlerFunc {
 	// Cache for user groups to avoid repeated Graph API calls
-	groupCache := expirable.NewLRU[string, []string](5000, nil, time.Hour)
+	groupCache := expirable.NewLRU[string, []string](5000, nil, groupCacheTTL)
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get base state from oauth2-proxy
@@ -256,6 +290,13 @@ func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string) http.HandlerFun
 			if err != nil {
 				fmt.Printf("WARNING: entra-auth-provider: failed to parse ID token: %v\n", err)
 			} else {
+				// Validate tenant if restrictions are configured (multi-tenant mode)
+				if allowedTenants != nil && !allowedTenants[userProfile.TenantID] {
+					fmt.Printf("WARNING: entra-auth-provider: rejected login from unauthorized tenant: %s\n", userProfile.TenantID)
+					http.Error(w, "tenant not allowed", http.StatusForbidden)
+					return
+				}
+
 				// Set User to Azure Object ID (stable identifier)
 				ss.User = userProfile.OID
 				// Set PreferredUsername to the human-readable UPN from the token
@@ -276,21 +317,21 @@ func getState(p *oauth2proxy.OAuthProxy, allowedGroups []string) http.HandlerFun
 			}
 
 			// Check cache first
-			if groups, ok := groupCache.Get(userID); ok {
-				ss.Groups = groups
+			if cachedGroups, ok := groupCache.Get(userID); ok {
+				ss.Groups = cachedGroups
 			} else {
 				// Fetch groups from Graph API
-				groups, err := fetchUserGroups(r.Context(), ss.AccessToken)
+				fetchedGroups, err := fetchUserGroups(r.Context(), ss.AccessToken)
 				if err != nil {
 					// Log error but don't fail - groups are optional
 					fmt.Printf("WARNING: entra-auth-provider: failed to fetch groups for %s: %v\n", userID, err)
 				} else {
 					// Apply group filtering if configured
 					if len(allowedGroups) > 0 {
-						groups = filterGroups(groups, allowedGroups)
+						fetchedGroups = groups.Filter(fetchedGroups, allowedGroups)
 					}
-					ss.Groups = groups
-					groupCache.Add(userID, groups)
+					ss.Groups = fetchedGroups
+					groupCache.Add(userID, fetchedGroups)
 				}
 			}
 		}
@@ -330,7 +371,7 @@ func fetchUserProfile(ctx context.Context, authHeader string) (map[string]any, e
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := graphClient.Do(req)
+	resp, err := ratelimit.DoWithRetry(ctx, graphClient, req, ratelimit.DefaultConfig())
 	if err != nil {
 		return nil, fmt.Errorf("graph API request failed: %w", err)
 	}
@@ -356,6 +397,20 @@ func fetchUserProfile(ctx context.Context, authHeader string) (map[string]any, e
 		result["name"] = displayName
 	}
 
+	// Get user OID for cache key
+	var cacheKey string
+	if id, ok := result["id"].(string); ok {
+		cacheKey = id
+	}
+
+	// Check icon cache first to avoid redundant Graph API calls
+	if cacheKey != "" {
+		if cachedIcon, ok := iconCache.Get(cacheKey); ok {
+			result["icon_url"] = cachedIcon
+			return result, nil
+		}
+	}
+
 	// Fetch and add icon URL for obot compatibility
 	// obot's UpdateProfileIfNeeded looks for profile["icon_url"] for entra-auth-provider
 	iconURL, err := profile.FetchUserIconURL(ctx, accessToken)
@@ -364,6 +419,10 @@ func fetchUserProfile(ctx context.Context, authHeader string) (map[string]any, e
 		fmt.Printf("WARNING: failed to fetch icon URL: %v\n", err)
 	} else if iconURL != "" {
 		result["icon_url"] = iconURL
+		// Cache the icon for future requests
+		if cacheKey != "" {
+			iconCache.Add(cacheKey, iconURL)
+		}
 	}
 
 	return result, nil
@@ -385,7 +444,7 @@ func fetchUserGroups(ctx context.Context, accessToken string) ([]string, error) 
 		req.Header.Set("Accept", "application/json")
 		req.Header.Set("ConsistencyLevel", "eventual") // Required for $count and advanced query
 
-		resp, err := graphClient.Do(req)
+		resp, err := ratelimit.DoWithRetry(ctx, graphClient, req, ratelimit.DefaultConfig())
 		if err != nil {
 			return nil, fmt.Errorf("graph API request failed: %w", err)
 		}
@@ -422,20 +481,4 @@ func fetchUserGroups(ctx context.Context, accessToken string) ([]string, error) 
 	}
 
 	return allGroups, nil
-}
-
-// filterGroups returns only groups that are in the allowed list
-func filterGroups(groups []string, allowed []string) []string {
-	allowedSet := make(map[string]bool, len(allowed))
-	for _, g := range allowed {
-		allowedSet[g] = true
-	}
-
-	var filtered []string
-	for _, g := range groups {
-		if allowedSet[g] {
-			filtered = append(filtered, g)
-		}
-	}
-	return filtered
 }

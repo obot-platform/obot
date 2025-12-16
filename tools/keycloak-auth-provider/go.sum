@@ -103,8 +103,6 @@ github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25 h1:9bCMuD3Tc
 github.com/oauth2-proxy/mockoidc v0.0.0-20240214162133-caebfff84d25/go.mod h1:eDjgYHYDJbPLBLsyZ6qRaugP0mX8vePOhZ5id1fdzJw=
 github.com/obot-platform/oauth2-proxy/v7 v7.0.0-20251112215948-0f320f3720bb h1:O7/V4ABdQ3uiQXKaiol3waJECAJOHPae4OhaRqjMrCI=
 github.com/obot-platform/oauth2-proxy/v7 v7.0.0-20251112215948-0f320f3720bb/go.mod h1:cadVY2Xt6SdZY3Sc5QH7SZ3CDWzrB54nKtMV5ys2dlc=
-github.com/obot-platform/tools/auth-providers-common v0.0.0-20251106020319-94c074309ab3 h1:BBrJs5FvrXp07eH+JjUkyRTwEcr4vCzqf03sPCIjNvs=
-github.com/obot-platform/tools/auth-providers-common v0.0.0-20251106020319-94c074309ab3/go.mod h1:ABOUCp9aP8yLfb2zXr0SDwB4UUouqRtJOt3zoSJFGzM=
 github.com/onsi/ginkgo/v2 v2.23.4 h1:ktYTpKJAVZnDT4VjxSbiBenUjmlL/5QkBEocaWXiQus=
 github.com/onsi/ginkgo/v2 v2.23.4/go.mod h1:Bt66ApGPBFzHyR+JO10Zbt0Gsp4uWxu5mIOTusL46e8=
 github.com/onsi/gomega v1.37.0 h1:CdEG8g0S133B4OswTDC/5XPSzE1OeP29QOioj2PID2Y=

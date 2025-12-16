@@ -5,6 +5,9 @@ go 1.25.5
 // Use obot-platform's fork of oauth2-proxy with custom enhancements
 replace github.com/oauth2-proxy/oauth2-proxy/v7 => github.com/obot-platform/oauth2-proxy/v7 v7.0.0-20251112215948-0f320f3720bb
 
+// Use local auth-providers-common with new packages (groups)
+replace github.com/obot-platform/tools/auth-providers-common => ../auth-providers-common
+
 require (
 	github.com/golang-jwt/jwt/v5 v5.2.3
 	github.com/hashicorp/golang-lru/v2 v2.0.7

@@ -116,6 +116,8 @@ OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN="<auto-provided if using PostgreSQL>"
 | `OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION` | `1h` | How often to refresh tokens (format: `1h30m`, `2h`, etc.) |
 | `OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_GROUPS` | (empty) | Comma-separated list of Azure AD group IDs allowed to authenticate |
 | `OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS` | (empty) | Comma-separated list of tenant IDs allowed (required for multi-tenant) |
+| `OBOT_ENTRA_AUTH_PROVIDER_GROUP_CACHE_TTL` | `1h` | How long to cache user group memberships (format: `30m`, `2h`, etc.) |
+| `OBOT_ENTRA_AUTH_PROVIDER_ICON_CACHE_TTL` | `24h` | How long to cache profile pictures (format: `12h`, `48h`, etc.) |
 
 ### Auto-Provided by Obot
 

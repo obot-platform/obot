@@ -228,6 +228,9 @@ OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_GROUPS=obot-admins,obot-users
 
 # Restrict access to specific roles (comma-separated)
 OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_ROLES=obot-admin,obot-user
+
+# Group cache duration (default: 1h)
+OBOT_KEYCLOAK_AUTH_PROVIDER_GROUP_CACHE_TTL=1h
 ```
 
 ## Troubleshooting

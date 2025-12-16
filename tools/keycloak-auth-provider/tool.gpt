@@ -77,6 +77,12 @@ Credential: ../placeholder-credential as keycloak-auth-provider
             "friendlyName": "Allowed Roles",
             "description": "Comma-separated list of Keycloak realm roles allowed to authenticate. Leave empty to allow all roles. Format: 'role-name' for realm roles or 'client-id:role-name' for client roles.",
             "sensitive": false
+        },
+        {
+            "name": "OBOT_KEYCLOAK_AUTH_PROVIDER_GROUP_CACHE_TTL",
+            "friendlyName": "Group Cache TTL",
+            "description": "How long to cache user group memberships. Format: 1h, 30m, etc. Default: 1h. Shorter values mean faster permission propagation but more token parsing.",
+            "sensitive": false
         }
     ]
 }

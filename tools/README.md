@@ -82,6 +82,8 @@ Required environment variables:
 Optional:
 - `OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_GROUPS` - Comma-separated Azure AD group IDs
 - `OBOT_ENTRA_AUTH_PROVIDER_ALLOWED_TENANTS` - Required if tenant is 'common'/'organizations'
+- `OBOT_ENTRA_AUTH_PROVIDER_GROUP_CACHE_TTL` - Group cache duration (default: `1h`)
+- `OBOT_ENTRA_AUTH_PROVIDER_ICON_CACHE_TTL` - Profile picture cache duration (default: `24h`)
 
 See `entra-auth-provider/README.md` for detailed Azure setup instructions.
 
@@ -98,6 +100,7 @@ Required environment variables:
 Optional:
 - `OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_GROUPS` - Comma-separated group names
 - `OBOT_KEYCLOAK_AUTH_PROVIDER_ALLOWED_ROLES` - Comma-separated role names
+- `OBOT_KEYCLOAK_AUTH_PROVIDER_GROUP_CACHE_TTL` - Group cache duration (default: `1h`)
 
 ## Container Build Architecture
 
