@@ -57,3 +57,28 @@ func (h *handler) registryOAuthProtectedResource(req api.Context) error {
 	"bearer_methods_supported": ["header"]
 }`, h.baseURL))
 }
+
+func (h *handler) acrRegistryOAuthProtectedResource(req api.Context) error {
+	// Return 404 if registry is in no-auth mode
+	if h.registryNoAuth {
+		return &types.ErrHTTP{
+			Code:    http.StatusNotFound,
+			Message: "Registry OAuth is not available when registry authentication is disabled",
+		}
+	}
+
+	acrID := req.PathValue("acr_id")
+	if acrID == "" {
+		return &types.ErrHTTP{
+			Code:    http.StatusNotFound,
+			Message: "ACR ID is required",
+		}
+	}
+
+	// Return the same OAuth metadata as root registry, but scoped to the ACR path
+	return req.Write(fmt.Sprintf(`{
+	"resource": "%s/mcp-registry/%s/v0.1/servers",
+	"authorization_servers": ["%[1]s"],
+	"bearer_methods_supported": ["header"]
+}`, h.baseURL, acrID))
+}
