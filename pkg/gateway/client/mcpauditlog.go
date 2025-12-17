@@ -286,6 +286,29 @@ session_id %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ?`
 	return logs, total, nil
 }
 
+// GetMCPAuditLog retrieves a single MCP audit log by ID
+func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResponse bool) (*types.MCPAuditLog, error) {
+	var log types.MCPAuditLog
+
+	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{})
+
+	if err := db.Where("id = ?", id).First(&log).Error; err != nil {
+		return nil, err
+	}
+
+	// Decrypt if requested
+	if err := c.decryptMCPAuditLog(ctx, &log); err != nil {
+		return nil, fmt.Errorf("failed to decrypt MCP audit log: %w", err)
+	}
+	if !withRequestAndResponse {
+		// Blank out encrypted fields
+		log.RequestBody = nil
+		log.ResponseBody = nil
+	}
+
+	return &log, nil
+}
+
 func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, opts MCPAuditLogOptions, exclude ...any) ([]string, error) {
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Distinct(option)
 

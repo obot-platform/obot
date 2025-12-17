@@ -768,6 +768,11 @@ export async function listServerOrInstanceAuditLogs(
 	return response;
 }
 
+export async function getAuditLog(id: string | number, opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(`/mcp-audit-logs/detail/${id}`, opts)) as AuditLog;
+	return response;
+}
+
 type AuditLogUsageFilters = {
 	mcp_id?: string;
 	mcp_server_catalog_entry_names?: string;

@@ -1,6 +1,7 @@
 package mcpgateway
 
 import (
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -116,7 +117,8 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 
 	// Parse query parameters with support for multiple values
 	opts := gateway.MCPAuditLogOptions{
-		WithRequestAndResponse: req.UserIsAuditor(),
+		// Always exclude request/response bodies from list responses for performance
+		WithRequestAndResponse: false,
 		// Default limit is 100.
 		Limit: 100,
 		// Any of these filters that can be passed via query parameter need to be available in the "filter options" API.
@@ -208,6 +210,32 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		Limit:  opts.Limit,
 		Offset: opts.Offset,
 	})
+}
+
+// GetAuditLog handles GET /api/mcp-audit-logs/detail/{audit_log_id}
+func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
+	// Parse ID from path
+	id := req.PathValue("audit_log_id")
+	if id == "" {
+		return types.NewErrBadRequest("missing audit log id")
+	}
+
+	// Convert ID to uint
+	var auditLogID uint64
+	if _, err := fmt.Sscanf(id, "%d", &auditLogID); err != nil {
+		return types.NewErrBadRequest("invalid audit log id: %v", err)
+	}
+
+	// Get the audit log with full details if user is auditor
+	log, err := req.GatewayClient.GetMCPAuditLog(req.Context(), uint(auditLogID), req.UserIsAuditor())
+	if err != nil {
+		return err
+	}
+
+	// Convert to API type
+	result := gatewaytypes.ConvertMCPAuditLog(*log)
+
+	return req.Write(result)
 }
 
 // filterOptions represent the values that a user can use to filter audit logs.

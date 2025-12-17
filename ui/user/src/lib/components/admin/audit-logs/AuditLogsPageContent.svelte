@@ -593,10 +593,18 @@
 
 	<AuditLogsTable
 		data={remoteAuditLogs}
-		onSelectRow={(d: typeof selectedAuditLog) => {
-			selectedAuditLog = d;
+		onSelectRow={async (d: AuditLog & { user: string }) => {
 			showFilters = false;
 			rightSidebar?.show();
+			// Fetch full audit log details with request/response bodies
+			try {
+				const fullDetails = await AdminService.getAuditLog(d.id);
+				selectedAuditLog = { ...fullDetails, user: d.user };
+			} catch (error) {
+				console.error('Failed to fetch audit log details:', error);
+				// Fallback to the cached data if fetch fails
+				selectedAuditLog = d;
+			}
 		}}
 		getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
 			getUserDisplayName(users, userId, hasConflict)}
