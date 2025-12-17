@@ -122,21 +122,6 @@ Users with Power User role (or higher) have their own PowerUserWorkspace for cre
 
 REST API handlers are in `/pkg/api/handlers/`. Each handler file corresponds to a resource type (agents, assistants, threads, credentials, etc.). The API server runs on port 8080 by default.
 
-## Development Environment
-
-Environment setup for dev mode (`.envrc.dev`):
-```bash
-export KUBECONFIG=$(pwd)/tools/devmode-kubeconfig
-export OBOT_DEV_MODE=true
-export WORKSPACE_PROVIDER_IGNORE_WORKSPACE_NOT_FOUND=true
-```
-
-Credentials are stored in SQLite: `obot-credentials.db` in the repo root.
-
-### Reset Local Data
-- Mac: Remove `~/Library/Application Support/obot`, `~/.cache/obot`, and `obot*.db`
-- Linux: Remove `~/.local/share/obot`, `~/.cache/obot`, and `obot*.db`
-
 ## Go Linting Configuration
 
 Uses golangci-lint v2.4.0 with these linters enabled: errcheck, govet, ineffassign, revive, staticcheck, thelper, unused, whitespace. Formatters: gofmt, goimports.
