@@ -7,18 +7,23 @@ on:
     paths:
       - "docs/**"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: docs/package-lock.json
 
       - name: Install dependencies
         run: npm install
