@@ -56,8 +56,6 @@ func (r *OAuthApp) Get(field string) string {
 			return r.Spec.Manifest.Alias
 		case "spec.threadName":
 			return r.Spec.ThreadName
-		case "spec.slackReceiverName":
-			return r.Spec.SlackReceiverName
 		case "spec.manifest.authorizationServerURL":
 			return r.Spec.Manifest.AuthorizationServerURL
 		}
@@ -93,7 +91,6 @@ func (r *OAuthApp) RefreshURL(baseURL string) string {
 func (r *OAuthApp) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: new(Thread), Name: r.Spec.ThreadName},
-		{ObjType: new(SlackReceiver), Name: r.Spec.SlackReceiverName},
 	}
 }
 
@@ -101,8 +98,6 @@ type OAuthAppSpec struct {
 	Manifest types.OAuthAppManifest `json:"manifest,omitempty"`
 	// The project that owns this OAuth app
 	ThreadName string `json:"threadName,omitempty"`
-	// The Slack receiver that created and owns this OAuth app
-	SlackReceiverName string `json:"slackReceiverName,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

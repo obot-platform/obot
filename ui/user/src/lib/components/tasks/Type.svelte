@@ -45,9 +45,6 @@
 		if (version.current.emailDomain) {
 			options['email'] = 'on email';
 		}
-		if (project.capabilities?.onSlackMessage) {
-			options['slack'] = 'on slack';
-		}
 		if (
 			credentials.find((c) => c.toolID === 'discord-bundle')?.exists &&
 			toolSelection['discord-bundle']?.enabled
@@ -62,18 +59,6 @@
 	function selectedTrigger(): string {
 		if (task?.schedule) {
 			return 'schedule';
-		}
-		if (task?.webhook) {
-			return 'webhook';
-		}
-		if (task?.email) {
-			return 'email';
-		}
-		if (task?.onSlackMessage) {
-			return 'slack';
-		}
-		if (task?.onDiscordMessage) {
-			return 'discord';
 		}
 		return 'onDemand';
 	}
@@ -91,51 +76,11 @@
 				weekday: 0,
 				timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
 			};
-			task.webhook = undefined;
-			task.email = undefined;
 			task.onDemand = undefined;
-			task.onSlackMessage = undefined;
-			task.onDiscordMessage = undefined;
-		}
-		if (value === 'webhook') {
-			task.schedule = undefined;
-			task.webhook = {};
-			task.email = undefined;
-			task.onDemand = undefined;
-			task.onSlackMessage = undefined;
-			task.onDiscordMessage = undefined;
-		}
-		if (value === 'email') {
-			task.schedule = undefined;
-			task.webhook = undefined;
-			task.onDemand = undefined;
-			task.email = {};
-			task.onSlackMessage = undefined;
-			task.onDiscordMessage = undefined;
 		}
 		if (value === 'onDemand') {
 			task.schedule = undefined;
-			task.webhook = undefined;
-			task.email = undefined;
 			task.onDemand = undefined;
-			task.onSlackMessage = undefined;
-			task.onDiscordMessage = undefined;
-		}
-		if (value === 'slack') {
-			task.schedule = undefined;
-			task.webhook = undefined;
-			task.email = undefined;
-			task.onDemand = undefined;
-			task.onSlackMessage = {};
-			task.onDiscordMessage = undefined;
-		}
-		if (value === 'discord') {
-			task.schedule = undefined;
-			task.webhook = undefined;
-			task.email = undefined;
-			task.onDemand = undefined;
-			task.onSlackMessage = undefined;
-			task.onDiscordMessage = {};
 		}
 	}
 </script>

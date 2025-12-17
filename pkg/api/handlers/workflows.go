@@ -61,17 +61,6 @@ func (a *WorkflowHandler) Delete(req api.Context) error {
 			Namespace: req.Namespace(),
 		}
 
-		var webhooks v1.WebhookList
-		if err := req.List(&webhooks, listOptions); err != nil {
-			return err
-		}
-
-		for _, webhook := range webhooks.Items {
-			if err := req.Delete(&webhook); err != nil && !apierror.IsNotFound(err) {
-				return err
-			}
-		}
-
 		var cronjobs v1.CronJobList
 		if err := req.List(&cronjobs, listOptions); err != nil {
 			return err
@@ -79,17 +68,6 @@ func (a *WorkflowHandler) Delete(req api.Context) error {
 
 		for _, cronjob := range cronjobs.Items {
 			if err := req.Delete(&cronjob); err != nil && !apierror.IsNotFound(err) {
-				return err
-			}
-		}
-
-		var emailReceivers v1.EmailReceiverList
-		if err := req.List(&emailReceivers, listOptions); err != nil {
-			return err
-		}
-
-		for _, emailReceiver := range emailReceivers.Items {
-			if err := req.Delete(&emailReceiver); err != nil && !apierror.IsNotFound(err) {
 				return err
 			}
 		}

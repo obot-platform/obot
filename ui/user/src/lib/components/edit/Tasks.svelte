@@ -2,11 +2,10 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { getLayout, openTask, openTaskRun } from '$lib/context/chatLayout.svelte';
 	import { ChatService, type Project, type Task } from '$lib/services';
-	import { ChevronRight, Play, Plus, Trash2, X } from 'lucide-svelte/icons';
+	import { ChevronRight, Plus, X } from 'lucide-svelte/icons';
 	import { onMount } from 'svelte';
 	import { responsive } from '$lib/stores';
 	import TaskItem from '$lib/components/edit/TaskItem.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Input from '$lib/components/tasks/Input.svelte';
 	import { clickOutside } from '$lib/actions/clickoutside';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
@@ -55,18 +54,10 @@
 		layout.tasks = (await ChatService.listTasks(project.assistantID, project.id)).items;
 	}
 
-	function isTaskFromIntegration(task: Task) {
-		return (
-			task.id === project.workflowNamesFromIntegration?.slackWorkflowName ||
-			task.id === project.workflowNamesFromIntegration?.discordWorkflowName ||
-			task.id === project.workflowNamesFromIntegration?.emailWorkflowName ||
-			task.id === project.workflowNamesFromIntegration?.webhookWorkflowName
-		);
-	}
 	async function runTask(task?: Task) {
 		if (!task) return;
 
-		if ((task.onDemand || task.email || task.webhook) && !waitingTaskInput) {
+		if (task.onDemand && !waitingTaskInput) {
 			waitingTask = task;
 			inputDialog?.showModal();
 		} else {
@@ -120,24 +111,7 @@
 					classes={{
 						taskItemAction: 'pr-3'
 					}}
-				>
-					{#snippet taskActions()}
-						{#if !isTaskFromIntegration(task)}
-							<DotDotDot
-								class="p-2 pr-2.5 transition-opacity duration-200 group-hover:opacity-100 md:opacity-0"
-							>
-								<div class="default-dialog flex min-w-max flex-col p-2">
-									<button class="menu-button" onclick={() => runTask(task)}>
-										<Play class="size-4" /> Run Task
-									</button>
-									<button class="menu-button" onclick={() => (taskToDelete = task)}>
-										<Trash2 class="size-4" /> Delete
-									</button>
-								</div>
-							</DotDotDot>
-						{/if}
-					{/snippet}
-				</TaskItem>
+				></TaskItem>
 			{/each}
 		</ul>
 	{/if}

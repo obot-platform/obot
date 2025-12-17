@@ -29,8 +29,6 @@ func (in *WorkflowExecution) Get(field string) string {
 		switch field {
 		case "spec.threadName":
 			return in.Spec.ThreadName
-		case "spec.webhookName":
-			return in.Spec.WebhookName
 		case "spec.cronJobName":
 			return in.Spec.CronJobName
 		case "spec.workflowName":
@@ -66,8 +64,6 @@ type WorkflowExecutionSpec struct {
 	// ThreadName is the name of the thread that owns this execution, which is the same as the owning thread of the workflow.
 	ThreadName         string `json:"threadName,omitempty"`
 	WorkflowName       string `json:"workflowName,omitempty"`
-	WebhookName        string `json:"webhookName,omitempty"`
-	EmailReceiverName  string `json:"emailReceiverName,omitempty"`
 	CronJobName        string `json:"cronJobName,omitempty"`
 	WorkflowGeneration int64  `json:"workflowGeneration,omitempty"`
 	RunUntilStep       string `json:"runUntilStep,omitempty"`

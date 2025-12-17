@@ -473,11 +473,7 @@ export interface Task {
 	description?: string;
 	steps: TaskStep[];
 	schedule?: Schedule;
-	email?: object;
-	webhook?: object;
 	onDemand?: OnDemand;
-	onSlackMessage?: object;
-	onDiscordMessage?: object;
 	alias?: string;
 	managed?: boolean;
 	projectID?: string;
@@ -550,17 +546,10 @@ export interface Project {
 	tools?: string[];
 	sharedTasks?: string[];
 	websiteKnowledge?: Sites;
-	capabilities: {
-		onSlackMessage?: boolean;
-		onDiscordMessage?: boolean;
-		onEmail?: EmailManifest;
-		onWebhook?: WebhookManifest;
-	};
 	defaultModelProvider?: string;
 	defaultModel?: string;
 	models?: Record<string, string[]>;
 	userID: string;
-	workflowNamesFromIntegration?: WorkflowNamesFromIntegration;
 	templateUpgradeAvailable?: boolean;
 	templateUpgradeInProgress?: boolean;
 	templateLastUpgraded?: string;
@@ -573,13 +562,6 @@ export interface CreateProjectForm {
 	icons?: AssistantIcons;
 	prompt?: string;
 	editor?: boolean;
-}
-
-export interface WorkflowNamesFromIntegration {
-	slackWorkflowName?: string;
-	discordWorkflowName?: string;
-	emailWorkflowName?: string;
-	webhookWorkflowName?: string;
 }
 
 export interface WebhookManifest {
@@ -657,19 +639,6 @@ export interface Sites {
 export interface Site {
 	site?: string;
 	description?: string;
-}
-
-export interface SlackConfig {
-	appId: string;
-	clientId: string;
-	clientSecret: string;
-	signingSecret: string;
-	appToken: string;
-}
-
-export interface SlackReceiver {
-	appId: string;
-	clientId: string;
 }
 
 export interface Memory {

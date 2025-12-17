@@ -211,8 +211,6 @@ func (h *Handler) newThread(ctx context.Context, c kclient.Client, wf *v1.Workfl
 			AgentName:             projectThread.Spec.AgentName,
 			WorkflowName:          we.Spec.WorkflowName,
 			WorkflowExecutionName: we.Name,
-			WebhookName:           we.Spec.WebhookName,
-			EmailReceiverName:     we.Spec.EmailReceiverName,
 			CronJobName:           we.Spec.CronJobName,
 			UserID:                projectThread.Spec.UserID,
 			Env: []types.EnvVar{

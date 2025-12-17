@@ -51,18 +51,6 @@
 		if (task.schedule) {
 			return 'schedule';
 		}
-		if (task.webhook) {
-			return 'webhook';
-		}
-		if (task.email) {
-			return 'email';
-		}
-		if (task.onSlackMessage) {
-			return 'slack';
-		}
-		if (task.onDiscordMessage) {
-			return 'discord';
-		}
 		return 'onDemand';
 	}
 </script>
