@@ -16,6 +16,7 @@
 	import { Circle, CircleCheck, LoaderCircle } from 'lucide-svelte';
 	import { goto } from '$lib/url';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
+	import { profile } from '$lib/stores';
 
 	interface Props {
 		entry?: MCPCatalogEntry | MCPCatalogServer;
@@ -107,7 +108,11 @@
 		if (entry) {
 			sessionStorage.setItem(ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION, entry.id);
 		}
-		goto('/admin/mcp-registries?new=true');
+		goto(
+			profile.current?.hasAdminAccess?.()
+				? '/admin/mcp-registries?new=true'
+				: '/mcp-registries?new=true'
+		);
 	}
 </script>
 
@@ -185,7 +190,7 @@
 	{/if}
 	{#if accessControlRules.length > 0}
 		<div class="mt-auto flex justify-between gap-4">
-			<button class="button-primary" onclick={handleCreateNewRule}> Create New Rule </button>
+			<button class="button-primary" onclick={handleCreateNewRule}> Create New Registry </button>
 			<div class="flex items-center gap-4">
 				<button
 					class="button-primary flex items-center gap-1"

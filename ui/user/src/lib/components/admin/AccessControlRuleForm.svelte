@@ -437,8 +437,10 @@
 						onclick={() => {
 							if (redirect) {
 								goto(redirect);
-							} else {
+							} else if (profile.current.hasAdminAccess?.()) {
 								goto('/admin/mcp-registries');
+							} else {
+								goto('/mcp-registries');
 							}
 						}}
 					>
