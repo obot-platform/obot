@@ -1,25 +1,11 @@
 # Obot
 
-**The Enterprise MCP Management Platform**
+Obot is an open-source platform that provides everything an organization needs to implement MCP technologies. It enables you to host MCP servers for internal and external users, set up MCP registries, manage and monitor MCP usage, and build feature-rich agents and chatbots that leverage MCP servers.
 
-Obot is an open-source platform that solves the key challenges of adopting the Model Context Protocol (MCP) at enterprise scale. Built for organizations that need to securely discover, manage, and govern AI integrations across their infrastructure.
-
-## The Challenge
-
-MCP is the industry standard that connects AI applications to your systems and data. But enterprise adoption faces critical challenges:
-
-- **Discovery**: How do users find the right MCP servers without a sprawling, ungoverned catalog?
-- **Security**: How do you validate server security, enforce access controls, and maintain comprehensive audit trails?
-- **Operations**: How do you automate authentication, scale infrastructure as usage grows, and roll out updates across environments?
-- **Governance**: How do you intercept unsafe requests and enforce corporate policies before they reach your systems?
-
-Obot solves these challenges with a comprehensive management platform.
 
 ## Getting Started
 
-To quickly try out Obot's end-user experience, visit [https://chat.obot.ai](https://chat.obot.ai). Note that you won't experience the administrative features here. 
-
-To run Obot yourself, launch it using Docker:
+To run Obot locally, start it with Docker:
 
 ```bash
 docker run -d --name obot -p 8080:8080 \
@@ -28,77 +14,80 @@ docker run -d --name obot -p 8080:8080 \
   ghcr.io/obot-platform/obot:latest
 ```
 
-Open your browser to [http://localhost:8080](http://localhost:8080) to access the Obot UI.
+Open [http://localhost:8080](http://localhost:8080) in your browser to access the Obot UI.
 
-> **Note**: Replace `<API KEY>` with your [OpenAI API Key](https://platform.openai.com/api-keys). You can also set `ANTHROPIC_API_KEY` to use Anthropic models, or configure model providers through the Admin UI.
+**Note**: Replace `<API KEY>` with your OpenAI API key. You can also set `ANTHROPIC_API_KEY` or configure model providers through the admin UI.
 
-For more installation methods, see our [Installation Guide](https://docs.obot.ai/installation/general).
+For additional installation options, see the Installation Guide at [https://docs.obot.ai/installation/general](https://docs.obot.ai/installation/general).
 
-## Platform Features
+## Platform Concepts
 
-Obot consists of four key pillars:
+Organizations face several challenges when implementing MCP technologies:
+
+* **Build**: While MCP servers can be developed using SDKs of choice, IT teams need a reliable way to host these servers for both private and public use.
+* **Discover**: With tens of thousands of MCP servers available, users need a clear and trusted way to discover servers that have been approved by IT administrators.
+* **Secure**: MCP servers must be authenticated, access must be controlled, and all activity should be auditable.
+* **Use**: MCP protocol support varies widely across chat clients. A standardized chat client that provides consistent MCP support across the organization is highly desirable.
+
+Obot addresses these challenges by offering MCP hosting, an MCP registry, an MCP gateway, and an MCP-standards-compliant chat client. Popular workflow and agent frameworks such as n8n and LangGraph can interact with MCP servers managed by Obot. In addition, clients like ChatGPT, Claude Desktop, and GitHub Copilot can also leverage MCP servers managed by Obot.
+
+
+![Obot Platform Architecture](docs/static/img/obot-mcp-mgmt.png)
 
 ### MCP Hosting
 
-Deploy and manage MCP servers without operational overhead:
+Run and manage MCP servers directly within Obot:
 
-- **Production-Ready Infrastructure** – Test locally with Docker or deploy to Kubernetes for enterprise-grade workload management, scheduling, and resource allocation
-- **Flexible Deployment** – Run Node.js, Python, or containerized MCP servers in secure sandboxed environments
-- **Multiple Server Types** – Run single-user STDIO servers or multi-user streamable HTTP servers
-- **Role-Based Deployment** – Control who can deploy servers from the catalog, create custom servers, or share servers with others
-- **OAuth 2.1 and Token Management** – Obot handles secure authentication and credential management so developers focus on server functionality
+* Run MCP servers locally with Docker or deploy them to Kubernetes
+* Support for Node.js, Python, and container-based servers
+* Support for both single-user STDIO servers and multi-user HTTP servers
+* Controls for who can deploy servers, publish them to the catalog, or share them
+* Built-in OAuth 2.1 and token handling for authentication
 
 ### MCP Registry
 
-Centralized discovery and distribution of MCP servers:
+A central place to list and discover MCP servers:
 
-- **Curated Catalog** – IT teams manage which MCP servers are available to users
-- **Corporate Credentials** – Users access servers using existing authentication
-- **MCP Registry Specification** – Conforms to the official standard for maximum client compatibility
-- **Role-Based Discovery** – Users see only the servers they're authorized to access
+* Curated catalog of available MCP servers
+* Shared credentials and authentication handled by the platform
+* Conformance with the MCP registry specification
+* Server visibility based on user access
 
 ### MCP Gateway
 
-Secure, governed access to MCP servers:
+A single entry point for accessing MCP servers:
 
-- **Access Control Rules** – Define which users and groups can access specific servers
-- **Usage Analytics** – Understand which servers are most valuable to your organization
-- **Audit Trails** – Log all MCP server interactions for compliance and security review
-- **Request Filtering** – Intercept and programmatically inspect MCP calls to enforce custom business logic and security policies
+* Access rules for users and groups
+* Logging of MCP requests and responses
+* Usage visibility to understand which servers are being used
+* Request inspection and filtering before requests reach servers
 
 ### Obot Chat
 
-Production-ready chat interface with enterprise capabilities:
+A chat client built to work directly with MCP:
 
-- **Multi-LLM Support** – Works with OpenAI, Anthropic, and other providers
-- **Knowledge Integration** – Add domain-specific information to conversations with built-in RAG
-- **Memory** – Maintain context across conversations for personalized interactions
-- **Project Templates** – Create and share reusable project configurations across teams
-- **Automated Tasks** – Schedule recurring tasks on a cron for workflow automation
+* Support for multiple model providers including OpenAI and Anthropic
+* Add domain-specific information to conversations with built-in RAG
+* Project-wide memory to maintain important context across conversations for personalized interactions
+* Create and share reusable project configurations with other users
+* Scheduled tasks for recurring workflow automations
 
-## How It Works Together
+## Technical Advantages
 
-1. **IT Administrators** curate MCP servers in the **Registry** and define access policies
-1. **Security Teams** monitor usage, audit activity, and enforce compliance through the **Core Platform**
-1. **Developers** build and deploy MCP servers using **Hosting** infrastructure
-1. **Users** discover authorized servers through the **Gateway** and interact via **Chat** or third-party *MCP clients*
-
-## Technical Highlights
-
-- **Self-Hosted**: Deploy on your own infrastructure for complete control over data and security
-- **MCP Standard**: Built on the open Model Context Protocol for maximum interoperability
-- **Enterprise Security**: OAuth 2.1, encryption at rest and in transit, comprehensive audit logging
-- **Extensible**: Easy integration with custom tools, services, and existing enterprise systems
-- **GitOps Ready**: Manage catalog and configuration as code
+* **Self-Hosted**: Deploy on your own infrastructure for complete control over data and security
+* **MCP Standard**: Built on the open Model Context Protocol for maximum interoperability
+* **Security-First Design**: OAuth 2.1, encryption at rest and in transit, comprehensive audit logging
+* **Extensible**: Easy integration with custom tools, services, and existing systems
+* **GitOps Ready**: Manage catalog and configuration as code
 
 ## Documentation
 
-For detailed documentation, visit [https://docs.obot.ai](https://docs.obot.ai)
+Documentation is available at [https://docs.obot.ai](https://docs.obot.ai).
 
-## Community and Support
+## Community
 
-- **Documentation**: [https://docs.obot.ai](https://docs.obot.ai)
-- **Discord**: [https://discord.com/invite/9sSf4UyAMC](https://discord.com/invite/9sSf4UyAMC)
+* Documentation: [https://docs.obot.ai](https://docs.obot.ai)
+* Discord: [https://discord.com/invite/9sSf4UyAMC](https://discord.com/invite/9sSf4UyAMC)
 
 ## License
 

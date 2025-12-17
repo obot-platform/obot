@@ -46,6 +46,16 @@
 		)
 	);
 
+	const type = $derived(
+		selected?.entry?.manifest.runtime === 'composite'
+			? 'composite'
+			: selected?.entry?.manifest.runtime === 'remote'
+				? 'remote'
+				: selected?.server?.catalogEntryID
+					? 'single'
+					: 'multi'
+	);
+
 	function closeCatalogDialog() {
 		catalogDialog?.close();
 		selected = undefined;
@@ -152,6 +162,7 @@
 						onConnect={setupProjectMcp}
 						skipConnectDialog
 						connectOnly
+						{type}
 					/>
 				{:else}
 					<McpServerActions
@@ -159,6 +170,7 @@
 						onConnect={setupProjectMcp}
 						skipConnectDialog
 						connectOnly
+						{type}
 					/>
 				{/if}
 			</div>
@@ -169,13 +181,7 @@
 		>
 			<McpServerEntryForm
 				entry={selected.entry ? selected.entry : selected.server}
-				type={selected.entry?.manifest.runtime === 'composite'
-					? 'composite'
-					: selected.entry?.manifest.runtime === 'remote'
-						? 'remote'
-						: selected.server?.catalogEntryID
-							? 'single'
-							: 'multi'}
+				{type}
 				readonly
 				entity="workspace"
 				{hasExistingConfigured}

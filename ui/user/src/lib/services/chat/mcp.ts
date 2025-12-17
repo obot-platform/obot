@@ -3,6 +3,7 @@ import { profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
 import {
 	ChatService,
+	type AccessControlRule,
 	type LaunchServerType,
 	type MCPCatalogEntry,
 	type MCPCatalogServer,
@@ -107,6 +108,23 @@ export function requiresUserUpdate(server?: MCPCatalogServer) {
 	return typeof server?.configured === 'boolean' ? server?.configured === false : false;
 }
 
+export function getUserRegistry(
+	entity: MCPCatalogEntry | MCPCatalogServer | AccessControlRule,
+	usersMap?: Map<string, OrgUser>
+) {
+	let registry: string = 'Global Registry';
+	if (entity.powerUserWorkspaceID) {
+		const userID = entity.powerUserWorkspaceID.split('-')?.pop() || '';
+		registry =
+			userID === profile.current.id
+				? 'My Registry'
+				: usersMap
+					? `${getUserDisplayName(usersMap, userID)}'s Registry`
+					: 'Unknown Registry';
+	}
+	return registry;
+}
+
 function convertEntriesToTableData(
 	entries?: MCPCatalogEntry[],
 	usersMap?: Map<string, OrgUser>,
@@ -123,6 +141,7 @@ function convertEntriesToTableData(
 	return entries
 		.filter((entry) => !entry.deleted)
 		.map((entry) => {
+			const registry = getUserRegistry(entry, usersMap);
 			return {
 				id: entry.id,
 				name: entry.manifest?.name ?? '',
@@ -137,13 +156,7 @@ function convertEntriesToTableData(
 							? 'composite'
 							: 'single',
 				created: entry.created,
-				registry: entry.powerUserID
-					? profile.current.id === entry.powerUserID
-						? 'My Registry'
-						: usersMap
-							? `${getUserDisplayName(usersMap, entry.powerUserID)}'s Registry`
-							: 'Unknown Registry'
-					: 'Global Registry',
+				registry,
 				needsUpdate: entry.needsUpdate,
 				connected: userConfiguredServersMap?.has(entry.id)
 			};
@@ -166,6 +179,7 @@ function convertServersToTableData(
 	return servers
 		.filter((server) => !server.catalogEntryID && !server.deleted)
 		.map((server) => {
+			const registry = getUserRegistry(server, usersMap);
 			return {
 				id: server.id,
 				name: server.manifest.name ?? '',
@@ -176,13 +190,7 @@ function convertServersToTableData(
 				users: server.mcpServerInstanceUserCount ?? 0,
 				editable: true,
 				created: server.created,
-				registry: server.powerUserWorkspaceID
-					? profile.current.id === server.userID
-						? 'My Registry'
-						: usersMap
-							? `${getUserDisplayName(usersMap, server.userID)}'s Registry`
-							: 'Unknown Registry'
-					: 'Global Registry',
+				registry,
 				connected: instancesMap?.has(server.id)
 			};
 		});

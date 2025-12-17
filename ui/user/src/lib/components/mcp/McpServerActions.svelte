@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { ChatService, type MCPCatalogEntry, type MCPCatalogServer } from '$lib/services';
+	import {
+		ChatService,
+		type LaunchServerType,
+		type MCPCatalogEntry,
+		type MCPCatalogServer
+	} from '$lib/services';
 	import { hasEditableConfiguration, requiresUserUpdate } from '$lib/services/chat/mcp';
 	import { twMerge } from 'tailwind-merge';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -22,6 +27,7 @@
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 
 	type ServerSelectMode = 'connect' | 'rename' | 'edit' | 'disconnect' | 'chat' | 'server-details';
 
@@ -33,6 +39,7 @@
 		onConnect?: ({ server, entry }: { server?: MCPCatalogServer; entry?: MCPCatalogEntry }) => void;
 		promptInitialLaunch?: boolean;
 		connectOnly?: boolean;
+		type?: LaunchServerType;
 	}
 
 	let {
@@ -42,7 +49,8 @@
 		skipConnectDialog,
 		onConnect,
 		promptInitialLaunch,
-		connectOnly
+		connectOnly,
+		type
 	}: Props = $props();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let editExistingDialog = $state<ReturnType<typeof EditExistingDeployment>>();
@@ -51,6 +59,7 @@
 	let selectServerMode = $state<ServerSelectMode>('connect');
 
 	let launchDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let launchPromptHandled = $state(false);
 
 	let instance = $derived(
 		server && !server.catalogEntryID
@@ -94,8 +103,14 @@
 	}
 
 	$effect(() => {
-		if (promptInitialLaunch) {
+		if (promptInitialLaunch && !launchPromptHandled) {
+			launchPromptHandled = true;
 			launchDialog?.open();
+
+			// clear out the launch param
+			const url = new URL(page.url);
+			url.searchParams.delete('launch');
+			goto(url, { replaceState: true });
 		}
 	});
 
@@ -314,6 +329,7 @@
 			refresh();
 		}}
 		{skipConnectDialog}
+		{type}
 	/>
 
 	<EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />

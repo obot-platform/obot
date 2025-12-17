@@ -8,6 +8,7 @@
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Confirm from '../Confirm.svelte';
+	import type { LaunchServerType } from '$lib/services';
 
 	export type LaunchFormData = {
 		envs?: MCPServerInfo['env'];
@@ -55,6 +56,7 @@
 		showAlias?: boolean;
 		disableOutsideClick?: boolean;
 		animate?: 'slide' | 'fade' | null;
+		type?: LaunchServerType;
 	}
 	let {
 		form = $bindable(),
@@ -71,7 +73,8 @@
 		isNew,
 		showAlias,
 		disableOutsideClick,
-		animate = 'slide'
+		animate = 'slide',
+		type
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let highlightedFields = $state<Set<string>>(new Set());
@@ -82,6 +85,21 @@
 
 	let isOpen = $state(false);
 	let localError = $state<string | undefined>();
+
+	const headers = $derived.by(() => {
+		if (form && 'headers' in form) {
+			return (
+				form.headers
+					?.map((header, i) => ({
+						index: i,
+						data: header as typeof header & { isStatic?: boolean }
+					}))
+					?.filter((item) => !item.data.isStatic) ?? []
+			);
+		}
+
+		return [];
+	});
 
 	export function open() {
 		if (isCompositeForm(form) && isNew) {
@@ -537,33 +555,42 @@
 							</div>
 						{/each}
 					{/if}
-					{#if form.headers && form.headers.length > 0}
-						{#each form.headers as header, i (header.key)}
-							{#if header.required}
-								<div class="flex flex-col gap-1">
-									<span class="flex items-center gap-2">
-										<label for={header.key}>
-											{header.name}
-											{#if !header.required}
-												<span class="text-on-surface1">(optional)</span>
-											{/if}
-										</label>
-										<InfoTooltip text={header.description} />
-									</span>
-									{#if header.sensitive}
-										<SensitiveInput name={header.name} bind:value={form.headers[i].value} />
-									{:else}
-										<input
-											type="text"
-											id={header.key}
-											bind:value={form.headers[i].value}
-											class="text-input-filled"
-										/>
+
+					{#each headers as header (header.data.key)}
+						<div class="flex flex-col gap-1">
+							<span class="flex items-center gap-2">
+								<label for={header.data.key}>
+									{header.data.name}
+									{#if !header.data.required}
+										<span class="text-on-surface1">(optional)</span>
 									{/if}
-								</div>
+								</label>
+								<InfoTooltip text={header.data.description} />
+							</span>
+							{#if header.data.sensitive}
+								<SensitiveInput
+									name={header.data.name}
+									bind:value={form.headers![header.index].value}
+								/>
+							{:else}
+								<input
+									type="text"
+									id={header.data.key}
+									bind:value={form!.headers![header.index].value}
+									class="text-input-filled"
+								/>
 							{/if}
-						{/each}
-					{/if}
+						</div>
+					{:else}
+						{#if type === 'remote'}
+							<div
+								class="flex h-32 w-full items-center bg-surface1 rounded-md p-8 text-on-surface1"
+							>
+								<div>There are no headers to configure for this MCP server.</div>
+							</div>
+						{/if}
+					{/each}
+
 					{#if form.hostname}
 						<label for="url-manifest-url"> URL </label>
 						<input

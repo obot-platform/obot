@@ -88,7 +88,9 @@
 	let updatedServer = $state<MCPCatalogServer | MCPCatalogEntry>();
 
 	let showUpgradeConfirm = $state<
-		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
+		| { type: 'multi'; onConfirm?: () => void }
+		| { type: 'single'; server: MCPCatalogServer; onConfirm?: () => void }
+		| undefined
 	>();
 	let showDeleteConfirm = $state<
 		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
@@ -446,14 +448,12 @@
 					{#snippet children({ toggle })}
 						{@const isAtLeastPowerUser = profile.current.groups.includes(Group.POWERUSER)}
 						<div class="default-dialog flex min-w-max flex-col">
-							{#if !isComposite && (!d.catalogEntryID || d.isMyServer)}
-								{#if d.isMyServer}
-									<div
-										class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
-									>
-										My Connection
-									</div>
-								{/if}
+							{#if !isComposite && d.isMyServer}
+								<div
+									class="bg-background dark:bg-surface2 rounded-t-xl p-2 pl-4 text-[11px] font-semibold uppercase"
+								>
+									My Connection
+								</div>
 								<div
 									class={twMerge('flex flex-col gap-1 p-2', d.isMyServer ? 'bg-surface1' : 'pb-0')}
 								>
@@ -504,7 +504,10 @@
 												if (!d) return;
 												showUpgradeConfirm = {
 													type: 'single',
-													server: d
+													server: d,
+													onConfirm: async () => {
+														reload();
+													}
 												};
 											}}
 											use:tooltip={d.compositeName
@@ -652,7 +655,10 @@
 						onclick={() => {
 							selected = currentSelected;
 							showUpgradeConfirm = {
-								type: 'multi'
+								type: 'multi',
+								onConfirm: () => {
+									reload();
+								}
 							};
 						}}
 						disabled={readonly || upgradeableCount === 0}
@@ -735,6 +741,7 @@
 		} else {
 			await handleBulkUpdate();
 		}
+		showUpgradeConfirm?.onConfirm?.();
 		showUpgradeConfirm = undefined;
 	}}
 	oncancel={() => (showUpgradeConfirm = undefined)}

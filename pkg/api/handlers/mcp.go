@@ -88,13 +88,7 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 		return types.NewErrForbidden("user is not authorized to access this catalog entry")
 	}
 
-	// Only include powerUserWorkspaceID if it matches the user's workspace
-	var powerUserWorkspaceID string
-	if entry.Spec.PowerUserWorkspaceID == system.GetPowerUserWorkspaceID(req.User.GetUID()) {
-		powerUserWorkspaceID = entry.Spec.PowerUserWorkspaceID
-	}
-
-	return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, powerUserWorkspaceID, ""))
+	return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, ""))
 }
 
 func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
@@ -103,14 +97,8 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 		return err
 	}
 
-	// Helper to conditionally include powerUserWorkspaceID only if it matches the user's workspace
-	userWorkspaceID := system.GetPowerUserWorkspaceID(req.User.GetUID())
 	convertEntry := func(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
-		var powerUserWorkspaceID string
-		if entry.Spec.PowerUserWorkspaceID == userWorkspaceID {
-			powerUserWorkspaceID = entry.Spec.PowerUserWorkspaceID
-		}
-		return ConvertMCPServerCatalogEntryWithWorkspace(entry, powerUserWorkspaceID, "")
+		return ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, "")
 	}
 
 	// Allow admins/auditors to bypass ACR filtering with ?all=true
