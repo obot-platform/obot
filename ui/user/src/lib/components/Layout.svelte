@@ -20,6 +20,7 @@
 		LockKeyhole,
 		MessageCircle,
 		MessageCircleMore,
+		Palette,
 		RadioTower,
 		Server,
 		Settings,
@@ -236,8 +237,8 @@
 					{
 						id: 'app-preferences',
 						href: '/admin/app-preferences',
-						icon: Settings,
-						label: 'App Preferences',
+						icon: Palette,
+						label: 'Branding',
 						disabled: false,
 						collapsible: false
 					}
