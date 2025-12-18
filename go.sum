@@ -568,8 +568,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f h1:y5//uYreIhSUg3J1GEMiLbxo1LJaP8RfCpH6pymGZus=
 github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f/go.mod h1:ZdcZmHo+o7JKHSa8/e818NopupXU1YMK5fe1lsApnBw=
-github.com/nanobot-ai/nanobot v0.0.46-0.20251215175747-2e1d1a3274cb h1:mbVQLemTfd8+P97gfxVxoXFWGyK9wfkeP3IrXq6nIo4=
-github.com/nanobot-ai/nanobot v0.0.46-0.20251215175747-2e1d1a3274cb/go.mod h1:B7H3HtzM/PP1eRhXMtt8i/k3VdqA18WMDg4LqLj9jrY=
+github.com/nanobot-ai/nanobot v0.0.46-0.20251218064033-270c0e4fef46 h1:M+4VTBHJUTgqvAgDwEb5axNf198eeWqB0YI2/cNhAd0=
+github.com/nanobot-ai/nanobot v0.0.46-0.20251218064033-270c0e4fef46/go.mod h1:qTN0oeA278cwnq/epx+iSu1e8vXuctf3GaOOSVgR8jM=
 github.com/ncruces/go-strftime v0.1.9 h1:bY0MQC28UADQmHmaF5dgpLmImcShSi2kHU9XLdhx/f4=
 github.com/ncruces/go-strftime v0.1.9/go.mod h1:Fwc5htZGVVkseilnfgOVb9mKy6w1naJmn9CehxcKcls=
 github.com/nightlyone/lockfile v1.0.0 h1:RHep2cFKK4PonZJDdEl4GmkabuhbsRMgk/k3uAmxBiA=
