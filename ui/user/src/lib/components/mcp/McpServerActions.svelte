@@ -54,6 +54,8 @@
 	let launchDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let launchPromptHandled = $state(false);
 
+	let disconnecting = $state(false);
+
 	let instance = $derived(
 		server && !server.catalogEntryID
 			? mcpServersAndEntries.current.userInstances.find(
@@ -186,26 +188,66 @@
 							{#if server && instance}
 								<button
 									class="menu-button"
+									disabled={disconnecting}
 									onclick={async (e) => {
 										e.stopPropagation();
+										disconnecting = true;
 										await ChatService.deleteMcpServerInstance(instance.id);
 										mcpServersAndEntries.refreshUserInstances();
 										toggle(false);
+
+										if (profile.current.hasAdminAccess?.()) {
+											goto(
+												resolve(
+													entry?.powerUserWorkspaceID
+														? `/admin/mcp-servers/w/${server.powerUserWorkspaceID}/s/${server.id}`
+														: `/admin/mcp-servers/s/${server.id}`
+												),
+												{ replaceState: true }
+											);
+										} else {
+											goto(resolve(`/mcp-servers/c/${server.id}`), { replaceState: true });
+										}
+										disconnecting = false;
 									}}
 								>
-									<Unplug class="size-4" /> Disconnect
+									{#if disconnecting}
+										<LoaderCircle class="size-4 animate-spin" />
+									{:else}
+										<Unplug class="size-4" />
+									{/if} Disconnect
 								</button>
 							{:else if entry && server}
 								<button
 									class="menu-button"
+									disabled={disconnecting}
 									onclick={async (e) => {
 										e.stopPropagation();
+										disconnecting = true;
 										await ChatService.deleteSingleOrRemoteMcpServer(server.id);
 										mcpServersAndEntries.refreshUserConfiguredServers();
 										toggle(false);
+
+										if (profile.current.hasAdminAccess?.()) {
+											goto(
+												resolve(
+													entry?.powerUserWorkspaceID
+														? `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}`
+														: `/admin/mcp-servers/c/${entry.id}`
+												),
+												{ replaceState: true }
+											);
+										} else {
+											goto(resolve(`/mcp-servers/c/${entry.id}`), { replaceState: true });
+										}
+										disconnecting = false;
 									}}
 								>
-									<Trash2 class="size-4" /> Disconnect
+									{#if disconnecting}
+										<LoaderCircle class="size-4 animate-spin" />
+									{:else}
+										<Trash2 class="size-4" />
+									{/if} Disconnect
 								</button>
 							{/if}
 						</div>
@@ -269,7 +311,21 @@
 								class="menu-button"
 								onclick={() => {
 									if (configuredServers.length === 1) {
-										goto(resolve(`/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`));
+										if (profile.current.hasAdminAccess?.()) {
+											goto(
+												resolve(
+													entry?.powerUserWorkspaceID
+														? `/admin/mcp-servers/w/${entry.powerUserWorkspaceID}/c/${entry.id}/instance/${configuredServers[0].id}`
+														: `/admin/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`
+												),
+												{ replaceState: true }
+											);
+										} else {
+											goto(
+												resolve(`/mcp-servers/c/${entry.id}/instance/${configuredServers[0].id}`),
+												{ replaceState: true }
+											);
+										}
 									} else {
 										handleShowSelectServerDialog('server-details');
 									}
@@ -342,7 +398,18 @@
 						break;
 					}
 					case 'server-details': {
-						goto(resolve(`/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`));
+						if (profile.current?.hasAdminAccess?.()) {
+							goto(
+								resolve(
+									entry?.powerUserWorkspaceID
+										? `/admin/mcp-servers/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}/instance/${d.id}`
+										: `/admin/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
+								),
+								{ replaceState: true }
+							);
+						} else {
+							goto(resolve(`/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`));
+						}
 						break;
 					}
 					case 'rename': {
