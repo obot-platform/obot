@@ -6,6 +6,7 @@
 	import { twMerge } from 'tailwind-merge';
 	import TimeInput from './TimeInput.svelte';
 	import { slide } from 'svelte/transition';
+	import { responsive } from '$lib/stores';
 
 	export interface DateRange {
 		start: Date | null;
@@ -226,6 +227,20 @@
 		}
 	});
 
+	const isSmallScreen = $derived(responsive.isMobile);
+
+	function popoverRef(node: HTMLElement) {
+		return calendarPopover.ref(node);
+	}
+
+	function tooltipRef(node: HTMLElement) {
+		if (isSmallScreen) {
+			return;
+		}
+
+		return calendarPopover.tooltip(node);
+	}
+
 	// Sync open state with popover
 	$effect(() => {
 		calendarPopover.toggle(open);
@@ -241,7 +256,7 @@
 		disabled && 'cursor-default opacity-50',
 		klass
 	)}
-	use:calendarPopover.ref
+	use:popoverRef
 	onclick={() => !disabled && calendarPopover.toggle()}
 	{@attach (node: HTMLElement) => {
 		const response = tooltip(node, {
@@ -260,87 +275,124 @@
 	</span>
 </button>
 
-<div class={twMerge('default-dialog w-xs p-4', classes?.calendar)} use:calendarPopover.tooltip>
-	<!-- Calendar Header -->
-	<div class={twMerge('mb-4 flex items-center justify-between', classes?.header)}>
-		<button type="button" class="hover:bg-surface3 rounded p-1" onclick={previousMonth}>
-			<ChevronLeft class="size-4" />
-		</button>
-
-		<h3 class="text-lg font-semibold">
-			{months[currentDate.getMonth()]}
-			{currentDate.getFullYear()}
-		</h3>
-
-		<button type="button" class="hover:bg-surface3 rounded p-1" onclick={nextMonth}>
-			<ChevronRight class="size-4" />
-		</button>
-	</div>
-
-	<!-- Weekday Headers -->
-	<div class="mb-2 grid grid-cols-7 gap-1">
-		{#each weekdays as day, i (i)}
-			<div class="text-on-surface1 flex h-8 w-8 items-center justify-center text-xs font-medium">
-				{day}
-			</div>
-		{/each}
-	</div>
-
-	<!-- Calendar Grid -->
-	<div class={twMerge('grid grid-cols-7 gap-1', classes?.grid)}>
-		{#each calendarDays as date (date.toISOString())}
-			<button
-				type="button"
-				class={getDayClass(date)}
-				onclick={() => handleDateClick(date)}
-				disabled={isDisabled(date)}
-			>
-				{date.getDate()}
-			</button>
-		{/each}
-	</div>
-
-	{#if (start && !end) || (start && end && differenceInDays(end, start) <= 20)}
-		<!-- Render Time pickers -->
+<div
+	class={twMerge(
+		'flex flex-col items-center justify-center',
+		isSmallScreen ? 'fixed inset-0 z-50 min-w-full p-4 backdrop-blur-xs' : 'contents',
+		!open && 'hidden'
+	)}
+	role="button"
+	tabindex="-1"
+	onclick={(ev) => {
+		if (
+			ev.target &&
+			ev.currentTarget.contains(ev.target as HTMLElement) &&
+			!(ev.currentTarget === ev.target)
+		) {
+			return;
+		}
+		calendarPopover.toggle(false);
+	}}
+	onkeydown={undefined}
+>
+	{#key isSmallScreen}
 		<div
-			class="mt-4 flex flex-col gap-2"
-			in:slide={{ duration: 200 }}
-			out:slide={{ duration: 100 }}
+			class={twMerge(
+				'default-dialog flex flex-col p-4',
+				isSmallScreen && 'w-full max-w-sm',
+				!isSmallScreen && 'max-w-xs',
+				classes?.calendar
+			)}
+			use:tooltipRef
 		>
-			<div class="flex flex-col gap-1">
-				<div class="text-on-surface1 text-xs">{start.toDateString()}</div>
-				<TimeInput
-					date={start}
-					onChange={(date) => {
-						start = date;
-					}}
-				/>
+			<div class="mb-6 px-4 text-center text-lg font-medium md:hidden md:text-start">
+				<div>Select Export Time Range</div>
 			</div>
 
-			<div class="flex flex-col gap-1">
-				<!-- In case start and end dates in the same day do not render the label -->
-				{#if !isSameDay(end ?? start, start)}
-					<div
-						class="text-on-surface1 text-xs"
-						in:slide={{ duration: 200 }}
-						out:slide={{ duration: 100 }}
-					>
-						{end?.toDateString()}
-					</div>
-				{/if}
+			<!-- Calendar Header -->
+			<div class={twMerge('mb-4 flex items-center justify-between', classes?.header)}>
+				<button type="button" class="hover:bg-surface3 rounded p-1" onclick={previousMonth}>
+					<ChevronLeft class="size-4" />
+				</button>
 
-				<TimeInput
-					date={end ?? endOfDay(start)}
-					onChange={(date) => {
-						end = date;
-					}}
-				/>
+				<h3 class="">
+					{months[currentDate.getMonth()]}
+					{currentDate.getFullYear()}
+				</h3>
+
+				<button type="button" class="hover:bg-surface3 rounded p-1" onclick={nextMonth}>
+					<ChevronRight class="size-4" />
+				</button>
+			</div>
+
+			<!-- Weekday Headers -->
+			<div class="mb-2 grid grid-cols-7 gap-1">
+				{#each weekdays as day, i (i)}
+					<div
+						class="text-on-surface1 flex h-8 w-8 items-center justify-center text-xs font-medium"
+					>
+						{day}
+					</div>
+				{/each}
+			</div>
+
+			<!-- Calendar Grid -->
+			<div class={twMerge('grid grid-cols-7 gap-1', classes?.grid)}>
+				{#each calendarDays as date (date.toISOString())}
+					<button
+						type="button"
+						class={getDayClass(date)}
+						onclick={() => handleDateClick(date)}
+						disabled={isDisabled(date)}
+					>
+						{date.getDate()}
+					</button>
+				{/each}
+			</div>
+
+			{#if (start && !end) || (start && end && differenceInDays(end, start) <= 20)}
+				<!-- Render Time pickers -->
+				<div
+					class="mt-4 flex flex-col gap-2"
+					in:slide={{ duration: 200 }}
+					out:slide={{ duration: 100 }}
+				>
+					<div class="flex flex-col gap-1">
+						<div class="text-on-surface1 text-xs">{start.toDateString()}</div>
+						<TimeInput
+							date={start}
+							onChange={(date) => {
+								start = date;
+							}}
+						/>
+					</div>
+
+					<div class="flex flex-col gap-1">
+						<!-- In case start and end dates in the same day do not render the label -->
+						{#if !isSameDay(end ?? start, start)}
+							<div
+								class="text-on-surface1 text-xs"
+								in:slide={{ duration: 200 }}
+								out:slide={{ duration: 100 }}
+							>
+								{end?.toDateString()}
+							</div>
+						{/if}
+
+						<TimeInput
+							date={end ?? endOfDay(start)}
+							onChange={(date) => {
+								end = date;
+							}}
+						/>
+					</div>
+				</div>
+			{/if}
+
+			<div class="mt-4 flex justify-end gap-2">
+				<button type="button" class="button text-xs" onclick={handleCancel}>Cancel</button>
+				<button type="button" class="button-primary text-xs" onclick={handleApply}>Apply</button>
 			</div>
 		</div>
-	{/if}
-
-	<div class="mt-4 flex justify-end gap-2">
-		<button type="button" class="button text-xs" onclick={handleCancel}>Cancel</button>
-		<button type="button" class="button-primary text-xs" onclick={handleApply}>Apply</button>
-	</div>
+	{/key}
 </div>

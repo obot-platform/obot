@@ -255,10 +255,12 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			};
 		},
 		toggle: (newOpenValue?: boolean) => {
-			if (!open && !options?.hover) {
+			const willBeOpen = newOpenValue ?? !open;
+			// Only dispatch toolOpen if we're actually opening (going from closed to open)
+			if (!open && willBeOpen && !options?.hover) {
 				document.dispatchEvent(new CustomEvent('toolOpen', { detail: selfId.toString() }));
 			}
-			open = newOpenValue ?? !open;
+			open = willBeOpen;
 			options?.onOpenChange?.(open);
 		}
 	};
