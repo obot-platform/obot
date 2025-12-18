@@ -83,8 +83,8 @@ export function hasEditableConfiguration(item: MCPCatalogEntry) {
 		return componentServers.some((component) => {
 			const hasEnvs = component.manifest?.env && component.manifest.env.length > 0;
 			const hasHeaders =
-				component.manifest?.remoteConfig?.headers &&
-				component.manifest.remoteConfig.headers.length > 0;
+				(component?.manifest?.remoteConfig?.headers?.filter?.((header) => !header.value)?.length ??
+					0) > 0;
 			const hasUrlToFill =
 				!component.manifest?.remoteConfig?.fixedURL && component.manifest?.remoteConfig?.hostname;
 			return hasEnvs || hasHeaders || hasUrlToFill;
@@ -95,7 +95,7 @@ export function hasEditableConfiguration(item: MCPCatalogEntry) {
 		!item.manifest?.remoteConfig?.fixedURL && item.manifest?.remoteConfig?.hostname;
 	const hasEnvsToFill = item.manifest?.env && item.manifest.env.length > 0;
 	const hasHeadersToFill =
-		item.manifest?.remoteConfig?.headers && item.manifest.remoteConfig?.headers.length > 0;
+		(item?.manifest?.remoteConfig?.headers?.filter?.((header) => !header.value)?.length ?? 0) > 0;
 
 	return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
 }

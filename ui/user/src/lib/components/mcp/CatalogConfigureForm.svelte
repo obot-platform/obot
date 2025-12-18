@@ -8,7 +8,6 @@
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import { twMerge } from 'tailwind-merge';
 	import Confirm from '../Confirm.svelte';
-	import type { LaunchServerType } from '$lib/services';
 
 	export type LaunchFormData = {
 		envs?: MCPServerInfo['env'];
@@ -56,7 +55,6 @@
 		showAlias?: boolean;
 		disableOutsideClick?: boolean;
 		animate?: 'slide' | 'fade' | null;
-		type?: LaunchServerType;
 	}
 	let {
 		form = $bindable(),
@@ -73,8 +71,7 @@
 		isNew,
 		showAlias,
 		disableOutsideClick,
-		animate = 'slide',
-		type
+		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let highlightedFields = $state<Set<string>>(new Set());
@@ -86,16 +83,9 @@
 	let isOpen = $state(false);
 	let localError = $state<string | undefined>();
 
-	const headers = $derived.by(() => {
+	const remoteHeaders = $derived.by(() => {
 		if (form && 'headers' in form) {
-			return (
-				form.headers
-					?.map((header, i) => ({
-						index: i,
-						data: header as typeof header & { isStatic?: boolean }
-					}))
-					?.filter((item) => !item.data.isStatic) ?? []
-			);
+			return getNonStaticServerHeaders(form?.headers);
 		}
 
 		return [];
@@ -260,6 +250,19 @@
 		if (!initialFormJson) return false;
 		return JSON.stringify(form) !== initialFormJson;
 	}
+
+	function getNonStaticServerHeaders(headers: MCPServerInfo['headers'] | undefined) {
+		if (!headers) return [];
+
+		return (
+			headers
+				.map((header, i) => ({
+					index: i,
+					data: header as typeof header & { isStatic?: boolean }
+				}))
+				?.filter((item) => !item.data.isStatic) ?? []
+		);
+	}
 </script>
 
 <ResponsiveDialog
@@ -391,6 +394,8 @@
 								/>
 							</div>
 							{#if componentHasConfig(comp)}
+								{@const headers = getNonStaticServerHeaders(comp.headers)}
+
 								<div class="border-t border-gray-200 p-3">
 									{#if comp.envs && comp.envs.length > 0}
 										{#each comp.envs as env, i (env.key)}
@@ -448,47 +453,45 @@
 										{/each}
 									{/if}
 
-									{#if comp.headers && comp.headers.length > 0}
-										{#each comp.headers as header, i (header.key)}
-											{@const highlightRequired =
-												highlightedFields.has(`${compId}:${header.key}`) && !header.value}
+									{#each headers as header (header.data.key)}
+										{@const highlightRequired =
+											highlightedFields.has(`${compId}:${header.data.key}`) && !header.data.value}
 
-											<div class="flex flex-col gap-1">
-												<span class="flex items-center gap-2">
-													<label
-														for={`${compId}-${header.key}`}
-														class={highlightRequired ? 'text-red-500' : ''}
-													>
-														{header.name}
-														{#if !header.required}
-															<span class="text-on-surface1">(optional)</span>
-														{/if}
-													</label>
-													<InfoTooltip text={header.description} />
-												</span>
-												{#if header.sensitive}
-													<SensitiveInput
-														name={header.name}
-														bind:value={comp.headers[i].value}
-														disabled={form.componentConfigs[compId].disabled}
-														error={highlightRequired}
-													/>
-												{:else}
-													<input
-														type="text"
-														id={`${compId}-${header.key}`}
-														bind:value={comp.headers[i].value}
-														disabled={form.componentConfigs[compId].disabled}
-														class={twMerge(
-															'text-input-filled',
-															highlightRequired &&
-																'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
-														)}
-													/>
-												{/if}
-											</div>
-										{/each}
-									{/if}
+										<div class="flex flex-col gap-1">
+											<span class="flex items-center gap-2">
+												<label
+													for={`${compId}-${header.data.key}`}
+													class={highlightRequired ? 'text-red-500' : ''}
+												>
+													{header.data.name}
+													{#if !header.data.required}
+														<span class="text-on-surface1">(optional)</span>
+													{/if}
+												</label>
+												<InfoTooltip text={header.data.description} />
+											</span>
+											{#if header.data.sensitive}
+												<SensitiveInput
+													name={header.data.name}
+													bind:value={comp.headers![header.index].value}
+													disabled={form.componentConfigs[compId].disabled}
+													error={highlightRequired}
+												/>
+											{:else}
+												<input
+													type="text"
+													id={`${compId}-${header.data.key}`}
+													bind:value={comp.headers![header.index].value}
+													disabled={form.componentConfigs[compId].disabled}
+													class={twMerge(
+														'text-input-filled',
+														highlightRequired &&
+															'border-red-500 bg-red-500/20 ring-red-500 focus:ring-1'
+													)}
+												/>
+											{/if}
+										</div>
+									{/each}
 
 									{#if comp.hostname}
 										<label for={`${compId}-url`}> URL </label>
@@ -556,7 +559,7 @@
 						{/each}
 					{/if}
 
-					{#each headers as header (header.data.key)}
+					{#each remoteHeaders as header (header.data.key)}
 						<div class="flex flex-col gap-1">
 							<span class="flex items-center gap-2">
 								<label for={header.data.key}>
@@ -581,14 +584,6 @@
 								/>
 							{/if}
 						</div>
-					{:else}
-						{#if type === 'remote'}
-							<div
-								class="flex h-32 w-full items-center bg-surface1 rounded-md p-8 text-on-surface1"
-							>
-								<div>There are no headers to configure for this MCP server.</div>
-							</div>
-						{/if}
 					{/each}
 
 					{#if form.hostname}
