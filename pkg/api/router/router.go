@@ -34,11 +34,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPLoader, services.StorageClient, services.GPTClient, services.GatewayClient, services.MCPOAuthTokenStorage)
 
 	agents := handlers.NewAgentHandler(services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.ServerURL, services.InternalServerURL)
-	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.Events, services.Router.Backend())
+	assistants := handlers.NewAssistantHandler(services.ProviderDispatcher, services.MCPLoader, services.Invoker, services.Events, services.Router.Backend(), services.ModelPermissionRuleHelper)
 	tools := handlers.NewToolHandler(services.Invoker)
 	tasks := handlers.NewTaskHandler(services.Invoker, services.Events)
 	invoker := handlers.NewInvokeHandler(services.Invoker, services.MCPLoader)
-	threads := handlers.NewThreadHandler(services.ProviderDispatcher, services.Events)
+	threads := handlers.NewThreadHandler(services.ProviderDispatcher, services.Events, services.ModelPermissionRuleHelper)
 	runs := handlers.NewRunHandler(services.Events)
 	toolRefs := handlers.NewToolReferenceHandler()
 	cronJobs := handlers.NewCronJobHandler()
@@ -49,11 +49,12 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler()
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher)
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.Invoker)
+	modelPermissionRules := handlers.NewModelPermissionRuleHandler()
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN)
 	fileScannerProviders := handlers.NewFileScannerProviderHandler(services.ProviderDispatcher, services.Invoker)
 	prompt := handlers.NewPromptHandler()
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
-	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.MCPLoader, services.Invoker)
+	projects := handlers.NewProjectsHandler(services.Router.Backend(), services.MCPLoader, services.Invoker, services.ModelPermissionRuleHelper)
 	projectShare := handlers.NewProjectShareHandler()
 	templates := handlers.NewTemplateHandler()
 	files := handlers.NewFilesHandler(services.ProviderDispatcher)
@@ -691,6 +692,13 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/models/{id}", models.ByID)
 	mux.HandleFunc("DELETE /api/models/{id}", models.Delete)
 	mux.HandleFunc("PUT /api/models/{id}", models.Update)
+
+	// Model Permission Rules
+	mux.HandleFunc("GET /api/model-permission-rules", modelPermissionRules.List)
+	mux.HandleFunc("GET /api/model-permission-rules/{id}", modelPermissionRules.Get)
+	mux.HandleFunc("POST /api/model-permission-rules", modelPermissionRules.Create)
+	mux.HandleFunc("PUT /api/model-permission-rules/{id}", modelPermissionRules.Update)
+	mux.HandleFunc("DELETE /api/model-permission-rules/{id}", modelPermissionRules.Delete)
 
 	// Available Models
 	mux.HandleFunc("GET /api/available-models", availableModels.List)

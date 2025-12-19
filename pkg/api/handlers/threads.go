@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/events"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	"github.com/obot-platform/obot/pkg/modelpermissionrule"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	threadmodel "github.com/obot-platform/obot/pkg/thread"
@@ -25,12 +26,14 @@ const DefaultMaxUserThreadTools = 100
 type ThreadHandler struct {
 	dispatcher *dispatcher.Dispatcher
 	events     *events.Emitter
+	mprHelper  *modelpermissionrule.Helper
 }
 
-func NewThreadHandler(dispatcher *dispatcher.Dispatcher, events *events.Emitter) *ThreadHandler {
+func NewThreadHandler(dispatcher *dispatcher.Dispatcher, events *events.Emitter, mprHelper *modelpermissionrule.Helper) *ThreadHandler {
 	return &ThreadHandler{
 		dispatcher: dispatcher,
 		events:     events,
+		mprHelper:  mprHelper,
 	}
 }
 
@@ -330,6 +333,9 @@ func (a *ThreadHandler) GetDefaultModelForThread(req api.Context) error {
 		model = alias.Spec.Manifest.Model
 	}
 
+	// Track the model ID before resolving to check permissions
+	modelID := model
+
 	if strings.HasPrefix(model, system.ModelPrefix) {
 		var modelObj v1.Model
 		if err := req.Get(&modelObj, model); err != nil {
@@ -338,6 +344,21 @@ func (a *ThreadHandler) GetDefaultModelForThread(req api.Context) error {
 
 		model = modelObj.Spec.Manifest.Name
 		modelProvider = modelObj.Spec.Manifest.ModelProvider
+	}
+
+	// Check if the user has permission to use this model
+	if a.mprHelper != nil && modelID != "" {
+		hasAccess, err := a.mprHelper.UserHasAccessToModel(req.User, modelID)
+		if err != nil {
+			return fmt.Errorf("failed to check model permission: %w", err)
+		}
+		if !hasAccess {
+			// User doesn't have permission, return empty model
+			return req.Write(map[string]string{
+				"model":         "",
+				"modelProvider": "",
+			})
+		}
 	}
 
 	return req.Write(map[string]string{
