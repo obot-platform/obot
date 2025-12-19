@@ -64,17 +64,15 @@ cleanup() {
 
   # Kill monitoring process groups
   [[ -n "$server_ready_pid" ]] && kill "${kill_signal}" "-${server_ready_pid}" 2>/dev/null || true
-  [[ -n "$admin_ui_ready_pid" ]] && kill "${kill_signal}" "-${admin_ui_ready_pid}" 2>/dev/null || true
   [[ -n "$user_ui_ready_pid" ]] && kill "${kill_signal}" "-${user_ui_ready_pid}" 2>/dev/null || true
 
   # Kill service process groups
   [[ -n "$server_pid" ]] && kill "${kill_signal}" "-${server_pid}" 2>/dev/null || true
-  [[ -n "$admin_ui_pid" ]] && kill "${kill_signal}" "-${admin_ui_pid}" 2>/dev/null || true
   [[ -n "$user_ui_pid" ]] && kill "${kill_signal}" "-${user_ui_pid}" 2>/dev/null || true
 
   if [[ "$cleanup_count" -lt 2 ]]; then
-    print_section_header 196 "Waiting for services to exit (PIDs: ${server_pid}, ${admin_ui_pid}, ${user_ui_pid})..."
-    while kill -0 "${server_pid}" 2>/dev/null || kill -0 "${admin_ui_pid}" 2>/dev/null || kill -0 "${user_ui_pid}" 2>/dev/null; do
+    print_section_header 196 "Waiting for services to exit (PIDs: ${server_pid}, ${user_ui_pid})..."
+    while kill -0 "${server_pid}" 2>/dev/null || kill -0 "${user_ui_pid}" 2>/dev/null; do
       sleep 0.5
     done
 
@@ -146,4 +144,4 @@ print_section_header 120 "All components ready!"
 open_browser_tabs http://localhost:8080/
 
 # Wait for services to exit
-wait "${server_pid}" "${admin_ui_pid}" "${user_ui_pid}"
+wait "${server_pid}" "${user_ui_pid}"
