@@ -158,7 +158,14 @@
 			await constructThread();
 		}
 		if (!id) {
-			const body = params?.model ? { ...params } : {};
+			// Use fallback model if no model is specified and default model is empty
+			let body: { model?: string; modelProvider?: string } = {};
+			if (params?.model) {
+				body = { ...params };
+			} else if (fallbackModel) {
+				// When default model is empty but user has allowed models, use the first allowed model
+				body = { model: fallbackModel };
+			}
 			id = (await ChatService.createThread(project.assistantID, project.id, body)).id;
 			await constructThread();
 		}
@@ -324,6 +331,17 @@
 	let projectModelProvider = $derived(project.defaultModelProvider ?? projectDefaultModelProvider);
 	let projectModel = $derived(project.defaultModel ?? projectDefaultModel);
 	let lastMessageWithFile = $derived(messages.messages.findLastIndex((msg) => msg.file));
+
+	// Calculate fallback model when default model is empty but user has allowed models
+	let fallbackModel = $derived.by(() => {
+		// Only use fallback if default model is empty/missing
+		if (projectModel) return undefined;
+		// Return first allowed model if available
+		if (assistant?.allowedModels?.length) {
+			return assistant.allowedModels[0];
+		}
+		return undefined;
+	});
 
 	// Detect Safari for browser-specific styling
 	let isSafari = $derived(browser && /^((?!chrome|android).)*safari/i.test(navigator.userAgent));
@@ -633,7 +651,7 @@
 								</div>
 							{/key}
 						</div>
-						{#if projectModelProvider && projectModel}
+						{#if (projectModelProvider && projectModel) || assistant?.allowedModels?.length}
 							<ThreadModelSelector
 								threadId={id}
 								{project}

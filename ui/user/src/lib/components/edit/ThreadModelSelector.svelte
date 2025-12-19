@@ -49,10 +49,32 @@
 	let defaultModel = $derived(threadDefaultModel ?? projectDefaultModel);
 	let defaultModelProvider = $derived(threadDefaultModelProvider ?? projectDefaultModelProvider);
 
+	let modelProvidersMap = new SvelteMap<string, ModelProvider>();
+	let modelsMap = new SvelteMap<string, Model>();
+
+	// Calculate fallback model when default model is empty but user has allowed models
+	let fallbackModel = $derived.by(() => {
+		// Only use fallback if default model is empty/missing
+		if (defaultModel) return undefined;
+		// Find first allowed model that exists in modelsMap
+		for (const modelId of allowedModels) {
+			const model = modelsMap.get(modelId);
+			if (model) {
+				return { id: model.id, provider: model.modelProvider };
+			}
+		}
+		return undefined;
+	});
+
 	// Selected model provider & model for the current thread
-	let threadModel = $derived(threadType?.model ?? threadDefaultModel ?? defaultModel);
+	let threadModel = $derived(
+		threadType?.model ?? threadDefaultModel ?? defaultModel ?? fallbackModel?.id
+	);
 	let threadModelProvider = $derived(
-		threadType?.modelProvider ?? threadDefaultModelProvider ?? defaultModelProvider
+		threadType?.modelProvider ??
+			threadDefaultModelProvider ??
+			defaultModelProvider ??
+			fallbackModel?.provider
 	);
 
 	const isDefaultModelSelected = $derived(
@@ -153,6 +175,10 @@
 					// If resetting to default, fetch the default model
 					if (!model && !provider) {
 						await fetchDefaultModel();
+					} else {
+						// Update thread default model state to reflect the explicit model selection
+						threadDefaultModel = model || undefined;
+						threadDefaultModelProvider = provider || undefined;
 					}
 
 					// Close dropdown
@@ -207,9 +233,6 @@
 			window.removeEventListener('click', handleClickOutside);
 		};
 	});
-
-	let modelProvidersMap = new SvelteMap<string, ModelProvider>();
-	let modelsMap = new SvelteMap<string, Model>();
 
 	$effect(() => {
 		loadModelProviders();
@@ -295,6 +318,8 @@
 				{modelsMap.get(threadModel)?.name || threadModel}
 			{:else if defaultModel}
 				{modelsMap.get(defaultModel)?.name || defaultModel}
+			{:else if fallbackModel}
+				{modelsMap.get(fallbackModel.id)?.name || fallbackModel.id}
 			{:else}
 				No Default Model
 			{/if}
@@ -327,6 +352,9 @@
 					{#each (() => {
 						// eslint-disable-next-line svelte/prefer-svelte-reactivity
 						const modelsByProvider = new Map<string, string[]>();
+						// eslint-disable-next-line svelte/prefer-svelte-reactivity
+						const seenModels = new Set<string>();
+
 						allowedModels.forEach((modelId) => {
 							// Find model by ID since allowedModels contains model IDs
 							const model = modelsMap.get(modelId);
@@ -335,17 +363,16 @@
 								if (!modelsByProvider.has(providerId)) {
 									modelsByProvider.set(providerId, []);
 								}
-								modelsByProvider.get(providerId)!.push(modelId);
+								// Track model by display name to avoid duplicates within a provider
+								const displayName = model.name || modelId;
+								const uniqueKey = `${providerId}:${displayName}`;
+								if (!seenModels.has(uniqueKey)) {
+									seenModels.add(uniqueKey);
+									modelsByProvider.get(providerId)!.push(modelId);
+								}
 							}
 						});
-						if (defaultModel && defaultModelProvider) {
-							if (!modelsByProvider.has(defaultModelProvider)) {
-								modelsByProvider.set(defaultModelProvider, []);
-							}
-							if (!modelsByProvider.get(defaultModelProvider)!.includes(defaultModel)) {
-								modelsByProvider.get(defaultModelProvider)!.push(defaultModel);
-							}
-						}
+
 						return Array.from(modelsByProvider.entries());
 					})() as [providerId, modelIds] (providerId)}
 						{#if modelIds.length > 0}

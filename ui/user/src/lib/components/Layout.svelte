@@ -193,6 +193,13 @@
 								collapsible: false
 							},
 							{
+								id: 'model-access-policies',
+								href: '/admin/model-access-policies',
+								icon: LockKeyhole,
+								label: 'Model Access Policies',
+								collapsible: false
+							},
+							{
 								id: 'chat',
 								href: '/chat',
 								icon: MessageCircle,

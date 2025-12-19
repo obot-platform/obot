@@ -1,14 +1,14 @@
 package handlers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 
-	"encoding/json"
-
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"github.com/obot-platform/obot/pkg/system"
@@ -17,15 +17,24 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ModelHandler struct{}
+type ModelHandler struct {
+	mapHelper *modelaccesspolicy.Helper
+}
 
-func NewModelHandler() *ModelHandler {
-	return &ModelHandler{}
+func NewModelHandler(mapHelper *modelaccesspolicy.Helper) *ModelHandler {
+	return &ModelHandler{
+		mapHelper: mapHelper,
+	}
 }
 
 func (a *ModelHandler) List(req api.Context) error {
 	var modelList v1.ModelList
 	if err := req.List(&modelList); err != nil {
+		return err
+	}
+
+	allowedModels, allowAll, err := a.mapHelper.GetUserAllowedModels(req.User)
+	if err != nil {
 		return err
 	}
 
@@ -46,6 +55,11 @@ func (a *ModelHandler) List(req api.Context) error {
 
 	respList := make([]types.Model, 0, len(modelList.Items))
 	for _, model := range modelList.Items {
+		if !allowAll && !allowedModels[model.Name] {
+			// Skip models the user is not allowed to access
+			continue
+		}
+
 		toolRef, ok := toolRefMap[model.Spec.Manifest.ModelProvider]
 		if !ok {
 			return types.NewErrNotFound("tool reference %s not found", model.Spec.Manifest.ModelProvider)
