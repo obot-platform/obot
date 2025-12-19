@@ -30,6 +30,7 @@
 		componentId?: string;
 		// Indicates if this is a newly added component (not yet persisted to the composite entry)
 		isNewComponent?: boolean;
+		existingTools?: CompositeServerToolRow[];
 	}
 
 	let {
@@ -40,7 +41,8 @@
 		configuringEntry: presetConfiguringEntry,
 		compositeEntryId,
 		componentId,
-		isNewComponent = false
+		isNewComponent = false,
+		existingTools
 	}: Props = $props();
 	let searchDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let choiceDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -157,18 +159,16 @@
 					});
 		const preview = resp?.manifest?.toolPreview || [];
 		return preview.map((t) => {
-			const baseDescription = t.description || '';
 			return {
 				id: `${entryId}-${t.id || t.name}`,
-				originalName: t.name,
+				name: t.name,
 				// Start the input with the original name.
 				overrideName: t.name,
 				// Snapshot of the original description for display and comparison.
-				description: baseDescription,
+				description: t.description,
 				// Start the input with the original description.
-				overrideDescription: baseDescription,
-				enabled: true,
-				parameters: []
+				overrideDescription: t.description,
+				enabled: true
 			};
 		});
 	}
@@ -176,16 +176,15 @@
 	async function fetchMultiServerTools(entryId: string) {
 		const tools = await ChatService.listMcpCatalogServerTools(entryId);
 		return tools.map((t) => {
-			const baseDescription = t.description || '';
 			return {
 				id: `${entryId}-${t.id || t.name}`,
-				originalName: t.name,
+				name: t.name,
 				// Start the input with the original name.
 				overrideName: t.name,
 				// Snapshot of the original description for display and comparison.
-				description: baseDescription,
+				description: t.description,
 				// Start the input with the original description.
-				overrideDescription: baseDescription,
+				overrideDescription: t.description,
 				enabled: t.enabled !== false
 			};
 		});
@@ -199,12 +198,29 @@
 		error = undefined;
 		try {
 			const isCatalogEntry = 'isCatalogEntry' in configuringEntry;
-			tools = !isCatalogEntry
+			let newTools = !isCatalogEntry
 				? await fetchMultiServerTools(configuringEntry.id)
 				: await fetchSingleRemoteTools(configuringEntry.id, catalogId, body, {
 						compositeEntryId: compositeEntryId,
 						componentId: componentId
 					});
+
+			if (existingTools && existingTools.length > 0) {
+				// We already have tool overrides for this component, preserve the user's
+				// override settings (name, description, enabled) for tools that still exist.
+				const existingByName = new Map(existingTools.map((t) => [t.name, t]));
+				newTools = newTools.map((t) => {
+					const existing = existingByName.get(t.name);
+					return {
+						...t,
+						overrideName: existing?.overrideName ?? t.overrideName,
+						overrideDescription: existing?.overrideDescription ?? t.overrideDescription,
+						enabled: existing?.enabled ?? true
+					};
+				});
+			}
+
+			tools = newTools;
 			initConfigureToolsDialog?.close();
 			modifyToolsDialog?.open();
 		} catch (err: unknown) {
@@ -431,21 +447,18 @@
 			{
 				...componentConfig,
 				toolOverrides: tools.map((t) => {
-					const baseName = t.originalName;
-					const baseDescription = t.description || '';
-
-					const editedName = (t.overrideName || '').trim();
-					const editedDescription = (t.overrideDescription || '').trim();
+					const overrideName = (t.overrideName || '').trim() || t.overrideName;
+					const overrideDescription = (t.overrideDescription || '').trim() || t.overrideDescription;
 
 					return {
-						name: baseName,
+						name: t.name,
 						// Persist the description snapshot for display in future edits.
-						description: baseDescription,
+						description: t.description,
 						// Only store an override name if it differs from the original.
-						overrideName: editedName && editedName !== baseName ? editedName : '',
+						overrideName: overrideName !== t.name ? overrideName : undefined,
 						// Only store an override description if it differs from the original snapshot.
 						overrideDescription:
-							editedDescription && editedDescription !== baseDescription ? editedDescription : '',
+							overrideDescription !== t.description ? overrideDescription : undefined,
 						enabled: t.enabled
 					};
 				})
