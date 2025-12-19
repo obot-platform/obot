@@ -6,7 +6,8 @@
 		ChevronDown,
 		ChevronUp,
 		LoaderCircle,
-		AlertTriangle
+		AlertTriangle,
+		RefreshCcw
 	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import {
@@ -20,6 +21,7 @@
 	import { slide } from 'svelte/transition';
 	import { SvelteMap } from 'svelte/reactivity';
 	import Toggle from '../Toggle.svelte';
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 
 	interface Props {
 		id?: string; // Composite catalog entry ID (when editing an existing composite)
@@ -37,6 +39,7 @@
 
 	let configuringEntry = $state<MCPCatalogEntry | MCPCatalogServer>();
 	let toolsByEntry = $state<Record<string, CompositeServerToolRow[]>>({});
+	let toolsToEdit = $state<CompositeServerToolRow[]>([]);
 	let populatedByEntry = $state<Record<string, boolean>>({});
 	let loadingByEntry = $state<Record<string, boolean>>({});
 	let configuringComponentId = $state<string | undefined>();
@@ -100,6 +103,20 @@
 		return !initialComponentIds.has(componentId);
 	}
 
+	// Open the tools configuration / refresh flow for a specific component
+	function openToolsConfigurator(componentId: string) {
+		const match =
+			componentServers.get(componentId) || componentEntries.find((e) => e.id === componentId);
+		if (match) {
+			configuringEntry = match;
+		}
+		configuringComponentId = componentId;
+		configuringIsNewComponent = false; // Refresh is always for existing components
+		loadingByEntry[componentId] = true;
+		toolsToEdit = toolsByEntry[componentId] ?? [];
+		compositeToolsSetupDialog?.open();
+	}
+
 	// Pre-populate toolsByEntry from existing toolOverrides in config
 	function prePopulateExistingToolOverrides() {
 		if (!config?.componentServers) return;
@@ -122,7 +139,7 @@
 			const rows: CompositeServerToolRow[] = overrides.map((o) => {
 				const t = previewMap.get(o.name);
 				// Prefer the stored description snapshot when present; otherwise fall back to preview.
-				const baseDescription = o.description ?? t?.description ?? '';
+				const baseDescription = o.description ?? t?.description;
 
 				// Pre-fill the editing fields with the effective values:
 				// - name: overrideName if set, otherwise original name
@@ -132,7 +149,7 @@
 
 				return {
 					id: `${componentId}-${effectiveName}`,
-					originalName: o.name,
+					name: o.name,
 					overrideName: effectiveName,
 					description: baseDescription,
 					overrideDescription: effectiveDescription,
@@ -230,6 +247,17 @@
 						<div class="flex-1">
 							<div class="font-medium">{entry.manifest?.name || 'Unnamed Server'}</div>
 						</div>
+						{#if entry.toolOverrides?.length && !readonly}
+							<button
+								type="button"
+								class="icon-button"
+								use:tooltip={'Refresh tool overrides'}
+								disabled={loadingByEntry[componentId]}
+								onclick={() => openToolsConfigurator(componentId)}
+							>
+								<RefreshCcw class={`size-4 ${loadingByEntry[componentId] ? 'animate-spin' : ''}`} />
+							</button>
+						{/if}
 						<button
 							type="button"
 							class="icon-button"
@@ -285,12 +313,9 @@
 									{#each entry.toolOverrides as tool, index (index)}
 										{@const currentName = (tool.overrideName || '').trim() || tool.name}
 										{@const currentDescription =
-											(tool.overrideDescription || '').trim() || tool.description || ''}
+											(tool.overrideDescription || '').trim() || tool.description}
 										{@const isCustomized =
-											((tool.overrideName || '').trim() !== '' &&
-												(tool.overrideName || '').trim() !== tool.name) ||
-											((tool.overrideDescription || '').trim() !== '' &&
-												(tool.overrideDescription || '').trim() !== (tool.description || ''))}
+											currentName !== tool.name || currentDescription !== tool.description}
 
 										<div
 											class="dark:bg-surface2 dark:border-surface3 flex items-start gap-2 rounded border border-transparent bg-white p-2 shadow-sm"
@@ -374,7 +399,7 @@
 																class="button px-3 py-1 text-xs"
 																onclick={() => {
 																	tool.overrideName = tool.name;
-																	tool.overrideDescription = tool.description || '';
+																	tool.overrideDescription = tool.description;
 																}}
 															>
 																Reset to default
@@ -405,7 +430,8 @@
 			onclick={() => {
 				configuringEntry = undefined;
 				configuringComponentId = undefined;
-				configuringIsNewComponent = false;
+				configuringIsNewComponent = true; // Adding a brand new component
+				toolsToEdit = [];
 				compositeToolsSetupDialog?.open();
 			}}
 			class="dark:bg-surface2 dark:border-surface3 dark:hover:bg-surface3 bg-background flex items-center justify-center gap-2 rounded-lg border border-gray-200 p-2 text-sm font-medium hover:bg-gray-50"
@@ -423,7 +449,11 @@
 	compositeEntryId={id}
 	componentId={configuringComponentId}
 	isNewComponent={configuringIsNewComponent}
+	existingTools={toolsToEdit}
 	onCancel={() => {
+		if (configuringEntry) {
+			loadingByEntry[configuringEntry.id] = false;
+		}
 		configuringEntry = undefined;
 	}}
 	onSuccess={(componentConfig, entry, tools) => {
@@ -448,6 +478,8 @@
 			populatedByEntry[id] = true;
 			toolsByEntry[id] = tools;
 		}
+
+		loadingByEntry[id] = false;
 
 		if ('isCatalogEntry' in entry) {
 			if (!componentEntries.find((e) => e.id === entry.id)) {
