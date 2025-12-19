@@ -271,7 +271,9 @@ func (h *Handler) EnsureMCPCatalogID(req router.Request, _ router.Response) erro
 	if (server.Status.MCPCatalogID == "" || server.Status.MCPCatalogID == server.Spec.MCPServerCatalogEntryName) && server.Spec.MCPCatalogID == "" && server.Spec.MCPServerCatalogEntryName != "" {
 		var mcpCatalogEntry v1.MCPServerCatalogEntry
 		if err := req.Get(&mcpCatalogEntry, server.Namespace, server.Spec.MCPServerCatalogEntryName); err != nil {
-			return err
+			// Don't return an error here if the entry isn't found.
+			// This will prevent the MCPServer from being requeued repeatedly when the catalog entry doesn't exist.
+			return kclient.IgnoreNotFound(err)
 		}
 
 		server.Status.MCPCatalogID = mcpCatalogEntry.Spec.MCPCatalogName

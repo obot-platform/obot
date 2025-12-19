@@ -1335,10 +1335,17 @@ func serverConfigForAction(req api.Context, server v1.MCPServer, jwks string) (m
 	}
 	if catalogName == "" && server.Spec.MCPServerCatalogEntryName != "" {
 		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+		if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err == nil {
+			catalogName = entry.Spec.MCPCatalogName
+		} else if apierrors.IsNotFound(err) && server.Spec.CompositeName != "" {
+			// For composite component's, this usually happens when the component's catalog entry
+			// was deleted, but the component hasn't been removed from the composite catalog entry yet.
+			// At the moment, composite MCP servers can only contain catalog entries from the default catalog,
+			// so we can assume the deleted entry belongs to the default catalog for now.
+			catalogName = system.DefaultCatalog
+		} else {
 			return mcp.ServerConfig{}, fmt.Errorf("failed to get MCP server catalog entry: %w", err)
 		}
-		catalogName = entry.Spec.MCPCatalogName
 	}
 
 	var (
