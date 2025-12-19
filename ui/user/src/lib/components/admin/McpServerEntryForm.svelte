@@ -61,6 +61,7 @@
 		onSubmit?: (id: string, type: LaunchServerType, message?: string) => void;
 		hasExistingConfigured?: boolean;
 		isDialogView?: boolean;
+		limitViews?: string[];
 	}
 
 	let {
@@ -73,7 +74,8 @@
 		onCancel,
 		onSubmit,
 		hasExistingConfigured,
-		isDialogView
+		isDialogView,
+		limitViews
 	}: Props = $props();
 	let isAtLeastPowerUserPlus = $derived(profile.current?.groups.includes(Group.POWERUSER_PLUS));
 	let belongsToUser = $derived(
@@ -124,35 +126,39 @@
 			new Date(entry.toolPreviewsLastGenerated) < new Date(entry.lastUpdated)
 	);
 
-	const tabs = $derived(
-		entry && !server
-			? [
-					{ label: 'Overview', view: 'overview' },
-					...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
-						? [{ label: 'Server Details', view: 'server-instances' }]
-						: []),
-					{ label: 'Tools', view: 'tools' },
-					...(belongsToUser
-						? [
-								{ label: 'Configuration', view: 'configuration' },
-								{ label: 'Audit Logs', view: 'audit-logs' },
-								{ label: 'Usage', view: 'usage' }
-							]
-						: []),
-					...(isAtLeastPowerUserPlus && belongsToUser
-						? [{ label: 'Registries', view: 'access-control' }]
-						: []),
-					...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
-				]
-			: [
-					{ label: 'Overview', view: 'overview' },
-					...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
-						? [{ label: 'Server Details', view: 'server-instances' }]
-						: []),
-					{ label: 'Tools', view: 'tools' },
-					...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : [])
-				]
-	);
+	const tabs = $derived.by(() => {
+		const availableTabs =
+			entry && !server
+				? [
+						{ label: 'Overview', view: 'overview' },
+						...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
+							? [{ label: 'Server Details', view: 'server-instances' }]
+							: []),
+						{ label: 'Tools', view: 'tools' },
+						...(belongsToUser
+							? [
+									{ label: 'Configuration', view: 'configuration' },
+									{ label: 'Audit Logs', view: 'audit-logs' },
+									{ label: 'Usage', view: 'usage' }
+								]
+							: []),
+						...(isAtLeastPowerUserPlus && belongsToUser
+							? [{ label: 'Registries', view: 'access-control' }]
+							: []),
+						...(profile.current?.hasAdminAccess?.() ? [{ label: 'Filters', view: 'filters' }] : [])
+					]
+				: [
+						{ label: 'Overview', view: 'overview' },
+						...(belongsToUser && profile.current?.groups.includes(Group.POWERUSER_PLUS)
+							? [{ label: 'Server Details', view: 'server-instances' }]
+							: []),
+						{ label: 'Tools', view: 'tools' },
+						...(belongsToUser ? [{ label: 'Audit Logs', view: 'audit-logs' }] : [])
+					];
+		return limitViews
+			? availableTabs.filter((tab) => limitViews.includes(tab.view))
+			: availableTabs;
+	});
 
 	$effect(() => {
 		if (selected === 'access-control') {
@@ -499,7 +505,7 @@
 					</div>
 				{/if}
 			</div>
-			{#if (!readonly && belongsToUser) || profile.current?.hasAdminAccess?.()}
+			{#if belongsToUser && !readonly}
 				<button
 					class="button-destructive flex items-center gap-1 text-xs font-normal"
 					use:tooltip={'Delete Server'}

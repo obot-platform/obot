@@ -184,6 +184,7 @@
 				entity="workspace"
 				{hasExistingConfigured}
 				isDialogView
+				limitViews={['overview', 'tools']}
 			/>
 		</div>
 	{/if}
